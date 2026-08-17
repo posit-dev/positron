@@ -17,7 +17,7 @@ import { IPythonRuntimeManager } from './manager';
 import { getExtension } from '../common/vscodeApis/extensionsApi';
 import { PythonExtension } from '../api/types';
 import { PVSC_EXTENSION_ID } from '../common/constants';
-import { getConfiguration, getWorkspaceFolder } from '../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolder, getWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 import { CONDA_PROVIDER_ID } from '../pythonEnvironments/creation/provider/condaCreationProvider';
 import { VenvCreationProviderId } from '../pythonEnvironments/creation/provider/venvCreationProvider';
 import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
@@ -50,6 +50,12 @@ export interface CreateEnvironmentAndRegisterOptions
 
 /**
  * Rehydrates a workspace folder URI string into a `WorkspaceFolder`.
+ *
+ * The URI string is produced by the workbench/main thread, but this extension host
+ * may represent the same folder under a different URI scheme -- e.g. the main
+ * thread's `vscode-remote://` vs. a remote extension host's `file://`. An
+ * exact-URI lookup therefore misses even when the folder is registered, so fall
+ * back to matching by path before giving up.
  * @param workspaceFolderUri The URI string of the workspace folder, or undefined.
  * @returns The corresponding `WorkspaceFolder`, or undefined if no URI was given.
  */
@@ -57,7 +63,9 @@ function rehydrateWorkspaceFolder(workspaceFolderUri: string | undefined): Works
     if (!workspaceFolderUri) {
         return undefined;
     }
-    const folder = getWorkspaceFolder(Uri.parse(workspaceFolderUri));
+    const targetUri = Uri.parse(workspaceFolderUri);
+    const folder =
+        getWorkspaceFolder(targetUri) ?? (getWorkspaceFolders() ?? []).find((f) => f.uri.path === targetUri.path);
     if (!folder) {
         throw new Error(`Workspace folder not found for URI: ${workspaceFolderUri}`);
     }
@@ -100,7 +108,7 @@ export async function createEnvironmentAndRegister(
     }
     const resolvedOptions: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal = {
         ...options,
-        workspaceFolder: rehydrateWorkspaceFolder(options.workspaceFolder),
+        workspaceFolder: await rehydrateWorkspaceFolder(options.workspaceFolder),
     };
     const result = await handleCreateEnvironmentCommand(providers, resolvedOptions);
     if (result?.path) {

@@ -17,6 +17,11 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IUpdateService, State as UpdateState, StateType, IUpdate } from '../../../../platform/update/common/update.js';
 // --- End Positron ---
 import { INotificationService, NotificationPriority, Severity } from '../../../../platform/notification/common/notification.js';
+// --- Start Positron ---
+// Add INotificationSource so update notifications can carry a filterable source.
+// eslint-disable-next-line no-duplicate-imports
+import { INotificationSource } from '../../../../platform/notification/common/notification.js';
+// --- End Positron ---
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
 import { ReleaseNotesManager } from './releaseNotesEditor.js';
@@ -41,10 +46,25 @@ import { getInternalOrg } from '../../../../platform/assignment/common/assignmen
 // --- Start Positron ---
 // Upstream's IVersion / tryParseVersion are unused — Positron uses calver parsing below.
 import { IPositronVersion, parse } from '../../../../platform/update/common/positronVersion.js';
+import { UpdateNotificationThrottle } from '../common/positronUpdateNotificationThrottle.js';
 // --- End Positron ---
 
 export const CONTEXT_UPDATE_STATE = new RawContextKey<string>('updateState', StateType.Uninitialized);
 export const MAJOR_MINOR_UPDATE_AVAILABLE = new RawContextKey<boolean>('majorMinorUpdateAvailable', false);
+
+// --- Start Positron ---
+/**
+ * Tags update notifications with a filterable source, so users can mute them from the
+ * notification's own gear menu or via "Do Not Disturb Mode By Source...".
+ *
+ * Only notifications with `DEFAULT` or `OPTIONAL` priority are silenced by that filter,
+ * so results of an explicit "Check for Updates" (which use `URGENT`) still show through.
+ */
+export const UPDATE_NOTIFICATION_SOURCE: INotificationSource = {
+	id: 'update',
+	label: nls.localize('positron.updateNotificationSource', "Update")
+};
+// --- End Positron ---
 
 let releaseNotesManager: ReleaseNotesManager | undefined = undefined;
 
@@ -147,6 +167,16 @@ export function appendUpdateMenuItems(menuId: MenuId, group: string): void {
 
 	MenuRegistry.appendMenuItem(menuId, {
 		group,
+		command: {
+			id: 'update.cancelling',
+			title: nls.localize('cancellingUpdateMenuEntry', "Cancelling Update..."),
+			precondition: ContextKeyExpr.false()
+		},
+		when: CONTEXT_UPDATE_STATE.isEqualTo(StateType.Cancelling)
+	});
+
+	MenuRegistry.appendMenuItem(menuId, {
+		group,
 		order: 2,
 		command: {
 			id: 'update.restart',
@@ -200,18 +230,18 @@ export class ProductContribution implements IWorkbenchContribution {
 
 			// --- Start Positron ---
 			// Positron uses its calver `parseVersion` (rather than upstream's semver `tryParseVersion`),
-			// `productService.positronVersion`, `productService.downloadUrl`, and gates on the Positron
+			// `productService.positronVersion`, `productService.releaseNotesUrl`, and gates on the Positron
 			// `update.positron.channel === 'releases'` setting.
 			const lastVersion = parseVersion(storageService.get(ProductContribution.KEY, StorageScope.APPLICATION, ''));
 			const currentVersion = parseVersion(productService.positronVersion);
 			const shouldShowReleaseNotes = configurationService.getValue<boolean>('update.showReleaseNotes');
 			const shouldShowPostInstallInfo = configurationService.getValue<boolean>('update.showPostInstallInfo');
-			const downloadUrl = productService.downloadUrl;
+			const releaseNotesUrl = productService.releaseNotesUrl;
 			const channel = configurationService.getValue<string>('update.positron.channel');
 
 			// was there a major/minor update? if so, open release notes (unless post-install info is enabled, which takes over)
 			if (shouldShowReleaseNotes && !shouldShowPostInstallInfo && !environmentService.skipReleaseNotes
-				&& downloadUrl && lastVersion && currentVersion
+				&& releaseNotesUrl && lastVersion && currentVersion
 				&& isMajorMinorUpdate(lastVersion, currentVersion)
 				&& channel === 'releases'
 			) {
@@ -224,8 +254,8 @@ export class ProductContribution implements IWorkbenchContribution {
 							[{
 								label: nls.localize('releaseNotes', "Release Notes"),
 								run: () => {
-									// view release notes from the downloads page
-									const uri = URI.parse(downloadUrl);
+									// view release notes on the Positron website
+									const uri = URI.parse(releaseNotesUrl);
 									openerService.open(uri);
 								}
 							}],
@@ -248,6 +278,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 	private majorMinorUpdateAvailableContextKey: IContextKey<boolean>;
 	// --- Start Positron ---
 	private explicitCheck: boolean = false;
+	private readonly notificationThrottle = new UpdateNotificationThrottle();
 	// --- End Positron ---
 
 	constructor(
@@ -385,6 +416,8 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			badge = new ProgressBadge(() => nls.localize('downloading', "Downloading {0} update...", this.productService.nameShort));
 		} else if (state.type === StateType.Updating) {
 			badge = new ProgressBadge(() => nls.localize('updating', "Updating {0}...", this.productService.nameShort));
+		} else if (state.type === StateType.Cancelling) {
+			badge = new ProgressBadge(() => nls.localize('cancellingUpdate', "Cancelling {0} update...", this.productService.nameShort));
 		}
 
 		this.badgeDisposable.clear();
@@ -403,6 +436,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			severity: Severity.Info,
 			message: nls.localize('noUpdatesAvailable', "There are currently no updates available."),
 			priority: NotificationPriority.OPTIONAL,
+			source: UPDATE_NOTIFICATION_SOURCE,
 		});
 	}
 
@@ -413,6 +447,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			message: nls.localize('updateDownloading', "Downloading update... You'll be notified when it's ready to install."),
 			priority: NotificationPriority.URGENT,
 			sticky: false, // Auto-dismiss since we'll show another notification when ready
+			source: UPDATE_NOTIFICATION_SOURCE,
 		});
 	}
 	// --- End Positron ---
@@ -427,6 +462,15 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		if (!productVersion) {
 			return;
 		}
+
+		// --- Start Positron ---
+		// Cap repeats at one notification per pending version per window session.
+		// Checked here, below the early return above, so we only ever record a
+		// notification we actually showed.
+		if (!this.explicitCheck && !this.notificationThrottle.shouldNotify('availableForDownload', update)) {
+			return;
+		}
+		// --- End Positron ---
 
 		this.notificationService.prompt(
 			severity.Info,
@@ -443,7 +487,10 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 					this.instantiationService.invokeFunction(accessor => showReleaseNotes(accessor, productVersion));
 				}
 			}],
-			{ priority: NotificationPriority.OPTIONAL }
+			// --- Start Positron ---
+			// { priority: NotificationPriority.OPTIONAL }
+			{ priority: NotificationPriority.OPTIONAL, source: UPDATE_NOTIFICATION_SOURCE }
+			// --- End Positron ---
 		);
 	}
 
@@ -469,6 +516,15 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			return;
 		}
 
+		// --- Start Positron ---
+		// Cap repeats at one notification per pending version per window session.
+		// Checked here, below the early return above, so we only ever record a
+		// notification we actually showed.
+		if (!this.explicitCheck && !this.notificationThrottle.shouldNotify('downloaded', update)) {
+			return;
+		}
+		// --- End Positron ---
+
 		this.notificationService.prompt(
 			severity.Info,
 			nls.localize('updateAvailable', "There's an update available: {0} {1}", this.productService.nameLong, productVersion),
@@ -488,7 +544,8 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			// { priority: NotificationPriority.OPTIONAL }
 			{
 				priority: this.explicitCheck ? NotificationPriority.URGENT : NotificationPriority.OPTIONAL,
-				sticky: this.explicitCheck
+				sticky: this.explicitCheck,
+				source: UPDATE_NOTIFICATION_SOURCE
 			}
 			// --- End Positron ---
 		);
@@ -501,6 +558,18 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		// Otherwise respect the throttle
 		const isWindowsSystemWide = isWindows && this.productService.target !== 'user';
 		if (!isWindowsSystemWide && !this.explicitCheck && !this.shouldShowNotification()) {
+			return;
+		}
+
+		// Then cap repeats at one notification per pending version per window
+		// session. The update service can re-enter `Ready` indefinitely for a
+		// single pending update, and upstream's staleness gate above has no
+		// ceiling once it opens. See #15031.
+		//
+		// Unlike that gate, this cap also applies to Windows system-wide
+		// installs, which are just as capable of storming. Only an explicit
+		// "Check for Updates" skips it, because the user asked just now.
+		if (!this.explicitCheck && !this.notificationThrottle.shouldNotify('ready', update)) {
 			return;
 		}
 		// --- End Positron ---
@@ -541,7 +610,8 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				sticky: true,
 				// --- Start Positron ---
 				// priority: NotificationPriority.OPTIONAL
-				priority: this.explicitCheck ? NotificationPriority.URGENT : NotificationPriority.OPTIONAL
+				priority: this.explicitCheck ? NotificationPriority.URGENT : NotificationPriority.OPTIONAL,
+				source: UPDATE_NOTIFICATION_SOURCE
 				// --- End Positron ---
 
 			}
@@ -573,6 +643,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		CommandsRegistry.registerCommand('update.downloading', () => { });
 		CommandsRegistry.registerCommand('update.install', () => this.updateService.applyUpdate());
 		CommandsRegistry.registerCommand('update.updating', () => { });
+		CommandsRegistry.registerCommand('update.cancelling', () => { });
 		CommandsRegistry.registerCommand('update.restart', () => this.updateService.quitAndInstall());
 		CommandsRegistry.registerCommand('_update.state', () => {
 			return this.state;

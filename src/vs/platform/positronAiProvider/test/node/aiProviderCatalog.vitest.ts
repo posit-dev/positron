@@ -75,4 +75,28 @@ describe('AiProviderCatalog', () => {
 		await new Promise(r => setTimeout(r, 600));
 		expect(fired).not.toHaveBeenCalled();
 	}, 10_000);
+
+	// PROVIDER-SETTINGS-MIGRATION(legacy-positron) gate: delete this test with
+	// the loader option. The catalog opts into the legacy admin channel only —
+	// user-set legacy settings are never read (this Positron migrates them into
+	// providers.json).
+	it('applies POSITRON_ENFORCED_SETTINGS above the user file without any reader wiring', async () => {
+		const configPath = join(dir, 'providers.json');
+		fs.writeFileSync(configPath, JSON.stringify({
+			version: 1,
+			providers: { anthropic: { enabled: true, baseUrl: 'https://user.example/v1' } },
+		}));
+		catalog = new AiProviderCatalog(new NullLogService(), {
+			configPath,
+			envVars: {
+				POSITRON_ENFORCED_SETTINGS: JSON.stringify({
+					'authentication.anthropic.baseUrl': 'https://enforced.example/v1',
+					'positron.assistant.provider.anthropic.enable': false,
+				}),
+			},
+		});
+		const anthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
+		expect({ enabled: anthropic.enabled, baseUrl: anthropic.connection.baseUrl })
+			.toEqual({ enabled: false, baseUrl: 'https://enforced.example/v1' });
+	});
 });

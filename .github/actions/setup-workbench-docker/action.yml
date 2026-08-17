@@ -2,6 +2,10 @@ name: 'Setup Workbench Docker'
 description: 'Start Docker Compose services and install Workbench in container'
 
 inputs:
+  os:
+    description: 'Host OS for the test container: "ubuntu24" or "rocky9"'
+    required: false
+    default: 'ubuntu24'
   install-mode:
     description: 'Installation mode: "ci" for latest daily build or "ci-stable" for stable release'
     required: false
@@ -48,6 +52,21 @@ runs:
           echo "Warning: Connect license not found at ${{ inputs.connect-license-path }}"
         fi
 
+    - name: Resolve the test container image for this OS
+      shell: bash
+      run: |
+        # Resolve through wb_os_image rather than hardcoding a tag here, so the
+        # image the lane runs and the image `npm run pwb --os=...` runs can never
+        # drift apart. Also validates the input: an unknown OS fails here, in
+        # seconds, instead of surfacing as a confusing package error mid-install.
+        source docker/environments/wb-local/workbench-local-lib.sh
+        if ! WB_TEST_IMAGE="$(wb_os_image "${{ inputs.os }}")"; then
+          echo "::error::Unknown os input '${{ inputs.os }}' (expected ubuntu24 or rocky9)"
+          exit 1
+        fi
+        echo "WB_TEST_IMAGE=${WB_TEST_IMAGE}" >> "$GITHUB_ENV"
+        echo "Test container image: ${WB_TEST_IMAGE}"
+
     - name: Start Docker Compose Services
       shell: bash
       run: |
@@ -66,7 +85,9 @@ runs:
         docker cp "$SCRIPTS_DIR/install-workbench.sh" test:/tmp/install-workbench.sh
         docker cp "$SCRIPTS_DIR/ensure-connect-token.sh" test:/tmp/ensure-connect-token.sh
         docker cp "$SCRIPTS_DIR/positronDownload.sh" test:/tmp/positronDownload.sh
-        docker cp "$SCRIPTS_DIR/get-latest-wb-noble-url.sh" test:/tmp/get-latest-wb-noble-url.sh
+        docker cp "$SCRIPTS_DIR/get-latest-wb-url.sh" test:/tmp/get-latest-wb-url.sh
+        # get-latest-wb-url.sh sources the lib for its URL-resolution rules.
+        docker cp "$SCRIPTS_DIR/workbench-local-lib.sh" test:/tmp/workbench-local-lib.sh
         docker cp "$SCRIPTS_DIR/configure-datasources.sh" test:/tmp/configure-datasources.sh
 
         # Copy Workbench license into test container if it exists
@@ -78,7 +99,7 @@ runs:
         docker exec test chmod +x /tmp/install-workbench.sh
         docker exec test chmod +x /tmp/ensure-connect-token.sh
         docker exec test chmod +x /tmp/positronDownload.sh
-        docker exec test chmod +x /tmp/get-latest-wb-noble-url.sh
+        docker exec test chmod +x /tmp/get-latest-wb-url.sh
         docker exec test chmod +x /tmp/configure-datasources.sh
 
     - name: Install Workbench in container
@@ -91,6 +112,7 @@ runs:
         docker exec \
           -e GITHUB_TOKEN="${{ inputs.github-token }}" \
           -e ARCH_SUFFIX=amd64 \
+          -e WB_OS="${{ inputs.os }}" \
           -e WB_PASSWORD="${{ inputs.wb-password }}" \
           -e DATABRICKS_URL_="${DATABRICKS_URL}" \
           -e DATABRICKS_CLIENT_ID_="${DATABRICKS_CLIENT_ID}" \

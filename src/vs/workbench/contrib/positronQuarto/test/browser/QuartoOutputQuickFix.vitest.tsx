@@ -100,9 +100,11 @@ describe('QuartoOutputQuickFix', () => {
 			const options = lastNewChatOptions();
 			expect({
 				prompt: options.prompt,
+				name: options.files?.[0].name,
 				attachment: options.files && decodeAttachment(options.files[0].uri),
 			}).toEqual({
 				prompt: 'Fix the error from the python code chunk at lines 8-8 of report.qmd. The failing code and its error output are attached; fix only this error.',
+				name: 'Quarto Output Error',
 				attachment: [
 					'Error from the python code chunk in report.qmd, lines 8-8 (label: setup):',
 					'',
@@ -135,9 +137,11 @@ describe('QuartoOutputQuickFix', () => {
 			const options = lastNewChatOptions();
 			expect({
 				prompt: options.prompt,
+				name: options.files?.[0].name,
 				attachment: options.files && decodeAttachment(options.files[0].uri),
 			}).toEqual({
 				prompt: 'Fix this Quarto inline output error.',
+				name: 'Quarto Output Error',
 				attachment: 'NameError: name "x" is not defined',
 			});
 		});

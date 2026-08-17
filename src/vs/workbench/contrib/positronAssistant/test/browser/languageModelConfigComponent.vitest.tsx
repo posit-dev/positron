@@ -10,13 +10,13 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { LanguageModelConfigComponent } from '../../browser/components/languageModelConfigComponent.js';
 import { AuthMethod, AuthStatus } from '../../browser/types.js';
-import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
+import { IPositronLanguageModelSource, PositronLanguageModelOptions, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 
 function makeSource(overrides?: Partial<Pick<IPositronLanguageModelSource, 'supportedOptions' | 'defaults'>> & { provider?: { id: string; displayName: string } }): IPositronLanguageModelSource {
 	const provider = overrides?.provider ?? { id: 'anthropic-api', displayName: 'Anthropic' };
 	return {
 		type: PositronLanguageModelType.Chat,
-		provider: { ...provider, settingName: provider.id },
+		provider: { ...provider },
 		supportedOptions: overrides?.supportedOptions ?? [],
 		defaults: overrides?.defaults ?? { model: '' },
 	};
@@ -102,7 +102,7 @@ describe('LanguageModelConfigComponent base-URL input', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderConfig(supportedOptions: string[]) {
+	function renderConfig(supportedOptions: PositronLanguageModelOptions[]) {
 		rtl.render(
 			<LanguageModelConfigComponent
 				authMethod={AuthMethod.NONE}

@@ -3,9 +3,8 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-from unittest.mock import Mock
-
 import pytest
+from IPython.utils.capture import capture_output
 
 from positron.positron_ipkernel import PositronShell
 
@@ -15,7 +14,7 @@ MIME_TYPE_POSITRON_WEBVIEW_FLAG = "application/positron-webview-load.v0+json"
 
 
 @pytest.mark.usefixtures("enable_bokeh_output_notebook")
-def test_bokeh_mime_tagging(shell: PositronShell, mock_display_pub: Mock):
+def test_bokeh_mime_tagging(shell: PositronShell):
     """
     Test mime tagging.
 
@@ -23,23 +22,21 @@ def test_bokeh_mime_tagging(shell: PositronShell, mock_display_pub: Mock):
     on messages that the front-end will use to know that the data coming over should be replayed in
     multiple steps.
     """
-    shell.run_cell(
-        """\
-from bokeh.plotting import figure, show
-p = figure(title="Simple line example", x_axis_label='x', y_axis_label='y')
-p.line([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], legend_label="Temp.", line_width=2)
-show(p)
-"""
-    )
-
-    calls = mock_display_pub.publish.call_args_list
+    with capture_output() as captured:
+        shell.run_cell(
+            """\
+    from bokeh.plotting import figure, show
+    p = figure(title="Simple line example", x_axis_label='x', y_axis_label='y')
+    p.line([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], legend_label="Temp.", line_width=2)
+    show(p)
+    """
+        )
 
     # Assert that one of the calls has the MIME_TYPE_POSITRON_WEBVIEW_FLAG key in it along with a
     # text/html key
     assert any(
-        MIME_TYPE_POSITRON_WEBVIEW_FLAG in call.kwargs["data"]
-        and "text/html" in call.kwargs["data"]
-        for call in calls
+        MIME_TYPE_POSITRON_WEBVIEW_FLAG in output.data and "text/html" in output.data
+        for output in captured.outputs
     )
 
 

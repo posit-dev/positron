@@ -211,4 +211,64 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 			await app.workbench.positAssistant.expectViewOpen();
 		});
 	});
+
+	test.describe('Agent Layout', { tag: [tags.ASSISTANT] }, () => {
+
+		test.afterEach('Reset Layout', async function ({ app }) {
+			// Close the Posit Assistant editor tab(s) with the mouse BEFORE any
+			// keyboard-driven cleanup. While the webview is open it is not safe to
+			// drive the keyboard: when its content finishes loading it focuses its
+			// own chat input, dismissing an open quick input mid-command, and with
+			// the webview focused the Cmd+K of the close-all-editors chord is
+			// swallowed while the following Cmd+W closes the whole app window.
+			const assistantTabs = app.code.driver.currentPage
+				.locator('.tabs-container .tab[data-resource-name^="webview-posit-assistant"]');
+			while (await assistantTabs.count() > 0) {
+				await assistantTabs.first().locator('.action-label.codicon-close').click();
+			}
+			await app.workbench.layouts.enterLayout('stacked');
+		});
+
+		// Intentionally untagged for every browser-based project: like the Posit
+		// Assistant test above, this opens the webview-backed Posit Assistant,
+		// which is unreliable on web (#13933). Runs on desktop only.
+		//
+		// No settings setup: the layout's precondition needs `assistant.enabled`,
+		// which defaults to true and registers from the extension manifest at scan
+		// time. Setting it explicitly mid-test makes the extension activate right
+		// then, and that activation steals focus from the open quick input.
+		test('Verify Agent Layout hides Sidebar and Panel and opens Posit Assistant in the editor area', async function ({ app }) {
+			const layouts = app.workbench.layouts;
+
+			// Enter agent layout
+			await layouts.enterLayout('agent');
+
+			// ------ Panel and Sidebar -------
+			// Both should be collapsed
+			await expect(layouts.panelContent).not.toBeVisible();
+			await expect(layouts.sidebar).not.toBeVisible();
+
+			// ------ Auxiliary Bar -------
+			// First view should be the session view, second should be terminal
+			await expect(layouts.auxBar).toBeVisible();
+			await expect(layouts.auxBarViewsTab.nth(0)).toHaveText('Session');
+			await expect(layouts.auxBarViewsTab.nth(1)).toHaveText('Terminal');
+
+			// Console starts collapsed (it pops open on first code run);
+			// Variables and Plots start expanded
+			const consoleSection = layouts.auxBar.getByLabel(/console section/i);
+			const variablesSection = layouts.auxBar.getByLabel(/variables section/i);
+			const plotsSection = layouts.auxBar.getByLabel(/plots section/i);
+			await expect(consoleSection).toHaveAttribute('aria-expanded', 'false');
+			await expect(variablesSection).toHaveAttribute('aria-expanded', 'true');
+			await expect(plotsSection).toHaveAttribute('aria-expanded', 'true');
+
+			// ------ Editor area -------
+			// The layout opens Posit Assistant as a webview editor tab whose
+			// data-resource-name is webview-posit-assistant-<uuid>. Match on that
+			// prefix; matching the "Posit Assistant" label would also hit the
+			// activity bar icon (role=tab too).
+			await app.workbench.editors.waitForActiveTab(/^webview-posit-assistant/);
+		});
+	});
 });

@@ -246,7 +246,9 @@ export class Debug {
 	 */
 	async expectBrowserModeFrame(number: number): Promise<void> {
 		await test.step(`Verify in browser mode: frame ${number}`, async () => {
-			await expect(this.code.driver.currentPage.getByText(`Browse[${number}]>`)).toBeVisible();
+			// The prompt renders both in the console output span and in the console input's
+			// line-number gutter; either proves browser mode, so don't fail strict mode on both.
+			await expect(this.code.driver.currentPage.getByText(`Browse[${number}]>`).first()).toBeVisible();
 		});
 	}
 

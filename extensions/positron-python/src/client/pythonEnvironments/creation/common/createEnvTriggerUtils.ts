@@ -126,3 +126,45 @@ export function isCreateEnvWorkspaceCheckNotRun(): boolean {
     _alreadyCreateEnvCriteriaCheck = true;
     return true;
 }
+
+// --- Start Positron ---
+// Positron has two create-environment prompts: this notification and the modal shown when
+// the user explicitly picks an externally-managed interpreter. They ask the same question,
+// so the notification stands down once the modal has asked it. The flag only ever gates the
+// notification: an explicit interpreter pick is a direct user action and always deserves a
+// response, even if the notification went by earlier in the window.
+//
+// This is deliberately not a per-window cap on the modal itself. Suppressing every later
+// pick would mean answering for interpreters the user was never asked about; declining a
+// prompt for one interpreter says nothing about the next one. Repeat prompts for the same
+// interpreter are what "Never for This Interpreter" is for.
+//
+// `_alreadyCreateEnvCriteriaCheck` above cannot serve the purpose: it is set when the check
+// runs, not when a prompt is shown.
+let _createEnvModalShown = false;
+
+/** True when the interpreter-select modal has asked about creating an environment. */
+export function hasShownCreateEnvModal(): boolean {
+    return _createEnvModalShown;
+}
+
+/**
+ * Record that the interpreter-select modal is asking about creating an environment.
+ *
+ * Called before the modal opens rather than after it closes, so the notification cannot race
+ * in behind an open modal.
+ */
+export function markCreateEnvModalShown(): void {
+    _createEnvModalShown = true;
+}
+
+/**
+ * Undo `markCreateEnvModalShown`.
+ *
+ * For the dismiss path: a user who closes the modal without answering has not settled the
+ * question, so the notification is still free to ask it.
+ */
+export function clearCreateEnvModalShown(): void {
+    _createEnvModalShown = false;
+}
+// --- End Positron ---

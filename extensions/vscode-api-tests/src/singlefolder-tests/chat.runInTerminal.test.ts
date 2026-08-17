@@ -38,15 +38,16 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 		// `copilot` vendor as enabled. Without this the language model providers
 		// registered below are filtered out, no model is available, and the chat
 		// request never reaches the participant, causing the test to time out.
-		// `copilot` is enabled via the `copilot-auth` provider id (default: true).
+		// The `copilot` vendor resolves via the `copilot-auth` provider's
+		// `catalogId: 'copilot'`, which the catalog enables by default.
 		positron.ai.registerProvider({
-			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor', settingName: 'testLmVendor' },
+			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor' },
 			type: positron.PositronLanguageModelType.Chat,
 			supportedOptions: [],
 			defaults: {},
 		});
 		positron.ai.registerProvider({
-			provider: { id: 'copilot-auth', displayName: 'Test Copilot', settingName: 'githubCopilot' },
+			provider: { id: 'copilot-auth', displayName: 'Test Copilot', catalogId: 'copilot' },
 			type: positron.PositronLanguageModelType.Chat,
 			supportedOptions: [],
 			defaults: {},
@@ -200,7 +201,7 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 		};
 
 		try {
-			await vscode.commands.executeCommand('workbench.action.chat.newChat');
+			await vscode.commands.executeCommand('workbench.action.chat.newLocalChat');
 			if (opts.autoAcceptConfirmation) {
 				acceptConfirmationInterval = setInterval(() => void acceptPendingConfirmation(), 200);
 			}

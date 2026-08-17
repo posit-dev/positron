@@ -7,7 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
+import { IEditorContribution, ScrollType } from '../../../../editor/common/editorCommon.js';
 import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -19,13 +19,15 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { localize } from '../../../../nls.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { VSBuffer } from '../../../../base/common/buffer.js';
-import { dirname, basename, extname } from '../../../../base/common/resources.js';
+import { basename } from '../../../../base/common/resources.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
+import { getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '../../positronNotebook/common/imageOutputUtils.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
-import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument, usingQuartoInlineOutputAutoScroll } from '../common/positronQuartoConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
@@ -151,6 +153,67 @@ export interface IQuartoOutputManager {
 }
 
 /**
+ * Vertical geometry needed to decide how far to scroll to reveal an output
+ * view zone. All values are in the editor's scroll-content coordinate space.
+ */
+export interface QuartoAutoScrollLayout {
+	/** Top of the output view zone (offset of its first pixel). */
+	readonly zoneTop: number;
+	/** Bottom of the output view zone (offset just past its last pixel). */
+	readonly zoneBottom: number;
+	/** The editor's current scrollTop. */
+	readonly scrollTop: number;
+	/** The height of the visible editor viewport. */
+	readonly viewportHeight: number;
+	/** The total scrollable height of the editor content. */
+	readonly scrollHeight: number;
+}
+
+/**
+ * Compute the scrollTop the editor should move to in order to reveal an output
+ * view zone, or `undefined` when no scroll is necessary.
+ *
+ * Output is emitted at the bottom of the zone, so we keep the bottom of the
+ * zone at the bottom of the viewport: freshly produced output stays in view
+ * even for a zone taller than the editor (which then tails, like a console).
+ * Scrolls the minimum amount needed -- while the bottom of the zone is already
+ * on screen the scroll position is left alone.
+ */
+export function computeAutoScrollTop(layout: QuartoAutoScrollLayout): number | undefined {
+	const { zoneTop, zoneBottom, scrollTop, viewportHeight, scrollHeight } = layout;
+
+	// Bail if the zone hasn't been laid out yet or there is no viewport.
+	if (zoneBottom <= zoneTop || viewportHeight <= 0) {
+		return undefined;
+	}
+
+	const scrollBottom = scrollTop + viewportHeight;
+
+	// Nothing to do while the bottom of the zone is already on screen -- the
+	// newest output is visible. This also covers a tall zone that is already
+	// tailing (bottom at the viewport bottom, top scrolled off above).
+	if (zoneBottom > scrollTop && zoneBottom <= scrollBottom) {
+		return undefined;
+	}
+
+	// Pin the bottom of the zone to the bottom of the viewport, whether it is
+	// currently below (grew past the bottom) or above (a cell that ran further
+	// up the document) the visible area.
+	let target = zoneBottom - viewportHeight;
+
+	// Clamp to the valid scroll range.
+	const maxScrollTop = Math.max(0, scrollHeight - viewportHeight);
+	target = Math.max(0, Math.min(target, maxScrollTop));
+
+	// Ignore sub-pixel adjustments (and no-ops after clamping).
+	if (Math.abs(target - scrollTop) < 1) {
+		return undefined;
+	}
+
+	return target;
+}
+
+/**
  * Editor contribution that manages output view zones for a single editor.
  * One instance per editor that displays a Quarto document.
  */
@@ -168,6 +231,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private _featureEnabled: boolean;
 	private _outputHandlingInitialized = false;
 	private _maxLines: number;
+
+	// Whether the editor should scroll to follow inline output (the setting).
+	private _autoScrollEnabled: boolean;
+	// Whether auto-scroll is currently active. Armed by a fresh execution
+	// gesture and disarmed when the user moves the viewport themselves.
+	private _autoScrollArmed = false;
+	// The cell whose output view zone we are currently following.
+	private _autoScrollTrackedCellId: string | undefined;
+	// True while applying a programmatic scroll, so its scroll event isn't
+	// mistaken for the user scrolling away.
+	private _autoScrollProgrammatic = false;
 
 	// Track subscriptions from _initializeOutputHandling() separately so they can be
 	// disposed when the model changes, preventing duplicate event handlers
@@ -223,6 +297,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IFileService private readonly _fileService: IFileService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IPositronPreviewService private readonly _previewService: IPositronPreviewService,
+		@IPositronPlotsService private readonly _plotsService: IPositronPlotsService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
 		@IHoverService private readonly _hoverService: IHoverService,
@@ -246,6 +321,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		// Get max lines configuration
 		this._maxLines = getQuartoConfigValue(this._configurationService, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, 40);
 
+		// Get auto-scroll configuration (defaults to on)
+		this._autoScrollEnabled = usingQuartoInlineOutputAutoScroll(this._configurationService);
+
 		// Check if feature is enabled (context key checks both setting and extension installation)
 		this._featureEnabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
 
@@ -256,13 +334,19 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
-		// Listen for max lines configuration changes
+		// Listen for max lines and auto-scroll configuration changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (affectsQuartoConfig(e, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY)) {
 				this._maxLines = getQuartoConfigValue(this._configurationService, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, 40);
 				// Update all existing view zones
 				for (const viewZone of this._viewZones.values()) {
 					viewZone.maxLines = this._maxLines;
+				}
+			}
+			if (e.affectsConfiguration(QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY)) {
+				this._autoScrollEnabled = usingQuartoInlineOutputAutoScroll(this._configurationService);
+				if (!this._autoScrollEnabled) {
+					this._autoScrollArmed = false;
 				}
 			}
 		}));
@@ -297,11 +381,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			const newModel = this._editor.getModel();
 			this._documentUri = newModel?.uri;
 
-			// Handle untitled->saved transition: transfer cache from old URI to new URI
-			// This happens when a user saves an untitled Quarto document to a file
+			// Handle untitled->saved transition: transfer cache from old URI to new URI.
+			// Any non-untitled scheme counts as saved; a remote or web window saves
+			// to `vscode-remote`, not `file`.
 			if (previousUri && this._documentUri &&
 				previousUri.scheme === 'untitled' &&
-				this._documentUri.scheme === 'file' &&
+				this._documentUri.scheme !== 'untitled' &&
 				this._isQuartoDocument()) {
 				this._transferCacheFromUntitled(previousUri, this._documentUri);
 			}
@@ -356,6 +441,35 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
+		// Arm auto-scroll on a fresh execution gesture (Run Cell, Run All, ...)
+		// so the editor follows the output it produces. The same Quarto document
+		// can be open in more than one editor at once (a split view); each has
+		// its own contribution and they all see this URI-keyed event. Only the
+		// editor the gesture came from -- the active one -- should follow it, so
+		// re-evaluate arming on every gesture: the active editor arms and any
+		// other pane showing the same document disarms. Without this a run in one
+		// pane would hijack the scroll position of the other.
+		this._outputHandlingDisposables.add(this._executionManager.onWillExecute(event => {
+			if (this._autoScrollEnabled && this._documentUri &&
+				event.documentUri.toString() === this._documentUri.toString()) {
+				this._autoScrollArmed = this._isActiveEditor();
+			}
+		}));
+
+		// Disarm auto-scroll once the user moves the viewport themselves. Only a
+		// vertical scroll we didn't initiate counts; a view zone growing changes
+		// the scroll height but not scrollTop, so it won't disarm.
+		this._outputHandlingDisposables.add(this._editor.onDidScrollChange(e => {
+			if (!e.scrollTopChanged) {
+				return;
+			}
+			if (this._autoScrollProgrammatic) {
+				this._autoScrollProgrammatic = false;
+				return;
+			}
+			this._autoScrollArmed = false;
+		}));
+
 		// Listen for execution state changes to manage recomputing state and update view zone button
 		this._outputHandlingDisposables.add(this._executionManager.onDidChangeExecutionState(event => {
 			if (this._featureEnabled &&
@@ -385,6 +499,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 						event.execution.startTime,
 						event.execution.endTime,
 					);
+				}
+
+				// Follow this cell while it runs so its status/output stays in
+				// view (no-op unless auto-scroll is armed). Tracking the running
+				// cell is what makes Run All scroll through the document.
+				if (isRunning) {
+					this._autoScrollTrackedCellId = cellId;
+					this._revealTrackedCell();
 				}
 
 				// Track execution info so it survives tab switches
@@ -626,10 +748,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		for (const output of outputs) {
 			for (const item of output.items) {
 				if (item.mime.startsWith('image/')) {
-					const dataUrl = item.data.startsWith('data:')
-						? item.data
-						: `data:${item.mime};base64,${item.data}`;
-					return { type: 'image', dataUrl };
+					return { type: 'image', dataUrl: getImageDataUrl(item.mime, item.data) };
 				}
 			}
 		}
@@ -815,6 +934,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 			const quartoModel = this._documentModelService.getModel(model);
 
+			// Both lookups below match cached outputs to live cells by content
+			// hash, so they need the model's cells to be current.
+			if (!quartoModel.isParsed) {
+				this._logService.debug('[QuartoOutputContribution] Waiting for the document to be parsed before restoring cached outputs');
+				await quartoModel.whenParsed();
+				if (this._cachedOutputsLoaded || this._store.isDisposed) {
+					return;
+				}
+			}
+
 			// If no cache found, try to find cache by content hash
 			// This handles two cases:
 			// 1. A file document that was just saved from an untitled document
@@ -828,26 +957,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				if (cachedDoc) {
 					this._logService.debug('[QuartoOutputContribution] Found cache by content hash match');
 				}
-			}
-
-			// If no cache found and no cells available yet, subscribe to model parse events.
-			// This handles the case where an untitled document is being restored via hot exit
-			// and the content hasn't been loaded yet when _loadCachedOutputs is first called.
-			if ((!cachedDoc || cachedDoc.cells.length === 0) &&
-				quartoModel.cells.length === 0 &&
-				this._documentUri.scheme === 'untitled') {
-
-				this._logService.debug('[QuartoOutputContribution] No cells found for untitled document, waiting for content to be restored');
-
-				// Subscribe to parse events - when content is restored and parsed, cells will appear
-				this._outputHandlingDisposables.add(quartoModel.onDidParse(() => {
-					// Only try once more after cells appear
-					if (quartoModel.cells.length > 0 && !this._cachedOutputsLoaded) {
-						this._logService.debug('[QuartoOutputContribution] Cells found after parse, retrying cache load');
-						this._loadCachedOutputs();
-					}
-				}));
-				return;
 			}
 
 			// Mark as loaded to prevent re-entry
@@ -1020,6 +1129,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		// Add output to view zone
 		viewZone.addOutput(output);
 
+		// Follow the output as it appears (no-op unless auto-scroll is armed).
+		this._autoScrollTrackedCellId = cellId;
+		this._revealTrackedCell();
+
 		// Save to cache and track content hash
 		if (this._documentUri) {
 			const model = this._editor.getModel();
@@ -1055,6 +1168,69 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			documentUri: this._documentUri!,
 			outputs: outputs,
 		});
+	}
+
+	/**
+	 * Whether this contribution's editor is the one the user is currently
+	 * working in. The same Quarto document can be open in several editors at
+	 * once (a split view), each with its own contribution; only the active
+	 * editor should arm auto-scroll so running a cell in one pane doesn't yank
+	 * the scroll position of another pane showing the same file.
+	 */
+	private _isActiveEditor(): boolean {
+		return this._editorService.activeTextEditorControl === this._editor;
+	}
+
+	/**
+	 * Scroll the editor to reveal the currently tracked cell's output view zone,
+	 * but only when auto-scroll is armed. A no-op when the feature is disabled,
+	 * the user has scrolled away, the zone isn't visible, or the bottom of the
+	 * zone (where new output appears) is already on screen. Keeps the bottom of
+	 * the zone at the bottom of the viewport (see {@link computeAutoScrollTop}).
+	 */
+	private _revealTrackedCell(): void {
+		if (!this._autoScrollEnabled || !this._autoScrollArmed || !this._autoScrollTrackedCellId) {
+			return;
+		}
+
+		const viewZone = this._viewZones.get(this._autoScrollTrackedCellId);
+		if (!viewZone || !viewZone.isVisible()) {
+			return;
+		}
+
+		const model = this._editor.getModel();
+		if (!model) {
+			return;
+		}
+
+		// The view zone sits after this (model) line; guard against a stale
+		// anchor after edits.
+		const afterLine = viewZone.afterLineNumber;
+		if (afterLine < 1 || afterLine > model.getLineCount()) {
+			return;
+		}
+
+		// Top of the zone is the offset just after its anchor line (Monaco's
+		// getBottomForLineNumber excludes view-zone whitespace); the zone's own
+		// reserved height gives the bottom. Using heightInPx avoids depending on
+		// the include-view-zones offset overload and handles a last-line anchor.
+		const zoneTop = this._editor.getBottomForLineNumber(afterLine);
+		const layoutInfo = this._editor.getLayoutInfo();
+		const target = computeAutoScrollTop({
+			zoneTop,
+			zoneBottom: zoneTop + viewZone.heightInPx,
+			scrollTop: this._editor.getScrollTop(),
+			viewportHeight: layoutInfo.height,
+			scrollHeight: this._editor.getScrollHeight(),
+		});
+
+		if (target === undefined) {
+			return;
+		}
+
+		// Mark the scroll as programmatic so its scroll event doesn't disarm us.
+		this._autoScrollProgrammatic = true;
+		this._editor.setScrollTop(target, ScrollType.Immediate);
 	}
 
 	private _createViewZone(cellId: string): QuartoOutputViewZone | undefined {
@@ -1125,6 +1301,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._handlePopoutRequest(request);
 		}));
 
+		// Keep this cell in view as its output grows (e.g. streaming text or an
+		// image finishing loading) while we're following it.
+		this._outputHandlingDisposables.add(viewZone.onDidChangeHeight(() => {
+			if (this._autoScrollTrackedCellId === cellId) {
+				this._revealTrackedCell();
+			}
+		}));
+
 		// Set initial execution state
 		const executionState = this._executionManager.getExecutionState(cellId);
 		viewZone.setExecuting(executionState === CellExecutionState.Running);
@@ -1178,7 +1362,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	 * Shows a file save dialog and saves the plot to the selected location.
 	 */
 	private async _handleSaveRequest(request: SavePlotRequest, cellId: string): Promise<void> {
-		await this._savePlot(request.dataUrl, request.mimeType, cellId);
+		await this.savePlot(request.dataUrl, cellId);
 	}
 
 	/**
@@ -1194,7 +1378,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		try {
 			switch (popout.type) {
 				case 'plot':
-					await this._openPlotInEditor(popout.dataUrl, popout.mimeType, request.cellId);
+					await this._openPlotInEditor(popout.dataUrl, request.cellId);
 					break;
 				case 'text':
 					await this._openTextInEditor(popout.text);
@@ -1213,44 +1397,42 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
-	 * Open a plot image in a new editor tab.
+	 * Opens a plot image in a data-backed editor tab without creating a project
+	 * file.
 	 */
-	private async _openPlotInEditor(dataUrl: string, mimeType: string, cellId: string): Promise<void> {
+	private async _openPlotInEditor(dataUrl: string, cellId: string): Promise<void> {
 		if (!this._documentUri) {
 			return;
 		}
 
-		// Extract base64 data from data URL
-		const base64Data = this._extractBase64FromDataUrl(dataUrl);
-		if (!base64Data) {
-			throw new Error('Invalid data URL format');
+		await openImageOutputInNewTab(
+			dataUrl,
+			this._documentUri,
+			getImageOutputName(this._documentUri, this._getCellIndex(cellId)),
+			this._plotsService,
+			this._logService,
+			this._notificationService,
+			this._getCellCode(cellId),
+		);
+	}
+
+	/**
+	 * Returns the zero-based cell index encoded at the start of the cell ID.
+	 */
+	private _getCellIndex(cellId: string): number {
+		const index = parseInt(cellId.split('-')[0], 10);
+		return Number.isNaN(index) ? 0 : index;
+	}
+
+	/** Returns the cell's current code, when the cell still exists. */
+	private _getCellCode(cellId: string): string | undefined {
+		const model = this._editor.getModel();
+		if (!model) {
+			return undefined;
 		}
-
-		// Decode base64 to binary
-		const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-
-		// Create a temporary file to open the image
-		// Use the document name + cell index for the filename
-		const extension = this._getExtensionForMimeType(mimeType);
-		const docName = basename(this._documentUri);
-		const docNameWithoutExt = docName.substring(0, docName.length - extname(this._documentUri).length);
-		const cellIndex = cellId.split('-')[0];
-		const filename = `${docNameWithoutExt}_cell${cellIndex}${extension}`;
-
-		// Write to a temp location and open it
-		const tempDir = dirname(this._documentUri);
-		const tempUri = tempDir.with({ path: `${tempDir.path}/.positron-temp-${filename}` });
-
-		await this._fileService.writeFile(tempUri, VSBuffer.wrap(binaryData));
-
-		// Open the temp file in the editor
-		await this._editorService.openEditor({
-			resource: tempUri,
-			options: {
-				pinned: false,
-				preserveFocus: false,
-			}
-		});
+		const quartoModel = this._documentModelService.getModel(model);
+		const cell = quartoModel.getCellById(cellId);
+		return cell && quartoModel.getCellCode(cell);
 	}
 
 	/**
@@ -1387,7 +1569,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	 */
 	setAllOutputsCollapsed(collapsed: boolean): void {
 		for (const viewZone of this._viewZones.values()) {
-			viewZone.setCollapsed(collapsed);
+			viewZone.setCollapsed(collapsed, true);
 		}
 	}
 
@@ -1419,85 +1601,31 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 	/**
 	 * Save a plot to a file.
-	 * @param dataUrl The data URL of the image
-	 * @param mimeType The MIME type of the image
 	 * @param cellId The cell ID (used for generating default filename)
 	 * @param targetPath Optional target path for testing (bypasses dialog)
 	 */
-	async savePlot(dataUrl: string, mimeType: string, cellId: string, targetPath?: URI): Promise<boolean> {
-		return this._savePlot(dataUrl, mimeType, cellId, targetPath);
-	}
-
-	private async _savePlot(dataUrl: string, mimeType: string, cellId: string, targetPath?: URI): Promise<boolean> {
+	async savePlot(dataUrl: string, cellId: string, targetPath?: URI): Promise<boolean> {
 		if (!this._documentUri) {
 			return false;
 		}
 
-		try {
-			// Determine file extension from MIME type
-			const extension = this._getExtensionForMimeType(mimeType);
-
-			// Generate default filename from document name + cell number
-			const docName = basename(this._documentUri);
-			const docNameWithoutExt = docName.substring(0, docName.length - extname(this._documentUri).length);
-
-			// Extract cell index from cell ID (format: index-hashPrefix-label or just index-hashPrefix)
-			const cellIndex = cellId.split('-')[0];
-			const defaultFilename = `${docNameWithoutExt}_cell${cellIndex}${extension}`;
-
-			// Default directory is same as the document
-			const defaultDir = dirname(this._documentUri);
-			const defaultUri = defaultDir.with({ path: `${defaultDir.path}/${defaultFilename}` });
-
-			let saveUri: URI | undefined;
-
-			if (targetPath) {
-				// Use provided path (for testing)
-				saveUri = targetPath;
-			} else {
-				// Show save dialog
-				saveUri = await this._fileDialogService.showSaveDialog({
-					title: localize('savePlotTitle', 'Save Plot'),
-					defaultUri,
-					filters: [
-						{ name: localize('imageFiles', 'Image Files'), extensions: [extension.substring(1)] }
-					]
-				});
-			}
-
-			if (!saveUri) {
-				return false; // User cancelled
-			}
-
-			// Extract base64 data from data URL
-			const base64Data = this._extractBase64FromDataUrl(dataUrl);
-			if (!base64Data) {
-				throw new Error('Invalid data URL format');
-			}
-
-			// Decode base64 to binary
-			const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-
-			// Write the file
-			await this._fileService.writeFile(saveUri, VSBuffer.wrap(binaryData));
-
-			// Show success toast
-			const savedFilename = basename(saveUri);
-			this._notificationService.info(localize('plotSaved', '{0} saved', savedFilename));
-
-			return true;
-		} catch (error) {
-			this._logService.error('[QuartoOutputContribution] Save failed:', error);
-			this._notificationService.error(localize('savePlotFailed', 'Failed to save plot'));
-			return false;
-		}
+		return saveImageOutput(
+			dataUrl,
+			this._documentUri,
+			getImageOutputName(this._documentUri, this._getCellIndex(cellId)),
+			this._fileDialogService,
+			this._fileService,
+			this._logService,
+			this._notificationService,
+			targetPath,
+		);
 	}
 
 	/**
 	 * Get the plot info for a cell at a given line number.
 	 * Returns undefined if no single plot exists.
 	 */
-	getPlotInfoForCellAtLine(lineNumber: number): { dataUrl: string; mimeType: string; cellId: string } | undefined {
+	getPlotInfoForCellAtLine(lineNumber: number): { dataUrl: string; cellId: string } | undefined {
 		const model = this._editor.getModel();
 		if (!model) {
 			return undefined;
@@ -1521,7 +1649,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		return {
 			dataUrl: plotInfo.dataUrl,
-			mimeType: plotInfo.mimeType,
 			cellId: cell.id,
 		};
 	}
@@ -1539,35 +1666,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		const quartoModel = this._documentModelService.getModel(model);
 		const cell = quartoModel.getCellAtLine(lineNumber);
 		return cell?.id;
-	}
-
-	/**
-	 * Get file extension for a MIME type.
-	 */
-	private _getExtensionForMimeType(mimeType: string): string {
-		switch (mimeType) {
-			case 'image/png':
-				return '.png';
-			case 'image/jpeg':
-			case 'image/jpg':
-				return '.jpg';
-			case 'image/gif':
-				return '.gif';
-			case 'image/svg+xml':
-				return '.svg';
-			case 'image/webp':
-				return '.webp';
-			default:
-				return '.png'; // Default to PNG
-		}
-	}
-
-	/**
-	 * Extract base64 data from a data URL.
-	 */
-	private _extractBase64FromDataUrl(dataUrl: string): string | undefined {
-		const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-		return match ? match[2] : undefined;
 	}
 
 	/**

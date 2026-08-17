@@ -18,7 +18,7 @@ import { ExtHostConfiguration, IExtHostConfiguration } from './extHostConfigurat
 import { ActivatedExtension, EmptyExtension, ExtensionActivationTimes, ExtensionActivationTimesBuilder, ExtensionsActivator, IExtensionAPI, IExtensionModule, HostExtension, ExtensionActivationTimesFragment } from './extHostExtensionActivator.js';
 import { ExtHostStorage, IExtHostStorage } from './extHostStorage.js';
 import { ExtHostWorkspace, IExtHostWorkspace } from './extHostWorkspace.js';
-import { MissingExtensionDependency, ActivationKind, checkProposedApiEnabled, isProposedApiEnabled, ExtensionActivationReason } from '../../services/extensions/common/extensions.js';
+import { MissingExtensionDependency, ActivationKind, checkProposedApiEnabled, isProposedApiEnabled, ExtensionActivationReason, IProposedApiUsage, setProposedApiUsageReporter, setEnabledApiProposalsFallbackExperiment } from '../../services/extensions/common/extensions.js';
 import { ExtensionDescriptionRegistry, IActivationEventsReader } from '../../services/extensions/common/extensionDescriptionRegistry.js';
 import * as errors from '../../../base/common/errors.js';
 import type * as vscode from 'vscode';
@@ -106,6 +106,11 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 	private readonly _readyToStartExtensionHost: Barrier;
 	private readonly _readyToRunExtensions: Barrier;
 	private readonly _eagerExtensionsActivated: Barrier;
+	// --- Start Positron ---
+	// Opened at the same 10-second-capped point upstream fires onStartupFinished,
+	// so background work can defer until the activation burst has drained.
+	private readonly _positronStartupFinished: Barrier;
+	// --- End Positron ---
 
 	private readonly _activationEventsReader: SyncedActivationEventsReader;
 	protected readonly _myRegistry: ExtensionDescriptionRegistry;
@@ -158,6 +163,9 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 		this._readyToStartExtensionHost = new Barrier();
 		this._readyToRunExtensions = new Barrier();
 		this._eagerExtensionsActivated = new Barrier();
+		// --- Start Positron ---
+		this._positronStartupFinished = new Barrier();
+		// --- End Positron ---
 		this._activationEventsReader = new SyncedActivationEventsReader(this._initData.extensions.activationEvents);
 		this._globalRegistry = new ExtensionDescriptionRegistry(this._activationEventsReader, this._initData.extensions.allExtensions);
 		const myExtensionsSet = new ExtensionIdentifierSet(this._initData.extensions.myExtensions);
@@ -203,6 +211,30 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 		this._resolvers = Object.create(null);
 		this._started = false;
 		this._remoteConnectionData = this._initData.remote.connectionData;
+
+		// report telemetry when an extension attempts to use a proposed API it is not entitled to use
+		this._register(setProposedApiUsageReporter(usage => this._reportProposedApiUsage(usage)));
+
+		// experiment: grant proposed API access to extension/proposal combinations that have not
+		// declared the proposal themselves (only takes effect on `stable`)
+		this._register(setEnabledApiProposalsFallbackExperiment(this._initData.enabledApiProposalsFallback, this._initData.quality));
+	}
+
+	private _reportProposedApiUsage(usage: IProposedApiUsage): void {
+		type ProposedApiUsageClassification = {
+			owner: 'alexr00';
+			comment: 'An extension attempted to use a proposed API it has not been allowlisted to use.';
+			extensionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The identifier of the extension attempting to use the proposed API.' };
+			proposalName: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The name of the proposed API the extension is not entitled to use.' };
+		};
+		type ProposedApiUsageEvent = {
+			extensionId: string;
+			proposalName: string;
+		};
+		this._mainThreadTelemetryProxy.$publicLog2<ProposedApiUsageEvent, ProposedApiUsageClassification>('extensionProposedApiNotEnabled', {
+			extensionId: usage.extensionId,
+			proposalName: usage.proposalName
+		});
 	}
 
 	public getRemoteConnectionData(): IRemoteConnectionData | null {
@@ -698,10 +730,30 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 
 		Promise.race([eagerExtensionsActivation, timeout(10000)]).then(() => {
 			this._activateAllStartupFinished();
+			// --- Start Positron ---
+			// Positron: see whenStartupFinished(). Opened here rather than off
+			// _eagerExtensionsActivated because that barrier waits on the uncapped
+			// activation promise, and a hung eager extension must delay dependent
+			// background work rather than suppress it.
+			this._positronStartupFinished.open();
+			// --- End Positron ---
 		});
 
 		return eagerExtensionsActivation;
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Resolves once eager extension activation has settled, at the same point
+	 * upstream fires `onStartupFinished`. Capped at 10 seconds, so a hung eager
+	 * extension delays this rather than never resolving it. Background work that
+	 * must not compete with startup waits on this instead of guessing a delay
+	 * from construction time.
+	 */
+	public async whenStartupFinished(): Promise<void> {
+		await this._positronStartupFinished.wait();
+	}
+	// --- End Positron ---
 
 	private _handleWorkspaceContainsEagerExtensions(folders: ReadonlyArray<vscode.WorkspaceFolder>): Promise<void> {
 		if (folders.length === 0) {

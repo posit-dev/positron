@@ -21,7 +21,7 @@ test.describe('Top Action Bar - Save All', {
 	});
 
 	test.afterAll(async function ({ cleanup }) {
-		await cleanup.discardAllChanges();
+		await cleanup.restoreFiles(['README.md', 'DESCRIPTION']);
 	});
 
 	test('Verify `Save All` is disabled when no unsaved editors are open', async function ({ app }) {

@@ -1,9 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as extHostProtocol from './extHost.positron.protocol.js';
+import { IThreeButtonModalDialogPromptOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 export class ExtHostModalDialogs implements extHostProtocol.ExtHostModalDialogsShape {
 
@@ -18,6 +19,10 @@ export class ExtHostModalDialogs implements extHostProtocol.ExtHostModalDialogsS
 
 	public showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean> {
 		return this._proxy.$showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
+	}
+
+	public showThreeButtonModalDialogPrompt(options: IThreeButtonModalDialogPromptOptions): Promise<string | undefined> {
+		return this._proxy.$showThreeButtonModalDialogPrompt(options);
 	}
 
 	public showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null> {

@@ -76,6 +76,16 @@ describe('getEnabledTools', () => {
 		expect(getEnabledTools(inEditor, tools, true)).toEqual([]);
 	});
 
+	it('keeps a read-only session tool available in Ask mode while excluding executeCode', () => {
+		const tools = [
+			tool('executeCode', ['positron-assistant', 'requires-session']),
+			tool('inspectVariables', ['positron-assistant', 'requires-session']),
+		];
+		// Ask mode is the Chat participant (not agent mode); executeCode is
+		// gated to agent mode, but a read-only session tool stays enabled.
+		expect(getEnabledTools(request(), tools, true, ParticipantID.Chat)).toEqual(['inspectVariables']);
+	});
+
 	it('disables all tools for the terminal participant', () => {
 		const tools = [tool('foo')];
 		expect(getEnabledTools(request(), tools, true, ParticipantID.Terminal)).toEqual([]);

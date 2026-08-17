@@ -42,21 +42,43 @@ function getMimeTypePriority(mime: string): number | null {
 
 
 /**
+ * Options controlling which output items are eligible for rendering.
+ */
+interface PickPreferredOutputItemOptions {
+	/**
+	 * Whether the inline data explorer is enabled. When off its payload isn't a rendering
+	 * candidate at all, so the cell falls back to whatever else the kernel sent
+	 * (`text/html` for Python, `text/plain` for R). Defaults to true.
+	 */
+	inlineDataExplorerEnabled?: boolean;
+}
+
+/**
  * Pick the output item with the highest priority mime type from a cell output object
  * @param outputItems Array of outputs items data from a cell output object
  * @returns The output item with the highest priority mime type. If there's a tie, the first one is
- * returned. If there's an unknown mime type we defer to ones we do know about.
+ * returned. If there's an unknown mime type we defer to ones we do know about. `undefined` when no
+ * item is eligible.
  */
-export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): NotebookCellOutputItem | undefined {
+export function pickPreferredOutputItem(
+	outputItems: NotebookCellOutputItem[],
+	{ inlineDataExplorerEnabled = true }: PickPreferredOutputItemOptions = {}
+): NotebookCellOutputItem | undefined {
 
-	if (outputItems.length === 0) {
+	// A disabled inline data explorer makes its payload unrenderable, so it's dropped before
+	// ranking -- including when it's the only item, leaving the output with nothing to show.
+	const candidates = inlineDataExplorerEnabled
+		? outputItems
+		: outputItems.filter(item => !isDataExplorerMimeType(item.mime));
+
+	if (candidates.length === 0) {
 		return undefined;
 	}
 
 	let highestPriority: number | null = null;
-	let preferredOutput = outputItems[0];
+	let preferredOutput = candidates[0];
 
-	for (const item of outputItems) {
+	for (const item of candidates) {
 		const priority = getMimeTypePriority(item.mime);
 
 		// If we don't know how to render any of the mime types, we'll return the first one and hope
@@ -73,7 +95,7 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): 
 
 	if (highestPriority === null) {
 		// Unknown mime mixes can occur in normal notebook usage.
-		// We fall through to returning the first item, which is the
+		// We fall through to returning the first candidate, which is the
 		// best we can do for unrecognized mime types.
 	}
 

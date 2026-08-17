@@ -1,7 +1,7 @@
 # Positron CI dev container (ubuntu24-arm64)
 
 Develop, debug, and run Positron **inside the actual CI image**
-(`ghcr.io/posit-dev/positron-ubuntu24:24.15.0`) so CI failures reproduce locally. You edit code in VS Code on your host; the build, tests, and Positron itself run in the container.
+(`ghcr.io/posit-dev/positron-ubuntu24:24.18.0`) so CI failures reproduce locally. You edit code in VS Code on your host; the build, tests, and Positron itself run in the container.
 
 > Validated on **arm64** (Apple Silicon) only. The base image is a multi-arch
 > manifest, so Docker resolves the host arch automatically; `POSITRON_CI_IMAGE_ARCH`
@@ -75,9 +75,30 @@ That's it - you have a working CI lab.
 
 ## Workflows
 
-Two audiences, two subsections below: a human driving VS Code's Dev Containers UI, or an agent (e.g.
-Claude Code) driving the same stack headlessly over `docker compose` / `docker exec`. Both need
-[Setup](#setup) done first.
+The first subsection below applies to everyone. The two after it split by audience: a human driving
+VS Code's Dev Containers UI, or an agent (e.g. Claude Code) driving the same stack headlessly over
+`docker compose` / `docker exec`. All of them need [Setup](#setup) done first.
+
+### Reproducing a CI-only flake
+
+**Run the *whole* spec at `--workers=1`.** Positron doesn't split a single spec file across workers,
+so its tests run in order and share app state. A test that only fails in CI often passes in isolation
+(a single `--grep`) yet fails in a full-file run because an earlier test left state behind -- **don't
+conclude "can't reproduce" from an isolated run.**
+
+Whatever you changed to chase the flake has to actually be compiled before you run. `out/` is
+bind-mounted and reflects whichever branch was last built here, so it does not follow a bare
+`git checkout` or a hand edit:
+
+| You did this | Then do this |
+|---|---|
+| pushed a branch | `ci-lab-up.sh <branch>` |
+| committed to a local-only branch, or want a specific SHA | `ci-lab-up.sh <ref>` -- it falls back to a local ref when the ref isn't on origin, so instrumentation branches don't need pushing |
+| edited source in place | `ci-lab-up.sh --local` (headless) or let the **Watch** task recompile (UI) |
+| nothing; just rerunning | nothing |
+
+Any of the first three reconcile dependencies *and* recompile `out/`. Without one of them nothing is
+recompiled, and "ready" only means the last build's artifacts are present.
 
 ### User Workflows (VS Code UI)
 
@@ -116,6 +137,10 @@ from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
 Headed runs (`e2e-electron` and `e2e-chromium`) render on the headless display. Open the noVNC link in the **Doctor** to view it live. Use the **Report** task to serve the report at any time.
 
+Chasing a CI-only failure rather than running a spec? Read
+[Reproducing a CI-only flake](#reproducing-a-ci-only-flake) first -- a single `--grep` run is the
+most common way to wrongly conclude the flake doesn't reproduce.
+
 #### Test data (test-files)
 
 The e2e tests open files from `test/e2e/test-files` in the repo; the framework copies them into the
@@ -145,11 +170,29 @@ steps 1-2 are done (worktree created, secrets added). The build runs through thi
 
    ```bash
    cd <worktree>/.devcontainer/ci-arm
-   ./ci-lab-up.sh [<branch>]
+   ./ci-lab-up.sh [<ref> | --local]
    ```
 
-   `ci-lab-up.sh` detects cold/warm/hot itself; with a `<branch>` it also checks out that branch and
-   reconciles deps + `out/`. A cold build is ~10 min -- run it in the background; clean exit = ready.
+   `ci-lab-up.sh` detects cold/warm/hot itself. Three modes, differing only in what gets recompiled
+   before the run -- see [Reproducing a CI-only flake](#reproducing-a-ci-only-flake) for which to pick:
+
+   | Invocation | What it does |
+   |---|---|
+   | `ci-lab-up.sh <ref>` | checks out `<ref>`, then reconciles deps + recompiles `out/`. Resolves from origin first, then as a local branch/tag/SHA -- so a local-only instrumentation branch works unpushed |
+   | `ci-lab-up.sh --local` | no git operation; reconciles + recompiles against the current working tree |
+   | `ci-lab-up.sh` | nothing recompiled; the current checkout is assumed already built |
+
+   A cold build is ~10 min -- run it in the background.
+
+   > [!IMPORTANT]
+   > **Check the result by grepping the output for `ci-lab-up: SUCCESS` or `ci-lab-up: FAILED`,**
+   > which names the phase that failed. Don't rely on `$?` if you piped through `tee` -- a pipeline
+   > reports tee's exit status (always 0), not the script's, so a failed run looks green. Both
+   > trailers go to stdout; redirect with `2>&1` so the diagnostics behind a failure are captured too:
+   >
+   > ```bash
+   > ./ci-lab-up.sh <ref> 2>&1 | tee /tmp/ci-lab-up.log
+   > ```
 
 2. **Run a spec** in the container (from the same `.devcontainer/ci-arm` dir, so Compose finds this
    project's `docker-compose.yml` and `.env`):
@@ -159,31 +202,34 @@ steps 1-2 are done (worktree created, secrets added). The build runs through thi
      "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/run-e2e.sh test/e2e/tests/<area>/<file>.test.ts --workers=1"
    ```
 
-**Reproducing a CI-only flake? Run the *whole* spec at `--workers=1`** (as the command above does).
-Positron doesn't split a single spec file across workers, so its tests run in order and share app
-state. A test that only fails in CI often passes in isolation (a single `--grep`) yet fails because an
-earlier test in the same file left state behind -- don't conclude "can't reproduce" from an isolated
-run.
-
-**How it works, and when it breaks.** `ci-lab-up.sh` chains `initialize.sh` -> `docker compose up -d`
--> cold-or-ready detection -> `post-create.sh` if cold (~10 min) -> the idempotent `post-start.sh`
-(display, VNC, postgres). A `<branch>` argument also checks out that branch and reconciles deps +
-`out/`. When a phase fails, read its log (`/tmp/post-create.log`, `/tmp/compile.log`) and the script's
-`=== ci-lab-up: <phase> ===` echoes, then rerun that phase. Three non-obvious things it handles:
+**How it works, and when it breaks.** `ci-lab-up.sh` chains `initialize.sh` (workspace env + submodule
+checkout) -> `docker compose up -d` -> cold-or-ready detection -> `post-create.sh` if cold (~10 min) ->
+the idempotent `post-start.sh` (display, VNC, postgres), with the reconcile + recompile in between when
+a `<ref>` or `--local` asked for it. When a phase fails, read its log (`/tmp/post-create.log`,
+`/tmp/compile.log`) and the script's `=== ci-lab-up: <phase> ===` echoes, then rerun that phase. Four
+non-obvious things it handles:
 
 - **"Ready" checks artifacts, not just the marker.** Detection keys off `.build/.ci-arm-state/complete`
   *and* `out/main.js` + a populated `node_modules` -- a container can read built yet still fail a run
   with `Cannot find module`. That case is treated as cold; reinstall + recompile (or rerun
-  `ci-lab-up.sh <branch>`).
+  `ci-lab-up.sh <ref>`). Note "ready" is still only a statement about the *last* build: without a
+  `<ref>` or `--local` it says nothing about whether `out/` matches your working tree, which is why
+  the no-argument mode says so explicitly on exit.
+- **Submodules are checked out host-side, on purpose.** `ai-lib` is private and the container has no
+  GitHub credentials, so if `build/npm/postinstall.ts` has to clone it the whole root install aborts
+  and you get a confusing downstream `TS2688: Cannot find type definition file for 'node'` from
+  whichever extension is newest. `initialize.sh` runs on the host, where your credentials are, and
+  checks out any missing submodule before the container needs it.
 - **No `containerEnv` over plain `docker compose`.** The four interpreter version selectors in
   `devcontainer.json`'s `containerEnv` are injected by the Dev Containers extension, not by
   `docker compose exec`, and the e2e suite throws without them. That's why runs go through
   `run-e2e.sh`, which reads the pins and exports them (plus `DISPLAY`, `--project e2e-electron`,
   `GITHUB_ACTIONS=true`, which is what makes image-comparison tests actually compare).
-- **Branch switches stale deps and `out/`.** `out/` is bind-mounted and reflects whichever branch was
-  last built here. Passing `<branch>` to `ci-lab-up.sh` reconciles both (sha-compare against
-  `.build/.ci-arm-state/*.sha`, then `reinstall-deps.sh` / incremental compile as needed) -- prefer it
-  over a bare `git checkout`.
+- **Branch switches and hand edits stale deps and `out/`.** `out/` is bind-mounted and reflects
+  whichever branch was last built here. `ci-lab-up.sh <ref>` (or `--local` for uncommitted edits)
+  reconciles both (sha-compare against `.build/.ci-arm-state/*.sha`, then `reinstall-deps.sh` /
+  incremental compile as needed) -- prefer either over a bare `git checkout`. Neither rebuilds
+  Electron; a change needing `npm run electron` wants a full **Rebuild**.
 
 ## Reference
 
@@ -198,7 +244,7 @@ flowchart LR
         web["Browser"]
         src[/"Your checkout<br/>src, out/"/]
     end
-    subgraph ctr["Container: positron-ubuntu24:24.15.0"]
+    subgraph ctr["Container: positron-ubuntu24:24.18.0"]
         desk["Desktop app<br/>(Electron)"]
         srv["Web server<br/>:8080"]
         e2e["e2e tests"]
@@ -324,6 +370,18 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
 - **`npm ci` may leave files staged in your worktree.** Positron's postinstall runs
   `git add --renormalize`, which stages line-ending changes in your bind-mounted index. It's
   harmless: `git restore --staged .`.
+- **First install after an `ai-lib` gitlink bump fails; just run it twice.** When a branch moves the
+  `ai-lib` submodule pointer, the first `npm install` / `fast-install.ts` errors out; a second run
+  succeeds. `ci-lab-up.sh` doesn't retry for you, so if a reconcile fails on `ai-lib`, rerun it once
+  before digging further.
+- **A drifted submodule pointer looks like a dirty tree.** A stale submodule checkout from an earlier
+  session shows up as ` M ai-lib` or ` M extensions/positron-r/ark`, and "commit or stash" is the wrong
+  advice -- committing a drifted pointer is actively harmful, and stashing it leaves the gitlink where
+  it was. `ci-lab-up.sh` calls out any drifted submodule it sees and prints the
+  `git submodule update --init --recursive <path>` that fixes it, separately from any ordinary edits.
+- **Generating a patch? Use `git diff --no-color`.** If your git config forces color on, a plain
+  `git diff > x.patch` embeds ANSI escapes and `git apply` rejects the file with the unhelpful
+  `No valid patches in input`.
 - **Python/R interpreters dead after building one checkout both ways** - wrong-OS `pet`/`ark`/`kcserver`
   (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). The Doctor's
   **Interpreters** row flags this; run **Positron CI: Reinstall interpreters** to restore the Linux
@@ -336,8 +394,9 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
   - **Mid-session (messier).** `git checkout` in the open container, then reload the window and let
     **Watch** recompile (restart any running Positron/debug). Note Watch recompiles but does *not*
     check dependency drift -- rely on the Doctor's **Build** row to flag stale deps.
-  - **Headless.** `ci-lab-up.sh <branch>` (see [Claude Workflows](#claude-workflows-cli-only-headless))
-    does the same thing over the CLI, including the dependency-drift check Watch doesn't handle.
+  - **Headless.** `ci-lab-up.sh <ref>` (see [Claude Workflows](#claude-workflows-cli-only-headless))
+    does the same thing over the CLI, including the dependency-drift check Watch doesn't handle. It
+    accepts a local-only branch or a SHA, and `--local` reconciles uncommitted edits in place.
 
   Whichever path you take, keep the **Doctor** open: its Build and Interpreters rows tell you what
   went stale and which task fixes it.

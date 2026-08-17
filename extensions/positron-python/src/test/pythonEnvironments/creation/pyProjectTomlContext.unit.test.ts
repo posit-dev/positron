@@ -39,7 +39,7 @@ function getNonInstallableToml(): typemoq.IMock<TextDocument> {
     pyprojectToml.setup((p) => p.fileName).returns(() => pyprojectTomlPath);
     pyprojectToml
         .setup((p) => p.getText(typemoq.It.isAny()))
-        .returns(() => '[project]\nname = "spam"\nversion = "2020.0.0"\n');
+        .returns(() => '[tool.poetry]\nname = "spam"\nversion = "2020.0.0"\n');
     return pyprojectToml;
 }
 

@@ -115,6 +115,9 @@ export enum PlatformTags {
 	WIN = '@:win',
 	WORKBENCH = '@:workbench',
 	WORKBENCH_STABLE = '@:workbench-stable',
+	// Lane trigger only: runs the same @:workbench test set on Rocky Linux 9.
+	// Never applied to an individual test.
+	WORKBENCH_ROCKY = '@:workbench-rocky',
 	WORKBENCH_SNOWFLAKE = '@:workbench-snowflake',
 	WORKBENCH_DATABRICKS = '@:workbench-databricks',
 	WORKBENCH_AZURE = '@:workbench-azure',

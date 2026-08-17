@@ -46,6 +46,12 @@ export interface IDataConnectionProfile {
 
 	// The parameter values for this connection.
 	parameterValues: DataConnectionParameterValues;
+
+	// The user's preferred connection code variant per language (languageId -> variant id), from
+	// the driver's generateConnectionCode results. Optional: existing profiles predate this field,
+	// and languages the user has never picked a variant for are absent. Callers fall back to
+	// variants[0] when a language has no stored preference.
+	preferredCodeVariants?: Record<string, string>;
 }
 
 /**
@@ -182,6 +188,10 @@ export interface IDataConnectionHandle {
 	disconnect(): Promise<void>;
 	isConnected(): Promise<boolean>;
 	nodeGetChildren(nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
-	nodePreview(nodeHandle: number): Promise<void>;
+	/**
+	 * Previews a node's data in the Data Explorer. Resolves to the dataset id the preview was
+	 * opened under, or undefined when the driver did not report one.
+	 */
+	nodePreview(nodeHandle: number): Promise<string | undefined>;
 	release(): void;
 }

@@ -53,7 +53,7 @@ export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostg
 	private readonly _views = new Map<string, PostgresTableView>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
-	constructor() {
+	constructor(private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(POSTGRESQL_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
 		});
@@ -163,7 +163,7 @@ export class PostgresDataExplorerRpcHandler implements vscode.Disposable, IPostg
 				} satisfies DataExplorerUiEvent);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : 'unknown error';
-				console.error(`Failed to compute PostgreSQL column profiles: ${message}`);
+				this._logger?.error(`Failed to compute PostgreSQL column profiles: ${message}`);
 			}
 		})();
 	}

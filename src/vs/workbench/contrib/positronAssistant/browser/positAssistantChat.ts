@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -54,7 +55,8 @@ export async function openPositAssistantChat(
 		notificationService.error(
 			localize(
 				'positron.assistant.chatUnavailable',
-				"Posit Assistant could not be opened. Make sure the Posit Assistant extension is installed and enabled, and that the assistant sidebar view is turned on."
+				"Posit Assistant could not be opened: {0}",
+				toErrorMessage(error)
 			)
 		);
 	}

@@ -14,12 +14,16 @@ test.describe('Quarto - Inline Output: Persistence', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
 
+	// Saved under a random name, so teardown cannot know it up front.
+	const createdFiles: string[] = [];
+
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
 	test.afterAll(async function ({ cleanup }) {
-		await cleanup.discardAllChanges();
+		await cleanup.restoreFiles([join('workspaces', 'quarto_inline_output', 'simple_plot.qmd')]);
+		await cleanup.removeTestFiles(createdFiles);
 	});
 
 	test('Python - Verify inline output persists after closing and reopening file', async function ({ app, python, openFile, hotKeys }) {
@@ -33,7 +37,7 @@ test.describe('Quarto - Inline Output: Persistence', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 		await inlineQuarto.expectOutputVisible();
 
 		// Close and reopen the file
@@ -42,7 +46,7 @@ test.describe('Quarto - Inline Output: Persistence', {
 		await editors.waitForActiveTab('simple_plot.qmd');
 
 		// Verify output persisted
-		await inlineQuarto.gotoLine(25);
+		await inlineQuarto.revealOutput(20);
 		await inlineQuarto.expectOutputVisible();
 	});
 
@@ -51,6 +55,7 @@ test.describe('Quarto - Inline Output: Persistence', {
 
 		// Set up a unique filename for the untitled document
 		const savedFileName = `untitled-test-${Math.random().toString(36).substring(7)}.qmd`;
+		createdFiles.push(savedFileName);
 
 		// Open a new untitled Quarto document
 		await runCommand('quarto.newDocument');
@@ -104,7 +109,7 @@ print("Hello from untitled!")
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 
 		// Get initial kernel text
 		await inlineQuarto.expectKernelIdle();

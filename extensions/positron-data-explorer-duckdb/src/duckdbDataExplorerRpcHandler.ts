@@ -80,8 +80,9 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 	/**
 	 * @param providerId The Data Explorer provider id to register under; the consuming extension
 	 * passes the same id to `positron.dataExplorer.open`.
+	 * @param _logger Optional logger for reporting RPC failures to the consuming extension's output channel.
 	 */
-	constructor(providerId: string) {
+	constructor(providerId: string, private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(providerId, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc),
 			closeDataset: (datasetId) => this.closeDataset(datasetId),
@@ -162,6 +163,7 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 			return { result: await this._dispatch(rpc) };
 		} catch (error) {
 			const message = error instanceof Error ? error.message : `Unknown error handling ${rpc.method}`;
+			this._logger?.error(`DuckDB Data Explorer RPC failed (method: ${rpc.method}, dataset: ${rpc.uri ?? 'unknown'}): ${message}`);
 			return { error_message: message };
 		}
 	}
@@ -216,7 +218,7 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 				} satisfies DataExplorerUiEvent);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : 'unknown error';
-				console.error(`Failed to compute DuckDB column profiles: ${message}`);
+				this._logger?.error(`DuckDB Data Explorer RPC failed (method: ${DataExplorerBackendRequest.GetColumnProfiles}, dataset: ${datasetId}): ${message}`);
 			}
 		})();
 	}

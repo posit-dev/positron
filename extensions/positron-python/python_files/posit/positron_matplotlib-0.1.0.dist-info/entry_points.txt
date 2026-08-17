@@ -1,0 +1,3 @@
+[matplotlib.backend]
+positron-console = positron.matplotlib_backend.console
+positron-notebook = positron.matplotlib_backend.notebook

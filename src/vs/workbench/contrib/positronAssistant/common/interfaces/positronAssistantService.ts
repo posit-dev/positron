@@ -74,14 +74,11 @@ export interface IPositronProviderMetadata {
 	/** Display name shown in UI (e.g., 'Anthropic', 'GitHub Copilot') */
 	displayName: string;
 	/**
-	 * Setting name used in the per-provider enable key. Either
-	 * `assistant.provider.<settingName>.enabled` (for providers owned by
-	 * the authentication extension) or
-	 * `positron.assistant.provider.<settingName>.enable` (the legacy
-	 * form, still used by providers declared in
-	 * `extensions/positron-assistant/package.json`) toggles the provider.
+	 * Provider id in the resolved provider catalog (`~/.posit/ai/providers.json`),
+	 * used to resolve enablement and connection config. Undefined for providers
+	 * with no catalog entry, which are treated as enabled.
 	 */
-	settingName: string;
+	catalogId?: string;
 	/**
 	 * Maturity status of the provider. Drives how it's presented in the
 	 * configuration modal: stable providers (no status) are listed first, then
@@ -124,6 +121,22 @@ export type IPositronLanguageModelAutoconfigure = (
 	}
 );
 
+/**
+ * A user-declared model for a custom provider, mirroring the required fields of
+ * ai-config's custom model schema (providers.json `models.custom`). The modal
+ * fills the capability flags and context length with OpenAI-compatible defaults,
+ * so the user only has to supply the id.
+ */
+export interface IPositronCustomModel {
+	id: string;
+	name: string;
+	maxContextLength: number;
+	supportsTools: boolean;
+	supportsImages: boolean;
+	supportsToolResultImages: boolean;
+	supportsWebSearch: boolean;
+}
+
 // Equivalent in positron.d.ts API: LanguageModelConfig
 export interface IPositronLanguageModelConfig {
 	model?: string;
@@ -138,6 +151,19 @@ export interface IPositronLanguageModelConfig {
 	maxInputTokens?: number;
 	maxOutputTokens?: number;
 	completions?: boolean;
+	/**
+	 * Wire protocol (API type) the provider speaks, e.g. 'openai-chat' (Chat
+	 * Completions) or 'openai-responses' (Responses). Routes custom /
+	 * OpenAI-compatible providers to the right API. Omit to let the provider
+	 * decide.
+	 */
+	protocol?: string;
+	/**
+	 * Explicit model list for a custom provider whose endpoint has no `/models`
+	 * listing. Persisted as providers.json `models.custom` (with discovery off).
+	 * Create-flow only; not part of the public `positron.d.ts` API.
+	 */
+	customModels?: IPositronCustomModel[];
 	autoconfigure?: IPositronLanguageModelAutoconfigure;
 }
 
@@ -174,14 +200,14 @@ export interface IPositronAssistantConfigurationService {
 
 	/**
 	 * Event that fires when enabled providers configuration changes.
-	 * Fires when either individual provider enable settings or the deprecated enabledProviders array changes.
+	 * Fires when provider enablement in the catalog (providers.json) changes.
 	 */
 	readonly onChangeEnabledProviders: Event<void>;
 
 	/**
 	 * Registers a language model provider with the configuration service.
 	 * Call once per provider during extension activation with all static config.
-	 * Creates a positron.assistant.provider.<settingName>.enable toggle in Settings.
+	 * Enablement is read from the provider catalog (providers.json), not a setting.
 	 *
 	 * @param source Provider source definition
 	 */
@@ -221,10 +247,7 @@ export interface IPositronAssistantConfigurationService {
 	 * Should only be used after the Positron Assistant extension has finished activation,
 	 * as enabled providers are registered as part of the extension activation flow.
 	 *
-	 * Reads from per-provider enable settings: either
-	 * `assistant.provider.<settingName>.enabled` or
-	 * `positron.assistant.provider.<settingName>.enable` toggles the
-	 * provider on.
+	 * Reads enablement from the resolved provider catalog (providers.json).
 	 *
 	 * @returns Array of enabled provider IDs
 	 */
@@ -277,7 +300,9 @@ export interface IPositronAssistantService {
 	getChatExport(): IExportableChatData | undefined;
 
 	/**
-	 * Checks if completions are enabled for the given file.
+	 * Checks if Copilot inline completions are enabled for the given file.
+	 * Scoped to Copilot: gated on the Copilot catalog provider. Posit AI Next Edit
+	 * Suggestions (NES) has its own separate enablement and does not use this.
 	 * @param uri The file URI to check if completions are enabled.
 	 * @returns true if completions should be enabled for the file, false otherwise.
 	 */

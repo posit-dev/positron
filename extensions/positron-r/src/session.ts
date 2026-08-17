@@ -18,7 +18,7 @@ import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
 import { RPackageManager } from './packages';
-import { listMissingRPackages } from './missingPackages';
+import { listMissingRPackages, rMissingPackageProbe } from './missingPackages';
 import { RMetadataExtra } from './r-installation';
 import { warnOnArkVersionMismatch } from './arkVersionCheck';
 
@@ -304,9 +304,13 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		errorBehavior: positron.RuntimeErrorBehavior,
 		codeLocation?: positron.Utf8Location,
 		executionMetadata?: Record<string, any>
-	): void {
+	): Promise<void> {
 		if (this._kernel) {
-			this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata);
+			// Return the kernel's execution promise so a rejection (e.g. an
+			// Unprocessed submission found to be incomplete) propagates back to
+			// the caller instead of surfacing as an unhandled rejection.
+			return Promise.resolve(
+				this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata));
 		} else {
 			throw new Error(`Cannot execute '${code}'; kernel not started`);
 		}
@@ -862,6 +866,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			return [];
 		}
 		return listMissingRPackages(this._packageManager, target, token);
+	}
+
+	getMissingPackageProbe(error: positron.RuntimeConsoleError): string | undefined {
+		return rMissingPackageProbe(error.message);
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {

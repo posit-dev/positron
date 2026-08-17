@@ -28,7 +28,7 @@ test.describe('Quarto - Inline Output: Basic', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 
 		// Verify output content
 		await inlineQuarto.expectOutputVisible();
@@ -50,7 +50,7 @@ test.describe('Quarto - Inline Output: Basic', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 
 		// Verify there is exactly ONE output view zone, not duplicates
 		await inlineQuarto.expectOutputsExist(1);
@@ -69,7 +69,7 @@ test.describe('Quarto - Inline Output: Basic', {
 
 		// Run the cell and wait for output
 		await editors.clickTab('simple_plot.qmd');
-		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
+		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 20 });
 
 		// Scroll to make sure the output area is in view
 		await inlineQuarto.gotoLine(20);

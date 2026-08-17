@@ -11,12 +11,13 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
-import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
-import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { TestLifecycleService, TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { NotebookSetting } from '../../../../contrib/notebook/common/notebookCommon.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -40,6 +41,7 @@ describe('Positron - RuntimeSessionService', () => {
 	let manager: TestRuntimeSessionManager;
 	let runtime: ILanguageRuntimeMetadata;
 	let anotherRuntime: ILanguageRuntimeMetadata;
+	let unrelatedRuntime: ILanguageRuntimeMetadata;
 	let sessionName: string;
 	let unregisteredRuntime: ILanguageRuntimeMetadata;
 
@@ -61,6 +63,7 @@ describe('Positron - RuntimeSessionService', () => {
 
 		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		anotherRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		unrelatedRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		sessionName = runtime.runtimeName;
 		// eslint-disable-next-line local/code-no-dangerous-type-assertions
 		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as unknown as ILanguageRuntimeMetadata;
@@ -1525,6 +1528,116 @@ describe('Positron - RuntimeSessionService', () => {
 
 			await runtimeSessionService.deleteSession(session.sessionId);
 			expect(runtimeSessionService.getDisplayRuntimeState(session.sessionId)).toBeUndefined();
+		});
+	});
+
+	describe('reconnecting sessions after an extension host restart', () => {
+		// Drive a session to an extension-host disconnect: mark it exited, then
+		// fire onDidEndSession with the ExtensionHost reason. The queuing runs on
+		// the next tick, so callers await timeout(0) before asserting. A queued
+		// (disconnected) session refuses deletion with a distinctive error, which
+		// is how we observe whether it was remembered for reconnection.
+		async function disconnectViaExtensionHost(session: TestLanguageRuntimeSession) {
+			session.setRuntimeState(RuntimeState.Exited);
+			session.endSession({ reason: RuntimeExitReason.ExtensionHost });
+			await timeout(0);
+		}
+
+		it('remembers a Machine session so it can be reconnected', async () => {
+			const machineRuntime = createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Machine);
+			const session = await startConsole(machineRuntime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			await disconnectViaExtensionHost(session);
+
+			await expect(runtimeSessionService.deleteSession(session.sessionId))
+				.rejects.toThrow(/disconnected/);
+		});
+
+		it('remembers a Workspace session so it can be reconnected', async () => {
+			const workspaceRuntime = createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Workspace);
+			const session = await startConsole(workspaceRuntime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			await disconnectViaExtensionHost(session);
+
+			await expect(runtimeSessionService.deleteSession(session.sessionId))
+				.rejects.toThrow(/disconnected/);
+		});
+
+		it('does not remember a Browser session, which cannot be reconnected', async () => {
+			const browserRuntime = createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Browser);
+			const session = await startConsole(browserRuntime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			await disconnectViaExtensionHost(session);
+
+			// Not queued for reconnection, so deletion proceeds normally.
+			expect(await runtimeSessionService.deleteSession(session.sessionId)).toBe(true);
+		});
+
+		it('does not remember a session when the window is shutting down', async () => {
+			const machineRuntime = createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Machine);
+			const session = await startConsole(machineRuntime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			// Quitting tears down the extension host too, producing the same
+			// exit reason, but there is no reconnect to wait for.
+			const lifecycleService = ctx.get(ILifecycleService) as TestLifecycleService;
+			lifecycleService.willShutdown = true;
+			await disconnectViaExtensionHost(session);
+
+			// Not queued for reconnection, so deletion proceeds normally.
+			expect(await runtimeSessionService.deleteSession(session.sessionId)).toBe(true);
+		});
+	});
+
+	describe('userSelected provenance', () => {
+		it('is true when the caller marks the start as user selected', async () => {
+			const sessionId = await runtimeSessionService.startNewRuntimeSession(
+				runtime.runtimeId,
+				sessionName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				startReason,
+				RuntimeStartMode.Starting,
+				true,
+				{ userSelected: true },
+			);
+			const session = runtimeSessionService.getSession(sessionId) as TestLanguageRuntimeSession;
+			ctx.disposables.add(session);
+
+			expect(session.metadata.userSelected).toBe(true);
+		});
+
+		it('is undefined for plain starts, auto starts, and restores', async () => {
+			const started = await startConsole(runtime);
+			const autoStarted = await autoStartSession(anotherRuntime);
+			const restored = await restoreConsole(unrelatedRuntime);
+
+			expect([
+				started.metadata.userSelected,
+				autoStarted.metadata.userSelected,
+				restored.metadata.userSelected,
+			]).toEqual([undefined, undefined, undefined]);
+		});
+
+		it('is preserved when a restored session carries it', async () => {
+			const sessionMetadata: IRuntimeSessionMetadata = {
+				sessionId: 'test-user-selected-restore-id',
+				sessionMode: LanguageRuntimeSessionMode.Console,
+				createdTimestamp: Date.now(),
+				notebookUri: undefined,
+				startReason,
+				userSelected: true,
+			};
+			const session = await restoreSession(sessionMetadata, runtime);
+
+			expect(session.metadata.userSelected).toBe(true);
 		});
 	});
 });

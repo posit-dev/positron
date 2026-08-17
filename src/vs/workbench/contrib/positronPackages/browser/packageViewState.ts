@@ -40,6 +40,10 @@ export function derivePackageViewState(
 	pkg: ILanguageRuntimePackage | undefined,
 	ctx: PackageViewContext
 ): PackageViewState {
+	// Website before help, matching the order the Packages list uses. The list right-aligns
+	// its icon group, so help (always present there) has to come last to stay pinned to the
+	// row's right edge; the detail page follows that order so an icon does not swap position
+	// when moving between the two views.
 	const website: PackageAction[] = pkg?.url ? ['website'] : [];
 
 	if (!ctx.sessionAlive) {
@@ -50,10 +54,10 @@ export function derivePackageViewState(
 	const showNotActiveHint = !ctx.isActive;
 
 	if (!ctx.installed) {
-		return { installState: 'not-installed', actionsEnabled, actions: ['install', 'help', ...website], showNotActiveHint };
+		return { installState: 'not-installed', actionsEnabled, actions: ['install', ...website, 'help'], showNotActiveHint };
 	}
 	if (pkg?.outdated) {
-		return { installState: 'outdated', actionsEnabled, actions: ['update', 'uninstall', 'help', ...website], showNotActiveHint };
+		return { installState: 'outdated', actionsEnabled, actions: ['update', 'uninstall', ...website, 'help'], showNotActiveHint };
 	}
-	return { installState: 'current', actionsEnabled, actions: ['uninstall', 'help', ...website], showNotActiveHint };
+	return { installState: 'current', actionsEnabled, actions: ['uninstall', ...website, 'help'], showNotActiveHint };
 }

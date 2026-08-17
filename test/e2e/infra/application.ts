@@ -10,6 +10,7 @@ import { Profiler } from './profiler';
 import { expect } from '@playwright/test';
 import { PositWorkbench } from './workbench-pwb.js';
 import { PositJupyter } from './workbench-jupyter.js';
+import { installArchMismatchNotificationHandler } from './archMismatchNotification.js';
 
 const LOAD_TIMEOUT = 60000;
 
@@ -203,6 +204,14 @@ export class Application {
 		const isWorkbench = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8787');
 		const isJupyter = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8888');
 		const isPositronServer = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8080');
+
+		// --- Start Positron ---
+		// Auto-dismiss the sticky interpreter architecture-mismatch warning, which
+		// otherwise covers the workbench for the whole run on mismatched-arch machines
+		// (notably the Windows arm64 CI lane). Registered here rather than in the app
+		// fixture so it is re-installed on every launch, including `restart()`.
+		await installArchMismatchNotificationHandler(code.driver.currentPage, code.driver.browserContext, this.logger);
+		// --- End Positron ---
 
 		// We need a rendered workbench
 		await measureAndLog(() => code.didFinishLoad(), 'Application#checkWindowReady: wait for navigation to be committed', this.logger);

@@ -45,5 +45,10 @@ export interface IWindowDriver {
 	getLocalizedStrings(): Promise<ILocalizedStrings>;
 	getLogs(): Promise<ILogFile[]>;
 	whenWorkbenchRestored(): Promise<void>;
+	// --- Start Positron ---
+	// Generic bridge for invoking a workbench command and returning its result,
+	// so tests can read data programmatically instead of scraping the DOM.
+	executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
+	// --- End Positron ---
 }
 //*END

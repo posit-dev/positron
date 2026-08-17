@@ -38,10 +38,10 @@ import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { Architecture } from '../common/utils/platform';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
-import { getActiveInterpreterConfigTarget, whenTimeout } from './util';
+import { getActiveInterpreterConfigTarget, resolveInterpreterWithRetry, whenTimeout } from './util';
 import { PackageManagerFactory } from './packages/packageManagerFactory';
 import { IPackageManager } from './packages/types';
-import { listMissingPythonPackages } from './missingPackages';
+import { listMissingPythonPackages, pythonMissingPackageProbe } from './missingPackages';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -247,14 +247,22 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         errorBehavior: positron.RuntimeErrorBehavior,
         codeLocation?: positron.Utf8Location,
         executionMetadata?: Record<string, any>,
-    ): void {
+    ): Promise<void> {
         if (this._kernel) {
             if (this._isUninstallBundledPackageCommand(code, id)) {
                 // It's an attempt to uninstall a bundled package, don't execute.
-                return;
+                return Promise.resolve();
             }
 
-            this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata);
+            // Return the kernel's execution promise so a rejection propagates
+            // back to the caller. This matters for the `Unprocessed` mode: the
+            // supervisor checks completeness and rejects (with a
+            // `CodeIncompleteError`) when the code is incomplete, and the
+            // console relies on that rejection to show a continuation prompt.
+            // Dropping it here would leave the console waiting forever.
+            return Promise.resolve(
+                this._kernel.execute(code, id, mode, errorBehavior, codeLocation, executionMetadata),
+            );
         } else {
             throw new Error(`Cannot execute '${code}'; kernel not started`);
         }
@@ -418,6 +426,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         return listMissingPythonPackages(this, this._packageManager, target, token);
     }
 
+    getMissingPackageProbe(error: positron.RuntimeConsoleError): string | undefined {
+        return pythonMissingPackageProbe(error.message);
+    }
+
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
         // Use the bundled ipykernel if requested.
         const didUseBundledIpykernel = await this._addBundledIpykernelToPythonPath(interpreter, kernelSpec);
@@ -539,7 +551,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     async start(): Promise<positron.LanguageRuntimeInfo> {
-        const interpreter = await this._interpreterService.getInterpreterDetails(this._pythonPath);
+        const interpreter = await resolveInterpreterWithRetry(this._interpreterService, this._pythonPath);
         if (!interpreter) {
             throw new Error(`Could not start runtime: failed to resolve interpreter ${this._pythonPath}`);
         }

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
@@ -72,7 +73,11 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			canToggleVisibility: false,
 			canMoveView: true,
 			containerIcon: positronSessionViewIcon,
-			when: POSITRON_PACKAGES_ENABLED
+			when: POSITRON_PACKAGES_ENABLED,
+			focusCommand: {
+				id: `${POSITRON_PACKAGES_VIEW_ID}.focus`,
+				agentCompatible: true,
+			},
 		}
 	],
 	viewContainer
@@ -172,6 +177,74 @@ const PACKAGES_CATEGORY = nls.localize2('packages', 'Packages');
 function cleanErrorMessage(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);
 	return removeAnsiEscapeCodes(message);
+}
+
+/**
+ * The version an agent passes to ask for the newest version available to the
+ * session. Human callers never pass it: the quick-picks and the package detail
+ * editor either supply a concrete version or none at all.
+ *
+ * A missing version can't carry this meaning, because the UI already uses it:
+ * the packages list's Update button passes a name and no version to get the
+ * version quick-pick.
+ */
+const LATEST_VERSION = 'latest';
+
+/**
+ * Whether the caller asked for the newest version rather than a specific one.
+ */
+function isLatestRequest(version: string): boolean {
+	return version.toLowerCase() === LATEST_VERSION;
+}
+
+/**
+ * Outcome of turning `'latest'` into the version an update should target.
+ */
+type LatestVersionResolution =
+	| { readonly ok: true; readonly version: string }
+	| { readonly ok: false; readonly message: string };
+
+/**
+ * Asks the session which version of an installed package is the newest one
+ * available to it.
+ *
+ * The session already computes this for the packages list's outdated indicator,
+ * using its own version semantics, so nothing is compared here. The update still
+ * receives an explicit version, because pip and uv reject an unversioned one.
+ *
+ * Failures come back as a message rather than an exception, so a programmatic
+ * caller gets the same result shape it gets for a failed update.
+ */
+async function resolveLatestForUpdate(
+	service: IPositronPackagesService,
+	notifications: INotificationService,
+	name: string,
+	token: CancellationToken
+): Promise<LatestVersionResolution> {
+	let latest: string | undefined;
+	try {
+		latest = await service.resolveLatestVersion(name, token);
+	} catch (e) {
+		if (isCancellationError(e) || token.isCancellationRequested) {
+			return {
+				ok: false,
+				message: nls.localize('positronPackages.versionLookupCanceled', "Finding the latest version of '{0}' was canceled.", name)
+			};
+		}
+		const message = cleanErrorMessage(e);
+		notifications.error(message);
+		return { ok: false, message };
+	}
+
+	if (!latest) {
+		// Not an error, and deliberately not notified as one: the usual reason is
+		// that the installed version is already the newest available.
+		return {
+			ok: false,
+			message: nls.localize('positronPackages.noNewerVersion', "No newer version of '{0}' is available to this session.", name)
+		};
+	}
+	return { ok: true, version: latest };
 }
 
 /**
@@ -286,7 +359,22 @@ class RefreshPackagesAction extends Action2 {
 }
 
 
-class InstallPackageAction extends Action2 {
+/**
+ * Result of the installPackage command, returned to programmatic callers
+ * (notably agents via `positron.ai.validateAndExecuteCommand`).
+ */
+interface IInstallPackageResult {
+	installed: boolean;
+	name?: string;
+	version?: string;
+	message?: string;
+}
+
+/**
+ * Installs a package into the active session. Exported so its argument handling
+ * and result can be unit-tested.
+ */
+export class InstallPackageAction extends Action2 {
 	constructor() {
 		super({
 			id: PACKAGES_INSTALL_COMMAND_ID,
@@ -299,10 +387,19 @@ class InstallPackageAction extends Action2 {
 				when: PACKAGES_VIEW_VISIBLE,
 				group: 'packages',
 				order: 1
-			}
+			},
+			metadata: {
+				description: nls.localize('positronPackages.installPackage.description', "Install a package into the active runtime session's environment (R library, Python environment). Requires a running interpreter session. A session restart may be required before the newly installed package can be loaded."),
+				agentCompatible: true,
+				args: [
+					{ name: 'name', description: 'Name of the package to install, as the package repository knows it (for example: dplyr, pandas).', schema: { type: 'string' } },
+					{ name: 'version', description: 'Version to install: either an exact version (for example: 1.1.4) or \'latest\' for the newest version available to the session. If the package is already installed, installing it again does nothing, whatever this is set to -- use the update command to move an installed package to a different version. Base R installs ignore this and always install the current release from the repository.', schema: { type: 'string' } },
+				],
+				returns: 'An object with installed, name, version, and message. installed is true when the package was installed; version is then the version that was actually installed, read back from the session, which is how you learn which version \'latest\' turned out to be. When installed is false, message explains why (a failed install, or a canceled install).',
+			},
 		});
 	}
-	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
+	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<IInstallPackageResult> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
@@ -321,11 +418,11 @@ class InstallPackageAction extends Action2 {
 				return await service.searchPackageVersions(pkg, cts.token);
 			};
 
-			const performInstall = async (pkg: string, version?: string): Promise<void> => {
-				if (!version) {
-					throw new Error('No version specified.');
-				}
+			// Captured rather than returned, so the quick-pick helper's callback
+			// signature stays unchanged.
+			let outcome: IInstallPackageResult | undefined;
 
+			const performInstall = async (pkg: string, version?: string): Promise<void> => {
 				await progress.withProgress({
 					title: nls.localize('positronPackages.installingPackages', 'Installing Packages...'),
 					location: ProgressLocation.Notification,
@@ -342,25 +439,55 @@ class InstallPackageAction extends Action2 {
 							nls.localize('positronPackages.operationInstalled', 'installed'),
 							[pkg]
 						);
+						// With no version requested, the package manager chose one.
+						// Read back what it actually installed rather than
+						// predicting it: installPackages refreshes the list before
+						// it resolves, so the version is already there.
+						const installedVersion = version ?? service.activePackagesInstance?.packages
+							.find((installed) => installed.name.toLowerCase() === pkg.toLowerCase())?.version;
+						outcome = { installed: true, name: pkg, version: installedVersion };
 					} catch (e) {
-						notifications.error(cleanErrorMessage(e));
+						if (isCancellationError(e) || cts.token.isCancellationRequested) {
+							// The user canceled the progress notification; an error
+							// toast would be wrong.
+							outcome = {
+								installed: false,
+								name: pkg,
+								version,
+								message: nls.localize('positronPackages.installCanceled', "The install of '{0}' was canceled.", pkg)
+							};
+							return;
+						}
+						const message = cleanErrorMessage(e);
+						notifications.error(message);
+						outcome = { installed: false, name: pkg, version, message };
 					}
 				}, () => cts.cancel());
 			};
 
 			// When a package name and version are both provided (e.g. the detail
-			// editor's Install button), install that version directly. Only a real
-			// string is treated as the package name -- menu invocations (e.g. the
-			// view-title overflow "Install Package") pass a context object as arg0,
-			// which must fall through to the search quick-pick.
-			const argPackage = typeof args.at(0) === 'string' ? args.at(0) as string : undefined;
-			const argVersion = typeof args.at(1) === 'string' ? args.at(1) as string : undefined;
+			// editor's Install button, or an agent), install that version
+			// directly. Only a real string is treated as the package name --
+			// menu invocations (e.g. the view-title overflow "Install Package")
+			// pass a context object as arg0, which must fall through to the
+			// search quick-pick, as must a name with no version.
+			const argPackage = typeof args.at(0) === 'string' ? (args.at(0) as string).trim() || undefined : undefined;
+			const argVersion = typeof args.at(1) === 'string' ? (args.at(1) as string).trim() || undefined : undefined;
 			if (argPackage && argVersion) {
-				await performInstall(argPackage, argVersion);
-				return;
+				// 'latest' becomes no version at all. Given a bare package name
+				// every package manager installs the newest version the session
+				// can see, so there is nothing here to resolve -- and nothing to
+				// get wrong about which version that is.
+				const targetVersion = isLatestRequest(argVersion) ? undefined : argVersion;
+				await performInstall(argPackage, targetVersion);
+				return outcome ?? { installed: false, name: argPackage, version: targetVersion };
 			}
 
 			await installPackage(accessor, performSearch, performSearchVersions, performInstall, cts);
+			return outcome ?? {
+				installed: false,
+				message: nls.localize('positronPackages.noPackageSelected', "No package was selected.")
+			};
 		} catch (error) {
 			notifications.error(cleanErrorMessage(error));
 			throw error;
@@ -441,7 +568,22 @@ class UninstallPackageAction extends Action2 {
 	}
 }
 
-class UpdatePackageAction extends Action2 {
+/**
+ * Result of the updatePackage command, returned to programmatic callers
+ * (notably agents via `positron.ai.validateAndExecuteCommand`).
+ */
+interface IUpdatePackageResult {
+	updated: boolean;
+	name?: string;
+	version?: string;
+	message?: string;
+}
+
+/**
+ * Updates an installed package in the active session. Exported so its argument
+ * handling and result can be unit-tested.
+ */
+export class UpdatePackageAction extends Action2 {
 	constructor() {
 		super({
 			id: PACKAGES_UPDATE_COMMAND_ID,
@@ -449,9 +591,18 @@ class UpdatePackageAction extends Action2 {
 			category: PACKAGES_CATEGORY,
 			f1: true,
 			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION),
+			metadata: {
+				description: nls.localize('positronPackages.updatePackage.description', "Update a package that is already installed in the active runtime session to a different version. Requires a running interpreter session. A session restart may be required before the new version is loaded."),
+				agentCompatible: true,
+				args: [
+					{ name: 'name', description: 'Name of the installed package to update (for example: dplyr, pandas).', schema: { type: 'string' } },
+					{ name: 'version', description: 'Version to update to: either an exact version (for example: 1.1.4) or \'latest\' for the newest version available to the session. Base R updates ignore this and always install the current release from the repository.', schema: { type: 'string' } },
+				],
+				returns: 'An object with updated, name, version, and message. updated is true when the package was updated, with name and version confirming what was requested (version is the concrete version the session reported as newest when \'latest\' was passed); when updated is false, message explains why (the installed version is already the newest available, a failed update, or a canceled update).',
+			},
 		});
 	}
-	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
+	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<IUpdatePackageResult> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
@@ -474,7 +625,11 @@ class UpdatePackageAction extends Action2 {
 				return service.searchPackageVersions(pkg, cts.token);
 			};
 
-			const performUpdate = async (pkg: string, version: string): Promise<void> => {
+			// Captured rather than returned, so the quick-pick helper's callback
+			// signature stays unchanged.
+			let outcome: IUpdatePackageResult | undefined;
+
+			const performUpdate = async (pkg: string, version?: string): Promise<void> => {
 				await progress.withProgress({
 					title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
 					location: ProgressLocation.Notification,
@@ -491,23 +646,54 @@ class UpdatePackageAction extends Action2 {
 							nls.localize('positronPackages.operationUpdated', 'updated'),
 							[pkg]
 						);
+						outcome = { updated: true, name: pkg, version };
 					} catch (e) {
-						notifications.error(cleanErrorMessage(e));
+						if (isCancellationError(e) || cts.token.isCancellationRequested) {
+							// The user canceled the progress notification; an error
+							// toast would be wrong.
+							outcome = {
+								updated: false,
+								name: pkg,
+								version,
+								message: nls.localize('positronPackages.updateCanceled', "The update of '{0}' was canceled.", pkg)
+							};
+							return;
+						}
+						const message = cleanErrorMessage(e);
+						notifications.error(message);
+						outcome = { updated: false, name: pkg, version, message };
 					}
 				}, () => cts.cancel());
 			};
 
 			// Only treat a real string as the package name (menu invocations pass a
 			// context object as arg0). When both a package name and a target version
-			// are given (e.g. the detail editor's Update button), update directly
-			// without prompting; otherwise fall through to the quick-pick flow.
-			const argPackage = typeof args.at(0) === 'string' ? args.at(0) as string : undefined;
-			const argVersion = typeof args.at(1) === 'string' ? args.at(1) as string : undefined;
+			// are given (e.g. the detail editor's Update button, or an agent),
+			// update directly without prompting; otherwise fall through to the
+			// quick-pick flow, which is how the packages list's Update button picks
+			// a version.
+			const argPackage = typeof args.at(0) === 'string' ? (args.at(0) as string).trim() || undefined : undefined;
+			const argVersion = typeof args.at(1) === 'string' ? (args.at(1) as string).trim() || undefined : undefined;
 			if (argPackage && argVersion) {
-				await performUpdate(argPackage, argVersion);
-				return;
+				let targetVersion = argVersion;
+				if (isLatestRequest(argVersion)) {
+					const latest = await resolveLatestForUpdate(service, notifications, argPackage, cts.token);
+					if (!latest.ok) {
+						return { updated: false, name: argPackage, message: latest.message };
+					}
+					targetVersion = latest.version;
+				}
+				await performUpdate(argPackage, targetVersion);
+				return outcome ?? { updated: false, name: argPackage, version: targetVersion };
 			}
 			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, argPackage, cts);
+			return outcome ?? {
+				updated: false,
+				name: argPackage,
+				message: argPackage
+					? nls.localize('positronPackages.noVersionSelected', "No version was selected.")
+					: nls.localize('positronPackages.noPackageSelectedForUpdate', "No package was selected.")
+			};
 		} catch (error) {
 			notifications.error(cleanErrorMessage(error));
 			throw error;

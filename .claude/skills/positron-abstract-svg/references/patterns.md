@@ -14,7 +14,7 @@ When creating a new abstract image, **ask the user for a screenshot of the actua
 
 You can also search the Positron codebase for the codicon name used in code (e.g., `Codicon.notebookExecute`) and look it up in `references/codicons.md`.
 
-For file-type icons in the tab bar (e.g., `.ipynb`, `.R`, `.py`), Positron uses the **Seti UI** icon theme: https://github.com/jesseweed/seti-ui. Locally it ships only as a font (`extensions/theme-seti/icons/seti.woff`), so there is no per-file SVG to extract from the repo -- fetch the source SVG from that repo's `icons/` folder (an external network call) or hand-draw a simple file glyph. NOTE: the existing walkthrough SVGs use plain text tab labels, not file-type glyphs, so this seti-icon approach is currently untested -- verify it in a preview and keep the glyph simple.
+For file-type icons in the tab bar (e.g., `.ipynb`, `.R`, `.py`, or an untitled document), Positron uses the **Seti UI** icon theme. It ships only as a font (`extensions/theme-seti/icons/seti.woff`). Extract the glyph you need straight out of that font -- no network call, no hand-drawing. The script and the color caveat are in `SKILL.md`, "Extracting a Seti file icon". `positron-panes-abstract.svg` and `positron-git-abstract.svg` both use the `_default` glyph this way.
 
 ---
 
@@ -307,3 +307,226 @@ Shows the user what file context the AI has. Place inside a taller input box.
   <path d="M1.17683 1.11898C1.32953 0.989634 1.54464 0.963786 1.72363 1.05328L14.7236 7.55328C14.893 7.63797 15 7.8111 15 8.00049C15 8.18987 14.893 8.36301 14.7236 8.4477L1.72363 14.9477C1.54464 15.0372 1.32953 15.0113 1.17683 14.882C1.02414 14.7526 0.96328 14.5447 1.02213 14.3534L2.97688 8.00049L1.02213 1.64754C0.96328 1.45627 1.02414 1.24833 1.17683 1.11898ZM3.8693 8.50049L2.32155 13.5307L13.382 8.00049L2.32155 2.47027L3.8693 7.50049H9.50001C9.77615 7.50049 10 7.72435 10 8.00049C10 8.27663 9.77615 8.50049 9.50001 8.50049H3.8693Z"/>
 </g>
 ```
+
+## Activity Bar (primary side bar)
+
+The strip of icons down the left edge. **Use the real Positron icons, not
+abstract squares and circles** -- see the activity bar rule in `SKILL.md`. Icon
+paths are in `codicons.md`.
+
+**The bar is blue, not gray.** Positron's default light theme paints it
+`#3A78B1` with white icons, and the values come from
+`extensions/theme-defaults/themes/positron_light.json`:
+
+| Theme key | Value | Use |
+|---|---|---|
+| `activityBar.background` | `#3A78B1` | bar background |
+| `activityBar.foreground` | `#FFFFFF` | active icon |
+| `activityBar.inactiveForeground` | `#FFFFFFAA` | inactive icons -> `fill-opacity="0.67"` |
+| `activityBar.border` | `#FFFFFF00` | transparent, so draw **no** border line |
+
+Write the inactive icons as `fill="#FFFFFF" fill-opacity="0.67"` rather than an
+8-digit hex, which not every renderer parses.
+
+Because there is no border, whatever sits to the right of the bar starts at the
+bar's own edge (x=18 here) with no gap. Don't leave a 1px stripe -- see the tab
+alignment note at the end of this file.
+
+Size the icons at about half the bar's width and space them ~2.4x their size
+apart. Below: an 18px bar with 9px icons at 22px intervals.
+
+```svg
+<!-- Bar background. No border line: the theme's activityBar.border is transparent. -->
+<rect x="0" y="0" width="18" height="260" fill="#3A78B1"/>
+
+<!-- Explorer (active). 24-viewBox icon: scale = 9/24 = 0.375 -->
+<g transform="translate(4.5, 11.5) scale(0.375)" fill="#FFFFFF">
+  <path d="...files..."/>
+</g>
+
+<!-- Search. 16-viewBox icon: scale = 9/16 = 0.5625 -->
+<g transform="translate(4.5, 33.5) scale(0.5625)" fill="#FFFFFF" fill-opacity="0.67">
+  <path d="...search..."/>
+</g>
+
+<!-- Source control -->
+<g transform="translate(4.5, 55.5) scale(0.375)" fill="#FFFFFF" fill-opacity="0.67">
+  <path d="...source-control..."/>
+</g>
+
+<!-- Extensions -->
+<g transform="translate(4.5, 77.5) scale(0.5625)" fill="#FFFFFF" fill-opacity="0.67">
+  <path d="...extensions..."/>
+</g>
+```
+
+To place an icon of width `N` centered in a bar of width `W` with its center at
+`y = CY`: `translate((W - N) / 2, CY - N / 2) scale(N / VIEWBOX)`.
+
+## Secondary Side Bar Title Bar (auxiliary bar tabs + actions)
+
+Positron's secondary side bar is a tab bar, not a single title. By default the
+tabs are Session (active), Help, Connections, Viewer, History, and the Session
+container holds two views: Variables, then Plots.
+
+The layout rule that makes it read correctly: **tabs group left, actions pin
+right, the slack sits between them.**
+
+Show the active tab as a real label with an underline. For the rest, pick one:
+
+- **An `ellipsis` icon** just right of the label, as `positron-panes-abstract.svg`
+  does. Quietest option, and it avoids naming tabs the image isn't teaching.
+- **Placeholder pills**, one per sibling tab, as in the snippet below. Use these
+  when the number of tabs is itself part of the point.
+
+Don't name a sibling tab unless you have checked it really lives in this
+container -- see the tab-labelling note at the end of this file.
+
+Title actions come from `MenuId.AuxiliaryBarTitle`: `screen-full` (maximize) then
+`close` (hide secondary side bar).
+
+```svg
+<!-- Title bar: panel spans x=301..520 -->
+<rect x="301" y="0" width="219" height="24" fill="#F2F2F2"/>
+
+<!-- Tabs, grouped left -->
+<text x="308" y="15"
+      font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+      font-size="7" font-weight="600" fill="#3E4246" letter-spacing="0.5">SESSION</text>
+<line x1="308" y1="19" x2="341" y2="19" stroke="#3E4246" stroke-width="1.5"/>
+<rect x="352" y="10" width="20" height="4" rx="2" fill="#C8C8C8"/>
+<rect x="382" y="10" width="30" height="4" rx="2" fill="#C8C8C8"/>
+<rect x="422" y="10" width="24" height="4" rx="2" fill="#C8C8C8"/>
+
+<!-- Actions, pinned right: last icon ends 8px inside the panel edge -->
+<g transform="translate(488, 7.5) scale(0.5625)" fill="#5A5A5A">
+  <path d="...screen-full..."/>
+</g>
+<g transform="translate(503, 7.5) scale(0.5625)" fill="#5A5A5A">
+  <path d="...close..."/>
+</g>
+
+<line x1="300" y1="24" x2="520" y2="24" stroke="#E0E0E0" stroke-width="1"/>
+```
+
+### View section header with collapse chevron
+
+Each view stacked inside the container gets one of these. The chevron is what
+signals "collapsible pane".
+
+```svg
+<rect x="301" y="25" width="219" height="16" fill="#F4F4F4"/>
+<g transform="translate(306, 29.5) scale(0.4375)" fill="#3E4246">
+  <path fill-rule="evenodd" clip-rule="evenodd"
+        d="M7.976 10.072l4.357-4.357.62.618L8.284 11h-.618L3 6.333l.619-.618 4.357 4.357z"/>
+</g>
+<text x="316" y="36"
+      font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+      font-size="7.5" font-weight="600" fill="#3E4246" letter-spacing="0.5">VARIABLES</text>
+<line x1="300" y1="41" x2="520" y2="41" stroke="#E0E0E0" stroke-width="1"/>
+```
+
+---
+
+## Aligning an active tab against a 1px border
+
+A 1px `<line>` at an integer x straddles the half-pixel either side of it:
+`x1="250"` with `stroke-width="1"` paints 249.5 to 250.5. Start the active tab's
+white rect at the next integer (`x="251"`) and 0.5px of whatever is behind it --
+usually the `#F2F2F2` tab bar -- shows through the seam. It reads as a thicker,
+dirtier border, and it is easy to miss until someone zooms in.
+
+Start the tab where the border actually ends, and add the same 0.5 to the width
+so the right edge does not move:
+
+```svg
+<line x1="250" y1="0" x2="250" y2="260" stroke="#E0E0E0" stroke-width="1"/>
+<rect x="250" y="0" width="270" height="36" fill="#F2F2F2"/>
+<rect x="250.5" y="0" width="128.5" height="37" fill="#FFFFFF"/>
+```
+
+When there is no border at all (the activity bar, whose theme border is
+transparent), everything stays on integers: the bar ends at 18 and the tab
+starts at 18.
+
+To check, render at high zoom and crop the seam:
+
+```bash
+rsvg-convert -z 24 image.svg -o /tmp/z.png
+python3 -c "from PIL import Image; Image.open('/tmp/z.png').crop((245*24,0,266*24,26*24)).save('/tmp/seam.png')"
+```
+
+## Centering things in a row: measure the ink, don't trust the box
+
+A codicon is a path inside a 16x16 box, and most of them do not fill it. They
+also do not fill it the *same way* -- `discard` sits lower in its box than `add`
+does. So giving two icons the same `translate` y puts them at two different
+heights, and centering either one by assuming its box is full puts it too high.
+
+The same trap applies to `<text>`: the `y` you set is the baseline, not the
+visual center, and how far the center sits above the baseline depends on the
+font size and which letters are in the string.
+
+You cannot get any of this from the source. Render it and measure where the ink
+actually lands. This script prints the vertical center of each element in a row,
+so you can compare them against each other and against the row's midpoint:
+
+```python
+# python3, run from the repo root. Renders once, measures several columns.
+from PIL import Image
+import subprocess
+Image.MAX_IMAGE_PIXELS = None          # high zoom trips PIL's decompression guard
+
+SVG  = 'path/to/image.svg'
+Z    = 12                              # zoom; 12 is plenty for sub-pixel work
+ROW  = (148, 170)                      # the row's y range in SVG units
+BG   = (238, 243, 248)                 # the row's background: #EEF3F8 here
+COLS = {                               # label -> x range bracketing each element
+    'file icon': (12, 22),
+    'label':     (28, 130),
+    'undo':      (174, 190),
+    'plus':      (193, 209),
+    'M':         (227, 238),
+}
+
+subprocess.run(['rsvg-convert', '-z', str(Z), SVG, '-o', '/tmp/m.png'], check=True)
+im = Image.open('/tmp/m.png').convert('RGB')
+
+def center(x0, x1):
+    ys = [y for y in range(int(ROW[0]*Z), int(ROW[1]*Z))
+          if any(max(abs(c - b) for c, b in zip(im.getpixel((x, y)), BG)) > 18
+                 for x in range(int(x0*Z), int(x1*Z)))]
+    return (min(ys) + max(ys)) / 2 / Z if ys else None
+
+print(f'row midpoint: {(ROW[0] + ROW[1]) / 2}')
+for name, (x0, x1) in COLS.items():
+    print(f'  {name:10} {center(x0, x1):7.2f}')
+```
+
+Pick whichever element is already right (usually the placeholder rects, whose
+centers you set directly) as the target, then shift each other element by the
+difference and re-run until everything agrees to about 0.1. Expect the icons to
+need *different* offsets; that is the whole point.
+
+The `> 18` is a tolerance for antialiasing against the background. Widen it if a
+very light element registers as background, narrow it if edge fringing does.
+
+## Labelling tabs: check which container the view lives in
+
+If you replace placeholder pills with real tab names, verify the pane actually
+belongs to that container first. Positron's panes are easy to misplace: Help,
+Connections, and Viewer sound like console siblings but are **auxiliary bar**
+containers, so they sit next to Session on the right. The panel holds only
+Console and Terminal by default.
+
+Two places to check, in this order:
+
+- `src/vs/workbench/services/positronLayout/browser/layouts/*.ts` -- the default
+  layout descriptors list exactly which containers open in `PANEL_PART`,
+  `AUXILIARYBAR_PART`, and `SIDEBAR_PART`. `positronFourPaneDsLayout.ts` is the
+  default.
+- The container's own `.contribution.ts`, for its `ViewContainerLocation`.
+
+An image whose job is teaching the layout does real damage when it puts a pane in
+the wrong bar. Where the walkthrough copy and the real layout disagree, follow
+the layout and leave the pane out.

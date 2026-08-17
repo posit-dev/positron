@@ -8,18 +8,77 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 /**
- * Options returned from ${@link RunAppOptions.getTerminalOptions}.
+ * Options shared by every {@link RunAppTerminalOptions} variant.
  */
-export interface RunAppTerminalOptions {
+interface RunAppTerminalOptionsBase {
 	/**
-	 * The command line to run in the terminal.
+	 * The optional working directory to create the terminal with. When unset,
+	 * the terminal inherits the default working directory (typically the
+	 * workspace root).
 	 */
-	commandLine: string;
+	cwd?: string;
 
 	/**
 	 * The optional environment variables to create the terminal with.
 	 */
 	env?: { [key: string]: string | null | undefined };
+}
+
+/**
+ * Options returned from ${@link RunAppOptions.getTerminalOptions}.
+ *
+ * Provide the command to run in exactly one of two ways (the two forms are
+ * mutually exclusive):
+ *
+ * - {@link RunAppTerminalCommandLineOptions.commandLine commandLine}: a
+ *   pre-escaped command line string. The caller is responsible for
+ *   shell-escaping any paths or arguments.
+ * - {@link RunAppTerminalCommandOptions.command command} (with optional
+ *   {@link RunAppTerminalCommandOptions.args args}): the executable and its
+ *   arguments as separate values. positron-run-app builds the command line and
+ *   applies shell-appropriate escaping for the terminal's shell, so callers
+ *   don't have to worry about spaces in interpreter or application paths.
+ *
+ * Prefer the {@link RunAppTerminalCommandOptions.command command}/
+ * {@link RunAppTerminalCommandOptions.args args} form for new callers.
+ */
+export type RunAppTerminalOptions =
+	| RunAppTerminalCommandLineOptions
+	| RunAppTerminalCommandOptions;
+
+/**
+ * The pre-escaped command line form of {@link RunAppTerminalOptions}.
+ */
+export interface RunAppTerminalCommandLineOptions extends RunAppTerminalOptionsBase {
+	/**
+	 * The command line to run in the terminal. Must already be escaped for the
+	 * target shell.
+	 */
+	commandLine: string;
+
+	command?: never;
+	args?: never;
+}
+
+/**
+ * The executable-and-arguments form of {@link RunAppTerminalOptions}, escaped
+ * for the terminal's shell by positron-run-app.
+ */
+export interface RunAppTerminalCommandOptions extends RunAppTerminalOptionsBase {
+	/**
+	 * The executable to run (e.g. an interpreter path). positron-run-app escapes
+	 * {@link command} and {@link args} for the terminal's shell and runs the
+	 * resulting command line.
+	 */
+	command: string;
+
+	/**
+	 * The arguments to pass to {@link command}. Each argument is escaped
+	 * independently for the terminal's shell.
+	 */
+	args?: string[];
+
+	commandLine?: never;
 }
 
 /**
@@ -151,6 +210,14 @@ export interface DebugAppOptions {
 		document: vscode.TextDocument,
 		urlPrefix?: string,
 	): vscode.DebugConfiguration | undefined | Promise<vscode.DebugConfiguration | undefined>;
+
+	/**
+	 * How to preview the application once the URL is detected.
+	 *
+	 * Defaults to `'default'`, which resolves to the user's
+	 * `positron.runApp.previewMode` setting (initially `'viewer'`).
+	 */
+	preview?: PreviewMode | 'default';
 
 	/**
 	 * The optional URL path at which to preview the application.

@@ -177,7 +177,24 @@ declare module 'positron' {
 		 * Combined with pending code: No
 		 *          Stored in history: No
 		 */
-		Silent = 'silent'
+		Silent = 'silent',
+
+		/**
+		 * Unprocessed code execution: behaves exactly like `Interactive`
+		 * (displayed to the user, stored in history), except the code has NOT
+		 * been checked for completeness. A session receiving this mode must
+		 * check completeness itself before executing; if the code is
+		 * incomplete it must not execute it and must reject the `execute()`
+		 * call with an error whose `name` is `'CodeIncompleteError'`. Sessions
+		 * that cannot check completeness should treat `Unprocessed` exactly as
+		 * `Interactive` (the interpreter will surface a syntax error for
+		 * incomplete code).
+		 *
+		 *          Displayed to user: Yes
+		 * Combined with pending code: Yes
+		 *          Stored in history: Yes
+		 */
+		Unprocessed = 'unprocessed'
 	}
 
 	/**
@@ -777,6 +794,13 @@ declare module 'positron' {
 
 		/** The starting working directory of the session, if any */
 		readonly workingDirectory?: string;
+
+		/**
+		 * True when the session is being created because the user explicitly
+		 * selected this runtime, e.g. from a session picker. Absent or false for
+		 * automatic, restored, duplicated, and programmatic starts.
+		 */
+		readonly userSelected?: boolean;
 	}
 
 	/**
@@ -1440,6 +1464,19 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A runtime error surfaced in the console, passed to `getMissingPackageProbe`
+	 * so the runtime can recognize its own missing-package error format.
+	 */
+	export interface RuntimeConsoleError {
+		/** The error name, e.g. "ModuleNotFoundError". May be empty. */
+		readonly name: string;
+		/** The error message, e.g. "No module named 'foo'". */
+		readonly message: string;
+		/** The error traceback, one entry per line. */
+		readonly traceback: string[];
+	}
+
+	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
 	 * runtime with which it is associated.
@@ -1527,6 +1564,13 @@ declare module 'positron' {
 		 * @param codeLocation Optionally, the location of `code` in the source editor.
 		 * @param executionMetadata Optionally, a record of additional metadata to associate with this execution.
 		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 *
+		 * The returned Thenable (if any) signals ACCEPTANCE of the code for
+		 * execution, not completion of the execution. When `mode` is
+		 * `RuntimeCodeExecutionMode.Unprocessed`, the session must check the
+		 * code for completeness first; if it is incomplete, reject with an
+		 * error whose `name` is `'CodeIncompleteError'`. Returning `void`
+		 * (the historical behavior) is treated as immediate acceptance.
 		 */
 		execute(
 			code: string,
@@ -1535,7 +1579,7 @@ declare module 'positron' {
 			errorBehavior: RuntimeErrorBehavior,
 			codeLocation?: Utf8Location,
 			executionMetadata?: Record<string, any>,
-		): void;
+		): Thenable<void> | void;
 
 		/**
 		 * Shut down the runtime; returns a Thenable that resolves when the
@@ -1711,6 +1755,21 @@ declare module 'positron' {
 		 * @param token Optional cancellation token.
 		 */
 		listMissingPackages?(target: RuntimeMissingPackagesTarget, token?: vscode.CancellationToken): Thenable<RuntimeMissingPackage[]>;
+
+		/**
+		 * Given a console error produced by this session, return a minimal code
+		 * snippet that references the missing package (e.g. `import foo`), for
+		 * the frontend to feed back through `listMissingPackages` and confirm the
+		 * package is installable. Return undefined when the error is not a
+		 * recognized missing-package error.
+		 *
+		 * Owning error-message parsing here (rather than in the frontend) keeps
+		 * the frontend language-agnostic.
+		 *
+		 * @param error The console error to inspect.
+		 * @param token Optional cancellation token.
+		 */
+		getMissingPackageProbe?(error: RuntimeConsoleError, token?: vscode.CancellationToken): string | undefined | Thenable<string | undefined>;
 	}
 
 
@@ -2188,6 +2247,19 @@ declare module 'positron' {
 		code: string;
 	}
 
+	/**
+	 * The logging surface a data connection driver writes to. `vscode.LogOutputChannel`
+	 * satisfies it structurally, and a driver's internal modules can depend on this
+	 * interface alone so they stay free of a `vscode` import.
+	 */
+	export interface DataConnectionLogger {
+		trace(message: string): void;
+		debug(message: string): void;
+		info(message: string): void;
+		warn(message: string): void;
+		error(message: string): void;
+	}
+
 	export interface DataConnectionDriver {
 		/**
 		 * The driver identifier.
@@ -2268,18 +2340,33 @@ declare module 'positron' {
 	 */
 	export enum DataConnectionNodeKind {
 		Database = 'database',
+		// A catalog: the level above a schema in a three-part namespace, e.g. a Unity Catalog
+		// catalog (positron-data-driver-databricks).
+		Catalog = 'catalog',
 		Schema = 'schema',
 		Table = 'table',
 		View = 'view',
 		Field = 'field',
 		// Category containers that group sibling nodes (e.g. "Tables", "Views").
 		GroupDatabases = 'group-databases',
+		GroupCatalogs = 'group-catalogs',
 		GroupSchemas = 'group-schemas',
 		GroupTables = 'group-tables',
 		GroupViews = 'group-views',
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
+		GroupStages = 'group-stages',
+		GroupVolumes = 'group-volumes',
 		Index = 'index',
+		// A Snowflake stage: a named location for staging files (positron-data-driver-snowflake).
+		Stage = 'stage',
+		// A Unity Catalog volume: a governed location for non-tabular files
+		// (positron-data-driver-databricks).
+		Volume = 'volume',
+		// A directory inside a volume, and a file inside one. Both hold files rather than rows, so they
+		// are browsable but not previewable in the Data Explorer.
+		Directory = 'directory',
+		File = 'file',
 		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
 		Owner = 'owner',
 		// A pin on a Posit Connect server (positron-data-driver-pins).
@@ -2317,8 +2404,14 @@ declare module 'positron' {
 
 		/**
 		 * Preview the data in this node (e.g., SELECT * FROM table LIMIT 100).
+		 *
+		 * Return the dataset id the preview was opened under -- the same `datasetId` passed to
+		 * `positron.dataExplorer.open` -- so Positron can relate the open Data Explorer back to the
+		 * connection it came from. Returning nothing is supported, but Positron then has no way to
+		 * know the connection has an open Data Explorer, and may close the connection while it is
+		 * still in use.
 		 */
-		preview?(): Thenable<void>;
+		preview?(): Thenable<string | void>;
 	}
 
 	/**
@@ -2667,6 +2760,36 @@ declare module 'positron' {
 			okButtonTitle?: string): Thenable<null>;
 
 		/**
+		 * Options for `showThreeButtonModalDialogPrompt`.
+		 */
+		export interface ThreeButtonModalDialogPromptOptions {
+			/** The title shown in the dialog's title bar. */
+			title: string;
+			/** The message shown in the dialog's body. */
+			message: string;
+			/** The default action. Focused when the dialog opens, and invoked by Enter. */
+			primaryButtonTitle: string;
+			/** The alternative action, shown next to the primary button. */
+			secondaryButtonTitle: string;
+			/** The odd-one-out action, shown on the left edge of the footer. */
+			tertiaryButtonTitle: string;
+		}
+
+		/**
+		 * Create and show a modal dialog prompt with three buttons.
+		 *
+		 * The dialog has no Cancel button; the title bar close button and Escape dismiss it.
+		 * Spend one of the three buttons on a labelled dismiss action if the prompt needs one.
+		 *
+		 * @param options The dialog's title, message, and button titles.
+		 *
+		 * @returns A Thenable that resolves to the title of the button the user clicked, or
+		 *   to undefined if the user dismissed the dialog.
+		 */
+		export function showThreeButtonModalDialogPrompt(
+			options: ThreeButtonModalDialogPromptOptions): Thenable<string | undefined>;
+
+		/**
 		 * Get the `Console` for a runtime `languageId`
 		 *
 		 * @param languageId The runtime language id to retrieve a `Console` for, i.e. 'r' or 'python'.
@@ -2675,6 +2798,25 @@ declare module 'positron' {
 		 *   that `languageId` exists.
 		 */
 		export function getConsoleForLanguage(languageId: string): Thenable<Console | undefined>;
+
+		/**
+		 * The currently active console editor, or `undefined` if no console is active or its
+		 * input has not mounted yet. Provides the full `vscode.TextEditor` API for the console
+		 * input, including `document`, `selection`, `edit()`, and `insertSnippet()`.
+		 *
+		 * Note: the console editor is deliberately not surfaced through the standard `vscode`
+		 * editor APIs. It is never `vscode.window.activeTextEditor`, never appears in
+		 * `vscode.window.visibleTextEditors`, and never raises the
+		 * `vscode.window.onDidChangeTextEditor*` events. This property and
+		 * `onDidChangeActiveConsoleEditor` are the only way to reach it.
+		 */
+		export const activeConsoleEditor: vscode.TextEditor | undefined;
+
+		/**
+		 * An event that fires when the active console editor changes, including when the active
+		 * console's input editor mounts or unmounts.
+		 */
+		export const onDidChangeActiveConsoleEditor: vscode.Event<vscode.TextEditor | undefined>;
 
 		/**
 		 * Fires when the width of the console input changes. The new width is passed as
@@ -3114,6 +3256,52 @@ declare module 'positron' {
 			Thenable<Array<QueryTableSummaryResult>>;
 
 		/**
+		 * A single console execution: a command that ran in a runtime session,
+		 * paired with its output and any error.
+		 */
+		export interface ConsoleHistoryEntry {
+			/** The code that was executed. */
+			input: string;
+			/** The textual output produced by the execution. */
+			output: string;
+			/** The error produced by the execution, if any. */
+			error?: {
+				/** The name of the error. */
+				name: string;
+				/** The error message. */
+				message: string;
+				/** The error stack trace. */
+				traceback: string[];
+			};
+			/** Time the execution occurred, in milliseconds since the Epoch. */
+			when: number;
+		}
+
+		/**
+		 * Get the recent console history for a session: the code fragments that
+		 * have already run, each paired with its output and any error. This is
+		 * read-only; it does not execute anything.
+		 *
+		 * Only completed code executions are returned, oldest first. The startup
+		 * banner and entries recorded without input (e.g. output produced outside
+		 * an execution) are omitted, matching what the console shows as a command
+		 * history.
+		 *
+		 * Console history reading is governed by the `console.historyApiEnabled`
+		 * setting, which users can disable for privacy; when it is disabled this
+		 * call rejects rather than returning content.
+		 *
+		 * @param sessionId The session ID of the session to read console history
+		 *  from.
+		 * @param numberOfEntries The number of most recent entries to return.
+		 *  Defaults to 5. Pass a larger value to look further back in the history.
+		 * @returns A Thenable that resolves with the console entries (an empty
+		 *  array when the session has run nothing yet). Rejects if the session ID
+		 *  is unknown, or if the `console.historyApiEnabled` setting is disabled.
+		 */
+		export function getConsoleHistory(sessionId: string, numberOfEntries?: number): Thenable<ConsoleHistoryEntry[]>;
+
+		/**
 		 * Register a handler for runtime client instances. This handler will be called
 		 * whenever a new client instance is created by a language runtime of the given
 		 * type.
@@ -3285,6 +3473,30 @@ declare module 'positron' {
 	 * Methods for managing data connections.
 	 */
 	namespace dataConnections {
+		/**
+		 * Creates a logger for a data connection driver, backed by an output channel named
+		 * "Data Connections: <driverName>".
+		 *
+		 * The channel is created on the first `info`, `warn`, or `error` call, so a driver
+		 * that has never connected adds no entry to the Output panel. `trace` and `debug`
+		 * write only once the channel exists; before that they are dropped, which keeps a
+		 * trace-only code path from creating a channel that would then render empty at the
+		 * default log level.
+		 *
+		 * Do not log during extension activation. The Data Connections pane activates every
+		 * driver at once, so an activation-time log would put every channel in the Output
+		 * panel for users who never opened a connection.
+		 *
+		 * Each message is logged as a single line: only the first non-empty line is kept, because
+		 * driver errors can echo query text that carries user-entered filter or search values
+		 * after their first line. This is partial mitigation, not a guarantee -- an engine can
+		 * still inline such a value into the first line of the message itself.
+		 *
+		 * @param driverName The driver's display name, e.g. `Snowflake`. Core adds the prefix.
+		 * @returns A logger that also disposes the channel, for `context.subscriptions`.
+		 */
+		export function createDriverLogger(driverName: string): DataConnectionLogger & vscode.Disposable;
+
 		/**
 		 * Registers a data connection driver, allowing extensions to contribute
 		 * to the 'New Database' dialog.
@@ -3484,6 +3696,53 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Access to Positron product documentation cached on disk.
+	 */
+	namespace docs {
+		/**
+		 * A bundle of Positron documentation available on the extension host's
+		 * local filesystem.
+		 */
+		export interface LocalDocs {
+			/** Absolute path of the extracted bundle root, on the extension host's filesystem. */
+			readonly path: string;
+
+			/** Bundle format version. Currently 1. */
+			readonly schema: number;
+
+			/** Docs version this bundle was generated from, e.g. '2026.05.0-179'. */
+			readonly version: string;
+
+			/** 'positron' or 'workbench'. */
+			readonly profile: string;
+
+			/** Base URL for building a citable web link to a page in this bundle. */
+			readonly docsBaseUrl: string;
+
+			/** True when the bundle matches the running build exactly. */
+			readonly isExactMatch: boolean;
+		}
+
+		/**
+		 * Get the locally cached Positron documentation, downloading it if it is
+		 * not present yet.
+		 *
+		 * Safe to call per docs need: a successful result is cached in process,
+		 * and concurrent calls join a single in-flight download rather than
+		 * starting several. Waits at most 10 seconds for an in-flight download;
+		 * on timeout the download continues in the background and is available
+		 * to the next call.
+		 *
+		 * Resolves to `undefined` when there are no local docs, which means the
+		 * caller should fall back to fetching documentation from the web. That
+		 * is the only meaning of `undefined`.
+		 *
+		 * @returns A Thenable resolving to the local docs, or undefined.
+		 */
+		export function getLocalDocs(): Thenable<LocalDocs | undefined>;
+	}
+
+	/**
 	 * Experimental AI features.
 	 */
 	namespace ai {
@@ -3569,11 +3828,11 @@ declare module 'positron' {
 			 */
 			displayName: string;
 			/**
-			 * Setting name for user configuration in camelCase format (e.g., 'anthropic', 'openAI', 'gitHubCopilot').
-			 * Corresponds to `positron.assistant.provider.<settingName>.enable` in settings.json if visible in Settings UI.
-			 * Positron's Assistant Service automatically reads this from registered providers.
+			 * Provider id in the resolved provider catalog (`~/.posit/ai/providers.json`), used to
+			 * resolve enablement and connection config. Undefined for providers with no catalog entry
+			 * (e.g. dev-only providers), which are treated as enabled.
 			 */
-			settingName: string;
+			catalogId?: string;
 			/**
 			 * Maturity status of the provider. Drives how it's presented in the
 			 * configuration modal: stable providers (no status) are listed first,
@@ -3629,7 +3888,34 @@ declare module 'positron' {
 			maxInputTokens?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
+			/**
+			 * Wire protocol (API type) the provider speaks, e.g. 'openai-chat'
+			 * (Chat Completions) or 'openai-responses' (Responses). Routes custom
+			 * / OpenAI-compatible providers to the right API. Omit to let the
+			 * provider decide.
+			 */
+			protocol?: string;
+			/**
+			 * Explicit model list for a custom provider whose endpoint has no
+			 * `/models` listing. Persisted as the provider's custom model
+			 * definitions.
+			 */
+			customModels?: LanguageModelCustomModel[];
 			autoconfigure?: LanguageModelAutoconfigure;
+		}
+
+		/**
+		 * A user-declared model for a custom provider, for providers whose
+		 * endpoint does not list its own models.
+		 */
+		export interface LanguageModelCustomModel {
+			id: string;
+			name: string;
+			maxContextLength: number;
+			supportsTools: boolean;
+			supportsImages: boolean;
+			supportsToolResultImages: boolean;
+			supportsWebSearch: boolean;
 		}
 
 		/**
@@ -3734,8 +4020,8 @@ declare module 'positron' {
 		 * Registers a language model provider with Positron.
 		 *
 		 * Call once per provider during extension activation. This registers
-		 * everything static about the provider. Creates a toggle
-		 * `positron.assistant.provider.<settingName>.enable` in Settings.
+		 * everything static about the provider. Enablement is read from the
+		 * resolved provider catalog (providers.json), not a per-provider setting.
 		 *
 		 * Returns a Disposable. When disposed, the provider is removed
 		 * from the configuration service.
@@ -3821,7 +4107,21 @@ declare module 'positron' {
 		export function getEnabledProviders(): Thenable<string[]>;
 
 		/**
-		 * Checks if completions are enabled for the given file.
+		 * Whether the provider with the given CATALOG id (e.g. 'copilot',
+		 * 'anthropic') is enabled in the resolved provider catalog. Unlike
+		 * getEnabledProviders(), ids are catalog ids, not registered auth-provider
+		 * ids, and no provider registration is required: the catalog's
+		 * default-enabled baseline answers for providers with no configuration.
+		 */
+		export function isProviderEnabled(id: string): Thenable<boolean>;
+
+		/** Fires when a provider's catalog enablement flips. Ids are catalog ids. */
+		export const onDidChangeProviderEnablement: vscode.Event<{ readonly id: string; readonly enabled: boolean }>;
+
+		/**
+		 * Checks if Copilot inline completions are enabled for the given file.
+		 * Scoped to Copilot: gated on the Copilot catalog provider. Posit AI Next Edit
+		 * Suggestions (NES) has its own separate enablement and does not use this.
 		 * @param uri The file URI to check if completions are enabled.
 		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
 		 */

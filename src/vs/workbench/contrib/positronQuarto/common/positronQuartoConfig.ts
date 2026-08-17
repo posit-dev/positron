@@ -51,6 +51,18 @@ export const QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY = 'quarto.inlineOutput.s
 export const QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY = 'quarto.inlineOutput.splitStatements';
 
 /**
+ * Configuration key for automatically scrolling the editor to reveal inline
+ * output as it is produced.
+ */
+export const QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY = 'quarto.inlineOutput.autoScroll';
+
+/**
+ * Configuration key for serving language features in Quarto code cells from
+ * Positron rather than from the Quarto extension's virtual documents.
+ */
+export const QUARTO_NATIVE_LANGUAGE_FEATURES_KEY = 'quarto.embeddedLanguageFeatures.native';
+
+/**
  * @deprecated Use {@link QUARTO_INLINE_OUTPUT_ENABLED_KEY}. Kept as a working alias.
  */
 export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.enabled';
@@ -169,6 +181,25 @@ configurationRegistry.registerConfiguration({
 				'Execute Quarto inline code statement by statement when the language provides input boundaries, so each statement can produce inline output.'
 			),
 			scope: ConfigurationScope.WINDOW,
+		},
+		[QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.quarto.inlineOutput.autoScroll',
+				'Automatically scroll the editor to reveal inline output as cells run, so newly produced output stays in view.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[QUARTO_NATIVE_LANGUAGE_FEATURES_KEY]: {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize(
+				'positron.quarto.embeddedLanguageFeatures.native',
+				'Also serve language features for code cells in Quarto and R Markdown documents from Positron, instead of only from the Quarto extension. The Quarto extension continues to answer these requests from temporary virtual documents until a later release turns that off.'
+			),
+			scope: ConfigurationScope.WINDOW,
+			tags: ['experimental'],
 		},
 	},
 });
@@ -313,6 +344,27 @@ export function usingQuartoCellToolbar(configurationService: IConfigurationServi
  */
 export function usingQuartoInlineOutputStatementSplitting(configurationService: IConfigurationService): boolean {
 	return getQuartoConfigValue(configurationService, QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, true);
+}
+
+/**
+ * Helper function to check if the editor should auto-scroll to reveal inline
+ * output as it is produced. Defaults to true when the setting is unset.
+ * @param configurationService The configuration service instance
+ * @returns true if auto-scrolling to inline output is enabled
+ */
+export function usingQuartoInlineOutputAutoScroll(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY) !== false;
+}
+
+/**
+ * Helper function to check if Positron serves language features for Quarto code
+ * cells itself. Defaults to false when the setting is unset. There is no
+ * deprecated alias for this key, so it reads through plain `getValue`.
+ * @param configurationService The configuration service instance
+ * @returns true if native embedded language features are enabled
+ */
+export function usingNativeEmbeddedFeatures(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(QUARTO_NATIVE_LANGUAGE_FEATURES_KEY) === true;
 }
 
 /**

@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# Resolve a Positron version (alias or literal tag), download the matching macOS
-# zip from posit-dev/positron-builds, extract it, and print the resulting .app
-# path on stdout in the form BUILD=/path/to/Positron.app (consumed by the e2e
-# test infra via process.env.BUILD).
+# Resolve a Positron version (alias or literal tag), download the matching build
+# from posit-dev/positron-builds, extract it, and print the resulting build path
+# on stdout in the form BUILD=/path/to/build (consumed by the e2e test infra via
+# process.env.BUILD).
+#
+# macOS downloads the darwin zip and prints the .app bundle path. Linux
+# downloads the tarball and prints the directory holding the `positron`
+# executable, which is what getBuildElectronPath expects on that platform.
 
 set -euo pipefail
 
@@ -42,13 +46,27 @@ resolve_arch() {
 	esac
 }
 
+resolve_os() {
+	case "$(uname -s)" in
+		Darwin) echo "darwin" ;;
+		Linux)  echo "linux"  ;;
+		*) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;
+	esac
+}
+
 VERSION=$(resolve_version "$VERSION_INPUT")
 if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
 	echo "Could not resolve version from input '$VERSION_INPUT'" >&2
 	exit 1
 fi
 ARCH=$(resolve_arch)
-ASSET="Positron-darwin-${VERSION}-${ARCH}.zip"
+OS=$(resolve_os)
+
+if [[ "$OS" == "darwin" ]]; then
+	ASSET="Positron-darwin-${VERSION}-${ARCH}.zip"
+else
+	ASSET="Positron-linux-${VERSION}-${ARCH}.tar.gz"
+fi
 
 WORKDIR="${RUNNER_TEMP:-/tmp}/positron-build"
 rm -rf "$WORKDIR"
@@ -78,11 +96,24 @@ while (( attempt <= max_attempts )); do
 	(( attempt++ ))
 done
 
-unzip -q "$WORKDIR/$ASSET" -d "$WORKDIR"
-APP_PATH=$(find "$WORKDIR" -maxdepth 2 -name 'Positron.app' -type d | head -n1)
-if [[ -z "$APP_PATH" ]]; then
-	echo "Positron.app not found after extracting $ASSET" >&2
-	exit 1
+if [[ "$OS" == "darwin" ]]; then
+	unzip -q "$WORKDIR/$ASSET" -d "$WORKDIR"
+	BUILD_PATH=$(find "$WORKDIR" -maxdepth 2 -name 'Positron.app' -type d | head -n1)
+	if [[ -z "$BUILD_PATH" ]]; then
+		echo "Positron.app not found after extracting $ASSET" >&2
+		exit 1
+	fi
+else
+	# The Linux tarball extracts flat (./positron, ./bin/, ./resources/) rather
+	# than into a single top-level directory, so give it a directory of its own
+	# instead of unpacking alongside the downloaded archive.
+	BUILD_PATH="$WORKDIR/positron-linux"
+	mkdir -p "$BUILD_PATH"
+	tar -xzf "$WORKDIR/$ASSET" -C "$BUILD_PATH"
+	if [[ ! -x "$BUILD_PATH/positron" ]]; then
+		echo "positron executable not found at $BUILD_PATH/positron after extracting $ASSET" >&2
+		exit 1
+	fi
 fi
 
-echo "BUILD=$APP_PATH"
+echo "BUILD=$BUILD_PATH"

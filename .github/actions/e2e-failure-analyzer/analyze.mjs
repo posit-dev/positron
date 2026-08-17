@@ -130,7 +130,7 @@ function renderProjectFailures(projects, historyMap) {
 		// history -- and are collected here; hard failures get the full evidence
 		// block inline. A flaky test did NOT break this run (it went green on
 		// retry), so the run-centric analyzer does not deep-analyze it: that is
-		// the test-centric triage-e2e-test skill's job. This keeps flakies visible
+		// the test-centric debug-e2e-test skill's job. This keeps flakies visible
 		// for handoff while restricting the dominant token cost (per-attempt image
 		// and trace evidence, which the model reads) to hard failures only.
 		const flakyLines = [];
@@ -187,10 +187,13 @@ function renderProjectFailures(projects, historyMap) {
 				}
 			}
 			if (t.logExcerpt) {
-				// Error lines mined from the attached kernel/runtime/runner logs.
-				// Carries detail the trace lacks (e.g. a kernel's resolved file path),
-				// which distinguishes a missing fixture from one deleted mid-run.
-				out.push(`  Log excerpt (error lines from attached logs):`);
+				// Attached logs, time-sliced to the failing action's wait: ALL
+				// severities inside the window plus a derived "went quiet before the
+				// deadline" report. Carries detail the trace lacks (a kernel's resolved
+				// file path, a provider's successful model fetch) and, crucially,
+				// negative evidence -- a log falling silent exactly when the UI should
+				// have appeared, which no error grep can surface.
+				out.push(`  Log excerpt (attached logs, sliced to the failure window):`);
 				out.push(indent(capTimeline(String(t.logExcerpt)), '    '));
 			}
 		}
@@ -198,7 +201,7 @@ function renderProjectFailures(projects, historyMap) {
 		if (flakyLines.length) {
 			out.push('');
 			out.push(`#### Flaky (passed on retry) -- listed for awareness, NOT deep-analyzed`);
-			out.push(`These recovered on retry and did not break the run. Do not fetch their evidence or write a detailed analysis for them; if one looks like a real intermittent product bug, note it in one line and recommend the triage-e2e-test skill.`);
+			out.push(`These recovered on retry and did not break the run. Do not fetch their evidence or write a detailed analysis for them; if one looks like a real intermittent product bug, note it in one line and recommend the debug-e2e-test skill.`);
 			out.push(...flakyLines);
 		}
 	}
@@ -373,7 +376,7 @@ Apply the analysis rubric below to every failure. It is the shared source of tru
 const SYSTEM_PROMPT_TAIL = `This run deep-analyzes HARD failures (failed all retries) only, and requires a specific output format.
 
 - Each hard failure in the input is labeled "Severity: HARD" and carries full evidence (screenshots, trace, error-context). Analyze these fully.
-- Flaky tests (passed on retry) are NOT deep-analyzed. They appear only in the input's compact "Flaky (passed on retry)" list -- name + history, no evidence. Do NOT fetch evidence or write a detailed analysis for them: they went green on retry so they did not break this run, and per-test flaky investigation is the triage-e2e-test skill's job. If one's history clearly reads as a real intermittent product bug, you may flag it in a single line pointing to that skill; otherwise just list it.
+- Flaky tests (passed on retry) are NOT deep-analyzed. They appear only in the input's compact "Flaky (passed on retry)" list -- name + history, no evidence. Do NOT fetch evidence or write a detailed analysis for them: they went green on retry so they did not break this run, and per-test flaky investigation is the debug-e2e-test skill's job. If one's history clearly reads as a real intermittent product bug, you may flag it in a single line pointing to that skill; otherwise just list it.
 - Product source is checked out under \`$REPO_ROOT/{src,extensions}\` (see the REPO_ROOT line). Use it to settle a code-vs-test attribution for a hard failure -- but ONLY to confirm a hypothesis the trace / page snapshot / console digest / logs already point to. Prefer Grep, read narrowly, and do not go spelunking; if the evidence doesn't already implicate a specific area, don't go hunting through the tree.
 
 Output the FINAL REPORT as your last message. The report MUST be valid GitHub-flavored markdown starting with the heading \`## Summary\`. Do not include images, raw JSON, or commentary outside the report. Do not include any text before \`## Summary\` in the final message.
@@ -399,7 +402,7 @@ For each distinct HARD failure (or group), provide:
 
 ## Flaky (passed on retry)
 
-One sentence noting these recovered on retry and were not deep-analyzed. Then list each flaky test as a compact bullet (name + the one-line history from the input). Recommend the triage-e2e-test skill for any worth per-test investigation. Omit this whole section if the input had no flaky tests.
+One sentence noting these recovered on retry and were not deep-analyzed. Then list each flaky test as a compact bullet (name + the one-line history from the input). Recommend the debug-e2e-test skill for any worth per-test investigation. Omit this whole section if the input had no flaky tests.
 
 Constraints:
 - Keep the report focused. For runs with many failures, group related ones.

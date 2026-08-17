@@ -10,19 +10,12 @@ import {
 	IConfigurationRegistry,
 } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { AI_ENABLED_KEY, NEW_PROVIDER_MODAL_KEY } from './positronAIConfigurationKeys.js';
 
-/**
- * Main switch for Positron's AI features. When off, all of Positron's AI
- * features (Next Edit Suggestions, notebook AI, console Fix/Explain, etc.) are
- * turned off.
- *
- * Owned by Positron. It sits above the Posit Assistant extension's
- * `assistant.enabled` (which controls the chat UI): Posit Assistant also reads
- * `ai.enabled`, so when it's off the assistant is off regardless of
- * `assistant.enabled`. This setting seeds the `ai.*` namespace for
- * Positron-owned AI configuration.
- */
-export const AI_ENABLED_KEY = 'ai.enabled';
+// Re-exported so existing importers do not have to move. New callers outside
+// the workbench (e.g. the extension host) should import the keys module
+// directly to avoid this file's registerConfiguration side effect.
+export { AI_ENABLED_KEY };
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
 configurationRegistry.registerConfiguration({
@@ -37,6 +30,15 @@ configurationRegistry.registerConfiguration({
 			description: localize(
 				'positron.ai.enabled',
 				"Enable Positron's AI features, such as Posit Assistant, Posit AI Next Edit Suggestions and AI features in notebooks and the console. When disabled, all of Positron's AI features are turned off."
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[NEW_PROVIDER_MODAL_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.assistant.newProviderModal',
+				"Use the Configure LLM Providers modal to connect to language model providers. It groups providers by connection state, so you can see which are connected and which need attention without selecting each one. When disabled, the _Configure Language Model Providers_ command opens the previous dialog."
 			),
 			scope: ConfigurationScope.WINDOW,
 		}

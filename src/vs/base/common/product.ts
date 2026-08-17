@@ -5,7 +5,7 @@
 
 import { IStringDictionary } from './collections.js';
 import { PlatformName } from './platform.js';
-import { IPolicy } from './policy.js';
+import { IExtensionConfigurationPolicyReference, IPolicy } from './policy.js';
 
 export interface IBuiltInExtension {
 	readonly name: string;
@@ -64,6 +64,25 @@ export type ExtensionVirtualWorkspaceSupport = {
 	readonly override?: boolean;
 };
 
+/**
+ * Per-SDK configuration for downloading an agent SDK on demand. The
+ * runtime substitutes `{sdkTarget}` in `urlTemplate` against the host's
+ * `(platform, arch, libc)` triple via `resolveSdkTarget()` in the agent
+ * SDK downloader.
+ *
+ * `urlTemplate` uses `format2()`-style named placeholders. Today only
+ * `{sdkTarget}` is recognised; the build emits e.g.
+ * `https://main.vscode-cdn.net/agent-sdk/claude/0.3.168/{sdkTarget}.tgz`
+ * and the runtime substitutes `darwin-arm64`, `linux-x64-musl`, etc.
+ *
+ * See `src/vs/platform/agentHost/node/claude/roadmap.md` Phase 15 for
+ * the rationale (macOS Universal compatibility, trust model).
+ */
+export interface IAgentSdkProductConfig {
+	readonly version: string;
+	readonly urlTemplate: string;
+}
+
 export interface IProductConfiguration {
 	// --- Start Positron ---
 	/** The company name shown in the native about dialog */
@@ -77,6 +96,13 @@ export interface IProductConfiguration {
 
 	/** The Positron build number; unique within the Positron version */
 	readonly positronBuildNumber: number;
+
+	/**
+	 * Base URL for the slim LLM docs bundles the AI assistant reads from disk.
+	 * Overridden at runtime by the POSITRON_LLMS_DOCS_URL environment variable.
+	 * Distinct from the docs *website* URL, which is a separate knob.
+	 */
+	readonly positronLlmsDocsUrl?: string;
 
 	/** The linux package type (DEB or RPM) */
 	readonly packageType?: string;
@@ -138,6 +164,8 @@ export interface IProductConfiguration {
 		readonly nlsBaseUrl: string;
 		readonly accessSKUs?: string[];
 	};
+
+	readonly agentSdks?: { readonly [packageId: string]: IAgentSdkProductConfig };
 
 	readonly mcpGallery?: {
 		readonly serviceUrl: string;
@@ -223,7 +251,6 @@ export interface IProductConfiguration {
 	readonly extensionPointExtensionKind?: { readonly [extensionPointId: string]: ('ui' | 'workspace' | 'web')[] };
 	readonly extensionSyncedKeys?: { readonly [extensionId: string]: string[] };
 
-	readonly extensionsEnabledWithApiProposalVersion?: string[];
 	readonly extensionEnabledApiProposals?: { readonly [extensionId: string]: string[] };
 	readonly extensionUntrustedWorkspaceSupport?: { readonly [extensionId: string]: ExtensionUntrustedWorkspaceSupport };
 	readonly extensionVirtualWorkspacesSupport?: { readonly [extensionId: string]: ExtensionVirtualWorkspaceSupport };
@@ -254,10 +281,18 @@ export interface IProductConfiguration {
 	readonly chatParticipantRegistry?: string;
 	readonly chatSessionRecommendations?: IChatSessionRecommendation[];
 	readonly emergencyAlertUrl?: string;
+	readonly voiceWsUrl?: string;
 
 	readonly remoteDefaultExtensionsIfInstalledLocally?: string[];
 
-	readonly extensionConfigurationPolicy?: IStringDictionary<IPolicy>;
+	/**
+	 * Maps an extension-contributed setting key to either a full enterprise {@link IPolicy}
+	 * (the setting owns/"parents" the policy — the original syntax) or an
+	 * {@link IExtensionConfigurationPolicyReference} (`{ policyReference: { name } }`), attaching the
+	 * setting to a policy owned by an in-code setting. References let a `product.json`-provided
+	 * setting be governed by a policy whose `value` callback — which JSON cannot carry — lives in code.
+	 */
+	readonly extensionConfigurationPolicy?: IStringDictionary<IPolicy | IExtensionConfigurationPolicyReference>;
 
 	readonly onboardingKeymaps?: readonly IProductOnboardingKeymap[];
 	readonly onboardingThemes?: readonly IProductOnboardingTheme[];
@@ -400,6 +435,7 @@ export interface IDefaultChatAgent {
 
 	readonly documentationUrl: string;
 	readonly skusDocumentationUrl: string;
+	readonly optimizeUsageDocumentationUrl: string;
 	readonly publicCodeMatchesUrl: string;
 	readonly managePlanUrl: string;
 	readonly upgradePlanUrl: string;

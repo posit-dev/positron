@@ -3,7 +3,18 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-from positron.execute_request import PositronExecuteRequest
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import pytest
+
+from positron.execute_request import PositronExecuteRequest, current_execute_request
+
+if TYPE_CHECKING:
+    from positron.positron_ipkernel import PositronIPyKernel
+
+    from .conftest import MockSession
 
 
 def test_parses_code_location() -> None:
@@ -125,3 +136,54 @@ def test_unknown_keys_are_ignored() -> None:
     meta = PositronExecuteRequest.from_message(message)
 
     assert meta.fig_width == 6.4
+
+
+@pytest.mark.parametrize(
+    ("fig_width", "fig_height", "expected"),
+    [
+        (6.4, 4.8, (6.4, 4.8)),
+        # A lone dimension passes through; the caller fills the other from its default.
+        (None, 4.8, (None, 4.8)),
+        (6.4, None, (6.4, None)),
+        (None, None, None),
+        # A non-positive dimension counts as unspecified.
+        (-1.0, 4.8, (None, 4.8)),
+        (6.4, -1.0, (6.4, None)),
+        (-1.0, -1.0, None),
+    ],
+)
+def test_figure_size(
+    fig_width: float | None,
+    fig_height: float | None,
+    expected: tuple[float | None, float | None] | None,
+) -> None:
+    """`figure_size` keeps each positive dimension and is None only when neither is set."""
+    message = {"content": {"positron": {"fig-width": fig_width, "fig-height": fig_height}}}
+
+    meta = PositronExecuteRequest.from_message(message)
+
+    assert meta.figure_size == expected
+
+
+def test_current_execute_request_reads_figure_size(
+    kernel: PositronIPyKernel, session: MockSession
+) -> None:
+    """`current_execute_request` parses the kernel's current shell parent message."""
+    message = session.msg(
+        "execute_request", content={"positron": {"fig-width": 6.4, "fig-height": 4.8}}
+    )
+
+    kernel.set_parent([], message, channel="shell")
+
+    assert current_execute_request().figure_size == (6.4, 4.8)
+
+
+def test_current_execute_request_with_no_metadata(
+    kernel: PositronIPyKernel, session: MockSession
+) -> None:
+    """A shell parent message without `content.positron` yields an empty model."""
+    message = session.msg("execute_request", content={})
+
+    kernel.set_parent([], message, channel="shell")
+
+    assert current_execute_request().figure_size is None

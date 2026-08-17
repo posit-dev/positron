@@ -17,6 +17,8 @@ import { htmlRenderMode, pickPreferredOutputItem } from './notebookOutputUtils.j
 import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
@@ -40,6 +42,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		@INotebookExecutionStateService _executionStateService: INotebookExecutionStateService,
 		@ITextModelService _textModelService: ITextModelService,
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super(cellModel, instance, _executionStateService, _textModelService);
 
@@ -55,7 +58,14 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			undefined
 		);
 
-		this._outputs = observableFromEvent(this, Event.any(this.model.onDidChangeOutputs, this.model.onDidChangeOutputItems), () => {
+		// Toggling the inline data explorer changes which output item we render, so it
+		// re-parses the outputs the same way a new execution does.
+		const onDidChangeInlineDataExplorerEnabled = Event.filter(
+			this._configurationService.onDidChangeConfiguration,
+			e => e.affectsConfiguration(POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY)
+		);
+
+		this._outputs = observableFromEvent(this, Event.any(this.model.onDidChangeOutputs, this.model.onDidChangeOutputItems, onDidChangeInlineDataExplorerEnabled), () => {
 			/** @description cellOutputs */
 			return this.parseCellOutputs();
 		});
@@ -135,10 +145,13 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	 */
 	parseCellOutputs(): NotebookCellOutputs[] {
 		const parsedOutputs: NotebookCellOutputs[] = [];
+		const inlineDataExplorerEnabled = this._configurationService.getValue<boolean>(
+			POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY
+		) ?? true;
 
 		this.model.outputs.forEach((output) => {
 			const outputItems = output.outputs || [];
-			const preferredOutputItem = pickPreferredOutputItem(outputItems);
+			const preferredOutputItem = pickPreferredOutputItem(outputItems, { inlineDataExplorerEnabled });
 			if (!preferredOutputItem) {
 				return;
 			}

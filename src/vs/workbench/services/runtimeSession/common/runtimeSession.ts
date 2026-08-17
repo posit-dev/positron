@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, RuntimeStartupPhase } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo, IStartNewRuntimeSessionOptions } from './runtimeSessionService.js';
 import { RuntimeSessionDisplayInfo } from './runtimeSessionDisplayInfo.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -20,6 +20,7 @@ import { IModalDialogPromptInstance, IPositronModalDialogsService } from '../../
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
+import { ILifecycleService } from '../../lifecycle/common/lifecycle.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
@@ -204,7 +205,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IFileService private readonly _fileService: IFileService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IPathService private readonly _pathService: IPathService
+		@IPathService private readonly _pathService: IPathService,
+		@ILifecycleService private readonly _lifecycleService: ILifecycleService
 	) {
 
 		super();
@@ -649,6 +651,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param source The source of the request to start the runtime.
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
+	 * @param options Additional properties for the new session, e.g. whether the user explicitly selected the runtime.
 	 */
 	async startNewRuntimeSession(
 		runtimeId: string,
@@ -657,7 +660,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		notebookUri: URI | undefined,
 		source: string,
 		startMode = RuntimeStartMode.Starting,
-		activate: boolean): Promise<string> {
+		activate: boolean,
+		options?: IStartNewRuntimeSessionOptions): Promise<string> {
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
@@ -707,7 +711,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startMode,
 			createConsole,
 			activate,
-			notebookUri);
+			notebookUri,
+			options);
 	}
 
 	/**
@@ -1759,6 +1764,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param createConsole Whether to create a console for the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 * @param notebookDocument The notebook document to attach to the session, if any.
+	 * @param options Additional properties for the new session, e.g. whether the user explicitly selected the runtime.
 	 *
 	 * Returns a promise that resolves with the session ID when the runtime is
 	 * ready to use.
@@ -1770,7 +1776,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		startMode: RuntimeStartMode,
 		createConsole: boolean,
 		activate: boolean,
-		notebookUri?: URI): Promise<string> {
+		notebookUri?: URI,
+		options?: IStartNewRuntimeSessionOptions): Promise<string> {
 		this.setStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
 
 		// Create a promise that resolves when the runtime is ready to use, if there isn't already one.
@@ -1817,7 +1824,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			notebookUri,
 			workingDirectory,
 			createdTimestamp: Date.now(),
-			startReason: source
+			startReason: source,
+			userSelected: options?.userSelected
 		};
 
 		// Provision the new session.
@@ -2081,12 +2089,28 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					return;
 				}
 
-				// If a workspace session ended because the extension host was
+				// If a session ended because the extension host was
 				// disconnected, remember it so we can attempt to reconnect it
-				// when the extension host comes back online.
+				// when the extension host comes back online. Only Browser
+				// sessions are skipped: they live entirely in the extension host
+				// and cannot be reconnected. Both Workspace and Machine sessions
+				// reconnect to a kernel that keeps running (in the supervisor)
+				// while the extension host restarts, so both need to be queued
+				// here. Machine sessions in particular were previously dropped,
+				// leaving the main-thread adapter bound to the dead extension
+				// host and a later restart throwing "session handle not found".
+				//
+				// Don't queue anything once the window is shutting down. The
+				// extension host is torn down on quit too, and that emits the
+				// same exit reason, but there is no "comes back online" to wait
+				// for. Queueing there hands the session to a reconnect that can
+				// only fail, and the failure path calls back into code that
+				// rewrites the persisted session list from the set of live
+				// sessions, which is empty by then.
 				if (exit.reason === RuntimeExitReason.ExtensionHost &&
-					session.runtimeMetadata.sessionLocation ===
-					LanguageRuntimeSessionLocation.Workspace) {
+					!this._lifecycleService.willShutdown &&
+					session.runtimeMetadata.sessionLocation !==
+					LanguageRuntimeSessionLocation.Browser) {
 					this._disconnectedSessions.set(session.sessionId, sessionInfo);
 				}
 			}, 0);

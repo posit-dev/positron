@@ -16,13 +16,18 @@ const ANNOTATION_COLOR = '#dc2626';
 // these screenshots run against, so no settings override is needed here.
 test.use({
 	suiteId: __filename,
+	// The assistant screenshot signs in through the legacy provider dialog
+	// (pages/positronAssistant.ts), which is no longer the default. Remove the
+	// pin when that page object is ported to the new modal.
+	extraSettings: { 'assistant.newProviderModal': false },
 });
 
 test.afterEach(async ({ page, hotKeys, cleanup }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
 	await hotKeys.closeAllEditors();
-	await cleanup.discardAllChanges();
+	// These tests only create new notebooks, so the sole leftover is the Save-As target.
+	await cleanup.removeTestFiles(['explore-energy-data.ipynb']);
 });
 
 test.describe('Release Screenshots - Positron Notebook', () => {

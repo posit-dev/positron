@@ -1,0 +1,26 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Footer layout, matching the plain two button footer. The destructive treatment itself lives on
+ * `.positron-dynamic-modal-dialog-box .dialog-button.destructive` in positronDynamicModalDialog.css,
+ * alongside the default button's, so all of the dialog button variants stay in one place.
+ */
+.positron-dynamic-modal-dialog-box .destructive-two-button-footer {
+	gap: 10px;
+	height: 48px;
+	display: flex;
+	padding: 0 16px;
+	flex: 0 0 auto;
+	justify-content: end;
+	align-items: flex-start;
+}
+
+.positron-dynamic-modal-dialog-box .destructive-two-button-footer.top-border {
+	height: auto;
+	padding-top: 16px;
+	padding-bottom: 16px;
+	border-top: solid 1px var(--vscode-positronModalDialog-border);
+}

@@ -202,6 +202,38 @@ suite('searchPyPIVersions', () => {
         expect(result).to.deep.equal(['1.0']);
     });
 
+    test('reports no versions for a project that does not exist', async () => {
+        // PyPI answers 404 with the plain-text body `404 Not Found`. Parsing that
+        // as JSON throws "Unexpected non-whitespace character after JSON at
+        // position 4", which used to reach the user verbatim.
+        fetchStub.resolves({
+            ok: false,
+            status: 404,
+            json: () => Promise.reject(new SyntaxError('Unexpected non-whitespace character after JSON at position 4')),
+        } as unknown as Response);
+
+        const result = await searchPyPIVersions('definitely-not-a-real-package-xyz', async () => ({}));
+
+        expect(result).to.deep.equal([]);
+    });
+
+    test('throws a readable error when PyPI is unavailable', async () => {
+        fetchStub.resolves({
+            ok: false,
+            status: 503,
+            json: () => Promise.reject(new SyntaxError('Unexpected token')),
+        } as unknown as Response);
+
+        let message = '';
+        try {
+            await searchPyPIVersions('pkg', async () => ({}));
+        } catch (e) {
+            message = e instanceof Error ? e.message : String(e);
+        }
+
+        expect(message).to.match(/HTTP 503/);
+    });
+
     test('maps files to the longest matching version (1.0 vs 1.0.1)', async () => {
         fetchStub.resolves(
             makeVersionsResponse(

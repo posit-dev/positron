@@ -7,12 +7,12 @@
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IQuickInputService, IQuickPickItem, QuickInputHideReason, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -824,5 +824,278 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			RuntimeStartMode.Starting,
 			true
 		);
+	});
+});
+
+describe('StartNewConsoleSessionAction', () => {
+	const startNewRuntimeSession = vi.fn(async (): Promise<string> => 'new-session-id');
+	const executeCommand = vi.fn(async () => undefined);
+	let pick: TestQuickPick<IQuickPickItem>;
+	let preferredByLanguage: Map<string, ILanguageRuntimeMetadata>;
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({ startNewRuntimeSession }))
+		.stub(ICommandService, { executeCommand })
+		// The picker only lists a language once it has a preferred runtime for it,
+		// so registerRuntime below records each runtime as its language's preferred.
+		.stub(IRuntimeStartupService, {
+			getPreferredRuntime: (languageId: string) => preferredByLanguage.get(languageId),
+		})
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],
+		}))
+		.build();
+
+	beforeEach(() => {
+		pick = ctx.disposables.add(new TestQuickPick<IQuickPickItem>());
+		preferredByLanguage = new Map();
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+	});
+
+	function runAction(runtimeId?: string) {
+		return ctx.instantiationService.invokeFunction(accessor =>
+			new StartNewConsoleSessionAction().run(accessor, runtimeId));
+	}
+
+	function registerRuntime(runtimeId: string, runtimeName: string) {
+		const runtimeService = ctx.get(ILanguageRuntimeService);
+		const runtime = makeRuntime({ runtimeId, runtimeName });
+		ctx.disposables.add(runtimeService.registerRuntime(runtime));
+		preferredByLanguage.set(runtime.languageId, runtime);
+	}
+
+	// Agent-invocable path: a runtimeId is supplied, so the command must
+	// resolve it directly and skip the picker entirely.
+	it('starts the session for a registered runtimeId without opening a picker', async () => {
+		registerRuntime('py-1', 'Python 3.12 (System)');
+
+		const result = await runAction('py-1');
+
+		expect(result).toEqual({ started: true, sessionId: 'new-session-id' });
+		expect(pick.show).not.toHaveBeenCalled();
+		expect(executeCommand).toHaveBeenCalledWith('workbench.panel.positronConsole.focus');
+		expect(startNewRuntimeSession).toHaveBeenCalledWith(
+			'py-1',
+			'Python 3.12 (System)',
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			'Runtime id supplied to startNewConsoleSession command',
+			RuntimeStartMode.Starting,
+			true,
+			{ userSelected: false }
+		);
+	});
+
+	// An unresolvable runtimeId must surface a clear error rather than
+	// silently falling back to the interactive picker, which would leave a
+	// programmatic caller waiting on the user.
+	it('throws without starting a session or opening a picker for an unknown runtimeId', async () => {
+		await expect(runAction('does-not-exist')).rejects.toThrow(/does-not-exist/);
+		expect(pick.show).not.toHaveBeenCalled();
+		expect(startNewRuntimeSession).not.toHaveBeenCalled();
+		expect(executeCommand).not.toHaveBeenCalled();
+	});
+
+	// User path: no id, so the picker opens and the chosen runtime starts.
+	it('starts the runtime the user picks when no runtimeId is supplied', async () => {
+		registerRuntime('r-1', 'R 4.4.1');
+
+		const promise = runAction();
+		await vi.waitFor(() => expect(pick.show).toHaveBeenCalled());
+		pick.accept(pick.items.find((item): item is IQuickPickItem =>
+			item.type !== 'separator' && item.id === 'r-1')!);
+
+		expect(await promise).toEqual({ started: true, sessionId: 'new-session-id' });
+		expect(startNewRuntimeSession).toHaveBeenCalledWith(
+			'r-1',
+			'R 4.4.1',
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			'User selected runtime',
+			RuntimeStartMode.Starting,
+			true,
+			{ userSelected: true }
+		);
+	});
+
+	// A dismissed picker must report that nothing happened rather than looking
+	// like a success to a programmatic caller.
+	it('reports started: false when the user dismisses the picker', async () => {
+		const promise = runAction();
+		await vi.waitFor(() => expect(pick.show).toHaveBeenCalled());
+		pick.cancel();
+
+		expect(await promise).toEqual({
+			started: false,
+			message: 'No runtime was selected, so no console session was started.',
+		});
+		expect(startNewRuntimeSession).not.toHaveBeenCalled();
+	});
+
+	// Menu callers can forward a context object as the first argument; it
+	// must be treated as "no id supplied" (picker path), not as a runtime id.
+	it('opens the picker when a menu context object is forwarded as the argument', async () => {
+		const menuContext = { instance: {} };
+		const promise = runAction(menuContext as never);
+		await vi.waitFor(() => expect(pick.show).toHaveBeenCalled());
+
+		pick.cancel();
+
+		await expect(promise).resolves.toMatchObject({ started: false });
+		expect(startNewRuntimeSession).not.toHaveBeenCalled();
+	});
+});
+
+describe('SelectSessionAction', () => {
+	const executeCommand = vi.fn(async () => undefined);
+	const openEditor = vi.fn(async () => undefined);
+	const pickFn = vi.fn(async (): Promise<QuickPickItem | undefined> => undefined);
+
+	let foregroundSession: ILanguageRuntimeSession | undefined;
+	let sessionsById: Map<string, ILanguageRuntimeSession>;
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+			get foregroundSession() { return foregroundSession; },
+			set foregroundSession(session) { foregroundSession = session; },
+			get activeSessions() { return [...sessionsById.values()]; },
+			getSession: (sessionId: string) => sessionsById.get(sessionId),
+		}))
+		.stub(ICommandService, { executeCommand })
+		.stub(IEditorService, stubInterface<IEditorService>({ openEditor }))
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			// Narrow to IQuickInputService['pick'] because the field is overloaded
+			// (canPickMany: true returns Promise<T[]>, canPickMany: false returns
+			// Promise<T>); our single-shape stub satisfies only one overload and
+			// TS rejects it without the cast.
+			pick: pickFn as IQuickInputService['pick'],
+		}))
+		.build();
+
+	beforeEach(() => {
+		foregroundSession = undefined;
+		sessionsById = new Map();
+	});
+
+	function runAction(sessionId?: string) {
+		return ctx.instantiationService.invokeFunction(accessor =>
+			new SelectSessionAction().run(accessor, sessionId));
+	}
+
+	function addSession(
+		sessionId: string,
+		overrides: { notebookUri?: URI; runtimeState?: RuntimeState } = {},
+	): ILanguageRuntimeSession {
+		const { notebookUri, runtimeState = RuntimeState.Idle } = overrides;
+		const session = stubInterface<ILanguageRuntimeSession>({
+			sessionId,
+			metadata: {
+				sessionId,
+				sessionMode: notebookUri
+					? LanguageRuntimeSessionMode.Notebook
+					: LanguageRuntimeSessionMode.Console,
+				notebookUri,
+				createdTimestamp: 0,
+				startReason: 'test',
+			},
+			runtimeMetadata: makeRuntime(),
+			dynState: {
+				sessionName: sessionId,
+				currentWorkingDirectory: '',
+				busy: false,
+				inputPrompt: '>',
+				continuationPrompt: '+',
+			},
+			getRuntimeState: () => runtimeState,
+		});
+		sessionsById.set(sessionId, session);
+		return session;
+	}
+
+	// Agent-invocable path: a sessionId is supplied, so the command must
+	// resolve it directly and skip the picker entirely.
+	it('resolves a console sessionId directly, focuses the console, and skips the picker', async () => {
+		const session = addSession('console-1');
+
+		const result = await runAction('console-1');
+
+		expect(result).toEqual({ selected: true, sessionId: 'console-1' });
+		expect(pickFn).not.toHaveBeenCalled();
+		expect(foregroundSession).toBe(session);
+		expect(executeCommand).toHaveBeenCalledWith('workbench.panel.positronConsole.focus');
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	it('resolves a notebook sessionId directly, opens its editor, and skips the picker', async () => {
+		const uri = URI.file('/path/to/notebook.ipynb');
+		const session = addSession('notebook-1', { notebookUri: uri });
+
+		const result = await runAction('notebook-1');
+
+		expect(result).toEqual({ selected: true, sessionId: 'notebook-1' });
+		expect(pickFn).not.toHaveBeenCalled();
+		expect(foregroundSession).toBe(session);
+		expect(openEditor).toHaveBeenCalledWith({ resource: uri });
+		expect(executeCommand).not.toHaveBeenCalled();
+	});
+
+	// An unresolvable sessionId must surface a clear error rather than
+	// silently falling back to the interactive picker, which would leave a
+	// programmatic caller waiting on the user.
+	it('throws without changing the foreground session or opening a picker for an unknown sessionId', async () => {
+		await expect(runAction('does-not-exist')).rejects.toThrow(/does-not-exist/);
+
+		expect(pickFn).not.toHaveBeenCalled();
+		expect(foregroundSession).toBeUndefined();
+		expect(executeCommand).not.toHaveBeenCalled();
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	// The picker leaves exited sessions out, so selecting one by id must fail
+	// too rather than making a dead session the foreground session.
+	it('throws for a session that has exited', async () => {
+		addSession('exited-1', { runtimeState: RuntimeState.Exited });
+
+		await expect(runAction('exited-1')).rejects.toThrow(/has exited/);
+		expect(foregroundSession).toBeUndefined();
+	});
+
+	// User path: no id, so the picker opens and the chosen session is applied.
+	it('applies the session the user picks when sessionId is omitted', async () => {
+		const session = addSession('console-1');
+		pickFn.mockResolvedValueOnce({ id: 'console-1', label: 'console-1' });
+
+		const result = await runAction();
+
+		expect(result).toEqual({ selected: true, sessionId: 'console-1' });
+		expect(pickFn).toHaveBeenCalled();
+		expect(foregroundSession).toBe(session);
+		expect(executeCommand).toHaveBeenCalledWith('workbench.panel.positronConsole.focus');
+	});
+
+	// A dismissed picker must report that nothing happened rather than looking
+	// like a success to a programmatic caller.
+	it('reports selected: false when the user dismisses the picker', async () => {
+		const result = await runAction();
+
+		expect(result).toEqual({
+			selected: false,
+			message: 'No session was selected, so the active session is unchanged.',
+		});
+		expect(pickFn).toHaveBeenCalled();
+		expect(foregroundSession).toBeUndefined();
+	});
+
+	// Menu callers can forward a context object as the first argument; it
+	// must be treated as "no id supplied" (picker path), not as a session id.
+	it('opens the picker when a menu context object is forwarded as the argument', async () => {
+		const menuContext = { instance: {} };
+		const result = await runAction(menuContext as never);
+
+		expect(result).toMatchObject({ selected: false });
+		expect(pickFn).toHaveBeenCalled();
+		expect(foregroundSession).toBeUndefined();
 	});
 });

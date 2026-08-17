@@ -1,0 +1,167 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import { VSBuffer, encodeBase64 } from '../../../../../base/common/buffer.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { IFileService } from '../../../../../platform/files/common/files.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { getDefaultImageFilename, getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '../../common/imageOutputUtils.js';
+
+const notebookUri = URI.file('/home/user/project/notebook.ipynb');
+const pngDataUrl = `data:image/png;base64,${encodeBase64(VSBuffer.fromString('fake-png-bytes'))}`;
+
+describe('imageOutputUtils', () => {
+	createTestContainer().build();
+
+	const logService = new NullLogService();
+
+	describe('getImageOutputName', () => {
+		it('derives a 1-based cell name from the document name', () => {
+			expect(getImageOutputName(notebookUri, 0)).toBe('notebook_cell1');
+			expect(getImageOutputName(notebookUri, 2)).toBe('notebook_cell3');
+		});
+
+		it('appends a 1-based image number when the cell holds several images', () => {
+			expect(getImageOutputName(notebookUri, 0, 0)).toBe('notebook_cell1_image1');
+			expect(getImageOutputName(notebookUri, 0, 1)).toBe('notebook_cell1_image2');
+		});
+
+		it('leaves the name unsuffixed when no image index is given', () => {
+			// A cell with one image keeps the shorter name, so the common case is
+			// unaffected by multi-image disambiguation.
+			expect(getImageOutputName(notebookUri, 0)).not.toContain('_image');
+		});
+	});
+
+	describe('getDefaultImageFilename', () => {
+		it('appends the extension for the MIME type', () => {
+			expect(getDefaultImageFilename('notebook_cell1', 'image/png')).toBe('notebook_cell1.png');
+			expect(getDefaultImageFilename('notebook_cell3', 'image/svg+xml')).toBe('notebook_cell3.svg');
+		});
+	});
+
+	describe('saveImageOutput', () => {
+		it('writes the image to the location chosen in the save dialog', async () => {
+			const saveUri = URI.file('/home/user/project/my-plot.png');
+			const showSaveDialog = vi.fn().mockResolvedValue(saveUri);
+			const writeFile = vi.fn().mockResolvedValue(undefined);
+			const info = vi.fn();
+			const fileDialogService = stubInterface<IFileDialogService>({ showSaveDialog });
+			const fileService = stubInterface<IFileService>({ writeFile });
+			const notificationService = stubInterface<INotificationService>({ info });
+
+			const saved = await saveImageOutput(pngDataUrl, notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService);
+
+			expect(saved).toBe(true);
+			expect(showSaveDialog).toHaveBeenCalledWith(expect.objectContaining({
+				defaultUri: expect.objectContaining({ path: '/home/user/project/notebook_cell1.png' }),
+			}));
+			expect(writeFile).toHaveBeenCalledWith(saveUri, expect.any(VSBuffer));
+			expect(writeFile.mock.calls[0][1].toString()).toBe('fake-png-bytes');
+			expect(info).toHaveBeenCalled();
+		});
+
+		it('returns false without writing when the dialog is cancelled', async () => {
+			const writeFile = vi.fn();
+			const fileDialogService = stubInterface<IFileDialogService>({ showSaveDialog: vi.fn().mockResolvedValue(undefined) });
+			const fileService = stubInterface<IFileService>({ writeFile });
+			const notificationService = stubInterface<INotificationService>({});
+
+			const saved = await saveImageOutput(pngDataUrl, notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService);
+
+			expect(saved).toBe(false);
+			expect(writeFile).not.toHaveBeenCalled();
+		});
+
+		it('bypasses the dialog when a target URI is provided', async () => {
+			const targetUri = URI.file('/tmp/out.png');
+			const showSaveDialog = vi.fn();
+			const writeFile = vi.fn().mockResolvedValue(undefined);
+			const fileDialogService = stubInterface<IFileDialogService>({ showSaveDialog });
+			const fileService = stubInterface<IFileService>({ writeFile });
+			const notificationService = stubInterface<INotificationService>({ info: vi.fn() });
+
+			const saved = await saveImageOutput(pngDataUrl, notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService, targetUri);
+
+			expect(saved).toBe(true);
+			expect(showSaveDialog).not.toHaveBeenCalled();
+			expect(writeFile).toHaveBeenCalledWith(targetUri, expect.any(VSBuffer));
+		});
+
+		it('notifies an error for a malformed data URL', async () => {
+			const error = vi.fn();
+			const fileDialogService = stubInterface<IFileDialogService>({});
+			const fileService = stubInterface<IFileService>({});
+			const notificationService = stubInterface<INotificationService>({ error });
+
+			const saved = await saveImageOutput('not-a-data-url', notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService);
+
+			expect(saved).toBe(false);
+			expect(error).toHaveBeenCalled();
+		});
+
+		it('notifies an error when writing the file fails', async () => {
+			const error = vi.fn();
+			const fileDialogService = stubInterface<IFileDialogService>({ showSaveDialog: vi.fn().mockResolvedValue(URI.file('/tmp/out.png')) });
+			const fileService = stubInterface<IFileService>({ writeFile: vi.fn().mockRejectedValue(new Error('disk full')) });
+			const notificationService = stubInterface<INotificationService>({ error });
+
+			const saved = await saveImageOutput(pngDataUrl, notebookUri, 'notebook_cell1', fileDialogService, fileService, logService, notificationService);
+
+			expect(saved).toBe(false);
+			expect(error).toHaveBeenCalled();
+		});
+	});
+
+	describe('openImageOutputInNewTab', () => {
+		it('opens the image data in a plot editor tab named after the cell', async () => {
+			const openImageInEditor = vi.fn().mockResolvedValue(undefined);
+			const plotsService = stubInterface<IPositronPlotsService>({ openImageInEditor });
+			const notificationService = stubInterface<INotificationService>({});
+
+			await openImageOutputInNewTab(pngDataUrl, notebookUri, 'notebook_cell1', plotsService, logService, notificationService, 'plt.plot([1, 2, 3])');
+
+			expect(openImageInEditor).toHaveBeenCalledWith(pngDataUrl, {
+				name: 'notebook_cell1',
+				code: 'plt.plot([1, 2, 3])',
+				scope: notebookUri.toString(),
+			});
+		});
+
+		it('scopes the tab to the document, so same-named documents do not share one', async () => {
+			// Two notebooks named notebook.ipynb in different directories produce the
+			// same label for the same cell, and the same plot is byte-identical.
+			const openImageInEditor = vi.fn().mockResolvedValue(undefined);
+			const plotsService = stubInterface<IPositronPlotsService>({ openImageInEditor });
+			const notificationService = stubInterface<INotificationService>({});
+
+			const other = URI.file('/home/user/other/notebook.ipynb');
+			await openImageOutputInNewTab(pngDataUrl, notebookUri, 'notebook_cell1', plotsService, logService, notificationService);
+			await openImageOutputInNewTab(pngDataUrl, other, 'notebook_cell1', plotsService, logService, notificationService);
+
+			const scopes = openImageInEditor.mock.calls.map(([, options]) => options.scope);
+			expect(new Set(scopes).size).toBe(2);
+		});
+
+		it('notifies an error when the image cannot be opened', async () => {
+			const error = vi.fn();
+			const plotsService = stubInterface<IPositronPlotsService>({
+				openImageInEditor: vi.fn().mockRejectedValue(new Error('malformed image data URL')),
+			});
+			const notificationService = stubInterface<INotificationService>({ error });
+
+			await openImageOutputInNewTab('not-a-data-url', notebookUri, 'notebook_cell1', plotsService, logService, notificationService);
+
+			expect(error).toHaveBeenCalled();
+		});
+	});
+});

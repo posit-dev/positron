@@ -28,6 +28,17 @@ import { ICodeLocation } from '../../../services/positronConsole/common/codeLoca
 import * as typeConvert from '../extHostTypeConverters.js';
 
 /**
+ * Derives the session's optional-method capabilities for the main thread,
+ * which cannot observe method presence across the RPC boundary.
+ */
+function sessionCapabilities(session: positron.LanguageRuntimeSession): extHostProtocol.RuntimeSessionCapabilities {
+	return {
+		listMissingPackages: !!session.listMissingPackages,
+		getMissingPackageProbe: !!session.getMissingPackageProbe,
+	};
+}
+
+/**
  * Interface for code execution observers
  */
 interface IExecutionObserver {
@@ -458,7 +469,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 			const initalState = {
 				handle,
-				dynState: await session.getDynState()
+				dynState: await session.getDynState(),
+				capabilities: sessionCapabilities(session),
 			};
 			return initalState;
 		} else {
@@ -593,7 +605,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				const handle = this.attachToSession(session);
 				const initalState = {
 					handle,
-					dynState: await session.getDynState()
+					dynState: await session.getDynState(),
+					capabilities: sessionCapabilities(session),
 				};
 				return initalState;
 			} else {
@@ -932,6 +945,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return (await session.listMissingPackages?.(target, token)) ?? [];
 	}
 
+	async $getMissingPackageProbe(
+		handle: number,
+		error: positron.RuntimeConsoleError,
+		token: CancellationToken,
+	): Promise<string | undefined> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot get missing-package probe: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		return session.getMissingPackageProbe?.(error, token);
+	}
+
 	async $getPackageDetail(
 		handle: number,
 		name: string,
@@ -1038,7 +1063,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._runtimeSessions[handle].openResource!(resource));
 	}
 
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, _executionId?: string, executionMetadata?: Record<string, unknown>): void {
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, _executionId?: string, executionMetadata?: Record<string, unknown>): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot execute code: session handle '${handle}' not found or no longer valid.`);
 		}
@@ -1052,7 +1077,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			};
 		}
 
-		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived, executionMetadata);
+		// Wrap in Promise.resolve so both void- and thenable-returning session
+		// implementations work, and so a thrown/rejected error propagates back
+		// over RPC (preserving error.name for CodeIncompleteError etc.).
+		return Promise.resolve(this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived, executionMetadata));
 	}
 
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus> {
@@ -1855,6 +1883,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
 		Promise<Array<QueryTableSummaryResult>> {
 		return this._proxy.$querySessionTables(sessionId, accessKeys, queryTypes);
+	}
+
+	public getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<extHostProtocol.ISerializedConsoleHistoryEntry[]> {
+		return this._proxy.$getConsoleHistory(sessionId, numberOfEntries);
 	}
 
 	/**

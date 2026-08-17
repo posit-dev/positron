@@ -199,12 +199,15 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 				}
 			});
 
-			session.execute(
+			Promise.resolve(session.execute(
 				this.metadata.code,
 				this.metadata.name,
 				RuntimeCodeExecutionMode.Interactive,
 				RuntimeErrorBehavior.Continue
-			);
+			)).catch((err) => {
+				disposable.dispose();
+				out.error(err);
+			});
 
 			setTimeout(() => {
 				// If the connection didn't complete in 5s, we reject.
@@ -309,12 +312,15 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 				}
 			});
 
-			session.execute(
+			Promise.resolve(session.execute(
 				this.metadata.code,
 				this.metadata.name,
 				RuntimeCodeExecutionMode.Interactive,
 				RuntimeErrorBehavior.Continue
-			);
+			)).catch((err) => {
+				disposable.dispose();
+				out.error(err);
+			});
 
 			setTimeout(() => {
 				// If the connection didn't complete in 5s, we reject.

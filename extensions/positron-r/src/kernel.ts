@@ -306,6 +306,111 @@ export function sniffWindowsBinaryArchitecture(binaryPath?: string): WindowsKern
 	}
 }
 
+/** Architecture as reported by `RInstallation.arch` (Rig-style, e.g. arm64, x86_64). */
+type MachOArch = 'arm64' | 'x86_64';
+
+// Mach-O magic numbers (see <mach-o/loader.h> and <mach-o/fat.h>).
+const MH_MAGIC_64 = 0xfeedfacf;   // thin 64-bit, host-endian (little-endian on disk today)
+const MH_CIGAM_64 = 0xcffaedfe;   // thin 64-bit, byte-swapped
+const FAT_MAGIC = 0xcafebabe;     // universal (fat) binary, big-endian
+const FAT_MAGIC_64 = 0xcafebabf;  // universal (fat) binary with 64-bit offsets
+
+// CPU types (see <mach/machine.h>). The 0x01000000 bit is CPU_ARCH_ABI64.
+const CPU_TYPE_X86_64 = 0x01000007;
+const CPU_TYPE_ARM64 = 0x0100000c;
+
+/**
+ * Maps a Mach-O `cputype` value to the architecture strings used by
+ * `RInstallation.arch`.
+ */
+function machOArchFromCpuType(cpuType: number): MachOArch | undefined {
+	switch (cpuType >>> 0) {
+		case CPU_TYPE_ARM64:
+			return 'arm64';
+		case CPU_TYPE_X86_64:
+			return 'x86_64';
+		default:
+			return undefined;
+	}
+}
+
+/**
+ * Sniffs the architecture of a macOS binary by examining its Mach-O header.
+ *
+ * The conda-forge `Built` field records the (cross-compilation) build farm's
+ * platform rather than the installed binary's architecture, so the actual
+ * Mach-O header is the reliable source. This is the macOS analog of
+ * {@link sniffWindowsBinaryArchitecture}.
+ *
+ * For universal (fat) binaries, the slice matching the current process
+ * architecture is preferred (that is the slice macOS runs natively); if there
+ * is no such slice but only one slice exists, that slice is returned.
+ *
+ * @param binaryPath The path to the Mach-O executable (e.g. `<R home>/bin/exec/R`).
+ * @returns The detected architecture, or undefined if it can't be determined.
+ */
+export function sniffMachOBinaryArchitecture(binaryPath?: string): MachOArch | undefined {
+	if (!binaryPath) {
+		return undefined;
+	}
+	try {
+		const fd = fs.openSync(binaryPath, 'r');
+		try {
+			// Enough to cover the fat header plus a handful of fat_arch entries.
+			const header = Buffer.alloc(4096);
+			const bytesRead = fs.readSync(fd, header, 0, header.length, 0);
+			if (bytesRead < 8) {
+				return undefined;
+			}
+
+			// Fat headers and their fields are stored big-endian on disk.
+			const magicBE = header.readUInt32BE(0);
+			if (magicBE === FAT_MAGIC || magicBE === FAT_MAGIC_64) {
+				const is64 = magicBE === FAT_MAGIC_64;
+				const nFatArch = header.readUInt32BE(4);
+				// fat_arch is 20 bytes; fat_arch_64 is 32 bytes. cputype is the first field.
+				const entrySize = is64 ? 32 : 20;
+				const arches = new Set<MachOArch>();
+				for (let i = 0; i < nFatArch; i++) {
+					const offset = 8 + i * entrySize;
+					if (offset + 4 > bytesRead) {
+						break;
+					}
+					const arch = machOArchFromCpuType(header.readUInt32BE(offset));
+					if (arch) {
+						arches.add(arch);
+					}
+				}
+				// Prefer the slice that matches the host, since that is what runs natively.
+				const hostArch: MachOArch | undefined =
+					process.arch === 'arm64' ? 'arm64' : process.arch === 'x64' ? 'x86_64' : undefined;
+				if (hostArch && arches.has(hostArch)) {
+					return hostArch;
+				}
+				return arches.size === 1 ? [...arches][0] : undefined;
+			}
+
+			// Thin Mach-O: read the magic in both byte orders to determine endianness,
+			// then read the cputype (the field immediately after the magic).
+			const magicLE = header.readUInt32LE(0);
+			if (magicLE === MH_MAGIC_64) {
+				return machOArchFromCpuType(header.readUInt32LE(4));
+			}
+			if (magicLE === MH_CIGAM_64) {
+				return machOArchFromCpuType(header.readUInt32BE(4));
+			}
+
+			// Not a 64-bit Mach-O we recognize (e.g. legacy 32-bit), which we don't support.
+			return undefined;
+		} finally {
+			fs.closeSync(fd);
+		}
+	} catch (error) {
+		LOGGER.debug(`Unable to determine macOS R architecture from ${binaryPath}: ${error}`);
+		return undefined;
+	}
+}
+
 /**
  * Sets up ark as a discoverable Jupyter kernel so that external tools like
  * Quarto can find it via `jupyter kernelspec list`.

@@ -27,6 +27,16 @@ export type PositronLayoutInfo = {
 	 * it in grey or for a command, do not allow to invoke it)
 	 */
 	precondition: ContextKeyExpression;
+	/**
+	 * Model-facing description of the layout. Required when
+	 * {@link agentCompatible} is `true`.
+	 */
+	agentDescription?: string;
+	/**
+	 * When true, the layout is exposed to AI agents via
+	 * `positron.ai.getAgentAllowedCommands()`.
+	 */
+	agentCompatible?: boolean;
 };
 
 export abstract class PositronLayoutAction extends Action2 {
@@ -40,7 +50,11 @@ export abstract class PositronLayoutAction extends Action2 {
 			title: layoutInfo.label,
 			category: Categories.View,
 			f1: showInPalette,
-			precondition: layoutInfo.precondition
+			precondition: layoutInfo.precondition,
+			metadata: layoutInfo.agentCompatible ? {
+				description: layoutInfo.agentDescription ?? layoutInfo.label.value,
+				agentCompatible: true,
+			} : undefined,
 		});
 
 		this._layout = layoutInfo.layoutDescriptor;

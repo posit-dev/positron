@@ -29,6 +29,11 @@ import { ApiProposalName } from '../../../../platform/extensions/common/extensio
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { PositronActionBarOptions, PositronActionBarButtonOptions, PositronActionBarCheckboxOptions, PositronActionBarToggleOptions } from '../../../../platform/action/common/action.js';
+import { ICommandMetadata } from '../../../../platform/commands/common/commands.js';
+// eslint-disable-next-line no-duplicate-imports
+import { ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
+// eslint-disable-next-line no-duplicate-imports
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 // --- End Positron ---
 
 // --- Start Positron ---
@@ -45,6 +50,32 @@ export const IGNORED_JUPYTER_COMMANDS = new Set([
 	// host process. We don't currently support running multiple extension host processes.
 	'jupyter.runInDedicatedExtensionHost',
 ]);
+// --- End Positron ---
+
+// --- Start Positron ---
+// Add Positron's AI switch to every command and menu item the bundled Copilot extension
+// contributes. Doing it here covers whatever upstream adds, and avoids hand-writing a `when`
+// clause per command in a package.json that every bump replaces.
+const COPILOT_EXTENSION_ID = new ExtensionIdentifier('GitHub.copilot-chat');
+
+// Written out here instead of imported from `ChatContextKeys`, because this file sits outside
+// `contrib/` and can't depend on it. A bare key name means "is this key set", so this is the same
+// thing the key in a package.json `when` clause would parse to.
+const COPILOT_AI_FEATURES_ENABLED = ContextKeyExpr.has('chatAiFeaturesEnabled');
+
+/**
+ * Adds Positron's AI switch to a condition coming from the bundled Copilot extension. Conditions
+ * from any other extension are returned unchanged.
+ *
+ * Pass in the extension's own condition so it still applies: a command's `enablement` or a menu
+ * item's `when` has to be true as well, not instead.
+ */
+export function gateCopilotContribution(extensionId: ExtensionIdentifier, expr: ContextKeyExpression | undefined): ContextKeyExpression | undefined {
+	if (!ExtensionIdentifier.equals(extensionId, COPILOT_EXTENSION_ID)) {
+		return expr;
+	}
+	return ContextKeyExpr.and(expr, COPILOT_AI_FEATURES_ENABLED);
+}
 // --- End Positron ---
 
 interface IAPIMenu {
@@ -854,6 +885,16 @@ namespace schema {
 		icon?: IUserFriendlyIcon;
 		// --- Start Positron ---
 		actionBarOptions?: IUserFriendlyActionBarOptions;
+		agent?: {
+			description: string;
+			args?: ReadonlyArray<{
+				name: string;
+				description?: string;
+				required?: boolean;
+				schema?: object;
+			}>;
+			returns?: string;
+		};
 		// --- End Positron ---
 	}
 
@@ -1065,6 +1106,38 @@ namespace schema {
 						}
 					}
 				}]
+			},
+			agent: {
+				description: localize(
+					'positron.vscode.extension.contributes.commandType.agent',
+					'(Optional) Exposes this command to AI agents with machine-readable metadata.'
+				),
+				type: 'object',
+				required: ['description'],
+				properties: {
+					description: {
+						description: localize('positron.vscode.extension.contributes.commandType.agent.description', 'Natural-language description for an AI agent. This text may also be shown to users in the Command Palette.'),
+						type: 'string',
+					},
+					args: {
+						description: localize('positron.vscode.extension.contributes.commandType.agent.args', 'Positional arguments accepted by this command.'),
+						type: 'array',
+						items: {
+							type: 'object',
+							required: ['name'],
+							properties: {
+								name: { type: 'string' },
+								description: { type: 'string' },
+								required: { type: 'boolean' },
+								schema: { type: 'object' },
+							},
+						},
+					},
+					returns: {
+						description: localize('positron.vscode.extension.contributes.commandType.agent.returns', 'What the command returns.'),
+						type: 'string',
+					},
+				},
 			}
 			// --- End Positron ---
 		}
@@ -1083,6 +1156,30 @@ namespace schema {
 }
 
 const _commandRegistrations = new DisposableStore();
+
+// --- Start Positron ---
+/**
+ * Maps the `agent` sub-object of a `contributes.commands` entry to the
+ * `ICommandMetadata` shape stored on the command, opting the command into the
+ * agent-compatible set. Returns `undefined` when no `agent` field is present.
+ */
+export function toAgentMetadata(agent: schema.IUserFriendlyCommand['agent']): ICommandMetadata | undefined {
+	if (!agent) {
+		return undefined;
+	}
+	return {
+		description: agent.description,
+		agentCompatible: true,
+		args: agent.args?.map(a => ({
+			name: a.name,
+			description: a.description,
+			isOptional: a.required === false,
+			schema: a.schema as IJSONSchema | undefined,
+		})),
+		returns: agent.returns,
+	};
+}
+// --- End Positron ---
 
 export const commandsExtensionPoint = ExtensionsRegistry.registerExtensionPoint<schema.IUserFriendlyCommand | schema.IUserFriendlyCommand[]>({
 	extensionPoint: 'commands',
@@ -1113,8 +1210,8 @@ commandsExtensionPoint.setHandler(extensions => {
 		// --- End Positron ---
 
 		// --- Start Positron ---
-		// Add actionBarOptions.
-		const { icon, enablement, category, title, shortTitle, command, actionBarOptions } = userFriendlyCommand;
+		// Add actionBarOptions and agent.
+		const { icon, enablement, category, title, shortTitle, command, actionBarOptions, agent } = userFriendlyCommand;
 		// --- End Positron ---
 
 		let absoluteIcon: { dark: URI; light?: URI } | ThemeIcon | undefined;
@@ -1167,10 +1264,15 @@ commandsExtensionPoint.setHandler(extensions => {
 			shortTitle,
 			tooltip: title,
 			category,
-			precondition: ContextKeyExpr.deserialize(enablement),
+			// --- Start Positron ---
+			// Was: precondition: ContextKeyExpr.deserialize(enablement),
+			// Add the AI switch to Copilot's commands, on top of their own `enablement`.
+			precondition: gateCopilotContribution(extension.description.identifier, ContextKeyExpr.deserialize(enablement)),
+			// --- End Positron ---
 			icon: absoluteIcon,
 			// --- Start Positron ---
-			positronActionBarOptions
+			positronActionBarOptions,
+			metadata: toAgentMetadata(agent),
 			// --- End Positron ---
 		}));
 	}
@@ -1372,7 +1474,12 @@ menusExtensionPoint.setHandler(extensions => {
 					continue;
 				}
 
-				item.when = ContextKeyExpr.deserialize(menuItem.when);
+				// --- Start Positron ---
+				// Was: item.when = ContextKeyExpr.deserialize(menuItem.when);
+				// Add the AI switch to Copilot's menu items, on top of their own `when`. This line
+				// runs after both the menu-item and submenu-item branches, so it covers both.
+				item.when = gateCopilotContribution(extension.description.identifier, ContextKeyExpr.deserialize(menuItem.when));
+				// --- End Positron ---
 				_menuRegistrations.add(MenuRegistry.appendMenuItem(menu.id, item));
 			}
 		}

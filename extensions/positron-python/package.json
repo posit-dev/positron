@@ -75,6 +75,7 @@
     ],
     "activationEvents": [
         "onCommand:python.createEnvironmentAndRegister",
+        "onCommand:python.getEnvironmentHealth",
         "onStartupFinished",
         "onDebugInitialConfigurations",
         "onLanguage:python",
@@ -552,11 +553,6 @@
                 "category": "Python",
                 "command": "python.interpreters.debugInfo",
                 "title": "%python.command.python.interpreterDebugInfo.title%"
-            },
-            {
-                "category": "Python",
-                "command": "python.getEnvironmentHealth",
-                "title": "%python.command.python.getEnvironmentHealth.title%"
             }
         ],
         "configuration": {
@@ -583,6 +579,12 @@
                         "show",
                         "hide"
                     ]
+                },
+                "python.createEnvironment.promptOnInterpreterSelect": {
+                    "default": true,
+                    "markdownDescription": "%python.createEnvironment.promptOnInterpreterSelect.description%",
+                    "scope": "machine-overridable",
+                    "type": "boolean"
                 },
                 "python.createEnvironment.trigger": {
                     "default": "prompt",
@@ -841,6 +843,13 @@
                     ],
                     "scope": "machine-overridable",
                     "type": "string"
+                },
+                "python.locatorIdleTimeout": {
+                    "default": 180,
+                    "markdownDescription": "%python.locatorIdleTimeout.description%",
+                    "minimum": 0,
+                    "scope": "machine-overridable",
+                    "type": "number"
                 },
                 "python.pipenvPath": {
                     "default": "pipenv",
@@ -2293,8 +2302,9 @@
         "yargs": "^15.3.1"
     },
     "overrides": {
-        "brace-expansion@1": "1.1.13",
-        "brace-expansion@2": "2.0.3"
+        "brace-expansion@1": "1.1.18",
+        "brace-expansion@2": "2.1.4",
+        "brace-expansion@5": "5.0.9"
     },
     "positron": {
         "externalDependencies": {

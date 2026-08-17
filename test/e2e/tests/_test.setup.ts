@@ -9,6 +9,7 @@ const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
 import { join } from 'path';
+import * as fs from 'fs';
 
 // Local imports
 import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage, Assistant } from '../infra';
@@ -19,6 +20,7 @@ import {
 	TracingFixture, shouldUseCustomTracing, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
+import { defaultWorkspacePath } from '../infra/test-runner';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixtures/test-setup/docker-utils.js';
@@ -51,6 +53,19 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	enableDataConnections: [false, { scope: 'worker', option: true }],
 
 	enableFoundryAssistant: [false, { scope: 'worker', option: true }],
+
+	// Extra environment variables merged onto the launched app's env. Set a value
+	// to `undefined` to UNSET a variable for the app (e.g. scrubbing provider auth
+	// vars so a modal starts disconnected). Opt in with
+	// `test.use({ extraEnv: { ANTHROPIC_API_KEY: undefined } })`.
+	extraEnv: [{}, { scope: 'worker', option: true }],
+
+	// Extra user settings written before the app starts, so no window reload is
+	// needed for them to take effect. Opt in with
+	// `test.use({ extraSettings: { 'assistant.newProviderModal': false } })`.
+	// Applies to the Docker apps too: they read settings from inside the container,
+	// so a suite cannot set these at runtime (see dockerSettingsOverrides).
+	extraSettings: [{}, { scope: 'worker', option: true }],
 
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
@@ -118,7 +133,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	// placeholder for area-specific fixtures that need to run before app starts
 	// e.g. changing settings that require an app reload
 	beforeApp: [
-		async ({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, settingsFile }, use) => {
+		async ({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings, settingsFile }, use) => {
 			if (useLegacyNotebookEditor) {
 				// These tests exercise the legacy (VS Code) notebook editor. The
 				// Positron notebook editor is now the default, so disable it before
@@ -143,12 +158,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				await settingsFile.append({ ...FOUNDRY_ASSISTANT_SETTINGS });
 			}
 
+			// Merged last so a suite's own settings win over the options above.
+			if (Object.keys(extraSettings).length > 0) {
+				await settingsFile.append({ ...extraSettings });
+			}
+
 			await use();
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, beforeApp: _beforeApp }, use, workerInfo) => {
-		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant });
+	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraEnv, extraSettings, beforeApp: _beforeApp }, use, workerInfo) => {
+		// Merge any suite-provided extraEnv onto the launch options (undefined values
+		// unset a variable for the launched app; see the `extraEnv` option above).
+		const appOptions = Object.keys(extraEnv).length > 0
+			? { ...options, extraEnv: { ...options.extraEnv, ...extraEnv } }
+			: options;
+		const { app, start, stop } = await AppFixture({ options: appOptions, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings });
 
 		// Track the app so afterAll can export the startup trace if setup hangs (times
 		// out) -- in that case this fixture's catch/finally never run. Cleared below.
@@ -424,6 +449,21 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		// ignore
 	}
 
+	// Names the likely owner of a leak that _global.teardown.ts can only report after
+	// every worker has finished. Warn rather than fail: this runs while other specs are
+	// still going, so their in-flight files can show up here too.
+	try {
+		const workspacePath = defaultWorkspacePath();
+		if (fs.existsSync(join(workspacePath, '.git'))) {
+			const leftover = [...new TestTeardown(workspacePath).dirtyFiles()];
+			if (leftover.length > 0) {
+				logger.log(`>>> Workspace left dirty (this spec, or another worker mid-test): ${leftover.join(', ')} <<<`);
+			}
+		}
+	} catch (error) {
+		// A diagnostic must never fail the run
+	}
+
 	// Clean up Docker container logs at worker teardown (once per test file)
 	const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
 	if (isWorkbenchProject) {
@@ -622,6 +662,8 @@ export interface WorkerFixtures {
 	useLegacyNotebookEditor: boolean;
 	enableDataConnections: boolean;
 	enableFoundryAssistant: boolean;
+	extraEnv: Record<string, string | undefined>;
+	extraSettings: Record<string, unknown>;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;

@@ -87,8 +87,11 @@ test.describe('Autocomplete', {
 		await console.expectSuggestionListToContain('abspath, def abspath(path)');
 	});
 
-	test('R - Verify autocomplete suggestions in Console and Editor', {
-		tag: [tags.ARK]
+	// Skipped: the Ark LSP can hang, so completion requests go unanswered and
+	// the suggestion list stays empty. Un-skip when #15211 is fixed.
+	test.skip('R - Verify autocomplete suggestions in Console and Editor', {
+		tag: [tags.ARK],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/15211' }]
 	}, async function ({ app, runCommand, sessions, hotKeys }) {
 		const { editors, console } = app.workbench;
 

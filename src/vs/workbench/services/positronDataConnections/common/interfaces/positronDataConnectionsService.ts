@@ -7,7 +7,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IDataConnectionInstance } from './dataConnectionInstance.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IDataConnectionProfile } from './dataConnectionDriver.js';
+import { IDataConnectionHandle, IDataConnectionProfile } from './dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from './dataConnectionsDriverManager.js';
 
 // DI token used to inject IPositronDataConnectionsService throughout the workbench.
@@ -71,20 +71,35 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	getProfileSecretIds(id: string): readonly string[];
 
 	/**
-	 * Gets a display-safe, redacted form of a stored secret parameter value, for showing as a
-	 * placeholder when editing an existing connection (e.g. a connection string with its password
-	 * masked). The cleartext value is resolved from secret storage and passed to the driver, which
-	 * performs the format-specific redaction; only the redacted result is returned. The cleartext is
-	 * never exposed to callers.
+	 * Gets display-safe, redacted forms of stored secret parameter values, for showing as
+	 * placeholders when editing an existing connection (e.g. a connection string with its password
+	 * masked). The cleartext values are resolved from secret storage and passed to the driver, which
+	 * performs the format-specific redaction; only the redacted results are returned. The cleartext
+	 * is never exposed to callers. Resolves the profile once for all requested parameters, so
+	 * redacting M secrets costs one profile/secret-storage fetch rather than M.
 	 * @param id The data connection profile id.
-	 * @param parameterId The id of the secret parameter to redact.
-	 * @returns The redacted string, or undefined if there is no stored value or the driver does not
-	 * implement redaction.
+	 * @param parameterIds The ids of the secret parameters to redact.
+	 * @returns A map of parameter id to its redacted string. A parameter is omitted when it has no
+	 * stored value or the driver does not implement redaction.
 	 */
-	getRedactedParameterValue(id: string, parameterId: string): Promise<string | undefined>;
+	getRedactedParameterValues(id: string, parameterIds: readonly string[]): Promise<Record<string, string>>;
 
 	/**
-	 * Removes a data connection profile.
+	 * Sets the user's preferred connection code variant for a profile and language, persisted
+	 * across sessions. Used to initialize the variant selector in the Connect With dialog, and by
+	 * the getConnections command to report the profile's chosen package per language. A no-op if
+	 * the profile is not found.
+	 * @param profileId The data connection profile id.
+	 * @param languageId The language id the variant applies to (e.g. 'python', 'r').
+	 * @param variantId The id of the preferred variant, from the driver's generateConnectionCode results.
+	 */
+	setPreferredCodeVariant(profileId: string, languageId: string, variantId: string): void;
+
+	/**
+	 * Removes a data connection profile, deleting its persisted settings and stored secrets. Also
+	 * closes anything still using it: the Data Explorers previewed from its connection, and then the
+	 * connection itself, since a removed profile leaves no UI to manage a connection from. Callers
+	 * should confirm with the user first -- none of this is recoverable.
 	 * @param id The data connection profile id to remove.
 	 */
 	removeProfile(id: string): void;
@@ -106,6 +121,42 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @param profileId The data connection profile id to disconnect.
 	 */
 	disconnect(profileId: string): Promise<void>;
+
+	/**
+	 * Previews a node in the Data Explorer, recording the dataset id the driver opened it under
+	 * against the connection's profile so {@link countOpenDataExplorers} can report it later. Callers
+	 * should preview through this method rather than calling handle.nodePreview() directly, so no
+	 * Data Explorer goes unrecorded.
+	 * @param handle The connection handle the node belongs to.
+	 * @param nodeHandle The handle of the node to preview.
+	 * @returns The dataset id the preview was opened under, or undefined if the driver reported none.
+	 */
+	previewNode(handle: IDataConnectionHandle, nodeHandle: number): Promise<string | undefined>;
+
+	/**
+	 * Gets how many Data Explorers are open on data previewed from the given profile's connection.
+	 * Counts only previews the driver reported a dataset id for, and only those whose editor is still
+	 * open -- the user closing a Data Explorer tab brings the count back down.
+	 * @param profileId The data connection profile id.
+	 */
+	countOpenDataExplorers(profileId: string): number;
+
+	/**
+	 * Closes the profile's connection as soon as nothing is using it: right away when it has no open
+	 * Data Explorers, otherwise once the last one is closed. Lets a caller give up its own use of a
+	 * connection without cutting off the Data Explorers still reading from it. No-op if the profile
+	 * has no live connection. Cancel a pending close with {@link cancelDisconnectWhenUnused}.
+	 * @param profileId The data connection profile id.
+	 */
+	disconnectWhenUnused(profileId: string): void;
+
+	/**
+	 * Cancels a pending {@link disconnectWhenUnused} for the profile, keeping its connection open.
+	 * Call this when the connection is wanted again (e.g. the user re-expanded it). No-op if no close
+	 * is pending.
+	 * @param profileId The data connection profile id.
+	 */
+	cancelDisconnectWhenUnused(profileId: string): void;
 
 	/**
 	 * Gets all data connection instances.

@@ -49,6 +49,7 @@ suite('Python Runtime Session', () => {
     let applicationShell: IApplicationShell;
     let installerSpy: sinon.SinonSpiedInstance<IInstaller>;
     let interpreterPathService: IInterpreterPathService;
+    let interpreterService: IInterpreterService;
     let envVarsServiceSpy: sinon.SinonSpiedInstance<IEnvironmentVariablesService>;
     let interpreter: PythonEnvironment;
     let serviceContainer: IServiceContainer;
@@ -75,8 +76,9 @@ suite('Python Runtime Session', () => {
             implementation: 'cpython',
         });
 
-        const interpreterService = mock<IInterpreterService>({
+        interpreterService = mock<IInterpreterService>({
             getInterpreterDetails: (_pythonPath, _resource) => Promise.resolve(interpreter),
+            triggerRefresh: () => Promise.resolve(),
         });
 
         const installer = mock<IInstaller>({
@@ -292,6 +294,27 @@ suite('Python Runtime Session', () => {
         }
     });
 
+    test('Start: retries interpreter resolution after a refresh when the first resolve fails', async () => {
+        const getDetails = sinon.stub(interpreterService, 'getInterpreterDetails');
+        getDetails.onFirstCall().resolves(undefined);
+        getDetails.onSecondCall().resolves(interpreter);
+        const triggerRefresh = sinon.spy(interpreterService, 'triggerRefresh');
+
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        await session.start();
+
+        sinon.assert.calledOnce(triggerRefresh);
+        sinon.assert.calledTwice(getDetails);
+    });
+
+    test('Start: throws when the interpreter cannot be resolved after a refresh', async () => {
+        sinon.stub(interpreterService, 'getInterpreterDetails').resolves(undefined);
+        sinon.stub(interpreterService, 'triggerRefresh').resolves();
+
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        await assert.rejects(() => session.start(), /failed to resolve interpreter/);
+    });
+
     test('Execute: dont uninstall bundled packages', async () => {
         // Stub fs.readdirSync to return 'ipykernel' for any path - getIpykernelBundle computes actual paths
         sinon.stub(fs, 'readdirSync').returns(['ipykernel']);
@@ -326,5 +349,32 @@ suite('Python Runtime Session', () => {
         assert.strictEqual(messages[1].type, positron.LanguageRuntimeMessageType.State);
         const state = messages[1] as positron.LanguageRuntimeState;
         assert.strictEqual(state.state, positron.RuntimeOnlineState.Idle);
+    });
+
+    test('Execute: propagates the kernel execute promise (e.g. incomplete code)', async () => {
+        sinon.stub(fs, 'readdirSync').returns(['ipykernel']);
+
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        await session.start();
+
+        // For Unprocessed code the supervisor checks completeness itself and
+        // rejects with a CodeIncompleteError when the code is incomplete. That
+        // rejection must propagate back through execute() so the console can
+        // show a continuation prompt instead of hanging forever.
+        const incompleteError = new Error('Code fragment is incomplete');
+        incompleteError.name = 'CodeIncompleteError';
+        sinon.stub(kernel, 'execute').rejects(incompleteError);
+
+        await assert.rejects(
+            Promise.resolve(
+                session.execute(
+                    'def f():',
+                    'execute-id',
+                    positron.RuntimeCodeExecutionMode.Unprocessed,
+                    positron.RuntimeErrorBehavior.Continue,
+                ),
+            ),
+            (err: Error) => err.name === 'CodeIncompleteError',
+        );
     });
 });

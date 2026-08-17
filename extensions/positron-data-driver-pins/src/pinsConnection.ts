@@ -7,7 +7,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DuckDBWorkerClient, IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
 import { BundleInfo, ConnectClient, PinInfo } from './connectClient.js';
-import { Logger, NULL_LOGGER } from './logging.js';
 import { PinsCache } from './pinsCache.js';
 import { createPinReadCodeGenerator } from './pinsCode.js';
 import { duckdbReaderForPinType } from './pinTypes.js';
@@ -75,13 +74,13 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 	 * @param _client The Connect client, already validated by the driver's connect().
 	 * @param _dataExplorerHandler Hosts the table views previewed pins are shown in.
 	 * @param _cache The on-disk cache downloaded pin data files are stored in.
-	 * @param _logger Logs browse activity; defaults to a no-op logger.
+	 * @param _logger Logs browse activity; optional; nothing is logged when omitted.
 	 */
 	constructor(
 		private readonly _client: ConnectClient,
 		private readonly _dataExplorerHandler: IDuckDBDataExplorerHost,
 		private readonly _cache: PinsCache,
-		private readonly _logger: Logger = NULL_LOGGER
+		private readonly _logger?: positron.DataConnectionLogger
 	) { }
 
 	/** Pins are browsed read-only; writing pins is out of scope for this driver. */
@@ -107,7 +106,7 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			}
 		}
 
-		this._logger.info(`Browsing ${pins.length} pin(s) across ${pinsByOwner.size} owner(s)`);
+		this._logger?.info(`Browsing ${pins.length} pin(s) across ${pinsByOwner.size} owner(s)`);
 		return [...pinsByOwner.keys()]
 			.sort((a, b) => a.localeCompare(b))
 			.map(owner => createOwnerNode(this, owner, pinsByOwner.get(owner)!));
@@ -160,8 +159,12 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 	 * its data file, downloads that file (reusing the cached copy when present), loads it into the
 	 * DuckDB worker as a table, and opens the explorer over it. Convert-to-Code in the resulting
 	 * explorer emits `pin_read` code rather than SQL against the throwaway table.
+	 *
+	 * Returns the dataset id the explorer was opened under, which Positron uses to tell that this
+	 * connection has a Data Explorer open on it, or undefined when a disconnect raced the preview and
+	 * nothing was opened.
 	 */
-	async previewPin(pin: PinInfo, bundleId: string, isActiveVersion: boolean): Promise<void> {
+	async previewPin(pin: PinInfo, bundleId: string, isActiveVersion: boolean): Promise<string | undefined> {
 		this._ensureConnected();
 
 		// Resolve the version's data file and confirm it is a previewable, single-file tabular type.
@@ -224,8 +227,9 @@ export class PinsConnection implements positron.DataConnection, IPinsBrowseHost 
 			return;
 		}
 
-		this._logger.info(`Opening ${displayName} in the Data Explorer`);
+		this._logger?.info(`Opening ${displayName} in the Data Explorer`);
 		await positron.dataExplorer.open({ providerId: PINS_DATA_EXPLORER_PROVIDER_ID, datasetId, displayName });
+		return datasetId;
 	}
 
 	/** Marks the connection disconnected, releases previewed views, and closes the DuckDB worker. */

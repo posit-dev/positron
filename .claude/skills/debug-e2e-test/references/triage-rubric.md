@@ -1,0 +1,283 @@
+# Triage rubric -- reference
+
+What the evidence proves, what root cause it supports, and what a claim must
+clear before you make it. Read it at the "Determine root cause" step.
+
+This file says what evidence *means*. It does not own retrieval (what to open,
+when, at what cost -- [`evidence-escalation.md`](evidence-escalation.md)),
+verification ([`reproduction.md`](reproduction.md)), or the diagnosis block's
+fields and format ([`diagnosis-block.md`](diagnosis-block.md)).
+
+## Taxonomy
+
+Name the mechanism, not the symptom. Every diagnosis states a mechanism **and**
+an owner; the last column says whether the category fixes the owner for you.
+
+| Mechanism | What it means | Owner |
+|---|---|---|
+| **product regression** | the app failed to do the thing -- includes open-path bugs (dispatch succeeded, UI never appeared) and latent defects predating the run | product |
+| **locator drift / stale selector** | the element exists; the selector no longer matches it | test code |
+| **test logic bug** | the test asserts the wrong thing: an over-broad selector, or a check it re-derives instead of reading the product's signal | test code |
+| **race** | ordering or timing inside one test or the app under it | *state it* |
+| **contention** | load, resource pressure, or concurrent workers pushing something past a budget | *state it* |
+| **isolation / state leakage** | another test, worker, or teardown mutated state this test depends on | *state it* |
+| **infrastructure** | the runner or harness never produced a usable app | infrastructure |
+
+*State it* means the mechanism says *how* it failed, not *whose* it is: pick
+**product**, **test code**, **shared test environment**, or **infrastructure**
+and write the pair -- "product race", "test isolation failure",
+"test-environment contention". The same interleaving can be a product bug or a
+test that assumed an ordering it never guaranteed, so the owner is a separate
+judgment from the mechanism.
+
+`timeout` is **not** a category. A `timedOut` status is a symptom; work the
+sections below and it usually resolves to a race, test logic bug, contention, or
+a product regression that never arrived. When the evidence genuinely cannot
+resolve the mechanism, don't fall back to a category: record an **unresolved
+timeout symptom**, state confidence, and name the missing evidence that would
+classify it ("unresolved timeout, low confidence -- needs the console digest to
+show whether the command fired").
+
+**Reading an Action report.**  Action labels are intentionally coarse. Only two
+of its names need translating; `timeout` is the symptom handled above, and every
+other name it reports is the same mechanism above, carrying the same owner
+requirement.
+
+| Action / report says | Read it as |
+|---|---|
+| flaky test | race, contention, or isolation -- say which, and whose |
+| test environment issue | isolation / state leakage, or contention |
+
+## The dismissal bar
+
+A triage routes attention, and the expensive error is a real regression waved
+through as "flaky" -- the retry goes green and nobody looks again. So **race,
+contention, isolation, and infrastructure are claims that must be earned**, with
+a cited mechanism, not reached because nothing else was proven.
+
+- **Cite the affirmative signal for the claim.** For a race, the interleaving:
+  an element present-then-gone in DOM presence, an ordering visible in the trace
+  or in the two attempts' logs. For contention or infrastructure: the workbench
+  never came up, an OOM or network error in the logs, a concurrent worker's
+  teardown in the timeline.
+- **Neither "passed on retry" nor a `:soft-fail` tag is a mechanism.** Both only
+  say the test is known unstable -- which a latent product bug also produces.
+  They are context; name and support the race, contention, or isolation anyway.
+- **When no dismissal is supported and the locator-drift decision does not
+  resolve to a stale selector**, the residual is a *suspected product
+  regression* -- not "flaky." A safety-biased default and a leading hypothesis,
+  not proof of a defect.
+
+  Record it as: **suspected product regression**, low or medium confidence, the
+  competing hypotheses still open, and the specific evidence that would separate
+  them.
+
+## What each evidence type establishes
+
+Say which you mean, and don't upgrade one without saying what licensed it:
+**proves** · **rules out** · **strongly supports** (leading hypothesis,
+alternatives named) · **ambiguous** (two or more mechanisms still fit). Most e2e
+evidence rules something out; little of it proves a mechanism.
+
+- **Error-context snapshot** -- the accessibility tree at the moment of failure,
+  including same-origin webview iframes. The evidence that separates "never
+  rendered" (product) from "rendered as different markup" (stale selector).
+- **Aria-live / status regions in that snapshot** are the component's own report
+  of what it decided ("dropped over droppable area 11") -- strong evidence of
+  internal state, and it outranks the *test's interpretation* of the same event
+  (see **Duplicated logic drift** below). Not infallible: check it belongs to
+  the surface under test, wasn't superseded later in the trace, and describes
+  the state being asserted rather than an earlier or narrower transition.
+- **Trace timeline** -- the full action sequence. The final error often points
+  away from where the run diverged; don't stop at the last action.
+- **DOM presence** -- whether the selector's structural token ever matched a
+  frame. It is a strong negative filter and a weak positive one.
+  - `present in N/M` **rules out** "never rendered at all" for that token, and
+    nothing more. What survives is the **not-usable set**: a timing or dismiss
+    race, a permanently hidden or disabled state, an overlay intercepting the
+    interaction, a broad selector matching the wrong surface, or a node that
+    mounts before the state it needs is ready. Separate them with the trace
+    (when it appeared, what was attempted against it) and by confirming which
+    surface owns the matched node.
+  - `NEVER present` **rules out** render-then-dismiss for that token (a single
+    moment-of-failure snapshot cannot), but is **ambiguous alone**: the
+    structural token is exactly what drifts, so it fits both a never-rendered
+    element and locator drift. Disambiguate with the console digest and the
+    stable label.
+- **Console digest** -- `CommandService#executeCommand <id>` **proves dispatch**
+  and nothing further: not that the handler was registered as expected, that its
+  preconditions held, that it ran to completion, or that it didn't no-op,
+  reject, cancel, or delegate. For dispatch plus a missing UI, see **Action
+  fired but nothing rendered** below. A startup
+  `Phase changed to 'complete'` just before the failing action is a timing-race
+  tell: a handler that behaves differently depending on whether discovery
+  finished.
+- **A screenshot** cannot distinguish never-rendered from different-markup and
+  cannot show sequence. Visual questions only.
+- **A passing sibling** is an inference, not context. Same fixture, sibling
+  passed: setup succeeded and the fixture *was* provisioned, which **rules out**
+  "setup never ran" and makes mid-run mutation the leading explanation -- check
+  that the failing test wanted the same artifact at the same path before
+  settling on it. A shared assertion or page-object method a green
+  sibling exercises is not universally broken -- diagnose what the failing case
+  did differently.
+- **The failing test source** says what the test *intends* to verify -- often
+  the difference between "the assertion is the bug" and "setup failed before the
+  assertion ran."
+
+## Locator drift vs product regression
+
+Decide from the snapshot, using the target's **stable, human-meaningful
+identifier** -- visible text, placeholder, aria-label, role name -- never the
+structural class or id, which is the part that drifts.
+
+- Identifier **present under a different role or shape** than the selector
+  expects ⇒ **locator drift**. The element exists; the selector is stale.
+  Confirm against the page object that owns the selector.
+- Identifier **absent entirely** ⇒ **product regression**, but only once all
+  three hold:
+  1. the identifier you checked is the intended stable product signal, not a
+     structural or test-invented one;
+  2. the triggering action or precondition actually occurred (the trace action
+     succeeded, or the console digest shows the command fired);
+  3. setup and state-selection failure are ruled out -- the test reached the
+     state it meant to assert against, rather than asserting in the wrong editor
+     group, session, or dialog.
+
+  With any unconfirmed, absence is an open question, not a verdict -- and that
+  condition names the evidence to go get.
+- Element **present with its expected role**, error is a visibility or
+  interactability timeout ⇒ not drift. The element is there, so the question
+  moves to *why it wasn't usable*: work the **not-usable set** above.
+- A **matched** locator is not proof until you confirm it matched the element the
+  test *means*. A broad `getByLabel` / `getByText` / `getByRole`, or a container
+  selector not scoped to one editor group, tab, or dialog, can resolve to a
+  leftover view, duplicate control, or notification. When the call log shows the
+  selector resolved but the failure is "not visible" or a wrong count, check
+  which surface owns the matched node before concluding the assertion is
+  inverted. Another surface ⇒ **test logic bug (over-broad selector)**: scope
+  the selector, don't flip the assertion.
+
+**Code outside the head commit runs in the test** -- an extension bootstrapped to
+its latest build at test time, upstream-merged code, remotely served content. An
+unrelated-looking head commit is therefore not evidence either way, here or
+anywhere below; for markup, decide from the snapshot.
+
+## Action fired but nothing rendered
+
+When a click or keypress "does nothing" -- the action succeeds in the trace but
+the expected UI never appears:
+
+- Console digest shows the command **fired**, DOM presence shows the widget
+  **`NEVER present`**: the failure is somewhere **after dispatch** -- handler
+  registration, an unmet precondition, the handler no-opping or rejecting, an
+  awaited dependency that never resolved, or rendering itself. This strongly
+  supports a **product** defect over an environment flake. Say which
+  post-dispatch step the evidence points at, or say that it doesn't yet narrow
+  past "after dispatch."
+- A frequent shape, and the one to check first: the handler awaits something
+  slow -- an extension-host RPC, interpreter discovery, a network call --
+  *before* showing its surface, so on a slow or first-load runner the surface
+  never appears inside the budget.
+- **`NEVER present` alone does not earn this call.** Require the command-fired
+  line, or confirm via the snapshot's stable label that the affordance is
+  genuinely absent. `NEVER present` with no command-fired line and a matching
+  stable label in the snapshot is locator drift.
+
+## Duplicated logic drift
+
+Some helpers re-derive a condition the product already computes and exposes --
+recomputing "is this in view" from bounding-box math when the component already
+tracks that state as a class, attribute, or status region. The helper's criteria
+quietly drift from the algorithm they stand in for.
+
+Suspect it when the failure is a condition-never-true on a check the test
+invented itself (not a direct assertion against product markup) **and** the
+snapshot or an aria-live region shows the product had already reached the state
+the test was waiting for. Trace the helper against the equivalent product
+function before concluding. The defect is the re-derived check, not the
+threshold: the product's real signal is what should be asserted.
+
+## Race, contention, and isolation
+
+- **Startup failures** are usually infrastructure -- but a *specific control*
+  that never responds right after startup is not an infrastructure claim; run it
+  through the post-dispatch localization above. Reserve "infrastructure" for the
+  app as a whole failing to come up.
+
+The next two heuristics rest on harness configuration that changes. **Confirm
+the premise in the current tree before applying either** -- a one-line check,
+and a heuristic built on a stale premise is worse than none.
+
+- **Shared-workspace teardown race.** *Premise to verify:* workers still share
+  one workspace directory, and teardown still runs `git clean -fd` (no `-x`)
+  against it -- check the worker count in `playwright.config.ts` and the
+  discard/teardown helper the fixtures call. When it holds: a fixture a test
+  downloads at runtime is untracked and non-ignored, so a *concurrent* worker's
+  teardown can delete it mid-test. Suspect it for an intermittent "file missing
+  / cannot open" on a runtime-downloaded fixture, especially with a green
+  sibling reading the same file; a log line naming the resolved path separates
+  never-created from deleted-after-creation. The fix is usually to gitignore the
+  artifact, not to re-check provisioning. Never conclude "never provisioned"
+  without ruling this out.
+- **Same-file preceding-test leakage** (isolation, not concurrency). *Premise to
+  verify:* tests in one spec file still share a worker-scoped app and still run
+  in file-definition order with no intra-file parallelism -- see
+  `author-e2e-tests`'s test-structure reference, and confirm the spec doesn't
+  opt out. When it holds: if the evidence shows disruption another test in the
+  file plausibly caused -- a window reload, a session restart or delete, a
+  settings change -- check the immediately **preceding** test, not just
+  concurrent workers. Confirm the timeline: does the disruptive event land right
+  before the failure, and does the sibling list place a state-mutating test
+  directly before this one? Where to fix is a real choice -- cleaning up in the
+  offending test protects one adjacency, hardening the shared path protects
+  every test that hits it.
+
+## History as evidence
+
+- **0% on one platform, 100% on others proves the behavior is deterministic and
+  platform-specific -- and rules out a flake.** It does not by itself say whose
+  it is: a product bug on that platform, a test assumption that only holds
+  elsewhere, locator drift against platform-specific markup, a test-environment
+  difference, or an infrastructure/dependency gap all produce this shape. Name
+  the platform-specific mechanism before picking the owner. Always read the
+  per-environment breakdown, never the aggregate.
+- **A pattern that starts across all platforms at once** points to a regression.
+- **A rising rate is a regression signal.** A step change from reliably green to
+  intermittently red means something changed -- treat the trend break as
+  affirmative evidence for a regression. A flat, long-standing low pass rate is
+  a standing flake; a step change is not, so don't fold it into "known flaky."
+- **Reconcile the root cause with the pass rate.** A never-provisioned fixture
+  fails *every* run, so a high pass rate contradicts a
+  deterministic-missing-fixture verdict; on a mostly-green suite a "file not
+  found" is far more likely a mid-run lifecycle race.
+- **Latent defects surface as flakes.** A bug introduced weeks ago -- a race, an
+  unguarded await, a platform timing assumption -- can start failing when a
+  slower runner tips it over, and it will look known-flaky in history. A
+  flaky-looking history therefore does **not** rule out a product bug. A
+  known-flaky test that also reaches the **post-dispatch localization** ("Action
+  fired but nothing rendered") is an unfixed product bug wearing a flake costume:
+  flag it for a fix, not a retry.
+
+## Before you commit to the diagnosis
+
+- **Try to falsify the leading hypothesis, not just confirm it.** When two
+  mechanisms would both explain the symptom, find the evidence that separates
+  them -- for an ordering question that usually means the raw logs, since a race
+  is invisible in an error-line digest by construction.
+- **Confidence tracks the evidence, not the story's tidiness.** High needs a
+  cited mechanism *and* an owner, with the alternatives ruled out. Medium is a
+  supported mechanism with an alternative you could not exclude -- name it.
+  Low is a plausible mechanism with the separating evidence still named and
+  unfetched. Below high, the surviving alternatives are part of the diagnosis,
+  not a caveat to omit: state the uncertainty rather than rounding it away, and
+  with two live mechanisms say what each artifact would show -- naming one
+  confirming artifact is not enough.
+- **Sanity-check the fix approach against the same evidence** before agreeing to
+  it. It must keep currently-passing siblings passing -- if it changes a shared
+  assertion or page object a green sibling relies on, say why that sibling
+  survives. And when the assertion is about an element being present or absent,
+  check the product's intent (the `when` clause, precondition, or rendering
+  source) before concluding the test is wrong: the element may be
+  present-by-design under a precondition the failing case did not set up, so
+  "flip the assertion" can contradict how the product is meant to behave.

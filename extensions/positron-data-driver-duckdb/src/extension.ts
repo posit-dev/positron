@@ -14,12 +14,18 @@ import { DUCKDB_DATA_EXPLORER_PROVIDER_ID } from './duckdbConnection.js';
  * @param context The extension context.
  */
 export function activate(context: vscode.ExtensionContext) {
+	// Log to a per-driver output channel, created by core on first use. Nothing may log during
+	// activation: the Data Connections pane activates every driver at once, so an activation-time
+	// log would add this channel for users who never opened a connection.
+	const logger = positron.dataConnections.createDriverLogger('DuckDB');
+	context.subscriptions.push(logger);
+
 	// Services Data Explorer RPCs for tables/views previewed from a DuckDB connection.
-	const dataExplorerHandler = new DuckDBDataExplorerRpcHandler(DUCKDB_DATA_EXPLORER_PROVIDER_ID);
+	const dataExplorerHandler = new DuckDBDataExplorerRpcHandler(DUCKDB_DATA_EXPLORER_PROVIDER_ID, logger);
 	context.subscriptions.push(dataExplorerHandler);
 
 	// Create and register the driver and its cleanup.
-	const driver = createDuckDBDriver(context, dataExplorerHandler);
+	const driver = createDuckDBDriver(context, dataExplorerHandler, logger);
 	context.subscriptions.push(positron.dataConnections.registerDriver(driver));
 }
 

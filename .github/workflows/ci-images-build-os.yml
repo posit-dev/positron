@@ -10,13 +10,14 @@ on:
         required: true
         default: 'latest'
       os:
-        description: 'Operating system to build (ubuntu24_04, rocky_8, openSUSE15_6, SLES15_6, or debian)'
+        description: 'Operating system to build (ubuntu24_04, rocky_8, rocky_9, openSUSE15_6, SLES15_6, or debian)'
         required: true
         default: 'ubuntu24_04'
         type: choice
         options:
           - 'ubuntu24_04'
           - 'rocky_8'
+          - 'rocky_9'
           - 'openSUSE15_6'
           - 'SLES15_6'
           - 'debian'
@@ -40,7 +41,7 @@ jobs:
       - name: Validate inputs
         run: |
           echo "Building for OS: ${{ github.event.inputs.os }}, architecture: ${{ matrix.arch }}"
-          if [[ "${{ github.event.inputs.os }}" != "ubuntu24_04" && "${{ github.event.inputs.os }}" != "rocky_8" && "${{ github.event.inputs.os }}" != "openSUSE15_6" && "${{ github.event.inputs.os }}" != "SLES15_6" && "${{ github.event.inputs.os }}" != "debian" ]]; then
+          if [[ "${{ github.event.inputs.os }}" != "ubuntu24_04" && "${{ github.event.inputs.os }}" != "rocky_8" && "${{ github.event.inputs.os }}" != "rocky_9" && "${{ github.event.inputs.os }}" != "openSUSE15_6" && "${{ github.event.inputs.os }}" != "SLES15_6" && "${{ github.event.inputs.os }}" != "debian" ]]; then
             echo "::error::Invalid OS selected: ${{ github.event.inputs.os }}"
             exit 1
           fi
@@ -105,6 +106,8 @@ jobs:
             OS_TAG="ubuntu24"
           elif [ "$OS" = "rocky_8" ]; then
             OS_TAG="rocky8"
+          elif [ "$OS" = "rocky_9" ]; then
+            OS_TAG="rocky9"
           elif [ "$OS" = "openSUSE15_6" ]; then
             OS_TAG="opensuse156"
           elif [ "$OS" = "SLES15_6" ]; then
@@ -120,6 +123,8 @@ jobs:
             SOURCE_IMAGE="positron-ubuntu24-${ARCHITECTURE}:latest"
           elif [ "$OS" = "rocky_8" ]; then
             SOURCE_IMAGE="positron-rocky8-${ARCHITECTURE}:latest"
+          elif [ "$OS" = "rocky_9" ]; then
+            SOURCE_IMAGE="positron-rocky9-${ARCHITECTURE}:latest"
           elif [ "$OS" = "openSUSE15_6" ]; then
             SOURCE_IMAGE="positron-opensuse156-${ARCHITECTURE}:latest"
           elif [ "$OS" = "SLES15_6" ]; then
@@ -165,6 +170,8 @@ jobs:
             OS_TAG="ubuntu24"
           elif [ "$OS" = "rocky_8" ]; then
             OS_TAG="rocky8"
+          elif [ "$OS" = "rocky_9" ]; then
+            OS_TAG="rocky9"
           elif [ "$OS" = "openSUSE15_6" ]; then
             OS_TAG="opensuse156"
           elif [ "$OS" = "SLES15_6" ]; then

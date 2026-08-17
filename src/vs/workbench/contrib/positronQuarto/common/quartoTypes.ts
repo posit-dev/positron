@@ -205,6 +205,31 @@ export interface IQuartoDocumentModel extends IDisposable {
 	readonly cells: readonly QuartoCodeCell[];
 
 	/**
+	 * Whether `cells` reflects the document's current content. False while a
+	 * debounced re-parse of changed content is pending.
+	 *
+	 * An empty `cells` list means "this document has no code cells" only when
+	 * this is true; otherwise the cells aren't known yet.
+	 */
+	readonly isParsed: boolean;
+
+	/**
+	 * Resolves once `cells` reflects the document's current content, immediately
+	 * if it already does. Callers that read `cells` to decide something about
+	 * the document, rather than to react to an edit, should await this first.
+	 */
+	whenParsed(): Promise<void>;
+
+	/**
+	 * Re-parses right now if a debounced re-parse is pending, so that `cells`
+	 * reflects the document's current content on return. No-op otherwise.
+	 *
+	 * This is the synchronous counterpart to {@link whenParsed}, for callers on
+	 * a path that cannot await, such as a language feature provider.
+	 */
+	synchronize(): void;
+
+	/**
 	 * Fired when cells change (add/remove/modify).
 	 */
 	readonly onDidChangeCells: Event<QuartoCellChangeEvent>;

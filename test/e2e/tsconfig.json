@@ -25,6 +25,11 @@
 		}
 	},
 	"exclude": [
-		"node_modules"
+		"node_modules",
+		// Vitest files under test/e2e belong to the vitest project, which owns
+		// them via `test/e2e/**/*.vitest.ts` in vitest.tsconfig.json. Compiling
+		// them here fails in CI, where the e2e lanes install only the Playwright
+		// dependencies and `vitest` is not resolvable.
+		"**/*.vitest.ts"
 	]
 }

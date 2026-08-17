@@ -22,15 +22,16 @@ suite('chat', () => {
 		disposables = [];
 		// --- Start Positron ---
 		positron.ai.registerProvider({
-			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor', settingName: 'testLmVendor' },
+			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor' },
 			type: positron.PositronLanguageModelType.Chat,
 			supportedOptions: [],
 			defaults: {},
 		});
-		// Register copilot provider so it's enabled in Positron
-		// The 'copilot' vendor is enabled via 'copilot-auth' provider with 'githubCopilot' setting (default: true)
+		// Register copilot provider so it's enabled in Positron. The 'copilot'
+		// vendor resolves via the 'copilot-auth' provider's `catalogId: 'copilot'`,
+		// which the catalog enables by default.
 		positron.ai.registerProvider({
-			provider: { id: 'copilot-auth', displayName: 'Test Copilot', settingName: 'githubCopilot' },
+			provider: { id: 'copilot-auth', displayName: 'Test Copilot', catalogId: 'copilot' },
 			type: positron.PositronLanguageModelType.Chat,
 			supportedOptions: [],
 			defaults: {},
@@ -79,9 +80,12 @@ suite('chat', () => {
 		return emitter.event;
 	}
 
+	// Chat participants are a Local-harness feature, but the panel defaults to
+	// Agent Host Copilot when the agent host is enabled. `newLocalChat` opens the
+	// view directly into a Local session (from cold), so these tests run it first.
 	test('participant and slash command history', async () => {
 		const onRequest = setupParticipant();
-		await commands.executeCommand('workbench.action.chat.newChat');
+		await commands.executeCommand('workbench.action.chat.newLocalChat');
 		commands.executeCommand('workbench.action.chat.open', { query: '@participant /hello friend' });
 
 		const deferred = new DeferredPromise<void>();
@@ -123,6 +127,8 @@ suite('chat', () => {
 		};
 		disposables.push(participant);
 
+		// Participants are Local-only; open a Local chat first (see note above).
+		await commands.executeCommand('workbench.action.chat.newLocalChat');
 		commands.executeCommand('workbench.action.chat.open', { query: '@participant /hello friend' });
 		const result = await deferred.p;
 		assert.deepStrictEqual(result.metadata, { key: 'value' });
@@ -132,6 +138,8 @@ suite('chat', () => {
 		const onRequest = setupParticipant();
 		const onRequest2 = setupParticipant(true);
 
+		// Participants are Local-only; open a Local chat first (see note above).
+		await commands.executeCommand('workbench.action.chat.newLocalChat');
 		commands.executeCommand('workbench.action.chat.open', { query: '@participant hi' });
 		await asPromise(onRequest);
 
@@ -225,7 +233,8 @@ suite('chat', () => {
 		};
 		disposables.push(participant);
 
-		await commands.executeCommand('workbench.action.chat.newChat');
+		// Participants are Local-only; open a Local chat first (see note above).
+		await commands.executeCommand('workbench.action.chat.newLocalChat');
 		commands.executeCommand('workbench.action.chat.open', { query: '@participant /hello friend' });
 
 		// Wait for title provider to be called once

@@ -109,6 +109,33 @@ if (maxPatterns !== null) params.set('max_patterns', maxPatterns);
 
 const url = `${API_BASE_URL}/test-health?${params.toString()}`;
 
+/**
+ * Annotate the payload with the first date the lookback window covers.
+ *
+ * The API reports `lookback_days` and a per-test `insight.timing_value` ("First
+ * seen Jul 28"), but never says where the window opens -- so a first-seen date
+ * sitting at the window's edge (onset unknown, earlier occurrences simply out of
+ * range) is indistinguishable from a genuine onset unless the reader does the
+ * subtraction itself. Emitting the boundary makes that comparison free, which is
+ * what the analysis rubric's censoring rule asks for.
+ *
+ * Prefer the API's own `lookback_days` (it may clamp what we requested) and let
+ * an API-provided `window_start` win if the endpoint ever returns one.
+ */
+function withWindowStart(data) {
+	if (!data || typeof data !== 'object' || Array.isArray(data)) {
+		return data;
+	}
+	const days = Number(data.lookback_days ?? lookbackDays);
+	if (!Number.isFinite(days) || days <= 0) {
+		return data;
+	}
+	const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+	// Listed first so it survives any head-keeping truncation of the payload and
+	// reads next to `lookback_days`, rather than after the long `tests` array.
+	return { window_start: start.toISOString().slice(0, 10), ...data };
+}
+
 async function fetchHistory() {
 	try {
 		const controller = new AbortController();
@@ -131,7 +158,7 @@ async function fetchHistory() {
 		}
 
 		const data = await response.json();
-		console.log(JSON.stringify(data, null, 2));
+		console.log(JSON.stringify(withWindowStart(data), null, 2));
 	} catch (err) {
 		if (err.name === 'AbortError') {
 			process.stderr.write('Warning: API request timed out after 15s, skipping history.\n');

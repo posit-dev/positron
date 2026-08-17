@@ -6,6 +6,7 @@
 import esbuild from 'esbuild';
 import ts from 'typescript';
 import threads from 'node:worker_threads';
+import path from 'node:path';
 import Vinyl from 'vinyl';
 import { cpus } from 'node:os';
 import { getTargetStringFromTsConfig } from '../tsconfigUtils.ts';
@@ -323,7 +324,10 @@ export class ESBuildTranspiler implements ITranspiler {
 		this._logFn('Transpile', `will use ESBuild to transpile source files`);
 		this._outputFileNames = new OutputFileNameOracle(this._cmdLine, configFilePath);
 
-		const isExtension = configFilePath.includes('extensions');
+		// Determine whether this project is a built-in extension by looking for an `extensions`
+		// path *segment* (not a substring, so a checkout/worktree folder whose name merely contains
+		// "extensions" is not mistaken for the `extensions/` directory).
+		const isExtension = configFilePath.split(path.sep).includes('extensions');
 
 		const target = getTargetStringFromTsConfig(configFilePath);
 
@@ -360,10 +364,17 @@ export class ESBuildTranspiler implements ITranspiler {
 			throw Error('file.contents must be a Buffer');
 		}
 		const t1 = Date.now();
+		// --- Start Positron ---
+		// `.tsx` files need esbuild's `tsx` loader so JSX is parsed (the shared `ts` loader
+		// does not parse JSX), plus the automatic JSX runtime to match tsconfig's
+		// "jsx": "react-jsx". Without this, JSX attributes fail with `Expected ">"`.
+		const isTsx = file.path.endsWith('.tsx');
 		this._jobs.push(esbuild.transform(file.contents, {
 			...this._transformOpts,
+			...(isTsx ? { loader: 'tsx', jsx: 'automatic', jsxImportSource: 'react' } : {}),
 			sourcefile: file.path,
 		}).then(result => {
+		// --- End Positron ---
 
 			// check if output of a DTS-files isn't just "empty" and iff so
 			// skip this file

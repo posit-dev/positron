@@ -48,7 +48,7 @@ interface AssistantErrorQuickFixProps {
 	 * can no longer be found.
 	 */
 	getPayload: () => AssistantErrorPayload;
-	/** File name for the error attachment (e.g. 'notebook-cell-error.txt'). */
+	/** Display name for the error attachment (e.g. 'Notebook Cell Error'). */
 	attachmentName: string;
 	/** Accessible label for the button group. */
 	groupAriaLabel: string;

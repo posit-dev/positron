@@ -13,7 +13,7 @@ export class QuickInput {
 	private static QUICK_INPUT_INPUT = `${QuickInput.QUICK_INPUT} .quick-input-box input`;
 	private static QUICK_INPUT_RESULT = `${QuickInput.QUICK_INPUT} .quick-input-list .monaco-list-row`;
 	// Note: this only grabs the label and not the description or detail
-	private static QUICK_INPUT_ENTRY_LABEL = `${this.QUICK_INPUT_RESULT} .quick-input-list-row > .monaco-icon-label .label-name`;
+	static readonly QUICK_INPUT_ENTRY_LABEL = `${this.QUICK_INPUT_RESULT} .quick-input-list-row > .monaco-icon-label .label-name`;
 	private static QUICKINPUT_OK_BUTTON =
 		'.quick-input-widget .quick-input-action a:has-text(\'OK\')';
 	quickInputList: Locator;
@@ -80,6 +80,23 @@ export class QuickInput {
 					this.quickInputResult.filter({ hasText: titles[i] }),
 				).toBeVisible();
 			}
+		});
+	}
+
+	/**
+	 * Verify the quick pick offers no entry matching each of the given titles.
+	 *
+	 * Filters the list by each title before asserting. The results list is
+	 * virtualized, so an entry that exists but sits below the fold would read as
+	 * absent and the assertion would pass for the wrong reason.
+	 */
+	async expectQuickInputResultsToNotContain(titles: string[]): Promise<void> {
+		await test.step(`Verify Quick Input results do not contain: ${titles}`, async () => {
+			for (const title of titles) {
+				await this.type(title);
+				await expect(this.quickInputResult.filter({ hasText: title })).toHaveCount(0);
+			}
+			await this.type('');
 		});
 	}
 

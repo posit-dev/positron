@@ -247,13 +247,21 @@ union_csv_tags() {
 # slash (e.g. src/vs/editor/contrib/positronHelp/browser/x.ts -> src/vs/editor/
 # contrib/positronHelp/), or nothing if the path has no positron segment, isn't
 # under src/ or extensions/, or lives in a non-feature location (test/build/
-# vendor). Accepts a file path OR a bare dir path. Shared by both
+# vendor), or if the only positron* segment is the FILENAME (no positron dir to
+# map -- see below). Accepts a file path OR a bare dir path. Shared by both
 # find_unmapped_positron_dirs (per changed file) and check-test-tag-map.sh (per
 # enumerated dir), so the "what's a positron dir + what's excluded" rule lives
 # in exactly one place.
 positron_dir_of() {
 	local path="$1" dir
 	case "$path" in src/*|extensions/*) ;; *) return 0 ;; esac
+	# Drop a trailing filename first. The slash appended below makes the last
+	# segment look like a directory, so without this a positron*-named FILE in a
+	# non-positron dir (positronAssistant.tsx) would come back as the phantom dir
+	# "<file>/" -- a key no map entry can ever match. Such a file has no positron
+	# DIRECTORY, so echo nothing and let callers fall back to owner_root_dir_of.
+	# Basename-has-a-dot is the file test: no positron* dir in the tree has one.
+	case "${path##*/}" in *.*) path="${path%/*}" ;; esac
 	# Append a slash so a bare dir path (positron segment last) matches the same
 	# way a file path (positron segment mid-path) does. sed matches leftmost.
 	dir="$(printf '%s/' "$path" | sed -nE 's#(positron[^/]*)/.*#\1/#p')"

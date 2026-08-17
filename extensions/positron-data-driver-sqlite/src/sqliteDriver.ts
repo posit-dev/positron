@@ -57,10 +57,12 @@ const FILE_MECHANISM_ID = 'file';
  * Creates the SQLite DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  * @param dataExplorerHandler Hosts table views for previewing tables/views in the Data Explorer.
+ * @param logger Optional diagnostic log sink for connection lifecycle events.
  */
 export function createSQLiteDriver(
 	context: vscode.ExtensionContext,
-	dataExplorerHandler: SqliteDataExplorerRpcHandler
+	dataExplorerHandler: SqliteDataExplorerRpcHandler,
+	logger?: positron.DataConnectionLogger
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
@@ -118,7 +120,7 @@ export function createSQLiteDriver(
 					const databasePath = resolveDatabasePath(rawDatabasePath);
 
 					// Create the connection and open the database in the worker process.
-					const connection = new SQLiteConnection(databasePath, readOnly, dataExplorerHandler);
+					const connection = new SQLiteConnection(databasePath, readOnly, dataExplorerHandler, logger);
 					await connection.connect();
 					return connection;
 				}

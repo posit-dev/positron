@@ -77,4 +77,45 @@ suite('classifyRRuntimeSource', () => {
 			RRuntimeSource.system,
 		);
 	});
+
+	test('recognizes Homebrew by its Cellar layout, not by the Homebrew prefix alone', () => {
+		// Discovery resolves symlinks before classifying, so these are the real
+		// install paths rather than the `bin/R` symlinks that point at them.
+		const expected: [string, RRuntimeSource][] = [
+			// Formula installs, one per Homebrew prefix: Apple Silicon, Intel, Linux.
+			['/opt/homebrew/Cellar/r/4.6.1/bin/R', RRuntimeSource.homebrew],
+			['/usr/local/Cellar/r/4.6.1/bin/R', RRuntimeSource.homebrew],
+			['/home/linuxbrew/.linuxbrew/Cellar/r/4.6.1/bin/R', RRuntimeSource.homebrew],
+			// An unresolved Apple Silicon symlink, which a settings path can still
+			// produce, stays recognizable.
+			['/opt/homebrew/bin/R', RRuntimeSource.homebrew],
+			// Regression, posit-dev/positron#15300: `brew install --cask miniforge`
+			// puts a conda distribution under the Homebrew prefix, so R in one of its
+			// environments is not a Homebrew-managed R.
+			['/opt/homebrew/Caskroom/miniforge/base/envs/datasci/bin/R', RRuntimeSource.system],
+			// CRAN's installer, which symlinks /usr/local/bin/R just as Homebrew does
+			// on Intel macOS. Neither the framework path nor the symlink is Homebrew.
+			['/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/bin/R', RRuntimeSource.system],
+			['/usr/local/bin/R', RRuntimeSource.system],
+		];
+
+		const actual = expected.map(([binpath]): [string, RRuntimeSource] =>
+			[binpath, classifyRRuntimeSource(binpath, undefined, [ReasonDiscovered.adHoc], false)]);
+
+		assert.deepStrictEqual(actual, expected);
+	});
+
+	test('classifies conda metadata over a cask path (#15300)', () => {
+		// With `positron.r.interpreters.condaDiscovery` on, the same miniforge
+		// environment arrives with conda metadata and must be labelled Conda.
+		assert.strictEqual(
+			classifyRRuntimeSource(
+				'/opt/homebrew/Caskroom/miniforge/base/envs/datasci/bin/R',
+				{ environmentPath: '/opt/homebrew/Caskroom/miniforge/base/envs/datasci' },
+				[ReasonDiscovered.CONDA],
+				false,
+			),
+			RRuntimeSource.conda,
+		);
+	});
 });

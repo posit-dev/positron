@@ -167,7 +167,11 @@ jobs:
         run: uv pip install -r build/test-requirements.txt
 
       - name: Run Python unit tests
-        run: uv run python_files/tests/run_all.py
+        # `--active` targets the setup-uv activated environment. As of uv 0.12.0,
+        # `uv run <script>` discovers the project relative to the script path, so
+        # this would otherwise pick python_files/.venv (which lacks pytest) instead
+        # of the active venv where dependencies were installed. See astral-sh/uv#20225.
+        run: uv run --active python_files/tests/run_all.py
 
   positron-ipykernel-tests:
     name: Test Positron IPyKernel

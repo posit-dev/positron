@@ -57,10 +57,12 @@ const FILE_MECHANISM_ID = 'file';
  * Creates the DuckDB DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  * @param dataExplorerHandler Hosts table views for previewing tables/views in the Data Explorer.
+ * @param logger Optional diagnostic log sink passed through to each connection it creates.
  */
 export function createDuckDBDriver(
 	context: vscode.ExtensionContext,
-	dataExplorerHandler: DuckDBDataExplorerRpcHandler
+	dataExplorerHandler: DuckDBDataExplorerRpcHandler,
+	logger?: positron.DataConnectionLogger
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'duckdb.svg');
@@ -121,7 +123,7 @@ export function createDuckDBDriver(
 					const connection = new DuckDBConnection({
 						databasePath,
 						readOnly,
-					}, dataExplorerHandler);
+					}, dataExplorerHandler, logger);
 
 					// Connect.
 					await connection.connect();

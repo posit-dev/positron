@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AuthProvider } from './authProvider';
-import { PositOAuthProvider } from './positOAuthProvider';
 import { FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
 import { FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
@@ -17,14 +16,18 @@ export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModel
 
 export type OnSaveCallback = (config: positron.ai.LanguageModelConfig) => Promise<void>;
 
+export type OnDeleteCallback = () => Promise<void>;
+
 export interface RegisterAuthProviderOptions {
 	validateApiKey?: ApiKeyValidator;
 	onSave?: OnSaveCallback;
+	onDelete?: OnDeleteCallback;
 }
 
 export const authProviders = new Map<string, AuthProvider>();
 const apiKeyValidators = new Map<string, ApiKeyValidator>();
 const onSaveCallbacks = new Map<string, OnSaveCallback>();
+const onDeleteCallbacks = new Map<string, OnDeleteCallback>();
 
 /**
  * Register an auth provider so the config dialog can store/remove
@@ -45,6 +48,11 @@ export function registerAuthProvider(
 		onSaveCallbacks.set(providerId, options.onSave);
 	} else {
 		onSaveCallbacks.delete(providerId);
+	}
+	if (options?.onDelete) {
+		onDeleteCallbacks.set(providerId, options.onDelete);
+	} else {
+		onDeleteCallbacks.delete(providerId);
 	}
 }
 
@@ -180,9 +188,7 @@ export async function providerAction(
 		}
 		case 'cancel': {
 			const provider = authProviders.get(providerId);
-			if (provider instanceof PositOAuthProvider) {
-				provider.cancelSignIn();
-			}
+			provider?.cancelSignIn?.();
 			break;
 		}
 		default:
@@ -284,14 +290,16 @@ async function handleDelete(
 	}
 	const sessions = await provider.getSessions();
 	// No live session but the provider is still marked configured -- e.g. an
-	// expired credential sitting in "Needs Attention". There is nothing to
-	// remove, but we still clear the configured flag so signing out resets the
-	// provider out of the error group. removeSession(providerId) clears the
-	// chain-configured flag for credential-chain providers.
+	// expired credential sitting in "Needs Attention". There is no session to
+	// remove, so clear all persisted configuration (stored API-key accounts and
+	// the chain-configured flag) directly. This resets the provider out of the
+	// error group; removeSession(providerId) can't, since API-key accounts are
+	// keyed by UUID and wouldn't match the provider ID.
 	if (sessions.length === 0) {
 		if (await provider.isConfigured()) {
-			await provider.removeSession(providerId);
+			await provider.clearConfiguration();
 		}
+		await runOnDelete(providerId);
 		return;
 	}
 	// Credential-chain sessions (e.g. env var credentials) use the
@@ -312,6 +320,30 @@ async function handleDelete(
 	log.info(`Deleting ${deletable.length} session(s) for provider "${providerId}"`);
 	for (const session of deletable) {
 		await provider.removeSession(session.id);
+	}
+	// Removing the live sessions can leave an orphaned stored account behind --
+	// an API-key account whose secret is already gone. getSessions() skips it
+	// (no secret to return), but isConfigured() still counts it, so the provider
+	// bounces straight back into "Needs Attention" right after the user removed
+	// it. If nothing live remains but it still reads as configured, forget the
+	// rest. Guarded on an empty session list so a chain session we couldn't sign
+	// out (env-var credentials) doesn't get its config cleared out from under it.
+	if ((await provider.getSessions()).length === 0 && await provider.isConfigured()) {
+		await provider.clearConfiguration();
+	}
+	await runOnDelete(providerId);
+}
+
+/**
+ * Run a provider's registered onDelete hook, if any. Providers use this to
+ * forget persisted configuration outside the auth store -- the custom provider,
+ * for instance, drops its providers.json block so a removed provider doesn't
+ * leave saved connection settings behind.
+ */
+async function runOnDelete(providerId: string): Promise<void> {
+	const onDelete = onDeleteCallbacks.get(providerId);
+	if (onDelete) {
+		await onDelete();
 	}
 }
 

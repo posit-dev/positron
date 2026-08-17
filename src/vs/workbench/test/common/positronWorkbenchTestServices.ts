@@ -20,7 +20,7 @@ import { INotebookTextModel } from '../../contrib/notebook/common/notebookCommon
 import { ICellExecutionParticipant, IDidEndNotebookCellsExecutionEvent, IDidStartNotebookCellsExecutionEvent, INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
 import { IConfigurationResolverService } from '../../services/configurationResolver/common/configurationResolver.js';
 import { ILanguageRuntimeMetadata } from '../../services/languageRuntime/common/languageRuntimeService.js';
-import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance } from '../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance, IThreeButtonModalDialogPromptOptions } from '../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { IPathService } from '../../services/path/common/pathService.js';
@@ -119,6 +119,9 @@ export class TestPositronModalDialogService implements IPositronModalDialogsServ
 	showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean> {
 		// implement this one for runtimeSession tests
 		return Promise.resolve(true);
+	}
+	showThreeButtonModalDialogPrompt(options: IThreeButtonModalDialogPromptOptions): Promise<string | undefined> {
+		throw new Error('Method not implemented.');
 	}
 	showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null> {
 		throw new Error('Method not implemented.');

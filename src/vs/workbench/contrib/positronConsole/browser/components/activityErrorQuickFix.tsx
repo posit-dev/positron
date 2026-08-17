@@ -21,7 +21,7 @@ import { NewChatFile, NewChatOptions, openPositAssistantChat } from '../../../po
 const fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
 const explainPrompt = localize('positronConsoleAssistantExplainPrompt', "Explain this console error.");
 
-const ATTACHMENT_NAME = 'console-error.txt';
+const ATTACHMENT_NAME = localize('positronConsoleAssistantErrorAttachmentName', "Console Error");
 
 interface ConsoleQuickFixProps {
 	outputLines: ANSIOutputLine[];

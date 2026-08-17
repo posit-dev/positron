@@ -4,7 +4,7 @@
 #
 
 import logging
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
 from ._vendor.pydantic import (
     BaseModel,
@@ -58,13 +58,27 @@ class PositronExecuteRequest(BaseModel):
         None, description="Output area device pixel ratio, e.g. 1.0 or 2.0"
     )
 
+    @property
+    def figure_size(self) -> Optional[tuple[Optional[float], Optional[float]]]:
+        """The figure size in inches, if specified.
+
+        Either dimension may be set alone; a missing or non-positive dimension is
+        None, for the caller to fill from its own default. None when neither
+        dimension is specified.
+        """
+        w = self.fig_width if self.fig_width is not None and self.fig_width > 0 else None
+        h = self.fig_height if self.fig_height is not None and self.fig_height > 0 else None
+        if w is None and h is None:
+            return None
+        return (w, h)
+
     @classmethod
     def from_message(cls, message: dict) -> "PositronExecuteRequest":
         """Parse from a Jupyter shell message."""
         content = message.get("content", {})
         positron = content.get("positron", {}) if isinstance(content, dict) else {}
         if not isinstance(positron, dict):
-            return cls()
+            return cls.parse_obj({})
 
         try:
             return cls.parse_obj(positron)
@@ -79,4 +93,17 @@ class PositronExecuteRequest(BaseModel):
                 return cls.parse_obj(cleaned)
             except ValidationError:
                 logger.debug("Failed to parse positron execute request", exc_info=True)
-                return cls()
+                return cls.parse_obj({})
+
+
+def current_execute_request() -> PositronExecuteRequest:
+    """The Positron `execute_request` currently being handled, if any."""
+    # No contextvar of our own needed here: ipykernel's `get_parent("shell")` is
+    # already backed by a `ContextVar` (see `_shell_parent` in kernelbase.py), so
+    # this is async/thread-safe as-is.
+    # Imported lazily to avoid a circular import.
+    from .positron_ipkernel import PositronIPyKernel
+
+    kernel = cast("PositronIPyKernel", PositronIPyKernel.instance())
+    execute_request_message = kernel.get_parent("shell")
+    return PositronExecuteRequest.from_message(execute_request_message)

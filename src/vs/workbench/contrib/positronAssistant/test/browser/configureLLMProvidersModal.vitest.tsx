@@ -55,9 +55,10 @@ describe('ConfigureLLMProviders', () => {
 		});
 	}
 
-	function renderModal(sources: IPositronLanguageModelSource[]) {
+	function renderModal(sources: IPositronLanguageModelSource[], preselectedProviderId?: string) {
 		return rtl.render(
 			<ConfigureLLMProviders
+				preselectedProviderId={preselectedProviderId}
 				renderer={makeRenderer()}
 				sources={sources}
 				onAction={async () => { }}
@@ -68,6 +69,29 @@ describe('ConfigureLLMProviders', () => {
 
 	it('opens on the provider list', () => {
 		renderModal([anthropic]);
+		expect(screen.getByText('Model Providers')).toBeInTheDocument();
+	});
+
+	it('opens on the connect view for a preselected signed-out provider', () => {
+		renderModal([anthropic, positAi], 'anthropic-api');
+		expect(screen.getByLabelText(/api key/i)).toBeInTheDocument();
+		expect(screen.queryByText('Model Providers')).not.toBeInTheDocument();
+	});
+
+	it('opens on the connected view for a preselected signed-in provider', () => {
+		renderModal([anthropic, { ...positAi, signedIn: true, status: 'ok' as const }], 'posit-ai');
+		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
+	});
+
+	it('opens on the list when the preselected provider is not in the sources', () => {
+		renderModal([anthropic], 'not-a-provider');
+		expect(screen.getByText('Model Providers')).toBeInTheDocument();
+	});
+
+	it('returns to the list from a preselected provider', async () => {
+		const user = userEvent.setup();
+		renderModal([anthropic, positAi], 'anthropic-api');
+		await user.click(screen.getByRole('button', { name: /back/i }));
 		expect(screen.getByText('Model Providers')).toBeInTheDocument();
 	});
 

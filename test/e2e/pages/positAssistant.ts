@@ -197,6 +197,14 @@ export class PositAssistant {
 			}
 			throw e;
 		}
+		// The click is handled asynchronously: for up to ~1s the pane still shows
+		// the outgoing conversation, its model selection, and an editable input, so
+		// `waitForReady()` alone is satisfied against the old conversation. The
+		// button flips to disabled only once the fresh conversation has actually
+		// landed -- which is also when the model selection is dropped -- so wait for
+		// that here, or a model the caller selects next gets clobbered mid-test and
+		// Send stays disabled.
+		await expect(button).toBeDisabled();
 		await this.waitForReady();
 	}
 
@@ -239,9 +247,16 @@ export class PositAssistant {
 
 	/**
 	 * Clicks the send button to submit the current message.
+	 *
+	 * Send is disabled until the input has text and a model is selected. Waiting
+	 * for it to be enabled first turns "the model selection was dropped" into a
+	 * named assertion failure instead of a 30s click timeout that reports the send
+	 * button as the culprit.
 	 */
 	async clickSend(): Promise<void> {
-		await this.frame.locator(SEND_BUTTON).click();
+		const sendButton = this.frame.locator(SEND_BUTTON);
+		await expect(sendButton).toBeEnabled();
+		await sendButton.click();
 	}
 
 	/**
@@ -422,11 +437,11 @@ export class PositAssistant {
 	 * menu and its "Model" submenu, then click the first model in the provider's
 	 * group container.
 	 *
-	 * The open->select->close cycle is retried because providers whose model list
-	 * is populated by a live fetch (e.g. Posit AI) can re-render the group between
-	 * the count check and the click, detaching the item mid-click and hanging the
-	 * click indefinitely. A short inner click timeout lets a stale attempt fail
-	 * fast so the loop reopens the menu and retries against the fresh list.
+	 * The open->select->close cycle is retried because a model list populated by a
+	 * live fetch (Posit AI, or any provider in a remote session) can re-render the
+	 * group mid-click. Every click inside the loop carries a short timeout: an
+	 * unbounded one inherits the default, and a single stalled click eats the whole
+	 * retry budget.
 	 */
 	private async selectProviderModelMenuMode(overflow: Locator, providerName: string): Promise<void> {
 		const modelSubmenu = this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))');
@@ -442,8 +457,8 @@ export class PositAssistant {
 			// group isn't already visible (e.g. a prior iteration reopens after a
 			// stale click).
 			if (!(await group.isVisible().catch(() => false))) {
-				await overflow.click();
-				await modelSubmenu.click();
+				await overflow.click({ timeout: 5000 });
+				await modelSubmenu.click({ timeout: 5000 });
 				await expect(group).toBeVisible({ timeout: 5000 });
 			}
 
@@ -451,14 +466,42 @@ export class PositAssistant {
 			// "More models" disclosure with none shown directly, so the group has no
 			// model item until it's expanded.
 			if (await models.count() === 0) {
-				await group.locator('button:has-text("More models")').click();
+				await group.locator('button:has-text("More models")').click({ timeout: 5000 });
 			}
+			await this.waitForModelListToSettle(models);
 			await models.first().click({ timeout: 5000 });
 
 			// Menu closes on selection; wait for the trigger to collapse so subsequent
 			// actions (e.g. Send) don't race an open overlay.
 			await expect(overflow).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 });
 		}).toPass({ timeout: 30000 });
+	}
+
+	/**
+	 * Waits for a provider group's model items to stop churning: two consecutive
+	 * samples agreeing on the item count and the first item's generated id.
+	 *
+	 * WHY: while the group re-renders, Base UI re-mounts the items behind an inert
+	 * `role="presentation"` backdrop, so a click landing mid-render is blocked and
+	 * then loses its element. The id is sampled alongside the count because a
+	 * re-mount can replace the items without changing how many there are.
+	 */
+	private async waitForModelListToSettle(models: Locator): Promise<void> {
+		let previous = '';
+		await expect.poll(async () => {
+			const count = await models.count();
+			// A sample can lose its element to the very re-mount being waited out.
+			// Only the thrown case is `undefined`: a genuinely missing id attribute
+			// resolves to `null`, a stable value worth comparing.
+			const id = await models.first().getAttribute('id', { timeout: 1000 }).catch(() => undefined);
+			if (id === undefined) {
+				return false;
+			}
+			const current = `${count}:${id}`;
+			const settled = current === previous;
+			previous = current;
+			return settled;
+		}, { timeout: 5000, intervals: [200] }).toBe(true);
 	}
 
 	/**
@@ -495,14 +538,14 @@ export class PositAssistant {
 			// Open the picker if it isn't already open (e.g. a prior iteration
 			// selected the model but Escape didn't land).
 			if (!(await radioGroup.isVisible().catch(() => false))) {
-				await trigger.click();
+				await trigger.click({ timeout: 5000 });
 				await expect(radioGroup).toBeVisible({ timeout: 5000 });
 			}
 			// Some providers (e.g. Microsoft Foundry) list every model under the
 			// "More models" disclosure with none shown directly; expand it so the
 			// provider has a selectable model.
 			if (await directTopModel.count() === 0 && await moreModels.isVisible().catch(() => false)) {
-				await moreModels.click();
+				await moreModels.click({ timeout: 5000 });
 			}
 			// Short click timeout so a menu that closed mid-open fails fast and we
 			// reopen on the next iteration rather than hanging.

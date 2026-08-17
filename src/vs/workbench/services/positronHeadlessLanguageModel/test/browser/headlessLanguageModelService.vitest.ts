@@ -8,10 +8,11 @@
 import { AsyncIterableObject } from '../../../../../base/common/async.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../../base/common/event.js';
-import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
+import { IProviderCatalogChangeData, IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { AiProviderServiceStatus, IAiProviderService } from '../../../positronAiProvider/common/aiProviderService.js';
 import { AuthenticationProviderInformation, AuthenticationSession, IAuthenticationService } from '../../../authentication/common/authentication.js';
 import { AbstractHeadlessLanguageModelService } from '../../browser/abstractHeadlessLanguageModelService.js';
 
@@ -23,10 +24,10 @@ class TestHeadlessLanguageModelService extends AbstractHeadlessLanguageModelServ
 	constructor(
 		private readonly _fakeEngine: IHeadlessLanguageModelEngine | undefined,
 		authService: IAuthenticationService,
-		configService: IConfigurationService,
+		aiProviderService: IAiProviderService,
 		logService: ILogService,
 	) {
-		super(authService, configService, logService);
+		super(authService, aiProviderService, logService);
 	}
 	protected createEngine(): IHeadlessLanguageModelEngine | undefined {
 		return this._fakeEngine;
@@ -64,19 +65,19 @@ function fakeEngine(options: {
 	};
 }
 
-/**
- * A minimal IConfigurationChangeEvent whose affectsConfiguration matches the
- * given keys, prefix-aware in both directions (so a change to
- * `authentication.anthropic.baseUrl` answers true for `authentication` and for
- * the full key), mirroring the real event.
- */
-function configChange(...changedKeys: string[]): IConfigurationChangeEvent {
+/** A resolved-catalog provider entry with an optional connection (enabled by default). */
+function provider(id: string, connection: IResolvedProviderData['connection'] = {}, enabled = true): IResolvedProviderData {
+	return { id, enabled, connection };
+}
+
+/** A catalog change event carrying the given flags; the catalog field is unused by the facade. */
+function catalogChange(flags: Partial<Omit<IProviderCatalogChangeData, 'catalog'>>): IProviderCatalogChangeData {
 	return {
-		source: 1,
-		affectedKeys: new Set(changedKeys),
-		change: { keys: changedKeys, overrides: [] },
-		affectsConfiguration: (query: string) =>
-			changedKeys.some(key => key === query || key.startsWith(`${query}.`) || query.startsWith(`${key}.`)),
+		catalog: [],
+		enabledChanged: false,
+		connectionChanged: false,
+		modelsChanged: false,
+		...flags,
 	};
 }
 
@@ -107,7 +108,7 @@ describe('HeadlessLanguageModelService', () => {
 	const sessionsChange = new Emitter<{ providerId: string; label: string; event: { added: readonly AuthenticationSession[]; removed: readonly AuthenticationSession[]; changed: readonly AuthenticationSession[] } }>();
 	const registerProvider = new Emitter<AuthenticationProviderInformation>();
 	const unregisterProvider = new Emitter<AuthenticationProviderInformation>();
-	const configChangeEmitter = new Emitter<IConfigurationChangeEvent>();
+	const catalogChangeEmitter = new Emitter<IProviderCatalogChangeData>();
 	const createSession = vi.fn();
 	const getSessions = vi.fn(async (id: string): Promise<AuthenticationSession[]> => {
 		// Simulates getSessions timing out / throwing for a provider that errors.
@@ -130,14 +131,20 @@ describe('HeadlessLanguageModelService', () => {
 	let signedInAuthProviders: Set<string>;
 	let registeredAuthProviders: Set<string>;
 	let throwingAuthProviders: Set<string>;
-	let configValues: Map<string, unknown>;
+	// The catalog snapshot the AI provider service reads synchronously, keyed by
+	// provider id; providers absent from the map are unknown (disabled).
+	let catalogSnapshot: Map<string, IResolvedProviderData>;
+	let providerStatus: AiProviderServiceStatus;
 	let sessionTokenOverrides: Map<string, string>;
 
 	beforeEach(() => {
 		signedInAuthProviders = new Set();
 		registeredAuthProviders = new Set(TEST_MAPPINGS.map(mapping => mapping.authProviderId));
 		throwingAuthProviders = new Set();
-		configValues = new Map();
+		// The built-in mappings' providers are enabled with no connection overrides
+		// by default; individual tests replace this snapshot for shaping/enablement.
+		catalogSnapshot = new Map(TEST_MAPPINGS.map(mapping => [mapping.providerId, provider(mapping.providerId)]));
+		providerStatus = 'ready';
 		sessionTokenOverrides = new Map();
 	});
 
@@ -149,9 +156,13 @@ describe('HeadlessLanguageModelService', () => {
 			onDidRegisterAuthenticationProvider: registerProvider.event,
 			onDidUnregisterAuthenticationProvider: unregisterProvider.event,
 		})
-		.stub(IConfigurationService, {
-			getValue: (key: string) => configValues.get(key),
-			onDidChangeConfiguration: configChangeEmitter.event,
+		.stub(IAiProviderService, {
+			whenInitialized: Promise.resolve(),
+			get status() { return providerStatus; },
+			getProvider: (id: string) => catalogSnapshot.get(id),
+			isEnabled: (id: string) => catalogSnapshot.get(id)?.enabled === true,
+			getProviders: () => [...catalogSnapshot.values()],
+			onDidChangeProviders: catalogChangeEmitter.event,
 		})
 		.build();
 
@@ -159,7 +170,7 @@ describe('HeadlessLanguageModelService', () => {
 		return ctx.disposables.add(new TestHeadlessLanguageModelService(
 			engine,
 			ctx.get(IAuthenticationService),
-			ctx.get(IConfigurationService),
+			ctx.get(IAiProviderService),
 			ctx.get(ILogService),
 		));
 	}
@@ -341,6 +352,45 @@ describe('HeadlessLanguageModelService', () => {
 			expect(models[0]).not.toHaveProperty('providerId');
 		});
 
+		it('exposes provider identity and the queried providers through the diagnostics accessor', async () => {
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic', 'Anthropic')] } }));
+			expect(await service.getModelListingDiagnostics()).toEqual({
+				queriedProviders: ['anthropic'],
+				models: [{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic', providerId: 'anthropic' }],
+			});
+		});
+
+		it('keeps a de-duplicated model visible to diagnostics under both providers', async () => {
+			signedInAuthProviders.add('posit-ai');
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({
+				models: {
+					positai: [model('claude-haiku', 'Claude Haiku', 'positai', 'Anthropic')],
+					anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic', 'Anthropic')],
+				},
+			}));
+
+			// A picker sees the winning copy only.
+			expect(await service.getAvailableModels()).toEqual([{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic' }]);
+
+			// Diagnostics sees both, so "anthropic returned nothing" and "anthropic
+			// lost the dedupe" don't look the same in the report.
+			expect(await service.getModelListingDiagnostics()).toEqual({
+				queriedProviders: ['positai', 'anthropic'],
+				models: [
+					{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic', providerId: 'positai' },
+					{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic', providerId: 'anthropic' },
+				],
+			});
+		});
+
+		it('reports a provider that was queried but returned no models', async () => {
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({ models: {} }));
+			expect(await service.getModelListingDiagnostics()).toEqual({ queriedProviders: ['anthropic'], models: [] });
+		});
+
 		it('fires onDidChangeAvailableModels only when a mapped provider changes', async () => {
 			const service = createService(fakeEngine());
 			// Provider mappings load from the engine asynchronously; wait for them
@@ -451,7 +501,7 @@ describe('HeadlessLanguageModelService', () => {
 	});
 
 	describe('cache staleness', () => {
-		it('a relevant config change invalidates the cached model list', async () => {
+		it('a catalog connection change invalidates the cached model list', async () => {
 			signedInAuthProviders.add('anthropic-api');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			// Prime the cache and populate the mapping snapshot the handler reads.
@@ -459,8 +509,8 @@ describe('HeadlessLanguageModelService', () => {
 			const fired = vi.fn();
 			ctx.disposables.add(service.onDidChangeAvailableModels(fired));
 
-			// A change to a mapped provider's baseUrl drops the cache and notifies.
-			configChangeEmitter.fire(configChange('authentication.anthropic.baseUrl'));
+			// A catalog connection change drops the cache and notifies.
+			catalogChangeEmitter.fire(catalogChange({ connectionChanged: true }));
 			expect(fired).toHaveBeenCalledTimes(1);
 
 			// The next listing recomputes rather than serving the dropped cache,
@@ -470,14 +520,14 @@ describe('HeadlessLanguageModelService', () => {
 			expect(getSessions.mock.calls.length).toBeGreaterThan(before);
 		});
 
-		it('an unrelated config change does not invalidate the cache', async () => {
+		it('a catalog change that touches neither enablement nor connections does not invalidate', async () => {
 			signedInAuthProviders.add('anthropic-api');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			await service.getAvailableModels();
 			const fired = vi.fn();
 			ctx.disposables.add(service.onDidChangeAvailableModels(fired));
 
-			configChangeEmitter.fire(configChange('editor.fontSize'));
+			catalogChangeEmitter.fire(catalogChange({ modelsChanged: true }));
 			expect(fired).not.toHaveBeenCalled();
 		});
 
@@ -519,6 +569,10 @@ describe('HeadlessLanguageModelService', () => {
 			engine: IHeadlessLanguageModelEngine;
 			captured: IEngineChatRequest[];
 		} {
+			// The non-apikey providers are served by POLICY_MAPPINGS; enable them in
+			// the catalog so the enablement filter keeps them (individual tests
+			// replace an entry to add connection details).
+			catalogSnapshot = new Map(POLICY_MAPPINGS.map(mapping => [mapping.providerId, provider(mapping.providerId)]));
 			const captured: IEngineChatRequest[] = [];
 			const engine = fakeEngine({
 				models,
@@ -555,7 +609,7 @@ describe('HeadlessLanguageModelService', () => {
 			expect(result).toEqual({ available: false, reason: 'sign-in-required' });
 		});
 
-		it('defaults the aws region to us-east-1 when authentication.aws.credentials is unset', async () => {
+		it('defaults the aws region to us-east-1 when the bedrock connection has no aws details', async () => {
 			registeredAuthProviders = new Set(['aws']);
 			signedInAuthProviders.add('aws');
 			sessionTokenOverrides.set('aws', JSON.stringify({ accessKeyId: 'AK', secretAccessKey: 'SK' }));
@@ -570,7 +624,50 @@ describe('HeadlessLanguageModelService', () => {
 				accessKeyId: 'AK',
 				secretAccessKey: 'SK',
 				sessionToken: undefined,
+				profile: undefined,
 			});
+		});
+
+	});
+
+	describe('catalog-backed enablement and availability', () => {
+		it('excludes a disabled provider from the candidate set', async () => {
+			signedInAuthProviders.add('anthropic-api');
+			catalogSnapshot.set('anthropic', provider('anthropic', {}, false));
+			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
+
+			expect(await service.getAvailableModels()).toEqual([]);
+		});
+
+		it('maps a catalog fetch error to temporarily-unavailable, never no-providers-configured', async () => {
+			providerStatus = 'error';
+			catalogSnapshot = new Map();
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
+
+			const result = await service.streamText({ systemPrompt: 's', messages: [] });
+			expect(result).toEqual({ available: false, reason: 'temporarily-unavailable' });
+		});
+
+		it('rejects the diagnostics listing on a catalog failure rather than reporting nothing was queried', async () => {
+			providerStatus = 'error';
+			catalogSnapshot = new Map();
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
+
+			// A picker degrades to an empty list; the report sees the failure.
+			expect(await service.getAvailableModels()).toEqual([]);
+			await expect(service.getModelListingDiagnostics()).rejects.toThrow('AI provider catalog unavailable');
+		});
+
+		it('treats an empty catalog with status ready as genuine provider absence', async () => {
+			providerStatus = 'ready';
+			catalogSnapshot = new Map();
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
+
+			const result = await service.streamText({ systemPrompt: 's', messages: [] });
+			expect(result).toEqual({ available: false, reason: 'no-providers-configured' });
 		});
 	});
 });

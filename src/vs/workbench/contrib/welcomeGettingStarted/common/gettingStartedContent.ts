@@ -5,6 +5,7 @@
 
 // --- Start Positron ---
 import { registerGettingStartedPositronNotebook } from './gettingStartedPositronNotebookContent.js';
+import { registerGettingStartedPositronWelcome } from './gettingStartedPositronWelcomeContent.js';
 // --- End Positron ---
 import themePickerContent from './media/theme_picker.js';
 import themePickerSmallContent from './media/theme_picker_small.js';
@@ -709,6 +710,10 @@ export const walkthroughs: GettingStartedWalkthroughContent = [
 	}
 ];
 // --- Start Positron ---
+registerGettingStartedPositronWelcome(
+	gettingStartedContentRegistry,
+	(category) => walkthroughs.push(category),
+);
 registerGettingStartedPositronNotebook(
 	gettingStartedContentRegistry,
 	(category) => walkthroughs.push(category),

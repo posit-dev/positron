@@ -81,6 +81,15 @@ export interface ILanguageRuntimeSessionStateEvent {
 	new_state: RuntimeState;
 }
 
+export interface IStartNewRuntimeSessionOptions {
+	/**
+	 * True when the user explicitly selected this runtime. Passed in a trailing
+	 * options object rather than as another positional boolean so it cannot be
+	 * transposed with `activate` at a call site.
+	 */
+	readonly userSelected?: boolean;
+}
+
 export interface IRuntimeSessionMetadata {
 	/** The unique identifier of the session */
 	readonly sessionId: string;
@@ -105,6 +114,33 @@ export interface IRuntimeSessionMetadata {
 	 * debugging.
 	 */
 	readonly startReason: string;
+
+	/**
+	 * True when the session is being created because the user explicitly
+	 * selected this runtime. Absent or false for automatic, restored,
+	 * duplicated, and programmatic starts.
+	 *
+	 * Only the direct console start paths set this today. Notebook kernel
+	 * selection goes through `selectRuntime`, which cannot yet tell a user's
+	 * pick apart from the automatic starts that share the same entry point, so
+	 * notebook sessions leave this unset even when the user picked the kernel.
+	 */
+	readonly userSelected?: boolean;
+}
+
+/**
+ * Statistics about code execution in a session, surfaced for diagnostics.
+ */
+export interface IRuntimeExecutionStatistics {
+	/** The number of executions that have been submitted to the runtime. */
+	readonly executionCount: number;
+
+	/**
+	 * The average latency, in milliseconds, between submitting an execution and
+	 * receiving the corresponding input echo back from the runtime on iopub.
+	 * `undefined` if no latency samples have been collected yet.
+	 */
+	readonly averageInputLatencyMs: number | undefined;
 }
 
 /**
@@ -184,7 +220,16 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 */
 	openResource(resource: URI | string): Thenable<boolean>;
 
-	/** Execute code in the runtime */
+	/**
+	 * Execute code in the runtime.
+	 *
+	 * The returned promise signals ACCEPTANCE of the code for execution, not
+	 * completion of the execution. When `mode` is
+	 * `RuntimeCodeExecutionMode.Unprocessed`, the promise rejects if the code
+	 * is found to be incomplete (error `name` is
+	 * `RUNTIME_CODE_INCOMPLETE_ERROR`) or the submission was cancelled (error
+	 * `name` is `RUNTIME_EXECUTION_CANCELLED_ERROR`).
+	 */
 	execute(
 		code: string,
 		id: string,
@@ -192,7 +237,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 		errorBehavior: RuntimeErrorBehavior,
 		attribution?: IConsoleCodeAttribution,
 		executionMetadata?: Record<string, unknown>,
-	): void;
+	): Promise<void>;
 
 	/**
 	 * Returns the source code location that was attributed to a recent
@@ -207,6 +252,13 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 * @returns The associated code location, or `undefined` if unknown.
 	 */
 	getExecutionCodeLocation?(executionId: string): ICodeLocation | undefined;
+
+	/**
+	 * Returns statistics about code execution in this session (execution count
+	 * and average input-echo latency), for diagnostics. Optional; not all
+	 * session implementations track these.
+	 */
+	getExecutionStatistics?(): IRuntimeExecutionStatistics;
 
 	/**
 	 * Calls a runtime-specific method and returns the result.
@@ -290,6 +342,18 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 * @param token Optional cancellation token.
 	 */
 	listMissingPackages?(target: IRuntimeMissingPackagesTarget, token?: CancellationToken): Promise<IRuntimeMissingPackage[]>;
+
+	/**
+	 * Given a console error from this session, return a code snippet that
+	 * references the missing package (for the frontend to analyze via
+	 * `listMissingPackages`), or undefined when the error is not a recognized
+	 * missing-package error. Returns undefined if the runtime does not support
+	 * this.
+	 *
+	 * @param error The console error to inspect.
+	 * @param token Optional cancellation token.
+	 */
+	getMissingPackageProbe?(error: IRuntimeConsoleError, token?: CancellationToken): Promise<string | undefined>;
 }
 
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
@@ -402,6 +466,18 @@ export interface IRuntimeMissingPackagesTarget {
 
 	/** URI of a saved file to analyze. The runtime may read/parse it directly. */
 	readonly uri?: string;
+}
+
+/**
+ * A runtime error surfaced in the console, passed to `getMissingPackageProbe`.
+ */
+export interface IRuntimeConsoleError {
+	/** The error name, e.g. "ModuleNotFoundError". May be empty. */
+	readonly name: string;
+	/** The error message, e.g. "No module named 'foo'". */
+	readonly message: string;
+	/** The error traceback, one entry per line. */
+	readonly traceback: string[];
 }
 
 /**
@@ -693,6 +769,8 @@ export interface IRuntimeSessionService {
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is
 	 * started.
+	 * @param options Additional properties for the new session, e.g. whether
+	 * the user explicitly selected the runtime.
 	 *
 	 * Returns a promise that resolves to the session ID of the new session.
 	 */
@@ -703,7 +781,8 @@ export interface IRuntimeSessionService {
 		notebookUri: URI | undefined,
 		source: string,
 		startMode: RuntimeStartMode,
-		activate: boolean): Promise<string>;
+		activate: boolean,
+		options?: IStartNewRuntimeSessionOptions): Promise<string>;
 
 	/**
 	 * Validates a persisted runtime session before reconnecting to it.
