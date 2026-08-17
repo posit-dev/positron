@@ -496,22 +496,242 @@ describe('QuartoVirtualNotebookService', () => {
 		});
 	});
 
-	it('rebuilds cells when a chunk is added, without leaving disposed models behind', async () => {
+	it('keeps the existing cells when a chunk is appended', async () => {
 		const service = createService();
 		const source = createSourceModel(R_AND_PYTHON);
 		await service.whenReady(source.uri);
 
+		const before = service.getCells(source.uri).map(cell => ({
+			uri: cell.cellUri.toString(),
+			handle: cell.handle,
+			model: cell.textModel,
+		}));
+
 		source.setValue(R_AND_PYTHON + '```{r}\nmean(x)\n```\n');
 		service.ensureSynchronized(source.uri);
 
-		expect(service.getCells(source.uri).map(cell => ({
-			text: cell.textModel.getValue(),
-			disposed: cell.textModel.isDisposed(),
-		}))).toEqual([
-			{ text: 'x <- 1', disposed: false },
-			{ text: 'import os', disposed: false },
-			{ text: 'mean(x)', disposed: false },
-		]);
+		const after = service.getCells(source.uri);
+
+		expect({
+			text: after.map(cell => cell.textModel.getValue()),
+			// Surprise F from the spike: cell models were disposed while `_cells`
+			// still referenced them.
+			allAlive: after.every(cell => !cell.textModel.isDisposed()),
+			// The point of the splice: the two cells that did not change are the
+			// same cells afterwards, so no language server sees a close and reopen.
+			preserved: after.slice(0, 2).map((cell, index) => ({
+				uri: cell.cellUri.toString() === before[index].uri,
+				handle: cell.handle === before[index].handle,
+				model: cell.textModel === before[index].model,
+			})),
+		}).toEqual({
+			text: ['x <- 1', 'import os', 'mean(x)'],
+			allAlive: true,
+			preserved: [
+				{ uri: true, handle: true, model: true },
+				{ uri: true, handle: true, model: true },
+			],
+		});
+	});
+
+	it('keeps the surrounding cells when a chunk is inserted between two others', async () => {
+		const service = createService();
+		const source = createSourceModel(R_AND_PYTHON);
+		await service.whenReady(source.uri);
+
+		const before = service.getCells(source.uri).map(cell => cell.textModel);
+
+		// A new chunk between the existing R and Python ones. Everything below it
+		// shifts index, which is what a rebuild would take as licence to replace.
+		source.setValue([
+			'# Intro',
+			'',
+			'```{r}',
+			'x <- 1',
+			'```',
+			'',
+			'```{r}',
+			'mean(x)',
+			'```',
+			'',
+			'```{python}',
+			'import os',
+			'```',
+			'',
+		].join('\n'));
+		service.ensureSynchronized(source.uri);
+
+		const after = service.getCells(source.uri);
+
+		expect({
+			text: after.map(cell => cell.textModel.getValue()),
+			spans: after.map(cell => [cell.codeStartLine, cell.codeEndLine]),
+			firstPreserved: after[0].textModel === before[0],
+			// The Python cell moved from index 1 to index 2 and must still be the
+			// same document to the language server that has it open.
+			pythonPreserved: after[2].textModel === before[1],
+			pythonAlive: !before[1].isDisposed(),
+		}).toEqual({
+			text: ['x <- 1', 'mean(x)', 'import os'],
+			spans: [[4, 4], [8, 8], [12, 12]],
+			firstPreserved: true,
+			pythonPreserved: true,
+			pythonAlive: true,
+		});
+	});
+
+	it('disposes only the cell that was deleted', async () => {
+		const service = createService();
+		const source = createSourceModel(R_AND_PYTHON);
+		await service.whenReady(source.uri);
+
+		const before = service.getCells(source.uri).map(cell => cell.textModel);
+
+		// Drop the R chunk, keep the Python one.
+		source.setValue([
+			'# Intro',
+			'',
+			'```{python}',
+			'import os',
+			'```',
+			'',
+		].join('\n'));
+		service.ensureSynchronized(source.uri);
+
+		const after = service.getCells(source.uri);
+
+		expect({
+			text: after.map(cell => cell.textModel.getValue()),
+			survivorPreserved: after[0].textModel === before[1],
+			deletedDisposed: before[0].isDisposed(),
+			survivorAlive: !before[1].isDisposed(),
+		}).toEqual({
+			text: ['import os'],
+			survivorPreserved: true,
+			deletedDisposed: true,
+			survivorAlive: true,
+		});
+	});
+
+	it('replaces only the cell whose language changed', async () => {
+		// A cell's language is fixed when it is created, so this one genuinely has
+		// to close and reopen. The cell beside it does not.
+		const service = createService();
+		const source = createSourceModel(R_AND_PYTHON);
+		await service.whenReady(source.uri);
+
+		const before = service.getCells(source.uri).map(cell => cell.textModel);
+
+		source.setValue([
+			'# Intro',
+			'',
+			'```{python}',
+			'x = 1',
+			'```',
+			'',
+			'```{python}',
+			'import os',
+			'```',
+			'',
+		].join('\n'));
+		service.ensureSynchronized(source.uri);
+
+		const after = service.getCells(source.uri);
+
+		expect({
+			languages: after.map(cell => cell.language),
+			text: after.map(cell => cell.textModel.getValue()),
+			changedCellReplaced: after[0].textModel !== before[0],
+			oldModelDisposed: before[0].isDisposed(),
+			untouchedCellPreserved: after[1].textModel === before[1],
+		}).toEqual({
+			languages: ['python', 'python'],
+			text: ['x = 1', 'import os'],
+			changedCellReplaced: true,
+			oldModelDisposed: true,
+			untouchedCellPreserved: true,
+		});
+	});
+
+	it('does not expose a disposed cell while splicing', async () => {
+		// The real ModelService fires onModelAdded synchronously and inline from
+		// inside createModel, which _spliceCells calls to bind the inserted cell's
+		// model. That call lands in the window between disposing the outgoing
+		// cell's model and rebuilding `_cells`, so a listener woken by it, or by
+		// anything else it triggers, is the closest thing to that bug in a test:
+		// if `_cells` still held the disposed cell at that point, every getter
+		// below would hand it back.
+		const service = createService();
+		const source = createSourceModel(R_AND_PYTHON);
+		await service.whenReady(source.uri);
+
+		const modelService = ctx.instantiationService.get(IModelService);
+
+		// Capture what the handler saw rather than asserting inside it: an
+		// exception thrown inside an event handler can be swallowed by the
+		// emitter instead of failing the test. Accumulate into an array rather
+		// than a single variable: the regression this test guards has "several
+		// cells inserted in one splice" as its natural shape, and with a single
+		// variable a later successful invocation would overwrite an earlier
+		// failure, silently defeating the test the moment a splice inserts more
+		// than one cell. An empty array (the handler never ran at all) is itself
+		// a failure, which the assertion below checks for.
+		const observations: { cellAtLineFound: boolean; error: unknown }[] = [];
+		const subscription = modelService.onModelAdded(() => {
+			try {
+				// Touch every cell the service hands back from its public getters,
+				// the way a real consumer would. isDisposed() alone would not
+				// reproduce the bug: it is a flag read, not the assertion that
+				// throws "Model is disposed!" on a real access such as getValue().
+				for (const cell of service.getCells(source.uri)) {
+					cell.textModel.getValue();
+				}
+				for (const cell of service.getAllCells()) {
+					cell.textModel.getValue();
+				}
+				// Optional chaining would let a transient window where the cell is
+				// missing read as a pass, so a missing cell is its own recorded
+				// observation instead of a silent skip.
+				const atLine4 = service.getCellAtLine(source.uri, 4);
+				if (atLine4) {
+					atLine4.textModel.getValue();
+				}
+				observations.push({ cellAtLineFound: atLine4 !== undefined, error: undefined });
+			} catch (error) {
+				observations.push({ cellAtLineFound: false, error });
+			}
+		});
+		ctx.disposables.add(subscription);
+
+		// Changing the first chunk's language removes that cell and inserts a
+		// replacement while the second cell survives untouched, so the splice has
+		// both a removal and an insertion in the same pass. A pure append only
+		// inserts and would never reach createModel with a removal already having
+		// happened.
+		source.setValue([
+			'# Intro',
+			'',
+			'```{python}',
+			'x = 1',
+			'```',
+			'',
+			'```{python}',
+			'import os',
+			'```',
+			'',
+		].join('\n'));
+		service.ensureSynchronized(source.uri);
+
+		// A missing cell at line 4 during a transient window is not itself a
+		// failure (the surviving cell's span has not been refreshed yet, and the
+		// inserted cell is not spliced into `_cells` until every inserted model
+		// in the splice has been created), so `cellAtLineFound` is recorded for
+		// visibility rather than asserted true. What must hold for every
+		// invocation is that no access threw: a disposed cell still reachable
+		// through `_cells` is exactly what `error` would catch.
+		expect(observations.length > 0).toBe(true);
+		expect(observations.map(observation => observation.error)).toEqual(
+			observations.map(() => undefined));
 	});
 
 	it('tracks cell text and line spans through repeated churn', async () => {
@@ -618,4 +838,81 @@ describe('QuartoVirtualNotebookService', () => {
 
 		expect(service.getNotebookUri(source.uri)).toBeUndefined();
 	});
+
+	// 75 steps at a 100ms parse debounce is about 7.5s of wall clock, against
+	// the 60000ms timeout below: 8x headroom, so a loaded CI runner does not
+	// flake. Fixing that headroom by forcing a sync instead of awaiting the
+	// real debounce would defeat the point of the test (see the whenParsed
+	// comment below), so the step count and timeout are what moved instead.
+	it('matches a fresh parse after any sequence of chunk edits', async () => {
+		// A deterministic generator, so a failure is reproducible from the seed
+		// printed in the assertion below rather than being a one-off.
+		let seed = 20260816;
+		const random = (bound: number): number => {
+			seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+			return seed % bound;
+		};
+
+		const chunk = (language: string, code: string): string =>
+			['```{' + language + '}', code, '```', ''].join('\n');
+
+		// Chunks are drawn from a small pool on purpose: repeats are what make
+		// duplicate content, and duplicate content is what a hash-keyed match
+		// gets wrong.
+		const pool = [
+			chunk('r', 'a <- 1'),
+			chunk('r', 'b <- 2'),
+			chunk('r', 'a <- 1'),
+			chunk('python', 'import os'),
+			chunk('python', 'x = 1'),
+		];
+
+		const service = createService();
+		const source = createSourceModel('# Intro\n\n');
+		await service.whenReady(source.uri);
+
+		const chunks: string[] = [];
+		for (let step = 0; step < 75; step++) {
+			// Insert, delete, or replace at a random position, so the splice sees
+			// changes at both ends and in the middle rather than only appends.
+			// The insert branch draws its position from chunks.length + 1 rather
+			// than chunks.length, so an insert at the very end (append) is
+			// reachable; delete and replace draw from chunks.length since those
+			// need an existing index.
+			const action = chunks.length === 0 ? 0 : random(3);
+			const at = action === 0 ? random(chunks.length + 1) : random(chunks.length);
+			if (action === 0) {
+				chunks.splice(at, 0, pool[random(pool.length)]);
+			} else if (action === 1) {
+				chunks.splice(at, 1);
+			} else {
+				chunks[at] = pool[random(pool.length)];
+			}
+
+			source.setValue('# Intro\n\n' + chunks.join(''));
+			await documentModels.get(source.uri.toString())!.whenParsed();
+
+			const cells = service.getCells(source.uri);
+
+			// The document model is the reference: whatever the edits did, the
+			// cells have to agree with the same document model's own parsed
+			// state, the state the service consumed to update them.
+			const documentModel = documentModels.get(source.uri.toString())!;
+			expect({
+				step,
+				seed,
+				text: cells.map(cell => cell.textModel.getValue()),
+				spans: cells.map(cell => [cell.codeStartLine, cell.codeEndLine]),
+				languages: cells.map(cell => cell.language),
+				anyDisposed: cells.some(cell => cell.textModel.isDisposed()),
+			}).toEqual({
+				step,
+				seed,
+				text: documentModel.cells.map(cell => documentModel.getCellCode(cell)),
+				spans: documentModel.cells.map(cell => [cell.codeStartLine, cell.codeEndLine]),
+				languages: documentModel.cells.map(cell => cell.language),
+				anyDisposed: false,
+			});
+		}
+	}, 60000);
 });
