@@ -4277,18 +4277,27 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// the code fragment should not be added to avoid UI side effects from
 		// the code execution.
 		const addProvisionalInput = () => {
-			if (reportedMode !== RuntimeCodeExecutionMode.Silent) {
-				const activityItemInput = new ActivityItemInput(
-					id,
-					id,
-					new Date(),
-					ActivityItemInputState.Provisional,
-					session.dynState.inputPrompt,
-					session.dynState.continuationPrompt,
-					code
-				);
-				this.addOrUpdateRuntimeItemActivity(id, activityItemInput);
+			if (reportedMode === RuntimeCodeExecutionMode.Silent) {
+				return;
 			}
+			// A session that cannot check completeness treats Unprocessed as
+			// Interactive and echoes the input during execute(), before the
+			// await in Flow 2 resolves. In that case the real input has already
+			// arrived, so a provisional one here would duplicate it.
+			const existing = this._runtimeItemActivities.get(id);
+			if (existing?.activityItems.some(item => item instanceof ActivityItemInput)) {
+				return;
+			}
+			const activityItemInput = new ActivityItemInput(
+				id,
+				id,
+				new Date(),
+				ActivityItemInputState.Provisional,
+				session.dynState.inputPrompt,
+				session.dynState.continuationPrompt,
+				code
+			);
+			this.addOrUpdateRuntimeItemActivity(id, activityItemInput);
 		};
 
 		// Fires the onDidExecuteCode event.

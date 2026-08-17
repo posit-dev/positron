@@ -16,6 +16,8 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { TestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { PositronConsoleInstance } from '../../browser/positronConsoleService.js';
 import { RuntimeItemPendingInput } from '../../browser/classes/runtimeItemPendingInput.js';
+import { RuntimeItemActivity } from '../../browser/classes/runtimeItemActivity.js';
+import { ActivityItemInput } from '../../browser/classes/activityItemInput.js';
 import { CodeSubmissionResult, IConsoleFindWidget, IConsoleFindWidgetFactory, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { ConsoleErrorFollowupService, IConsoleErrorFollowupService } from '../../common/consoleErrorFollowup.js';
 import { CodeAttributionSource, COMPLETENESS_VERIFIED_METADATA_KEY } from '../../common/positronConsoleCodeExecution.js';
@@ -225,6 +227,33 @@ describe('PositronConsoleInstance.submitCode', () => {
 		expect(result).toBe(CodeSubmissionResult.Executed);
 		// It is reported to the console as Interactive, not Unprocessed.
 		expect(executedCode).toEqual(['40 + 2']);
+	});
+
+	it('does not duplicate the input echo when the session echoes it during execute (Unprocessed as Interactive)', async () => {
+		const { instance, session } = createInstance(disposables);
+
+		// A session that cannot check completeness treats Unprocessed as
+		// Interactive: it echoes the input during execute(), before resolving
+		// the acceptance promise (as positron-zed does). The console must not
+		// then add its own provisional echo on top of it.
+		vi.spyOn(session, 'execute').mockImplementation((code, id) => {
+			session.receiveInputMessage({ parent_id: id, code });
+			return Promise.resolve();
+		});
+
+		const result = await instance.submitCode(
+			'40 + 2',
+			{ source: CodeAttributionSource.Interactive }
+		);
+		expect(result).toBe(CodeSubmissionResult.Executed);
+
+		// The submitted code is echoed exactly once, not twice.
+		const inputEchoes = instance.runtimeItems
+			.filter((item): item is RuntimeItemActivity => item instanceof RuntimeItemActivity)
+			.flatMap(item => item.activityItems)
+			.filter((item): item is ActivityItemInput => item instanceof ActivityItemInput)
+			.map(item => item.code);
+		expect(inputEchoes).toEqual(['40 + 2']);
 	});
 
 	it('queues code enqueued during an in-flight submission and runs it once the submission settles', async () => {
