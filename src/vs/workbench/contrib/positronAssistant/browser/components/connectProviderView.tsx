@@ -13,7 +13,8 @@ import { IPositronCustomModel, IPositronLanguageModelConfig, IPositronLanguageMo
 import { AuthMethod, AuthStatus } from '../types.js';
 import { availableAuthMethods, deriveAuthMethod, deriveAuthStatus, deriveConnectAction } from '../providerConnection.js';
 import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../providerLegalText.js';
-import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { LanguageModelIcon } from './languageModelButton.js';
@@ -61,12 +62,16 @@ const CUSTOM_MODEL_DEFAULTS = {
 } satisfies Omit<IPositronCustomModel, 'id' | 'name'>;
 
 export interface ConnectProviderViewProps {
+	/** The renderer this view draws its dialog box into. */
+	renderer: PositronModalReactRenderer;
+	/** The dialog title, computed by the modal so every view titles itself the same way. */
+	title: string;
+	/** The dialog width, set by the modal so every view is the same size. */
+	width: number;
 	source: IPositronLanguageModelSource;
 	onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	/** Invoked by the footer Back button. */
 	onBack: () => void;
-	/** Invoked by the footer Close button. */
-	onClose: () => void;
 	/**
 	 * Report a way to cancel an in-flight OAuth sign-in (or `undefined` when none
 	 * is pending), so dismissing the modal aborts the device flow instead of
@@ -151,13 +156,14 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	cancelSignInRef.current = cancelSignIn;
 
 	// While an OAuth sign-in is in progress, report a cancel handler so dismissing
-	// the modal aborts the flow; clear it otherwise and when this view unmounts.
+	// the modal aborts the flow, and clear it once the sign-in finishes. The modal
+	// clears it on leaving this view; an unmount cleanup here would also run when the
+	// dialog closes, wiping the handler before the close could use it.
 	const onPendingSignInChange = props.onPendingSignInChange;
 	useEffect(() => {
 		const signInPending = authMethod === AuthMethod.OAUTH && inFlight;
 		onPendingSignInChange?.(signInPending ? () => cancelSignInRef.current() : undefined);
 	}, [onPendingSignInChange, authMethod, inFlight]);
-	useEffect(() => () => onPendingSignInChange?.(undefined), [onPendingSignInChange]);
 
 	const cancelButton = props.source.status === 'error' ? {
 		title: pending === 'remove'
@@ -182,8 +188,8 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	} : undefined;
 
 	return (
-		<>
-			<ContentArea>
+		<PositronDynamicModalDialog
+			content={
 				<div className='connect-provider-view' data-testid='provider-connect-view'>
 					<ConnectProviderHeader source={props.source} />
 					{methods.length > 1 && !props.source.signedIn &&
@@ -301,24 +307,30 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 						</div>
 					}
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
-					<div style={{ flexGrow: 1 }}>&nbsp;</div>
 					<ProviderNotice source={props.source} />
 				</div>
-			</ContentArea>
-			<ProviderModalFooter
-				cancelButton={cancelButton}
-				primaryButton={{
-					title: pending === 'connect'
-						? localize('positron.connectProvider.connecting', "Connecting...")
-						: localize('positron.connectProvider.connect', "Connect"),
-					disable: connectDisabled || inFlight,
-					loading: pending === 'connect',
-					onClick: onConnect,
-				}}
-				onBack={props.onBack}
-				onClose={props.onClose}
-			/>
-		</>
+			}
+			footer={
+				<ProviderModalFooter
+					cancelButton={cancelButton}
+					primaryButton={{
+						title: pending === 'connect'
+							? localize('positron.connectProvider.connecting', "Connecting...")
+							: localize('positron.connectProvider.connect', "Connect"),
+						disable: connectDisabled || inFlight,
+						loading: pending === 'connect',
+						submit: true,
+						onClick: onConnect,
+					}}
+					onBack={props.onBack}
+				/>
+			}
+			renderer={props.renderer}
+			title={props.title}
+			width={props.width}
+			onCancel={() => props.renderer.dispose()}
+			onSubmit={onConnect}
+		/>
 	);
 };
 
