@@ -7,18 +7,16 @@
 import './configureLLMProvidersModal.css';
 
 // React.
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
-import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { ContentArea } from '../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
-import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { PositronDynamicModalDialog } from '../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 import { ProviderList } from './components/providerList.js';
 import { ConnectProviderView } from './components/connectProviderView.js';
 import { ConnectedProviderView } from './components/connectedProviderView.js';
-import { ProviderModalFooter } from './components/providerModalFooter.js';
 import { selectProviderView } from './providerConnection.js';
 import { useProviderUpdates } from './useProviderUpdates.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
@@ -26,7 +24,30 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 /** Command that opens providers.json in an editor (registered in the contribution). */
 const OPEN_PROVIDERS_JSON_COMMAND = 'workbench.action.positronAssistant.openAiProviderSettingsJson';
 
+/** The width every view's dialog box is drawn at. */
+const MODAL_WIDTH = 600;
+
+/**
+ * How tall the provider list grows before it scrolls: a section heading plus
+ * seven rows, at 52px a row with a 4px gap (20 + 4 + 7 * 52 + 6 * 4). Adding the
+ * title bar, the footer and the content padding puts the dialog a little over
+ * 500px, which clears the gutters on a 640px-tall window. Nothing caps the
+ * dialog itself, so without this the full list would draw a box taller than the
+ * window and strand the title bar above the top edge. There is no minimum: a
+ * short list shrinks the box, as it does on the connect and connected views.
+ */
+const LIST_CONTENT_MAX_HEIGHT = 412;
+
 type OnAction = (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
+
+/**
+ * Where the connect view leaves a way to cancel an OAuth sign-in that is still
+ * running. This is a plain object rather than React state because the renderer's
+ * teardown has to read it after the component has unmounted.
+ */
+export interface PendingSignIn {
+	cancel?: () => void;
+}
 
 export const showConfigureLLMProvidersModal = (
 	sources: IPositronLanguageModelSource[],
@@ -34,27 +55,38 @@ export const showConfigureLLMProvidersModal = (
 	onClose: () => void,
 	options?: IShowLanguageModelConfigOptions,
 ) => {
-	const renderer = new PositronModalReactRenderer();
+	// Disposing the renderer is the one thing every way out of the modal does: the
+	// title bar's close button, and Escape, which the browser handles itself on a
+	// native <dialog> without going through React. So the teardown hangs off the
+	// renderer rather than the component.
+	const pendingSignIn: PendingSignIn = {};
+	const renderer = new PositronModalDialogReactRenderer({
+		onDisposed: () => {
+			pendingSignIn.cancel?.();
+			onClose();
+		},
+	});
 	renderer.render(
 		<div className='configure-llm-providers-modal' data-testid='configure-llm-providers-modal'>
 			<ConfigureLLMProviders
+				pendingSignIn={pendingSignIn}
 				preselectedProviderId={options?.preselectedProviderId}
 				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
-				onClose={onClose}
 			/>
 		</div>
 	);
 };
 
 export interface ConfigureLLMProvidersProps {
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
+	/** Where the connect view's cancel handler is left for the renderer's teardown to find. */
+	pendingSignIn: PendingSignIn;
 	sources: IPositronLanguageModelSource[];
 	/** Provider to open on, skipping the list. Ignored if it is not in `sources`. */
 	preselectedProviderId?: string;
 	onAction: OnAction;
-	onClose: () => void;
 }
 
 export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
@@ -107,22 +139,20 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	const activeView = (view === 'connect' || view === 'connected') && !selectedSource ? 'list' : view;
 
 	// A cancel handler reported by the connect view while an OAuth sign-in is in
-	// flight. Held in a ref (read only at close time) so it does not re-render the
+	// flight. Written straight into the shared handle so it does not re-render the
 	// modal as the sign-in progresses.
-	const pendingCancelRef = useRef<(() => void) | undefined>(undefined);
+	const pendingSignIn = props.pendingSignIn;
 	const setPendingCancel = useCallback((cancel: (() => void) | undefined) => {
-		pendingCancelRef.current = cancel;
-	}, []);
+		pendingSignIn.cancel = cancel;
+	}, [pendingSignIn]);
 
-	// Unmounting the connect view drops its cancel handler, so Back and Close
-	// both cancel an in-flight sign-in before leaving.
 	const cancelPendingSignIn = () => {
-		pendingCancelRef.current?.();
+		pendingSignIn.cancel?.();
 	};
 
+	// Disposing runs the teardown the show function installed, which cancels an
+	// in-flight sign-in and reports the modal closed.
 	const close = () => {
-		cancelPendingSignIn();
-		props.onClose();
 		props.renderer.dispose();
 	};
 
@@ -133,8 +163,11 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 		close();
 	};
 
+	// Leaving the connect view cancels any sign-in it started and drops the handler,
+	// so a later close does not try to cancel a flow that has already gone.
 	const backToList = () => {
 		cancelPendingSignIn();
+		setPendingCancel(undefined);
 		setView('list');
 	};
 
@@ -145,42 +178,44 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 			: selectedSource.provider.displayName;
 
 	return (
-		<PositronModalDialog
-			height={500}
-			renderer={props.renderer}
-			title={title}
-			width={600}
-			onCancel={close}
-		>
+		<>
 			{activeView === 'list' &&
-				<>
-					<ContentArea>
+				<PositronDynamicModalDialog
+					content={
 						<ProviderList
 							sources={sources}
 							onSelectProvider={source => { setSelectedProviderId(source.provider.id); setView(selectProviderView(source)); }}
 						/>
-					</ContentArea>
-					<ProviderModalFooter onClose={close} />
-				</>
+					}
+					contentMaxHeight={LIST_CONTENT_MAX_HEIGHT}
+					renderer={props.renderer}
+					title={title}
+					width={MODAL_WIDTH}
+					onCancel={close}
+				/>
 			}
 			{activeView === 'connect' && selectedSource &&
 				<ConnectProviderView
+					renderer={props.renderer}
 					source={selectedSource}
+					title={title}
+					width={MODAL_WIDTH}
 					onAction={props.onAction}
 					onBack={backToList}
-					onClose={close}
 					onEditRawConfig={editRawConfig}
 					onPendingSignInChange={setPendingCancel}
 				/>
 			}
 			{activeView === 'connected' && selectedSource &&
 				<ConnectedProviderView
+					renderer={props.renderer}
 					source={selectedSource}
+					title={title}
+					width={MODAL_WIDTH}
 					onAction={props.onAction}
 					onBack={backToList}
-					onClose={close}
 				/>
 			}
-		</PositronModalDialog>
+		</>
 	);
 };
