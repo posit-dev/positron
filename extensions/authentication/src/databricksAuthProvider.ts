@@ -243,8 +243,10 @@ export class DatabricksAuthProvider extends AuthProvider {
 				SIGN_IN_TIMEOUT_MS, cancellation.token
 			);
 			const tokens = await exchangeCodeForTokens(
-				endpoints.tokenEndpoint, code, verifier, server.redirectUri
+				endpoints.tokenEndpoint, code, verifier, server.redirectUri,
+				abort.signal
 			);
+			throwIfCancelled(cancellation.token);
 			await this.storeOAuthSecrets(host, tokens);
 
 			const session = this.makeOAuthSession(tokens.accessToken, host);

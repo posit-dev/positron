@@ -150,12 +150,14 @@ export function buildAuthorizeUrl(
 async function postTokenEndpoint(
 	tokenEndpoint: string,
 	params: Record<string, string>,
-	operation: string
+	operation: string,
+	signal?: AbortSignal
 ): Promise<TokenEndpointResponse> {
 	const response = await fetch(tokenEndpoint, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 		body: new URLSearchParams(params).toString(),
+		signal,
 	});
 
 	if (!response.ok) {
@@ -181,7 +183,8 @@ export async function exchangeCodeForTokens(
 	tokenEndpoint: string,
 	code: string,
 	verifier: string,
-	redirectUri: string
+	redirectUri: string,
+	signal?: AbortSignal
 ): Promise<TokenSet> {
 	const data = await postTokenEndpoint(tokenEndpoint, {
 		grant_type: 'authorization_code',
@@ -189,7 +192,7 @@ export async function exchangeCodeForTokens(
 		redirect_uri: redirectUri,
 		client_id: DATABRICKS_OAUTH_CLIENT_ID,
 		code_verifier: verifier,
-	}, 'token exchange');
+	}, 'token exchange', signal);
 
 	if (!data.access_token || !data.refresh_token) {
 		throw new Error(
