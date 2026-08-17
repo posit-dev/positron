@@ -828,8 +828,9 @@ suite('positron API - executeCode', () => {
 			})
 		);
 
-		// Metadata the caller contributes; it should surface on the event.
-		const testMetadata = { origin: 'claude-code', turn: 7 };
+		// Attribution metadata the caller contributes; it should surface on the
+		// event's attribution, merged with Positron's own fields.
+		const attributionMetadata = { origin: 'claude-code', turn: 7 };
 
 		// Execute the code
 		await positron.runtime.executeCode(
@@ -842,7 +843,8 @@ suite('positron API - executeCode', () => {
 			undefined,         // observer
 			undefined,         // sessionId
 			undefined,         // documentUri
-			testMetadata       // executionMetadata
+			undefined,         // executionMetadata
+			attributionMetadata
 		);
 
 		// The session that ran the code, to correlate its ID with the event.
@@ -858,10 +860,11 @@ suite('positron API - executeCode', () => {
 			'Session ID should identify the runtime session that executed the code');
 		assert.strictEqual(event.mode, positron.RuntimeCodeExecutionMode.Interactive,
 			'Execution mode should match');
-		assert.deepStrictEqual(event.metadata, testMetadata,
-			'Caller-supplied execution metadata should surface on the event');
 		assert.strictEqual(event.attribution.source, positron.CodeAttributionSource.Extension,
 			'Correctly attributed to execution via an extension');
+		assert.deepStrictEqual(event.attribution.metadata,
+			{ origin: 'claude-code', turn: 7, extensionId: 'vscode.vscode-api-tests' },
+			'Caller-supplied attribution metadata should surface, merged with Positron fields');
 	});
 
 	test('getSessionVariables returns correct variables', async () => {

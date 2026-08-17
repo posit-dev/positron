@@ -4203,7 +4203,6 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			errorBehavior: pendingItem.errorBehavior,
 			languageId: this._session.runtimeMetadata.languageId,
 			runtimeName: this._session.runtimeMetadata.runtimeName,
-			executionMetadata: pendingItem.executionMetadata,
 		};
 		this._onDidExecuteCodeEmitter.fire(event);
 	}
@@ -4311,7 +4310,6 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				errorBehavior,
 				languageId: session.runtimeMetadata.languageId,
 				runtimeName: session.runtimeMetadata.runtimeName,
-				executionMetadata,
 			};
 			this._onDidExecuteCodeEmitter.fire(event);
 		};

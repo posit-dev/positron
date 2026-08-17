@@ -84,7 +84,4 @@ export interface ILanguageRuntimeCodeExecutedEvent {
 
 	/** The error disposition used to execute the code in the language runtime session */
 	errorBehavior: RuntimeErrorBehavior;
-
-	/** Additional metadata supplied by the caller of `executeCode`, if any */
-	executionMetadata?: Record<string, any>;
 }

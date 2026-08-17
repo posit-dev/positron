@@ -2103,7 +2103,8 @@ export class MainThreadLanguageRuntime
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
 		documentUri?: URI,
-		executionMetadata?: Record<string, unknown>): Promise<string> {
+		executionMetadata?: Record<string, unknown>,
+		attributionMetadata?: Record<string, unknown>): Promise<string> {
 
 		// Revive the URI from the serialized form, if provided.
 		const revivedUri = documentUri ? URI.revive(documentUri) : undefined;
@@ -2111,6 +2112,11 @@ export class MainThreadLanguageRuntime
 		// Attribute this code to the extension that requested it. If a document
 		// URI is provided, use Script attribution so that the code location is
 		// forwarded to the kernel (e.g. for plot file attribution).
+		//
+		// Any caller-supplied attribution metadata is merged in first, so
+		// Positron's own fields (extensionId, codeLocation) always win and the
+		// caller cannot forge them. Positron retains sole authority over
+		// `source`, which is never caller-supplied.
 		let attribution: IConsoleCodeAttribution;
 		if (revivedUri) {
 			const codeLocation: ICodeLocation = {
@@ -2123,6 +2129,7 @@ export class MainThreadLanguageRuntime
 			attribution = {
 				source: CodeAttributionSource.Script,
 				metadata: {
+					...attributionMetadata,
 					extensionId: extensionId,
 					codeLocation,
 				}
@@ -2131,6 +2138,7 @@ export class MainThreadLanguageRuntime
 			attribution = {
 				source: CodeAttributionSource.Extension,
 				metadata: {
+					...attributionMetadata,
 					extensionId: extensionId,
 				}
 			};
