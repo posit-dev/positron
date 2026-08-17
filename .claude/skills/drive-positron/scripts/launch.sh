@@ -10,6 +10,8 @@
 #   2. Seeds the profile from $POSITRON_DEV_USER_DATA_DIR or ~/.positron-dev.
 #   3. Provides an isolated shared-data directory and unique debug ports.
 #   4. Rechecks process liveness after CDP starts, catching late startup crashes.
+#   5. Runs on Windows (Git Bash) as well as macOS and Linux: falls back to tar
+#      where rsync is absent, and converts paths for the native Electron binary.
 #
 # Prints connection details as JSON on stdout and diagnostics on stderr.
 #
@@ -30,6 +32,65 @@
 
 set -euo pipefail
 umask 077
+
+# Platform and tool detection. Git Bash on Windows (MSYS) ships neither rsync
+# nor pgrep, and Electron there cannot read MSYS-style paths such as /tmp/x.
+case "$(uname -s)" in
+	MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=1 ;;
+	*) IS_WINDOWS=0 ;;
+esac
+if command -v rsync >/dev/null 2>&1; then
+	HAVE_RSYNC=1
+else
+	HAVE_RSYNC=0
+fi
+
+# Convert a path for the Electron binary. On Windows the app is a native
+# executable that cannot read MSYS paths, and MSYS argument translation does not
+# reliably rewrite them inside --flag=value pairs. Elsewhere this is a no-op.
+to_native_path() {
+	if [[ "$IS_WINDOWS" == "1" ]]; then
+		cygpath -m "$1"
+	else
+		printf '%s\n' "$1"
+	fi
+}
+
+# Copy a directory tree, honoring rsync-style exclude patterns.
+#
+# Prefers rsync where it exists so the established macOS and Linux behavior is
+# unchanged, and falls back to a streaming tar pipe on Windows. The tar path
+# skips excluded directories rather than copying and then deleting them, which
+# matters because the caches being excluded can run to gigabytes.
+#
+# Exclude patterns use rsync semantics: a leading slash anchors the pattern at
+# the transfer root, anything else matches at any depth. GNU tar's default
+# non-anchored matching produces the same result once a leading slash has been
+# rewritten to './'.
+copy_tree() {
+	local src="$1" dst="$2"
+	shift 2
+	mkdir -p "$dst"
+
+	local excl=()
+	local pattern
+	if [[ "$HAVE_RSYNC" == "1" ]]; then
+		for pattern in "$@"; do
+			excl+=("--exclude=$pattern")
+		done
+		rsync -a "${excl[@]}" "$src/" "$dst/"
+		return
+	fi
+
+	for pattern in "$@"; do
+		if [[ "$pattern" == /* ]]; then
+			excl+=("--exclude=.$pattern")
+		else
+			excl+=("--exclude=$pattern")
+		fi
+	done
+	( cd "$src" && tar -cf - "${excl[@]}" . ) | ( cd "$dst" && tar -xf - )
+}
 
 AGENTS=0
 SOURCE_UDD="${POSITRON_DEV_USER_DATA_DIR:-$HOME/.positron-dev}"
@@ -79,7 +140,8 @@ MAIN_PORT=$(pick_port)
 AGENTHOST_PORT=$(pick_port)
 
 STAMP=$(date +%Y%m%d-%H%M%S)-$$
-# Keep the run directory short enough for the main-process Unix socket.
+# Keep the run directory short enough for the main-process Unix socket. Windows
+# uses named pipes instead, so the length limit does not apply there.
 RUN_DIR="${POSITRON_LAUNCH_TMP:-/tmp}/positron-dev-launch/$STAMP"
 DEST_UDD="$RUN_DIR/user-data"
 SHARED_DATA_DIR="$RUN_DIR/shared-data"
@@ -101,14 +163,13 @@ EXCLUDES=(
 	'*.lock' '*.sock'
 )
 
+COPY_TOOL=$([[ "$HAVE_RSYNC" == "1" ]] && echo rsync || echo tar)
 if [[ "$FULL" == "1" ]]; then
-	echo "[launch.sh] full copy: $SOURCE_UDD -> $DEST_UDD" >&2
-	rsync -a "$SOURCE_UDD/" "$DEST_UDD/"
+	echo "[launch.sh] full copy ($COPY_TOOL): $SOURCE_UDD -> $DEST_UDD" >&2
+	copy_tree "$SOURCE_UDD" "$DEST_UDD"
 else
-	echo "[launch.sh] slim copy: $SOURCE_UDD -> $DEST_UDD" >&2
-	RSYNC_ARGS=(-a)
-	for e in "${EXCLUDES[@]}"; do RSYNC_ARGS+=(--exclude="$e"); done
-	rsync "${RSYNC_ARGS[@]}" "$SOURCE_UDD/" "$DEST_UDD/"
+	echo "[launch.sh] slim copy ($COPY_TOOL): $SOURCE_UDD -> $DEST_UDD" >&2
+	copy_tree "$SOURCE_UDD" "$DEST_UDD" "${EXCLUDES[@]}"
 fi
 
 # Prepare extensions according to the selected profile-copy mode.
@@ -116,7 +177,7 @@ EXT_DIR="$DEST_UDD/extensions"
 mkdir -p "$EXT_DIR"
 if [[ "$FULL" != "1" && "$CLONE_EXTENSIONS" == "1" ]]; then
 	echo "[launch.sh] copying extensions: $SOURCE_UDD/extensions -> $EXT_DIR" >&2
-	rsync -a "$SOURCE_UDD/extensions/" "$EXT_DIR/"
+	copy_tree "$SOURCE_UDD/extensions" "$EXT_DIR"
 fi
 
 # Force the quick-input file dialog because CDP cannot control native dialogs.
@@ -191,9 +252,9 @@ if [[ ! -x "$CODE_SH" ]]; then
 fi
 
 ARGS=(
-	"--user-data-dir=$DEST_UDD"
-	"--extensions-dir=$EXT_DIR"
-	"--shared-data-dir=$SHARED_DATA_DIR"
+	"--user-data-dir=$(to_native_path "$DEST_UDD")"
+	"--extensions-dir=$(to_native_path "$EXT_DIR")"
+	"--shared-data-dir=$(to_native_path "$SHARED_DATA_DIR")"
 	"--remote-debugging-port=$CDP_PORT"
 	"--inspect-extensions=$EXTHOST_PORT"
 	"--inspect=$MAIN_PORT"
