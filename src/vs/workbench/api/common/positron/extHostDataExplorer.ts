@@ -7,6 +7,8 @@ import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Disposable } from '../extHostTypes.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 
 /** How long $handleRpc waits for a provider to register before failing (covers activation races). */
 const PROVIDER_REGISTRATION_TIMEOUT_MS = 30_000;
@@ -29,6 +31,12 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 
 	/** Resolvers for $handleRpc calls waiting on a provider that hasn't registered yet. */
 	private readonly _pendingRegistrations = new Map<string, Array<() => void>>();
+
+	/** Registered data importers, keyed by the handle shared with the main thread. */
+	private readonly _importers = new Map<number, positron.DataImporter>();
+
+	/** Source of importer handles. */
+	private _nextImporterHandle = 0;
 
 	constructor(mainContext: extHostProtocol.IMainPositronContext) {
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadDataExplorer);
@@ -72,6 +80,24 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 		return Promise.resolve(this._proxy.$open(options.providerId, options.datasetId, options.displayName));
 	}
 
+	/**
+	 * Registers a data importer, which generates the code that loads a data file into a variable.
+	 */
+	registerDataImporter(importer: positron.DataImporter): Disposable {
+		const handle = this._nextImporterHandle++;
+		this._importers.set(handle, importer);
+		this._proxy.$registerDataImporter(handle, {
+			languageId: importer.languageId,
+			displayName: importer.displayName,
+			fileExtensions: importer.fileExtensions
+		});
+
+		return new Disposable(() => {
+			this._importers.delete(handle);
+			this._proxy.$unregisterDataImporter(handle);
+		});
+	}
+
 	// --- ExtHostDataExplorerShape (called by the main thread) ---
 
 	async $handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto> {
@@ -83,6 +109,21 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 		// Only notify a provider that has already registered. A closed dataset must never
 		// activate a dormant extension: there is nothing for it to release.
 		this._handlers.get(providerId)?.closeDataset?.(datasetId);
+	}
+
+	async $generateImportCode(handle: number, request: IDataImportRequestDto): Promise<IDataImportResult | undefined> {
+		const importer = this._importers.get(handle);
+		if (!importer) {
+			// The registration was disposed while the request was in flight.
+			return undefined;
+		}
+
+		const result = await importer.generateCode({
+			fileUri: URI.revive(request.fileUri),
+			variableName: request.variableName,
+			options: request.options
+		});
+		return result ?? undefined;
 	}
 
 	// --- Private helpers ---

@@ -3559,6 +3559,70 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Import options that are not part of the file's identity. This bag is the seam for future
+	 * options (delimiter, skip rows, NA strings, column types, encoding).
+	 */
+	export interface DataImportOptions {
+		/** Whether the first row of the file holds column names. Defaults to true when absent. */
+		hasHeaderRow?: boolean;
+
+		/** The worksheet to read, for formats that have sheets. */
+		sheetName?: string;
+	}
+
+	/**
+	 * A request to generate the code that loads one file into one variable.
+	 */
+	export interface DataImportRequest {
+		/** The original file, not the positron-data-explorer URI. */
+		fileUri: vscode.Uri;
+
+		/** The target variable name, already valid in the importer's language. */
+		variableName: string;
+
+		/** Format and parsing options. */
+		options: DataImportOptions;
+	}
+
+	/**
+	 * Generated import code, plus anything the importer could not express.
+	 */
+	export interface DataImportResult {
+		/** The generated code, ready to run in a console. */
+		code: string;
+
+		/**
+		 * Human-readable descriptions of anything in the request the importer could not translate.
+		 * Positron shows these as a warning next to the generated code, so that nothing is dropped
+		 * silently.
+		 */
+		unsupported?: string[];
+	}
+
+	/**
+	 * Generates the code that loads a data file into a variable, for one language and library. The
+	 * declared file extensions are what keep an importer off files it cannot read.
+	 */
+	export interface DataImporter {
+		/** The language the generated code is written in, e.g. 'python'. */
+		languageId: string;
+
+		/** A human-readable name for the importer, e.g. 'Python (pandas)'. */
+		displayName: string;
+
+		/** File extensions this importer can read, without a leading dot, e.g. ['csv', 'tsv']. */
+		fileExtensions: string[];
+
+		/**
+		 * Generates the code that loads the requested file.
+		 *
+		 * @param request The file, the target variable name, and the import options.
+		 * @returns The generated code, or undefined to decline.
+		 */
+		generateCode(request: DataImportRequest): vscode.ProviderResult<DataImportResult>;
+	}
+
+	/**
 	 * Methods for providing Data Explorer backends from an extension. A provider registers an RPC
 	 * handler under a stable provider id, then opens datasets it owns in the Data Explorer.
 	 */
@@ -3578,6 +3642,17 @@ declare module 'positron' {
 		 * @param options The provider id, the dataset identifier, and a human-readable display name.
 		 */
 		export function open(options: { providerId: string; datasetId: string; displayName: string }): Thenable<void>;
+
+		/**
+		 * Registers a data importer, which generates the code that loads a data file into a variable.
+		 *
+		 * The importer is offered for files whose extension it declares, and its generated code is
+		 * shown to the user before it runs.
+		 *
+		 * @param importer The importer to register.
+		 * @returns A disposable that unregisters the importer.
+		 */
+		export function registerDataImporter(importer: DataImporter): vscode.Disposable;
 	}
 
 	/**
