@@ -11,8 +11,8 @@ import { localize } from '../../../../../../nls.js';
 import { status } from '../../../../../../base/browser/ui/aria/aria.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { getIconClassesForLanguageId } from '../../../../../../editor/common/services/getIconClasses.js';
-import { HealthLanguage, IHealthItemFix } from '../environmentHealth.js';
-import { ILanguageHealth } from '../environmentHealthService.js';
+import { EnvironmentHealthLanguage, IHealthItemFix } from '../environmentHealth.js';
+import { IEnvironmentHealthEntry } from '../environmentHealthService.js';
 import { HealthItemRow } from './healthItemRow.js';
 
 /**
@@ -23,7 +23,7 @@ import { HealthItemRow } from './healthItemRow.js';
  * through that state at all, because the environmentHealthService leaves the previous result in
  * place until the new one lands.
  */
-function summaryText(health: ILanguageHealth): string | undefined {
+function summaryText(health: IEnvironmentHealthEntry): string | undefined {
 	switch (health.state.kind) {
 		case 'unavailable':
 			return localize('positron.welcome.environmentSetupUnavailable', "The {0} extension is not available.", health.label);
@@ -50,24 +50,24 @@ function summaryText(health: ILanguageHealth): string | undefined {
  * A language turned off in the setting never reaches this component: the section
  * leaves it out entirely.
  */
-function hasBody(health: ILanguageHealth): boolean {
+function hasBody(health: IEnvironmentHealthEntry): boolean {
 	return health.state.kind === 'result';
 }
 
 /** True when this language has something the user might act on. */
-function needsAttention(health: ILanguageHealth): boolean {
+function needsAttention(health: IEnvironmentHealthEntry): boolean {
 	return health.state.kind === 'result'
 		&& !health.state.result.items.every(i => i.status === 'pass');
 }
 
 export interface LanguageHealthGroupProps {
-	readonly health: ILanguageHealth;
+	readonly health: IEnvironmentHealthEntry;
 	/**
 	 * Whether each language group is expanded, for the groups the user opened or
 	 * closed themselves. A language with no entry has not been touched, so the
 	 * auto-expand rule decides for it.
 	 */
-	readonly expandedByLanguage: Map<HealthLanguage, boolean>;
+	readonly expandedByLanguage: Map<EnvironmentHealthLanguage, boolean>;
 	/** Whether this language has a check or a fix running. */
 	readonly busy: boolean;
 	readonly onRunFix: (fix: IHealthItemFix) => void;
@@ -126,7 +126,7 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix
 			return null;
 		}
 		return (
-			<ul className='health-item-list'>
+			<ul className='environment-health-item-list'>
 				{health.state.result.items.map(i =>
 					<HealthItemRow key={i.id} busy={busy} item={i} onRunFix={onRunFix} />)}
 			</ul>
@@ -135,34 +135,34 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix
 
 	const headerContent = (
 		<>
-			<span aria-hidden='true' className={`health-group-icon ${getIconClassesForLanguageId(health.language).join(' ')}`} />
-			<span className='health-group-name'>{health.label}</span>
-			{summary && <span className='health-group-summary'>{summary}</span>}
+			<span aria-hidden='true' className={`environment-health-group-icon ${getIconClassesForLanguageId(health.language).join(' ')}`} />
+			<span className='environment-health-group-name'>{health.label}</span>
+			{summary && <span className='environment-health-group-summary'>{summary}</span>}
 		</>
 	);
 
 	// Render.
 	return (
 		// `show-file-icons` is required for file icon theme CSS to apply to
-		// `.health-group-icon`; see environmentHealthSection.css.
-		<div aria-labelledby={headerId} className='health-group show-file-icons' role='group'>
+		// `.environment-health-group-icon`; see environmentHealthSection.css.
+		<div aria-labelledby={headerId} className='environment-health-group show-file-icons' role='group'>
 			{/*
 				The heading wraps the button rather than the other way round: a
 				button's content model has no room for a heading, and this is the
 				shape assistive technology expects from a disclosure.
 			*/}
-			<h4 className='health-group-heading'>
+			<h4 className='environment-health-group-heading'>
 				{hasBody(health)
 					? <Button
 						ariaExpanded={expanded}
-						className='health-group-header'
+						className='environment-health-group-header'
 						id={headerId}
 						onPressed={toggle}
 					>
 						{headerContent}
-						<span aria-hidden='true' className={`health-group-chevron codicon codicon-chevron-${expanded ? 'down' : 'right'}`} />
+						<span aria-hidden='true' className={`environment-health-group-chevron codicon codicon-chevron-${expanded ? 'down' : 'right'}`} />
 					</Button>
-					: <div className='health-group-header' id={headerId}>{headerContent}</div>}
+					: <div className='environment-health-group-header' id={headerId}>{headerContent}</div>}
 			</h4>
 			{hasBody(health) && expanded && body()}
 		</div>

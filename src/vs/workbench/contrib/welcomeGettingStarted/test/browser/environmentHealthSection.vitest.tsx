@@ -112,7 +112,7 @@ describe('EnvironmentHealthSection', () => {
 		// action for turning the feature off, competing with the fix buttons.
 		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
 		const gear = screen.getByRole('button', { name: 'Choose which languages are checked' });
-		expect(gear.closest('.health-header')).toBeInTheDocument();
+		expect(gear.closest('.environment-health-header')).toBeInTheDocument();
 		await userEvent.setup().click(gear);
 		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'welcomePage.environmentChecks');
 	});

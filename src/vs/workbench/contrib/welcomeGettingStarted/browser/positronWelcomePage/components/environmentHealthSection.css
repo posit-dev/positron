@@ -39,7 +39,7 @@
 	width: 1px;
 }
 
-.positron-welcome-page-environment-setup .health-header {
+.positron-welcome-page-environment-setup .environment-health-header {
 	align-items: center;
 	background-color: var(--vscode-positronWelcome-environmentSetupTitleBackground);
 	color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
@@ -51,7 +51,7 @@
 }
 
 /* An h4 for structure only; the button inside it is what you see. */
-.positron-welcome-page-environment-setup .health-group-heading {
+.positron-welcome-page-environment-setup .environment-health-group-heading {
 	margin: 0;
 }
 
@@ -63,7 +63,7 @@
  * The line box is set to the icon's own height rather than inherited, or the
  * glyph lays out in the card's shorter line box and sits high.
  */
-.positron-welcome-page-environment-setup .health-group.show-file-icons .health-group-icon::before {
+.positron-welcome-page-environment-setup .environment-health-group.show-file-icons .environment-health-group-icon::before {
 	background-position: left center;
 	background-repeat: no-repeat;
 	background-size: 16px;
@@ -75,19 +75,19 @@
 	-webkit-font-smoothing: antialiased;
 }
 
-.positron-welcome-page-environment-setup .health-header-title,
-.positron-welcome-page-environment-setup .health-group-name {
+.positron-welcome-page-environment-setup .environment-health-header-title,
+.positron-welcome-page-environment-setup .environment-health-group-name {
 	font-size: 13px;
 	font-weight: 600;
 	margin: 0;
 }
 
-.positron-welcome-page-environment-setup .health-header-title {
+.positron-welcome-page-environment-setup .environment-health-header-title {
 	flex: 1 1 auto;
 }
 
 /* Right-aligned, taking whatever width the language name does not need. */
-.positron-welcome-page-environment-setup .health-group-summary {
+.positron-welcome-page-environment-setup .environment-health-group-summary {
 	color: var(--vscode-descriptionForeground);
 	flex: 1 1 auto;
 	min-width: 0;
@@ -97,11 +97,11 @@
 	white-space: nowrap;
 }
 
-.positron-welcome-page-environment-setup .health-group-chevron {
+.positron-welcome-page-environment-setup .environment-health-group-chevron {
 	flex: 0 0 auto;
 }
 
-.positron-welcome-page-environment-setup .health-group-footer {
+.positron-welcome-page-environment-setup .environment-health-group-footer {
 	align-items: baseline;
 	border-top: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
 	display: flex;
@@ -110,22 +110,22 @@
 	padding: 8px 16px;
 }
 
-.positron-welcome-page-environment-setup .health-group-footer-text {
+.positron-welcome-page-environment-setup .environment-health-group-footer-text {
 	color: var(--vscode-descriptionForeground);
 	margin: 0;
 }
 
-.positron-welcome-page-environment-setup .health-item-list {
+.positron-welcome-page-environment-setup .environment-health-item-list {
 	list-style: none;
 	margin: 0;
 	padding: 0;
 }
 
-.positron-welcome-page-environment-setup .health-item {
+.positron-welcome-page-environment-setup .environment-health-item {
 	padding: 8px 16px;
 }
 
-.positron-welcome-page-environment-setup .health-item-main {
+.positron-welcome-page-environment-setup .environment-health-item-main {
 	align-items: flex-start;
 	display: flex;
 	gap: 8px;
@@ -136,7 +136,7 @@
  * inheriting the column the summary shares with the fix button. Indented to
  * line up under the summary, past the status icon.
  */
-.positron-welcome-page-environment-setup .health-item-secondary {
+.positron-welcome-page-environment-setup .environment-health-item-secondary {
 	/*
 	 * A detail often carries a file path, which has nothing to break on. Without
 	 * this it runs past the edge of the card instead of wrapping.
@@ -146,18 +146,18 @@
 }
 
 /* Divides the checks from each other and from the summary line above them. */
-.positron-welcome-page-environment-setup .health-item + .health-item {
+.positron-welcome-page-environment-setup .environment-health-item + .environment-health-item {
 	border-top: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
 }
 
-.positron-welcome-page-environment-setup .health-item-summary {
+.positron-welcome-page-environment-setup .environment-health-item-summary {
 	flex: 1 1 auto;
 	line-height: var(--_item-line-height);
 	/* Lets the text wrap rather than force the row wider than the card. */
 	min-width: 0;
 }
 
-.positron-welcome-page-environment-setup .health-item-detail {
+.positron-welcome-page-environment-setup .environment-health-item-detail {
 	color: var(--vscode-descriptionForeground);
 	margin: 0;
 }
@@ -170,7 +170,7 @@
  */
 .monaco-workbench .part.editor > .content .gettingStartedContainer
 .gettingStartedSlideCategories
-.positron-welcome-page-environment-setup .health-item-icon.codicon {
+.positron-welcome-page-environment-setup .environment-health-item-icon.codicon {
 	flex: 0 0 auto;
 	/*
 	 * The row is `align-items: flex-start`, so the icon pins to the top of the
@@ -194,19 +194,19 @@
  * these tie at two classes each and the later stylesheet wins, so the status
  * colours silently do not apply.
  */
-.positron-welcome-page-environment-setup .health-item-icon-pass.codicon {
+.positron-welcome-page-environment-setup .environment-health-item-icon-pass.codicon {
 	color: var(--vscode-positronWelcome-environmentSetupPassIcon);
 }
 
-.positron-welcome-page-environment-setup .health-item-icon-warn.codicon {
+.positron-welcome-page-environment-setup .environment-health-item-icon-warn.codicon {
 	color: var(--vscode-positronWelcome-environmentSetupWarningIcon);
 }
 
-.positron-welcome-page-environment-setup .health-item-icon-fail.codicon {
+.positron-welcome-page-environment-setup .environment-health-item-icon-fail.codicon {
 	color: var(--vscode-positronWelcome-environmentSetupErrorIcon);
 }
 
-.positron-welcome-page-environment-setup .health-item-icon-skipped.codicon {
+.positron-welcome-page-environment-setup .environment-health-item-icon-skipped.codicon {
 	color: var(--vscode-positronWelcome-environmentSetupSkippedIcon);
 }
 
@@ -226,12 +226,12 @@
 	 * and the check rows are li. Without this the summary and detail cannot wrap
 	 * and run underneath the fix button instead of yielding to it.
 	 */
-	& .health-item {
+	& .environment-health-item {
 		white-space: normal;
 	}
 
 	/* Runs the fix command. The only primary-coloured control in the card. */
-	& .health-item-fix {
+	& .environment-health-item-fix {
 		background-color: var(--vscode-button-background);
 		border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
 		border-radius: 5px;
@@ -260,7 +260,7 @@
 	 * Icons rather than labelled buttons because a label here outweighed the fix
 	 * buttons, which are the only thing in the card worth pressing.
 	 */
-	& .health-header-button {
+	& .environment-health-header-button {
 		/*
 		 * Flex centres the icon in the button. As a block the icon sits at the
 		 * top of its line box with the spare height below it, which reads as
@@ -277,12 +277,12 @@
 		padding: 4px;
 	}
 
-	& .health-header-button:hover:not(.disabled) {
+	& .environment-health-header-button:hover:not(.disabled) {
 		background-color: var(--vscode-positronWelcome-environmentSetupTitleHoverBackground);
 	}
 
 	/* Recheck, while a check or a fix is running. Its tooltip says why. */
-	& .health-header-button.disabled {
+	& .environment-health-header-button.disabled {
 		opacity: 0.5;
 	}
 
@@ -293,11 +293,11 @@
 	 * it would otherwise inherit, whatever the specificity. Same reason the
 	 * status icons name their colour rather than taking the row's.
 	 */
-	& .health-header-button .codicon {
+	& .environment-health-header-button .codicon {
 		color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
 	}
 
-	& .health-item-fix:hover:not(.disabled) {
+	& .environment-health-item-fix:hover:not(.disabled) {
 		background-color: var(--vscode-button-hoverBackground);
 	}
 
@@ -306,7 +306,7 @@
 	 * cursor for this, so without the fade the button looks live, and without the
 	 * :not above it still lit up under the pointer while swallowing every click.
 	 */
-	& .health-item-fix.disabled {
+	& .environment-health-item-fix.disabled {
 		opacity: 0.5;
 	}
 
@@ -314,7 +314,7 @@
 	 * The language header is the disclosure for its checks, so it is a
 	 * full-width button that has to look like the header row it replaced.
 	 */
-	& .health-group-header {
+	& .environment-health-group-header {
 		align-items: center;
 		background-color: var(--vscode-positronWelcome-environmentSetupLanguageHeaderBackground);
 		/*
@@ -334,7 +334,7 @@
 		width: 100%;
 	}
 
-	& .health-group-header:hover {
+	& .environment-health-group-header:hover {
 		background-color: var(--vscode-list-hoverBackground);
 	}
 
@@ -342,7 +342,7 @@
 	 * Styled as a link although it is a button, because it navigates to the
 	 * Settings editor rather than changing anything on the page.
 	 */
-	& .health-group-footer-link {
+	& .environment-health-group-footer-link {
 		background: none;
 		border: none;
 		color: var(--vscode-textLink-foreground);
@@ -352,7 +352,7 @@
 		text-align: left;
 	}
 
-	& .health-group-footer-link:hover {
+	& .environment-health-group-footer-link:hover {
 		color: var(--vscode-textLink-activeForeground);
 		text-decoration: underline;
 	}
@@ -365,7 +365,7 @@
  * cannot change the header's height and shift the card. The bar travels rather
  * than filling, because the checks report no progress to show.
  */
-.positron-welcome-page-environment-setup .health-progress {
+.positron-welcome-page-environment-setup .environment-health-progress {
 	bottom: 0;
 	height: 2px;
 	left: 0;
@@ -374,8 +374,8 @@
 	right: 0;
 }
 
-.positron-welcome-page-environment-setup .health-progress::before {
-	animation: positron-health-progress 2s linear infinite;
+.positron-welcome-page-environment-setup .environment-health-progress::before {
+	animation: positron-environment-health-progress 2s linear infinite;
 	/*
 	 * The line sits on the title bar, and --vscode-progressBar-background is too
 	 * close to the bar's own colour to see against it. A bar's foreground and
@@ -388,7 +388,7 @@
 	width: 40%;
 }
 
-@keyframes positron-health-progress {
+@keyframes positron-environment-health-progress {
 	from {
 		transform: translateX(-100%);
 	}
@@ -403,7 +403,7 @@
  * static one that still says a check is running.
  */
 @media (prefers-reduced-motion: reduce) {
-	.positron-welcome-page-environment-setup .health-progress::before {
+	.positron-welcome-page-environment-setup .environment-health-progress::before {
 		animation: none;
 		width: 100%;
 	}

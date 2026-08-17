@@ -22,7 +22,7 @@ const CATEGORIES_SLIDE = '.gettingStartedSlideCategories';
 const DETAILS_SLIDE = '.gettingStartedSlideDetails';
 const STARTUP_CHECKBOX = '#showOnStartup';
 const ENVIRONMENT_SETUP = '.positron-welcome-page-environment-setup';
-const ENVIRONMENT_SETUP_SUMMARY = '.positron-welcome-page-environment-setup .health-group-summary';
+const ENVIRONMENT_SETUP_SUMMARY = '.positron-welcome-page-environment-setup .environment-health-group-summary';
 
 export class Welcome {
 

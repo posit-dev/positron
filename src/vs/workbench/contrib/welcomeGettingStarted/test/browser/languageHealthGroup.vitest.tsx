@@ -11,8 +11,8 @@ import * as aria from '../../../../../base/browser/ui/aria/aria.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { HealthLanguage, IHealthItem } from '../../browser/positronWelcomePage/environmentHealth.js';
-import { LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthService.js';
+import { EnvironmentHealthLanguage, IHealthItem } from '../../browser/positronWelcomePage/environmentHealth.js';
+import { EnvironmentHealthState } from '../../browser/positronWelcomePage/environmentHealthService.js';
 import { LanguageHealthGroup } from '../../browser/positronWelcomePage/components/languageHealthGroup.js';
 
 const item = (status: IHealthItem['status'], summary: string): IHealthItem => ({ id: summary, status, summary });
@@ -33,7 +33,7 @@ describe('LanguageHealthGroup', () => {
 
 	beforeEach(() => vi.clearAllMocks());
 
-	const render = (state: LanguageHealthState) =>
+	const render = (state: EnvironmentHealthState) =>
 		rtl.render(<LanguageHealthGroup busy={false} expandedByLanguage={overrides} health={{ language: 'r', label: 'R', state }} onRunFix={vi.fn()} />);
 
 	const header = () => screen.getByRole('button', { name: /^R/ });
@@ -70,7 +70,7 @@ describe('LanguageHealthGroup', () => {
 	});
 
 	// One per pane in production; a fresh one per test here.
-	let overrides: Map<HealthLanguage, boolean>;
+	let overrides: Map<EnvironmentHealthLanguage, boolean>;
 	beforeEach(() => { overrides = new Map(); });
 
 	it('remembers a group the user closed across a remount', async () => {
@@ -93,7 +93,7 @@ describe('LanguageHealthGroup', () => {
 		// This is what makes folding per pane: each welcome page owns a map and
 		// passes it in. A component keeping the state anywhere shared would leave
 		// this one untouched, and both pages would fold together.
-		const mine = new Map<HealthLanguage, boolean>();
+		const mine = new Map<EnvironmentHealthLanguage, boolean>();
 		rtl.render(<LanguageHealthGroup
 			busy={false}
 			expandedByLanguage={mine}

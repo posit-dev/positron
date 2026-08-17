@@ -14,7 +14,7 @@ import { PositronReactRenderer } from '../../../../../base/browser/positronReact
 import { DomSlot } from './components/domSlot.js';
 import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
 import { WalkthroughBanner } from './components/walkthroughBanner.js';
-import { HealthLanguage } from './environmentHealth.js';
+import { EnvironmentHealthLanguage } from './environmentHealth.js';
 import { IEnvironmentHealthService } from './environmentHealthService.js';
 
 /**
@@ -51,7 +51,7 @@ export interface PositronWelcomePageProps {
 	 * closed themselves. A language with no entry has not been touched, so the
 	 * auto-expand rule decides for it.
 	 */
-	readonly expandedByLanguage: Map<HealthLanguage, boolean>;
+	readonly expandedByLanguage: Map<EnvironmentHealthLanguage, boolean>;
 
 	/**
 	 * Called once the page is in the DOM. The editor pane uses this to attach

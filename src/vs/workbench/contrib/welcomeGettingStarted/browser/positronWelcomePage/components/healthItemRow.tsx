@@ -55,19 +55,19 @@ export const HealthItemRow = ({ item, busy, onRunFix }: HealthItemRowProps) => {
 
 	// Render.
 	return (
-		<li className='health-item'>
-			<div className='health-item-main'>
-				<span aria-hidden='true' className={`health-item-icon health-item-icon-${item.status} codicon ${status.codicon}`} />
+		<li className='environment-health-item'>
+			<div className='environment-health-item-main'>
+				<span aria-hidden='true' className={`environment-health-item-icon environment-health-item-icon-${item.status} codicon ${status.codicon}`} />
 				<span className='visually-hidden'>{status.label}</span>
-				<span className='health-item-summary'>{item.summary}</span>
+				<span className='environment-health-item-summary'>{item.summary}</span>
 				{item.fix &&
-					<Button ariaDisabled={busy} className='health-item-fix' onPressed={() => onRunFix(item.fix!)}>
+					<Button ariaDisabled={busy} className='environment-health-item-fix' onPressed={() => onRunFix(item.fix!)}>
 						{item.fix.label}
 					</Button>}
 			</div>
 			{(item.detail || item.learnMoreUrl) &&
-				<div className='health-item-secondary'>
-					{item.detail && <p className='health-item-detail'>{item.detail}</p>}
+				<div className='environment-health-item-secondary'>
+					{item.detail && <p className='environment-health-item-detail'>{item.detail}</p>}
 					{item.learnMoreUrl &&
 						<a
 							href={item.learnMoreUrl}

@@ -19,14 +19,14 @@ import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 import { PositronActionBarHoverManager } from '../../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY } from '../../../common/positronWelcomePageConfiguration.js';
-import { HealthLanguage } from '../environmentHealth.js';
+import { EnvironmentHealthLanguage } from '../environmentHealth.js';
 import { IEnvironmentHealthService } from '../environmentHealthService.js';
 import { LanguageHealthGroup } from './languageHealthGroup.js';
 
 export interface EnvironmentHealthSectionProps {
 	readonly environmentHealthService: IEnvironmentHealthService;
 	/** See LanguageHealthGroup: one map per welcome page, owned by the pane. */
-	readonly expandedByLanguage: Map<HealthLanguage, boolean>;
+	readonly expandedByLanguage: Map<EnvironmentHealthLanguage, boolean>;
 }
 
 /**
@@ -90,15 +90,15 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	// Render.
 	return (
 		<section aria-labelledby={titleId} className='positron-welcome-page-environment-setup'>
-			<div className='health-header'>
-				<h3 className='health-header-title' id={titleId}>
+			<div className='environment-health-header'>
+				<h3 className='environment-health-header-title' id={titleId}>
 					{localize('positron.welcome.environmentSetupTitle', "Environment setup")}
 				</h3>
 				{!allChecksDisabled &&
 					<Button
 						ariaDisabled={busy}
 						ariaLabel={localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
-						className='health-header-button'
+						className='environment-health-header-button'
 						hoverManager={hoverManager}
 						// While anything is running this says why it cannot be pressed.
 						// A control that looks pressable and silently does nothing is
@@ -118,7 +118,7 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 				{!allChecksDisabled &&
 					<Button
 						ariaLabel={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
-						className='health-header-button'
+						className='environment-health-header-button'
 						hoverManager={hoverManager}
 						tooltip={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
 						onPressed={openSetting}
@@ -133,16 +133,16 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 				{busy &&
 					<div
 						aria-label={localize('positron.welcome.environmentSetupChecking', "Checking...")}
-						className='health-progress'
+						className='environment-health-progress'
 						role='progressbar'
 					/>}
 			</div>
 			{allChecksDisabled
-				? <div className='health-group-footer'>
-					<p className='health-group-footer-text'>
+				? <div className='environment-health-group-footer'>
+					<p className='environment-health-group-footer-text'>
 						{localize('positron.welcome.environmentSetupAllDisabled', "Environment setup checks are turned off for every language.")}
 					</p>
-					<Button className='health-group-footer-link' onPressed={openSetting}>
+					<Button className='environment-health-group-footer-link' onPressed={openSetting}>
 						{localize('positron.welcome.environmentSetupTurnOnChecks', "You can turn them back on in Settings")}
 					</Button>
 				</div>

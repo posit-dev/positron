@@ -98,7 +98,7 @@ import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStart
 import { gettingStartedPositronWelcomeCategoryId } from '../common/gettingStartedPositronWelcomeContent.js';
 import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
 import { WELCOME_PAGE_EXPERIMENTAL_KEY } from '../common/positronWelcomePageConfiguration.js';
-import { HealthLanguage } from './positronWelcomePage/environmentHealth.js';
+import { EnvironmentHealthLanguage } from './positronWelcomePage/environmentHealth.js';
 import { IEnvironmentHealthService } from './positronWelcomePage/environmentHealthService.js';
 // --- End Positron ---
 
@@ -228,7 +228,7 @@ export class GettingStartedPage extends EditorPane {
 	// On the pane rather than in the React tree, which is rebuilt whenever a
 	// walkthrough registers. One map per pane, so two welcome pages side by side
 	// fold independently while sharing their check results.
-	private readonly expandedByLanguage = new Map<HealthLanguage, boolean>();
+	private readonly expandedByLanguage = new Map<EnvironmentHealthLanguage, boolean>();
 	// --- End Positron ---
 
 	get editorInput(): GettingStartedInput | undefined {
