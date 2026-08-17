@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CancelablePromise, createCancelablePromise } from '../../../../base/common/async.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { CancelablePromise, createCancelablePromise, raceTimeout } from '../../../../base/common/async.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -12,6 +12,56 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from './packageMetadataCache.js';
+
+/**
+ * How the `outdated` / `latestVersion` state in a packages snapshot was
+ * obtained. A caller that can't see the log has no other way to tell "nothing
+ * is outdated" apart from "we never found out".
+ *
+ * - `fresh`: the session's repositories were queried during this call.
+ * - `cached`: the persisted metadata was still inside its freshness window, so
+ *   the state is as of the last full fetch; only packages missing an entry
+ *   were looked up.
+ * - `unsupported`: the session's package manager reports no metadata at all,
+ *   so no package carries outdated state.
+ * - `timed-out`: the fetch outran its budget. The package list is complete;
+ *   outdated state is whatever the cache could supply, which may be nothing.
+ */
+export type PackagesMetadataStatus = 'fresh' | 'cached' | 'unsupported' | 'timed-out';
+
+/**
+ * A point-in-time read of a session's installed packages, with how far its
+ * outdated state can be trusted.
+ */
+export interface IPackagesSnapshot {
+	packages: ILanguageRuntimePackage[];
+	metadataStatus: PackagesMetadataStatus;
+}
+
+/**
+ * How long {@link IPositronPackagesInstance.getPackagesSnapshot} waits for each
+ * of its two stages. Both default to the constants below; tests override them
+ * to keep a timeout case fast.
+ */
+export interface IPackagesSnapshotOptions {
+	/** How long to wait for the installed package list. */
+	listTimeoutMs?: number;
+	/** How long to wait for the outdated/latestVersion fetch. */
+	metadataTimeoutMs?: number;
+}
+
+/**
+ * How long to wait for the package list. Matches the bound the packages
+ * service puts on a refresh: past it, the kernel is not answering.
+ */
+export const PACKAGES_SNAPSHOT_LIST_TIMEOUT_MS = 5_000;
+
+/**
+ * How long to wait for outdated state. Longer than the list bound because this
+ * stage leaves the machine -- it queries CRAN/P3M/PyPI -- and a slow answer is
+ * still worth having.
+ */
+export const PACKAGES_SNAPSHOT_METADATA_TIMEOUT_MS = 10_000;
 
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
@@ -37,6 +87,20 @@ export interface IPositronPackagesInstance {
 	 * manager. Resolves undefined when the manager doesn't support it.
 	 */
 	getPackageDetail(name: string, token?: CancellationToken): Promise<Partial<ILanguageRuntimePackage> | undefined>;
+
+	/**
+	 * Reads the installed packages together with their outdated state, for a
+	 * caller that needs an answer rather than a rendered pane -- notably the
+	 * positronPackages.getPackages command.
+	 *
+	 * Differs from {@link refreshPackages} in the two ways that matter to such
+	 * a caller: it populates the list when nothing has yet (an agent can arrive
+	 * before the pane was ever opened, which is what attaches the runtime), and
+	 * it *awaits* the outdated/latestVersion fetch that a refresh deliberately
+	 * leaves running in the background. Both stages are bounded, and the result
+	 * says which of them produced the metadata.
+	 */
+	getPackagesSnapshot(token?: CancellationToken, options?: IPackagesSnapshotOptions): Promise<IPackagesSnapshot>;
 
 	/**
 	 * The newest version of an installed package available to this session.
@@ -526,6 +590,68 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 		const target = name.toLowerCase();
 		return this.packages.find((pkg) => pkg.name.toLowerCase() === target)?.latestVersion;
+	}
+
+	async getPackagesSnapshot(
+		token: CancellationToken = CancellationToken.None,
+		options: IPackagesSnapshotOptions = {},
+	): Promise<IPackagesSnapshot> {
+		// Unlike every other method here, a missing package manager is not an
+		// error: the caller asked what this session has, and "this runtime
+		// doesn't do packages" is a real answer.
+		const packageManager = this._session.getPackageManager?.();
+		if (!packageManager) {
+			return { packages: [], metadataStatus: 'unsupported' };
+		}
+
+		const cts = new CancellationTokenSource(token);
+		try {
+			// A caller that never opened the Packages pane gets here before
+			// anything populated the list (attachRuntime, which kicks off the
+			// first refresh, runs when the view mounts), so fetch it rather
+			// than reporting an empty environment.
+			if (this._packages.length === 0) {
+				const packages = await raceTimeout(
+					packageManager.getPackages(cts.token),
+					options.listTimeoutMs ?? PACKAGES_SNAPSHOT_LIST_TIMEOUT_MS,
+					() => cts.cancel(),
+				);
+				if (packages === undefined) {
+					throw new Error('Timed out reading the installed packages.');
+				}
+				this._packages = packages;
+			}
+
+			if (!packageManager.getPackageMetadata) {
+				return { packages: this.packages, metadataStatus: 'unsupported' };
+			}
+			if (this._packages.length === 0) {
+				// Nothing installed, so there is no outdated state to be had
+				// and nothing to fetch: the empty list is already current.
+				return { packages: [], metadataStatus: 'fresh' };
+			}
+
+			// A cache still inside its freshness window is exactly what the
+			// pane shows, so only refetch every package once it has aged out.
+			// Gap-filling for packages with no entry happens either way.
+			const fetchAll = !this._cache.isFresh(this._runtimeId);
+
+			// Bounded because this stage leaves the machine. On expiry the
+			// packages getter still merges whatever cached metadata is valid,
+			// which is a better answer than none -- the status says so.
+			const completed = await raceTimeout(
+				this._fetchAndMergeMetadata(packageManager, cts.token, fetchAll).then(() => true),
+				options.metadataTimeoutMs ?? PACKAGES_SNAPSHOT_METADATA_TIMEOUT_MS,
+				() => cts.cancel(),
+			);
+
+			return {
+				packages: this.packages,
+				metadataStatus: completed ? (fetchAll ? 'fresh' : 'cached') : 'timed-out',
+			};
+		} finally {
+			cts.dispose();
+		}
 	}
 
 	/**

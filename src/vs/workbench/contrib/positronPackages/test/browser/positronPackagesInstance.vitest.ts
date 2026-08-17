@@ -351,4 +351,72 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			expect(getPackages).not.toHaveBeenCalled();
 		});
 	});
+
+	describe('getPackagesSnapshot', () => {
+		it('populates the list and awaits outdated state when nothing has been refreshed yet', async () => {
+			// What an agent hits: the pane was never opened, so nothing attached the
+			// runtime or ran a refresh. A snapshot that reported the empty list, or
+			// returned before the background metadata fetch landed, would read as an
+			// environment with no packages and nothing to update.
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot).toEqual({
+				metadataStatus: 'fresh',
+				packages: [
+					{ ...pkg('numpy', '1.26.0'), outdated: true, latestVersion: '2.1.0' },
+					{ ...pkg('pandas', '2.0.0'), outdated: true, latestVersion: '2.2.0' },
+				],
+			});
+		});
+
+		it('serves a fresh cache without going to the repository', async () => {
+			seed({
+				numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0' },
+				pandas: { version: '2.0.0', outdated: false },
+			}, 1 * HOUR_MS);
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			// Same freshness window the pane honors, so an agent and the pane agree
+			// on what is outdated rather than each showing its own answer.
+			expect(snapshot.metadataStatus).toBe('cached');
+			expect(getPackageMetadata).not.toHaveBeenCalled();
+		});
+
+		it('returns the packages with timed-out when outdated state takes too long', async () => {
+			getPackageMetadata.mockImplementation(() => new Promise(() => { /* never settles */ }));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { metadataTimeoutMs: 10 });
+
+			// The list is the valuable half; a hung repository must not cost the
+			// caller the packages themselves.
+			expect(snapshot.metadataStatus).toBe('timed-out');
+			expect(snapshot.packages.map(p => p.name)).toEqual(['numpy', 'pandas']);
+		});
+
+		it('fails rather than hanging when the package list itself never arrives', async () => {
+			getPackages.mockImplementation(() => new Promise(() => { /* never settles */ }));
+			const instance = makeInstance();
+
+			await expect(instance.getPackagesSnapshot(CancellationToken.None, { listTimeoutMs: 10 }))
+				.rejects.toThrow('Timed out reading the installed packages.');
+		});
+
+		it('reports unsupported for a runtime that does not manage packages', async () => {
+			session = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-1',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID }),
+				getRuntimeState: () => RuntimeState.Uninitialized,
+				onDidChangeRuntimeState: Event.None,
+				getPackageManager: undefined,
+			});
+			const instance = makeInstance();
+
+			expect(await instance.getPackagesSnapshot()).toEqual({ packages: [], metadataStatus: 'unsupported' });
+		});
+	});
 });
