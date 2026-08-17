@@ -22,6 +22,14 @@ import { welcomePageTileBackground, welcomePageTileBorder } from './gettingStart
 // Colors for the redesigned welcome page, behind the `welcomePage.experimental`
 // setting.
 
+// The Help button in the header is an outline: no fill, so it stays quieter than
+// the fix buttons in the environment setup card, which are the only controls on
+// the page worth pressing. Sharing the tile border keeps it in line with the card
+// and the banner below it.
+export const POSITRON_WELCOME_HEADER_BUTTON_BORDER = registerColor('positronWelcome.headerButtonBorder',
+	welcomePageTileBorder,
+	localize('positronWelcome.headerButtonBorder', "Border color of the Help button in the header of the Positron welcome page."));
+
 // The default follows the tiles on the original page, which every theme already
 // tunes, so the banner looks native in a theme nobody here has seen. Positron's
 // own light theme paints it a pale blue instead; a theme wanting that look sets
