@@ -21,7 +21,9 @@ suite('packageIndex - resolvePythonIndexUrl', () => {
     });
 
     test('strips a trailing slash', async () => {
-        expect(await resolvePythonIndexUrl(undefined, { PIP_INDEX_URL: `${INTERNAL_INDEX}/` })).to.equal(INTERNAL_INDEX);
+        expect(await resolvePythonIndexUrl(undefined, { PIP_INDEX_URL: `${INTERNAL_INDEX}/` })).to.equal(
+            INTERNAL_INDEX,
+        );
     });
 
     test('reads pip config when the environment says nothing', async () => {
