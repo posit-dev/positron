@@ -13,10 +13,10 @@ import { IExtensionService } from '../../../../services/extensions/common/extens
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { GettingStartedInput } from '../../browser/gettingStartedInput.js';
-import { ILanguageHealthSource } from '../../browser/positronWelcomePage/environmentHealth.js';
-import { EnvironmentHealthService, LanguageHealthState } from '../../browser/positronWelcomePage/environmentHealthService.js';
+import { IEnvironmentHealthSource } from '../../browser/positronWelcomePage/environmentHealth.js';
+import { EnvironmentHealthService, EnvironmentHealthState } from '../../browser/positronWelcomePage/environmentHealthService.js';
 
-const SOURCES: readonly ILanguageHealthSource[] = [
+const SOURCES: readonly IEnvironmentHealthSource[] = [
 	{ language: 'python', label: 'Python', extensionId: 'ms-python.python', healthCheckCommandId: 'python.getEnvironmentHealth' },
 	{ language: 'r', label: 'R', extensionId: 'positron.positron-r', healthCheckCommandId: 'r.getEnvironmentHealth' },
 ];
@@ -25,7 +25,7 @@ const passing = { ok: true, items: [{ id: 'discovery', status: 'pass', summary: 
 const failing = { ok: false, items: [{ id: 'discovery', status: 'fail', summary: 'No supported Python was found' }] };
 
 /** The first item's summary, so a test can tell one result from another. */
-const summaryOf = (state: LanguageHealthState) =>
+const summaryOf = (state: EnvironmentHealthState) =>
 	state.kind === 'result' ? state.result.items[0].summary : undefined;
 
 /**

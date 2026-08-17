@@ -36,7 +36,7 @@ import { AgentSessionsWelcomePage } from '../../welcomeAgentSessions/browser/age
 import { IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
 // --- Start Positron ---
 import { registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { HEALTH_SOURCES } from './positronWelcomePage/environmentHealth.js';
+import { ENVIRONMENT_HEALTH_SOURCES } from './positronWelcomePage/environmentHealth.js';
 import { EnvironmentHealthService, IEnvironmentHealthService } from './positronWelcomePage/environmentHealthService.js';
 // --- End Positron ---
 
@@ -374,11 +374,11 @@ AccessibleViewRegistry.register(new GettingStartedAccessibleView());
 // welcome page's editor pane asks for it. Registering it costs nothing until
 // then.
 // The descriptor overload takes no InstantiationType; the delayed flag is the
-// descriptor's own third argument. HEALTH_SOURCES has to travel this way because
+// descriptor's own third argument. ENVIRONMENT_HEALTH_SOURCES has to travel this way because
 // the plain-constructor overload accepts only injected services.
 registerSingleton(
 	IEnvironmentHealthService,
-	new SyncDescriptor(EnvironmentHealthService, [HEALTH_SOURCES], true)
+	new SyncDescriptor(EnvironmentHealthService, [ENVIRONMENT_HEALTH_SOURCES], true)
 );
 // --- End Positron ---
 

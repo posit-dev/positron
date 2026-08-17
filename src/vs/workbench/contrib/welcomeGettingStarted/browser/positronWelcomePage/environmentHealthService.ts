@@ -13,30 +13,30 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY } from '../../common/positronWelcomePageConfiguration.js';
 import { GettingStartedInput } from '../gettingStartedInput.js';
 import {
-	HealthLanguage,
+	EnvironmentHealthLanguage,
 	IEnvironmentHealthResult,
 	IHealthItemFix,
-	ILanguageHealthSource,
+	IEnvironmentHealthSource,
 	isEnvironmentHealthResult,
 } from './environmentHealth.js';
 
 const LOG = '[environment health check]';
 
-export type LanguageHealthState =
+export type EnvironmentHealthState =
 	| { readonly kind: 'hidden' }
 	| { readonly kind: 'loading' }
 	| { readonly kind: 'unavailable' }
 	| { readonly kind: 'error' }
 	| { readonly kind: 'result'; readonly result: IEnvironmentHealthResult };
 
-export interface ILanguageHealth {
-	readonly language: HealthLanguage;
+export interface IEnvironmentHealthEntry {
+	readonly language: EnvironmentHealthLanguage;
 	readonly label: string;
-	readonly state: LanguageHealthState;
+	readonly state: EnvironmentHealthState;
 }
 
 /** Ordered, so the section renders groups by mapping over it. */
-export type EnvironmentHealthSnapshot = readonly ILanguageHealth[];
+export type EnvironmentHealthSnapshot = readonly IEnvironmentHealthEntry[];
 
 export const IEnvironmentHealthService = createDecorator<IEnvironmentHealthService>('environmentHealthService');
 
@@ -57,12 +57,12 @@ export interface IEnvironmentHealthService {
 	 * which can take minutes. The card shows its progress line for this and
 	 * disables the controls that would start more work.
 	 */
-	isBusy(language: HealthLanguage): boolean;
+	isBusy(language: EnvironmentHealthLanguage): boolean;
 	/**
 	 * Runs this language's health check again. Does nothing while a check for it is
 	 * already running.
 	 */
-	rerunCheckForLanguage(language: HealthLanguage): void;
+	rerunCheckForLanguage(language: EnvironmentHealthLanguage): void;
 	/**
 	 * Runs the health check for every language that is turned on. Called when a
 	 * welcome page opens.
@@ -77,7 +77,7 @@ export interface IEnvironmentHealthService {
 	 *   checks run again.
 	 */
 	rerunChecksForPage(page: GettingStartedInput): void;
-	runFix(language: HealthLanguage, fix: IHealthItemFix): Promise<void>;
+	runFix(language: EnvironmentHealthLanguage, fix: IHealthItemFix): Promise<void>;
 }
 
 /**
@@ -96,9 +96,9 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	private readonly _onDidChange = this._register(new Emitter<EnvironmentHealthSnapshot>());
 	readonly onDidChange: Event<EnvironmentHealthSnapshot> = this._onDidChange.event;
 
-	private readonly _states = new Map<HealthLanguage, LanguageHealthState>();
+	private readonly _states = new Map<EnvironmentHealthLanguage, EnvironmentHealthState>();
 	/** Languages whose environment health command is running. */
-	private readonly _runningChecks = new Set<HealthLanguage>();
+	private readonly _runningChecks = new Set<EnvironmentHealthLanguage>();
 	/**
 	 * Languages whose fix command is running.
 	 *
@@ -107,9 +107,9 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * fix. Sharing one set would mean the check ending removed the language, and
 	 * `isBusy` would report idle while the fix was still going.
 	 */
-	private readonly _runningFixes = new Set<HealthLanguage>();
+	private readonly _runningFixes = new Set<EnvironmentHealthLanguage>();
 	/** Languages whose check must run again once the one in flight ends. */
-	private readonly _queuedReruns = new Set<HealthLanguage>();
+	private readonly _queuedReruns = new Set<EnvironmentHealthLanguage>();
 	/**
 	 * The welcome page the checks last ran for.
 	 *
@@ -131,7 +131,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	private _disposed = false;
 
 	constructor(
-		private readonly _languageExtensionSources: readonly ILanguageHealthSource[],
+		private readonly _languageExtensionSources: readonly IEnvironmentHealthSource[],
 		@ICommandService private readonly _commandService: ICommandService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -165,7 +165,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		}));
 	}
 
-	isBusy(language: HealthLanguage): boolean {
+	isBusy(language: EnvironmentHealthLanguage): boolean {
 		return this._runningChecks.has(language) || this._runningFixes.has(language);
 	}
 
@@ -176,7 +176,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * check cannot be cancelled -- executeCommand takes no cancellation token --
 	 * so starting a second would leave two running at once.
 	 */
-	rerunCheckForLanguage(language: HealthLanguage): void {
+	rerunCheckForLanguage(language: EnvironmentHealthLanguage): void {
 		this._requestLanguageHealthCheck(language, false);
 	}
 
@@ -206,7 +206,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * ends, which is what a fix needs -- a check that started before the fix ran
 	 * cannot show what the fix changed.
 	 */
-	private _requestLanguageHealthCheck(language: HealthLanguage, queueIfBusy: boolean): void {
+	private _requestLanguageHealthCheck(language: EnvironmentHealthLanguage, queueIfBusy: boolean): void {
 		if (this._disposed) {
 			return;
 		}
@@ -253,7 +253,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * against the extensions. The check is not free -- R rediscovers every
 	 * installation -- but paying for it once after a fix is the point.
 	 */
-	async runFix(language: HealthLanguage, fix: IHealthItemFix): Promise<void> {
+	async runFix(language: EnvironmentHealthLanguage, fix: IHealthItemFix): Promise<void> {
 		if (this._disposed) {
 			return;
 		}
@@ -301,7 +301,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		super.dispose();
 	}
 
-	private _getDisabledLanguages(): Set<HealthLanguage> {
+	private _getDisabledLanguages(): Set<EnvironmentHealthLanguage> {
 		const configured = this._configurationService.getValue(WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY);
 		if (!Array.isArray(configured)) {
 			// settings.json is hand-edited, so this can be any shape at all.
@@ -334,7 +334,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * installed, a reply that does not match the expected shape, a rejected
 	 * command, and success.
 	 */
-	private async _callHealthCheckCommand(source: ILanguageHealthSource): Promise<void> {
+	private async _callHealthCheckCommand(source: IEnvironmentHealthSource): Promise<void> {
 		try {
 			// Ask whether the extension is there before calling. For a disabled
 			// extension, CommandService would otherwise start every extension and
@@ -373,7 +373,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * listener reacting to the event never sees `isBusy` still true for a check
 	 * that has already finished.
 	 */
-	private _handleHealthCheckResult(language: HealthLanguage, state: LanguageHealthState): void {
+	private _handleHealthCheckResult(language: EnvironmentHealthLanguage, state: EnvironmentHealthState): void {
 		this._runningChecks.delete(language);
 		this._logService.trace(`${LOG} ${language}: check finished as ${state.kind}`);
 		if (this._getDisabledLanguages().has(language)) {
@@ -397,7 +397,7 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		this._setLanguageHealthState(language, state);
 	}
 
-	private _setLanguageHealthState(language: HealthLanguage, state: LanguageHealthState): void {
+	private _setLanguageHealthState(language: EnvironmentHealthLanguage, state: EnvironmentHealthState): void {
 		if (this._disposed) {
 			return;
 		}

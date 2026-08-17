@@ -54,10 +54,10 @@ export interface IEnvironmentHealthResult {
 	readonly items: readonly IHealthItem[];
 }
 
-export type HealthLanguage = 'python' | 'r';
+export type EnvironmentHealthLanguage = 'python' | 'r';
 
-export interface ILanguageHealthSource {
-	readonly language: HealthLanguage;
+export interface IEnvironmentHealthSource {
+	readonly language: EnvironmentHealthLanguage;
 	readonly label: string;
 	readonly extensionId: string;
 	/** The command that runs this language's environment health check. */
@@ -72,7 +72,7 @@ const R_EXTENSION_ID = 'positron.positron-r';
 const R_HEALTH_CHECK_COMMAND_ID = 'r.getEnvironmentHealth';
 
 /** The only place that names specific extensions. Rendered in this order. */
-export const HEALTH_SOURCES: readonly ILanguageHealthSource[] = [
+export const ENVIRONMENT_HEALTH_SOURCES: readonly IEnvironmentHealthSource[] = [
 	{
 		language: 'python',
 		label: localize('positron.welcome.environmentSetupPython', "Python"),

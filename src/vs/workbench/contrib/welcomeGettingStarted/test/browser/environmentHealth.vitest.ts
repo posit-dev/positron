@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { HEALTH_SOURCES, isEnvironmentHealthResult } from '../../browser/positronWelcomePage/environmentHealth.js';
+import { ENVIRONMENT_HEALTH_SOURCES, isEnvironmentHealthResult } from '../../browser/positronWelcomePage/environmentHealth.js';
 
 describe('isEnvironmentHealthResult', () => {
 	const item = { id: 'discovery', status: 'pass', summary: 'Positron can discover Python environments' };
@@ -53,9 +53,9 @@ describe('isEnvironmentHealthResult', () => {
 	});
 });
 
-describe('HEALTH_SOURCES', () => {
+describe('ENVIRONMENT_HEALTH_SOURCES', () => {
 	it('lists python then r, with the ids the environmentHealthService calls', () => {
-		expect(HEALTH_SOURCES.map(s => [s.language, s.extensionId, s.healthCheckCommandId])).toEqual([
+		expect(ENVIRONMENT_HEALTH_SOURCES.map(s => [s.language, s.extensionId, s.healthCheckCommandId])).toEqual([
 			['python', 'ms-python.python', 'python.getEnvironmentHealth'],
 			['r', 'positron.positron-r', 'r.getEnvironmentHealth'],
 		]);
