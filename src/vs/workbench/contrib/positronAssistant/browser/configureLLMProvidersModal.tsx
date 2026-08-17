@@ -18,33 +18,32 @@ import { PositronModalReactRenderer } from '../../../../base/browser/positronMod
 import { ProviderList } from './components/providerList.js';
 import { ConnectProviderView } from './components/connectProviderView.js';
 import { ConnectedProviderView } from './components/connectedProviderView.js';
-import { NotYetSupportedView } from './components/notYetSupportedView.js';
 import { ProviderModalFooter } from './components/providerModalFooter.js';
 import { selectProviderView } from './providerConnection.js';
 import { useProviderUpdates } from './useProviderUpdates.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+
+/** Command that opens providers.json in an editor (registered in the contribution). */
+const OPEN_PROVIDERS_JSON_COMMAND = 'workbench.action.positronAssistant.openAiProviderSettingsJson';
 
 type OnAction = (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
-
-/**
- * Hidden feature switch that selects the new "Configure LLM Providers" modal
- * over the legacy language model provider dialog.
- *
- * This key is intentionally NOT contributed to the configuration registry, so
- * it does not appear in the Settings editor. Set it manually in `settings.json`
- * to opt in to the in-progress modal. It defaults to `false` (legacy dialog).
- */
-export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
 
 export const showConfigureLLMProvidersModal = (
 	sources: IPositronLanguageModelSource[],
 	onAction: OnAction,
 	onClose: () => void,
-	_options?: IShowLanguageModelConfigOptions,
+	options?: IShowLanguageModelConfigOptions,
 ) => {
 	const renderer = new PositronModalReactRenderer();
 	renderer.render(
-		<div className='configure-llm-providers-modal'>
-			<ConfigureLLMProviders renderer={renderer} sources={sources} onAction={onAction} onClose={onClose} />
+		<div className='configure-llm-providers-modal' data-testid='configure-llm-providers-modal'>
+			<ConfigureLLMProviders
+				preselectedProviderId={options?.preselectedProviderId}
+				renderer={renderer}
+				sources={sources}
+				onAction={onAction}
+				onClose={onClose}
+			/>
 		</div>
 	);
 };
@@ -52,13 +51,23 @@ export const showConfigureLLMProvidersModal = (
 export interface ConfigureLLMProvidersProps {
 	renderer: PositronModalReactRenderer;
 	sources: IPositronLanguageModelSource[];
+	/** Provider to open on, skipping the list. Ignored if it is not in `sources`. */
+	preselectedProviderId?: string;
 	onAction: OnAction;
 	onClose: () => void;
 }
 
 export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
-	const [view, setView] = useState<'list' | 'connect' | 'connected' | 'notSupported'>('list');
-	const [selectedProviderId, setSelectedProviderId] = useState<string>();
+	const services = usePositronReactServicesContext();
+
+	// The caller can name a provider to open on -- the "Configure" button on a
+	// provider error notification does, so the user lands on the provider that
+	// reported the problem rather than hunting for it in the list.
+	const preselectedSource = props.sources.find(s => s.provider.id === props.preselectedProviderId);
+	const [view, setView] = useState<'list' | 'connect' | 'connected'>(
+		preselectedSource ? selectProviderView(preselectedSource) : 'list'
+	);
+	const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(preselectedSource?.provider.id);
 
 	// Live copy of the provider sources. The modal outlives every view, so this
 	// single subscription can never miss an update, and the child views can stay
@@ -113,6 +122,13 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 		props.renderer.dispose();
 	};
 
+	// Open providers.json for advanced editing, then close the modal so the editor
+	// is visible. This discards unsaved form input, which the link's label calls out.
+	const editRawConfig = () => {
+		services.commandService.executeCommand(OPEN_PROVIDERS_JSON_COMMAND);
+		close();
+	};
+
 	const title = activeView === 'list' || !selectedSource
 		? localize('positron.configureLLMProvidersModal.title', "Configure LLM Providers")
 		: activeView === 'connect'
@@ -132,7 +148,6 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					<ContentArea>
 						<ProviderList
 							sources={sources}
-							onAddCustomProvider={() => { setSelectedProviderId(undefined); setView('notSupported'); }}
 							onSelectProvider={source => { setSelectedProviderId(source.provider.id); setView(selectProviderView(source)); }}
 						/>
 					</ContentArea>
@@ -145,6 +160,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					onAction={props.onAction}
 					onBack={() => setView('list')}
 					onClose={close}
+					onEditRawConfig={editRawConfig}
 					onPendingSignInChange={setPendingCancel}
 				/>
 			}
@@ -155,14 +171,6 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					onBack={() => setView('list')}
 					onClose={close}
 				/>
-			}
-			{activeView === 'notSupported' &&
-				<>
-					<ContentArea>
-						<NotYetSupportedView source={selectedSource} />
-					</ContentArea>
-					<ProviderModalFooter onBack={() => setView('list')} onClose={close} />
-				</>
 			}
 		</PositronModalDialog>
 	);

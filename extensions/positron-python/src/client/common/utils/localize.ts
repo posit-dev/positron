@@ -309,19 +309,21 @@ export namespace InterpreterQuickPickList {
             l10n.t('Virtual environment created with Python {0}', version);
         export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
         export const uvInstallFailed = l10n.t('Failed to install uv');
+        export const createVenvTitle = l10n.t('Create a Virtual Environment');
         export const createVenvPrompt = (version: string, workspaceFolder: string) =>
             l10n.t(
-                'Python {0} was installed. Would you like to use this version to create a virtual environment at: `{1}`?',
+                'Python {0} was installed. Would you like to use this version to create a virtual environment at {1}? (Recommended.)',
                 version,
-                `${workspaceFolder}/.venv`,
+                `<code>${workspaceFolder}/.venv</code>`,
             );
         export const createVenvPromptAlreadyInstalled = (version: string, workspaceFolder: string) =>
             l10n.t(
-                'Python {0} is installed. Would you like to use it to create a virtual environment at: `{1}`?',
+                'Python {0} is installed. Would you like to use it to create a virtual environment at {1}? (Recommended.)',
                 version,
-                `${workspaceFolder}/.venv`,
+                `<code>${workspaceFolder}/.venv</code>`,
             );
-        export const yesRecommended = l10n.t('Yes (recommended)');
+        export const createVenvAccept = l10n.t('Create');
+        export const createVenvSkip = l10n.t('Skip');
         export const creatingVenv = l10n.t('Creating virtual environment');
         export const venvCreated = l10n.t('Virtual environment created');
         export const venvCreationFailed = l10n.t(
@@ -654,8 +656,20 @@ export namespace CreateEnv {
             );
         export const installingDeps = l10n.t('Installing dependencies...');
         export const selectDepSource = l10n.t('Select which dependencies to install');
-        // --- End Positron ---
     }
+
+    export namespace InterpreterSelect {
+        export const title = l10n.t('Create a virtual environment for this workspace?');
+        export const message = (interpreterLabel: string) =>
+            l10n.t(
+                '{0} is managed by your operating system or a package manager. Installing Python packages into it can break other software, so Positron recommends a separate environment for this workspace.',
+                interpreterLabel,
+            );
+        export const createEnvironment = l10n.t('Create Environment');
+        export const notNow = l10n.t('Not Now');
+        export const neverForThisInterpreter = l10n.t('Never for This Interpreter');
+    }
+    // --- End Positron ---
 }
 
 export namespace PythonLocator {

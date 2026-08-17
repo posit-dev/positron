@@ -33,6 +33,11 @@
 	height: 22px;
 }
 
+/* Size the codicon fallback (e.g. the custom provider wrench) to the box, overriding the legacy dialog's global 2.5rem rule so it does not overflow. */
+.connect-provider-icon .language-model.icon.codicon.button-icon {
+	font-size: 22px;
+}
+
 .connect-provider-header-text {
 	display: flex;
 	flex-direction: column;
@@ -141,11 +146,6 @@
 	outline-offset: -1px;
 }
 
-.connect-provider-unsupported {
-	color: var(--vscode-descriptionForeground);
-	font-size: 12px;
-}
-
 .connect-provider-error {
 	color: var(--vscode-errorForeground);
 	font-size: 12px;
@@ -156,4 +156,82 @@
 	padding-top: 12px;
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-models {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 12px;
+}
+
+.connect-provider-models-hint {
+	margin: 0;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-model-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.connect-provider-model-row .connect-provider-apikey-input {
+	flex: 1;
+}
+
+.connect-provider-model-remove,
+.connect-provider-add-model {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	background: none;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 2px 4px;
+}
+
+.connect-provider-model-remove:hover,
+.connect-provider-add-model:hover {
+	color: var(--vscode-textLink-foreground);
+}
+
+.connect-provider-edit-json {
+	align-self: flex-start;
+	background: none;
+	border: none;
+	padding: 2px 0;
+	font-size: 12px;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	text-align: left;
+}
+
+.connect-provider-edit-json:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
+.connect-provider-apitype-entry {
+	display: grid;
+	grid-template-columns: [title] max-content [path] 1fr [end];
+	align-items: center;
+	width: 100%;
+}
+
+.connect-provider-apitype-entry > .connect-provider-apitype-title {
+	grid-column: title / path;
+	white-space: nowrap;
+}
+
+.connect-provider-apitype-entry > .connect-provider-apitype-path {
+	grid-column: path / end;
+	margin-left: 0.6em;
+	font-size: 0.9em;
+	opacity: 0.7;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }

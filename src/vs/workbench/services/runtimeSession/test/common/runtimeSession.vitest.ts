@@ -41,6 +41,7 @@ describe('Positron - RuntimeSessionService', () => {
 	let manager: TestRuntimeSessionManager;
 	let runtime: ILanguageRuntimeMetadata;
 	let anotherRuntime: ILanguageRuntimeMetadata;
+	let unrelatedRuntime: ILanguageRuntimeMetadata;
 	let sessionName: string;
 	let unregisteredRuntime: ILanguageRuntimeMetadata;
 
@@ -62,6 +63,7 @@ describe('Positron - RuntimeSessionService', () => {
 
 		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		anotherRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		unrelatedRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		sessionName = runtime.runtimeName;
 		// eslint-disable-next-line local/code-no-dangerous-type-assertions
 		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as unknown as ILanguageRuntimeMetadata;
@@ -1591,6 +1593,51 @@ describe('Positron - RuntimeSessionService', () => {
 
 			// Not queued for reconnection, so deletion proceeds normally.
 			expect(await runtimeSessionService.deleteSession(session.sessionId)).toBe(true);
+		});
+	});
+
+	describe('userSelected provenance', () => {
+		it('is true when the caller marks the start as user selected', async () => {
+			const sessionId = await runtimeSessionService.startNewRuntimeSession(
+				runtime.runtimeId,
+				sessionName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				startReason,
+				RuntimeStartMode.Starting,
+				true,
+				{ userSelected: true },
+			);
+			const session = runtimeSessionService.getSession(sessionId) as TestLanguageRuntimeSession;
+			ctx.disposables.add(session);
+
+			expect(session.metadata.userSelected).toBe(true);
+		});
+
+		it('is undefined for plain starts, auto starts, and restores', async () => {
+			const started = await startConsole(runtime);
+			const autoStarted = await autoStartSession(anotherRuntime);
+			const restored = await restoreConsole(unrelatedRuntime);
+
+			expect([
+				started.metadata.userSelected,
+				autoStarted.metadata.userSelected,
+				restored.metadata.userSelected,
+			]).toEqual([undefined, undefined, undefined]);
+		});
+
+		it('is preserved when a restored session carries it', async () => {
+			const sessionMetadata: IRuntimeSessionMetadata = {
+				sessionId: 'test-user-selected-restore-id',
+				sessionMode: LanguageRuntimeSessionMode.Console,
+				createdTimestamp: Date.now(),
+				notebookUri: undefined,
+				startReason,
+				userSelected: true,
+			};
+			const session = await restoreSession(sessionMetadata, runtime);
+
+			expect(session.metadata.userSelected).toBe(true);
 		});
 	});
 });

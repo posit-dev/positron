@@ -23,8 +23,8 @@ const CONTAINER_NAME = 'test';
 export async function WorkbenchApp(
 	fixtureOptions: AppFixtureOptions
 ): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
-	const { options, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant } = fixtureOptions;
-	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant);
+	const { options, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings } = fixtureOptions;
+	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings);
 
 	const app = createApp({ ...options, workspacePath });
 
@@ -65,7 +65,7 @@ export async function WorkbenchApp(
 			await provisionUserSettings(
 				'/home/rstudio-ide-test/.positron-server/',
 				'rstudio-ide-test',
-				dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant })
+				dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings })
 			);
 			await app.positWorkbench.dashboard.openWorkspaceFolder('test-files');
 		}
@@ -108,7 +108,7 @@ export async function WorkbenchApp(
  * the CI install step. The actual credential setup happens in install-workbench.sh; the fixture
  * just records it here so tests/fixtures can make conditional decisions if needed.
  */
-async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure', useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean, enableFoundryAssistant?: boolean): Promise<{ workspacePath: string; userDataDir: string }> {
+async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure', useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean, enableFoundryAssistant?: boolean, extraSettings?: Record<string, unknown>): Promise<{ workspacePath: string; userDataDir: string }> {
 	if (managedCredentials) {
 		console.log(`Workbench fixture: expecting managed credential "${managedCredentials}" to be provisioned in the container`);
 	}
@@ -153,7 +153,7 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 	await provisionUserSettings(
 		WORKBENCH_USER_SERVER_DIR,
 		'user1:user1g',
-		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant })
+		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings })
 	);
 
 	// Fix workspace permissions

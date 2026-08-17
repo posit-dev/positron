@@ -22,6 +22,7 @@ const positronLayoutPresets = {
 	side_by_side: 'workbench.action.positronTwoPaneDataScienceLayout',
 	notebook: 'workbench.action.positronNotebookLayout',
 	assistant: 'workbench.action.positronAssistantLayout',
+	agent: 'workbench.action.positronAgentLayout',
 	dockedHelp: 'workbench.action.positronHelpPaneDocked',
 	fullSizedAuxBar: 'workbench.action.fullSizedAuxiliaryBar',
 	fullSizedSidebar: 'workbench.action.fullSizedSidebar',

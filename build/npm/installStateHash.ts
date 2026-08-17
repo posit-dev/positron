@@ -47,6 +47,32 @@ function addSubmoduleShas(fileMap: Record<string, string>): void {
 		}
 	}
 }
+
+// Some extensions pin native binary versions under `positron.binaryDependencies`
+// in their package.json (e.g. the Kallichore server in positron-supervisor, the
+// DuckDB Excel extension in positron-duckdb). Those binaries are fetched by the
+// extensions' postinstall scripts, not by npm, and normalizeFileContent strips
+// the `positron` key from package.json -- so a version bump would otherwise be
+// invisible to the up-to-date check and the download would never re-run. Fold
+// the pinned versions into the postinstall state so bumping one invalidates the
+// check and re-runs the extensions install (and thus the postinstall download).
+function addBinaryDependencyVersions(fileMap: Record<string, string>): void {
+	for (const filePath of collectInputFiles()) {
+		if (path.basename(filePath) !== 'package.json') {
+			continue;
+		}
+		try {
+			const json = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+			const binaryDependencies = json.positron?.binaryDependencies;
+			if (binaryDependencies && Object.keys(binaryDependencies).length > 0) {
+				const key = path.relative(root, filePath);
+				fileMap[`${key}@binaryDependencies`] = JSON.stringify(binaryDependencies);
+			}
+		} catch {
+			// file may not be readable or valid JSON
+		}
+	}
+}
 // --- End Positron ---
 
 export function collectInputFiles(): string[] {
@@ -135,6 +161,7 @@ export function computeState(options?: { ignoreNodeVersion?: boolean }): Postins
 	}
 	// --- Start Positron ---
 	addSubmoduleShas(fileHashes);
+	addBinaryDependencyVersions(fileHashes);
 	// --- End Positron ---
 	return { nodeVersion: options?.ignoreNodeVersion ? '' : process.versions.node, fileHashes };
 }
@@ -150,6 +177,7 @@ export function computeContents(): Record<string, string> {
 	}
 	// --- Start Positron ---
 	addSubmoduleShas(fileContents);
+	addBinaryDependencyVersions(fileContents);
 	// --- End Positron ---
 	return fileContents;
 }

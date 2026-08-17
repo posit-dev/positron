@@ -990,7 +990,8 @@ export class StartNewConsoleSessionAction extends Action2 {
 			undefined,
 			suppliedRuntimeId ? 'Runtime id supplied to startNewConsoleSession command' : 'User selected runtime',
 			RuntimeStartMode.Starting,
-			true
+			true,
+			{ userSelected: !suppliedRuntimeId }
 		);
 		return { started: true, sessionId };
 	}

@@ -5,7 +5,9 @@
 
 /// <reference types="vitest/globals" />
 
-import { toAgentMetadata } from '../../common/menusExtensionPoint.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { gateCopilotContribution, toAgentMetadata } from '../../common/menusExtensionPoint.js';
 
 describe('toAgentMetadata', () => {
 	it('returns undefined when no agent field is present', () => {
@@ -43,5 +45,26 @@ describe('toAgentMetadata', () => {
 			  "returns": "void",
 			}
 		`);
+	});
+});
+
+describe('gateCopilotContribution', () => {
+	const copilot = new ExtensionIdentifier('github.copilot-chat');
+	const other = new ExtensionIdentifier('posit.assistant');
+
+	it('adds the AI switch to a Copilot contribution', () => {
+		const gated = gateCopilotContribution(copilot, ContextKeyExpr.deserialize('editorHasSelection'));
+		expect(gated?.serialize()).toBe('chatAiFeaturesEnabled && editorHasSelection');
+	});
+
+	it('gates a Copilot contribution that has no condition of its own', () => {
+		const gated = gateCopilotContribution(copilot, undefined);
+		expect(gated?.serialize()).toBe('chatAiFeaturesEnabled');
+	});
+
+	it('leaves other extensions alone', () => {
+		expect(gateCopilotContribution(other, ContextKeyExpr.deserialize('editorHasSelection'))?.serialize())
+			.toBe('editorHasSelection');
+		expect(gateCopilotContribution(other, undefined)).toBeUndefined();
 	});
 });

@@ -7,7 +7,11 @@ import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// Signs in through the legacy provider dialog (pages/positronAssistant.ts),
+	// which is no longer the default. Remove the pin when that page object is
+	// ported to the new modal.
+	extraSettings: { 'assistant.newProviderModal': false },
 });
 
 test.describe('Notebook Assistant: Feature Toggle', {

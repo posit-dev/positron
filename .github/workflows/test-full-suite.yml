@@ -92,7 +92,7 @@ on:
       run_ext_host_tests:
         description: "Extension Host Tests"
         required: false
-        default: false
+        default: true
         type: boolean
       commit:
         description: "Commit SHA to test:"
@@ -346,7 +346,7 @@ jobs:
     name: e2e
     needs: [build-workbench]
     if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench) }}
-    uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
     secrets: inherit
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
@@ -361,7 +361,7 @@ jobs:
     name: e2e
     needs: [build-workbench]
     if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_stable) }}
-    uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
     secrets: inherit
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}

@@ -5,6 +5,7 @@
 
 import { defineConfig, ReporterDescription } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
+import { memorySpecsToIgnore } from './test/e2e/utils/memory/scenarios';
 import * as fs from 'fs';
 
 process.env.PW_TEST = '1';
@@ -97,24 +98,19 @@ export default defineConfig<CustomTestOptions>({
 	projects: [
 		{
 			name: 'e2e-electron',
-			testIgnore: process.env.ALLOW_PYREFLY === 'true'
-				? [
-					'example.test.ts',
-					'**/workbench/**',
-					'**/connect/**',
-					'**/remote-ssh/**',
-					'**/remote-wsl/**',
-					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
-				]
-				: [
-					'example.test.ts',
-					'**/workbench/**',
-					'**/connect/**',
-					'**/remote-ssh/**',
-					'**/remote-wsl/**',
-					'**/lsp/**',
-					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
-				],
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**',
+				'**/connect/**',
+				'**/remote-ssh/**',
+				'**/remote-wsl/**',
+				// Note: assistant-eval NOT ignored here - runs on e2e-electron only
+				...(process.env.ALLOW_PYREFLY === 'true' ? [] : ['**/lsp/**']),
+				// Set only by test-memory-metrics.yml, one scenario per matrix job.
+				// Ignored rather than skipped in-test because merge-to-main runs this
+				// lane ungrepped, so a skip would report a permanently skipped row.
+				...memorySpecsToIgnore(process.env.MEMORY_SCENARIO),
+			],
 			use: {
 				artifactDir: 'e2e-electron'
 			},

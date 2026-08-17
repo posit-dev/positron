@@ -22,7 +22,11 @@ test.describe('Files Pane Refresh', { tag: [tags.WEB, tags.WORKBENCH, tags.CONSO
 		const { console, explorer } = app.workbench;
 
 		await console.createFile('R', 'file.txt');
-		await explorer.verifyExplorerFilesExist(['file.txt']);
+		// file.txt is created at the workspace root, which sorts after the
+		// `workspaces` folder -- so with folders left expanded by earlier tests in
+		// this worker's session it falls outside the virtualized list's rendered
+		// window and cannot be found. Collapse first so its position is fixed.
+		await explorer.verifyExplorerFilesExist(['file.txt'], { collapseFirst: true });
 	});
 });
 

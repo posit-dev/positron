@@ -25,7 +25,11 @@ import { expect, test, tags } from '../../_test.setup';
 import { ModelProvider } from '../../../pages/modelProviderAuth';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// This suite drives the legacy provider dialog, which is no longer the
+	// default, so pin it. Remove the pin when the Workbench suite is ported to
+	// the new modal (posit-dev/positron#15537).
+	extraSettings: { 'assistant.newProviderModal': false },
 });
 
 const SIGNIN_PROVIDERS: ModelProvider[] = ['anthropic-api', 'openai-api', 'posit-ai'];

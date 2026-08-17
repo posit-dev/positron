@@ -34,7 +34,6 @@ vi.mock('../../browser/languageModelModalDialog.js', () => ({ showLanguageModelM
 
 const { mockShowNewModal } = vi.hoisted(() => ({ mockShowNewModal: vi.fn() }));
 vi.mock('../../browser/configureLLMProvidersModal.js', () => ({
-	NEW_PROVIDER_MODAL_KEY: 'assistant.newProviderModal',
 	showConfigureLLMProvidersModal: mockShowNewModal,
 }));
 
@@ -188,15 +187,15 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 
 		// Nothing shown yet: whenInitialized has not resolved.
 		expect(prompt).not.toHaveBeenCalled();
-		expect(mockShowDialog).not.toHaveBeenCalled();
+		expect(mockShowNewModal).not.toHaveBeenCalled();
 
 		whenInitializedDeferred.complete();
 		await whenInitializedDeferred.p;
 		// Allow the .then() continuation to run.
 		await Promise.resolve();
 
-		expect(mockShowDialog).toHaveBeenCalledTimes(1);
-		expect(mockShowDialog.mock.calls[0][0]).toBe(sources);
+		expect(mockShowNewModal).toHaveBeenCalledTimes(1);
+		expect(mockShowNewModal.mock.calls[0][0]).toBe(sources);
 	});
 
 	it('invokes onClose (never hangs) when initialization ends in error status', async () => {
@@ -213,7 +212,7 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 
 		expect(prompt).toHaveBeenCalledTimes(1);
 		expect(onClose).toHaveBeenCalledTimes(1);
-		expect(mockShowDialog).not.toHaveBeenCalled();
+		expect(mockShowNewModal).not.toHaveBeenCalled();
 	});
 
 	it('notifies and closes without rendering when no providers are enabled', async () => {
@@ -230,7 +229,7 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 		expect(prompt.mock.calls[0][0]).toBe(Severity.Info);
 		expect(prompt.mock.calls[0][1]).toBe('No language model providers are enabled. Enable at least one provider in providers.json.');
 		expect(onClose).toHaveBeenCalledTimes(1);
-		expect(mockShowDialog).not.toHaveBeenCalled();
+		expect(mockShowNewModal).not.toHaveBeenCalled();
 	});
 
 	it('the no-providers prompt opens providers.json in an editor', async () => {
@@ -249,7 +248,7 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 		}));
 	});
 
-	it('renders the dialog with the registered sources when providers are enabled', async () => {
+	it('renders the new provider modal with the registered sources when providers are enabled', async () => {
 		const sources = [makeSource('prov-a')];
 		getRegisteredSources.mockReturnValue(sources);
 		const onAction = vi.fn();
@@ -261,24 +260,24 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 		await Promise.resolve();
 
 		expect(prompt).not.toHaveBeenCalled();
-		expect(mockShowDialog).toHaveBeenCalledTimes(1);
-		expect(mockShowDialog.mock.calls[0][0]).toBe(sources);
-		expect(mockShowNewModal).not.toHaveBeenCalled();
+		expect(mockShowNewModal).toHaveBeenCalledTimes(1);
+		expect(mockShowNewModal.mock.calls[0][0]).toBe(sources);
+		expect(mockShowDialog).not.toHaveBeenCalled();
 	});
 
-	it('renders the new provider modal when the feature switch is enabled', async () => {
+	it('renders the legacy dialog when the new provider modal is turned off', async () => {
 		const sources = [makeSource('prov-a')];
 		getRegisteredSources.mockReturnValue(sources);
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('assistant.newProviderModal', true);
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('assistant.newProviderModal', false);
 
 		service.showLanguageModelModalDialog(vi.fn(), vi.fn());
 		whenInitializedDeferred.complete();
 		await whenInitializedDeferred.p;
 		await Promise.resolve();
 
-		expect(mockShowNewModal).toHaveBeenCalledTimes(1);
-		expect(mockShowNewModal.mock.calls[0][0]).toBe(sources);
-		expect(mockShowDialog).not.toHaveBeenCalled();
+		expect(mockShowDialog).toHaveBeenCalledTimes(1);
+		expect(mockShowDialog.mock.calls[0][0]).toBe(sources);
+		expect(mockShowNewModal).not.toHaveBeenCalled();
 	});
 });
 

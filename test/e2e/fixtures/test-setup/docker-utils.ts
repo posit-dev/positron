@@ -87,7 +87,7 @@ export const FOUNDRY_ASSISTANT_SETTINGS = {
  * suite opts into the Foundry assistant, its settings are merged in. Returns
  * `undefined` when there is nothing to override.
  */
-export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolean; enableDataConnections?: boolean; enableFoundryAssistant?: boolean }): object | undefined {
+export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolean; enableDataConnections?: boolean; enableFoundryAssistant?: boolean; extraSettings?: Record<string, unknown> }): object | undefined {
 	const overrides: Record<string, unknown> = {};
 	if (opts.useLegacyNotebookEditor) {
 		overrides['positron.notebook.enabled'] = false;
@@ -97,6 +97,10 @@ export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolea
 	}
 	if (opts.enableFoundryAssistant) {
 		Object.assign(overrides, FOUNDRY_ASSISTANT_SETTINGS);
+	}
+	// Merged last so a suite's own settings win over the options above.
+	if (opts.extraSettings) {
+		Object.assign(overrides, opts.extraSettings);
 	}
 	return Object.keys(overrides).length > 0 ? overrides : undefined;
 }

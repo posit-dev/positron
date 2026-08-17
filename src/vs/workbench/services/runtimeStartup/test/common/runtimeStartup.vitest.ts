@@ -27,6 +27,7 @@ import {
 	LanguageRuntimeArchitecture,
 	LanguageRuntimeSessionLocation,
 	LanguageRuntimeStartupBehavior,
+	LanguageStartupBehavior,
 	RuntimeStartupPhase,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
@@ -1167,6 +1168,57 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			metadata({ languageId: sessionRuntime.languageId, runtimeId: 'rt-other' })));
 
 		expect(svc.getPreferredRuntime(sessionRuntime.languageId)?.runtimeId).toBe(sessionRuntime.runtimeId);
+	});
+});
+
+describe('RuntimeStartupService - discovery completion', () => {
+
+	const notificationService = new TestNotificationService();
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
+			onWillShutdown: new Emitter<WillShutdownEvent>().event,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, notificationService)
+		.stub(IConfigurationService, new TestConfigurationService({
+			// Anything other than 'disabled' - a language the user has not opted
+			// out of is what made the old code treat an empty discovery as an error.
+			'interpreters.startupBehavior': LanguageStartupBehavior.Auto,
+		}))
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	it('stays quiet when discovery completes with no runtimes registered', () => {
+		// Finding no interpreters used to raise an error notification pointing at
+		// the general Get Started docs. The welcome page health checks cover that
+		// case now, so completing discovery empty-handed must say nothing.
+		const errorNotification = vi.spyOn(notificationService, 'error');
+
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+
+		// Language packs come from an extension point that no unit test can drive,
+		// but an empty map is the one shape that suppressed the old notification on
+		// its own. Seed one enabled language so this asserts the removal itself.
+		(svc as unknown as { _languagePacks: Map<string, ExtensionIdentifier[]> })
+			._languagePacks.set('python', [new ExtensionIdentifier('ms-python.python')]);
+
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+
+		expect(ctx.get(ILanguageRuntimeService).registeredRuntimes).toHaveLength(0);
+		expect(errorNotification).not.toHaveBeenCalled();
 	});
 });
 

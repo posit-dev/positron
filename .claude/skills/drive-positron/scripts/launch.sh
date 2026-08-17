@@ -212,7 +212,15 @@ echo "[launch.sh] logs: $LOG_FILE" >&2
 
 # Run pre-launch synchronously so download or compilation errors are visible
 # before code.sh starts.
+#
+# Pre-launch is the one step that writes outside the disposable profile. It can
+# delete and re-download $REPO/.build/builtInExtensions/<name> and
+# $REPO/.build/electron, and it compiles into $REPO/out when that directory is
+# absent. An interrupted run can leave a built-in extension half-written, which
+# breaks the normal development build until it is re-downloaded. See SKILL.md.
 echo "[launch.sh] running pre-launch (ensures electron + compiled output + built-ins)..." >&2
+echo "[launch.sh] WARNING: pre-launch writes to the shared .build/ and out/ directories in $REPO." >&2
+echo "[launch.sh] WARNING: interrupting it can leave a built-in extension half-written; repair with 'npm run download-builtin-extensions'." >&2
 if ! ( cd "$REPO" && node build/lib/preLaunch.ts ) >>"$LOG_FILE" 2>&1; then
 	echo "[launch.sh] pre-launch FAILED. Log tail:" >&2
 	tail -n 80 "$LOG_FILE" >&2

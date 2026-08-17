@@ -1,0 +1,322 @@
+name: "Test: Memory Metrics"
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # 07:00 UTC, avoiding the 02:00 and 09:00 scheduled jobs
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Positron version: a tag, 'latest-prerelease', or 'latest-release'"
+        required: false
+        default: "latest-prerelease"
+
+concurrency:
+  group: memory-metrics-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MEMORY_CONTAINER_IMAGE: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+
+jobs:
+  memory:
+    name: measure-${{ matrix.scenario }}-memory
+    runs-on: ubuntu-latest-8x
+    timeout-minutes: 45
+    strategy:
+      # One scenario's failure should not cancel the others: a broken session
+      # scenario must not cost us that night's idle datapoint.
+      fail-fast: false
+      matrix:
+        scenario: [idle, session-python, session-r, data-explorer, notebook, editors, console-output]
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      # The image is private, so the pull needs credentials. Copied from
+      # test-e2e-ubuntu-run.yml; without these the job fails before any step.
+      # --user 0:0 also matters here beyond convention: reading
+      # /proc/<pid>/smaps_rollup for another process requires matching uid or
+      # CAP_SYS_PTRACE.
+      options: --user 0:0 --init
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    env:
+      HOME: /root
+      PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+      PW_PROJECT_NAME: e2e-electron
+      # Job-wide, not per-step: playwright.config.ts keys test collection off
+      # this, so the render step needs it too. Now sourced from the matrix
+      # rather than hardcoded.
+      MEMORY_SCENARIO: ${{ matrix.scenario }}
+      MEMORY_SPEC: test/e2e/tests/performance/memory-${{ matrix.scenario }}.test.ts
+      # The insights reporter and its sharding hook are off deliberately. This
+      # workflow publishes its own payload to /memory, and letting the reporter
+      # upload would add memory runs to the e2e results dataset as if they were
+      # ordinary test runs. It also keeps the job from needing AWS credentials.
+      ENABLE_CUSTOM_REPORTER: 'false'
+      # Required by the envVars fixture in _test.setup.ts, which validates all
+      # four and fails every test if any is unset. idle, data-explorer and editors
+      # never start a kernel, so these only have to be present there; session,
+      # notebook and console-output start one explicitly and need real values.
+      # Every matrix job sets them.
+      POSITRON_PY_VER_SEL: "3.10.12"
+      POSITRON_R_VER_SEL: 4.5.2
+      POSITRON_PY_ALT_VER_SEL: "3.13.0"
+      POSITRON_R_ALT_VER_SEL: 4.4.2
+    steps:
+      - uses: actions/checkout@v7
+
+      # Captured before the next step replaces the root package.json with a
+      # stub, so the version cannot drift from the root declaration.
+      - name: Resolve the undici range
+        run: |
+          RANGE=$(node -e 'console.log(require("./package.json").dependencies.undici)')
+          echo "UNDICI_RANGE=$RANGE" >> "$GITHUB_ENV"
+          echo "undici range: $RANGE"
+
+      # The positron-ubuntu24 image ships no GitHub CLI, and download-build.sh
+      # needs it to resolve the version and fetch the release asset. No other
+      # lane hits this: they either take the build from actions/download-artifact
+      # or run on a hosted runner, where gh is preinstalled.
+      - name: Install the GitHub CLI
+        env:
+          GH_CLI_VERSION: 2.97.0
+        run: |
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp
+          install -m 0755 "/tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
+          gh --version
+
+      # positron-builds is a separate private repo, so the job's default
+      # GITHUB_TOKEN cannot see it and every gh call there 404s. Same app token
+      # release-screenshots.yml mints for the same download.
+      - name: Generate POSITRON_BOT token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Download build
+        id: build
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+        run: |
+          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ inputs.version || 'latest-prerelease' }}")
+          echo "$OUTPUT" >> "$GITHUB_OUTPUT"
+
+      # Installs the Playwright and e2e dependencies and compiles test/e2e,
+      # rather than a full `npm ci`: nothing here builds Positron from source.
+      - name: Setup test dependencies and compile tests
+        uses: ./.github/actions/setup-e2e-test-dependencies
+
+      # publish.ts imports undici, which the action above does not install; it
+      # currently resolves only as a transitive dependency of the reporters.
+      - name: Install the publish client
+        run: npm install "undici@${{ env.UNDICI_RANGE }}"
+
+      - name: Alter AppArmor Restrictions for Playwright
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # Exports DISPLAY=:10. Needed by the app and, less obviously, by
+      # `positron --status`: that CLI spawns its own child Electron main, which
+      # exits 0 printing nothing if it has no display, leaving every process
+      # unnamed and the run failing its attribution gate.
+      - name: Setup Xvfb
+        uses: ./.github/actions/setup-xvfb
+
+      # Every memory scenario uses its own extensions dir, so the first launch into it
+      # pays to install the build's bootstrap vsixes (ruff, air, jupyter, and the
+      # rest). Measured without this, launch 0 read 60 MB high with a settle a
+      # second longer than the other two, which is a systematic artifact in the
+      # variance figure this workflow exists to produce. This spec waits for that
+      # install; release-screenshots.yml uses it the same way. Its own result is
+      # incidental here, but it is left strict: if warming fails, launch 0 is
+      # skewed and we want to know rather than quietly publish it.
+      - name: Warm the extensions dir
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
+
+      # Three launches, because launch-to-launch variance dominates. Each is a
+      # separate Playwright invocation so every launch is genuinely cold.
+      - name: Measure (launch 0)
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_LAUNCH_INDEX: 0
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
+
+      - name: Measure (launch 1)
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_LAUNCH_INDEX: 1
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
+
+      - name: Measure (launch 2)
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_LAUNCH_INDEX: 2
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
+
+      # Separate from the launches so a failure to render cannot lose the
+      # measurements, which are the expensive part.
+      #
+      # MEMORY_PUBLISH stays 'false' until the /memory endpoints exist; they are
+      # a follow-up. Set here rather than omitted so the switch is visible at the
+      # point someone will look for it. The step summary and the HTML artifact
+      # are produced either way, so the run is still useful with it off.
+      - name: Render report
+        env:
+          BUILD: ${{ steps.build.outputs.BUILD }}
+          MEMORY_PUBLISH: 'false'
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Render and publish'
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-report-${{ matrix.scenario }}
+          # Matches snapshotDir() in the spec, which is per scenario.
+          # Deliberately not test-results/, which Playwright wipes at the
+          # start of every invocation.
+          path: ${{ runner.temp }}/memory-snapshots-${{ matrix.scenario }}/
+          if-no-files-found: warn
+
+      # This job deliberately writes no step summary. It cannot publish the report
+      # itself -- the image ships no AWS CLI, the same reason gh is hand-installed
+      # above -- and a link printed here would point at a file summarize-memory
+      # has not uploaded yet, staying dead if that job fails. GitHub has no way
+      # for a later job to append to this one's summary, so all four links are
+      # printed by summarize-memory instead, and appear on the run's Summary page.
+
+  # Combines the matrix jobs' per-scenario reports into one
+  # cross-scenario view: the per-role numbers are 20-50x quieter than the
+  # tree TOTAL and are the useful signal, but nothing compared them side by
+  # side before this job existed.
+  #
+  # Runs on a plain runner, not the private container image: it only reads
+  # JSON off disk and renders HTML, so it needs none of the memory job's
+  # requirements (container image, Xvfb, a Positron build, an interpreter).
+  # `if: always()` and no `needs` result requirement means it still runs, and
+  # still produces a summary, when one scenario's matrix job failed.
+  summarize:
+    name: summarize-memory
+    needs: memory
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # For the AWS OIDC role-assumption in upload-report-to-s3.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # Compiles test/e2e, which is where summarize-cli.ts lives. Same action
+      # the memory job uses, so the compiled output this job runs is built the
+      # same way.
+      - name: Setup test dependencies and compile tests
+        uses: ./.github/actions/setup-e2e-test-dependencies
+
+      # Downloads every memory-report-<scenario> artifact that was uploaded,
+      # each into its own subdirectory named after the artifact -- exactly the
+      # memory-report-<scenario>/memory-snapshot-*.json layout summarize-cli.ts
+      # expects. A scenario whose matrix job failed before uploading simply has
+      # no matching artifact, which the CLI treats as a missing scenario rather
+      # than an error.
+      - name: Download memory reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: memory-report-*
+          path: ${{ runner.temp }}/memory-reports
+
+      # Staged into `playwright-report/` because upload-report-to-s3 hardcodes
+      # that as its source, and 15 other workflows use that action.
+      #
+      # The scenario reports are published alongside the summary, not replaced by
+      # it: only they carry the delta against the previous nightly, the process
+      # tree, and the activated-extension cards.
+      - name: Render cross-scenario summary
+        run: |
+          STAGE="${{ runner.temp }}/playwright-report"
+          mkdir -p "$STAGE"
+          node test/e2e/out/utils/memory/summarize-cli.js \
+            "${{ runner.temp }}/memory-reports" \
+            "$STAGE/index.html"
+
+          # Driven by the artifacts that actually arrived rather than a hardcoded
+          # scenario list, so this cannot drift from the matrix. A scenario whose
+          # matrix job failed before uploading simply has no artifact and is
+          # skipped, the same way summarize-cli treats a missing scenario.
+          for SRC in "${{ runner.temp }}"/memory-reports/memory-report-*/memory-report.html; do
+            [ -f "$SRC" ] || continue
+            DIR=$(dirname "$SRC")
+            SCENARIO=${DIR##*/memory-report-}
+            cp "$SRC" "$STAGE/$SCENARIO.html"
+          done
+          ls -la "$STAGE"
+
+      # The only place REPORT_DIR is computed, so there is no second job whose
+      # identifier or distro suffix has to agree with this one.
+      #
+      # skip-summary because gen-report-dir's own line links index.html alone; the
+      # step below links the scenario reports too.
+      - name: Generate the report directory
+        uses: ./.github/actions/gen-report-dir
+        with:
+          identifier: memory
+          skip-summary: 'true'
+
+      # aws s3 cp infers Content-Type from the extension, so these serve as
+      # text/html and render in the browser -- which an artifact zip cannot do.
+      # continue-on-error so a transient S3 or OIDC failure loses the links, not
+      # the night's run. Matches how the other e2e workflows call this action.
+      #
+      # The id is what makes that true. REPORT_URL is set by gen-report-dir above,
+      # before anything is uploaded, so a failed upload leaves it populated and the
+      # link step cannot tell from it alone that the files are not there. Without
+      # steps.upload-reports.outcome the summary printed links to 404s.
+      - name: Upload the reports to S3
+        id: upload-reports
+        continue-on-error: true
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          working-directory: ${{ runner.temp }}
+
+      # Links only what was staged, so a scenario missing from this run is left
+      # out rather than linked to a 404.
+      - name: Link the reports in the step summary
+        if: always()
+        run: |
+          # Reachable with REPORT_URL unset: `always()` still runs this when the
+          # render step failed and skipped the step that sets it.
+          if [ -z "$REPORT_URL" ]; then
+            echo "No memory report: rendering failed before the reports were published." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Say so rather than linking. REPORT_URL is set whether or not the upload
+          # worked, so this is the only signal that the files are not really there.
+          if [ "${{ steps.upload-reports.outcome }}" != "success" ]; then
+            echo "No memory report: the upload to S3 failed. The reports are in this run's artifacts." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          BASE="${REPORT_URL%/index.html}"
+          {
+            echo "## Memory"
+            echo ""
+            echo "[Cross-scenario summary]($REPORT_URL)"
+            echo ""
+            for FILE in "${{ runner.temp }}"/playwright-report/*.html; do
+              # An unmatched glob expands to the literal pattern, which would
+              # otherwise be linked as a scenario named '*'.
+              if [ ! -f "$FILE" ]; then
+                continue
+              fi
+              NAME=$(basename "$FILE" .html)
+              if [ "$NAME" != "index" ]; then
+                echo "- [$NAME]($BASE/$NAME.html)"
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

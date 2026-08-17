@@ -91,3 +91,16 @@
 	width: 36px;
 	height: 36px;
 }
+
+/*--- Start Positron ---*/
+/*
+ * Hide the "Tip: Use keyboard shortcut" hint that upstream appends to any step
+ * whose action button maps to a command with a keybinding. The hint is laid out
+ * with `display: flex` and `white-space: pre`, so the keybinding chips overflow
+ * the step list column instead of wrapping. Positron covers shortcuts in the
+ * step content, where there is room for them.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideDetails .getting-started-step .shortcut-message {
+	display: none;
+}
+/*--- End Positron ---*/

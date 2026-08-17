@@ -17,6 +17,9 @@ import { COI } from '../../../../base/common/network.js';
 import { observableValue } from '../../../../base/common/observable.js';
 import { listenStream } from '../../../../base/common/stream.js';
 import { URI } from '../../../../base/common/uri.js';
+// --- Start Positron ---
+import { externalUriToString } from '../../../../base/common/positronUtilities.js';
+// --- End Positron ---
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
@@ -793,14 +796,15 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 
 		// Tell the webview to load the URI
 		this._uri = uri;
-		this._send('set-uri', uri.toString());
+		const uriString = externalUriToString(uri);
+		this._send('set-uri', uriString);
 
 		// Wait for the frame to be created by hanging around until Electron
 		// notices that the frame with the requested URL navigated.
 		//
 		// This is a little bit of a hack, but it's the only way to get a handle
 		// to the newly created frame.
-		const frameId = await this.awaitFrameCreation(uri.toString());
+		const frameId = await this.awaitFrameCreation(uriString);
 		this._frameId = frameId;
 
 		return this.injectJavaScript();

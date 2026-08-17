@@ -81,6 +81,15 @@ export interface ILanguageRuntimeSessionStateEvent {
 	new_state: RuntimeState;
 }
 
+export interface IStartNewRuntimeSessionOptions {
+	/**
+	 * True when the user explicitly selected this runtime. Passed in a trailing
+	 * options object rather than as another positional boolean so it cannot be
+	 * transposed with `activate` at a call site.
+	 */
+	readonly userSelected?: boolean;
+}
+
 export interface IRuntimeSessionMetadata {
 	/** The unique identifier of the session */
 	readonly sessionId: string;
@@ -105,6 +114,18 @@ export interface IRuntimeSessionMetadata {
 	 * debugging.
 	 */
 	readonly startReason: string;
+
+	/**
+	 * True when the session is being created because the user explicitly
+	 * selected this runtime. Absent or false for automatic, restored,
+	 * duplicated, and programmatic starts.
+	 *
+	 * Only the direct console start paths set this today. Notebook kernel
+	 * selection goes through `selectRuntime`, which cannot yet tell a user's
+	 * pick apart from the automatic starts that share the same entry point, so
+	 * notebook sessions leave this unset even when the user picked the kernel.
+	 */
+	readonly userSelected?: boolean;
 }
 
 /**
@@ -748,6 +769,8 @@ export interface IRuntimeSessionService {
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is
 	 * started.
+	 * @param options Additional properties for the new session, e.g. whether
+	 * the user explicitly selected the runtime.
 	 *
 	 * Returns a promise that resolves to the session ID of the new session.
 	 */
@@ -758,7 +781,8 @@ export interface IRuntimeSessionService {
 		notebookUri: URI | undefined,
 		source: string,
 		startMode: RuntimeStartMode,
-		activate: boolean): Promise<string>;
+		activate: boolean,
+		options?: IStartNewRuntimeSessionOptions): Promise<string>;
 
 	/**
 	 * Validates a persisted runtime session before reconnecting to it.

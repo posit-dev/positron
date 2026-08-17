@@ -324,6 +324,42 @@ export class AuthProvider
 	}
 
 	/**
+	 * Forget all persisted configuration for this provider: every stored
+	 * API-key account and its secret, plus the credential-chain "configured"
+	 * flag. After this, `isConfigured()` reads false.
+	 *
+	 * `removeSession` can't do this on its own for API-key providers: stored
+	 * accounts are keyed by a random UUID, so `removeSession(providerId)`
+	 * matches nothing and no-ops. That leaves a provider whose secret is gone
+	 * but whose account entry remains stuck as "configured" (and so stuck in
+	 * the dialog's "Needs Attention" group). Use this to reset such a provider.
+	 */
+	async clearConfiguration(): Promise<void> {
+		const accounts = this.getStoredAccounts();
+		for (const account of accounts) {
+			await this.context.secrets.delete(this.secretKey(account.id));
+		}
+		if (accounts.length > 0) {
+			await this.setStoredAccounts([]);
+		}
+		await this.context.globalState.update(this.chainConfiguredKey, undefined);
+
+		if (accounts.length > 0) {
+			this._onDidChangeSessions.fire({
+				added: [],
+				removed: accounts.map(account => ({
+					id: account.id,
+					accessToken: '',
+					account: { id: account.id, label: account.label },
+					scopes: [],
+				})),
+				changed: [],
+			});
+		}
+		this.logger.logSessionChange('removed', `Cleared configuration (${accounts.length} account(s))`);
+	}
+
+	/**
 	 * Resolve credentials from the chain, update cache, and start the
 	 * background refresh timer. Fires `added`, `changed`, or `removed`
 	 * depending on how the resolved token compares to the cached one.
