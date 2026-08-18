@@ -95,6 +95,11 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, hoverMan
 	};
 
 	const summary = summaryText(health);
+	// Some summaries read fine alone ("You have successfully set up Python"),
+	// but others don't name the language ("3 of 5 checks passed"), so the
+	// tooltip leads with the label every time rather than only when the
+	// summary happens to need it.
+	const tooltip = summary && `${health.label}: ${summary}`;
 
 	// The summary is right-aligned and ellipsized, so a long one loses its tail
 	// with no way to read the rest. The header wraps a `<Button>` when it has a
@@ -105,9 +110,9 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, hoverMan
 	const [headerHovering, setHeaderHovering] = useState(false);
 	useEffect(() => {
 		if (headerHovering) {
-			hoverManager?.showHover(headerRef.current, summary);
+			hoverManager?.showHover(headerRef.current, tooltip);
 		}
-	}, [headerHovering, hoverManager, summary]);
+	}, [headerHovering, hoverManager, tooltip]);
 
 	// `status` speaks through the workbench's polite live region. In an effect
 	// because results land seconds after the page paints, and it speaks the line
@@ -167,7 +172,7 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, hoverMan
 						className='environment-health-group-header'
 						hoverManager={hoverManager}
 						id={headerId}
-						tooltip={summary}
+						tooltip={tooltip}
 						onPressed={toggle}
 					>
 						{headerContent}
