@@ -18,11 +18,13 @@ import { IServiceContainer } from '../../client/ioc/types';
 import { IWorkspaceService } from '../../client/common/application/types';
 import { PythonVersion } from '../../client/pythonEnvironments/info/pythonVersion';
 import { Architecture } from '../../client/common/utils/platform';
+import { moduleMetadataMap } from '../../client/pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 import { mock } from './utils';
 
 suite('Ipykernel', () => {
     let interpreter: PythonEnvironment;
     let pythonExecutionService: IPythonExecutionService;
+    let pythonExecutionFactory: IPythonExecutionFactory;
     let workspaceConfiguration: vscode.WorkspaceConfiguration;
     let serviceContainer: IServiceContainer;
 
@@ -47,8 +49,9 @@ suite('Ipykernel', () => {
                 ),
         });
 
-        const pythonExecutionFactory = mock<IPythonExecutionFactory>({
+        pythonExecutionFactory = mock<IPythonExecutionFactory>({
             create: () => Promise.resolve(pythonExecutionService),
+            createActivatedEnvironment: () => Promise.resolve(pythonExecutionService),
         });
 
         workspaceConfiguration = mock<vscode.WorkspaceConfiguration>({
@@ -143,6 +146,31 @@ suite('Ipykernel', () => {
             path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'arm64', 'cp3'),
             path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3'),
         ]);
+    });
+
+    test('should probe module interpreters through the activated environment', async () => {
+        // Force the fresh interpreter-info probe to run.
+        sinon.stub(interpreter, 'architecture').get(() => Architecture.Unknown);
+        sinon.stub(fs, 'pathExists').resolves(true);
+        moduleMetadataMap.set(interpreter.path, {
+            type: 'module',
+            environmentName: 'python/3.9',
+            modules: ['python/3.9'],
+            startupCommand: 'source "/opt/init.sh" && module load python/3.9',
+            version: '3.9.0',
+        });
+        const activated = sinon.spy(pythonExecutionFactory, 'createActivatedEnvironment');
+        const create = sinon.spy(pythonExecutionFactory, 'create');
+
+        try {
+            await getIpykernelBundle(interpreter, serviceContainer);
+        } finally {
+            moduleMetadataMap.delete(interpreter.path);
+        }
+
+        // The module interpreter is probed with modules loaded, not bare.
+        sinon.assert.calledOnceWithMatch(activated, sinon.match({ interpreter }));
+        sinon.assert.notCalled(create);
     });
 
     test('should fall back to system architecture when both cached and fetched architecture are unknown', async () => {
