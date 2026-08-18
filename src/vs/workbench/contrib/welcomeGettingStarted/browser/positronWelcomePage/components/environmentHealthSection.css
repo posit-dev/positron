@@ -148,6 +148,7 @@
 .positron-welcome-page-environment-setup .environment-health-item-main {
 	align-items: flex-start;
 	display: flex;
+	flex-wrap: wrap;
 	gap: 8px;
 }
 
@@ -171,9 +172,17 @@
 }
 
 .positron-welcome-page-environment-setup .environment-health-item-summary {
-	flex: 1 1 auto;
+	/*
+	 * 20ch is how much of this the row would like to keep beside the fix
+	 * button (see `flex-wrap` above): below that, the button drops to its
+	 * own line rather than squeezing both into an unreadable sliver. It is
+	 * the preferred size, not a floor -- `min-width: 0` still lets this
+	 * shrink narrower once even that is more than the row has, so a card
+	 * too small for 20ch wraps the text onto more lines instead of
+	 * overflowing the row.
+	 */
+	flex: 1 1 20ch;
 	line-height: var(--_item-line-height);
-	/* Lets the text wrap rather than force the row wider than the card. */
 	min-width: 0;
 }
 
@@ -262,12 +271,18 @@
 		 * ellipsis to apply to.
 		 */
 		display: inline-block;
-		/* Takes the width its label needs; the text beside it reflows. */
+		/*
+		 * Takes the width its label needs, up to the whole row: when there is
+		 * room beside the summary it shares the line, and once there is not
+		 * (see the summary's own `flex-basis`) it wraps below and can use
+		 * the full width there. Either way this caps it so a pathological
+		 * label ellipsizes instead of overflowing.
+		 */
 		flex: 0 0 auto;
 		font-size: 12px;
 		line-height: 16px;
 		margin: 0;
-		max-width: 50%;
+		max-width: 100%;
 		overflow: hidden;
 		padding: 4px 8px;
 		text-align: center;
