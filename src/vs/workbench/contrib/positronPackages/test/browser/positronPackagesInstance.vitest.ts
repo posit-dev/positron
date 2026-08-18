@@ -5,7 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
-import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -349,6 +350,183 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 
 			expect(await instance.resolveLatestVersion('numpy', CancellationToken.None)).toBeUndefined();
 			expect(getPackages).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('getPackagesSnapshot', () => {
+		it('populates the list and awaits outdated state when nothing has been refreshed yet', async () => {
+			// What an agent hits: the pane was never opened, so nothing attached the
+			// runtime or ran a refresh. A snapshot that reported the empty list, or
+			// returned before the background metadata fetch landed, would read as an
+			// environment with no packages and nothing to update.
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot).toEqual({
+				metadataStatus: 'fresh',
+				packages: [
+					{ ...pkg('numpy', '1.26.0'), outdated: true, latestVersion: '2.1.0' },
+					{ ...pkg('pandas', '2.0.0'), outdated: true, latestVersion: '2.2.0' },
+				],
+			});
+		});
+
+		it('re-reads the installed list on every call, so a package installed outside Positron appears', async () => {
+			const instance = makeInstance();
+			await instance.getPackagesSnapshot();
+
+			// pip install requests in the console: no Positron code path saw it.
+			getPackages.mockResolvedValue([pkg('numpy', '1.26.0'), pkg('pandas', '2.0.0'), pkg('requests', '2.32.0')]);
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.packages.map(p => p.name)).toEqual(['numpy', 'pandas', 'requests']);
+		});
+
+		it('serves a fresh cache without going to the repository', async () => {
+			seed({
+				numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0' },
+				pandas: { version: '2.0.0', outdated: false },
+			}, 1 * HOUR_MS);
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			// Same freshness window the pane honors, so an agent and the pane agree
+			// on what is outdated rather than each showing its own answer.
+			expect(snapshot.metadataStatus).toBe('cached');
+			expect(getPackageMetadata).not.toHaveBeenCalled();
+		});
+
+		it('returns the packages with timed-out when outdated state takes too long', async () => {
+			getPackageMetadata.mockImplementation(() => new Promise(() => { /* never settles */ }));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { metadataTimeoutMs: 10 });
+
+			// The list is the valuable half; a hung repository must not cost the
+			// caller the packages themselves.
+			expect(snapshot.metadataStatus).toBe('timed-out');
+			expect(snapshot.packages.map(p => p.name)).toEqual(['numpy', 'pandas']);
+		});
+
+		it('reports fetch-failed and keeps cached outdated state when the repository query errors', async () => {
+			// Fresh cache covers numpy; pandas has no entry, so the snapshot
+			// gap-fills -- and the repository is unreachable.
+			seed({ numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0' } }, 1 * HOUR_MS);
+			getPackageMetadata.mockRejectedValue(new Error('CRAN unreachable'));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			// The failure is labelled rather than passed off as 'fresh', and it
+			// doesn't cost the caller what the cache already knew.
+			expect(snapshot.metadataStatus).toBe('fetch-failed');
+			expect(snapshot.packages.find(p => p.name === 'numpy')?.latestVersion).toBe('2.0.0');
+		});
+
+		it('joins a user-forced refresh in flight instead of cancelling it', async () => {
+			// The fresh-but-stale cache is what makes the bug bite: a snapshot
+			// that cancels the forced recompute finds every package covered by
+			// the cache and issues no replacement query, so the refresh the
+			// user asked for silently vanishes.
+			seed({
+				numpy: { version: '1.26.0', outdated: false },
+				pandas: { version: '2.0.0', outdated: false },
+			}, 1 * HOUR_MS);
+			let releaseForcedFetch: () => void = () => { };
+			getPackageMetadata.mockImplementationOnce(() => new Promise(resolve => {
+				releaseForcedFetch = () => resolve(new Map<string, Partial<ILanguageRuntimePackage>>([
+					['numpy', { outdated: true, latestVersion: '2.1.0' }],
+					['pandas', { outdated: true, latestVersion: '2.2.0' }],
+				]));
+			}));
+			const instance = makeInstance();
+
+			// User hits Refresh Packages; its forced metadata recompute is
+			// still in flight when the snapshot arrives.
+			await instance.refreshPackages(CancellationToken.None, true /* forceMetadata */);
+			const snapshotPromise = instance.getPackagesSnapshot();
+			releaseForcedFetch();
+			const snapshot = await snapshotPromise;
+
+			// One repository query: the forced one, joined -- neither cancelled
+			// nor duplicated. Its recompute is what the snapshot reports.
+			expect(getPackageMetadata).toHaveBeenCalledTimes(1);
+			expect(snapshot.metadataStatus).toBe('cached');
+			expect(snapshot.packages.map(p => [p.name, p.outdated])).toEqual([['numpy', true], ['pandas', true]]);
+		});
+
+		it('reports timed-out when a hung refresh outlives the budget, leaving the refresh running', async () => {
+			let releaseForcedFetch: () => void = () => { };
+			getPackageMetadata.mockImplementationOnce(() => new Promise(resolve => {
+				releaseForcedFetch = () => resolve(new Map<string, Partial<ILanguageRuntimePackage>>([
+					['numpy', { outdated: true, latestVersion: '2.1.0' }],
+				]));
+			}));
+			const instance = makeInstance();
+			await instance.refreshPackages(CancellationToken.None, true /* forceMetadata */);
+
+			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { metadataTimeoutMs: 10 });
+
+			expect(snapshot.metadataStatus).toBe('timed-out');
+
+			// The refresh was not ours to cancel: released after the snapshot
+			// gave up on it, its result still lands for the pane.
+			releaseForcedFetch();
+			await new Promise(resolve => setTimeout(resolve, 0));
+			expect(instance.packages.find(p => p.name === 'numpy')?.outdated).toBe(true);
+		});
+
+		it('reports unsupported when the manager answers that it has no metadata', async () => {
+			getPackageMetadata.mockResolvedValue(undefined);
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			// Undefined is the manager's "no metadata support" answer; the list
+			// is still worth returning.
+			expect(snapshot.metadataStatus).toBe('unsupported');
+			expect(snapshot.packages.map(p => p.name)).toEqual(['numpy', 'pandas']);
+		});
+
+		it('propagates a caller cancellation instead of labelling it fetch-failed', async () => {
+			const source = new CancellationTokenSource();
+			getPackageMetadata.mockImplementation((_names, token) => new Promise((_, reject) => {
+				if (token) {
+					disposables.add(token.onCancellationRequested(() => reject(new CancellationError())));
+				}
+			}));
+			const instance = makeInstance();
+
+			const promise = instance.getPackagesSnapshot(source.token);
+			// Let the snapshot reach the metadata stage, then cancel.
+			await new Promise(resolve => setTimeout(resolve, 0));
+			source.cancel();
+
+			await expect(promise).rejects.toThrow('Canceled');
+		});
+
+		it('fails rather than hanging when the package list itself never arrives', async () => {
+			getPackages.mockImplementation(() => new Promise(() => { /* never settles */ }));
+			const instance = makeInstance();
+
+			await expect(instance.getPackagesSnapshot(CancellationToken.None, { listTimeoutMs: 10 }))
+				.rejects.toThrow('Timed out reading the installed packages.');
+		});
+
+		it('reports unsupported for a runtime that does not manage packages', async () => {
+			session = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-1',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID }),
+				getRuntimeState: () => RuntimeState.Uninitialized,
+				onDidChangeRuntimeState: Event.None,
+				getPackageManager: undefined,
+			});
+			const instance = makeInstance();
+
+			expect(await instance.getPackagesSnapshot()).toEqual({ packages: [], metadataStatus: 'unsupported' });
 		});
 	});
 });
