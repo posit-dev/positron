@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { spawn } from 'child_process';
+import * as crypto from 'crypto';
 import { Readable } from 'stream';
 import { DeferredPromise, TimeoutTimer, timeout } from '../../base/common/async.js';
 import { Disposable, toDisposable } from '../../base/common/lifecycle.js';
@@ -12,14 +13,18 @@ import { StreamSplitter } from '../../base/node/nodeStreams.js';
 /**
  * Supervises the `license-manager-aws-sagemaker` client.
  *
- * Wire contract (rstudio/licensing-clients, `types.Message.WriteJson`): the
- * client writes two LF-terminated lines per refresh, a base64 HMAC-SHA256 line
- * followed by a single-line JSON object. We read the JSON and ignore the HMAC
- * because verifying it here would require embedding the client's shared secret.
  */
+
+/**
+ * The hex-encoded key the client's digests are keyed with.
+ */
+const MessageKey = '';
 
 /** Status value that indicates an active lease. */
 const STATUS_ACTIVATED = 'activated';
+
+/** How far a message's own timestamp may sit from ours. */
+const MAX_MESSAGE_AGE_MS = 2 * 60_000;
 
 /** How long a lost lease is tolerated before the server is unlicensed. */
 const DEFAULT_GRACE_MS = 10 * 60_000;
@@ -74,6 +79,8 @@ export interface ILicenseManagerOptions {
 	args?: string[];
 	/** Environment for the client; defaults to this process's environment. */
 	env?: NodeJS.ProcessEnv;
+	/** Key the client's messages are checked against; defaults to the built-in one. */
+	key?: string;
 	/** How long a lost lease is tolerated. */
 	graceMs?: number;
 	/** How long to wait for the first activated message. */
@@ -87,15 +94,22 @@ export interface ILicenseManagerOptions {
 }
 
 /**
- * Decodes one line of the client's stdout.
+ * Decodes one frame of the client's stdout.
  *
- * @returns The message, or undefined for the HMAC line and anything else that
- * is not a JSON object. Base64 never starts with '{', so this cleanly selects
- * messages without needing to track position in the two-line frame.
+ * @param digest The frame's first line.
+ * @param line The frame's second line.
+ * @param key Overrides the built-in key. Used by tests.
+ * @returns The message, or undefined for anything that is not a JSON object we
+ * can account for. Base64 never starts with '{', so the two lines of a frame
+ * can be told apart without tracking position in the stream.
  */
-export function parseLicenseManagerLine(line: string): ILicenseManagerMessage | undefined {
+export function parseLicenseManagerFrame(digest: string, line: string, key: string = MessageKey): ILicenseManagerMessage | undefined {
 	const trimmed = line.trim();
 	if (!trimmed.startsWith('{')) {
+		return undefined;
+	}
+
+	if (!matchesDigest(digest, trimmed, key)) {
 		return undefined;
 	}
 
@@ -108,6 +122,13 @@ export function parseLicenseManagerLine(line: string): ILicenseManagerMessage | 
 		return undefined;
 	}
 
+	// The client stamps every message as it writes it, so one that is not from
+	// about now is not from this run of the client.
+	const ts = optionalNumber(parsed['ts']);
+	if (ts && Math.abs(Date.now() - ts) > MAX_MESSAGE_AGE_MS) {
+		return undefined;
+	}
+
 	// `users` is string-encoded by Go's `,string` struct tag while `days-left`
 	// and `expiration` are plain numbers, so both forms are accepted.
 	return {
@@ -116,6 +137,28 @@ export function parseLicenseManagerLine(line: string): ILicenseManagerMessage | 
 		daysLeft: optionalNumber(parsed['days-left']),
 		users: optionalNumber(parsed['users']),
 	};
+}
+
+/**
+ * Verifies that a given digest matches the HMAC-SHA256 of a line under a key.
+ *
+ * @param digest The base64-encoded digest to verify.
+ * @param line The line whose HMAC is being verified.
+ * @param key The hex-encoded key used for the HMAC.
+ * @returns `true` if the digest matches, `false` otherwise.
+ *
+ * A key that is missing or not hex fails here, as does every frame that follows.
+ */
+function matchesDigest(digest: string, line: string, key: string): boolean {
+	if (!/^(?:[0-9a-fA-F]{2})+$/.test(key)) {
+		return false;
+	}
+
+	// Buffer.from drops characters it cannot decode rather than throwing, so a
+	// malformed digest lands here as a short buffer and fails the comparison.
+	const claimed = Buffer.from(digest.trim(), 'base64');
+	const computed = crypto.createHmac('sha256', Buffer.from(key, 'hex')).update(line).digest();
+	return claimed.length === computed.length && crypto.timingSafeEqual(claimed, computed);
 }
 
 /** Coerces a field that may arrive as a JSON number or a string-encoded number. */
@@ -212,10 +255,25 @@ export class LicenseManager extends Disposable {
 		const exited = new DeferredPromise<void>();
 		this.childExited = exited;
 
-		child.stdout?.pipe(new StreamSplitter('\n')).on('data', (line: Buffer) => {
-			const message = parseLicenseManagerLine(line.toString('utf8'));
+		// Each frame arrives as two lines, so the first is held until the second
+		// can be checked against it.
+		let digest = '';
+		child.stdout?.pipe(new StreamSplitter('\n')).on('data', (chunk: Buffer) => {
+			const line = chunk.toString('utf8').trim();
+			if (!line) {
+				return;
+			}
+			if (!line.startsWith('{')) {
+				digest = line;
+				return;
+			}
+
+			const message = parseLicenseManagerFrame(digest, line, this.options.key);
+			digest = '';
 			if (message) {
 				this.onMessage(message);
+			} else {
+				console.error('[license-manager] Discarding an unusable message.');
 			}
 		});
 

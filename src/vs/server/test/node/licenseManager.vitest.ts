@@ -5,40 +5,48 @@
 
 /// <reference types="vitest/globals" />
 
+import { createHmac } from 'crypto';
 import { EventEmitter } from 'events';
 import { PassThrough } from 'stream';
-import { ILicenseManagerOptions, ILicenseManagerProcess, LicenseManager, parseLicenseManagerLine } from '../../node/licenseManager.js';
+import { ILicenseManagerOptions, ILicenseManagerProcess, LicenseManager, parseLicenseManagerFrame } from '../../node/licenseManager.js';
 import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
 
-const FAKE_HMAC_LINE = 'ZmFrZS1zaWduYXR1cmUtbm90LWEtcmVhbC1obWFj';
+/** Stands in for the key. */
+const TEST_KEY = '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff';
 
-const ACTIVATED_FRAME =
-	`${FAKE_HMAC_LINE}\n` +
-	'{"status":"activated","expiration":9999999999000,"ts":1700000000000,' +
-	'"product-key":"","shiny-users":"0","users":"5","user-activity-days":"0",' +
-	'"allow-apis":"1","days-left":7,"has-key":false,"has-trial":false,' +
-	'"license-scope":"","sessions":"0","enable-launcher":"1","max-repo-count":"0"}\n';
-
-const EXPIRED_FRAME =
-	`${FAKE_HMAC_LINE}\n` +
-	'{"status":"expired","expiration":0,"ts":1700000010000,' +
-	'"product-key":"","shiny-users":"0","users":"0","user-activity-days":"0",' +
-	'"allow-apis":"","days-left":0,"has-key":false,"has-trial":false,' +
-	'"license-scope":"","sessions":"0","enable-launcher":"0","max-repo-count":"0"}\n';
-
-function linesOf(frame: string): string[] {
-	return frame.split('\n').filter(line => line !== '');
+/** The body of a real 1.2.6-89 message, stamped as the client would stamp it. */
+function activatedBody(ts: number = Date.now()): string {
+	return `{"status":"activated","expiration":9999999999000,"ts":${ts},` +
+		'"product-key":"","shiny-users":"0","users":"5","user-activity-days":"0",' +
+		'"allow-apis":"1","days-left":7,"has-key":false,"has-trial":false,' +
+		'"license-scope":"","sessions":"0","enable-launcher":"1","max-repo-count":"0"}';
 }
 
-describe('parseLicenseManagerLine', () => {
-	it('ignores the HMAC line that precedes each JSON frame', () => {
-		expect(parseLicenseManagerLine(linesOf(ACTIVATED_FRAME)[0])).toBeUndefined();
-	});
+function expiredBody(ts: number = Date.now()): string {
+	return `{"status":"expired","expiration":0,"ts":${ts},` +
+		'"product-key":"","shiny-users":"0","users":"0","user-activity-days":"0",' +
+		'"allow-apis":"","days-left":0,"has-key":false,"has-trial":false,' +
+		'"license-scope":"","sessions":"0","enable-launcher":"0","max-repo-count":"0"}';
+}
 
+function digestOf(body: string, key: string = TEST_KEY): string {
+	return createHmac('sha256', Buffer.from(key, 'hex')).update(body).digest('base64');
+}
+
+/** The two LF-terminated lines the client writes per refresh. */
+function frameOf(body: string, key: string = TEST_KEY): string {
+	return `${digestOf(body, key)}\n${body}\n`;
+}
+
+const ACTIVATED_FRAME = frameOf(activatedBody());
+const EXPIRED_FRAME = frameOf(expiredBody());
+
+describe('parseLicenseManagerFrame', () => {
 	it('decodes an activated frame, coercing the string-encoded fields', () => {
 		// `users` arrives as "5" because of Go's `,string` struct tag, while
 		// `days-left` and `expiration` are plain JSON numbers.
-		expect(parseLicenseManagerLine(linesOf(ACTIVATED_FRAME)[1])).toMatchInlineSnapshot(`
+		const body = activatedBody();
+		expect(parseLicenseManagerFrame(digestOf(body), body, TEST_KEY)).toMatchInlineSnapshot(`
 			{
 			  "daysLeft": 7,
 			  "expirationMs": 9999999999000,
@@ -49,11 +57,43 @@ describe('parseLicenseManagerLine', () => {
 	});
 
 	it('decodes an expired frame', () => {
-		expect(parseLicenseManagerLine(linesOf(EXPIRED_FRAME)[1])?.status).toBe('expired');
+		const body = expiredBody();
+		expect(parseLicenseManagerFrame(digestOf(body), body, TEST_KEY)?.status).toBe('expired');
+	});
+
+	it('rejects a body that its own first line does not account for', () => {
+		const tampered = activatedBody().replace('"users":"5"', '"users":"500"');
+		expect(parseLicenseManagerFrame(digestOf(activatedBody()), tampered, TEST_KEY)).toBeUndefined();
+	});
+
+	it('rejects a frame produced with a different key', () => {
+		const body = activatedBody();
+		const otherKey = 'ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100';
+		expect(parseLicenseManagerFrame(digestOf(body, otherKey), body, TEST_KEY)).toBeUndefined();
+	});
+
+	it.each([
+		['no key', ''],
+		['a key that is not hex', 'not-hex'],
+		['a key with an odd number of digits', 'abc'],
+	])('rejects every frame given %s', (_label, key) => {
+		const body = activatedBody();
+		expect(parseLicenseManagerFrame(digestOf(body, TEST_KEY), body, key)).toBeUndefined();
+	});
+
+	it('rejects a first line that is not base64 at all', () => {
+		const body = activatedBody();
+		expect(parseLicenseManagerFrame('!!! not base64 !!!', body, TEST_KEY)).toBeUndefined();
+	});
+
+	it('rejects a body that is not from about now', () => {
+		const stale = activatedBody(Date.now() - 6 * 60_000);
+		expect(parseLicenseManagerFrame(digestOf(stale), stale, TEST_KEY)).toBeUndefined();
 	});
 
 	it('ignores a truncated JSON line rather than throwing', () => {
-		expect(parseLicenseManagerLine('{"status":"activa')).toBeUndefined();
+		const truncated = '{"status":"activa';
+		expect(parseLicenseManagerFrame(digestOf(truncated), truncated, TEST_KEY)).toBeUndefined();
 	});
 });
 
@@ -86,6 +126,7 @@ describe('LicenseManager', () => {
 		const manager = disposables.add(new LicenseManager({
 			binaryPath: '/fake/license-manager-aws-sagemaker',
 			onUnlicensed,
+			key: TEST_KEY,
 			graceMs: 10_000,
 			startupTimeoutMs: 60_000,
 			restartDelayMs: 5_000,
@@ -107,6 +148,18 @@ describe('LicenseManager', () => {
 		await flush();
 
 		await expect(started).resolves.toBe(true);
+	});
+
+	it('does not take a client at its word when the frame does not check out', async () => {
+		// A stand-in binary can claim anything; the claim has to be accounted for.
+		const { manager, clients } = createManager();
+
+		const started = manager.start();
+		clients[0].stdout.write(frameOf(activatedBody(), 'ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100'));
+		await flush();
+		vi.advanceTimersByTime(60_000);
+
+		await expect(started).resolves.toBe(false);
 	});
 
 	it('fails startup when the client never checks a seat out', async () => {
@@ -256,6 +309,7 @@ describe('LicenseManager (real child process)', () => {
 			binaryPath: process.execPath,
 			args: ['-e', script],
 			onUnlicensed: vi.fn(),
+			key: TEST_KEY,
 			startupTimeoutMs: 10_000,
 		}));
 
