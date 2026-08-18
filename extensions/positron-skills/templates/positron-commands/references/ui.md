@@ -23,9 +23,7 @@ console + terminal, variables + plots. This is the general-purpose default --
 use it when the user wants "the standard" or "normal" data science layout, or
 asks to see everything at once.
 
-**Arguments:** {{args:workbench.action.positronFourPaneDataScienceLayout}}
-
-**Returns:** {{returns:workbench.action.positronFourPaneDataScienceLayout}}
+{{command:workbench.action.positronFourPaneDataScienceLayout}}
 
 ### `workbench.action.positronNotebookLayout`
 
@@ -34,9 +32,7 @@ with the console panel hidden. Use when the user is primarily editing a
 notebook and wants more screen space, or explicitly asks for a
 notebook-focused layout.
 
-**Arguments:** {{args:workbench.action.positronNotebookLayout}}
-
-**Returns:** {{returns:workbench.action.positronNotebookLayout}}
+{{command:workbench.action.positronNotebookLayout}}
 
 ### `workbench.action.positronTwoPaneDataScienceLayout`
 
@@ -45,9 +41,7 @@ panel containing variables and plots. Use when the user wants to compare code
 and variables/plots side by side rather than stacked, e.g. "put the variables
 next to my code."
 
-**Arguments:** {{args:workbench.action.positronTwoPaneDataScienceLayout}}
-
-**Returns:** {{returns:workbench.action.positronTwoPaneDataScienceLayout}}
+{{command:workbench.action.positronTwoPaneDataScienceLayout}}
 
 ## Focusing a specific pane
 
@@ -68,27 +62,21 @@ the guidance below fills that gap.
 Focuses the Packages pane. Use after installing, updating, or removing
 packages, or whenever the user asks to see what's installed.
 
-**Arguments:** {{args:workbench.view.positronPackages.view.focus}}
-
-**Returns:** {{returns:workbench.view.positronPackages.view.focus}}
+{{command:workbench.view.positronPackages.view.focus}}
 
 ### `workbench.panel.positronConsole.focus`
 
 Focuses the Console pane. Use when the user wants to run code interactively,
 type at the prompt, or review console output/history directly.
 
-**Arguments:** {{args:workbench.panel.positronConsole.focus}}
-
-**Returns:** {{returns:workbench.panel.positronConsole.focus}}
+{{command:workbench.panel.positronConsole.focus}}
 
 ### `positronVariables.focus`
 
 Focuses the Variables pane. Use when the user wants to inspect current
 values/objects in the active session.
 
-**Arguments:** {{args:positronVariables.focus}}
-
-**Returns:** {{returns:positronVariables.focus}}
+{{command:positronVariables.focus}}
 
 ### `workbench.panel.positronHelp.focus`
 
@@ -97,18 +85,14 @@ documentation -- often right after a help lookup (see
 `positron.help.lookupHelpTopic` in [troubleshooting.md](troubleshooting.md))
 so they can see the result.
 
-**Arguments:** {{args:workbench.panel.positronHelp.focus}}
-
-**Returns:** {{returns:workbench.panel.positronHelp.focus}}
+{{command:workbench.panel.positronHelp.focus}}
 
 ### `workbench.panel.positronPlots.focus`
 
 Focuses the Plots pane. Use when the user wants to see a chart or plot that
 was just generated, or asks to switch to the plots view.
 
-**Arguments:** {{args:workbench.panel.positronPlots.focus}}
-
-**Returns:** {{returns:workbench.panel.positronPlots.focus}}
+{{command:workbench.panel.positronPlots.focus}}
 
 ## Console and Data Explorer view state
 
@@ -119,9 +103,7 @@ clear, wipe, or get a clean console before rerunning something. No precondition
 is set at the command level (there is a keybinding `when` clause, but it gates
 the keybinding, not the command itself) -- always enabled.
 
-**Arguments:** {{args:workbench.action.positronConsole.clearConsole}}
-
-**Returns:** {{returns:workbench.action.positronConsole.clearConsole}}
+{{command:workbench.action.positronConsole.clearConsole}}
 
 ### `workbench.action.positronDataExplorer.collapseSummary`
 
@@ -131,9 +113,7 @@ stats visible.
 
 Precondition: requires a Data Explorer editor to be the active editor.
 
-**Arguments:** {{args:workbench.action.positronDataExplorer.collapseSummary}}
-
-**Returns:** {{returns:workbench.action.positronDataExplorer.collapseSummary}}
+{{command:workbench.action.positronDataExplorer.collapseSummary}}
 
 ### `workbench.action.positronDataExplorer.expandSummary`
 
@@ -142,6 +122,4 @@ user wants to see per-column statistics/histograms again.
 
 Precondition: requires a Data Explorer editor to be the active editor.
 
-**Arguments:** {{args:workbench.action.positronDataExplorer.expandSummary}}
-
-**Returns:** {{returns:workbench.action.positronDataExplorer.expandSummary}}
+{{command:workbench.action.positronDataExplorer.expandSummary}}

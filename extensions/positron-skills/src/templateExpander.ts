@@ -9,9 +9,9 @@
  * untouched. The facts come from live command metadata, so they are never
  * hand-copied and cannot drift from the code.
  *
- * A template carries two directives, each naming a command id:
- *   {{args:some.command.id}}      -> renders the argument list, or "None."
- *   {{returns:some.command.id}}   -> renders the return description, or "None."
+ * A template carries one directive, naming a command id:
+ *   {{command:some.command.id}}   -> renders the command's Arguments and
+ *                                    Returns sections, labels included.
  *
  * Everything else in the template -- the when-to-use prose, the caveats the
  * metadata gets wrong -- is authored by hand and passes through verbatim.
@@ -48,8 +48,8 @@ export interface ExpandResult {
 	readonly unresolved: readonly string[];
 }
 
-/** Matches `{{args:ID}}` and `{{returns:ID}}`, capturing the kind and the id. */
-const DIRECTIVE = /\{\{(args|returns):([^}]+)\}\}/g;
+/** Matches `{{command:ID}}`, capturing the id. */
+const DIRECTIVE = /\{\{command:([^}]+)\}\}/g;
 
 /**
  * A compact, faithful type description for a schema, e.g. `boolean`,
@@ -98,24 +98,37 @@ function renderReturns(command: AgentCommand): string {
 }
 
 /**
+ * Render the Arguments and Returns sections for a command. Returns is always a
+ * single line, so its label sits inline; the argument list is multi-line when
+ * present, so its label gets its own line to avoid gluing the first bullet to
+ * the label.
+ */
+function renderCommand(command: AgentCommand): string {
+	const args = command.args?.length
+		? `**Arguments:**\n${renderArgs(command)}`
+		: '**Arguments:** None.';
+	return `${args}\n\n**Returns:** ${renderReturns(command)}`;
+}
+
+/**
  * Replace every directive in `template` with facts from `commandsById`. An id
- * with no matching command degrades to "None." (never a leaked `{{...}}`) and
- * is reported in {@link ExpandResult.unresolved} so the caller can treat it as
- * drift.
+ * with no matching command degrades to an empty section (never a leaked
+ * `{{...}}`) and is reported in {@link ExpandResult.unresolved} so the caller
+ * can treat it as drift.
  */
 export function expandTemplate(
 	template: string,
 	commandsById: ReadonlyMap<string, AgentCommand>,
 ): ExpandResult {
 	const unresolved = new Set<string>();
-	const text = template.replace(DIRECTIVE, (_match, kind: string, rawId: string) => {
+	const text = template.replace(DIRECTIVE, (_match, rawId: string) => {
 		const id = rawId.trim();
 		const command = commandsById.get(id);
 		if (!command) {
 			unresolved.add(id);
-			return 'None.';
+			return renderCommand({ id });
 		}
-		return kind === 'args' ? renderArgs(command) : renderReturns(command);
+		return renderCommand(command);
 	});
 	return { text, unresolved: [...unresolved] };
 }

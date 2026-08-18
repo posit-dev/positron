@@ -13,7 +13,7 @@ function commands(...list: AgentCommand[]): ReadonlyMap<string, AgentCommand> {
 suite('expandTemplate', () => {
 	test('a command with no arguments renders "None." and prose passes through', () => {
 		const result = expandTemplate(
-			'Focuses the console.\n\n**Arguments:** {{args:focus}}\n\n**Returns:** {{returns:focus}}',
+			'Focuses the console.\n\n{{command:focus}}',
 			commands({ id: 'focus' }),
 		);
 		assert.deepStrictEqual(result, {
@@ -26,8 +26,9 @@ suite('expandTemplate', () => {
 		// The metadata marks `focusOptions` required, but `preserveFocus` inside
 		// it is optional -- the rendered type must show that, since it is exactly
 		// the fact a literal reading of the top-level `required` flag gets wrong.
+		// The argument list gets its own line under the label, not glued inline.
 		const result = expandTemplate(
-			'{{args:pane.focus}}',
+			'{{command:pane.focus}}',
 			commands({
 				id: 'pane.focus',
 				args: [{
@@ -37,12 +38,15 @@ suite('expandTemplate', () => {
 				}],
 			}),
 		);
-		assert.strictEqual(result.text, '- `focusOptions` (object { preserveFocus?: boolean })');
+		assert.strictEqual(
+			result.text,
+			'**Arguments:**\n- `focusOptions` (object { preserveFocus?: boolean })\n\n**Returns:** None.',
+		);
 	});
 
 	test('a required scalar argument with a description, and a return value', () => {
 		const result = expandTemplate(
-			'**Arguments:**\n{{args:help.lookup}}\n**Returns:** {{returns:help.lookup}}',
+			'{{command:help.lookup}}',
 			commands({
 				id: 'help.lookup',
 				args: [{ name: 'topic', schema: { type: 'string' }, description: 'Symbol to look up' }],
@@ -50,29 +54,32 @@ suite('expandTemplate', () => {
 			}),
 		);
 		assert.deepStrictEqual(result, {
-			text: '**Arguments:**\n- `topic` (string): Symbol to look up\n**Returns:** An object with `found` and `message`.',
+			text: '**Arguments:**\n- `topic` (string): Symbol to look up\n\n**Returns:** An object with `found` and `message`.',
 			unresolved: [],
 		});
 	});
 
 	test('an optional argument is flagged, and enums render as their choices', () => {
 		const result = expandTemplate(
-			'{{args:x}}',
+			'{{command:x}}',
 			commands({
 				id: 'x',
 				args: [{ name: 'mode', required: false, schema: { enum: ['fast', 'slow'] } }],
 			}),
 		);
-		assert.strictEqual(result.text, '- `mode` ("fast" | "slow", optional)');
+		assert.strictEqual(
+			result.text,
+			'**Arguments:**\n- `mode` ("fast" | "slow", optional)\n\n**Returns:** None.',
+		);
 	});
 
-	test('an unknown command id degrades to "None." and is reported as unresolved', () => {
+	test('an unknown command id degrades to an empty section and is reported as unresolved', () => {
 		const result = expandTemplate(
-			'**Arguments:** {{args:gone}}\n**Returns:** {{returns:gone}}',
+			'{{command:gone}}',
 			commands(),
 		);
 		assert.deepStrictEqual(result, {
-			text: '**Arguments:** None.\n**Returns:** None.',
+			text: '**Arguments:** None.\n\n**Returns:** None.',
 			unresolved: ['gone'],
 		});
 	});

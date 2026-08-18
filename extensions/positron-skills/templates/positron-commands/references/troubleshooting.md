@@ -17,9 +17,7 @@ available. Positron only scans for interpreters at certain points, so a
 freshly installed R or Python environment may not appear until a rescan is
 forced. No precondition -- always enabled.
 
-**Arguments:** {{args:workbench.action.language.runtime.discoverAllRuntimes}}
-
-**Returns:** {{returns:workbench.action.language.runtime.discoverAllRuntimes}}
+{{command:workbench.action.language.runtime.discoverAllRuntimes}}
 
 ### `positron.startupDiagnostics.show`
 
@@ -29,9 +27,7 @@ interpreter, or when you need to show the user *why* discovery failed rather
 than just retrying blindly -- it displays the actual discovery log. No
 precondition -- always enabled.
 
-**Arguments:** {{args:positron.startupDiagnostics.show}}
-
-**Returns:** {{returns:positron.startupDiagnostics.show}}
+{{command:positron.startupDiagnostics.show}}
 
 **Worked flow -- "my R/Python interpreter isn't showing up":**
 
@@ -57,9 +53,7 @@ computation. Non-destructive: session state (variables, loaded packages) is
 preserved. Try this first when code appears stuck (an infinite loop, a
 long-running call the user wants to cancel). No precondition -- always enabled.
 
-**Arguments:** {{args:workbench.action.languageRuntime.interrupt}}
-
-**Returns:** {{returns:workbench.action.languageRuntime.interrupt}}
+{{command:workbench.action.languageRuntime.interrupt}}
 
 ### `workbench.action.language.runtime.restartActiveSession`
 
@@ -69,9 +63,7 @@ lost. Always tell the user this will happen before calling it, and prefer
 `interrupt` first when the goal is just to stop something running rather than
 to get a clean session. No precondition -- always enabled.
 
-**Arguments:** {{args:workbench.action.language.runtime.restartActiveSession}}
-
-**Returns:** {{returns:workbench.action.language.runtime.restartActiveSession}}
+{{command:workbench.action.language.runtime.restartActiveSession}}
 
 ## Managing packages
 
@@ -85,9 +77,7 @@ Precondition: the Packages pane must be enabled by configuration, and a
 package operation must currently be able to run (in practice, this generally
 requires an active runtime session).
 
-**Arguments:** {{args:positronPackages.refreshPackages}}
-
-**Returns:** {{returns:positronPackages.refreshPackages}}
+{{command:positronPackages.refreshPackages}}
 
 ### `positronPackages.updateAllPackages`
 
@@ -102,9 +92,7 @@ with the state-loss warning above.
 Precondition: same as `refreshPackages` -- Packages pane enabled and a package
 operation currently able to run.
 
-**Arguments:** {{args:positronPackages.updateAllPackages}}
-
-**Returns:** {{returns:positronPackages.updateAllPackages}}
+{{command:positronPackages.updateAllPackages}}
 
 ## Looking up help topics
 
@@ -123,6 +111,4 @@ language; relay the returned `message` rather than re-guessing the reason. To
 bring the Help pane into view after a lookup, use
 `workbench.panel.positronHelp.focus` from [ui.md](ui.md).
 
-**Arguments:** {{args:positron.help.lookupHelpTopic}}
-
-**Returns:** {{returns:positron.help.lookupHelpTopic}}
+{{command:positron.help.lookupHelpTopic}}

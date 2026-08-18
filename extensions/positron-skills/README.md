@@ -26,11 +26,11 @@ So the two are split:
   metadata is misleading) is authored by hand in the templates, keyed by command
   id.
 
-A template carries two directives, each naming a command id:
+A template carries one directive, naming a command id. It expands to the
+command's Arguments and Returns sections, labels included:
 
 ```
-**Arguments:** {{args:workbench.panel.positronConsole.focus}}
-**Returns:** {{returns:workbench.panel.positronConsole.focus}}
+{{command:workbench.panel.positronConsole.focus}}
 ```
 
 Everything else in a template is prose and passes through untouched.
@@ -42,7 +42,7 @@ On activation (`onStartupFinished`, gated on the `ai.enabled` setting):
 1. Read the bundled templates under `templates/`.
 2. Load command metadata, including commands disabled in the current UI state
    (so a Data Explorer command is documented even when no Data Explorer is open).
-3. Expand each `{{args:id}}` / `{{returns:id}}` directive.
+3. Expand each `{{command:id}}` directive.
 4. Write the result to `<globalStorage>/skills` and register it via
    `positron.ai.registerAgentSkillRoot`.
 
