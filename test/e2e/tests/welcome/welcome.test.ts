@@ -61,7 +61,10 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		await welcome.expectPageToBeVisible();
 		await welcome.seeAllWalkthroughsButton.click();
 
-		await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
+		// The banner runs `welcome.showAllWalkthroughs`, whose quick pick names
+		// itself in the placeholder rather than the title bar, so there is no
+		// title to assert on.
+		await quickInput.waitForQuickInputOpened({ timeout: 30000 });
 		await quickInput.expectQuickInputResultsToContain([
 			'Get Started with Positron',
 			'Migrating from VSCode to Positron',
