@@ -16,6 +16,7 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
  */
 interface TwoButtonFooterProps {
 	primaryButtonTitle: string;
+	primaryButtonDisabled?: boolean;
 	secondaryButtonTitle: string;
 	topBorder?: boolean;
 	onPrimaryButton: () => void;
@@ -30,7 +31,7 @@ interface TwoButtonFooterProps {
 export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
 	// Primary button.
 	const primaryButton = (
-		<FooterButton autoFocus default type='submit' onPressed={props.onPrimaryButton}>
+		<FooterButton autoFocus default disabled={props.primaryButtonDisabled} type='submit' onPressed={props.onPrimaryButton}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);

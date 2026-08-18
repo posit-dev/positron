@@ -4,41 +4,41 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './dataConnectionCodeEditor.css';
+import './editableCodeEditor.css';
 
 // React.
 import { Ref, useEffect, useImperativeHandle, useRef } from 'react';
 
 // Other dependencies.
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../../codeEditor/browser/simpleEditorOptions.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { CodeEditorWidget } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../../contrib/codeEditor/browser/simpleEditorOptions.js';
 
 /**
- * DataConnectionCodeEditorProps interface.
+ * EditableCodeEditorProps interface.
  */
-export interface DataConnectionCodeEditorProps {
+export interface EditableCodeEditorProps {
 	readonly code: string;
 	readonly languageId: string;
-	readonly ref: Ref<DataConnectionCodeEditorWidget>;
+	readonly ref: Ref<EditableCodeEditorWidget>;
 }
 
 /**
- * The imperative handle exposed by {@link DataConnectionCodeEditor}. Callers read the editor's
- * current code through this rather than tracking the buffer in React state.
+ * The imperative handle exposed by {@link EditableCodeEditor}. Callers read the editor's current
+ * code through this rather than tracking the buffer in React state.
  */
-export interface DataConnectionCodeEditorWidget {
+export interface EditableCodeEditorWidget {
 	getCode(): string;
 }
 
 /**
- * Data Connection Code Editor component. Renders an always-editable Monaco editor seeded with the
- * given code and language, which are fixed for the lifetime of the component. Callers read the live
- * buffer via the imperative handle's getCode(); to show different code (e.g. a different variant),
- * mount a fresh instance with a distinct `key`.
+ * Editable Code Editor component. Renders an always-editable Monaco editor seeded with the given
+ * code and language, which are fixed for the lifetime of the component. Callers read the live
+ * buffer via the imperative handle's getCode(); to show different code, mount a fresh instance
+ * with a distinct `key`.
  */
-export const DataConnectionCodeEditor = (props: DataConnectionCodeEditorProps) => {
+export const EditableCodeEditor = (props: EditableCodeEditorProps) => {
 	// Get services.
 	const services = usePositronReactServicesContext();
 
@@ -73,7 +73,7 @@ export const DataConnectionCodeEditor = (props: DataConnectionCodeEditorProps) =
 			containerRef.current,
 			{
 				...getSimpleEditorOptions(services.configurationService),
-				// The data connection code editor is always editable.
+				// The editable code editor is, as the name says, always editable.
 				readOnly: false,
 				domReadOnly: false,
 				// Vertical breathing room lives inside the editor (rather than as container padding)
@@ -105,5 +105,5 @@ export const DataConnectionCodeEditor = (props: DataConnectionCodeEditorProps) =
 	}, []);
 
 	// Render the container for the editor.
-	return <div ref={containerRef} className='data-connection-code-editor' />;
+	return <div ref={containerRef} className='editable-code-editor' />;
 };

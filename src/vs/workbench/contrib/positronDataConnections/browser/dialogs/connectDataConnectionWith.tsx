@@ -20,7 +20,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { DataConnectionCodeEditor, DataConnectionCodeEditorWidget } from '../components/dataConnectionCodeEditor.js';
+import { EditableCodeEditor, EditableCodeEditorWidget } from '../../../../browser/positronComponents/editableCodeEditor/editableCodeEditor.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { IDataConnectionCodeVariant, IDataConnectionDriver, isSecretParameter, resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
@@ -105,7 +105,7 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 	// Get services.
 	const services = usePositronReactServicesContext();
 
-	const editorRef = useRef<DataConnectionCodeEditorWidget>(undefined!);
+	const editorRef = useRef<EditableCodeEditorWidget>(undefined!);
 
 	// Whether the connection's mechanism has any secret parameters (e.g. a password) whose values we
 	// keep out of the generated code unless the user opts in. Falls back to the first mechanism for
@@ -283,7 +283,7 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 						</div>
 					}
 					<div className='code'>
-						<DataConnectionCodeEditor
+						<EditableCodeEditor
 							// The editor seeds its content once on mount, so key on the code itself to
 							// remount whenever the displayed code changes -- switching variants or
 							// toggling secret values both alter the code.
@@ -291,7 +291,7 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 							ref={editorRef}
 							code={selectedVariant.code}
 							languageId={props.languageId}
-						></DataConnectionCodeEditor>
+						></EditableCodeEditor>
 					</div>
 				</div>
 			}
