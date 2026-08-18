@@ -84,8 +84,12 @@ These hold on both entries unless a line names one.
 - **Claude Code**, run from a **Positron** checkout: the scripts resolve the repo
   root from their own location and keep triage state in the shared git dir.
 - On PATH: `node` and `git`. The CI entry additionally needs `gh`
-  (authenticated) and `unzip` -- neither is required by the local entry, which
-  is why it also works on Windows, where there is no `unzip`.
+  (authenticated); the local entry needs neither `gh` nor a network.
+- Both entries run on Windows. The one step that does not is escalating into the
+  `e2e-failure-analyzer` scripts, which shell out to `unzip`
+  ([`references/evidence-escalation.md`](references/evidence-escalation.md)).
+  Nothing in this skill needs `unzip`: local evidence reads traces with `yauzl`
+  instead.
 - **CI entry only:** `E2E_INSIGHTS_API_KEY` set, or present in the repo-root `.env.e2e` (the query
   script falls back to it automatically). Get it from 1Password at
   `op://Positron/E2E_dashboard_api_key/credential`; without 1Password access, ask

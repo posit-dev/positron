@@ -162,6 +162,23 @@ test/unit/reporter.js
 # --- Start Positron ---
 # Positron-specific JS files and resources follow.
 
+.claude/skills/debug-e2e-test/scripts/checkpoint.js
+.claude/skills/debug-e2e-test/scripts/collect-local-evidence.js
+.claude/skills/debug-e2e-test/scripts/fetch-pattern-evidence.js
+.claude/skills/debug-e2e-test/scripts/find-prior-triage.js
+.claude/skills/debug-e2e-test/scripts/lib.js
+.claude/skills/debug-e2e-test/scripts/record-diagnosis.js
+.claude/skills/debug-e2e-test/scripts/resolve-test-key.js
+.claude/skills/debug-e2e-test/scripts/test/checkpoint.test.js
+.claude/skills/debug-e2e-test/scripts/test/cli-flags.test.js
+.claude/skills/debug-e2e-test/scripts/test/evidence-summary.test.js
+.claude/skills/debug-e2e-test/scripts/test/history-merge.test.js
+.claude/skills/debug-e2e-test/scripts/test/lib.test.js
+.claude/skills/debug-e2e-test/scripts/test/local-evidence.test.js
+.claude/skills/debug-e2e-test/scripts/test/prior-triage-lib.test.js
+.claude/skills/debug-e2e-test/scripts/test/record-diagnosis.test.js
+.claude/skills/debug-e2e-test/scripts/test/resolve-test-key.test.js
+.claude/skills/debug-e2e-test/scripts/triage-history.js
 .claude/skills/e2e-failure-analyzer/scripts/e2e-extract-failures.js
 .claude/skills/e2e-failure-analyzer/scripts/e2e-gather-run-info.js
 .claude/skills/e2e-failure-analyzer/scripts/e2e-inspect-blobs.js
