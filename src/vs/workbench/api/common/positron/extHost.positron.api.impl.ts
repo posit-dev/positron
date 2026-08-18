@@ -112,9 +112,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?, executionMetadata?): Thenable<Record<string, unknown>> {
+			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?, executionMetadata?, attributionMetadata?): Thenable<Record<string, unknown>> {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri, executionMetadata);
+				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri, executionMetadata, attributionMetadata);
 			},
 			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string, whenBusy?: positron.RuntimeBusyBehavior): Thenable<positron.EvalResult> {
 				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId, whenBusy);

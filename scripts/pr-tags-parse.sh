@@ -45,13 +45,13 @@ if echo "$PR_BODY" | grep -q "@:web"; then
 	echo "Found web tag in PR body. Setting to run web tests."
 	echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
-if echo "$PR_BODY" | grep -q "@:rhel-electron"; then
-	echo "Found RHEL electron tag in PR body. Setting to run RHEL electron tests."
-	echo "rhel_electron_tag_found=true" >> "$GITHUB_OUTPUT"
+if echo "$PR_BODY" | grep -q "@:rocky-electron"; then
+	echo "Found Rocky electron tag in PR body. Setting to run Rocky electron tests."
+	echo "rocky_electron_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
-if echo "$PR_BODY" | grep -q "@:rhel-web"; then
-	echo "Found RHEL web tag in PR body. Setting to run RHEL web tests."
-	echo "rhel_web_tag_found=true" >> "$GITHUB_OUTPUT"
+if echo "$PR_BODY" | grep -q "@:rocky-web"; then
+	echo "Found Rocky web tag in PR body. Setting to run Rocky web tests."
+	echo "rocky_web_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
 if echo "$PR_BODY" | grep -q "@:suse-electron"; then
 	echo "Found SUSE electron tag in PR body. Setting to run SUSE electron tests."

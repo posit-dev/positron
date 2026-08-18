@@ -90,7 +90,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
-	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>): Promise<string>;
+	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>): Promise<string>;
 	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;

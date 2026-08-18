@@ -11,7 +11,7 @@ arm64 Workbench package for RHEL 8** (the dailies feed has `rhel8-x86_64` only),
 so a Rocky 8 Workbench stack can only run emulated on Apple Silicon. RHEL 9 has
 both arches on both channels, which keeps the local development loop native.
 
-`rocky_8/` and `test-e2e-rhel.yml` are unaffected.
+`rocky_8/` and `test-e2e-rocky.yml` are unaffected.
 
 ## What this image includes
 

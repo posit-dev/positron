@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './positronPackagesCommands.js';
+import './positronPackagesInspectActions.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
@@ -33,17 +35,12 @@ import { IPositronPackagesService } from './interfaces/positronPackagesService.j
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
 import { PACKAGES_VULNERABILITIES_SOURCE_SETTING } from './packageVulnerabilityLookup.js';
-import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
+import { PACKAGES_CAN_RUN_ACTION, PACKAGES_ENABLED_KEY, PACKAGES_ENABLED_LEGACY_KEY, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ENABLED, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
 export const POSITRON_PACKAGES_VIEW_CONTAINER_ID = 'workbench.viewContainer.positronPackages';
-
-const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.and(
-	ContextKeyExpr.equals('config.packages.enabled', true),
-	ContextKeyExpr.equals('config.positron.packages.enable', true),
-)!;
 
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_PACKAGES_VIEW_CONTAINER_ID,
@@ -91,14 +88,14 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	type: 'object',
 	title: nls.localize('packagesConfigurationTitle', 'Packages'),
 	properties: {
-		'packages.enabled': {
+		[PACKAGES_ENABLED_KEY]: {
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: nls.localize('positron.packages.enabled', 'Show the Packages pane.'),
 			tags: ['preview'],
 		},
-		'positron.packages.enable': {
+		[PACKAGES_ENABLED_LEGACY_KEY]: {
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,

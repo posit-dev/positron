@@ -29,13 +29,13 @@ expect exactly one test, #15509's. The lane is PR-tag-triggered, so it blocks
 nobody meanwhile. Full evidence in
 [Step 5's results](#step-5----run-the-real-suite-locally-against-rocky-done).
 
-`test-e2e-rhel.yml` still pins `positron-rocky8:24.15.0`; repointing it is a
+`test-e2e-rocky.yml` still pins `positron-rocky8:24.15.0`; repointing it is a
 separate PR.
 
 ## Target: Rocky 9, not Rocky 8
 
 We already have `docker/images/rocky_8/` (published as
-`ghcr.io/posit-dev/positron-rocky8:24.15.0`, used by `test-e2e-rhel.yml`), so
+`ghcr.io/posit-dev/positron-rocky8:24.15.0`, used by `test-e2e-rocky.yml`), so
 Rocky 8 looks like the path of least resistance. It isn't, for one reason:
 
 **Posit publishes no arm64 Workbench package for RHEL 8.** The dailies feed has
@@ -52,7 +52,7 @@ for, because Step 4 (triaging the real suite) is where the calendar time goes an
 it is the step that needs a fast loop.
 
 So the project starts with a new `docker/images/rocky_9/` image, ported from
-`rocky_8/`. `positron-rocky8` and `test-e2e-rhel.yml` are left untouched.
+`rocky_8/`. `positron-rocky8` and `test-e2e-rocky.yml` are left untouched.
 
 ## What already exists (and what that buys us)
 
@@ -1017,7 +1017,7 @@ Surfaced by this work, roughly in order of value:
 - **Teach `update-ci-images` to bump consumers of a published tag**, not just
   `NODE_VERSION` in the image-build compose files. `wb_os_image` drifting from the
   Compose default (24.15.0 vs 24.18.0) came from exactly that gap, and the same
-  gap covers `test-e2e-rhel.yml`'s pin and the ci-arm lab images.
+  gap covers `test-e2e-rocky.yml`'s pin and the ci-arm lab images.
 - **Track [#15509](https://github.com/posit-dev/positron/issues/15509)** and drop
   the `@:environment-modules` Python failure from the expected-failures list once
   it lands. The issue carries two comments on how to test it so it fails on Ubuntu
@@ -1029,5 +1029,5 @@ From the original plan:
 - The Rocky 9 Dockerfile simplifications (drop the source GEOS/GDAL/libgit2
   builds and `gcc-toolset-13`).
 - Add the credential shards to the Rocky lane.
-- Consider migrating `test-e2e-rhel.yml` from `positron-rocky8` to
+- Consider migrating `test-e2e-rocky.yml` from `positron-rocky8` to
   `positron-rocky9` so we maintain one Rocky image, not two.

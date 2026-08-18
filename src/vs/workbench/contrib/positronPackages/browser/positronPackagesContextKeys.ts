@@ -8,6 +8,12 @@ import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/c
 // View ID
 export const POSITRON_PACKAGES_VIEW_ID = 'workbench.view.positronPackages.view';
 
+// The settings that turn the Packages pane on. `positron.packages.enable` is
+// the deprecated spelling of `packages.enabled`; both have to be true, so a
+// user who turned the pane off through either one stays off.
+export const PACKAGES_ENABLED_KEY = 'packages.enabled';
+export const PACKAGES_ENABLED_LEGACY_KEY = 'positron.packages.enable';
+
 // Context keys for the packages view
 export const POSITRON_PACKAGES_HAS_ACTIVE_SESSION = new RawContextKey<boolean>('positronPackages.hasActiveSession', false);
 export const POSITRON_PACKAGES_IS_BUSY = new RawContextKey<boolean>('positronPackages.isBusy', false);
@@ -18,6 +24,10 @@ export type PackagesItemSize = 'card' | 'row';
 export const POSITRON_PACKAGES_ITEM_SIZE = new RawContextKey<PackagesItemSize>('positronPackages.itemSize', 'card');
 
 // Context key expressions for menu enablement
+export const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.and(
+	ContextKeyExpr.equals(`config.${PACKAGES_ENABLED_KEY}`, true),
+	ContextKeyExpr.equals(`config.${PACKAGES_ENABLED_LEGACY_KEY}`, true),
+)!;
 export const PACKAGES_VIEW_VISIBLE = ContextKeyExpr.equals('view', POSITRON_PACKAGES_VIEW_ID);
 export const PACKAGES_CAN_RUN_ACTION = ContextKeyExpr.and(
 	POSITRON_PACKAGES_HAS_ACTIVE_SESSION,

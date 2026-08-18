@@ -78,6 +78,7 @@ const HelpLines = [
 	'flicker          - Simulates a flickering console prompt',
 	'help             - Shows this help',
 	'html             - Simulates HTML output',
+	'listen X         - Prints each code execution event (via onDidExecuteCode) until interrupted or X events occur (default X = 10)',
 	'modal            - Simulates a simple modal dialog',
 	'offline          - Simulates going offline for two seconds',
 	'plot X           - Renders a dynamic (auto-sizing) plot of the letter X',
@@ -202,6 +203,18 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * Disposable for the active `console watch` subscription; undefined when not watching.
 	 */
 	private _consoleWatchDisposable: vscode.Disposable | undefined;
+
+	/**
+	 * Subscription to `onDidExecuteCode` for the active `listen` command;
+	 * undefined when not listening.
+	 */
+	private _listenDisposable: vscode.Disposable | undefined;
+
+	/**
+	 * Callback that ends the active `listen` command (on completion or
+	 * interrupt); undefined when not listening.
+	 */
+	private _listenFinish: ((reason: string) => void) | undefined;
 
 	/**
 	 * The number of seconds by which a shutdown should be delayed. This is used
@@ -488,6 +501,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			const subcommand = match[1];
 			const arg = (match.length > 2 && match[2] !== undefined) ? match[2] : '';
 			this.simulateConsoleEditorCommand(id, code, subcommand, arg);
+			return;
+		} else if (match = code.match(/^listen(?: +([1-9][0-9]*))?$/)) {
+			// Listen for code execution events, defaulting to 10 events.
+			const limit = match[1] ? parseInt(match[1], 10) : 10;
+			this.simulateListen(id, code, limit);
 			return;
 		}
 
@@ -1289,6 +1307,12 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * Interrupts the runtime.
 	 */
 	async interrupt(): Promise<void> {
+		// If a `listen` command is running, interrupting stops the listener.
+		if (this._listenFinish) {
+			this._listenFinish('Interrupted.');
+			return;
+		}
+
 		if (this._busyTimer && this._state === positron.RuntimeState.Busy) {
 			if (this._busyOperationId) {
 				// Return to idle state.
@@ -2282,6 +2306,71 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 				this._ui.markBusy(false);
 			}
 		}, durationSeconds * 1000);
+	}
+
+	/**
+	 * Listens for code execution events via `positron.runtime.onDidExecuteCode`
+	 * and prints each one as formatted JSON with a timestamp header. Runs until
+	 * interrupted or until `limit` events have been observed, whichever comes
+	 * first. The runtime stays busy while listening so the operation can be
+	 * interrupted.
+	 *
+	 * @param parentId The parent identifier (the execution ID of the `listen` command).
+	 * @param code The originating command text.
+	 * @param limit The number of events to observe before stopping.
+	 */
+	private simulateListen(parentId: string, code: string, limit: number) {
+		if (this._listenDisposable) {
+			this.simulateSuccessfulCodeExecution(parentId, code,
+				`Already listening for code execution events; interrupt to stop.`);
+			return;
+		}
+
+		// Enter the busy state and echo the command.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+		this.simulateOutputMessage(parentId,
+			`Listening for ${limit} code execution event(s). Interrupt to stop early.\n`);
+		if (this._ui) {
+			this._ui.markBusy(true);
+		}
+		this._busyOperationId = parentId;
+		this._resourceUsage.cpu_percent = 25;
+
+		let count = 0;
+
+		// Ends the listener; idempotent so completion and interrupt can't collide.
+		const finish = (reason: string) => {
+			if (!this._listenDisposable) {
+				return;
+			}
+			this._listenDisposable.dispose();
+			this._listenDisposable = undefined;
+			this._listenFinish = undefined;
+			this.simulateOutputMessage(parentId, `${reason} Observed ${count} event(s).\n`);
+			this.simulateIdleState(parentId);
+			this._busyOperationId = undefined;
+			this._resourceUsage.cpu_percent = 0;
+			if (this._ui) {
+				this._ui.markBusy(false);
+			}
+		};
+		this._listenFinish = finish;
+
+		this._listenDisposable = positron.runtime.onDidExecuteCode((event) => {
+			// Skip the event for the `listen` command itself.
+			if (event.executionId === parentId) {
+				return;
+			}
+			count++;
+			this.simulateOutputMessage(parentId,
+				`--- ${new Date().toISOString()} (event ${count} of ${limit}) ---\n` +
+				`${JSON.stringify(event, null, 2)}\n`);
+			if (count >= limit) {
+				finish('Done listening.');
+			}
+		});
+		this.context.subscriptions.push(this._listenDisposable);
 	}
 
 	/**
