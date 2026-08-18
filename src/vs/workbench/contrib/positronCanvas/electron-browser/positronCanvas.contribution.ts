@@ -41,16 +41,16 @@ registerSingleton(IPositronCanvasService, PositronCanvasService, InstantiationTy
 /**
  * Display label of Posit Assistant's output channel, matched at click time to
  * route "Show Logs" to the channel that explains a Canvas startup failure.
- * Part of the cross-repo seam (../README.md): an assistant-side rename of the
- * channel silently reroutes Show Logs to the window log until this catches up.
+ * Part of the cross-repo seam (../README.md).
  */
 const ASSISTANT_OUTPUT_CHANNEL_LABEL = 'Posit Assistant';
 
 /**
- * Enters Canvas mode from a forwarded `--canvas` launch and the Canvas editor's
- * action bar. The assistant owns palette discovery, so Positron stays dormant
- * when the installed assistant does not provide Canvas. Both entry points land
- * on the same service call; this action adds the presentation of not getting in.
+ * Enters Canvas mode from a forwarded `--canvas` launch and the Canvas
+ * editor's action bar. Same service call as `positron.canvas.enter`; this
+ * action adds the presentation of not getting in. The assistant owns palette
+ * discovery, so Positron stays dormant when the installed assistant does not
+ * provide Canvas.
  */
 class OpenCanvasAction extends Action2 {
 
@@ -91,9 +91,8 @@ class OpenCanvasAction extends Action2 {
 }
 
 /**
- * Leaves Canvas mode for the full IDE. Deliberately unbound: Escape is pressed
- * constantly in a chat UI, and a chord that swaps the whole product surface is
- * worse than no shortcut. The way out is Canvas's own "Open Positron" control.
+ * Leaves Canvas mode for the full IDE. Deliberately unbound (see ../README.md);
+ * the user-facing way out is Canvas's own "Open Positron" control.
  */
 class ExitCanvasModeAction extends Action2 {
 
@@ -136,11 +135,10 @@ CommandsRegistry.registerCommand('positron.canvas.isActive', (accessor: Services
 
 /**
  * Boots the window straight into Canvas mode, behind a curtain: without one
- * the user watches the IDE paint and restore for seconds first, and a startup
- * failure would have no usable IDE to notify into. Instantiated only for
- * windows actually booting into Canvas, so the services the boot path leans
- * on (output, workspace trust, the Canvas service itself) are not constructed
- * in every window of every launch.
+ * the user watches the IDE paint and restore first, and a startup failure
+ * would have no usable IDE to notify into. Instantiated only for windows
+ * actually booting into Canvas, so the boot path's services are not
+ * constructed in every window of every launch.
  */
 class CanvasStartupBoot extends Disposable {
 
@@ -151,10 +149,9 @@ class CanvasStartupBoot extends Disposable {
 	private cancelled = false;
 
 	/**
-	 * Latched once the trust gate has resolved: the decision (a declined
-	 * prompt included) holds for the session, and re-running the gate on a
-	 * curtain Retry would wait out the full initiation grace again, reading
-	 * as a hang.
+	 * Latched once the trust gate has resolved: the decision holds for the
+	 * session, and re-running the gate on a curtain Retry would wait out the
+	 * full initiation grace again, reading as a hang.
 	 */
 	private trustDecisionSettled = false;
 
@@ -179,9 +176,6 @@ class CanvasStartupBoot extends Disposable {
 		const presenter = this._register(new CanvasStartupPresenter(
 			this.layoutService.mainContainer,
 			() => this.enterFromStartup(),
-			// Cancelling is the whole of "Open Positron": it clears the
-			// durable intent, and its IDE-restoring steps are safe no-ops
-			// when Canvas never came up.
 			() => this.recoverMainWindow(),
 			() => this.showLogs(),
 			() => this.hostService.shutdown(),
@@ -196,13 +190,9 @@ class CanvasStartupBoot extends Disposable {
 		this.cancelled = false;
 
 		if (!this.trustDecisionSettled) {
-			// The workspace trust decision must land before Canvas covers
-			// the IDE: the trust startup prompt renders in this main
-			// window, which Canvas mode hides, and an undecided
-			// workspace holds back trust-gated extensions - including the
-			// auth providers behind the Canvas model picker. The prompt
-			// shows over the curtain (dialogs render above it) and the
-			// gate resolves on either answer.
+			// The trust decision must land before Canvas covers the IDE; see
+			// positronCanvasTrustGate.ts. The prompt shows over the curtain
+			// (dialogs render above it) and the gate resolves on either answer.
 			await awaitWorkspaceTrustDecisionForCanvas({
 				configurationService: this.configurationService,
 				contextService: this.contextService,
@@ -216,14 +206,13 @@ class CanvasStartupBoot extends Disposable {
 			this.trustDecisionSettled = true;
 		}
 
-		// Wait for editors, not merely the restored phase (which races
-		// a short timeout): entering early would find no restored
-		// Canvas panel and create a second one.
+		// Wait for editors, not merely the restored phase (which races a
+		// short timeout): entering early would find no restored Canvas panel
+		// and create a second one.
 		await this.editorGroupsService.whenRestored;
 
 		// The gates above park this callback while the user can cancel into
-		// the IDE, and `enter()` captures its exit generation only once
-		// called: entering now would re-acquire the freed engagement and
+		// the IDE; entering now would re-acquire the freed engagement and
 		// hide the IDE seconds after the user asked for it.
 		if (this.cancelled) {
 			return {
@@ -235,8 +224,7 @@ class CanvasStartupBoot extends Disposable {
 
 		const outcome = await this.canvasService.enter();
 		if (!outcome.entered) {
-			// A restored Canvas window this entry never adopted (entry failed
-			// or was cancelled before the adoption step) must not stay
+			// A restored Canvas window this entry never adopted must not stay
 			// floating, chromeless, beside the IDE the user lands in.
 			void this.sweepRestoredWindows();
 		}
@@ -264,9 +252,8 @@ class CanvasStartupBoot extends Disposable {
 
 	/**
 	 * Lands the user on the output that explains the failure: the assistant's
-	 * channel when it registered one, the window log (where [canvas] entries
-	 * go) otherwise. Resolved at click time because the assistant's channel
-	 * appears only once the extension has run.
+	 * channel when it registered one, the window log otherwise. Resolved at
+	 * click time because the channel appears only once the extension has run.
 	 */
 	private async showLogs(): Promise<void> {
 		const assistantChannel = this.outputService.getChannelDescriptors().find(descriptor => descriptor.label === ASSISTANT_OUTPUT_CHANNEL_LABEL);
@@ -277,9 +264,8 @@ class CanvasStartupBoot extends Disposable {
 /**
  * Decides what a starting window does about Canvas: boot straight into it, or
  * make sure no restored Canvas window is left floating next to a plain IDE.
- * Kept light on purpose - it runs at BlockRestore in every window, so the
- * Canvas boot machinery hangs off `CanvasStartupBoot`, built only when the
- * decision says to boot into Canvas.
+ * Runs at BlockRestore in every window, so it stays light; the boot machinery
+ * hangs off `CanvasStartupBoot`.
  */
 class PositronCanvasStartupContribution extends Disposable implements IWorkbenchContribution {
 
@@ -298,14 +284,11 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 	) {
 		super();
 
-		// Flag: launch into Canvas once. Setting: a Canvas workspace. Stored
-		// intent: the workspace was in Canvas mode when it last stopped.
-		// `shouldStartInCanvasMode` owns their precedence; exit clears only
-		// the stored intent, never the configuration. The setting comes from
-		// `inspect()` because an explicit `false` must override the intent.
+		// `shouldStartInCanvasMode` owns the signals' precedence. The setting
+		// comes from `inspect()` because an explicit `false` must override
+		// the stored intent.
 		const setting = configurationService.inspect<boolean>(CANVAS_OPEN_ON_STARTUP_KEY);
 		const signals: ICanvasStartSignals = {
-			// Read live: `ai.enabled` toggles without a window reload.
 			aiEnabled: configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false,
 			engagedElsewhere: environmentService.standaloneModeEngagedElsewhere,
 			canvasFlag: environmentService.args.canvas === true,
@@ -313,28 +296,24 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 			storedIntent: storageService.getBoolean(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE, false)
 		};
 
-		// Runs at BlockRestore to get in front of the workbench; a single
-		// await before the curtain element is in the DOM reintroduces the IDE
-		// flash it exists to prevent.
+		// No await before this point: the curtain must be in the DOM before
+		// the workbench paints, or the IDE flashes first.
 		if (shouldStartInCanvasMode(signals)) {
 			this._register(instantiationService.createInstance(CanvasStartupBoot));
 			return;
 		}
 
-		// A stored intent this window declined to honor (setting or ai.enabled
-		// veto) would boot a later launch into Canvas after the veto lifts;
-		// clear it now. Not when engaged elsewhere: the intent belongs to the
-		// window presenting this workspace's Canvas, as in enter()'s outcome
-		// handling.
+		// A stored intent this window declined to honor (setting or
+		// ai.enabled veto) would boot a later launch into Canvas after the
+		// veto lifts; clear it now. Not when engaged elsewhere: the intent
+		// belongs to the window presenting this workspace's Canvas.
 		if (signals.storedIntent && !signals.engagedElsewhere) {
 			storageService.remove(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
 		}
 
 		if (signals.canvasFlag) {
-			// The flag was an explicit ask; a window-level veto must not
-			// answer it with a silent plain IDE window when the
-			// reused-window path (OpenCanvasAction) notifies for the same
-			// outcome.
+			// The flag was an explicit ask; a veto must not answer it with a
+			// silent plain IDE window.
 			notificationService.error(!signals.aiEnabled
 				? localize('positron.canvas.flagAiDisabled', "Canvas is unavailable because AI features are disabled.")
 				: localize('positron.canvas.flagEngagedElsewhere', "Canvas is already open in another Positron window."));

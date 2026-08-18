@@ -900,14 +900,10 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		}
 
 		// --- Start Positron ---
-		// Decide up front which of these windows a `--canvas` launch lands
-		// on: the requested window for a CLI/API open, or the last-active
-		// window for a session restore (kept last by
-		// `doGetPathsFromLastSession`). Window configurations are built in
-		// workspaces -> folders -> empty order below, so deciding at
-		// configuration-build time would hand Canvas to an arbitrary window.
-		// Primed before the `restoreWindows: 'preserve'` block prepends
-		// restored paths, so a requested open keeps its target.
+		// Decide up front which of these windows a `--canvas` launch lands on
+		// (see `CanvasLaunchWindowAssigner`), before the `restoreWindows:
+		// 'preserve'` block prepends restored paths, so a requested open
+		// keeps its target.
 		this.canvasLaunchWindowAssigner.prime(openConfig.cli, pathsToOpen, isRestoringPaths);
 		// --- End Positron ---
 

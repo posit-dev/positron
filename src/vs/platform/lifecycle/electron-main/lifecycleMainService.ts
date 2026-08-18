@@ -683,14 +683,11 @@ export class LifecycleMainService extends Disposable implements ILifecycleMainSe
 
 		const args = process.argv.slice(1);
 		// --- Start Positron ---
-		// `--canvas` applies to the launch that carried it, and that launch
-		// consumed it. A relaunch (update restart, argv.json change) replaying
-		// it would boot back into Canvas against an explicit Canvas exit;
-		// quit-in-Canvas re-entry rides the stored intent instead. Scrub every
-		// form the parser accepts: `--canvas`, `--canvas=<value>`, and the
-		// bare `true`/`false` value minimist consumes after a bare `--canvas`
-		// (left in place it would become a positional path arg). Tokens at or
-		// after the first `--` are positional paths, not options: leave them.
+		// A relaunch (update restart, argv.json change) replaying `--canvas`
+		// would boot back into Canvas against an explicit Canvas exit; scrub
+		// every form the parser accepts (`--canvas`, `--canvas=<value>`, and
+		// the bare `true`/`false` minimist consumes after `--canvas`), but
+		// leave positional tokens at or after the first `--` alone.
 		const endOfOptions = args.indexOf('--');
 		const scrubEnd = endOfOptions === -1 ? args.length : endOfOptions;
 		for (let i = scrubEnd - 1; i >= 0; i--) {

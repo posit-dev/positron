@@ -17,14 +17,12 @@ export const POSITRON_STANDALONE_MODE_CHANNEL_NAME = 'positronStandaloneMode';
 export interface IPositronStandaloneModeState {
 	/**
 	 * Atomically claim the mode for a window. Resolves `true` when the window
-	 * now holds the engagement, including when it already held it, so re-entry
-	 * in the engaged window stays legitimate. Resolves `false`, and changes
-	 * nothing, when another window holds it.
+	 * now holds the engagement (including when it already held it), `false`
+	 * and changes nothing when another window holds it.
 	 *
 	 * @param exitCommandId the workbench command that leaves the mode in the
-	 * engaging window. Declared at acquire time so the main process can ask
-	 * the mode to stand down (for an externally requested open) without
-	 * knowing which feature engaged it.
+	 * engaging window; declared at acquire time so the main process can ask
+	 * the mode to stand down without knowing which feature engaged it.
 	 */
 	acquire(windowId: number, exitCommandId: string): Promise<boolean>;
 
@@ -52,10 +50,8 @@ export interface IPositronStandaloneModeMainService extends IPositronStandaloneM
 
 	/**
 	 * Route an externally requested open. While engaged, `exitMode` is asked
-	 * to run the engagement's declared exit
-	 * command in the engaged window, and `open` waits for the engagement to
-	 * actually release -- bounded by `EXTERNAL_OPEN_EXIT_WAIT` so an
-	 * unresponsive window cannot swallow the user's open.
+	 * to run the engagement's declared exit command in the engaged window,
+	 * and `open` waits for the release, bounded by `EXTERNAL_OPEN_EXIT_WAIT`.
 	 */
 	handleExternalOpen(open: () => void, exitMode: (engagedWindowId: number, exitCommandId: string) => void): Promise<void>;
 }

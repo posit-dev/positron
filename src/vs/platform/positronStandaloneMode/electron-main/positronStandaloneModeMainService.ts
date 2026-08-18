@@ -34,12 +34,10 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 		super();
 
 		// A window that goes away without releasing its claim must not leave
-		// the mode engaged forever. Reload, a dead renderer, and a failed
-		// main-frame load keep the BrowserWindow while discarding the renderer
-		// that held the claim, so all four paths release; a reloaded window
-		// re-enters through its restored intent. Watched per window because
-		// the bundled electron typings expose no application-level closed
-		// event.
+		// the mode engaged forever: close, reload, a dead renderer, and a
+		// failed main-frame load all discard the renderer that held the
+		// claim, so all four release. Watched per window because the bundled
+		// electron typings expose no application-level closed event.
 		const onWindowCreated = (_event: Electron.Event, window: BrowserWindow) => {
 			const windowId = window.id;
 			const releaseIfHeld = () => {
@@ -101,18 +99,15 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 	}
 
 	/**
-	 * The mode OS-hides the IDE window; a claim that drops before the renderer
-	 * reveals it (reload, dead renderer, failed load) would otherwise leave the
-	 * product with no visible window at all. A clean exit reveals first, so the
-	 * show is a no-op there. Skipped while quitting so the release fired by
+	 * The mode OS-hides the IDE window; a claim that drops before the
+	 * renderer reveals it (reload, dead renderer, failed load) would leave
+	 * the product with no visible window at all. Skipped while quitting so
 	 * shutdown teardown does not flash the window on the way out.
 	 *
-	 * A hide still in flight when the claim drops (paused on the fullscreen
-	 * transition, window still visible, so the show below is skipped) is not
-	 * handled here: the native host listens to onDidChange and abandons such
-	 * hides. It cannot be injected here without a DI cycle through
-	 * IWindowsMainService, so onDidChange firing on every release, even with
-	 * the window visible, is part of this service's contract.
+	 * A hide still in flight when the claim drops is not handled here: the
+	 * native host listens to onDidChange and abandons such hides (it cannot
+	 * be injected here without a DI cycle), so onDidChange firing on every
+	 * release, even with the window visible, is part of the contract.
 	 */
 	private revealIfHidden(windowId: number): void {
 		if (this.lifecycleMainService.quitRequested) {
@@ -136,7 +131,7 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 		exitMode(engagement.windowId, engagement.exitCommandId);
 
 		// Opening into a reused window can reload the very renderer still
-		// running the exit, so wait for the claim to drop, but never indefinitely.
+		// running the exit; wait for the claim to drop, but never indefinitely.
 		if (!await this.waitForRelease(EXTERNAL_OPEN_EXIT_WAIT)) {
 			this.logService.warn(`[standalone mode] Not released within ${EXTERNAL_OPEN_EXIT_WAIT}ms; opening anyway`);
 		}

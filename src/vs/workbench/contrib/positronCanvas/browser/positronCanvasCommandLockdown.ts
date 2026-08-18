@@ -9,22 +9,19 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keyb
 import { PositronCanvasModeActiveContext } from '../common/positronCanvasMode.js';
 
 /**
- * Swallowed chords resolve to this no-op instead of their commands, so the
- * keys are consumed rather than falling through to whatever sits under the
- * webview (a removal rule cannot carry a `when` clause). Deliberately outside
- * the pinned `positron.canvas.*` seam namespace: this command is internal.
+ * Swallowed chords resolve to this no-op so the keys are consumed rather
+ * than falling through (a removal rule cannot carry a `when` clause).
+ * Internal, so outside the pinned `positron.canvas.*` seam namespace.
  */
 const SUPPRESSED_KEY_COMMAND = 'positronCanvasLockdown.suppressedKey';
 
 /**
- * Keeps the IDE's command surface out of reach while Canvas mode is active: a
- * narrow deny list of the escapes demonstrated in smoke testing (palette,
- * quick open, new/opened editors, new windows), gated on
- * `PositronCanvasModeActiveContext`, not a policy layer over all commands.
- * The chords mirror the denied commands' default bindings; a custom user
- * binding is deliberately respected as an explicit instruction. The native
- * menu is trimmed separately (Menubar#install), and OS-level opens are routed
- * in the main process (LaunchMainService).
+ * Keeps the IDE's command surface out of reach while Canvas mode is active:
+ * a narrow deny list of demonstrated escapes, not a policy layer over all
+ * commands. The chords mirror the denied commands' default bindings; a
+ * custom user binding is deliberately respected as an explicit instruction.
+ * The native menu is trimmed separately (Menubar#install), and OS-level
+ * opens are routed in the main process (LaunchMainService).
  */
 export function registerCanvasCommandLockdown(): void {
 	CommandsRegistry.registerCommand(SUPPRESSED_KEY_COMMAND, () => { });
@@ -63,9 +60,8 @@ export function registerCanvasCommandLockdown(): void {
 		KeybindingsRegistry.registerKeybindingRule({
 			...keybinding,
 			id: SUPPRESSED_KEY_COMMAND,
-			// Above the denied commands' own WorkbenchContrib-weight rules, so
-			// this rule wins while its `when` holds without depending on
-			// registration order.
+			// Above the denied commands' own WorkbenchContrib-weight rules,
+			// independent of registration order.
 			weight: KeybindingWeight.WorkbenchContrib + 50,
 			when: PositronCanvasModeActiveContext
 		});

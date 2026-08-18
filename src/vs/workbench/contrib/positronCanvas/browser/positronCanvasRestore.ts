@@ -34,15 +34,12 @@ export interface ICanvasRestoreSweepServices {
 }
 
 /**
- * A window not presenting Canvas must not sit next to a live Canvas window,
- * yet layout restore brings one back whenever the previous session quit in
- * Canvas mode. Merge such a window's Canvas back into the IDE as an inline
- * tab (the conversation survives; the emptied window closes itself).
- * Recognized by the `lockCompact` trait, which only Canvas mode sets and
- * which survives restore -- a Canvas panel the user popped out by hand lacks
- * the trait and is left where they put it. Idempotent: called on IDE boots
- * and again after a boot-into-Canvas entry that failed before adopting the
- * restored window.
+ * Layout restore brings back a dedicated Canvas window whenever the previous
+ * session quit in Canvas mode; a window not presenting Canvas must not sit
+ * next to one. Merge its Canvas back into the IDE as an inline tab (the
+ * conversation survives; the emptied window closes itself). Recognized by
+ * the `lockCompact` trait, which only Canvas mode sets; a Canvas the user
+ * popped out by hand lacks it and is left alone. Idempotent.
  */
 export async function sweepRestoredCanvasWindows(services: ICanvasRestoreSweepServices): Promise<void> {
 	const { auxiliaryWindowService, editorGroupsService, layoutService, logService } = services;

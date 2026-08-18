@@ -163,10 +163,7 @@ export class LaunchMainService implements ILaunchMainService {
 			// --- Start Positron ---
 			// A bare relaunch while standalone mode is engaged means "bring
 			// Positron forward", and the product surface is the engaged
-			// window. This covers `--canvas` too: falling through would open
-			// a fresh IDE window beside the engaged Canvas on platforms whose
-			// argumentless default is a new window, and the engaged window IS
-			// the Canvas being asked for.
+			// window; falling through could open a fresh IDE window beside it.
 			if (this.positronStandaloneModeMainService.isEngaged) {
 				this.logService.info('[standalone mode] Focusing the engaged window for an argumentless launch');
 				const lastActiveAuxiliaryWindow = this.auxiliaryWindowsMainService.getLastActiveWindow();
@@ -265,12 +262,10 @@ export class LaunchMainService implements ILaunchMainService {
 		}
 
 		// --- Start Positron ---
-		// A freshly opened window consumed the flag off `args` when its
-		// configuration was built (`CanvasLaunchWindowAssigner.assign`) and
-		// enters through its own startup contribution. The flag still being
-		// set here means the launch only reused windows, whose renderers
-		// consumed their startup arguments long ago, so they learn about the
-		// forwarded `--canvas` as an action instead.
+		// A freshly opened window consumed the flag off `args`
+		// (`CanvasLaunchWindowAssigner.assign`) and enters through its own
+		// startup contribution. The flag still set here means the launch only
+		// reused windows, which learn about `--canvas` as an action instead.
 		if (args.canvas) {
 			const canvasWindow = selectCanvasLaunchWindow(usedWindows, this.windowsMainService.getLastActiveWindow());
 			if (canvasWindow) {

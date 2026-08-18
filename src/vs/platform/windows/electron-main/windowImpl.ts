@@ -1375,10 +1375,9 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		// restored through workspace storage, so a later explicit exit sticks.
 		delete configuration.canvas;
 
-		// The engagement stamp describes open time; a reload happens later, so
-		// refresh it. Otherwise a window opened while the mode was engaged
-		// elsewhere would stay locked out after that engagement ended, for as
-		// long as it only ever reloaded.
+		// Refresh the open-time engagement stamp: a window opened while the
+		// mode was engaged elsewhere must not stay locked out across reloads
+		// after that engagement ended.
 		configuration.standaloneModeEngagedElsewhere = this.positronStandaloneModeMainService.isEngagedElsewhere(this.id);
 		// --- End Positron ---
 

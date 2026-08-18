@@ -5,10 +5,9 @@
 
 /**
  * Webview panel view type of a Posit Assistant Canvas panel -- the whole of
- * Canvas-panel identity. Comparing a `WebviewInput.providerId` against it is
- * the declared way to recognize a Canvas, synchronously and without activating
- * the extension. Lives in workbench/common (not the positronCanvas contrib)
- * because the editor part needs it too and cannot import from contrib. Part of
- * the cross-repo seam documented in contrib/positronCanvas/README.md.
+ * Canvas-panel identity; comparing a `WebviewInput.providerId` against it is
+ * the declared way to recognize a Canvas. Lives in workbench/common because
+ * the editor part needs it too and cannot import from contrib. Part of the
+ * cross-repo seam documented in contrib/positronCanvas/README.md.
  */
 export const CANVAS_WEBVIEW_VIEW_TYPE = 'posit-assistant.canvas';

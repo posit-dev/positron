@@ -14,20 +14,15 @@ import { CanvasEntryOutcome } from '../common/positronCanvasMode.js';
 /**
  * Workbench children that can be appended after the curtain goes up yet
  * render beneath it: they must go inert on arrival or Tab and screen readers
- * land on invisible controls. Deliberately narrow - dialogs and context views
- * render above the curtain (the workspace trust prompt must stay answerable)
- * and must not be matched.
+ * land on invisible controls. Deliberately narrow: dialogs and context views
+ * render above the curtain and must not be matched.
  */
 const LATE_COVERED_SELECTOR = '.notifications-toasts, .quick-input-widget';
 
 /**
- * Appends one accessible Canvas curtain to a workbench container.
- *
- * The curtain covers the workbench visually, but the workbench's children
- * stay in the accessibility tree and the tab order unless marked inert here;
- * covered containers appended later (see `LATE_COVERED_SELECTOR`) are marked
- * as they arrive. Call the returned `release` when the curtain comes down to
- * restore them.
+ * Appends one accessible Canvas curtain to a workbench container, marking
+ * the covered children inert so they leave the accessibility tree and tab
+ * order. Call the returned `release` when the curtain comes down.
  */
 function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElement; release: () => void } {
 	const element = container.ownerDocument.createElement('div');
@@ -35,9 +30,9 @@ function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElem
 	element.setAttribute('role', 'status');
 	element.setAttribute('aria-live', 'polite');
 
-	// Each covered element's prior inert value, restored on release: another
-	// component may own an element's inert state, and release clobbering it
-	// to false would re-enable what that component disabled.
+	// Prior inert values, restored on release: another component may own an
+	// element's inert state, and clobbering it to false would re-enable what
+	// that component disabled.
 	const covered = new Map<HTMLElement, boolean>();
 	for (const sibling of Array.from(container.children).filter(isHTMLElement)) {
 		covered.set(sibling, sibling.inert);
@@ -150,9 +145,9 @@ class CanvasStartupCurtain extends Disposable {
 	}
 
 	private async start(): Promise<void> {
-		// `recovering` blocks a Retry clicked while "Open Positron" or "Show
-		// Logs" is mid-recovery: the recovery is about to dispose the curtain,
-		// and the retried entry would then re-hide the IDE with no curtain up.
+		// `recovering` blocks a Retry clicked mid-recovery: the recovery is
+		// about to dispose the curtain, and the retried entry would re-hide
+		// the IDE with no curtain up.
 		if (this.running || this.recovering || this.disposed) {
 			return;
 		}
@@ -169,19 +164,16 @@ class CanvasStartupCurtain extends Disposable {
 			}
 			if (outcome.reason === 'superseded') {
 				// The IDE was asked for mid-entry and is being revealed; a
-				// failure card over it would demand a second "Open Positron"
-				// for a decision the user already made.
+				// failure card would demand a second "Open Positron" for a
+				// decision the user already made.
 				this.logService.info('[canvas] Standalone startup stood down: the IDE was requested while Canvas was opening');
 				this.dispose();
 				return;
 			}
 			if (outcome.reason === 'engaged-elsewhere') {
-				// Another window won the engagement (restored windows can
-				// share one stored intent, and each window's opening
-				// configuration snapshots the engagement before any renderer
-				// can claim it). Canvas IS being presented, so this window
-				// stands down to a plain IDE rather than raising a failure
-				// card on every such relaunch.
+				// Another window won the engagement, so Canvas IS being
+				// presented; stand down to a plain IDE rather than raising a
+				// failure card on every such relaunch.
 				this.logService.info('[canvas] Standalone startup stood down: Canvas is already presented by another window');
 				this.dispose();
 				return;
@@ -201,9 +193,7 @@ class CanvasStartupCurtain extends Disposable {
 
 	private showLoading(): void {
 		// Loading announces itself politely, but stays cancellable: entry can
-		// take a while (extension activation plus the assistant's own ensure
-		// deadline), and the user must not be trapped behind the curtain for
-		// its whole duration.
+		// take a while, and the user must not be trapped behind the curtain.
 		this.element.setAttribute('aria-busy', 'true');
 		this.element.setAttribute('role', 'status');
 		this.element.setAttribute('aria-live', 'polite');
@@ -223,9 +213,8 @@ class CanvasStartupCurtain extends Disposable {
 
 	private showFailure(detail: string): void {
 		this.element.setAttribute('aria-busy', 'false');
-		// Failure needs the user to act (Retry, Open Positron, Quit), so it is a
-		// dialog rather than a status update: screen readers move focus to it
-		// instead of merely announcing it.
+		// Failure needs the user to act, so it is a dialog rather than a
+		// status update: screen readers move focus to it.
 		this.element.setAttribute('role', 'dialog');
 		this.element.setAttribute('aria-modal', 'true');
 		this.element.removeAttribute('aria-live');
@@ -252,9 +241,8 @@ class CanvasStartupCurtain extends Disposable {
 
 	/**
 	 * Available during loading as well as failure: recovering the main window
-	 * supersedes an in-flight entry (`exit()` bumps the generation the entry
-	 * checks), so cancelling mid-load is the same operation as leaving a
-	 * failure card.
+	 * supersedes an in-flight entry, so cancelling mid-load is the same
+	 * operation as leaving a failure card.
 	 */
 	private async openPositron(withLogs = false): Promise<void> {
 		if (this.recovering || this.disposed) {
@@ -272,9 +260,8 @@ class CanvasStartupCurtain extends Disposable {
 			this.recovering = false;
 		}
 
-		// The IDE is back; the curtain must not outlive it, showing the logs
-		// included - a failure there must not strand the curtain (and its
-		// inert marks) over a recovered IDE.
+		// The IDE is back; the curtain (and its inert marks) must not outlive
+		// it, a Show Logs failure included.
 		this.dispose();
 		if (withLogs) {
 			try {

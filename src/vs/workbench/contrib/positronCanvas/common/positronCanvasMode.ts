@@ -47,14 +47,11 @@ export interface ICanvasStartSignals {
 
 /**
  * Whether a window should boot straight into Canvas mode. Two window-level
- * vetoes beat every entry signal: `ai.enabled` off (the in-service gate only
- * fires behind the startup curtain, which would then show its failure card on
- * every launch), and the mode engaged in another window (stored intent is
- * shared per workspace, so a second window would otherwise re-enter on its
- * own). Then precedence: a fresh `--canvas` always wins; an explicitly
- * configured `canvas.openOnStartup` beats the stored intent in both
- * directions; the stored intent then makes "relaunch into whatever you quit
- * in" true.
+ * vetoes beat every entry signal: `ai.enabled` off, and the mode engaged in
+ * another window. Then precedence: a fresh `--canvas` always wins; an
+ * explicitly configured `canvas.openOnStartup` beats the stored intent in
+ * both directions; the stored intent then makes "relaunch into whatever you
+ * quit in" true.
  */
 export function shouldStartInCanvasMode(signals: ICanvasStartSignals): boolean {
 	if (!signals.aiEnabled || signals.engagedElsewhere) {
@@ -100,9 +97,7 @@ export const PositronCanvasModeActiveContext = new RawContextKey<boolean>('posit
 /**
  * Command id of the action that exits Canvas mode; part of the pinned
  * `positron.canvas.*` seam (../README.md). Also declared to the main process
- * as standalone mode's exit command at engagement time, so an externally
- * requested open can ask Canvas to stand down without the main process
- * knowing about Canvas.
+ * as standalone mode's exit command at engagement time.
  */
 export const CANVAS_EXIT_COMMAND_ID = 'positron.canvas.exit';
 

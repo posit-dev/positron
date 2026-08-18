@@ -641,10 +641,8 @@ export class CodeApplication extends Disposable {
 						// --- End Positron ---
 						context: OpenContext.DOCK /* can also be opening from finder while app is running */,
 						// --- Start Positron ---
-						// A Finder or Dock open must not inherit a
-						// not-yet-consumed `--canvas`: this open can race
-						// startup, and the live args would let it re-prime or
-						// consume the initial launch's flag.
+						// A Finder or Dock open can race startup and must not
+						// re-prime or consume the initial launch's `--canvas`.
 						// cli: this.environmentMainService.args,
 						cli: { ...this.environmentMainService.args, canvas: undefined },
 						// --- End Positron ---
@@ -821,16 +819,13 @@ export class CodeApplication extends Disposable {
 		// --- End Positron ---
 
 		// --- Start Positron ---
-		// `--canvas` applies to the launch, not the process: every later window
-		// is built from these same args, so a flag left set would outrank an
-		// explicit Canvas exit for the rest of the run. The targeted startup
-		// window consumed it when its configuration was built
-		// (`CanvasLaunchWindowAssigner.assign`). The flag still set here means
-		// the target never got a fresh window (e.g. file-only paths absorbed
-		// into a restored window under `window.restoreWindows`), and unlike a
-		// second instance there is no launch service to forward the flag, so
-		// forward it here the same way, targeting only the windows this
-		// startup opened. The delete stays as the backstop either way.
+		// The flag still set here means the targeted startup window never got
+		// a fresh window that would consume it (`CanvasLaunchWindowAssigner`),
+		// e.g. file-only paths absorbed into a restored window; forward it as
+		// an action like LaunchMainService does for a second instance. The
+		// delete is the backstop either way: `--canvas` applies to the launch,
+		// not the process, and a flag left on the live args would outrank an
+		// explicit Canvas exit for the rest of the run.
 		if (this.environmentMainService.args.canvas && this.windowsMainService) {
 			const canvasWindow = selectCanvasLaunchWindow(firstWindows, this.windowsMainService.getLastActiveWindow());
 			if (canvasWindow) {

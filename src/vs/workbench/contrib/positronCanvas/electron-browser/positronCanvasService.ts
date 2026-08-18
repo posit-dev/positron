@@ -32,17 +32,13 @@ import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
 import { mergeCanvasGroupIntoIde } from '../browser/positronCanvasRestore.js';
 import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, PositronCanvasModeActiveContext } from '../common/positronCanvasMode.js';
 
-/**
- * Posit Assistant's command to open a Canvas panel as an ordinary editor --
- * the only thing core needs from the extension.
- */
+/** Posit Assistant's command to open a Canvas panel as an ordinary editor. */
 const CANVAS_ENSURE_COMMAND = 'posit-assistant.ensureCanvas';
 
 /**
- * Cap on waiting for the assistant to produce a panel. `executeCommand`
- * blocks unboundedly on extension activation; the command itself settles
+ * Cap on waiting for the assistant to produce a panel: the command settles
  * within the assistant's own 14s ensure deadline, so this only adds headroom
- * for activation.
+ * for extension activation (which `executeCommand` blocks on unboundedly).
  */
 const CANVAS_ENSURE_TIMEOUT = 20_000;
 
@@ -61,24 +57,18 @@ export interface IPositronCanvasService {
 
 	/**
 	 * Present Canvas as the whole product: one conversation in a standalone
-	 * window, IDE window out of the way. Absorbs every starting position and
-	 * concurrent callers; never leaves the user with no visible window.
-	 * Resolves an outcome rather than throwing for known non-entry cases,
-	 * because how a non-entry is shown depends on who asked (startup curtain,
-	 * palette notification, or the assistant across the command seam).
+	 * window, IDE window out of the way. Resolves an outcome rather than
+	 * throwing for known non-entry cases, because presentation belongs to the
+	 * caller (startup curtain, palette notification, or the assistant).
 	 */
 	enter(): Promise<CanvasEntryOutcome>;
 
-	/**
-	 * Whether Canvas is currently the only surface the user can see. Gates
-	 * the Canvas UI's "Open Positron" control.
-	 */
+	/** Whether Canvas is currently the only surface the user can see. */
 	readonly isActive: boolean;
 
 	/**
 	 * Hand the user back to the full IDE, moving the live conversation into
-	 * it rather than throwing it away. Resolves `true` only when it actually
-	 * left Canvas mode; the assistant treats anything else as a failed exit.
+	 * it. Resolves `true` only when it actually left Canvas mode.
 	 */
 	exit(): Promise<boolean>;
 }
@@ -96,8 +86,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	private readonly modeActiveContext: IContextKey<boolean>;
 
 	/**
-	 * Where the main process hears about the engagement, so it can keep other
-	 * windows out, trim the native menus, and route external opens; see
+	 * Where the main process hears about the engagement; see
 	 * `IPositronStandaloneModeMainService`.
 	 */
 	private readonly standaloneModeChannel: PositronStandaloneModeChannelClient;
@@ -116,9 +105,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	private ideWindowHidden = false;
 
 	/**
-	 * Native ids of the auxiliary editor windows put away on Canvas's behalf,
-	 * so exit re-shows exactly these and never a window the user put away
-	 * some other way.
+	 * Auxiliary editor windows put away on Canvas's behalf, so exit re-shows
+	 * exactly these and never a window the user put away some other way.
 	 */
 	private readonly hiddenAuxWindowIds = new Set<number>();
 
@@ -126,26 +114,23 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	private entering: Promise<CanvasEntryOutcome> | undefined;
 
 	/**
-	 * In-flight `exit()`; concurrent callers coalesce onto it. An exit is a
-	 * window transaction (reveal, merge, release); an entry starting inside
-	 * one would adopt the group the exit's merge is about to yank back and
-	 * hold an engagement the exit's finally then releases, so `doEnter()`
-	 * waits this out first.
+	 * In-flight `exit()`. An entry starting inside an exit would adopt the
+	 * group the exit's merge is about to yank back, so `doEnter()` waits
+	 * this out first.
 	 */
 	private exiting: Promise<boolean> | undefined;
 
 	/**
 	 * Identity of the newest entry attempt. An exit detaches an in-flight
-	 * entry rather than waiting for it, so a newer entry can be underway
-	 * while a superseded one is still settling; only the newest attempt may
-	 * release the engagement or move windows around on its way out.
+	 * entry rather than waiting for it; only the newest attempt may release
+	 * the engagement or move windows around on its way out.
 	 */
 	private currentEntryAttempt: object | undefined;
 
 	/**
-	 * Bumped by every `exit()`. Entry is a sequence of awaits; one that
-	 * resumes after an exit landed inside it would silently undo the exit, so
-	 * `doEnter()` captures the count and rechecks it after each await.
+	 * Bumped by every `exit()`. An entry that resumes after an exit landed
+	 * inside it would silently undo the exit, so `doEnter()` captures the
+	 * count and rechecks it after each await.
 	 */
 	private exitGeneration = 0;
 
@@ -171,14 +156,13 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 	/**
 	 * Claim the application-wide engagement before any entry work. The main
-	 * process decides atomically, so of two racing windows exactly one
-	 * proceeds. Idempotent for the holder, which keeps re-entry legitimate.
+	 * process decides atomically; idempotent for the holder, which keeps
+	 * re-entry legitimate.
 	 */
 	private async acquireEngagement(): Promise<boolean> {
 		try {
 			// The exit command travels with the claim, so the main process can
-			// ask Canvas to stand down for an external open without knowing
-			// about Canvas.
+			// ask Canvas to stand down without knowing about Canvas.
 			const granted = await this.standaloneModeChannel.acquire(mainWindow.vscodeWindowId, CANVAS_EXIT_COMMAND_ID);
 			this.engagementHeld = this.engagementHeld || granted;
 			return granted;
@@ -203,44 +187,29 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			.catch(error => this.logService.error('[canvas] Could not release Canvas mode with the main process', error));
 	}
 
-	/**
-	 * Release after an entry that did not end presenting. Guarded: a failed
-	 * re-entry must not drop the claim of the Canvas still being presented.
-	 */
-	private releaseEngagementUnlessPresenting(): void {
-		if (this.canvasWindow.value === undefined) {
-			this.releaseEngagement();
-		}
-	}
-
 	enter(): Promise<CanvasEntryOutcome> {
 		if (!this.entering) {
 			const entering = this.doEnter().then(outcome => {
-				// A failed entry means Canvas is not on screen, which is what
-				// the stored intent records; leaving it set would boot every
-				// later launch into the failure card. 'superseded' keeps it:
-				// during shutdown the intent is the "quit in Canvas" record
-				// itself, and an explicit exit already cleared it.
-				// 'engaged-elsewhere' keeps it too: it belongs to the window
-				// that is presenting this workspace's Canvas.
+				// A failed entry means Canvas is not on screen; leaving the
+				// stored intent set would boot every later launch into the
+				// failure card. 'superseded' keeps it (during shutdown it is
+				// the "quit in Canvas" record; an explicit exit already
+				// cleared it), as does 'engaged-elsewhere' (it belongs to the
+				// window presenting this workspace's Canvas).
 				if (!outcome.entered && outcome.reason !== 'superseded' && outcome.reason !== 'engaged-elsewhere') {
 					this.setCanvasModeIntent(false);
 				}
 				return outcome;
 			}, error => {
-				// A rejected entry equally means Canvas is not on screen;
-				// leaving the intent set would boot every later launch back
-				// into the failing curtain. Guarded like `onWillDispose`: a
-				// teardown rejection during a quit in Canvas must not erase
-				// the quit record.
+				// Same for a rejected entry, except during a quit in Canvas:
+				// a teardown rejection must not erase the quit record.
 				if (!this.lifecycleService.willShutdown) {
 					this.setCanvasModeIntent(false);
 				}
 				throw error;
 			}).finally(() => {
-				// Guarded: `exit()` detaches a doomed in-flight entry by
-				// clearing `entering`, and this must not wipe out a fresh
-				// entry that started while the doomed one was still settling.
+				// Guarded: `exit()` detaches a doomed in-flight entry, and
+				// this must not wipe out a fresh entry started since.
 				if (this.entering === entering) {
 					this.entering = undefined;
 				}
@@ -251,16 +220,12 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	private async doEnter(): Promise<CanvasEntryOutcome> {
-		// Captured synchronously, after the in-flight exit's bump but before
-		// any exit that arrives while this entry waits below: those newer
-		// requests must retire this entry, the awaited one must not.
+		// Wait out an in-flight exit, but only an exit arriving after this
+		// call may retire the entry: capture the generation synchronously,
+		// past the in-flight exit's bump. No deadlock: exit never awaits an
+		// entry, and the hide-failure exit inside `doEnterEngaged` starts
+		// while this entry is already past this point.
 		const generationAtRequest = this.exitGeneration;
-
-		// Waited out before the main generation capture, so the awaited
-		// exit's bump does not supersede this entry. Only settlement matters
-		// here; the exit's own caller handles its rejection. No deadlock:
-		// exit never awaits an entry, and the hide-failure exit inside
-		// `doEnterEngaged` starts while this entry is already past this point.
 		while (this.exiting) {
 			await this.exiting.catch(() => { });
 		}
@@ -269,8 +234,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			return supersededOutcome;
 		}
 
-		// Read live: `ai.enabled` toggles without a reload, and it must hold
-		// even for a workspace configured to boot into Canvas.
+		// Read live: `ai.enabled` toggles without a reload.
 		if (this.configurationService.getValue<boolean>(AI_ENABLED_KEY) === false) {
 			this.logService.info('[canvas] Not entering Canvas mode: ai.enabled is false');
 			return {
@@ -286,8 +250,6 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		const attempt = {};
 		this.currentEntryAttempt = attempt;
 
-		// Claimed before any other await, so no second window can start an
-		// entry between here and the Canvas window appearing.
 		if (!await this.acquireEngagement()) {
 			return {
 				entered: false,
@@ -299,10 +261,11 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		try {
 			return await this.doEnterEngaged(generation, attempt);
 		} finally {
-			// Token-guarded: a superseded attempt settling here would
-			// otherwise give back the claim a newer entry has re-acquired.
-			if (this.currentEntryAttempt === attempt) {
-				this.releaseEngagementUnlessPresenting();
+			// Token-guarded: a superseded attempt settling here must not give
+			// back the claim a newer entry has re-acquired. Presenting keeps
+			// the claim: a failed re-entry must not drop the live Canvas's.
+			if (this.currentEntryAttempt === attempt && this.canvasWindow.value === undefined) {
+				this.releaseEngagement();
 			}
 		}
 	}
@@ -327,10 +290,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			};
 		}
 
-		// Only a window carrying the locked-compact trait is a dedicated
-		// Canvas window (ours, or a restore's, which comes back with the
-		// trait intact). A panel in the IDE window, or one the user dragged
-		// into a plain auxiliary window, moves into a fresh dedicated window.
+		// A panel in the IDE window, or one the user dragged into a plain
+		// auxiliary window, moves into a fresh dedicated window.
 		const part = this.editorGroupsService.getPart(canvas.group);
 		const canvasWindow = this.isDedicatedCanvasWindow(part)
 			? { part, group: canvas.group }
@@ -358,12 +319,11 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		} catch (error) {
 			this.logService.error('[canvas] Could not put the IDE window away; leaving Canvas mode', error);
 			if (this.currentEntryAttempt !== attempt) {
-				// A newer entry owns the windows now; its own hide or unwind
-				// decides what shows.
+				// A newer entry owns the windows now.
 				return supersededOutcome;
 			}
-			// A visible IDE next to Canvas is recoverable; a committed entry
-			// over a failed hide is not, so run the normal merge-back transaction.
+			// A committed entry over a failed hide is not recoverable; run
+			// the normal merge-back transaction.
 			await this.exit();
 			return {
 				entered: false,
@@ -374,9 +334,9 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 		if (superseded()) {
 			this.logService.info('[canvas] Abandoning entry: Canvas went away while the IDE window was being put away');
-			// The exit already unwound everything, but its reveal may have
-			// raced the hide in flight here; reveal unconditionally -- unless
-			// a newer entry started since and may have hidden the IDE again.
+			// The exit's reveal may have raced the hide in flight here;
+			// reveal unconditionally, unless a newer entry started since and
+			// may have hidden the IDE again.
 			if (this.currentEntryAttempt === attempt) {
 				await this.revealIdeWindow(true);
 			}
@@ -391,12 +351,9 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	exit(): Promise<boolean> {
-		// Coalesce onto the exit in flight: a second transaction could settle
-		// first and clear `this.exiting`, freeing `enter()` to start while
-		// the first exit still owns a captured Canvas group. Still an
-		// operative "I want the IDE", so like `doExit()` it retires an entry
-		// queued behind the in-flight exit (the bump) and detaches it so a
-		// later `enter()` starts fresh instead of coalescing onto it.
+		// Coalesce onto the exit in flight. Still an operative "I want the
+		// IDE": like `doExit()`, retire and detach any entry queued behind
+		// the in-flight exit so a later `enter()` starts fresh.
 		if (this.exiting) {
 			this.exitGeneration++;
 			this.entering = undefined;
@@ -413,12 +370,9 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	private async doExit(): Promise<boolean> {
 		this.logService.info(`[canvas] Exiting Canvas mode (${this.canvasWindow.value !== undefined ? 'presenting' : 'not presenting'})`);
 
-		// Retires any entry still in flight, before anything it could race with.
+		// Retire any entry still in flight and detach it so a later `enter()`
+		// starts fresh instead of coalescing onto a doomed promise.
 		this.exitGeneration++;
-
-		// Detach the doomed entry so an `enter()` issued after this exit
-		// starts fresh instead of coalescing onto a promise that can only
-		// resolve 'superseded' (it can dangle up to the ensure timeout).
 		this.entering = undefined;
 
 		const canvasGroup = this.canvasGroup;
@@ -435,16 +389,15 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		this.stopPresenting();
 
 		try {
-			// Show the IDE before moving anything into it: the move focuses its
-			// target, and focusing a group in an off-screen window leaves the
-			// user with no visible focused window.
+			// Show the IDE before moving anything into it: the move focuses
+			// its target, and focusing a group in an off-screen window leaves
+			// the user with no visible focused window.
 			await this.revealIdeWindow();
 
 			if (canvasGroup) {
 				mergeCanvasGroupIntoIde(canvasGroup, this.editorGroupsService.mainPart.activeGroup, this.editorGroupsService, this.logService);
 
-				// The editor area auto-hides when its last editor leaves, so an
-				// IDE window that had only Canvas open comes back without one.
+				// The editor area auto-hides when its last editor leaves.
 				// Only when the merge happened: an exit with nothing to merge
 				// must not override an editor area the user hid deliberately.
 				this.layoutService.setPartHidden(false, Parts.EDITOR_PART);
@@ -453,10 +406,9 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		} finally {
 			// Released only after the reveal and merge: the main process
 			// treats the release as "exit complete" and lets a waiting
-			// external open reuse this window, which must not reload a window
-			// that is still hidden. Still on every path -- an exit landing
-			// inside an in-flight entry with no Canvas window up must not
-			// leave the early claim behind.
+			// external open reuse this window, which must not still be
+			// hidden. On every path, so an exit landing inside an in-flight
+			// entry does not leave the early claim behind.
 			this.releaseEngagement();
 		}
 
@@ -472,8 +424,6 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		const found: ICanvasEditor[] = [];
 
 		for (const group of this.editorGroupsService.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE)) {
-			// `group.editors` is tab order; only `getEditors(MOST_RECENTLY_ACTIVE)`
-			// orders within a group.
 			for (const editor of group.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
 				if (editor instanceof WebviewInput && editor.providerId === CANVAS_WEBVIEW_VIEW_TYPE) {
 					found.push({ group, editor });
@@ -491,9 +441,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	private async ensureCanvasEditor(): Promise<ICanvasEditor | undefined> {
-		// `raceTimeout` resolves undefined on timeout and when the command
-		// resolves undefined (which it always does); only the callback can
-		// tell them apart.
+		// `raceTimeout` resolves undefined on timeout and on completion (the
+		// command always resolves undefined); only the callback tells them apart.
 		let timedOut = false;
 
 		try {
@@ -510,10 +459,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			return undefined;
 		}
 
-		// A timeout is a failure, never a panel to adopt: the panel a scan
-		// would find is one the assistant is still working on, and its own
-		// readiness deadline is about to dispose it. Adopting it would report
-		// success, hide the IDE, then bounce the user back.
+		// A timeout is a failure, never a panel to adopt: a scan would find a
+		// panel the assistant's own readiness deadline is about to dispose.
 		if (timedOut) {
 			return undefined;
 		}
@@ -522,10 +469,9 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	/**
-	 * Whether this part's window was opened with the locked-compact trait
-	 * that makes a dedicated Canvas window chromeless. Only entry and restore
-	 * create such windows; a Canvas the user detached into a plain auxiliary
-	 * window (tab drag-out, "Move Editor into New Window") lacks it.
+	 * Whether this part's window carries the locked-compact trait that makes
+	 * a dedicated Canvas window chromeless. Only entry and restore create
+	 * such windows; a Canvas the user detached by hand lacks the trait.
 	 */
 	private isDedicatedCanvasWindow(part: IEditorPart): boolean {
 		if (part === this.editorGroupsService.mainPart) {
@@ -535,12 +481,11 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	/**
-	 * Moves a Canvas panel out of whatever group holds it into a dedicated
-	 * window of its own.
-	 * Returns nothing if the move did not happen, so the caller does not hide
-	 * the IDE behind a window that never got its editor. `superseded` is
-	 * checked before the panel is moved: a panel pulled out of an IDE window
-	 * the user was just handed back is worse than no window at all.
+	 * Moves a Canvas panel into a dedicated window of its own. Returns
+	 * nothing if the move did not happen, so the caller does not hide the
+	 * IDE behind a window that never got its editor. `superseded` is checked
+	 * before the panel is moved: a panel pulled out of an IDE window the
+	 * user was just handed back is worse than no window at all.
 	 */
 	private async promoteToCanvasWindow(canvas: ICanvasEditor, superseded: () => boolean): Promise<{ part: IAuxiliaryEditorPart; group: IEditorGroup } | undefined> {
 		let part: IAuxiliaryEditorPart;
@@ -579,10 +524,9 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 		const disposables = new DisposableStore();
 
-		// A locked group keeps Canvas alone in its window: the editor service
-		// routes anything else to the next unlocked group, back in the IDE.
-		// Without it a file opened while Canvas has focus would silently
-		// cover Canvas, since compact mode draws no tabs.
+		// A locked group keeps Canvas alone in its window: compact mode draws
+		// no tabs, so an unlocked group would let a file opened while Canvas
+		// has focus silently cover it.
 		group.lock(true);
 
 		// The window can also go away without anyone asking us (OS close
@@ -590,19 +534,17 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		disposables.add(Event.once(part.onWillDispose)(() => {
 			this.logService.info(`[canvas] The Canvas window (${part.windowId}) went away while presenting${this.lifecycleService.willShutdown ? ' during shutdown' : '; returning to the IDE'}`);
 
-			// Losing the window supersedes an in-flight entry the same way an
-			// exit does; without this it would resume and report success for
-			// a window that no longer exists.
+			// Losing the window supersedes an in-flight entry the same way
+			// an exit does.
 			this.exitGeneration++;
 
 			this.stopPresenting();
 			this.releaseEngagement();
 
 			// The aux part is disposed during an ordinary quit too: clearing
-			// the intent there would erase the very record that "quit in
-			// Canvas, relaunch into Canvas" is made of, and revealing the IDE
-			// would flash it for a frame on its way out (or reject mid-
-			// teardown as an unhandled rejection).
+			// the intent there would erase the "quit in Canvas, relaunch into
+			// Canvas" record, and revealing the IDE would flash it on its way
+			// out.
 			if (!this.lifecycleService.willShutdown) {
 				this.setCanvasModeIntent(false);
 				this.revealIdeWindow().catch(error => this.logService.error('[canvas] Could not bring the Positron window back after the Canvas window went away', error));
@@ -620,8 +562,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 	/**
 	 * Forget the window we were presenting Canvas in. Does not touch the
-	 * group: this also runs while that window is being disposed, and the
-	 * group's lock dies with it either way.
+	 * group: this also runs while that window is being disposed.
 	 */
 	private stopPresenting(): void {
 		this.canvasWindow.clear();
@@ -631,9 +572,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 	/**
 	 * Records, or forgets, that this workspace should come back into Canvas
-	 * mode. Tracks what is on screen, not configuration: set while presenting,
-	 * cleared by every way of leaving except application shutdown.
-	 * MACHINE-targeted because it describes this installation's window state.
+	 * mode: set while presenting, cleared by every way of leaving except
+	 * shutdown. MACHINE-targeted: it describes this installation's windows.
 	 */
 	private setCanvasModeIntent(active: boolean): void {
 		if (active) {
@@ -646,25 +586,21 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	private async hideIdeWindow(canvasWindowId: number): Promise<void> {
 		this.logService.info('[canvas] Hiding the IDE window behind Canvas');
 
-		// Unguarded, unlike `revealIdeWindow()`: a forwarded `--canvas`
-		// re-entry can focus (reveal) the IDE window on its way in, so
-		// skipping "already hidden" work would leave it behind Canvas.
+		// Set unguarded, unlike `revealIdeWindow()`: a forwarded `--canvas`
+		// re-entry can reveal the IDE window on its way in, so skipping
+		// "already hidden" work would leave it behind Canvas.
 		this.ideWindowHidden = true;
 
-		// Hide rather than minimize: minimize animates the IDE window into the
-		// dock next to the Canvas window that just appeared, which reads as
-		// two windows rather than Canvas replacing Positron. Hiding drops the
-		// IDE from the OS window list, but the app never has zero visible
-		// windows: the IDE is only hidden while a live Canvas window is up,
-		// and every way of losing that window runs `revealIdeWindow()`.
-		// The main window's hide result is ignored: `ideWindowHidden` stays
-		// unconditional (see above).
+		// Hide rather than minimize: minimize animates the IDE into the dock
+		// beside the new Canvas window, which reads as two windows rather
+		// than Canvas replacing Positron. The IDE is only hidden while a
+		// live Canvas window is up; every way of losing that window runs
+		// `revealIdeWindow()`.
 		const hides = [this.nativeHostService.hideWindow({ targetWindowId: mainWindow.vscodeWindowId })];
 
-		// Canvas is the sole surface: detached editor windows go away with
-		// the IDE window. Recorded before the hide lands, so a rejected hide
-		// leaves a window the next reveal harmlessly re-shows rather than one
-		// that stays lost.
+		// Canvas is the sole surface: detached editor windows go away too.
+		// Recorded before the hide lands, so a rejected hide leaves a window
+		// the next reveal harmlessly re-shows rather than one that stays lost.
 		const auxWindowIds: number[] = [];
 		for (const part of this.editorGroupsService.parts) {
 			if (part === this.editorGroupsService.mainPart || part.windowId === canvasWindowId) {
@@ -676,20 +612,17 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		}
 
 		// Every hide settles before this returns: a rejection surfacing while
-		// another hide is still in flight would let the caller's unwind reveal
-		// a window that hide then re-hides, leaving it lost.
+		// another hide is in flight would let the caller's unwind reveal a
+		// window that hide then re-hides, leaving it lost.
 		const results = await Promise.allSettled(hides);
 
-		// The main window staying visible here is why the IDE can end up
-		// beside a live Canvas window; the main process abandons a hide it
-		// raced, and that is invisible from this side otherwise.
+		// The main process abandons a hide it raced; invisible otherwise.
 		if (results[0].status === 'fulfilled' && results[0].value === false) {
 			this.logService.warn('[canvas] The IDE window did not hide: it was already away, or the hide was abandoned');
 		}
 
-		// A hide that resolved false found its window already hidden or
-		// minimized by the user; we did not put it away, so exit must not
-		// bring it back.
+		// A hide that resolved false found its window already put away by the
+		// user; exit must not bring it back.
 		for (let i = 0; i < auxWindowIds.length; i++) {
 			const result = results[i + 1];
 			if (result.status === 'fulfilled' && result.value === false) {
@@ -715,15 +648,13 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		this.logService.info('[canvas] Revealing the IDE window');
 
 		// A hidden window is not brought back by focus alone; show it first.
-		// The flag flips only after the show lands: clearing it up front
-		// would make one rejected show permanently unrecoverable, with every
-		// later reveal early-returning above on a window that is still away.
+		// The flag flips only after the show lands, so a rejected show is
+		// retried by the next reveal instead of early-returning above.
 		await this.nativeHostService.showWindow({ targetWindowId: mainWindow.vscodeWindowId });
 		this.ideWindowHidden = false;
 
-		// Exactly the windows entry hid, forgotten one by one as each show
-		// lands so a rejected show is retried by the next reveal. Only the
-		// main window's show may abort the reveal: an exit that stopped here
+		// Exactly the windows entry hid, forgotten as each show lands. Only
+		// the main window's show may abort the reveal: an exit stopping here
 		// would merge the live Canvas into a window that is still hidden.
 		for (const windowId of [...this.hiddenAuxWindowIds]) {
 			try {

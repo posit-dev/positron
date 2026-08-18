@@ -16,11 +16,10 @@ import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/c
 import { WORKSPACE_TRUST_STARTUP_PROMPT, WORKSPACE_TRUST_STARTUP_PROMPT_SHOWN_KEY } from '../../../services/workspaces/common/workspaceTrust.js';
 
 /**
- * How long after the startup prompt's preconditions are met (workbench
- * restored, window focused) the gate keeps waiting for the prompt to be
- * initiated. `WorkspaceTrustUXHandler` initiates synchronously once those
- * hold, so this fires only if its bail conditions drift from the mirrored
- * checks below; entering untrusted late beats a curtain that never lifts.
+ * How long after the startup prompt's preconditions are met the gate keeps
+ * waiting for the prompt to be initiated. Fires only if the handler's bail
+ * conditions drift from the mirrored checks below; entering untrusted late
+ * beats a curtain that never lifts.
  */
 export const STARTUP_PROMPT_INITIATION_GRACE_MS = 10_000;
 
@@ -39,24 +38,17 @@ export interface CanvasTrustDecisionServices {
  * Resolves once the workspace trust decision that gates extension activation
  * has been made, or immediately when no decision is pending.
  *
- * Canvas boot must wait for this before it covers the IDE: the workspace
- * trust startup prompt renders in the main window, which Canvas mode
- * hides, and an undecided workspace keeps trust-gated extensions - the
- * authentication providers behind the Canvas model picker among them - from
- * activating. Deciding behind the startup curtain (whose z-index sits below
- * workbench dialogs) keeps the prompt visible and answered before Canvas is
- * the only surface.
+ * Canvas boot must wait for this before it covers the IDE: the trust startup
+ * prompt renders in the main window, which Canvas mode hides, and an
+ * undecided workspace keeps trust-gated extensions (the auth providers
+ * behind the Canvas model picker among them) from activating. The prompt
+ * shows over the startup curtain, whose z-index sits below workbench dialogs.
  *
  * The conditions mirror `WorkspaceTrustUXHandler.showModalOnStart`: whenever
- * that startup prompt is not coming (trust disabled, already trusted, prompt
- * suppressed by setting or an earlier answer), the gate stays out of the way
- * rather than second-guessing the user's startup-prompt preference - Canvas
- * then enters untrusted and the assistant's restricted-mode surface owns the
- * explanation. When the prompt is coming, the gate waits for the
- * Restored-phase UX handler to initiate it, then joins the coalesced request
- * that initiation created, resolving on either answer - the prompt's own
- * decline path answers with `undefined`, which is a decision for restricted
- * mode, not an unanswered prompt.
+ * that startup prompt is not coming, the gate stays out of the way and an
+ * untrusted Canvas is the assistant's restricted-mode surface to explain.
+ * When it is coming, the gate waits for the handler to initiate it, then
+ * joins the coalesced request, resolving on either answer.
  */
 export async function awaitWorkspaceTrustDecisionForCanvas(services: CanvasTrustDecisionServices): Promise<void> {
 	const { configurationService, contextService, hostService, lifecycleService, storageService, trustEnablementService, trustManagementService, trustRequestService } = services;
@@ -86,27 +78,23 @@ export async function awaitWorkspaceTrustDecisionForCanvas(services: CanvasTrust
 		return;
 	}
 
-	// The startup prompt belongs to `WorkspaceTrustUXHandler`, which
-	// registers at the Restored phase - after this gate, which runs at
-	// BlockRestore - and initiates the request only once the window has
-	// focus. Wait for that initiation rather than initiating anything here:
-	// a `requestWorkspaceTrust` call with no request pending raises its own
+	// Wait for `WorkspaceTrustUXHandler` (Restored phase, after this gate)
+	// to initiate the prompt rather than initiating anything here: a
+	// `requestWorkspaceTrust` call with no request pending raises its own
 	// immediate dialog, and the startup prompt would still follow it.
 	const disposables = new DisposableStore();
 	try {
-		// Subscribe before reproducing the handler's own waits so an
-		// initiation between them cannot be missed.
+		// Subscribed before the waits below so an initiation cannot be missed.
 		const initiated = Event.toPromise(trustRequestService.onDidInitiateWorkspaceTrustRequestOnStartup, disposables);
 		const trustGranted = Event.toPromise(Event.filter(trustManagementService.onDidChangeTrust, trusted => trusted, disposables), disposables);
 
 		await lifecycleService.when(LifecyclePhase.Restored);
 
 		// The handler shows the prompt only once the window has focus, which
-		// for a background launch can be forever away; the focus wait is
-		// unbounded on purpose, because giving up would let Canvas cover the
-		// main window and the prompt would later render into a hidden one.
-		// The curtain's "Open Positron" bounds it for the user, and an
-		// initiation or a trust grant arriving while unfocused ends it here.
+		// for a background launch can be forever away. The focus wait is
+		// unbounded on purpose (giving up would let the prompt later render
+		// into a hidden window); the curtain's "Open Positron" bounds it for
+		// the user.
 		let outcome: 'join' | 'decided' | 'no-prompt' | undefined;
 		if (!hostService.hasFocus) {
 			const focused = Event.toPromise(Event.filter(hostService.onDidChangeFocus, isFocused => isFocused, disposables), disposables);
@@ -117,10 +105,8 @@ export async function awaitWorkspaceTrustDecisionForCanvas(services: CanvasTrust
 			]);
 		}
 
-		// Trust granted through another path means the handler stays quiet
-		// and the initiation never comes; the grace period covers mirrored
-		// conditions drifting out of sync (see
-		// WORKSPACE_TRUST_STARTUP_PROMPT_SHOWN_KEY).
+		// Trust granted through another path means the initiation never
+		// comes; the grace period covers the mirrored conditions drifting.
 		outcome ??= await raceTimeout(
 			Promise.race([
 				initiated.then(() => 'join' as const),
@@ -135,8 +121,7 @@ export async function awaitWorkspaceTrustDecisionForCanvas(services: CanvasTrust
 		disposables.dispose();
 	}
 
-	// `requestWorkspaceTrustOnStartup` creates its pending request before
-	// firing the initiation event, so this joins that request rather than
-	// raising a dialog of its own; the startup prompt answers it for us.
+	// The initiation created its pending request before firing, so this
+	// joins that request rather than raising a dialog of its own.
 	await trustRequestService.requestWorkspaceTrust();
 }

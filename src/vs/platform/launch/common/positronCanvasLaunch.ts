@@ -6,9 +6,9 @@
 import { basename } from '../../../base/common/path.js';
 
 /**
- * The parsed arguments a `--canvas` launch travels in. `canvas` is mutable on
- * purpose: `CanvasLaunchWindowAssigner.assign()` consumes the flag by deleting
- * it, so clones and later reads of the same launch cannot re-grant Canvas.
+ * The parsed arguments a `--canvas` launch travels in. `canvas` is mutable
+ * on purpose: `assign()` consumes the flag by deleting it, so later reads of
+ * the same launch cannot re-grant Canvas.
  */
 export interface ICanvasLaunchArgs {
 	canvas?: boolean;
@@ -40,19 +40,16 @@ function toIdentity(path: ICanvasLaunchPath | undefined): ICanvasWindowIdentity 
 /**
  * Assigns a `--canvas` launch to exactly one window configuration.
  *
- * `prime()` picks the launch's target window up front, because window
- * configurations are built in workspaces -> folders -> empty order, not
- * request order: first-come-first-served would hand Canvas to an arbitrary
- * restored background window. `assign()` then grants Canvas only to the
- * matching configuration and consumes the flag off the args object itself, so
- * a stale flag cannot leak into windows opened later in the process lifetime.
+ * `prime()` picks the target window up front, because configurations are
+ * built in workspaces -> folders -> empty order, not request order:
+ * first-come-first-served would hand Canvas to an arbitrary restored
+ * background window. `assign()` grants Canvas only to the matching
+ * configuration and consumes the flag off the args object itself, so a
+ * stale flag cannot leak into later windows.
  *
- * Targets are keyed by the launch's args object, which is the one reference a
- * launch travels in from `prime()` to `assign()`, so an interleaved second
- * open (canvas-flagged or not) cannot clobber another launch's target. Args
- * never primed carry no target and match any configuration; that is distinct
- * from a primed identity-less fresh empty window target, which matches only
- * an identity-less configuration.
+ * Targets are keyed by the launch's args object (the one reference a launch
+ * travels in from `prime()` to `assign()`), so an interleaved second open
+ * cannot clobber another launch's target.
  */
 export class CanvasLaunchWindowAssigner {
 
@@ -60,9 +57,8 @@ export class CanvasLaunchWindowAssigner {
 
 	/**
 	 * Chooses which of the windows about to open carries the launch's
-	 * `--canvas`. For a requested open (CLI paths, API, forced empty window)
-	 * that is the first requested window; for a session restore it is the
-	 * last-active window, which the restore list keeps last.
+	 * `--canvas`: the first requested window for a requested open, the
+	 * last-active window (kept last in the restore list) for a restore.
 	 */
 	prime(args: ICanvasLaunchArgs | undefined, paths: readonly ICanvasLaunchPath[], restoring: boolean): void {
 		if (args?.canvas !== true) {
@@ -89,10 +85,9 @@ export class CanvasLaunchWindowAssigner {
 			return false;
 		}
 
-		// Consume the flag on success: every later window built from these
-		// args (restores, New Window, protocol opens) must not see it, and
-		// deleting it here also tells the launch service the flag reached a
-		// fresh window, so no forwarded action is needed.
+		// Consume the flag on success: no later window built from these args
+		// may see it, and its absence tells the launch service the flag
+		// reached a fresh window, so no forwarded action is needed.
 		delete args.canvas;
 		this.targets.delete(args);
 		return true;
@@ -101,18 +96,15 @@ export class CanvasLaunchWindowAssigner {
 
 /**
  * Which window, if any, should be told to open Canvas after a forwarded
- * `--canvas` launch. Only consulted while the launch still carries its flag:
- * a freshly opened window consumes it (see `CanvasLaunchWindowAssigner`) and
- * enters through the startup contribution instead, so reaching this decision
- * means the launch reused windows only. Last active wins.
+ * `--canvas` launch. Only consulted while the launch still carries its flag,
+ * meaning the launch reused windows only (a fresh window consumes it and
+ * enters through the startup contribution). Last active wins.
  */
 export function selectCanvasLaunchWindow<T>(
 	usedWindows: readonly T[],
 	lastActiveWindow: T | undefined
 ): T | undefined {
-	const candidate = lastActiveWindow && usedWindows.includes(lastActiveWindow)
+	return lastActiveWindow && usedWindows.includes(lastActiveWindow)
 		? lastActiveWindow
 		: usedWindows.at(0);
-
-	return candidate;
 }
