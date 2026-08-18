@@ -5,19 +5,14 @@ Positron IDE commands exist and how to call them. It bundles skill *templates*,
 fills in each command's mechanical facts from the running build, and registers
 the result as a skill root the assistant reads.
 
-## The decision: facts are generated, guidance is hand-written
-
 A command's mechanical facts -- its argument shapes and return value -- already
-have one source of truth: the command's registration in Positron. Re-typing
-them into prose would create a second copy that drifts the moment the code
-changes. So we do not hand-copy them.
+have one source of truth: the command's registration in Positron.
 
-The metadata alone is also not enough. Auto-generated descriptions like "Focus
+However, these facts aren't enough. Auto-generated descriptions like "Focus
 on Variables View" say nothing about *when* to use a command, and an argument
-can be flagged required even though every property inside it is optional. Those
-judgments can only be written by a person.
+can be flagged required even though every property inside it is optional.
 
-So the two are split:
+So the two are split in these templates:
 
 - **Facts** (arguments, returns) come from live metadata via
   `positron.ai.getAgentAllowedCommands({ includeDisabled: true })`, expanded into
