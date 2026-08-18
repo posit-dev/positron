@@ -31,8 +31,8 @@ categorize_tags() {
 
     # Platform tags
     if [[ "$tag" == "@:web" ]] || [[ "$tag" == "@:web-only" ]] || [[ "$tag" == "@:win" ]] || \
-       [[ "$tag" == "@:workbench" ]] || [[ "$tag" == "@:rhel-electron" ]] || \
-       [[ "$tag" == "@:rhel-web" ]] || [[ "$tag" == "@:remote-ssh" ]]; then
+       [[ "$tag" == "@:workbench" ]] || [[ "$tag" == "@:rocky-electron" ]] || \
+       [[ "$tag" == "@:rocky-web" ]] || [[ "$tag" == "@:remote-ssh" ]]; then
         echo "platform"
     # Performance tags
     elif [[ "$tag" == "@:performance" ]]; then

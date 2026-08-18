@@ -102,8 +102,8 @@ export enum FeatureTags {
 // newly-added-tag scan). Excluded from the auto test-change tag derivation.
 export enum PlatformTags {
 	CROSS_BROWSER = '@:cross-browser',
-	RHEL_ELECTRON = '@:rhel-electron',
-	RHEL_WEB = '@:rhel-web',
+	ROCKY_ELECTRON = '@:rocky-electron',
+	ROCKY_WEB = '@:rocky-web',
 	SUSE_ELECTRON = '@:suse-electron',
 	SUSE_WEB = '@:suse-web',
 	SLES_ELECTRON = '@:sles-electron',
