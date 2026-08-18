@@ -43,7 +43,7 @@ export const WelcomeHeader = () => {
 
 	// Render.
 	return (
-		<header className='positron-welcome-page-header'>
+		<div className='positron-welcome-page-header'>
 			<div className='welcome-header-brand'>
 				{/*
 					Hidden from screen readers because the heading beside it already
@@ -52,7 +52,7 @@ export const WelcomeHeader = () => {
 				<div aria-hidden='true' className='welcome-header-icon' />
 				<div className='welcome-header-text'>
 					{/*
-						The page's first heading. The cards below start at h3, so this
+						The page's first heading. The cards below start at h2, so this
 						gives the welcome page a top level for a screen reader to land on.
 					*/}
 					<h1 className='welcome-header-title'>
@@ -67,6 +67,6 @@ export const WelcomeHeader = () => {
 				<span aria-hidden='true' className='welcome-header-help-icon codicon codicon-question' />
 				{localize('positron.welcome.help', "Help")}
 			</Button>
-		</header>
+		</div>
 	);
 };

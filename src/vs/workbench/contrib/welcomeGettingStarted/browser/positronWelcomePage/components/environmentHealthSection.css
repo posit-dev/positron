@@ -50,7 +50,7 @@
 	position: relative;
 }
 
-/* An h4 for structure only; the button inside it is what you see. */
+/* An h3 for structure only; the button inside it is what you see. */
 .positron-welcome-page-environment-setup .environment-health-group-heading {
 	margin: 0;
 }
@@ -86,10 +86,30 @@
 	flex: 1 1 auto;
 }
 
-/* Right-aligned, taking whatever width the language name does not need. */
+/*
+ * gettingStarted.css sets every h2 in the container to 1.5em, weight 400 and
+ * line-height: initial, so this selector repeats the container chain to win on
+ * specificity and keep the title reading like the rest of the card.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.gettingStartedSlideCategories
+.positron-welcome-page-environment-setup .environment-health-header-title {
+	font-size: 13px;
+	font-weight: 600;
+	line-height: var(--_line-height);
+	margin: 0;
+}
+
+/*
+ * Right-aligned, taking whatever width the language name does not need. Sets
+ * its own font-size and font-weight because it now sits inside the group's h3
+ * and would otherwise inherit the browser's bold, larger default heading style.
+ */
 .positron-welcome-page-environment-setup .environment-health-group-summary {
 	color: var(--vscode-descriptionForeground);
 	flex: 1 1 auto;
+	font-size: 13px;
+	font-weight: normal;
 	min-width: 0;
 	overflow: hidden;
 	text-align: right;

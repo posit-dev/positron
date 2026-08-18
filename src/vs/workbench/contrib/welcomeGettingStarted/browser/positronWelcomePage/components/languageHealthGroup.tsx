@@ -144,7 +144,7 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix
 				button's content model has no room for a heading, and this is the
 				shape assistive technology expects from a disclosure.
 			*/}
-			<h4 className='environment-health-group-heading'>
+			<h3 className='environment-health-group-heading'>
 				{hasBody(health)
 					? <Button
 						ariaExpanded={expanded}
@@ -156,7 +156,7 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix
 						<span aria-hidden='true' className={`environment-health-group-chevron codicon codicon-chevron-${expanded ? 'down' : 'right'}`} />
 					</Button>
 					: <div className='environment-health-group-header' id={headerId}>{headerContent}</div>}
-			</h4>
+			</h3>
 			{hasBody(health) && expanded && body()}
 		</div>
 	);

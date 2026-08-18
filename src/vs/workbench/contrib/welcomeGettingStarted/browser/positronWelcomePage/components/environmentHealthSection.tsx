@@ -84,9 +84,9 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	return (
 		<section aria-labelledby={titleId} className='positron-welcome-page-environment-setup'>
 			<div className='environment-health-header'>
-				<h3 className='environment-health-header-title' id={titleId}>
+				<h2 className='environment-health-header-title' id={titleId}>
 					{localize('positron.welcome.environmentSetupTitle', "Environment setup")}
-				</h3>
+				</h2>
 				{!allChecksDisabled &&
 					<Button
 						ariaDisabled={busy}
