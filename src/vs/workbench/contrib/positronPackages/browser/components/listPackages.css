@@ -161,16 +161,40 @@
 	font-size: 0.9em;
 }
 
+/*
+ * The badge is a flex item in the baseline-aligned header, so its own baseline
+ * decides where the score lands relative to the name and version. Centering
+ * inside the badge leaves no baseline-sharing group, and the badge then reports
+ * the shield's box bottom instead -- which sits below the score's baseline, so
+ * the whole badge rides a couple of pixels high. Aligning the shield and the
+ * score to each other hands the header a real text baseline and the score lines
+ * up with the version beside it.
+ */
 .packages-list-item-vulnerable {
 	flex: 0 0 auto;
 	display: flex;
-	align-items: center;
+	align-items: baseline;
 	gap: 2px;
 	margin-left: 0.5em;
 	font-size: 0.9em;
 }
 
-.packages-list-item-vulnerable .codicon-shield {
+/*
+ * Same specificity problem as the action-button rule below: the workbench-global
+ * `.monaco-workbench .codicon[class*='codicon-']` forces codicons to 16px at
+ * (0,3,0), so the two extra ancestors here are what let this rule set a size
+ * without !important.
+ *
+ * Codicon glyphs have no descent, so on the shared baseline the shield's ink runs
+ * from the baseline up to 0.907em and reads high beside the shorter digits. The
+ * 2px drop centers it on them; that offset only lands on a whole pixel at the
+ * action-button icon size, and sharing that size lines the shield up with those
+ * buttons too. `position: relative` moves paint only, so the score keeps owning
+ * the badge's baseline.
+ */
+.monaco-workbench .packages-list-item .packages-list-item-vulnerable .codicon-shield {
+	position: relative;
+	top: 1.5px;
 	font-size: 12px;
 }
 
