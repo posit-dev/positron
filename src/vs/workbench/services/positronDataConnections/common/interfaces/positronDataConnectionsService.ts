@@ -118,6 +118,10 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * Closes the live connection for the given profile (if one exists). Calls disconnect() on
 	 * the underlying handle, releases ext host resources, and removes the instance from the
 	 * service. No-op if no instance exists for the profile.
+	 *
+	 * The Data Explorers previewed from the connection close with it: their backends die with the
+	 * connection, so leaving one open would leave a grid that errors on the next scroll or filter.
+	 * Use {@link disconnectWhenUnused} instead to give up a connection without cutting those off.
 	 * @param profileId The data connection profile id to disconnect.
 	 */
 	disconnect(profileId: string): Promise<void>;

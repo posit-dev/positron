@@ -177,6 +177,10 @@ describe('PositronDataConnectionsService', () => {
 	});
 
 	describe('open Data Explorers', () => {
+		// How many times the driver's connection handle has been torn down, so a test can tell a
+		// single teardown from a double one. Reset by connectProfile.
+		let handleDisconnects = 0;
+
 		/**
 		 * Connects 'conn-1' through a driver that opens a Data Explorer per preview, the way a real
 		 * driver does, reporting `datasetIds` in order -- one per preview. An undefined entry stands
@@ -184,6 +188,7 @@ describe('PositronDataConnectionsService', () => {
 		 */
 		async function connectProfile(datasetIds: readonly (string | undefined)[]) {
 			const remainingDatasetIds = [...datasetIds];
+			handleDisconnects = 0;
 			const handle = stubInterface<IDataConnectionHandle>({
 				handle: 1,
 				nodePreview: async () => {
@@ -193,7 +198,7 @@ describe('PositronDataConnectionsService', () => {
 					}
 					return datasetId;
 				},
-				disconnect: async () => { },
+				disconnect: async () => { handleDisconnects++; },
 				release: () => { },
 			});
 			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
@@ -231,15 +236,16 @@ describe('PositronDataConnectionsService', () => {
 			expect(service.countOpenDataExplorers('conn-1')).toBe(0);
 		});
 
-		it('forgets a profile\'s previews once it disconnects', async () => {
+		it('closes and forgets a profile\'s previews when it disconnects', async () => {
 			const instance = await connectProfile(['sqlite:conn-1:table:flights']);
 			await service.previewNode(instance.connectionHandle, 7);
 
 			await service.disconnect('conn-1');
 
-			// The editor outlives the connection, but the connection's record of it does not: a
-			// reconnect mints fresh dataset ids, so the old ones must not carry over.
-			expect(openDatasetIds.size).toBe(1);
+			// The Data Explorer's backend died with the connection, so its tab goes too; the record of
+			// it goes with it, since a reconnect mints fresh dataset ids that must not collide with
+			// the old ones.
+			expect(openDatasetIds.size).toBe(0);
 			expect(service.countOpenDataExplorers('conn-1')).toBe(0);
 		});
 
@@ -310,6 +316,57 @@ describe('PositronDataConnectionsService', () => {
 				service.addUpdateProfile(createProfile('conn-1'));
 
 				expect(() => service.disconnectWhenUnused('conn-1')).not.toThrow();
+			});
+		});
+
+		describe('disconnect', () => {
+			it('closes every Data Explorer previewed from the connection, without waiting for them', async () => {
+				const instance = await connectProfile([
+					'sqlite:conn-1:table:flights',
+					'sqlite:conn-1:table:airports',
+				]);
+				await service.previewNode(instance.connectionHandle, 7);
+				await service.previewNode(instance.connectionHandle, 8);
+
+				await service.disconnect('conn-1');
+
+				// Unlike disconnectWhenUnused, open Data Explorers don't hold the connection up here:
+				// the user asked to disconnect, and their backends die with the connection anyway.
+				expect({
+					openDataExplorers: openDatasetIds.size,
+					connected: service.getInstanceForProfile('conn-1') !== undefined,
+				}).toMatchInlineSnapshot(`
+					{
+					  "connected": false,
+					  "openDataExplorers": 0,
+					}
+				`);
+			});
+
+			it('is a no-op for a profile with no live connection', async () => {
+				service.addUpdateProfile(createProfile('conn-1'));
+
+				await expect(service.disconnect('conn-1')).resolves.toBeUndefined();
+			});
+
+			// The reentrancy guard: closing the editors fires onDidCloseEditor, which drains the
+			// pending-close set. The profile must already look disconnected to that handler, or it
+			// would disconnect the same connection a second time underneath this one.
+			it('disconnects once when a pending close is already waiting on the Data Explorer', async () => {
+				const instance = await connectProfile(['sqlite:conn-1:table:flights']);
+				await service.previewNode(instance.connectionHandle, 7);
+
+				// The tree gave up its use of the connection first (a collapse), leaving the close
+				// waiting on the preview. The user then disconnects outright.
+				service.disconnectWhenUnused('conn-1');
+				await service.disconnect('conn-1');
+
+				expect({ handleDisconnects, openDataExplorers: openDatasetIds.size }).toMatchInlineSnapshot(`
+					{
+					  "handleDisconnects": 1,
+					  "openDataExplorers": 0,
+					}
+				`);
 			});
 		});
 
