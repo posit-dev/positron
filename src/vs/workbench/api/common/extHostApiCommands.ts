@@ -26,6 +26,8 @@ import { PromptsType } from '../../contrib/chat/common/promptSyntax/promptTypes.
 import type { IExtensionPromptFileResult } from '../../contrib/chat/common/promptSyntax/chatPromptFilesContribution.js';
 
 // --- Start Positron ---
+import { onUnexpectedExternalError } from '../../../base/common/errors.js';
+import { IQuartoCellSymbols } from '../../contrib/positronQuarto/common/quartoCellSymbols.js';
 import type * as positron from 'positron';
 import * as extHostTypes from './positron/extHostTypes.positron.js';
 // --- End Positron ---
@@ -585,6 +587,39 @@ const newCommands: ApiCommand[] = [
 			ApiCommandArgument.String.with('viewId', 'Custom editor view id. This should be the viewType string for custom editors or the notebookType string for notebooks. Use \'default\' to use VS Code\'s default text editor'),
 		],
 		ApiCommandResult.Void
+	),
+	// -- quarto cell symbols
+	// The answer shape is imported from `positronQuarto/common` rather than
+	// written out here, so a change to it is a compile error in this converter
+	// instead of a silent drift. What the compiler still cannot check is the
+	// pairing itself: `ApiCommand` takes `result: ApiCommandResult<any, any>` and
+	// the internal command is looked up by a string id, so nothing here would
+	// fail to compile if `_executeQuartoCellSymbolProvider` began answering with
+	// a different shape altogether.
+	new ApiCommand(
+		'positron.executeQuartoCellSymbolProvider', '_executeQuartoCellSymbolProvider',
+		'Execute the document symbol providers of a Quarto document\'s code cells, grouped by cell.',
+		[ApiCommandArgument.Uri],
+		new ApiCommandResult<
+			IQuartoCellSymbols[],
+			{ range: types.Range; symbols: vscode.DocumentSymbol[] }[]
+		>('A promise that resolves to one entry per code cell that has symbols, in document order.', value => {
+			const toVscodeSymbols = (symbols: languages.DocumentSymbol[]): vscode.DocumentSymbol[] => {
+				const converted: vscode.DocumentSymbol[] = [];
+				for (const symbol of symbols) {
+					try {
+						converted.push(typeConverters.DocumentSymbol.to(symbol));
+					} catch (error) {
+						onUnexpectedExternalError(error);
+					}
+				}
+				return converted;
+			};
+			return value.map(cell => ({
+				range: typeConverters.Range.to(cell.range),
+				symbols: toVscodeSymbols(cell.symbols),
+			}));
+		})
 	),
 	// --- End Positron ---
 

@@ -11,7 +11,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
 import { IProviderCatalogChangeData, IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
-import { IPositronAssistantConfigurationService, IPositronAssistantService } from '../../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IPositronAssistantConfigurationService, IPositronAssistantService, IPositronLanguageModelSource, PositronLanguageModelType } from '../../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatService } from '../../../../contrib/chat/common/chatService/chatService.js';
 import { IChatAgentService } from '../../../../contrib/chat/common/participants/chatAgents.js';
 import { ILanguageModelsService } from '../../../../contrib/chat/common/languageModels.js';
@@ -26,6 +26,15 @@ function resolvedProvider(id: string, enabled: boolean): IResolvedProviderData {
 	return { id, enabled, connection: {} };
 }
 
+function languageModelSource(id: string): IPositronLanguageModelSource {
+	return {
+		type: PositronLanguageModelType.Chat,
+		provider: { id, displayName: `Display ${id}` },
+		supportedOptions: [],
+		defaults: {},
+	};
+}
+
 describe('MainThreadAiFeatures', () => {
 	const disposables = ensureNoLeakedDisposables();
 
@@ -33,26 +42,29 @@ describe('MainThreadAiFeatures', () => {
 	let onDidChangeProviders: Emitter<IProviderCatalogChangeData>;
 	let onChangeProviderConfig: Emitter<never>;
 	let onDidChangeProviderEnablement: ReturnType<typeof vi.fn<(id: string, enabled: boolean) => void>>;
+	let getRegisteredSources: ReturnType<typeof vi.fn<() => IPositronLanguageModelSource[]>>;
 
 	/**
 	 * Constructs a MainThreadAiFeatures with the given initial catalog and returns it. The
-	 * returned instance's whenInitialized has already resolved, so the enablement baseline
-	 * snapshot is captured before the test fires any catalog changes.
+	 * enablement baseline snapshot is captured before the test fires any catalog changes.
+	 * Pass a pending `whenInitialized` to drive the pre-initialization timing yourself.
 	 */
-	async function createMainThread(initialCatalog: IResolvedProviderData[]): Promise<MainThreadAiFeatures> {
+	async function createMainThread(initialCatalog: IResolvedProviderData[], whenInitialized: Promise<void> = Promise.resolve()): Promise<MainThreadAiFeatures> {
 		catalog = initialCatalog;
 		onDidChangeProviders = disposables.add(new Emitter<IProviderCatalogChangeData>());
 		onChangeProviderConfig = disposables.add(new Emitter<never>());
 		onDidChangeProviderEnablement = vi.fn<(id: string, enabled: boolean) => void>();
+		getRegisteredSources = vi.fn<() => IPositronLanguageModelSource[]>(() => []);
 
 		const aiProviderService = stubInterface<IAiProviderService>({
-			whenInitialized: Promise.resolve(),
+			whenInitialized,
 			getProviders: () => catalog,
 			isEnabled: (id: string) => catalog.find(p => p.id === id)?.enabled ?? false,
 			onDidChangeProviders: onDidChangeProviders.event,
 		});
 		const positronAssistantConfigurationService = stubInterface<IPositronAssistantConfigurationService>({
 			onChangeProviderConfig: onChangeProviderConfig.event as Event<never>,
+			getRegisteredSources,
 		});
 		const extHostContext = stubInterface<IExtHostContext>({
 			getProxy: (<T>() => stubInterface<ExtHostAiFeaturesShape>({
@@ -75,7 +87,7 @@ describe('MainThreadAiFeatures', () => {
 		));
 
 		// Let the whenInitialized microtask (which captures the enablement baseline) settle.
-		await aiProviderService.whenInitialized;
+		await Promise.resolve();
 		await Promise.resolve();
 
 		return mainThread;
@@ -86,6 +98,22 @@ describe('MainThreadAiFeatures', () => {
 
 		await expect(mainThread.$isProviderEnabled('copilot')).resolves.toBe(true);
 		await expect(mainThread.$isProviderEnabled('unknown')).resolves.toBe(false);
+	});
+
+	it('$getRegisteredProviders waits for initialization before reading the sources', async () => {
+		let initialized: () => void;
+		const whenInitialized = new Promise<void>(resolve => { initialized = resolve; });
+		const mainThread = await createMainThread([resolvedProvider('ollama', false)], whenInitialized);
+		getRegisteredSources.mockReturnValue([languageModelSource('ollama')]);
+
+		// The sources are filtered by catalog enablement, so reading them before the
+		// catalog is loaded would report the empty pre-initialization snapshot.
+		const registered = mainThread.$getRegisteredProviders();
+		await Promise.resolve();
+		expect(getRegisteredSources).not.toHaveBeenCalled();
+
+		initialized!();
+		await expect(registered).resolves.toEqual([languageModelSource('ollama')]);
 	});
 
 	it('forwards a flipped enablement to the extension host', async () => {

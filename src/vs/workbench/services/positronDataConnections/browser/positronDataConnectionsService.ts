@@ -305,11 +305,11 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			return;
 		}
 
-		// Close the profile's Data Explorers and its connection. Removing the profile takes its row
+		// Close the profile's connection and its Data Explorers. Removing the profile takes its row
 		// out of the Data Connections panel, so a connection left open here would stay open and
 		// unreachable for the rest of the session. Fire-and-forget: the removal shouldn't wait on the
 		// round trips that close the editors and the channel.
-		void this._closeConnectionAndDataExplorers(id);
+		void this.disconnect(id);
 
 		// Remove the data connection profile.
 		this._profiles.splice(index, 1);
@@ -381,8 +381,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
-	 * Closes the live connection for the given profile (if one exists). Calls disconnect() on
-	 * the underlying handle, releases ext host resources, and removes the instance.
+	 * Closes the live connection for the given profile (if one exists), along with the Data Explorers
+	 * previewed from it. Calls disconnect() on the underlying handle, releases ext host resources, and
+	 * removes the instance.
 	 */
 	async disconnect(profileId: string): Promise<void> {
 		const index = this._instances.findIndex(i => i.profileId === profileId);
@@ -393,11 +394,29 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		const instance = this._instances[index];
 		this._instances.splice(index, 1);
 
+		// The Data Explorers previewed from the connection close with it, because their backends die
+		// with it: a tab left open would show a grid that errors on the next scroll or filter rather
+		// than any useful data. Read the list while the record below is still intact.
+		const editors = this._openDataExplorers(profileId);
+
 		// The connection is going away, so its previewed datasets are no longer meaningful: the
 		// driver tears their backends down, and a later reconnect mints fresh dataset ids. Any
 		// pending close is moot for the same reason, whichever route brought us here.
 		this._previewedDatasetIds.delete(profileId);
 		this._disconnectWhenUnused.delete(profileId);
+
+		// Closing an editor fires onDidCloseEditor, which drains the pending closes and can land back
+		// here for this same profile. The splice above is what makes that a no-op, so it has to happen
+		// before this await. A failure to close is logged and teardown continues: the instance is
+		// already out of _instances, so bailing out here would leak the handle and leave the entry row
+		// showing a connection nothing can reach.
+		if (editors.length > 0) {
+			try {
+				await this._editorService.closeEditors(editors);
+			} catch (err) {
+				this._logService.error(`[DataConnections] Failed to close Data Explorers for profile ${profileId}: ${err}`);
+			}
+		}
 
 		try {
 			await instance.connectionHandle.disconnect();
@@ -521,19 +540,6 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		return [...datasetIds].flatMap(datasetId =>
 			this._editorService.findEditors(PositronDataExplorerUri.generate(datasetId))
 		);
-	}
-
-	/**
-	 * Closes the Data Explorers previewed from the given profile's connection, then the connection
-	 * itself. The Data Explorers go first because their backends die with the connection: a tab left
-	 * open would show a grid that errors on the next scroll or filter rather than any useful data.
-	 */
-	private async _closeConnectionAndDataExplorers(profileId: string): Promise<void> {
-		const editors = this._openDataExplorers(profileId);
-		if (editors.length > 0) {
-			await this._editorService.closeEditors(editors);
-		}
-		await this.disconnect(profileId);
 	}
 
 	//#endregion Private Methods

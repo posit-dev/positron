@@ -15,8 +15,7 @@
 // errors. Everything downstream of the summary (the rubric, the escalation
 // ladder, the RED bar) is shared with the CI entry unchanged.
 //
-// Runs on Windows: unlike the CI-entry scripts it needs no `unzip` binary, and
-// no `gh`, no API key, no network.
+// Runs on Windows, and needs no `unzip` binary, no `gh`, no API key, no network.
 //
 // Flags: see CLI below, or run with --help.
 //
@@ -293,8 +292,9 @@ function listLogDirs(logsDir, depth = 6) {
  * Extract just the trace event stream out of a _trace.zip.
  *
  * Uses yauzl (a direct Positron dependency) rather than shelling out to `unzip`
- * the way the CI-entry scripts do: Windows has no `unzip` on PATH, and this
- * entry is the one an engineer runs on whatever machine the test just failed on.
+ * the way the `e2e-failure-analyzer` scripts do: Windows has no `unzip` on PATH,
+ * and this entry is the one an engineer runs on whatever machine the test just
+ * failed on.
  */
 async function extractTrace(zipPath, destDir) {
 	ensureDir(destDir);
