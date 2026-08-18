@@ -21,6 +21,7 @@ import {
 } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
+import { CustomProviderRegistry } from './customProviderRegistry';
 import { getProviderSources, PROVIDER_METADATA } from './providerSources';
 import {
 	normalizeToV1Url,
@@ -190,6 +191,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		context.subscriptions.push(disposable);
 	}
 
+	// Custom entries are registered from the catalog rather than a fixed list,
+	// and re-reconciled whenever providers.json changes.
+	const customProviders = new CustomProviderRegistry(context);
+	context.subscriptions.push(customProviders);
+	await customProviders.reconcile();
+
 	// Reactive updates: send all auth session changes through updateProvider
 	// so the dialog and other listeners see updated signedIn state immediately.
 	context.subscriptions.push(
@@ -224,6 +231,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// in the catalog, and re-resolve chain sessions whose connection changed.
 	context.subscriptions.push(
 		onDidChangeProviderCatalog(async (e) => {
+			await customProviders.reconcile(e);
 			for (const metadata of Object.values(PROVIDER_METADATA)) {
 				const { id, catalogId } = metadata;
 				if (!catalogId) {

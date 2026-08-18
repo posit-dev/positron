@@ -5,6 +5,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { SUPPORTED_CUSTOM_CLIENT_KIND_VALUES, type SupportedCustomClientKind } from 'ai-config';
 import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	ANTHROPIC_DEFAULT_BASE_URL,
@@ -23,7 +24,7 @@ import {
 	VERTEX_DEFAULT_BASE_URL,
 } from './constants';
 import { getConfiguredSnowflakeAccount } from './credentials/snowflake';
-import { getCachedProvider } from './providerCatalog';
+import { getCachedCustomProviders, getCachedProvider, type ResolvedProviderLike } from './providerCatalog';
 
 function getSavedBaseUrl(catalogId: string | undefined, fallback?: string): string | undefined {
 	return (catalogId && getCachedProvider(catalogId)?.connection.baseUrl) || fallback;
@@ -309,4 +310,99 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			},
 		},
 	];
+}
+
+/**
+ * How each custom client kind gets its credential.
+ *
+ * A local mirror of ai-credentials' `CUSTOM_CLIENT_KIND_AUTH_MAP`, which is the
+ * authority. It can't be imported here: `ai-credentials` publishes only an
+ * `import` condition, and this extension is CommonJS. ai-config mirrors the same
+ * vocabulary for its own leaf-import reasons, so the pattern is established.
+ *
+ * Exhaustive over the supported kinds, so a kind added in ai-config fails to
+ * compile here until it is given a credential story.
+ */
+const CUSTOM_KIND_AUTH_METHOD = {
+	'openai-compatible': 'apikey',
+	anthropic: 'apikey',
+	openai: 'apikey',
+	gemini: 'apikey',
+	deepseek: 'apikey',
+	openrouter: 'apikey',
+	'ms-foundry': 'apikey',
+	litellm: 'apikey',
+	portkey: 'apikey',
+	snowflake: 'apikey',
+	aws: 'aws-credentials',
+	'google-vertex': 'google-cloud',
+	ollama: 'local',
+	lmstudio: 'local',
+} satisfies Record<SupportedCustomClientKind, 'apikey' | 'aws-credentials' | 'google-cloud' | 'local'>;
+
+/**
+ * Which connection fields a custom entry's kind collects. Only an `apikey` kind
+ * has a key to type; `local`, `aws-credentials`, and `google-cloud` all resolve
+ * their credential from the environment.
+ *
+ * Deliberately coarse. The per-kind forms that reuse a built-in provider's own
+ * field set arrive with the Add and Edit UI (#12747).
+ */
+function customProviderSupportedOptions(kind: string): positron.ai.LanguageModelSource['supportedOptions'] {
+	const authMethod = CUSTOM_KIND_AUTH_METHOD[kind as SupportedCustomClientKind];
+	// Bedrock derives its endpoint from the region, so there is no URL to collect.
+	if (authMethod === 'aws-credentials') {
+		return ['toolCalls'];
+	}
+	return authMethod === 'apikey'
+		? ['apiKey', 'baseUrl', 'toolCalls']
+		: ['baseUrl', 'toolCalls'];
+}
+
+/**
+ * Builds the model source for one `providers.custom` entry. The entry name is
+ * the provider id, the display name, and the catalog id all at once: it is the
+ * key in providers.json, and Positron registers its auth provider under the
+ * same string so the credential is derivable from the id alone.
+ */
+export function customProviderSource(
+	provider: ResolvedProviderLike
+): positron.ai.LanguageModelSource {
+	return {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: provider.id,
+			displayName: provider.id,
+			status: 'experimental',
+			catalogId: provider.id,
+		},
+		supportedOptions: customProviderSupportedOptions(provider.clientKind),
+		defaults: {
+			model: provider.id,
+			baseUrl: provider.connection.baseUrl ?? provider.connection.endpoint,
+			toolCalls: true,
+		},
+	};
+}
+
+/**
+ * Sources for every enabled custom entry in the catalog. Kept out of
+ * {@link getProviderSources} because these are registered and unregistered as
+ * the config file changes, while the built-in list is fixed at activation.
+ */
+export function getCustomProviderSources(): positron.ai.LanguageModelSource[] {
+	return getRegistrableCustomProviders().map(customProviderSource);
+}
+
+/**
+ * Enabled custom entries whose client kind this host can present.
+ *
+ * The kind check mirrors the predicate Posit Assistant registers on
+ * (`!isBuiltinProviderId(id)` plus a supported-kind test), so Positron never
+ * shows a row for an entry the chat runtime would refuse.
+ */
+export function getRegistrableCustomProviders(): ResolvedProviderLike[] {
+	const supported: readonly string[] = SUPPORTED_CUSTOM_CLIENT_KIND_VALUES;
+	return getCachedCustomProviders()
+		.filter(provider => provider.enabled && supported.includes(provider.clientKind));
 }

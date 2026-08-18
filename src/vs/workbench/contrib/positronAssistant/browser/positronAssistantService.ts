@@ -39,6 +39,7 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	private _copilotEnabledEmitter = this._register(new Emitter<boolean>());
 	private _enabledProvidersEmitter = this._register(new Emitter<void>());
 	private _onChangeProviderConfigEmitter = this._register(new Emitter<IPositronLanguageModelSource>());
+	private _onChangeProviderRegistrationsEmitter = this._register(new Emitter<void>());
 
 	// Tracks provider registrations. This is populated during extension
 	// activation, independent of sign-in state.
@@ -52,6 +53,7 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	readonly onChangeCopilotEnabled = this._copilotEnabledEmitter.event;
 	readonly onChangeEnabledProviders = this._enabledProvidersEmitter.event;
 	readonly onChangeProviderConfig = this._onChangeProviderConfigEmitter.event;
+	readonly onChangeProviderRegistrations = this._onChangeProviderRegistrationsEmitter.event;
 
 	constructor(
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -71,6 +73,7 @@ export class PositronAssistantConfigurationService extends Disposable implements
 
 	registerProvider(source: IPositronLanguageModelSource): void {
 		this._providerRegistrations.set(source.provider.id, source);
+		this._onChangeProviderRegistrationsEmitter.fire();
 	}
 
 	unregisterProvider(id: string): void {
@@ -79,6 +82,7 @@ export class PositronAssistantConfigurationService extends Disposable implements
 		this._statusErrorNotified.delete(id);
 		if (source) {
 			this._onChangeProviderConfigEmitter.fire(source);
+			this._onChangeProviderRegistrationsEmitter.fire();
 		}
 	}
 

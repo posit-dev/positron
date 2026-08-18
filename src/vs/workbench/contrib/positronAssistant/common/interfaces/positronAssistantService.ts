@@ -244,6 +244,17 @@ export interface IPositronAssistantConfigurationService {
 	readonly onChangeProviderConfig: Event<IPositronLanguageModelSource>;
 
 	/**
+	 * Event that fires when the set of registered providers changes, i.e. on
+	 * registerProvider and unregisterProvider but not on updateProvider.
+	 *
+	 * Separate from onChangeProviderConfig because a listener cannot tell an
+	 * update from an arrival or a departure by looking at the source alone. The
+	 * set is no longer fixed after activation: custom providers are registered
+	 * from providers.json, so one can appear or disappear at any point.
+	 */
+	readonly onChangeProviderRegistrations: Event<void>;
+
+	/**
 	 * Gets the list of enabled provider IDs from configuration.
 	 *
 	 * Should only be used after the Positron Assistant extension has finished activation,

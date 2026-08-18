@@ -23,11 +23,15 @@ import { syncAuthSessions } from './languageModelSessionSync.js';
  * @param providerIds Provider ids to track.
  * @param onConfigChange Called with the updated source on a config change.
  * @param onSignedInChange Called with (providerId, signedIn) on a session change.
+ * @param onRegistrationsChange Called when a provider is registered or
+ * unregistered. Unfiltered, because a provider that has just appeared is by
+ * definition not in `providerIds` yet.
  */
 export function useProviderUpdates(
 	providerIds: string[],
 	onConfigChange: (source: IPositronLanguageModelSource) => void,
 	onSignedInChange: (providerId: string, signedIn: boolean) => void,
+	onRegistrationsChange?: () => void,
 ): void {
 	const services = usePositronReactServicesContext();
 
@@ -35,6 +39,8 @@ export function useProviderUpdates(
 	onConfigChangeRef.current = onConfigChange;
 	const onSignedInChangeRef = useRef(onSignedInChange);
 	onSignedInChangeRef.current = onSignedInChange;
+	const onRegistrationsChangeRef = useRef(onRegistrationsChange);
+	onRegistrationsChangeRef.current = onRegistrationsChange;
 
 	// Join into a stable primitive so the effect only resubscribes when the set
 	// of tracked ids actually changes, not on every render.
@@ -52,6 +58,9 @@ export function useProviderUpdates(
 		}));
 		disposables.push(syncAuthSessions(authService, ids, (providerId, signedIn) => {
 			onSignedInChangeRef.current(providerId, signedIn);
+		}));
+		disposables.push(configService.onChangeProviderRegistrations(() => {
+			onRegistrationsChangeRef.current?.();
 		}));
 		return () => disposables.forEach(d => d.dispose());
 	}, [services, idsKey]);

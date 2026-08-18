@@ -11,7 +11,7 @@ import { useCallback, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
+import { IPositronAssistantConfigurationService, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { ContentArea } from '../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
@@ -73,6 +73,10 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	// single subscription can never miss an update, and the child views can stay
 	// presentational and unmount freely. Sources are shallow-cloned on change
 	// because updateProvider mutates the registered source in place.
+	//
+	// The set is not fixed at open time either: a custom provider added to
+	// providers.json registers a source, and deleting one unregisters it, both
+	// of which can happen with the modal open.
 	const [sources, setSources] = useState<IPositronLanguageModelSource[]>(props.sources);
 
 	// Route view changes driven by live sign-in state for the selected provider:
@@ -90,7 +94,9 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	};
 
 	useProviderUpdates(
-		props.sources.map(s => s.provider.id),
+		// Tracked ids follow the live list, so a provider that appears while the
+		// modal is open gets its updates subscribed too.
+		sources.map(s => s.provider.id),
 		newSource => {
 			setSources(prev => prev.map(s => s.provider.id === newSource.provider.id ? { ...newSource } : s));
 			applySignedInTransition(newSource.provider.id, !!newSource.signedIn);
@@ -99,6 +105,13 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 			setSources(prev => prev.map(s => s.provider.id === providerId ? { ...s, signedIn } : s));
 			applySignedInTransition(providerId, signedIn);
 		},
+		// A provider arriving or leaving changes the set rather than one entry,
+		// so re-read the list instead of patching it.
+		() => setSources(
+			services.get(IPositronAssistantConfigurationService)
+				.getRegisteredSources()
+				.map(s => ({ ...s }))
+		),
 	);
 
 	// The selected provider, always read from the fresh sources. Defensive: if it

@@ -26,16 +26,21 @@ function source(id: string, signedIn = false): IPositronLanguageModelSource {
 const Probe = (props: {
 	onConfigChange: (s: IPositronLanguageModelSource) => void;
 	onSignedInChange: (id: string, signedIn: boolean) => void;
+	onRegistrationsChange?: () => void;
 }) => {
-	useProviderUpdates(['posit-ai'], props.onConfigChange, props.onSignedInChange);
+	useProviderUpdates(['posit-ai'], props.onConfigChange, props.onSignedInChange, props.onRegistrationsChange);
 	return <div>probe</div>;
 };
 
 describe('useProviderUpdates', () => {
 	const onChange = new Emitter<IPositronLanguageModelSource>();
+	const onRegistrations = new Emitter<void>();
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IPositronAssistantConfigurationService, { onChangeProviderConfig: onChange.event })
+		.stub(IPositronAssistantConfigurationService, {
+			onChangeProviderConfig: onChange.event,
+			onChangeProviderRegistrations: onRegistrations.event,
+		})
 		.stub(IAuthenticationService, { onDidChangeSessions: () => ({ dispose() { } }), getSessions: async () => [] })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -53,5 +58,20 @@ describe('useProviderUpdates', () => {
 		rtl.render(<Probe onConfigChange={onConfigChange} onSignedInChange={vi.fn()} />);
 		act(() => onChange.fire(source('anthropic-api', true)));
 		expect(onConfigChange).not.toHaveBeenCalled();
+	});
+
+	it('reports registration changes without filtering on the tracked ids', () => {
+		// A provider that has just been registered is not in the tracked list
+		// yet, so this signal cannot be filtered the way config changes are.
+		const onRegistrationsChange = vi.fn();
+		rtl.render(
+			<Probe
+				onConfigChange={vi.fn()}
+				onRegistrationsChange={onRegistrationsChange}
+				onSignedInChange={vi.fn()}
+			/>
+		);
+		act(() => onRegistrations.fire());
+		expect(onRegistrationsChange).toHaveBeenCalledTimes(1);
 	});
 });

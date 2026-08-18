@@ -57,6 +57,18 @@ export function registerAuthProvider(
 }
 
 /**
+ * Forget an auth provider and its callbacks. Custom providers come and go with
+ * their `providers.custom` entry, so their registration can't just live for the
+ * lifetime of the extension.
+ */
+export function unregisterAuthProvider(providerId: string): void {
+	authProviders.delete(providerId);
+	apiKeyValidators.delete(providerId);
+	onSaveCallbacks.delete(providerId);
+	onDeleteCallbacks.delete(providerId);
+}
+
+/**
  * Derive which auth method a live session actually used, for providers that
  * offer more than one (currently only Databricks). Only the OAuth session
  * has a distinct id (DATABRICKS_OAUTH_SESSION_ID); chain and PAT sessions

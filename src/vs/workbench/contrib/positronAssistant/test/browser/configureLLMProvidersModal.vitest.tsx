@@ -32,16 +32,32 @@ const anthropic: IPositronLanguageModelSource = {
 	defaults: {},
 };
 
+const myGateway: IPositronLanguageModelSource = {
+	type: PositronLanguageModelType.Chat,
+	provider: { id: 'My Gateway', displayName: 'My Gateway' },
+	supportedOptions: ['apiKey', 'baseUrl'],
+	signedIn: false,
+	defaults: {},
+};
+
 describe('ConfigureLLMProviders', () => {
 	const onChange = new Emitter<IPositronLanguageModelSource>();
+	const registrationsChange = new Emitter<void>();
 	const sessionsChange = new Emitter<{ providerId: string; label: string; event: AuthenticationSessionsChangeEvent }>();
 	// syncAuthSessions only reads sessions.length, so an empty stub session suffices.
 	let sessions: AuthenticationSession[] = [];
-	beforeEach(() => { sessions = []; });
+	// What the service reports after a registration change; the modal re-reads
+	// it rather than patching its own list.
+	let registeredSources: IPositronLanguageModelSource[] = [];
+	beforeEach(() => { sessions = []; registeredSources = []; });
 
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IPositronAssistantConfigurationService, { onChangeProviderConfig: onChange.event })
+		.stub(IPositronAssistantConfigurationService, {
+			onChangeProviderConfig: onChange.event,
+			onChangeProviderRegistrations: registrationsChange.event,
+			getRegisteredSources: () => registeredSources,
+		})
 		.stub(IAuthenticationService, { onDidChangeSessions: sessionsChange.event, getSessions: async () => sessions })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -159,6 +175,45 @@ describe('ConfigureLLMProviders', () => {
 
 		expect(screen.getByLabelText(/api key/i)).toBeInTheDocument();
 		expect(screen.queryByText(/connected via/i)).not.toBeInTheDocument();
+	});
+
+	it('adds a provider that is registered while the modal is open', () => {
+		renderModal([anthropic]);
+		expect(screen.queryByText('My Gateway')).not.toBeInTheDocument();
+
+		// A custom entry added to providers.json registers a source.
+		registeredSources = [anthropic, myGateway];
+		act(() => registrationsChange.fire());
+
+		expect(screen.getByText('My Gateway')).toBeInTheDocument();
+	});
+
+	it('drops a provider that is unregistered while the modal is open', () => {
+		renderModal([anthropic, myGateway]);
+		expect(screen.getByText('My Gateway')).toBeInTheDocument();
+
+		registeredSources = [anthropic];
+		act(() => registrationsChange.fire());
+
+		expect(screen.queryByText('My Gateway')).not.toBeInTheDocument();
+		expect(screen.getByText('Anthropic')).toBeInTheDocument();
+	});
+
+	it('returns to the list when the provider being viewed is unregistered', async () => {
+		// anthropic starts connected (its row button is "Edit"), so "Connect"
+		// unambiguously belongs to My Gateway.
+		const connectedAnthropic = { ...anthropic, signedIn: true, status: 'ok' as const };
+		const user = userEvent.setup();
+		renderModal([connectedAnthropic, myGateway]);
+		await user.click(screen.getByRole('button', { name: /connect/i }));
+		expect(screen.getByLabelText(/api key/i)).toBeInTheDocument();
+
+		// The entry is deleted from providers.json while its connect view is open.
+		registeredSources = [connectedAnthropic];
+		act(() => registrationsChange.fire());
+
+		expect(screen.getByText('Connected Providers')).toBeInTheDocument();
+		expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
 	});
 
 	it('shows Close without Back on the list view, and Back on the connect view', async () => {
