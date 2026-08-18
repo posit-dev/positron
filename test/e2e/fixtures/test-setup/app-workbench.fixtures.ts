@@ -101,14 +101,23 @@ export async function WorkbenchApp(
 			console.warn('Failed to quit workbench session:', error);
 		}
 
-		// Put the catalog back for the other suites sharing this container. Best
-		// effort: a failure here must not mask a test failure that is already on its
-		// way out of the fixture.
+		// Put the catalog back for the other suites sharing this container.
+		//
+		// Deliberately not rethrown. The app fixture awaits stop() from a `finally`
+		// that is unwinding from the test's own error, so throwing here would replace
+		// that error and hide the actual failure. Logged as an error rather than a
+		// warning because the consequence outlives this worker: the container is
+		// shared, so a missed restore leaves Posit AI enabled for later suites. It
+		// does not become permanent -- the backup is left in place for the next
+		// session's setup to restore from (see enablePositAIProviderInContainer).
 		if (enablePositAIProvider) {
 			try {
 				await restorePositAIProviderInContainer(CONTAINER_NAME);
 			} catch (error) {
-				console.warn('Failed to restore the provider catalog:', error);
+				console.error(
+					'Failed to restore the provider catalog; Posit AI may be left enabled for later suites in this container:',
+					error
+				);
 			}
 		}
 

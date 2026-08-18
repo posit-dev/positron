@@ -158,8 +158,15 @@ export async function enablePositAIProviderInContainer(containerName: string): P
 		);
 		// Back up whatever the container already had so teardown can put it back the
 		// way the next suite sharing this container expects to find it.
+		//
+		// Skipped when a backup is already there: that means an earlier teardown's
+		// restore did not run, so the stale backup is the last surviving copy of the
+		// container's original catalog. Overwriting it with the current (already
+		// enabled) file would lose that original for good, turning one missed restore
+		// into permanent contamination of every later suite in the lane. Leaving it
+		// alone means the next teardown restores the true original instead.
 		await runDockerCommand(
-			`docker exec ${containerName} bash -lc 'if [ -f ${PROVIDERS_CONFIG_PATH} ]; then cp ${PROVIDERS_CONFIG_PATH} ${PROVIDERS_CONFIG_BACKUP_PATH}; fi'`,
+			`docker exec ${containerName} bash -lc 'if [ -f ${PROVIDERS_CONFIG_PATH} ] && [ ! -f ${PROVIDERS_CONFIG_BACKUP_PATH} ]; then cp ${PROVIDERS_CONFIG_PATH} ${PROVIDERS_CONFIG_BACKUP_PATH}; fi'`,
 			'Back up the existing provider catalog'
 		);
 		await runDockerCommand(
