@@ -442,7 +442,7 @@ export interface MainThreadAiFeaturesShape {
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 	$getEnabledProviders(): Thenable<string[]>;
 	$isProviderEnabled(id: string): Thenable<boolean>;
-	$getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]>;
+	$getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<ISerializedAgentCommand[]>;
 	$validateAndExecuteCommand(
 		commandId: string,
 		args: unknown[] | undefined,

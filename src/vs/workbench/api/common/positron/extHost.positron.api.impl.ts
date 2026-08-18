@@ -561,11 +561,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			isProviderEnabled(id: string): Thenable<boolean> {
 				return extHostAiFeatures.isProviderEnabled(id);
 			},
-			getAgentAllowedCommands(): Thenable<positron.ai.AgentCommand[]> {
-				return extHostAiFeatures.getAgentAllowedCommands();
+			getAgentAllowedCommands(options?: positron.ai.GetAgentAllowedCommandsOptions): Thenable<positron.ai.AgentCommand[]> {
+				return extHostAiFeatures.getAgentAllowedCommands(options);
 			},
 			getAgentSkillRoots(): Thenable<string[]> {
 				return extHostAiFeatures.getAgentSkillRoots();
+			},
+			registerAgentSkillRoot(root: string): vscode.Disposable {
+				return extHostAiFeatures.registerAgentSkillRoot(root);
 			},
 			validateAndExecuteCommand(
 				commandId: string,

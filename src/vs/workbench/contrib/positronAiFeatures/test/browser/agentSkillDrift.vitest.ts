@@ -10,8 +10,9 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 /**
- * Guards against skill/command drift: a command id named in any markdown file
- * under `skills/` that no longer exists (renamed or removed) in `src/vs/workbench`.
+ * Guards against skill/command drift: a command id named in any markdown
+ * template under the `positron-skills` extension that no longer exists (renamed
+ * or removed) in `src/vs/workbench`.
  *
  * This deliberately does NOT assert against `CommandsRegistry` -- nothing in a
  * vitest run imports Positron's contribution modules, so the registry is
@@ -36,7 +37,7 @@ import { fileURLToPath } from 'url';
 const TEST_FILE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_FILE_DIR, '../../../../../../..');
 const WORKBENCH_SRC_ROOT = path.join(REPO_ROOT, 'src', 'vs', 'workbench');
-const SKILLS_ROOT = path.join(REPO_ROOT, 'skills');
+const SKILLS_ROOT = path.join(REPO_ROOT, 'extensions', 'positron-skills', 'templates');
 
 /** Dotted-identifier shape, e.g. `workbench.action.foo` or `positron.help.lookupHelpTopic`. */
 const CANDIDATE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/;
@@ -76,7 +77,7 @@ interface SkillFile {
 	readonly content: string;
 }
 
-/** Every markdown file under `skills/`, recursively, cached at module load. */
+/** Every markdown file under the templates root, recursively, cached at module load. */
 function collectMarkdownFiles(dir: string): string[] {
 	const result: string[] = [];
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -91,7 +92,7 @@ function collectMarkdownFiles(dir: string): string[] {
 }
 
 /**
- * Every markdown file under `skills/`, cached at module load.
+ * Every markdown template under the templates root, cached at module load.
  *
  * Recursive on purpose: a skill's command documentation may live in
  * `references/*.md` rather than in `SKILL.md` itself, and scanning only

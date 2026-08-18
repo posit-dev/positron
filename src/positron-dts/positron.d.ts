@@ -4149,6 +4149,21 @@ declare module 'positron' {
 			};
 
 		/**
+		 * Options for {@link getAgentAllowedCommands}.
+		 */
+		export interface GetAgentAllowedCommandsOptions {
+			/**
+			 * Include agent-compatible commands whose precondition does not
+			 * currently hold (e.g. a Data Explorer command while no Data Explorer
+			 * is open). Defaults to `false`, which returns only commands that are
+			 * enabled right now. Set to `true` when the full static set is needed
+			 * regardless of the current UI state, such as when generating
+			 * documentation.
+			 */
+			includeDisabled?: boolean;
+		}
+
+		/**
 		 * Returns the curated list of Positron commands that are available to
 		 * AI agents, including their IDs, descriptions, and parameter and
 		 * return-value metadata.
@@ -4158,9 +4173,26 @@ declare module 'positron' {
 		 * current build is dropped so the returned list is guaranteed to
 		 * resolve.
 		 *
+		 * @param options Controls which commands are returned.
 		 * @returns A Thenable that resolves to an array of command descriptors.
 		 */
-		export function getAgentAllowedCommands(): Thenable<AgentCommand[]>;
+		export function getAgentAllowedCommands(options?: GetAgentAllowedCommandsOptions): Thenable<AgentCommand[]>;
+
+		/**
+		 * Registers an additional filesystem root holding agent skills, so a
+		 * root produced at runtime (for example, generated skill files written to
+		 * an extension's storage) is discovered alongside the roots Positron
+		 * ships. The root is a directory whose immediate subdirectories each
+		 * contain a `SKILL.md`.
+		 *
+		 * The registration lives in the extension host and is observed by
+		 * {@link getAgentSkillRoots}. Dispose the returned value to remove the
+		 * root again.
+		 *
+		 * @param root Absolute filesystem path of the skill root to add.
+		 * @returns A Disposable that removes the root when disposed.
+		 */
+		export function registerAgentSkillRoot(root: string): vscode.Disposable;
 
 		/**
 		 * Returns filesystem roots holding the agent skills that ship with this
@@ -4169,6 +4201,7 @@ declare module 'positron' {
 		 * Each root is a directory whose immediate subdirectories are skills, one
 		 * `SKILL.md` per subdirectory. Resolved on whichever machine the extension
 		 * host runs on, so the paths are valid for an extension reading them.
+		 * Includes any roots added via {@link registerAgentSkillRoot}.
 		 *
 		 * @returns A Thenable resolving to absolute paths, empty when this build
 		 * ships no agent skills.

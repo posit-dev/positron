@@ -1,0 +1,25 @@
+{
+	"name": "positron-skills",
+	"displayName": "Positron Skills",
+	"description": "Generates and publishes the agent skills that teach Positron Assistant which IDE commands exist and how to call them.",
+	"version": "0.0.1",
+	"publisher": "positron",
+	"license": "Elastic-2.0",
+	"private": true,
+	"engines": {
+		"vscode": "^1.130.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./out/extension.js",
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"lint": "eslint src --ext ts"
+	}
+}

@@ -295,8 +295,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	/**
 	 * Return the curated set of Positron commands available to AI agents.
 	 */
-	async $getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]> {
-		return this._agentAllowedCommandsService.getAgentAllowedCommands().map(cmd => ({
+	async $getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<ISerializedAgentCommand[]> {
+		return this._agentAllowedCommandsService.getAgentAllowedCommands({ enabledOnly: !options?.includeDisabled }).map(cmd => ({
 			id: cmd.id,
 			description: cmd.description,
 			args: cmd.args?.map(a => ({
