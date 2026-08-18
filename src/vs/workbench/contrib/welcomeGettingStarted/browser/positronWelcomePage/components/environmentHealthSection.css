@@ -359,6 +359,33 @@
 	}
 
 	/*
+	 * The row spans the card's full width, and the card clips overflow to keep
+	 * its rounded corners. The button's default focus ring draws outside its
+	 * edge with no offset, so on this row that means straddling the clipped
+	 * boundary -- the left and right sides disappear, only top and bottom
+	 * survive. A negative offset pulls the ring inside the row instead. The
+	 * radius resets to match the row's own square corners, not the button's.
+	 */
+	& .environment-health-group-header:focus-visible {
+		border-radius: 0;
+		outline-offset: -1px;
+	}
+
+	/*
+	 * The last language row's bottom corners are not actually square when it is
+	 * collapsed: the card clips them to its own radius (6px, minus the 1px
+	 * border) because nothing renders below to cover the curve. Expanded, the
+	 * row is never last -- its checks list sits below it -- so it keeps the
+	 * square ring above. This selector isolates exactly that collapsed-and-last
+	 * case: the heading is only its group's last child when there is no list
+	 * after it.
+	 */
+	& .environment-health-group:last-child > .environment-health-group-heading:last-child .environment-health-group-header:focus-visible {
+		border-bottom-left-radius: 5px;
+		border-bottom-right-radius: 5px;
+	}
+
+	/*
 	 * Styled as a link although it is a button, because it navigates to the
 	 * Settings editor rather than changing anything on the page.
 	 */
