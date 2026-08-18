@@ -137,7 +137,7 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, hoverMan
 		return (
 			<ul className='environment-health-item-list'>
 				{health.state.result.items.map(i =>
-					<HealthItemRow key={i.id} busy={busy} item={i} onRunFix={onRunFix} />)}
+					<HealthItemRow key={i.id} busy={busy} hoverManager={hoverManager} item={i} onRunFix={onRunFix} />)}
 			</ul>
 		);
 	};
