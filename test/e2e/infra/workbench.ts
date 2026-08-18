@@ -10,7 +10,6 @@ import { Modals } from '../pages/dialog-modals';
 import { DynamicModals } from '../pages/dialog-dynamic-modals.js';
 // --- End Positron ---
 import { Toasts } from '../pages/dialog-toasts';
-import { Popups } from '../pages/dialog-popups.js';
 import { ContextMenu } from '../pages/dialog-contextMenu.js';
 import { Console } from '../pages/console';
 import { Variables } from '../pages/variables';
@@ -70,7 +69,6 @@ export class Workbench {
 	readonly dynamicModals: DynamicModals;
 	// --- End Positron ---
 	readonly toasts: Toasts;
-	readonly popups: Popups;
 	readonly contextMenu: ContextMenu;
 	readonly console: Console;
 	readonly variables: Variables;
@@ -122,7 +120,6 @@ export class Workbench {
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
 		this.toasts = new Toasts(code);
-		this.popups = new Popups(code);
 		this.contextMenu = new ContextMenu(code);
 		this.variables = new Variables(code, this.hotKeys);
 		this.dataExplorer = new DataExplorer(code, this);
