@@ -87,17 +87,11 @@ import { ScrollbarVisibility } from '../../../../base/common/scrollable.js';
 // --- Start Positron ---
 import './media/positronGettingStarted.css';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { createWelcomePageLeft } from './positronWelcomePageLeft.js';
-import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
-import { isDark } from '../../../../platform/theme/common/theme.js';
 // eslint-disable-next-line no-duplicate-imports
 import { isWeb } from '../../../../base/common/platform.js';
-import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStartedPositronNotebookContent.js';
-import { gettingStartedPositronWelcomeCategoryId } from '../common/gettingStartedPositronWelcomeContent.js';
 import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
-import { WELCOME_PAGE_EXPERIMENTAL_KEY } from '../common/positronWelcomePageConfiguration.js';
 import { EnvironmentHealthLanguage } from './positronWelcomePage/environmentHealth.js';
 import { IEnvironmentHealthService } from './positronWelcomePage/environmentHealthService.js';
 // --- End Positron ---
@@ -107,14 +101,6 @@ const configurationKey = 'workbench.startupEditor';
 
 export const allWalkthroughsHiddenContext = new RawContextKey<boolean>('allWalkthroughsHidden', false);
 export const inWelcomeContext = new RawContextKey<boolean>('inWelcome', false);
-
-// --- Start Positron ---
-export interface IWelcomePageHelpEntry {
-	id: string;
-	title: string;
-	href: string;
-}
-// --- End Positron ---
 
 export interface IWelcomePageStartEntry {
 	id: string;
@@ -198,9 +184,6 @@ export class GettingStartedPage extends EditorPane {
 
 	private contextService: IContextKeyService;
 
-	// --- Start Positron ---
-	private helpList?: GettingStartedIndexList<IWelcomePageHelpEntry>;
-	// --- End Positron ---
 	private readonly recentlyOpenedList = this._register(new MutableDisposable<GettingStartedIndexList<RecentEntry>>());
 	private readonly startList = this._register(new MutableDisposable<GettingStartedIndexList<IWelcomePageStartEntry>>());
 	private readonly gettingStartedList = this._register(new MutableDisposable<GettingStartedIndexList<IResolvedWalkthrough>>());
@@ -263,7 +246,6 @@ export class GettingStartedPage extends EditorPane {
 		// --- Start Positron ---
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
-		@IPositronDocsService private readonly docsService: IPositronDocsService,
 		// Asking for this here is what decides when the environment checks first
 		// run: nothing else in the window requests the service, so a user who
 		// never opens the welcome page never activates the Python and R
@@ -318,16 +300,6 @@ export class GettingStartedPage extends EditorPane {
 
 		this._register(this.gettingStartedService.onDidAddWalkthrough(rerender));
 		this._register(this.gettingStartedService.onDidRemoveWalkthrough(rerender));
-
-		// --- Start Positron ---
-		// Rebuild the page when the experimental welcome page setting is toggled,
-		// so switching it does not need a window reload.
-		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(WELCOME_PAGE_EXPERIMENTAL_KEY)) {
-				this.buildSlideThrottle.queue(() => this.buildCategoriesSlide());
-			}
-		}));
-		// --- End Positron ---
 
 		this.recentlyOpened = this.workspacesService.getRecentlyOpened();
 		this._register(workspacesService.onDidChangeRecentlyOpened(() => {
@@ -1020,31 +992,24 @@ export class GettingStartedPage extends EditorPane {
 			onShowOnStartupChanged();
 		}));
 		// --- Start Positron ---
-		// Positron replaces the upstream header with a theme-aware logo. The
-		// logo is only shown on the original welcome page, so it is built with
-		// the rest of that page at the bottom of this method.
+		// The Positron welcome page draws its own header in React, so upstream's
+		// is unused here. The two columns below go with it: nothing fills them.
 		//
 		// const header = $('.header', {},
 		// 	$('h1.product-name.caption', {}, this.productService.nameLong),
 		// 	$('p.subtitle.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "Editing evolved"))
 		// );
-		// --- End Positron ---
-
-		const leftColumn = $('.categories-column.categories-column-left', {},);
-		const rightColumn = $('.categories-column.categories-column-right', {},);
-
-		// --- Start Positron ---
-		// Positron shows a Help list where upstream shows its start list. The
-		// help list is only shown on the original welcome page, so it is built
-		// in layoutRecentList below.
+		//
+		// const leftColumn = $('.categories-column.categories-column-left', {},);
+		// const rightColumn = $('.categories-column.categories-column-right', {},);
+		//
+		// Positron shows neither upstream's start list nor a list of
+		// walkthroughs. A banner links to the walkthrough quick pick instead.
 		//
 		// const startList = this.buildStartList();
 		// --- End Positron ---
 		const recentList = this.buildRecentlyOpenedList();
 		// --- Start Positron ---
-		// The walkthroughs list is only shown on the original welcome page, so
-		// it is built in layoutRecentList below.
-		//
 		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 		// --- End Positron ---
 
@@ -1100,11 +1065,10 @@ export class GettingStartedPage extends EditorPane {
 
 		// --- Start Positron ---
 		// Upstream lays out one or two columns depending on whether there are
-		// walkthroughs to show, putting its start list and the recent list in
-		// the left column and moving the recent list to the right one when
-		// there are no walkthroughs. Positron always uses both columns: React
-		// start buttons, the recent list and "Connect to..." on the left,
-		// walkthroughs and help on the right.
+		// walkthroughs to show, putting its start list and the recent list in the
+		// left column and moving the recent list to the right one when there are
+		// none. The Positron welcome page is a single React tree, so it replaces
+		// the whole slide instead of filling in columns.
 		//
 		// const layoutLists = () => {
 		// 	if (gettingStartedList.itemCount) {
@@ -1129,63 +1093,12 @@ export class GettingStartedPage extends EditorPane {
 		// 		reset(leftColumn, startList.getDomElement(), recentList.getDomElement());
 		// 	}
 		// };
-		const layoutRecentList = () => {
-			// These lists are only shown on the original welcome page, so they
-			// are built here rather than with the shared lists above.
-			const helpList = this.buildHelpList();
-			const gettingStartedList = this.buildGettingStartedWalkthroughsList();
-
-			const leftContent = $('div.positron-welcome-left-column');
-			this.positronReactRenderer.value = createWelcomePageLeft(leftContent);
-
-			// Hide the "Connect to..." button if we are on a web platform
-			if (!isWeb) {
-				reset(leftColumn, leftContent, recentList.getDomElement(), otherList);
-			} else {
-				reset(leftColumn, leftContent, recentList.getDomElement());
-			}
-			reset(rightColumn, gettingStartedList.getDomElement(), helpList.getDomElement());
-		};
-
-		// The redesigned welcome page, gated on `welcomePage.experimental`.
-		// Returns undefined when the flag is off, in which case the original
-		// welcome page below is built unchanged.
-		const positronWelcomePageContainer = this.buildPositronWelcomePage(recentList, otherList, footer);
-
-		// When the redesigned page is on, it replaces the whole slide.
 		//
 		// gettingStartedList.onDidChange(layoutLists);
 		// layoutLists();
 		//
 		// reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
-		if (positronWelcomePageContainer) {
-			reset(this.categoriesSlide, positronWelcomePageContainer);
-		} else {
-			// Everything in this branch is the original welcome page. It goes when
-			// the flag does, along with the files named on
-			// WELCOME_PAGE_EXPERIMENTAL_KEY, leaving the commented-out upstream
-			// code above to be restored or dropped as that change decides.
-
-			// Create a function to get the header logo based on theme type
-			const getHeaderLogoClass = () => {
-				return isDark(this.themeService.getColorTheme().type)
-					? 'product-logo welcome-positron-logo-dark'
-					: 'product-logo welcome-positron-logo';
-			};
-			// Create element for the theme-aware logo
-			const logoElement = $('div', { class: getHeaderLogoClass() });
-			// Add a listener to update the logo when the theme changes
-			this.categoriesSlideDisposables.add(
-				this.themeService.onDidColorThemeChange(() => {
-					logoElement.className = getHeaderLogoClass();
-				})
-			);
-			// Display the theme-aware logo in the header
-			const header = $('.header', {}, logoElement);
-
-			layoutRecentList();
-			reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
-		}
+		reset(this.categoriesSlide, this.buildPositronWelcomePage(recentList, otherList, footer));
 		// --- End Positron ---
 
 		this.categoriesPageScrollbar?.scanDomNode();
@@ -1252,31 +1165,21 @@ export class GettingStartedPage extends EditorPane {
 
 	// --- Start Positron ---
 	/**
-	 * Builds the redesigned welcome page, which is gated on the
-	 * `welcomePage.experimental` setting. Returns undefined when the setting is
-	 * off, in which case the caller builds the original welcome page instead.
+	 * Builds the Positron welcome page.
 	 *
 	 * The recent list, the "Connect to..." action and the show on startup
-	 * checkbox are passed in as already-built DOM so that they keep the
-	 * behaviour they have on the original page.
+	 * checkbox are passed in as already-built DOM, because each one reuses an
+	 * existing widget along with its behaviour and telemetry.
 	 * @param recentList The "Recent" list.
 	 * @param otherList The "Connect to..." action.
 	 * @param footer The "Show welcome page on startup" checkbox row.
-	 * @returns The container to show, or undefined when the setting is off.
+	 * @returns The container to show.
 	 */
 	private buildPositronWelcomePage(
 		recentList: GettingStartedIndexList<RecentEntry>,
 		otherList: HTMLElement,
 		footer: HTMLElement
-	): HTMLElement | undefined {
-		// Compare against true rather than checking for false. The setting is
-		// registered with `included: false`, which drops it from the
-		// configuration properties, so its declared default is never applied and
-		// getValue returns undefined when the user has not set it.
-		if (this.configurationService.getValue<boolean>(WELCOME_PAGE_EXPERIMENTAL_KEY) !== true) {
-			return undefined;
-		}
-
+	): HTMLElement {
 		// The service decides whether this is a page it has already checked, because
 		// a split editor builds a second pane for the same page and a new pane
 		// remembers nothing. All the pane owes it is the input, which identifies
@@ -1315,74 +1218,6 @@ export class GettingStartedPage extends EditorPane {
 		});
 
 		return reactHost;
-	}
-	// --- End Positron ---
-
-	// --- Start Positron ---
-	private buildHelpList(): GettingStartedIndexList<IWelcomePageHelpEntry> {
-		const renderHelpEntry = (entry: IWelcomePageHelpEntry): HTMLElement => {
-			const li = $('li');
-			const link = $('button.button-link');
-
-			link.innerText = entry.title;
-			link.title = entry.title;
-			link.setAttribute('aria-label', entry.title);
-			link.addEventListener('click', e => {
-				this.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>('gettingStarted.ActionExecuted', { command: 'openLink', argument: entry.href, walkthroughId: this.currentWalkthrough?.id });
-				this.openerService.open(entry.href);
-				e.preventDefault();
-				e.stopPropagation();
-			});
-
-			li.appendChild(link);
-			return li;
-		};
-
-		if (this.helpList) {
-			this.helpList.dispose();
-		}
-
-		const helpList = this.helpList = new GettingStartedIndexList(
-			{
-				title: localize('help', "Help"),
-				klass: 'welcome-help-links',
-				limit: 10,
-				renderElement: renderHelpEntry,
-				contextService: this.contextService
-			});
-
-		const helpEntries: IWelcomePageHelpEntry[] = [
-			{
-				id: 'positron-documentation',
-				title: localize('positron.welcome.positronDocumentation', "Positron Documentation"),
-				href: this.docsService.baseUrl
-			},
-			{
-				id: 'positron-community',
-				title: 'Positron Community Forum',
-				href: 'https://github.com/posit-dev/positron/discussions'
-			},
-			{
-				id: 'report-bug',
-				title: 'Report a Bug',
-				href: 'https://github.com/posit-dev/positron/issues'
-			},
-			{
-				id: 'positron-newsletter',
-				title: localize('positron.welcome.newsletter', "Sign Up for Positron Updates"),
-				href: 'https://posit.co/positron-updates-signup/'
-			},
-			{
-				id: 'positron-privacy',
-				title: localize('positron.welcome.privacy', "Privacy"),
-				href: this.docsService.getUrl('privacy.html')
-			}
-		];
-
-		helpList.setEntries(helpEntries);
-		helpList.onDidChange(() => this.registerDispatchListeners());
-
-		return helpList;
 	}
 	// --- End Positron ---
 
@@ -1535,6 +1370,14 @@ export class GettingStartedPage extends EditorPane {
 	*/
 	// --- End Positron ---
 
+	// --- Start Positron ---
+	// The redesigned welcome page points at the walkthroughs with a banner
+	// rather than listing them, so nothing builds this list any more. The
+	// quick pick the banner opens is the full list, and the walkthroughs
+	// Positron does not want in it are hidden in positronHiddenWalkthroughs.ts,
+	// which is where the ranking filter that used to live here has gone.
+	//
+	/*
 	private buildGettingStartedWalkthroughsList(): GettingStartedIndexList<IResolvedWalkthrough> {
 
 		const renderGetttingStaredWalkthrough = (category: IResolvedWalkthrough): HTMLElement => {
@@ -1585,29 +1428,6 @@ export class GettingStartedPage extends EditorPane {
 
 
 		const rankWalkthrough = (e: IResolvedWalkthrough) => {
-			// --- Start Positron ---
-			/**
-			 * The walkthrough experience on the welcome page is customized to
-			 * only show specific Positron-approved walkthroughs. The walkthroughs
-			 * we want to hide are filtered out by not providing a rank for them.
-			 * Walkthroughs without a rank are hidden on the welcome page but still
-			 * accessible via the command palette.
-			 *
-			 * These walkthroughs we want to display are provided by Positron extensions
-			 * and the IDs are hardcoded here and need to be kept in sync with the Id
-			 * of the walkthroughs in the Positron extensions.
-			 */
-			const allowedWalkthroughIds = [
-				gettingStartedPositronWelcomeCategoryId,
-				'ms-python.python#positron.migrateFromVSCode',
-				'positron.positron-r#positron.r.migrateFromRStudio',
-				gettingStartedPositronNotebookCategoryId,
-			];
-
-			if (allowedWalkthroughIds.every(walkthroughId => walkthroughId !== e.id)) {
-				return null;
-			}
-			// --- End Positron ---
 
 			let rank: number | null = e.order;
 
@@ -1645,16 +1465,14 @@ export class GettingStartedPage extends EditorPane {
 
 		return gettingStartedList;
 	}
+	*/
+	// --- End Positron ---
 
 	layout(size: Dimension) {
 		this.detailsScrollbar.value?.scanDomNode();
 
 		this.categoriesPageScrollbar?.scanDomNode();
 		this.detailsPageScrollbar?.scanDomNode();
-
-		// --- Start Positron ---
-		this.helpList?.layout(size);
-		// --- End Positron ---
 
 		this.startList.value?.layout(size);
 		this.gettingStartedList.value?.layout(size);
@@ -2093,17 +1911,16 @@ export class GettingStartedPage extends EditorPane {
 				}
 
 				// --- Start Positron ---
-				// Requires the list to exist before treating it as stale. The
-				// redesigned welcome page does not build a walkthrough list, so
-				// without this the comparison against undefined is always true and
-				// every trip back here rebuilds the whole slide.
+				// Upstream rebuilds the slide here in case an extension changed the
+				// walkthrough list while the user was away. The welcome page does
+				// not list walkthroughs, so there is nothing on it to go stale and
+				// the rebuild is pure waste.
 				//
 				// if (this.gettingStartedCategories.length !== this.gettingStartedList.value?.itemCount) {
-				if (this.gettingStartedList.value && this.gettingStartedCategories.length !== this.gettingStartedList.value.itemCount) {
-					// extensions may have changed in the time since we last displayed the walkthrough list
-					// rebuild the list
-					this.buildCategoriesSlide();
-				}
+				// 	// extensions may have changed in the time since we last displayed the walkthrough list
+				// 	// rebuild the list
+				// 	this.buildCategoriesSlide();
+				// }
 				// --- End Positron ---
 
 				this.selectStep(undefined);
