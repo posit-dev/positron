@@ -12,13 +12,29 @@
  * `pip config`, which needs the environment's interpreter to evaluate.
  */
 
+/** The index environment variables pip honours. uv does not read pip's. */
+export const PIP_INDEX_ENV_VARS: readonly string[] = ['PIP_INDEX_URL'];
+
+/**
+ * The index environment variables uv honours, in uv's own precedence:
+ * `UV_DEFAULT_INDEX` first, then its deprecated predecessor `UV_INDEX_URL`.
+ * uv does not read `PIP_INDEX_URL`.
+ */
+export const UV_INDEX_ENV_VARS: readonly string[] = ['UV_DEFAULT_INDEX', 'UV_INDEX_URL'];
+
 /**
  * Resolve the index URL the environment's installer would use, from the sources
- * available without kernel involvement: the pip/uv environment variables, then
- * `pip config get global.index-url` (which reads pip's own config-file
- * precedence, covering `/etc/pip.conf` and per-user and per-environment files)
- * via the caller-supplied lookup.
+ * available without kernel involvement: the installer's own environment
+ * variables, then `pip config get global.index-url` (which reads pip's own
+ * config-file precedence, covering `/etc/pip.conf` and per-user and
+ * per-environment files) via the caller-supplied lookup.
  *
+ * @param envVars The index environment variables the calling package manager
+ *   itself honours, in its own precedence order ({@link PIP_INDEX_ENV_VARS} or
+ *   {@link UV_INDEX_ENV_VARS}). pip and uv read different variables, so one
+ *   shared list would resolve an index the environment never installs from --
+ *   and hand the installed-package inventory to a host the environment has no
+ *   relationship with.
  * @param getPipConfigIndexUrl Optional callback that runs `pip config get
  *   global.index-url` in the environment and returns its output, or undefined
  *   when unset. Injectable so uv (which doesn't read pip config) can omit it and
@@ -28,14 +44,17 @@
  *   PPM) applies.
  */
 export async function resolvePythonIndexUrl(
+    envVars: readonly string[],
     getPipConfigIndexUrl?: () => Promise<string | undefined>,
     env: NodeJS.ProcessEnv = process.env,
 ): Promise<string | undefined> {
     // pip precedence is command line > environment > config files; the command
     // line isn't visible here, so the environment comes first.
-    const fromEnv = env.PIP_INDEX_URL?.trim() || env.UV_DEFAULT_INDEX?.trim() || env.UV_INDEX_URL?.trim();
-    if (fromEnv) {
-        return stripTrailingSlash(fromEnv);
+    for (const name of envVars) {
+        const value = env[name]?.trim();
+        if (value) {
+            return stripTrailingSlash(value);
+        }
     }
 
     if (getPipConfigIndexUrl) {

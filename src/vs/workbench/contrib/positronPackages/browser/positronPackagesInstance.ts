@@ -195,19 +195,13 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	/**
-	 * Whether the cache holds usable metadata for the package's current version.
-	 *
-	 * When the runtime reports outdated state, an entry carrying none is not
-	 * fresh: it was written by a round where only the advisory lookup answered,
-	 * and letting it stand in for outdated state would hide the update indicator
-	 * until the freshness window ages out.
+	 * The cached entry for the package's currently-installed version, or
+	 * undefined when there is none. A version mismatch means the entry is from a
+	 * different library context or a since-changed install, so it doesn't count.
 	 */
-	private _hasFreshMetadata(pkg: ILanguageRuntimePackage, expectsOutdated: boolean): boolean {
+	private _freshEntryFor(pkg: ILanguageRuntimePackage): ICachedPackageMetadata | undefined {
 		const metadata = this._metadataCache.get(pkg.name.toLowerCase());
-		if (metadata === undefined || metadata.version !== pkg.version) {
-			return false;
-		}
-		return !expectsOutdated || metadata.outdated !== undefined;
+		return metadata !== undefined && metadata.version === pkg.version ? metadata : undefined;
 	}
 
 	/**
@@ -329,12 +323,39 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			visiblePackages.push(pkg);
 		}
 
-		const expectsOutdated = !!packageManager.getPackageMetadata;
-		const packagesToFetch = fetchAll
-			? visiblePackages
-			: visiblePackages.filter((pkg) => !this._hasFreshMetadata(pkg, expectsOutdated));
+		// The advisory lookup needs the runtime's host to make its requests
+		// (the renderer can't reach a Package Manager API), so a runtime
+		// that can't carry one gets no advisories.
+		//
+		// Both hooks are invoked as methods on the package manager rather
+		// than pulled out into locals first: the main-thread adapter reads
+		// `this._proxy`, so an unbound call throws.
+		const access: IPackageRepositoryAccess | undefined = packageManager.repositoryRequest
+			? {
+				resolveUrl: (lookupToken) => packageManager.packageRepositoryUrl?.(lookupToken) ?? Promise.resolve(undefined),
+				request: (request, requestToken) => packageManager.repositoryRequest!(request, requestToken),
+			}
+			: undefined;
 
-		if (packagesToFetch.length === 0) {
+		// Each source refetches only its own gaps, judged against its own marker:
+		// `outdated` for the runtime's metadata, `vulnerabilitiesCheckedAt` for
+		// advisories. An entry written by a round where one source failed is fresh
+		// for the source that answered and stale for the one that didn't, so a
+		// transient advisory failure is retried on the next refresh instead of
+		// counting as fresh until the entry ages out -- and retried without
+		// redoing the (slow) outdated fetch the runtime already answered.
+		const outdatedToFetch = !packageManager.getPackageMetadata
+			? []
+			: fetchAll
+				? visiblePackages
+				: visiblePackages.filter((pkg) => this._freshEntryFor(pkg)?.outdated === undefined);
+		const advisoriesToFetch = !access || !this._vulnerabilityLookup.enabled
+			? []
+			: fetchAll
+				? visiblePackages
+				: visiblePackages.filter((pkg) => this._freshEntryFor(pkg)?.vulnerabilitiesCheckedAt === undefined);
+
+		if (outdatedToFetch.length === 0 && advisoriesToFetch.length === 0) {
 			// Every package already has fresh cached metadata, just fire the event
 			this._onDidRefreshPackagesInstance.fire(this.packages);
 			return;
@@ -343,30 +364,16 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		const fetch = createCancelablePromise<void>(async (token) => {
 			// Advisories are version-specific, so the lookup gets installed
 			// versions; the runtime's own metadata call only needs names.
-			const packageSpecs = packagesToFetch.map((pkg): IPackageSpec => ({ name: pkg.name, version: pkg.version }));
-
-			// The advisory lookup needs the runtime's host to make its requests
-			// (the renderer can't reach a Package Manager API), so a runtime
-			// that can't carry one gets no advisories.
-			//
-			// Both hooks are invoked as methods on the package manager rather
-			// than pulled out into locals first: the main-thread adapter reads
-			// `this._proxy`, so an unbound call throws.
-			const access: IPackageRepositoryAccess | undefined = packageManager.repositoryRequest
-				? {
-					resolveUrl: (lookupToken) => packageManager.packageRepositoryUrl?.(lookupToken) ?? Promise.resolve(undefined),
-					request: (request, requestToken) => packageManager.repositoryRequest!(request, requestToken),
-				}
-				: undefined;
+			const packageSpecs = advisoriesToFetch.map((pkg): IPackageSpec => ({ name: pkg.name, version: pkg.version }));
 
 			// Two independent sources: settle both so a slow or failing
 			// vulnerability lookup can't hold up (or discard) the outdated
 			// state, which is what the pane mostly renders.
 			const [metadataResult, vulnerabilityResult] = await Promise.allSettled([
-				packageManager.getPackageMetadata
-					? packageManager.getPackageMetadata(packagesToFetch.map((pkg) => pkg.name), token)
+				packageManager.getPackageMetadata && outdatedToFetch.length > 0
+					? packageManager.getPackageMetadata(outdatedToFetch.map((pkg) => pkg.name), token)
 					: Promise.resolve(undefined),
-				access
+				access && advisoriesToFetch.length > 0
 					? this._vulnerabilityLookup.getVulnerabilities(
 						this._session.runtimeMetadata.languageId,
 						access,
@@ -389,13 +396,17 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			const vulnerabilities = vulnerabilityResult.status === 'fulfilled' ? vulnerabilityResult.value : undefined;
 
 			// Only the packages some source answered for get an entry, so a
-			// package nobody reported on stays uncached and is retried.
+			// package nobody reported on stays uncached and is retried. For the
+			// advisory lookup the queried names are the answered ones, not just
+			// the names with advisories: "asked about and not mentioned" is an
+			// answer too (the repository doesn't know the version), and the entry
+			// records that it was given.
 			const keys = new Set<string>();
 			for (const name of metadataMap?.keys() ?? []) {
 				keys.add(name.toLowerCase());
 			}
-			for (const name of vulnerabilities?.vulnerabilities.keys() ?? []) {
-				keys.add(name.toLowerCase());
+			for (const name of vulnerabilities?.queried ?? []) {
+				keys.add(name);
 			}
 			if (keys.size === 0) {
 				return;
@@ -427,6 +438,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 					// the lookup never reached (a failed chunk, a spent budget)
 					// keep what they had -- silence there is not an all-clear.
 					entry.vulnerabilities = vulnerabilities.vulnerabilities.get(key);
+					// Freshness reads this back: without it, "answered with no
+					// advisories" and "the lookup failed" both look like a bare
+					// entry, and a transient failure would count as fresh until
+					// the entry aged out.
+					entry.vulnerabilitiesCheckedAt = vulnerabilities.source.fetchedAt;
 				}
 				this._metadataCache.set(key, entry);
 			}

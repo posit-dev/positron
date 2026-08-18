@@ -66,7 +66,7 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		]));
 		// No advisory data by default; the vulnerability tests opt in.
 		getVulnerabilities = vi.fn(async () => undefined);
-		vulnerabilityLookup = stubInterface<PackageVulnerabilityLookup>({ getVulnerabilities });
+		vulnerabilityLookup = stubInterface<PackageVulnerabilityLookup>({ getVulnerabilities, enabled: true });
 
 		repositoryRequest = vi.fn(async () => ({ status: 200, body: '' }));
 		packageManager = stubInterface<ILanguageRuntimePackageManager>({
@@ -133,9 +133,12 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 	}
 
 	it('renders a fresh, fully-covered entry and makes no network call', async () => {
+		// Fully covered means both sources answered: outdated state is present
+		// and an advisory lookup answered (vulnerabilitiesCheckedAt), even if
+		// it reported nothing.
 		seed({
-			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0' },
-			pandas: { version: '2.0.0', outdated: false },
+			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0', vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
+			pandas: { version: '2.0.0', outdated: false, vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
 		}, 1 * HOUR_MS);
 
 		const instance = makeInstance();
@@ -147,6 +150,7 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		// Give a microtask for any (incorrectly scheduled) Stage 2 to run.
 		await new Promise(resolve => setTimeout(resolve, 10));
 		expect(getPackageMetadata).not.toHaveBeenCalled();
+		expect(getVulnerabilities).not.toHaveBeenCalled();
 	});
 
 	it('forces a live refetch on a fresh, fully-covered entry when forceMetadata is set', async () => {
@@ -191,7 +195,7 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 	it('ignores a cached entry whose installed version no longer matches, and refetches just that package', async () => {
 		seed({
 			numpy: { version: '1.0.0', outdated: true, latestVersion: '1.5.0' }, // installed is 1.26.0 now
-			pandas: { version: '2.0.0', outdated: false },
+			pandas: { version: '2.0.0', outdated: false, vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
 		}, 1 * HOUR_MS);
 
 		const instance = makeInstance();
@@ -394,6 +398,66 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		expect(stage2.find(p => p.name === 'numpy')).toMatchObject({ outdated: true, latestVersion: '2.1.0' });
 	});
 
+	it('retries advisories after a round where the lookup failed, without redoing the outdated fetch', async () => {
+		// A transient advisory failure must not count as fresh: without the
+		// per-package answered marker, the entry written by the round where
+		// only the runtime metadata landed would suppress the lookup until the
+		// freshness window aged out (24h by default, surviving restarts).
+		getVulnerabilities.mockResolvedValueOnce(undefined);
+
+		const instance = makeInstance();
+		const first = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		await first;
+
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+		const second = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await second;
+
+		// The advisory lookup is retried for the packages it never answered
+		// for, but the outdated state the runtime already reported is not
+		// refetched along with it.
+		expect(getVulnerabilities).toHaveBeenCalledTimes(2);
+		expect(getVulnerabilities.mock.calls[1][2]).toEqual([
+			{ name: 'numpy', version: '1.26.0' },
+			{ name: 'pandas', version: '2.0.0' },
+		]);
+		expect(getPackageMetadata).toHaveBeenCalledTimes(1);
+		expect(stage2.find(p => p.name === 'numpy')).toMatchObject({
+			outdated: true,
+			latestVersion: '2.1.0',
+			vulnerabilities: [ADVISORY],
+		});
+	});
+
+	it('does not retry advisories once a lookup answered, even with none to report', async () => {
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', []], ['pandas', []]]));
+
+		const instance = makeInstance();
+		const first = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		await first;
+
+		await instance.refreshPackages();
+		await new Promise(resolve => setTimeout(resolve, 10));
+
+		expect(getVulnerabilities).toHaveBeenCalledTimes(1);
+	});
+
+	it('skips the advisory lookup when the feature is disabled', async () => {
+		vulnerabilityLookup = stubInterface<PackageVulnerabilityLookup>({ getVulnerabilities, enabled: false });
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(getVulnerabilities).not.toHaveBeenCalled();
+		// The outdated state still lands.
+		expect(stage2.find(p => p.name === 'numpy')?.latestVersion).toBe('2.1.0');
+	});
+
 	it('describes the library copy the pane shows when a package is installed twice', async () => {
 		// R installs the same package into several library paths, and the pane
 		// shows the first (library search order). The single cache entry has to
@@ -457,8 +521,8 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		// What a settings change relies on: cached entries are still fresh but
 		// carry no advisories, so nothing would appear without a forced refetch.
 		seed({
-			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0' },
-			pandas: { version: '2.0.0', outdated: false },
+			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0', vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
+			pandas: { version: '2.0.0', outdated: false, vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
 		}, 1 * HOUR_MS);
 
 		const instance = makeInstance();

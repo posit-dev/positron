@@ -14,7 +14,7 @@ import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { traceVerbose } from '../../logging';
-import { resolvePythonIndexUrl } from './packageIndex';
+import { resolvePythonIndexUrl, UV_INDEX_ENV_VARS } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
@@ -50,12 +50,12 @@ export class UvPackageManager implements IPackageManager {
 
     /**
      * The index this environment installs from, when it resolves to one Positron
-     * can ask about security advisories. No pip-config lookup: uv reads its index
-     * from environment variables (UV_DEFAULT_INDEX / UV_INDEX_URL /
-     * PIP_INDEX_URL), not pip config.
+     * can ask about security advisories. Only uv's own environment variables
+     * (UV_DEFAULT_INDEX, or its deprecated predecessor UV_INDEX_URL) are
+     * consulted: uv reads neither pip config nor PIP_INDEX_URL.
      */
     async packageRepositoryUrl(_token?: vscode.CancellationToken): Promise<string | undefined> {
-        return resolvePythonIndexUrl();
+        return resolvePythonIndexUrl(UV_INDEX_ENV_VARS);
     }
 
     async getPackageDetail(

@@ -30,8 +30,9 @@ export const PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT = 24;
  * On-disk schema version. Bumped when {@link ICachedPackageMetadata} or the
  * surrounding shape changes; a mismatch on load discards the persisted blob
  * and re-seeds it fresh.
- * v2: added `vulnerabilities` (security advisories from PPM).
- * v3: added `vulnerabilitySource` (which instance served the advisories).
+ * v3: added security advisories (`vulnerabilities` and
+ * `vulnerabilitiesCheckedAt` per package, `vulnerabilitySource` per
+ * environment). v2 never shipped; v1 blobs are simply discarded.
  */
 export const PACKAGE_METADATA_CACHE_SCHEMA_VERSION = 3;
 
@@ -66,6 +67,16 @@ export interface ICachedPackageMetadata {
 	 * like the rest of the entry, so the version-match guard applies.
 	 */
 	vulnerabilities?: IPackageVulnerability[];
+
+	/**
+	 * Epoch ms at which a vulnerability lookup last answered for this package.
+	 * {@link vulnerabilities} alone cannot record that: it is undefined both
+	 * when the repository does not know the version and when no lookup ever
+	 * answered. Freshness reads this back so a package the lookup never reached
+	 * (a failed round, a failed chunk, a spent budget) is retried on the next
+	 * refresh instead of counting as fresh until the entry ages out.
+	 */
+	vulnerabilitiesCheckedAt?: number;
 }
 
 /**

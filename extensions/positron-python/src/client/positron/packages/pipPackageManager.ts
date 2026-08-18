@@ -12,7 +12,7 @@ import { IWorkspaceService } from '../../common/application/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { traceVerbose } from '../../logging';
-import { resolvePythonIndexUrl } from './packageIndex';
+import { PIP_INDEX_ENV_VARS, resolvePythonIndexUrl } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
@@ -51,7 +51,7 @@ export class PipPackageManager implements IPackageManager {
      * can ask about security advisories.
      */
     async packageRepositoryUrl(_token?: vscode.CancellationToken): Promise<string | undefined> {
-        return resolvePythonIndexUrl(() => this._getPipConfigIndexUrl());
+        return resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, () => this._getPipConfigIndexUrl());
     }
 
     /**

@@ -35,6 +35,7 @@ function makeInstance(store: DisposableStore, before: ILanguageRuntimePackage[],
 		updateAllPackages: async () => { },
 		// Skip the optional Stage 2 metadata fetch; the diff only needs versions.
 		getPackageMetadata: undefined,
+		repositoryRequest: undefined,
 	});
 	const session = stubInterface<ILanguageRuntimeSession>({
 		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'test-runtime', languageId: 'r' }),
@@ -43,7 +44,7 @@ function makeInstance(store: DisposableStore, before: ILanguageRuntimePackage[],
 	const storage = store.add(new InMemoryStorageService());
 	const cache = new PackageMetadataCache(storage, new NullLogService(), new TestConfigurationService());
 	// No advisory data either; the diff only needs versions.
-	const vulnerabilityLookup = stubInterface<PackageVulnerabilityLookup>({ getVulnerabilities: async () => undefined });
+	const vulnerabilityLookup = stubInterface<PackageVulnerabilityLookup>({ getVulnerabilities: async () => undefined, enabled: true });
 	return store.add(new PositronPackagesInstance(session, new NullLogService(), cache, vulnerabilityLookup));
 }
 

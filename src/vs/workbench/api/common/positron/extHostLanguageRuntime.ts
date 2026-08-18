@@ -957,16 +957,46 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		try {
-			const response = await fetch(request.url, {
-				method: request.method ?? 'GET',
-				headers: request.headers,
-				body: request.body,
-				signal: signals.length > 1 ? AbortSignal.any(signals) : controller.signal,
-			});
-			if (response.redirected && new URL(response.url).host !== target.host) {
-				throw new Error(`Package repository request to ${target.host} redirected to ${new URL(response.url).host}`);
+			// Redirects are followed manually so the off-host check runs before
+			// anything is re-sent: with `redirect: 'follow'`, by the time
+			// `response.redirected` is readable the body (the package inventory)
+			// has already been delivered to the redirect target. A same-host
+			// redirect (a normalized trailing slash, an http->https upgrade) is
+			// followed; an off-host one is refused with nothing sent.
+			const maxRedirects = 5;
+			const signal = signals.length > 1 ? AbortSignal.any(signals) : controller.signal;
+			let url = request.url;
+			let method: 'GET' | 'POST' = request.method ?? 'GET';
+			let body = request.body;
+			for (let redirects = 0; ; redirects++) {
+				const response = await fetch(url, {
+					method,
+					headers: request.headers,
+					body,
+					redirect: 'manual',
+					signal,
+				});
+				const location = response.status >= 300 && response.status < 400
+					? response.headers.get('location')
+					: null;
+				if (!location) {
+					return { status: response.status, body: await response.text() };
+				}
+				if (redirects >= maxRedirects) {
+					throw new Error(`Package repository request to ${target.host} was redirected more than ${maxRedirects} times`);
+				}
+				const redirected = new URL(location, url);
+				if (redirected.host !== target.host || (redirected.protocol !== 'http:' && redirected.protocol !== 'https:')) {
+					throw new Error(`Package repository request to ${target.host} redirected to ${redirected.host}`);
+				}
+				// Per fetch semantics, a 303 (and a 301/302 answering a POST) is
+				// followed with GET and no body; 307/308 preserve both.
+				if (response.status === 303 || ((response.status === 301 || response.status === 302) && method === 'POST')) {
+					method = 'GET';
+					body = undefined;
+				}
+				url = redirected.href;
 			}
-			return { status: response.status, body: await response.text() };
 		} finally {
 			subscription.dispose();
 		}

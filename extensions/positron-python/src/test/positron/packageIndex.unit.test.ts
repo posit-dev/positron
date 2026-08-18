@@ -4,30 +4,59 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from 'chai';
-import { resolvePythonIndexUrl } from '../../client/positron/packages/packageIndex';
+import {
+    PIP_INDEX_ENV_VARS,
+    resolvePythonIndexUrl,
+    UV_INDEX_ENV_VARS,
+} from '../../client/positron/packages/packageIndex';
 
 const INTERNAL_INDEX = 'https://ppm.example.com/pypi/latest/simple';
 
 suite('packageIndex - resolvePythonIndexUrl', () => {
-    test('prefers PIP_INDEX_URL, matching pip precedence', async () => {
-        const env = { PIP_INDEX_URL: INTERNAL_INDEX, UV_DEFAULT_INDEX: 'https://other.example.com/simple' };
+    test("reads pip's index variable for pip", async () => {
+        const env = { PIP_INDEX_URL: INTERNAL_INDEX };
 
-        expect(await resolvePythonIndexUrl(undefined, env)).to.equal(INTERNAL_INDEX);
+        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, undefined, env)).to.equal(INTERNAL_INDEX);
     });
 
-    test("falls back to uv's index variables", async () => {
-        expect(await resolvePythonIndexUrl(undefined, { UV_DEFAULT_INDEX: INTERNAL_INDEX })).to.equal(INTERNAL_INDEX);
-        expect(await resolvePythonIndexUrl(undefined, { UV_INDEX_URL: INTERNAL_INDEX })).to.equal(INTERNAL_INDEX);
+    test("reads uv's index variables for uv, preferring UV_DEFAULT_INDEX", async () => {
+        expect(await resolvePythonIndexUrl(UV_INDEX_ENV_VARS, undefined, { UV_DEFAULT_INDEX: INTERNAL_INDEX })).to.equal(
+            INTERNAL_INDEX,
+        );
+        expect(await resolvePythonIndexUrl(UV_INDEX_ENV_VARS, undefined, { UV_INDEX_URL: INTERNAL_INDEX })).to.equal(
+            INTERNAL_INDEX,
+        );
+        expect(
+            await resolvePythonIndexUrl(UV_INDEX_ENV_VARS, undefined, {
+                UV_DEFAULT_INDEX: INTERNAL_INDEX,
+                UV_INDEX_URL: 'https://other.example.com/simple',
+            }),
+        ).to.equal(INTERNAL_INDEX);
+    });
+
+    test("ignores the other manager's variables: a uv resolve never reads PIP_INDEX_URL, and vice versa", async () => {
+        // A stale PIP_INDEX_URL in the shell must not decide where a uv
+        // environment's package inventory goes: uv doesn't read it.
+        expect(
+            await resolvePythonIndexUrl(UV_INDEX_ENV_VARS, undefined, {
+                PIP_INDEX_URL: 'https://stale.example.com/simple',
+            }),
+        ).to.be.undefined;
+        expect(
+            await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, undefined, {
+                UV_DEFAULT_INDEX: 'https://uv-only.example.com/simple',
+            }),
+        ).to.be.undefined;
     });
 
     test('strips a trailing slash', async () => {
-        expect(await resolvePythonIndexUrl(undefined, { PIP_INDEX_URL: `${INTERNAL_INDEX}/` })).to.equal(
+        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, undefined, { PIP_INDEX_URL: `${INTERNAL_INDEX}/` })).to.equal(
             INTERNAL_INDEX,
         );
     });
 
     test('reads pip config when the environment says nothing', async () => {
-        expect(await resolvePythonIndexUrl(async () => INTERNAL_INDEX, {})).to.equal(INTERNAL_INDEX);
+        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, async () => INTERNAL_INDEX, {})).to.equal(INTERNAL_INDEX);
     });
 
     test('does not consult pip config when the environment already answered', async () => {
@@ -35,7 +64,9 @@ suite('packageIndex - resolvePythonIndexUrl', () => {
             throw new Error('pip config should not be consulted');
         };
 
-        expect(await resolvePythonIndexUrl(pipConfig, { PIP_INDEX_URL: INTERNAL_INDEX })).to.equal(INTERNAL_INDEX);
+        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, pipConfig, { PIP_INDEX_URL: INTERNAL_INDEX })).to.equal(
+            INTERNAL_INDEX,
+        );
     });
 
     test('treats a failing pip config lookup as no configured index', async () => {
@@ -44,12 +75,13 @@ suite('packageIndex - resolvePythonIndexUrl', () => {
             throw new Error('ERROR: No such key');
         };
 
-        expect(await resolvePythonIndexUrl(pipConfig, {})).to.be.undefined;
+        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, pipConfig, {})).to.be.undefined;
     });
 
     test('resolves undefined when nothing is configured', async () => {
-        expect(await resolvePythonIndexUrl(undefined, {})).to.be.undefined;
+        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, undefined, {})).to.be.undefined;
         // An empty or whitespace-only value is not a configured index.
-        expect(await resolvePythonIndexUrl(async () => '   ', { PIP_INDEX_URL: '' })).to.be.undefined;
+        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, async () => '   ', { PIP_INDEX_URL: '' })).to.be
+            .undefined;
     });
 });

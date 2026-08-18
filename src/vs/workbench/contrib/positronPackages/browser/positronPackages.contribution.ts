@@ -139,7 +139,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'string',
 			enum: ['auto', 'environment'],
 			enumDescriptions: [
-				nls.localize('positron.packages.vulnerabilities.source.auto', "Use the Package Manager the environment installs from. When the environment has no Package Manager repository configured, use Posit's public instance at packagemanager.posit.co."),
+				nls.localize('positron.packages.vulnerabilities.source.auto', "Use the Package Manager the environment installs from. When the environment has no Package Manager repository configured, or installs from the language's own public default (pypi.org, CRAN), use Posit's public instance at packagemanager.posit.co."),
 				nls.localize('positron.packages.vulnerabilities.source.environment', "Only use the Package Manager the environment installs from. Nothing is sent to any other host, so environments without a Package Manager repository show no advisories. Recommended for managed or network-restricted deployments."),
 			],
 			default: 'auto',
