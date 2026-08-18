@@ -73,6 +73,14 @@ suite('expandTemplate', () => {
 		);
 	});
 
+	test('an empty-string return value renders "None." rather than a blank line', () => {
+		const result = expandTemplate(
+			'{{command:noop}}',
+			commands({ id: 'noop', returns: '   ' }),
+		);
+		assert.strictEqual(result.text, '**Arguments:** None.\n\n**Returns:** None.');
+	});
+
 	test('an unknown command id degrades to an empty section and is reported as unresolved', () => {
 		const result = expandTemplate(
 			'{{command:gone}}',

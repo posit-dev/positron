@@ -37,7 +37,7 @@ Everything else in a template is prose and passes through untouched.
 
 ## How it works
 
-On activation (`onStartupFinished`, gated on the `ai.enabled` setting):
+On activation (`onAiEnabled`, so it loads only once the `ai.enabled` setting is on):
 
 1. Read the bundled templates under `templates/`.
 2. Load command metadata, including commands disabled in the current UI state

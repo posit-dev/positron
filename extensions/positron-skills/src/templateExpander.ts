@@ -94,7 +94,7 @@ function renderArgs(command: AgentCommand): string {
 }
 
 function renderReturns(command: AgentCommand): string {
-	return command.returns ?? 'None.';
+	return command.returns?.trim() || 'None.';
 }
 
 /**

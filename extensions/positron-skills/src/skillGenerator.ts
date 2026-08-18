@@ -51,6 +51,22 @@ async function collectTemplates(dir: string, base: string = dir): Promise<Templa
 	return files;
 }
 
+/**
+ * Remove staging and backup directories left behind by an interrupted run. Each
+ * run uses a fresh UUID suffix, so a crash mid-swap orphans one; without this
+ * sweep they would accumulate in global storage forever.
+ */
+async function sweepOrphans(storageDir: string, log: vscode.LogOutputChannel): Promise<void> {
+	const entries = await fs.readdir(storageDir).catch(() => [] as string[]);
+	const orphans = entries.filter(
+		name => name.startsWith(`${SKILLS_DIR}.staging-`) || name.startsWith(`${SKILLS_DIR}.old-`),
+	);
+	await Promise.all(orphans.map(async name => {
+		await fs.rm(path.join(storageDir, name), { recursive: true, force: true }).catch(() => { /* best effort */ });
+		log.debug(`Removed orphaned skill directory ${name}.`);
+	}));
+}
+
 /** Load agent-compatible commands as a lookup, including ones disabled right now. */
 async function loadCommands(): Promise<ReadonlyMap<string, AgentCommand>> {
 	const commands = await positron.ai.getAgentAllowedCommands({ includeDisabled: true });
@@ -94,6 +110,8 @@ export async function generateSkills(
 	const stampPath = path.join(storageDir, STAMP_FILE);
 	const templatesRoot = path.join(context.extensionUri.fsPath, TEMPLATES_DIR);
 
+	await sweepOrphans(storageDir, log);
+
 	const templates = await collectTemplates(templatesRoot);
 	const commandsById = await loadCommands();
 	const extensionVersion = (context.extension.packageJSON as { version?: string }).version ?? '0.0.0';
@@ -107,7 +125,9 @@ export async function generateSkills(
 	}
 
 	const unresolved = new Set<string>();
-	const stageDir = path.join(storageDir, `${SKILLS_DIR}.staging-${crypto.randomUUID()}`);
+	const runId = crypto.randomUUID();
+	const stageDir = path.join(storageDir, `${SKILLS_DIR}.staging-${runId}`);
+	const backupDir = path.join(storageDir, `${SKILLS_DIR}.old-${runId}`);
 	try {
 		for (const template of templates) {
 			const result = expandTemplate(template.content, commandsById);
@@ -119,11 +139,25 @@ export async function generateSkills(
 		// Swap the staged output into place. Remove the stamp first so a crash
 		// mid-swap leaves no stamp claiming the (now stale) output is current.
 		await fs.rm(stampPath, { force: true });
-		await fs.rm(skillRoot, { recursive: true, force: true });
-		await fs.rename(stageDir, skillRoot);
+		// Move the old root aside, then rename the new one in. The two renames
+		// run back to back with no I/O between them, so the window where the root
+		// is absent is a single metadata op rather than a recursive delete. If the
+		// second rename fails, the old output is restored instead of lost.
+		if (outputExists) {
+			await fs.rename(skillRoot, backupDir);
+		}
+		try {
+			await fs.rename(stageDir, skillRoot);
+		} catch (error) {
+			if (outputExists) {
+				await fs.rename(backupDir, skillRoot).catch(() => { /* leave the failure to surface */ });
+			}
+			throw error;
+		}
 		await fs.writeFile(stampPath, stamp, 'utf8');
 	} finally {
 		await fs.rm(stageDir, { recursive: true, force: true });
+		await fs.rm(backupDir, { recursive: true, force: true });
 	}
 
 	if (unresolved.size > 0) {
