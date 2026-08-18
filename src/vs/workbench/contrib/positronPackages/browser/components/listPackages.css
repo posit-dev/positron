@@ -187,10 +187,9 @@
  *
  * Codicon glyphs have no descent, so on the shared baseline the shield's ink runs
  * from the baseline up to 0.907em and reads high beside the shorter digits. The
- * 2px drop centers it on them; that offset only lands on a whole pixel at the
- * action-button icon size, and sharing that size lines the shield up with those
- * buttons too. `position: relative` moves paint only, so the score keeps owning
- * the badge's baseline.
+ * 1.5px drop centers it on them, which also lines it up with the action-button
+ * icons to the right. `position: relative` moves paint only, so the score keeps
+ * owning the badge's baseline.
  */
 .monaco-workbench .packages-list-item .packages-list-item-vulnerable .codicon-shield {
 	position: relative;
