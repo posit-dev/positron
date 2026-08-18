@@ -6,8 +6,10 @@
 /// <reference types="vitest/globals" />
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
@@ -15,13 +17,27 @@ import { IOpenerService } from '../../../../../platform/opener/common/opener.js'
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { INotebookService } from '../../../../contrib/notebook/common/notebookService.js';
+import { IPositronHelpService } from '../../../../contrib/positronHelp/browser/positronHelpService.js';
+import { IQuartoExecutionManager } from '../../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
+import { IRuntimeNotebookKernelService } from '../../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
-import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
+import { IPositronConnectionsService } from '../../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
+import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { IPositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { IPositronIPyWidgetsService } from '../../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
+import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
+import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { ExtHostLanguageRuntimeShape, RuntimeSessionCapabilities } from '../../../common/positron/extHost.positron.protocol.js';
-import { buildRuntimeOpenEventResource, ExtHostLanguageRuntimeSessionAdapter } from '../../../browser/positron/mainThreadLanguageRuntime.js';
+import { buildRuntimeOpenEventResource, ExtHostLanguageRuntimeSessionAdapter, MainThreadLanguageRuntime } from '../../../browser/positron/mainThreadLanguageRuntime.js';
 
 /**
  * `pathService.fileURI()` is stubbed so these tests run on any host OS;
@@ -156,5 +172,82 @@ describe('ExtHostLanguageRuntimeSessionAdapter - missing-package capabilities', 
 			{ name: 'ModuleNotFoundError', message: `No module named 'requests'`, traceback: [] },
 			CancellationToken.None,
 		);
+	});
+});
+
+describe('MainThreadLanguageRuntime - code execution event forwarding', () => {
+	const disposables = ensureNoLeakedDisposables();
+
+	function codeExecutedEvent(overrides: Partial<ILanguageRuntimeCodeExecutedEvent>): ILanguageRuntimeCodeExecutedEvent {
+		return {
+			executionId: 'exec-1',
+			sessionId: 'session-1',
+			languageId: 'python',
+			code: 'print("hi")',
+			attribution: { source: CodeAttributionSource.Notebook },
+			runtimeName: 'Python 3.12',
+			mode: RuntimeCodeExecutionMode.Interactive,
+			errorBehavior: RuntimeErrorBehavior.Stop,
+			...overrides,
+		};
+	}
+
+	function createMainThread() {
+		const consoleEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
+		const notebookEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
+		const quartoEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
+
+		const $notifyCodeExecuted = vi.fn();
+		const proxy = stubInterface<ExtHostLanguageRuntimeShape>({ $notifyCodeExecuted });
+		const extHostContext = stubInterface<IExtHostContext>({
+			getProxy: (() => proxy) as unknown as IExtHostContext['getProxy'],
+		});
+
+		const mainThread = new MainThreadLanguageRuntime(
+			extHostContext,
+			stubInterface<ILanguageRuntimeService>({ onDidRegisterRuntime: Event.None }),
+			stubInterface<IRuntimeSessionService>({ registerSessionManager: () => Disposable.None }),
+			stubInterface<IRuntimeStartupService>({ registerRuntimeManager: () => Disposable.None }),
+			stubInterface<IRuntimeNotebookKernelService>({ initialize: vi.fn(), onDidExecuteCode: notebookEmitter.event }),
+			stubInterface<IPositronConsoleService>({ initialize: vi.fn(), onDidExecuteCode: consoleEmitter.event }),
+			stubInterface<IPositronDataExplorerService>({ initialize: vi.fn() }),
+			stubInterface<IPositronVariablesService>({ initialize: vi.fn() }),
+			stubInterface<IPositronHelpService>({ initialize: vi.fn() }),
+			stubInterface<IPositronPlotsService>({ initialize: vi.fn() }),
+			stubInterface<IPositronIPyWidgetsService>({ initialize: vi.fn() }),
+			stubInterface<IPositronWebviewPreloadService>({ initialize: vi.fn() }),
+			stubInterface<IPositronConnectionsService>({ initialize: vi.fn() }),
+			stubInterface<INotificationService>({}),
+			stubInterface<IQuartoExecutionManager>({ onDidExecuteCode: quartoEmitter.event }),
+			stubInterface<IPathService>({}),
+			new NullLogService(),
+			stubInterface<ICommandService>({}),
+			stubInterface<INotebookService>({}),
+			stubInterface<IEditorService>({}),
+			stubInterface<IOpenerService>({}),
+			stubInterface<IWorkbenchEnvironmentService>({}),
+			stubInterface<IExecutionHistoryService>({}),
+			stubInterface<IConfigurationService>({}),
+		);
+		disposables.add(mainThread);
+		return { consoleEmitter, notebookEmitter, quartoEmitter, $notifyCodeExecuted };
+	}
+
+	it('forwards code execution events from the console, notebook, and Quarto sources to the extension host', () => {
+		const { consoleEmitter, notebookEmitter, quartoEmitter, $notifyCodeExecuted } = createMainThread();
+
+		const consoleEvent = codeExecutedEvent({ executionId: 'console' });
+		const notebookEvent = codeExecutedEvent({ executionId: 'notebook' });
+		const quartoEvent = codeExecutedEvent({ executionId: 'quarto' });
+
+		consoleEmitter.fire(consoleEvent);
+		notebookEmitter.fire(notebookEvent);
+		quartoEmitter.fire(quartoEvent);
+
+		expect($notifyCodeExecuted.mock.calls.map(([event]) => event)).toEqual([
+			consoleEvent,
+			notebookEvent,
+			quartoEvent,
+		]);
 	});
 });

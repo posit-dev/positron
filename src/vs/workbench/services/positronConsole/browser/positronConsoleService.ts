@@ -4202,7 +4202,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			attribution: pendingItem.attribution,
 			errorBehavior: pendingItem.errorBehavior,
 			languageId: this._session.runtimeMetadata.languageId,
-			runtimeName: this._session.runtimeMetadata.runtimeName
+			runtimeName: this._session.runtimeMetadata.runtimeName,
 		};
 		this._onDidExecuteCodeEmitter.fire(event);
 	}
@@ -4276,18 +4276,27 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// the code fragment should not be added to avoid UI side effects from
 		// the code execution.
 		const addProvisionalInput = () => {
-			if (reportedMode !== RuntimeCodeExecutionMode.Silent) {
-				const activityItemInput = new ActivityItemInput(
-					id,
-					id,
-					new Date(),
-					ActivityItemInputState.Provisional,
-					session.dynState.inputPrompt,
-					session.dynState.continuationPrompt,
-					code
-				);
-				this.addOrUpdateRuntimeItemActivity(id, activityItemInput);
+			if (reportedMode === RuntimeCodeExecutionMode.Silent) {
+				return;
 			}
+			// A session that cannot check completeness treats Unprocessed as
+			// Interactive and echoes the input during execute(), before the
+			// await in Flow 2 resolves. In that case the real input has already
+			// arrived, so a provisional one here would duplicate it.
+			const existing = this._runtimeItemActivities.get(id);
+			if (existing?.activityItems.some(item => item instanceof ActivityItemInput)) {
+				return;
+			}
+			const activityItemInput = new ActivityItemInput(
+				id,
+				id,
+				new Date(),
+				ActivityItemInputState.Provisional,
+				session.dynState.inputPrompt,
+				session.dynState.continuationPrompt,
+				code
+			);
+			this.addOrUpdateRuntimeItemActivity(id, activityItemInput);
 		};
 
 		// Fires the onDidExecuteCode event.
@@ -4300,7 +4309,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				attribution,
 				errorBehavior,
 				languageId: session.runtimeMetadata.languageId,
-				runtimeName: session.runtimeMetadata.runtimeName
+				runtimeName: session.runtimeMetadata.runtimeName,
 			};
 			this._onDidExecuteCodeEmitter.fire(event);
 		};
