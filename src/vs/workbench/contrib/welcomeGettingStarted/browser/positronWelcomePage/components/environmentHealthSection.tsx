@@ -145,6 +145,7 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 						busy={environmentHealthService.isBusy(language.language)}
 						expandedByLanguage={expandedByLanguage}
 						health={language}
+						hoverManager={hoverManager}
 						onRunFix={fix => environmentHealthService.runFix(language.language, fix)}
 					/>)}
 		</section>

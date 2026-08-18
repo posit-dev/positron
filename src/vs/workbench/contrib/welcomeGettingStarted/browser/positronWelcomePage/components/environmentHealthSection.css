@@ -345,6 +345,16 @@
 		 */
 		border: none;
 		border-top: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
+		/*
+		 * This row is a button when its language has a body to expand, and a
+		 * plain div when it does not (an unavailable or errored language, which
+		 * says all it has to say in the header). A button's padding is included
+		 * in its width by default; a div's is not, which pushed the div variant
+		 * 32px past the card's edge and hard-clipped the summary text against
+		 * the card's own `overflow: hidden`. Setting this explicitly keeps both
+		 * variants the same width.
+		 */
+		box-sizing: border-box;
 		color: inherit;
 		display: flex;
 		font-size: inherit;
