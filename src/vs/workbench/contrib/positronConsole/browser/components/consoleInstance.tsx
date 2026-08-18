@@ -67,7 +67,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const lastObservedSizeRef = useRef<ObservedSize | null>(null);
 
 	// State hooks.
-	const [fontInfo, setFontInfo] = useState(FontConfigurationManager.getFontInfo(services.configurationService, 'console'));
+	const [fontInfo, setFontInfo] = useState(() => FontConfigurationManager.getFontInfo(services.configurationService, 'console'));
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());

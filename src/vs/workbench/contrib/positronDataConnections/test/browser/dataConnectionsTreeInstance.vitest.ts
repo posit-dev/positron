@@ -147,6 +147,9 @@ describe('DataConnectionsTreeInstance', () => {
 	// The tree's id for the single profile these tests use.
 	const ENTRY_ID = 'entry:conn-1';
 
+	// The tree's id for the one node under that profile: `dto:<connection handle>:<node handle>`.
+	const DTO_ID = 'dto:1:7';
+
 	const profile = createProfile({
 		connectionName: 'Test Connection',
 		driverMetadata: {
@@ -168,12 +171,25 @@ describe('DataConnectionsTreeInstance', () => {
 	 * disconnecting it.
 	 */
 	function createTree(connected = true) {
-		const getChildren = vi.fn(async () => []);
+		// One leaf under the connection, so a test has a real non-entry node to act on. Its node id is
+		// DTO_ID below.
+		const getChildren = vi.fn(async () => [{
+			nodeHandle: 7,
+			name: 'flights',
+			kind: 'table',
+			hasGetChildren: false,
+			hasPreview: true,
+		}]);
 		const instance = stubInterface<IDataConnectionInstance>({
 			id: 'instance-1',
 			profileId: profile.id,
 			connectionHandle: stubInterface<IDataConnectionHandle>({ handle: 1, getChildren }),
 		});
+
+		// Held as locals as well as on the stub, so a test can read their call lists (the stub is typed
+		// as the interface, where they are plain functions rather than mocks).
+		const disconnect = vi.fn(async () => { });
+		const disconnectWhenUnused = vi.fn();
 
 		let liveInstance = connected ? instance : undefined;
 		const service = stubInterface<IPositronDataConnectionsService>({
@@ -182,7 +198,8 @@ describe('DataConnectionsTreeInstance', () => {
 			getProfiles: () => [profile],
 			getInstanceForProfile: () => liveInstance,
 			connect: async () => instance,
-			disconnectWhenUnused: vi.fn(),
+			disconnect,
+			disconnectWhenUnused,
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
@@ -194,7 +211,7 @@ describe('DataConnectionsTreeInstance', () => {
 			onDidChangeInstances.fire(nowConnected ? [instance] : []);
 		};
 
-		return { tree, service, getChildren, setConnected };
+		return { tree, service, getChildren, setConnected, disconnect, disconnectWhenUnused };
 	}
 
 	it('gives up its use of the connection when a connected entry is collapsed', async () => {
@@ -241,6 +258,45 @@ describe('DataConnectionsTreeInstance', () => {
 
 		// The node handles in the loaded subtree are still valid, so re-expanding costs no round trip.
 		expect(getChildren).toHaveBeenCalledTimes(1);
+	});
+
+	it('closes the connection and collapses the row when an entry is disconnected', async () => {
+		const { tree, disconnect, disconnectWhenUnused } = createTree();
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		await tree.disconnectEntry(ENTRY_ID);
+
+		// An explicit disconnect doesn't wait on the previews the way a collapse does, so it must not
+		// route through disconnectWhenUnused; the row collapses because there's nothing left to browse.
+		expect({
+			closed: disconnect.mock.calls,
+			deferred: disconnectWhenUnused.mock.calls.length,
+			expanded: tree.isExpanded(ENTRY_ID),
+		}).toMatchInlineSnapshot(`
+			{
+			  "closed": [
+			    [
+			      "conn-1",
+			    ],
+			  ],
+			  "deferred": 0,
+			  "expanded": false,
+			}
+		`);
+	});
+
+	// Only an entry owns a connection, so a node id that resolves to something else -- or to nothing
+	// at all -- must not take one down.
+	it('does nothing when asked to disconnect a node that is not an entry', async () => {
+		const { tree, disconnect } = createTree();
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		await tree.disconnectEntry(DTO_ID);
+		await tree.disconnectEntry('entry:no-such-profile');
+
+		expect(disconnect).not.toHaveBeenCalled();
 	});
 
 	it('drops the loaded subtree once the connection closes', async () => {

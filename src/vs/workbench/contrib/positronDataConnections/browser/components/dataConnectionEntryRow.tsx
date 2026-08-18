@@ -32,6 +32,10 @@ interface DataConnectionEntryRowProps {
 	// The data connection entry to render.
 	entry: DataConnectionEntry;
 
+	// Closes this connection and the Data Explorers previewed from it, and collapses the row.
+	// Supplied by the tree, which binds it to this row's node id.
+	onDisconnect: () => void;
+
 	// Reloads this connection's subtree. Supplied by the tree, which binds it to this row's node id.
 	onRefresh: () => void;
 
@@ -45,9 +49,9 @@ interface DataConnectionEntryRowProps {
  * connected, a live-status indicator. Twistie click (handled by PositronTree) opens the connection;
  * collapsing closes it only when nothing else is using it (see DataConnectionsTreeInstance). The
  * actions menu -- reachable from the actions button or by right-clicking the row -- exposes
- * refresh, runtime-language connect options, and edit/remove.
+ * refresh, edit, runtime-language connect options, and disconnect (when connected) / remove.
  */
-export const DataConnectionEntryRow = ({ entry, onMenuOpening, onRefresh }: DataConnectionEntryRowProps) => {
+export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onRefresh }: DataConnectionEntryRowProps) => {
 	// Services.
 	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 
@@ -235,8 +239,18 @@ export const DataConnectionEntryRow = ({ entry, onMenuOpening, onRefresh }: Data
 			}
 		}
 
-		// Finally, add a separator and the remove option.
+		// Finally, add a separator and the options that take something away: disconnect (only while
+		// there is a live connection to close), then remove. Only remove is marked destructive --
+		// disconnecting gives up the connection but keeps the saved profile, and nothing about it is
+		// unrecoverable.
 		entries.push(new CustomContextMenuSeparator());
+		if (entry.instance) {
+			entries.push(new CustomContextMenuItem({
+				icon: 'positron-disconnect-connection',
+				label: localize('positron.dataConnections.disconnect', "Disconnect"),
+				onSelected: onDisconnect,
+			}));
+		}
 		entries.push(
 			new CustomContextMenuItem({
 				destructive: true,

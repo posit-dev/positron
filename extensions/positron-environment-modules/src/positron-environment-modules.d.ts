@@ -85,6 +85,23 @@ export interface ResolveInterpreterOptions {
 }
 
 /**
+ * A single environment variable contributed by loading one or more modules,
+ * expressed as an action that can be applied to a terminal's
+ * `EnvironmentVariableCollection`.
+ */
+export interface CapturedEnvironmentVariable {
+	/** The name of the environment variable */
+	name: string;
+	/**
+	 * The value to apply. For `prepend`/`append` this is only the delta the
+	 * modules contributed, not the full value.
+	 */
+	value: string;
+	/** How the value should be combined with any existing value */
+	action: 'replace' | 'prepend' | 'append';
+}
+
+/**
  * Information about a runtime discovered in a module environment
  */
 export interface DiscoveredRuntimeInfo {
@@ -126,6 +143,12 @@ export interface EnvironmentModulesApi {
 	 * Build the startup command string for loading modules.
 	 */
 	buildStartupCommand(modules: string[]): string;
+
+	/**
+	 * Capture the environment variables contributed by loading a set of modules,
+	 * as a set of actions that can be applied to a terminal's environment.
+	 */
+	captureEnvironmentVariables(modules: string[]): Promise<CapturedEnvironmentVariable[]>;
 
 	/**
 	 * Event fired when the module environments configuration changes.

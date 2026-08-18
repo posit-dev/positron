@@ -223,6 +223,10 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	async $getRegisteredProviders(): Promise<IPositronLanguageModelSource[]> {
+		// Same timing rule as $getEnabledProviders: the sources are filtered by
+		// catalog enablement, so the pre-initialization snapshot would both drop
+		// providers that are enabled and keep ones providers.json disables.
+		await this._aiProviderService.whenInitialized;
 		return this._positronAssistantConfigurationService.getRegisteredSources();
 	}
 

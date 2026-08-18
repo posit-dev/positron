@@ -164,6 +164,27 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	}
 
 	/**
+	 * Disconnects an entry's connection outright, at the user's explicit request, and collapses the
+	 * entry: with the connection gone there is nothing under it to browse, so leaving it expanded
+	 * would show an empty or re-connecting subtree. The Data Explorers previewed from it close too,
+	 * because their backends die with the connection.
+	 *
+	 * Collapsing goes straight to the base implementation rather than through this class's collapse:
+	 * that override means the conditional, wait-for-the-previews close a user-driven collapse asks
+	 * for, which is the opposite of what is wanted here. The loaded subtree is dropped by the roots
+	 * refresh in the constructor once the connection is actually gone.
+	 * @param id The node id of the entry to disconnect.
+	 */
+	async disconnectEntry(id: string): Promise<void> {
+		const node = this._findEntryNode(id);
+		if (node === undefined) {
+			return;
+		}
+		super.collapse(id);
+		await this._service.disconnect(node.entry.profile.id);
+	}
+
+	/**
 	 * Fetches children for a node. For an entry node without a live instance, opens the
 	 * connection first, then fetches the top-level DTOs against the new handle. Running this
 	 * inside the base class's _fetchChildren means the loading state (twisty spinner) covers
@@ -210,6 +231,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		// visible change there isn't the silent no-op it would be on an expanded one.
 		const onRefresh = () => { void this.reload(id); };
 
+		// Fire-and-forget for the same reason as refresh: the row has nothing to await. The entry's
+		// connected indicator and subtree follow from the instance change the disconnect fires.
+		const onDisconnect = () => { void this.disconnectEntry(id); };
+
 		// Rows announce their context menu here rather than selecting themselves directly, so the
 		// tree owns what opening a menu means: select the row the menu belongs to (as a left click
 		// would), and keep the tree looking focused while the menu holds DOM focus. The returned
@@ -222,7 +247,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		switch (data.kind) {
 			case 'entry':
 				// Entries are roots, so no ancestor can be refreshing them out from under the row.
-				return <DataConnectionEntryRow entry={data.entry} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
+				return <DataConnectionEntryRow entry={data.entry} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 			case 'dto':
 				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} stale={visible.stale} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 		}

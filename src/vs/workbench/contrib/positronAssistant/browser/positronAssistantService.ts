@@ -180,10 +180,15 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	}
 
 	private isSourceEnabled(source: IPositronLanguageModelSource): boolean {
-		const catalogId = source.provider.catalogId;
-		// Providers without a catalog entry (dev-only echo/error) follow the
-		// catalog baseline: enabled by default.
-		return catalogId === undefined || this._aiProviderService.isEnabled(catalogId);
+		const { catalogId, id } = source.provider;
+		if (catalogId !== undefined) {
+			return this._aiProviderService.isEnabled(catalogId);
+		}
+		// No declared catalogId: fall back to the registration id so extensions that
+		// haven't opted in still get enforcement. Registrations the catalog has never
+		// heard of stay enabled.
+		return this._aiProviderService.getProvider(id) === undefined
+			|| this._aiProviderService.isEnabled(id);
 	}
 
 	getEnabledProviders(): string[] {

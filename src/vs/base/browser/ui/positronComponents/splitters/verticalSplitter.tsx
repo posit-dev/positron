@@ -152,13 +152,13 @@ export const VerticalSplitter = ({
 	const hoverDelayerRef = useRef<Delayer<void>>(undefined);
 
 	// State hooks.
-	const [splitterWidth, setSplitterWidth] = useState(
+	const [splitterWidth, setSplitterWidth] = useState(() =>
 		calculateSplitterWidth(services.configurationService, collapsible)
 	);
-	const [sashWidth, setSashWidth] = useState(
+	const [sashWidth, setSashWidth] = useState(() =>
 		calculateSashWidth(services.configurationService, collapsible)
 	);
-	const [sashIndicatorWidth, setSashIndicatorWidth] = useState(getSashSize(services.configurationService));
+	const [sashIndicatorWidth, setSashIndicatorWidth] = useState(() => getSashSize(services.configurationService));
 	const [hovering, setHovering] = useState(false);
 	const [highlightExpandCollapse, setHighlightExpandCollapse] = useState(false);
 	const [collapsed, setCollapsed, collapsedRef] = useStateRef(isCollapsed);
@@ -395,12 +395,14 @@ export const VerticalSplitter = ({
 				'vertical-splitter',
 				{ collapsible }
 			)}
+			data-testid='vertical-splitter'
 			style={{
 				width: splitterWidth
 			}}
 		>
 			<div
 				className='sash'
+				data-testid='vertical-splitter-sash'
 				style={{
 					left: collapsible ? -1 : -(sashWidth / 2),
 					width: collapsible ? sashWidth + 2 : sashWidth

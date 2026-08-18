@@ -69,7 +69,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
 	const [fittedSessionName, setFittedSessionName] = useState(sessionDisplayName);
 	const [mouseInside, setMouseInside] = useState(false);
-	const [showResourceMonitor, setShowResourceMonitor] = useState(
+	const [showResourceMonitor, setShowResourceMonitor] = useState(() =>
 		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
 	);
 

@@ -2274,6 +2274,14 @@ export default defineConfig(
 						'*' // node.js
 					]
 				},
+				// The inno_updater branding guard scans a vendored binary; it
+				// only uses node built-ins.
+				{
+					'target': 'src/inno-updater-branding.vitest.ts',
+					'restrictions': [
+						'*' // node.js
+					]
+				},
 				// --- End Positron ---
 				{
 					'target': 'src/vs/sessions/sessions.common.main.ts',
