@@ -20,9 +20,9 @@ suite('packageIndex - resolvePythonIndexUrl', () => {
     });
 
     test("reads uv's index variables for uv, preferring UV_DEFAULT_INDEX", async () => {
-        expect(await resolvePythonIndexUrl(UV_INDEX_ENV_VARS, undefined, { UV_DEFAULT_INDEX: INTERNAL_INDEX })).to.equal(
-            INTERNAL_INDEX,
-        );
+        expect(
+            await resolvePythonIndexUrl(UV_INDEX_ENV_VARS, undefined, { UV_DEFAULT_INDEX: INTERNAL_INDEX }),
+        ).to.equal(INTERNAL_INDEX);
         expect(await resolvePythonIndexUrl(UV_INDEX_ENV_VARS, undefined, { UV_INDEX_URL: INTERNAL_INDEX })).to.equal(
             INTERNAL_INDEX,
         );
@@ -50,13 +50,15 @@ suite('packageIndex - resolvePythonIndexUrl', () => {
     });
 
     test('strips a trailing slash', async () => {
-        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, undefined, { PIP_INDEX_URL: `${INTERNAL_INDEX}/` })).to.equal(
-            INTERNAL_INDEX,
-        );
+        expect(
+            await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, undefined, { PIP_INDEX_URL: `${INTERNAL_INDEX}/` }),
+        ).to.equal(INTERNAL_INDEX);
     });
 
     test('reads pip config when the environment says nothing', async () => {
-        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, async () => INTERNAL_INDEX, {})).to.equal(INTERNAL_INDEX);
+        expect(await resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, async () => INTERNAL_INDEX, {})).to.equal(
+            INTERNAL_INDEX,
+        );
     });
 
     test('does not consult pip config when the environment already answered', async () => {
