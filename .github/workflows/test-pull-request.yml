@@ -19,8 +19,8 @@ jobs:
       tags: ${{ steps.pr-tags.outputs.tags }}
       win_tag_found: ${{ steps.pr-tags.outputs.win_tag_found }}
       web_tag_found: ${{ steps.pr-tags.outputs.web_tag_found }}
-      rhel_electron_tag_found: ${{ steps.pr-tags.outputs.rhel_electron_tag_found }}
-      rhel_web_tag_found: ${{ steps.pr-tags.outputs.rhel_web_tag_found }}
+      rocky_electron_tag_found: ${{ steps.pr-tags.outputs.rocky_electron_tag_found }}
+      rocky_web_tag_found: ${{ steps.pr-tags.outputs.rocky_web_tag_found }}
       suse_electron_tag_found: ${{ steps.pr-tags.outputs.suse_electron_tag_found }}
       suse_web_tag_found: ${{ steps.pr-tags.outputs.suse_web_tag_found }}
       sles_electron_tag_found: ${{ steps.pr-tags.outputs.sles_electron_tag_found }}
@@ -104,28 +104,28 @@ jobs:
       allow_soft_fail: false
     secrets: inherit
 
-  e2e-rhel-electron:
+  e2e-rocky-electron:
     name: e2e
-    uses: ./.github/workflows/test-e2e-rhel.yml
+    uses: ./.github/workflows/test-e2e-rocky.yml
     needs: pr-tags
-    if: ${{ needs.pr-tags.outputs.rhel_electron_tag_found == 'true' }}
+    if: ${{ needs.pr-tags.outputs.rocky_electron_tag_found == 'true' }}
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "electron (RHEL)"
+      display_name: "electron (Rocky)"
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit
 
-  e2e-rhel-chromium:
+  e2e-rocky-chromium:
     needs: pr-tags
-    if: ${{ needs.pr-tags.outputs.rhel_web_tag_found == 'true' }}
+    if: ${{ needs.pr-tags.outputs.rocky_web_tag_found == 'true' }}
     name: e2e
-    uses: ./.github/workflows/test-e2e-rhel.yml
+    uses: ./.github/workflows/test-e2e-rocky.yml
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "chromium (RHEL)"
+      display_name: "chromium (Rocky)"
       project: "e2e-chromium"
       install_undetectable_interpreters: false
       install_license: true

@@ -49,7 +49,7 @@ runs:
               OS_ID=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
               case "$OS_ID" in
                 ubuntu|debian) OS_SUFFIX="$OS_ID" ;;
-                rhel|rocky|centos|fedora|almalinux) OS_SUFFIX="rhel" ;;
+                rhel|rocky|centos|fedora|almalinux) OS_SUFFIX="rocky" ;;
                 opensuse|opensuse-leap|opensuse-tumbleweed) OS_SUFFIX="opensuse" ;;
                 sles) OS_SUFFIX="sles" ;;
                 *) OS_SUFFIX="linux" ;;
