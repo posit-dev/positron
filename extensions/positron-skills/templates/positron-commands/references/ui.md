@@ -1,7 +1,7 @@
 # Positron UI commands
 
 Layout, pane focus, and view state in the running Positron workbench. See
-[SKILL.md](../SKILL.md) for how to call these commands and how to handle
+[SKILL.md]({{skill_dir}}/SKILL.md) for how to call these commands and how to handle
 failures.
 
 The **Arguments** and **Returns** entries below are generated from the running
@@ -82,7 +82,7 @@ values/objects in the active session.
 
 Focuses the Help pane. Use when the user wants to view rendered
 documentation -- often right after a help lookup (see
-`positron.help.lookupHelpTopic` in [troubleshooting.md](troubleshooting.md))
+`positron.help.lookupHelpTopic` in [troubleshooting.md]({{skill_dir}}/references/troubleshooting.md))
 so they can see the result.
 
 {{command:workbench.panel.positronHelp.focus}}

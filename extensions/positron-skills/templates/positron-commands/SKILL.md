@@ -46,13 +46,13 @@ unknown, ask the user first.
 Load the file covering the area in question -- the command ids, arguments, and
 return values live there, not in this file.
 
-**UI, layout and panes** -- [references/ui.md](references/ui.md)
+**UI, layout and panes** -- [references/ui.md]({{skill_dir}}/references/ui.md)
 Read when the user asks about: switching the workbench layout (four-pane,
 notebook, two-pane), bringing a pane into focus (Console, Variables, Help,
 Plots, Packages), clearing console output, or expanding/collapsing the Data
 Explorer's column summary panel.
 
-**Interpreters, sessions and packages** -- [references/troubleshooting.md](references/troubleshooting.md)
+**Interpreters, sessions and packages** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
 Read when the user asks about: an interpreter that isn't showing up or won't
 start, startup diagnostics, a session that is stuck or needs restarting, or
 installed packages that need refreshing or updating. Also covers looking up a

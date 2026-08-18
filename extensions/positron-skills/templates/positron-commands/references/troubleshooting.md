@@ -1,7 +1,7 @@
 # Positron interpreter, session and package commands
 
 Diagnosing and recovering R and Python interpreter sessions, managing packages,
-and looking up help topics. See [SKILL.md](../SKILL.md) for how to call these
+and looking up help topics. See [SKILL.md]({{skill_dir}}/SKILL.md) for how to call these
 commands and how to handle failures.
 
 The **Arguments** and **Returns** entries below are generated from the running
@@ -109,6 +109,6 @@ calling. The command itself is always enabled, but expect a `found: false`
 result (not `disabled`) if there's no running session for the relevant
 language; relay the returned `message` rather than re-guessing the reason. To
 bring the Help pane into view after a lookup, use
-`workbench.panel.positronHelp.focus` from [ui.md](ui.md).
+`workbench.panel.positronHelp.focus` from [ui.md]({{skill_dir}}/references/ui.md).
 
 {{command:positron.help.lookupHelpTopic}}

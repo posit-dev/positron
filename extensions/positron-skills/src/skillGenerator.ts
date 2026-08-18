@@ -132,9 +132,14 @@ export async function generateSkills(
 		for (const template of templates) {
 			const result = expandTemplate(template.content, commandsById);
 			result.unresolved.forEach(id => unresolved.add(id));
+			// Resolve `{{skill_dir}}` to the skill's final absolute directory so
+			// reference links are absolute. The assistant reads a bare relative link
+			// relative to the user's workspace, where the skill does not live.
+			const skillDir = path.join(skillRoot, template.relativePath.split(path.sep)[0]);
+			const text = result.text.split('{{skill_dir}}').join(skillDir);
 			const target = path.join(stageDir, template.relativePath);
 			await fs.mkdir(path.dirname(target), { recursive: true });
-			await fs.writeFile(target, result.text, 'utf8');
+			await fs.writeFile(target, text, 'utf8');
 		}
 		// Swap the staged output into place. Remove the stamp first so a crash
 		// mid-swap leaves no stamp claiming the (now stale) output is current.
