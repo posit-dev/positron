@@ -37,7 +37,6 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,
-			restricted: true,
 			included: true,
 		},
 	},
