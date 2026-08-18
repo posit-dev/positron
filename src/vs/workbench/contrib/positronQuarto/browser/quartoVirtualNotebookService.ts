@@ -7,14 +7,15 @@ import { localize } from '../../../../nls.js';
 import { URI } from '../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { basename } from '../../../../base/common/resources.js';
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
-import { ITextModel } from '../../../../editor/common/model.js';
+import { EndOfLinePreference, ITextModel } from '../../../../editor/common/model.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
+import { ILogService, LogLevel } from '../../../../platform/log/common/log.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellDto2, NotebookData } from '../../notebook/common/notebookCommon.js';
@@ -25,8 +26,9 @@ import {
 	isQuartoOrRmdFile,
 	usingNativeEmbeddedFeatures,
 } from '../common/positronQuartoConfig.js';
-import { IQuartoDocumentModel } from '../common/quartoTypes.js';
+import { IQuartoDocumentModel, QuartoCodeCell } from '../common/quartoTypes.js';
 import { QUARTO_CELLS_SCHEME, QUARTO_CELLS_VIEW_TYPE } from '../common/quartoVirtualNotebookTypes.js';
+import { diffCellRuns, ICellRun, ICellSplice } from '../common/quartoCellDiff.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 
 /**
@@ -195,7 +197,7 @@ class QuartoVirtualNotebook extends Disposable {
 		}
 
 		this._notebook = notebook;
-		this._rebuildCells();
+		this._sync();
 		this._logService.debug(
 			`[QuartoVirtualNotebook] Created ${this.notebookUri.toString()} with ${this._cells.length} cells`);
 	}
@@ -208,13 +210,24 @@ class QuartoVirtualNotebook extends Disposable {
 		this._sync();
 	}
 
+	/** How a cell looks to the diff. A disposed model has no code, so it matches nothing. */
+	private static _runOf(cell: IQuartoVirtualCell): ICellRun {
+		return {
+			language: cell.language,
+			// EndOfLinePreference.LF: the model's own EOL is platform dependent (a
+			// single-line model created on Windows defaults to CRLF), but
+			// getCellCode always joins with LF. Reading with the model's own EOL
+			// here would compare CRLF against LF forever for such a cell, so
+			// sameCell would never match it and every edit would replace it.
+			code: cell.textModel.isDisposed() ? undefined : cell.textModel.getValue(EndOfLinePreference.LF),
+		};
+	}
+
 	/**
-	 * Reconcile the cells with the source document. Cells are matched by
-	 * position, so a document whose chunks kept their shape gets its cell text
-	 * edited in place and LSP clients see a cheap didChange rather than
-	 * close/open churn. Anything else rebuilds: matching cells across a
-	 * structural change is ambiguous, and a wrong guess silently misplaces every
-	 * position mapped through the cell.
+	 * Reconcile the cells with the source document, replacing only the cells
+	 * whose position or language changed. The rest keep their handle, URI, and
+	 * text model, so a language server sees a didChange rather than a close and
+	 * reopen of every cell.
 	 */
 	private _sync(): void {
 		if (!this._notebook || this._store.isDisposed) {
@@ -222,20 +235,37 @@ class QuartoVirtualNotebook extends Disposable {
 		}
 
 		const sourceCells = this._documentModel.cells;
-		const structureChanged =
-			sourceCells.length !== this._cells.length ||
-			sourceCells.some((sourceCell, index) => sourceCell.language !== this._cells[index].language) ||
-			this._cells.some(cell => cell.textModel.isDisposed());
+		const codes = sourceCells.map(cell => this._documentModel.getCellCode(cell));
 
-		if (structureChanged) {
-			this._rebuildCells();
-			return;
+		// An unchanged count and language at every index means position alone
+		// identifies each cell, so any content difference is an edit rather than a
+		// different chunk. diffCellRuns matches on (language, code) with no notion
+		// of position, and would read that edit as a remove plus an insert,
+		// recreating the text model on every keystroke. Let the refresh below take
+		// the new text across in place instead.
+		const sameShape = sourceCells.length === this._cells.length
+			&& this._cells.every(cell => !cell.textModel.isDisposed())
+			&& sourceCells.every((sourceCell, index) => sourceCell.language === this._cells[index].language);
+
+		if (!sameShape) {
+			const runs: ICellRun[] = sourceCells.map((cell, index) => ({
+				language: cell.language,
+				code: codes[index],
+			}));
+
+			const splice = diffCellRuns(this._cells.map(QuartoVirtualNotebook._runOf), runs);
+			if (splice.removeCount > 0 || splice.insertCount > 0) {
+				this._spliceCells(this._notebook, splice, sourceCells, codes);
+			}
 		}
 
+		// Spans go stale whenever a chunk moves, which happens whenever anything
+		// above it changes size, so every surviving cell is refreshed here. Content
+		// comes across too, for the cells the splice did not rewrite.
 		this._cells = this._cells.map((cell, index) => {
 			const sourceCell = sourceCells[index];
-			const code = this._documentModel.getCellCode(sourceCell);
-			if (cell.textModel.getValue() !== code) {
+			const code = codes[index];
+			if (!cell.textModel.isDisposed() && cell.textModel.getValue(EndOfLinePreference.LF) !== code) {
 				cell.textModel.applyEdits([{ range: cell.textModel.getFullModelRange(), text: code }]);
 			}
 			return {
@@ -247,55 +277,102 @@ class QuartoVirtualNotebook extends Disposable {
 	}
 
 	/**
-	 * Replace every cell. Used to populate the notebook and whenever cells are
-	 * added or removed, where matching old cells to new ones is ambiguous.
+	 * Apply one contiguous replacement to the notebook and to `_cells`. The
+	 * notebook comes from the caller, which has already narrowed it, rather
+	 * than being re-read from `this._notebook`: `_sync` cannot survive this
+	 * returning without splicing, since it assumes afterwards that `this._cells`
+	 * and `sourceCells` line up index for index.
 	 */
-	private _rebuildCells(): void {
-		const notebook = this._notebook;
-		if (!notebook || this._store.isDisposed) {
-			return;
+	private _spliceCells(
+		notebook: NotebookTextModel,
+		splice: ICellSplice,
+		sourceCells: readonly QuartoCodeCell[],
+		codes: readonly string[]
+	): void {
+		const dtos: ICellDto2[] = [];
+		for (let index = splice.prefix; index < splice.prefix + splice.insertCount; index++) {
+			const sourceCell = sourceCells[index];
+			dtos.push({
+				source: codes[index],
+				language: sourceCell.language,
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [],
+			});
 		}
 
-		const sourceCells = this._documentModel.cells;
-		const dtos: ICellDto2[] = sourceCells.map(cell => ({
-			source: this._documentModel.getCellCode(cell),
-			language: cell.language,
-			mime: undefined,
-			cellKind: CellKind.Code,
-			outputs: [],
-		}));
+		// Drop the outgoing cells from `_cells` before disposing their models, so
+		// that a listener woken by the dispose below, or by the notebook edit
+		// after it, can never read `_cells` back to a model that is already gone.
+		// `applyEdits` and `createModel` both fire their change events inline, so
+		// there is no later point at which removing them would still be in time.
+		const removed = this._cells.slice(splice.prefix, splice.prefix + splice.removeCount);
+		const kept = this._cells.length - splice.removeCount;
+		this._cells = [
+			...this._cells.slice(0, splice.prefix),
+			...this._cells.slice(splice.prefix + splice.removeCount),
+		];
 
-		// Drop the old cells before the edit, not after. A notebook edit fires
-		// its change events synchronously, so any window where `_cells` still
-		// points at models belonging to removed cells is a window in which a
-		// listener can read a model we are about to dispose.
-		this._disposeCells();
+		// The whole point of this class is how few cells it touches, and that is
+		// invisible from the editor: the only other evidence is didOpen/didClose
+		// traffic in a language server log, interleaved with the Quarto
+		// extension's own virtual document churn. One line per structural change
+		// says what was decided. Nothing is logged for a content-only edit, which
+		// takes the in-place path and would otherwise log on every keystroke.
+		//
+		// `=== LogLevel.Trace` rather than `<=`, because LogLevel.Off is 0 and
+		// Trace is 1, so `<=` is also true when logging is turned off.
+		if (this._logService.getLevel() === LogLevel.Trace) {
+			this._logService.trace(
+				`[QuartoVirtualNotebook] ${basename(this.sourceUri)}: spliced at ${splice.prefix}, ` +
+				`removed ${splice.removeCount}, inserted ${splice.insertCount}, kept ${kept}`);
+		}
+
+		for (const cell of removed) {
+			if (!cell.textModel.isDisposed()) {
+				cell.textModel.dispose();
+			}
+		}
 
 		notebook.applyEdits(
-			[{ editType: CellEditType.Replace, index: 0, count: notebook.cells.length, cells: dtos }],
+			[{
+				editType: CellEditType.Replace,
+				index: splice.prefix,
+				count: splice.removeCount,
+				cells: dtos,
+			}],
 			true, undefined, () => undefined, undefined, false
 		);
 
-		// Creating a text model at the cell URI is what binds it to the notebook
-		// cell: NotebookTextModel watches IModelService.onModelAdded and adopts
-		// any model whose URI parses as one of its cells. That binding is what
-		// makes the extension host see a real cell TextDocument.
-		this._cells = notebook.cells.map((notebookCell, index) => {
-			const sourceCell = sourceCells[index];
-			const textModel = this._modelService.createModel(
-				notebookCell.getValue(),
-				this._languageService.createById(sourceCell.language),
-				notebookCell.uri
-			);
-			return {
-				cellUri: notebookCell.uri,
-				handle: notebookCell.handle,
-				language: sourceCell.language,
-				codeStartLine: sourceCell.codeStartLine,
-				codeEndLine: sourceCell.codeEndLine,
-				textModel,
-			};
-		});
+		// Creating a model at the cell URI is what binds it: NotebookTextModel
+		// watches onModelAdded and adopts any model whose URI parses as one of its
+		// cells, which is what makes the extension host see a real TextDocument.
+		const inserted = notebook.cells
+			.slice(splice.prefix, splice.prefix + splice.insertCount)
+			.map((notebookCell, offset) => {
+				const sourceCell = sourceCells[splice.prefix + offset];
+				const textModel = this._modelService.createModel(
+					notebookCell.getValue(),
+					this._languageService.createById(sourceCell.language),
+					notebookCell.uri
+				);
+				return {
+					cellUri: notebookCell.uri,
+					handle: notebookCell.handle,
+					language: sourceCell.language,
+					codeStartLine: sourceCell.codeStartLine,
+					codeEndLine: sourceCell.codeEndLine,
+					textModel,
+				};
+			});
+
+		// The removed cells are already gone from `_cells` (see above), so the tail
+		// to keep starts at `splice.prefix`, not `splice.prefix + splice.removeCount`.
+		this._cells = [
+			...this._cells.slice(0, splice.prefix),
+			...inserted,
+			...this._cells.slice(splice.prefix),
+		];
 	}
 
 	/**
