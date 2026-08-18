@@ -62,29 +62,33 @@ export const HealthItemRow = ({ item, busy, hoverManager, onRunFix }: HealthItem
 			<div className='environment-health-item-main'>
 				<span aria-hidden='true' className={`environment-health-item-icon environment-health-item-icon-${item.status} codicon ${status.codicon}`} />
 				<span className='visually-hidden'>{status.label}</span>
-				<span className='environment-health-item-summary'>{item.summary}</span>
-				{item.fix &&
-					<Button
-						ariaDisabled={busy}
-						className='environment-health-item-fix'
-						hoverManager={hoverManager}
-						tooltip={item.fix.label}
-						onPressed={() => onRunFix(item.fix!)}
-					>
-						{item.fix.label}
-					</Button>}
+				<div className='environment-health-item-content'>
+					<div className='environment-health-item-summary-row'>
+						<span className='environment-health-item-summary'>{item.summary}</span>
+						{item.fix &&
+							<Button
+								ariaDisabled={busy}
+								className='environment-health-item-fix'
+								hoverManager={hoverManager}
+								tooltip={item.fix.label}
+								onPressed={() => onRunFix(item.fix!)}
+							>
+								{item.fix.label}
+							</Button>}
+					</div>
+					{(item.detail || item.learnMoreUrl) &&
+						<div className='environment-health-item-secondary'>
+							{item.detail && <p className='environment-health-item-detail'>{item.detail}</p>}
+							{item.learnMoreUrl &&
+								<a
+									href={item.learnMoreUrl}
+									onClick={openLearnMore}
+								>
+									{localize('positron.welcome.environmentSetupLearnMore', "Learn more")}
+								</a>}
+						</div>}
+				</div>
 			</div>
-			{(item.detail || item.learnMoreUrl) &&
-				<div className='environment-health-item-secondary'>
-					{item.detail && <p className='environment-health-item-detail'>{item.detail}</p>}
-					{item.learnMoreUrl &&
-						<a
-							href={item.learnMoreUrl}
-							onClick={openLearnMore}
-						>
-							{localize('positron.welcome.environmentSetupLearnMore', "Learn more")}
-						</a>}
-				</div>}
 		</li>
 	);
 };

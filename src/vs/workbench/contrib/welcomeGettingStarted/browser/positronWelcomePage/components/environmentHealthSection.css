@@ -148,22 +148,30 @@
 .positron-welcome-page-environment-setup .environment-health-item-main {
 	align-items: flex-start;
 	display: flex;
+	gap: 8px;
+}
+
+.positron-welcome-page-environment-setup .environment-health-item-content {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	gap: 4px;
+	min-width: 0;
+}
+
+.positron-welcome-page-environment-setup .environment-health-item-summary-row {
+	align-items: flex-start;
+	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
 }
 
-/*
- * Nothing sits beside the detail, so it takes the full width rather than
- * inheriting the column the summary shares with the fix button. Indented to
- * line up under the summary, past the status icon.
- */
 .positron-welcome-page-environment-setup .environment-health-item-secondary {
 	/*
 	 * A detail often carries a file path, which has nothing to break on. Without
 	 * this it runs past the edge of the card instead of wrapping.
 	 */
 	overflow-wrap: anywhere;
-	padding-left: 24px;
 }
 
 /* Divides the checks from each other and from the summary line above them. */
