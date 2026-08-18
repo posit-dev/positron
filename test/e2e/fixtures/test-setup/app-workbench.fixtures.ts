@@ -9,7 +9,7 @@ import { join } from 'path';
 import { Application, createApp } from '../../infra';
 import { provisionTestFiles } from '../../infra/test-runner';
 import { AppFixtureOptions } from './app.fixtures';
-import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContainer, dockerSettingsOverrides, RunResult } from './docker-utils';
+import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContainer, dockerSettingsOverrides, enablePositAIProviderInContainer, restorePositAIProviderInContainer, RunResult } from './docker-utils';
 
 export { RunResult };
 
@@ -23,8 +23,14 @@ const CONTAINER_NAME = 'test';
 export async function WorkbenchApp(
 	fixtureOptions: AppFixtureOptions
 ): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
-	const { options, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings } = fixtureOptions;
+	const { options, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, enablePositAIProvider, extraSettings } = fixtureOptions;
 	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings);
+
+	// Seed the provider catalog before the session starts so the server reads it on
+	// startup, rather than racing the file watcher's debounce or forcing a reload.
+	if (enablePositAIProvider) {
+		await enablePositAIProviderInContainer(CONTAINER_NAME);
+	}
 
 	const app = createApp({ ...options, workspacePath });
 
@@ -93,6 +99,17 @@ export async function WorkbenchApp(
 			await app.positWorkbench.dashboard.quitSession('test-files');
 		} catch (error) {
 			console.warn('Failed to quit workbench session:', error);
+		}
+
+		// Put the catalog back for the other suites sharing this container. Best
+		// effort: a failure here must not mask a test failure that is already on its
+		// way out of the fixture.
+		if (enablePositAIProvider) {
+			try {
+				await restorePositAIProviderInContainer(CONTAINER_NAME);
+			} catch (error) {
+				console.warn('Failed to restore the provider catalog:', error);
+			}
 		}
 
 		await app.stopExternalServer();

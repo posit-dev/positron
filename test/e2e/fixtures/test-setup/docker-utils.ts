@@ -106,6 +106,92 @@ export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolea
 }
 
 /**
+ * The session user's AI provider catalog inside the container.
+ *
+ * These are user1's paths: the default Workbench shard runs the session as user1
+ * (only the Azure shard uses a JIT user), so a suite needing the catalog on that
+ * shard reads and writes here.
+ */
+const AI_CONFIG_DIR = '/home/user1/.posit/ai';
+const PROVIDERS_CONFIG_PATH = `${AI_CONFIG_DIR}/providers.json`;
+const PROVIDERS_CONFIG_BACKUP_PATH = `${PROVIDERS_CONFIG_PATH}.e2e.bak`;
+
+/**
+ * Turn the Posit AI provider on in the container's provider catalog.
+ *
+ * On Workbench the authentication extension disables Posit AI on first activation
+ * so admins control AI access, by writing `providers.positai.enabled: false` into
+ * this file (see `applyPwbPositAIDefault` in extensions/authentication/src/pwbDefaults.ts).
+ * Core drops disabled providers before the provider modal renders, so with that
+ * default in place the Posit AI tile is absent entirely and there is nothing for a
+ * sign-in test to click.
+ *
+ * The catalog ranks this file above the legacy
+ * `positron.assistant.provider.positAI.enable` setting the e2e fixtures write, so
+ * that setting cannot undo the default -- the file has to say so, which is exactly
+ * what an admin turning Posit AI on for Workbench does.
+ *
+ * Called before the session starts, which matters twice over. The extension writes
+ * its default with `onlyIfUnset`, so it leaves an already-enabled value alone; and
+ * the suite needs no window reload to pick the file up. A reload would be actively
+ * harmful here: it re-probes cloud credential-chain metadata endpoints that are
+ * unreachable from the container, and the resulting DNS stall makes the provider
+ * modal's key validation abort on its own fixed budget
+ * (KEY_VALIDATION_TIMEOUT_MS in extensions/authentication/src/constants.ts).
+ */
+export async function enablePositAIProviderInContainer(containerName: string): Promise<void> {
+	const catalog = JSON.stringify({
+		version: 1,
+		providers: { positai: { enabled: true } },
+	}, null, 2);
+
+	// Write on the host then `docker cp` in, rather than heredoc-ing JSON through
+	// nested shell quoting.
+	const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'ai-providers-'));
+	const tmpProviders = path.join(tmpDir, 'providers.json');
+	await fs.promises.writeFile(tmpProviders, catalog);
+
+	try {
+		await runDockerCommand(
+			`docker exec ${containerName} mkdir -p ${AI_CONFIG_DIR}`,
+			'Create the AI config directory'
+		);
+		// Back up whatever the container already had so teardown can put it back the
+		// way the next suite sharing this container expects to find it.
+		await runDockerCommand(
+			`docker exec ${containerName} bash -lc 'if [ -f ${PROVIDERS_CONFIG_PATH} ]; then cp ${PROVIDERS_CONFIG_PATH} ${PROVIDERS_CONFIG_BACKUP_PATH}; fi'`,
+			'Back up the existing provider catalog'
+		);
+		await runDockerCommand(
+			`docker cp "${tmpProviders}" ${containerName}:${PROVIDERS_CONFIG_PATH}`,
+			'Install the provider catalog'
+		);
+		// `docker cp` lands the file as root; the session runs as user1 and writes
+		// back to this file when a provider's connection changes.
+		await runDockerCommand(
+			`docker exec ${containerName} chown -R user1 ${AI_CONFIG_DIR}`,
+			'Set ownership of the AI config directory'
+		);
+	} finally {
+		await fs.promises.rm(tmpDir, { recursive: true, force: true });
+	}
+}
+
+/**
+ * Restore the provider catalog that `enablePositAIProviderInContainer` replaced.
+ *
+ * Leaving Posit AI enabled would carry into the other suites sharing this
+ * container. Runs on session teardown, so the next suite's session reads the
+ * restored file on startup and there is no reload to do.
+ */
+export async function restorePositAIProviderInContainer(containerName: string): Promise<void> {
+	await runDockerCommand(
+		`docker exec ${containerName} bash -lc 'if [ -f ${PROVIDERS_CONFIG_BACKUP_PATH} ]; then mv ${PROVIDERS_CONFIG_BACKUP_PATH} ${PROVIDERS_CONFIG_PATH}; else rm -f ${PROVIDERS_CONFIG_PATH}; fi'`,
+		'Restore the original provider catalog'
+	);
+}
+
+/**
  * Copy merged settings (base + Docker overrides) to the container.
  *
  * `overrides` are merged last so they win over anything in the fixture files. The
