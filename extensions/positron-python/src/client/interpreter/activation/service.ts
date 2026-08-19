@@ -261,7 +261,7 @@ export class EnvironmentActivationService implements IEnvironmentActivationServi
                 if (pythonArgv) {
                     command = [...pythonArgv, ...args].map((arg) => arg.toCommandArgumentForPythonExt()).join(' ');
                 }
-            // --- Start Positron ---
+                // --- Start Positron ---
             } else if (interpreter?.envType === EnvironmentType.Module) {
                 // Module-provided interpreters need their environment modules loaded
                 // before the interpreter runs (e.g. LD_LIBRARY_PATH for C extensions
