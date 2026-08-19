@@ -1,4 +1,4 @@
-name: "Test: E2E (RHEL)"
+name: "Test: E2E (Rocky)"
 
 on:
   workflow_call:
@@ -31,7 +31,7 @@ on:
       display_name:
         required: false
         description: "The name of the job as it will appear in the GitHub Actions UI."
-        default: "e2e-rhel"
+        default: "e2e-rocky"
         type: string
       install_undetectable_interpreters:
         required: false
@@ -86,8 +86,8 @@ permissions:
   packages: read
 
 jobs:
-  e2e-rhel:
-    name: ${{ inputs.display_name || 'e2e-rhel' }}
+  e2e-rocky:
+    name: ${{ inputs.display_name || 'e2e-rocky' }}
     timeout-minutes: 150
     runs-on: ubuntu-latest-8x
     container:
@@ -161,7 +161,7 @@ jobs:
         id: setup-build
         uses: ./.github/actions/setup-build-env
         with:
-          distro: rhel
+          distro: rocky
           skip-cache: ${{ inputs.skip_cache }}
           install-playwright: 'true'
           github-token: ${{ github.token }}
@@ -201,7 +201,7 @@ jobs:
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
-          PW_JSON_FILE: test-results/rhel.json
+          PW_JSON_FILE: test-results/rocky.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: true
           ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
@@ -243,14 +243,14 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.project }}-rhel-json-results
-          path: test-results/rhel.json
+          name: ${{ inputs.project }}-rocky-json-results
+          path: test-results/rocky.json
           if-no-files-found: ignore
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.project }}-rhel-logs
+          name: ${{ inputs.project }}-rocky-logs
           path: test-logs
           if-no-files-found: ignore

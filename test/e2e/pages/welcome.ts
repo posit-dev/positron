@@ -21,6 +21,8 @@ const REDESIGNED_PAGE = '.positron-welcome-page';
 const CATEGORIES_SLIDE = '.gettingStartedSlideCategories';
 const DETAILS_SLIDE = '.gettingStartedSlideDetails';
 const STARTUP_CHECKBOX = '#showOnStartup';
+const ENVIRONMENT_SETUP = '.positron-welcome-page-environment-setup';
+const ENVIRONMENT_SETUP_SUMMARY = '.positron-welcome-page-environment-setup .environment-health-group-summary';
 
 export class Welcome {
 
@@ -44,6 +46,9 @@ export class Welcome {
 	get walkthroughButtons(): Locator { return this.walkthroughSection.locator(WALKTHROUGH_CARD); }
 	get redesignedPage(): Locator { return this.code.driver.currentPage.locator(REDESIGNED_PAGE); }
 	get startupCheckbox(): Locator { return this.code.driver.currentPage.locator(STARTUP_CHECKBOX); }
+	get environmentSetup(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP); }
+	get environmentSetupProgress(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP).getByRole('progressbar'); }
+	get environmentSetupSummary(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP_SUMMARY); }
 
 	constructor(private code: Code) { }
 

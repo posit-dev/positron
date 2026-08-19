@@ -25,7 +25,7 @@ description: "Saves caches for npm dependencies and built-in extensions. Works o
 
 inputs:
   distro:
-    description: "Distribution identifier for cache key (default: ubuntu for Linux). Use 'rhel' for RHEL/Rocky Linux. Windows auto-detects to 'windows'."
+    description: "Distribution identifier for cache key (default: ubuntu for Linux). Use 'rocky' for Rocky Linux. Windows auto-detects to 'windows'."
     required: false
     default: 'ubuntu'
   cache-npm-core-hit:

@@ -3,7 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { registerColor } from '../../../../platform/theme/common/colorRegistry.js';
+import {
+	buttonBackground,
+	buttonForeground,
+	buttonHoverBackground,
+	chartsGreen,
+	disabledForeground,
+	editorBackground,
+	foreground,
+	problemsErrorIconForeground,
+	problemsWarningIconForeground,
+	registerColor,
+	transparent,
+} from '../../../../platform/theme/common/colorRegistry.js';
 import { localize } from '../../../../nls.js';
 import { welcomePageTileBackground, welcomePageTileBorder } from './gettingStartedColors.js';
 
@@ -21,3 +33,48 @@ export const POSITRON_WELCOME_BANNER_BACKGROUND = registerColor('positronWelcome
 export const POSITRON_WELCOME_BANNER_BORDER = registerColor('positronWelcome.bannerBorder',
 	welcomePageTileBorder,
 	localize('positronWelcome.bannerBorder', "Border color of the walkthrough banner on the Positron welcome page."));
+
+
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_BACKGROUND = registerColor('positronWelcome.environmentSetupBackground',
+	editorBackground,
+	localize('positronWelcome.environmentSetupBackground', "Background color of the environment setup card on the Positron welcome page."));
+
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_BORDER = registerColor('positronWelcome.environmentSetupBorder',
+	welcomePageTileBorder,
+	localize('positronWelcome.environmentSetupBorder', "Border color of the environment setup card on the Positron welcome page, and of the dividers between its rows."));
+
+// Null in high contrast, where a tinted panel reads as a border that is not
+// there. The row dividers carry the separation instead.
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_LANGUAGE_HEADER_BACKGROUND = registerColor('positronWelcome.environmentSetupLanguageHeaderBackground',
+	{ dark: transparent(foreground, 0.04), light: transparent(foreground, 0.04), hcDark: null, hcLight: null },
+	localize('positronWelcome.environmentSetupLanguageHeaderBackground', "Background color of the language header rows in the environment setup card on the Positron welcome page."));
+
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_TITLE_BACKGROUND = registerColor('positronWelcome.environmentSetupTitleBackground',
+	buttonBackground,
+	localize('positronWelcome.environmentSetupTitleBackground', "Background color of the environment setup card's title bar on the Positron welcome page."));
+
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_TITLE_FOREGROUND = registerColor('positronWelcome.environmentSetupTitleForeground',
+	buttonForeground,
+	localize('positronWelcome.environmentSetupTitleForeground', "Foreground color of the environment setup card's title bar on the Positron welcome page."));
+
+// The Recheck control sits on the title bar and borrows its foreground, so its
+// hover has to lift off that colour rather than off the card's.
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_TITLE_HOVER_BACKGROUND = registerColor('positronWelcome.environmentSetupTitleHoverBackground',
+	buttonHoverBackground,
+	localize('positronWelcome.environmentSetupTitleHoverBackground', "Background color of a hovered control in the environment setup card's title bar on the Positron welcome page."));
+
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_PASS_ICON = registerColor('positronWelcome.environmentSetupPassIcon',
+	chartsGreen,
+	localize('positronWelcome.environmentSetupPassIcon', "Color of the icon for a check that passed on the Positron welcome page."));
+
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_WARNING_ICON = registerColor('positronWelcome.environmentSetupWarningIcon',
+	problemsWarningIconForeground,
+	localize('positronWelcome.environmentSetupWarningIcon', "Color of the icon for a check that needs attention on the Positron welcome page."));
+
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_ERROR_ICON = registerColor('positronWelcome.environmentSetupErrorIcon',
+	problemsErrorIconForeground,
+	localize('positronWelcome.environmentSetupErrorIcon', "Color of the icon for a check that failed on the Positron welcome page."));
+
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_SKIPPED_ICON = registerColor('positronWelcome.environmentSetupSkippedIcon',
+	disabledForeground,
+	localize('positronWelcome.environmentSetupSkippedIcon', "Color of the icon for a check that was not run on the Positron welcome page."));

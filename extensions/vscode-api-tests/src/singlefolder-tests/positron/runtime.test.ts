@@ -816,6 +816,9 @@ suite('positron API - executeCode', () => {
 	});
 
 	test('executeCode fires events', async () => {
+		const languageId = 'test-fires-events';
+		await registerUniqueTestManager(disposables, languageId, '00000000-0000-0000-0000-800000000000');
+
 		let event: positron.CodeExecutionEvent | undefined;
 
 		// Create an event handler
@@ -825,20 +828,43 @@ suite('positron API - executeCode', () => {
 			})
 		);
 
+		// Attribution metadata the caller contributes; it should surface on the
+		// event's attribution, merged with Positron's own fields.
+		const attributionMetadata = { origin: 'claude-code', turn: 7 };
+
 		// Execute the code
 		await positron.runtime.executeCode(
-			'test',            // languageId
+			languageId,        // languageId
 			'print("event")',  // code
 			false,             // focus
 			false,             // allowIncomplete
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Stop,
+			undefined,         // observer
+			undefined,         // sessionId
+			undefined,         // documentUri
+			undefined,         // executionMetadata
+			attributionMetadata
 		);
+
+		// The session that ran the code, to correlate its ID with the event.
+		const session = (await positron.runtime.getActiveSessions())
+			.find(s => s.runtimeMetadata.languageId === languageId);
+		assert.ok(session, 'a test session should exist');
 
 		// Assert that the event matches the expected values
 		assert.ok(event, 'Event should be fired');
-		assert.strictEqual(event.languageId, 'test', 'Language ID should match');
+		assert.strictEqual(event.languageId, languageId, 'Language ID should match');
 		assert.strictEqual(event.code, 'print("event")', 'Code should match');
+		assert.strictEqual(event.sessionId, session.metadata.sessionId,
+			'Session ID should identify the runtime session that executed the code');
+		assert.strictEqual(event.mode, positron.RuntimeCodeExecutionMode.Interactive,
+			'Execution mode should match');
 		assert.strictEqual(event.attribution.source, positron.CodeAttributionSource.Extension,
 			'Correctly attributed to execution via an extension');
+		assert.deepStrictEqual(event.attribution.metadata,
+			{ origin: 'claude-code', turn: 7, extensionId: 'vscode.vscode-api-tests' },
+			'Caller-supplied attribution metadata should surface, merged with Positron fields');
 	});
 
 	test('getSessionVariables returns correct variables', async () => {

@@ -1096,16 +1096,26 @@ declare module 'positron' {
 		/** The ID of the code execution. */
 		executionId: string;
 
+		/** The ID of the session that executed the code. */
+		sessionId: string;
+
 		/** The ID of the language in which the code was executed (e.g. 'python') */
 		languageId: string;
 
 		/** The name of the runtime that executed the code (e.g. 'Python 3.12') */
 		runtimeName: string;
 
+		/** The mode in which the code was executed. */
+		mode: RuntimeCodeExecutionMode;
+
 		/** The actual code that was executed. */
 		code: string;
 
-		/** An object describing the origin of the code. */
+		/**
+		 * An object describing the origin of the code. When a caller passes
+		 * `attributionMetadata` to `executeCode`, those fields are merged into
+		 * `attribution.metadata`.
+		 */
 		attribution: CodeAttribution;
 	}
 
@@ -3021,6 +3031,11 @@ declare module 'positron' {
 		 *  metadata to pass to the language runtime. Will be included in the
 		 *  `positron` field of the `metadata` argument passed to the runtime's
 		 *  `execute` method.
+		 * @param attributionMetadata An optional object with which the caller can
+		 *  contribute attribution details about the code's origin. These fields
+		 *  are merged into `attribution.metadata` on the resulting
+		 *  `CodeExecutionEvent`. Positron retains sole authority over
+		 *  `attribution.source`; callers cannot set it.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -3033,7 +3048,8 @@ declare module 'positron' {
 			observer?: ExecutionObserver,
 			sessionId?: string,
 			documentUri?: vscode.Uri,
-			executionMetadata?: Record<string, any>): Thenable<Record<string, any>>;
+			executionMetadata?: Record<string, any>,
+			attributionMetadata?: Record<string, any>): Thenable<Record<string, any>>;
 
 		/**
 		 * Evaluates code silently in a language runtime, without displaying

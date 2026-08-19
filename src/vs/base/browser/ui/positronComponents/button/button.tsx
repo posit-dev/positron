@@ -37,6 +37,17 @@ export interface KeyboardModifiers {
 export interface ButtonProps {
 	readonly id?: string;
 	readonly ariaControls?: string;
+	/**
+	 * Marks the button unavailable while leaving it in the tab order.
+	 *
+	 * Unlike `disabled`, which sets the native attribute, this keeps the button
+	 * focusable: a keyboard user who presses it keeps their place instead of being
+	 * dropped to the top of the page, and a screen reader can still reach it and be
+	 * told it is unavailable. Presses do nothing, and the `disabled` class is
+	 * applied either way so both read the same.
+	 */
+	readonly ariaDisabled?: boolean;
+	readonly ariaExpanded?: boolean;
 	readonly ariaHaspopup?: React.AriaAttributes['aria-haspopup'];
 	readonly ariaLabel?: string;
 	readonly ariaSelected?: boolean;
@@ -98,7 +109,7 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 		props.hoverManager?.hideHover();
 
 		// Raise the onPressed event if the button isn't disabled.
-		if (!props.disabled && props.onPressed) {
+		if (!props.disabled && !props.ariaDisabled && props.onPressed) {
 			props.onPressed(e);
 		}
 	};
@@ -184,7 +195,8 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 		<button
 			ref={buttonRef}
 			aria-controls={props.ariaControls}
-			aria-disabled={props.disabled ? 'true' : undefined}
+			aria-disabled={props.disabled || props.ariaDisabled ? 'true' : undefined}
+			aria-expanded={props.ariaExpanded}
 			aria-haspopup={props.ariaHaspopup}
 			aria-label={props.ariaLabel}
 			aria-selected={props.ariaSelected}
@@ -192,7 +204,7 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 			className={positronClassNames(
 				'positron-button',
 				props.className,
-				{ 'disabled': props.disabled }
+				{ 'disabled': props.disabled || props.ariaDisabled }
 			)}
 			disabled={props.disabled}
 			id={props.id}

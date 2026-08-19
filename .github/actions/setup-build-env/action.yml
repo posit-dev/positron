@@ -3,7 +3,7 @@ description: "Restores caches, installs dependencies, compiles Positron, and set
 
 inputs:
   distro:
-    description: "Distribution identifier (ubuntu, rhel, suse, windows)"
+    description: "Distribution identifier (ubuntu, rocky, suse, windows)"
     required: false
     default: 'ubuntu'
   skip-cache:
