@@ -9,11 +9,18 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { migrateSettingsAndPrimeCatalog } from '../extension';
+import { migrateAwsSettings } from '../migration/aws';
+import { migrateSnowflakeSettings } from '../migration/snowflake';
 import { getCachedProvider } from '../providerCatalog';
 
 /** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */
 function fakeContext(): vscode.ExtensionContext {
 	return { subscriptions: [] } as unknown as vscode.ExtensionContext;
+}
+
+/** Stands in for the providers.json auto-migration; the real one reads live settings. */
+function noopAutoMigrate(): Promise<void> {
+	return Promise.resolve();
 }
 
 /**
@@ -70,6 +77,7 @@ suite('activation ordering', () => {
 				{ name: 'first', run: async () => { order.push('first'); } },
 				{ name: 'second', run: async () => { order.push('second'); } },
 			],
+			noopAutoMigrate,
 		);
 
 		assert.deepStrictEqual(order, ['first', 'second', 'prime']);
@@ -85,6 +93,7 @@ suite('activation ordering', () => {
 				{ name: 'throws', run: async () => { throw new Error('boom'); } },
 				{ name: 'after', run: async () => { order.push('after'); } },
 			],
+			noopAutoMigrate,
 		);
 
 		assert.deepStrictEqual(order, ['after'], 'a rejected migration must not skip the ones after it');
@@ -101,7 +110,12 @@ suite('activation ordering', () => {
 			vscode.ConfigurationTarget.Global
 		);
 
-		await migrateSettingsAndPrimeCatalog(context, { configPath });
+		await migrateSettingsAndPrimeCatalog(
+			context,
+			{ configPath },
+			[{ name: 'AWS', run: migrateAwsSettings }],
+			noopAutoMigrate,
+		);
 
 		const aws = getCachedProvider('bedrock')?.connection.aws;
 		assert.deepStrictEqual(
@@ -117,7 +131,12 @@ suite('activation ordering', () => {
 			vscode.ConfigurationTarget.Global
 		);
 
-		await migrateSettingsAndPrimeCatalog(context, { configPath });
+		await migrateSettingsAndPrimeCatalog(
+			context,
+			{ configPath },
+			[{ name: 'Snowflake', run: migrateSnowflakeSettings }],
+			noopAutoMigrate,
+		);
 
 		assert.strictEqual(
 			getCachedProvider('snowflake-cortex')?.connection.snowflake?.account,
