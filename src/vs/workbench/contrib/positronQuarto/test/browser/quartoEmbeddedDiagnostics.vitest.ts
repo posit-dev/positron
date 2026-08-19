@@ -19,6 +19,7 @@ import {
 } from '../../../../../platform/markers/common/markers.js';
 import { MarkerService } from '../../../../../platform/markers/common/markerService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { CellUri } from '../../../notebook/common/notebookCommon.js';
 import { IQuartoDocumentModel } from '../../common/quartoTypes.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { QUARTO_EMBEDDED_DIAGNOSTICS_OWNER } from '../../common/quartoVirtualNotebookTypes.js';
@@ -41,8 +42,8 @@ import { QuartoEmbeddedDiagnostics } from '../../browser/quartoEmbeddedDiagnosti
 //   12  ```
 const SOURCE_URI = URI.file('/test/doc.qmd');
 const NOTEBOOK_URI = URI.parse('quarto-cells:/test/doc.qmd');
-const R_CELL_URI = URI.parse('vscode-notebook-cell:/test/doc.qmd#ch0');
-const PYTHON_CELL_URI = URI.parse('vscode-notebook-cell:/test/doc.qmd#ch1');
+const R_CELL_URI = CellUri.generate(NOTEBOOK_URI, 0);
+const PYTHON_CELL_URI = CellUri.generate(NOTEBOOK_URI, 1);
 /** A file that has nothing to do with any Quarto document. */
 const OTHER_URI = URI.file('/test/other.R');
 
@@ -383,6 +384,50 @@ describe('QuartoEmbeddedDiagnostics', () => {
 		expect(sourceMarkers()[0].relatedInformation?.map(summarize)).toEqual([
 			{ resource: SOURCE_URI.path, message: 'current', range: [9, 1, 9, 6] },
 		]);
+	});
+
+	it('clears diagnostics that arrive for a cell after it was spliced out', async () => {
+		const diagnostics = createDiagnostics();
+		const goneCellUri = cells[0].cellUri;
+
+		// The chunk was deleted, so the cell is out of the service, but its server
+		// had a publish in flight. It lands on a URI nobody can open, with the
+		// exclusion already released. The notebook clears a cell's markers once,
+		// as it retires it, so nothing else takes these off.
+		cells = [cells[1]];
+		markerService.changeOne('ark', goneCellUri, [marker()]);
+		await settle();
+		diagnostics.dispose();
+
+		expect(markerService.read({ resource: goneCellUri, ignoreResourceFilters: true }))
+			.toEqual([]);
+	});
+
+	it('leaves the cells of a real notebook alone', async () => {
+		const diagnostics = createDiagnostics();
+		// Same scheme, a notebook that is not ours. Clearing this would be taking
+		// another editor's diagnostics away.
+		const ipynbCellUri = CellUri.generate(URI.file('/test/analysis.ipynb'), 0);
+
+		markerService.changeOne('pyright', ipynbCellUri, [marker()]);
+		await settle();
+		diagnostics.dispose();
+
+		expect(markerService.read({ resource: ipynbCellUri, ignoreResourceFilters: true })
+			.map(m => m.message)).toEqual(['object not found']);
+	});
+
+	it('does not carry the publishing extension host across as the marker origin', async () => {
+		const diagnostics = createDiagnostics();
+		// `origin` is stamped by MainThreadDiagnostics with the id of the host that
+		// published, not by the server. Copying it makes the remapped markers look
+		// like that host's own, so it never hears about them, and the value goes
+		// stale the moment the host restarts.
+		markerService.changeOne('ark', R_CELL_URI, [marker({ origin: 'extHost1' })]);
+		await settle();
+		diagnostics.dispose();
+
+		expect(sourceMarkers().map(m => m.origin)).toEqual([undefined]);
 	});
 
 	it('re-offsets the remapped markers when the chunks move', async () => {

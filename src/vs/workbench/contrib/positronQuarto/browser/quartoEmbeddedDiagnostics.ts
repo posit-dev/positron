@@ -5,6 +5,7 @@
 
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ResourceSet } from '../../../../base/common/map.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { basename } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
@@ -16,8 +17,12 @@ import {
 	IRelatedInformation,
 } from '../../../../platform/markers/common/markers.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
+import { CellUri } from '../../notebook/common/notebookCommon.js';
 import { cellRangeToSource, ICellLineSpan } from '../common/quartoCellPositionMapping.js';
-import { QUARTO_EMBEDDED_DIAGNOSTICS_OWNER } from '../common/quartoVirtualNotebookTypes.js';
+import {
+	QUARTO_CELLS_SCHEME,
+	QUARTO_EMBEDDED_DIAGNOSTICS_OWNER,
+} from '../common/quartoVirtualNotebookTypes.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoVirtualNotebookService } from './quartoVirtualNotebookService.js';
 
@@ -51,6 +56,19 @@ function fitsCell(span: ICellLineSpan, range: { startLineNumber: number; endLine
 }
 
 /**
+ * Whether a URI is a cell of one of our hidden notebooks, whoever holds it now.
+ *
+ * The notebook's own scheme is encoded in a cell's fragment, so this still
+ * recognizes a cell that the service has already spliced out. That is the case
+ * it exists for: the service can no longer answer for such a cell, and a cell of
+ * a real notebook must not be mistaken for one.
+ */
+function isQuartoCellUri(resource: URI): boolean {
+	return resource.scheme === Schemas.vscodeNotebookCell
+		&& CellUri.parse(resource)?.notebook.scheme === QUARTO_CELLS_SCHEME;
+}
+
+/**
  * Republishes the diagnostics of a Quarto document's hidden notebook cells onto
  * the document itself.
  *
@@ -65,6 +83,8 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 
 	/** Source documents waiting to be republished, and whether that is scheduled. */
 	private readonly _pendingSources = new ResourceSet();
+	/** Cells that outlived their notebook and need their markers taken off. */
+	private readonly _pendingOrphans = new ResourceSet();
 	private _flushScheduled = false;
 
 	/** Parse subscriptions, one per source document, keyed by its URI. */
@@ -84,6 +104,9 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 				const sourceUri = this._virtualNotebooks.getSourceUriForCell(resource);
 				if (sourceUri) {
 					this._scheduleRepublish(sourceUri);
+				} else if (isQuartoCellUri(resource)) {
+					this._pendingOrphans.add(resource);
+					this._scheduleFlush();
 				}
 			}
 		}));
@@ -103,6 +126,10 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 	 */
 	private _scheduleRepublish(sourceUri: URI): void {
 		this._pendingSources.add(sourceUri);
+		this._scheduleFlush();
+	}
+
+	private _scheduleFlush(): void {
 		if (this._flushScheduled) {
 			return;
 		}
@@ -113,12 +140,37 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 			if (this._store.isDisposed) {
 				return;
 			}
+			const orphans = [...this._pendingOrphans];
+			this._pendingOrphans.clear();
+			for (const cellUri of orphans) {
+				this._clearOrphanedCell(cellUri);
+			}
 			const sources = [...this._pendingSources];
 			this._pendingSources.clear();
 			for (const sourceUri of sources) {
 				this._republish(sourceUri);
 			}
 		});
+	}
+
+	/**
+	 * Take the markers off a cell that no longer exists, whoever published them.
+	 *
+	 * The notebook clears a cell's markers once, as it retires it, and releases
+	 * the exclusion that kept them out of the Problems pane at the same time. A
+	 * publish that was already on its way from the extension host lands after
+	 * both, on a URI nobody can open. Ark publishes an empty set when it sees the
+	 * close and so heals this on its own, but a server that does not would leave
+	 * the entry there for the rest of the session.
+	 */
+	private _clearOrphanedCell(cellUri: URI): void {
+		const owners = new Set<string>();
+		for (const marker of this._markerService.read({ resource: cellUri, ignoreResourceFilters: true })) {
+			owners.add(marker.owner);
+		}
+		for (const owner of owners) {
+			this._markerService.changeOne(owner, cellUri, []);
+		}
 	}
 
 	/**
@@ -226,6 +278,13 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 	 * they belong to the marker service, which sets them from the arguments to
 	 * `changeOne`, and `modelVersionId` because it refers to a version of the cell
 	 * model rather than of the document.
+	 *
+	 * `origin` is dropped for a different reason: it is not something the server
+	 * said. `MainThreadDiagnostics` stamps it with the id of the extension host
+	 * that published, and uses it to skip its own markers when it tells the
+	 * extension host what changed. Copying it would hide these markers from
+	 * `vscode.languages.getDiagnostics`, and would start showing them again as
+	 * soon as a restart changed the id.
 	 */
 	private _toSourceMarker(span: ICellLineSpan, marker: IMarker): IMarkerData {
 		return {
@@ -235,7 +294,6 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 			source: marker.source,
 			code: marker.code,
 			tags: marker.tags,
-			origin: marker.origin,
 			relatedInformation: this._toSourceRelatedInformation(marker.relatedInformation),
 		};
 	}
