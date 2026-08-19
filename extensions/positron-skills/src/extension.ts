@@ -48,10 +48,6 @@ async function syncNow(context: vscode.ExtensionContext, log: vscode.LogOutputCh
 			disposeRegistration();
 			return;
 		}
-		if (typeof positron.ai?.registerAgentSkillRoot !== 'function') {
-			log.debug('This Positron build cannot register skill roots; skills will not be published.');
-			return;
-		}
 
 		const skillRoot = path.join(context.globalStorageUri.fsPath, 'skills');
 		await fs.mkdir(skillRoot, { recursive: true });
