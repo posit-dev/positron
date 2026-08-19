@@ -11,6 +11,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { getPyenvDir } from '../pythonEnvironments/common/environmentManagers/pyenv';
+import { getGlobalEnvironmentParent } from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
 import { getUserHomeDir } from '../common/utils/platform';
 
 /**
@@ -170,6 +171,9 @@ function getDefaultInterpreterParent(): string | undefined {
  *   - uv-managed Python install dir (UV_PYTHON_INSTALL_DIR / UV_STATE_DIR /
  *     `<data>/uv/python`).
  *   - Hatch virtual-env root (per-OS data dir).
+ *   - Global virtualenv parents: $WORKON_HOME when set, and `~/.virtualenvs`
+ *     (which the global virtualenv locator scans either way). This is where
+ *     Positron puts the environment it creates with no folder open.
  *   - Windows-known Python install roots (LOCALAPPDATA / ProgramFiles).
  *   - The parent of `python.defaultInterpreterPath`.
  *   - Discovery-gating settings (`python.interpreters.include` / `.exclude` /
@@ -223,6 +227,14 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
     addAll([getHatchVirtualEnvRoot()]);
     addAll(getWindowsKnownRoots());
     addAll([getDefaultInterpreterParent()]);
+
+    // Parent of the environment Positron creates when no folder is open
+    // ($WORKON_HOME, default ~/.virtualenvs). Also catches environments users
+    // create there by hand: virtualenvwrapper, reticulate, a manual `uv venv`.
+    // The global virtualenv locator scans ~/.virtualenvs whether or not
+    // WORKON_HOME is set, so sign both; the dedupe below collapses them when
+    // they are the same directory.
+    addAll([getGlobalEnvironmentParent(), home ? path.join(home, '.virtualenvs') : undefined]);
 
     // Dedupe by resolved path -- two settings/defaults may both land at the
     // same physical location (e.g. PYENV_ROOT explicitly set to ~/.pyenv).

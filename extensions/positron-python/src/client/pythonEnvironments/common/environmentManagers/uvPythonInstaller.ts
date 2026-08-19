@@ -3,21 +3,35 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as os from 'os';
-import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
 import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execUv } from './uv';
 import { Commands } from '../../../common/constants';
-import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
+import { Common, GlobalEnvironment, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
 import { ExistingVenvAction, deleteEnvironment, pickExistingVenvAction } from '../../creation/provider/venvUtils';
 import { getVenvExecutable, hasVenv } from '../../creation/common/commonUtils';
 import { MultiStepAction } from '../../../common/vscodeApis/windowApis';
 import { refreshEnvironments } from '../../../envExt/api.internal';
+import { createGlobalEnvironment, GlobalEnvironmentResult } from './globalEnvironment';
+
+/**
+ * Message to show when the global environment could not be created.
+ * @param result A non-`created` outcome from `createGlobalEnvironment()`.
+ */
+function globalEnvironmentErrorMessage(result: Exclude<GlobalEnvironmentResult, { outcome: 'created' }>): string {
+    switch (result.outcome) {
+        case 'occupied':
+            return GlobalEnvironment.occupied(result.venvDir);
+        case 'unsupported':
+            return GlobalEnvironment.unsupported();
+        default:
+            return GlobalEnvironment.creationFailed(result.venvDir);
+    }
+}
 
 /**
  * Shows an error notification for the uv Python install flow with a button that
@@ -127,56 +141,11 @@ async function installPythonVersionAndGetPath(version: string, identifier?: stri
 }
 
 /**
- * Gets the path to the global venv in the user's home directory.
- * @returns The path to ~/.venv (or equivalent on Windows)
- */
-function getGlobalVenvPath(): string {
-    return path.join(os.homedir(), '.venv');
-}
-
-/**
- * Creates a global virtual environment for use when no workspace is open.
- * The venv is created at ~/.venv so that `uv pip install` works from the home directory.
- * @param version The Python version (e.g., "3.13")
- * @param progress Progress reporter
- * @returns The path to the venv's Python executable, or undefined if creation failed
- */
-async function createGlobalVenv(
-    version: string,
-    progress: vscode.Progress<{ message?: string }>,
-): Promise<string | undefined> {
-    const venvPath = getGlobalVenvPath();
-
-    traceInfo(`Creating global venv at ${venvPath}...`);
-    progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
-
-    try {
-        // Create the venv using uv
-        // --seed installs pip/setuptools for compatibility
-        const args = ['venv', venvPath, '--seed', '-p', version];
-        await execUv('uv', args, { throwOnStdErr: false });
-
-        // Return the path to the Python executable
-        const pythonPath =
-            process.platform === 'win32'
-                ? path.join(venvPath, 'Scripts', 'python.exe')
-                : path.join(venvPath, 'bin', 'python');
-
-        traceInfo(`Global venv created at ${pythonPath}`);
-        return pythonPath;
-    } catch (error) {
-        traceError(`Failed to create global venv: ${error}`);
-        return undefined;
-    }
-}
-
-/**
  * Creates a uv venv at the given folder, reusing the Create Environment "use
  * existing / delete and recreate" flow when a `.venv` already exists there. uv
  * fails outright if a `.venv` already exists, so this collision must be handled.
  *
- * @param folder The folder to create the venv in (the open workspace, or a
- *   home-directory stand-in for the global `~/.venv` case).
+ * @param folder The open workspace folder to create the venv in.
  * @param create Creates the venv once any existing one has been resolved.
  * @returns `venvPython` is the venv's Python executable (from a fresh create or
  *   an existing env the user chose to keep), or undefined if creation failed or
@@ -383,22 +352,16 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                         }
                     }
                 } else {
-                    // No workspace - create (or reuse) a global venv at ~/.venv. The existing-venv
-                    // helpers are workspace-folder based, so wrap the home directory in a
-                    // WorkspaceFolder to reuse the same use-existing / recreate handling.
-                    const homeFolder: vscode.WorkspaceFolder = {
-                        uri: vscode.Uri.file(os.homedir()),
-                        name: 'home',
-                        index: 0,
-                    };
-                    const venvResult = await createVenvHandlingExisting(homeFolder, () =>
-                        createGlobalVenv(selected.version, progress),
-                    );
-                    if (venvResult.venvPython) {
-                        resolvedPath = venvResult.venvPython;
-                        venvWasCreated = venvResult.attempted;
-                    } else if (venvResult.attempted) {
-                        progress.report({ message: InterpreterQuickPickList.UvInstall.venvCreationFailed });
+                    // No workspace - create the global environment at $WORKON_HOME/positron
+                    // (default ~/.virtualenvs/positron), a directory every locator already scans.
+                    // Nothing already at that path is reused, upgraded, or deleted.
+                    progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
+                    const globalResult = await createGlobalEnvironment(selected.version);
+                    if (globalResult.outcome === 'created') {
+                        resolvedPath = globalResult.pythonPath;
+                        venvWasCreated = true;
+                    } else {
+                        await showUvInstallError(globalEnvironmentErrorMessage(globalResult));
                     }
                 }
 
