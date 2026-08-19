@@ -245,7 +245,11 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         // refresh so no PET server spawns at startup; discovery still works
         // lazily when explicitly requested.
         if (!isPythonStartupDisabled()) {
-            void this.configure();
+            // configure() rejects when the configuration cannot be assembled; it has
+            // already logged and recorded the failure, and the first refresh below
+            // reports it too, so swallow it here rather than raising an unhandled
+            // rejection.
+            this.configure().catch(() => undefined);
             this.firstRefreshResults = this.refreshFirstTime();
         }
         // --- End Positron ---
@@ -658,26 +662,39 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             refreshOptions.searchKind = options;
         }
         trackPromiseAndNotifyOnCompletion(
-            this.configure().then(() =>
+            this.configure()
+                .then(() =>
+                    // --- Start Positron ---
+                    // this.connection
+                    connection
+                        // --- End Positron ---
+                        .sendRequest<{ duration: number }>('refresh', refreshOptions)
+                        .then(({ duration }) => {
+                            this.outputChannel.info(`Refresh completed in ${duration}ms`);
+                            this.initialRefreshMetrics.timeToRefresh = stopWatch.elapsedTime;
+                            // --- Start Positron ---
+                            this._lastDiscoveryError = undefined;
+                            // --- End Positron ---
+                        })
+                        .catch((ex) => {
+                            this.outputChannel.error('Refresh error', ex);
+                            // --- Start Positron ---
+                            this._lastDiscoveryError = `Refresh error: ${
+                                ex instanceof Error ? ex.message : String(ex)
+                            }`;
+                            // --- End Positron ---
+                        }),
+                )
                 // --- Start Positron ---
-                // this.connection
-                connection
-                    // --- End Positron ---
-                    .sendRequest<{ duration: number }>('refresh', refreshOptions)
-                    .then(({ duration }) => {
-                        this.outputChannel.info(`Refresh completed in ${duration}ms`);
-                        this.initialRefreshMetrics.timeToRefresh = stopWatch.elapsedTime;
-                        // --- Start Positron ---
-                        this._lastDiscoveryError = undefined;
-                        // --- End Positron ---
-                    })
-                    .catch((ex) => {
-                        this.outputChannel.error('Refresh error', ex);
-                        // --- Start Positron ---
-                        this._lastDiscoveryError = `Refresh error: ${ex instanceof Error ? ex.message : String(ex)}`;
-                        // --- End Positron ---
-                    }),
-            ),
+                // A rejection here would be swallowed by the `catch(noop)` in
+                // notifyUponCompletion, leaving `completed` pending forever and
+                // hanging discovery for the lifetime of the window. Report the
+                // failure and let this refresh finish empty instead.
+                .catch((ex) => {
+                    this.outputChannel.error('Configure error', ex);
+                    this._lastDiscoveryError = `Configure error: ${ex instanceof Error ? ex.message : String(ex)}`;
+                }),
+            // --- End Positron ---
         );
 
         // --- Start Positron ---
@@ -722,18 +739,20 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
     }
 
     private async configureImpl() {
+        // Assembling the options reads settings and the filesystem, so it can
+        // throw. Report it and rethrow: the caller must not go on to send
+        // `refresh` against a stale or absent configuration, and a successful
+        // refresh would clear `_lastDiscoveryError` and hide this failure. The
+        // caller's catch settles the operation without hanging discovery.
+        let options: ConfigurationOptions;
+        try {
+            options = await this.configurationOptions();
+        } catch (ex) {
+            this.outputChannel.error('Failed to assemble the Python Locator configuration', ex);
+            this._lastDiscoveryError = `Configure error: ${ex instanceof Error ? ex.message : String(ex)}`;
+            throw ex;
+        }
         // --- End Positron ---
-        const options: ConfigurationOptions = {
-            workspaceDirectories: getWorkspaceFolderPaths(),
-            // We do not want to mix this with `search_paths`
-            // --- Start Positron ---
-            // environmentDirectories: getCustomVirtualEnvDirs(),
-            environmentDirectories: await getEnvironmentDirs(),
-            // --- End Positron ---
-            condaExecutable: getPythonSettingAndUntildify<string>(CONDAPATH_SETTING_KEY),
-            poetryExecutable: getPythonSettingAndUntildify<string>('poetryPath'),
-            cacheDirectory: this.cacheDirectory?.fsPath,
-        };
         // No need to send a configuration request, is there are no changes.
         if (JSON.stringify(options) === JSON.stringify(this.lastConfiguration || {})) {
             return;
@@ -752,6 +771,23 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
     }
 
     // --- Start Positron ---
+    /**
+     * The configuration to send to the Python Locator server. Extracted from
+     * `configureImpl` so that a failure while it is assembled can be handled
+     * there without the throw reaching the caller's refresh.
+     */
+    private async configurationOptions(): Promise<ConfigurationOptions> {
+        return {
+            workspaceDirectories: getWorkspaceFolderPaths(),
+            // We do not want to mix this with `search_paths`
+            // environmentDirectories: getCustomVirtualEnvDirs(),
+            environmentDirectories: await getEnvironmentDirs(),
+            condaExecutable: getPythonSettingAndUntildify<string>(CONDAPATH_SETTING_KEY),
+            poetryExecutable: getPythonSettingAndUntildify<string>('poetryPath'),
+            cacheDirectory: this.cacheDirectory?.fsPath,
+        };
+    }
+
     // Positron wrapper, as for resolve() above.
     getCondaInfo(): Promise<NativeCondaInfo> {
         return this.trackRequest(() => this.getCondaInfoImpl());
