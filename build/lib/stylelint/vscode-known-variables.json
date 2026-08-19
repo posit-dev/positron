@@ -794,6 +794,7 @@
 		"--vscode-positronWelcome-environmentSetupTitleHoverBackground",
 		"--vscode-positronWelcome-environmentSetupWarningIcon",
 		"--vscode-positronWelcome-foreground",
+		"--vscode-positronWelcome-headerButtonBorder",
 		"--vscode-positronWelcome-hoverBackground",
 		"--vscode-positronWelcome-secondaryForeground",
 		"--vscode-problemsErrorIcon-foreground",

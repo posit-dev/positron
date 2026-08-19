@@ -14,6 +14,7 @@ import { PositronReactRenderer } from '../../../../../base/browser/positronReact
 import { DomSlot } from './components/domSlot.js';
 import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
 import { WalkthroughBanner } from './components/walkthroughBanner.js';
+import { WelcomeHeader } from './components/welcomeHeader.js';
 import { EnvironmentHealthLanguage } from './environmentHealth.js';
 import { IEnvironmentHealthService } from './environmentHealthService.js';
 
@@ -81,6 +82,7 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 	// layout lives on one element instead of two nested ones.
 	return (
 		<>
+			<WelcomeHeader />
 			<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
 			<WalkthroughBanner />
 			<DomSlot element={props.recentList} />

@@ -44,13 +44,31 @@
 	background-color: var(--vscode-positronWelcome-environmentSetupTitleBackground);
 	color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
 	display: flex;
+	flex-wrap: wrap;
 	gap: 8px;
 	padding: 8px 16px;
 	/* The progress line is positioned against this. */
 	position: relative;
 }
 
-/* An h4 for structure only; the button inside it is what you see. */
+/*
+ * The recheck and settings buttons move as a pair: at the card's narrowest
+ * widths there is not enough room beside the title for both, and wrapping
+ * them individually would strand one button alone on its own line. This
+ * wraps the pair below the title instead. No horizontal alignment is set
+ * here: the title's `flex: 1 1 auto` already grows to fill the row and
+ * pushes this flush right when they share it with the title, and leaving
+ * this at the flex default keeps it flush left, under the title's text,
+ * once it wraps onto its own row.
+ */
+.positron-welcome-page-environment-setup .environment-health-header-buttons {
+	align-items: center;
+	display: flex;
+	flex: 0 0 auto;
+	gap: 8px;
+}
+
+/* An h3 for structure only; the button inside it is what you see. */
 .positron-welcome-page-environment-setup .environment-health-group-heading {
 	margin: 0;
 }
@@ -86,10 +104,30 @@
 	flex: 1 1 auto;
 }
 
-/* Right-aligned, taking whatever width the language name does not need. */
+/*
+ * gettingStarted.css sets every h2 in the container to 1.5em, weight 400 and
+ * line-height: initial, so this selector repeats the container chain to win on
+ * specificity and keep the title reading like the rest of the card.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.gettingStartedSlideCategories
+.positron-welcome-page-environment-setup .environment-health-header-title {
+	font-size: 13px;
+	font-weight: 600;
+	line-height: var(--_line-height);
+	margin: 0;
+}
+
+/*
+ * Right-aligned, taking whatever width the language name does not need. Sets
+ * its own font-size and font-weight because it now sits inside the group's h3
+ * and would otherwise inherit the browser's bold, larger default heading style.
+ */
 .positron-welcome-page-environment-setup .environment-health-group-summary {
 	color: var(--vscode-descriptionForeground);
 	flex: 1 1 auto;
+	font-size: 13px;
+	font-weight: normal;
 	min-width: 0;
 	overflow: hidden;
 	text-align: right;
@@ -131,18 +169,27 @@
 	gap: 8px;
 }
 
-/*
- * Nothing sits beside the detail, so it takes the full width rather than
- * inheriting the column the summary shares with the fix button. Indented to
- * line up under the summary, past the status icon.
- */
+.positron-welcome-page-environment-setup .environment-health-item-content {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	gap: 4px;
+	min-width: 0;
+}
+
+.positron-welcome-page-environment-setup .environment-health-item-summary-row {
+	align-items: flex-start;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
 .positron-welcome-page-environment-setup .environment-health-item-secondary {
 	/*
 	 * A detail often carries a file path, which has nothing to break on. Without
 	 * this it runs past the edge of the card instead of wrapping.
 	 */
 	overflow-wrap: anywhere;
-	padding-left: 24px;
 }
 
 /* Divides the checks from each other and from the summary line above them. */
@@ -151,9 +198,17 @@
 }
 
 .positron-welcome-page-environment-setup .environment-health-item-summary {
-	flex: 1 1 auto;
+	/*
+	 * 20ch is how much of this the row would like to keep beside the fix
+	 * button (see `flex-wrap` above): below that, the button drops to its
+	 * own line rather than squeezing both into an unreadable sliver. It is
+	 * the preferred size, not a floor -- `min-width: 0` still lets this
+	 * shrink narrower once even that is more than the row has, so a card
+	 * too small for 20ch wraps the text onto more lines instead of
+	 * overflowing the row.
+	 */
+	flex: 1 1 20ch;
 	line-height: var(--_item-line-height);
-	/* Lets the text wrap rather than force the row wider than the card. */
 	min-width: 0;
 }
 
@@ -242,12 +297,18 @@
 		 * ellipsis to apply to.
 		 */
 		display: inline-block;
-		/* Takes the width its label needs; the text beside it reflows. */
+		/*
+		 * Takes the width its label needs, up to the whole row: when there is
+		 * room beside the summary it shares the line, and once there is not
+		 * (see the summary's own `flex-basis`) it wraps below and can use
+		 * the full width there. Either way this caps it so a pathological
+		 * label ellipsizes instead of overflowing.
+		 */
 		flex: 0 0 auto;
 		font-size: 12px;
 		line-height: 16px;
 		margin: 0;
-		max-width: 50%;
+		max-width: 100%;
 		overflow: hidden;
 		padding: 4px 8px;
 		text-align: center;
@@ -325,6 +386,16 @@
 		 */
 		border: none;
 		border-top: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
+		/*
+		 * This row is a button when its language has a body to expand, and a
+		 * plain div when it does not (an unavailable or errored language, which
+		 * says all it has to say in the header). A button's padding is included
+		 * in its width by default; a div's is not, which pushed the div variant
+		 * 32px past the card's edge and hard-clipped the summary text against
+		 * the card's own `overflow: hidden`. Setting this explicitly keeps both
+		 * variants the same width.
+		 */
+		box-sizing: border-box;
 		color: inherit;
 		display: flex;
 		font-size: inherit;
@@ -336,6 +407,33 @@
 
 	& .environment-health-group-header:hover {
 		background-color: var(--vscode-list-hoverBackground);
+	}
+
+	/*
+	 * The row spans the card's full width, and the card clips overflow to keep
+	 * its rounded corners. The button's default focus ring draws outside its
+	 * edge with no offset, so on this row that means straddling the clipped
+	 * boundary -- the left and right sides disappear, only top and bottom
+	 * survive. A negative offset pulls the ring inside the row instead. The
+	 * radius resets to match the row's own square corners, not the button's.
+	 */
+	& .environment-health-group-header:focus-visible {
+		border-radius: 0;
+		outline-offset: -1px;
+	}
+
+	/*
+	 * The last language row's bottom corners are not actually square when it is
+	 * collapsed: the card clips them to its own radius (6px, minus the 1px
+	 * border) because nothing renders below to cover the curve. Expanded, the
+	 * row is never last -- its checks list sits below it -- so it keeps the
+	 * square ring above. This selector isolates exactly that collapsed-and-last
+	 * case: the heading is only its group's last child when there is no list
+	 * after it.
+	 */
+	& .environment-health-group:last-child > .environment-health-group-heading:last-child .environment-health-group-header:focus-visible {
+		border-bottom-left-radius: 5px;
+		border-bottom-right-radius: 5px;
 	}
 
 	/*
