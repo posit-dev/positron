@@ -876,6 +876,13 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { metadataTimeoutMs: 10 });
 
 			expect(snapshot.metadataStatus).toBe('timed-out');
+			// Neither stage got to run: the wait this caller was willing to make
+			// was spent joining someone else's fetch, so the advisories are
+			// timed-out too rather than reported as a lookup that answered. The
+			// one call is the joined refresh's own, not a second lookup issued
+			// by the snapshot.
+			expect(snapshot.vulnerabilityStatus).toBe('timed-out');
+			expect(getVulnerabilities).toHaveBeenCalledTimes(1);
 
 			// The refresh was not ours to cancel: released after the snapshot
 			// gave up on it, its result still lands for the pane.
@@ -937,6 +944,68 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 				vulnerabilityStatus: 'cached',
 				vulnerabilitySource: undefined,
 			});
+		});
+
+		it('still reports advisories for a runtime that has no outdated state to give', async () => {
+			// The two sources are independent: advisories are Positron's own
+			// lookup and don't go through getPackageMetadata. Answering
+			// 'unsupported' and stopping there -- as this did before the stages
+			// were split -- would leave every runtime without metadata support
+			// silently advisory-free in the payload an agent reads.
+			const packageManager = stubInterface<ILanguageRuntimePackageManager>({
+				getPackages,
+				getPackageMetadata: undefined,
+				packageRepositoryUrl: async () => 'https://ppm.example.com/pypi/latest/simple',
+				repositoryRequest,
+			});
+			session = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-1',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID, languageId: 'python' }),
+				getRuntimeState: () => RuntimeState.Uninitialized,
+				onDidChangeRuntimeState: Event.None,
+				getPackageManager: () => packageManager,
+			});
+			getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.metadataStatus).toBe('unsupported');
+			expect(snapshot.vulnerabilityStatus).toBe('fresh');
+			expect(snapshot.vulnerabilitySource).toEqual(SOURCE);
+			expect(snapshot.packages.map(p => [p.name, p.outdated, p.vulnerabilities])).toEqual([
+				['numpy', undefined, [ADVISORY]],
+				['pandas', undefined, []],
+			]);
+		});
+
+		it('reports unsupported rather than fresh for an empty library with no metadata support', async () => {
+			// Nothing installed is current on both counts, but the outdated
+			// half is still unsupported: labelling it 'fresh' would tell a
+			// caller this runtime reports outdated state when it never can.
+			getPackages.mockResolvedValue([]);
+			const packageManager = stubInterface<ILanguageRuntimePackageManager>({
+				getPackages,
+				getPackageMetadata: undefined,
+				packageRepositoryUrl: async () => 'https://ppm.example.com/pypi/latest/simple',
+				repositoryRequest,
+			});
+			session = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-1',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID, languageId: 'python' }),
+				getRuntimeState: () => RuntimeState.Uninitialized,
+				onDidChangeRuntimeState: Event.None,
+				getPackageManager: () => packageManager,
+			});
+			const instance = makeInstance();
+
+			expect(await instance.getPackagesSnapshot()).toEqual({
+				packages: [],
+				metadataStatus: 'unsupported',
+				vulnerabilityStatus: 'fresh',
+				vulnerabilitySource: undefined,
+			});
+			expect(getVulnerabilities).not.toHaveBeenCalled();
 		});
 
 		it('looks advisories up for a cold cache, asking about the versions actually installed', async () => {

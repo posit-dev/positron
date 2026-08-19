@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
-import { IProgressService } from '../../../../../platform/progress/common/progress.js';
+import { IProgress, IProgressOptions, IProgressService, IProgressStep, ProgressLocation } from '../../../../../platform/progress/common/progress.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
@@ -68,6 +68,9 @@ describe('packages inspect action', () => {
 
 	let openEditor: ReturnType<typeof vi.fn<(input: IUntitledTextResourceEditorInput) => Promise<undefined>>>;
 	let getPackagesSnapshot: ReturnType<typeof vi.fn<IPositronPackagesInstance['getPackagesSnapshot']>>;
+	// withProgress is generic over what the task resolves to; the mock is typed against a single
+	// concrete instantiation of it, the way openEditor is stubbed below.
+	let withProgress: ReturnType<typeof vi.fn<(options: IProgressOptions, task: (progress: IProgress<IProgressStep>) => Promise<unknown>) => Promise<unknown>>>;
 
 	/** What the session reports; a test reassigns this before running the action. */
 	let snapshot: IPackagesSnapshot;
@@ -106,8 +109,9 @@ describe('packages inspect action', () => {
 			openEditor: openEditor as unknown as IEditorService['openEditor'],
 		}));
 
+		withProgress = vi.fn((_options: IProgressOptions, task: (progress: IProgress<IProgressStep>) => Promise<unknown>) => task({ report: () => { } }));
 		ctx.instantiationService.stub(IProgressService, stubInterface<IProgressService>({
-			withProgress: (_options, task) => task({ report: () => { } }),
+			withProgress: withProgress as unknown as IProgressService['withProgress'],
 		}));
 	});
 
@@ -135,6 +139,18 @@ describe('packages inspect action', () => {
 		// One read: the command fills its own advisory gaps, so the action has
 		// no reason to call it twice.
 		expect(getPackagesSnapshot).toHaveBeenCalledTimes(1);
+	});
+
+	// The read fills its own gaps, so on a cold cache it queries the repositories and Package
+	// Manager before answering: seconds of silence that would read as a hang. The delay is what
+	// keeps a warm cache -- which answers immediately -- from flashing a notification for nothing.
+	it('reports progress once the read is slow enough to look like a hang', async () => {
+		await runAction();
+
+		expect(withProgress).toHaveBeenCalledWith(
+			expect.objectContaining({ location: ProgressLocation.Notification, delay: 500 }),
+			expect.any(Function),
+		);
 	});
 
 	it('shows the payload even when no advisories could be obtained', async () => {
