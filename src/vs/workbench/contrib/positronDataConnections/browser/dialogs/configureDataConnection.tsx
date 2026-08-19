@@ -369,7 +369,6 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				"Configure Data Connection \u00B7 {0}",
 				props.driver.metadata.name
 			)}
-			titleSize='large'
 			width={530}
 			onCancel={cancelHandler}
 			onSubmit={saveHandler}
