@@ -91,6 +91,13 @@ describe('parseLicenseManagerFrame', () => {
 		expect(parseLicenseManagerFrame(digestOf(stale), stale, TEST_KEY)).toBeUndefined();
 	});
 
+	it('rejects a body with no timestamp', () => {
+		// Digested under the real key, so only the missing stamp is under test:
+		// a frame that cannot be placed in time would stay replayable forever.
+		const unstamped = activatedBody().replace(/"ts":\d+,/, '');
+		expect(parseLicenseManagerFrame(digestOf(unstamped), unstamped, TEST_KEY)).toBeUndefined();
+	});
+
 	it('ignores a truncated JSON line rather than throwing', () => {
 		const truncated = '{"status":"activa';
 		expect(parseLicenseManagerFrame(digestOf(truncated), truncated, TEST_KEY)).toBeUndefined();

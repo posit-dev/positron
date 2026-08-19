@@ -304,6 +304,10 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 	// the server does it for us: the `DisposableStore` in `createServer` is never
 	// disposed, and Node's default signal disposition kills the process without
 	// running `exit` listeners. So own the signals here.
+	//
+	// SIGKILL cannot be trapped here, but the client covers that on its own.
+	// The one gap is a kill that takes the client down;
+	// the seat then stays checked out until LM expires the provisional lease.
 	let shuttingDown = false;
 	const shutdown = (code: number): void => {
 		if (shuttingDown) {
@@ -315,12 +319,10 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 		manager.stop().finally(() => process.exit(code));
 	};
 
-	if (!await manager.start()) {
-		await manager.stop();
-		console.error('The license manager did not report an activated license. Positron requires a license to run in a hosted environment.');
-		return { valid: false };
-	}
-
+	// Installed before the client is even up, because `start()` waits up to a
+	// minute for the first lease: a signal in that window would otherwise take
+	// the default disposition and orphan a client that has already checked a
+	// seat out.
 	for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
 		process.on(signal, () => {
 			console.log(`Received ${signal}; returning the Positron license before exiting.`);
@@ -333,6 +335,12 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 	// or `process.exit` called elsewhere). A process `exit` handler cannot await,
 	// so all this can do is signal the client and hope it outlives us.
 	process.on('exit', () => manager.dispose());
+
+	if (!await manager.start()) {
+		await manager.stop();
+		console.error('The license manager did not report an activated license. Positron requires a license to run in a hosted environment.');
+		return { valid: false };
+	}
 
 	return { valid: true };
 }

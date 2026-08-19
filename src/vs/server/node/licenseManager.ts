@@ -123,9 +123,11 @@ export function parseLicenseManagerFrame(digest: string, line: string, key: stri
 	}
 
 	// The client stamps every message as it writes it, so one that is not from
-	// about now is not from this run of the client.
+	// about now is not from this run of the client. An unstamped one
+	// cannot be placed in time at all, so it would stay replayable
+	// forever.
 	const ts = optionalNumber(parsed['ts']);
-	if (ts && Math.abs(Date.now() - ts) > MAX_MESSAGE_AGE_MS) {
+	if (ts === undefined || Math.abs(Date.now() - ts) > MAX_MESSAGE_AGE_MS) {
 		return undefined;
 	}
 
