@@ -4180,15 +4180,13 @@ declare module 'positron' {
 		export function getAgentAllowedCommands(options?: GetAgentAllowedCommandsOptions): Thenable<AgentCommand[]>;
 
 		/**
-		 * Registers an additional filesystem root holding agent skills, so a
-		 * root produced at runtime (for example, generated skill files written to
-		 * an extension's storage) is discovered alongside the roots Positron
-		 * ships. The root is a directory whose immediate subdirectories each
-		 * contain a `SKILL.md`.
+		 * Registers a filesystem root holding agent skills produced at runtime
+		 * (for example, generated skill files written to an extension's storage),
+		 * so it is discovered by {@link getAgentSkillRoots}. The root is a
+		 * directory whose immediate subdirectories each contain a `SKILL.md`.
 		 *
-		 * The registration lives in the extension host and is observed by
-		 * {@link getAgentSkillRoots}. Dispose the returned value to remove the
-		 * root again.
+		 * The registration lives in the extension host. Dispose the returned
+		 * value to remove the root again.
 		 *
 		 * @param root Absolute filesystem path of the skill root to add.
 		 * @returns A Disposable that removes the root when disposed.
@@ -4196,16 +4194,15 @@ declare module 'positron' {
 		export function registerAgentSkillRoot(root: string): vscode.Disposable;
 
 		/**
-		 * Returns filesystem roots holding the agent skills that ship with this
-		 * Positron build.
+		 * Returns the filesystem roots holding the agent skills available to
+		 * this Positron build, as added via {@link registerAgentSkillRoot}.
 		 *
 		 * Each root is a directory whose immediate subdirectories are skills, one
 		 * `SKILL.md` per subdirectory. Resolved on whichever machine the extension
 		 * host runs on, so the paths are valid for an extension reading them.
-		 * Includes any roots added via {@link registerAgentSkillRoot}.
 		 *
-		 * @returns A Thenable resolving to absolute paths, empty when this build
-		 * ships no agent skills.
+		 * @returns A Thenable resolving to absolute paths, empty when no skill
+		 * roots are registered.
 		 */
 		export function getAgentSkillRoots(): Thenable<string[]>;
 
