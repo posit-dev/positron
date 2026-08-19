@@ -135,10 +135,14 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 			cellUri: cell.cellUri,
 			span: { codeStartLine: cell.codeStartLine, codeEndLine: cell.codeEndLine },
 		}));
-		if (cells.length === 0) {
-			// The document closed, or its chunks are all gone. Clearing the source
-			// document belongs to whoever is taking the cells away, which knows
-			// whether this is a document that still exists.
+		if (cells.length === 0 && !this._virtualNotebooks.getNotebookUri(sourceUri)) {
+			// No notebook, so the document has closed or the setting has gone off.
+			// Disposing the notebook cleared the remapped set already.
+			//
+			// A document that is still open and has lost its last chunk reaches
+			// here too, with no cells and a notebook. That one must fall through:
+			// the markers of the chunk that went are still on the document, and
+			// nothing but a republish of the empty set takes them off.
 			return;
 		}
 
@@ -247,21 +251,28 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 	private _toSourceRelatedInformation(
 		relatedInformation: IRelatedInformation[] | undefined
 	): IRelatedInformation[] | undefined {
-		return relatedInformation?.map(related => {
+		return relatedInformation?.flatMap(related => {
 			const sourceUri = this._virtualNotebooks.getSourceUriForCell(related.resource);
 			if (!sourceUri) {
-				return related;
+				return [related];
 			}
 			const cell = this._virtualNotebooks.getCells(sourceUri)
 				.find(candidate => candidate.cellUri.toString() === related.resource.toString());
 			if (!cell) {
-				return related;
+				return [related];
 			}
-			return {
+			if (!fitsCell(cell, related)) {
+				// Stale for the same reason a primary range is, and dropped for the
+				// same reason: mapping it would point the peek at the prose below
+				// the chunk. One related location is worth less than the marker
+				// itself, so the marker is kept and this entry goes.
+				return [];
+			}
+			return [{
 				resource: sourceUri,
 				message: related.message,
 				...cellRangeToSource(cell, related),
-			};
+			}];
 		});
 	}
 }

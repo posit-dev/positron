@@ -40,6 +40,7 @@ import { QuartoEmbeddedDiagnostics } from '../../browser/quartoEmbeddedDiagnosti
 //   11  c = 3
 //   12  ```
 const SOURCE_URI = URI.file('/test/doc.qmd');
+const NOTEBOOK_URI = URI.parse('quarto-cells:/test/doc.qmd');
 const R_CELL_URI = URI.parse('vscode-notebook-cell:/test/doc.qmd#ch0');
 const PYTHON_CELL_URI = URI.parse('vscode-notebook-cell:/test/doc.qmd#ch1');
 /** A file that has nothing to do with any Quarto document. */
@@ -91,6 +92,8 @@ describe('QuartoEmbeddedDiagnostics', () => {
 	let cells: IQuartoVirtualCell[];
 	let sourceTextModel: ITextModel;
 	let onDidParse: Emitter<void>;
+	/** Whether the document still has a virtual notebook, cells or not. */
+	let notebookExists: boolean;
 
 	function cell(cellUri: URI, language: string, codeStartLine: number, codeEndLine: number): IQuartoVirtualCell {
 		return {
@@ -116,6 +119,7 @@ describe('QuartoEmbeddedDiagnostics', () => {
 		// re-offsetting subscription is meant to end.
 		sourceTextModel = createTextModel('', 'quarto', undefined, SOURCE_URI);
 		onDidParse = new Emitter<void>();
+		notebookExists = true;
 	});
 
 	afterEach(() => {
@@ -128,6 +132,8 @@ describe('QuartoEmbeddedDiagnostics', () => {
 
 	function createDiagnostics(): QuartoEmbeddedDiagnostics {
 		const virtualNotebooks = stubInterface<IQuartoVirtualNotebookService>({
+			getNotebookUri: uri =>
+				notebookExists && uri.toString() === SOURCE_URI.toString() ? NOTEBOOK_URI : undefined,
 			getCells: uri => uri.toString() === SOURCE_URI.toString() ? cells : [],
 			getSourceUriForCell: uri =>
 				cells.some(c => c.cellUri.toString() === uri.toString()) ? SOURCE_URI : undefined,
@@ -300,10 +306,11 @@ describe('QuartoEmbeddedDiagnostics', () => {
 		markerService.changeOne('ark', R_CELL_URI, [marker()]);
 		await settle();
 
-		// The document closed, so its cells are gone from the service. Whatever is
-		// on the source document is the closing notebook's to clear, and a
-		// republish here would be working from cells that no longer exist.
+		// The document closed, so the notebook and its cells are gone from the
+		// service. Whatever is on the source document is the closing notebook's to
+		// clear, and a republish here would work from cells that no longer exist.
 		cells = [];
+		notebookExists = false;
 		markerService.changeOne('ark', R_CELL_URI, []);
 		await settle();
 		diagnostics.dispose();
@@ -333,6 +340,49 @@ describe('QuartoEmbeddedDiagnostics', () => {
 		// pane and the editor decorations both read on this event, so losing it
 		// means the squiggle never appears.
 		expect(changed).toEqual([R_CELL_URI.path, SOURCE_URI.path]);
+	});
+
+	it('clears the remapped set when the document loses its last chunk', async () => {
+		const diagnostics = createDiagnostics();
+		markerService.changeOne('ark', R_CELL_URI, [marker()]);
+		await settle();
+		const before = sourceMarkers().length;
+
+		// Every chunk deleted, but the document is still open, so the notebook is
+		// still there with no cells in it. Nothing else clears the remapped set in
+		// this case: the notebook clears it on dispose, and it is not disposed.
+		cells = [];
+		onDidParse.fire();
+		await settle();
+		diagnostics.dispose();
+
+		expect({ before, after: sourceMarkers().length }).toEqual({ before: 1, after: 0 });
+	});
+
+	it('skips relatedInformation that does not fit its cell', async () => {
+		const diagnostics = createDiagnostics();
+		// The Python chunk holds three lines. The same staleness that the primary
+		// range is checked for reaches a related location too, and mapping it
+		// would point the peek at the prose below that chunk.
+		const relatedInformation: IRelatedInformation[] = [
+			{
+				resource: PYTHON_CELL_URI,
+				message: 'stale',
+				startLineNumber: 99, startColumn: 1, endLineNumber: 99, endColumn: 6,
+			},
+			{
+				resource: PYTHON_CELL_URI,
+				message: 'current',
+				startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 6,
+			},
+		];
+		markerService.changeOne('ark', R_CELL_URI, [marker({ relatedInformation })]);
+		await settle();
+		diagnostics.dispose();
+
+		expect(sourceMarkers()[0].relatedInformation?.map(summarize)).toEqual([
+			{ resource: SOURCE_URI.path, message: 'current', range: [9, 1, 9, 6] },
+		]);
 	});
 
 	it('re-offsets the remapped markers when the chunks move', async () => {
