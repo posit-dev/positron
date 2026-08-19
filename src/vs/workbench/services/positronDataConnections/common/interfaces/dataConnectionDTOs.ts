@@ -91,6 +91,29 @@ export interface IDataConnectionCodeVariantDTO {
 }
 
 /**
+ * Serializable form of a connection a driver found already configured on this machine (e.g. an
+ * ODBC data source declared in odbc.ini). Converted to an ephemeral IDataConnectionProfile at the
+ * main-thread boundary; never persisted unless the user saves it.
+ */
+export interface IDiscoveredDataConnectionDTO {
+	// Unique within the driver and stable across sessions. Namespaced by driver id on the main
+	// thread, so it need not be globally unique.
+	id: string;
+
+	// The name to show in the pane.
+	name: string;
+
+	// An optional one-line summary of where the connection points.
+	description?: string;
+
+	// The id of the mechanism to connect with. One of the driver's mechanisms.
+	mechanismId: string;
+
+	// The parameter values to connect with.
+	parameters: DataConnectionParameterValuesDTO;
+}
+
+/**
  * A lightweight summary of a registered driver, returned to the ext host
  * for the positron.dataConnections.getDrivers() API.
  */

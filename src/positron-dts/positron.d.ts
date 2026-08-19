@@ -2333,6 +2333,48 @@ declare module 'positron' {
 		 * @returns The redacted string to display, or undefined to show no placeholder.
 		 */
 		redactParameterValue?(mechanismId: string, parameterId: string, value: string): vscode.ProviderResult<string>;
+
+		/**
+		 * Reports connections this driver already knows about on this machine, without the user
+		 * having configured anything -- ODBC data sources declared in `odbc.ini`, for example.
+		 *
+		 * Positron shows these in the Data Connections pane alongside saved connections, so a data
+		 * source the machine is already set up for is connectable straight away. They are not
+		 * persisted: a discovered connection that stops being reported simply stops appearing, and
+		 * one the user saves becomes an ordinary saved connection from then on (and is no longer
+		 * shown as discovered).
+		 *
+		 * Called when the driver registers and whenever the set of registered drivers changes, so a
+		 * driver whose discoveries change should re-register to have them re-read.
+		 *
+		 * @returns The connections found on this machine, or an empty array if there are none.
+		 */
+		discoverConnections?(): Thenable<DiscoveredDataConnection[]>;
+	}
+
+	/**
+	 * A connection a driver found already configured on this machine, reported by
+	 * {@link DataConnectionDriver.discoverConnections}.
+	 */
+	export interface DiscoveredDataConnection {
+		/**
+		 * An identifier for this connection, unique within the driver and stable across sessions
+		 * (so the pane can keep a discovered connection's expansion state). Positron namespaces it
+		 * by driver, so it need not be globally unique.
+		 */
+		id: string;
+
+		/** The name to show in the pane. */
+		name: string;
+
+		/** An optional one-line summary of where the connection points, shown beneath the name. */
+		description?: string;
+
+		/** The id of the mechanism to connect with. One of this driver's `mechanisms`. */
+		mechanismId: string;
+
+		/** The parameter values to connect with, for the parameters that mechanism defines. */
+		parameters: DataConnectionParameterValues;
 	}
 
 	/**

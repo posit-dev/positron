@@ -73,6 +73,14 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Fires when data connection instances change.
 	private readonly _onDidChangeInstancesEmitter = this._register(new Emitter<IDataConnectionInstance[]>());
 
+	// Ephemeral profiles for the connections drivers report as already configured on this machine.
+	// Rebuilt whenever the registered drivers change and never persisted; see
+	// _refreshDiscoveredProfiles.
+	private _discoveredProfiles: IDataConnectionProfile[] = [];
+
+	// Fires when the discovered data connections change.
+	private readonly _onDidChangeDiscoveredProfilesEmitter = this._register(new Emitter<IDataConnectionProfile[]>());
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -105,6 +113,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// A closing editor may have been the last Data Explorer holding a connection open. The event
 		// fires after the editor leaves its group, so the count below already reflects the close.
 		this._register(this._editorService.onDidCloseEditor(() => this._disconnectUnusedProfiles()));
+
+		// Discovery is a property of the registered drivers, so it is re-read whenever they change:
+		// when a driver's extension activates, and when a driver re-registers because what it can
+		// see changed (the ODBC driver does this when odbc.ini is edited).
+		this._register(this.driverManager.onDidChangeDrivers(() => this._refreshDiscoveredProfiles()));
+		this._refreshDiscoveredProfiles();
 	}
 
 	//#endregion Constructor & Dispose
@@ -122,6 +136,48 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	// Fires when data connection instances change.
 	readonly onDidChangeInstances: Event<IDataConnectionInstance[]> = this._onDidChangeInstancesEmitter.event;
+
+	// Fires when the discovered data connections change.
+	readonly onDidChangeDiscoveredProfiles: Event<IDataConnectionProfile[]> = this._onDidChangeDiscoveredProfilesEmitter.event;
+
+	/**
+	 * Gets the connections drivers report as already configured on this machine, as ephemeral
+	 * profiles. Discoveries matching a saved profile are filtered out here rather than at refresh
+	 * time, so saving or removing a profile takes effect without waiting for a re-discovery.
+	 */
+	getDiscoveredProfiles(): readonly IDataConnectionProfile[] {
+		return this._discoveredProfiles.filter(discovered =>
+			!this._profiles.some(saved => this._isSameConnection(saved, discovered)));
+	}
+
+	/**
+	 * Saves a discovered connection as an ordinary profile. The saved profile gets a fresh id: the
+	 * discovered id is scoped to the driver's discovery namespace, and reusing it would tie the
+	 * saved profile's identity to a discovery that may later disappear.
+	 * @param id The discovered profile id.
+	 */
+	saveDiscoveredProfile(id: string): string | undefined {
+		const discovered = this._discoveredProfiles.find(_ => _.id === id);
+		if (!discovered) {
+			return undefined;
+		}
+
+		// Drop `discovered` and `description`: from here on this is an ordinary saved profile, and
+		// leaving the marker on would keep the pane treating it as ephemeral.
+		const { discovered: _discovered, description: _description, ...rest } = discovered;
+		const profile: IDataConnectionProfile = {
+			...rest,
+			id: generateUuid(),
+			createdAt: Date.now(),
+		};
+
+		this.addUpdateProfile(profile);
+
+		// The discovery is now shadowed by the saved profile, so the pane needs to drop its row.
+		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
+
+		return profile.id;
+	}
 
 	/**
 	 * Adds or updates a data connection profile.
@@ -170,7 +226,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @returns The matching data connection profile, or undefined if not found.
 	 */
 	getProfile(id: string): IDataConnectionProfile | undefined {
-		return this._profiles.find(p => p.id === id);
+		// Discovered profiles are addressable by id too, so a caller holding an id from the pane can
+		// resolve it without caring whether the row it came from was saved or discovered.
+		return this._profiles.find(p => p.id === id) ?? this._discoveredProfiles.find(p => p.id === id);
 	}
 
 	/**
@@ -184,7 +242,10 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// Look up the data connection profile by id. If not found, return undefined.
 		const profile = this._profiles.find(_ => _.id === id);
 		if (!profile) {
-			return undefined;
+			// A discovered profile has nothing in secret storage -- it was never saved -- so its
+			// parameter values are already complete. Whatever credentials the connection needs are
+			// the data source's own (an ODBC DSN carries them, or the driver prompts).
+			return this._discoveredProfiles.find(_ => _.id === id);
 		}
 
 		// The persisted data connection profile tells us which parameter ids are secrets for this
@@ -513,6 +574,63 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	//#endregion IPositronDataConnectionsService Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Re-reads every registered driver's discovered connections and republishes them as ephemeral
+	 * profiles.
+	 *
+	 * Discovery ids are namespaced by driver, so two drivers reporting a data source of the same
+	 * name do not collide. Failures are logged and treated as "this driver found nothing": a driver
+	 * whose discovery throws should not take the other drivers' discoveries down with it.
+	 */
+	private async _refreshDiscoveredProfiles(): Promise<void> {
+		const drivers = this.driverManager.getDrivers();
+		const results = await Promise.all(drivers.map(async driver => {
+			try {
+				const discovered = await driver.discoverConnections();
+				return discovered.map((connection): IDataConnectionProfile => ({
+					id: `discovered:${driver.id}:${connection.id}`,
+					driverMetadata: {
+						id: driver.metadata.id,
+						name: driver.metadata.name,
+						iconSvg: driver.metadata.iconSvg,
+						supportedLanguageIds: driver.metadata.supportedLanguageIds,
+					},
+					connectionName: connection.name,
+					description: connection.description,
+					mechanismId: connection.mechanismId,
+					parameterValues: connection.parameterValues,
+					discovered: true,
+				}));
+			} catch (err) {
+				this._logService.error(`[DataConnections] discoverConnections() threw for driver ${driver.id}: ${err}`);
+				return [];
+			}
+		}));
+
+		this._discoveredProfiles = results.flat();
+		this._logService.trace(`[DataConnections] Discovered ${this._discoveredProfiles.length} connection(s) across ${drivers.length} driver(s)`);
+		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
+	}
+
+	/**
+	 * Whether two profiles describe the same connection: the same driver, configured the same way,
+	 * with the same values. Used to suppress a discovery the user has already saved.
+	 *
+	 * Only the public parameter values are compared, which is all a saved profile holds in memory --
+	 * its secrets live in secret storage. A discovery carries no secrets either (an ODBC data source
+	 * names itself and leaves the credentials to the DSN), so the comparison is like for like.
+	 */
+	private _isSameConnection(saved: IDataConnectionProfile, discovered: IDataConnectionProfile): boolean {
+		if (saved.driverMetadata.id !== discovered.driverMetadata.id || saved.mechanismId !== discovered.mechanismId) {
+			return false;
+		}
+
+		const savedKeys = Object.keys(saved.parameterValues);
+		const discoveredKeys = Object.keys(discovered.parameterValues);
+		return savedKeys.length === discoveredKeys.length
+			&& savedKeys.every(key => saved.parameterValues[key] === discovered.parameterValues[key]);
+	}
 
 	/**
 	 * Closes the connections of any profiles waiting on their last Data Explorer, now that one has

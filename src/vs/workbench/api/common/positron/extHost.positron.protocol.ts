@@ -17,7 +17,7 @@ import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntim
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
@@ -345,6 +345,7 @@ export interface ExtHostDataConnectionsShape {
 	$driverConnect(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 	$generateConnectionCode(driverId: string, mechanismId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
 	$redactParameterValue(driverId: string, mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
+	$discoverConnections(driverId: string): Promise<IDiscoveredDataConnectionDTO[]>;
 	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
 	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
