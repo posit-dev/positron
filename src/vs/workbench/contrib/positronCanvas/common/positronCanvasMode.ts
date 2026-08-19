@@ -3,10 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Schemas } from '../../../../base/common/network.js';
 import { localize } from '../../../../nls.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { IWorkspace } from '../../../../platform/workspace/common/workspace.js';
 
 // The `positron.canvas.*` commands and `CANVAS_WEBVIEW_VIEW_TYPE` are the seam
 // between Positron and Posit Assistant; ../README.md is the canonical
@@ -27,12 +29,25 @@ export const CANVAS_OPEN_ON_STARTUP_KEY = 'canvas.openOnStartup';
  */
 export const CANVAS_MODE_STORAGE_KEY = 'positron.canvasMode.active';
 
+/**
+ * Whether a workspace has the shape Canvas requires: exactly one local folder.
+ * The requirement is Posit Assistant's (its Canvas panel refuses anything
+ * else); checking it here lets a window with no usable workspace stand down to
+ * a plain IDE instead of booting into a startup failure it can never retry
+ * out of.
+ */
+export function isCanvasWorkspaceEligible(workspace: IWorkspace): boolean {
+	return workspace.folders.length === 1 && workspace.folders[0].uri.scheme === Schemas.file;
+}
+
 /** Everything the boot-into-Canvas decision reads. */
 export interface ICanvasStartSignals {
 	/** The `ai.enabled` main switch, read live. */
 	readonly aiEnabled: boolean;
 	/** Whether another window held standalone mode when this window opened. */
 	readonly engagedElsewhere: boolean;
+	/** Whether the workspace has the shape Canvas requires; see `isCanvasWorkspaceEligible`. */
+	readonly workspaceEligible: boolean;
 	/** Whether the window was opened with `--canvas`. */
 	readonly canvasFlag: boolean;
 	/**
@@ -46,15 +61,15 @@ export interface ICanvasStartSignals {
 }
 
 /**
- * Whether a window should boot straight into Canvas mode. Two window-level
- * vetoes beat every entry signal: `ai.enabled` off, and the mode engaged in
- * another window. Then precedence: a fresh `--canvas` always wins; an
- * explicitly configured `canvas.openOnStartup` beats the stored intent in
- * both directions; the stored intent then makes "relaunch into whatever you
- * quit in" true.
+ * Whether a window should boot straight into Canvas mode. Three window-level
+ * vetoes beat every entry signal: `ai.enabled` off, the mode engaged in
+ * another window, and a workspace Canvas cannot present. Then precedence: a
+ * fresh `--canvas` always wins; an explicitly configured
+ * `canvas.openOnStartup` beats the stored intent in both directions; the
+ * stored intent then makes "relaunch into whatever you quit in" true.
  */
 export function shouldStartInCanvasMode(signals: ICanvasStartSignals): boolean {
-	if (!signals.aiEnabled || signals.engagedElsewhere) {
+	if (!signals.aiEnabled || signals.engagedElsewhere || !signals.workspaceEligible) {
 		return false;
 	}
 	if (signals.canvasFlag) {

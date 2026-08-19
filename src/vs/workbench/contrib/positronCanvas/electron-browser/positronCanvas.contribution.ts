@@ -9,13 +9,13 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustEnablementService, IWorkspaceTrustManagementService, IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
@@ -33,7 +33,7 @@ import { CanvasStartupPresenter } from '../browser/canvasStartupPresenter.js';
 import { registerCanvasCommandLockdown } from '../browser/positronCanvasCommandLockdown.js';
 import { sweepRestoredCanvasWindows } from '../browser/positronCanvasRestore.js';
 import { awaitWorkspaceTrustDecisionForCanvas } from '../browser/positronCanvasTrustGate.js';
-import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_OPEN_ON_STARTUP_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, ICanvasStartSignals, PositronCanvasModeActiveContext, shouldStartInCanvasMode } from '../common/positronCanvasMode.js';
+import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_OPEN_ON_STARTUP_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, ICanvasStartSignals, isCanvasWorkspaceEligible, PositronCanvasModeActiveContext, shouldStartInCanvasMode } from '../common/positronCanvasMode.js';
 import { IPositronCanvasService, PositronCanvasService } from './positronCanvasService.js';
 
 registerSingleton(IPositronCanvasService, PositronCanvasService, InstantiationType.Delayed);
@@ -273,6 +273,7 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 
 	constructor(
 		@IAuxiliaryWindowService auxiliaryWindowService: IAuxiliaryWindowService,
+		@ICommandService commandService: ICommandService,
 		@IEditorGroupsService editorGroupsService: IEditorGroupsService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@INativeWorkbenchEnvironmentService environmentService: INativeWorkbenchEnvironmentService,
@@ -280,6 +281,7 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 		@INotificationService notificationService: INotificationService,
 		@IStorageService storageService: IStorageService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
+		@IWorkspaceContextService contextService: IWorkspaceContextService,
 		@ILogService logService: ILogService
 	) {
 		super();
@@ -291,6 +293,7 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 		const signals: ICanvasStartSignals = {
 			aiEnabled: configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false,
 			engagedElsewhere: environmentService.standaloneModeEngagedElsewhere,
+			workspaceEligible: isCanvasWorkspaceEligible(contextService.getWorkspace()),
 			canvasFlag: environmentService.args.canvas === true,
 			configuredOpenOnStartup: setting.policyValue ?? setting.workspaceFolderValue ?? setting.workspaceValue ?? setting.userValue ?? setting.applicationValue,
 			storedIntent: storageService.getBoolean(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE, false)
@@ -314,9 +317,23 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 		if (signals.canvasFlag) {
 			// The flag was an explicit ask; a veto must not answer it with a
 			// silent plain IDE window.
-			notificationService.error(!signals.aiEnabled
-				? localize('positron.canvas.flagAiDisabled', "Canvas is unavailable because AI features are disabled.")
-				: localize('positron.canvas.flagEngagedElsewhere', "Canvas is already open in another Positron window."));
+			if (!signals.aiEnabled) {
+				notificationService.error(localize('positron.canvas.flagAiDisabled', "Canvas is unavailable because AI features are disabled."));
+			} else if (signals.engagedElsewhere) {
+				notificationService.error(localize('positron.canvas.flagEngagedElsewhere', "Canvas is already open in another Positron window."));
+			} else {
+				// No workspace is a normal first-launch state, not an error:
+				// point at the way forward rather than offering a retry that
+				// can never succeed.
+				notificationService.prompt(
+					Severity.Info,
+					localize('positron.canvas.flagNoWorkspace', "Canvas needs a single local folder to work in. Open one to get started."),
+					[{
+						label: localize('positron.canvas.openFolder', "Open Folder"),
+						run: () => commandService.executeCommand('workbench.action.files.openFolder')
+					}]
+				);
+			}
 		}
 
 		sweepRestoredCanvasWindows({ auxiliaryWindowService, editorGroupsService, layoutService, logService })

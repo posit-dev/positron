@@ -5,20 +5,30 @@
 
 /// <reference types="vitest/globals" />
 
+import { URI } from '../../../../../base/common/uri.js';
 import { ConfigurationModelParser } from '../../../../../platform/configuration/common/configurationModels.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
-import { CANVAS_OPEN_ON_STARTUP_KEY, ICanvasStartSignals, shouldStartInCanvasMode } from '../../common/positronCanvasMode.js';
+import { IWorkspace, WorkspaceFolder } from '../../../../../platform/workspace/common/workspace.js';
+import { CANVAS_OPEN_ON_STARTUP_KEY, ICanvasStartSignals, isCanvasWorkspaceEligible, shouldStartInCanvasMode } from '../../common/positronCanvasMode.js';
 
 function signals(overrides: Partial<ICanvasStartSignals>): ICanvasStartSignals {
 	return {
 		aiEnabled: true,
 		engagedElsewhere: false,
+		workspaceEligible: true,
 		canvasFlag: false,
 		configuredOpenOnStartup: undefined,
 		storedIntent: false,
 		...overrides
+	};
+}
+
+function workspaceOf(...uris: URI[]): IWorkspace {
+	return {
+		id: 'test-workspace',
+		folders: uris.map((uri, index) => new WorkspaceFolder({ uri, name: `folder-${index}`, index }))
 	};
 }
 
@@ -36,6 +46,12 @@ describe('shouldStartInCanvasMode', () => {
 		expect(shouldStartInCanvasMode(signals({ engagedElsewhere: true, storedIntent: true }))).toBe(false);
 	});
 
+	it('never starts when the workspace cannot present Canvas, regardless of other signals', () => {
+		expect(shouldStartInCanvasMode(signals({ workspaceEligible: false, canvasFlag: true, configuredOpenOnStartup: true, storedIntent: true }))).toBe(false);
+		expect(shouldStartInCanvasMode(signals({ workspaceEligible: false, configuredOpenOnStartup: true }))).toBe(false);
+		expect(shouldStartInCanvasMode(signals({ workspaceEligible: false, storedIntent: true }))).toBe(false);
+	});
+
 	it('honors a fresh --canvas unconditionally once the vetoes pass', () => {
 		expect(shouldStartInCanvasMode(signals({ canvasFlag: true, configuredOpenOnStartup: false }))).toBe(true);
 	});
@@ -50,6 +66,18 @@ describe('shouldStartInCanvasMode', () => {
 	it('relaunches into whatever the workspace quit in when nothing is configured', () => {
 		expect(shouldStartInCanvasMode(signals({ storedIntent: true }))).toBe(true);
 		expect(shouldStartInCanvasMode(signals({ storedIntent: false }))).toBe(false);
+	});
+});
+
+describe('isCanvasWorkspaceEligible', () => {
+
+	it('accepts exactly one local folder and rejects every other workspace shape', () => {
+		expect(isCanvasWorkspaceEligible(workspaceOf(URI.file('/projects/analysis')))).toBe(true);
+		// Empty (no folder open), multi-root, and non-file schemes: the
+		// assistant's Canvas panel refuses all of these.
+		expect(isCanvasWorkspaceEligible(workspaceOf())).toBe(false);
+		expect(isCanvasWorkspaceEligible(workspaceOf(URI.file('/a'), URI.file('/b')))).toBe(false);
+		expect(isCanvasWorkspaceEligible(workspaceOf(URI.parse('vscode-remote://ssh/projects/analysis')))).toBe(false);
 	});
 });
 
