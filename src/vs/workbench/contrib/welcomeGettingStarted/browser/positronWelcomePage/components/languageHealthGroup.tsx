@@ -109,10 +109,22 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, hoverMan
 	const headerRef = useRef<HTMLDivElement>(undefined!);
 	const [headerHovering, setHeaderHovering] = useState(false);
 	useEffect(() => {
-		if (headerHovering) {
+		if (headerHovering && headerRef.current) {
 			hoverManager?.showHover(headerRef.current, tooltip);
 		}
 	}, [headerHovering, hoverManager, tooltip]);
+
+	// A result can land, or a recheck can fail, while the mouse is still over
+	// the header. Either swaps the div for a button or back again with no
+	// onMouseLeave to clear the flag, so this resets it on the swap rather than
+	// leaving a stale "hovering" flag pointed at whichever element shows up next.
+	const previousHasBody = useRef(hasBody(health));
+	useEffect(() => {
+		if (previousHasBody.current !== hasBody(health)) {
+			previousHasBody.current = hasBody(health);
+			setHeaderHovering(false);
+		}
+	}, [health]);
 
 	// `status` speaks through the workbench's polite live region. In an effect
 	// because results land seconds after the page paints, and it speaks the line
