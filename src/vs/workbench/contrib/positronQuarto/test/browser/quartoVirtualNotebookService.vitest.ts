@@ -15,13 +15,19 @@ import { ILanguageService } from '../../../../../editor/common/languages/languag
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IMarkerData, IMarkerService, MarkerSeverity } from '../../../../../platform/markers/common/markers.js';
+import { MarkerService } from '../../../../../platform/markers/common/markerService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { NotebookProviderInfo } from '../../../notebook/common/notebookProvider.js';
 import { QUARTO_NATIVE_LANGUAGE_FEATURES_KEY } from '../../common/positronQuartoConfig.js';
-import { QUARTO_CELLS_SCHEME, QUARTO_CELLS_VIEW_TYPE } from '../../common/quartoVirtualNotebookTypes.js';
+import {
+	QUARTO_CELLS_SCHEME,
+	QUARTO_CELLS_VIEW_TYPE,
+	QUARTO_EMBEDDED_DIAGNOSTICS_OWNER,
+} from '../../common/quartoVirtualNotebookTypes.js';
 import { IQuartoDocumentModel } from '../../common/quartoTypes.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
@@ -157,9 +163,22 @@ const CHURN_STEPS: readonly {
 		},
 	];
 
+/** A diagnostic as a language server would publish it against a cell. */
+function marker(message: string): IMarkerData {
+	return {
+		severity: MarkerSeverity.Error,
+		message,
+		startLineNumber: 1,
+		startColumn: 1,
+		endLineNumber: 1,
+		endColumn: 5,
+	};
+}
+
 describe('QuartoVirtualNotebookService', () => {
 	const logService = new NullLogService();
 	const configurationService = new TestConfigurationService();
+	const markerService = new MarkerService();
 
 	// The real NotebookService installs a process-global handler for the
 	// `notebooks` extension point, so it cannot be rebuilt per test. This fake
@@ -225,6 +244,7 @@ describe('QuartoVirtualNotebookService', () => {
 		.stub(INotebookService, notebookService)
 		.stub(IConfigurationService, configurationService)
 		.stub(IQuartoDocumentModelService, documentModelService)
+		.stub(IMarkerService, markerService)
 		.build();
 
 	beforeEach(async () => {
@@ -238,6 +258,9 @@ describe('QuartoVirtualNotebookService', () => {
 		}
 		documentModels.clear();
 		notebooks.clear();
+		for (const leftover of markerService.read({ ignoreResourceFilters: true })) {
+			markerService.changeOne(leftover.owner, leftover.resource, []);
+		}
 	});
 
 	function createService(): QuartoVirtualNotebookService {
@@ -801,6 +824,89 @@ describe('QuartoVirtualNotebookService', () => {
 			notebook: undefined,
 			cells: [],
 			cellModelsDisposed: [true, true],
+		});
+	});
+
+	it('excludes every cell it creates from the Problems pane', async () => {
+		const service = createService();
+		const source = createSourceModel(R_AND_PYTHON);
+		await service.whenReady(source.uri);
+		const [rCell] = service.getCells(source.uri);
+
+		markerService.changeOne('ark', rCell.cellUri, [marker('object not found')]);
+
+		// Nobody can open a cell URI, so an entry pointing at one is a dead end.
+		// The diagnostics contribution shows these on the document instead, and
+		// reads them with `ignoreResourceFilters` to get at them.
+		expect({
+			visible: markerService.read({ resource: rCell.cellUri }).length,
+			raw: markerService.read({ resource: rCell.cellUri, ignoreResourceFilters: true })
+				.map(m => m.message),
+		}).toEqual({
+			visible: 0,
+			raw: ['object not found'],
+		});
+	});
+
+	it('clears the markers of a spliced-out cell, under every owner, and stops excluding it', async () => {
+		const service = createService();
+		const source = createSourceModel(R_AND_PYTHON);
+		await service.whenReady(source.uri);
+		const [rCell] = service.getCells(source.uri);
+
+		markerService.changeOne('ark', rCell.cellUri, [marker('from the language server')]);
+		markerService.changeOne('lintr', rCell.cellUri, [marker('from a linter')]);
+
+		// Drop the R chunk, keep the Python one.
+		source.setValue([
+			'# Intro',
+			'',
+			'```{python}',
+			'import os',
+			'```',
+			'',
+		].join('\n'));
+		service.ensureSynchronized(source.uri);
+
+		const cleared = markerService.read({ resource: rCell.cellUri, ignoreResourceFilters: true });
+		// Nothing else would ever clear these: the marker service keeps markers
+		// when a text model is disposed, and the extension that published them saw
+		// its document close rather than its problems go away.
+		markerService.changeOne('ark', rCell.cellUri, [marker('published after the cell died')]);
+
+		expect({
+			cleared: cleared.map(m => m.message),
+			// Visible again, which is how a released exclusion shows: holding one
+			// for every cell the document ever had would pile up all session.
+			exclusionReleased: markerService.read({ resource: rCell.cellUri }).length,
+		}).toEqual({
+			cleared: [],
+			exclusionReleased: 1,
+		});
+	});
+
+	it('leaves no markers anywhere when the notebook is disposed', async () => {
+		const service = createService();
+		const source = createSourceModel(R_AND_PYTHON);
+		await service.whenReady(source.uri);
+		const cellUris = service.getCells(source.uri).map(cell => cell.cellUri);
+
+		markerService.changeOne('ark', cellUris[0], [marker('r problem')]);
+		markerService.changeOne('pyright', cellUris[1], [marker('python problem')]);
+		// The remapped set, as the diagnostics contribution leaves it on the
+		// document. The cells are about to go, so no republish can clear it.
+		markerService.changeOne(
+			QUARTO_EMBEDDED_DIAGNOSTICS_OWNER, source.uri, [marker('remapped problem')]);
+
+		ctx.instantiationService.get(IModelService).destroyModel(source.uri);
+
+		expect({
+			cells: cellUris.flatMap(
+				uri => markerService.read({ resource: uri, ignoreResourceFilters: true })),
+			source: markerService.read({ resource: source.uri, ignoreResourceFilters: true }),
+		}).toEqual({
+			cells: [],
+			source: [],
 		});
 	});
 
