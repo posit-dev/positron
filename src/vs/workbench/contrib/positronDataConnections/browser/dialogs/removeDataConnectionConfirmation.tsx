@@ -113,7 +113,6 @@ const RemoveDataConnectionConfirmation = (props: RemoveDataConnectionConfirmatio
 			}
 			renderer={props.renderer}
 			title={localize('positron.removeDataConnectionConfirmation.title', "Remove Connection?")}
-			titleSize='large'
 			width={REMOVE_CONNECTION_CONFIRMATION_WIDTH}
 			onCancel={props.onCancel}
 		/>

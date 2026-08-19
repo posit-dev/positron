@@ -79,7 +79,6 @@ const IncludeSecretsConfirmation = (props: IncludeSecretsConfirmationProps) => {
 			}
 			renderer={props.renderer}
 			title={localize('positron.includeSecretsConfirmation.title', "Include Secrets?")}
-			titleSize='large'
 			width={INCLUDE_SECRETS_CONFIRMATION_WIDTH}
 			onCancel={props.onCancel}
 		/>
