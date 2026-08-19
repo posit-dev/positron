@@ -69,6 +69,26 @@ function isQuartoCellUri(resource: URI): boolean {
 }
 
 /**
+ * Everything the remap carries, as one string, for telling two remapped sets
+ * apart.
+ *
+ * Serialized rather than compared field by field. A field left out of a
+ * hand-written comparison reads as "unchanged", which leaves a stale diagnostic
+ * on the document, and that is the failure this comparison exists to avoid. A
+ * document carries a handful of markers, so the cost does not signify.
+ */
+function markerSignature(marker: IMarkerData): string {
+	return JSON.stringify([
+		marker.startLineNumber, marker.startColumn, marker.endLineNumber, marker.endColumn,
+		marker.severity, marker.message, marker.source, marker.code, marker.tags,
+		marker.relatedInformation?.map(related => [
+			related.resource.toString(), related.message,
+			related.startLineNumber, related.startColumn, related.endLineNumber, related.endColumn,
+		]),
+	]);
+}
+
+/**
  * Republishes the diagnostics of a Quarto document's hidden notebook cells onto
  * the document itself.
  *
@@ -191,6 +211,12 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 			// No notebook, so the document has closed or the setting has gone off.
 			// Disposing the notebook cleared the remapped set already.
 			//
+			// Turning the setting off leaves the document open, so the text model
+			// stays and its parse subscription would go on waking this for the rest
+			// of the document's life. Drop it here. Turning the setting back on
+			// builds cells again, and the first republish subscribes again.
+			this._reoffsetting.deleteAndDispose(sourceUri.toString());
+
 			// A document that is still open and has lost its last chunk reaches
 			// here too, with no cells and a notebook. That one must fall through:
 			// the markers of the chunk that went are still on the document, and
@@ -220,6 +246,10 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 			if (remapped.length > before) {
 				cellsWithMarkers++;
 			}
+		}
+
+		if (this._isAlreadyPublished(sourceUri, remapped)) {
+			return;
 		}
 
 		this._markerService.changeOne(QUARTO_EMBEDDED_DIAGNOSTICS_OWNER, sourceUri, remapped);
@@ -267,6 +297,19 @@ export class QuartoEmbeddedDiagnostics extends Disposable implements IWorkbenchC
 			.onDidParse(() => this._scheduleRepublish(sourceUri)));
 		store.add(textModel.onWillDispose(() => this._reoffsetting.deleteAndDispose(key)));
 		this._reoffsetting.set(key, store);
+	}
+
+	/** Whether the document already carries exactly this remapped set. */
+	private _isAlreadyPublished(sourceUri: URI, remapped: IMarkerData[]): boolean {
+		const published = this._markerService.read({
+			resource: sourceUri,
+			owner: QUARTO_EMBEDDED_DIAGNOSTICS_OWNER,
+		});
+		// Both sets are in cell order, and the marker service keeps the order it
+		// was given, so this compares like for like.
+		return published.length === remapped.length
+			&& published.every((marker, index) =>
+				markerSignature(marker) === markerSignature(remapped[index]));
 	}
 
 	/**

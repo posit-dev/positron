@@ -461,6 +461,56 @@ describe('QuartoEmbeddedDiagnostics', () => {
 		});
 	});
 
+	it('stops re-offsetting when the notebook goes but the document stays open', async () => {
+		const diagnostics = createDiagnostics();
+		markerService.changeOne('ark', R_CELL_URI, [marker()]);
+		await settle();
+		const subscribedWhileLive = onDidParse.hasListeners();
+
+		// Turning the setting off disposes every notebook and leaves the documents
+		// open, so nothing disposes the text model and nothing tells this
+		// contribution. The subscription has nothing left to do.
+		notebookExists = false;
+		cells = [];
+		onDidParse.fire();
+		await settle();
+		// Read before disposing the contribution, which unsubscribes on its own
+		// and would make this pass whatever the code under test does.
+		const subscribedAfterNotebookGone = onDidParse.hasListeners();
+		diagnostics.dispose();
+
+		expect({ subscribedWhileLive, subscribedAfterNotebookGone })
+			.toEqual({ subscribedWhileLive: true, subscribedAfterNotebookGone: false });
+	});
+
+	it('does not report a change when the remapped set is the same as the published one', async () => {
+		const diagnostics = createDiagnostics();
+		markerService.changeOne('ark', R_CELL_URI, [marker()]);
+		await settle();
+
+		const changed: string[] = [];
+		const listener = markerService.onMarkerChanged(
+			resources => changed.push(...resources.map(resource => resource.scheme)));
+
+		// A parse with nothing moved, and then a server republishing what it
+		// already said. Both recompute a set the document already carries. A
+		// language server republishes on every edit, so this is the common case
+		// rather than an unusual one.
+		onDidParse.fire();
+		await settle();
+		markerService.changeOne('ark', R_CELL_URI, [marker()]);
+		await settle();
+		listener.dispose();
+		diagnostics.dispose();
+
+		// The cell's own change is still reported. The document's is not, because
+		// nothing about the document changed, and every reader of this event does
+		// real work: the Problems pane rebuilds the file's entry, the statistics
+		// recount, the decorations redraw, and the markers cross to the extension
+		// host.
+		expect(changed).toEqual(['vscode-notebook-cell']);
+	});
+
 	it('stops re-offsetting when the source document closes', async () => {
 		const diagnostics = createDiagnostics();
 		markerService.changeOne('ark', R_CELL_URI, [marker()]);
