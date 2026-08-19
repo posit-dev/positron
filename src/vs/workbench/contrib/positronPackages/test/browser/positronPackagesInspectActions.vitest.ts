@@ -35,6 +35,7 @@ const PACKAGES_PAYLOAD = {
 		runtimeName: 'Python 3.12.4 (.venv)',
 	},
 	metadataStatus: 'fresh',
+	vulnerabilityStatus: 'unchecked',
 	packages: [{
 		name: 'numpy',
 		version: '2.1.0',
@@ -43,6 +44,7 @@ const PACKAGES_PAYLOAD = {
 		attached: undefined,
 		description: undefined,
 		url: undefined,
+		vulnerabilities: undefined,
 	}],
 };
 
@@ -74,6 +76,10 @@ describe('packages inspect action', () => {
 		ctx.instantiationService.stub(IPositronPackagesService, stubInterface<IPositronPackagesService>({
 			activePackagesInstance: stubInterface<IPositronPackagesInstance>({
 				session,
+				// No advisory lookup has answered, so the payload's
+				// vulnerabilityStatus is 'unchecked' -- the advisory contract
+				// itself is covered in positronPackagesCommands.vitest.ts.
+				vulnerabilitySource: undefined,
 				getPackagesSnapshot: vi.fn(async () => ({
 					metadataStatus: 'fresh' as const,
 					packages: [{ id: 'numpy-2.1.0', name: 'numpy', displayName: 'numpy', version: '2.1.0', outdated: false }],

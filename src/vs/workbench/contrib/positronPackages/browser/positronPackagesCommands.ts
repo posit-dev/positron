@@ -9,9 +9,10 @@ import { CommandsRegistry } from '../../../../platform/commands/common/commands.
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageVulnerability } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
-import { IPackagesSnapshot, PackagesMetadataStatus } from './positronPackagesInstance.js';
+import { PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, VulnerabilitySeverityBand } from './packageVulnerabilities.js';
+import { IPackagesSnapshot, IPositronPackagesInstance, PackagesMetadataStatus } from './positronPackagesInstance.js';
 import { PACKAGES_ENABLED_KEY, PACKAGES_ENABLED_LEGACY_KEY } from './positronPackagesContextKeys.js';
 
 /**
@@ -31,6 +32,17 @@ import { PACKAGES_ENABLED_KEY, PACKAGES_ENABLED_LEGACY_KEY } from './positronPac
 function isPackagesCommandEnabled(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(PACKAGES_ENABLED_KEY) === true &&
 		configurationService.getValue<boolean>(PACKAGES_ENABLED_LEGACY_KEY) === true;
+}
+
+/**
+ * Whether advisory data may appear in the payload. Read live, and defaulting to
+ * on, exactly as the pane's own indicators do: with the setting off, the pane
+ * renders no advisories, so the payload must not report the ones an earlier
+ * lookup left in the cache.
+ * @param configurationService The configuration service.
+ */
+function areVulnerabilitiesEnabled(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(PACKAGES_VULNERABILITIES_ENABLED_SETTING) !== false;
 }
 
 /**
@@ -70,6 +82,92 @@ export interface IPackagesCommandPackage {
 
 	/** The package's primary external URL (homepage, falling back to repository). */
 	url?: string;
+
+	/**
+	 * Known security advisories affecting *this* installed version, worst-scored
+	 * first.
+	 *
+	 * Three states, all meaningful:
+	 * - a non-empty array: the installed version is affected.
+	 * - an empty array: the repository knows this version and reports nothing
+	 *   against it -- an all-clear, not a missing answer.
+	 * - absent: no advisory data for this package, so nothing can be concluded
+	 *   either way. See {@link IPackagesCommandResult.vulnerabilityStatus}.
+	 */
+	vulnerabilities?: IPackagesCommandVulnerability[];
+}
+
+/**
+ * A single security advisory affecting an installed package version, as the
+ * getPackages command reports it. Mirrors {@link IPackageVulnerability} with
+ * the severity band the pane renders resolved for the caller.
+ */
+export interface IPackagesCommandVulnerability {
+	/** Preferred display id: the CVE when one exists, otherwise the OSV id. */
+	id: string;
+
+	/** OSV record id (PYSEC-*, GHSA-*, RSEC-*) the advisory came from. */
+	osvId: string;
+
+	/**
+	 * CVSS base score (0-10). Absent when no aliased record carries one, which
+	 * is the common case for CRAN's RSEC advisories: "vulnerable, score
+	 * unknown" is a real state, not a missing field.
+	 */
+	score?: number;
+
+	/** Which CVSS revision `score` came from. */
+	scoreVersion?: 'v3' | 'v4';
+
+	/**
+	 * NVD severity band for `score` (critical/high/medium/low), or 'unscored'
+	 * when the advisory carries no score. Always present, so a caller can rank
+	 * advisories without reimplementing the score thresholds.
+	 */
+	severity: VulnerabilitySeverityBand;
+
+	/** One-line advisory summary. */
+	summary?: string;
+
+	/**
+	 * Display-ready fixed version(s), e.g. "1.26.5" or "1.26.5, 2.0.2" when the
+	 * advisory has fixes on several release branches. Not machine-comparable:
+	 * version semantics stay with the language runtimes.
+	 */
+	fixedIn?: string;
+
+	/** ISO 8601 publication date of the advisory. */
+	published?: string;
+
+	/** Advisory URL (NVD page for CVEs, osv.dev page otherwise). */
+	url?: string;
+}
+
+/**
+ * Whether advisory data is in the payload at all, so an absent per-package
+ * `vulnerabilities` field can be read correctly.
+ *
+ * - `disabled`: advisory lookups are turned off in settings. No package carries
+ *   advisories, and their absence says nothing about any package.
+ * - `unchecked`: lookups are on, but nothing has answered for this session yet
+ *   -- no Package Manager instance serving advisories, or no lookup has run.
+ * - `available`: at least one lookup has answered; {@link
+ *   IPackagesCommandResult.vulnerabilitySource} names it. Individual packages
+ *   may still be absent (never asked about) or empty (asked, all clear).
+ */
+export type PackagesVulnerabilityStatus = 'disabled' | 'unchecked' | 'available';
+
+/**
+ * The Package Manager instance that served the advisories in the payload, and
+ * when -- so a caller can say where the advisory data came from and how old it
+ * is, rather than presenting it as timeless fact.
+ */
+export interface IPackagesCommandVulnerabilitySource {
+	/** Host that answered, e.g. 'ppm.example.com'. */
+	host: string;
+
+	/** ISO 8601 timestamp at which the lookup completed. */
+	fetchedAt: string;
 }
 
 /**
@@ -96,6 +194,20 @@ export interface IPackagesCommandResult {
 
 	/** How far the `outdated` state below can be trusted. */
 	metadataStatus: PackagesMetadataStatus;
+
+	/**
+	 * Whether the packages below carry security advisories, and if not, why.
+	 * Tracked separately from `metadataStatus` because the two come from
+	 * different sources: outdated state from the runtime's package manager,
+	 * advisories from Posit Package Manager.
+	 */
+	vulnerabilityStatus: PackagesVulnerabilityStatus;
+
+	/**
+	 * Which Package Manager instance served the advisories, and when. Present
+	 * only when `vulnerabilityStatus` is `available`.
+	 */
+	vulnerabilitySource?: IPackagesCommandVulnerabilitySource;
 
 	packages: IPackagesCommandPackage[];
 }
@@ -166,12 +278,46 @@ function describeSession(session: ILanguageRuntimeSession): IPackagesCommandSess
 }
 
 /**
+ * Maps one advisory to its payload shape, resolving the severity band so the
+ * caller can rank advisories without knowing the CVSS thresholds.
+ * @param vulnerability The advisory as the lookup normalized it.
+ */
+function describeVulnerability(vulnerability: IPackageVulnerability): IPackagesCommandVulnerability {
+	return {
+		id: vulnerability.id,
+		osvId: vulnerability.osvId,
+		score: vulnerability.score,
+		scoreVersion: vulnerability.scoreVersion,
+		severity: severityBand(vulnerability.score),
+		summary: vulnerability.summary,
+		fixedIn: vulnerability.fixedIn,
+		published: vulnerability.published,
+		url: vulnerability.url,
+	};
+}
+
+/**
+ * Orders a package's advisories worst first: highest score, then the unscored
+ * ones. The pane leads with the worst advisory too (see `worstVulnerability`),
+ * so a caller reading only the first entry gets the same one a user sees.
+ * Unscored advisories sort last rather than being dropped -- they are
+ * known-vulnerable, only the severity is unknown.
+ * @param vulnerabilities The advisories for one installed version.
+ */
+function describeVulnerabilities(vulnerabilities: readonly IPackageVulnerability[]): IPackagesCommandVulnerability[] {
+	return vulnerabilities
+		.map(describeVulnerability)
+		.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+}
+
+/**
  * Maps a package to its payload shape. Explicit rather than a spread so the
  * agent-facing contract doesn't quietly grow whichever fields the runtime
  * interface gains next.
  * @param pkg The package as the session reported it.
+ * @param includeVulnerabilities Whether advisory data may be reported at all.
  */
-function describePackage(pkg: ILanguageRuntimePackage): IPackagesCommandPackage {
+function describePackage(pkg: ILanguageRuntimePackage, includeVulnerabilities: boolean): IPackagesCommandPackage {
 	return {
 		name: pkg.name,
 		version: pkg.version,
@@ -183,13 +329,50 @@ function describePackage(pkg: ILanguageRuntimePackage): IPackagesCommandPackage 
 		// treat '' as a special case.
 		description: pkg.description || undefined,
 		url: pkg.url,
+		// Unlike the fields above, an empty array is kept rather than
+		// normalized away: it is the all-clear, and collapsing it to undefined
+		// would report "checked, nothing found" as "not checked".
+		vulnerabilities: includeVulnerabilities && pkg.vulnerabilities
+			? describeVulnerabilities(pkg.vulnerabilities)
+			: undefined,
+	};
+}
+
+/**
+ * Describes where the payload's advisory data came from, or why there is none.
+ * `vulnerabilitySource` is set once a lookup has answered for the session (it
+ * survives a restart, seeded from the persisted cache), which is exactly the
+ * condition under which any package can carry advisories.
+ * @param instance The active packages instance.
+ * @param enabled Whether advisory lookups are turned on.
+ */
+function describeVulnerabilityStatus(
+	instance: IPositronPackagesInstance,
+	enabled: boolean,
+): Pick<IPackagesCommandResult, 'vulnerabilityStatus' | 'vulnerabilitySource'> {
+	if (!enabled) {
+		return { vulnerabilityStatus: 'disabled' };
+	}
+	const source = instance.vulnerabilitySource;
+	if (!source) {
+		return { vulnerabilityStatus: 'unchecked' };
+	}
+	return {
+		vulnerabilityStatus: 'available',
+		vulnerabilitySource: {
+			host: source.host,
+			// Epoch ms in, ISO 8601 out: the payload is read by a caller that
+			// has to talk about when this was fetched, not compute with it.
+			fetchedAt: new Date(source.fetchedAt).toISOString(),
+		},
 	};
 }
 
 /**
  * Builds the getPackages payload: the packages installed in the foreground
- * session, each with its installed version and whether something newer is
- * available, for Assistant to reason about the environment it is working in.
+ * session, each with its installed version, whether something newer is
+ * available, and any known security advisories against the installed version,
+ * for Assistant to reason about the environment it is working in.
  *
  * Read-only and quiet -- no progress notification, no pane required. Never
  * throws: every way this can come up empty is reported as a reason the caller
@@ -239,11 +422,16 @@ export async function getPackages(accessor: ServicesAccessor): Promise<PackagesC
 		return { available: false, reason: 'unsupported' };
 	}
 
+	// Read after the snapshot: the snapshot may itself have merged a fresh
+	// lookup, and the setting can be toggled while the read is in flight.
+	const vulnerabilitiesEnabled = areVulnerabilitiesEnabled(configurationService);
+
 	return {
 		available: true,
 		session: describeSession(session),
 		metadataStatus: snapshot.metadataStatus,
-		packages: snapshot.packages.map(describePackage),
+		...describeVulnerabilityStatus(instance, vulnerabilitiesEnabled),
+		packages: snapshot.packages.map((pkg) => describePackage(pkg, vulnerabilitiesEnabled)),
 	};
 }
 
@@ -271,10 +459,10 @@ CommandsRegistry.registerCommand({
 	metadata: {
 		description: localize(
 			'positron.packages.getPackages.description',
-			"Read the packages installed in the running interpreter session, with the version of each and whether a newer version is available. Changes nothing and shows the user nothing: unlike Refresh Packages, it can be called at any time, including before the Packages pane has ever been opened."
+			"Read the packages installed in the running interpreter session, with the version of each, whether a newer version is available, and any known security vulnerabilities affecting the installed version. Changes nothing and shows the user nothing: unlike Refresh Packages, it can be called at any time, including before the Packages pane has ever been opened."
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
-		returns: 'An object with available: true, the session the packages belong to, the installed packages (name, version, latestVersion, outdated, attached, description, url), and metadataStatus saying how the outdated state was obtained: \'fresh\' (repositories queried now), \'cached\' (as of the last fetch), \'unsupported\' (this runtime reports no outdated state, so no package has it), \'timed-out\' (the list is complete but outdated state may be missing), or \'fetch-failed\' (the repository query errored; the list is complete, outdated state is whatever an earlier fetch cached). When there are no packages to report, an object with available: false and a reason of \'disabled\', \'no-session\', \'session-not-ready\', \'unsupported\', or \'failed\' -- the last of which also carries a message.',
+		returns: 'An object with available: true, the session the packages belong to, the installed packages (name, version, latestVersion, outdated, attached, description, url, vulnerabilities), and metadataStatus saying how the outdated state was obtained: \'fresh\' (repositories queried now), \'cached\' (as of the last fetch), \'unsupported\' (this runtime reports no outdated state, so no package has it), \'timed-out\' (the list is complete but outdated state may be missing), or \'fetch-failed\' (the repository query errored; the list is complete, outdated state is whatever an earlier fetch cached). Each package\'s vulnerabilities are the security advisories against its installed version, worst first (id, osvId, score, scoreVersion, severity of \'critical\'/\'high\'/\'medium\'/\'low\'/\'unscored\', summary, fixedIn, published, url); an empty array means the repository was asked and reports nothing against that version, which is an all-clear, while an absent field means there is no advisory data for that package at all, which is not. vulnerabilityStatus covers the payload as a whole: \'available\' (advisories were served, by the Package Manager instance named in vulnerabilitySource with the time it answered), \'unchecked\' (no advisory lookup has answered for this session), or \'disabled\' (advisory lookups are turned off in settings). When there are no packages to report, an object with available: false and a reason of \'disabled\', \'no-session\', \'session-not-ready\', \'unsupported\', or \'failed\' -- the last of which also carries a message.',
 	},
 });
