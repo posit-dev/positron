@@ -183,6 +183,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronCanvas",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronVariables",
 			"project": "vscode-workbench"
 		},

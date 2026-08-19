@@ -476,6 +476,15 @@ export interface INativeWindowConfiguration extends IWindowConfiguration, Native
 	adminPoliciesData?: string; // JSON string of enforced settings from POSITRON_ENFORCED_SETTINGS
 	// --- End PWB ---
 
+	// --- Start Positron ---
+	/**
+	 * Whether another window held standalone mode when this window opened.
+	 * The mode is one surface per application instance, so a window opened
+	 * while it is engaged elsewhere must not enter it itself.
+	 */
+	standaloneModeEngagedElsewhere?: boolean;
+	// --- End Positron ---
+
 	isSessionsWindow?: boolean;
 }
 

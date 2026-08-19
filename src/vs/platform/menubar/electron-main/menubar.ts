@@ -26,6 +26,9 @@ import { INativeRunActionInWindowRequest, INativeRunKeybindingInWindowRequest, I
 import { IWindowsCountChangedEvent, IWindowsMainService, OpenContext } from '../../windows/electron-main/windows.js';
 import { IWorkspacesHistoryMainService } from '../../workspaces/electron-main/workspacesHistoryMainService.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
+// --- Start Positron ---
+import { IPositronStandaloneModeMainService } from '../../positronStandaloneMode/common/positronStandaloneMode.js';
+// --- End Positron ---
 
 const telemetryFrom = 'menu';
 
@@ -78,7 +81,10 @@ export class Menubar extends Disposable {
 		@ILogService private readonly logService: ILogService,
 		@INativeHostMainService private readonly nativeHostMainService: INativeHostMainService,
 		@IProductService private readonly productService: IProductService,
-		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService
+		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService,
+		// --- Start Positron ---
+		@IPositronStandaloneModeMainService private readonly positronStandaloneModeMainService: IPositronStandaloneModeMainService
+		// --- End Positron ---
 	) {
 		super();
 
@@ -184,6 +190,12 @@ export class Menubar extends Disposable {
 		// Rebuild menu when update state changes so update menu items reflect
 		// the current state (e.g. "Restart to Update" instead of "Check for Updates...").
 		this._register(this.updateService.onStateChange(() => this.scheduleUpdateMenu()));
+
+		// --- Start Positron ---
+		// Swap between the full menu and the standalone mode menu as the mode
+		// engages and releases.
+		this._register(this.positronStandaloneModeMainService.onDidChange(() => this.scheduleUpdateMenu()));
+		// --- End Positron ---
 	}
 
 	private get currentEnableMenuBarMnemonics(): boolean {
@@ -268,6 +280,17 @@ export class Menubar extends Disposable {
 			this.oldMenus.push(oldMenu);
 		}
 
+		// --- Start Positron ---
+		// While standalone mode is engaged, the IDE's menus would operate a
+		// window the user is not supposed to see -- and with an auxiliary
+		// window focused the fallback handlers even act from the main process.
+		// Present a minimal menu until the mode releases.
+		if (this.positronStandaloneModeMainService.isEngaged) {
+			this.installStandaloneModeMenu();
+			return;
+		}
+		// --- End Positron ---
+
 		// If we don't have a menu yet, set it to null to avoid the electron menu.
 		// This should only happen on the first launch ever
 		if (Object.keys(this.menubarMenus).length === 0) {
@@ -292,7 +315,20 @@ export class Menubar extends Disposable {
 			this.appMenuInstalled = true;
 
 			const dockMenu = new Menu();
-			dockMenu.append(new MenuItem({ label: this.mnemonicLabel(nls.localize({ key: 'miNewWindow', comment: ['&& denotes a mnemonic'] }, "New &&Window")), click: () => this.windowsMainService.openEmptyWindow({ context: OpenContext.DOCK }) }));
+			// --- Start Positron ---
+			// dockMenu.append(new MenuItem({ label: this.mnemonicLabel(nls.localize({ key: 'miNewWindow', comment: ['&& denotes a mnemonic'] }, "New &&Window")), click: () => this.windowsMainService.openEmptyWindow({ context: OpenContext.DOCK }) }));
+			// The Dock menu installs once and never rebuilds, so it cannot be
+			// swapped while standalone mode is engaged; guard the handler
+			// instead.
+			dockMenu.append(new MenuItem({
+				label: this.mnemonicLabel(nls.localize({ key: 'miNewWindow', comment: ['&& denotes a mnemonic'] }, "New &&Window")), click: () => {
+					if (this.positronStandaloneModeMainService.isEngaged) {
+						return;
+					}
+					this.windowsMainService.openEmptyWindow({ context: OpenContext.DOCK });
+				}
+			}));
+			// --- End Positron ---
 
 			app.dock!.setMenu(dockMenu);
 		}
@@ -404,6 +440,54 @@ export class Menubar extends Disposable {
 			}
 		}
 	}
+
+	// --- Start Positron ---
+	/**
+	 * The application menu while standalone mode is engaged: the application
+	 * menu itself for hiding and quitting, and an Edit menu of native
+	 * text-editing roles so the clipboard keeps its accelerators inside the
+	 * standalone webview. Everything that would open, reveal, or operate the
+	 * IDE is left out; `install()` rebuilds the full menus once the mode
+	 * releases.
+	 */
+	private installStandaloneModeMenu(): void {
+		if (!isMacintosh) {
+			// The window-drawn menubar takes this path too on Windows and
+			// Linux; no native menu means nothing to trim.
+			this.doSetApplicationMenu(null);
+			return;
+		}
+
+		const menubar = new Menu();
+
+		const applicationMenu = new Menu();
+		applicationMenu.append(new MenuItem({ label: nls.localize('mHide', "Hide {0}", this.productService.nameLong), role: 'hide', accelerator: 'Command+H' }));
+		applicationMenu.append(new MenuItem({ label: nls.localize('mHideOthers', "Hide Others"), role: 'hideOthers', accelerator: 'Command+Alt+H' }));
+		applicationMenu.append(new MenuItem({ label: nls.localize('mShowAll', "Show All"), role: 'unhide' }));
+		applicationMenu.append(__separator__());
+		applicationMenu.append(new MenuItem(this.likeAction('workbench.action.quit', {
+			label: nls.localize('miQuit', "Quit {0}", this.productService.nameLong),
+			click: async (_item, _window, event) => {
+				if (await this.confirmBeforeQuit(event)) {
+					this.nativeHostMainService.quit(undefined);
+				}
+			}
+		})));
+		menubar.append(new MenuItem({ label: this.productService.nameShort, submenu: applicationMenu }));
+
+		const editMenu = new Menu();
+		editMenu.append(new MenuItem({ role: 'undo' }));
+		editMenu.append(new MenuItem({ role: 'redo' }));
+		editMenu.append(__separator__());
+		editMenu.append(new MenuItem({ role: 'cut' }));
+		editMenu.append(new MenuItem({ role: 'copy' }));
+		editMenu.append(new MenuItem({ role: 'paste' }));
+		editMenu.append(new MenuItem({ role: 'selectAll' }));
+		menubar.append(new MenuItem({ label: nls.localize('positron.standaloneMode.editMenu', "Edit"), submenu: editMenu }));
+
+		this.doSetApplicationMenu(menubar);
+	}
+	// --- End Positron ---
 
 	private setMacApplicationMenu(macApplicationMenu: Menu): void {
 		const about = this.createMenuItem(nls.localize('mAbout', "About {0}", this.productService.nameLong), 'workbench.action.showAboutDialog');
