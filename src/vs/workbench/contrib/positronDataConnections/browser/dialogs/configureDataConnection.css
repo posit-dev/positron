@@ -130,8 +130,14 @@
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
+/*
+ * The select sits inside a .select-container, whose pseudo-element draws the workbench dropdown
+ * chevron over the right edge. Keep the text clear of it so a long option (an ODBC driver name,
+ * say) is truncated rather than running underneath.
+ */
 .configure-data-connection .parameter-select {
 	height: 26px;
+	padding-right: 24px;
 }
 
 .configure-data-connection .parameter-checkbox {
