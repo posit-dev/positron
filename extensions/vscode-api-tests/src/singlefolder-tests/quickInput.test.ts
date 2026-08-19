@@ -26,10 +26,13 @@ suite('vscode API - quick input', function () {
 	});
 
 	test('createQuickPick, select second', function (_done) {
-		let done = (err?: any) => {
-			done = () => { };
-			_done(err);
-		};
+		// --- Start Positron ---
+		// let done = (err?: any) => {
+		// 	done = () => { };
+		// 	_done(err);
+		// };
+		const { done, isFinished } = onceDone(_done);
+		// --- End Positron ---
 
 		const quickPick = createQuickPick({
 			events: ['active', 'active', 'selection', 'accept', 'hide'],
@@ -44,18 +47,28 @@ suite('vscode API - quick input', function () {
 		quickPick.items = ['eins', 'zwei', 'drei'].map(label => ({ label }));
 		quickPick.show();
 
-		(async () => {
-			await commands.executeCommand('workbench.action.quickOpenSelectNext');
-			await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
-		})()
+		// --- Start Positron ---
+		// (async () => {
+		// 	await commands.executeCommand('workbench.action.quickOpenSelectNext');
+		// 	await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+		// })()
+		// 	.catch(err => done(err));
+		runCommands([
+			'workbench.action.quickOpenSelectNext',
+			'workbench.action.acceptSelectedQuickOpenItem',
+		], isFinished)
 			.catch(err => done(err));
+		// --- End Positron ---
 	});
 
 	test('createQuickPick, focus second', function (_done) {
-		let done = (err?: any) => {
-			done = () => { };
-			_done(err);
-		};
+		// --- Start Positron ---
+		// let done = (err?: any) => {
+		// 	done = () => { };
+		// 	_done(err);
+		// };
+		const { done, isFinished } = onceDone(_done);
+		// --- End Positron ---
 
 		const quickPick = createQuickPick({
 			events: ['active', 'selection', 'accept', 'hide'],
@@ -71,17 +84,24 @@ suite('vscode API - quick input', function () {
 		quickPick.activeItems = [quickPick.items[1]];
 		quickPick.show();
 
-		(async () => {
-			await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
-		})()
+		// --- Start Positron ---
+		// (async () => {
+		// 	await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+		// })()
+		// 	.catch(err => done(err));
+		runCommands(['workbench.action.acceptSelectedQuickOpenItem'], isFinished)
 			.catch(err => done(err));
+		// --- End Positron ---
 	});
 
 	test('createQuickPick, select first and second', function (_done) {
-		let done = (err?: any) => {
-			done = () => { };
-			_done(err);
-		};
+		// --- Start Positron ---
+		// let done = (err?: any) => {
+		// 	done = () => { };
+		// 	_done(err);
+		// };
+		const { done, isFinished } = onceDone(_done);
+		// --- End Positron ---
 
 		const quickPick = createQuickPick({
 			events: ['active', 'selection', 'active', 'selection', 'accept', 'hide'],
@@ -97,14 +117,24 @@ suite('vscode API - quick input', function () {
 		quickPick.items = ['eins', 'zwei', 'drei'].map(label => ({ label }));
 		quickPick.show();
 
-		(async () => {
-			await commands.executeCommand('workbench.action.quickOpenSelectNext');
-			await commands.executeCommand('workbench.action.quickPickManyToggle');
-			await commands.executeCommand('workbench.action.quickOpenSelectNext');
-			await commands.executeCommand('workbench.action.quickPickManyToggle');
-			await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
-		})()
+		// --- Start Positron ---
+		// (async () => {
+		// 	await commands.executeCommand('workbench.action.quickOpenSelectNext');
+		// 	await commands.executeCommand('workbench.action.quickPickManyToggle');
+		// 	await commands.executeCommand('workbench.action.quickOpenSelectNext');
+		// 	await commands.executeCommand('workbench.action.quickPickManyToggle');
+		// 	await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+		// })()
+		// 	.catch(err => done(err));
+		runCommands([
+			'workbench.action.quickOpenSelectNext',
+			'workbench.action.quickPickManyToggle',
+			'workbench.action.quickOpenSelectNext',
+			'workbench.action.quickPickManyToggle',
+			'workbench.action.acceptSelectedQuickOpenItem',
+		], isFinished)
 			.catch(err => done(err));
+		// --- End Positron ---
 	});
 
 	test('createQuickPick, selection events', function (_done) {
@@ -133,10 +163,13 @@ suite('vscode API - quick input', function () {
 	});
 
 	test('createQuickPick, continue after first accept', function (_done) {
-		let done = (err?: any) => {
-			done = () => { };
-			_done(err);
-		};
+		// --- Start Positron ---
+		// let done = (err?: any) => {
+		// 	done = () => { };
+		// 	_done(err);
+		// };
+		const { done, isFinished } = onceDone(_done);
+		// --- End Positron ---
 
 		const quickPick = createQuickPick({
 			events: ['active', 'selection', 'accept', 'active', 'selection', 'accept', 'hide'],
@@ -152,11 +185,24 @@ suite('vscode API - quick input', function () {
 		quickPick.show();
 
 		(async () => {
-			await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+			// --- Start Positron ---
+			// await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+			await runCommands(['workbench.action.acceptSelectedQuickOpenItem'], isFinished);
+			// --- End Positron ---
 			await timeout(async () => {
+				// --- Start Positron ---
+				// Don't touch the pick once the test is over: by then the visible quick
+				// input belongs to the next test.
+				if (isFinished()) {
+					return;
+				}
+				// --- End Positron ---
 				quickPick.items = ['drei', 'vier'].map(label => ({ label }));
 				await timeout(async () => {
-					await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+					// --- Start Positron ---
+					// await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+					await runCommands(['workbench.action.acceptSelectedQuickOpenItem'], isFinished);
+					// --- End Positron ---
 				}, 0);
 			}, 0);
 		})()
@@ -250,10 +296,13 @@ suite('vscode API - quick input', function () {
 	});
 
 	test('createQuickPick, match item by label derived from resourceUri', function (_done) {
-		let done = (err?: any) => {
-			done = () => { };
-			_done(err);
-		};
+		// --- Start Positron ---
+		// let done = (err?: any) => {
+		// 	done = () => { };
+		// 	_done(err);
+		// };
+		const { done, isFinished } = onceDone(_done);
+		// --- End Positron ---
 
 		const quickPick = createQuickPick({
 			events: ['active', 'selection', 'accept', 'hide'],
@@ -275,17 +324,24 @@ suite('vscode API - quick input', function () {
 		quickPick.value = 'test2.txt';
 		quickPick.show();
 
-		(async () => {
-			await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
-		})()
+		// --- Start Positron ---
+		// (async () => {
+		// 	await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+		// })()
+		// 	.catch(err => done(err));
+		runCommands(['workbench.action.acceptSelectedQuickOpenItem'], isFinished)
 			.catch(err => done(err));
+		// --- End Positron ---
 	});
 
 	test('createQuickPick, match item by description derived from resourceUri', function (_done) {
-		let done = (err?: any) => {
-			done = () => { };
-			_done(err);
-		};
+		// --- Start Positron ---
+		// let done = (err?: any) => {
+		// 	done = () => { };
+		// 	_done(err);
+		// };
+		const { done, isFinished } = onceDone(_done);
+		// --- End Positron ---
 
 		const quickPick = createQuickPick({
 			events: ['active', 'selection', 'accept', 'hide'],
@@ -308,15 +364,27 @@ suite('vscode API - quick input', function () {
 		quickPick.value = 'test2.txt';
 		quickPick.show();
 
-		(async () => {
-			await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
-		})()
+		// --- Start Positron ---
+		// (async () => {
+		// 	await commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+		// })()
+		// 	.catch(err => done(err));
+		runCommands(['workbench.action.acceptSelectedQuickOpenItem'], isFinished)
 			.catch(err => done(err));
+		// --- End Positron ---
 	});
 });
 
 function createQuickPick(expected: QuickPickExpected, done: (err?: any) => void, record = false) {
 	const quickPick = window.createQuickPick();
+	// --- Start Positron ---
+	// These tests assert an exact event sequence and none of them exercise focus-out
+	// behaviour. With the default (false), any unrelated workbench activity that moves
+	// DOM focus while the pick is open closes it, and the resulting onDidHide lands in
+	// the middle of the expected sequence.
+	// See https://github.com/posit-dev/positron/issues/15536.
+	quickPick.ignoreFocusOut = true;
+	// --- End Positron ---
 	let eventIndex = -1;
 	quickPick.onDidChangeActive(items => {
 		if (record) {
@@ -374,7 +442,12 @@ function createQuickPick(expected: QuickPickExpected, done: (err?: any) => void,
 			return;
 		}
 		try {
-			assert.strictEqual('hide', expected.events.shift());
+			// --- Start Positron ---
+			// Name the event: a bare `'hide' !== 'active'` gives no hint that an
+			// unexpected hide interrupted the sequence.
+			// assert.strictEqual('hide', expected.events.shift());
+			assert.strictEqual('hide', expected.events.shift(), `onDidHide (remaining expected events after this one: [${expected.events.join(', ')}])`);
+			// --- End Positron ---
 			done();
 		} catch (err) {
 			done(err);
@@ -387,3 +460,41 @@ function createQuickPick(expected: QuickPickExpected, done: (err?: any) => void,
 async function timeout<T>(run: () => Promise<T> | T, ms: number): Promise<T> {
 	return new Promise<T>(resolve => setTimeout(() => resolve(run()), ms));
 }
+
+// --- Start Positron ---
+/**
+ * Wrap mocha's `done` so that it fires at most once (as the inline wrappers this
+ * replaces did) and also reports whether the test has finished. See runCommands.
+ */
+function onceDone(_done: (err?: any) => void) {
+	let finished = false;
+	return {
+		done: (err?: any) => {
+			if (finished) {
+				return;
+			}
+			finished = true;
+			_done(err);
+		},
+		isFinished: () => finished,
+	};
+}
+
+/**
+ * Execute commands in order, stopping as soon as the test has finished.
+ *
+ * These commands act on whichever quick input is currently visible, not on a
+ * particular one. When a test ends early -- an unexpected hide, a failed assertion --
+ * mocha moves straight on, so a command still queued here would be delivered to the
+ * *next* test's quick pick and fail that test too, for reasons that have nothing to
+ * do with it. See https://github.com/posit-dev/positron/issues/15536.
+ */
+async function runCommands(ids: string[], isFinished: () => boolean): Promise<void> {
+	for (const id of ids) {
+		if (isFinished()) {
+			return;
+		}
+		await commands.executeCommand(id);
+	}
+}
+// --- End Positron ---
