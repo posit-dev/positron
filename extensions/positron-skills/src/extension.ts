@@ -45,7 +45,12 @@ function sync(context: vscode.ExtensionContext, log: vscode.LogOutputChannel): P
 async function syncNow(context: vscode.ExtensionContext, log: vscode.LogOutputChannel): Promise<void> {
 	try {
 		if (!aiEnabled()) {
-			disposeRegistration();
+			// Only announce the teardown when there is one; a plain disabled launch
+			// stays quiet rather than logging on every activation.
+			if (skillRootRegistration) {
+				disposeRegistration();
+				log.info('AI is disabled; removed the command skill root.');
+			}
 			return;
 		}
 
@@ -57,11 +62,13 @@ async function syncNow(context: vscode.ExtensionContext, log: vscode.LogOutputCh
 		// put across regenerations; only the files underneath change.
 		if (!skillRootRegistration) {
 			skillRootRegistration = positron.ai.registerAgentSkillRoot(skillRoot);
+			log.info(`Registered command skill root at ${skillRoot}.`);
 		}
 
 		await generateSkills(context, log);
 	} catch (error) {
-		log.error(`Failed to sync command skills: ${error instanceof Error ? error.message : String(error)}`);
+		// Keep the stack; it is the useful part when a sync fails.
+		log.error(`Failed to sync command skills: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
 	}
 }
 
@@ -71,7 +78,7 @@ function disposeRegistration(): void {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-	const log = vscode.window.createOutputChannel('Positron Skills', { log: true });
+	const log = vscode.window.createOutputChannel('Assistant Skills', { log: true });
 	context.subscriptions.push(log);
 	context.subscriptions.push(new vscode.Disposable(disposeRegistration));
 

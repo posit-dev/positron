@@ -114,6 +114,9 @@ export async function generateSkills(
 
 	const templates = await collectTemplates(templatesRoot);
 	const commandsById = await loadCommands();
+	// Drift is measured against this set, so record its size: an empty or partial
+	// load turns every directive into apparent drift, and this line tells them apart.
+	log.debug(`Loaded ${commandsById.size} agent command(s).`);
 	const extensionVersion = (context.extension.packageJSON as { version?: string }).version ?? '0.0.0';
 	const stamp = computeStamp(templates, commandsById, extensionVersion);
 
@@ -155,7 +158,11 @@ export async function generateSkills(
 			await fs.rename(stageDir, skillRoot);
 		} catch (error) {
 			if (outputExists) {
-				await fs.rename(backupDir, skillRoot).catch(() => { /* leave the failure to surface */ });
+				await fs.rename(backupDir, skillRoot).catch(() =>
+					// Restore failed too: the root is now missing entirely. Flag it
+					// distinctly since the outer error only describes the swap.
+					log.warn(`Could not restore the previous skill root at ${skillRoot}; it is now absent.`),
+				);
 			}
 			throw error;
 		}
