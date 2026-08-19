@@ -135,7 +135,15 @@
 	margin-top: 12px;
 }
 
-.package-detail-tab {
+/*
+ * Anchored with `.positron-button` (two-class specificity) so these styles win
+ * over the base `.positron-button` rule, as the action buttons above do.
+ */
+.package-detail-tab.positron-button {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 6px;
 	padding: 8px 12px;
 	font-size: 12px;
 	text-transform: uppercase;
@@ -143,12 +151,74 @@
 	color: var(--vscode-descriptionForeground);
 }
 
-.package-detail-tab.active {
+.package-detail-tab.positron-button:hover {
 	color: var(--vscode-foreground);
-	border-bottom: 2px solid var(--vscode-focusBorder);
 }
 
-.package-detail-overview {
+.package-detail-tab.active.positron-button {
+	color: var(--vscode-foreground);
+}
+
+/*
+ * The selected tab's underline. Drawn as a pseudo-element rather than a
+ * border because the high-contrast themes set a border on every
+ * `.positron-button` at higher specificity (button.css), which would erase it
+ * -- exactly where the colour difference between selected and unselected is
+ * least likely to read on its own.
+ */
+.package-detail-tab.active.positron-button::after {
+	content: '';
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+	background: var(--vscode-focusBorder);
+}
+
+/*
+ * Advisory count on the Security tab, banded like the list's badge so the
+ * severity signal survives the advisories moving behind a tab.
+ */
+.package-detail-tab-badge {
+	padding: 0 6px;
+	border-radius: 8px;
+	font-size: 10px;
+	line-height: 16px;
+	letter-spacing: 0;
+	color: var(--vscode-badge-foreground);
+	background: var(--vscode-badge-background);
+}
+
+/*
+ * The wash is mixed from the band color itself, so it darkens toward the
+ * editor background on the dark themes and lightens toward it on the light
+ * ones. At 14% the text clears 4.5:1 against the result in all four default
+ * themes; a heavier tint does not, and this is 10px text.
+ */
+.package-detail-tab-badge.severity-critical,
+.package-detail-tab-badge.severity-high {
+	color: var(--_positron-package-severity-error);
+	background: color-mix(in srgb, var(--_positron-package-severity-error) 14%, var(--vscode-editor-background));
+}
+
+.package-detail-tab-badge.severity-medium,
+.package-detail-tab-badge.severity-unscored {
+	color: var(--_positron-package-severity-warning);
+	background: color-mix(in srgb, var(--_positron-package-severity-warning) 14%, var(--vscode-editor-background));
+}
+
+.package-detail-panel:focus {
+	outline: none;
+}
+
+.package-detail-panel:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.package-detail-overview,
+.package-detail-security {
 	margin-top: 14px;
 }
 
@@ -214,3 +284,81 @@
 /* Header placeholders read as a name / one-line summary, so size them wider. */
 .package-detail-author .package-detail-skeleton { width: 140px; }
 .package-detail-description .package-detail-skeleton { width: 240px; }
+
+/* Security tab. */
+.package-detail-security-clean {
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Attribution under the advisory list: which instance reported, and when. */
+.package-detail-security-source {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	margin-top: 14px;
+}
+
+.package-detail-vulnerabilities {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.package-detail-vulnerability-header {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+/* Severity chip: band-colored text at label size, matching the section-title
+ * tier so the page keeps a single small-caps label voice. */
+.package-detail-vulnerability-severity {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	white-space: nowrap;
+}
+
+.package-detail-vulnerability-severity.severity-critical,
+.package-detail-vulnerability-severity.severity-high {
+	color: var(--_positron-package-severity-error);
+}
+
+.package-detail-vulnerability-severity.severity-medium,
+.package-detail-vulnerability-severity.severity-unscored {
+	color: var(--_positron-package-severity-warning);
+}
+
+.package-detail-vulnerability-severity.severity-low {
+	color: var(--_positron-package-severity-muted);
+}
+
+.package-detail-vulnerability-id {
+	font-weight: 600;
+}
+
+.package-detail-vulnerability-link.positron-button {
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+}
+
+.package-detail-vulnerability-link.positron-button:hover {
+	text-decoration: underline;
+}
+
+.package-detail-vulnerability-cvss {
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+
+.package-detail-vulnerability-summary {
+	margin-top: 4px;
+	word-break: break-word;
+}
+
+.package-detail-vulnerability-meta {
+	margin-top: 4px;
+	display: flex;
+	gap: 16px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}

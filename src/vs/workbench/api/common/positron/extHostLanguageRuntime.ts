@@ -15,7 +15,7 @@ import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { isUriComponents, URI } from '../../../../base/common/uri.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
-import { IRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPackageRepositoryRequest, IPackageRepositoryResponse, IRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
@@ -907,6 +907,99 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 		// Convert Map to plain object for IPC serialization
 		return Object.fromEntries(result);
+	}
+
+	async $packageRepositoryUrl(handle: number, token: CancellationToken): Promise<string | undefined> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'get package repository URL');
+		// Return undefined if the package manager doesn't implement this optional method
+		return packageManager.packageRepositoryUrl?.(token);
+	}
+
+	/**
+	 * Perform a Package Manager API request for the workbench.
+	 *
+	 * The request runs here rather than in the workbench because this is the
+	 * host the runtime runs on: it has the route to the environment's
+	 * repository, and the extension host's `fetch` is already patched with the
+	 * user's proxy configuration and system certificates. The renderer has
+	 * neither, and its `fetch` would be blocked by CORS besides -- the Package
+	 * Manager `__api__` endpoints send no `Access-Control-Allow-Origin`.
+	 *
+	 * Routing through a session handle is what picks the right host: in a server
+	 * deployment the session's extension host is on the server, which is where
+	 * an internal repository is reachable.
+	 *
+	 * The request is held to the host the workbench named. Positron promises an
+	 * environment that installs from an internal repository that its package
+	 * inventory goes to that repository and nowhere else, and a redirect would
+	 * otherwise carry the inventory off-host without anyone deciding to.
+	 */
+	async $packageRepositoryRequest(
+		handle: number,
+		request: IPackageRepositoryRequest,
+		token: CancellationToken,
+	): Promise<IPackageRepositoryResponse> {
+		// Resolve the session so a stale handle fails loudly rather than
+		// performing a request on behalf of a session that no longer exists.
+		this.getPackageManagerOrThrow(handle, 'perform a package repository request');
+
+		const target = new URL(request.url);
+		if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+			throw new Error(`Unsupported package repository scheme: ${target.protocol}`);
+		}
+
+		const signals: AbortSignal[] = [];
+		const controller = new AbortController();
+		signals.push(controller.signal);
+		const subscription = token.onCancellationRequested(() => controller.abort());
+		if (request.timeoutMs !== undefined) {
+			signals.push(AbortSignal.timeout(request.timeoutMs));
+		}
+
+		try {
+			// Redirects are followed manually so the off-host check runs before
+			// anything is re-sent: with `redirect: 'follow'`, by the time
+			// `response.redirected` is readable the body (the package inventory)
+			// has already been delivered to the redirect target. A same-host
+			// redirect (a normalized trailing slash, an http->https upgrade) is
+			// followed; an off-host one is refused with nothing sent.
+			const maxRedirects = 5;
+			const signal = signals.length > 1 ? AbortSignal.any(signals) : controller.signal;
+			let url = request.url;
+			let method: 'GET' | 'POST' = request.method ?? 'GET';
+			let body = request.body;
+			for (let redirects = 0; ; redirects++) {
+				const response = await fetch(url, {
+					method,
+					headers: request.headers,
+					body,
+					redirect: 'manual',
+					signal,
+				});
+				const location = response.status >= 300 && response.status < 400
+					? response.headers.get('location')
+					: null;
+				if (!location) {
+					return { status: response.status, body: await response.text() };
+				}
+				if (redirects >= maxRedirects) {
+					throw new Error(`Package repository request to ${target.host} was redirected more than ${maxRedirects} times`);
+				}
+				const redirected = new URL(location, url);
+				if (redirected.host !== target.host || (redirected.protocol !== 'http:' && redirected.protocol !== 'https:')) {
+					throw new Error(`Package repository request to ${target.host} redirected to ${redirected.host}`);
+				}
+				// Per fetch semantics, a 303 (and a 301/302 answering a POST) is
+				// followed with GET and no body; 307/308 preserve both.
+				if (response.status === 303 || ((response.status === 301 || response.status === 302) && method === 'POST')) {
+					method = 'GET';
+					body = undefined;
+				}
+				url = redirected.href;
+			}
+		} finally {
+			subscription.dispose();
+		}
 	}
 
 	async $listMissingPackages(

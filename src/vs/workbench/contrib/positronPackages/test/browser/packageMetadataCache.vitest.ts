@@ -41,7 +41,7 @@ describe('PackageMetadataCache', () => {
 
 	it('round-trips an upsert, stamping lastFetched', () => {
 		const cache = makeCache();
-		cache.upsert('py-abc', { dplyr, rlang }, 1_000);
+		cache.upsert('py-abc', { dplyr, rlang }, { now: 1_000 });
 
 		expect(cache.get('py-abc')).toEqual({
 			lastFetched: 1_000,
@@ -50,8 +50,8 @@ describe('PackageMetadataCache', () => {
 	});
 
 	it('keeps interpreters isolated and persists across cache instances', () => {
-		makeCache().upsert('py-abc', { dplyr }, 1_000);
-		makeCache().upsert('r-xyz', { rlang }, 2_000);
+		makeCache().upsert('py-abc', { dplyr }, { now: 1_000 });
+		makeCache().upsert('r-xyz', { rlang }, { now: 2_000 });
 
 		// A fresh instance reads the same backing storage.
 		const reader = makeCache();
@@ -61,7 +61,7 @@ describe('PackageMetadataCache', () => {
 
 	it('treats an entry as fresh until maxAgeHours elapses (default 24h)', () => {
 		const cache = makeCache();
-		cache.upsert('py-abc', { dplyr }, 0);
+		cache.upsert('py-abc', { dplyr }, { now: 0 });
 
 		expect(cache.isFresh('py-abc', 23 * HOUR)).toBe(true);
 		expect(cache.isFresh('py-abc', 25 * HOUR)).toBe(false);
@@ -70,7 +70,7 @@ describe('PackageMetadataCache', () => {
 
 	it('honors a custom maxAgeHours setting', () => {
 		const cache = makeCache({ [PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING]: 1 });
-		cache.upsert('py-abc', { dplyr }, 0);
+		cache.upsert('py-abc', { dplyr }, { now: 0 });
 
 		expect(cache.isFresh('py-abc', 0.5 * HOUR)).toBe(true);
 		expect(cache.isFresh('py-abc', 1.5 * HOUR)).toBe(false);
@@ -78,7 +78,7 @@ describe('PackageMetadataCache', () => {
 
 	it('evicts named packages while preserving the rest and lastFetched', () => {
 		const cache = makeCache();
-		cache.upsert('py-abc', { dplyr, rlang }, 1_000);
+		cache.upsert('py-abc', { dplyr, rlang }, { now: 1_000 });
 
 		cache.evict('py-abc', ['DPLYR']); // case-insensitive
 
@@ -87,7 +87,7 @@ describe('PackageMetadataCache', () => {
 
 	it('clears an entire entry', () => {
 		const cache = makeCache();
-		cache.upsert('py-abc', { dplyr }, 1_000);
+		cache.upsert('py-abc', { dplyr }, { now: 1_000 });
 
 		cache.clear('py-abc');
 
@@ -96,10 +96,10 @@ describe('PackageMetadataCache', () => {
 
 	it('short-circuits all reads and writes when disabled', () => {
 		// Seed via an enabled cache, then read/write through a disabled one.
-		makeCache().upsert('py-abc', { dplyr }, 1_000);
+		makeCache().upsert('py-abc', { dplyr }, { now: 1_000 });
 		const disabled = makeCache({ [PACKAGE_METADATA_CACHE_ENABLED_SETTING]: false });
 
-		disabled.upsert('r-xyz', { rlang }, 2_000);
+		disabled.upsert('r-xyz', { rlang }, { now: 2_000 });
 		disabled.evict('py-abc', ['dplyr']);
 
 		expect(disabled.get('py-abc')).toBeUndefined();

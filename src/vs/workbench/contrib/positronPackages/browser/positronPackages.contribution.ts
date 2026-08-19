@@ -33,6 +33,8 @@ import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../servic
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
+import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
+import { PACKAGES_VULNERABILITIES_SOURCE_SETTING } from './packageVulnerabilityLookup.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_ENABLED_KEY, PACKAGES_ENABLED_LEGACY_KEY, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ENABLED, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
@@ -118,6 +120,28 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: true,
 			scope: ConfigurationScope.RESOURCE,
 			markdownDescription: nls.localize('positron.packages.r.renvAutoSnapshot', "When using renv, automatically run `renv::snapshot()` in the Console after installing, updating, or removing packages to keep `renv.lock` in sync. The snapshot runs independently, so its success or failure does not affect the package operation."),
+			tags: ['preview'],
+		},
+		[PACKAGES_VULNERABILITIES_ENABLED_SETTING]: {
+			type: 'boolean',
+			default: true,
+			// Machine scope, not application: this governs which host the
+			// machine talks to, so a server deployment must be able to set it
+			// in its own settings and a workspace must not override it.
+			scope: ConfigurationScope.MACHINE,
+			markdownDescription: nls.localize('positron.packages.vulnerabilities.enabled', "Show known security vulnerabilities (CVEs) for installed packages. The lookup sends the names and versions of installed packages to a Posit Package Manager instance; `#packages.vulnerabilities.source#` controls which instances may be used."),
+			tags: ['preview'],
+		},
+		[PACKAGES_VULNERABILITIES_SOURCE_SETTING]: {
+			type: 'string',
+			enum: ['auto', 'environment'],
+			enumDescriptions: [
+				nls.localize('positron.packages.vulnerabilities.source.auto', "Use the Package Manager the environment installs from. When the environment has no Package Manager repository configured, or installs from the language's own public default (pypi.org, CRAN), use Posit's public instance at packagemanager.posit.co."),
+				nls.localize('positron.packages.vulnerabilities.source.environment', "Only use the Package Manager the environment installs from. Nothing is sent to any other host, so environments without a Package Manager repository show no advisories. Recommended for managed or network-restricted deployments."),
+			],
+			default: 'auto',
+			scope: ConfigurationScope.MACHINE,
+			markdownDescription: nls.localize('positron.packages.vulnerabilities.source', "Which Posit Package Manager instances may be asked about installed packages. An environment that installs from a Package Manager is only ever asked about its own instance; this setting controls what happens when no Package Manager repository is configured. Only applies when `#packages.vulnerabilities.enabled#` is enabled."),
 			tags: ['preview'],
 		},
 		[PACKAGE_METADATA_CACHE_ENABLED_SETTING]: {

@@ -154,6 +154,12 @@ describe('packagesQuery', () => {
 			expect(result.filters).toEqual([PackagesFilter.Attached]);
 		});
 
+		it('@vulnerable sets Vulnerable filter', () => {
+			const result = parseQuery('@vulnerable');
+			expect(result.text).toBe('');
+			expect(result.filters).toEqual([PackagesFilter.Vulnerable]);
+		});
+
 		it('filter token matching is case-insensitive', () => {
 			const result = parseQuery('@OUTDATED');
 			expect(result.filters).toEqual([PackagesFilter.Outdated]);
@@ -220,6 +226,13 @@ describe('packagesQuery', () => {
 			const parsed = parseQuery(applied);
 			expect(parsed.text).toBe('dplyr');
 			expect(parsed.filters).toEqual([PackagesFilter.Outdated]);
+		});
+
+		it('round-trip: Vulnerable adds, parses, and removes cleanly', () => {
+			const applied = addFilterToQuery('dplyr', PackagesFilter.Vulnerable);
+			expect(applied).toBe('@vulnerable dplyr');
+			expect(parseQuery(applied).filters).toEqual([PackagesFilter.Vulnerable]);
+			expect(removeFilterFromQuery(applied, PackagesFilter.Vulnerable)).toBe('dplyr');
 		});
 
 		it('round-trip with two filters preserves click order', () => {

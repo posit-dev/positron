@@ -1,0 +1,32 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Severity palette for the vulnerability indicators, shared by the Packages
+ * list badge and the detail view's Security tab so the two read as one ramp.
+ * The NVD bands collapse to three roles: Critical and High are an error, Medium
+ * and unscored are a warning, and Low is muted.
+ *
+ * These are the list foreground colors rather than `charts.*` because the
+ * charts ramp is tuned for fills in a plot, not for small text on a pane:
+ * `charts.orange` resolves to the find-match highlight, a 33%-alpha wash that
+ * lands at 1.5:1 as a text color and is undefined outright in the
+ * high-contrast themes.
+ *
+ * Every color here carries its own dark, light, and high-contrast values, so
+ * the ramp re-tunes per theme instead of being one color that has to work
+ * everywhere. `list.errorForeground` and `list.warningForeground` are the pair
+ * the workbench already uses for error and warning *text*; both are undefined
+ * in the high-contrast themes, so each falls back to the editor's squiggly
+ * color, which does define hcDark and hcLight values. A theme variable is only
+ * emitted for colors the active theme resolves (colorThemeCss.ts), so the
+ * fallback applies exactly in the themes that need it.
+ */
+.positron-packages-list,
+.positron-package-detail {
+	--_positron-package-severity-error: var(--vscode-list-errorForeground, var(--vscode-editorError-foreground));
+	--_positron-package-severity-warning: var(--vscode-list-warningForeground, var(--vscode-editorWarning-foreground));
+	--_positron-package-severity-muted: var(--vscode-descriptionForeground);
+}

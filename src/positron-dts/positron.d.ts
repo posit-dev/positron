@@ -1434,6 +1434,28 @@ declare module 'positron' {
 		): Thenable<Map<string, Partial<LanguageRuntimePackage>>>;
 
 		/**
+		 * The repository (R) or package index (Python) URL this environment
+		 * installs from, when the runtime can determine it.
+		 *
+		 * Positron uses this to decide which Posit Package Manager instance, if
+		 * any, to ask for security advisories about the installed packages. Only
+		 * the runtime knows the full precedence its installer follows -- an
+		 * r-versions `Repo:` field, `repos.conf`, `pip config`, environment
+		 * variables -- so the resolution stays here rather than being guessed
+		 * from settings.
+		 *
+		 * Return the repository URL as configured (e.g.
+		 * `https://ppm.example.com/cran/latest`). Positron probes it to see
+		 * whether it is a Package Manager instance and never contacts a
+		 * different host than the one returned. Resolve `undefined` when nothing
+		 * is configured beyond the language's public default; Positron then
+		 * decides for itself whether a public lookup is appropriate.
+		 *
+		 * @param token Optional cancellation token
+		 */
+		packageRepositoryUrl?(token?: vscode.CancellationToken): Thenable<string | undefined>;
+
+		/**
 		 * Fetch detailed metadata for a single package, called when the package
 		 * detail editor opens. Cheap, kernel-local fields only. Returns a partial
 		 * package to merge over the list entry, or undefined when unsupported.

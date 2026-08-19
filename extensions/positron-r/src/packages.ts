@@ -7,6 +7,8 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { LOGGER } from './extension';
+import { resolveRRepositoryUrl } from './packageRepository';
+import { RMetadataExtra } from './r-installation';
 import { RSession } from './session';
 
 /**
@@ -75,6 +77,18 @@ export class RPackageManager {
 		}
 
 		return metadata;
+	}
+
+	/**
+	 * The repository this session installs from, when it resolves to one
+	 * Positron can ask about security advisories.
+	 *
+	 * @param _token Unused: resolution is local (settings and configuration
+	 *   files), with no cancellable work.
+	 */
+	async packageRepositoryUrl(_token?: vscode.CancellationToken): Promise<string | undefined> {
+		const metadataExtra = this._session.runtimeMetadata.extraRuntimeData as RMetadataExtra | undefined;
+		return resolveRRepositoryUrl(metadataExtra?.packagerMetadata);
 	}
 
 	/**

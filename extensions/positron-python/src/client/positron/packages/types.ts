@@ -93,6 +93,14 @@ export interface IPackageManager {
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>>;
 
     /**
+     * The package index this environment installs from, when it resolves to one
+     * Positron can ask about security advisories. Undefined when only the
+     * default (pypi.org) applies.
+     * @param token Optional cancellation token
+     */
+    packageRepositoryUrl?(token?: vscode.CancellationToken): Promise<string | undefined>;
+
+    /**
      * Fetch detailed metadata for a single package (title, author, dependency
      * count, source repository), called when the package detail editor opens.
      * @param name Package name
