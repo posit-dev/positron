@@ -89,11 +89,17 @@ const handleAuxClick = (event) => {
  * @param {KeyboardEvent} e
  */
 const handleInnerKeydown = (e) => {
-	// If the keypress would trigger a browser event, such as copy or paste,
-	// make sure we block the browser from dispatching it. Instead VS Code
-	// handles these events and will dispatch a copy/paste back to the webview
-	// if needed
-	if (isUndoRedo(e) || isPrint(e) || isFindEvent(e) || isSaveEvent(e) || isCopyPasteOrCut(e)) {
+	// Let the browser natively handle clipboard and undo/redo shortcuts so that
+	// copy/cut/paste work on content in the Viewer. Current Chromium versions
+	// require a user gesture for clipboard writes, so routing these through the
+	// host and back down via document.execCommand no longer works.
+	if (isUndoRedo(e) || isCopyPasteOrCut(e)) {
+		return;
+	}
+
+	// Block the browser default for shortcuts that VS Code handles itself, then
+	// forward the keydown so the keybinding service can act on it.
+	if (isPrint(e) || isFindEvent(e) || isSaveEvent(e)) {
 		e.preventDefault();
 	}
 	hostMessaging.postMessage('did-keydown', {

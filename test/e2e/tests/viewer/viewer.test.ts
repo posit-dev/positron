@@ -80,7 +80,44 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 		await console.executeCode('R', rReprexScript);
 		await viewer.expectContentVisible(frame => frame.getByText('rbinom'));
 	});
+
+	// The Viewer serves app content (Shiny, Dash, etc.) from a local web server,
+	// which is a separate origin from the webview. Copying a selection out of
+	// that cross-origin frame is what regressed. A same-origin page (plain HTML)
+	// does not exercise the bug, so this serves the probe text over HTTP.
+	test('Python - Verify selected text can be copied from the Viewer', { tag: [tags.WIN] }, async function ({ app, python }) {
+		const { console, viewer, clipboard, hotKeys } = app.workbench;
+
+		await console.executeCode('Python', pythonViewerServerScript);
+		await viewer.expectViewerPanelVisible();
+		await viewer.expectContentVisible(frame => frame.getByText(VIEWER_COPY_PROBE));
+
+		// Seed the clipboard so a failed copy leaves a value that clearly isn't
+		// the selected text.
+		await clipboard.setClipboardText('__SEED__');
+
+		await expect(async () => {
+			// Double-click focuses the webview frame and selects the word, so
+			// Ctrl/Cmd+C is dispatched to the Viewer content and not the console.
+			await viewer.getViewerFrame().getByText(VIEWER_COPY_PROBE).dblclick();
+			await hotKeys.copy();
+			expect(await clipboard.getClipboardText()).toContain(VIEWER_COPY_PROBE);
+		}).toPass({ timeout: 15000 });
+	});
 });
+
+// A single word so a double-click selects the whole token.
+const VIEWER_COPY_PROBE = 'PositronViewerCopyProbe';
+
+// Serve the probe text from an ephemeral local web server and open it in the
+// Viewer, mimicking how a Shiny/Dash/Flask app is served from its own origin.
+// Kept free of indented blocks so the file stays tab-indented for hygiene.
+const pythonViewerServerScript = `import http.server, socketserver, threading, webbrowser, tempfile, os, functools
+_dir = tempfile.mkdtemp()
+open(os.path.join(_dir, "index.html"), "w").write("<!doctype html><html><body><p>${VIEWER_COPY_PROBE}</p></body></html>")
+_srv = socketserver.TCPServer(("127.0.0.1", 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=_dir))
+threading.Thread(target=_srv.serve_forever, daemon=True).start()
+webbrowser.open(f"http://127.0.0.1:{_srv.server_address[1]}")`;
 
 const pythonScript = `import webbrowser
 # will not have any content, but we just want to make sure
