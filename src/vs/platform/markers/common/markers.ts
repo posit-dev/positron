@@ -33,6 +33,20 @@ export interface IMarkerService {
 
 	installResourceFilter(resource: URI, reason: string): IDisposable;
 
+	// --- Start Positron ---
+	/**
+	 * Leave a resource out of `read()` results, and out of the statistics, until
+	 * the returned disposable is disposed. A read that passes
+	 * `ignoreResourceFilters` still reports its markers, so whoever owns them can
+	 * keep working with them.
+	 *
+	 * For a resource whose markers are shown somewhere else. Use
+	 * `installResourceFilter` instead when the user should be told that the
+	 * problems of a resource they can see are paused.
+	 */
+	installResourceExclusion(resource: URI): IDisposable;
+	// --- End Positron ---
+
 	readonly onMarkerChanged: Event<readonly URI[]>;
 }
 
