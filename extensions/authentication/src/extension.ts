@@ -680,7 +680,11 @@ async function registerDatabricksProvider(
 
 	const provider = new DatabricksAuthProvider(context, {
 		resolve: async () => {
-			const envToken = process.env.DATABRICKS_TOKEN?.trim();
+			// A Workbench-provisioned profile outranks DATABRICKS_TOKEN: the
+			// admin-supplied credential shouldn't be overridable from the shell.
+			const envToken = hasManagedCredentials(DATABRICKS_AUTH_PROVIDER_ID)
+				? undefined
+				: process.env.DATABRICKS_TOKEN?.trim();
 			if (envToken) {
 				const host = getCachedProvider('databricks')?.connection.databricks?.host?.trim();
 				if (!host) {
@@ -710,7 +714,8 @@ async function registerDatabricksProvider(
 			return credential.token;
 		},
 		shouldRefresh: async () => {
-			if (process.env.DATABRICKS_TOKEN) {
+			if (process.env.DATABRICKS_TOKEN &&
+				!hasManagedCredentials(DATABRICKS_AUTH_PROVIDER_ID)) {
 				return false; // Static env token; nothing to re-read.
 			}
 			try {
