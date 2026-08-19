@@ -118,6 +118,37 @@ describe('validateLicense', () => {
 		expect(result.licensee).toBe('Acme Corp');
 	});
 
+	it('marks the license academic when it validates against the orchestrator key', async () => {
+		// The real OrchestratorPublicKey's private key is held by the minting service, not
+		// this repo, so a throwaway pair stands in as the orchestrator key.
+		const { privateKey: orchestratorPrivKey, publicKey: orchestratorPubKeyPem } =
+			crypto.generateKeyPairSync('rsa', {
+				modulusLength: 2048,
+				publicKeyEncoding: { type: 'spki', format: 'pem' },
+				privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+			});
+
+		const token = 'test-token-academic';
+		const timestamp = new Date().toISOString();
+		const license = mintLicense(token, 'JupyterHub', 'Acme University', timestamp, orchestratorPrivKey);
+
+		const result = await validateLicense(token, license, [testPubKeyPem, orchestratorPubKeyPem], orchestratorPubKeyPem);
+
+		expect(result.valid).toBe(true);
+		expect(result.academic).toBe(true);
+	});
+
+	it('does not mark the license academic when it validates against the primary key', async () => {
+		const token = 'test-token-not-academic';
+		const timestamp = new Date().toISOString();
+		const license = mintLicense(token, 'Test Hub', 'Test Corp', timestamp);
+
+		const result = await validateLicense(token, license, [testPubKeyPem]);
+
+		expect(result.valid).toBe(true);
+		expect(result.academic).toBe(false);
+	});
+
 	it('rejects malformed JSON', async () => {
 		const result = await validateLicense('token', 'not-valid-json{{{', [testPubKeyPem]);
 
