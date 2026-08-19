@@ -147,7 +147,22 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 
 	async restart(): Promise<void> { }
 
-	async shutdown(_exitReason: positron.RuntimeExitReason): Promise<void> { }
+	async shutdown(exitReason: positron.RuntimeExitReason): Promise<void> {
+		// Report that the session has exited. Without this the workbench waits the
+		// full `onDidEndSession` timeout (5s, runtimeSession.ts) on every shutdown,
+		// then runs its failure cleanup in whatever suite happens to be executing
+		// by then -- which is how this suite's kernels came to disturb unrelated
+		// tests. See https://github.com/posit-dev/positron/issues/15536.
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exiting);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+		this._onDidEndSession.fire({
+			runtime_name: this.runtimeMetadata.runtimeName,
+			session_name: this.dynState.sessionName,
+			exit_code: 0,
+			reason: exitReason,
+			message: '',
+		});
+	}
 
 	async forceQuit(): Promise<void> { }
 
