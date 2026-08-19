@@ -42,24 +42,27 @@ function createSession(runtimeState: RuntimeState = RuntimeState.Idle): ILanguag
  * given an error.
  */
 function createInstance(
-	snapshot: IPackagesSnapshot | Error,
-	options: {
-		session?: ILanguageRuntimeSession;
-		/** Explicitly `undefined` for an instance no advisory lookup has answered for. */
-		vulnerabilitySource?: IPositronPackagesInstance['vulnerabilitySource'];
-	} = { vulnerabilitySource: VULNERABILITY_SOURCE },
+	snapshot: SnapshotStub | Error,
+	session: ILanguageRuntimeSession = createSession(),
 ): IPositronPackagesInstance {
 	return stubInterface<IPositronPackagesInstance>({
-		session: options.session ?? createSession(),
-		vulnerabilitySource: options.vulnerabilitySource,
+		session,
 		getPackagesSnapshot: vi.fn(async () => {
 			if (snapshot instanceof Error) {
 				throw snapshot;
 			}
-			return snapshot;
+			// Advisory fields default to what a snapshot that wasn't asked to
+			// refresh reports, so only the tests about advisories mention them.
+			return { vulnerabilityStatus: 'cached' as const, ...snapshot };
 		}),
 	});
 }
+
+/**
+ * A snapshot with its advisory status left out, since most tests are about the
+ * packages rather than where the advisories came from.
+ */
+type SnapshotStub = Omit<IPackagesSnapshot, 'vulnerabilityStatus'> & Partial<Pick<IPackagesSnapshot, 'vulnerabilityStatus'>>;
 
 /** The Package Manager instance a test's advisories came from. */
 const VULNERABILITY_SOURCE = { host: 'ppm.example.com', fetchedAt: Date.parse('2026-08-19T10:00:00.000Z') };
@@ -223,11 +226,8 @@ describe('getPackages', () => {
 			    "sessionId": "session-1",
 			    "sessionName": "Python 3.12.4",
 			  },
-			  "vulnerabilitySource": {
-			    "fetchedAt": "2026-08-19T10:00:00.000Z",
-			    "host": "ppm.example.com",
-			  },
-			  "vulnerabilityStatus": "available",
+			  "vulnerabilitySource": undefined,
+			  "vulnerabilityStatus": "cached",
 			}
 		`);
 	});
@@ -235,6 +235,8 @@ describe('getPackages', () => {
 	it('reports each package\'s advisories worst first, with the source that served them', async () => {
 		stubServices(createInstance({
 			metadataStatus: 'fresh',
+			vulnerabilityStatus: 'fresh',
+			vulnerabilitySource: VULNERABILITY_SOURCE,
 			packages: [
 				// Deliberately out of order, and mixing scored with unscored:
 				// the payload leads with the advisory the pane leads with.
@@ -253,7 +255,8 @@ describe('getPackages', () => {
 
 		expect(result).toMatchObject({
 			available: true,
-			vulnerabilityStatus: 'available',
+			vulnerabilityStatus: 'fresh',
+			// Epoch ms in the snapshot, ISO 8601 in the payload.
 			vulnerabilitySource: { host: VULNERABILITY_SOURCE.host, fetchedAt: '2026-08-19T10:00:00.000Z' },
 			packages: [
 				{
@@ -275,6 +278,8 @@ describe('getPackages', () => {
 	it('maps every advisory field the lookup carries', async () => {
 		stubServices(createInstance({
 			metadataStatus: 'fresh',
+			vulnerabilityStatus: 'fresh',
+			vulnerabilitySource: VULNERABILITY_SOURCE,
 			packages: [{ ...pkg('pandas', '2.2.1'), vulnerabilities: [advisory('CVE-2026-1000', 7.5)] }],
 		}));
 
@@ -320,48 +325,49 @@ describe('getPackages', () => {
 			    "fetchedAt": "2026-08-19T10:00:00.000Z",
 			    "host": "ppm.example.com",
 			  },
-			  "vulnerabilityStatus": "available",
+			  "vulnerabilityStatus": "fresh",
 			}
 		`);
 	});
 
-	it('omits advisories when vulnerability lookups are turned off', async () => {
-		// The cache can still hold advisories from before the setting was
-		// turned off; the pane renders none, so neither does the payload.
-		stubServices(
-			createInstance({
-				metadataStatus: 'fresh',
-				packages: [{ ...pkg('pandas', '2.2.1'), vulnerabilities: [advisory('CVE-2026-1000', 9.8)] }],
-			}),
-			{
-				'packages.enabled': true,
-				'positron.packages.enable': true,
-				'packages.vulnerabilities.enabled': false,
-			},
-		);
+	it('drops the advisories the cache still holds when lookups are turned off', async () => {
+		// The snapshot reports 'disabled' from the setting but still merges
+		// whatever the cache kept from before it was turned off. The payload
+		// must not report data its own status says isn't there.
+		stubServices(createInstance({
+			metadataStatus: 'fresh',
+			vulnerabilityStatus: 'disabled',
+			packages: [{ ...pkg('pandas', '2.2.1'), vulnerabilities: [advisory('CVE-2026-1000', 9.8)] }],
+		}));
 
 		const result = await getPackages(ctx.instantiationService);
 
 		expect(result).toMatchObject({
 			available: true,
 			vulnerabilityStatus: 'disabled',
+			// Nothing to attribute, so no source is named either.
+			vulnerabilitySource: undefined,
 			packages: [{ name: 'pandas', vulnerabilities: undefined }],
 		});
-		expect(result).not.toHaveProperty('vulnerabilitySource');
 	});
 
-	it('reports unchecked when no advisory lookup has answered for the session', async () => {
-		stubServices(createInstance(
-			{ metadataStatus: 'fresh', packages: [pkg('pandas', '2.2.1')] },
-			{ vulnerabilitySource: undefined },
-		));
+	it('passes the advisory status through rather than deriving its own', async () => {
+		// Only the snapshot knows whether a lookup ran, so the payload reports
+		// what it was told -- including 'unavailable', which says a lookup
+		// happened and found nothing, not that one is still owed.
+		stubServices(createInstance({
+			metadataStatus: 'fresh',
+			vulnerabilityStatus: 'unavailable',
+			packages: [pkg('pandas', '2.2.1')],
+		}));
 
 		const result = await getPackages(ctx.instantiationService);
 
-		// Distinct from 'disabled': lookups are on, so the absent advisories
-		// mean "not asked yet", not "nothing to report".
-		expect(result).toMatchObject({ available: true, vulnerabilityStatus: 'unchecked' });
-		expect(result).not.toHaveProperty('vulnerabilitySource');
+		expect(result).toMatchObject({
+			available: true,
+			vulnerabilityStatus: 'unavailable',
+			vulnerabilitySource: undefined,
+		});
 	});
 
 	it('is registered as an agent-compatible command', async () => {
