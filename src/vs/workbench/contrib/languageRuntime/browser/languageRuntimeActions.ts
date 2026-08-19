@@ -71,6 +71,7 @@ export const LANGUAGE_RUNTIME_RESTART_ACTIVE_SESSION_ID = 'workbench.action.lang
 export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.runtime.renameSession';
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
 export const LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID = 'workbench.action.language.runtime.discoverAllRuntimes';
+export const LANGUAGE_RUNTIME_GET_REGISTERED_RUNTIMES_ID = 'workbench.action.language.runtime.getRegisteredRuntimes';
 export const LANGUAGE_RUNTIME_CLEAR_INTERPRETER_CACHE_ID = 'workbench.action.language.runtime.clearInterpreterCache';
 
 // Console Session Specific Action IDs
@@ -82,6 +83,49 @@ export const LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID = 'workbench.act
 
 // Prefix for contributed picker items
 const CONTRIBUTED_ITEM_PREFIX = '__contributed__';
+
+/**
+ * A registered runtime as reported to AI agents by the
+ * {@link LANGUAGE_RUNTIME_GET_REGISTERED_RUNTIMES_ID} command. Deliberately omits
+ * fields that are large or meaningless to a model (the base64-encoded icon, the
+ * opaque extension-supplied extra data) so the payload stays within a limited
+ * context window.
+ */
+export interface IRegisteredRuntimeSummary {
+	readonly runtimeId: string;
+	readonly languageId: string;
+	readonly languageName: string;
+	readonly languageVersion: string;
+	readonly runtimeName: string;
+	readonly runtimeShortName: string;
+	readonly runtimeVersion: string;
+	readonly runtimeSource: string;
+	readonly runtimePath: string;
+	readonly startupBehavior: string;
+	readonly extensionId: string;
+}
+
+/**
+ * Projects full runtime metadata down to the fields useful to an AI agent.
+ *
+ * @param metadata The registered runtime's metadata.
+ * @returns A slim summary of the runtime.
+ */
+export function summarizeRegisteredRuntime(metadata: ILanguageRuntimeMetadata): IRegisteredRuntimeSummary {
+	return {
+		runtimeId: metadata.runtimeId,
+		languageId: metadata.languageId,
+		languageName: metadata.languageName,
+		languageVersion: metadata.languageVersion,
+		runtimeName: metadata.runtimeName,
+		runtimeShortName: metadata.runtimeShortName,
+		runtimeVersion: metadata.runtimeVersion,
+		runtimeSource: metadata.runtimeSource,
+		runtimePath: getRuntimeDisplayPath(metadata),
+		startupBehavior: metadata.startupBehavior,
+		extensionId: metadata.extensionId.value,
+	};
+}
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -1498,6 +1542,37 @@ export function registerLanguageRuntimeActions() {
 
 			// Kick off discovery.
 			runtimeStartupService.rediscoverAllRuntimes();
+		}
+	});
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: LANGUAGE_RUNTIME_GET_REGISTERED_RUNTIMES_ID,
+				title: localize2('workbench.action.language.runtime.getRegisteredRuntimes', "Get Registered Interpreters"),
+				category,
+				metadata: {
+					description: localize('positron.languageRuntime.getRegisteredRuntimes.description', "List the interpreters registered with Positron, across all languages. Use before creating an environment or starting a session to see what is already available."),
+					agentCompatible: true,
+					args: [
+						{
+							name: 'languageId',
+							isOptional: true,
+							description: 'Restrict the results to a single language, e.g. "python" or "r". Omit to return interpreters for every language.',
+							schema: { type: 'string' },
+						},
+					],
+					returns: 'An array of registered interpreters. Each entry has runtimeId, languageId, languageName, languageVersion, runtimeName, runtimeShortName, runtimeVersion, runtimeSource (e.g. System, Pyenv, Conda), runtimePath, startupBehavior, and extensionId. An empty array means no interpreter of the requested language is registered.',
+				},
+			});
+		}
+
+		async run(accessor: ServicesAccessor, languageId?: string): Promise<IRegisteredRuntimeSummary[]> {
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			const filter = typeof languageId === 'string' && languageId.length > 0 ? languageId : undefined;
+			return languageRuntimeService.registeredRuntimes
+				.filter(runtime => !filter || runtime.languageId === filter)
+				.map(summarizeRegisteredRuntime);
 		}
 	});
 

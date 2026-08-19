@@ -52,7 +52,13 @@ You can let it prompt for everything, or drive it non-interactively by passing
 `providerId` together with exactly one Python source:
 
 - **venv** (`ms-python.python:venv`): pass `interpreterPath` -- the existing
-  interpreter to base the venv on. Get a candidate from `python.interpreterPath`.
+  interpreter to base the venv on. First list the registered Python
+  interpreters with
+  `workbench.action.language.runtime.getRegisteredRuntimes` (pass
+  `languageId: "python"`) and pick a `runtimePath` from the result to use as the
+  base; see [interpreters.md]({{skill_dir}}/references/interpreters.md). If that
+  list comes back empty there is no Python to base a venv on, so install one
+  first with `python.installPythonViaUv`.
 - **Conda** (`ms-python.python:conda`): pass `condaPythonVersion`, e.g. `"3.12"`.
 - **uv** (`ms-python.python:uv`): pass `uvPythonVersion`, e.g. `"3.12"`.
 
