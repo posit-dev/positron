@@ -12,7 +12,7 @@ import * as vscode from 'vscode';
 import { OdbcDialect } from './odbcDatabases';
 import { OdbcTableRef } from './odbcNodes';
 import { IOdbcQueryClient } from './odbcWorkerClient';
-import { odbcDisplayType, OdbcSchemaEntry, OdbcTableView } from './odbcTableView';
+import { isBinarySqlType, odbcDisplayType, OdbcSchemaEntry, OdbcTableView } from './odbcTableView';
 import {
 	ConvertToCodeParams,
 	DataExplorerBackendRequest,
@@ -185,14 +185,16 @@ export async function buildOdbcSchema(
 		.map(row => {
 			const typeName = String(row['TYPE_NAME'] ?? '');
 			const dataType = typeof row['DATA_TYPE'] === 'number' ? row['DATA_TYPE'] : Number(row['DATA_TYPE']);
+			const code = Number.isFinite(dataType) ? dataType : undefined;
 			return {
 				column_name: String(row['COLUMN_NAME'] ?? ''),
 				column_type: typeName,
-				type_display: odbcDisplayType(Number.isFinite(dataType) ? dataType : undefined, typeName),
+				type_display: odbcDisplayType(code, typeName),
+				is_binary: isBinarySqlType(code),
 				ordinal: Number(row['ORDINAL_POSITION'] ?? 0),
 			};
 		})
 		.filter(entry => entry.column_name.length > 0)
 		.sort((a, b) => a.ordinal - b.ordinal)
-		.map(({ column_name, column_type, type_display }) => ({ column_name, column_type, type_display }));
+		.map(({ column_name, column_type, type_display, is_binary }) => ({ column_name, column_type, type_display, is_binary }));
 }

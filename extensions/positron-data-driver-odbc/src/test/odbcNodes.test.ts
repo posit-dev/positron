@@ -211,18 +211,22 @@ suite('buildOdbcSchema', () => {
 				{ COLUMN_NAME: 'actor_id', TYPE_NAME: 'int4', DATA_TYPE: 4, ORDINAL_POSITION: 1 },
 				{ COLUMN_NAME: 'first_name', TYPE_NAME: 'varchar', DATA_TYPE: 12, ORDINAL_POSITION: 2 },
 				{ COLUMN_NAME: 'weird', TYPE_NAME: 'GEOGRAPHY', DATA_TYPE: 5432, ORDINAL_POSITION: 4 },
+				{ COLUMN_NAME: 'picture', TYPE_NAME: 'bytea', DATA_TYPE: -3, ORDINAL_POSITION: 5 },
 			],
 		});
 
 		assert.deepStrictEqual(
 			await buildOdbcSchema(client, { schema: 'public', name: 'actor', kind: 'table' }),
 			[
-				{ column_name: 'actor_id', column_type: 'int4', type_display: 'integer' },
-				{ column_name: 'first_name', column_type: 'varchar', type_display: 'string' },
-				{ column_name: 'last_update', column_type: 'timestamptz', type_display: 'datetime' },
+				{ column_name: 'actor_id', column_type: 'int4', type_display: 'integer', is_binary: false },
+				{ column_name: 'first_name', column_type: 'varchar', type_display: 'string', is_binary: false },
+				{ column_name: 'last_update', column_type: 'timestamptz', type_display: 'datetime', is_binary: false },
 				// An unrecognized type code falls back to the type name, which here says nothing
-				// useful either, so the column is opaque.
-				{ column_name: 'weird', column_type: 'GEOGRAPHY', type_display: 'object' },
+				// useful either, so the column is opaque -- but opaque is not binary, and only a
+				// binary column may skip having its value fetched.
+				{ column_name: 'weird', column_type: 'GEOGRAPHY', type_display: 'object', is_binary: false },
+				// SQL_VARBINARY: the flag that keeps its bytes from ever being fetched.
+				{ column_name: 'picture', column_type: 'bytea', type_display: 'object', is_binary: true },
 			]
 		);
 	});

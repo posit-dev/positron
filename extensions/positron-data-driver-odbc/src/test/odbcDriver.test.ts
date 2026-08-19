@@ -190,6 +190,36 @@ suite('createOdbcDrivers', () => {
 		);
 	});
 
+	test('offers no Port field for SQL Server, whose driver has no Port keyword', async () => {
+		// Microsoft's driver takes the port inside Server (`Server=myhost,1433`) and has no Port
+		// connection-string keyword, so offering one would emit an attribute it ignores and produce
+		// a failing connection with nothing in the form to explain it. Guards the profile against a
+		// well-meaning "the default port is missing" fix.
+		const config: OdbcConfiguration = {
+			drivers: [driverEntry('ODBC Driver 18 for SQL Server'), driverEntry('MySQL ODBC 8.0 Unicode Driver')],
+			dsns: [],
+			sources: [],
+		};
+		const drivers = createOdbcDrivers(testContext(), config, noopHost);
+
+		const parameterIds = (driverId: string) => drivers
+			.find(driver => driver.id === driverId)!
+			.mechanisms.find(mechanism => mechanism.id === 'driver')!
+			.parameters.map(parameter => parameter.id);
+
+		assert.deepStrictEqual(
+			{
+				sqlServer: parameterIds(`${GENERIC_ODBC_DRIVER_ID}-sqlserver`),
+				// MySQL does take a separate Port, so the difference is per-database, not global.
+				mysql: parameterIds(`${GENERIC_ODBC_DRIVER_ID}-mysql`),
+			},
+			{
+				sqlServer: ['server', 'database', 'user', 'password'],
+				mysql: ['server', 'port', 'database', 'user', 'password'],
+			}
+		);
+	});
+
 	test('generates R and Python code from each mechanism', async () => {
 		const [generic] = createOdbcDrivers(testContext(), CONFIG, noopHost);
 

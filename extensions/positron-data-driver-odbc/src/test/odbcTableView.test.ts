@@ -10,6 +10,7 @@ import { odbcDisplayType, OdbcSchemaEntry, OdbcTableView } from '../odbcTableVie
 import { IOdbcQueryClient } from '../odbcWorkerClient.js';
 import { OdbcRow } from '../odbcWorkerProtocol.js';
 import {
+	ColumnProfileType,
 	ColumnDisplayType,
 	FilterComparisonOp,
 	FormatOptions,
@@ -33,20 +34,37 @@ const OFFSET_FETCH: OdbcDialect = { identifierQuote: '"', pagination: 'offset-fe
 const BACKTICK: OdbcDialect = { identifierQuote: '`', pagination: 'limit-offset' };
 
 const SCHEMA: OdbcSchemaEntry[] = [
-	{ column_name: 'actor_id', column_type: 'int4', type_display: ColumnDisplayType.Integer },
-	{ column_name: 'first_name', column_type: 'varchar', type_display: ColumnDisplayType.String },
+	{ column_name: 'actor_id', column_type: 'int4', type_display: ColumnDisplayType.Integer, is_binary: false },
+	{ column_name: 'first_name', column_type: 'varchar', type_display: ColumnDisplayType.String, is_binary: false },
 ];
 
-/** A client that records the SQL it is asked to run and answers counts so construction settles. */
-function createRecordingClient(): IOdbcQueryClient & { queries: string[] } {
+/** A schema with a binary column, for the reads that must never fetch bytes. */
+const BINARY_SCHEMA: OdbcSchemaEntry[] = [
+	{ column_name: 'category_id', column_type: 'int2', type_display: ColumnDisplayType.Integer, is_binary: false },
+	{ column_name: 'picture', column_type: 'bytea', type_display: ColumnDisplayType.Object, is_binary: true },
+];
+
+/**
+ * A client that records the SQL it is asked to run and answers counts so construction settles.
+ * @param options.rejectOctetLength Fails any query using the `{fn OCTET_LENGTH(...)}` escape, the
+ * way a driver that does not implement it would, so the fallback can be exercised.
+ * @param options.rows Overrides the row the client answers with.
+ */
+function createRecordingClient(options: { rejectOctetLength?: boolean; rows?: OdbcRow[] } = {}): IOdbcQueryClient & { queries: string[] } {
 	const queries: string[] = [];
 	return {
 		queries,
 		runQuery: async (sql: string): Promise<OdbcRow[]> => {
 			queries.push(sql);
-			// Every query in these tests is either a count or a data read; a single row keyed for
-			// both is enough for the view to make progress.
-			return [{ n: 3, c0: 1, c1: 'Penelope' }];
+			if (options.rejectOctetLength && sql.includes('OCTET_LENGTH')) {
+				throw new Error('[odbc] scalar function OCTET_LENGTH is not supported');
+			}
+			// Row counts are answered separately from data reads, so a test can supply its own data
+			// rows without starving the view of the count it needs to think the table is non-empty.
+			if (sql.includes('count(*) AS n')) {
+				return [{ n: 3 }];
+			}
+			return options.rows ?? [{ c0: 1, c1: 'Penelope' }];
 		},
 		tables: async () => [],
 		columns: async () => [],
@@ -59,13 +77,17 @@ function lastQuery(client: { queries: string[] }): string {
 	return client.queries[client.queries.length - 1];
 }
 
-function createView(dialect: OdbcDialect, ref?: Partial<OdbcTableRef>) {
-	const client = createRecordingClient();
+function createView(
+	dialect: OdbcDialect,
+	ref?: Partial<OdbcTableRef>,
+	options: { schema?: OdbcSchemaEntry[]; client?: IOdbcQueryClient & { queries: string[] } } = {}
+) {
+	const client = options.client ?? createRecordingClient();
 	const view = new OdbcTableView(
 		client,
 		{ schema: 'public', name: 'actor', kind: 'table', ...ref },
 		dialect,
-		SCHEMA
+		options.schema ?? SCHEMA
 	);
 	return { client, view };
 }
@@ -177,6 +199,76 @@ suite('OdbcTableView SQL', () => {
 		await assert.rejects(
 			() => view.setRowFilters({ filters }),
 			/no common regular expression syntax/
+		);
+	});
+
+	test('never selects a binary column\'s bytes, measuring it instead', async () => {
+		// node-odbc materializes binary values with napi_create_external_arraybuffer, which Electron
+		// refuses outright -- a fatal native error that kills the worker rather than an exception.
+		// The bytes are only ever rendered as a size, so the size is all that is fetched.
+		const { client, view } = createView(LIMIT_OFFSET, { name: 'categories' }, {
+			schema: BINARY_SCHEMA,
+			client: createRecordingClient({ rows: [{ c0: 1, c1: 11626 }] }),
+		});
+
+		const data = await view.getDataValues({
+			columns: [
+				{ column_index: 0, spec: { first_index: 0, last_index: 0 } },
+				{ column_index: 1, spec: { first_index: 0, last_index: 0 } },
+			],
+			format_options: FORMAT_OPTIONS,
+		});
+
+		assert.deepStrictEqual(
+			{ sql: lastQuery(client), values: data.columns },
+			{
+				sql: 'SELECT "category_id" AS c0, {fn OCTET_LENGTH("picture")} AS c1 FROM "public"."categories"\nORDER BY "category_id" LIMIT 1 OFFSET 0',
+				values: [['1'], ['[BINARY 11626 bytes]']],
+			}
+		);
+	});
+
+	test('falls back to a presence check when the backend rejects the length escape', async () => {
+		const { client, view } = createView(LIMIT_OFFSET, { name: 'categories' }, {
+			schema: BINARY_SCHEMA,
+			client: createRecordingClient({ rejectOctetLength: true, rows: [{ c0: 1 }] }),
+		});
+
+		const data = await view.getDataValues({
+			columns: [{ column_index: 1, spec: { first_index: 0, last_index: 0 } }],
+			format_options: FORMAT_OPTIONS,
+		});
+
+		assert.deepStrictEqual(
+			{ sql: lastQuery(client), values: data.columns },
+			{
+				// Plain SQL every backend accepts: 0 for null, 1 for present.
+				sql: 'SELECT CASE WHEN "picture" IS NULL THEN 0 ELSE 1 END AS c0 FROM "public"."categories"\nORDER BY "category_id" LIMIT 1 OFFSET 0',
+				values: [['[BINARY]']],
+			}
+		);
+	});
+
+	test('reports an empty frequency table for a binary column without querying it', async () => {
+		const { client, view } = createView(LIMIT_OFFSET, { name: 'categories' }, { schema: BINARY_SCHEMA });
+		const before = client.queries.length;
+
+		const profiles = await view.computeColumnProfiles({
+			callback_id: 'cb',
+			profiles: [{
+				column_index: 1,
+				profiles: [{ profile_type: ColumnProfileType.SmallFrequencyTable, params: { limit: 10 } }],
+			}],
+			format_options: FORMAT_OPTIONS,
+		});
+
+		assert.deepStrictEqual(
+			{
+				profile: profiles.profiles[0].small_frequency_table,
+				// Grouping by a binary column would have to select the bytes as the group key.
+				queriesIssued: client.queries.length - before,
+			},
+			{ profile: { values: [], counts: [], other_count: 3 }, queriesIssued: 0 }
 		);
 	});
 

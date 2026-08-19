@@ -113,7 +113,10 @@ export const ODBC_DATABASE_PROFILES: readonly OdbcDatabaseProfile[] = [
 		// "ODBC Driver 18 for SQL Server", "SQL Server Native Client 11.0", "Posit SQL Server".
 		driverNamePatterns: [/sql\s*server/i, /msodbcsql/i],
 		dialect: { identifierQuote: '"', pagination: 'offset-fetch' },
-		defaultPort: 1433,
+		// No port key and no defaultPort: Microsoft's driver has no Port connection-string keyword.
+		// The port goes inside Server, comma-separated -- `Server=myhost,1433`. A port key here
+		// would emit an attribute the driver ignores, failing the connection with nothing in the
+		// form to explain why.
 		attributeKeys: { server: 'Server', database: 'Database', user: 'UID', password: 'PWD' },
 		registerDriver: true,
 	},

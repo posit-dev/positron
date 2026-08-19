@@ -16,6 +16,7 @@
 import { OdbcDialect } from './odbcDatabases';
 import { OdbcTableRef } from './odbcNodes';
 import { IOdbcQueryClient } from './odbcWorkerClient';
+import { OdbcRow } from './odbcWorkerProtocol';
 import {
 	ArraySelection,
 	BackendState,
@@ -110,6 +111,18 @@ export interface OdbcSchemaEntry {
 	/** The backend's own name for the type ("varchar", "NUMBER"), shown in the schema panel. */
 	column_type: string;
 	type_display: ColumnDisplayType;
+	/**
+	 * Whether the column holds raw bytes (bytea, BLOB, VARBINARY, IMAGE, ...). Tracked separately
+	 * from `type_display` because that reports Object for binary columns *and* for any type code
+	 * the specification does not define, and the two must not be treated alike -- see
+	 * {@link OdbcTableView._columnSelector} for why binary values are never fetched.
+	 */
+	is_binary: boolean;
+}
+
+/** Whether an ODBC SQL type code denotes raw bytes. */
+export function isBinarySqlType(dataType: number | undefined): boolean {
+	return dataType === SQL_BINARY || dataType === SQL_VARBINARY || dataType === SQL_LONGVARBINARY;
 }
 
 /**
@@ -203,6 +216,13 @@ export class OdbcTableView {
 	private _filteredRows: Promise<number>;
 
 	/**
+	 * Whether the backend accepted the ODBC `{fn OCTET_LENGTH(...)}` escape for measuring a binary
+	 * column. Set false the first time a read of a binary column fails, after which those columns
+	 * report only whether a value is present. See {@link _columnSelector}.
+	 */
+	private _binaryLengthSupported = true;
+
+	/**
 	 * @param client The query client for the owning connection.
 	 * @param ref The table or view this view serves.
 	 * @param dialect How to write SQL for this backend.
@@ -217,6 +237,77 @@ export class OdbcTableView {
 		this._sortClause = this._buildSortClause([], true);
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
+	}
+
+	/**
+	 * Builds the SELECT expression for a column, aliased so duplicate names stay unambiguous.
+	 *
+	 * Binary columns are never fetched as bytes. node-odbc materializes them with
+	 * `napi_create_external_arraybuffer`, which Electron refuses -- V8's memory cage forbids
+	 * external array buffers -- and the refusal is a fatal native error that kills the worker rather
+	 * than an exception anything can catch. It is only fatal in the desktop extension host; the
+	 * server one is real Node and unaffected. Rather than have the Data Explorer work on Workbench
+	 * and crash on Desktop, no binary value is ever requested.
+	 *
+	 * Nothing is lost by it: a binary cell renders as `[BINARY n bytes]`, so the bytes were only
+	 * ever fetched to be measured and discarded. `{fn OCTET_LENGTH(...)}` is ODBC's portable escape
+	 * for that measurement, and where a driver rejects it the fallback asks only whether the value
+	 * is null, which is plain SQL every backend accepts.
+	 */
+	private _columnSelector(entry: OdbcSchemaEntry, alias: string): string {
+		const quoted = this._quote(entry.column_name);
+		if (!entry.is_binary) {
+			return `${quoted} AS ${alias}`;
+		}
+		return this._binaryLengthSupported
+			? `{fn OCTET_LENGTH(${quoted})} AS ${alias}`
+			// 0 for null, 1 for present -- enough to tell an absent value from a binary one without
+			// naming a type or a function.
+			: `CASE WHEN ${quoted} IS NULL THEN 0 ELSE 1 END AS ${alias}`;
+	}
+
+	/**
+	 * Stringifies a cell for export. Binary columns carry a measurement rather than their bytes
+	 * (see {@link _columnSelector}), so they are rendered from that rather than from content.
+	 */
+	private _stringifyExportCell(value: unknown, entry: OdbcSchemaEntry): string {
+		if (!entry.is_binary) {
+			return stringifyExportCell(value);
+		}
+		if (value === null || value === undefined) {
+			return 'NULL';
+		}
+		const measure = Number(value);
+		if (!this._binaryLengthSupported) {
+			return measure === 0 ? 'NULL' : '[BINARY]';
+		}
+		return Number.isFinite(measure) ? `[BINARY ${measure} bytes]` : '[BINARY]';
+	}
+
+	/** Whether any of the given columns is binary, i.e. whether a read of them can be retried. */
+	private _hasBinary(columns: readonly OdbcSchemaEntry[]): boolean {
+		return columns.some(column => column.is_binary);
+	}
+
+	/**
+	 * Runs a read, retrying once without the `{fn OCTET_LENGTH(...)}` escape if the backend rejected
+	 * it. Only the first failure costs a round trip: the fallback is remembered for the view's life.
+	 * @param columns The columns the query selects, used to decide whether a retry could help.
+	 * @param buildQuery Builds the SQL, called again after the fallback is engaged.
+	 */
+	private async _readWithBinaryFallback(
+		columns: readonly OdbcSchemaEntry[],
+		buildQuery: () => string
+	): Promise<OdbcRow[]> {
+		try {
+			return await this.client.runQuery(buildQuery());
+		} catch (error) {
+			if (!this._binaryLengthSupported || !this._hasBinary(columns)) {
+				throw error;
+			}
+			this._binaryLengthSupported = false;
+			return this.client.runQuery(buildQuery());
+		}
 	}
 
 	/** Quotes and escapes an identifier, doubling the dialect's quote character where embedded. */
@@ -411,21 +502,21 @@ export class OdbcTableView {
 		const numRows = upperLimit - lowerLimit + 1;
 
 		// Select each requested column under a positional alias so duplicates are unambiguous.
-		const selectors = params.columns.map((column, i) =>
-			`${this._quote(this.schema[column.column_index].column_name)} AS c${i}`);
-		const query = `SELECT ${selectors.join(', ')} FROM ${this._quotedTable}` +
-			`${this._whereClause}${this._sortClause}${this._paginate(numRows, lowerLimit)}`;
-		const rows = await this.client.runQuery(query);
+		const selected = params.columns.map(column => this.schema[column.column_index]);
+		const rows = await this._readWithBinaryFallback(selected, () =>
+			`SELECT ${selected.map((entry, i) => this._columnSelector(entry, `c${i}`)).join(', ')} ` +
+			`FROM ${this._quotedTable}` +
+			`${this._whereClause}${this._sortClause}${this._paginate(numRows, lowerLimit)}`);
 
 		const result: TableData = { columns: [] };
 		for (let i = 0; i < params.columns.length; i++) {
 			const column = params.columns[i];
-			const displayType = this.schema[column.column_index].type_display;
+			const entry = this.schema[column.column_index];
 			const format = (absIndex: number): ColumnValue => {
 				const row = rows[absIndex - lowerLimit];
 				return row === undefined
 					? SENTINEL_NULL
-					: this._formatValue(firstValue(row, `c${i}`), displayType, params.format_options);
+					: this._formatValue(firstValue(row, `c${i}`), entry, params.format_options);
 			};
 
 			const spec = column.spec;
@@ -447,12 +538,23 @@ export class OdbcTableView {
 	 * Formats a raw ODBC value into the Data Explorer cell encoding: a sentinel number for
 	 * null/NaN/+-Inf, otherwise a formatted string.
 	 */
-	private _formatValue(value: unknown, displayType: ColumnDisplayType, opts: FormatOptions): ColumnValue {
+	private _formatValue(value: unknown, entry: OdbcSchemaEntry, opts: FormatOptions): ColumnValue {
 		if (value === null || value === undefined) {
 			return SENTINEL_NULL;
 		}
 
-		switch (displayType) {
+		// A binary column never carries its bytes here (see _columnSelector): the value is the byte
+		// count, or -- once the length escape has been rejected by this backend -- 0 for null and 1
+		// for present.
+		if (entry.is_binary) {
+			const measure = Number(value);
+			if (!this._binaryLengthSupported) {
+				return measure === 0 ? SENTINEL_NULL : '[BINARY]';
+			}
+			return Number.isFinite(measure) ? `[BINARY ${measure} bytes]` : '[BINARY]';
+		}
+
+		switch (entry.type_display) {
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Decimal: {
 				const num = typeof value === 'number' ? value : Number(value);
@@ -605,60 +707,58 @@ export class OdbcTableView {
 		const kind = params.selection.kind;
 		const order = this._sortClause;
 
-		const runExport = async (query: string, columns: Array<OdbcSchemaEntry>): Promise<ExportedData> => {
-			const rows = await this.client.runQuery(query);
+		// The query is built lazily so it can be rebuilt if the backend rejects the binary-length
+		// escape; see _readWithBinaryFallback.
+		const runExport = async (buildQuery: () => string, columns: Array<OdbcSchemaEntry>): Promise<ExportedData> => {
+			const rows = await this._readWithBinaryFallback(columns, buildQuery);
 			const matrix = [
 				columns.map(c => c.column_name),
-				...rows.map(row => columns.map((_, i) => stringifyExportCell(firstValue(row, `c${i}`)))),
+				...rows.map(row => columns.map((entry, i) => this._stringifyExportCell(firstValue(row, `c${i}`), entry))),
 			];
 			return { data: formatExport(matrix, params.format), format: params.format };
 		};
 
 		const selectorsFor = (columns: Array<OdbcSchemaEntry>) =>
-			columns.map((c, i) => `${this._quote(c.column_name)} AS c${i}`).join(', ');
+			columns.map((c, i) => this._columnSelector(c, `c${i}`)).join(', ');
 
 		switch (kind) {
 			case TableSelectionKind.SingleCell: {
 				const sel = params.selection.selection as DataSelectionSingleCell;
 				const column = this.schema[sel.column_index];
-				const query = `SELECT ${this._quote(column.column_name)} AS c0 FROM ${this._quotedTable}` +
-					`${this._whereClause}${order}${this._paginate(1, sel.row_index)}`;
-				const rows = await this.client.runQuery(query);
-				return { data: stringifyExportCell(firstValue(rows[0], 'c0')), format: params.format };
+				const rows = await this._readWithBinaryFallback([column], () =>
+					`SELECT ${this._columnSelector(column, 'c0')} FROM ${this._quotedTable}` +
+					`${this._whereClause}${order}${this._paginate(1, sel.row_index)}`);
+				return { data: this._stringifyExportCell(firstValue(rows[0], 'c0'), column), format: params.format };
 			}
 			case TableSelectionKind.CellRange: {
 				const sel = params.selection.selection as DataSelectionCellRange;
 				const columns = this.schema.slice(sel.first_column_index, sel.last_column_index + 1);
-				const query = `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}` +
-					`${this._whereClause}${order}${this._paginate(sel.last_row_index - sel.first_row_index + 1, sel.first_row_index)}`;
-				return runExport(query, columns);
+				return runExport(() => `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}` +
+					`${this._whereClause}${order}${this._paginate(sel.last_row_index - sel.first_row_index + 1, sel.first_row_index)}`, columns);
 			}
 			case TableSelectionKind.RowRange: {
 				const sel = params.selection.selection as DataSelectionRange;
-				const query = `SELECT ${selectorsFor(this.schema)} FROM ${this._quotedTable}` +
-					`${this._whereClause}${order}${this._paginate(sel.last_index - sel.first_index + 1, sel.first_index)}`;
-				return runExport(query, this.schema);
+				return runExport(() => `SELECT ${selectorsFor(this.schema)} FROM ${this._quotedTable}` +
+					`${this._whereClause}${order}${this._paginate(sel.last_index - sel.first_index + 1, sel.first_index)}`, this.schema);
 			}
 			case TableSelectionKind.ColumnRange: {
 				const sel = params.selection.selection as DataSelectionRange;
 				const columns = this.schema.slice(sel.first_index, sel.last_index + 1);
-				const query = `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}${this._whereClause}${order}`;
-				return runExport(query, columns);
+				return runExport(() => `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}${this._whereClause}${order}`, columns);
 			}
 			case TableSelectionKind.ColumnIndices: {
 				const sel = params.selection.selection as DataSelectionIndices;
 				const columns = sel.indices.map(i => this.schema[i]);
-				const query = `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}${this._whereClause}${order}`;
-				return runExport(query, columns);
+				return runExport(() => `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}${this._whereClause}${order}`, columns);
 			}
 			case TableSelectionKind.RowIndices: {
 				const sel = params.selection.selection as DataSelectionIndices;
-				return runExport(this._rowIndexQuery(selectorsFor(this.schema), sel.indices), this.schema);
+				return runExport(() => this._rowIndexQuery(selectorsFor(this.schema), sel.indices), this.schema);
 			}
 			case TableSelectionKind.CellIndices: {
 				const sel = params.selection.selection as DataSelectionCellIndices;
 				const columns = sel.column_indices.map(i => this.schema[i]);
-				return runExport(this._rowIndexQuery(selectorsFor(columns), sel.row_indices), columns);
+				return runExport(() => this._rowIndexQuery(selectorsFor(columns), sel.row_indices), columns);
 			}
 		}
 	}
@@ -715,8 +815,13 @@ export class OdbcTableView {
 					break;
 				case ColumnProfileType.SmallFrequencyTable:
 				case ColumnProfileType.LargeFrequencyTable:
-					result[spec.profile_type] = await this._frequencyTable(
-						quotedName, (spec.params as ColumnFrequencyTableParams).limit, filteredRows);
+					// A frequency table over a binary column would have to select the bytes as the
+					// group key, which is the read that kills the worker (see _columnSelector) --
+					// and "the most common blob" is not a question worth answering anyway.
+					result[spec.profile_type] = entry.is_binary
+						? { values: [], counts: [], other_count: filteredRows }
+						: await this._frequencyTable(
+							quotedName, (spec.params as ColumnFrequencyTableParams).limit, filteredRows);
 					break;
 				case ColumnProfileType.SmallHistogram:
 				case ColumnProfileType.LargeHistogram:
@@ -1044,9 +1149,6 @@ function truncate(value: string, opts: FormatOptions): string {
 function stringifyExportCell(value: unknown): string {
 	if (value === null || value === undefined) {
 		return 'NULL';
-	}
-	if (value instanceof Uint8Array) {
-		return `[BINARY ${value.byteLength} bytes]`;
 	}
 	return String(value);
 }
