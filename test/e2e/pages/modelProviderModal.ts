@@ -23,7 +23,6 @@ import {
 
 // The "Configure LLM Providers" modal, which the Configure Providers command
 // opens by default (`assistant.newProviderModal`).
-// Same public surface as ModelProviderAuth so the sign-in test body is drop-in.
 // The testid sits on a zero-size layout wrapper (its child dialog container is
 // position:absolute, so the wrapper collapses and Playwright reports it hidden).
 // Scope to the actual visible dialog box inside it, so visibility gates and
@@ -46,11 +45,11 @@ const REMOVE_BUTTON = `${MODAL} button.positron-button:has-text("Remove")`;
 const CLOSE_BUTTON = `${MODAL} button.positron-button:has-text("Close")`;
 
 /**
- * Page object for the "Configure LLM Providers" modal. Exposes the same
- * loginModelProvider / logoutModelProvider surface as ModelProviderAuth, so the
- * legacy sign-in test body can be reused unchanged. This modal is what the
+ * Page object for the "Configure LLM Providers" modal. This is what the
  * Configure Providers command opens unless a suite pins
- * `assistant.newProviderModal` to false.
+ * `assistant.newProviderModal` to false, and it is the only page object for
+ * provider sign-in -- the legacy dialog's page object was removed once every
+ * suite had moved over (posit-dev/positron#15537).
  */
 export class ModelProviderModal {
 	private hotKeys: HotKeys;
