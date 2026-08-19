@@ -44,10 +44,28 @@
 	background-color: var(--vscode-positronWelcome-environmentSetupTitleBackground);
 	color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
 	display: flex;
+	flex-wrap: wrap;
 	gap: 8px;
 	padding: 8px 16px;
 	/* The progress line is positioned against this. */
 	position: relative;
+}
+
+/*
+ * The recheck and settings buttons move as a pair: at the card's narrowest
+ * widths there is not enough room beside the title for both, and wrapping
+ * them individually would strand one button alone on its own line. This
+ * wraps the pair below the title instead. No horizontal alignment is set
+ * here: the title's `flex: 1 1 auto` already grows to fill the row and
+ * pushes this flush right when they share it with the title, and leaving
+ * this at the flex default keeps it flush left, under the title's text,
+ * once it wraps onto its own row.
+ */
+.positron-welcome-page-environment-setup .environment-health-header-buttons {
+	align-items: center;
+	display: flex;
+	flex: 0 0 auto;
+	gap: 8px;
 }
 
 /* An h3 for structure only; the button inside it is what you see. */

@@ -87,37 +87,43 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 				<h2 className='environment-health-header-title' id={titleId}>
 					{localize('positron.welcome.environmentSetupTitle', "Environment setup")}
 				</h2>
-				{!allChecksDisabled &&
-					<Button
-						ariaDisabled={busy}
-						ariaLabel={localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
-						className='environment-health-header-button'
-						hoverManager={hoverManager}
-						// While anything is running this says why it cannot be pressed.
-						// A control that looks pressable and silently does nothing is
-						// worse than one that explains itself.
-						tooltip={busy
-							? localize('positron.welcome.environmentSetupCheckRerunBusyTooltip', "Waiting for the current check to finish")
-							: localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
-						onPressed={() => languages.forEach(language => environmentHealthService.rerunCheckForLanguage(language.language))}
-					>
-						<span aria-hidden='true' className='codicon codicon-refresh' />
-					</Button>}
 				{/*
-					An icon beside the recheck control rather than a link under the card.
-					The link read as a call to action for turning the feature off, which
-					put it in competition with the fix buttons.
+					Grouped so the pair moves as a unit: see environmentHealthSection.css
+					for how the header wraps them below the title, rather than squeezing
+					both buttons into whatever sliver is left beside the wrapping text.
 				*/}
 				{!allChecksDisabled &&
-					<Button
-						ariaLabel={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
-						className='environment-health-header-button'
-						hoverManager={hoverManager}
-						tooltip={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
-						onPressed={openSetting}
-					>
-						<span aria-hidden='true' className='codicon codicon-gear' />
-					</Button>}
+					<div className='environment-health-header-buttons'>
+						<Button
+							ariaDisabled={busy}
+							ariaLabel={localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
+							className='environment-health-header-button'
+							hoverManager={hoverManager}
+							// While anything is running this says why it cannot be pressed.
+							// A control that looks pressable and silently does nothing is
+							// worse than one that explains itself.
+							tooltip={busy
+								? localize('positron.welcome.environmentSetupCheckRerunBusyTooltip', "Waiting for the current check to finish")
+								: localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
+							onPressed={() => languages.forEach(language => environmentHealthService.rerunCheckForLanguage(language.language))}
+						>
+							<span aria-hidden='true' className='codicon codicon-refresh' />
+						</Button>
+						{/*
+							An icon beside the recheck control rather than a link under the
+							card. The link read as a call to action for turning the feature
+							off, which put it in competition with the fix buttons.
+						*/}
+						<Button
+							ariaLabel={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
+							className='environment-health-header-button'
+							hoverManager={hoverManager}
+							tooltip={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
+							onPressed={openSetting}
+						>
+							<span aria-hidden='true' className='codicon codicon-gear' />
+						</Button>
+					</div>}
 				{/*
 					Sits on the header's bottom edge, outside the text flow, so starting
 					a check cannot shift anything below it. A spinner inside the button
