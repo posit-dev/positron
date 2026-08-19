@@ -5,8 +5,10 @@
 
 import { ServerParsedArgs } from './serverEnvironmentService.js';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
+import { LicenseManager } from './licenseManager.js';
 
 /**
  * The result of validating a license.
@@ -115,6 +117,11 @@ jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
  * @returns A promise that resolves to the license validation result.
  */
 export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs): Promise<ILicenseValidationResult> {
+
+	if (isRemoteLicenseManagerMode()) {
+		console.log('Acquiring a Positron license through the license manager named by POSITRON_LICENSE_MANAGER_PATH.');
+		return validateWithLicenseManager(process.env.POSITRON_LICENSE_MANAGER_PATH!);
+	}
 
 	// Check the command-line arguments for a license key.
 	if (args['license-key']) {
@@ -275,4 +282,79 @@ export async function validateLicense(connectionToken: string, license: string, 
 		// not academic.
 		academic: matchedKey === orchestratorKey,
 	};
+}
+
+/**
+ * Whether the server should get its license from a license manager client
+ * rather than from a signed license key.
+ */
+export function isRemoteLicenseManagerMode(): boolean {
+	return !!process.env.POSITRON_LICENSE_MANAGER_PATH;
+}
+
+/**
+ * Acquires a license by running the license manager client.
+ *
+ * @param binaryPath Path to the license manager client binary.
+ * @returns The license validation result.
+ */
+async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseValidationResult> {
+	// A missing binary is a permanent, unambiguous deployment error. Checking up
+	// front avoids sitting through the whole startup timeout respawning it.
+	if (!fs.existsSync(binaryPath)) {
+		console.error('License manager binary does not exist: ', binaryPath);
+		return { valid: false };
+	}
+
+	const manager = new LicenseManager({
+		binaryPath,
+		onUnlicensed: () => {
+			console.error('Positron is no longer licensed: the license manager could not hold a lease. Shutting down.');
+			shutdown(1);
+		},
+	});
+
+	// Terminating the client is what checks the seat back in, and nothing else in
+	// the server does it for us: the `DisposableStore` in `createServer` is never
+	// disposed, and Node's default signal disposition kills the process without
+	// running `exit` listeners. So own the signals here.
+	//
+	// SIGKILL cannot be trapped here, but the client covers that on its own.
+	// The one gap is a kill that takes the client down;
+	// the seat then stays checked out until LM expires the provisional lease.
+	let shuttingDown = false;
+	const shutdown = (code: number): void => {
+		if (shuttingDown) {
+			// The client retries while failing, and an orchestrator may follow
+			// SIGTERM with more signals; only the first one gets to shut us down.
+			return;
+		}
+		shuttingDown = true;
+		manager.stop().finally(() => process.exit(code));
+	};
+
+	// Installed before the client is even up, because `start()` waits up to a
+	// minute for the first lease: a signal in that window would otherwise take
+	// the default disposition and orphan a client that has already checked a
+	// seat out.
+	for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+		process.on(signal, () => {
+			console.log(`Received ${signal}; returning the Positron license before exiting.`);
+			const signalNumber = os.constants.signals[signal];
+			shutdown(typeof signalNumber === 'number' ? 128 + signalNumber : 1);
+		});
+	}
+
+	// Last-ditch, for exits that do not come from a signal (an unhandled error,
+	// or `process.exit` called elsewhere). A process `exit` handler cannot await,
+	// so all this can do is signal the client and hope it outlives us.
+	process.on('exit', () => manager.dispose());
+
+	if (!await manager.start()) {
+		await manager.stop();
+		console.error('The license manager did not report an activated license. Positron requires a license to run in a hosted environment.');
+		return { valid: false };
+	}
+
+	return { valid: true };
 }

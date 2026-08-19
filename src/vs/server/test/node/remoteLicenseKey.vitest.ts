@@ -6,9 +6,20 @@
 /// <reference types="vitest/globals" />
 
 import * as crypto from 'crypto';
-import { describe, expect, it } from 'vitest';
 import { validateLicense, validateLicenseKey } from '../../node/remoteLicenseKey.js';
-import { ServerParsedArgs } from '../../node/serverEnvironmentService.js';
+import type { ServerParsedArgs } from '../../node/serverEnvironmentService.js';
+
+function createServerArgs(): ServerParsedArgs {
+	return {
+		'accept-server-license-terms': false,
+		workspace: '',
+		folder: '',
+		help: false,
+		version: false,
+		compatibility: '',
+		_: [],
+	};
+}
 
 describe('validateLicense', () => {
 	// Generate a 2048-bit test key pair once for the suite (sync, ~100ms).
@@ -174,10 +185,6 @@ describe('validateLicense', () => {
 	});
 
 	it('falls back to the embedded keys when none are supplied', async () => {
-		// With no `publicKeys` argument, validation uses the embedded PublicKey /
-		// OrchestratorPublicKey constants. A token signed by our test key matches
-		// neither, so this exercises the default-key branch and must reject it. It
-		// guards against the default array being accidentally emptied or dropped.
 		const token = 'test-token-default';
 		const timestamp = new Date().toISOString();
 		const license = mintLicense(token, 'Hub', 'Corp', timestamp);
@@ -190,21 +197,38 @@ describe('validateLicense', () => {
 
 describe('validateLicenseKey', () => {
 	it('fails closed when no signed token is available (no raw-license fallback)', async () => {
-		// With no --license-key args and no env-provided token, validation must fail
-		// rather than fall back to reading a raw .lic from disk.
 		const prevKey = process.env.POSITRON_LICENSE_KEY;
 		const prevFile = process.env.POSITRON_LICENSE_KEY_FILE;
+		const prevManager = process.env.POSITRON_LICENSE_MANAGER_PATH;
 		delete process.env.POSITRON_LICENSE_KEY;
 		delete process.env.POSITRON_LICENSE_KEY_FILE;
+		delete process.env.POSITRON_LICENSE_MANAGER_PATH;
 		try {
-			// validateLicenseKey only reads the license-related args; an empty
-			// object covers the no-token-provided case under test.
-			const args = {} as ServerParsedArgs;
+			const args = createServerArgs();
 			const result = await validateLicenseKey('some-token', args);
 			expect(result.valid).toBe(false);
 		} finally {
 			if (prevKey !== undefined) { process.env.POSITRON_LICENSE_KEY = prevKey; }
 			if (prevFile !== undefined) { process.env.POSITRON_LICENSE_KEY_FILE = prevFile; }
+			if (prevManager !== undefined) { process.env.POSITRON_LICENSE_MANAGER_PATH = prevManager; }
+		}
+	});
+
+	it('takes the license manager path over a license key, and fails fast when the binary is missing', async () => {
+		const prevKey = process.env.POSITRON_LICENSE_KEY;
+		const prevManager = process.env.POSITRON_LICENSE_MANAGER_PATH;
+		process.env.POSITRON_LICENSE_KEY = '{"connection_token":"some-token"}';
+		process.env.POSITRON_LICENSE_MANAGER_PATH = '/nonexistent/license-manager-aws-sagemaker';
+		try {
+			const args = createServerArgs();
+			const started = Date.now();
+			const result = await validateLicenseKey('some-token', args);
+
+			expect(result.valid).toBe(false);
+			expect(Date.now() - started).toBeLessThan(1_000);
+		} finally {
+			if (prevKey === undefined) { delete process.env.POSITRON_LICENSE_KEY; } else { process.env.POSITRON_LICENSE_KEY = prevKey; }
+			if (prevManager === undefined) { delete process.env.POSITRON_LICENSE_MANAGER_PATH; } else { process.env.POSITRON_LICENSE_MANAGER_PATH = prevManager; }
 		}
 	});
 });
