@@ -115,6 +115,13 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 			return;
 		}
 		if (view === 'connect' && signedIn) {
+			// The sign-in succeeded, so drop the cancel handler instead of running it.
+			// The connect view reports the handler while the sign-in is in flight and
+			// clears it when the sign-in settles, but that clear never happens here:
+			// this transition unmounts the view first, so the state update it would
+			// react to lands on an unmounted component. Left set, the handler would
+			// cancel a completed sign-in the next time Back or Close reached it.
+			props.pendingSignIn.cancel = undefined;
 			setView('connected');
 		} else if (view === 'connected' && !signedIn) {
 			setView('list');

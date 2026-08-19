@@ -189,6 +189,35 @@ describe('ConfigureLLMProviders', () => {
 		await act(async () => { resolveSignIn(); });
 	});
 
+	// A successful sign-in unmounts the connect view before it can clear its own
+	// handler, so the modal has to drop it as it routes to the connected view.
+	it('drops the pending sign-in handler when the sign-in succeeds', async () => {
+		const pendingSignIn: PendingSignIn = {};
+		const actions: string[] = [];
+		let resolveSignIn = () => { };
+		const onAction = (_s: IPositronLanguageModelSource, _c: IPositronLanguageModelConfig, action: string) => {
+			actions.push(action);
+			return action === 'oauth-signin'
+				? new Promise<void>(resolve => { resolveSignIn = resolve; })
+				: Promise.resolve();
+		};
+		const user = userEvent.setup();
+		renderModal([positAi], undefined, onAction, pendingSignIn);
+
+		await user.click(screen.getByRole('button', { name: /connect/i }));
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(pendingSignIn.cancel).toBeTypeOf('function');
+
+		// The provider reports the sign-in before the action promise settles, which
+		// is what routes the modal to the connected view.
+		await act(async () => { onChange.fire({ ...positAi, signedIn: true }); });
+		await act(async () => { resolveSignIn(); });
+
+		expect(pendingSignIn.cancel).toBeUndefined();
+		await user.click(screen.getByRole('button', { name: 'Back' }));
+		expect(actions).toStrictEqual(['oauth-signin']);
+	});
+
 	it('cancels an in-flight OAuth sign-in when Back returns to the list', async () => {
 		const user = userEvent.setup();
 		const actions: string[] = [];
