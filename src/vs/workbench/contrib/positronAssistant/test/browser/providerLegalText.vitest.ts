@@ -9,6 +9,7 @@ import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProvid
 
 const positAi = { id: 'posit-ai', displayName: 'Posit AI', settingName: 'posit-ai' };
 const custom = { id: 'openai-compatible', displayName: 'Custom Provider', settingName: 'openai-compatible' };
+const customAnthropic = { id: 'my anthropic', displayName: 'my anthropic', customKind: 'anthropic' };
 
 describe('providerLegalText', () => {
 	it('builds a getting-started note for Posit AI', () => {
@@ -27,5 +28,11 @@ describe('providerLegalText', () => {
 
 	it('builds a usage disclaimer naming the provider', () => {
 		expect(getProviderUsageDisclaimerText(positAi)).toContain('Posit AI');
+	});
+
+	it('gives a custom entry the custom text rather than treating its name as a vendor', () => {
+		expect(getProviderTermsOfServiceText(customAnthropic)).toBe(getProviderTermsOfServiceText(custom));
+		expect(getProviderUsageDisclaimerText(customAnthropic)).toBe(getProviderUsageDisclaimerText(custom));
+		expect(getProviderUsageDisclaimerText(customAnthropic)).not.toContain('my anthropic');
 	});
 });
