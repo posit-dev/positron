@@ -4241,6 +4241,10 @@ declare module 'positron' {
 		 * `SKILL.md` per subdirectory. Resolved on whichever machine the extension
 		 * host runs on, so the paths are valid for an extension reading them.
 		 *
+		 * Waits for the extensions that contribute roots to finish activating
+		 * before resolving, so an early caller does not race their registration
+		 * and see an empty list.
+		 *
 		 * @returns A Thenable resolving to absolute paths, empty when no skill
 		 * roots are registered.
 		 */

@@ -26,6 +26,11 @@ import { PromptRenderer } from '../../../contrib/positronAssistant/browser/promp
 import { getPositronContextPrompts } from '../../../contrib/positronAssistant/browser/prompts/positronContextPrompts.js';
 import { getForegroundSessionInfo } from '../../../contrib/positronAssistant/browser/prompts/promptSessions.js';
 import * as xml from '../../../contrib/positronAssistant/common/xml.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { AI_ENABLED_KEY } from '../../../contrib/positronAssistant/common/positronAIConfiguration.js';
+import { AI_ENABLED_ACTIVATION_EVENT } from '../../../contrib/positronAssistant/browser/aiExtensionActivation.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadAiFeatures)
 export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeaturesShape {
@@ -46,6 +51,9 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentAllowedCommandsService private readonly _agentAllowedCommandsService: IAgentAllowedCommandsService,
 		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -294,6 +302,38 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		// not observe the pre-initialization snapshot.
 		await this._aiProviderService.whenInitialized;
 		return this._aiProviderService.isEnabled(id);
+	}
+
+	/**
+	 * Activates the extensions that contribute agent skill roots and resolves once
+	 * they have finished activating, so a caller reading the roots cannot race
+	 * their registration.
+	 *
+	 * Skill roots are registered from extension activation (see the bundled
+	 * `positron-skills`), which happens on `onAiEnabled` -- fired from a
+	 * `LifecyclePhase.Eventually` contribution, so several seconds after the
+	 * extension host comes up. A consumer that reads the roots earlier than that
+	 * used to see an empty list and, because it reads them once, stay without
+	 * skills for the life of the window.
+	 *
+	 * Never rejects: a contributor that fails to activate leaves the caller with
+	 * whatever roots did register, rather than failing the read outright.
+	 *
+	 * Callers must not be extensions that themselves activate on `onAiEnabled`
+	 * and read the roots from their own `activate()`: that would wait on their
+	 * own in-flight activation. No extension does this today.
+	 */
+	async $activateSkillRootProviders(): Promise<void> {
+		// Same gate as the activation event itself: with AI off there is nothing to
+		// activate, and an unset value already reads through as the `true` default.
+		if (this._configurationService.getValue<boolean>(AI_ENABLED_KEY) !== true) {
+			return;
+		}
+		try {
+			await this._extensionService.activateByEvent(AI_ENABLED_ACTIVATION_EVENT);
+		} catch (error) {
+			this._logService.error('[MainThreadAiFeatures] Failed to activate skill root providers', error);
+		}
 	}
 
 	/**

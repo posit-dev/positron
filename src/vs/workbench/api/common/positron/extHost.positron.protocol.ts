@@ -446,6 +446,7 @@ export interface MainThreadAiFeaturesShape {
 	$getEnabledProviders(): Thenable<string[]>;
 	$isProviderEnabled(id: string): Thenable<boolean>;
 	$getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<ISerializedAgentCommand[]>;
+	$activateSkillRootProviders(): Promise<void>;
 	$validateAndExecuteCommand(
 		commandId: string,
 		args: unknown[] | undefined,

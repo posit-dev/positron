@@ -19,6 +19,9 @@ import { IViewsService } from '../../../../services/views/common/viewsService.js
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IAgentAllowedCommandsService } from '../../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
+import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { ExtHostAiFeaturesShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { MainThreadAiFeatures } from '../../../browser/positron/mainThreadAiFeatures.js';
 
@@ -43,6 +46,8 @@ describe('MainThreadAiFeatures', () => {
 	let onChangeProviderConfig: Emitter<never>;
 	let onDidChangeProviderEnablement: ReturnType<typeof vi.fn<(id: string, enabled: boolean) => void>>;
 	let getRegisteredSources: ReturnType<typeof vi.fn<() => IPositronLanguageModelSource[]>>;
+	let activateByEvent: ReturnType<typeof vi.fn<(event: string) => Promise<void>>>;
+	let aiEnabled: boolean | undefined;
 
 	/**
 	 * Constructs a MainThreadAiFeatures with the given initial catalog and returns it. The
@@ -51,6 +56,8 @@ describe('MainThreadAiFeatures', () => {
 	 */
 	async function createMainThread(initialCatalog: IResolvedProviderData[], whenInitialized: Promise<void> = Promise.resolve()): Promise<MainThreadAiFeatures> {
 		catalog = initialCatalog;
+		aiEnabled = true;
+		activateByEvent = vi.fn<(event: string) => Promise<void>>(() => Promise.resolve());
 		onDidChangeProviders = disposables.add(new Emitter<IProviderCatalogChangeData>());
 		onChangeProviderConfig = disposables.add(new Emitter<never>());
 		onDidChangeProviderEnablement = vi.fn<(id: string, enabled: boolean) => void>();
@@ -84,6 +91,9 @@ describe('MainThreadAiFeatures', () => {
 			stubInterface<IFileService>({}),
 			stubInterface<IAgentAllowedCommandsService>({}),
 			aiProviderService,
+			stubInterface<IExtensionService>({ activateByEvent }),
+			stubInterface<IConfigurationService>({ getValue: (() => aiEnabled) as IConfigurationService['getValue'] }),
+			stubInterface<ILogService>({ error: () => { } }),
 		));
 
 		// Let the whenInitialized microtask (which captures the enablement baseline) settle.
@@ -141,5 +151,27 @@ describe('MainThreadAiFeatures', () => {
 		onDidChangeProviders.fire({ catalog, enabledChanged: false, connectionChanged: true, modelsChanged: false });
 
 		expect(onDidChangeProviderEnablement).not.toHaveBeenCalled();
+	});
+	it('$activateSkillRootProviders activates the AI extensions so a roots read cannot race registration', async () => {
+		const mainThread = await createMainThread([]);
+
+		await expect(mainThread.$activateSkillRootProviders()).resolves.toBeUndefined();
+		expect(activateByEvent).toHaveBeenCalledExactlyOnceWith('onAiEnabled');
+	});
+
+	it('$activateSkillRootProviders activates nothing when AI is disabled', async () => {
+		const mainThread = await createMainThread([]);
+		aiEnabled = false;
+
+		await mainThread.$activateSkillRootProviders();
+
+		expect(activateByEvent).not.toHaveBeenCalled();
+	});
+
+	it('$activateSkillRootProviders resolves when a contributor fails to activate', async () => {
+		const mainThread = await createMainThread([]);
+		activateByEvent.mockRejectedValue(new Error('activation blew up'));
+
+		await expect(mainThread.$activateSkillRootProviders()).resolves.toBeUndefined();
 	});
 });

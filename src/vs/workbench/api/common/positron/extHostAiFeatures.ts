@@ -205,8 +205,8 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	/**
 	 * Skill roots registered at runtime via {@link registerAgentSkillRoot}.
 	 * Held in the extension host because both the registering extension and the
-	 * reading consumer (the assistant) live here, so no main-thread round-trip
-	 * is needed and registration is observable immediately.
+	 * reading consumer (the assistant) live here, so registration is observable
+	 * immediately once the registering extension has activated.
 	 */
 	private readonly _registeredSkillRoots = new Set<string>();
 
@@ -216,6 +216,11 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	 * when none are registered.
 	 */
 	async getAgentSkillRoots(): Promise<string[]> {
+		// Wait for the extensions that contribute roots to finish activating before
+		// reading the set. They register from activation, which happens later than
+		// the extension host itself comes up, so an unguarded read can land first
+		// and return nothing -- and consumers typically read once per window.
+		await this._proxy.$activateSkillRootProviders();
 		return [...this._registeredSkillRoots];
 	}
 
