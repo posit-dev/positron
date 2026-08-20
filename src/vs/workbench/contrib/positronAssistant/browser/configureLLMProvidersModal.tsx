@@ -114,10 +114,14 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 		pendingCancelRef.current = cancel;
 	}, []);
 
-	const close = () => {
-		// Closing (footer Close, Esc, or backdrop) during an in-flight OAuth sign-in
-		// cancels it so the device flow is not left running after the modal is gone.
+	// Unmounting the connect view drops its cancel handler, so Back and Close
+	// both cancel an in-flight sign-in before leaving.
+	const cancelPendingSignIn = () => {
 		pendingCancelRef.current?.();
+	};
+
+	const close = () => {
+		cancelPendingSignIn();
 		props.onClose();
 		props.renderer.dispose();
 	};
@@ -127,6 +131,11 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	const editRawConfig = () => {
 		services.commandService.executeCommand(OPEN_PROVIDERS_JSON_COMMAND);
 		close();
+	};
+
+	const backToList = () => {
+		cancelPendingSignIn();
+		setView('list');
 	};
 
 	const title = activeView === 'list' || !selectedSource
@@ -158,7 +167,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 				<ConnectProviderView
 					source={selectedSource}
 					onAction={props.onAction}
-					onBack={() => setView('list')}
+					onBack={backToList}
 					onClose={close}
 					onEditRawConfig={editRawConfig}
 					onPendingSignInChange={setPendingCancel}
@@ -168,7 +177,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 				<ConnectedProviderView
 					source={selectedSource}
 					onAction={props.onAction}
-					onBack={() => setView('list')}
+					onBack={backToList}
 					onClose={close}
 				/>
 			}

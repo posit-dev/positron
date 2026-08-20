@@ -133,7 +133,6 @@ export const SelectDataConnectionMechanism = (props: SelectDataConnectionMechani
 				'positron.selectDataConnectionMechanism.selectMechanism',
 				"Select how to connect"
 			)}
-			titleSize='large'
 			width={492}
 			onCancel={cancelHandler}
 			onSubmit={nextHandler}

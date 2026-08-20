@@ -4,14 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect, tags } from '../_test.setup';
-import { ModelProvider } from '../../pages/positronAssistant';
+import { ModelProvider } from '../../pages/modelProviderShared';
 
 test.use({
 	suiteId: __filename,
-	// Signs in through the legacy provider dialog (pages/positronAssistant.ts),
-	// which is no longer the default. Remove the pin when that page object is
-	// ported to the new modal.
-	extraSettings: { 'assistant.newProviderModal': false },
 });
 
 const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
@@ -23,7 +19,7 @@ test.describe('Posit Assistant', {
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
 		test.describe(provider, () => {
 			test.beforeAll(async function ({ app, settings }) {
-				await app.workbench.assistant.loginModelProvider(provider);
+				await app.workbench.modelProviderModal.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');

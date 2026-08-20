@@ -122,6 +122,18 @@
 	align-self: flex-start;
 }
 
+.connect-provider-auth-method {
+	display: flex;
+	gap: 16px;
+}
+
+.connect-provider-auth-method label {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+}
+
 .connect-provider-apikey {
 	display: flex;
 	flex-direction: column;

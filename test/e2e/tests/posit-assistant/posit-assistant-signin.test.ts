@@ -8,14 +8,26 @@ import { ModelProvider } from '../../pages/modelProviderShared';
 
 test.use({
 	suiteId: __filename,
-	// This suite covers the legacy provider dialog. Its new-modal counterpart is
-	// posit-assistant-signin-new-modal. Delete this file, and the pin, when the
-	// legacy dialog is removed.
-	extraSettings: { 'assistant.newProviderModal': false },
+	// Launch the app with the auto-sign-in env vars unset so the API-key providers
+	// start disconnected and the test genuinely drives the modal's connect flow
+	// (typing ANTHROPIC_KEY / OPENAI_KEY) instead of finding them already signed in.
+	// AWS Bedrock keeps its environment credential chain (it has no key to type and
+	// authenticates from the environment by design).
+	extraEnv: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined },
 });
+
+// Whatever goes wrong in this suite, do not reach for a window reload. A restarted
+// extension host re-probes the cloud credential-chain metadata endpoints (AWS/Azure
+// IMDS, metadata.google.internal). Those are unreachable from the test container and
+// hang, starving DNS for api.anthropic.com and api.openai.com. Provider key
+// validation then aborts on its own fixed budget (KEY_VALIDATION_TIMEOUT_MS in
+// extensions/authentication/src/constants.ts) and the modal never reaches the
+// Connected view. Settings that need to be in place go through `extraSettings`,
+// which is written before the app starts and so needs no reload.
 
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'anthropic-api',
+	'openai-api',
 	'amazon-bedrock',
 	'posit-ai',
 	// Microsoft Foundry (Azure) via API key + Base URL on desktop. The managed
@@ -29,7 +41,7 @@ test.describe('Posit Assistant Sign-in', {
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {
-			await app.workbench.modelProviderAuth.loginModelProvider(provider);
+			await app.workbench.modelProviderModal.loginModelProvider(provider);
 
 			try {
 				await app.workbench.positAssistant.open();
@@ -50,7 +62,7 @@ test.describe('Posit Assistant Sign-in', {
 				const responseText = await app.workbench.positAssistant.getLastResponseText();
 				test.expect(responseText.length).toBeGreaterThan(0);
 			} finally {
-				await app.workbench.modelProviderAuth.logoutModelProvider(provider);
+				await app.workbench.modelProviderModal.logoutModelProvider(provider);
 			}
 		});
 	}

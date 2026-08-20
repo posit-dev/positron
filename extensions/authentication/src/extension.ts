@@ -40,6 +40,10 @@ import {
 	detectSnowflakeCredentials,
 	getSnowflakeConnectionsTomlPath,
 } from './credentials/snowflake';
+import {
+	detectDatabricksConfigCredentials,
+	getDatabricksConfigPath,
+} from './credentials/databricks';
 import { PositOAuthProvider } from './positOAuthProvider';
 import { DatabricksAuthProvider } from './databricksAuthProvider';
 import { normalizeHost } from './databricksOAuth';
@@ -176,7 +180,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	await registerGeminiProvider(context);
 	await registerGeapProvider(context);
 	await registerDeepSeekProvider(context);
-	registerDatabricksProvider(context);
+	await registerDatabricksProvider(context);
 	registerCustomProvider(context);
 
 	// Register providers so the assistant knows about them; enablement is
@@ -373,7 +377,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 		{
 			authProviderId: FOUNDRY_MANAGED_CREDENTIALS.authProvider.id,
 			scopes: FOUNDRY_MANAGED_CREDENTIALS.authProvider.scopes,
-			isAvailable: () => hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS),
+			isAvailable: () => !!hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS),
 		}
 	);
 	context.subscriptions.push(
@@ -667,11 +671,71 @@ async function registerDeepSeekProvider(
 	log.info(`Registered auth provider: ${DEEPSEEK_AUTH_PROVIDER_ID}`);
 }
 
-function registerDatabricksProvider(
+async function registerDatabricksProvider(
 	context: vscode.ExtensionContext
-): void {
+): Promise<void> {
 	const logger = new AuthProviderLogger('Databricks');
-	const provider = new DatabricksAuthProvider(context);
+	let lastCfgCheck: number | undefined;
+	let pendingMtime: number | undefined;
+
+	const provider = new DatabricksAuthProvider(context, {
+		resolve: async () => {
+			// A Workbench-provisioned profile outranks DATABRICKS_TOKEN: the
+			// admin-supplied credential shouldn't be overridable from the shell.
+			const envToken = hasManagedCredentials(DATABRICKS_AUTH_PROVIDER_ID)
+				? undefined
+				: process.env.DATABRICKS_TOKEN?.trim();
+			if (envToken) {
+				const host = getCachedProvider('databricks')?.connection.databricks?.host?.trim();
+				if (!host) {
+					throw new Error(
+						'DATABRICKS_TOKEN is set but no workspace host is configured. ' +
+						'Set DATABRICKS_HOST or enter the workspace URL in the provider dialog.'
+					);
+				}
+				await validateDatabricksApiKey(envToken, { baseUrl: host });
+				return envToken;
+			}
+			const credential = await detectDatabricksConfigCredentials();
+			if (!credential) {
+				throw new Error('No Databricks credentials found in the environment');
+			}
+			if (credential.host) {
+				await saveDatabricksHost(normalizeHost(credential.host)).then(undefined, err =>
+					logger.logOperationError('sync Databricks host', err)
+				);
+			}
+			// Advance mtime only after a successful resolve so a failed
+			// attempt retries on the next getSessions call.
+			if (pendingMtime !== undefined) {
+				lastCfgCheck = pendingMtime;
+				pendingMtime = undefined;
+			}
+			return credential.token;
+		},
+		shouldRefresh: async () => {
+			if (process.env.DATABRICKS_TOKEN &&
+				!hasManagedCredentials(DATABRICKS_AUTH_PROVIDER_ID)) {
+				return false; // Static env token; nothing to re-read.
+			}
+			try {
+				const stats = await fs.promises.stat(getDatabricksConfigPath());
+				const mtime = stats.mtime.getTime();
+				if (!lastCfgCheck || mtime > lastCfgCheck) {
+					pendingMtime = mtime;
+					return true;
+				}
+				return false;
+			} catch {
+				// The config file is gone or unreadable; re-resolve so the cached
+				// session is dropped, and forget the watermark so a file restored
+				// with an older mtime still re-resolves.
+				lastCfgCheck = undefined;
+				pendingMtime = undefined;
+				return true;
+			}
+		},
+	});
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
 			DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', provider,
@@ -690,6 +754,10 @@ function registerDatabricksProvider(
 			}
 		},
 	});
+
+	await provider.resolveChainCredentials().catch(err =>
+		logger.logCredentialResolution('failed', `Initial credential resolution failed: ${err}`)
+	);
 	logger.info('Registered auth provider');
 }
 

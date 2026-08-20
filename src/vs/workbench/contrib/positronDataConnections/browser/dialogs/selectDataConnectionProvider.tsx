@@ -255,7 +255,6 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 				'positron.selectDataConnectionProvider.selectProvider',
 				"Select a provider"
 			)}
-			titleSize='large'
 			width={492}
 			onCancel={cancelHandler}
 			onSubmit={nextHandler}

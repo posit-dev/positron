@@ -42,11 +42,9 @@ export function hasMigratableSettings(
 
 /**
  * True when the user's providers.json file already carries provider config,
- * or holds content the migration must not silently replace. ai-config's read
- * path coerces unparseable or schema-invalid files to an empty config, which
- * would make a hand-edited file with one typo look unpopulated; this check
- * deliberately reads the raw file and validates it with ai-config's schema
- * so such files count as populated.
+ * or holds content the migration must not silently replace. This check reads
+ * the raw file and validates it with ai-config's schema, so a hand-edited file
+ * with one typo counts as populated rather than looking empty.
  */
 export async function userProvidersFileIsPopulated(configPath?: string): Promise<boolean> {
 	const { PROVIDERS_CONFIG_PATH, providersConfigSchema } = await import('ai-config/node');
@@ -78,14 +76,13 @@ export async function userProvidersFileIsPopulated(configPath?: string): Promise
 
 /**
  * One-shot migration: writes the mapped config through mutateProvidersConfig.
- * The populated-file check runs BEFORE the mutator so unparseable files (which
- * the mutator's read coerces to an empty config) and no-op skips never touch
- * the file, and again INSIDE the mutator so the parseable case stays guarded
- * under ai-config's cross-process lock.
+ * The populated-file check runs BEFORE the mutator so unparseable files and
+ * no-op skips never touch the file, and again INSIDE the mutator so the
+ * parseable case stays guarded under ai-config's cross-process lock.
  */
 export async function runMigration(opts: RunMigrationOptions): Promise<MigrationResult> {
 	const reader = opts.reader ?? createGlobalSettingsReader();
-	const { mutateProvidersConfig, providersConfigSchema } = await import('ai-config/node');
+	const { mutateProvidersConfig, providersConfigSchema, PROVIDERS_CONFIG_PATH } = await import('ai-config/node');
 	const mapped = buildProvidersConfigFromSettings(reader, {
 		debug: (m: string) => log.debug(m),
 		warn: (m: string) => log.warn(m),
@@ -106,7 +103,7 @@ export async function runMigration(opts: RunMigrationOptions): Promise<Migration
 	}
 
 	let skippedPopulated = false;
-	await mutateProvidersConfig(
+	const mutate = () => mutateProvidersConfig(
 		current => {
 			if (!opts.overwrite && current.providers && Object.keys(current.providers).length > 0) {
 				skippedPopulated = true;
@@ -119,6 +116,20 @@ export async function runMigration(opts: RunMigrationOptions): Promise<Migration
 			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
 		}
 	);
+
+	try {
+		await mutate();
+	} catch (error) {
+		// ai-config refuses to mutate a file it can't parse so it never discards
+		// config the user may still want. An explicit overwrite is the one case
+		// where discarding is the point, so drop the unusable file and retry.
+		if (!opts.overwrite) {
+			throw error;
+		}
+		log.warn(`[migration] providers.json is unparseable; replacing it as confirmed: ${error}`);
+		await fs.rm(opts.configPath ?? PROVIDERS_CONFIG_PATH, { force: true });
+		await mutate();
+	}
 
 	if (skippedPopulated) {
 		log.info('[migration] providers.json already has provider config; skipped');

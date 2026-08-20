@@ -12,7 +12,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { IPositronAssistantConfigurationService, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
+import { IPositronAssistantConfigurationService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
 import { ConfigureLLMProviders } from '../../browser/configureLLMProvidersModal.js';
 
@@ -55,13 +55,17 @@ describe('ConfigureLLMProviders', () => {
 		});
 	}
 
-	function renderModal(sources: IPositronLanguageModelSource[], preselectedProviderId?: string) {
+	function renderModal(
+		sources: IPositronLanguageModelSource[],
+		preselectedProviderId?: string,
+		onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void> = async () => { },
+	) {
 		return rtl.render(
 			<ConfigureLLMProviders
 				preselectedProviderId={preselectedProviderId}
 				renderer={makeRenderer()}
 				sources={sources}
-				onAction={async () => { }}
+				onAction={onAction}
 				onClose={() => { }}
 			/>
 		);
@@ -164,5 +168,24 @@ describe('ConfigureLLMProviders', () => {
 		expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: /connect/i }));
 		expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+	});
+
+	it('cancels an in-flight OAuth sign-in when Back returns to the list', async () => {
+		const user = userEvent.setup();
+		const actions: string[] = [];
+		// Leave the sign-in pending so the connect view keeps reporting its cancel handler.
+		const onAction = (_s: IPositronLanguageModelSource, _c: IPositronLanguageModelConfig, action: string) => {
+			actions.push(action);
+			return action === 'oauth-signin' ? new Promise<void>(() => { }) : Promise.resolve();
+		};
+		renderModal([positAi], undefined, onAction);
+
+		await user.click(screen.getByRole('button', { name: /connect/i }));
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(actions).toStrictEqual(['oauth-signin']);
+
+		await user.click(screen.getByRole('button', { name: 'Back' }));
+		expect(actions).toStrictEqual(['oauth-signin', 'cancel']);
+		expect(screen.getByText('Model Providers')).toBeInTheDocument();
 	});
 });

@@ -7,11 +7,13 @@ import { Code } from './code';
 import { Workbench } from './workbench';
 import { DashboardPage } from '../pages/workbench/dashboard.page.js';
 import { AuthPage } from '../pages/workbench/auth.page.js';
+import { JobsPage } from '../pages/workbench/jobs.page.js';
 
 export class PositWorkbench extends Workbench {
 
-	readonly auth: AuthPage
+	readonly auth: AuthPage;
 	readonly dashboard: DashboardPage;
+	readonly jobs: JobsPage;
 
 
 	constructor(code: Code) {
@@ -21,5 +23,6 @@ export class PositWorkbench extends Workbench {
 		// Add workbench specific pages
 		this.auth = new AuthPage(code);
 		this.dashboard = new DashboardPage(code, this.quickInput);
+		this.jobs = new JobsPage(code, this.quickaccess);
 	}
 }

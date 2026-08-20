@@ -59,3 +59,5 @@ A collection of Projects for testing and demos.  Please keep these organized and
    - Quarto python sample
 * diagrammeR-sample
    - Sample DiagrammeR plot
+* workbench-job
+   - R script that sleeps, run as a Posit Workbench job by the @:workbench run-job test

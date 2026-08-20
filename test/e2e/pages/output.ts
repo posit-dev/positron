@@ -5,6 +5,7 @@
 
 
 import * as os from 'os';
+import { expect } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
@@ -37,6 +38,16 @@ export class Output {
 		const outputPane = this.code.driver.currentPage.locator(OUTPUT_PANE);
 		const outputLine = outputPane.locator(OUTPUT_LINE);
 		await outputLine.getByText(fragment).first().isVisible();
+	}
+
+	/**
+	 * Verify the output pane renders a line containing the given text. Unlike
+	 * `waitForOutContaining`, this retries until the text appears (or the timeout elapses), so it
+	 * is safe to call on output that is still streaming in.
+	 */
+	async expectOutputToContain(fragment: string, timeout = 15000): Promise<void> {
+		const outputLine = this.code.driver.currentPage.locator(OUTPUT_PANE).locator(OUTPUT_LINE);
+		await expect(outputLine.getByText(fragment).first()).toBeVisible({ timeout });
 	}
 
 	/**

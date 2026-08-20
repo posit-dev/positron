@@ -54,6 +54,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	enableFoundryAssistant: [false, { scope: 'worker', option: true }],
 
+	// Turns the Posit AI provider on in the Workbench container's provider catalog
+	// before the session starts. Workbench-only: the authentication extension
+	// disables Posit AI there by default and no setting can override the catalog
+	// file, so `extraSettings` is not enough. Opt in with
+	// `test.use({ enablePositAIProvider: true })`.
+	enablePositAIProvider: [false, { scope: 'worker', option: true }],
+
 	// Extra environment variables merged onto the launched app's env. Set a value
 	// to `undefined` to UNSET a variable for the app (e.g. scrubbing provider auth
 	// vars so a modal starts disconnected). Opt in with
@@ -167,13 +174,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraEnv, extraSettings, beforeApp: _beforeApp }, use, workerInfo) => {
+	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, enablePositAIProvider, extraEnv, extraSettings, beforeApp: _beforeApp }, use, workerInfo) => {
 		// Merge any suite-provided extraEnv onto the launch options (undefined values
 		// unset a variable for the launched app; see the `extraEnv` option above).
 		const appOptions = Object.keys(extraEnv).length > 0
 			? { ...options, extraEnv: { ...options.extraEnv, ...extraEnv } }
 			: options;
-		const { app, start, stop } = await AppFixture({ options: appOptions, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings });
+		const { app, start, stop } = await AppFixture({ options: appOptions, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, enablePositAIProvider, extraSettings });
 
 		// Track the app so afterAll can export the startup trace if setup hangs (times
 		// out) -- in that case this fixture's catch/finally never run. Cleared below.
@@ -662,6 +669,7 @@ export interface WorkerFixtures {
 	useLegacyNotebookEditor: boolean;
 	enableDataConnections: boolean;
 	enableFoundryAssistant: boolean;
+	enablePositAIProvider: boolean;
 	extraEnv: Record<string, string | undefined>;
 	extraSettings: Record<string, unknown>;
 	envVars: string;

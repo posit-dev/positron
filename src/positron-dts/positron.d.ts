@@ -3935,6 +3935,8 @@ declare module 'positron' {
 				// Message to show in the UI if autoconfiguration was successful
 				message: string;
 				signedIn: boolean;
+				// Whether this credential is managed by Posit Workbench
+				isPositWorkbench?: boolean;
 			}
 		);
 

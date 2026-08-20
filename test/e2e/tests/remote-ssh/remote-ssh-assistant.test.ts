@@ -8,10 +8,12 @@ import { connectToRemoteHost, sshKeyscan } from './connect';
 
 test.use({
 	suiteId: __filename,
-	// This suite drives the legacy provider dialog, which is no longer the
-	// default, so pin it. Remove the pin when this suite is ported to the new
-	// modal (posit-dev/positron#15537).
-	extraSettings: { 'assistant.newProviderModal': false },
+	// Launch the client with the auto-sign-in env var unset so Anthropic starts
+	// disconnected and the test genuinely drives the modal's connect flow instead
+	// of finding the provider already signed in. This does not starve the test of a
+	// key: the modal types `ANTHROPIC_KEY`, which the lane loads separately (see
+	// .github/workflows/test-e2e-remote-ssh-ubuntu.yml).
+	extraEnv: { ANTHROPIC_API_KEY: undefined },
 });
 
 // Only the remote-ssh tag: the lane that runs this suite is the one that
@@ -43,7 +45,7 @@ test.describe('Remote SSH: Posit Assistant', {
 
 		const { sshWorkbench } = await connectToRemoteHost(app);
 
-		await sshWorkbench.modelProviderAuth.loginModelProvider('anthropic-api');
+		await sshWorkbench.modelProviderModal.loginModelProvider('anthropic-api');
 
 		try {
 			await sshWorkbench.positAssistant.open();
@@ -60,7 +62,7 @@ test.describe('Remote SSH: Posit Assistant', {
 			const responseText = await sshWorkbench.positAssistant.getLastResponseText();
 			expect(responseText.length).toBeGreaterThan(0);
 		} finally {
-			await sshWorkbench.modelProviderAuth.logoutModelProvider('anthropic-api');
+			await sshWorkbench.modelProviderModal.logoutModelProvider('anthropic-api');
 		}
 	});
 });
