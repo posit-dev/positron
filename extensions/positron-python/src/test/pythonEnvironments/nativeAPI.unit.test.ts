@@ -708,6 +708,120 @@ suite('Native Python API', () => {
         });
     });
 
+    suite('three equal-length paths', () => {
+        // Three interpreter paths that all tie on length, where only some of them
+        // are equivalent: `/opt/python` holds two real versioned installs plus
+        // `default`, a symlink to one of them. `3.11.11`, `3.11.13`, `current` and
+        // `default` are all 7 characters, so no path is ever shorter than another
+        // and every comparison between them is a tie.
+        const additionalDir = '/opt/python';
+        const olderPath = '/opt/python/3.11.11/bin/python';
+        const newerPath = '/opt/python/3.11.13/bin/python';
+        const defaultPath = '/opt/python/default/bin/python';
+        const currentPath = '/opt/python/current/bin/python';
+
+        // `default` and `current` both point at the 3.11.13 install; `3.11.11` is
+        // its own interpreter. Directories are resolved as well as executables, so
+        // an alias reached through a symlinked *directory* canonicalizes too.
+        const aliasDirs = ['/opt/python/default', '/opt/python/current'];
+        async function canonicalize(p: string): Promise<string> {
+            let resolved = p;
+            for (const aliasDir of aliasDirs) {
+                if (p === aliasDir || p.startsWith(`${aliasDir}/`)) {
+                    resolved = p.replace(aliasDir, '/opt/python/3.11.13');
+                    break;
+                }
+            }
+            return resolved.endsWith('/bin/python') ? `${resolved}3.11` : resolved;
+        }
+
+        function envAt(executable: string, version = '3.11.13'): NativeEnvInfo {
+            return {
+                displayName: `Python ${version}`,
+                name: 'python',
+                executable,
+                kind: NativePythonEnvironmentKind.LinuxGlobal,
+                version,
+                // PET reports the prefix as the path it walked, alias and all.
+                prefix: path.dirname(path.dirname(executable)),
+            };
+        }
+
+        async function envsAfterRefreshOrder(order: NativeEnvInfo[]): Promise<string[]> {
+            const finder = typemoq.Mock.ofType<NativePythonFinder>();
+            finder
+                .setup((f) => f.refresh())
+                .returns(() => {
+                    async function* generator() {
+                        yield* order;
+                    }
+                    return generator();
+                });
+            const scoped = nativeAPI.createNativeEnvironmentsApi(finder.object);
+            await scoped.triggerRefresh();
+            return scoped
+                .getEnvs()
+                .map((e) => e.executable.filename)
+                .sort();
+        }
+
+        /** Every arrival order of the given envs. */
+        function permutations(envs: NativeEnvInfo[]): NativeEnvInfo[][] {
+            if (envs.length <= 1) {
+                return [envs];
+            }
+            const result: NativeEnvInfo[][] = [];
+            for (let i = 0; i < envs.length; i += 1) {
+                const rest = [...envs.slice(0, i), ...envs.slice(i + 1)];
+                for (const tail of permutations(rest)) {
+                    result.push([envs[i], ...tail]);
+                }
+            }
+            return result;
+        }
+
+        setup(() => {
+            for (const p of [olderPath, newerPath, defaultPath, currentPath]) {
+                assert.equal(p.length, newerPath.length, 'test premise: all four paths tie on length');
+            }
+            sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([additionalDir]);
+            sinon.stub(externalDeps, 'resolveSymbolicLink').callsFake(canonicalize);
+            sinon.stub(externalDeps, 'canonicalizePath').callsFake(canonicalize);
+        });
+
+        test('a distinct interpreter is not dropped by a tie between two others', async () => {
+            // Issue reported on PR #15635: with `3.11.11`, `3.11.13` and a
+            // same-length `default` symlinked to `3.11.13`, only the alias may be
+            // de-duplicated. `3.11.11` ties on length but is a different
+            // interpreter, so it must survive in every arrival order.
+            const envs = [envAt(olderPath, '3.11.11'), envAt(newerPath), envAt(defaultPath)];
+            for (const order of permutations(envs)) {
+                const filenames = await envsAfterRefreshOrder(order);
+                assert.deepEqual(
+                    filenames,
+                    [olderPath, newerPath],
+                    `both interpreters should survive, order: ${order.map((e) => e.executable).join(', ')}`,
+                );
+            }
+        });
+
+        test('a three-way tie collapses to one env regardless of arrival order', async () => {
+            // All three paths reach the same interpreter and all three tie on
+            // length, so the winner comes from the lexicographic tiebreak alone.
+            // An order-dependent winner would let the paths displace each other
+            // indefinitely.
+            const envs = [envAt(newerPath), envAt(defaultPath), envAt(currentPath)];
+            for (const order of permutations(envs)) {
+                const filenames = await envsAfterRefreshOrder(order);
+                assert.deepEqual(
+                    filenames,
+                    [newerPath],
+                    `the tie should resolve to one winner, order: ${order.map((e) => e.executable).join(', ')}`,
+                );
+            }
+        });
+    });
+
     test('Issue #14489: a uv interpreter reached through a symlinked version directory is de-duplicated', async () => {
         // uv installs a real `cpython-3.14.6-*` directory alongside a
         // `cpython-3.14-*` symlink pointing at it. The ~/.local/bin shim reaches
