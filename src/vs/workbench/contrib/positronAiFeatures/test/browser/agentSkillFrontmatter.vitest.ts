@@ -1,0 +1,137 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+/**
+ * Guards the frontmatter of every skill template against Posit Assistant's
+ * skill validator, which is the consumer of these files.
+ *
+ * This exists because the failure is silent and total. When a `SKILL.md` fails
+ * validation the Assistant logs one warning to its own output channel and drops
+ * the *whole* skill -- every reference file with it -- so the skill simply never
+ * appears in the model's skill list. Nothing on the Positron side notices: the
+ * files generate cleanly, every `{{command:...}}` directive resolves, and the
+ * *Assistant Skills* channel reports success. The only symptom is a model that
+ * behaves as though the skill was never written.
+ *
+ * That is exactly what happened while writing the data connections reference
+ * (#15592): a description grown to 1417 characters silently took the skill out,
+ * and it was diagnosed only by reading `Platform skill roots: ... -- 0
+ * registered` out of the Assistant's log.
+ *
+ * The limits below mirror that validator. They are duplicated here on purpose --
+ * the validator ships inside the Assistant extension, so there is no constant to
+ * import -- which means they can drift if the Assistant changes them. Prefer
+ * failing here (a build-time nudge to re-check) over shipping a skill that no
+ * model can see.
+ */
+
+const TEST_FILE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(TEST_FILE_DIR, '../../../../../../..');
+const SKILLS_ROOT = path.join(REPO_ROOT, 'extensions', 'positron-skills', 'templates');
+
+/** Longest `description` the Assistant's validator accepts before rejecting the skill. */
+const MAX_DESCRIPTION_LENGTH = 1024;
+
+/** Longest `name` the validator accepts. */
+const MAX_NAME_LENGTH = 64;
+
+/** The validator's shape for `name`: lowercase, digits, single interior hyphens. */
+const NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+interface SkillFrontmatter {
+	/** Skill directory name, which the validator requires `name` to match. */
+	readonly directory: string;
+	readonly name: string | undefined;
+	/** The description with YAML folding applied, i.e. the string the validator measures. */
+	readonly description: string | undefined;
+}
+
+/**
+ * Reads the `name` and `description` out of a `SKILL.md`'s frontmatter.
+ *
+ * Deliberately not a full YAML parse: only these two fields are under test, and
+ * both are written either inline (`name: x`) or as a block scalar
+ * (`description: >`). A block scalar's continuation lines are folded into the
+ * single line the validator sees, so the length measured here is the length it
+ * checks.
+ */
+function readFrontmatter(skillMdPath: string): SkillFrontmatter {
+	const content = fs.readFileSync(skillMdPath, 'utf8');
+	const frontmatter = /^---\n([\s\S]*?)\n---/.exec(content)?.[1] ?? '';
+	const lines = frontmatter.split('\n');
+
+	const readField = (field: string): string | undefined => {
+		const index = lines.findIndex(line => line.startsWith(`${field}:`));
+		if (index === -1) {
+			return undefined;
+		}
+		const inline = lines[index].slice(field.length + 1).trim();
+		// Anything other than a block-scalar marker is the value itself.
+		if (inline !== '>' && inline !== '|' && inline !== '>-' && inline !== '|-') {
+			return inline.replace(/^["']|["']$/g, '');
+		}
+		// Block scalar: every following indented line belongs to this field, up to
+		// the next top-level key. Folded into one line, the way YAML would.
+		const continuation: string[] = [];
+		for (const line of lines.slice(index + 1)) {
+			if (line.trim().length > 0 && !/^[ \t]/.test(line)) {
+				break;
+			}
+			continuation.push(line.trim());
+		}
+		return continuation.filter(line => line.length > 0).join(' ');
+	};
+
+	return {
+		directory: path.basename(path.dirname(skillMdPath)),
+		name: readField('name'),
+		description: readField('description'),
+	};
+}
+
+/** Every `SKILL.md` under the templates root: one per skill directory. */
+const skills: SkillFrontmatter[] = fs.existsSync(SKILLS_ROOT)
+	? fs.readdirSync(SKILLS_ROOT, { withFileTypes: true })
+		.filter(entry => entry.isDirectory())
+		.map(entry => path.join(SKILLS_ROOT, entry.name, 'SKILL.md'))
+		.filter(fs.existsSync)
+		.map(readFrontmatter)
+	: [];
+
+describe('agent skill frontmatter', () => {
+	// Guards against a broken path calculation making every assertion below pass
+	// vacuously, the same way the sibling drift test does.
+	it('found at least one skill template', () => {
+		expect(skills.length).toBeGreaterThan(0);
+	});
+
+	it.each(skills.map(skill => [skill.directory, skill] as const))(
+		'%s passes the Assistant skill validator',
+		(_directory, skill) => {
+			expect({
+				name: skill.name,
+				nameMatchesDirectory: skill.name === skill.directory,
+				nameLengthOk: (skill.name?.length ?? 0) <= MAX_NAME_LENGTH,
+				nameShapeOk: NAME_PATTERN.test(skill.name ?? ''),
+				descriptionLength: skill.description?.length,
+				descriptionLengthOk: (skill.description?.length ?? 0) > 0
+					&& (skill.description?.length ?? 0) <= MAX_DESCRIPTION_LENGTH,
+			}).toEqual({
+				name: skill.directory,
+				nameMatchesDirectory: true,
+				nameLengthOk: true,
+				nameShapeOk: true,
+				descriptionLength: skill.description?.length,
+				descriptionLengthOk: true,
+			});
+		},
+	);
+});
