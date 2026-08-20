@@ -25,6 +25,29 @@ wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | g
 # Fail fast with a friendly message when a command needs a running stack.
 wb_require_stack() { wb_stack_up || { echo "Stack not running. Start with: npm run pwb" >&2; exit 1; }; }
 
+# On Windows this script is meant to run under Git Bash, which is what npm uses
+# when script-shell points at it. Run bare (`bash workbench-local.sh`) from
+# PowerShell or cmd instead and `bash` resolves to C:\Windows\System32\bash.exe --
+# the WSL launcher -- so everything below executes inside a Linux distro that
+# usually has no reachable Docker daemon (Docker Desktop's WSL integration is
+# per-distro and off by default) and no gh. The raw daemon error gives no hint
+# that the shell is the problem, so name it. A WSL setup that CAN reach Docker is
+# perfectly fine and passes straight through. Git Bash never matches: its
+# /proc/version reads "MINGW64_NT-...", not "microsoft".
+wb_check_shell() {
+	grep -qi microsoft /proc/version 2>/dev/null || return 0
+	docker info >/dev/null 2>&1 && return 0
+	echo "Docker is not reachable from this WSL distro (${WSL_DISTRO_NAME:-unknown})." >&2
+	echo "This script ran under WSL, which happens when 'bash' is invoked from PowerShell" >&2
+	echo "or cmd (System32\\bash.exe is the WSL launcher). Either:" >&2
+	echo "  - run it through npm, with npm's shell set to Git Bash:" >&2
+	echo "      npm config set script-shell \"C:\\Program Files\\Git\\bin\\bash.exe\"" >&2
+	echo "      npm run pwb" >&2
+	echo "  - or enable Docker Desktop -> Settings -> Resources -> WSL integration" >&2
+	echo "    for this distro (you will also need gh installed inside it)." >&2
+	exit 1
+}
+
 # Cancel a pending auto-stop timer from a previous run, if any.
 wb_cancel_ttl() {
 	[ -f "$WB_TTL_PIDFILE" ] || return 0
@@ -242,14 +265,32 @@ wb_bootstrap_env() {
 	export E2E_POSTGRES_USER E2E_POSTGRES_PASSWORD
 }
 
+# MSYS_NO_PATHCONV=1 on the two `docker exec`s below (and on the installer exec in
+# cmd_install): under Git Bash the MSYS runtime rewrites a bare absolute path in
+# argv into a Windows path before docker.exe sees it, so `docker exec test chmod
+# +x /tmp/x` arrives in the container as `C:/Users/.../Temp/x` and fails -- which
+# aborts the run here, right after the containers come up and before anything is
+# installed. Only args that are *whole* paths are affected, which is why the
+# `docker exec test bash -c '...'` calls elsewhere need nothing.
+#
+# Scope it to those calls; do NOT export it. `docker cp` below takes a HOST path
+# and `docker compose -f` takes the compose file, and both depend on that same
+# conversion to hand docker.exe a Windows path. The variable is meaningless off
+# Windows, so this is a no-op on Linux and macOS.
 wb_fetch_scripts() {
 	# The installer scripts live alongside this one (docker/environments/wb-local).
 	for s in "${WB_SCRIPTS[@]}"; do
 		docker cp "${WB_SCRIPTS_DIR}/${s}" "test:/tmp/${s}" >/dev/null
-		docker exec test sed -i 's/\r$//' "/tmp/${s}"
-		docker exec test chmod +x "/tmp/${s}"
+		MSYS_NO_PATHCONV=1 docker exec test sed -i 's/\r$//' "/tmp/${s}"
+		MSYS_NO_PATHCONV=1 docker exec test chmod +x "/tmp/${s}"
 	done
-	[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
+	if [ -f "${SCRIPT_DIR}/workbench.lic" ]; then
+		docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null
+		# Same CRLF strip the scripts get above, and for the same reason a
+		# Windows-saved connect.lic needs one (see cmd_up): rstudio-server
+		# rejects a CRLF license outright.
+		MSYS_NO_PATHCONV=1 docker exec test sed -i 's/\r$//' /tmp/workbench.lic
+	fi
 }
 
 # Channel (Release/Daily) -> version list. Sets POSITRON_TAG (downloaded from
@@ -378,12 +419,14 @@ cmd_install() {
 	# real arg (not interpolated into bash -c) so it can't be word-split/injected.
 	# DOCKER_CLI_HINTS=false drops Docker's "What's next / Try Docker Debug" hint;
 	# -i (no -t) because piping the output precludes a usable container TTY.
+	# MSYS_NO_PATHCONV=1 keeps Git Bash from rewriting `/bin/bash` and the script
+	# path into Windows paths -- see the note above wb_fetch_scripts.
 	local wb_build; wb_build="$(basename "$WB_URL")"
 	# The credential vars below use the inherit form (-e VAR, no value): docker
 	# exec forwards them only when set. wb_bootstrap_env exported them by sourcing
 	# .env under `set -a`, so configure-datasources.sh (run by the installer when
 	# --credentials is passed) can read whichever set the chosen provider needs.
-	DOCKER_CLI_HINTS=false docker exec -i \
+	DOCKER_CLI_HINTS=false MSYS_NO_PATHCONV=1 docker exec -i \
 		-e GITHUB_TOKEN="${GITHUB_TOKEN}" \
 		-e WB_URL="${WB_URL}" \
 		-e POSITRON_TAG="${POSITRON_TAG}" \
@@ -482,7 +525,14 @@ cmd_up() {
 		rm -rf "${SCRIPT_DIR}/connect/connect.lic"
 	fi
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
-		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
+		# Strip CR on the way in. A license saved or copied on Windows arrives
+		# CRLF, and Connect then refuses to parse it at all -- it starts fine,
+		# answers 402 on every request, never goes healthy, and the only error
+		# you see is 'test' failing on its depends_on, which points nowhere near
+		# the license. (license-manager status shows an empty "License file
+		# status" and Has-Key: No.) tr, not `sed -i 's/\r$//'`: BSD sed on macOS
+		# reads '\r' as a literal 'r' and would eat a trailing r instead.
+		tr -d $'\r' < "${SCRIPT_DIR}/connect.lic" > "${SCRIPT_DIR}/connect/connect.lic"
 	fi
 	# 'test' depends on connect being healthy; a missing license makes connect exit
 	# and the wait loop below just times out. Warn clearly up front. (Connect's
@@ -690,6 +740,8 @@ EOF
 
 main() {
 	local sub="${1:-up}"; shift || true
+	# --help stays answerable without Docker; everything else needs a daemon.
+	case "$sub" in -h|--help) : ;; *) wb_check_shell ;; esac
 	case "$sub" in
 		up)          cmd_up "$@" ;;
 		# Flag-style invocations (no explicit "up") route to cmd_up with the flag.
