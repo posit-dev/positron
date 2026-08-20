@@ -8,7 +8,7 @@ import * as assert from 'assert';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as sinon from 'sinon';
-import { verify } from 'ts-mockito';
+import { verify, when } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
 import * as vscode from 'vscode';
 import { WorkspaceConfiguration } from 'vscode';
@@ -35,7 +35,6 @@ import { CreateVirtualEnvironmentPromptOutcome } from '../../client/positron/cre
 import {
     getActivePythonSessions,
     PythonRuntimeSession,
-    registerActivePythonSession,
     unregisterActivePythonSession,
 } from '../../client/positron/session';
 import { IInterpreterService } from '../../client/interpreter/contracts';
@@ -103,6 +102,11 @@ suite('Python runtime manager', () => {
         promptToCreateVirtualEnvironmentStub = sinon
             .stub(createVirtualEnvironmentPrompt, 'promptToCreateVirtualEnvironment')
             .resolves(CreateVirtualEnvironmentPromptOutcome.Proceed);
+
+        // `PythonRuntimeManager` shuts sessions down through
+        // `positron.runtime.getActiveSessions()`; default it to empty so tests that
+        // don't care about sessions aren't tripped up by an unstubbed mock.
+        when(mockedPositronNamespaces.runtime!.getActiveSessions()).thenReturn(Promise.resolve([]));
 
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
         disposables = [];
@@ -838,11 +842,20 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
     });
 
     /** Build a fake that passes the `instanceof PythonRuntimeSession` filter without invoking the constructor. */
-    function createFakePythonSession(extraRuntimeData: unknown, shutdown: sinon.SinonStub): PythonRuntimeSession {
-        return Object.assign(Object.create(PythonRuntimeSession.prototype), {
-            runtimeMetadata: { extraRuntimeData },
+    /**
+     * Build a stand-in for what `positron.runtime.getActiveSessions()` hands back:
+     * a core-managed proxy, not an owned `PythonRuntimeSession`. Its `shutdown()` is
+     * the mediated one, which is the whole point of routing through core (#12589).
+     */
+    function createFakeActiveSession(
+        extraRuntimeData: unknown,
+        shutdown: sinon.SinonStub,
+        languageId = 'python',
+    ): positron.BaseLanguageRuntimeSession {
+        return ({
+            runtimeMetadata: { languageId, extraRuntimeData },
             shutdown,
-        });
+        } as unknown) as positron.BaseLanguageRuntimeSession;
     }
 
     test('interpreter deletion: clears registry entry and shuts down matching sessions', async () => {
@@ -860,26 +873,26 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         const matchingShutdown = sinon.stub().callsFake(async () => {
             shutdownResolver();
         });
-        const matchingSession = createFakePythonSession({ pythonPath: deletedPath }, matchingShutdown);
+        const matchingSession = createFakeActiveSession({ pythonPath: deletedPath }, matchingShutdown);
         const otherShutdown = sinon.stub().resolves();
-        const otherSession = createFakePythonSession({ pythonPath: '/other/python' }, otherShutdown);
+        const otherSession = createFakeActiveSession({ pythonPath: '/other/python' }, otherShutdown);
+        // An R session for the same path: proves we filter on languageId and don't
+        // shut down another language's session that happens to collide.
+        const rShutdown = sinon.stub().resolves();
+        const rSession = createFakeActiveSession({ pythonPath: deletedPath }, rShutdown, 'r');
 
-        // Seed the owned-session registry that `getActivePythonSessions()` reads.
-        registerActivePythonSession(matchingSession);
-        registerActivePythonSession(otherSession);
+        when(mockedPositronNamespaces.runtime!.getActiveSessions()).thenReturn(
+            Promise.resolve([matchingSession, otherSession, rSession]),
+        );
 
-        try {
-            onDidChangeInterpretersEmitter.fire({ old: { path: deletedPath } as any, new: undefined });
-            await Promise.race([shutdownDone, new Promise((r) => setTimeout(r, 500))]);
+        onDidChangeInterpretersEmitter.fire({ old: { path: deletedPath } as any, new: undefined });
+        await Promise.race([shutdownDone, new Promise((r) => setTimeout(r, 500))]);
 
-            assert.strictEqual(pythonRuntimeManager.registeredPythonRuntimes.has(deletedPath), false);
-            sinon.assert.calledOnce(matchingShutdown);
-            sinon.assert.notCalled(otherShutdown);
-            sinon.assert.notCalled(selectSpy);
-        } finally {
-            unregisterActivePythonSession(matchingSession);
-            unregisterActivePythonSession(otherSession);
-        }
+        assert.strictEqual(pythonRuntimeManager.registeredPythonRuntimes.has(deletedPath), false);
+        sinon.assert.calledOnce(matchingShutdown);
+        sinon.assert.notCalled(otherShutdown);
+        sinon.assert.notCalled(rShutdown);
+        sinon.assert.notCalled(selectSpy);
     });
 
     test('interpreter replacement: retracts old alias and re-registers survivor with forceRefresh', async () => {
