@@ -8,6 +8,37 @@ The **Arguments** and **Returns** entries below are generated from the running
 build's command metadata, so they always match this Positron. The surrounding
 guidance is hand-written.
 
+## Two different panes, and only one of them is this
+
+Positron has two panes with similar names, and they work in opposite directions:
+
+- **Data Connections** (what these commands read) -- connections the user
+  *configured in Positron itself*. They live in Positron's own configuration,
+  exist whether or not any interpreter is running, and are the subject of this
+  file.
+- **Connections** (not covered here) -- connections *a running session opened*,
+  which appear because the user's R or Python code created them. Nothing in this
+  file reads or affects that pane.
+
+If the user's connection came from code they ran, it is in the second pane and
+these commands will not show it. Say so plainly rather than reporting that they
+have no connections.
+
+## Do not look for these connections by running code
+
+A configured Data Connections profile is **invisible to code running in the
+session**. It is Positron configuration, not session state, so no amount of
+`executeCode` will find it: not listing DBI or `odbc` connections, not
+inspecting session variables, not reading environment variables or a
+`.Renviron`. Running code to answer "what connections do I have?" produces a
+confident wrong answer, because an empty result there says nothing about what
+the user has configured.
+
+`positronDataConnections.getConnections` is the only way to see them. Call it
+first, before any code. `executeCode` has exactly two jobs in this area, both
+of them *after* a command has told you what exists: running the connection
+snippet a profile hands you, and running the final query.
+
 ## How these two commands report trouble
 
 Both commands are always callable: neither has a precondition, so neither ever
