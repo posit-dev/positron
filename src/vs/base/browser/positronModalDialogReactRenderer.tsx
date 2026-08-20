@@ -17,6 +17,7 @@ import { Disposable } from '../common/lifecycle.js';
 import { KeyCode } from '../common/keyCodes.js';
 import { StandardKeyboardEvent } from './keyboardEvent.js';
 import { PositronReactServices } from './positronReactServices.js';
+import { hostsWorkbenchDialog, releaseWorkbenchDialogs } from './positronTopLayerDialog.js';
 import { PositronReactServicesProvider } from './positronReactRendererContext.js';
 import { ResultKind } from '../../platform/keybinding/common/keybindingResolver.js';
 
@@ -145,6 +146,11 @@ export class PositronModalDialogReactRenderer extends Disposable {
 		this._eventHandlerCleanup?.();
 		this._eventHandlerCleanup = undefined;
 
+		// A workbench dialog may have been rendered inside this one so it could paint above it and
+		// stay clickable. Move it back out to the container first: it is a child of this dialog, so
+		// removing this dialog would delete it unanswered and leave its caller waiting forever.
+		releaseWorkbenchDialogs(this._dialog, this._options.container!);
+
 		// Close the dialog first, if it's open, so its focus trap is released before we restore
 		// focus.
 		if (this._dialog.open) {
@@ -235,6 +241,14 @@ export class PositronModalDialogReactRenderer extends Disposable {
 		 */
 		const keydownHandler = (e: KeyboardEvent) => {
 			const event = new StandardKeyboardEvent(e);
+			// A workbench dialog rendered inside this one handles its own Escape. Escape is a
+			// default action on a native <dialog>, so without preventing it here the browser would
+			// close this dialog and take the workbench dialog down with it, unanswered. Propagation
+			// is left alone so the workbench dialog's own handler still sees the key.
+			if (event.keyCode === KeyCode.Escape && this._dialog && hostsWorkbenchDialog(this._dialog)) {
+				e.preventDefault();
+				return;
+			}
 			const resolutionResult = PositronReactServices.services.keybindingService.softDispatch(
 				event,
 				PositronReactServices.services.workbenchLayoutService.activeContainer

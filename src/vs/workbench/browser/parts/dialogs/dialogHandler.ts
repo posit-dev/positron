@@ -17,6 +17,9 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IMarkdownRendererService, openLinkFromMarkdown } from '../../../../platform/markdown/browser/markdownRenderer.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { createWorkbenchDialogOptions } from './dialog.js';
+// --- Start Positron ---
+import { findTopMostPositronModalDialog } from '../../../../base/browser/positronTopLayerDialog.js';
+// --- End Positron ---
 import { IHostService } from '../../../services/host/browser/host.js';
 
 export class BrowserDialogHandler extends AbstractDialogHandler {
@@ -108,7 +111,15 @@ export class BrowserDialogHandler extends AbstractDialogHandler {
 		} : undefined;
 
 		const dialog = new Dialog(
-			this.layoutService.activeContainer,
+			// --- Start Positron ---
+			// A Positron modal <dialog> is opened with showModal(), which puts it in the browser's
+			// top layer. Anything that is not one of its descendants paints behind it and cannot be
+			// clicked or focused, so render into the dialog when one is open. Without this, an
+			// extension's sign-in consent prompt is invisible and unanswerable, and the sign-in
+			// never completes.
+			// this.layoutService.activeContainer,
+			findTopMostPositronModalDialog(this.layoutService.activeContainer) ?? this.layoutService.activeContainer,
+			// --- End Positron ---
 			message,
 			buttons,
 			createWorkbenchDialogOptions({
