@@ -4245,6 +4245,15 @@ declare module 'positron' {
 		export function getAgentSkillRoots(): Thenable<string[]>;
 
 		/**
+		 * Fires when a skill root is added or removed via
+		 * {@link registerAgentSkillRoot}. Skill roots are frequently registered
+		 * after a reading extension has taken its first {@link getAgentSkillRoots}
+		 * snapshot, so a consumer should observe this event and re-read rather than
+		 * assuming the initial result is complete.
+		 */
+		export const onDidChangeAgentSkillRoots: vscode.Event<void>;
+
+		/**
 		 * Validate and execute a Positron command.
 		 *
 		 * Unlike `vscode.commands.executeCommand`, this call first checks that

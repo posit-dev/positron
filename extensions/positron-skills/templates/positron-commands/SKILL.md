@@ -3,20 +3,18 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes
   (Console, Variables, Plots, Help, Packages), clearing the console, listing or
-  discovering the registered interpreters (Python, R, or another language),
-  restarting a session,
-  interrupting a stuck session, and refreshing or updating packages. Use when
-  the user wants Positron itself to do something, rather than wanting R or
-  Python code run. Load this skill, then read the reference file for the area in
-  question: layout and pane focus in references/ui.md; listing and discovering
-  registered interpreters in references/interpreters.md; sessions and packages
-  in references/troubleshooting.md; installing Python, creating a Python
+  discovering registered interpreters, restarting or interrupting a stuck
+  session, and refreshing or updating packages. Use when the user wants Positron
+  itself to do something, rather than to run R or Python code. Load this skill,
+  then read the reference file for the area: layout and pane focus in
+  references/ui.md; listing interpreters in references/interpreters.md; sessions
+  and packages in references/troubleshooting.md; installing Python, creating an
   environment, and finding the active interpreter in references/python-setup.md.
-  Triggers: "switch to the data science layout", "show me the variables pane",
-  "clear the console", "what interpreters are available", "list my Python
-  interpreters", "my R interpreter isn't showing up", "my session is stuck",
-  "update all my packages", "I don't have Python installed", "set up a Python
-  environment", "which Python am I using".
+  Triggers: "switch to the data science layout", "show the variables pane",
+  "clear the console", "what interpreters are available", "my R interpreter
+  isn't showing up", "my session is stuck", "update all my packages", "I don't
+  have Python installed", "set up a Python environment", "which Python am I
+  using".
 ---
 
 # Positron IDE commands
