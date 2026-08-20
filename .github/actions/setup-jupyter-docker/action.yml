@@ -91,12 +91,13 @@ runs:
         # Create license file from secret
         echo "${{ inputs.positron-license }}" > positron.lic
 
-        # Copy license into container at arch specific location (expected by install script)
+        # Copy license into container at the POSITRON_LICENSE_KEY_FILE path the
+        # install script configured for sessions (license.lic next to license-manager)
         ARCH=$(docker exec jupyter-test uname -m)
         if [[ "$ARCH" == "aarch64" ]]; then
-          docker cp positron.lic jupyter-test:/opt/positron-server/resources/activation/linux/aarch64/positron.lic
+          docker cp positron.lic jupyter-test:/opt/positron-server/resources/activation/linux/aarch64/license.lic
         else
-          docker cp positron.lic jupyter-test:/opt/positron-server/resources/activation/linux/x86_64/positron.lic
+          docker cp positron.lic jupyter-test:/opt/positron-server/resources/activation/linux/x86_64/license.lic
         fi
 
         # Clean up local copy
