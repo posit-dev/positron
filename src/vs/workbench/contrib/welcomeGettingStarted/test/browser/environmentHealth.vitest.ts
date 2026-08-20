@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { ENVIRONMENT_HEALTH_SOURCES, isEnvironmentHealthResult } from '../../browser/positronWelcomePage/environmentHealth.js';
+import { ENVIRONMENT_HEALTH_SOURCES, isEnvironmentHealthResult, pathForItem } from '../../browser/positronWelcomePage/environmentHealth.js';
 
 describe('isEnvironmentHealthResult', () => {
 	const item = { id: 'discovery', status: 'pass', summary: 'Positron can discover Python environments' };
@@ -59,5 +59,45 @@ describe('ENVIRONMENT_HEALTH_SOURCES', () => {
 			['python', 'ms-python.python', 'python.getEnvironmentHealth'],
 			['r', 'positron.positron-r', 'r.getEnvironmentHealth'],
 		]);
+	});
+});
+
+describe('pathForItem', () => {
+	const passingPythonInstalled = { id: 'pythonInstalled', status: 'pass', summary: 'A supported Python is installed' } as const;
+	const failingPythonInstalled = { id: 'pythonInstalled', status: 'fail', summary: 'A supported Python is installed' } as const;
+	const passingRInstalled = { id: 'rInstalled', status: 'pass', summary: 'A supported R is installed' } as const;
+	const otherItem = { id: 'environmentReady', status: 'pass', summary: 'The environment is ready to use with Positron' } as const;
+
+	it('returns the interpreter path for a passing pythonInstalled item', () => {
+		const result = { ok: true, items: [passingPythonInstalled], interpreterPath: '/usr/bin/python3' };
+		expect(pathForItem('python', passingPythonInstalled, result)).toBe('/usr/bin/python3');
+	});
+
+	it('returns the R binary path for a passing rInstalled item', () => {
+		const result = { ok: true, items: [passingRInstalled], rBinPath: '/usr/lib/R/bin/R' };
+		expect(pathForItem('r', passingRInstalled, result)).toBe('/usr/lib/R/bin/R');
+	});
+
+	it('returns undefined when the item did not pass', () => {
+		const result = { ok: false, items: [failingPythonInstalled], interpreterPath: '/usr/bin/python3' };
+		expect(pathForItem('python', failingPythonInstalled, result)).toBeUndefined();
+	});
+
+	it('returns undefined for an item that is not the installed-check for its language', () => {
+		const result = { ok: true, items: [otherItem], interpreterPath: '/usr/bin/python3' };
+		expect(pathForItem('python', otherItem, result)).toBeUndefined();
+	});
+
+	it('returns undefined when the language and item id are mismatched', () => {
+		// rInstalled only carries a path for R, even if a Python result somehow had it.
+		const result = { ok: true, items: [passingRInstalled], rBinPath: '/usr/lib/R/bin/R' };
+		expect(pathForItem('python', passingRInstalled, result)).toBeUndefined();
+	});
+
+	it('returns undefined when the path field is present but not a string', () => {
+		// A payload that crossed the extension host as JSON can be any shape; a
+		// wrong type must not reach a JSX text node as-is.
+		const result = { ok: true, items: [passingPythonInstalled], interpreterPath: 42 as unknown as string };
+		expect(pathForItem('python', passingPythonInstalled, result)).toBeUndefined();
 	});
 });

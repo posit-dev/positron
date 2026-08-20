@@ -7,7 +7,7 @@
 import './environmentHealthSection.css';
 
 // React.
-import React from 'react';
+import React, { useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
@@ -15,6 +15,8 @@ import { URI } from '../../../../../../base/common/uri.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
+import { CustomContextMenuItem } from '../../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { showCustomContextMenu } from '../../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { HealthItemStatus, IHealthItem, IHealthItemFix } from '../environmentHealth.js';
 
 /** Icon and screen reader text for each outcome. */
@@ -25,8 +27,16 @@ const STATUS_PRESENTATION: Record<HealthItemStatus, { codicon: string; label: st
 	skipped: { codicon: 'codicon-circle-outline', label: localize('positron.welcome.environmentSetupStatusSkipped', "Not checked") },
 };
 
+const positronCopyPath = localize('positron.welcome.environmentSetupCopyPath', "Copy");
+
 export interface HealthItemRowProps {
 	readonly item: IHealthItem;
+	/**
+	 * The resolved interpreter or installation path for this item, or undefined
+	 * when there is none to show. Only ever set for the "a supported X is
+	 * installed" item, and only when it passed.
+	 */
+	readonly path?: string;
 	/**
 	 * Whether this language has a check or a fix running. A fix command can run
 	 * for minutes, and pressing it again runs it again -- a second install, or a
@@ -43,9 +53,10 @@ export interface HealthItemRowProps {
  * @param props A HealthItemRowProps that contains the component properties.
  * @returns The rendered component.
  */
-export const HealthItemRow = ({ item, busy, hoverManager, onRunFix }: HealthItemRowProps) => {
+export const HealthItemRow = ({ item, path, busy, hoverManager, onRunFix }: HealthItemRowProps) => {
 	const services = usePositronReactServicesContext();
 	const status = STATUS_PRESENTATION[item.status];
+	const pathRef = useRef<HTMLParagraphElement>(undefined!);
 
 	// The workbench does not intercept a plain anchor click: on desktop the
 	// main process blocks the navigation outright, and on web it would
@@ -54,6 +65,28 @@ export const HealthItemRow = ({ item, busy, hoverManager, onRunFix }: HealthItem
 	const openLearnMore = (e: React.MouseEvent<HTMLAnchorElement>) => {
 		e.preventDefault();
 		services.openerService.open(URI.parse(item.learnMoreUrl!));
+	};
+
+	// Mirrors currentWorkingDirectory.tsx's own right-click-to-copy handler.
+	const copyPathOnRightClick = async (e: React.MouseEvent<HTMLElement>) => {
+		e.stopPropagation();
+		if (e.button !== 2 || !path) {
+			return;
+		}
+		await showCustomContextMenu({
+			anchorElement: pathRef.current,
+			anchorPoint: { clientX: e.clientX, clientY: e.clientY },
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
+			width: 'auto',
+			entries: [
+				new CustomContextMenuItem({
+					icon: 'copy',
+					label: positronCopyPath,
+					onSelected: async () => await services.clipboardService.writeText(path)
+				})
+			]
+		});
 	};
 
 	// Render.
@@ -76,9 +109,17 @@ export const HealthItemRow = ({ item, busy, hoverManager, onRunFix }: HealthItem
 								{item.fix.label}
 							</Button>}
 					</div>
-					{(item.detail || item.learnMoreUrl) &&
+					{(item.detail || path || item.learnMoreUrl) &&
 						<div className='environment-health-item-secondary'>
 							{item.detail && <p className='environment-health-item-detail'>{item.detail}</p>}
+							{path &&
+								<p
+									ref={pathRef}
+									className='environment-health-item-path'
+									onMouseDown={copyPathOnRightClick}
+								>
+									{path}
+								</p>}
 							{item.learnMoreUrl &&
 								<a
 									href={item.learnMoreUrl}
