@@ -68,6 +68,26 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestStatus('test_that number 2 fails', 'Failed');
 	});
 
+	// A test run gets its environment from three places: contributions from other
+	// extensions, contributions from positron-r, and the live R console session. A
+	// terminal gets all of that from core and a kernel from the supervisor, but the
+	// test runner spawns R directly, so positron-r has to assemble it.
+	// https://github.com/posit-dev/positron/issues/15609
+	test('A test run gets the environment variables it needs', async function ({ app, executeCode }) {
+		const { testExplorer } = app.workbench;
+
+		await executeCode('R', 'Sys.setenv(TESTTHAT_MAX_FAILS = 99)');
+
+		await testExplorer.expectTestItems(['test-env-vars.R']);
+		await testExplorer.runTest('test-env-vars.R');
+
+		await testExplorer.expectTestStatus('test-env-vars.R', 'Passed', 60000);
+
+		// A skip would leave the file Passed too, so confirm this one really ran.
+		await testExplorer.expandAllTests();
+		await testExplorer.expectTestStatus('TESTTHAT_MAX_FAILS is forwarded from the console', 'Passed');
+	});
+
 	test('Tests with tricky descriptions report the correct status', async function ({ app }) {
 		const { testExplorer } = app.workbench;
 
