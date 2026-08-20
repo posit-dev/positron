@@ -1,4 +1,3 @@
 .env
 positron.lic
-signing-key.pem
 *.tar.gz
