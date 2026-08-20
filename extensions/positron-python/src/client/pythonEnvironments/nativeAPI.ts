@@ -392,6 +392,12 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     // resolveEnv(). Only successful resolutions are cached. Entries are
     // invalidated in addEnv()/removeEnv() so a late-arriving discovery
     // immediately supersedes any cached state.
+    //
+    // A single env can be reachable through several paths (symlinks, or a
+    // `python3.11` alias beside `python`), and PET reports its own canonical
+    // path rather than the one that was asked about. Both the requested path
+    // and the resolved path are cached, so an alias path doesn't miss the
+    // cache forever and spawn PET on every call.
     private _resolveEnvCache = new Map<string, { info: PythonEnvInfo; expiry: number }>();
 
     // In-flight promise deduplication for resolveEnv(). Concurrent callers for
@@ -401,6 +407,30 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     private _resolveEnvInFlight = new Map<string, Promise<PythonEnvInfo | undefined>>();
 
     private static readonly _resolveEnvCacheMs = 30_000;
+
+    /**
+     * Caches a resolved env under the given path.
+     */
+    private cacheResolvedEnv(envPath: string, info: PythonEnvInfo): void {
+        this._resolveEnvCache.set(envPath, {
+            info,
+            expiry: Date.now() + NativePythonEnvironments._resolveEnvCacheMs,
+        });
+    }
+
+    /**
+     * Drops every cache entry for an env, including entries cached under an
+     * alias path. Keying alone isn't enough to find them, so the entries are
+     * also matched by the env they point at.
+     */
+    private evictResolvedEnv(filename: string): void {
+        this._resolveEnvCache.delete(filename);
+        for (const [key, entry] of this._resolveEnvCache) {
+            if (entry.info.executable.filename === filename) {
+                this._resolveEnvCache.delete(key);
+            }
+        }
+    }
     // --- End Positron ---
 
     constructor(private readonly finder: NativePythonFinder) {
@@ -519,7 +549,13 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             if (native.executable && version && version.major >= 0 && version.minor >= 0 && version.micro >= 0) {
                 // --- Start Positron ---
                 // added await
-                return (await this.addEnv(native))?.executable.filename;
+                const added = await this.addEnv(native);
+                // Report the path this refresh actually found, not the path of the
+                // env addEnv settled on. When an equivalent env already holds this
+                // interpreter, addEnv reports that existing env; treating it as
+                // re-discovered would keep it alive after it has been deleted from
+                // disk, because its longer equivalent would keep vouching for it.
+                return added ? native.executable : undefined;
                 // --- End Positron ---
             }
             traceError(`Failed to process environment: ${JSON.stringify(native)}`);
@@ -614,7 +650,12 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                         traceVerbose(
                             `[addEnv] Not adding ${info.executable.filename} because it's equivalent to ${existingEnv.executable.filename}`,
                         );
-                        return undefined;
+                        // Return the surviving env rather than undefined. The caller asked about an
+                        // equivalent path and there is a real env behind it, so reporting nothing
+                        // makes the path permanently unresolvable: resolveEnv() only caches
+                        // successful resolutions, so every call would spawn PET again, and
+                        // registration would reject the path as invalid.
+                        return existingEnv;
                     case ExistingEnvAction.AddNewEnv:
                         // Proceed to add the 'info' env because we truly do not have an 'old' env.
                         break;
@@ -644,7 +685,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 this._envIdentities.delete(oldFilename);
                 // Drop any stale resolveEnv cache entry for the replaced path
                 // so late callers don't see the superseded env.
-                this._resolveEnvCache.delete(oldFilename);
+                this.evictResolvedEnv(oldFilename);
                 this._envs = this._envs.filter(
                     (item) =>
                         item.executable.filename !== info.executable.filename &&
@@ -662,10 +703,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             // --- Start Positron ---
             // Publish the freshly resolved env to the resolveEnv cache so later
             // callers hit it without spawning another PET round-trip.
-            this._resolveEnvCache.set(info.executable.filename, {
-                info,
-                expiry: Date.now() + NativePythonEnvironments._resolveEnvCacheMs,
-            });
+            this.cacheResolvedEnv(info.executable.filename, info);
             // --- End Positron ---
         }
 
@@ -678,7 +716,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             this._envs = this._envs.filter((item) => item.executable.filename !== env);
             // --- Start Positron ---
             this._envIdentities.delete(env);
-            this._resolveEnvCache.delete(env);
+            this.evictResolvedEnv(env);
             // --- End Positron ---
             this._onChanged.fire({ type: FileChangeType.Deleted, old });
             return;
@@ -686,7 +724,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         this._envs = this._envs.filter((item) => item.executable.filename !== env.executable.filename);
         // --- Start Positron ---
         this._envIdentities.delete(env.executable.filename);
-        this._resolveEnvCache.delete(env.executable.filename);
+        this.evictResolvedEnv(env.executable.filename);
         // --- End Positron ---
         this._onChanged.fire({ type: FileChangeType.Deleted, old: env });
     }
@@ -747,7 +785,15 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 }
                 // --- Start Positron ---
                 // added await
-                return await this.addEnv(native);
+                const info = await this.addEnv(native);
+                if (info && info.executable.filename !== envPath) {
+                    // PET reported a different path than the one asked about, or an
+                    // equivalent env already won the path. Cache under the requested
+                    // path too, so the caller's next lookup hits instead of spawning
+                    // PET again for the life of this alias.
+                    this.cacheResolvedEnv(envPath, info);
+                }
+                return info;
                 // --- End Positron ---
             }
             return undefined;
