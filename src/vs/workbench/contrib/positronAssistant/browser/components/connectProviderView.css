@@ -247,3 +247,34 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
+/* Collapsed section for fields a provider does not need but can override (the
+model rows on a provider that publishes its own list). */
+.connect-provider-disclosure {
+	border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+	padding-top: 12px;
+}
+
+.connect-provider-disclosure-summary {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0;
+	background: none;
+	border: none;
+	font-size: 12px;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+
+.connect-provider-disclosure-summary .codicon,
+.connect-provider-disclosure-count {
+	color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-disclosure-body {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 10px;
+}

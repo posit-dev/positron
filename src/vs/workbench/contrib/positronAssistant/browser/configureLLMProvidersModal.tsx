@@ -16,12 +16,15 @@ import { PositronModalDialog } from '../../../browser/positronComponents/positro
 import { ContentArea } from '../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { ProviderList } from './components/providerList.js';
+import { AddCustomProviderView } from './components/addCustomProviderView.js';
 import { ConnectProviderView } from './components/connectProviderView.js';
 import { ConnectedProviderView } from './components/connectedProviderView.js';
 import { ProviderModalFooter } from './components/providerModalFooter.js';
 import { selectProviderView } from './providerConnection.js';
 import { useProviderUpdates } from './useProviderUpdates.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { useContextKeyFromString } from '../../../../base/browser/positronReactHooks.js';
+import { ADD_CUSTOM_PROVIDER_COMMAND, IAddCustomProviderRequest, SUPPORTS_CUSTOM_PROVIDERS_KEY } from './customProviderCommands.js';
 
 /** Command that opens providers.json in an editor (registered in the contribution). */
 const OPEN_PROVIDERS_JSON_COMMAND = 'workbench.action.positronAssistant.openAiProviderSettingsJson';
@@ -64,7 +67,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	// provider error notification does, so the user lands on the provider that
 	// reported the problem rather than hunting for it in the list.
 	const preselectedSource = props.sources.find(s => s.provider.id === props.preselectedProviderId);
-	const [view, setView] = useState<'list' | 'connect' | 'connected'>(
+	const [view, setView] = useState<'list' | 'connect' | 'connected' | 'add-custom'>(
 		preselectedSource ? selectProviderView(preselectedSource) : 'list'
 	);
 	const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(preselectedSource?.provider.id);
@@ -119,6 +122,19 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	const selectedSource = sources.find(s => s.provider.id === selectedProviderId);
 	const activeView = (view === 'connect' || view === 'connected') && !selectedSource ? 'list' : view;
 
+	// A custom entry is configurable here but invisible in chat until the
+	// installed Posit Assistant serves models for one, so the Add flow waits for
+	// the capability key rather than a version check.
+	const supportsCustomProviders = useContextKeyFromString<boolean>(SUPPORTS_CUSTOM_PROVIDERS_KEY) === true;
+
+	// The write is the extension's: it creates the providers.json entry,
+	// registers an auth provider under the entry name, and stores the key there.
+	// The new provider's row arrives on its own, through the catalog change that
+	// registers its source.
+	const createCustomProvider = async (request: IAddCustomProviderRequest) => {
+		await services.commandService.executeCommand(ADD_CUSTOM_PROVIDER_COMMAND, request);
+	};
+
 	// A cancel handler reported by the connect view while an OAuth sign-in is in
 	// flight. Held in a ref (read only at close time) so it does not re-render the
 	// modal as the sign-in progresses.
@@ -151,11 +167,13 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 		setView('list');
 	};
 
-	const title = activeView === 'list' || !selectedSource
-		? localize('positron.configureLLMProvidersModal.title', "Configure LLM Providers")
-		: activeView === 'connect'
-			? localize('positron.configureLLMProvidersModal.connectTitle', "Connect to {0}", selectedSource.provider.displayName)
-			: selectedSource.provider.displayName;
+	const title = activeView === 'add-custom'
+		? localize('positron.configureLLMProvidersModal.addCustomTitle', "Add Custom Provider")
+		: activeView === 'list' || !selectedSource
+			? localize('positron.configureLLMProvidersModal.title', "Configure LLM Providers")
+			: activeView === 'connect'
+				? localize('positron.configureLLMProvidersModal.connectTitle', "Connect to {0}", selectedSource.provider.displayName)
+				: selectedSource.provider.displayName;
 
 	return (
 		<PositronModalDialog
@@ -170,11 +188,20 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					<ContentArea>
 						<ProviderList
 							sources={sources}
+							onAddCustomProvider={supportsCustomProviders ? () => setView('add-custom') : undefined}
 							onSelectProvider={source => { setSelectedProviderId(source.provider.id); setView(selectProviderView(source)); }}
 						/>
 					</ContentArea>
 					<ProviderModalFooter onClose={close} />
 				</>
+			}
+			{activeView === 'add-custom' &&
+				<AddCustomProviderView
+					sources={sources}
+					onBack={backToList}
+					onClose={close}
+					onCreate={createCustomProvider}
+				/>
 			}
 			{activeView === 'connect' && selectedSource &&
 				<ConnectProviderView

@@ -17,7 +17,8 @@ import { ContentArea } from '../../../../browser/positronComponents/positronModa
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { LanguageModelIcon } from './languageModelButton.js';
-import { getBaseUrlLabel } from '../providerFieldLabels.js';
+import { ProviderConnectionFields } from './providerConnectionFields.js';
+import { ProviderModelsSection } from './providerModelsSection.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
 
 /**
@@ -96,10 +97,6 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	const supportsBaseUrl = props.source.supportedOptions.includes('baseUrl');
 	const supportsProtocol = props.source.supportedOptions.includes('protocol');
 	const supportsCustomModels = props.source.supportedOptions.includes('customModels');
-
-	const setModelIdAt = (index: number, value: string) => setModelIds(ids => ids.map((v, i) => i === index ? value : v));
-	const addModelRow = () => setModelIds(ids => [...ids, '']);
-	const removeModelRow = (index: number) => setModelIds(ids => ids.filter((_, i) => i !== index));
 
 	// Build schema-valid custom model entries from the entered ids, defaulting
 	// the capability fields the user didn't specify.
@@ -209,96 +206,37 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 							)}
 						</div>
 					}
-					{(authMethod === AuthMethod.API_KEY || supportsBaseUrl) &&
-						<div className='connect-provider-apikey'>
-							{authMethod === AuthMethod.API_KEY &&
-								<>
-									<label className='connect-provider-apikey-label' htmlFor='connect-provider-apikey-input'>
-										{localize('positron.connectProvider.apiKeyLabel', "API Key")}
-									</label>
-									<input
-										autoComplete='off'
-										className='connect-provider-apikey-input'
-										id='connect-provider-apikey-input'
-										spellCheck={false}
-										type='password'
-										value={apiKey}
-										onChange={e => setApiKey(e.target.value)}
-									/>
-								</>
-							}
-							{supportsBaseUrl &&
-								<>
-									<label className='connect-provider-apikey-label' htmlFor='connect-provider-baseurl-input'>
-										{getBaseUrlLabel(props.source.provider.id)}
-									</label>
-									<input
-										autoComplete='off'
-										className='connect-provider-apikey-input'
-										id='connect-provider-baseurl-input'
-										spellCheck={false}
-										type='text'
-										value={baseUrl}
-										onChange={e => setBaseUrl(e.target.value)}
-									/>
-								</>
-							}
-							{supportsProtocol && API_TYPE_SELECTOR_ENABLED &&
-								<>
-									<label className='connect-provider-apikey-label' id='connect-provider-apitype-label'>
-										{localize('positron.connectProvider.apiTypeLabel', "API Type")}
-									</label>
-									<DropDownListBox
-										className='connect-provider-apitype'
-										createItem={item => <ApiTypeEntry option={item.options.value} />}
-										entries={apiTypeEntries}
-										selectedIdentifier={protocol}
-										title={localize('positron.connectProvider.apiTypePlaceholder', "Select API Type")}
-										onSelectionChanged={item => setProtocol(item.options.identifier)}
-									/>
-								</>
-							}
-						</div>
-					}
+					<ProviderConnectionFields
+						apiKey={apiKey}
+						baseUrl={baseUrl}
+						providerId={props.source.provider.id}
+						showApiKey={authMethod === AuthMethod.API_KEY}
+						showBaseUrl={supportsBaseUrl}
+						onApiKeyChange={setApiKey}
+						onBaseUrlChange={setBaseUrl}
+					>
+						{supportsProtocol && API_TYPE_SELECTOR_ENABLED &&
+							<>
+								<label className='connect-provider-apikey-label' id='connect-provider-apitype-label'>
+									{localize('positron.connectProvider.apiTypeLabel', "API Type")}
+								</label>
+								<DropDownListBox
+									className='connect-provider-apitype'
+									createItem={item => <ApiTypeEntry option={item.options.value} />}
+									entries={apiTypeEntries}
+									selectedIdentifier={protocol}
+									title={localize('positron.connectProvider.apiTypePlaceholder', "Select API Type")}
+									onSelectionChanged={item => setProtocol(item.options.identifier)}
+								/>
+							</>
+						}
+					</ProviderConnectionFields>
 					{supportsCustomModels &&
-						<div className='connect-provider-models'>
-							<label className='connect-provider-apikey-label'>
-								{localize('positron.connectProvider.modelsLabel', "Models")}
-							</label>
-							<p className='connect-provider-models-hint'>
-								{localize('positron.connectProvider.modelsHint', "List the model IDs this provider serves. Add these when the provider has no model listing of its own.")}
-							</p>
-							{modelIds.map((id, index) => (
-								<div key={index} className='connect-provider-model-row'>
-									<input
-										autoComplete='off'
-										className='connect-provider-apikey-input'
-										placeholder={localize('positron.connectProvider.modelIdPlaceholder', "Model ID")}
-										spellCheck={false}
-										type='text'
-										value={id}
-										onChange={e => setModelIdAt(index, e.target.value)}
-									/>
-									<button
-										className='connect-provider-model-remove'
-										title={localize('positron.connectProvider.removeModel', "Remove Model")}
-										type='button'
-										onClick={() => removeModelRow(index)}
-									>
-										<span aria-hidden='true' className='codicon codicon-trash' />
-									</button>
-								</div>
-							))}
-							<button className='connect-provider-add-model' type='button' onClick={addModelRow}>
-								<span aria-hidden='true' className='codicon codicon-add' />
-								{localize('positron.connectProvider.addModel', "Add Model")}
-							</button>
-							{props.onEditRawConfig &&
-								<button className='connect-provider-edit-json' type='button' onClick={props.onEditRawConfig}>
-									{localize('positron.connectProvider.editJson', "Edit providers.json for advanced options (closes this dialog)")}
-								</button>
-							}
-						</div>
+						<ProviderModelsSection
+							modelIds={modelIds}
+							onChange={setModelIds}
+							onEditRawConfig={props.onEditRawConfig}
+						/>
 					}
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
 					<div style={{ flexGrow: 1 }}>&nbsp;</div>

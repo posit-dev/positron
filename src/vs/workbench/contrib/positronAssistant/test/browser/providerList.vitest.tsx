@@ -118,4 +118,16 @@ describe('ProviderList', () => {
 			expect.objectContaining({ provider: expect.objectContaining({ id: 'anthropic-api' }) }),
 		);
 	});
+	it('starts the Add Custom Provider flow from the affordance below the sections', async () => {
+		const onAddCustomProvider = vi.fn();
+		const user = userEvent.setup();
+		rtl.render(<ProviderList sources={availableAnthropic} onAddCustomProvider={onAddCustomProvider} onSelectProvider={vi.fn()} />);
+		await user.click(screen.getByRole('button', { name: /add custom provider/i }));
+		expect(onAddCustomProvider).toHaveBeenCalled();
+	});
+
+	it('hides the affordance when custom providers are not supported by the installed assistant', () => {
+		rtl.render(<ProviderList sources={availableAnthropic} onSelectProvider={vi.fn()} />);
+		expect(screen.queryByRole('button', { name: /add custom provider/i })).not.toBeInTheDocument();
+	});
 });

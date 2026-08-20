@@ -12,6 +12,12 @@ interface ProviderListProps {
 	sources: IPositronLanguageModelSource[];
 	/** Invoked when a provider row's action fires; the modal routes to connect / connected / not-supported. */
 	onSelectProvider: (source: IPositronLanguageModelSource) => void;
+	/**
+	 * Starts the Add Custom Provider flow. Omitted when the installed Posit
+	 * Assistant can't serve models for a custom entry yet, in which case adding
+	 * one would produce a provider with nothing behind it.
+	 */
+	onAddCustomProvider?: () => void;
 }
 
 /**
@@ -66,6 +72,21 @@ export const ProviderList = (props: ProviderListProps) => {
 					))}
 				</div>
 			))}
+			{/* A custom provider is something you create rather than something on
+			offer, so its entry point sits below the sections in the scrollable list
+			rather than among the rows. The footer stays for Back and Close. Once
+			created, the provider appears as its own row under the name it was given. */}
+			{props.onAddCustomProvider &&
+				<button
+					className='provider-list-add-custom'
+					data-testid='provider-add-custom-button'
+					type='button'
+					onClick={props.onAddCustomProvider}
+				>
+					<span aria-hidden='true' className='codicon codicon-add' />
+					{localize('positron.configureLLMProvidersModal.addCustom', "Add Custom Provider")}
+				</button>
+			}
 		</div>
 	);
 };
