@@ -15,6 +15,8 @@ import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/co
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { PackageMetadataCache } from './packageMetadataCache.js';
+import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
+import { PACKAGES_VULNERABILITIES_SOURCE_SETTING, PackageVulnerabilityLookup } from './packageVulnerabilityLookup.js';
 import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE } from './positronPackagesContextKeys.js';
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
@@ -51,6 +53,10 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	// here and threaded into each per-session instance.
 	private readonly _metadataCache: PackageMetadataCache;
 
+	// Vulnerability lookups against Posit Package Manager. Owned here so its
+	// per-instance discovery cache is shared by every session in the window.
+	private readonly _vulnerabilityLookup: PackageVulnerabilityLookup;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -72,6 +78,19 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		super();
 
 		this._metadataCache = new PackageMetadataCache(this._storageService, this._logService, this._configurationService);
+		this._vulnerabilityLookup = new PackageVulnerabilityLookup(this._configurationService, this._logService);
+
+		// A change to what the vulnerability lookup would return has to be acted
+		// on: cached entries are still inside their freshness window, so turning
+		// advisories on would otherwise show nothing until the window ages out.
+		this._register(this._configurationService.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration(PACKAGES_VULNERABILITIES_ENABLED_SETTING) ||
+				e.affectsConfiguration(PACKAGES_VULNERABILITIES_SOURCE_SETTING)) {
+				for (const instance of this._instancesBySessionId.values()) {
+					instance.refreshPackageMetadata();
+				}
+			}
+		}));
 
 		// Initialize context keys
 		this._hasActiveSessionContextKey = POSITRON_PACKAGES_HAS_ACTIVE_SESSION.bindTo(this._contextKeyService);
@@ -114,7 +133,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		if (instance) {
 			instance.setRuntimeSession(session);
 		} else {
-			instance = new PositronPackagesInstance(session, this._logService, this._metadataCache);
+			instance = new PositronPackagesInstance(session, this._logService, this._metadataCache, this._vulnerabilityLookup);
 			this._instancesBySessionId.set(session.sessionId, instance);
 		}
 

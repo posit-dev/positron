@@ -34,6 +34,12 @@ export const WORKSPACE_TRUST_UNTRUSTED_FILES = 'security.workspace.trust.untrust
 export const WORKSPACE_TRUST_EMPTY_WINDOW = 'security.workspace.trust.emptyWindow';
 export const WORKSPACE_TRUST_EXTENSION_SUPPORT = 'extensions.supportUntrustedWorkspaces';
 export const WORKSPACE_TRUST_STORAGE_KEY = 'content.trust.model.key';
+// --- Start Positron ---
+// Upstream keeps this key file-local in workspace.contribution.ts. Positron's
+// Canvas startup gate (positronCanvasTrustGate.ts) must predict whether the
+// trust startup prompt is coming, so the key lives here for both to share.
+export const WORKSPACE_TRUST_STARTUP_PROMPT_SHOWN_KEY = 'workspace.trust.startupPrompt.shown';
+// --- End Positron ---
 
 export class CanonicalWorkspace implements IWorkspace {
 	constructor(

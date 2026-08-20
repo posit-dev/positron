@@ -12,7 +12,11 @@ import { useEffect } from 'react';
 // Other dependencies.
 import { PositronReactRenderer } from '../../../../../base/browser/positronReactRenderer.js';
 import { DomSlot } from './components/domSlot.js';
+import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
 import { WalkthroughBanner } from './components/walkthroughBanner.js';
+import { WelcomeHeader } from './components/welcomeHeader.js';
+import { EnvironmentHealthLanguage } from './environmentHealth.js';
+import { IEnvironmentHealthService } from './environmentHealthService.js';
 
 /**
  * PositronWelcomePageProps interface.
@@ -35,6 +39,20 @@ export interface PositronWelcomePageProps {
 	 * because it reuses the existing Toggle widget and its telemetry.
 	 */
 	readonly footer: HTMLElement;
+
+	/**
+	 * Runs the environment health checks and holds their results. Built by the
+	 * editor pane, because it has to outlive this component: the pane rebuilds
+	 * the React tree whenever a walkthrough registers.
+	 */
+	readonly environmentHealthService: IEnvironmentHealthService;
+
+	/**
+	 * Whether each language group is expanded, for the groups the user opened or
+	 * closed themselves. A language with no entry has not been touched, so the
+	 * auto-expand rule decides for it.
+	 */
+	readonly expandedByLanguage: Map<EnvironmentHealthLanguage, boolean>;
 
 	/**
 	 * Called once the page is in the DOM. The editor pane uses this to attach
@@ -64,6 +82,8 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 	// layout lives on one element instead of two nested ones.
 	return (
 		<>
+			<WelcomeHeader />
+			<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
 			<WalkthroughBanner />
 			<DomSlot element={props.recentList} />
 			{props.connectAction && <DomSlot element={props.connectAction} />}

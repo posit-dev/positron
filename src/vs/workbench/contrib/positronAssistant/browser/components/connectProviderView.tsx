@@ -11,7 +11,7 @@ import { localize } from '../../../../../nls.js';
 import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js';
 import { IPositronCustomModel, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
 import { AuthMethod, AuthStatus } from '../types.js';
-import { deriveAuthMethod, deriveAuthStatus, deriveConnectAction } from '../providerConnection.js';
+import { availableAuthMethods, deriveAuthMethod, deriveAuthStatus, deriveConnectAction } from '../providerConnection.js';
 import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../providerLegalText.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
@@ -114,8 +114,10 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 		new DropDownListBoxItem<string, ApiTypeOption>({ identifier: API_TYPE_RESPONSES, value: { title: localize('positron.connectProvider.apiType.responses', "OpenAI Responses"), path: '/v1/responses' } }),
 	];
 
-	const authMethod = deriveAuthMethod(props.source);
-	const authStatus = deriveAuthStatus(props.source, { showProgress: inFlight, apiKey });
+	const methods = availableAuthMethods(props.source);
+	const [selectedMethod, setSelectedMethod] = useState<AuthMethod | undefined>(undefined);
+	const authMethod = deriveAuthMethod(props.source, selectedMethod);
+	const authStatus = deriveAuthStatus(props.source, { showProgress: inFlight, apiKey, selected: selectedMethod });
 
 	const onConnect = async () => {
 		setPending('connect');
@@ -128,7 +130,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 				...(supportsProtocol ? { protocol } : {}),
 				...(supportsCustomModels ? { customModels } : {}),
 			};
-			await props.onAction(props.source, dispatchConfig, deriveConnectAction(props.source));
+			await props.onAction(props.source, dispatchConfig, deriveConnectAction(props.source, selectedMethod));
 		} catch (e) {
 			setErrorMessage(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -184,6 +186,29 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 			<ContentArea>
 				<div className='connect-provider-view' data-testid='provider-connect-view'>
 					<ConnectProviderHeader source={props.source} />
+					{methods.length > 1 && !props.source.signedIn &&
+						<div
+							aria-label={localize('positron.connectProvider.authMethodGroup', "Authentication Method")}
+							className='connect-provider-auth-method'
+							role='radiogroup'
+						>
+							{methods.map(method =>
+								<label key={method}>
+									<input
+										checked={authMethod === method}
+										disabled={inFlight}
+										name='connect-provider-auth-method'
+										type='radio'
+										value={method}
+										onChange={() => setSelectedMethod(method)}
+									/>
+									{method === AuthMethod.OAUTH
+										? localize('positron.connectProvider.oauth', "OAuth")
+										: localize('positron.connectProvider.apiKey', "API Key")}
+								</label>
+							)}
+						</div>
+					}
 					{(authMethod === AuthMethod.API_KEY || supportsBaseUrl) &&
 						<div className='connect-provider-apikey'>
 							{authMethod === AuthMethod.API_KEY &&

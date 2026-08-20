@@ -4,12 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-dynamic-modal-dialog-box .title-bar {
-	flex: 0 0 32px;
+	/*
+		Grow past the 48px single-line height when a title description adds a second line, keeping
+		symmetric vertical padding so two lines aren't crammed into the single-line space.
+	*/
+	flex: 0 0 auto;
 	display: flex;
-	padding: 0 16px;
+	min-height: 48px;
+	box-sizing: border-box;
+	padding: 10px 16px;
 	align-items: center;
 	color: var(--vscode-positronModalDialog-foreground);
-	background: var(--vscode-positronModalDialog-titleBarBackground);
+	background: var(--vscode-positronModalDialog-background);
+	border-bottom: solid 1px var(--vscode-positronModalDialog-border);
 }
 
 .positron-dynamic-modal-dialog-box .title-bar .title-bar-titles {
@@ -26,7 +33,8 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	color: var(--vscode-positronModalDialog-titleBarForeground);
+	font-size: 16px;
+	color: var(--vscode-descriptionForeground);
 }
 
 .positron-dynamic-modal-dialog-box .title-bar .title-bar-title-description {
@@ -57,23 +65,4 @@
 
 .positron-dynamic-modal-dialog-box .title-bar .title-bar-close-button:hover {
 	background: var(--vscode-toolbar-hoverBackground);
-}
-
-.positron-dynamic-modal-dialog-box .title-bar.large {
-	/*
-		Grow past the 48px single-line height when a title description adds a second line, keeping
-		symmetric vertical padding so two lines aren't crammed into the single-line space.
-	*/
-	flex: 0 0 auto;
-	min-height: 48px;
-	box-sizing: border-box;
-	padding-top: 10px;
-	padding-bottom: 10px;
-	background: var(--vscode-positronModalDialog-background);
-	border-bottom: solid 1px var(--vscode-positronModalDialog-border);
-}
-
-.positron-dynamic-modal-dialog-box .title-bar.large .title-bar-title {
-	font-size: 16px;
-	color: var(--vscode-descriptionForeground);
 }

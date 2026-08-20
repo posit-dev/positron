@@ -40,6 +40,9 @@ import { IWindowState, ICodeWindow, ILoadEvent, WindowMode, WindowError, LoadRea
 import { IPolicyService } from '../../policy/common/policy.js';
 import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.js';
 import { IStateService } from '../../state/node/state.js';
+// --- Start Positron ---
+import { IPositronStandaloneModeMainService } from '../../positronStandaloneMode/common/positronStandaloneMode.js';
+// --- End Positron ---
 import { IUserDataProfilesMainService } from '../../userDataProfile/electron-main/userDataProfile.js';
 import { ILoggerMainService } from '../../log/electron-main/loggerService.js';
 import { IInstantiationService } from '../../instantiation/common/instantiation.js';
@@ -696,7 +699,10 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		@IProtocolMainService protocolMainService: IProtocolMainService,
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
 		@IStateService stateService: IStateService,
-		@IInstantiationService instantiationService: IInstantiationService
+		@IInstantiationService instantiationService: IInstantiationService,
+		// --- Start Positron ---
+		@IPositronStandaloneModeMainService private readonly positronStandaloneModeMainService: IPositronStandaloneModeMainService
+		// --- End Positron ---
 	) {
 		super(configurationService, stateService, environmentMainService, logService);
 
@@ -971,6 +977,16 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 					return;
 				}
 
+				// --- Start Positron ---
+				// Canvas mode hides this window. The dialogs below are parented
+				// to it, and a dialog on a hidden window is invisible (on macOS
+				// a sheet on a hidden NSWindow) yet blocks recovery awaiting an
+				// answer that can never come. Show the window first.
+				if (this._win && !this._win.isDestroyed() && !this._win.isVisible()) {
+					this._win.show();
+				}
+				// --- End Positron ---
+
 				// Unresponsive
 				if (type === WindowError.UNRESPONSIVE) {
 					if (this.isExtensionDevelopmentHost || this.isExtensionTestHost || this._win?.webContents?.isDevToolsOpened()) {
@@ -1085,6 +1101,11 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 					userEnv: this._config.userEnv,
 					cli: {
 						...this.environmentMainService.args,
+						// --- Start Positron ---
+						// A clone made while `--canvas` is still unconsumed is
+						// unprimed and would match any window configuration.
+						canvas: undefined,
+						// --- End Positron ---
 						_: [] // we pass in the workspace to open explicitly via `urisToOpen`
 					},
 					urisToOpen: uriToOpen ? [uriToOpen] : undefined,
@@ -1348,6 +1369,17 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		delete configuration.filesToDiff;
 		delete configuration.filesToMerge;
 		delete configuration.filesToWait;
+
+		// --- Start Positron ---
+		// CLI Canvas intent applies to the launch only; active Canvas mode is
+		// restored through workspace storage, so a later explicit exit sticks.
+		delete configuration.canvas;
+
+		// Refresh the open-time engagement stamp: a window opened while the
+		// mode was engaged elsewhere must not stay locked out across reloads
+		// after that engagement ended.
+		configuration.standaloneModeEngagedElsewhere = this.positronStandaloneModeMainService.isEngagedElsewhere(this.id);
+		// --- End Positron ---
 
 		// Some configuration things get inherited if the window is being reloaded and we are
 		// in extension development mode. These options are all development related.

@@ -118,6 +118,8 @@ import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentE
 import { IPositronIdleTrackingService } from '../../platform/positronIdleTracking/common/positronIdleTracking.js';
 import { PositronIdleTrackingService } from '../../platform/positronIdleTracking/node/positronIdleTrackingService.js';
 import { POSITRON_IDLE_TRACKING_CHANNEL_NAME, PositronIdleTrackingChannel } from '../../platform/positronIdleTracking/common/positronIdleTrackingIpc.js';
+import { IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
+import { PositronAcademicLicenseService } from '../../platform/positronLicense/node/positronAcademicLicenseService.js';
 import { HEADLESS_LM_ENGINE_CHANNEL } from '../../platform/positronHeadlessLanguageModel/common/engine.js';
 import { HeadlessLanguageModelEngine } from '../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngine.js';
 import { HeadlessLanguageModelEngineChannel } from '../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngineChannel.js';
@@ -356,6 +358,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	services.set(IEphemeralStateService, ephemeralStateService);
 	const idleTrackingService = new PositronIdleTrackingService();
 	services.set(IPositronIdleTrackingService, idleTrackingService);
+	services.set(IPositronAcademicLicenseService, new PositronAcademicLicenseService(positronLicenseeInfo?.academic === true));
 	// --- End Positron ---
 
 	instantiationService.invokeFunction(accessor => {

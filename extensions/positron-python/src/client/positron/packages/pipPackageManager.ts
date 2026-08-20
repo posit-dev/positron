@@ -12,6 +12,7 @@ import { IWorkspaceService } from '../../common/application/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { traceVerbose } from '../../logging';
+import { PIP_INDEX_ENV_VARS, resolvePythonIndexUrl } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
@@ -43,6 +44,31 @@ export class PipPackageManager implements IPackageManager {
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
         return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedVersions(t), token);
+    }
+
+    /**
+     * The index this environment installs from, when it resolves to one Positron
+     * can ask about security advisories.
+     */
+    async packageRepositoryUrl(_token?: vscode.CancellationToken): Promise<string | undefined> {
+        return resolvePythonIndexUrl(PIP_INDEX_ENV_VARS, () => this._getPipConfigIndexUrl());
+    }
+
+    /**
+     * The index URL from pip's own configuration (`pip config get
+     * global.index-url`), or undefined when unset. pip exits non-zero for an
+     * unset key, which surfaces here as a rejection the caller treats as
+     * "no configured index".
+     */
+    private async _getPipConfigIndexUrl(): Promise<string | undefined> {
+        if (!(await this.isPipAvailable())) {
+            return undefined;
+        }
+        const pythonService = await this._getPythonService();
+        const result = await pythonService.execModule('pip', ['config', 'get', 'global.index-url', '--no-color'], {
+            throwOnStdErr: false,
+        });
+        return result.stdout.trim() || undefined;
     }
 
     async getPackageDetail(

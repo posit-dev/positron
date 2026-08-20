@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../infra';
-import { test as base, tags } from '../_test.setup';
+import { test as base, expect, tags } from '../_test.setup';
 
 /**
  * Turn the setting on before the app launches, rather than through the settings
@@ -113,5 +113,37 @@ test.describe('Redesigned Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () =
 		// Tabbing into it would scroll it into view and slide the welcome page
 		// off the left edge.
 		await welcome.expectHiddenSlideToBeInert('walkthrough');
+	});
+
+	test('Verify the environment setup card survives a tab switch', async function ({ app, runCommand }) {
+		const { welcome } = app.workbench;
+
+		await expect(welcome.environmentSetup).toBeVisible();
+		// Settled means both languages have a summary line, which only the settled
+		// states render -- a language still checking has none. Waiting on one of
+		// them is not enough: R often finishes while Python is still running. The
+		// wording depends on how the machine is set up, so nothing here asserts a
+		// particular sentence.
+		await expect(welcome.environmentSetupSummary).toHaveCount(2, { timeout: 30000 });
+		const settled = await welcome.environmentSetupSummary.allTextContents();
+
+		// A different editor needs a different pane, which is the path that calls
+		// clearInput on the welcome pane.
+		await runCommand('workbench.action.files.newUntitledFile');
+		await runCommand('workbench.action.previousEditor');
+		await expect(welcome.environmentSetup).toBeVisible();
+
+		// What this does and does not prove. It catches the card coming back blank,
+		// stuck loading, or re-running its checks slowly enough to be seen. It
+		// cannot prove the checks were not silently re-run: a re-check lands on
+		// the same answer, so a fast one is invisible from the DOM. Reverting the
+		// input-keying in gettingStarted.ts leaves this test passing.
+		//
+		// Read the count once rather than asserting it retryably -- a retrying
+		// toHaveCount(0) would wait for any re-check to finish and then pass.
+		expect(await welcome.environmentSetupProgress.count()).toBe(0);
+		// Same reason for the short timeout: the summary has to be there *now*,
+		// not after a re-check has had time to refill it.
+		await expect(welcome.environmentSetupSummary).toHaveText(settled, { timeout: 2000 });
 	});
 });

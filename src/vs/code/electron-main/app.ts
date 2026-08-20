@@ -149,10 +149,14 @@ import ErrorTelemetry from '../../platform/telemetry/electron-main/errorTelemetr
 
 // --- Start Positron ---
 import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
+import { selectCanvasLaunchWindow } from '../../platform/launch/common/positronCanvasLaunch.js';
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
 import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
 import { PositronMemoryUsageMainService } from '../../platform/positronMemoryUsage/electron-main/positronMemoryUsageMainService.js';
 import { POSITRON_MEMORY_INFO_CHANNEL_NAME, PositronMemoryInfoChannel } from '../../platform/positronMemoryUsage/common/positronMemoryUsageIpc.js';
+import { IPositronStandaloneModeMainService, POSITRON_STANDALONE_MODE_CHANNEL_NAME } from '../../platform/positronStandaloneMode/common/positronStandaloneMode.js';
+import { PositronStandaloneModeChannel } from '../../platform/positronStandaloneMode/common/positronStandaloneModeIpc.js';
+import { PositronStandaloneModeMainService } from '../../platform/positronStandaloneMode/electron-main/positronStandaloneModeMainService.js';
 import { recolorDevIcon } from '../../platform/windows/electron-main/devIconColorizer.js';
 // --- End Positron ---
 
@@ -222,6 +226,9 @@ export class CodeApplication extends Disposable {
 	private windowsMainService: IWindowsMainService | undefined;
 	private auxiliaryWindowsMainService: IAuxiliaryWindowsMainService | undefined;
 	private nativeHostMainService: INativeHostMainService | undefined;
+	// --- Start Positron ---
+	private positronStandaloneModeMainService: IPositronStandaloneModeMainService | undefined;
+	// --- End Positron ---
 
 	constructor(
 		private readonly mainProcessNodeIpcServer: NodeIPCServer,
@@ -621,16 +628,45 @@ export class CodeApplication extends Disposable {
 
 			// Handle paths delayed in case more are coming!
 			runningTimeout = setTimeout(async () => {
-				await this.windowsMainService?.open({
-					context: OpenContext.DOCK /* can also be opening from finder while app is running */,
-					cli: this.environmentMainService.args,
-					urisToOpen: macOpenFileURIs,
-					gotoLineMode: false,
-					preferNewWindow: true /* dropping on the dock or opening from finder prefers to open in a new window */
-				});
-
+				// --- Start Positron ---
+				// A Finder or Dock open must not land behind an engaged
+				// standalone mode window, so it is routed by the standalone
+				// mode policy like a second-instance open (LaunchMainService).
+				const urisToOpen = macOpenFileURIs;
 				macOpenFileURIs = [];
 				runningTimeout = undefined;
+
+				const openFinderFiles = () => {
+					void this.windowsMainService?.open({
+						// --- End Positron ---
+						context: OpenContext.DOCK /* can also be opening from finder while app is running */,
+						// --- Start Positron ---
+						// A Finder or Dock open can race startup and must not
+						// re-prime or consume the initial launch's `--canvas`.
+						// cli: this.environmentMainService.args,
+						cli: { ...this.environmentMainService.args, canvas: undefined },
+						// --- End Positron ---
+						// --- Start Positron ---
+						// urisToOpen: macOpenFileURIs,
+						urisToOpen,
+						// --- End Positron ---
+						gotoLineMode: false,
+						preferNewWindow: true /* dropping on the dock or opening from finder prefers to open in a new window */
+					});
+					// --- Start Positron ---
+				};
+				if (this.positronStandaloneModeMainService) {
+					await this.positronStandaloneModeMainService.handleExternalOpen(
+						openFinderFiles,
+						(engagedWindowId, exitCommandId) => this.windowsMainService?.getWindowById(engagedWindowId)?.sendWhenReady('vscode:runAction', CancellationToken.None, {
+							id: exitCommandId,
+							from: 'menu',
+						})
+					);
+				} else {
+					openFinderFiles();
+				}
+				// --- End Positron ---
 			}, 100);
 		});
 
@@ -774,7 +810,36 @@ export class CodeApplication extends Disposable {
 		this.lifecycleMainService.phase = LifecycleMainPhase.Ready;
 
 		// Open Windows
-		await appInstantiationService.invokeFunction(accessor => this.openFirstWindow(accessor, initialProtocolUrls));
+		// --- Start Positron ---
+		// Capture the windows this startup opened so the `--canvas` forward
+		// below cannot target an unrelated window opened concurrently by the
+		// protocol or Finder handlers installed above.
+		// await appInstantiationService.invokeFunction(accessor => this.openFirstWindow(accessor, initialProtocolUrls));
+		const firstWindows = await appInstantiationService.invokeFunction(accessor => this.openFirstWindow(accessor, initialProtocolUrls));
+		// --- End Positron ---
+
+		// --- Start Positron ---
+		// The flag still set here means the targeted startup window never got
+		// a fresh window that would consume it (`CanvasLaunchWindowAssigner`),
+		// e.g. file-only paths absorbed into a restored window; forward it as
+		// an action like LaunchMainService does for a second instance. The
+		// delete is the backstop either way: `--canvas` applies to the launch,
+		// not the process, and a flag left on the live args would outrank an
+		// explicit Canvas exit for the rest of the run.
+		if (this.environmentMainService.args.canvas && this.windowsMainService) {
+			const canvasWindow = selectCanvasLaunchWindow(firstWindows, this.windowsMainService.getLastActiveWindow());
+			if (canvasWindow) {
+				canvasWindow.sendWhenReady('vscode:runAction', CancellationToken.None, {
+					// The Canvas action that owns its failure notification;
+					// `runAction` ignores return values.
+					id: 'positron.canvas.open',
+					from: 'menu',
+				});
+				canvasWindow.focus();
+			}
+		}
+		delete this.environmentMainService.args.canvas;
+		// --- End Positron ---
 
 		// Signal phase: after window open
 		this.lifecycleMainService.phase = LifecycleMainPhase.AfterWindowOpen;
@@ -1103,7 +1168,12 @@ export class CodeApplication extends Disposable {
 
 				const window = (await windowsMainService.open({
 					context: OpenContext.LINK,
-					cli: { ...this.environmentMainService.args },
+					// --- Start Positron ---
+					// A protocol open must not inherit a not-yet-consumed
+					// `--canvas`: cloning defeats consume-on-assign, and a URL
+					// arriving during startup would grant Canvas a second time.
+					cli: { ...this.environmentMainService.args, canvas: undefined },
+					// --- End Positron ---
 					urisToOpen: [windowOpenableFromProtocolUrl],
 					forceNewWindow: shouldOpenInNewWindow,
 					gotoLineMode: true
@@ -1127,7 +1197,10 @@ export class CodeApplication extends Disposable {
 
 			const window = (await windowsMainService.open({
 				context: OpenContext.LINK,
-				cli: { ...this.environmentMainService.args },
+				// --- Start Positron ---
+				// See above: protocol opens never inherit `--canvas`.
+				cli: { ...this.environmentMainService.args, canvas: undefined },
+				// --- End Positron ---
 				forceNewWindow: true,
 				forceEmpty: true,
 				gotoLineMode: true,
@@ -1235,6 +1308,12 @@ export class CodeApplication extends Disposable {
 
 		// Menubar
 		services.set(IMenubarMainService, new SyncDescriptor(MenubarMainService));
+
+		// --- Start Positron ---
+		// Standalone mode: which window, if any, presents a single view as the
+		// whole product
+		services.set(IPositronStandaloneModeMainService, new SyncDescriptor(PositronStandaloneModeMainService));
+		// --- End Positron ---
 
 		// Extension Host Starter
 		services.set(IExtensionHostStarter, new SyncDescriptor(ExtensionHostStarter));
@@ -1487,6 +1566,11 @@ export class CodeApplication extends Disposable {
 		const memoryUsageMainService = new PositronMemoryUsageMainService();
 		const memoryInfoChannel = new PositronMemoryInfoChannel(memoryUsageMainService);
 		mainProcessElectronServer.registerChannel(POSITRON_MEMORY_INFO_CHANNEL_NAME, memoryInfoChannel);
+
+		// Standalone Mode
+		this.positronStandaloneModeMainService = accessor.get(IPositronStandaloneModeMainService);
+		const standaloneModeChannel = new PositronStandaloneModeChannel(this.positronStandaloneModeMainService);
+		mainProcessElectronServer.registerChannel(POSITRON_STANDALONE_MODE_CHANNEL_NAME, standaloneModeChannel);
 		// --- End Positron ---
 
 		// Utility Process Worker

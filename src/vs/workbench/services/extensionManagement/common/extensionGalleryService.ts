@@ -15,6 +15,9 @@ import { IEnvironmentService } from '../../../../platform/environment/common/env
 import { AbstractExtensionGalleryService } from '../../../../platform/extensionManagement/common/extensionGalleryService.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IExtensionGalleryManifestService } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+// --- Start Positron ---
+import { IPositronAcademicLicenseService } from '../../../../platform/positronLicense/common/positronAcademicLicenseService.js';
+// --- End Positron ---
 
 export class WorkbenchExtensionGalleryService extends AbstractExtensionGalleryService {
 	constructor(
@@ -28,8 +31,11 @@ export class WorkbenchExtensionGalleryService extends AbstractExtensionGallerySe
 		@IConfigurationService configurationService: IConfigurationService,
 		@IAllowedExtensionsService allowedExtensionsService: IAllowedExtensionsService,
 		@IExtensionGalleryManifestService extensionGalleryManifestService: IExtensionGalleryManifestService,
+		// --- Start Positron ---
+		@IPositronAcademicLicenseService academicLicenseService: IPositronAcademicLicenseService,
 	) {
-		super(storageService, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService);
+		super(storageService, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService, academicLicenseService);
+		// --- End Positron ---
 	}
 }
 

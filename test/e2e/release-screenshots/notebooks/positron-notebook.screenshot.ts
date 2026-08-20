@@ -16,10 +16,6 @@ const ANNOTATION_COLOR = '#dc2626';
 // these screenshots run against, so no settings override is needed here.
 test.use({
 	suiteId: __filename,
-	// The assistant screenshot signs in through the legacy provider dialog
-	// (pages/positronAssistant.ts), which is no longer the default. Remove the
-	// pin when that page object is ported to the new modal.
-	extraSettings: { 'assistant.newProviderModal': false },
 });
 
 test.afterEach(async ({ page, hotKeys, cleanup }) => {
@@ -100,7 +96,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 * left having responded to "Tell me about this notebook", variables on right.
 	 */
 	test('Release Screenshot - positron-notebook.png', async ({ app, page, settings, python }) => {
-		const { notebooksPositron, variables, hotKeys, layouts, plots, quickaccess, quickInput, editors, positAssistant, assistant } = app.workbench;
+		const { notebooksPositron, variables, hotKeys, layouts, plots, quickaccess, quickInput, editors, positAssistant, modelProviderModal } = app.workbench;
 
 		await settings.set({
 			'positron.assistant.notebook.ghostCellSuggestions.enabled': false,
@@ -143,7 +139,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await editors.waitForActiveTab('explore-energy-data.ipynb', false);
 
 		// Log in to the model provider and open Posit Assistant chat on the left.
-		await assistant.loginModelProvider('anthropic-api');
+		await modelProviderModal.loginModelProvider('anthropic-api');
 		await positAssistant.open();
 		await positAssistant.waitForReady();
 		await positAssistant.sendMessageAndWait('Tell me about this notebook', { timeout: 90_000, newConversation: true });

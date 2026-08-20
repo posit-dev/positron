@@ -6,21 +6,47 @@
 import { IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
 import { AuthMethod, AuthStatus } from './types.js';
 
-/** Pick the single auth method a provider uses (OAuth wins over API key). */
-export function deriveAuthMethod(source: IPositronLanguageModelSource): AuthMethod {
+/** Auth methods the source supports, OAuth first. */
+export function availableAuthMethods(source: IPositronLanguageModelSource): AuthMethod[] {
+	const methods: AuthMethod[] = [];
 	if (source.supportedOptions.includes(AuthMethod.OAUTH)) {
-		return AuthMethod.OAUTH;
+		methods.push(AuthMethod.OAUTH);
 	}
 	if (source.supportedOptions.includes(AuthMethod.API_KEY)) {
-		return AuthMethod.API_KEY;
+		methods.push(AuthMethod.API_KEY);
 	}
-	return AuthMethod.NONE;
+	return methods;
+}
+
+/**
+ * The effective method: while signed in, the method the source reports it
+ * actually connected with (source.authMethods, set by the extension from the
+ * live session) takes precedence over guessing - a provider that supports
+ * both OAuth and API key does not necessarily mean the current session used
+ * either particular one. Otherwise, the user's in-progress selection when
+ * supported, else the first available method.
+ */
+export function deriveAuthMethod(
+	source: IPositronLanguageModelSource,
+	selected?: AuthMethod,
+): AuthMethod {
+	if (source.signedIn && source.authMethods?.length) {
+		const active = source.authMethods[0];
+		if (active === AuthMethod.OAUTH || active === AuthMethod.API_KEY) {
+			return active;
+		}
+	}
+	const methods = availableAuthMethods(source);
+	if (selected && methods.includes(selected)) {
+		return selected;
+	}
+	return methods[0] ?? AuthMethod.NONE;
 }
 
 /** Derive the auth status from the source and transient UI state. */
 export function deriveAuthStatus(
 	source: IPositronLanguageModelSource,
-	ui: { showProgress: boolean; apiKey?: string },
+	ui: { showProgress: boolean; apiKey?: string; selected?: AuthMethod },
 ): AuthStatus {
 	if (source.signedIn) {
 		return AuthStatus.SIGNED_IN;
@@ -28,18 +54,18 @@ export function deriveAuthStatus(
 	if (ui.showProgress) {
 		return AuthStatus.SIGNING_IN;
 	}
-	if (deriveAuthMethod(source) === AuthMethod.API_KEY && !!ui.apiKey && ui.apiKey.length > 0) {
+	if (deriveAuthMethod(source, ui.selected) === AuthMethod.API_KEY && !!ui.apiKey && ui.apiKey.length > 0) {
 		return AuthStatus.SIGN_IN_PENDING;
 	}
-	if (deriveAuthMethod(source) === AuthMethod.NONE) {
+	if (deriveAuthMethod(source, ui.selected) === AuthMethod.NONE) {
 		return AuthStatus.SIGN_IN_PENDING;
 	}
 	return AuthStatus.SIGNED_OUT;
 }
 
 /** The onAction dispatch verb that connects the given provider. */
-export function deriveConnectAction(source: IPositronLanguageModelSource): string {
-	return deriveAuthMethod(source) === AuthMethod.OAUTH ? 'oauth-signin' : 'save';
+export function deriveConnectAction(source: IPositronLanguageModelSource, selected?: AuthMethod): string {
+	return deriveAuthMethod(source, selected) === AuthMethod.OAUTH ? 'oauth-signin' : 'save';
 }
 
 /** The onAction dispatch verb that disconnects the given provider. */

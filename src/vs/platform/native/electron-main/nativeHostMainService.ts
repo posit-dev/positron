@@ -54,6 +54,7 @@ import { CancellationToken, CancellationTokenSource } from '../../../base/common
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { nativeImage } from 'electron';
+import { IPositronStandaloneModeMainService } from '../../positronStandaloneMode/common/positronStandaloneMode.js';
 // --- End Positron ---
 
 export interface INativeHostMainService extends AddFirstParameterToFunctions<ICommonNativeHostService, Promise<unknown> /* only methods, not events */, number | undefined /* window ID */> { }
@@ -78,9 +79,24 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 		@IRequestService private readonly requestService: IRequestService,
 		@IProxyAuthService private readonly proxyAuthService: IProxyAuthService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IGlobalKeybindingsMainService private readonly globalKeybindingsMainService: IGlobalKeybindingsMainService
+		@IGlobalKeybindingsMainService private readonly globalKeybindingsMainService: IGlobalKeybindingsMainService,
+		// --- Start Positron ---
+		@IPositronStandaloneModeMainService positronStandaloneModeMainService: IPositronStandaloneModeMainService
+		// --- End Positron ---
 	) {
 		super();
+
+		// --- Start Positron ---
+		// A standalone-mode claim changing hands must invalidate any hideWindow
+		// still awaiting its fullscreen transition, even when the window looks
+		// visible; the standalone service cannot call in here directly because
+		// injecting this service there would cycle through IWindowsMainService.
+		this._register(positronStandaloneModeMainService.onDidChange(() => {
+			for (const [id, epoch] of this.hideWindowEpochs) {
+				this.hideWindowEpochs.set(id, epoch + 1);
+			}
+		}));
+		// --- End Positron ---
 
 		// Events
 		{
@@ -374,6 +390,50 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 		const window = this.windowById(options?.targetWindowId, windowId);
 		window?.win?.minimize();
 	}
+
+	// --- Start Positron ---
+	// Bumped by showWindow and by standalone-mode claim changes so that a
+	// hideWindow paused on the fullscreen transition below can tell the
+	// window was meant to be shown in the meantime and abandon the hide.
+	private readonly hideWindowEpochs = new Map<number, number>();
+
+	async hideWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<boolean> {
+		const window = this.windowById(options?.targetWindowId, windowId);
+		const win = window?.win;
+		if (!window || !win || !win.isVisible() || win.isMinimized()) {
+			return false;
+		}
+
+		const epoch = this.hideWindowEpochs.get(window.id) ?? 0;
+		this.hideWindowEpochs.set(window.id, epoch);
+
+		// Electron cannot cleanly hide a macOS native-fullscreen window (its
+		// Space is left behind); leave fullscreen first, like `positionWindow`.
+		if (win.isFullScreen()) {
+			const fullscreenLeftFuture = Event.toPromise(Event.once(Event.fromNodeEventEmitter(win, 'leave-full-screen')));
+			win.setFullScreen(false);
+			await fullscreenLeftFuture;
+			if (win.isDestroyed() || this.hideWindowEpochs.get(window.id) !== epoch) {
+				return false;
+			}
+		}
+
+		win.hide();
+		return true;
+	}
+
+	async showWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
+		const window = this.windowById(options?.targetWindowId, windowId);
+		const win = window?.win;
+		if (!window || !win) {
+			return;
+		}
+		this.hideWindowEpochs.set(window.id, (this.hideWindowEpochs.get(window.id) ?? 0) + 1);
+		if (!win.isVisible()) {
+			win.show();
+		}
+	}
+	// --- End Positron ---
 
 	async moveWindowTop(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
 		const window = this.windowById(options?.targetWindowId, windowId);

@@ -245,7 +245,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.8.0",
+			"version": "2.10.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -309,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "1.0.1",
-			"sha256": "53d2abf5f45fc271c47f91f97520d97a5e03363cbcb335228259117e67e5ac60",
+			"version": "1.1.0",
+			"sha256": "2cb3456d18389691ab0f6bdda887b3c6190abb78bd6aa0e1a128ab9bf890c909",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"

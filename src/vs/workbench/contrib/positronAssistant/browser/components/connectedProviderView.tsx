@@ -52,6 +52,7 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 	const autoconfigure = current.defaults.autoconfigure;
 	const isAutoAuth = !!autoconfigure && autoconfigure.signedIn;
 	const envKey = autoconfigure?.type === LanguageModelAutoconfigureType.EnvVariable ? autoconfigure.key : undefined;
+	const customMessage = autoconfigure?.type === LanguageModelAutoconfigureType.Custom ? autoconfigure.message : undefined;
 	const hasError = current.status === 'error';
 
 	// GitHub Copilot rides GitHub's built-in auth, so it cannot be signed out from
@@ -64,11 +65,13 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 	const authMethod = deriveAuthMethod(current);
 	const subtitle = isAutoAuth && envKey
 		? localize('positron.connectedProvider.viaEnv', "Connected via {0}", envKey)
-		: authMethod === AuthMethod.OAUTH
-			? localize('positron.connectedProvider.viaOAuth', "Connected via OAuth")
-			: authMethod === AuthMethod.API_KEY
-				? localize('positron.connectedProvider.viaApiKey', "Connected via API key")
-				: localize('positron.connectedProvider.viaUnknown', "Connected");
+		: isAutoAuth && customMessage
+			? localize('positron.connectedProvider.viaCustom', "Connected via {0}", customMessage)
+			: authMethod === AuthMethod.OAUTH
+				? localize('positron.connectedProvider.viaOAuth', "Connected via OAuth")
+				: authMethod === AuthMethod.API_KEY
+					? localize('positron.connectedProvider.viaApiKey', "Connected via API key")
+					: localize('positron.connectedProvider.viaUnknown', "Connected");
 
 	// The error banner message (only shown when the provider reports an error).
 	// How the provider is connected is conveyed by the header subtitle instead.

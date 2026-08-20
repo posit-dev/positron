@@ -41,6 +41,7 @@ import type * as net from 'net';
 // --- Start Positron ---
 import { HAS_STATIC_ROUTE } from './pwbConstants.js';
 import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
+import { academicMarkerScript, IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
 // --- End Positron ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
@@ -182,7 +183,10 @@ export class WebClientServer {
 		@ILogService private readonly _logService: ILogService,
 		@IRequestService private readonly _requestService: IRequestService,
 		@IProductService private readonly _productService: IProductService,
-		@ICSSDevelopmentService private readonly _cssDevService: ICSSDevelopmentService
+		@ICSSDevelopmentService private readonly _cssDevService: ICSSDevelopmentService,
+		// --- Start Positron ---
+		@IPositronAcademicLicenseService private readonly _academicLicenseService: IPositronAcademicLicenseService
+		// --- End Positron ---
 	) {
 		this._webExtensionResourceUrlTemplate = this._productService.extensionsGallery?.resourceUrlTemplate ? URI.parse(this._productService.extensionsGallery.resourceUrlTemplate) : undefined;
 
@@ -683,6 +687,12 @@ export class WebClientServer {
 		const pwbWorkbenchMarker = isWorkbench ? '<script>globalThis._PWB_IS_WORKBENCH = true;</script>' : '';
 		// --- End PWB ---
 
+		// --- Start Positron: browser-side academic marker ---
+		// Same early-injection trick as the Workbench marker above, reusing the PWB_WORKBENCH_MARKER
+		// slot so no template changes are needed.
+		const academicMarker = academicMarkerScript(this._academicLicenseService.isAcademic);
+		// --- End Positron ---
+
 		const values: { [key: string]: string } = {
 			WORKBENCH_WEB_CONFIGURATION: asJSON(workbenchWebConfiguration),
 			WORKBENCH_AUTH_SESSION: authSessionInfo ? asJSON(authSessionInfo) : '',
@@ -695,7 +705,7 @@ export class WebClientServer {
 			BASE: base,
 			VS_BASE: vscodeBase,
 			RS_LOGIN_CHECK_SCRIPT: rsLoginCheckScript,
-			PWB_WORKBENCH_MARKER: pwbWorkbenchMarker,
+			PWB_WORKBENCH_MARKER: pwbWorkbenchMarker + academicMarker,
 			// --- End PWB ---
 		};
 

@@ -14,6 +14,7 @@ import { ILanguageRuntimePackage, IRuntimeSessionMetadata, ILanguageRuntimeSessi
 import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
+import { IPackageVulnerabilitySource } from '../../browser/packageVulnerabilityLookup.js';
 import { PackageDetail } from '../../browser/components/packageDetail.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -31,12 +32,17 @@ function makeSession(sessionId: string): ILanguageRuntimeSession {
 	return stubInterface<ILanguageRuntimeSession>({ metadata, runtimeMetadata });
 }
 
-function makeInstance(pkgs: ILanguageRuntimePackage[], sessionId = SESSION_ID): IPositronPackagesInstance {
+function makeInstance(
+	pkgs: ILanguageRuntimePackage[],
+	sessionId = SESSION_ID,
+	vulnerabilitySource: IPackageVulnerabilitySource | undefined = undefined,
+): IPositronPackagesInstance {
 	return stubInterface<IPositronPackagesInstance>({
 		packages: pkgs,
 		session: makeSession(sessionId),
 		onDidRefreshPackagesInstance: new Emitter<ILanguageRuntimePackage[]>().event,
 		getPackageDetail: vi.fn().mockResolvedValue(undefined),
+		vulnerabilitySource,
 	});
 }
 
@@ -137,6 +143,7 @@ describe('PackageDetail after uninstall', () => {
 		session: makeSession(SESSION_ID),
 		onDidRefreshPackagesInstance: refresh.event,
 		getPackageDetail: vi.fn().mockResolvedValue(undefined),
+		vulnerabilitySource: undefined,
 	});
 	const packagesService = stubInterface<IPositronPackagesService>({
 		getInstances: () => [instance],
@@ -233,6 +240,145 @@ describe('PackageDetail with resolved detail fields', () => {
 		expect(await screen.findByText('CRAN')).toBeInTheDocument();   // Metadata: source repository
 		// The published date is normalized to YYYY-MM-DD (time/zone stripped).
 		expect(await screen.findByText('2024-11-17')).toBeInTheDocument();
+	});
+});
+
+describe('PackageDetail Security tab', () => {
+	const SOURCE: IPackageVulnerabilitySource = {
+		host: 'ppm.example.com',
+		// Local midday, so the rendered date is 2026-08-13 in every time zone.
+		// The lookup timestamp is a local event and is displayed as one.
+		fetchedAt: new Date(2026, 7, 13, 12).getTime(),
+	};
+
+	function renderWithVulnerabilities(
+		vulnerabilities: ILanguageRuntimePackage['vulnerabilities'],
+		source?: IPackageVulnerabilitySource,
+	) {
+		const instance = makeInstance([dplyr({ vulnerabilities })], SESSION_ID, source);
+		const packagesService = stubInterface<IPositronPackagesService>({
+			getInstances: () => [instance],
+			activePackagesInstance: instance,
+			onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+			onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+		});
+		rtl.render(
+			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+	}
+
+	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('lists advisories with severity, linked id, summary, and fix version once Security is selected', async () => {
+		renderWithVulnerabilities([{
+			id: 'CVE-2018-6594',
+			osvId: 'GHSA-6528-wvf6-f6qg',
+			score: 8.7,
+			scoreVersion: 'v4',
+			summary: 'Pycrypto generates weak key parameters',
+			fixedIn: '2.7.0',
+			published: '2018-02-03T15:29:00Z',
+			url: 'https://nvd.nist.gov/vuln/detail/CVE-2018-6594',
+		}]);
+		const user = userEvent.setup();
+
+		// The tab carries the advisory count so the signal survives being moved
+		// off the Overview; the advisories themselves are a click away. Both
+		// panels stay mounted so each tab's aria-controls resolves, so the
+		// inactive one is hidden rather than absent.
+		const securityTab = screen.getByRole('tab', { name: 'Security, 1 known vulnerability' });
+		expect(screen.getByText('Pycrypto generates weak key parameters')).not.toBeVisible();
+		await user.click(securityTab);
+
+		// Severity chip: band label + score, tagged with the CVSS revision.
+		expect(screen.getByText('High 8.7')).toBeInTheDocument();
+		expect(screen.getByText('CVSS v4')).toBeInTheDocument();
+		// The advisory id is a button that opens the NVD page.
+		expect(screen.getByRole('button', { name: 'Open advisory CVE-2018-6594' })).toBeInTheDocument();
+		expect(screen.getByText('Pycrypto generates weak key parameters')).toBeInTheDocument();
+		expect(screen.getByText('Fixed in 2.7.0')).toBeInTheDocument();
+		expect(screen.getByText('Published 2018-02-03')).toBeInTheDocument();
+		// Selecting Security swaps the panel; the Overview's Metadata is hidden.
+		expect(screen.getByText('Metadata')).not.toBeVisible();
+	});
+
+	it('shows an unscored advisory without a score or CVSS tag', async () => {
+		renderWithVulnerabilities([{
+			id: 'RSEC-2023-7',
+			osvId: 'RSEC-2023-7',
+			summary: 'Denial of Service (DoS) vulnerabilities',
+			fixedIn: '1.8',
+		}]);
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole('tab', { name: 'Security, 1 known vulnerability' }));
+
+		// No score: the chip reads as severity-unknown, and no CVSS tag renders.
+		expect(screen.getByText('Severity unknown')).toBeInTheDocument();
+		expect(screen.queryByText(/CVSS/)).not.toBeInTheDocument();
+	});
+
+	it('attributes an empty advisory list to the instance and date that reported it', async () => {
+		// An instance whose advisory data is stale or absent reports every
+		// package as clean, and nothing in its response says so. Naming the
+		// source and date is what makes the all-clear checkable rather than an
+		// unearned claim.
+		renderWithVulnerabilities([], SOURCE);
+		const user = userEvent.setup();
+
+		// Nothing to count, so the tab is offered without a badge.
+		await user.click(screen.getByRole('tab', { name: 'Security' }));
+
+		expect(screen.getByText('No advisories reported by ppm.example.com as of 2026-08-13.')).toBeInTheDocument();
+	});
+
+	it('attributes a non-empty advisory list to the instance and date that reported it', async () => {
+		renderWithVulnerabilities([{ id: 'RSEC-2023-7', osvId: 'RSEC-2023-7', summary: 'DoS' }], SOURCE);
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole('tab', { name: 'Security, 1 known vulnerability' }));
+
+		expect(screen.getByText('Reported by ppm.example.com as of 2026-08-13.')).toBeInTheDocument();
+	});
+
+	it('makes no claim about which instance reported when the source is unknown', async () => {
+		renderWithVulnerabilities([]);
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole('tab', { name: 'Security' }));
+
+		expect(screen.getByText('No advisories were reported for this version.')).toBeInTheDocument();
+	});
+
+	it('offers no Security tab when no vulnerability data is available', async () => {
+		// undefined = unknown (no PPM, or package/version not in the repo):
+		// neither a warning nor an unearned all-clear.
+		renderWithVulnerabilities(undefined);
+
+		// Wait for the Overview (Metadata section) to render, then check.
+		expect(await screen.findByText('Metadata')).toBeInTheDocument();
+		expect(screen.queryByRole('tab', { name: /security/i })).not.toBeInTheDocument();
+	});
+
+	it('moves between tabs with the arrow keys', async () => {
+		renderWithVulnerabilities([{ id: 'RSEC-2023-7', osvId: 'RSEC-2023-7', summary: 'DoS' }]);
+		const user = userEvent.setup();
+
+		const overviewTab = screen.getByRole('tab', { name: 'Overview' });
+		const securityTab = screen.getByRole('tab', { name: 'Security, 1 known vulnerability' });
+		overviewTab.focus();
+
+		// Selection follows focus, so the right arrow both moves and selects.
+		await user.keyboard('{ArrowRight}');
+		expect(securityTab).toHaveFocus();
+		expect(securityTab).toHaveAttribute('aria-selected', 'true');
+		expect(screen.getByText('DoS')).toBeInTheDocument();
+
+		// And wraps back around to the Overview.
+		await user.keyboard('{ArrowRight}');
+		expect(overviewTab).toHaveFocus();
+		expect(overviewTab).toHaveAttribute('aria-selected', 'true');
 	});
 });
 

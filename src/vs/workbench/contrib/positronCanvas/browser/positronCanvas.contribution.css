@@ -1,0 +1,68 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-canvas-startup-curtain {
+	position: fixed;
+	inset: 0;
+	/* Above notification toasts (2545) and quick input (2550), below workbench
+	dialogs (2575): the workspace trust prompt must stay visible and answerable
+	over the curtain during Canvas boot. */
+	z-index: 2560;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--vscode-editor-background);
+	color: var(--vscode-foreground);
+	font-family: inherit;
+}
+
+.positron-canvas-startup-card {
+	display: flex;
+	width: min(420px, calc(100vw - 48px));
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
+	text-align: center;
+}
+
+.positron-canvas-startup-brand {
+	font-size: 24px;
+	font-weight: 650;
+	letter-spacing: -0.02em;
+}
+
+.positron-canvas-startup-message {
+	margin: 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.positron-canvas-startup-spinner {
+	width: 24px;
+	height: 24px;
+	border: 3px solid var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
+	border-top-color: var(--vscode-progressBar-background);
+	border-radius: 50%;
+	animation: positron-canvas-spin 800ms linear infinite;
+}
+
+.positron-canvas-startup-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 8px;
+}
+
+/* The Button widget fills its container by default; these sit in a row. */
+.positron-canvas-startup-actions .monaco-button {
+	width: auto;
+	min-width: 88px;
+	padding: 7px 14px;
+}
+
+@keyframes positron-canvas-spin {
+	to { transform: rotate(360deg); }
+}

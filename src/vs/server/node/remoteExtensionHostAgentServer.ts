@@ -43,7 +43,8 @@ import { CacheControl, serveError, serveFile, WebClientServer } from './webClien
 const require = createRequire(import.meta.url);
 
 // --- Start Positron ---
-import { validateLicenseKey, ILicenseValidationResult } from './remoteLicenseKey.js';
+import { validateLicenseKey, ILicenseValidationResult, isRemoteLicenseManagerMode } from './remoteLicenseKey.js';
+import { createUnlicensedServer } from './positronUnlicensedServer.js';
 // eslint-disable-next-line no-duplicate-imports
 import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
 import { PositronBootstrapExtensionsInitializer } from '../../platform/extensionManagement/node/positronBootstrapExtensionsInitializer.js';
@@ -662,6 +663,14 @@ export interface IServerAPI {
 	 * Do not remove!!. Called from server-main.js
 	 */
 	dispose(): void;
+	// --- Start Positron ---
+	/**
+	 * Set when the server came up without a license and is only serving the
+	 * license page. `server-main.ts` reads it to keep the kernel supervisor from
+	 * starting up behind that page.
+	 */
+	readonly unlicensed?: boolean;
+	// --- End Positron ---
 }
 
 export async function createServer(address: string | net.AddressInfo | null, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string): Promise<IServerAPI> {
@@ -688,7 +697,17 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		const mandatoryConnectionToken = connectionToken as MandatoryServerConnectionToken;
 		licenseValidationResult = await validateLicenseKey(mandatoryConnectionToken.value, args);
 		if (!licenseValidationResult.valid) {
-			// License warnings are logged in the validateLicenseKey function; at this point we just need to exit
+			// License warnings are logged in the validateLicenseKey function.
+			//
+			// Under a license manager the server is launched behind a proxy that
+			// has already sent the user here, so exiting shows them a connection
+			// error with nothing to act on; hold the port and explain instead. The
+			// signed-key deployments keep exiting: Posit Workbench supervises this
+			// process and reports the failure itself, and a server that stays up
+			// would hide a misconfiguration from it.
+			if (isRemoteLicenseManagerMode()) {
+				return createUnlicensedServer();
+			}
 			process.exit(1);
 		}
 	}
@@ -731,7 +750,8 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	// Pass the licensee info (if available) to the server services
 	const positronLicenseeInfo = licenseValidationResult?.valid ? {
 		licensee: licenseValidationResult.licensee,
-		issuer: licenseValidationResult.issuer
+		issuer: licenseValidationResult.issuer,
+		academic: licenseValidationResult.academic === true,
 	} : undefined;
 	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronLicenseeInfo);
 	// --- End Positron ---

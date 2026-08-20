@@ -95,13 +95,15 @@ export function isP3MGalleryUrl(url: string): boolean {
  * `User-Agent` overrides, so a header-based approach would not work uniformly.
  *
  * `checkTrigger` is omitted from the URL when undefined (browse / non-update-check
- * traffic). `positron-session-type` and `positron-version` are always sent.
+ * traffic). `positron-session-type`, `positron-version`, and `positron-is-academic`
+ * are always sent.
  */
 export function appendPositronGalleryParams(
 	url: string,
 	checkTrigger: PositronCheckTrigger | undefined,
 	sessionType: PositronSessionType,
 	positronVersion: string,
+	isAcademic: boolean,
 	sendUsageData: boolean,
 ): string {
 	if (!sendUsageData || !isP3MGalleryUrl(url)) {
@@ -113,6 +115,7 @@ export function appendPositronGalleryParams(
 	}
 	params.push(`positron-session-type=${encodeURIComponent(sessionType)}`);
 	params.push(`positron-version=${encodeURIComponent(positronVersion)}`);
+	params.push(`positron-is-academic=${isAcademic}`);
 	const separator = url.includes('?') ? '&' : '?';
 	return `${url}${separator}${params.join('&')}`;
 }

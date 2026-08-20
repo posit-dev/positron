@@ -1313,6 +1313,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			if (this._shuttingDownNotebooksByNotebookUri.get(notebookUri) === shutdownPromise) {
 				this._shuttingDownNotebooksByNotebookUri.delete(notebookUri);
 			}
+		}).catch(() => {
+			// `finally` returns a *new* promise that rejects along with
+			// `shutdownPromise.p`. Nothing awaited it, so every notebook shutdown
+			// failure was also reported as an unhandled rejection -- logging the same
+			// error a second time through onUnexpectedError, stackless and without the
+			// notebook URI. The failure itself still reaches the caller through the
+			// returned promise, and is logged with context in the catch below.
 		});
 
 		// Get the session to shutdown.

@@ -24,7 +24,7 @@ import { IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarService, StatusbarA
 import { IEditorPaneRegistry, EditorPaneDescriptor } from '../../../browser/editor.js';
 import { shieldIcon, WorkspaceTrustEditor } from './workspaceTrustEditor.js';
 import { WorkspaceTrustEditorInput } from '../../../services/workspaces/browser/workspaceTrustEditorInput.js';
-import { WORKSPACE_TRUST_BANNER, WORKSPACE_TRUST_EMPTY_WINDOW, WORKSPACE_TRUST_ENABLED, WORKSPACE_TRUST_STARTUP_PROMPT, WORKSPACE_TRUST_UNTRUSTED_FILES } from '../../../services/workspaces/common/workspaceTrust.js';
+import { WORKSPACE_TRUST_BANNER, WORKSPACE_TRUST_EMPTY_WINDOW, WORKSPACE_TRUST_ENABLED, WORKSPACE_TRUST_STARTUP_PROMPT, WORKSPACE_TRUST_STARTUP_PROMPT_SHOWN_KEY, WORKSPACE_TRUST_UNTRUSTED_FILES } from '../../../services/workspaces/common/workspaceTrust.js';
 import { IEditorSerializer, IEditorFactoryRegistry, EditorExtensions } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
@@ -51,7 +51,12 @@ import { URI } from '../../../../base/common/uri.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 
 const BANNER_RESTRICTED_MODE = 'workbench.banner.restrictedMode';
-const STARTUP_PROMPT_SHOWN_KEY = 'workspace.trust.startupPrompt.shown';
+// --- Start Positron ---
+// The key moved to workspaceTrust.ts so Positron's Canvas startup gate can
+// read the same value; the local name is kept for minimal upstream drift.
+// const STARTUP_PROMPT_SHOWN_KEY = 'workspace.trust.startupPrompt.shown';
+const STARTUP_PROMPT_SHOWN_KEY = WORKSPACE_TRUST_STARTUP_PROMPT_SHOWN_KEY;
+// --- End Positron ---
 const BANNER_RESTRICTED_MODE_DISMISSED_KEY = 'workbench.banner.restrictedMode.dismissed';
 
 /**

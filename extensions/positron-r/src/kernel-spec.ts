@@ -529,9 +529,12 @@ export async function createJupyterKernelSpec(
  * Attempt to find a `repos.conf` file in Positron or RStudio XDG
  * configuration directories.
  *
+ * Exported so the PPM vulnerability lookup can mirror the repository
+ * resolution the kernel launch uses.
+ *
  * Returns the path to the file if found, or `undefined` if not.
  */
-function findReposConf(): string | undefined {
+export function findReposConf(): string | undefined {
 	const xdg = require('xdg-portable/cjs');
 	const configDirs: Array<string> = xdg.configDirs();
 	// on Unix-alikes, also check /etc; RStudio uses /etc/rstudio instead of the

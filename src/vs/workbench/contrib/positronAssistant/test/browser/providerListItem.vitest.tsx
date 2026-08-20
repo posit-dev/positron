@@ -15,7 +15,7 @@ function source(overrides: Partial<IPositronLanguageModelSource> & { id: string 
 	const { id, ...rest } = overrides;
 	const result: IPositronLanguageModelSource = {
 		type: PositronLanguageModelType.Chat,
-		provider: { id, displayName: id, settingName: id },
+		provider: { id, displayName: id },
 		supportedOptions: [],
 		defaults: {},
 		...rest,
@@ -25,7 +25,7 @@ function source(overrides: Partial<IPositronLanguageModelSource> & { id: string 
 
 describe('ProviderListItem', () => {
 	it('renders the display name and a maturity badge', () => {
-		render(<ProviderListItem section='model-providers' source={source({ id: 'a', provider: { id: 'a', displayName: 'Anthropic', settingName: 'a', status: 'preview' } })} />);
+		render(<ProviderListItem section='model-providers' source={source({ id: 'a', provider: { id: 'a', displayName: 'Anthropic', status: 'preview' } })} />);
 		expect(screen.getByText('Anthropic')).toBeInTheDocument();
 		expect(screen.getByText('Preview')).toBeInTheDocument();
 	});
@@ -34,6 +34,42 @@ describe('ProviderListItem', () => {
 		render(<ProviderListItem section='model-providers' source={source({ id: 'databricks', provider: { id: 'databricks', displayName: 'Databricks', status: 'experimental' } })} />);
 		expect(screen.getByText('Databricks')).toBeInTheDocument();
 		expect(screen.getByText('Experimental')).toBeInTheDocument();
+	});
+
+	it('shows a PWB Managed badge for a managed-credentials connected provider', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'databricks',
+			signedIn: true,
+			defaults: {
+				autoconfigure: {
+					type: LanguageModelAutoconfigureType.Custom,
+					message: 'OAuth (Workbench Managed Credentials)',
+					signedIn: true,
+					isPositWorkbench: true,
+				},
+			},
+		})} />);
+		expect(screen.getByText('PWB Managed')).toBeInTheDocument();
+	});
+
+	it('shows an OAuth badge, not PWB Managed, for a connected copilot-auth provider', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'copilot-auth',
+			signedIn: true,
+			supportedOptions: [AuthMethod.OAUTH],
+			defaults: { autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'the Accounts menu.', signedIn: true } },
+		})} />);
+		expect(screen.getByText('OAuth')).toBeInTheDocument();
+		expect(screen.queryByText('PWB Managed')).not.toBeInTheDocument();
+	});
+
+	it('does not show PWB Managed for a Custom autoconfigure without isPositWorkbench', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'a',
+			signedIn: true,
+			defaults: { autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'Some other reason', signedIn: true } },
+		})} />);
+		expect(screen.queryByText('PWB Managed')).not.toBeInTheDocument();
 	});
 
 	it('shows a description and a Connect action in the model-providers section', () => {
@@ -54,6 +90,26 @@ describe('ProviderListItem', () => {
 
 	it('shows an OAuth badge for an oauth connected provider', () => {
 		render(<ProviderListItem section='connected' source={source({ id: 'a', signedIn: true, supportedOptions: [AuthMethod.OAUTH] })} />);
+		expect(screen.getByText('OAuth')).toBeInTheDocument();
+	});
+
+	it('shows no OAuth badge when a dual-method provider connected with an API key', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'databricks',
+			signedIn: true,
+			authMethods: [AuthMethod.API_KEY],
+			supportedOptions: [AuthMethod.OAUTH, AuthMethod.API_KEY],
+		})} />);
+		expect(screen.queryByText('OAuth')).not.toBeInTheDocument();
+	});
+
+	it('shows an OAuth badge when a dual-method provider connected with OAuth', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'databricks',
+			signedIn: true,
+			authMethods: [AuthMethod.OAUTH],
+			supportedOptions: [AuthMethod.OAUTH, AuthMethod.API_KEY],
+		})} />);
 		expect(screen.getByText('OAuth')).toBeInTheDocument();
 	});
 

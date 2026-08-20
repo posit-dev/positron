@@ -5,6 +5,7 @@
 
 // CSS.
 import './listPackages.css';
+import '../packageVulnerabilities.css';
 
 // React.
 import React, {
@@ -34,8 +35,9 @@ import { addFilterToQuery, applySortToQuery, clearFiltersFromQuery, PackagesFilt
 import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
 import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
-import { useContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { useContextKey, usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { showPackageHelp } from '../packageHelp.js';
+import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel, worstVulnerability } from '../packageVulnerabilities.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -81,6 +83,12 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 		return () => disposable.dispose();
 	}, [services.positronPackagesService]);
+
+	// Whether vulnerability indicators are enabled. Read live (the setting
+	// toggles without a reload) and treated as on unless explicitly false.
+	// When off, badges are hidden and the Vulnerable filter matches nothing,
+	// so stale cached advisory data can't surface either.
+	const vulnerabilitiesEnabled = usePositronConfiguration<boolean>(PACKAGES_VULNERABILITIES_ENABLED_SETTING) !== false;
 
 	// Tracks the last package name opened as a detail editor. Used to avoid
 	// reopening the editor when a list refresh re-selects the same package.
@@ -229,6 +237,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		if (debouncedQuery.filters.includes(PackagesFilter.Attached)) {
 			result = result.filter((pkg) => pkg.attached === true);
 		}
+		if (debouncedQuery.filters.includes(PackagesFilter.Vulnerable)) {
+			result = result.filter((pkg) =>
+				vulnerabilitiesEnabled && pkg.vulnerabilities !== undefined && pkg.vulnerabilities.length > 0);
+		}
 
 		if (debouncedQuery.text) {
 			const lowerFilter = debouncedQuery.text.toLowerCase();
@@ -244,7 +256,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 
 		return result;
-	}, [deduplicatedPackages, debouncedQuery]);
+	}, [deduplicatedPackages, debouncedQuery, vulnerabilitiesEnabled]);
 
 	// Push the latest filtered packages into the list. Wrapping in {kind: 'item'} is the
 	// PositronList entry contract; this list has no sections.
@@ -416,6 +428,42 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			const showUpdateButton = hasUpdate && itemSize === 'card' && !isNarrow;
 			const showUpdateIndicator = hasUpdate && !showUpdateButton;
 
+			// Vulnerability badge: rendered only when the runtime reported
+			// advisories for the installed version and the feature is enabled.
+			// An undefined `vulnerabilities` field means "no data available"
+			// (no PPM, or package/version unknown to it) and renders nothing,
+			// same as an empty array -- absence of a badge never claims safety.
+			const vulnerabilities = vulnerabilitiesEnabled ? pkg.vulnerabilities : undefined;
+			let vulnerabilityBadge = null;
+			if (vulnerabilities && vulnerabilities.length > 0) {
+				const worst = worstVulnerability(vulnerabilities)!;
+				const score = maxVulnerabilityScore(vulnerabilities);
+				const band = severityBand(score);
+				const countLabel = vulnerabilities.length === 1
+					? localize('positronPackages.vulnerableCountOne', "1 known vulnerability")
+					: localize('positronPackages.vulnerableCountMany', "{0} known vulnerabilities", vulnerabilities.length);
+				const severityLine = score !== undefined
+					? localize('positronPackages.vulnerableHighest', "Highest: {0} (CVSS {1}, {2})", worst.id, score.toFixed(1), severityBandLabel(band))
+					: localize('positronPackages.vulnerableHighestUnscored', "Highest: {0} ({1})", worst.id, severityBandLabel(band));
+				const fixedLine = worst.fixedIn
+					? localize('positronPackages.vulnerableFixedIn', "Fixed in {0}", worst.fixedIn)
+					: undefined;
+				const tooltip = [countLabel, severityLine, fixedLine].filter(line => !!line).join('\n');
+				vulnerabilityBadge = (
+					<div
+						aria-label={tooltip}
+						className={positronClassNames('packages-list-item-vulnerable', `severity-${band}`)}
+						role='img'
+						title={tooltip}
+					>
+						<span className='codicon codicon-shield' />
+						{score !== undefined && (
+							<span className='packages-list-item-vulnerable-score'>{score.toFixed(1)}</span>
+						)}
+					</div>
+				);
+			}
+
 			const helpButton = (
 				<Button
 					ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
@@ -480,6 +528,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						<div className='packages-list-item-header'>
 							<div className='packages-list-item-name'>{displayName}</div>
 							<div className='packages-list-item-version'>{version}</div>
+							{vulnerabilityBadge}
 							{showUpdateIndicator && (
 								<div
 									className='packages-list-item-update'
@@ -514,7 +563,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		};
 
 		listInstance.setItemRenderer(renderItem);
-	}, [listInstance, deduplicatedPackages, services, itemSize, isNarrow, showHelpForPackage, showPackageContextMenu, flashedIds]);
+	}, [listInstance, deduplicatedPackages, services, itemSize, isNarrow, showHelpForPackage, showPackageContextMenu, flashedIds, vulnerabilitiesEnabled]);
 
 	// Sync the currently-selected package's name into the packages service. onDidUpdate fires
 	// for any instance change (selection, cursor, scroll), so we dedupe before pushing.
@@ -599,6 +648,16 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			checked: currentFilters.includes(PackagesFilter.Attached),
 			onSelected: () => toggleFilter(PackagesFilter.Attached),
 		}),
+		// The Vulnerable filter is only offered while vulnerability indicators
+		// are enabled; the `@vulnerable` token still parses when typed, but
+		// matches nothing, so a disabled feature can't leak stale advisories.
+		...(vulnerabilitiesEnabled ? [
+			new CustomContextMenuItem({
+				label: localize('positronPackages.filterByVulnerable', "Vulnerable"),
+				checked: currentFilters.includes(PackagesFilter.Vulnerable),
+				onSelected: () => toggleFilter(PackagesFilter.Vulnerable),
+			}),
+		] : []),
 	];
 
 	// Build the Sort submenu entries. Evaluated lazily so the checked state

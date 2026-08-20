@@ -6,14 +6,10 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
-import { ModelProvider } from '../../pages/positronAssistant';
+import { ModelProvider } from '../../pages/modelProviderShared';
 
 test.use({
 	suiteId: __filename,
-	// Signs in through the legacy provider dialog (pages/positronAssistant.ts),
-	// which is no longer the default. Remove the pin when that page object is
-	// ported to the new modal.
-	extraSettings: { 'assistant.newProviderModal': false },
 });
 
 const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
@@ -42,7 +38,7 @@ test.describe.skip('Posit Assistant MCP', { // skipping while investigating fail
 					JSON.stringify({ mcpServers: { everything: { command } } }, null, 2),
 				);
 
-				await app.workbench.assistant.loginModelProvider(provider);
+				await app.workbench.modelProviderModal.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');

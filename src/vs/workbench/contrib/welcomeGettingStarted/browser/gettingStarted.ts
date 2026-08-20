@@ -98,6 +98,8 @@ import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStart
 import { gettingStartedPositronWelcomeCategoryId } from '../common/gettingStartedPositronWelcomeContent.js';
 import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
 import { WELCOME_PAGE_EXPERIMENTAL_KEY } from '../common/positronWelcomePageConfiguration.js';
+import { EnvironmentHealthLanguage } from './positronWelcomePage/environmentHealth.js';
+import { IEnvironmentHealthService } from './positronWelcomePage/environmentHealthService.js';
 // --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -221,6 +223,12 @@ export class GettingStartedPage extends EditorPane {
 	// one unmounts the previous one, and clearInput clears it so the tree does
 	// not stay mounted while the editor is closed.
 	private readonly positronReactRenderer = this._register(new MutableDisposable<PositronReactRenderer>());
+	// Which environment groups this pane has open, where the user chose.
+	//
+	// On the pane rather than in the React tree, which is rebuilt whenever a
+	// walkthrough registers. One map per pane, so two welcome pages side by side
+	// fold independently while sharing their check results.
+	private readonly expandedByLanguage = new Map<EnvironmentHealthLanguage, boolean>();
 	// --- End Positron ---
 
 	get editorInput(): GettingStartedInput | undefined {
@@ -256,6 +264,11 @@ export class GettingStartedPage extends EditorPane {
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@IPositronDocsService private readonly docsService: IPositronDocsService,
+		// Asking for this here is what decides when the environment checks first
+		// run: nothing else in the window requests the service, so a user who
+		// never opens the welcome page never activates the Python and R
+		// extensions for it.
+		@IEnvironmentHealthService private readonly environmentHealthService: IEnvironmentHealthService,
 		// --- End Positron ---
 		@IMarkdownRendererService private readonly markdownRendererService: IMarkdownRendererService,
 		// --- Start Positron ---
@@ -1264,12 +1277,29 @@ export class GettingStartedPage extends EditorPane {
 			return undefined;
 		}
 
+		// The service decides whether this is a page it has already checked, because
+		// a split editor builds a second pane for the same page and a new pane
+		// remembers nothing. All the pane owes it is the input, which identifies
+		// the page: the same one in two groups, a new one after a close and reopen.
+		//
+		// The guard is for clearInput, which sets editorInput to undefined on every
+		// tab switch while the rerender and configuration listeners keep firing.
+		//
+		// On the very first build this asks for the service for the first time,
+		// which builds it and starts both checks; the call below then finds them
+		// already running and does nothing.
+		if (this.editorInput) {
+			this.environmentHealthService.rerunChecksForPage(this.editorInput);
+		}
+
 		const reactHost = $('div');
 		this.positronReactRenderer.value = createPositronWelcomePage(reactHost, {
 			recentList: recentList.getDomElement(),
 			// Hide the "Connect to..." button if we are on a web platform
 			connectAction: isWeb ? undefined : otherList,
 			footer,
+			environmentHealthService: this.environmentHealthService,
+			expandedByLanguage: this.expandedByLanguage,
 			// React mounts asynchronously, so the elements above are not in the
 			// DOM yet when the caller runs registerDispatchListeners, nor when it
 			// measures the slide for scrolling. Redo both once they are.
