@@ -5,17 +5,45 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { randomUUID } from 'crypto';
+import type { SupportedCustomClientKind } from 'ai-config';
 import { AuthProvider } from './authProvider';
-import { providerAction, registerAuthProvider, unregisterAuthProvider, updateProviderFromSessions } from './configDialog';
-import { customApiKeyValidator } from './customProviderAuth';
+import { authProviders, providerAction, registerAuthProvider, unregisterAuthProvider, updateProviderFromSessions } from './configDialog';
+import { customApiKeyValidator, isOfferedCustomKind } from './customProviderAuth';
 import { log } from './log';
 import {
+	createCustomProviderEntry,
 	readCustomProviderEntry,
 	saveCustomProviderUrl,
 	type ProviderCatalogChangeEvent,
 	type ResolvedProviderLike,
 } from './providerCatalog';
 import { customProviderSource, getRegistrableCustomProviders } from './providerSources';
+
+/**
+ * What the Add Custom Provider form sends. The name is the entry key in
+ * providers.json, the provider id, the display name, and the auth provider id,
+ * all at once, which is why it can't be changed afterwards. The workbench half
+ * of this contract is `IAddCustomProviderRequest` in
+ * `positronAssistant/browser/customProviderCommands.ts`.
+ */
+export interface AddCustomProviderRequest {
+	readonly name: string;
+	readonly kind: string;
+	readonly baseUrl?: string;
+	readonly apiKey?: string;
+	readonly modelIds?: readonly string[];
+}
+
+/**
+ * Narrows the command argument, which arrives as `unknown` across the command
+ * boundary. Only the two fields the create can't proceed without are required;
+ * the rest is checked by the writer and the key check.
+ */
+export function isAddCustomProviderRequest(value: unknown): value is AddCustomProviderRequest {
+	const request = value as AddCustomProviderRequest | undefined;
+	return typeof request?.name === 'string' && typeof request?.kind === 'string';
+}
 
 /**
  * Keeps one VS Code authentication provider and one language model source
@@ -34,11 +62,21 @@ import { customProviderSource, getRegistrableCustomProviders } from './providerS
 export class CustomProviderRegistry implements vscode.Disposable {
 	private readonly registrations = new Map<string, vscode.Disposable[]>();
 
+	/**
+	 * Serializes reconciles. Every write refreshes the catalog, which fires a
+	 * change event, so a create both reconciles directly and triggers the
+	 * watcher's reconcile. Run concurrently, both would see the new entry as
+	 * unregistered and register its auth provider twice.
+	 */
+	private pending: Promise<void> = Promise.resolve();
+
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		/** Injectable so a test can register an entry without reaching the workbench. */
 		private readonly registerModelSource: typeof positron.ai.registerProvider =
 			positron.ai.registerProvider,
+		/** Injectable so a test can add an entry without a live endpoint to check the key against. */
+		private readonly apiKeyValidator: typeof customApiKeyValidator = customApiKeyValidator,
 	) { }
 
 	/**
@@ -47,6 +85,58 @@ export class CustomProviderRegistry implements vscode.Disposable {
 	 * the defaults of entries whose connection changed under them.
 	 */
 	async reconcile(change?: ProviderCatalogChangeEvent): Promise<void> {
+		const run = this.pending.then(
+			() => this.reconcileNow(change),
+			() => this.reconcileNow(change),
+		);
+		// A failed reconcile must not poison the queue for the next one.
+		this.pending = run.catch(() => undefined);
+		return run;
+	}
+
+	/**
+	 * Adds a custom provider from the Add form: the `providers.custom` entry,
+	 * its registration, and the credential, in that order.
+	 *
+	 * The key is checked before anything is written, by the same check the
+	 * matching built-in provider runs. A rejected key would otherwise leave a
+	 * signed-out entry behind for a provider the user never managed to add.
+	 */
+	async create(request: AddCustomProviderRequest): Promise<void> {
+		const name = request.name.trim();
+		if (!name) {
+			throw new Error(vscode.l10n.t('Enter a name for this provider.'));
+		}
+		if (!isOfferedCustomKind(request.kind)) {
+			throw new Error(vscode.l10n.t('Positron cannot configure a "{0}" provider.', request.kind));
+		}
+		const kind = request.kind as SupportedCustomClientKind;
+		const baseUrl = request.baseUrl?.trim();
+		const apiKey = request.apiKey?.trim() ?? '';
+
+		await this.apiKeyValidator(kind)?.(apiKey, { baseUrl });
+
+		await createCustomProviderEntry(name, kind, { baseUrl, modelIds: request.modelIds });
+		await this.reconcile();
+
+		// Registration is what creates the auth provider the key is filed
+		// under, so a missing one here means the entry was written but isn't
+		// serving. Say so rather than dropping the key silently.
+		const authProvider = authProviders.get(name);
+		if (!authProvider) {
+			throw new Error(vscode.l10n.t('Added "{0}", but it could not be registered. Check the Authentication output channel.', name));
+		}
+
+		// Stored even when blank: a gateway with auth switched off has no key,
+		// and the session is what makes the entry usable rather than merely
+		// present.
+		await authProvider.storeKey(randomUUID(), name, apiKey);
+		await updateProviderFromSessions(name, await authProvider.getSessions());
+		vscode.window.showInformationMessage(vscode.l10n.t('{0} has been added successfully.', name));
+	}
+
+	/** One pass of the reconcile, run one at a time by {@link reconcile}. */
+	private async reconcileNow(change?: ProviderCatalogChangeEvent): Promise<void> {
 		const wanted = new Map(
 			getRegistrableCustomProviders().map(provider => [provider.id, provider] as const)
 		);

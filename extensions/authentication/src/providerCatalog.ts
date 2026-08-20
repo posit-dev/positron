@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { isBuiltinProviderId, type BuiltinProviderBlock, type ClientKind, type CustomProviderEntry, type LegacySettingsReader, type Protocol, type ProvidersConfig, type ResolvedConnection, type ResolvedProvider } from 'ai-config';
+import { isBuiltinProviderId, mintCustomProviderId, type BuiltinProviderBlock, type ClientKind, type CustomProviderEntry, type LegacySettingsReader, type Protocol, type ProvidersConfig, type ResolvedConnection, type ResolvedProvider, type SupportedCustomClientKind } from 'ai-config';
 import type { ProviderCatalogChange } from 'ai-config/node';
 import { ANTHROPIC_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, OPENAI_DEFAULT_BASE_URL } from './constants';
 import { log } from './log';
@@ -366,6 +366,84 @@ export async function readCustomProviderEntry(
 ): Promise<CustomProviderEntry | undefined> {
 	const { readUserCustomProviderEntry } = await import('ai-config/node');
 	return readUserCustomProviderEntry(name, { configPath: effectiveOptions(options).configPath });
+}
+
+/** What a new custom entry carries besides its type. */
+export interface NewCustomProviderConnection {
+	/** Where to call. Omitted when the kind's own default is wanted. */
+	readonly baseUrl?: string;
+	/** Model ids the user declared, for an endpoint with no `/models` listing. */
+	readonly modelIds?: readonly string[];
+}
+
+/**
+ * Capability defaults for a model the user declared by id alone. Mirrors the
+ * bridge's OpenAI-compatible defaults, and lives here because the writer owns
+ * the schema: the form asks for an id and nothing else.
+ */
+const DECLARED_MODEL_DEFAULTS = {
+	maxContextLength: 128_000,
+	supportsTools: true,
+	supportsImages: false,
+	supportsToolResultImages: false,
+	supportsWebSearch: false,
+} satisfies Omit<CustomModelEntry, 'id' | 'name'>;
+
+/**
+ * Creates `providers.custom.<name>` under the config lock, then refreshes the
+ * cache so the entry's provider registers.
+ *
+ * The name is the entry key, the provider id, the display name, and the auth
+ * provider id all at once, so it has to clear ai-config's naming rules before
+ * anything is written: `mintCustomProviderId` rejects a built-in provider id, a
+ * reserved key, and the unsafe object key `__proto__`. It's called for its
+ * throw, not its value, and the check happens inside the lock so a name can't
+ * be taken between the check and the write.
+ *
+ * `enabled: true` is written explicitly rather than left to the baseline: a
+ * provider the user just added should be on even under a `providers.default`
+ * block that turns everything else off.
+ *
+ * Throws when the name is already taken, rather than merging into whatever is
+ * there. Two entries of the same name are the same entry, and a silent merge
+ * would attach the new key to someone else's endpoint.
+ */
+export async function createCustomProviderEntry(
+	name: string,
+	kind: SupportedCustomClientKind,
+	connection: NewCustomProviderConnection = {},
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	const { mutateProvidersConfig } = await import('ai-config/node');
+	await mutateProvidersConfig(
+		(current: ProvidersConfig): ProvidersConfig => {
+			mintCustomProviderId(name);
+			const custom = current.providers?.custom;
+			if (custom?.[name]) {
+				throw new Error(`A custom provider named "${name}" already exists in providers.json.`);
+			}
+			const declared = (connection.modelIds ?? [])
+				.map(id => id.trim())
+				.filter(id => id.length > 0)
+				.map(id => ({ id, name: id, ...DECLARED_MODEL_DEFAULTS }));
+			const entry = {
+				type: kind,
+				enabled: true,
+				...(connection.baseUrl ? { baseUrl: connection.baseUrl } : {}),
+				// Declared ids replace discovery: an endpoint with no listing
+				// has nothing to discover, and a listing that does exist would
+				// otherwise be merged with the shorter hand-written one.
+				...(declared.length > 0 ? { models: { discovery: 'off' as const, custom: declared } } : {}),
+			} satisfies CustomProviderEntry;
+			return {
+				...current,
+				providers: { ...current.providers, custom: { ...custom, [name]: entry } },
+			};
+		},
+		{ configPath: opts.configPath, logger: writeLogger }
+	);
+	await refreshProviderCatalog(opts);
 }
 
 /**

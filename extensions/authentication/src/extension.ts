@@ -21,7 +21,7 @@ import {
 } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
-import { CustomProviderRegistry } from './customProviderRegistry';
+import { CustomProviderRegistry, isAddCustomProviderRequest } from './customProviderRegistry';
 import { getProviderSources, PROVIDER_METADATA } from './providerSources';
 import {
 	normalizeToV1Url,
@@ -259,6 +259,22 @@ export async function activate(context: vscode.ExtensionContext) {
 			'authentication.configureProviders',
 			async (options?: positron.ai.ShowLanguageModelConfigOptions) => {
 				return positron.ai.showLanguageModelConfig(options);
+			}
+		),
+	);
+
+	// The Add Custom Provider form's write. It has to happen here rather than
+	// through the modal's usual provider action, which is keyed on an already
+	// registered provider id: a new entry has none until this creates it.
+	// Errors travel back to the form, which shows them inline.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'authentication.addCustomProvider',
+			async (request: unknown) => {
+				if (!isAddCustomProviderRequest(request)) {
+					throw new Error(vscode.l10n.t('A provider name and type are required.'));
+				}
+				await customProviders.create(request);
 			}
 		),
 	);

@@ -9,6 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
+	createCustomProviderEntry,
 	getCachedCustomProviders,
 	getCachedProvider,
 	initProviderCatalog,
@@ -17,6 +18,7 @@ import {
 	refreshProviderCatalog,
 	saveCustomProviderUrl,
 } from '../providerCatalog';
+import { authProviders } from '../configDialog';
 import {
 	customApiKeyValidator,
 	customAuthDescriptor,
@@ -163,6 +165,121 @@ suite('custom providers', () => {
 				baseUrl: 'https://authored.example.com/v1',
 			});
 			assert.strictEqual(await readCustomProviderEntry('Absent', { configPath }), undefined);
+		});
+	});
+
+	suite('create', () => {
+		test('writes the entry with its declared models and leaves the neighbours alone', async () => {
+			writeConfig(configPath, {
+				anthropic: { baseUrl: 'https://api.anthropic.com/v1' },
+				custom: { Existing: { type: 'anthropic' } },
+			});
+			await initProviderCatalog(context, { configPath });
+
+			await createCustomProviderEntry(
+				'My Gateway',
+				'openai-compatible',
+				{ baseUrl: 'https://gateway.example.com/v1', modelIds: ['llama-3.3-70b', '  '] },
+				{ configPath }
+			);
+
+			assert.deepStrictEqual(readConfig(configPath).providers, {
+				anthropic: { baseUrl: 'https://api.anthropic.com/v1' },
+				custom: {
+					Existing: { type: 'anthropic' },
+					'My Gateway': {
+						type: 'openai-compatible',
+						enabled: true,
+						baseUrl: 'https://gateway.example.com/v1',
+						// Declared ids replace discovery: an endpoint with no
+						// listing has nothing to discover.
+						models: {
+							discovery: 'off',
+							custom: [{
+								id: 'llama-3.3-70b',
+								name: 'llama-3.3-70b',
+								maxContextLength: 128000,
+								supportsTools: true,
+								supportsImages: false,
+								supportsToolResultImages: false,
+								supportsWebSearch: false,
+							}],
+						},
+					},
+				},
+			});
+		});
+
+		test('refuses a name that is a built-in provider id, a reserved key, or already taken', async () => {
+			writeConfig(configPath, { custom: { Taken: { type: 'anthropic' } } });
+			await initProviderCatalog(context, { configPath });
+
+			await assert.rejects(createCustomProviderEntry('anthropic', 'anthropic', {}, { configPath }));
+			await assert.rejects(createCustomProviderEntry('custom', 'anthropic', {}, { configPath }));
+			await assert.rejects(
+				createCustomProviderEntry('Taken', 'anthropic', {}, { configPath }),
+				/already exists/
+			);
+			assert.deepStrictEqual(Object.keys(readConfig(configPath).providers.custom), ['Taken']);
+		});
+
+		test('a key the provider refuses writes nothing at all', async () => {
+			writeConfig(configPath, {});
+			await initProviderCatalog(context, { configPath });
+			const registry = new CustomProviderRegistry(storageContext(), () => ({ dispose: () => { } }));
+
+			try {
+				// Anthropic requires a key, so a blank one is refused by the
+				// same check the built-in Anthropic tile runs.
+				await assert.rejects(
+					registry.create({ name: 'Work Anthropic', kind: 'anthropic', apiKey: '' }),
+					/An API key is required/
+				);
+			} finally {
+				registry.dispose();
+			}
+
+			assert.strictEqual(readConfig(configPath).providers?.custom, undefined);
+		});
+
+		test('refuses a kind Positron cannot configure', async () => {
+			writeConfig(configPath, {});
+			await initProviderCatalog(context, { configPath });
+			const registry = new CustomProviderRegistry(storageContext(), () => ({ dispose: () => { } }));
+
+			try {
+				await assert.rejects(
+					registry.create({ name: 'My Local', kind: 'ollama' }),
+					/cannot configure/
+				);
+			} finally {
+				registry.dispose();
+			}
+		});
+
+		test('stores the credential under the entry name, which is where Posit Assistant reads it', async () => {
+			writeConfig(configPath, {});
+			await initProviderCatalog(context, { configPath });
+			// No live endpoint to check the key against, so the check is stubbed
+			// out; what it does is covered by the validator tests above.
+			const registry = new CustomProviderRegistry(
+				storageContext(),
+				() => ({ dispose: () => { } }),
+				() => undefined
+			);
+
+			try {
+				await registry.create({
+					name: 'My Gateway',
+					kind: 'openai-compatible',
+					baseUrl: 'https://gateway.example.com/v1',
+					apiKey: 'sk-test',
+				});
+				const sessions = await authProviders.get('My Gateway')!.getSessions();
+				assert.deepStrictEqual(sessions.map(s => s.accessToken), ['sk-test']);
+			} finally {
+				registry.dispose();
+			}
 		});
 	});
 
