@@ -540,7 +540,14 @@ cmd_up() {
 		# to the same file, and leaves a half-written one behind on any failure.
 		# mktemp is 0600, and this gets bind-mounted into the connect container,
 		# which does not necessarily read it as our uid -- so set the mode.
-		local lic_tmp; lic_tmp="$(mktemp)"
+		#
+		# The temp file goes in the destination directory, not $TMPDIR: only a
+		# same-filesystem mv is an atomic rename, and /tmp is frequently a
+		# separate filesystem (tmpfs on Linux), where mv falls back to
+		# copy-then-unlink and can leave exactly the half-written license this
+		# is meant to rule out. A template with six X's satisfies both GNU and
+		# BSD mktemp. connect/ is created earlier in cmd_up.
+		local lic_tmp; lic_tmp="$(mktemp "${SCRIPT_DIR}/connect/connect.lic.XXXXXX")"
 		tr -d $'\r' < "${SCRIPT_DIR}/connect.lic" > "$lic_tmp"
 		chmod 0644 "$lic_tmp"
 		mv "$lic_tmp" "${SCRIPT_DIR}/connect/connect.lic"
