@@ -151,8 +151,9 @@ suite('OdbcTableView SQL', () => {
 				offsetFetch: lastQuery(offsetFetch.client),
 			},
 			{
-				// The first column is appended as a tiebreaker so paging is reproducible; ODBC has
-				// no portable row identity to use instead.
+				// These views are built without a resolved row identity, so the first column stands
+				// in as the paging tiebreaker. Where SQLPrimaryKeys reports a key, its columns are
+				// used instead -- see odbcPaging.test.ts.
 				limitOffset: 'SELECT "actor_id" AS c0 FROM "public"."actor"\nORDER BY "actor_id" LIMIT 3 OFFSET 10',
 				offsetFetch: 'SELECT "actor_id" AS c0 FROM "public"."actor"\nORDER BY "actor_id" OFFSET 10 ROWS FETCH NEXT 3 ROWS ONLY',
 			}

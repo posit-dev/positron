@@ -201,6 +201,36 @@ const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
 ]);
 
 /**
+ * Resolves the columns that uniquely identify a row, for use as the pagination tiebreaker.
+ *
+ * SQLPrimaryKeys is the portable way to ask: ODBC offers no equivalent of PostgreSQL's `ctid` or
+ * SQLite's `rowid`, and the key is the next best thing. KEY_SEQ orders the columns within a
+ * composite key, so it decides the order they are appended in.
+ *
+ * Views have no primary key, and a driver that does not implement SQLPrimaryKeys reports an error
+ * rather than an empty set. Both degrade to "no row identity", which the table view handles by
+ * falling back to the first column.
+ */
+export async function resolveOdbcRowIdentity(
+	client: IOdbcQueryClient,
+	ref: OdbcTableRef,
+): Promise<string[]> {
+	if (ref.kind !== 'table') {
+		return [];
+	}
+	try {
+		const rows = await client.primaryKeys(ref.catalog ?? null, ref.schema ?? null, ref.name);
+		return rows
+			.slice()
+			.sort((a, b) => Number(a['KEY_SEQ'] ?? 0) - Number(b['KEY_SEQ'] ?? 0))
+			.map(row => String(row['COLUMN_NAME'] ?? ''))
+			.filter(name => name.length > 0);
+	} catch {
+		return [];
+	}
+}
+
+/**
  * Serves Data Explorer requests for a single table or view reached over ODBC. Translates each
  * protocol method into SQL run through the connection's worker client, in the dialect resolved for
  * the backend.
@@ -227,12 +257,16 @@ export class OdbcTableView {
 	 * @param ref The table or view this view serves.
 	 * @param dialect How to write SQL for this backend.
 	 * @param schema The resolved column schema.
+	 * @param rowIdentity Unquoted names of the columns that uniquely identify a row, used as the
+	 * pagination tiebreaker. Empty where none could be resolved -- a view, or a table with no
+	 * primary key -- in which case the first column stands in. See `resolveOdbcRowIdentity`.
 	 */
 	constructor(
 		private readonly client: IOdbcQueryClient,
 		private readonly ref: OdbcTableRef,
 		private readonly dialect: OdbcDialect,
 		private readonly schema: Array<OdbcSchemaEntry>,
+		private readonly rowIdentity: ReadonlyArray<string> = [],
 	) {
 		this._sortClause = this._buildSortClause([], true);
 		this._unfilteredRows = this._countRows('');
@@ -600,27 +634,46 @@ export class OdbcTableView {
 	}
 
 	/**
-	 * Builds an ORDER BY clause for the given sort keys.
-	 *
-	 * Unlike SQLite's `rowid`, ODBC exposes no portable row identity to use as a tiebreaker, so the
-	 * table's first column stands in: appended after the user's sort keys it makes paging
-	 * reproducible, and on its own it gives an unsorted view a deterministic order. Rows that tie
-	 * on that column can still swap between pages, but the alternative -- no ordering at all -- lets
-	 * the backend return a different arrangement for every page, and is invalid outright for the
-	 * `OFFSET ... FETCH` dialects.
+	 * Builds an ORDER BY clause for the given sort keys, with a tiebreaker appended so that paging
+	 * is reproducible. The user's sort keys alone are only a partial order: rows tied on them may
+	 * come back in a different arrangement for every page, so a page boundary inside a tie group
+	 * repeats or drops rows. An unsorted view has no order at all, which is worse still, and is
+	 * invalid outright for the `OFFSET ... FETCH` dialects.
 	 */
 	private _buildSortClause(sortKeys: Array<ColumnSortKey>, includeTiebreaker: boolean): string {
 		const exprs = sortKeys.map(key =>
 			`${this._quote(this.schema[key.column_index].column_name)}${key.ascending ? '' : ' DESC'}`);
 
-		if (includeTiebreaker && this.schema.length > 0) {
-			const tiebreaker = this._quote(this.schema[0].column_name);
-			if (!exprs.some(expr => expr.startsWith(tiebreaker))) {
-				exprs.push(tiebreaker);
+		if (includeTiebreaker) {
+			for (const name of this._tiebreakerColumns()) {
+				const tiebreaker = this._quote(name);
+				if (!exprs.some(expr => expr.startsWith(tiebreaker))) {
+					exprs.push(tiebreaker);
+				}
 			}
 		}
 
 		return exprs.length > 0 ? `\nORDER BY ${exprs.join(', ')}` : '';
+	}
+
+	/**
+	 * The columns to append as a pagination tiebreaker.
+	 *
+	 * ODBC exposes no portable row identity of the kind PostgreSQL's `ctid` or SQLite's `rowid`
+	 * provide, so the primary key stands in: where the backend enforces one it is unique by
+	 * definition, which is exactly what LIMIT/OFFSET paging needs. Backends reached over ODBC that
+	 * treat a declared key as advisory rather than enforcing it (Snowflake, the Hive family) get a
+	 * better order than an arbitrary column but still not a guaranteed one.
+	 *
+	 * With no key to be had -- a view, or a table without one -- the first column stands in. That is
+	 * not unique, so rows tied on it can still swap between pages; it is a floor rather than a fix,
+	 * and those cases want a materialized snapshot instead.
+	 */
+	private _tiebreakerColumns(): ReadonlyArray<string> {
+		if (this.rowIdentity.length > 0) {
+			return this.rowIdentity;
+		}
+		return this.schema.length > 0 ? [this.schema[0].column_name] : [];
 	}
 
 	async getState(): Promise<BackendState> {

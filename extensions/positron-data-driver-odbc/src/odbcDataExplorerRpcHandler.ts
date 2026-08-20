@@ -12,7 +12,7 @@ import * as vscode from 'vscode';
 import { OdbcDialect } from './odbcDatabases';
 import { OdbcTableRef } from './odbcNodes';
 import { IOdbcQueryClient } from './odbcWorkerClient';
-import { isBinarySqlType, odbcDisplayType, OdbcSchemaEntry, OdbcTableView } from './odbcTableView';
+import { isBinarySqlType, odbcDisplayType, OdbcSchemaEntry, OdbcTableView, resolveOdbcRowIdentity } from './odbcTableView';
 import {
 	ConvertToCodeParams,
 	DataExplorerBackendRequest,
@@ -78,8 +78,11 @@ export class OdbcDataExplorerRpcHandler implements vscode.Disposable, IOdbcDataE
 		ref: OdbcTableRef,
 		dialect: OdbcDialect,
 	): Promise<void> {
-		const schema = await buildOdbcSchema(client, ref);
-		this._views.set(datasetId, new OdbcTableView(client, ref, dialect, schema));
+		const [schema, rowIdentity] = await Promise.all([
+			buildOdbcSchema(client, ref),
+			resolveOdbcRowIdentity(client, ref),
+		]);
+		this._views.set(datasetId, new OdbcTableView(client, ref, dialect, schema, rowIdentity));
 	}
 
 	/**
@@ -93,12 +96,17 @@ export class OdbcDataExplorerRpcHandler implements vscode.Disposable, IOdbcDataE
 		dialect: OdbcDialect,
 		columnName: string,
 	): Promise<void> {
-		const schema = await buildOdbcSchema(client, ref);
+		const [schema, rowIdentity] = await Promise.all([
+			buildOdbcSchema(client, ref),
+			resolveOdbcRowIdentity(client, ref),
+		]);
 		const column = schema.find(c => c.column_name === columnName);
 		if (!column) {
 			throw new Error(`Column '${columnName}' not found in '${ref.name}'`);
 		}
-		this._views.set(datasetId, new OdbcTableView(client, ref, dialect, [column]));
+		// The key columns are outside this view's one-column schema, but ORDER BY may name a column
+		// the SELECT list omits, so they still serve as the tiebreaker.
+		this._views.set(datasetId, new OdbcTableView(client, ref, dialect, [column], rowIdentity));
 	}
 
 	/** Drops a dataset's view, e.g. when its connection is disconnected. */
