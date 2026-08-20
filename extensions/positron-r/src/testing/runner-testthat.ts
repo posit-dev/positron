@@ -9,6 +9,7 @@ import { spawn, spawnSync, ChildProcess } from 'child_process';
 import split2 from 'split2';
 import { LOGGER } from '../extension';
 import { checkInstalled, getLocale } from '../session';
+import { buildRProcessEnv } from '../r-process-environment';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ItemType, TestingTools, encodeNodeId, escapeLabelForRDesc } from './util-testing';
 import { TestResult } from './reporter';
@@ -138,14 +139,13 @@ export async function runThatTest(
 	LOGGER.info(`Running devtools call in working directory ${wd}`);
 	const locale = await getLocale();
 	LOGGER.info(`Locale info from active R session: ${JSON.stringify(locale, null, 2)}`);
+	const env = await buildRProcessEnv();
+	env['LANG'] = locale['LANG'];
 	let hostFile = '';
 	return new Promise<string>((resolve, reject) => {
 		const childProcess = spawn(binpath, args, {
 			cwd: wd,
-			env: {
-				...process.env,
-				LANG: locale['LANG']
-			}
+			env
 		});
 		activeRunProcesses.add(childProcess);
 

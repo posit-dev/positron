@@ -1,0 +1,3 @@
+# Written on every run of test-env-vars.R, e.g. even during manual testing.
+# It would be easy to commit this, so let's make sure we don't.
+ENV-VARS.txt
