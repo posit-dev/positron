@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import {
 	getCachedCustomProviders,
 	getCachedProvider,
@@ -18,6 +19,7 @@ import {
 	saveCustomProviderUrl,
 } from '../providerCatalog';
 import { customAuthMethod, customCredentialChain } from '../customProviderAuth';
+import { CustomProviderRegistry } from '../customProviderRegistry';
 import { customProviderSource, getRegistrableCustomProviders, PROVIDER_METADATA } from '../providerSources';
 
 /** The model sources Positron registers for the catalog's custom entries. */
@@ -28,6 +30,32 @@ function customSources() {
 /** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */
 function fakeContext(): vscode.ExtensionContext {
 	return { subscriptions: [] } as unknown as vscode.ExtensionContext;
+}
+
+/** As above, plus the in-memory storage an AuthProvider reads. */
+function storageContext(): vscode.ExtensionContext {
+	const secrets = new Map<string, string>();
+	const globalState = new Map<string, unknown>();
+	return {
+		subscriptions: [],
+		secrets: {
+			get: (key: string) => Promise.resolve(secrets.get(key)),
+			store: (key: string, value: string) => { secrets.set(key, value); return Promise.resolve(); },
+			delete: (key: string) => { secrets.delete(key); return Promise.resolve(); },
+		},
+		globalState: {
+			get: <T>(key: string) => globalState.get(key) as T | undefined,
+			update: (key: string, value: unknown) => { globalState.set(key, value); return Promise.resolve(); },
+		},
+	} as unknown as vscode.ExtensionContext;
+}
+
+/** Poll until `condition` holds, so a main-thread round trip can land. */
+async function waitFor(condition: () => boolean, timeoutMs = 3000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	while (!condition() && Date.now() < deadline) {
+		await new Promise(resolve => setTimeout(resolve, 25));
+	}
 }
 
 type CatalogChange = Parameters<Parameters<typeof onDidChangeProviderCatalog>[0]>[0];
@@ -205,6 +233,37 @@ suite('custom providers', () => {
 		});
 	});
 
+	suite('registration', () => {
+		test('registering an entry fires a session change, which is how a stale "unregistered" verdict recovers', async () => {
+			writeConfig(configPath, {
+				custom: { 'My Gateway': { type: 'openai-compatible', baseUrl: 'https://gateway.example.com/v1' } },
+			});
+			await initProviderCatalog(context, { configPath });
+
+			// Registering the model source would reach the real workbench; the
+			// auth registration below is the part under test.
+			const realRegisterProvider = positron.ai.registerProvider;
+			(positron.ai as any).registerProvider = () => ({ dispose: () => { } });
+
+			const fired: string[] = [];
+			const subscription = vscode.authentication.onDidChangeSessions(e => fired.push(e.provider.id));
+			const registry = new CustomProviderRegistry(storageContext());
+			try {
+				await registry.reconcile();
+				await waitFor(() => fired.includes('My Gateway'));
+			} finally {
+				subscription.dispose();
+				registry.dispose();
+				(positron.ai as any).registerProvider = realRegisterProvider;
+			}
+
+			assert.ok(
+				fired.includes('My Gateway'),
+				'Posit Assistant only learns an entry registered from this event'
+			);
+		});
+	});
+
 	suite('sources', () => {
 		test('getCachedCustomProviders returns custom entries only', async () => {
 			writeConfig(configPath, {
@@ -266,9 +325,9 @@ suite('custom providers', () => {
 				// Resolves a Google Cloud credential from the environment, so it
 				// must not ask for an API key.
 				Vertex: ['baseUrl', 'toolCalls'],
-				// Its Cortex URL comes from snowflake.host, so a single URL
-				// field would write a key the runtime doesn't read.
-				Cortex: ['apiKey', 'toolCalls'],
+				// Keeps the flat URL field: a full Cortex URL in `baseUrl` is a
+				// shape both hosts read.
+				Cortex: ['apiKey', 'baseUrl', 'toolCalls'],
 			});
 		});
 

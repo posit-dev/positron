@@ -136,7 +136,15 @@ export class CustomProviderRegistry implements vscode.Disposable {
 		// Reflect an already-stored credential, the way activation sweeps the
 		// built-in providers once. Without this a configured entry shows up as
 		// signed out until the next session change.
-		await updateProviderFromSessions(name, await authProvider.getSessions());
+		const sessions = await authProvider.getSessions();
+		await updateProviderFromSessions(name, sessions);
+
+		// Then make the registration itself observable. Registering an auth
+		// provider emits nothing to other extensions, and Posit Assistant
+		// remembers "no such auth provider" for the rest of the session, so an
+		// entry that already had a key stored would stay dead until the user
+		// happened to sign in or out. This is the only signal that reaches it.
+		authProvider.fireSessionsChanged({ added: sessions, removed: [], changed: [] });
 	}
 
 	private unregister(name: string): void {

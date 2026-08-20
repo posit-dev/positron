@@ -318,6 +318,10 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
  * resolve from the environment or need no credential, and Bedrock derives its
  * endpoint from the region so it has no URL to collect either.
  *
+ * A `snowflake` entry keeps the flat URL field: that's the shape standalone's
+ * own form writes, and the chat runtime reads `baseUrl` before falling back to
+ * deriving one from `snowflake.host`.
+ *
  * Deliberately coarse. The per-kind forms that reuse a built-in provider's own
  * field set arrive with the Add and Edit UI (#12747).
  */
@@ -331,31 +335,11 @@ const SUPPORTED_OPTIONS_BY_AUTH_METHOD: Record<
 };
 
 /**
- * Kinds whose URL lives in a structured connection section rather than
- * `baseUrl`: a `snowflake` entry derives its Cortex URL from `snowflake.host`
- * or `snowflake.account`. The modal's single URL field would write the key the
- * chat runtime doesn't read, so those kinds collect no URL until the per-kind
- * forms land (#12747). The section is hand-authored meanwhile.
- */
-const STRUCTURED_URL_KINDS: readonly string[] = ['snowflake'];
-
-/**
  * Builds the model source for one `providers.custom` entry. The entry name is
  * the provider id, the display name, and the catalog id all at once: it is the
  * key in providers.json, and Positron registers its auth provider under the
  * same string so the credential is derivable from the id alone.
  */
-function customProviderSupportedOptions(
-	kind: string
-): positron.ai.LanguageModelSource['supportedOptions'] {
-	// getRegistrableCustomProviders only yields kinds that have an auth method;
-	// the fallback just keeps the lookup total.
-	const options = SUPPORTED_OPTIONS_BY_AUTH_METHOD[customAuthMethod(kind) ?? 'apikey'];
-	return STRUCTURED_URL_KINDS.includes(kind)
-		? options.filter(option => option !== 'baseUrl')
-		: options;
-}
-
 export function customProviderSource(
 	provider: ResolvedProviderLike
 ): positron.ai.LanguageModelSource {
@@ -367,7 +351,11 @@ export function customProviderSource(
 			status: 'experimental',
 			catalogId: provider.id,
 		},
-		supportedOptions: customProviderSupportedOptions(provider.clientKind),
+		// getRegistrableCustomProviders only yields kinds that have an auth
+		// method; the fallback just keeps the lookup total.
+		supportedOptions: SUPPORTED_OPTIONS_BY_AUTH_METHOD[
+			customAuthMethod(provider.clientKind) ?? 'apikey'
+		],
 		defaults: {
 			model: provider.id,
 			baseUrl: provider.connection.baseUrl ?? provider.connection.endpoint,
