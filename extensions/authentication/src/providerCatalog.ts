@@ -369,20 +369,25 @@ export async function readCustomProviderEntry(
 }
 
 /**
- * Writes `baseUrl` onto an existing `providers.custom.<name>` entry under the
- * config lock, then refreshes the cache. Everything else the user authored
+ * Writes the entry's URL onto an existing `providers.custom.<name>` entry under
+ * the config lock, then refreshes the cache. Everything else the user authored
  * (`customHeaders`, `protocol`, `endpoints`, `models`, `enabled`) is left
  * alone. `type` is not writable here: changing the client kind re-keys the
  * credential and any saved model default with it, so that stays
  * delete-and-re-add.
  *
+ * `field` is the caller's, because which key holds the URL depends on the
+ * client kind: `ollama` and `lmstudio` are read from `endpoint`, everything
+ * else from `baseUrl`. Writing the wrong one looks saved and changes nothing.
+ *
  * Throws when the entry has no user-layer record, which is the
  * externally-managed case: its connection comes from a default or enforced
  * layer, and copying it into the user's file would detach it from policy.
  */
-export async function saveCustomProviderBaseUrl(
+export async function saveCustomProviderUrl(
 	name: string,
-	baseUrl: string,
+	url: string,
+	field: 'baseUrl' | 'endpoint',
 	options?: ProviderCatalogOptions
 ): Promise<void> {
 	const opts = effectiveOptions(options);
@@ -396,7 +401,7 @@ export async function saveCustomProviderBaseUrl(
 			}
 			return {
 				...current,
-				providers: { ...current.providers, custom: { ...custom, [name]: { ...existing, baseUrl } } },
+				providers: { ...current.providers, custom: { ...custom, [name]: { ...existing, [field]: url } } },
 			};
 		},
 		{ configPath: opts.configPath, logger: writeLogger }

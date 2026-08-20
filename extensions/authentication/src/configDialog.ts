@@ -57,6 +57,25 @@ export function registerAuthProvider(
 }
 
 /**
+ * Register a provider's callbacks without an auth provider, for a provider that
+ * holds no credential at all. Posit Assistant expects no auth provider for the
+ * local custom kinds (`ollama`, `lmstudio`), whose endpoint comes from their
+ * providers.json entry, so there is nothing to authenticate against but there is
+ * still config to save.
+ */
+export function registerProviderCallbacks(
+	providerId: string,
+	options: RegisterAuthProviderOptions
+): void {
+	if (options.onSave) {
+		onSaveCallbacks.set(providerId, options.onSave);
+	}
+	if (options.onDelete) {
+		onDeleteCallbacks.set(providerId, options.onDelete);
+	}
+}
+
+/**
  * Forget an auth provider and its callbacks. Custom providers come and go with
  * their `providers.custom` entry, so their registration can't just live for the
  * lifetime of the extension.
@@ -254,13 +273,13 @@ async function handleSave(
 ): Promise<string> {
 	const providerId = source.provider.id;
 	const provider = authProviders.get(providerId);
-	if (!provider) {
+	if (!provider && !onSaveCallbacks.has(providerId)) {
 		throw new Error(
 			vscode.l10n.t('No auth provider registered for {0}', providerId)
 		);
 	}
 
-	if (config.apiKey !== undefined) {
+	if (provider && config.apiKey !== undefined) {
 		return handleApiKeySave(source, config, provider);
 	}
 
@@ -269,6 +288,14 @@ async function handleSave(
 	const onSave = onSaveCallbacks.get(providerId);
 	if (onSave) {
 		await onSave(config);
+	}
+
+	// A provider registered without an auth provider holds no credential: a
+	// local custom entry (ollama, lmstudio) is configured by its endpoint
+	// alone. Saving that endpoint is the whole action, so stop here rather
+	// than prompting for an API key it has no use for.
+	if (!provider) {
+		return '';
 	}
 
 	const session = await provider.createSession([], {});
@@ -309,6 +336,12 @@ async function handleDelete(
 ): Promise<void> {
 	const provider = authProviders.get(providerId);
 	if (!provider) {
+		// No auth provider means no credential to remove (a local custom
+		// entry). Let its own cleanup run and stop.
+		if (onDeleteCallbacks.has(providerId)) {
+			await runOnDelete(providerId);
+			return;
+		}
 		throw new Error(
 			vscode.l10n.t('No auth provider registered for {0}', providerId)
 		);

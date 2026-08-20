@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	AWS_AUTH_PROVIDER_ID,
@@ -35,7 +34,7 @@ import {
 	validateSnowflakeApiKey
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
-import { resolveAwsChainInit } from './credentials/aws';
+import { resolveAwsCredential } from './credentials/aws';
 import { resolveGeapCredential } from './credentials/geap';
 import {
 	detectSnowflakeCredentials,
@@ -345,20 +344,10 @@ async function registerAwsProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
 		undefined,
 		{
-			resolve: async () => {
-				const aws = getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws;
-				const chainInit = resolveAwsChainInit(aws, process.env);
-				const credentialProvider = fromNodeProviderChain(chainInit);
-				const resolved = await credentialProvider();
-				return {
-					token: JSON.stringify({
-						accessKeyId: resolved.accessKeyId,
-						secretAccessKey: resolved.secretAccessKey,
-						sessionToken: resolved.sessionToken,
-					}),
-					expiration: resolved.expiration,
-				};
-			},
+			resolve: () => resolveAwsCredential(
+				getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws,
+				process.env
+			),
 		}
 	);
 	context.subscriptions.push(

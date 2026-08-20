@@ -15,8 +15,9 @@ import {
 	onDidChangeProviderCatalog,
 	readCustomProviderEntry,
 	refreshProviderCatalog,
-	saveCustomProviderBaseUrl,
+	saveCustomProviderUrl,
 } from '../providerCatalog';
+import { customAuthMethod, customCredentialChain } from '../customProviderAuth';
 import { customProviderSource, getRegistrableCustomProviders, PROVIDER_METADATA } from '../providerSources';
 
 /** The model sources Positron registers for the catalog's custom entries. */
@@ -81,7 +82,7 @@ suite('custom providers', () => {
 	});
 
 	suite('write path', () => {
-		test('saveCustomProviderBaseUrl preserves fields the UI does not own', async () => {
+		test('saveCustomProviderUrl preserves fields the UI does not own', async () => {
 			writeConfig(configPath, {
 				custom: {
 					'My Gateway': {
@@ -97,7 +98,7 @@ suite('custom providers', () => {
 			});
 			await initProviderCatalog(context, { configPath });
 
-			await saveCustomProviderBaseUrl('My Gateway', 'https://new.example.com/v1', { configPath });
+			await saveCustomProviderUrl('My Gateway', 'https://new.example.com/v1', 'baseUrl', { configPath });
 
 			assert.deepStrictEqual(readConfig(configPath).providers.custom['My Gateway'], {
 				type: 'openai-compatible',
@@ -110,14 +111,28 @@ suite('custom providers', () => {
 			});
 		});
 
-		test('saveCustomProviderBaseUrl refuses an entry with no user-layer record', async () => {
+		test('saveCustomProviderUrl refuses an entry with no user-layer record', async () => {
 			writeConfig(configPath, {});
 			await initProviderCatalog(context, { configPath });
 
 			await assert.rejects(
-				saveCustomProviderBaseUrl('Not Mine', 'https://x.example.com', { configPath }),
+				saveCustomProviderUrl('Not Mine', 'https://x.example.com', 'baseUrl', { configPath }),
 				/No custom provider named/
 			);
+		});
+
+		test('saveCustomProviderUrl can write a local entry\'s endpoint instead', async () => {
+			writeConfig(configPath, {
+				custom: { Local: { type: 'ollama', endpoint: 'http://localhost:11434' } },
+			});
+			await initProviderCatalog(context, { configPath });
+
+			await saveCustomProviderUrl('Local', 'http://localhost:1234', 'endpoint', { configPath });
+
+			assert.deepStrictEqual(readConfig(configPath).providers.custom.Local, {
+				type: 'ollama',
+				endpoint: 'http://localhost:1234',
+			});
 		});
 
 		test('readCustomProviderEntry returns the entry as authored', async () => {
@@ -153,11 +168,40 @@ suite('custom providers', () => {
 			await initProviderCatalog(context, { configPath });
 
 			const [change] = await capturingChanges(() =>
-				saveCustomProviderBaseUrl('My Gateway', 'https://two.example.com/v1', { configPath })
+				saveCustomProviderUrl('My Gateway', 'https://two.example.com/v1', 'baseUrl', { configPath })
 			);
 
 			assert.deepStrictEqual(change.changedConnectionIds, ['My Gateway']);
 			assert.deepStrictEqual(change.disabledIds, []);
+		});
+	});
+
+	suite('credentials', () => {
+		test('a kind that resolves from the environment gets a chain', () => {
+			assert.deepStrictEqual(
+				['openai-compatible', 'aws', 'google-vertex', 'ollama'].map(kind => {
+					const method = customAuthMethod(kind);
+					return [kind, method, !!(method && customCredentialChain('Entry', method))];
+				}),
+				[
+					// A stored key, so nothing to resolve.
+					['openai-compatible', 'apikey', false],
+					['aws', 'aws-credentials', true],
+					['google-vertex', 'google-cloud', true],
+					// No credential at all.
+					['ollama', 'local', false],
+				]
+			);
+		});
+
+		test('an unsupported kind has no auth method, so it is not registrable', async () => {
+			writeConfig(configPath, {
+				custom: { Bogus: { type: 'not-a-real-kind' }, Fine: { type: 'ollama' } },
+			});
+			await initProviderCatalog(context, { configPath });
+
+			assert.strictEqual(customAuthMethod('not-a-real-kind'), undefined);
+			assert.deepStrictEqual(customSources().map(s => s.provider.id), ['Fine']);
 		});
 	});
 
@@ -207,6 +251,7 @@ suite('custom providers', () => {
 					Local: { type: 'ollama' },
 					Bedrock: { type: 'aws' },
 					Vertex: { type: 'google-vertex' },
+					Cortex: { type: 'snowflake' },
 				},
 			});
 			await initProviderCatalog(context, { configPath });
@@ -221,6 +266,9 @@ suite('custom providers', () => {
 				// Resolves a Google Cloud credential from the environment, so it
 				// must not ask for an API key.
 				Vertex: ['baseUrl', 'toolCalls'],
+				// Its Cortex URL comes from snowflake.host, so a single URL
+				// field would write a key the runtime doesn't read.
+				Cortex: ['apiKey', 'toolCalls'],
 			});
 		});
 

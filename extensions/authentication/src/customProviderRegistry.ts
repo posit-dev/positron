@@ -6,11 +6,12 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { AuthProvider } from './authProvider';
-import { providerAction, registerAuthProvider, unregisterAuthProvider, updateProviderFromSessions } from './configDialog';
+import { providerAction, registerAuthProvider, registerProviderCallbacks, unregisterAuthProvider, updateProviderFromSessions } from './configDialog';
+import { customAuthMethod, customCredentialChain } from './customProviderAuth';
 import { log } from './log';
 import {
 	readCustomProviderEntry,
-	saveCustomProviderBaseUrl,
+	saveCustomProviderUrl,
 	type ProviderCatalogChangeEvent,
 	type ResolvedProviderLike,
 } from './providerCatalog';
@@ -64,35 +65,73 @@ export class CustomProviderRegistry implements vscode.Disposable {
 
 	private async register(provider: ResolvedProviderLike): Promise<void> {
 		const name = provider.id;
-		const authProvider = new AuthProvider(name, name, this.context);
+		const authMethod = customAuthMethod(provider.clientKind);
 		const disposables: vscode.Disposable[] = [
-			authProvider,
-			vscode.authentication.registerAuthenticationProvider(name, name, authProvider),
 			positron.ai.registerProvider(customProviderSource(provider), providerAction),
 			{ dispose: () => unregisterAuthProvider(name) },
 		];
 
+		// Saving the URL is the whole connect action for a local entry, and the
+		// only part of it for the rest. Which key holds the URL depends on the
+		// kind: the chat runtime reads `endpoint` for a local entry.
+		const onSave = async (config: positron.ai.LanguageModelConfig) => {
+			if (!config.baseUrl) {
+				return;
+			}
+			// An entry with no user-layer record comes from a default or
+			// enforced layer. Its connection isn't ours to write, and the
+			// credential is stored separately, so only the URL is skipped here.
+			if (!await readCustomProviderEntry(name)) {
+				log.info(`Not saving a URL for externally managed custom provider: ${name}`);
+				return;
+			}
+			await saveCustomProviderUrl(
+				name, config.baseUrl, authMethod === 'local' ? 'endpoint' : 'baseUrl'
+			);
+		};
+
+		// A local kind holds no credential, and Posit Assistant expects no auth
+		// provider for one: its endpoint comes from its own providers.json
+		// entry. Registering one anyway would add an account that can never be
+		// signed in.
+		if (authMethod === 'local') {
+			registerProviderCallbacks(name, { onSave });
+			this.registrations.set(name, disposables);
+			log.info(`Registered custom provider: ${name} (${provider.clientKind}, local)`);
+			return;
+		}
+
+		// A kind whose credential comes from the environment gets the same
+		// resolver the matching built-in uses. Without it the entry would offer
+		// no API key field (correctly, it takes none) and have nothing to
+		// resolve either, so Posit Assistant would find no credential under the
+		// entry name and the row could never connect.
+		const credentialChain = authMethod && customCredentialChain(name, authMethod);
+		const authProvider = new AuthProvider(
+			name, name, this.context, undefined, credentialChain || undefined
+		);
+		disposables.push(
+			authProvider,
+			vscode.authentication.registerAuthenticationProvider(name, name, authProvider),
+		);
+
 		registerAuthProvider(name, authProvider, {
-			onSave: async (config) => {
-				if (!config.baseUrl) {
-					return;
-				}
-				// An entry with no user-layer record comes from a default or
-				// enforced layer. Its connection isn't ours to write, and the
-				// credential is stored separately, so only the base URL is
-				// skipped here.
-				if (!await readCustomProviderEntry(name)) {
-					log.info(`Not saving a base URL for externally managed custom provider: ${name}`);
-					return;
-				}
-				await saveCustomProviderBaseUrl(name, config.baseUrl);
-			},
+			onSave,
 			// No onDelete: signing out clears the credential and leaves the
 			// providers.json entry alone. Removing the entry is its own action.
 		});
 
 		this.registrations.set(name, disposables);
-		log.info(`Registered custom provider: ${name} (${provider.clientKind})`);
+		log.info(`Registered custom provider: ${name} (${provider.clientKind}, ${authMethod})`);
+
+		// Resolve an env-backed credential once at registration, the way the
+		// built-in Bedrock and GEAP providers do, so the entry reads as
+		// connected without the user pressing anything.
+		if (credentialChain) {
+			await authProvider.resolveChainCredentials().catch(err =>
+				log.debug(`Initial credential resolution for ${name}: ${err}`)
+			);
+		}
 
 		// Reflect an already-stored credential, the way activation sweeps the
 		// built-in providers once. Without this a configured entry shows up as
