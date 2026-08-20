@@ -33,10 +33,13 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
-import { toLocalResource } from '../../../../base/common/resources.js';
+import { extname, toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/convertToCodeModalDialog.js';
 import { showFileOptionsModalDialog } from '../../../browser/positronModalDialogs/fileOptionsModalDialog.js';
+import { showImportDataModalDialog } from '../../../browser/positronModalDialogs/importDataModalDialog.js';
+import { isSessionVisibleFile } from '../../../services/positronDataExplorer/common/importDataFileUri.js';
+import { IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { CodeSyntaxName } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { mainWindow } from '../../../../base/browser/window.js';
@@ -73,6 +76,7 @@ export const enum PositronDataExplorerCommandId {
 	ConvertToCodeAction = 'workbench.action.positronDataExplorer.convertToCode',
 	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
 	FileOptionsAction = 'workbench.action.positronDataExplorer.fileOptions',
+	ImportDataAction = 'workbench.action.positronDataExplorer.importData',
 	ShowColumnContextMenuAction = 'workbench.action.positronDataExplorer.showColumnContextMenu',
 	ShowRowContextMenuAction = 'workbench.action.positronDataExplorer.showRowContextMenu',
 	ShowCellContextMenuAction = 'workbench.action.positronDataExplorer.showCellContextMenu',
@@ -702,6 +706,7 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 				{
 					id: MenuId.EditorActionsLeft,
 					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					order: 1
 				},
 				{
 					id: MenuId.EditorTitle,
@@ -855,6 +860,7 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 						POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED
 					),
+					order: 3
 				},
 				{
 					id: MenuId.EditorTitle,
@@ -919,7 +925,8 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
-					when
+					when,
+					order: 5
 				},
 				{
 					id: MenuId.EditorTitle,
@@ -1009,7 +1016,8 @@ class PositronDataExplorerOpenAsSpreadsheetAction extends Action2 {
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
-					when
+					when,
+					order: 5
 				},
 				{
 					id: MenuId.EditorTitle,
@@ -1081,7 +1089,7 @@ class PositronDataExplorerFileOptionsAction extends Action2 {
 						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
 					),
-					order: 0
+					order: 4
 				},
 				{
 					id: MenuId.EditorTitle,
@@ -1106,6 +1114,102 @@ class PositronDataExplorerFileOptionsAction extends Action2 {
 		}
 
 		await showFileOptionsModalDialog(positronDataExplorerInstance);
+	}
+}
+
+/**
+ * PositronDataExplorerImportDataAction action.
+ * Opens the Import Data dialog for the file backing the active Data Explorer, which generates the
+ * code that loads it into a variable in a console session.
+ */
+class PositronDataExplorerImportDataAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		// Gated on plaintext (CSV/TSV/XLSX) rather than "file-backed" because no context key
+		// distinguishes a file-backed Data Explorer from a kernel-backed one yet. A future PR adds
+		// POSITRON_DATA_EXPLORER_IS_FILE_BACKED and this switches to it, which also picks up
+		// Parquet. Deliberately not gated on a sort or filter existing: loading an unfiltered file
+		// is the main case.
+		const when = ContextKeyExpr.and(
+			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+		);
+		super({
+			id: PositronDataExplorerCommandId.ImportDataAction,
+			title: {
+				value: localize('positronDataExplorer.importData', 'Import Data'),
+				original: 'Import Data'
+			},
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true,
+			},
+			category,
+			f1: true,
+			precondition: when,
+			icon: Codicon.positronImportData,
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when,
+					order: 2
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const environmentService = accessor.get(IWorkbenchEnvironmentService);
+		const importerRegistry = accessor.get(IPositronDataImporterRegistry);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+
+		// Get the Positron data explorer instance, which is where the file options come from.
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
+		if (!positronDataExplorerInstance) {
+			return;
+		}
+
+		// Recover the original file from the positron-data-explorer URI. A kernel-backed explorer
+		// has no backing file, so there is nothing to import.
+		const originalUri = EditorResourceAccessor.getOriginalUri(editorService.activeEditor);
+		const fileUri = originalUri && PositronDataExplorerUri.backingUri(originalUri);
+		if (!fileUri) {
+			return;
+		}
+
+		// Ask the registry which importers can read this file. This activates contributing
+		// extensions, so it must happen before the dialog opens.
+		//
+		// Offer nothing for a file the runtime session's machine cannot open: the generated code
+		// names fileUri.fsPath, and a path the session cannot resolve is worse than no code at all.
+		// The dialog renders the empty list as its empty state.
+		const importers = isSessionVisibleFile(fileUri, environmentService.remoteAuthority)
+			? await importerRegistry.getImporters(extname(fileUri))
+			: [];
+
+		showImportDataModalDialog({
+			fileUri,
+			importers,
+			options: {
+				hasHeaderRow: positronDataExplorerInstance.fileHasHeaderRow,
+				// Import the sheet the user is looking at, not the workbook's default one.
+				sheetName: positronDataExplorerInstance.fileSelectedSheet,
+			},
+			preferredLanguageId: runtimeSessionService.foregroundSession?.runtimeMetadata.languageId,
+		});
 	}
 }
 
@@ -1494,6 +1598,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
 	registerAction2(PositronDataExplorerOpenAsSpreadsheetAction);
 	registerAction2(PositronDataExplorerFileOptionsAction);
+	registerAction2(PositronDataExplorerImportDataAction);
 	registerAction2(PositronDataExplorerConvertToCodeAction);
 	registerAction2(PositronDataExplorerConvertToCodeModalAction);
 	registerAction2(PositronDataExplorerShowColumnContextMenuAction);

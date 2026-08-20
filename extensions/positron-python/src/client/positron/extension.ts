@@ -18,6 +18,7 @@ import { activateWalkthroughCommands } from './walkthroughCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
 import { registerLanguageServerManager } from './languageServerManager';
 import { registerPythonFilePasteAndDropProvider } from '../languageFeatures/pythonFilePasteAndDropProvider';
+import { registerPandasDataImporter } from './dataImport/pandasImporter';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
@@ -112,6 +113,9 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
 
         // Register Python file paste and drop provider.
         registerPythonFilePasteAndDropProvider(disposables);
+
+        // Register the pandas data importer used by Import Data.
+        registerPandasDataImporter(disposables);
 
         traceInfo('activatePositron: done!');
     } catch (ex) {
