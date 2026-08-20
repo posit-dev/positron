@@ -83,13 +83,15 @@ suite('activation ordering', () => {
 
 		// envVars: {} keeps ambient AWS_PROFILE/AWS_REGION out of the
 		// connection-env layer, so only the (absent) legacy layer could
-		// contribute a profile; the region falls back to the built-in default.
+		// contribute either value. ai-config preserves provenance and does not
+		// stamp its default region onto the connection, so both stay undefined;
+		// a legacy read would show up here as eu-west-1.
 		await migrateSettingsAndPrimeCatalog(context, { configPath, envVars: {} }, [], noopAutoMigrate);
 
 		const aws = getCachedProvider('bedrock')?.connection.aws;
 		assert.deepStrictEqual(
 			{ profile: aws?.profile, region: aws?.region },
-			{ profile: undefined, region: 'us-east-1' },
+			{ profile: undefined, region: undefined },
 			'legacy settings must reach the catalog only via the providers.json migration'
 		);
 	});
