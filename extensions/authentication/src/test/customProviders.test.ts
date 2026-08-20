@@ -129,7 +129,7 @@ suite('custom providers', () => {
 			});
 			await initProviderCatalog(context, { configPath });
 
-			await saveCustomProviderUrl('My Gateway', 'https://new.example.com/v1', 'baseUrl', { configPath });
+			await saveCustomProviderUrl('My Gateway', 'https://new.example.com/v1', { configPath });
 
 			assert.deepStrictEqual(readConfig(configPath).providers.custom['My Gateway'], {
 				type: 'openai-compatible',
@@ -147,23 +147,9 @@ suite('custom providers', () => {
 			await initProviderCatalog(context, { configPath });
 
 			await assert.rejects(
-				saveCustomProviderUrl('Not Mine', 'https://x.example.com', 'baseUrl', { configPath }),
+				saveCustomProviderUrl('Not Mine', 'https://x.example.com', { configPath }),
 				/No custom provider named/
 			);
-		});
-
-		test('saveCustomProviderUrl can write a local entry\'s endpoint instead', async () => {
-			writeConfig(configPath, {
-				custom: { Local: { type: 'ollama', endpoint: 'http://localhost:11434' } },
-			});
-			await initProviderCatalog(context, { configPath });
-
-			await saveCustomProviderUrl('Local', 'http://localhost:1234', 'endpoint', { configPath });
-
-			assert.deepStrictEqual(readConfig(configPath).providers.custom.Local, {
-				type: 'ollama',
-				endpoint: 'http://localhost:1234',
-			});
 		});
 
 		test('readCustomProviderEntry returns the entry as authored', async () => {
@@ -199,7 +185,7 @@ suite('custom providers', () => {
 			await initProviderCatalog(context, { configPath });
 
 			const [change] = await capturingChanges(() =>
-				saveCustomProviderUrl('My Gateway', 'https://two.example.com/v1', 'baseUrl', { configPath })
+				saveCustomProviderUrl('My Gateway', 'https://two.example.com/v1', { configPath })
 			);
 
 			assert.deepStrictEqual(change.changedConnectionIds, ['My Gateway']);
@@ -357,15 +343,15 @@ suite('custom providers', () => {
 				customSources().map(s => [s.provider.id, s.supportedOptions])
 			);
 			// Each list is the matching built-in's own, minus what only the one
-			// built-in instance can use (`autoconfigure`, `oauth`) and the API
-			// type field this work removes (`protocol`), plus the model-id list
-			// every custom entry needs.
+			// built-in instance can use (`autoconfigure`, `oauth`), the API type
+			// field this work removes (`protocol`), and `customModels`, which
+			// has no write path for a custom entry yet.
 			assert.deepStrictEqual(options, {
-				Gateway: ['apiKey', 'baseUrl', 'toolCalls', 'customModels'],
+				Gateway: ['apiKey', 'baseUrl', 'toolCalls'],
 				// The built-in Anthropic tile asks for a key and a URL, and does
 				// not offer a tool-calls switch. Neither does a custom one.
-				Claude: ['apiKey', 'baseUrl', 'customModels'],
-				GPT: ['apiKey', 'baseUrl', 'toolCalls', 'customModels'],
+				Claude: ['apiKey', 'baseUrl'],
+				GPT: ['apiKey', 'baseUrl', 'toolCalls'],
 			});
 		});
 

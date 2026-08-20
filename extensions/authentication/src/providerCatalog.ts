@@ -376,9 +376,10 @@ export async function readCustomProviderEntry(
  * credential and any saved model default with it, so that stays
  * delete-and-re-add.
  *
- * `field` is the caller's, because which key holds the URL depends on the
- * client kind: `ollama` and `lmstudio` are read from `endpoint`, everything
- * else from `baseUrl`. Writing the wrong one looks saved and changes nothing.
+ * Writes `baseUrl`, which is the key every offered kind is read from. The local
+ * kinds are read from `endpoint` instead, so this grows a field argument when
+ * they are offered (#12747); writing the wrong key looks saved and changes
+ * nothing.
  *
  * Throws when the entry has no user-layer record, which is the
  * externally-managed case: its connection comes from a default or enforced
@@ -387,7 +388,6 @@ export async function readCustomProviderEntry(
 export async function saveCustomProviderUrl(
 	name: string,
 	url: string,
-	field: 'baseUrl' | 'endpoint',
 	options?: ProviderCatalogOptions
 ): Promise<void> {
 	const opts = effectiveOptions(options);
@@ -401,7 +401,7 @@ export async function saveCustomProviderUrl(
 			}
 			return {
 				...current,
-				providers: { ...current.providers, custom: { ...custom, [name]: { ...existing, [field]: url } } },
+				providers: { ...current.providers, custom: { ...custom, [name]: { ...existing, baseUrl: url } } },
 			};
 		},
 		{ configPath: opts.configPath, logger: writeLogger }

@@ -88,7 +88,7 @@ export class CustomProviderRegistry implements vscode.Disposable {
 				log.info(`Not saving a URL for externally managed custom provider: ${name}`);
 				return;
 			}
-			await saveCustomProviderUrl(name, config.baseUrl, 'baseUrl');
+			await saveCustomProviderUrl(name, config.baseUrl);
 		};
 
 		// Every offered kind authenticates with a key the user types, so the

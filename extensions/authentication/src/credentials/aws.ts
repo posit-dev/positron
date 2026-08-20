@@ -3,9 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import type { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AuthProviderLogger } from '../authProviderLogger';
-import type { ResolvedChainCredential } from '../authProvider';
 
 type ChainInit = Parameters<typeof fromNodeProviderChain>[0];
 
@@ -42,29 +41,4 @@ export function resolveAwsChainInit(
 	);
 
 	return chainInit;
-}
-
-/**
- * Resolve AWS credentials from the SDK's node provider chain, shaped as the
- * session payload consumers read: a JSON token plus the expiration the chain
- * reported, so a temporary credential refreshes on time.
- *
- * Shared by the built-in Bedrock provider and any `providers.custom` entry of
- * kind `aws`. Both take their region and profile from their own
- * `connection.aws` slice, so the only difference is which entry is passed in.
- */
-export async function resolveAwsCredential(
-	aws: { profile?: string; region?: string } | undefined,
-	env: NodeJS.ProcessEnv,
-): Promise<ResolvedChainCredential> {
-	const credentialProvider = fromNodeProviderChain(resolveAwsChainInit(aws, env));
-	const resolved = await credentialProvider();
-	return {
-		token: JSON.stringify({
-			accessKeyId: resolved.accessKeyId,
-			secretAccessKey: resolved.secretAccessKey,
-			sessionToken: resolved.sessionToken,
-		}),
-		expiration: resolved.expiration,
-	};
 }

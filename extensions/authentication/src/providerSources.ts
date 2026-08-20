@@ -340,9 +340,16 @@ const BUILTIN_FORM_BY_KIND: Partial<Record<SupportedCustomClientKind, keyof type
  * product-bound (Posit AI, Copilot, Databricks), and those kinds aren't
  * offered as custom entries at all. `protocol` is the API type field, which
  * this work removes: the kind carries the wire format (#13817).
+ *
+ * `customModels` is out for a duller reason: nothing writes it for a custom
+ * entry. `saveCustomProviderModels` writes `providers[catalogId]`, a top-level
+ * block, which is the built-in `openai-compatible` provider's own entry and not
+ * `providers.custom[name]`. Offering the field here would render an input that
+ * silently discards what the user types. It arrives with create and edit
+ * (#12747), which is what grows the write path.
  */
 const OPTIONS_NOT_FOR_CUSTOM: ReadonlySet<SupportedOption> = new Set<SupportedOption>([
-	'autoconfigure', 'oauth', 'protocol',
+	'autoconfigure', 'oauth', 'protocol', 'customModels',
 ]);
 
 /** What every offered kind needs at minimum: somewhere to call, and a key. */
@@ -350,8 +357,7 @@ const BASE_OPTIONS: SupportedOption[] = ['apiKey', 'baseUrl'];
 
 /**
  * The fields a custom entry of this kind collects: its built-in's own list,
- * minus what only the built-in can use, plus the model-id list every custom
- * entry needs for an endpoint that doesn't list its own models.
+ * minus what only the built-in can use.
  */
 function customSupportedOptions(kind: string): SupportedOption[] {
 	const builtinKey = BUILTIN_FORM_BY_KIND[kind as SupportedCustomClientKind];
@@ -362,9 +368,7 @@ function customSupportedOptions(kind: string): SupportedOption[] {
 
 	const inherited = (builtin?.supportedOptions ?? BASE_OPTIONS)
 		.filter(option => !OPTIONS_NOT_FOR_CUSTOM.has(option));
-	const options = inherited.length > 0 ? inherited : BASE_OPTIONS;
-
-	return options.includes('customModels') ? options : [...options, 'customModels'];
+	return inherited.length > 0 ? inherited : BASE_OPTIONS;
 }
 
 /**
