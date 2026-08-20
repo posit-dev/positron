@@ -8,7 +8,7 @@ import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IPositronDataExplorerInstance } from './positronDataExplorerInstance.js';
-import { IDataExplorerHostTransport, IDataExplorerUiEventDto } from '../../common/dataExplorerRpcTransport.js';
+import { IDataExplorerRpcTransport, IDataExplorerUiEventDto } from '../../common/dataExplorerRpcTransport.js';
 
 // Create the decorator for the Positron data explorer service (used in dependency injection).
 export const IPositronDataExplorerService = createDecorator<IPositronDataExplorerService>('positronDataExplorerService');
@@ -101,7 +101,7 @@ export interface IPositronDataExplorerService {
 	 * @param transport The transport.
 	 * @returns A disposable that unregisters the transport and any providers it owns.
 	 */
-	registerRpcTransport(transport: IDataExplorerHostTransport): IDisposable;
+	registerRpcTransport(transport: IDataExplorerRpcTransport): IDisposable;
 
 	/**
 	 * Records that a provider's RPC handler registered in `transport`'s extension host, so RPCs for
@@ -109,14 +109,14 @@ export interface IPositronDataExplorerService {
 	 * @param providerId The provider id (e.g. 'positron-duckdb').
 	 * @param transport The transport for the host the handler registered in.
 	 */
-	registerRpcProvider(providerId: string, transport: IDataExplorerHostTransport): void;
+	registerRpcProvider(providerId: string, transport: IDataExplorerRpcTransport): void;
 
 	/**
 	 * Undoes {@link registerRpcProvider}. Ignored if another host now owns the provider.
 	 * @param providerId The provider id.
 	 * @param transport The transport that previously registered it.
 	 */
-	unregisterRpcProvider(providerId: string, transport: IDataExplorerHostTransport): void;
+	unregisterRpcProvider(providerId: string, transport: IDataExplorerRpcTransport): void;
 
 	/**
 	 * Routes a frontend UI event from a backend-providing extension to the matching backend.
