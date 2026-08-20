@@ -11,10 +11,10 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IPositronAssistantConfigurationService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
-import { ConfigureLLMProviders } from '../../browser/configureLLMProvidersModal.js';
+import { ConfigureLLMProviders, PendingSignIn } from '../../browser/configureLLMProvidersModal.js';
+import { makeDialogRenderer } from './providerModalTestUtils.js';
 
 const positAi: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
@@ -46,27 +46,19 @@ describe('ConfigureLLMProviders', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	// PositronModalDialog only uses onKeyDown/onResize from the renderer; close() calls dispose().
-	function makeRenderer(): PositronModalReactRenderer {
-		return stubInterface<PositronModalReactRenderer>({
-			onKeyDown: new Emitter<KeyboardEvent>().event,
-			onResize: new Emitter<UIEvent>().event,
-			dispose: () => { },
-		});
-	}
-
 	function renderModal(
 		sources: IPositronLanguageModelSource[],
 		preselectedProviderId?: string,
 		onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void> = async () => { },
+		pendingSignIn: PendingSignIn = {},
 	) {
 		return rtl.render(
 			<ConfigureLLMProviders
+				pendingSignIn={pendingSignIn}
 				preselectedProviderId={preselectedProviderId}
-				renderer={makeRenderer()}
+				renderer={makeDialogRenderer()}
 				sources={sources}
 				onAction={onAction}
-				onClose={() => { }}
 			/>
 		);
 	}
@@ -161,13 +153,69 @@ describe('ConfigureLLMProviders', () => {
 		expect(screen.queryByText(/connected via/i)).not.toBeInTheDocument();
 	});
 
-	it('shows Close without Back on the list view, and Back on the connect view', async () => {
+	it('shows no Back on the list view, and Back on the connect view', async () => {
 		const user = userEvent.setup();
 		renderModal([anthropic]);
-		expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: /connect/i }));
 		expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+	});
+
+	it('gives the list view no footer, so dismissal is the title bar close button', () => {
+		renderModal([anthropic]);
+		expect(screen.getByRole('button', { name: 'Close' })).toHaveClass('title-bar-close-button');
+	});
+
+	// The renderer unmounts the React tree before it runs the teardown that cancels
+	// an in-flight sign-in, so the handler has to outlive this component.
+	it('leaves the pending sign-in handler in place when the modal unmounts', async () => {
+		const pendingSignIn: PendingSignIn = {};
+		let resolveSignIn = () => { };
+		const onAction = vi.fn().mockImplementation((_source, _config, action) =>
+			action === 'oauth-signin' ? new Promise<void>(resolve => { resolveSignIn = resolve; }) : Promise.resolve());
+		const user = userEvent.setup();
+		const { unmount } = renderModal([positAi], undefined, onAction, pendingSignIn);
+
+		// The list row opens the connect view; its footer button starts the sign-in.
+		await user.click(screen.getByRole('button', { name: /connect/i }));
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(pendingSignIn.cancel).toBeTypeOf('function');
+
+		unmount();
+
+		expect(pendingSignIn.cancel).toBeTypeOf('function');
+		pendingSignIn.cancel!();
+		expect(onAction).toHaveBeenCalledWith(positAi, expect.anything(), 'cancel');
+		await act(async () => { resolveSignIn(); });
+	});
+
+	// A successful sign-in unmounts the connect view before it can clear its own
+	// handler, so the modal has to drop it as it routes to the connected view.
+	it('drops the pending sign-in handler when the sign-in succeeds', async () => {
+		const pendingSignIn: PendingSignIn = {};
+		const actions: string[] = [];
+		let resolveSignIn = () => { };
+		const onAction = (_s: IPositronLanguageModelSource, _c: IPositronLanguageModelConfig, action: string) => {
+			actions.push(action);
+			return action === 'oauth-signin'
+				? new Promise<void>(resolve => { resolveSignIn = resolve; })
+				: Promise.resolve();
+		};
+		const user = userEvent.setup();
+		renderModal([positAi], undefined, onAction, pendingSignIn);
+
+		await user.click(screen.getByRole('button', { name: /connect/i }));
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(pendingSignIn.cancel).toBeTypeOf('function');
+
+		// The provider reports the sign-in before the action promise settles, which
+		// is what routes the modal to the connected view.
+		await act(async () => { onChange.fire({ ...positAi, signedIn: true }); });
+		await act(async () => { resolveSignIn(); });
+
+		expect(pendingSignIn.cancel).toBeUndefined();
+		await user.click(screen.getByRole('button', { name: 'Back' }));
+		expect(actions).toStrictEqual(['oauth-signin']);
 	});
 
 	it('cancels an in-flight OAuth sign-in when Back returns to the list', async () => {
