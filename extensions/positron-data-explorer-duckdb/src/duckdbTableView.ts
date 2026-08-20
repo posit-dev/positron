@@ -261,6 +261,11 @@ export class DuckDBTableView {
 		private readonly schema: Array<DuckDBSchemaEntry>,
 		private readonly codeGenerator?: IDuckDBTableCodeGenerator,
 	) {
+		// Seed the ORDER BY before any data is read. The frontend only sends set_sort_columns when the
+		// user sorts, so without this a freshly opened table pages with no ORDER BY at all and the
+		// rowid tiebreaker below never applies. DuckDB parallelizes scans across row groups, so an
+		// unordered LIMIT/OFFSET sweep is genuinely free to repeat and drop rows.
+		this._sortClause = this._buildSortClause(this.sortKeys, true);
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
 	}

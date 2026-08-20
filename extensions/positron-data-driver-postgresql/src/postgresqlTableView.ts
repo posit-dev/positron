@@ -271,6 +271,10 @@ export class PostgresTableView {
 		private readonly objectKind: 'table' | 'view',
 		private readonly schema: Array<PostgresSchemaEntry>,
 	) {
+		// Seed the ORDER BY before any data is read. The frontend only sends set_sort_columns when the
+		// user sorts, so without this a freshly opened table pages with no ORDER BY at all and the
+		// ctid tiebreaker below never applies -- leaving LIMIT/OFFSET free to repeat and drop rows.
+		this._sortClause = this._buildSortClause(this.sortKeys, true);
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
 	}

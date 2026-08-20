@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { ISqliteQueryClient } from './sqliteWorkerClient.js';
-import { SqliteSchemaEntry, SqliteTableView, sqliteDisplayType } from './sqliteTableView.js';
+import { SqliteSchemaEntry, SqliteTableView, quoteIdentifier, sqliteDisplayType } from './sqliteTableView.js';
 import {
 	ConvertToCodeParams,
 	DataExplorerBackendRequest,
@@ -72,8 +72,11 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 		tableName: string,
 		kind: 'table' | 'view',
 	): Promise<void> {
-		const schema = await buildSqliteSchema(client, tableName);
-		this._views.set(datasetId, new SqliteTableView(client, tableName, kind, schema));
+		const [schema, rowIdentity] = await Promise.all([
+			buildSqliteSchema(client, tableName),
+			resolveSqliteRowIdentity(client, tableName, kind),
+		]);
+		this._views.set(datasetId, new SqliteTableView(client, tableName, kind, schema, rowIdentity));
 	}
 
 	/**
@@ -87,12 +90,15 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 		kind: 'table' | 'view',
 		columnName: string,
 	): Promise<void> {
-		const schema = await buildSqliteSchema(client, tableName);
+		const [schema, rowIdentity] = await Promise.all([
+			buildSqliteSchema(client, tableName),
+			resolveSqliteRowIdentity(client, tableName, kind),
+		]);
 		const column = schema.find(c => c.column_name === columnName);
 		if (!column) {
 			throw new Error(`Column '${columnName}' not found in '${tableName}'`);
 		}
-		this._views.set(datasetId, new SqliteTableView(client, tableName, kind, [column]));
+		this._views.set(datasetId, new SqliteTableView(client, tableName, kind, [column], rowIdentity));
 	}
 
 	/** Drops a dataset's view, e.g. when its connection is disconnected. */
@@ -169,6 +175,47 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
  * Reads a table or view's column schema via PRAGMA table_info and resolves each column's display
  * type. PRAGMA does not support bound parameters, so the name is double-quote escaped inline.
  */
+/**
+ * Resolves the ORDER BY expression that uniquely identifies a row, used as the pagination
+ * tiebreaker.
+ *
+ * An ordinary table uses `rowid`, which matches SQLite's own storage order and so costs nothing to
+ * sort by. A WITHOUT ROWID table has no `rowid` column -- ordering by it fails outright with "no
+ * such column: rowid" -- but such a table is required to have a primary key, whose columns identify
+ * a row just as well. Views have no row identity, so they get no tiebreaker.
+ */
+export async function resolveSqliteRowIdentity(
+	client: ISqliteQueryClient,
+	tableName: string,
+	kind: 'table' | 'view',
+): Promise<string | undefined> {
+	if (kind !== 'table') {
+		return undefined;
+	}
+
+	const created = await client.runQuery(
+		`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`,
+		[tableName]
+	);
+	if (!/WITHOUT\s+ROWID/i.test(String(created[0]?.sql ?? ''))) {
+		return 'rowid';
+	}
+
+	// PRAGMA table_info reports `pk` as the 1-based position within the primary key, or 0 if the
+	// column is not part of it. PRAGMA does not support bound parameters, so the name is
+	// double-quote escaped inline.
+	const safeName = tableName.replace(/"/g, '""');
+	const columns = await client.runQuery(`PRAGMA table_info("${safeName}")`);
+	const keyColumns = columns
+		.filter(row => Number(row.pk ?? 0) > 0)
+		.sort((a, b) => Number(a.pk) - Number(b.pk))
+		.map(row => quoteIdentifier(String(row.name)));
+
+	// A WITHOUT ROWID table always has a primary key, but fall back to no tiebreaker rather than
+	// emitting an empty expression if the catalog ever says otherwise.
+	return keyColumns.length > 0 ? keyColumns.join(', ') : undefined;
+}
+
 export async function buildSqliteSchema(
 	client: ISqliteQueryClient,
 	tableName: string,

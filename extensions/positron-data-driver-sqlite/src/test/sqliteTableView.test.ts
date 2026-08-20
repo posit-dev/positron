@@ -142,7 +142,7 @@ suite('SQLite Data Explorer Tests', () => {
 			]);
 		});
 
-		test('paginates with LIMIT/OFFSET and a rowid tiebreaker once sorted', async () => {
+		test('paginates with LIMIT/OFFSET and appends a rowid tiebreaker after the sort keys', async () => {
 			const client = new FakeQueryClient(sql => (sql.includes('count(*)') ? [{ n: 10 }] : [{ c0: 5 }]));
 			const view = new SqliteTableView(client, 'people', 'table', schema);
 			await view.setSortColumns({ sort_keys: [{ column_index: 0, ascending: false }] });

@@ -116,7 +116,7 @@ export function sqliteDisplayType(declaredType: string): ColumnDisplayType {
 }
 
 /** Quotes and escapes an identifier for SQLite by doubling embedded double-quotes. */
-function quoteIdentifier(name: string): string {
+export function quoteIdentifier(name: string): string {
 	return '"' + name.replace(/"/g, '""') + '"';
 }
 
@@ -229,13 +229,23 @@ export class SqliteTableView {
 	 * @param tableName The unquoted table/view name.
 	 * @param objectKind Whether this is a table (has a stable rowid) or a view.
 	 * @param schema The resolved column schema.
+	 * @param rowIdentity An ORDER BY expression that uniquely identifies a row, used as the
+	 * pagination tiebreaker. Defaults to `rowid`, which every ordinary table has. A WITHOUT ROWID
+	 * table has no such column -- ordering by it is an error -- so its caller passes the primary key
+	 * columns instead; see `resolveSqliteRowIdentity`. Views have no row identity at all.
 	 */
 	constructor(
 		private readonly client: ISqliteQueryClient,
 		private readonly tableName: string,
 		private readonly objectKind: 'table' | 'view',
 		private readonly schema: Array<SqliteSchemaEntry>,
+		private readonly rowIdentity: string | undefined =
+			objectKind === 'table' ? 'rowid' : undefined,
 	) {
+		// Seed the ORDER BY before any data is read. The frontend only sends set_sort_columns when the
+		// user sorts, so without this a freshly opened table pages with no ORDER BY at all and the
+		// tiebreaker below never applies -- leaving LIMIT/OFFSET free to repeat and drop rows.
+		this._sortClause = this._buildSortClause(this.sortKeys, true);
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
 	}
@@ -424,16 +434,18 @@ export class SqliteTableView {
 	}
 
 	/**
-	 * Builds an ORDER BY clause for the given sort keys. For tables a trailing `rowid` is appended
-	 * as a stable tiebreaker so pagination is deterministic; views have no rowid, so they omit it.
+	 * Builds an ORDER BY clause for the given sort keys. A trailing row identity is appended as a
+	 * stable tiebreaker so pagination is deterministic: the user's sort keys alone leave tied rows
+	 * free to come back in a different order on every statement. Views have no row identity, so they
+	 * omit it.
 	 */
 	private _buildSortClause(sortKeys: Array<ColumnSortKey>, includeRowidTiebreaker: boolean): string {
 		const exprs = sortKeys.map(key => {
 			const quotedName = quoteIdentifier(this.schema[key.column_index].column_name);
 			return `${quotedName}${key.ascending ? '' : ' DESC'}`;
 		});
-		if (includeRowidTiebreaker && this.objectKind === 'table') {
-			exprs.push('rowid');
+		if (includeRowidTiebreaker && this.rowIdentity) {
+			exprs.push(this.rowIdentity);
 		}
 		return exprs.length > 0 ? `\nORDER BY ${exprs.join(', ')}` : '';
 	}
