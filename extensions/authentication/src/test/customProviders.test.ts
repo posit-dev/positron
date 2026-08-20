@@ -440,7 +440,9 @@ suite('custom providers', () => {
 			assert.deepStrictEqual(source.provider, {
 				id: 'My Gateway',
 				displayName: 'My Gateway',
-				status: 'experimental',
+				// The kind is what the modal shows the entry's vendor icon and
+				// its Custom badge from.
+				customKind: 'openai-compatible',
 				catalogId: 'My Gateway',
 			});
 			assert.strictEqual(source.defaults.baseUrl, 'https://gateway.example.com/v1');

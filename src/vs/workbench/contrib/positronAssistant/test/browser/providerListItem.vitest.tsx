@@ -36,6 +36,16 @@ describe('ProviderListItem', () => {
 		expect(screen.getByText('Experimental')).toBeInTheDocument();
 	});
 
+	it('marks a providers.custom entry as Custom rather than by maturity', () => {
+		render(<ProviderListItem section='connected' source={source({
+			id: 'My Gateway',
+			signedIn: true,
+			provider: { id: 'My Gateway', displayName: 'My Gateway', customKind: 'anthropic' },
+		})} />);
+		expect(screen.getByText('Custom')).toBeInTheDocument();
+		expect(screen.queryByText('Experimental')).not.toBeInTheDocument();
+	});
+
 	it('shows a PWB Managed badge for a managed-credentials connected provider', () => {
 		render(<ProviderListItem section='connected' source={source({
 			id: 'databricks',

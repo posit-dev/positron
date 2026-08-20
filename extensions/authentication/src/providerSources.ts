@@ -385,7 +385,10 @@ export function customProviderSource(
 		provider: {
 			id: provider.id,
 			displayName: provider.id,
-			status: 'experimental',
+			// The kind is what lets the modal show the entry under its vendor's
+			// icon and mark it as custom. It stands in for no maturity status:
+			// a custom entry is as mature as whatever it connects to.
+			customKind: provider.clientKind,
 			catalogId: provider.id,
 		},
 		supportedOptions: customSupportedOptions(provider.clientKind),

@@ -86,6 +86,13 @@ export interface IPositronProviderMetadata {
 	 * 'preview', then 'experimental'.
 	 */
 	status?: 'preview' | 'experimental';
+	/**
+	 * For a provider that comes from a `providers.custom` entry, the entry's
+	 * type (its client kind, e.g. 'anthropic'). Undefined for built-in
+	 * providers. The modal shows the entry under that vendor's icon and marks
+	 * the row as custom.
+	 */
+	customKind?: string;
 	/** Optional data URL for the provider icon (e.g., data:image/svg+xml;base64,...) */
 	logoUrl?: string;
 }

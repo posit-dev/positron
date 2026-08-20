@@ -43,6 +43,7 @@ const myGateway: IPositronLanguageModelSource = {
 describe('ConfigureLLMProviders', () => {
 	const onChange = new Emitter<IPositronLanguageModelSource>();
 	const registrationsChange = new Emitter<void>();
+	const enabledProvidersChange = new Emitter<void>();
 	const sessionsChange = new Emitter<{ providerId: string; label: string; event: AuthenticationSessionsChangeEvent }>();
 	// syncAuthSessions only reads sessions.length, so an empty stub session suffices.
 	let sessions: AuthenticationSession[] = [];
@@ -56,6 +57,7 @@ describe('ConfigureLLMProviders', () => {
 		.stub(IPositronAssistantConfigurationService, {
 			onChangeProviderConfig: onChange.event,
 			onChangeProviderRegistrations: registrationsChange.event,
+			onChangeEnabledProviders: enabledProvidersChange.event,
 			getRegisteredSources: () => registeredSources,
 		})
 		.stub(IAuthenticationService, { onDidChangeSessions: sessionsChange.event, getSessions: async () => sessions })

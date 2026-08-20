@@ -10,6 +10,7 @@ import { ProviderSectionId } from '../../common/providerGrouping.js';
 import { deriveAuthMethod } from '../providerConnection.js';
 import { AuthMethod } from '../types.js';
 import { LanguageModelIcon, getStatusLabel } from './languageModelButton.js';
+import { providerIconId } from '../customProviderKinds.js';
 
 interface ProviderListItemProps {
 	source: IPositronLanguageModelSource;
@@ -62,11 +63,16 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 	return (
 		<div className='provider-list-item' data-provider-section={section} data-testid={`provider-row-${source.provider.id}`}>
 			<div className='provider-list-item-icon'>
-				<LanguageModelIcon logoUrl={source.provider.logoUrl} provider={source.provider.id} />
+				<LanguageModelIcon logoUrl={source.provider.logoUrl} provider={providerIconId(source.provider)} />
 			</div>
 			<div className='provider-list-item-text'>
 				<div className='provider-list-item-name'>
 					<span className='provider-list-item-display-name'>{source.provider.displayName}</span>
+					{source.provider.customKind &&
+						<span className='provider-list-item-badge custom'>
+							{localize('positron.configureLLMProvidersModal.badge.custom', "Custom")}
+						</span>
+					}
 					{maturityLabel && <span className={positronClassNames('provider-list-item-badge', source.provider.status)}>{maturityLabel}</span>}
 					{authLabel && <span className='provider-list-item-badge environment'>{authLabel}</span>}
 					{section === 'needs-attention' &&

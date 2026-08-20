@@ -19,6 +19,7 @@ import { DropDownListBoxItem } from '../../../../browser/positronComponents/drop
 import { LanguageModelIcon } from './languageModelButton.js';
 import { ProviderConnectionFields } from './providerConnectionFields.js';
 import { ProviderModelsSection } from './providerModelsSection.js';
+import { providerIconId } from '../customProviderKinds.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
 
 /**
@@ -271,7 +272,7 @@ const ApiTypeEntry = (props: { option: ApiTypeOption }) => (
 export const ConnectProviderHeader = (props: { source: IPositronLanguageModelSource; subtitle?: string }) => (
 	<div className='connect-provider-header'>
 		<div className='connect-provider-icon'>
-			<LanguageModelIcon logoUrl={props.source.provider.logoUrl} provider={props.source.provider.id} />
+			<LanguageModelIcon logoUrl={props.source.provider.logoUrl} provider={providerIconId(props.source.provider)} />
 		</div>
 		<div className='connect-provider-header-text'>
 			<span className='connect-provider-name'>{props.source.provider.displayName}</span>

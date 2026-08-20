@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { IPositronProviderMetadata } from '../common/interfaces/positronAssistantService.js';
 
 /**
  * A `providers.custom` entry's type, which also carries the wire format: an
@@ -91,4 +92,19 @@ export function customProviderDescription(kind: CustomProviderKind): string {
 		"Custom {0} provider",
 		CUSTOM_PROVIDER_KINDS[kind].label
 	);
+}
+
+/**
+ * The provider whose icon and field labels a source shows: its own, or, for a
+ * custom entry, the built-in its type borrows from. A custom Anthropic entry
+ * reads as Anthropic at a glance rather than as an anonymous row.
+ *
+ * Falls back to the entry's own id for a kind Positron doesn't offer, which is
+ * hand-written and shows the generic icon.
+ */
+export function providerIconId(provider: IPositronProviderMetadata): string {
+	const kind = provider.customKind;
+	return kind && isOfferedCustomProviderKind(kind)
+		? CUSTOM_PROVIDER_KINDS[kind].fieldsFrom
+		: provider.id;
 }
