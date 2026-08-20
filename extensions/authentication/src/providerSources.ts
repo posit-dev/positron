@@ -97,7 +97,7 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	},
 	customProvider: {
 		id: CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
-		displayName: 'Custom Provider',
+		displayName: 'OpenAI Compatible',
 		status: 'experimental',
 		catalogId: 'openai-compatible',
 	},

@@ -62,7 +62,7 @@
 			},
 			{
 				"id": "openai-compatible",
-				"label": "Custom Provider"
+				"label": "OpenAI Compatible"
 			},
 			{
 				"id": "google",

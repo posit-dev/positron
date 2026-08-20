@@ -35,7 +35,7 @@ const PROVIDER_DESCRIPTIONS: Record<string, string> = {
 	'google-cloud': localize('positron.configureLLMProvidersModal.desc.googleCloud', "Gemini via Google Cloud with enterprise features"),
 	'ms-foundry': localize('positron.configureLLMProvidersModal.desc.msFoundry', "Access Azure OpenAI and AI Studio models"),
 	'openai-api': localize('positron.configureLLMProvidersModal.desc.openai', "GPT-4o, o1, and OpenAI-compatible endpoints"),
-	'openai-compatible': localize('positron.configureLLMProvidersModal.desc.custom', "Connect any OpenAI-compatible API endpoint"),
+	'openai-compatible': localize('positron.configureLLMProvidersModal.desc.custom', "Connect any endpoint that speaks the OpenAI API"),
 	'posit-ai': localize('positron.configureLLMProvidersModal.desc.positAI', "Managed model service for Positron Desktop"),
 	'snowflake-cortex': localize('positron.configureLLMProvidersModal.desc.snowflake', "Access LLMs via Snowflake data platform"),
 };

@@ -64,7 +64,7 @@ const databricksOAuth: IPositronLanguageModelSource = {
 
 const custom: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'openai-compatible', displayName: 'Custom Provider', settingName: 'openai-compatible' },
+	provider: { id: 'openai-compatible', displayName: 'OpenAI Compatible', settingName: 'openai-compatible' },
 	supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'protocol', 'customModels'],
 	signedIn: false,
 	defaults: { protocol: 'openai-chat' },

@@ -56,7 +56,7 @@ suite('validateCustomProviderApiKey', () => {
 
 		await assert.rejects(
 			validateCustomProviderApiKey('sk-test', makeConfig()),
-			/Invalid Custom Provider API key/
+			/Invalid API key/
 		);
 	});
 

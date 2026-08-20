@@ -789,11 +789,11 @@ function registerCustomProvider(
 	context: vscode.ExtensionContext
 ): void {
 	const provider = new AuthProvider(
-		CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'Custom Provider', context
+		CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'OpenAI Compatible', context
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'Custom Provider', provider,
+			CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'OpenAI Compatible', provider,
 			{ supportsMultipleAccounts: true }
 		),
 		provider

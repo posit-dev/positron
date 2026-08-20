@@ -8,7 +8,7 @@
 import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../../browser/providerLegalText.js';
 
 const positAi = { id: 'posit-ai', displayName: 'Posit AI', settingName: 'posit-ai' };
-const custom = { id: 'openai-compatible', displayName: 'Custom Provider', settingName: 'openai-compatible' };
+const custom = { id: 'openai-compatible', displayName: 'OpenAI Compatible', settingName: 'openai-compatible' };
 const customAnthropic = { id: 'my anthropic', displayName: 'my anthropic', customKind: 'anthropic' };
 
 describe('providerLegalText', () => {
