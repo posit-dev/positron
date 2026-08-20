@@ -6,8 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { AuthProvider } from './authProvider';
-import { providerAction, registerAuthProvider, registerProviderCallbacks, unregisterAuthProvider, updateProviderFromSessions } from './configDialog';
-import { customAuthMethod, customCredentialChain } from './customProviderAuth';
+import { providerAction, registerAuthProvider, unregisterAuthProvider, updateProviderFromSessions } from './configDialog';
+import { customApiKeyValidator } from './customProviderAuth';
 import { log } from './log';
 import {
 	readCustomProviderEntry,
@@ -70,15 +70,13 @@ export class CustomProviderRegistry implements vscode.Disposable {
 
 	private async register(provider: ResolvedProviderLike): Promise<void> {
 		const name = provider.id;
-		const authMethod = customAuthMethod(provider.clientKind);
 		const disposables: vscode.Disposable[] = [
 			this.registerModelSource(customProviderSource(provider), providerAction),
 			{ dispose: () => unregisterAuthProvider(name) },
 		];
 
-		// Saving the URL is the whole connect action for a local entry, and the
-		// only part of it for the rest. Which key holds the URL depends on the
-		// kind: the chat runtime reads `endpoint` for a local entry.
+		// Saving the URL is the other half of the connect action; the key goes
+		// to secret storage through the auth provider.
 		const onSave = async (config: positron.ai.LanguageModelConfig) => {
 			if (!config.baseUrl) {
 				return;
@@ -90,53 +88,30 @@ export class CustomProviderRegistry implements vscode.Disposable {
 				log.info(`Not saving a URL for externally managed custom provider: ${name}`);
 				return;
 			}
-			await saveCustomProviderUrl(
-				name, config.baseUrl, authMethod === 'local' ? 'endpoint' : 'baseUrl'
-			);
+			await saveCustomProviderUrl(name, config.baseUrl, 'baseUrl');
 		};
 
-		// A local kind holds no credential, and Posit Assistant expects no auth
-		// provider for one: its endpoint comes from its own providers.json
-		// entry. Registering one anyway would add an account that can never be
-		// signed in.
-		if (authMethod === 'local') {
-			registerProviderCallbacks(name, { onSave });
-			this.registrations.set(name, disposables);
-			log.info(`Registered custom provider: ${name} (${provider.clientKind}, local)`);
-			return;
-		}
-
-		// A kind whose credential comes from the environment gets the same
-		// resolver the matching built-in uses. Without it the entry would offer
-		// no API key field (correctly, it takes none) and have nothing to
-		// resolve either, so Posit Assistant would find no credential under the
-		// entry name and the row could never connect.
-		const credentialChain = authMethod && customCredentialChain(name, authMethod);
-		const authProvider = new AuthProvider(
-			name, name, this.context, undefined, credentialChain || undefined
-		);
+		// Every offered kind authenticates with a key the user types, so the
+		// auth provider holds no credential chain: nothing to resolve from the
+		// environment, and nothing that could resolve the built-in's account
+		// under this entry's name.
+		const authProvider = new AuthProvider(name, name, this.context);
 		disposables.push(
 			authProvider,
 			vscode.authentication.registerAuthenticationProvider(name, name, authProvider),
 		);
 
 		registerAuthProvider(name, authProvider, {
+			// The same key check the matching built-in runs, so a bad key is
+			// caught where it's typed rather than at the first chat.
+			validateApiKey: customApiKeyValidator(provider.clientKind),
 			onSave,
 			// No onDelete: signing out clears the credential and leaves the
 			// providers.json entry alone. Removing the entry is its own action.
 		});
 
 		this.registrations.set(name, disposables);
-		log.info(`Registered custom provider: ${name} (${provider.clientKind}, ${authMethod})`);
-
-		// Resolve an env-backed credential once at registration, the way the
-		// built-in Bedrock and GEAP providers do, so the entry reads as
-		// connected without the user pressing anything.
-		if (credentialChain) {
-			await authProvider.resolveChainCredentials().catch(err =>
-				log.debug(`Initial credential resolution for ${name}: ${err}`)
-			);
-		}
+		log.info(`Registered custom provider: ${name} (${provider.clientKind})`);
 
 		// Reflect an already-stored credential, the way activation sweeps the
 		// built-in providers once. Without this a configured entry shows up as

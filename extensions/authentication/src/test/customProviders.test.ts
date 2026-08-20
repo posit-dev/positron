@@ -17,7 +17,11 @@ import {
 	refreshProviderCatalog,
 	saveCustomProviderUrl,
 } from '../providerCatalog';
-import { customAuthMethod, customCredentialChain } from '../customProviderAuth';
+import {
+	customApiKeyValidator,
+	customAuthDescriptor,
+	isOfferedCustomKind,
+} from '../customProviderAuth';
 import { CustomProviderRegistry } from '../customProviderRegistry';
 import { customProviderSource, getRegistrableCustomProviders, PROVIDER_METADATA } from '../providerSources';
 
@@ -203,32 +207,70 @@ suite('custom providers', () => {
 		});
 	});
 
-	suite('credentials', () => {
-		test('a kind that resolves from the environment gets a chain', () => {
+	suite('keys', () => {
+		test('an api key is optional for the kinds the authority says it is', () => {
 			assert.deepStrictEqual(
-				['openai-compatible', 'aws', 'google-vertex', 'ollama'].map(kind => {
-					const method = customAuthMethod(kind);
-					return [kind, method, !!(method && customCredentialChain('Entry', method))];
-				}),
+				['openai-compatible', 'anthropic', 'openai']
+					.map(kind => [kind, customAuthDescriptor(kind)?.apiKeyOptional]),
 				[
-					// A stored key, so nothing to resolve.
-					['openai-compatible', 'apikey', false],
-					['aws', 'aws-credentials', true],
-					['google-vertex', 'google-cloud', true],
-					// No credential at all.
-					['ollama', 'local', false],
+					// A gateway can have auth switched off; refusing a blank key
+					// would refuse a setup Posit Assistant accepts.
+					['openai-compatible', true],
+					['anthropic', false],
+					['openai', false],
 				]
 			);
 		});
 
-		test('an unsupported kind has no auth method, so it is not registrable', async () => {
+		test('a key is checked by the kind\'s own validator, and only refused when the kind needs one', async () => {
+			// An empty key on a kind that requires one is reported here rather
+			// than at the first chat.
+			await assert.rejects(
+				customApiKeyValidator('anthropic')!('', {}),
+				/An API key is required/
+			);
+			// A gateway with auth off accepts a blank key, but still has its
+			// connection checked, which is where a missing base URL is caught.
+			await assert.rejects(
+				customApiKeyValidator('openai-compatible')!('', {}),
+				/base URL is required/
+			);
+
+			assert.deepStrictEqual(
+				['openai-compatible', 'anthropic', 'openai', 'ollama']
+					.map(kind => [kind, !!customApiKeyValidator(kind)]),
+				[
+					['openai-compatible', true],
+					['anthropic', true],
+					['openai', true],
+					// Not offered, so nothing registers it and nothing checks it.
+					['ollama', false],
+				]
+			);
+		});
+
+		test('only the offered kinds are registrable', async () => {
 			writeConfig(configPath, {
-				custom: { Bogus: { type: 'not-a-real-kind' }, Fine: { type: 'ollama' } },
+				custom: {
+					Bogus: { type: 'not-a-real-kind' },
+					Gateway: { type: 'openai-compatible' },
+					Claude: { type: 'anthropic' },
+					GPT: { type: 'openai' },
+					// Supported by ai-config, not offered by Positron yet: each
+					// needs connection fields the modal can't collect (#12747).
+					Local: { type: 'ollama' },
+					Bedrock: { type: 'aws' },
+					Cortex: { type: 'snowflake' },
+					Vertex: { type: 'google-vertex' },
+				},
 			});
 			await initProviderCatalog(context, { configPath });
 
-			assert.strictEqual(customAuthMethod('not-a-real-kind'), undefined);
-			assert.deepStrictEqual(customSources().map(s => s.provider.id), ['Fine']);
+			assert.deepStrictEqual(
+				customSources().map(s => s.provider.id),
+				['Gateway', 'Claude', 'GPT']
+			);
+			assert.strictEqual(isOfferedCustomKind('not-a-real-kind'), false);
 		});
 	});
 
@@ -276,8 +318,8 @@ suite('custom providers', () => {
 		test('a disabled entry is left out of the sources', async () => {
 			writeConfig(configPath, {
 				custom: {
-					On: { type: 'ollama' },
-					Off: { type: 'ollama', enabled: false },
+					On: { type: 'openai-compatible' },
+					Off: { type: 'openai-compatible', enabled: false },
 				},
 			});
 			await initProviderCatalog(context, { configPath });
@@ -301,14 +343,12 @@ suite('custom providers', () => {
 			assert.strictEqual(source.defaults.baseUrl, 'https://gateway.example.com/v1');
 		});
 
-		test('supported options follow the client kind', async () => {
+		test('a kind collects what its built-in provider collects', async () => {
 			writeConfig(configPath, {
 				custom: {
 					Gateway: { type: 'openai-compatible' },
-					Local: { type: 'ollama' },
-					Bedrock: { type: 'aws' },
-					Vertex: { type: 'google-vertex' },
-					Cortex: { type: 'snowflake' },
+					Claude: { type: 'anthropic' },
+					GPT: { type: 'openai' },
 				},
 			});
 			await initProviderCatalog(context, { configPath });
@@ -316,26 +356,26 @@ suite('custom providers', () => {
 			const options = Object.fromEntries(
 				customSources().map(s => [s.provider.id, s.supportedOptions])
 			);
+			// Each list is the matching built-in's own, minus what only the one
+			// built-in instance can use (`autoconfigure`, `oauth`) and the API
+			// type field this work removes (`protocol`), plus the model-id list
+			// every custom entry needs.
 			assert.deepStrictEqual(options, {
-				Gateway: ['apiKey', 'baseUrl', 'toolCalls'],
-				Local: ['baseUrl', 'toolCalls'],
-				Bedrock: ['toolCalls'],
-				// Resolves a Google Cloud credential from the environment, so it
-				// must not ask for an API key.
-				Vertex: ['baseUrl', 'toolCalls'],
-				// Keeps the flat URL field: a full Cortex URL in `baseUrl` is a
-				// shape both hosts read.
-				Cortex: ['apiKey', 'baseUrl', 'toolCalls'],
+				Gateway: ['apiKey', 'baseUrl', 'toolCalls', 'customModels'],
+				// The built-in Anthropic tile asks for a key and a URL, and does
+				// not offer a tool-calls switch. Neither does a custom one.
+				Claude: ['apiKey', 'baseUrl', 'customModels'],
+				GPT: ['apiKey', 'baseUrl', 'toolCalls', 'customModels'],
 			});
 		});
 
-		test('a local entry reports its endpoint as the base URL', async () => {
+		test('an entry that carries an endpoint instead of a base URL reports it', async () => {
 			writeConfig(configPath, {
-				custom: { Local: { type: 'ollama', endpoint: 'http://localhost:11434' } },
+				custom: { Gateway: { type: 'openai-compatible', endpoint: 'http://localhost:1234/v1' } },
 			});
 			await initProviderCatalog(context, { configPath });
 
-			assert.strictEqual(customSources()[0].defaults.baseUrl, 'http://localhost:11434');
+			assert.strictEqual(customSources()[0].defaults.baseUrl, 'http://localhost:1234/v1');
 		});
 	});
 });

@@ -5,7 +5,8 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { customAuthMethod, type CustomAuthMethod } from './customProviderAuth';
+import type { SupportedCustomClientKind } from 'ai-config';
+import { isOfferedCustomKind } from './customProviderAuth';
 import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	ANTHROPIC_DEFAULT_BASE_URL,
@@ -312,27 +313,59 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 	];
 }
 
+/** One entry in a source's `supportedOptions` list. */
+type SupportedOption = positron.ai.LanguageModelSource['supportedOptions'][number];
+
 /**
- * Which connection fields a custom entry's kind collects, keyed by the
- * credential it needs. Only an `apikey` kind has a key to type; the others
- * resolve from the environment or need no credential, and Bedrock derives its
- * endpoint from the region so it has no URL to collect either.
+ * Which built-in provider a custom entry's kind takes its form from. A custom
+ * Anthropic entry asks for what the built-in Anthropic tile asks for, so the
+ * two can't drift: the list is read from the built-in source itself rather than
+ * restated here.
  *
- * A `snowflake` entry keeps the flat URL field: that's the shape standalone's
- * own form writes, and the chat runtime reads `baseUrl` before falling back to
- * deriving one from `snowflake.host`.
- *
- * Deliberately coarse. The per-kind forms that reuse a built-in provider's own
- * field set arrive with the Add and Edit UI (#12747).
+ * Covers the kinds Positron offers (see `isOfferedCustomKind`), each of which
+ * has a built-in counterpart to borrow from.
  */
-const SUPPORTED_OPTIONS_BY_AUTH_METHOD: Record<
-	CustomAuthMethod, positron.ai.LanguageModelSource['supportedOptions']
-> = {
-	apikey: ['apiKey', 'baseUrl', 'toolCalls'],
-	'aws-credentials': ['toolCalls'],
-	'google-cloud': ['baseUrl', 'toolCalls'],
-	local: ['baseUrl', 'toolCalls'],
+const BUILTIN_FORM_BY_KIND: Partial<Record<SupportedCustomClientKind, keyof typeof PROVIDER_METADATA>> = {
+	'openai-compatible': 'customProvider',
+	anthropic: 'anthropic',
+	openai: 'openai',
 };
+
+/**
+ * Options a custom entry never shows, whatever its built-in offers.
+ *
+ * `autoconfigure` is the env-var credential path, which belongs to the one
+ * built-in instance of a provider: `ANTHROPIC_API_KEY` is a single value and
+ * can't say which of three custom Anthropic entries it is for. `oauth` is
+ * product-bound (Posit AI, Copilot, Databricks), and those kinds aren't
+ * offered as custom entries at all. `protocol` is the API type field, which
+ * this work removes: the kind carries the wire format (#13817).
+ */
+const OPTIONS_NOT_FOR_CUSTOM: ReadonlySet<SupportedOption> = new Set<SupportedOption>([
+	'autoconfigure', 'oauth', 'protocol',
+]);
+
+/** What every offered kind needs at minimum: somewhere to call, and a key. */
+const BASE_OPTIONS: SupportedOption[] = ['apiKey', 'baseUrl'];
+
+/**
+ * The fields a custom entry of this kind collects: its built-in's own list,
+ * minus what only the built-in can use, plus the model-id list every custom
+ * entry needs for an endpoint that doesn't list its own models.
+ */
+function customSupportedOptions(kind: string): SupportedOption[] {
+	const builtinKey = BUILTIN_FORM_BY_KIND[kind as SupportedCustomClientKind];
+	const builtinId = builtinKey && PROVIDER_METADATA[builtinKey].id;
+	const builtin = builtinId
+		? getProviderSources().find(source => source.provider.id === builtinId)
+		: undefined;
+
+	const inherited = (builtin?.supportedOptions ?? BASE_OPTIONS)
+		.filter(option => !OPTIONS_NOT_FOR_CUSTOM.has(option));
+	const options = inherited.length > 0 ? inherited : BASE_OPTIONS;
+
+	return options.includes('customModels') ? options : [...options, 'customModels'];
+}
 
 /**
  * Builds the model source for one `providers.custom` entry. The entry name is
@@ -351,11 +384,7 @@ export function customProviderSource(
 			status: 'experimental',
 			catalogId: provider.id,
 		},
-		// getRegistrableCustomProviders only yields kinds that have an auth
-		// method; the fallback just keeps the lookup total.
-		supportedOptions: SUPPORTED_OPTIONS_BY_AUTH_METHOD[
-			customAuthMethod(provider.clientKind) ?? 'apikey'
-		],
+		supportedOptions: customSupportedOptions(provider.clientKind),
 		defaults: {
 			model: provider.id,
 			baseUrl: provider.connection.baseUrl ?? provider.connection.endpoint,
@@ -370,12 +399,10 @@ export function customProviderSource(
  * unregistered as the config file changes, while the built-in list is fixed at
  * activation.
  *
- * A kind with no auth method is a kind Positron can't get a credential for, so
- * it isn't offered. That set is the same one Posit Assistant registers on
- * (`!isBuiltinProviderId(id)` plus a supported-kind test), so neither side
- * offers what the other would refuse.
+ * An entry of a kind Positron doesn't offer yet is skipped rather than shown
+ * half-configured; `isOfferedCustomKind` says which those are and why.
  */
 export function getRegistrableCustomProviders(): ResolvedProviderLike[] {
 	return getCachedCustomProviders()
-		.filter(provider => provider.enabled && !!customAuthMethod(provider.clientKind));
+		.filter(provider => provider.enabled && isOfferedCustomKind(provider.clientKind));
 }
