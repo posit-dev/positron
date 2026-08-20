@@ -10,7 +10,7 @@ import { providerAction, registerAuthProvider, unregisterAuthProvider, updatePro
 import { log } from './log';
 import {
 	readCustomProviderEntry,
-	updateCustomProviderConnection,
+	saveCustomProviderBaseUrl,
 	type ProviderCatalogChangeEvent,
 	type ResolvedProviderLike,
 } from './providerCatalog';
@@ -85,7 +85,7 @@ export class CustomProviderRegistry implements vscode.Disposable {
 					log.info(`Not saving a base URL for externally managed custom provider: ${name}`);
 					return;
 				}
-				await updateCustomProviderConnection(name, { baseUrl: config.baseUrl });
+				await saveCustomProviderBaseUrl(name, config.baseUrl);
 			},
 			// No onDelete: signing out clears the credential and leaves the
 			// providers.json entry alone. Removing the entry is its own action.

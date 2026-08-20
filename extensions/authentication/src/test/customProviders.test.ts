@@ -9,16 +9,20 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
-	createCustomProvider,
-	deleteCustomProvider,
 	getCachedCustomProviders,
 	getCachedProvider,
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
 	readCustomProviderEntry,
-	updateCustomProviderConnection,
+	refreshProviderCatalog,
+	saveCustomProviderBaseUrl,
 } from '../providerCatalog';
-import { getCustomProviderSources, PROVIDER_METADATA } from '../providerSources';
+import { customProviderSource, getRegistrableCustomProviders, PROVIDER_METADATA } from '../providerSources';
+
+/** The model sources Positron registers for the catalog's custom entries. */
+function customSources() {
+	return getRegistrableCustomProviders().map(customProviderSource);
+}
 
 /** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */
 function fakeContext(): vscode.ExtensionContext {
@@ -77,50 +81,7 @@ suite('custom providers', () => {
 	});
 
 	suite('write path', () => {
-		test('createCustomProvider writes providers.custom.<name> and the cache reflects it', async () => {
-			writeConfig(configPath, {});
-			await initProviderCatalog(context, { configPath });
-
-			await createCustomProvider(
-				'My Gateway',
-				{ type: 'openai-compatible', baseUrl: 'https://gateway.example.com/v1' },
-				{ configPath }
-			);
-
-			assert.deepStrictEqual(readConfig(configPath).providers.custom, {
-				'My Gateway': { type: 'openai-compatible', baseUrl: 'https://gateway.example.com/v1' },
-			});
-			const cached = getCachedProvider('My Gateway');
-			assert.strictEqual(cached?.clientKind, 'openai-compatible');
-			assert.strictEqual(cached?.connection.baseUrl, 'https://gateway.example.com/v1');
-			assert.strictEqual(cached?.enabled, true, 'entries are enabled by the baseline');
-		});
-
-		test('createCustomProvider rejects built-in ids and reserved keys', async () => {
-			writeConfig(configPath, {});
-			await initProviderCatalog(context, { configPath });
-
-			for (const name of ['anthropic', 'custom', 'default', '__proto__']) {
-				await assert.rejects(
-					createCustomProvider(name, { type: 'openai-compatible' }, { configPath }),
-					`"${name}" should be rejected as a custom provider name`
-				);
-			}
-			assert.strictEqual(readConfig(configPath).providers.custom, undefined);
-		});
-
-		test('createCustomProvider rejects a name that is already taken', async () => {
-			writeConfig(configPath, { custom: { Taken: { type: 'ollama' } } });
-			await initProviderCatalog(context, { configPath });
-
-			await assert.rejects(
-				createCustomProvider('Taken', { type: 'openai-compatible' }, { configPath }),
-				/already exists/
-			);
-			assert.strictEqual(readConfig(configPath).providers.custom.Taken.type, 'ollama');
-		});
-
-		test('updateCustomProviderConnection preserves fields the UI does not own', async () => {
+		test('saveCustomProviderBaseUrl preserves fields the UI does not own', async () => {
 			writeConfig(configPath, {
 				custom: {
 					'My Gateway': {
@@ -136,11 +97,7 @@ suite('custom providers', () => {
 			});
 			await initProviderCatalog(context, { configPath });
 
-			await updateCustomProviderConnection(
-				'My Gateway',
-				{ baseUrl: 'https://new.example.com/v1' },
-				{ configPath }
-			);
+			await saveCustomProviderBaseUrl('My Gateway', 'https://new.example.com/v1', { configPath });
 
 			assert.deepStrictEqual(readConfig(configPath).providers.custom['My Gateway'], {
 				type: 'openai-compatible',
@@ -153,50 +110,14 @@ suite('custom providers', () => {
 			});
 		});
 
-		test('updateCustomProviderConnection treats a blank value as "remove the authored key"', async () => {
-			writeConfig(configPath, {
-				custom: { 'My Gateway': { type: 'openai-compatible', baseUrl: 'https://old.example.com/v1' } },
-			});
-			await initProviderCatalog(context, { configPath });
-
-			await updateCustomProviderConnection('My Gateway', { baseUrl: '' }, { configPath });
-
-			assert.deepStrictEqual(readConfig(configPath).providers.custom['My Gateway'], {
-				type: 'openai-compatible',
-			});
-		});
-
-		test('updateCustomProviderConnection refuses an entry with no user-layer record', async () => {
+		test('saveCustomProviderBaseUrl refuses an entry with no user-layer record', async () => {
 			writeConfig(configPath, {});
 			await initProviderCatalog(context, { configPath });
 
 			await assert.rejects(
-				updateCustomProviderConnection('Not Mine', { baseUrl: 'https://x.example.com' }, { configPath }),
+				saveCustomProviderBaseUrl('Not Mine', 'https://x.example.com', { configPath }),
 				/No custom provider named/
 			);
-		});
-
-		test('deleteCustomProvider removes the entry and drops an emptied custom map', async () => {
-			writeConfig(configPath, {
-				custom: { First: { type: 'ollama' }, Second: { type: 'lmstudio' } },
-			});
-			await initProviderCatalog(context, { configPath });
-
-			await deleteCustomProvider('First', { configPath });
-			assert.deepStrictEqual(readConfig(configPath).providers.custom, { Second: { type: 'lmstudio' } });
-
-			await deleteCustomProvider('Second', { configPath });
-			assert.strictEqual(readConfig(configPath).providers.custom, undefined);
-			assert.strictEqual(getCachedProvider('Second'), undefined);
-		});
-
-		test('deleteCustomProvider is a no-op for an entry that is already gone', async () => {
-			writeConfig(configPath, { custom: { Kept: { type: 'ollama' } } });
-			await initProviderCatalog(context, { configPath });
-
-			await deleteCustomProvider('Never Existed', { configPath });
-
-			assert.deepStrictEqual(readConfig(configPath).providers.custom, { Kept: { type: 'ollama' } });
 		});
 
 		test('readCustomProviderEntry returns the entry as authored', async () => {
@@ -214,40 +135,29 @@ suite('custom providers', () => {
 	});
 
 	suite('catalog change events', () => {
-		test('an added entry lands in addedIds, a removed one in removedIds', async () => {
-			writeConfig(configPath, {});
+		test('an entry disappearing fires a change, so listeners can drop it', async () => {
+			writeConfig(configPath, { custom: { 'My Gateway': { type: 'ollama' } } });
 			await initProviderCatalog(context, { configPath });
 
-			const [added] = await capturingChanges(() =>
-				createCustomProvider('My Gateway', { type: 'ollama' }, { configPath })
-			);
-			assert.ok(added.addedIds.includes('My Gateway'), 'addedIds should include the new entry');
-			assert.ok(
-				added.changedConnectionIds.includes('My Gateway'),
-				'an added id is a connection change too, which is what the credential chain keys off'
-			);
-			assert.deepStrictEqual(added.removedIds, []);
+			writeConfig(configPath, {});
+			const changes = await capturingChanges(() => refreshProviderCatalog({ configPath }));
 
-			const [removed] = await capturingChanges(() =>
-				deleteCustomProvider('My Gateway', { configPath })
-			);
-			assert.deepStrictEqual(removed.removedIds, ['My Gateway']);
-			assert.deepStrictEqual(removed.addedIds, []);
+			assert.strictEqual(changes.length, 1, 'a removal is a change even though no remaining entry moved');
+			assert.strictEqual(getCachedProvider('My Gateway'), undefined);
 		});
 
-		test('editing an entry reports a connection change and nothing else', async () => {
+		test('editing an entry reports it as a connection change', async () => {
 			writeConfig(configPath, {
 				custom: { 'My Gateway': { type: 'openai-compatible', baseUrl: 'https://one.example.com/v1' } },
 			});
 			await initProviderCatalog(context, { configPath });
 
 			const [change] = await capturingChanges(() =>
-				updateCustomProviderConnection('My Gateway', { baseUrl: 'https://two.example.com/v1' }, { configPath })
+				saveCustomProviderBaseUrl('My Gateway', 'https://two.example.com/v1', { configPath })
 			);
 
 			assert.deepStrictEqual(change.changedConnectionIds, ['My Gateway']);
-			assert.deepStrictEqual(change.addedIds, []);
-			assert.deepStrictEqual(change.removedIds, []);
+			assert.deepStrictEqual(change.disabledIds, []);
 		});
 	});
 
@@ -271,7 +181,7 @@ suite('custom providers', () => {
 			});
 			await initProviderCatalog(context, { configPath });
 
-			assert.deepStrictEqual(getCustomProviderSources().map(s => s.provider.id), ['On']);
+			assert.deepStrictEqual(customSources().map(s => s.provider.id), ['On']);
 		});
 
 		test('the entry name is the provider id, display name, and catalog id', async () => {
@@ -280,7 +190,7 @@ suite('custom providers', () => {
 			});
 			await initProviderCatalog(context, { configPath });
 
-			const [source] = getCustomProviderSources();
+			const [source] = customSources();
 			assert.deepStrictEqual(source.provider, {
 				id: 'My Gateway',
 				displayName: 'My Gateway',
@@ -302,7 +212,7 @@ suite('custom providers', () => {
 			await initProviderCatalog(context, { configPath });
 
 			const options = Object.fromEntries(
-				getCustomProviderSources().map(s => [s.provider.id, s.supportedOptions])
+				customSources().map(s => [s.provider.id, s.supportedOptions])
 			);
 			assert.deepStrictEqual(options, {
 				Gateway: ['apiKey', 'baseUrl', 'toolCalls'],
@@ -320,7 +230,7 @@ suite('custom providers', () => {
 			});
 			await initProviderCatalog(context, { configPath });
 
-			assert.strictEqual(getCustomProviderSources()[0].defaults.baseUrl, 'http://localhost:11434');
+			assert.strictEqual(customSources()[0].defaults.baseUrl, 'http://localhost:11434');
 		});
 	});
 });

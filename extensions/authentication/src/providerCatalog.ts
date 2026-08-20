@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { isBuiltinProviderId, type BuiltinProviderBlock, type ClientKind, type CustomProviderEntry, type LegacySettingsReader, type Protocol, type ProvidersConfig, type ProvidersMap, type ResolvedConnection, type ResolvedProvider } from 'ai-config';
+import { isBuiltinProviderId, type BuiltinProviderBlock, type ClientKind, type CustomProviderEntry, type LegacySettingsReader, type Protocol, type ProvidersConfig, type ResolvedConnection, type ResolvedProvider } from 'ai-config';
 import type { ProviderCatalogChange } from 'ai-config/node';
 import { ANTHROPIC_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, OPENAI_DEFAULT_BASE_URL } from './constants';
 import { log } from './log';
@@ -30,16 +30,12 @@ export interface ResolvedProviderLike {
  * Payload of {@link onDidChangeProviderCatalog}, carrying the per-provider
  * granularity the credential chain needs: `changedConnectionIds` (ids whose
  * connection JSON differs) and `disabledIds` (ids whose `enabled` flipped to
- * false), plus `addedIds` / `removedIds` for entries appearing and
- * disappearing, which is how custom providers come and go.
+ * false). An id that has just appeared counts as a connection change, from
+ * nothing to something, which is how a new custom provider surfaces.
  */
 export interface ProviderCatalogChangeEvent {
 	readonly changedConnectionIds: string[];
 	readonly disabledIds: string[];
-	/** Ids in the new catalog that weren't in the previous one. */
-	readonly addedIds: string[];
-	/** Ids in the previous catalog that aren't in the new one. */
-	readonly removedIds: string[];
 }
 
 /**
@@ -86,16 +82,8 @@ function applyCatalog(next: readonly ResolvedProvider[]): void {
 
 	const changedConnectionIds: string[] = [];
 	const disabledIds: string[] = [];
-	const addedIds: string[] = [];
-	const removedIds: string[] = [];
 	for (const [id, provider] of nextMap) {
 		const before = previous.get(id);
-		if (!before) {
-			addedIds.push(id);
-		}
-		// An added id stays in changedConnectionIds as well: its connection did
-		// change, from nothing to something, and the credential chain keys off
-		// that list.
 		if (!before || JSON.stringify(before.connection) !== JSON.stringify(provider.connection)) {
 			changedConnectionIds.push(id);
 		}
@@ -103,18 +91,17 @@ function applyCatalog(next: readonly ResolvedProvider[]): void {
 			disabledIds.push(id);
 		}
 	}
-	for (const id of previous.keys()) {
-		if (!nextMap.has(id)) {
-			removedIds.push(id);
-		}
-	}
+	// A removed provider changes nothing about the ones that remain, so it needs
+	// its own reason to fire: listeners reconcile against the catalog and would
+	// otherwise keep a deleted custom entry registered.
+	const removed = [...previous.keys()].some(id => !nextMap.has(id));
 
 	cache = nextMap;
 
-	if (changedConnectionIds.length === 0 && disabledIds.length === 0 && removedIds.length === 0) {
+	if (changedConnectionIds.length === 0 && disabledIds.length === 0 && !removed) {
 		return;
 	}
-	changeEmitter.fire({ changedConnectionIds, disabledIds, addedIds, removedIds });
+	changeEmitter.fire({ changedConnectionIds, disabledIds });
 }
 
 async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly ResolvedProvider[]> {
@@ -193,6 +180,9 @@ function effectiveOptions(override?: ProviderCatalogOptions): ProviderCatalogOpt
 /** All providers these helpers write are built-ins, so their blocks are `BuiltinProviderBlock`. */
 type BuiltinBlockMap = Record<string, BuiltinProviderBlock>;
 
+/** What ai-config's writer logs through. */
+const writeLogger = { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) };
+
 async function mutate(
 	mutator: (providers: BuiltinBlockMap) => void,
 	options: ProviderCatalogOptions
@@ -204,10 +194,7 @@ async function mutate(
 			mutator(providers);
 			return { ...current, providers };
 		},
-		{
-			configPath: options.configPath,
-			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
-		}
+		{ configPath: options.configPath, logger: writeLogger }
 	);
 	await refreshProviderCatalog(options);
 }
@@ -381,132 +368,38 @@ export async function readCustomProviderEntry(
 	return readUserCustomProviderEntry(name, { configPath: effectiveOptions(options).configPath });
 }
 
-/** The `providers.custom` map, keyed by entry name. */
-type CustomEntryMap = Record<string, CustomProviderEntry>;
-
 /**
- * Mutates `providers.custom` under the config lock. The mutator sees the map as
- * it is on disk at that moment, so a concurrent write can't be lost, and an
- * emptied map drops the `custom` key rather than leaving `{}` behind.
+ * Writes `baseUrl` onto an existing `providers.custom.<name>` entry under the
+ * config lock, then refreshes the cache. Everything else the user authored
+ * (`customHeaders`, `protocol`, `endpoints`, `models`, `enabled`) is left
+ * alone. `type` is not writable here: changing the client kind re-keys the
+ * credential and any saved model default with it, so that stays
+ * delete-and-re-add.
+ *
+ * Throws when the entry has no user-layer record, which is the
+ * externally-managed case: its connection comes from a default or enforced
+ * layer, and copying it into the user's file would detach it from policy.
  */
-async function mutateCustomEntries(
-	mutator: (custom: CustomEntryMap) => void,
-	options: ProviderCatalogOptions
+export async function saveCustomProviderBaseUrl(
+	name: string,
+	baseUrl: string,
+	options?: ProviderCatalogOptions
 ): Promise<void> {
+	const opts = effectiveOptions(options);
 	const { mutateProvidersConfig } = await import('ai-config/node');
 	await mutateProvidersConfig(
 		(current: ProvidersConfig): ProvidersConfig => {
-			const providers: ProvidersMap = structuredClone(current.providers ?? {});
-			const custom: CustomEntryMap = { ...providers.custom };
-			mutator(custom);
-			if (Object.keys(custom).length > 0) {
-				providers.custom = custom;
-			} else {
-				delete providers.custom;
+			const custom = current.providers?.custom;
+			const existing = custom?.[name];
+			if (!existing) {
+				throw new Error(`No custom provider named "${name}" in providers.json.`);
 			}
-			return { ...current, providers };
+			return {
+				...current,
+				providers: { ...current.providers, custom: { ...custom, [name]: { ...existing, baseUrl } } },
+			};
 		},
-		{
-			configPath: options.configPath,
-			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
-		}
+		{ configPath: opts.configPath, logger: writeLogger }
 	);
-	await refreshProviderCatalog(options);
-}
-
-/**
- * Rejects names ai-config can't mint an id from: built-in ids, reserved keys
- * (`default`, `custom`), and `__proto__`. Worth doing at the write seam and not
- * only in a form, because `build-catalog` doesn't catch the throw, so one bad
- * entry takes down the whole catalog build rather than just itself.
- */
-async function assertUsableCustomProviderName(name: string): Promise<void> {
-	const { mintCustomProviderId } = await import('ai-config/node');
-	mintCustomProviderId(name);
-}
-
-/**
- * Adds a `providers.custom.<name>` entry, then refreshes the cache. Throws if
- * the name is unusable or already taken; the caller validates before offering
- * a save, and this is the backstop.
- */
-export async function createCustomProvider(
-	name: string,
-	entry: CustomProviderEntry,
-	options?: ProviderCatalogOptions
-): Promise<void> {
-	await assertUsableCustomProviderName(name);
-	const opts = effectiveOptions(options);
-	await mutateCustomEntries(custom => {
-		if (custom[name]) {
-			throw new Error(`A custom provider named "${name}" already exists.`);
-		}
-		custom[name] = entry;
-	}, opts);
-}
-
-/**
- * The connection fields the provider UI owns on a custom entry. Anything else
- * the user authored (`customHeaders`, `protocol`, `endpoints`, `models`,
- * `enabled`) survives an update untouched.
- *
- * An omitted field is left alone; an empty string removes the authored key, so
- * a lower config layer can supply it again. That is deliberately different from
- * create, where a base URL is required.
- *
- * Only `baseUrl` for now, which is what the connect flow collects. The per-kind
- * sections (`aws`, `snowflake`, `googleCloud`) arrive with the forms that
- * collect them (#12747).
- */
-export interface CustomProviderConnectionEdit {
-	baseUrl?: string;
-}
-
-/**
- * Overlays the UI-owned connection fields onto an existing custom entry, then
- * refreshes the cache. Throws when the entry has no user-layer record, which is
- * the externally-managed case: its connection is owned by a default or enforced
- * layer and writing it into the user file would detach it from policy.
- *
- * `type` is not editable. Changing the client kind re-keys the credential and
- * any saved model default with it, so it stays delete-and-re-add.
- */
-export async function updateCustomProviderConnection(
-	name: string,
-	edit: CustomProviderConnectionEdit,
-	options?: ProviderCatalogOptions
-): Promise<void> {
-	const opts = effectiveOptions(options);
-	await mutateCustomEntries(custom => {
-		const existing = custom[name];
-		if (!existing) {
-			throw new Error(`No custom provider named "${name}" in providers.json.`);
-		}
-		const next = { ...existing };
-		if (edit.baseUrl === '') {
-			delete next.baseUrl;
-		} else if (edit.baseUrl !== undefined) {
-			next.baseUrl = edit.baseUrl;
-		}
-		custom[name] = next;
-	}, opts);
-}
-
-/**
- * Removes a `providers.custom.<name>` entry, then refreshes the cache. A no-op
- * when the entry is already absent.
- *
- * Narrow on purpose: it removes the user-layer record and nothing else. A
- * default or enforced layer may still contribute the provider afterwards, and
- * the entry staying in the resolved catalog is then correct rather than a bug.
- * Credentials are cleared separately, through the auth provider.
- */
-export async function deleteCustomProvider(
-	name: string,
-	options?: ProviderCatalogOptions
-): Promise<void> {
-	const opts = effectiveOptions(options);
-	await mutateCustomEntries(custom => {
-		delete custom[name];
-	}, opts);
+	await refreshProviderCatalog(opts);
 }

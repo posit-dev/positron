@@ -386,16 +386,10 @@ export function customProviderSource(
 }
 
 /**
- * Sources for every enabled custom entry in the catalog. Kept out of
- * {@link getProviderSources} because these are registered and unregistered as
- * the config file changes, while the built-in list is fixed at activation.
- */
-export function getCustomProviderSources(): positron.ai.LanguageModelSource[] {
-	return getRegistrableCustomProviders().map(customProviderSource);
-}
-
-/**
- * Enabled custom entries whose client kind this host can present.
+ * Enabled custom entries whose client kind this host can present. Kept apart
+ * from {@link getProviderSources} because these are registered and
+ * unregistered as the config file changes, while the built-in list is fixed at
+ * activation.
  *
  * The kind check mirrors the predicate Posit Assistant registers on
  * (`!isBuiltinProviderId(id)` plus a supported-kind test), so Positron never
