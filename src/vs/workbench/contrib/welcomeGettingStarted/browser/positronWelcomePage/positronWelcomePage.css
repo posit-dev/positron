@@ -26,6 +26,42 @@
 }
 
 /*
+ * Lets the user select and copy the text on this page.
+ *
+ * The workbench turns selection off for everything (`user-select: none` on
+ * `body` in workbench/browser/media/style.css). gettingStarted.css tries to undo
+ * that with `user-select: initial` on .gettingStartedContainer, but `initial`
+ * means `auto`, and `auto` on a non-editable element resolves to whatever the
+ * parent ended up with -- still `none`. `text` is the value that actually turns
+ * selection back on, which is what editorplaceholder.css uses.
+ *
+ * Listed section by section rather than on .positron-welcome-page, because this
+ * inherits: on the page container it would also reach the recent list and the
+ * startup checkbox, which the editor pane builds and this folder does not own.
+ */
+.positron-welcome-page-header,
+.positron-welcome-page-environment-setup,
+.positron-welcome-page-walkthrough-banner {
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+/*
+ * Buttons stay unselectable. A button is something to press, not text to copy,
+ * and dragging across one leaves its label highlighted instead of pressing it.
+ * The rule above inherits into them, so each one has to opt back out.
+ *
+ * This targets the element, not a class, so it also covers the buttons here that
+ * are styled to look like links -- those are still actions.
+ */
+.positron-welcome-page-header button,
+.positron-welcome-page-environment-setup button,
+.positron-welcome-page-walkthrough-banner button {
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/*
  * Pins the footer to the bottom of the page. The min-height above leaves free
  * space when the content is short, and this margin takes all of it.
  */
