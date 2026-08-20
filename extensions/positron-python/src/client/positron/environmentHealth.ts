@@ -435,29 +435,39 @@ function skipped(id: HealthItemId): HealthItem {
     return { id, status: 'skipped', summary: itemSummary(id) };
 }
 
-async function runItem(id: HealthItemId, produce: () => HealthItem | Promise<HealthItem>): Promise<HealthItem> {
+async function runItem(
+    id: HealthItemId,
+    produce: () => HealthItem | Promise<HealthItem>,
+    logUnexpectedError: (message: string, error?: unknown) => void,
+): Promise<HealthItem> {
     try {
         return await produce();
     } catch (ex) {
+        // The specific cause goes to the log; there is no curated action to offer for an
+        // unexpected probe failure, so the user sees a generic sentence instead.
+        logUnexpectedError(`Environment health check '${id}' failed`, ex);
         return {
             id,
             status: 'fail',
             summary: itemSummary(id),
-            detail: vscode.l10n.t('Health check failed: {0}', ex instanceof Error ? ex.message : String(ex)),
+            detail: vscode.l10n.t('This check could not be completed.'),
         };
     }
 }
 
-export async function assembleItems(producers: ItemProducers): Promise<EnvironmentHealthResult> {
+export async function assembleItems(
+    producers: ItemProducers,
+    logUnexpectedError: (message: string, error?: unknown) => void = () => {},
+): Promise<EnvironmentHealthResult> {
     const items: HealthItem[] = [];
-    const discovery = await runItem('discovery', producers.discovery);
+    const discovery = await runItem('discovery', producers.discovery, logUnexpectedError);
     items.push(discovery);
     if (discovery.status === 'fail') {
         items.push(skipped('pythonInstalled'), skipped('environmentReady'), skipped('dedicatedEnvironment'));
         return finalize(items);
     }
 
-    const pythonInstalled = await runItem('pythonInstalled', producers.pythonInstalled);
+    const pythonInstalled = await runItem('pythonInstalled', producers.pythonInstalled, logUnexpectedError);
     items.push(pythonInstalled);
     if (pythonInstalled.status === 'fail') {
         items.push(skipped('environmentReady'), skipped('dedicatedEnvironment'));
@@ -470,14 +480,14 @@ export async function assembleItems(producers: ItemProducers): Promise<Environme
     // envType and would be misclassified as non-dedicated, so skip dedicatedEnvironment on a
     // readiness failure and let the recreate fix stand alone rather than emit a misleading
     // "use a dedicated environment" verdict alongside it.
-    const ready = await runItem('environmentReady', producers.ready);
+    const ready = await runItem('environmentReady', producers.ready, logUnexpectedError);
     items.push(ready);
     if (ready.status === 'fail') {
         items.push(skipped('dedicatedEnvironment'));
         return finalize(items);
     }
 
-    items.push(await runItem('dedicatedEnvironment', producers.dedicated));
+    items.push(await runItem('dedicatedEnvironment', producers.dedicated, logUnexpectedError));
     return finalize(items);
 }
 
@@ -491,6 +501,7 @@ function finalize(items: HealthItem[]): EnvironmentHealthResult {
 export async function getEnvironmentHealth(
     serviceContainer: IServiceContainer,
     args?: { workspaceFolder?: string },
+    logUnexpectedError: (message: string, error?: unknown) => void = () => {},
 ): Promise<EnvironmentHealthResult> {
     const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
     const comparer = serviceContainer.get<IInterpreterComparer>(IInterpreterComparer);
@@ -521,26 +532,29 @@ export async function getEnvironmentHealth(
         return snapshot;
     };
 
-    const result = await assembleItems({
-        discovery: () => probeDiscovery(getNativePythonFinder()),
-        pythonInstalled: () =>
-            probePythonInstalled({
-                getInterpreters: () => interpreterService.getInterpreters(workspaceUri),
-                refreshPromise: interpreterService.getRefreshPromise(),
-                lastDiscoveryError: () => getNativePythonFinder().lastDiscoveryError,
-                allowUvPythonInstall,
-                waitMs: DISCOVERY_WAIT_MS,
-            }),
-        ready: async () =>
-            evaluateReady(serviceContainer, {
-                workspaceUri,
-                uvInstalled,
-                allowUvPythonInstall,
-                ...(await resolveSnapshot()),
-            }),
-        dedicated: async () =>
-            evaluateDedicated({ workspaceUri, uvInstalled, allowUvPythonInstall, ...(await resolveSnapshot()) }),
-    });
+    const result = await assembleItems(
+        {
+            discovery: () => probeDiscovery(getNativePythonFinder()),
+            pythonInstalled: () =>
+                probePythonInstalled({
+                    getInterpreters: () => interpreterService.getInterpreters(workspaceUri),
+                    refreshPromise: interpreterService.getRefreshPromise(),
+                    lastDiscoveryError: () => getNativePythonFinder().lastDiscoveryError,
+                    allowUvPythonInstall,
+                    waitMs: DISCOVERY_WAIT_MS,
+                }),
+            ready: async () =>
+                evaluateReady(serviceContainer, {
+                    workspaceUri,
+                    uvInstalled,
+                    allowUvPythonInstall,
+                    ...(await resolveSnapshot()),
+                }),
+            dedicated: async () =>
+                evaluateDedicated({ workspaceUri, uvInstalled, allowUvPythonInstall, ...(await resolveSnapshot()) }),
+        },
+        logUnexpectedError,
+    );
     // Read the memoized snapshot directly rather than calling resolveSnapshot() again.
     // When discovery or pythonInstalled failed, the cascade skipped environmentReady before it
     // could resolve the snapshot, so it stays undefined and interpreterPath is omitted. (A

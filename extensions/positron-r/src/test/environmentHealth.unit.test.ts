@@ -6,6 +6,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import * as semver from 'semver';
+import * as sinon from 'sinon';
 import './mocha-setup';
 import {
 	archesMismatch,
@@ -338,14 +339,25 @@ suite('environment health: assembleItems cascade', () => {
 	});
 
 	test('a throwing producer becomes a fail item rather than rejecting', async () => {
-		const result = await assembleItems({
-			...allPass,
-			ready: () => { throw new Error('kaboom'); },
-		});
+		const logUnexpectedError = sinon.stub();
+		const thrown = new Error('kaboom');
+		const result = await assembleItems(
+			{
+				...allPass,
+				ready: () => { throw thrown; },
+			},
+			logUnexpectedError,
+		);
 		assert.strictEqual(result.items[2].status, 'fail');
-		assert.ok(result.items[2].detail?.includes('kaboom'));
-		// The raw error goes in detail; the summary stays the check's own claim.
+		// The summary stays the check's own claim.
 		assert.strictEqual(result.items[2].summary,
 			'The R installation is ready to use with Positron');
+		// The error goes to the log, not to the user. It is passed as the error
+		// argument rather than interpolated, so the log keeps the stack.
+		assert.ok(!result.items[2].detail?.includes('kaboom'));
+		assert.ok(logUnexpectedError.calledOnce);
+		assert.deepStrictEqual(logUnexpectedError.firstCall.args, [
+			`Environment health check 'environmentReady' failed`, thrown,
+		]);
 	});
 });
