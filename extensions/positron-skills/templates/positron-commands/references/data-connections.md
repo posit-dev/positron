@@ -66,8 +66,10 @@ connection, so reach for it first whenever the user refers to "my database",
 Each profile carries the user's own connection code, per language, under
 `languages[<languageId>].code`, along with the `variableName` that code binds
 the connection to (e.g. `conn`, `con`, `engine`, `board`). To actually run that
-code, use `executeCode` -- there is no command for opening a connection, and
-you should not imply otherwise.
+code, pass it to `executeCode` as written -- there is no command for opening a
+connection, and you should not imply otherwise. Treat the snippet as the
+driver's answer to "how do I open this connection", not as a starting point to
+edit.
 
 **The code is secret-free, by design.** `code` is always the redacted preview,
 and `parameterValues` contains secrets only in redacted display form (or not at
@@ -153,8 +155,12 @@ on.
 2. If that profile's `connected` is already `true`, skip to step 4.
 3. Otherwise the connection needs opening. If `parameterValues` shows a
    redacted secret, the generated `code` cannot run as-is -- send the user to
-   the Data Connections pane's Connect action. If there is no secret, you can
-   run `languages[<languageId>].code` with `executeCode`.
+   the Data Connections pane's Connect action. If there is no secret, run
+   `languages[<languageId>].code` with `executeCode` **verbatim** -- do not
+   rewrite it or refill its arguments from `parameterValues` yourself. The
+   driver generated that snippet from the profile, so it already carries the
+   right call, arguments, and defaults; a hand-written equivalent silently
+   drops whatever the driver knew that you don't.
 4. Call `positronDataConnections.getSchema` (with `profileId` if more than one
    connection is live) and read the tables and columns you need from `nodes`.
 5. Write the query against those real names and run it with `executeCode`,
