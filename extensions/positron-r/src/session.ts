@@ -73,6 +73,13 @@ export interface RmdTemplate {
  * `instanceof` filter over the getter results would come back empty. Callers
  * need the real session objects (e.g. for `activateServices`/`deactivateServices`,
  * which only exist on `RSession`).
+ *
+ * Read this registry only for extension-internal surface that no proxy can carry.
+ * Lifecycle and execution operations (shutdown, restart, interrupt, force quit)
+ * must NOT go through it: calling them on a raw `RSession` drives the kernel
+ * in-process without core ever seeing it, which leaves a stuck console and stale
+ * state indicators. Use the `positron.runtime` namespace, or the mediated
+ * `shutdown()` on the proxy from `getActiveSessions()`, so core stays in the loop.
  */
 const activeRSessions = new Set<RSession>();
 
@@ -204,8 +211,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// Register this session with the session manager
 		RSessionManager.instance.setSession(this);
 
-		// Track the session so `getActiveRSessions()` can return it without
-		// relying on the (now proxied) public runtime getters (#12589). The
+		// Track the session so `getActiveRSessions()` can hand the owned object
+		// back to callers that need the concrete `RSession` -- see the registry
+		// docs above for what may and may not be done with it (#12589). The
 		// session removes itself from the registry when it is disposed.
 		registerActiveRSession(this);
 
