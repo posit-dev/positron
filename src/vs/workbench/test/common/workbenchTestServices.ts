@@ -521,6 +521,11 @@ export class TestMarkerService implements IMarkerService {
 	installResourceFilter(resource: URI, reason: string): IDisposable {
 		return { dispose: () => { /* TODO: Implement cleanup logic */ } };
 	}
+	// --- Start Positron ---
+	installResourceExclusion(resource: URI): IDisposable {
+		return { dispose: () => { } };
+	}
+	// --- End Positron ---
 }
 
 export class TestFileService implements IFileService {

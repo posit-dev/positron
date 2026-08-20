@@ -161,6 +161,12 @@ export class MarkerService implements IMarkerService {
 	private readonly _stats = new MarkerStats(this);
 	private readonly _filteredResources = new ResourceMap<string[]>();
 
+	// --- Start Positron ---
+	// Reference counted rather than a set: several holders can exclude the same
+	// resource, and the last one to let go is the one that reveals it again.
+	private readonly _excludedResources = new ResourceMap<number>();
+	// --- End Positron ---
+
 	dispose(): void {
 		this._stats.dispose();
 		this._onMarkerChanged.dispose();
@@ -224,6 +230,39 @@ export class MarkerService implements IMarkerService {
 			}
 		});
 	}
+
+	// --- Start Positron ---
+	installResourceExclusion(resource: URI): IDisposable {
+		this._excludedResources.set(resource, (this._excludedResources.get(resource) ?? 0) + 1);
+		this._onMarkerChanged.fire([resource]);
+
+		let released = false;
+		return toDisposable(() => {
+			// Guarded because releasing the same exclusion twice would otherwise
+			// count off someone else's hold on the resource.
+			if (released) {
+				return;
+			}
+			released = true;
+
+			const holds = this._excludedResources.get(resource);
+			if (holds === undefined) {
+				return;
+			}
+			if (holds > 1) {
+				this._excludedResources.set(resource, holds - 1);
+			} else {
+				this._excludedResources.delete(resource);
+			}
+			this._onMarkerChanged.fire([resource]);
+		});
+	}
+
+	/** Whether a read should behave as though a resource had no markers at all. */
+	private _isExcluded(resource: URI, options: IMarkerReadOptions): boolean {
+		return !options.ignoreResourceFilters && this._excludedResources.has(resource);
+	}
+	// --- End Positron ---
 
 	private static _toMarker(owner: string, resource: URI, data: IMarkerData): IMarker | undefined {
 		let {
@@ -338,6 +377,11 @@ export class MarkerService implements IMarkerService {
 		}
 
 		if (owner && resource) {
+			// --- Start Positron ---
+			if (this._isExcluded(resource, filter)) {
+				return [];
+			}
+			// --- End Positron ---
 			// exactly one owner AND resource
 			const reasons = !filter.ignoreResourceFilters ? this._filteredResources.get(resource) : undefined;
 			if (reasons?.length) {
@@ -382,6 +426,14 @@ export class MarkerService implements IMarkerService {
 					if (take > 0 && result.length === take) {
 						break;
 					}
+					// --- Start Positron ---
+					// Recorded as filtered so the rest of this resource's markers
+					// are skipped by the check above rather than re-tested.
+					if (this._isExcluded(data.resource, filter)) {
+						filtered.add(data.resource);
+						continue;
+					}
+					// --- End Positron ---
 					const reasons = !filter.ignoreResourceFilters ? this._filteredResources.get(data.resource) : undefined;
 					if (reasons?.length) {
 						result.push(this._createFilteredMarker(data.resource, reasons));
