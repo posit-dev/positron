@@ -531,8 +531,19 @@ cmd_up() {
 		# you see is 'test' failing on its depends_on, which points nowhere near
 		# the license. (license-manager status shows an empty "License file
 		# status" and Has-Key: No.) tr, not `sed -i 's/\r$//'`: BSD sed on macOS
-		# reads '\r' as a literal 'r' and would eat a trailing r instead.
-		tr -d $'\r' < "${SCRIPT_DIR}/connect.lic" > "${SCRIPT_DIR}/connect/connect.lic"
+		# reads '\r' as a literal 'r' and would eat a trailing r instead. The CR
+		# is expanded by the shell, so BSD and GNU tr behave the same here.
+		#
+		# Convert through a temp file rather than redirecting onto the
+		# destination: a redirect truncates the target before tr reads a byte,
+		# which would destroy the license outright if the two paths ever resolve
+		# to the same file, and leaves a half-written one behind on any failure.
+		# mktemp is 0600, and this gets bind-mounted into the connect container,
+		# which does not necessarily read it as our uid -- so set the mode.
+		local lic_tmp; lic_tmp="$(mktemp)"
+		tr -d $'\r' < "${SCRIPT_DIR}/connect.lic" > "$lic_tmp"
+		chmod 0644 "$lic_tmp"
+		mv "$lic_tmp" "${SCRIPT_DIR}/connect/connect.lic"
 	fi
 	# 'test' depends on connect being healthy; a missing license makes connect exit
 	# and the wait loop below just times out. Warn clearly up front. (Connect's
