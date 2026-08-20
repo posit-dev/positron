@@ -8,7 +8,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import {
 	getCachedCustomProviders,
 	getCachedProvider,
@@ -240,21 +239,20 @@ suite('custom providers', () => {
 			});
 			await initProviderCatalog(context, { configPath });
 
-			// Registering the model source would reach the real workbench; the
-			// auth registration below is the part under test.
-			const realRegisterProvider = positron.ai.registerProvider;
-			(positron.ai as any).registerProvider = () => ({ dispose: () => { } });
-
 			const fired: string[] = [];
 			const subscription = vscode.authentication.onDidChangeSessions(e => fired.push(e.provider.id));
-			const registry = new CustomProviderRegistry(storageContext());
+			// Registering the model source would reach the real workbench; the
+			// auth registration inside register() is the part under test.
+			const registry = new CustomProviderRegistry(
+				storageContext(),
+				() => ({ dispose: () => { } })
+			);
 			try {
 				await registry.reconcile();
 				await waitFor(() => fired.includes('My Gateway'));
 			} finally {
 				subscription.dispose();
 				registry.dispose();
-				(positron.ai as any).registerProvider = realRegisterProvider;
 			}
 
 			assert.ok(

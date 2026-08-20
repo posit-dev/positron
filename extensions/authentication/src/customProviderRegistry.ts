@@ -34,7 +34,12 @@ import { customProviderSource, getRegistrableCustomProviders } from './providerS
 export class CustomProviderRegistry implements vscode.Disposable {
 	private readonly registrations = new Map<string, vscode.Disposable[]>();
 
-	constructor(private readonly context: vscode.ExtensionContext) { }
+	constructor(
+		private readonly context: vscode.ExtensionContext,
+		/** Injectable so a test can register an entry without reaching the workbench. */
+		private readonly registerModelSource: typeof positron.ai.registerProvider =
+			positron.ai.registerProvider,
+	) { }
 
 	/**
 	 * Brings registrations in line with the catalog: register entries that are
@@ -67,7 +72,7 @@ export class CustomProviderRegistry implements vscode.Disposable {
 		const name = provider.id;
 		const authMethod = customAuthMethod(provider.clientKind);
 		const disposables: vscode.Disposable[] = [
-			positron.ai.registerProvider(customProviderSource(provider), providerAction),
+			this.registerModelSource(customProviderSource(provider), providerAction),
 			{ dispose: () => unregisterAuthProvider(name) },
 		];
 
