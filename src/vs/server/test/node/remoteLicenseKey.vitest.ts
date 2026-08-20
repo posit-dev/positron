@@ -69,10 +69,10 @@ describe('validateLicense', () => {
 	});
 
 	it('validates a token with empty issuer and licensee', async () => {
-		// The minting service legitimately issues tokens with empty issuer/licensee
-		// (e.g. dev mode, or a license-manager whose verify output omits issuer).
-		// The empty strings are still part of the signed payload, so the token must
-		// validate rather than be rejected as "missing fields".
+		// Signed tokens may legitimately carry empty issuer/licensee (e.g. dev
+		// tokens, or an issuer that omits them). The empty strings are still part
+		// of the signed payload, so the token must validate rather than be
+		// rejected as "missing fields".
 		const token = 'test-token-empty-fields';
 		const timestamp = new Date().toISOString();
 		const license = mintLicense(token, '', '', timestamp);
@@ -217,7 +217,7 @@ describe('validateLicenseKey', () => {
 			await fn();
 		} finally {
 			for (const [name, value] of Object.entries(saved)) {
-				if (value !== undefined) { process.env[name] = value; }
+				if (value === undefined) { delete process.env[name]; } else { process.env[name] = value; }
 			}
 		}
 	}
