@@ -8,6 +8,7 @@ import { createHash } from 'crypto';
 import {
 	buildAuthorizeUrl,
 	discoverOAuthEndpoints,
+	exchangeClientCredentials,
 	exchangeCodeForTokens,
 	generatePkcePair,
 	generateState,
@@ -194,6 +195,66 @@ suite('databricksOAuth', () => {
 					'https://example.com/oidc/v1/token', 'code', 'verifier', 'http://localhost:8021'
 				),
 				(err: Error) => err.message.includes('502')
+			);
+		});
+	});
+
+	suite('exchangeClientCredentials', () => {
+		test('sends the credentials as HTTP Basic auth, not in the form body', async () => {
+			const { calls } = mockFetch(() => tokenResponse({
+				access_token: 'm2m-access',
+				expires_in: 3600,
+			}));
+
+			await exchangeClientCredentials(
+				'https://example.cloud.databricks.com/oidc/v1/token', 'client-id', 'client-secret'
+			);
+
+			assert.strictEqual(
+				calls[0].init?.headers && (calls[0].init.headers as Record<string, string>)['Authorization'],
+				`Basic ${Buffer.from('client-id:client-secret').toString('base64')}`
+			);
+			const body = new URLSearchParams(calls[0].init?.body as string);
+			// The secret must not also appear in the body.
+			assert.strictEqual(body.get('client_secret'), null);
+			assert.strictEqual(body.get('grant_type'), 'client_credentials');
+			assert.strictEqual(body.get('scope'), 'all-apis');
+			assert.strictEqual([...body.keys()].length, 2);
+		});
+
+		test('computes the expiry from expires_in', async () => {
+			mockFetch(() => tokenResponse({ access_token: 'm2m-access', expires_in: 3600 }));
+			const before = Date.now();
+
+			const token = await exchangeClientCredentials(
+				'https://example.com/oidc/v1/token', 'client-id', 'client-secret'
+			);
+
+			assert.strictEqual(token.accessToken, 'm2m-access');
+			assert.ok(token.expiresAt >= before + 3600 * 1000);
+			assert.ok(token.expiresAt <= Date.now() + 3600 * 1000);
+		});
+
+		test('throws an informative error on non-200', async () => {
+			mockFetch(() => tokenResponse({
+				error: 'invalid_client',
+				error_description: 'Client authentication failed',
+			}, 401));
+
+			await assert.rejects(
+				() => exchangeClientCredentials('https://example.com/oidc/v1/token', 'bad', 'creds'),
+				(err: Error) =>
+					err.message.includes('client credentials exchange') &&
+					err.message.includes('Client authentication failed')
+			);
+		});
+
+		test('throws when the response carries no access token', async () => {
+			mockFetch(() => tokenResponse({ expires_in: 3600 }));
+
+			await assert.rejects(
+				() => exchangeClientCredentials('https://example.com/oidc/v1/token', 'id', 'secret'),
+				/missing an access token/
 			);
 		});
 	});

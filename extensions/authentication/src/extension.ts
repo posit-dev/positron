@@ -21,7 +21,7 @@ import {
 	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
 	SNOWFLAKE_AUTH_PROVIDER_ID,
 } from './constants';
-import { AuthProvider } from './authProvider';
+import { AuthProvider, ResolvedChainCredential } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
 import { CustomProviderRegistry, isAddCustomProviderRequest, isRemoveCustomProviderRequest } from './customProviderRegistry';
 import { getRegistrableProviderSources, getUserAwsSettings, PROVIDER_METADATA } from './providerSources';
@@ -50,7 +50,7 @@ import {
 } from './credentials/databricks';
 import { PositOAuthProvider } from './positOAuthProvider';
 import { DatabricksAuthProvider } from './databricksAuthProvider';
-import { normalizeHost } from './databricksOAuth';
+import { discoverOAuthEndpoints, exchangeClientCredentials, normalizeHost } from './databricksOAuth';
 import * as fs from 'fs';
 import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
@@ -742,6 +742,49 @@ async function registerDeepSeekProvider(
 	log.info(`Registered auth provider: ${DEEPSEEK_AUTH_PROVIDER_ID}`);
 }
 
+/**
+ * Resolve a Databricks service principal (OAuth machine-to-machine) credential
+ * from the environment, or undefined when the M2M variables are not set.
+ *
+ * Reads the same variables as the Databricks SDKs: DATABRICKS_CLIENT_ID and
+ * DATABRICKS_CLIENT_SECRET, with the workspace from DATABRICKS_HOST or the
+ * configured provider host. Returns the token with its expiry so the base class
+ * re-resolves before it lapses -- the grant issues no refresh token, so
+ * re-resolving replays the exchange.
+ */
+async function resolveDatabricksM2mCredential(
+	logger: AuthProviderLogger
+): Promise<ResolvedChainCredential | undefined> {
+	const clientId = process.env.DATABRICKS_CLIENT_ID?.trim();
+	const clientSecret = process.env.DATABRICKS_CLIENT_SECRET?.trim();
+	if (!clientId || !clientSecret) {
+		return undefined;
+	}
+
+	const rawHost = process.env.DATABRICKS_HOST?.trim()
+		|| getCachedProvider('databricks')?.connection.databricks?.host?.trim();
+	if (!rawHost) {
+		throw new Error(
+			'DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET are set but no ' +
+			'workspace host is configured. Set DATABRICKS_HOST or enter the ' +
+			'workspace URL in the provider dialog.'
+		);
+	}
+
+	const host = normalizeHost(rawHost);
+	const endpoints = await discoverOAuthEndpoints(host);
+	const token = await exchangeClientCredentials(
+		endpoints.tokenEndpoint, clientId, clientSecret
+	);
+	await saveDatabricksHost(host).then(undefined, err =>
+		logger.logOperationError('sync Databricks host', err)
+	);
+	logger.logCredentialResolution(
+		'resolved', 'Using Databricks service principal credentials'
+	);
+	return { token: token.accessToken, expiration: new Date(token.expiresAt) };
+}
+
 async function registerDatabricksProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
@@ -766,6 +809,10 @@ async function registerDatabricksProvider(
 				}
 				await validateDatabricksApiKey(envToken, { baseUrl: host });
 				return envToken;
+			}
+			const m2mCredential = await resolveDatabricksM2mCredential(logger);
+			if (m2mCredential) {
+				return m2mCredential;
 			}
 			const credential = await detectDatabricksConfigCredentials();
 			if (!credential) {

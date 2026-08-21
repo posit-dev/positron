@@ -5,20 +5,28 @@
 
 import { createHash, randomBytes } from 'crypto';
 import {
+	DATABRICKS_M2M_SCOPES,
 	DATABRICKS_OAUTH_CLIENT_ID,
 	DATABRICKS_OAUTH_SCOPES,
 } from './constants';
 
 /**
- * Pure helpers for the Databricks OAuth 2.0 U2M flow (authorization code +
- * PKCE against the built-in `databricks-cli` public client). No vscode
- * imports so these can be unit tested directly.
+ * Pure helpers for the Databricks OAuth 2.0 flows: U2M (authorization code +
+ * PKCE against the built-in `databricks-cli` public client) and M2M (client
+ * credentials for a service principal). No vscode imports so these can be unit
+ * tested directly.
  */
 
 /** A resolved set of OAuth tokens. `expiresAt` is epoch milliseconds. */
 export interface TokenSet {
 	accessToken: string;
 	refreshToken: string;
+	expiresAt: number;
+}
+
+/** A machine-to-machine token. No refresh token: the grant is replayed instead. */
+export interface ClientCredentialsToken {
+	accessToken: string;
 	expiresAt: number;
 }
 
@@ -151,11 +159,15 @@ async function postTokenEndpoint(
 	tokenEndpoint: string,
 	params: Record<string, string>,
 	operation: string,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	authorization?: string
 ): Promise<TokenEndpointResponse> {
 	const response = await fetch(tokenEndpoint, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+			...(authorization ? { 'Authorization': authorization } : {}),
+		},
 		body: new URLSearchParams(params).toString(),
 		signal,
 	});
@@ -203,6 +215,37 @@ export async function exchangeCodeForTokens(
 	return {
 		accessToken: data.access_token,
 		refreshToken: data.refresh_token,
+		expiresAt: Date.now() + data.expires_in * 1000,
+	};
+}
+
+/**
+ * Exchange a service principal's client id and secret for an access token
+ * (OAuth machine-to-machine). There is no refresh token: the grant is
+ * replayed with the same credentials when the token expires.
+ */
+export async function exchangeClientCredentials(
+	tokenEndpoint: string,
+	clientId: string,
+	clientSecret: string,
+	signal?: AbortSignal
+): Promise<ClientCredentialsToken> {
+	// Databricks expects the service principal's credentials as HTTP Basic auth
+	// rather than in the form body.
+	const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+	const data = await postTokenEndpoint(tokenEndpoint, {
+		grant_type: 'client_credentials',
+		scope: DATABRICKS_M2M_SCOPES,
+	}, 'client credentials exchange', signal, `Basic ${basic}`);
+
+	if (!data.access_token) {
+		throw new Error(
+			'Databricks client credentials response is missing an access token'
+		);
+	}
+
+	return {
+		accessToken: data.access_token,
 		expiresAt: Date.now() + data.expires_in * 1000,
 	};
 }

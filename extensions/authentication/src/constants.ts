@@ -56,3 +56,6 @@ export const DATABRICKS_OAUTH_CLIENT_ID = 'databricks-cli';
 export const DATABRICKS_OAUTH_PORT_MIN = 8020;
 export const DATABRICKS_OAUTH_PORT_MAX = 8040;
 export const DATABRICKS_OAUTH_SCOPES = 'all-apis offline_access';
+// No offline_access: the client-credentials grant issues no refresh token, and is
+// replayed with the service principal's credentials instead.
+export const DATABRICKS_M2M_SCOPES = 'all-apis';
