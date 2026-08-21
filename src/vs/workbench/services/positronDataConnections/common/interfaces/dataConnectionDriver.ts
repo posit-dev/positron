@@ -126,15 +126,23 @@ export interface IDataConnectionDriverMetadata {
 }
 
 /**
- * Resolves the mechanism a profile was configured with. Falls back to the driver's first mechanism
- * when the id is missing or unknown: profiles persisted before mechanisms existed carry no
- * mechanismId, and historically a driver had exactly one parameter set, which is now its first
- * mechanism. Returns undefined only if the driver exposes no mechanisms.
+ * Resolves the mechanism a profile was configured with.
+ *
+ * A profile with no mechanismId predates mechanisms, when a driver had exactly one parameter set;
+ * that is now its first mechanism, so an absent id falls back to it. An id the driver does not
+ * declare is a different situation: the driver dropped or renamed the mechanism the profile was
+ * built against, and its stored parameter values may not fit anything the driver still offers.
+ * That returns undefined so callers can decide, rather than silently rebinding the profile to an
+ * unrelated mechanism and connecting under credentials the user never chose.
+ *
  * @param metadata The driver metadata to resolve against.
  * @param mechanismId The profile's mechanism id, or undefined for a pre-mechanisms profile.
  */
 export function resolveDataConnectionMechanism(metadata: IDataConnectionDriverMetadata, mechanismId: string | undefined): IDataConnectionMechanism | undefined {
-	return metadata.mechanisms.find(_ => _.id === mechanismId) ?? metadata.mechanisms[0];
+	if (mechanismId === undefined) {
+		return metadata.mechanisms[0];
+	}
+	return metadata.mechanisms.find(_ => _.id === mechanismId);
 }
 
 /**

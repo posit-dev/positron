@@ -119,7 +119,14 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		// pre-mechanisms profiles); its parameters drive the form.
 		const mechanism = resolveDataConnectionMechanism(driver.metadata, target.mechanismId);
 		if (!mechanism) {
-			reportDriverAccessError();
+			// The driver dropped or renamed this mechanism. Editing against a substituted one would
+			// silently rebind the connection, so send the user through setup again instead.
+			notificationService.error(localize(
+				'positron.dataConnections.mechanismNotAvailable',
+				"The connection '{0}' was set up using a sign-in method that '{1}' no longer supports. Remove it and add the connection again.",
+				profile.connectionName,
+				profile.driverMetadata.name
+			));
 			return;
 		}
 

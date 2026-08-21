@@ -317,6 +317,56 @@ describe('PositronDataConnectionsService', () => {
 		});
 	});
 
+	describe('connecting a profile whose mechanism the driver dropped', () => {
+		/** Registers a driver offering exactly the given mechanism ids, recording its connect calls. */
+		function registerDriverOffering(...mechanismIds: string[]) {
+			const connectCalls: string[] = [];
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: {
+					...createDriverMetadata(),
+					mechanisms: mechanismIds.map(id => ({ id, label: id, description: '', parameters: [] })),
+				},
+				connect: async (mechanismId: string) => {
+					connectCalls.push(mechanismId);
+					return stubInterface<IDataConnectionHandle>({
+						handle: 1, disconnect: async () => { }, release: () => { },
+					});
+				},
+			}));
+			return connectCalls;
+		}
+
+		it('refuses to connect, naming the connection and driver', async () => {
+			// The profile was saved against 'test-mechanism'; the driver now offers only 'other'.
+			registerDriverOffering('other');
+			service.addUpdateProfile(createProfile('conn-1'));
+
+			await expect(service.connect('conn-1')).rejects.toThrow(
+				/The connection 'Connection conn-1' was set up using a sign-in method that 'Test Driver' no longer supports/);
+		});
+
+		it('does not silently connect through a different mechanism', async () => {
+			// The defect this guards: falling back to the driver's first mechanism would connect the
+			// user under credentials they never chose for this connection.
+			const connectCalls = registerDriverOffering('other');
+			service.addUpdateProfile(createProfile('conn-1'));
+
+			await service.connect('conn-1').catch(() => { /* asserted above; here we want the calls */ });
+
+			expect(connectCalls).toEqual([]);
+		});
+
+		it('still connects a profile saved before mechanisms existed, using the first', async () => {
+			const connectCalls = registerDriverOffering('first', 'second');
+			service.addUpdateProfile({ ...createProfile('conn-1'), mechanismId: undefined });
+
+			await service.connect('conn-1');
+
+			expect(connectCalls).toEqual(['first']);
+		});
+	});
+
 	describe('open Data Explorers', () => {
 		// How many times the driver's connection handle has been torn down, so a test can tell a
 		// single teardown from a double one. Reset by connectProfile.

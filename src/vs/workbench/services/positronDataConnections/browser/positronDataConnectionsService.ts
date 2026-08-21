@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { equals } from '../../../../base/common/objects.js';
+import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -452,12 +453,22 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// profile that predates mechanisms is a good moment to persist the resolved id, so it is
 		// healed lazily without an eager migration pass.
 		const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
-		if (mechanism && !profile.mechanismId) {
+		if (!mechanism) {
+			// The driver no longer offers the mechanism this profile was built against. Connecting
+			// anyway would use whatever the driver does offer, under credentials the user never
+			// chose for this connection, so stop and tell them to reconfigure it.
+			throw new Error(localize(
+				'positron.dataConnections.unknownMechanism',
+				"The connection '{0}' was set up using a sign-in method that '{1}' no longer supports. Remove it and add the connection again.",
+				profile.connectionName, driver.metadata.name
+			));
+		}
+		if (!profile.mechanismId) {
 			this._backfillProfileMechanismId(profileId, mechanism.id);
 		}
 
 		// Open the connection. driver.connect throws on failure; let it propagate.
-		const handle = await driver.connect(mechanism?.id ?? profile.mechanismId, profile.parameterValues);
+		const handle = await driver.connect(mechanism.id, profile.parameterValues);
 
 		// Build the live instance. Active starts true; an onDidChangeStatus emitter is wired so
 		// future status changes can fan out to listeners (currently nothing fires it).
