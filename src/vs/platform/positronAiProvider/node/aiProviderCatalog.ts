@@ -33,7 +33,6 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 
 	private loadOptions(): import('ai-config/node').LoadCatalogOptions {
 		return {
-			baseline: { defaultEnabled: true },
 			configPath: this._options?.configPath,
 			envVars: this._options?.envVars,
 			// PROVIDER-SETTINGS-MIGRATION(legacy-positron): keep the legacy
