@@ -27,6 +27,8 @@ export interface ILicenseValidationResult {
 	 * academic license banner and P3M telemetry). True for licenses validated from a raw
 	 * license file, which is every deployment that is neither Posit Workbench (signed
 	 * token, always false) nor the AWS license manager (left undefined, i.e. falsy).
+	 * Note for Positron Server Pro: this license miust carry its own signal,
+	 * or it will inherit `academic` as true
 	 */
 	academic?: boolean;
 }
@@ -145,8 +147,10 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 
 	// No license was provided, or the provided one did not validate (for example a
 	// token minted by a retired jupyter-positron-verifier). Look for a .lic next to
-	// the license-manager binary; file-based licenses mark the deployment academic
-	// (see ILicenseValidationResult.academic).
+	// the license-manager binary; file-based licenses mark the deployment academic.
+	// A license file that exists but does not verify (expired, tampered with) throws
+	// rather than returning; hold onto the reason so the failure below can name it.
+	let localError: unknown;
 	try {
 		const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
 		const localResult = await verifyLocal(installPath);
@@ -159,13 +163,23 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 			return { ...localResult, academic: true };
 		}
 	} catch (e) {
-		console.error('Error verifying local license file: ', e);
+		localError = e;
+	}
+
+	if (localError) {
+		console.error('The license file next to the license-manager binary was rejected: ', localError);
 	}
 
 	if (provided) {
 		// The provided license failed and there is no usable local license; the
 		// failure was already logged by the validation path above.
 		return provided;
+	}
+
+	if (localError) {
+		// A license file was found and rejected. Saying "no license key provided" here
+		// would send operators looking for a missing license instead of a bad one.
+		return { valid: false };
 	}
 
 	// We need at least one license key to proceed.

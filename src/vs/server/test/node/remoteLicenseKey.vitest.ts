@@ -289,4 +289,28 @@ describe('validateLicenseKey', () => {
 			expect(result.valid).toBe(false);
 		});
 	});
+
+	it('names the reason a local license was rejected rather than claiming none was provided', async () => {
+		// A .lic that exists but does not verify makes the license-manager throw. The
+		// operator needs to hear that the license was rejected; "no license key provided"
+		// would send them looking for a missing file instead of an expired one.
+		await withCleanLicenseEnv(async () => {
+			const errors: string[] = [];
+			const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+				errors.push(args.map(String).join(' '));
+			});
+			try {
+				const result = await validateLicenseKey('some-token', createServerArgs(), async () => {
+					throw new Error('License has expired. Please renew your license.');
+				});
+				expect({
+					valid: result.valid,
+					namedTheRejection: errors.some(e => e.includes('License has expired')),
+					claimedMissing: errors.some(e => e.includes('No license key provided')),
+				}).toEqual({ valid: false, namedTheRejection: true, claimedMissing: false });
+			} finally {
+				spy.mockRestore();
+			}
+		});
+	});
 });
