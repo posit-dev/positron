@@ -14,7 +14,7 @@ import { IDataConnectionInstance } from '../../../../services/positronDataConnec
 import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { IDataConnectionSchemaCommandArgs, getDataConnectionSchema, getDataConnections } from '../../browser/positronDataConnectionsCommands.js';
+import { IDataConnectionCodeCommandArgs, IDataConnectionSchemaCommandArgs, getDataConnectionCode, getDataConnectionSchema, getDataConnections } from '../../browser/positronDataConnectionsCommands.js';
 
 function createProfile(overrides: Partial<IDataConnectionProfile> = {}): IDataConnectionProfile {
 	return {
@@ -138,7 +138,8 @@ describe('getDataConnections', () => {
 		// Only the redacted form is present; the stub never received or exposed the raw secret, and
 		// stubInterface would have thrown had the command tried to read secret storage directly
 		// (e.g. via a getProfileWithSecrets call, which this stub deliberately omits).
-		expect(result.parameterValues).toEqual({ host: 'localhost', apiKey: '****last4' });
+		expect(result.summary).toBe(
+			'name=My Connection | driver=test-driver | mechanism=test-mechanism | languages=python, r | parameters=host=localhost, apiKey=****last4');
 	});
 
 	it('omits a secret parameter when the driver has no redacted value for it', async () => {
@@ -149,35 +150,67 @@ describe('getDataConnections', () => {
 
 		const [result] = await run(dataConnectionsService);
 
-		expect(result.parameterValues).toEqual({ host: 'localhost' });
+		expect(result.summary).toBe(
+			'name=My Connection | driver=test-driver | mechanism=test-mechanism | languages=python, r | parameters=host=localhost');
 	});
 
-	it('honors the preferred variant per language, falling back to variants[0]', async () => {
-		const driver = createDriver({
-			generateConnectionCode: vi.fn(async (_mechanismId: string, languageId: string) => languageId === 'python'
-				? [
-					{ id: 'default', label: 'Default', code: 'import x\n\nconn = x.connect()\n' },
-					{ id: 'sqlalchemy', label: 'SQLAlchemy', code: 'import sqlalchemy as sa\n\nengine = sa.create_engine("x")\n' },
-				]
-				: []),
+	// The catalog answers "which connections do I have?", and generating code for every profile in it
+	// costs a round trip to the driver per profile per language. getConnectionCode generates code for
+	// the one profile a caller settles on instead.
+	it('generates no connection code, whatever the driver could produce', async () => {
+		const generateConnectionCode = vi.fn(async () => [{ id: 'default', label: 'Default', code: 'conn = connect()\n' }]);
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [createProfile({ id: 'conn-1' }), createProfile({ id: 'conn-2' })],
+			driver: createDriver({ generateConnectionCode }),
 		});
 
-		const preferred = createProfile({ id: 'conn-preferred', preferredCodeVariants: { python: 'sqlalchemy' } });
-		const unset = createProfile({ id: 'conn-unset' });
+		const result = await run(dataConnectionsService);
 
-		const dataConnectionsService = createDataConnectionsService({ profiles: [preferred, unset], driver });
-		const [preferredResult, unsetResult] = await run(dataConnectionsService);
+		expect(result.map(profile => Object.keys(profile))).toEqual([
+			['profileId', 'connected', 'summary'],
+			['profileId', 'connected', 'summary'],
+		]);
+		expect(generateConnectionCode).not.toHaveBeenCalled();
+	});
 
-		expect(preferredResult.languages.python).toEqual({
-			preferredVariantId: 'sqlalchemy',
-			code: 'import sqlalchemy as sa\n\nengine = sa.create_engine("x")\n',
-			variableName: 'engine',
+	// The catalog's `languages` field is what tells a caller whether asking for code is worth a call
+	// at all; an unregistered driver (extension not installed, or not yet activated) has none.
+	it('omits the code languages when the profile\'s driver is unregistered', async () => {
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [createProfile({ driverMetadata: { ...createProfile().driverMetadata, id: 'absent-driver' } })],
 		});
-		expect(unsetResult.languages.python).toEqual({
-			preferredVariantId: 'default',
-			code: 'import x\n\nconn = x.connect()\n',
-			variableName: 'conn',
+
+		const [result] = await run(dataConnectionsService);
+
+		expect(result.summary).toBe(
+			'name=My Connection | driver=absent-driver | mechanism=test-mechanism | parameters=host=localhost');
+	});
+
+	// The summary line's own delimiters are ordinary characters in a connection string, so a value
+	// containing one is quoted rather than silently splitting the line into extra parameters.
+	it('quotes a parameter value containing a summary delimiter', async () => {
+		const profile = createProfile({
+			connectionName: 'Prod, EU',
+			parameterValues: { dsn: 'Driver={ODBC},Server=db' },
 		});
+		const dataConnectionsService = createDataConnectionsService({ profiles: [profile] });
+
+		const [result] = await run(dataConnectionsService);
+
+		expect(result.summary).toBe(
+			'name="Prod, EU" | driver=test-driver | mechanism=test-mechanism | languages=python, r | parameters=dsn="Driver={ODBC},Server=db"');
+	});
+
+	// A driver names its own parameters, so one may well collide with a reserved summary key. Nesting
+	// them under `parameters=` keeps that from emitting a second `driver=` token on the same line.
+	it('keeps a parameter named after a reserved summary key out of the line\'s own namespace', async () => {
+		const profile = createProfile({ parameterValues: { driver: 'ODBC Driver 18', name: 'db1' } });
+		const dataConnectionsService = createDataConnectionsService({ profiles: [profile] });
+
+		const [result] = await run(dataConnectionsService);
+
+		expect(result.summary).toBe(
+			'name=My Connection | driver=test-driver | mechanism=test-mechanism | languages=python, r | parameters=driver=ODBC Driver 18, name=db1');
 	});
 
 	it('reflects live vs. disconnected state per profile', async () => {
@@ -196,17 +229,152 @@ describe('getDataConnections', () => {
 	});
 
 	it('produces a payload that survives a JSON round-trip', async () => {
-		const driver = createDriver({
-			generateConnectionCode: vi.fn(async () => [{ id: 'default', label: 'Default', code: 'conn = connect()\n' }]),
-		});
 		const dataConnectionsService = createDataConnectionsService({
-			driver,
 			secretParameterIds: ['apiKey'],
 			redactedValues: { apiKey: '****last4' },
 			connectedProfileIds: ['conn-1'],
 		});
 
 		const result = await run(dataConnectionsService);
+
+		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+	});
+});
+
+// Two variants for python and one for r, so a test can tell the preferred variant, the fallback, and
+// the language filter apart. The spy is returned alongside the driver: naming a language must not
+// generate the others, which is a fact about calls rather than about the payload.
+function createCodeDriver() {
+	const generateConnectionCode = vi.fn(async (_mechanismId: string, languageId: string) => languageId === 'python'
+		? [
+			{ id: 'default', label: 'Default', code: 'import x\n\nconn = x.connect()\n' },
+			{ id: 'sqlalchemy', label: 'SQLAlchemy', code: 'import sqlalchemy as sa\n\nengine = sa.create_engine("x")\n' },
+		]
+		: [{ id: 'dbi', label: 'DBI', code: 'con <- DBI::dbConnect(x)\n' }]);
+
+	return { driver: createDriver({ generateConnectionCode }), generateConnectionCode };
+}
+
+const PYTHON_CODE = { code: 'import x\n\nconn = x.connect()\n', variableName: 'conn' };
+const R_CODE = { code: 'con <- DBI::dbConnect(x)\n', variableName: 'con' };
+
+describe('getDataConnectionCode', () => {
+	const ctx = createTestContainer().build();
+
+	function run(dataConnectionsService: IPositronDataConnectionsService, args: IDataConnectionCodeCommandArgs, enabled: boolean = true) {
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
+			'dataConnections.enabled': enabled,
+		}));
+		// The command logs why it declined to generate code; the tests assert the reason it reports to
+		// the caller rather than the log wording.
+		ctx.instantiationService.stub(ILogService, new NullLogService());
+		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
+		return getDataConnectionCode(ctx.instantiationService, args);
+	}
+
+	it('reports the feature flag being off, without touching the service', async () => {
+		const getProfiles = vi.fn(() => [createProfile()]);
+		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getProfiles });
+
+		const result = await run(dataConnectionsService, { profileId: 'conn-1' }, false);
+
+		expect(result).toEqual({ available: false, reason: 'disabled' });
+		expect(getProfiles).not.toHaveBeenCalled();
+	});
+
+	it('honors the preferred variant per language, falling back to variants[0]', async () => {
+		const preferred = createProfile({ id: 'conn-preferred', preferredCodeVariants: { python: 'sqlalchemy' } });
+		const unset = createProfile({ id: 'conn-unset' });
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [preferred, unset],
+			driver: createCodeDriver().driver,
+		});
+
+		expect(await run(dataConnectionsService, { profileId: 'conn-preferred', languageId: 'python' })).toEqual({
+			profileId: 'conn-preferred',
+			languages: {
+				python: {
+					code: 'import sqlalchemy as sa\n\nengine = sa.create_engine("x")\n',
+					variableName: 'engine',
+				},
+			},
+		});
+		expect(await run(dataConnectionsService, { profileId: 'conn-unset', languageId: 'python' })).toEqual({
+			profileId: 'conn-unset',
+			languages: { python: PYTHON_CODE },
+		});
+	});
+
+	// Naming a language is the caller's main lever on payload size, so it must not generate the
+	// others: each one is a round trip to the driver as well as bytes the caller didn't ask for.
+	it('generates only the language asked for', async () => {
+		const { driver, generateConnectionCode } = createCodeDriver();
+		const dataConnectionsService = createDataConnectionsService({ driver });
+
+		const result = await run(dataConnectionsService, { profileId: 'conn-1', languageId: 'r' });
+
+		expect(result).toEqual({ profileId: 'conn-1', languages: { r: R_CODE } });
+		expect(generateConnectionCode).toHaveBeenCalledTimes(1);
+	});
+
+	it('generates every language the driver supports when none is named', async () => {
+		const dataConnectionsService = createDataConnectionsService({ driver: createCodeDriver().driver });
+
+		expect(await run(dataConnectionsService, { profileId: 'conn-1' })).toEqual({
+			profileId: 'conn-1',
+			languages: { python: PYTHON_CODE, r: R_CODE },
+		});
+	});
+
+	// A missing profileId lands in the same place as an unknown one: the argument object comes from a
+	// command invocation, so it can be absent however the schema describes it.
+	it.each([
+		{ label: 'an unknown profile id', args: { profileId: 'conn-missing' } },
+		{ label: 'no arguments at all', args: undefined },
+	])('reports $label', async ({ args }) => {
+		expect(await run(createDataConnectionsService(), args as IDataConnectionCodeCommandArgs))
+			.toEqual({ available: false, reason: 'not-found' });
+	});
+
+	// The same condition the catalog reports by leaving `languages` out of its summary: no driver,
+	// nothing to generate code with.
+	it('reports the profile\'s driver being unregistered', async () => {
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [createProfile({ driverMetadata: { ...createProfile().driverMetadata, id: 'absent-driver' } })],
+		});
+
+		expect(await run(dataConnectionsService, { profileId: 'conn-1' }))
+			.toEqual({ available: false, reason: 'no-driver' });
+	});
+
+	// Naming a language the driver doesn't support is an easy mistake to make and a cheap one to
+	// recover from -- as long as the payload says what could have been asked for instead.
+	it('reports no code, naming the languages the driver does support', async () => {
+		const dataConnectionsService = createDataConnectionsService({ driver: createCodeDriver().driver });
+
+		expect(await run(dataConnectionsService, { profileId: 'conn-1', languageId: 'julia' })).toEqual({
+			available: false,
+			reason: 'no-code',
+			supportedLanguageIds: ['python', 'r'],
+		});
+	});
+
+	// A driver that throws is reported the same way as one that returns nothing: the caller gets a
+	// reason, not a rejected promise.
+	it('reports no code when the driver fails to generate any', async () => {
+		const driver = createDriver({
+			generateConnectionCode: vi.fn(async () => { throw new Error('no code for you'); }),
+		});
+		const dataConnectionsService = createDataConnectionsService({ driver });
+
+		expect(await run(dataConnectionsService, { profileId: 'conn-1' }))
+			.toEqual({ available: false, reason: 'no-code', supportedLanguageIds: ['python', 'r'] });
+	});
+
+	it('produces a payload that survives a JSON round-trip', async () => {
+		const dataConnectionsService = createDataConnectionsService({ driver: createCodeDriver().driver });
+
+		const result = await run(dataConnectionsService, { profileId: 'conn-1' });
 
 		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
 	});
@@ -273,7 +441,7 @@ describe('getDataConnectionSchema', () => {
 
 		const result = await run(dataConnectionsService, { profileId: 'conn-b' });
 
-		expect(result).toEqual({ instanceId: '2', nodes: [{ name: 'orders', kind: 'table' }], truncated: false });
+		expect(result).toEqual({ instanceId: '2', lines: ['orders [table]'], truncated: false });
 	});
 
 	it('defaults to the only live connection when no profileId is given', async () => {
@@ -281,7 +449,7 @@ describe('getDataConnectionSchema', () => {
 
 		const result = await run(dataConnectionsService);
 
-		expect(result).toEqual({ instanceId: '1', nodes: [{ name: 'employees', kind: 'table' }], truncated: false });
+		expect(result).toEqual({ instanceId: '1', lines: ['employees [table]'], truncated: false });
 	});
 
 	it('reports the named profile having no live connection', async () => {
@@ -317,7 +485,7 @@ describe('getDataConnectionSchema', () => {
 
 		const result = await run(dataConnectionsService, { maxNodesPerLevel: 1 });
 
-		expect(result).toEqual({ instanceId: '1', nodes: [{ name: 't1', kind: 'table' }], truncated: true });
+		expect(result).toEqual({ instanceId: '1', lines: ['t1 [table]'], truncated: true });
 	});
 });
 
