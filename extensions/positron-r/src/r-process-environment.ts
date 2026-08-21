@@ -241,11 +241,19 @@ async function getContributedMutations(): Promise<EnvVarMutation[]> {
 }
 
 /**
- * Environment variables read from the R console session and forwarded to R
- * processes that Positron launches on the user's behalf. This is the
- * authoritative list; add to it here rather than at a call site.
+ * Environment variables read from the R console session and forwarded to the R
+ * processes that run package tests: the "Test R Package in Terminal" task and
+ * the test explorer's runner. The other package tasks do not get these. This is
+ * the authoritative list; add to it here rather than at a call site.
  */
 const FORWARDED_R_SESSION_ENV_VARS = [
+	// https://github.com/posit-dev/positron/pull/2488
+	// On macOS, a bare spawn() from the extension host has no LANG, so R falls
+	// back to the C locale. This can cause spurious failure of locale-sensitive
+	// tests. This only affects the test explorer and not the "Test R Package in
+	// Terminal" command. However, it should be neutral-to-positive everywhere
+	// and it's cleaner to always forward the same env vars.
+	'LANG',
 	// testthat gives up after this many failures. A user who raised the limit
 	// in the console expects the same limit when Positron runs their tests.
 	'TESTTHAT_MAX_FAILS',
