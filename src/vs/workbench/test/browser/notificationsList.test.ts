@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { NotificationAccessibilityProvider } from '../../browser/parts/notifications/notificationsList.js';
+import { NotificationAccessibilityProvider, NotificationsList } from '../../browser/parts/notifications/notificationsList.js';
 import { NotificationViewItem, INotificationsFilter, INotificationViewItem } from '../../common/notifications.js';
 import { Severity, NotificationsFilter } from '../../../platform/notification/common/notification.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
@@ -12,6 +12,8 @@ import { IConfigurationService } from '../../../platform/configuration/common/co
 import { TestConfigurationService } from '../../../platform/configuration/test/common/testConfigurationService.js';
 import { MockKeybindingService } from '../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
+import { workbenchInstantiationService } from './workbenchTestServices.js';
+import { mainWindow } from '../../../base/browser/window.js';
 
 suite('NotificationsList AccessibilityProvider', () => {
 
@@ -100,3 +102,41 @@ suite('NotificationsList AccessibilityProvider', () => {
 		assert.ok(infoLabel.includes('Info: Info message'), 'Info notifications should have Info prefix');
 	});
 });
+
+// --- Start Positron ---
+// Regression coverage for notifications rendering twice in the notifications
+// center after it is shown while empty, a notification arrives, and it is then
+// hidden and shown again. See the `hide()` comment in notificationsList.ts.
+suite('NotificationsList', () => {
+
+	const noFilter: INotificationsFilter = { global: NotificationsFilter.OFF, sources: new Map() };
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('showing again does not duplicate items added while the view model was empty', () => {
+		const instantiationService = workbenchInstantiationService(undefined, disposables);
+
+		const container = mainWindow.document.createElement('div');
+		mainWindow.document.body.appendChild(container);
+		disposables.add({ dispose: () => container.remove() });
+
+		const list = disposables.add(instantiationService.createInstance(NotificationsList, container, {}));
+		const notification = NotificationViewItem.create({ severity: Severity.Info, message: 'Update available' }, noFilter)!;
+		disposables.add({ dispose: () => notification.close() });
+
+		// The center shows while there is nothing to show: the list empties itself
+		list.show();
+		list.updateNotificationsList(0, 0, []);
+
+		// A notification arrives while the center considers itself visible
+		list.updateNotificationsList(0, 0, [notification]);
+
+		// The center is hidden and shown again, re-seeding the list from the model
+		list.hide();
+		list.show();
+		list.updateNotificationsList(0, 0, [notification]);
+		list.layout(450, 400);
+
+		assert.strictEqual(container.querySelectorAll('.notification-list-item').length, 1);
+	});
+});
+// --- End Positron ---

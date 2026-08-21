@@ -195,9 +195,20 @@ export class NotificationsList extends Disposable {
 	}
 
 	hide(): void {
-		if (!this.isVisible || !this.list) {
+		// --- Start Positron ---
+		// `updateNotificationsList` above hides this list whenever the view model
+		// becomes empty, which happens when the notifications center is shown
+		// while there is nothing to show. That leaves `isVisible` false while the
+		// center still considers itself visible, so items added afterwards land in
+		// the view model of a list that believes it is hidden. Bailing out here
+		// then skips clearing them, and the center's next `show()` splices the same
+		// items in a second time, rendering every notification twice. Clear
+		// unconditionally so `hide()` always leaves the list empty.
+		// if (!this.isVisible || !this.list) {
+		if (!this.list) {
 			return; // already hidden
 		}
+		// --- End Positron ---
 
 		// Hide
 		this.isVisible = false;
