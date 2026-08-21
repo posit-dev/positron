@@ -257,13 +257,12 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	}
 
 	/**
-	 * Registers the transport that core Data Explorer backends use to reach backend-providing
-	 * extensions. Called by MainThreadDataExplorer for the extension host's lifetime, so one
-	 * transport is registered per host.
-	 * @param transport The transport.
-	 * @returns A disposable that unregisters the transport and any providers it owns.
+	 * Ties a host's provider claims to its connection. Called by MainThreadDataExplorer for the
+	 * extension host's lifetime.
+	 * @param transport The host's transport.
+	 * @returns A disposable that drops the host's remaining provider claims.
 	 */
-	registerRpcTransport(transport: IDataExplorerRpcTransport): IDisposable {
+	registerRpcHost(transport: IDataExplorerRpcTransport): IDisposable {
 		// Nothing to record up front: a host is only interesting once it claims a provider. Disposal
 		// drops any claims it still owns, so a disconnecting host stops receiving RPCs.
 		return toDisposable(() => {

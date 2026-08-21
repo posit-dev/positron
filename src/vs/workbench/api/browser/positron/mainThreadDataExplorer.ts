@@ -27,8 +27,8 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostDataExplorer);
-		// Register this host's transport so its provider claims are cleared if the host disconnects.
-		this._disposables.add(this._dataExplorerService.registerRpcTransport(this));
+		// Register this host so its provider claims are cleared if the host disconnects.
+		this._disposables.add(this._dataExplorerService.registerRpcHost(this));
 	}
 
 	// --- IDataExplorerRpcTransport ---

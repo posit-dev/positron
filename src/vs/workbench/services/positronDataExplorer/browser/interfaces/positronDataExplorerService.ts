@@ -96,12 +96,14 @@ export interface IPositronDataExplorerService {
 	openWithExtensionBackend(payload: OpenExtensionBackendPayload): Promise<void>;
 
 	/**
-	 * Registers the transport core backends use to reach backend-providing extensions. Called by
-	 * the main-thread Data Explorer channel actor, once per extension host.
-	 * @param transport The transport.
-	 * @returns A disposable that unregisters the transport and any providers it owns.
+	 * Ties a host's provider claims to its connection. There is nothing to record up front -- a host
+	 * matters only once it claims a provider via {@link registerRpcProvider} -- so disposing the
+	 * result is the point: it drops any claims still routed to the host, stopping its RPCs when it
+	 * disconnects. Called by the main-thread Data Explorer channel actor, once per extension host.
+	 * @param transport The host's transport.
+	 * @returns A disposable that drops the host's remaining provider claims.
 	 */
-	registerRpcTransport(transport: IDataExplorerRpcTransport): IDisposable;
+	registerRpcHost(transport: IDataExplorerRpcTransport): IDisposable;
 
 	/**
 	 * Records that a provider's RPC handler registered in `transport`'s extension host, so RPCs for
