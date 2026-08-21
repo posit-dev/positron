@@ -35,6 +35,7 @@ export const ANTHROPIC_AUTH_PROVIDER_ID = 'anthropic-api';
 export const POSIT_AUTH_PROVIDER_ID = 'posit-ai';
 export const AWS_AUTH_PROVIDER_ID = 'amazon-bedrock';
 export const FOUNDRY_AUTH_PROVIDER_ID = 'ms-foundry';
+export const SNOWFLAKE_AUTH_PROVIDER_ID = 'snowflake-cortex';
 export const OPENAI_AUTH_PROVIDER_ID = 'openai-api';
 export const CUSTOM_PROVIDER_AUTH_PROVIDER_ID = 'openai-compatible';
 export const GEMINI_AUTH_PROVIDER_ID = 'google';

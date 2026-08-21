@@ -11,7 +11,7 @@ import { AuthProvider } from './authProvider';
 import { authProviders, providerAction, registerAuthProvider, unregisterAuthProvider, updateProviderFromSessions } from './configDialog';
 import { POSITRON_CUSTOM_AUTH_PROVIDER_ID } from './constants';
 import { CustomProviderAggregate } from './customProviderAggregate';
-import { customApiKeyValidator, isOfferedCustomKind } from './customProviderAuth';
+import { customApiKeyValidator, customProviderNameConflict, isOfferedCustomKind } from './customProviderAuth';
 import { log } from './log';
 import {
 	createCustomProviderEntry,
@@ -137,6 +137,12 @@ export class CustomProviderRegistry implements vscode.Disposable {
 		if (!isOfferedCustomKind(request.kind)) {
 			throw new Error(vscode.l10n.t('Positron cannot configure a "{0}" provider.', request.kind));
 		}
+		// Reported here so the form says so, rather than writing an entry that
+		// then refuses to register.
+		const conflict = customProviderNameConflict(name);
+		if (conflict) {
+			throw new Error(conflict);
+		}
 		const kind = request.kind as SupportedCustomClientKind;
 		const baseUrl = request.baseUrl?.trim();
 		const apiKey = request.apiKey?.trim() ?? '';
@@ -187,6 +193,18 @@ export class CustomProviderRegistry implements vscode.Disposable {
 
 	private async register(provider: ResolvedProviderLike): Promise<void> {
 		const name = provider.id;
+
+		// The real guard, not the one in create(): a reconcile registers
+		// whatever the catalog holds, so a hand-written or externally managed
+		// entry arrives here without ever passing through the form. Registering
+		// one named after a built-in provider would overwrite that provider's
+		// row in configDialog's maps and delete it again on unregister.
+		const conflict = customProviderNameConflict(name);
+		if (conflict) {
+			log.error(`Not registering custom provider "${name}": ${conflict}`);
+			return;
+		}
+
 		const disposables: vscode.Disposable[] = [
 			this.registerModelSource(customProviderSource(provider), providerAction),
 			{ dispose: () => unregisterAuthProvider(name) },

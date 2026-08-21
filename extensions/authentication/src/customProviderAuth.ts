@@ -7,6 +7,20 @@ import * as vscode from 'vscode';
 import type { SupportedCustomClientKind } from 'ai-config';
 import type { ApiKeyValidator } from './configDialog';
 import {
+	ANTHROPIC_AUTH_PROVIDER_ID,
+	AWS_AUTH_PROVIDER_ID,
+	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	DATABRICKS_AUTH_PROVIDER_ID,
+	DEEPSEEK_AUTH_PROVIDER_ID,
+	FOUNDRY_AUTH_PROVIDER_ID,
+	GEMINI_AUTH_PROVIDER_ID,
+	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
+	OPENAI_AUTH_PROVIDER_ID,
+	POSIT_AUTH_PROVIDER_ID,
+	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
+	SNOWFLAKE_AUTH_PROVIDER_ID,
+} from './constants';
+import {
 	validateAnthropicApiKey,
 	validateCustomProviderApiKey,
 	validateOpenaiApiKey,
@@ -79,6 +93,57 @@ const CUSTOM_KIND_AUTH_DESCRIPTORS = {
 const OFFERED_KINDS: ReadonlySet<string> = new Set<SupportedCustomClientKind>([
 	'openai-compatible', 'anthropic', 'openai',
 ]);
+
+/**
+ * Names a `providers.custom` entry can't have, because this extension already
+ * uses them as authentication provider ids.
+ *
+ * These are a different set from what ai-config's name policy rejects, which is
+ * built-in *provider* ids (`anthropic`, `openai`, `openai-compatible`). Ten of
+ * these are perfectly legal entry names as far as that policy is concerned.
+ *
+ * An entry named after one of them overwrites the built-in provider's row in
+ * `configDialog`'s `authProviders`, validator, and callback maps, all keyed by
+ * the same string, and deletes them again when the entry unregisters. The last
+ * name is the shared provider's own: an entry called
+ * `positron-custom-provider` would claim the aggregate's session events in the
+ * fan-out and in the workbench's session sync, with both branches answering to
+ * one id.
+ *
+ * Kept in step with `contributes.authentication` in package.json by a test.
+ */
+const RESERVED_AUTH_PROVIDER_IDS: readonly string[] = [
+	ANTHROPIC_AUTH_PROVIDER_ID,
+	POSIT_AUTH_PROVIDER_ID,
+	FOUNDRY_AUTH_PROVIDER_ID,
+	AWS_AUTH_PROVIDER_ID,
+	SNOWFLAKE_AUTH_PROVIDER_ID,
+	OPENAI_AUTH_PROVIDER_ID,
+	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	GEMINI_AUTH_PROVIDER_ID,
+	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
+	DEEPSEEK_AUTH_PROVIDER_ID,
+	DATABRICKS_AUTH_PROVIDER_ID,
+	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
+];
+
+/**
+ * Why this name can't be a custom provider, or undefined if it can.
+ *
+ * Checked on the registration path as well as at the form, because a reconcile
+ * registers whatever the catalog holds: a hand-written or externally managed
+ * entry never goes through the form at all.
+ */
+export function customProviderNameConflict(name: string): string | undefined {
+	if (RESERVED_AUTH_PROVIDER_IDS.includes(name)) {
+		return vscode.l10n.t(
+			'"{0}" is reserved for a built-in provider. Choose a different name.', name);
+	}
+	return undefined;
+}
+
+/** The reserved names, for the test that keeps them in step with the manifest. */
+export const reservedAuthProviderIdsForTest = RESERVED_AUTH_PROVIDER_IDS;
 
 /** Whether Positron presents this kind as a custom entry. */
 export function isOfferedCustomKind(kind: string): boolean {

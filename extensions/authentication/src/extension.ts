@@ -19,6 +19,7 @@ import {
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
+	SNOWFLAKE_AUTH_PROVIDER_ID,
 } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
@@ -470,7 +471,7 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 	let pendingMtime: number | undefined;
 
 	const provider = new AuthProvider(
-		'snowflake-cortex', 'Snowflake Cortex', context,
+		SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', context,
 		undefined,
 		{
 			resolve: async () => {
@@ -517,12 +518,12 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			'snowflake-cortex', 'Snowflake Cortex', provider,
+			SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', provider,
 			{ supportsMultipleAccounts: false }
 		),
 		provider
 	);
-	registerAuthProvider('snowflake-cortex', provider, {
+	registerAuthProvider(SNOWFLAKE_AUTH_PROVIDER_ID, provider, {
 		validateApiKey: validateSnowflakeApiKey,
 		onSave: async (config) => {
 			// baseUrl carries the bare account (#13750); persist it as the
