@@ -9,6 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getProviderSources, PROVIDER_METADATA } from '../providerSources';
+import { POSITRON_CUSTOM_AUTH_PROVIDER_ID } from '../constants';
 import { initProviderCatalog } from '../providerCatalog';
 
 /**
@@ -34,7 +35,13 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 		// the drift we want to catch. Providers without a contribution (e.g.
 		// copilot, which rides GitHub's auth) aren't required to appear.
 		const metadataIds = Object.values(PROVIDER_METADATA).map(p => p.id);
-		const manifestIds = authPkg.contributes.authentication.map((c: { id: string }) => c.id);
+		// The shared custom-provider id is the one declared contribution that
+		// isn't a provider in the catalogue. It exists so the id can be
+		// allowlisted in product.json and activated on; it holds no credential
+		// of its own, has no tile, and so has no metadata entry.
+		const manifestIds = authPkg.contributes.authentication
+			.map((c: { id: string }) => c.id)
+			.filter((id: string) => id !== POSITRON_CUSTOM_AUTH_PROVIDER_ID);
 		const resolved = manifestIds.filter((id: string) => metadataIds.includes(id));
 
 		assert.deepStrictEqual(resolved, manifestIds);
