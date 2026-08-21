@@ -1,0 +1,20 @@
+# Dependencies deliberately removed from the root package.json.
+#
+# Upstream VS Code still declares these, so every upstream merge tries to
+# restore them. A restored entry is easy to miss in a merge diff and can be
+# silently harmful: `deemon` was re-added by the 1.130.0 merge alongside its
+# replacement `@softwarenerd/deemon-ng`, and because both packages own the
+# `deemon` bin name, npm resolved the collision differently in different
+# checkouts of the same repo (see #15670).
+#
+# Listing a package here makes hygiene fail if it reappears in the root
+# package.json `dependencies` or `devDependencies`. When resolving a
+# package.json conflict during an upstream merge, keep Positron's removal.
+#
+# To intentionally reintroduce a package, delete its line here in the same
+# commit and say why in the PR.
+
+# Replaced by @softwarenerd/deemon-ng in #15264. Both packages provide a bin
+# named `deemon`, so having both installed makes `npx deemon` resolve
+# nondeterministically per install.
+deemon

@@ -99,6 +99,41 @@ export function checkNoNewJavaScriptFiles(repoRoot: string): string | undefined 
 	return undefined;
 }
 
+// --- Start Positron ---
+/**
+ * Checks that no dependency listed in `.removed-upstream-dependencies` has
+ * reappeared in the root package.json. Upstream VS Code still declares these,
+ * so every upstream merge tries to restore them, and a restored entry is easy
+ * to miss in a merge diff.
+ *
+ * Returns an error message if any have reappeared, or undefined if OK.
+ */
+export function checkNoReintroducedDependencies(repoRoot: string): string | undefined {
+	const listPath = path.join(repoRoot, '.removed-upstream-dependencies');
+	const removed = fs.readFileSync(listPath, 'utf8')
+		.split(/\r\n|\n/)
+		.map(line => line.trim())
+		.filter(line => line && !line.startsWith('#'));
+
+	const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+	const reintroduced = removed.filter(
+		name => pkg.dependencies?.[name] !== undefined || pkg.devDependencies?.[name] !== undefined
+	);
+
+	if (reintroduced.length > 0) {
+		return [
+			'The root package.json declares dependencies that Positron deliberately removed.',
+			'These are almost always restored by an upstream merge; keep Positron\'s removal',
+			'when resolving the package.json conflict. To reintroduce one on purpose, delete',
+			'its line from .removed-upstream-dependencies in the same commit. Offending',
+			'dependencies:',
+			...reintroduced.map(name => `  ${name}`),
+		].join('\n');
+	}
+	return undefined;
+}
+// --- End Positron ---
+
 /**
  * Main hygiene function that runs checks on files
  */
@@ -466,6 +501,15 @@ if (import.meta.main) {
 						const copilotError = checkCopilotEnginesVersion(process.cwd());
 						if (copilotError) {
 							console.error(copilotError);
+							process.exit(1);
+						}
+					}
+
+					// Check that no deliberately removed dependency has come back
+					if (some.some(f => f === 'package.json' || f === '.removed-upstream-dependencies')) {
+						const removedDepsError = checkNoReintroducedDependencies(process.cwd());
+						if (removedDepsError) {
+							console.error(removedDepsError);
 							process.exit(1);
 						}
 					}
