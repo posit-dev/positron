@@ -90,8 +90,18 @@ export class CustomProviderRegistry implements vscode.Disposable {
 			positron.ai.registerProvider,
 		/** Injectable so a test can add an entry without a live endpoint to check the key against. */
 		private readonly apiKeyValidator: typeof customApiKeyValidator = customApiKeyValidator,
+		/**
+		 * Injectable so a test can exercise routing without registering the
+		 * shared provider a second time. The extension host is first-one-wins on
+		 * a duplicate id, and the extension's own activation has already claimed
+		 * this one, so a second real registration is silently dropped and
+		 * disposing it unregisters the first.
+		 */
+		private readonly registerSharedAuthProvider:
+			typeof vscode.authentication.registerAuthenticationProvider =
+			vscode.authentication.registerAuthenticationProvider,
 	) {
-		this.aggregateRegistration = vscode.authentication.registerAuthenticationProvider(
+		this.aggregateRegistration = this.registerSharedAuthProvider(
 			POSITRON_CUSTOM_AUTH_PROVIDER_ID,
 			vscode.l10n.t('Custom Providers'),
 			this.aggregate,

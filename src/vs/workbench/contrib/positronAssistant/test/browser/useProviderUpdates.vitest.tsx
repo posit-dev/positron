@@ -28,7 +28,7 @@ const Probe = (props: {
 	onSignedInChange: (id: string, signedIn: boolean) => void;
 	onRegistrationsChange?: () => void;
 }) => {
-	useProviderUpdates(['posit-ai'], props.onConfigChange, props.onSignedInChange, props.onRegistrationsChange);
+	useProviderUpdates([{ id: 'posit-ai' }], props.onConfigChange, props.onSignedInChange, props.onRegistrationsChange);
 	return <div>probe</div>;
 };
 

@@ -18,11 +18,15 @@ import {
 	refreshProviderCatalog,
 	saveCustomProviderUrl,
 } from '../providerCatalog';
-import { authProviders } from '../configDialog';
+import { authProviders, registerAuthProvider, unregisterAuthProvider } from '../configDialog';
+import { ANTHROPIC_AUTH_PROVIDER_ID, POSITRON_CUSTOM_AUTH_PROVIDER_ID } from '../constants';
+import { AuthProvider } from '../authProvider';
+import { CustomProviderAggregate } from '../customProviderAggregate';
 import {
 	customApiKeyValidator,
 	customAuthDescriptor,
 	isOfferedCustomKind,
+	reservedAuthProviderIdsForTest,
 } from '../customProviderAuth';
 import { CustomProviderRegistry } from '../customProviderRegistry';
 import { customProviderSource, getRegistrableCustomProviders, PROVIDER_METADATA } from '../providerSources';
@@ -54,6 +58,14 @@ function storageContext(): vscode.ExtensionContext {
 		},
 	} as unknown as vscode.ExtensionContext;
 }
+
+/**
+ * Stands in for `vscode.authentication.registerAuthenticationProvider`. The
+ * extension's activation already registered the shared custom-provider id, and
+ * the extension host is first-one-wins, so a test registering it again would be
+ * dropped and its dispose would unregister the real one.
+ */
+const noSharedRegistration = () => ({ dispose: () => { } });
 
 /** Poll until `condition` holds, so a main-thread round trip can land. */
 async function waitFor(condition: () => boolean, timeoutMs = 3000): Promise<void> {
@@ -226,7 +238,12 @@ suite('custom providers', () => {
 		test('a key the provider refuses writes nothing at all', async () => {
 			writeConfig(configPath, {});
 			await initProviderCatalog(context, { configPath });
-			const registry = new CustomProviderRegistry(storageContext(), () => ({ dispose: () => { } }));
+			const registry = new CustomProviderRegistry(
+				storageContext(),
+				() => ({ dispose: () => { } }),
+				undefined,
+				noSharedRegistration
+			);
 
 			try {
 				// Anthropic requires a key, so a blank one is refused by the
@@ -245,7 +262,12 @@ suite('custom providers', () => {
 		test('refuses a kind Positron cannot configure', async () => {
 			writeConfig(configPath, {});
 			await initProviderCatalog(context, { configPath });
-			const registry = new CustomProviderRegistry(storageContext(), () => ({ dispose: () => { } }));
+			const registry = new CustomProviderRegistry(
+				storageContext(),
+				() => ({ dispose: () => { } }),
+				undefined,
+				noSharedRegistration
+			);
 
 			try {
 				await assert.rejects(
@@ -257,7 +279,7 @@ suite('custom providers', () => {
 			}
 		});
 
-		test('stores the credential under the entry name, which is where Posit Assistant reads it', async () => {
+		test('stores the credential under the entry name, which is the scope it is read by', async () => {
 			writeConfig(configPath, {});
 			await initProviderCatalog(context, { configPath });
 			// No live endpoint to check the key against, so the check is stubbed
@@ -265,7 +287,8 @@ suite('custom providers', () => {
 			const registry = new CustomProviderRegistry(
 				storageContext(),
 				() => ({ dispose: () => { } }),
-				() => undefined
+				() => undefined,
+				noSharedRegistration
 			);
 
 			try {
@@ -378,32 +401,262 @@ suite('custom providers', () => {
 	});
 
 	suite('registration', () => {
-		test('registering an entry fires a session change, which is how a stale "unregistered" verdict recovers', async () => {
+		test('registering an entry fires a session change on the shared provider, which is how a stale "unregistered" verdict recovers', async () => {
 			writeConfig(configPath, {
 				custom: { 'My Gateway': { type: 'openai-compatible', baseUrl: 'https://gateway.example.com/v1' } },
 			});
 			await initProviderCatalog(context, { configPath });
 
-			const fired: string[] = [];
-			const subscription = vscode.authentication.onDidChangeSessions(e => fired.push(e.provider.id));
-			// Registering the model source would reach the real workbench; the
-			// auth registration inside register() is the part under test.
+			// Registering the model source would reach the real workbench, and
+			// the extension's own activation already holds the shared auth
+			// provider's id, so capture what would have been registered and
+			// listen to it directly. Delivering the event to other extensions is
+			// extHostAuthentication's job, not this registry's.
+			let registeredId: string | undefined;
+			let shared: vscode.AuthenticationProvider | undefined;
 			const registry = new CustomProviderRegistry(
 				storageContext(),
-				() => ({ dispose: () => { } })
+				() => ({ dispose: () => { } }),
+				undefined,
+				(id, _label, provider) => {
+					registeredId = id;
+					shared = provider;
+					return { dispose: () => { } };
+				}
 			);
+			const fired: vscode.AuthenticationProviderAuthenticationSessionsChangeEvent[] = [];
+			const subscription = shared!.onDidChangeSessions(e => fired.push(e));
+
 			try {
 				await registry.reconcile();
-				await waitFor(() => fired.includes('My Gateway'));
+				await waitFor(() => fired.length > 0);
 			} finally {
 				subscription.dispose();
 				registry.dispose();
 			}
 
-			assert.ok(
-				fired.includes('My Gateway'),
-				'Posit Assistant only learns an entry registered from this event'
+			assert.deepStrictEqual({
+				// One static id for every entry, so it can be allowlisted in
+				// product.json. The entry name is a scope now, not a provider id.
+				registeredId,
+				events: fired.length,
+			}, {
+				registeredId: POSITRON_CUSTOM_AUTH_PROVIDER_ID,
+				events: 1,
+			});
+		});
+	});
+
+
+	suite('the shared auth provider', () => {
+		/**
+		 * One aggregate holding real `AuthProvider` delegates, each with a key
+		 * already stored, so routing is exercised against the same code the
+		 * modal drives rather than a stand-in.
+		 */
+		async function aggregateWith(
+			entries: Record<string, string>
+		): Promise<{ aggregate: CustomProviderAggregate; delegates: Map<string, AuthProvider> }> {
+			const aggregate = new CustomProviderAggregate();
+			const delegates = new Map<string, AuthProvider>();
+			const context = storageContext();
+			for (const [name, key] of Object.entries(entries)) {
+				const delegate = new AuthProvider(name, name, context);
+				await delegate.storeKey(`account-${name}`, name, key);
+				await aggregate.addProvider(name, delegate);
+				delegates.set(name, delegate);
+			}
+			return { aggregate, delegates };
+		}
+
+		test('a scoped read names one entry, an unscoped read is the union, and an ambiguous read has no answer', async () => {
+			const { aggregate } = await aggregateWith({ 'my anthropic': 'sk-a', 'my openai': 'sk-o' });
+			// The scope comes back stamped on every session, which is how the
+			// caller tells whose key it was handed.
+			const read = async (scopes?: string[]) =>
+				(await aggregate.getSessions(scopes)).map(s => `${s.scopes.join('|')}=${s.accessToken}`);
+
+			try {
+				assert.deepStrictEqual({
+					scoped: await read(['my anthropic']),
+					noScopes: await read(undefined),
+					emptyScopes: await read([]),
+					unknownScope: await read(['not an entry']),
+					twoScopes: await read(['my anthropic', 'my openai']),
+				}, {
+					scoped: ['my anthropic=sk-a'],
+					noScopes: ['my anthropic=sk-a', 'my openai=sk-o'],
+					emptyScopes: ['my anthropic=sk-a', 'my openai=sk-o'],
+					unknownScope: [],
+					// A lookup that cannot name one entry has no answer. The
+					// union here would hand the caller some other endpoint's key.
+					twoScopes: [],
+				});
+			} finally {
+				aggregate.dispose();
+			}
+		});
+
+		test('signing in names exactly one entry', async () => {
+			const { aggregate } = await aggregateWith({ 'my anthropic': 'sk-a' });
+			// The delegating path prompts for a key, so what is checked here is
+			// the aggregate's own logic: which calls it refuses, and why.
+			const refusal = async (scopes: string[]) => {
+				try {
+					await aggregate.createSession(scopes);
+					return 'no error';
+				} catch (err) {
+					return (err as Error).message;
+				}
+			};
+
+			try {
+				assert.deepStrictEqual({
+					none: await refusal([]),
+					unknown: await refusal(['not an entry']),
+					two: await refusal(['my anthropic', 'my openai']),
+				}, {
+					none: 'Adding a custom provider account here cannot tell which provider you mean. Use Configure LLM Providers instead.',
+					unknown: 'No custom provider named "not an entry" is registered.',
+					two: 'Signing in names exactly one custom provider, but 2 were given.',
+				});
+			} finally {
+				aggregate.dispose();
+			}
+		});
+
+		test('removing a session reaches the entry that owns it and no other', async () => {
+			const { aggregate, delegates } = await aggregateWith({ 'my anthropic': 'sk-a', 'my openai': 'sk-o' });
+			try {
+				await aggregate.removeSession('account-my anthropic');
+				assert.deepStrictEqual({
+					anthropic: await delegates.get('my anthropic')!.getSessions(),
+					openai: (await delegates.get('my openai')!.getSessions()).map(s => s.accessToken),
+				}, {
+					anthropic: [],
+					openai: ['sk-o'],
+				});
+			} finally {
+				aggregate.dispose();
+			}
+		});
+
+		test('an entry leaving and coming back is reported, so no stale account is left behind', async () => {
+			// The case that motivates it: a delegate removed while it still had
+			// a live session. The shared provider stays registered and
+			// AuthProvider.dispose() fires nothing, so if this event is missing
+			// the account sits in the Accounts menu until the window reloads.
+			const delegate = new AuthProvider('my anthropic', 'my anthropic', storageContext());
+			await delegate.storeKey('account-1', 'my anthropic', 'sk-a');
+			const aggregate = new CustomProviderAggregate();
+
+			const seen: string[] = [];
+			const subscription = aggregate.onDidChangeSessions(e => seen.push([
+				`added:${(e.added ?? []).map(s => s.scopes.join('|')).join(',')}`,
+				`removed:${(e.removed ?? []).map(s => s.scopes.join('|')).join(',')}`,
+			].join(' ')));
+
+			try {
+				await aggregate.addProvider('my anthropic', delegate);
+				const whileRegistered = await aggregate.getSessions(['my anthropic']);
+				await aggregate.removeProvider('my anthropic');
+				const whileGone = await aggregate.getSessions(['my anthropic']);
+				await aggregate.addProvider('my anthropic', delegate);
+
+				assert.deepStrictEqual({
+					events: seen,
+					whileRegistered: whileRegistered.length,
+					whileGone: whileGone.length,
+				}, {
+					events: [
+						'added:my anthropic removed:',
+						'added: removed:my anthropic',
+						'added:my anthropic removed:',
+					],
+					whileRegistered: 1,
+					whileGone: 0,
+				});
+			} finally {
+				subscription.dispose();
+				aggregate.dispose();
+			}
+		});
+	});
+
+	suite('names', () => {
+		test('the reserved names are every auth provider id the manifest declares', () => {
+			const declared: string[] =
+				vscode.extensions.getExtension('positron.authentication')!
+					.packageJSON.contributes.authentication
+					.map((entry: { id: string }) => entry.id);
+			// The guard exists to protect configDialog's maps, which are keyed
+			// by these ids, so a provider declared without being reserved is a
+			// name a custom entry could still take over.
+			assert.deepStrictEqual(
+				[...reservedAuthProviderIdsForTest].sort(),
+				declared.sort()
 			);
+		});
+
+		test('a hand-written entry named after a built-in provider does not register, and leaves it intact', async () => {
+			// Hand-written, not through the form: reconcile registers whatever
+			// the catalog holds, so a guard that only sat in create() would let
+			// this through and this test would pass with it in the wrong place.
+			const builtin = new AuthProvider(ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', storageContext());
+			const validator = async () => { };
+			registerAuthProvider(ANTHROPIC_AUTH_PROVIDER_ID, builtin, { validateApiKey: validator });
+
+			writeConfig(configPath, {
+				custom: {
+					[ANTHROPIC_AUTH_PROVIDER_ID]: { type: 'anthropic' },
+					[POSITRON_CUSTOM_AUTH_PROVIDER_ID]: { type: 'openai' },
+					'My Gateway': { type: 'openai-compatible' },
+				},
+			});
+			await initProviderCatalog(context, { configPath });
+			const registry = new CustomProviderRegistry(
+				storageContext(),
+				() => ({ dispose: () => { } }),
+				() => undefined,
+				noSharedRegistration
+			);
+
+			try {
+				await registry.reconcile();
+				assert.deepStrictEqual({
+					registered: registry.registeredIds,
+					builtinUntouched: authProviders.get(ANTHROPIC_AUTH_PROVIDER_ID) === builtin,
+					aggregateIdFree: authProviders.has(POSITRON_CUSTOM_AUTH_PROVIDER_ID),
+				}, {
+					registered: ['My Gateway'],
+					builtinUntouched: true,
+					aggregateIdFree: false,
+				});
+			} finally {
+				registry.dispose();
+				unregisterAuthProvider(ANTHROPIC_AUTH_PROVIDER_ID);
+			}
+		});
+
+		test('the form refuses a reserved name and writes nothing', async () => {
+			writeConfig(configPath, {});
+			await initProviderCatalog(context, { configPath });
+			const registry = new CustomProviderRegistry(
+				storageContext(),
+				() => ({ dispose: () => { } }),
+				() => undefined,
+				noSharedRegistration
+			);
+
+			try {
+				await assert.rejects(
+					registry.create({ name: ANTHROPIC_AUTH_PROVIDER_ID, kind: 'anthropic' }),
+					/reserved for a built-in provider/
+				);
+				assert.strictEqual(readConfig(configPath).providers.custom, undefined);
+			} finally {
+				registry.dispose();
+			}
 		});
 	});
 
