@@ -24,6 +24,13 @@ export type DuckDBRow = Record<string, unknown>;
 export interface IDuckDBQueryClient {
 	/** Run a SQL query with optional named ($name) parameters and return its rows. */
 	runQuery(sql: string, params?: Record<string, string>): Promise<DuckDBRow[]>;
+
+	/**
+	 * Fires when the worker dies and is replaced. A replacement worker starts with an empty `temp`
+	 * schema, so anything cached there -- see `IDuckDBReadPlan` -- has to be rebuilt. Optional, so a
+	 * fake that only answers queries still satisfies this interface.
+	 */
+	readonly onDidCrash?: vscode.Event<void>;
 }
 
 /**
