@@ -109,8 +109,9 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 
 	// A map of window IDs to disposables for navigation event listeners. We
 	// attach a single listener to each window to capture frame navigation
-	// events.
-	private readonly _navigationListeners = new Map<WebviewWindowId, IDisposable>();
+	// events. Keyed by the numeric window ID; callers pass a fresh
+	// WebviewWindowId object each call, so the object itself is not a stable key.
+	private readonly _navigationListeners = new Map<number, IDisposable>();
 
 	// A map of pending frame navigations, from the URL of the frame to the
 	// promise that will be resolved when a frame navigates to that URL.
@@ -152,7 +153,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 
 		// If we aren't already listening for navigation events on this window,
 		// set up a listener to capture them
-		if (!this._navigationListeners.has(windowId)) {
+		if (!this._navigationListeners.has(windowId.windowId)) {
 			// Event handler for navigation events
 			const onNavigated = (_event: any,
 				url: string,
@@ -190,7 +191,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 					window.win!.webContents.off('before-input-event', onBeforeInput);
 				}
 			};
-			this._navigationListeners.set(windowId, disposable);
+			this._navigationListeners.set(windowId.windowId, disposable);
 
 			// Register the disposable so we can clean up when the service is
 			// disposed
@@ -222,17 +223,24 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	/**
 	 * Whether the frame is a Positron webview guest frame hosting external
 	 * (cross-origin) content, e.g. a Shiny app in the Viewer. Such a frame loads
-	 * an http(s) URL directly inside the vscode-webview:// wrapper
-	 * (index-external.html), which distinguishes it from the workbench and from
-	 * same-origin webviews.
+	 * an http(s) URL inside the vscode-webview:// wrapper (index-external.html),
+	 * which distinguishes it from the workbench and from same-origin webviews.
+	 * The wrapper may be several levels up rather than the direct parent, since
+	 * Viewer content can nest iframes (e.g. Quarto dashboards, tags$iframe), so
+	 * walk the parent chain looking for a vscode-webview:// ancestor.
 	 *
 	 * @param frame The frame to test.
 	 */
 	private isViewerGuestFrame(frame: Electron.WebFrameMain | null): boolean {
-		return !!frame
-			&& /^https?:\/\//.test(frame.url)
-			&& !!frame.parent
-			&& frame.parent.url.startsWith(`${Schemas.vscodeWebview}://`);
+		if (!frame || !/^https?:\/\//.test(frame.url)) {
+			return false;
+		}
+		for (let parent = frame.parent; parent; parent = parent.parent) {
+			if (parent.url.startsWith(`${Schemas.vscodeWebview}://`)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -247,7 +255,10 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	 * @param params The context menu parameters from the context-menu event.
 	 */
 	private showFrameContextMenu(window: Electron.BrowserWindow, params: Electron.ContextMenuParams): void {
-		if (!this.isViewerGuestFrame(window.webContents.focusedFrame)) {
+		// Gate on the frame the menu was invoked in, not the focused frame; the
+		// two differ when Viewer content is right-clicked without first being
+		// focused.
+		if (!this.isViewerGuestFrame(params.frame)) {
 			return;
 		}
 

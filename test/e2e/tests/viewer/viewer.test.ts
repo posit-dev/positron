@@ -112,7 +112,7 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 	test('R - Verify selected text can be copied from a Shiny app in the Viewer', {
 		tag: [tags.ARK, tags.WIN]
 	}, async function ({ app, page, r }) {
-		const { console, viewer, editors, hotKeys } = app.workbench;
+		const { console, viewer, editors, clipboard, hotKeys } = app.workbench;
 
 		// runApp blocks the console, so paste and run it rather than waiting for
 		// a returned prompt.
@@ -120,6 +120,10 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 		await console.sendEnterKey();
 		await viewer.expectViewerPanelVisible();
 		await viewer.expectContentVisible(frame => frame.getByText(VIEWER_COPY_PROBE));
+
+		// Seed the clipboard so a no-op copy can't pass on a probe left behind by
+		// an earlier test.
+		await clipboard.setClipboardText('__SEED__');
 
 		// Double-click focuses the webview frame and selects the word, then copy.
 		await viewer.getViewerFrame().getByText(VIEWER_COPY_PROBE).dblclick();
@@ -133,6 +137,10 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 		await page.locator('.monaco-editor[data-uri$="Untitled-1"] .view-lines').click();
 		await hotKeys.paste();
 		await editors.expectEditorToContain(VIEWER_COPY_PROBE);
+
+		// runApp is still blocking the console; interrupt it so the session is
+		// left at a prompt and the file stays safe to extend.
+		await console.interruptExecution();
 	});
 });
 
