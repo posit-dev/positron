@@ -16,14 +16,13 @@ import {
 } from '../databricksClient.js';
 import { createCatalogNode, createSchemaNode, formatFileSize } from '../databricksNodes.js';
 import { databricksDisplayType, parseDescribeRows } from '../databricksSql.js';
-import { generateConnectionCode, parseDatabricksHost, parseDatabricksHttpPath, validateRequired } from '../databricksDriver.js';
+import { checkWorkspaceAccess, generateConnectionCode, parseDatabricksHost, parseDatabricksHttpPath, validateRequired, WorkspaceProbe } from '../databricksDriver.js';
 
 // Default config for tests -- not used to connect, just to construct.
 const TEST_CONFIG: DatabricksConnectionConfig = {
 	host: 'dbc-a1b2c3d4.cloud.databricks.com',
 	httpPath: '/sql/1.0/warehouses/abc123',
-	authType: 'pat',
-	token: 'dapi-test-token',
+	getToken: async () => 'dapi-test-token',
 };
 
 // A no-op Data Explorer host: these tests exercise schema browsing, not previewing, and a real
@@ -625,22 +624,37 @@ suite('Databricks Client', () => {
 
 	const noSleep = async () => { };
 
-	test('maps each mechanism onto the SDK auth options', () => {
-		const pat = connectionOptions({ ...TEST_CONFIG });
-		const u2m = connectionOptions({ ...TEST_CONFIG, authType: 'u2m', token: undefined });
-		const m2m = connectionOptions({ ...TEST_CONFIG, authType: 'm2m', token: undefined, clientId: 'cid', clientSecret: 'secret' });
+	test('delegates auth to a token callback rather than embedding a credential', async () => {
+		const options = connectionOptions({ ...TEST_CONFIG });
 
-		assert.strictEqual(pat.token, 'dapi-test-token');
-		assert.strictEqual(pat.authType, undefined);
-		assert.strictEqual(u2m.authType, 'databricks-oauth');
-		assert.strictEqual(u2m.oauthClientId, undefined);
 		assert.deepStrictEqual(
-			{ authType: m2m.authType, id: m2m.oauthClientId, secret: m2m.oauthClientSecret },
-			{ authType: 'databricks-oauth', id: 'cid', secret: 'secret' });
-		// Every mechanism shares the locators and the precision/telemetry posture.
-		assert.deepStrictEqual(
-			{ host: pat.host, path: pat.path, precise: pat.preserveBigNumericPrecision, telemetry: pat.telemetryEnabled },
-			{ host: TEST_CONFIG.host, path: TEST_CONFIG.httpPath, precise: true, telemetry: false });
+			{
+				host: options.host,
+				path: options.path,
+				authType: options.authType,
+				precise: options.preserveBigNumericPrecision,
+				telemetry: options.telemetryEnabled,
+			},
+			{
+				host: TEST_CONFIG.host,
+				path: TEST_CONFIG.httpPath,
+				authType: 'external-token',
+				precise: true,
+				telemetry: false,
+			});
+		// No credential is stored in the options; the SDK calls back for one.
+		assert.strictEqual(await (options.getToken as () => Promise<string>)(), 'dapi-test-token');
+	});
+
+	test('passes the callback through, so a refreshed token is picked up without reconnecting', async () => {
+		const tokens = ['first-token', 'second-token'];
+		const options = connectionOptions({ ...TEST_CONFIG, getToken: async () => tokens.shift()! });
+
+		// The callback is forwarded, not invoked once and cached, so each SDK call gets the
+		// current token.
+		const getToken = options.getToken as () => Promise<string>;
+		assert.strictEqual(await getToken(), 'first-token');
+		assert.strictEqual(await getToken(), 'second-token');
 	});
 
 	test('passes queries through the connected session', async () => {
@@ -833,23 +847,60 @@ suite('Databricks Required Parameters', () => {
 
 	const locators = { host: 'example.cloud.databricks.com', httpPath: '/sql/1.0/warehouses/abc' };
 
-	test('the locators are required by every mechanism', () => {
-		for (const mechanism of ['pat', 'oauth-u2m', 'oauth-m2m']) {
-			assert.throws(() => validateRequired(mechanism, { httpPath: locators.httpPath }), /Server Hostname is required/);
-			assert.throws(() => validateRequired(mechanism, { host: locators.host }), /HTTP Path is required/);
+	test('both locators are required', () => {
+		assert.throws(() => validateRequired({ httpPath: locators.httpPath }), /Server Hostname is required/);
+		assert.throws(() => validateRequired({ host: locators.host }), /HTTP Path is required/);
+	});
+
+	test('the locators are all that is required; the credential comes from the auth provider', () => {
+		assert.doesNotThrow(() => validateRequired({ ...locators }));
+	});
+});
+
+suite('Databricks Workspace Access Check', () => {
+
+	const host = 'example.cloud.databricks.com';
+
+	/** A probe answering with the given status, recording the host and token it was asked about. */
+	function stubProbe(status: number) {
+		const calls: Array<{ host: string; token: string }> = [];
+		const probe: WorkspaceProbe = async (probedHost, token) => {
+			calls.push({ host: probedHost, token });
+			return status;
+		};
+		return { probe, calls };
+	}
+
+	test('a token the workspace rejects names the mismatch rather than surfacing a bare 401', async () => {
+		for (const status of [401, 403]) {
+			const { probe } = stubProbe(status);
+			await assert.rejects(
+				() => checkWorkspaceAccess(host, 'token-for-another-workspace', probe),
+				new RegExp(`sign-in is not valid for the workspace at ${host}`));
 		}
 	});
 
-	test('each mechanism requires its own credentials', () => {
-		assert.throws(() => validateRequired('pat', { ...locators }), /Access Token is required/);
-		assert.throws(() => validateRequired('oauth-m2m', { ...locators }), /Client ID is required/);
-		assert.throws(() => validateRequired('oauth-m2m', { ...locators, clientId: 'cid' }), /Client Secret is required/);
-		// Interactive sign-in needs nothing beyond the locators.
-		assert.doesNotThrow(() => validateRequired('oauth-u2m', { ...locators }));
+	test('the check asks the workspace being connected to, presenting the session token', async () => {
+		const { probe, calls } = stubProbe(200);
+		await checkWorkspaceAccess(host, 'dapi-test-token', probe);
+
+		assert.deepStrictEqual(calls, [{ host, token: 'dapi-test-token' }]);
 	});
 
-	test('an unknown mechanism is rejected', () => {
-		assert.throws(() => validateRequired('nope', { ...locators }), /Unknown connection mechanism/);
+	test('a workspace that accepts the token passes', async () => {
+		const { probe } = stubProbe(200);
+		await assert.doesNotReject(() => checkWorkspaceAccess(host, 'good-token', probe));
+	});
+
+	test('an unreachable workspace does not block the connection', async () => {
+		// The check only sharpens an error message; a network failure is the connection's to report.
+		const probe: WorkspaceProbe = async () => { throw new Error('ENOTFOUND'); };
+		await assert.doesNotReject(() => checkWorkspaceAccess(host, 'token', probe));
+	});
+
+	test('a non-auth error status does not block the connection', async () => {
+		const { probe } = stubProbe(500);
+		await assert.doesNotReject(() => checkWorkspaceAccess(host, 'token', probe));
 	});
 });
 
@@ -862,73 +913,51 @@ suite('Databricks Connection Code', () => {
 		httpPath: '/sql/warehouses/abc123',
 	};
 
-	function code(mechanismId: string, languageId: string, params: Record<string, string>): string {
-		const variants = generateConnectionCode(mechanismId, languageId, { ...locators, ...params });
+	function code(languageId: string, params: Record<string, string> = {}): string {
+		const variants = generateConnectionCode(languageId, { ...locators, ...params });
 		return variants.length > 0 ? variants[0].code : '';
 	}
 
-	test('Python PAT code carries the normalized locators and the token', () => {
-		assert.strictEqual(code('pat', 'python', { token: 'dapi123' }),
+	test('Python code carries the normalized locators and the session settings', () => {
+		assert.strictEqual(code('python', { catalog: 'main', schema: 'sales' }),
 			'from databricks import sql\n\n' +
 			'conn = sql.connect(\n' +
 			'\tserver_hostname="example.cloud.databricks.com",\n' +
 			'\thttp_path="/sql/1.0/warehouses/abc123",\n' +
-			'\taccess_token="dapi123",\n' +
-			')\n');
-	});
-
-	test('Python U2M code asks the connector for the browser flow', () => {
-		assert.strictEqual(code('oauth-u2m', 'python', { catalog: 'main', schema: 'sales' }),
-			'from databricks import sql\n\n' +
-			'conn = sql.connect(\n' +
-			'\tserver_hostname="example.cloud.databricks.com",\n' +
-			'\thttp_path="/sql/1.0/warehouses/abc123",\n' +
-			'\tauth_type="databricks-oauth",\n' +
 			'\tcatalog="main",\n' +
 			'\tschema="sales",\n' +
 			')\n');
 	});
 
-	test('Python M2M code builds a service-principal credentials provider', () => {
-		// The connector has no inline client-credentials option, so the code defines the provider the
-		// SDK expects rather than passing the secret to sql.connect directly.
-		const generated = code('oauth-m2m', 'python', { clientId: 'cid', clientSecret: 'secret' });
-		assert.match(generated, /from databricks\.sdk\.core import Config, oauth_service_principal/);
-		assert.match(generated, /host="https:\/\/example\.cloud\.databricks\.com",/);
-		assert.match(generated, /client_id="cid",/);
-		assert.match(generated, /credentials_provider=credential_provider,/);
-	});
-
-	test('R PAT code passes the token as the password with the "token" user', () => {
-		assert.strictEqual(code('pat', 'r', { token: 'dapi123' }),
+	test('R code carries the normalized locators and the session settings', () => {
+		assert.strictEqual(code('r', { catalog: 'main' }),
 			'library(DBI)\n\n' +
 			'con <- dbConnect(\n' +
 			'\todbc::databricks(),\n' +
 			'\tworkspace = "https://example.cloud.databricks.com",\n' +
 			'\thttpPath = "/sql/1.0/warehouses/abc123",\n' +
-			'\tuid = "token",\n' +
-			'\tpwd = "dapi123"\n' +
+			'\tcatalog = "main"\n' +
 			')\n');
 	});
 
-	test('R U2M code supplies no credentials, leaving odbc to run the browser flow', () => {
-		const generated = code('oauth-u2m', 'r', {});
-		assert.match(generated, /odbc::databricks\(\)/);
-		assert.doesNotMatch(generated, /pwd|uid/);
+	test('no credential is embedded in the generated code', () => {
+		// The snippet runs in the user's own session, which resolves its own credential; a token
+		// from the extension host's auth session would neither be valid there nor belong in a
+		// copyable code block.
+		for (const languageId of ['python', 'r']) {
+			const generated = code(languageId);
+			assert.doesNotMatch(generated, /access_token|auth_type|credentials_provider|client_secret|pwd|uid/);
+		}
 	});
 
-	test('no code is generated where it cannot be faithful', () => {
-		// R has no inline form for a service principal's credentials; an unsupported language and a
-		// missing required parameter likewise yield nothing rather than half-working code.
-		assert.deepStrictEqual(generateConnectionCode('oauth-m2m', 'r', { ...locators, clientId: 'cid', clientSecret: 's' }), []);
-		assert.deepStrictEqual(generateConnectionCode('pat', 'julia', { ...locators, token: 'dapi123' }), []);
-		assert.deepStrictEqual(generateConnectionCode('pat', 'python', { ...locators }), []);
-		assert.deepStrictEqual(generateConnectionCode('pat', 'python', { token: 'dapi123' }), []);
+	test('no code is generated for an unsupported language or a missing locator', () => {
+		assert.deepStrictEqual(generateConnectionCode('julia', { ...locators }), []);
+		assert.deepStrictEqual(generateConnectionCode('python', { host: locators.host }), []);
+		assert.deepStrictEqual(generateConnectionCode('python', { httpPath: locators.httpPath }), []);
 	});
 
 	test('quotes in a value are escaped rather than closing the literal', () => {
-		const generated = code('pat', 'python', { token: 'dapi"123', catalog: 'my"catalog' });
-		assert.match(generated, /access_token="dapi\\"123"/);
-		assert.match(generated, /catalog="my\\"catalog"/);
+		assert.match(code('python', { catalog: 'my"catalog' }), /catalog="my\\"catalog"/);
+		assert.match(code('r', { schema: 'my"schema' }), /schema = "my\\"schema"/);
 	});
 });

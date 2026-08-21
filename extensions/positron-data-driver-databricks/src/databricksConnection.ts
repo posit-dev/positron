@@ -62,7 +62,7 @@ export class DatabricksConnection implements positron.DataConnection, IDatabrick
 		if (!this._client) {
 			throw new Error('Databricks connection has been disconnected');
 		}
-		this._logger?.info(`Connecting to ${this._config.host}${this._config.httpPath} (${this._config.authType})`);
+		this._logger?.info(`Connecting to ${this._config.host}${this._config.httpPath}`);
 		try {
 			await this._client.connect();
 		} catch (err: any) {

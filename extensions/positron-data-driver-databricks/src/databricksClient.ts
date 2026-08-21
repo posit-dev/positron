@@ -8,7 +8,9 @@
 //
 //   1. Two objects, not one. The SDK splits a connection into a client (transport + auth) and a
 //      session (the server-side SQL context). Both are created here and torn down together, so the
-//      rest of the driver still sees a single `connect()`/`query()`/`end()` surface.
+//      rest of the driver still sees a single `connect()`/`query()`/`end()` surface. Auth is not
+//      owned here at all: the client is handed a token callback that the authentication extension
+//      backs.
 //
 //   2. Statements are operations. `executeStatement` hands back a handle whose rows are fetched
 //      separately and which must be closed to release server resources. `query()` owns that whole
@@ -22,33 +24,20 @@
 
 import { DBSQLClient } from '@databricks/sql';
 
-/** How the connection authenticates. Each value maps to a distinct @databricks/sql auth config. */
-export type DatabricksAuthType =
-	/** Personal access token, supplied as a bearer token. */
-	| 'pat'
-	/** OAuth user-to-machine: the SDK opens the system browser to complete sign-in. */
-	| 'u2m'
-	/** OAuth machine-to-machine: a service principal's client id and secret. */
-	| 'm2m';
+/** Supplies a bearer token for the workspace, called again whenever the SDK needs a fresh one. */
+export type DatabricksTokenProvider = () => Promise<string>;
 
 /**
- * Normalized Databricks connection options, independent of any single auth mechanism. Built by the
- * driver from the selected mechanism's parameter values. Only the fields relevant to a mechanism are
- * set; the rest are left undefined.
+ * Normalized Databricks connection options. Built by the driver from the connection's parameter
+ * values, with the credential supplied as a callback rather than a stored secret.
  */
 export interface DatabricksConnectionOptions {
 	/** The workspace hostname, without a scheme (e.g. `dbc-abc123.cloud.databricks.com`). */
 	host: string;
 	/** The compute resource's HTTP path (e.g. `/sql/1.0/warehouses/abc123def456`). */
 	httpPath: string;
-	/** Which auth flow to use. */
-	authType: DatabricksAuthType;
-	/** The personal access token (PAT auth). */
-	token?: string;
-	/** The service principal's client id (M2M auth). */
-	clientId?: string;
-	/** The service principal's client secret (M2M auth). */
-	clientSecret?: string;
+	/** Supplies the bearer token to authenticate with. */
+	getToken: DatabricksTokenProvider;
 	/** The initial current catalog. Optional. */
 	catalog?: string;
 	/** The initial current schema. Optional. */
@@ -111,13 +100,17 @@ const defaultClientFactory: DatabricksSdkClientFactory = () =>
 	new DBSQLClient() as unknown as IDatabricksSdkClient;
 
 /**
- * Translates normalized options into the @databricks/sql connect options for the chosen auth flow.
+ * Translates normalized options into the @databricks/sql connect options.
  * Exported for unit tests, which assert the mapping without opening a connection.
  */
 export function connectionOptions(options: DatabricksConnectionOptions): Record<string, unknown> {
-	const base: Record<string, unknown> = {
+	return {
 		host: options.host,
 		path: options.httpPath,
+		// The SDK calls back for a bearer token whenever it needs one, so a token refreshed behind
+		// our back is picked up without rebuilding the connection.
+		authType: 'external-token',
+		getToken: options.getToken,
 		// Identifies Positron in the workspace's query history and audit logs.
 		userAgentEntry: 'Positron',
 		// Return DECIMAL columns as exact strings and BIGINT as bigint rather than coercing both to a
@@ -128,23 +121,6 @@ export function connectionOptions(options: DatabricksConnectionOptions): Record<
 		// still recorded in the workspace's own query history, which is the workspace admin's to see.
 		telemetryEnabled: false,
 	};
-	switch (options.authType) {
-		case 'pat':
-			return { ...base, token: options.token };
-		case 'u2m':
-			// The SDK runs the OAuth authorization-code flow: it opens the system browser and listens
-			// on a loopback redirect for the result.
-			return { ...base, authType: 'databricks-oauth' };
-		case 'm2m':
-			// Supplying a client id and secret switches the same OAuth path to the client-credentials
-			// grant, with no browser interaction.
-			return {
-				...base,
-				authType: 'databricks-oauth',
-				oauthClientId: options.clientId,
-				oauthClientSecret: options.clientSecret,
-			};
-	}
 }
 
 // Connect-retry budget. A SQL warehouse that is starting up, or a transient network hiccup, can drop

@@ -3,38 +3,100 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// The Databricks data connection driver. It offers the three auth mechanisms Databricks documents for
-// SQL clients, all backed by @databricks/sql:
-//   - Personal Access Token (PAT): a token minted in the workspace, sent as a bearer token.
-//   - OAuth User-to-Machine (U2M): interactive sign-in; the SDK opens the system browser and
-//     completes the authorization-code flow on a loopback redirect.
-//   - OAuth Machine-to-Machine (M2M): a service principal's client id and secret, exchanged for a
-//     token with no user interaction.
-// Every mechanism takes the same two locators -- the workspace hostname and the compute resource's
-// HTTP path -- plus the same optional session settings (catalog, schema), and hands off to the same
-// reconnecting DatabricksClient.
+// The Databricks data connection driver. It does not authenticate: the authentication extension owns
+// every Databricks credential path (interactive OAuth, DATABRICKS_TOKEN, a .databrickscfg profile,
+// Workbench-managed credentials, or a personal access token), and this driver asks it for a session.
+// A connection therefore collects only the two locators -- the workspace hostname and the compute
+// resource's HTTP path -- plus the optional session settings (catalog, schema).
 
 import { readFileSync } from 'fs';
+import * as https from 'https';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DatabricksConnection } from './databricksConnection.js';
-import { DatabricksAuthType, DatabricksConnectionOptions } from './databricksClient.js';
+import { DatabricksConnectionOptions } from './databricksClient.js';
 import { DatabricksDataExplorerRpcHandler } from './databricksDataExplorerRpcHandler.js';
 
-/** The id of the personal-access-token connection mechanism. */
-const PAT_MECHANISM_ID = 'pat';
-/** The id of the OAuth user-to-machine (interactive browser) connection mechanism. */
-const OAUTH_U2M_MECHANISM_ID = 'oauth-u2m';
-/** The id of the OAuth machine-to-machine (service principal) connection mechanism. */
-const OAUTH_M2M_MECHANISM_ID = 'oauth-m2m';
+/** The id of the sole connection mechanism, which authenticates via the authentication extension. */
+const SIGN_IN_MECHANISM_ID = 'sign-in';
 
-/** Maps a mechanism id to the auth flow the client should use. */
-const MECHANISM_AUTH_TYPES = new Map<string, DatabricksAuthType>([
-	[PAT_MECHANISM_ID, 'pat'],
-	[OAUTH_U2M_MECHANISM_ID, 'u2m'],
-	[OAUTH_M2M_MECHANISM_ID, 'm2m'],
-]);
+/** The authentication extension's Databricks provider. */
+const DATABRICKS_AUTH_PROVIDER_ID = 'databricks';
+
+/** How long to wait for the workspace to answer the sign-in check. */
+const WORKSPACE_CHECK_TIMEOUT_MS = 10_000;
+
+/** Asks a workspace who a token belongs to, resolving to the HTTP status. Replaced in tests. */
+export type WorkspaceProbe = (host: string, token: string) => Promise<number>;
+
+/**
+ * Calls the workspace's SCIM Me endpoint and resolves to its status code. Uses `https` rather than
+ * `fetch` because this extension's `@types/node` predates the global, as the sibling drivers' does.
+ */
+function probeWorkspace(host: string, token: string): Promise<number> {
+	return new Promise((resolve, reject) => {
+		const request = https.request(
+			{
+				host,
+				path: '/api/2.0/preview/scim/v2/Me',
+				method: 'GET',
+				headers: { 'Authorization': `Bearer ${token}` },
+				timeout: WORKSPACE_CHECK_TIMEOUT_MS,
+			},
+			response => {
+				// The status is all this needs; drain the body so the socket can be reused.
+				response.resume();
+				resolve(response.statusCode ?? 0);
+			}
+		);
+		request.on('timeout', () => request.destroy(new Error('Databricks workspace check timed out')));
+		request.on('error', reject);
+		request.end();
+	});
+}
+
+/**
+ * Fetches a bearer token from the authentication extension, prompting the user to sign in when there
+ * is no session yet. Called by the SDK whenever it needs a token, so a rotated or refreshed
+ * credential is picked up without reconnecting.
+ */
+async function getDatabricksToken(): Promise<string> {
+	const session = await vscode.authentication.getSession(
+		DATABRICKS_AUTH_PROVIDER_ID, [], { createIfNone: true });
+	return session.accessToken;
+}
+
+/**
+ * Checks that the signed-in session is actually valid for the workspace this connection targets.
+ *
+ * The sign-in is global to Positron but the host is chosen per connection, so the two can disagree --
+ * a user signed into one workspace can point a connection at another. The token is then rejected by
+ * the SQL endpoint as a bare 401, which reads as "your credentials are broken" rather than "you are
+ * signed into a different workspace". Asking the target workspace who the token belongs to turns that
+ * into a message naming the mismatch. This is the one check that holds for every credential path,
+ * including the .databrickscfg and Workbench-managed ones whose sessions carry no host at all.
+ */
+export async function checkWorkspaceAccess(
+	host: string,
+	token: string,
+	probe: WorkspaceProbe = probeWorkspace
+): Promise<void> {
+	let status: number;
+	try {
+		status = await probe(host, token);
+	} catch {
+		// Unreachable or timed out. Let the connection itself proceed and report the failure, rather
+		// than blocking on a check that is only meant to sharpen an error message.
+		return;
+	}
+	if (status === 401 || status === 403) {
+		throw new Error(vscode.l10n.t(
+			'Your Databricks sign-in is not valid for the workspace at {0}. Sign out of Databricks and sign in to that workspace, or change the Server Hostname to the workspace you are signed in to.',
+			host
+		));
+	}
+}
 
 /** Type guard for a non-empty string. */
 function isNonEmptyString(value: unknown): value is string {
@@ -169,82 +231,43 @@ function httpPathParameter(): positron.DataConnectionParameter {
 
 // --- Normalized codegen fields ---
 
-/** Normalized fields for generating connection code, tagged by the mechanism that produced them. */
+/** Normalized fields for generating connection code. */
 interface DatabricksCodegenFields extends DatabricksCommonFields {
-	mechanism: typeof PAT_MECHANISM_ID | typeof OAUTH_U2M_MECHANISM_ID | typeof OAUTH_M2M_MECHANISM_ID;
 	host: string;
 	httpPath: string;
-	token?: string;
-	clientId?: string;
-	clientSecret?: string;
 }
 
-/** Renders databricks-sql-connector (the `databricks.sql` Python package) connection code. */
+/**
+ * Renders databricks-sql-connector (the `databricks.sql` Python package) connection code. No
+ * credential is embedded: the generated snippet runs in the user's own session, where the connector
+ * resolves a credential itself from DATABRICKS_TOKEN, a .databrickscfg profile, or a browser sign-in.
+ */
 function renderPythonCode(fields: DatabricksCodegenFields): positron.ConnectionCodeVariant {
-	const imports = ['from databricks import sql'];
-	const prelude: string[] = [];
 	const args: string[] = [
 		`server_hostname="${escapeDoubleQuoted(fields.host)}"`,
 		`http_path="${escapeDoubleQuoted(fields.httpPath)}"`,
 	];
-
-	switch (fields.mechanism) {
-		case PAT_MECHANISM_ID:
-			if (fields.token) { args.push(`access_token="${escapeDoubleQuoted(fields.token)}"`); }
-			break;
-		case OAUTH_U2M_MECHANISM_ID:
-			// The connector opens the system browser to complete sign-in.
-			args.push('auth_type="databricks-oauth"');
-			break;
-		case OAUTH_M2M_MECHANISM_ID:
-			// The connector has no inline client-credentials option; it takes a credentials provider
-			// built from the SDK's Config, which performs the token exchange.
-			imports.push('from databricks.sdk.core import Config, oauth_service_principal');
-			prelude.push(
-				'def credential_provider():',
-				'\tconfig = Config(',
-				`\t\thost="https://${escapeDoubleQuoted(fields.host)}",`,
-				`\t\tclient_id="${escapeDoubleQuoted(fields.clientId ?? '')}",`,
-				`\t\tclient_secret="${escapeDoubleQuoted(fields.clientSecret ?? '')}",`,
-				'\t)',
-				'\treturn oauth_service_principal(config)',
-			);
-			args.push('credentials_provider=credential_provider');
-			break;
-	}
-
 	if (fields.catalog) { args.push(`catalog="${escapeDoubleQuoted(fields.catalog)}"`); }
 	if (fields.schema) { args.push(`schema="${escapeDoubleQuoted(fields.schema)}"`); }
 
-	const preludeBlock = prelude.length > 0 ? `${prelude.join('\n')}\n\n` : '';
 	return {
 		id: 'databricks-sql-connector',
 		label: 'databricks.sql',
-		code: `${imports.join('\n')}\n\n${preludeBlock}conn = sql.connect(\n${args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
+		code: `from databricks import sql\n\nconn = sql.connect(\n${args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
 	};
 }
 
 /**
- * Renders DBI/odbc connection code via the odbc package's Databricks helper. The machine-to-machine
- * flow is Python-only: `odbc::databricks()` reads a service principal's credentials from the
- * environment (DATABRICKS_CLIENT_ID / DATABRICKS_CLIENT_SECRET) rather than from inline arguments, so
- * there is nothing faithful to generate for it.
+ * Renders DBI/odbc connection code via the odbc package's Databricks helper. With no credentials
+ * supplied, `odbc::databricks()` runs its own resolution: a .databrickscfg profile, else interactive
+ * OAuth.
  */
-function renderRCode(fields: DatabricksCodegenFields): positron.ConnectionCodeVariant | undefined {
-	if (fields.mechanism === OAUTH_M2M_MECHANISM_ID) {
-		return undefined;
-	}
+function renderRCode(fields: DatabricksCodegenFields): positron.ConnectionCodeVariant {
 	const args: string[] = [
 		'odbc::databricks()',
 		`workspace = "https://${escapeDoubleQuoted(fields.host)}"`,
 		`httpPath = "${escapeDoubleQuoted(fields.httpPath)}"`,
 	];
-	if (fields.mechanism === PAT_MECHANISM_ID && fields.token) {
-		// The Databricks ODBC driver takes a personal access token as the password, with the literal
-		// user name "token".
-		args.push('uid = "token"', `pwd = "${escapeDoubleQuoted(fields.token)}"`);
-	}
-	// With no credentials supplied, odbc::databricks() runs the interactive OAuth (U2M) flow itself.
 	if (fields.catalog) { args.push(`catalog = "${escapeDoubleQuoted(fields.catalog)}"`); }
 	if (fields.schema) { args.push(`schema = "${escapeDoubleQuoted(fields.schema)}"`); }
 
@@ -256,11 +279,8 @@ function renderRCode(fields: DatabricksCodegenFields): positron.ConnectionCodeVa
 	};
 }
 
-/**
- * Maps a mechanism's parameter values to normalized codegen fields, or undefined when a field
- * required for that mechanism is missing.
- */
-function codegenFields(mechanismId: string, params: positron.DataConnectionParameterValues): DatabricksCodegenFields | undefined {
+/** Maps parameter values to normalized codegen fields, or undefined when a locator is missing. */
+function codegenFields(params: positron.DataConnectionParameterValues): DatabricksCodegenFields | undefined {
 	if (!isNonEmptyString(params.host) || !isNonEmptyString(params.httpPath)) {
 		return undefined;
 	}
@@ -269,114 +289,49 @@ function codegenFields(mechanismId: string, params: positron.DataConnectionParam
 	if (!host || !httpPath) {
 		return undefined;
 	}
-	const common = commonFields(params);
-	switch (mechanismId) {
-		case PAT_MECHANISM_ID:
-			if (!isNonEmptyString(params.token)) {
-				return undefined;
-			}
-			return { mechanism: PAT_MECHANISM_ID, host, httpPath, ...common, token: params.token };
-		case OAUTH_U2M_MECHANISM_ID:
-			// Only the locators are needed; the browser sign-in establishes the identity.
-			return { mechanism: OAUTH_U2M_MECHANISM_ID, host, httpPath, ...common };
-		case OAUTH_M2M_MECHANISM_ID:
-			if (!isNonEmptyString(params.clientId) || !isNonEmptyString(params.clientSecret)) {
-				return undefined;
-			}
-			return {
-				mechanism: OAUTH_M2M_MECHANISM_ID, host, httpPath, ...common,
-				clientId: params.clientId,
-				clientSecret: params.clientSecret,
-			};
-		default:
-			return undefined;
-	}
+	return { host, httpPath, ...commonFields(params) };
 }
 
 /**
- * Generates the connection code variants for a mechanism's parameter values in the given language, or
- * an empty array when the language is unsupported or a required parameter is missing. Exported (and
- * called by the driver's `generateConnectionCode`) so it can be tested without an extension context.
+ * Generates the connection code variants for the given parameter values and language, or an empty
+ * array when the language is unsupported or a locator is missing. Exported (and called by the
+ * driver's `generateConnectionCode`) so it can be tested without an extension context.
  */
-export function generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): positron.ConnectionCodeVariant[] {
-	return generateConnectionCodeForFields(languageId, codegenFields(mechanismId, params));
-}
-
-/** Generates the connection code variants for the given language and normalized fields. */
-function generateConnectionCodeForFields(languageId: string, fields: DatabricksCodegenFields | undefined): positron.ConnectionCodeVariant[] {
+export function generateConnectionCode(languageId: string, params: positron.DataConnectionParameterValues): positron.ConnectionCodeVariant[] {
+	const fields = codegenFields(params);
 	if (!fields) {
 		return [];
 	}
 	switch (languageId) {
 		case 'python':
 			return [renderPythonCode(fields)];
-		case 'r': {
-			const variant = renderRCode(fields);
-			return variant ? [variant] : [];
-		}
+		case 'r':
+			return [renderRCode(fields)];
 		default:
 			return [];
 	}
 }
 
-/** Builds the normalized connection options for a mechanism's parameter values. */
-function connectionConfig(mechanismId: string, params: positron.DataConnectionParameterValues): DatabricksConnectionOptions {
-	const authType = MECHANISM_AUTH_TYPES.get(mechanismId);
-	if (!authType) {
-		throw new Error(vscode.l10n.t("Unknown connection mechanism '{0}'.", mechanismId));
-	}
-	const base: DatabricksConnectionOptions = {
+/** Builds the normalized connection options for the given parameter values. */
+function connectionConfig(params: positron.DataConnectionParameterValues): DatabricksConnectionOptions {
+	return {
 		host: parseDatabricksHost(params.host as string),
 		httpPath: parseDatabricksHttpPath(params.httpPath as string),
-		authType,
+		getToken: getDatabricksToken,
 		...commonFields(params),
 	};
-	switch (mechanismId) {
-		case PAT_MECHANISM_ID:
-			return { ...base, token: params.token as string };
-		case OAUTH_U2M_MECHANISM_ID:
-			return base;
-		case OAUTH_M2M_MECHANISM_ID:
-			return {
-				...base,
-				clientId: params.clientId as string,
-				clientSecret: params.clientSecret as string,
-			};
-		default:
-			throw new Error(vscode.l10n.t("Unknown connection mechanism '{0}'.", mechanismId));
-	}
 }
 
 /**
- * Validates that the required parameters for a mechanism are present, throwing a localized error for
- * the first missing one.
+ * Validates that the required parameters are present, throwing a localized error for the first
+ * missing one.
  */
-export function validateRequired(mechanismId: string, params: positron.DataConnectionParameterValues): void {
+export function validateRequired(params: positron.DataConnectionParameterValues): void {
 	if (!isNonEmptyString(params.host)) {
 		throw new Error(vscode.l10n.t('Server Hostname is required'));
 	}
 	if (!isNonEmptyString(params.httpPath)) {
 		throw new Error(vscode.l10n.t('HTTP Path is required'));
-	}
-	switch (mechanismId) {
-		case PAT_MECHANISM_ID:
-			if (!isNonEmptyString(params.token)) {
-				throw new Error(vscode.l10n.t('Access Token is required'));
-			}
-			break;
-		case OAUTH_U2M_MECHANISM_ID:
-			// Only the locators are required; the browser sign-in establishes the identity.
-			break;
-		case OAUTH_M2M_MECHANISM_ID:
-			if (!isNonEmptyString(params.clientId)) {
-				throw new Error(vscode.l10n.t('Client ID is required'));
-			}
-			if (!isNonEmptyString(params.clientSecret)) {
-				throw new Error(vscode.l10n.t('Client Secret is required'));
-			}
-			break;
-		default:
-			throw new Error(vscode.l10n.t("Unknown connection mechanism '{0}'.", mechanismId));
 	}
 }
 
@@ -395,68 +350,17 @@ export function createDatabricksDriver(
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'databricks.svg');
 	const iconSvg = readFileSync(iconPath, 'utf-8');
 
-	// Personal Access Token: a token minted in the workspace, sent as a bearer token.
-	const patMechanism: positron.DataConnectionMechanism = {
-		id: PAT_MECHANISM_ID,
-		label: vscode.l10n.t('Personal Access Token'),
-		description: vscode.l10n.t('Connect with a personal access token generated in your Databricks workspace.'),
-		parameters: [
-			hostParameter(),
-			httpPathParameter(),
-			{
-				id: 'token',
-				label: vscode.l10n.t('Access Token'),
-				description: vscode.l10n.t('The personal access token.'),
-				type: positron.DataConnectionParameterType.Password,
-				secret: true,
-				required: true,
-			},
-			...commonParameters(),
-		],
-	};
-
-	// OAuth User-to-Machine: interactive sign-in through the system browser.
-	const u2mMechanism: positron.DataConnectionMechanism = {
-		id: OAUTH_U2M_MECHANISM_ID,
-		label: vscode.l10n.t('OAuth User-to-Machine (U2M)'),
-		description: vscode.l10n.t('Sign in interactively through your web browser.'),
+	// The only mechanism: the locators, with the credential coming from the authentication extension.
+	const signInMechanism: positron.DataConnectionMechanism = {
+		id: SIGN_IN_MECHANISM_ID,
+		label: vscode.l10n.t('Databricks'),
+		description: vscode.l10n.t('Connect using your Databricks sign-in. You will be prompted to sign in if you have not already.'),
 		parameters: [
 			hostParameter(),
 			httpPathParameter(),
 			...commonParameters(),
 		],
 	};
-
-	// OAuth Machine-to-Machine: a service principal's client id and secret.
-	const m2mMechanism: positron.DataConnectionMechanism = {
-		id: OAUTH_M2M_MECHANISM_ID,
-		label: vscode.l10n.t('OAuth Machine-to-Machine (M2M)'),
-		description: vscode.l10n.t("Connect as a service principal using its OAuth client id and secret."),
-		parameters: [
-			hostParameter(),
-			httpPathParameter(),
-			{
-				id: 'clientId',
-				label: vscode.l10n.t('Client ID'),
-				description: vscode.l10n.t("The service principal's application (client) id."),
-				type: positron.DataConnectionParameterType.String,
-				required: true,
-			},
-			{
-				id: 'clientSecret',
-				label: vscode.l10n.t('Client Secret'),
-				description: vscode.l10n.t("The service principal's OAuth secret."),
-				type: positron.DataConnectionParameterType.Password,
-				secret: true,
-				required: true,
-			},
-			...commonParameters(),
-		],
-	};
-
-	// Dialog order: the token flow leads (it needs no identity-provider round-trip), then interactive
-	// sign-in, then the service-principal flow.
-	const mechanisms = [patMechanism, u2mMechanism, m2mMechanism];
 
 	return {
 		id: 'positron-data-driver-databricks',
@@ -464,15 +368,19 @@ export function createDatabricksDriver(
 		description: vscode.l10n.t('Connect to a Databricks workspace'),
 		iconSvg,
 		supportedLanguageIds: ['python', 'r'],
-		mechanisms,
-		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
-			validateRequired(mechanismId, params);
-			const connection = new DatabricksConnection(connectionConfig(mechanismId, params), dataExplorerHandler, logger);
+		mechanisms: [signInMechanism],
+		async connect(_mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
+			validateRequired(params);
+			const config = connectionConfig(params);
+			// Sign in (prompting if needed) and confirm the session covers this workspace before
+			// opening a session against it.
+			await checkWorkspaceAccess(config.host, await config.getToken());
+			const connection = new DatabricksConnection(config, dataExplorerHandler, logger);
 			await connection.connect();
 			return connection;
 		},
-		async generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
-			return generateConnectionCode(mechanismId, languageId, params);
+		async generateConnectionCode(_mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
+			return generateConnectionCode(languageId, params);
 		},
 	};
 }
