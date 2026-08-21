@@ -18,9 +18,12 @@ import {
 	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
+	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
+	SNOWFLAKE_AUTH_PROVIDER_ID,
 } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
+import { CustomProviderRegistry, isAddCustomProviderRequest, isRemoveCustomProviderRequest } from './customProviderRegistry';
 import { getProviderSources, PROVIDER_METADATA } from './providerSources';
 import {
 	normalizeToV1Url,
@@ -190,10 +193,29 @@ export async function activate(context: vscode.ExtensionContext) {
 		context.subscriptions.push(disposable);
 	}
 
+	// Custom entries are registered from the catalog rather than a fixed list,
+	// and re-reconciled whenever providers.json changes.
+	const customProviders = new CustomProviderRegistry(context);
+	context.subscriptions.push(customProviders);
+	await customProviders.reconcile();
+
 	// Reactive updates: send all auth session changes through updateProvider
 	// so the dialog and other listeners see updated signedIn state immediately.
 	context.subscriptions.push(
 		vscode.authentication.onDidChangeSessions(async (e) => {
+			if (e.provider.id === POSITRON_CUSTOM_AUTH_PROVIDER_ID) {
+				// One auth provider serves every custom entry, so the event
+				// doesn't say which entry moved, and nothing in `authProviders`
+				// answers to its id. Refresh each registered entry from its own
+				// delegate, which is still keyed by the entry name.
+				for (const id of customProviders.registeredIds) {
+					const entry = authProviders.get(id);
+					if (entry) {
+						await updateProviderFromSessions(id, await entry.getSessions());
+					}
+				}
+				return;
+			}
 			const provider = authProviders.get(e.provider.id);
 			if (provider) {
 				const sessions = await provider.getSessions();
@@ -224,6 +246,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// in the catalog, and re-resolve chain sessions whose connection changed.
 	context.subscriptions.push(
 		onDidChangeProviderCatalog(async (e) => {
+			await customProviders.reconcile(e);
 			for (const metadata of Object.values(PROVIDER_METADATA)) {
 				const { id, catalogId } = metadata;
 				if (!catalogId) {
@@ -251,6 +274,36 @@ export async function activate(context: vscode.ExtensionContext) {
 			'authentication.configureProviders',
 			async (options?: positron.ai.ShowLanguageModelConfigOptions) => {
 				return positron.ai.showLanguageModelConfig(options);
+			}
+		),
+	);
+
+	// The Add Custom Provider form's write. It has to happen here rather than
+	// through the modal's usual provider action, which is keyed on an already
+	// registered provider id: a new entry has none until this creates it.
+	// Errors travel back to the form, which shows them inline.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'authentication.addCustomProvider',
+			async (request: unknown) => {
+				if (!isAddCustomProviderRequest(request)) {
+					throw new Error(vscode.l10n.t('A provider name and type are required.'));
+				}
+				await customProviders.create(request);
+			}
+		),
+	);
+	// The Delete Provider action's write. Same reason as the add above: the
+	// modal's provider action is keyed on a provider id, and this one
+	// unregisters it. Errors travel back to the confirmation screen.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'authentication.removeCustomProvider',
+			async (request: unknown) => {
+				if (!isRemoveCustomProviderRequest(request)) {
+					throw new Error(vscode.l10n.t('A provider name is required.'));
+				}
+				await customProviders.remove(request.name);
 			}
 		),
 	);
@@ -432,7 +485,7 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 	let pendingMtime: number | undefined;
 
 	const provider = new AuthProvider(
-		'snowflake-cortex', 'Snowflake Cortex', context,
+		SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', context,
 		undefined,
 		{
 			resolve: async () => {
@@ -479,12 +532,12 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			'snowflake-cortex', 'Snowflake Cortex', provider,
+			SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', provider,
 			{ supportsMultipleAccounts: false }
 		),
 		provider
 	);
-	registerAuthProvider('snowflake-cortex', provider, {
+	registerAuthProvider(SNOWFLAKE_AUTH_PROVIDER_ID, provider, {
 		validateApiKey: validateSnowflakeApiKey,
 		onSave: async (config) => {
 			// baseUrl carries the bare account (#13750); persist it as the
@@ -765,11 +818,11 @@ function registerCustomProvider(
 	context: vscode.ExtensionContext
 ): void {
 	const provider = new AuthProvider(
-		CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'Custom Provider', context
+		CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'OpenAI Compatible', context
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'Custom Provider', provider,
+			CUSTOM_PROVIDER_AUTH_PROVIDER_ID, 'OpenAI Compatible', provider,
 			{ supportsMultipleAccounts: true }
 		),
 		provider

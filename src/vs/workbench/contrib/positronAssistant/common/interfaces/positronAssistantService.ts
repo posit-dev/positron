@@ -86,6 +86,13 @@ export interface IPositronProviderMetadata {
 	 * 'preview', then 'experimental'.
 	 */
 	status?: 'preview' | 'experimental';
+	/**
+	 * For a provider that comes from a `providers.custom` entry, the entry's
+	 * type (its client kind, e.g. 'anthropic'). Undefined for built-in
+	 * providers. The modal shows the entry under that vendor's icon and marks
+	 * the row as custom.
+	 */
+	customKind?: string;
 	/** Optional data URL for the provider icon (e.g., data:image/svg+xml;base64,...) */
 	logoUrl?: string;
 }
@@ -242,6 +249,17 @@ export interface IPositronAssistantConfigurationService {
 	 * registerProvider, unregisterProvider, or updateProvider.
 	 */
 	readonly onChangeProviderConfig: Event<IPositronLanguageModelSource>;
+
+	/**
+	 * Event that fires when the set of registered providers changes, i.e. on
+	 * registerProvider and unregisterProvider but not on updateProvider.
+	 *
+	 * Separate from onChangeProviderConfig because a listener cannot tell an
+	 * update from an arrival or a departure by looking at the source alone. The
+	 * set is no longer fixed after activation: custom providers are registered
+	 * from providers.json, so one can appear or disappear at any point.
+	 */
+	readonly onChangeProviderRegistrations: Event<void>;
 
 	/**
 	 * Gets the list of enabled provider IDs from configuration.

@@ -26,16 +26,23 @@ function source(id: string, signedIn = false): IPositronLanguageModelSource {
 const Probe = (props: {
 	onConfigChange: (s: IPositronLanguageModelSource) => void;
 	onSignedInChange: (id: string, signedIn: boolean) => void;
+	onRegistrationsChange?: () => void;
 }) => {
-	useProviderUpdates(['posit-ai'], props.onConfigChange, props.onSignedInChange);
+	useProviderUpdates([{ id: 'posit-ai' }], props.onConfigChange, props.onSignedInChange, props.onRegistrationsChange);
 	return <div>probe</div>;
 };
 
 describe('useProviderUpdates', () => {
 	const onChange = new Emitter<IPositronLanguageModelSource>();
+	const onRegistrations = new Emitter<void>();
+	const onEnabledProviders = new Emitter<void>();
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IPositronAssistantConfigurationService, { onChangeProviderConfig: onChange.event })
+		.stub(IPositronAssistantConfigurationService, {
+			onChangeProviderConfig: onChange.event,
+			onChangeProviderRegistrations: onRegistrations.event,
+			onChangeEnabledProviders: onEnabledProviders.event,
+		})
 		.stub(IAuthenticationService, { onDidChangeSessions: () => ({ dispose() { } }), getSessions: async () => [] })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -53,5 +60,37 @@ describe('useProviderUpdates', () => {
 		rtl.render(<Probe onConfigChange={onConfigChange} onSignedInChange={vi.fn()} />);
 		act(() => onChange.fire(source('anthropic-api', true)));
 		expect(onConfigChange).not.toHaveBeenCalled();
+	});
+
+	it('reports registration changes without filtering on the tracked ids', () => {
+		// A provider that has just been registered is not in the tracked list
+		// yet, so this signal cannot be filtered the way config changes are.
+		const onRegistrationsChange = vi.fn();
+		rtl.render(
+			<Probe
+				onConfigChange={vi.fn()}
+				onRegistrationsChange={onRegistrationsChange}
+				onSignedInChange={vi.fn()}
+			/>
+		);
+		act(() => onRegistrations.fire());
+		expect(onRegistrationsChange).toHaveBeenCalledTimes(1);
+	});
+
+	it('reports an enablement change too, which is what makes a just-added provider appear', () => {
+		// A source shows only when the catalog says its provider is enabled, and
+		// the workbench reads that catalog on its own watch: registration lands
+		// first, enablement after. Without this the new row would wait for the
+		// modal to be reopened.
+		const onRegistrationsChange = vi.fn();
+		rtl.render(
+			<Probe
+				onConfigChange={vi.fn()}
+				onRegistrationsChange={onRegistrationsChange}
+				onSignedInChange={vi.fn()}
+			/>
+		);
+		act(() => onEnabledProviders.fire());
+		expect(onRegistrationsChange).toHaveBeenCalledTimes(1);
 	});
 });

@@ -59,14 +59,31 @@ describe('ProviderList', () => {
 	});
 
 	it('renders the custom provider as a normal Model Providers row when unconnected', () => {
-		rtl.render(<ProviderList sources={[source({ id: 'openai-compatible', displayName: 'Custom Provider', signedIn: false })]} onSelectProvider={vi.fn()} />);
-		expect(screen.getByText('Custom Provider')).toBeInTheDocument();
+		rtl.render(<ProviderList sources={[source({ id: 'openai-compatible', displayName: 'OpenAI Compatible', signedIn: false })]} onSelectProvider={vi.fn()} />);
+		expect(screen.getByText('OpenAI Compatible')).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: /Add custom provider/ })).not.toBeInTheDocument();
 	});
 
 	it('shows the built-in description for a known provider', () => {
 		rtl.render(<ProviderList sources={[source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: false })]} onSelectProvider={vi.fn()} />);
 		expect(screen.getByText('Access Claude models directly via Anthropic API')).toBeInTheDocument();
+	});
+
+	it('puts a disconnected custom entry under Custom Providers, above the Add button', () => {
+		rtl.render(<ProviderList
+			sources={[
+				source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: false }),
+				source({ id: 'My Gateway', provider: { id: 'My Gateway', displayName: 'My Gateway', customKind: 'anthropic' }, signedIn: false }),
+			]}
+			onAddCustomProvider={vi.fn()}
+			onSelectProvider={vi.fn()}
+		/>);
+		// Custom Providers comes last, so the entry sits directly above the Add button.
+		expect(screen.getAllByText(/Providers$/).map(el => el.textContent)).toEqual(['Model Providers', 'Custom Providers']);
+		expect(screen.getByTestId('provider-row-My Gateway')).toHaveAttribute('data-provider-section', 'custom');
+		// The entry says what type it is, so two entries of different types are
+		// told apart without connecting either one.
+		expect(screen.getByText('Custom Anthropic provider')).toBeInTheDocument();
 	});
 
 	it('reports the source when Connect is clicked on Posit AI', async () => {
@@ -117,5 +134,17 @@ describe('ProviderList', () => {
 		expect(onSelectProvider).toHaveBeenCalledWith(
 			expect.objectContaining({ provider: expect.objectContaining({ id: 'anthropic-api' }) }),
 		);
+	});
+	it('starts the Add Custom Provider flow from the affordance below the sections', async () => {
+		const onAddCustomProvider = vi.fn();
+		const user = userEvent.setup();
+		rtl.render(<ProviderList sources={availableAnthropic} onAddCustomProvider={onAddCustomProvider} onSelectProvider={vi.fn()} />);
+		await user.click(screen.getByRole('button', { name: /add custom provider/i }));
+		expect(onAddCustomProvider).toHaveBeenCalled();
+	});
+
+	it('hides the affordance when custom providers are not supported by the installed assistant', () => {
+		rtl.render(<ProviderList sources={availableAnthropic} onSelectProvider={vi.fn()} />);
+		expect(screen.queryByRole('button', { name: /add custom provider/i })).not.toBeInTheDocument();
 	});
 });

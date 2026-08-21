@@ -5,6 +5,8 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import type { SupportedCustomClientKind } from 'ai-config';
+import { isOfferedCustomKind } from './customProviderAuth';
 import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	ANTHROPIC_DEFAULT_BASE_URL,
@@ -23,7 +25,7 @@ import {
 	VERTEX_DEFAULT_BASE_URL,
 } from './constants';
 import { getConfiguredSnowflakeAccount } from './credentials/snowflake';
-import { getCachedProvider } from './providerCatalog';
+import { getCachedCustomProviders, getCachedProvider, type ResolvedProviderLike } from './providerCatalog';
 
 function getSavedBaseUrl(catalogId: string | undefined, fallback?: string): string | undefined {
 	return (catalogId && getCachedProvider(catalogId)?.connection.baseUrl) || fallback;
@@ -95,7 +97,7 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	},
 	customProvider: {
 		id: CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
-		displayName: 'Custom Provider',
+		displayName: 'OpenAI Compatible',
 		status: 'experimental',
 		catalogId: 'openai-compatible',
 	},
@@ -309,4 +311,106 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			},
 		},
 	];
+}
+
+/** One entry in a source's `supportedOptions` list. */
+type SupportedOption = positron.ai.LanguageModelSource['supportedOptions'][number];
+
+/**
+ * Which built-in provider a custom entry's kind takes its form from. A custom
+ * Anthropic entry asks for what the built-in Anthropic tile asks for, so the
+ * two can't drift: the list is read from the built-in source itself rather than
+ * restated here.
+ *
+ * Covers the kinds Positron offers (see `isOfferedCustomKind`), each of which
+ * has a built-in counterpart to borrow from.
+ */
+const BUILTIN_FORM_BY_KIND: Partial<Record<SupportedCustomClientKind, keyof typeof PROVIDER_METADATA>> = {
+	'openai-compatible': 'customProvider',
+	anthropic: 'anthropic',
+	openai: 'openai',
+};
+
+/**
+ * Options a custom entry never shows, whatever its built-in offers.
+ *
+ * `autoconfigure` is the env-var credential path, which belongs to the one
+ * built-in instance of a provider: `ANTHROPIC_API_KEY` is a single value and
+ * can't say which of three custom Anthropic entries it is for. `oauth` is
+ * product-bound (Posit AI, Copilot, Databricks), and those kinds aren't
+ * offered as custom entries at all. `protocol` is the API type field, which
+ * this work removes: the kind carries the wire format (#13817).
+ *
+ * `customModels` is out for a duller reason: nothing writes it for a custom
+ * entry. `saveCustomProviderModels` writes `providers[catalogId]`, a top-level
+ * block, which is the built-in `openai-compatible` provider's own entry and not
+ * `providers.custom[name]`. Offering the field here would render an input that
+ * silently discards what the user types. It arrives with create and edit
+ * (#12747), which is what grows the write path.
+ */
+const OPTIONS_NOT_FOR_CUSTOM: ReadonlySet<SupportedOption> = new Set<SupportedOption>([
+	'autoconfigure', 'oauth', 'protocol', 'customModels',
+]);
+
+/** What every offered kind needs at minimum: somewhere to call, and a key. */
+const BASE_OPTIONS: SupportedOption[] = ['apiKey', 'baseUrl'];
+
+/**
+ * The fields a custom entry of this kind collects: its built-in's own list,
+ * minus what only the built-in can use.
+ */
+function customSupportedOptions(kind: string): SupportedOption[] {
+	const builtinKey = BUILTIN_FORM_BY_KIND[kind as SupportedCustomClientKind];
+	const builtinId = builtinKey && PROVIDER_METADATA[builtinKey].id;
+	const builtin = builtinId
+		? getProviderSources().find(source => source.provider.id === builtinId)
+		: undefined;
+
+	const inherited = (builtin?.supportedOptions ?? BASE_OPTIONS)
+		.filter(option => !OPTIONS_NOT_FOR_CUSTOM.has(option));
+	return inherited.length > 0 ? inherited : BASE_OPTIONS;
+}
+
+/**
+ * Builds the model source for one `providers.custom` entry. The entry name is
+ * the provider id, the display name, and the catalog id all at once: it is the
+ * key in providers.json, and it is the scope its credential is filed under in
+ * the shared `POSITRON_CUSTOM_AUTH_PROVIDER_ID` authentication provider, so the
+ * credential is still derivable from the id alone.
+ */
+export function customProviderSource(
+	provider: ResolvedProviderLike
+): positron.ai.LanguageModelSource {
+	return {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: provider.id,
+			displayName: provider.id,
+			// The kind is what lets the modal show the entry under its vendor's
+			// icon and mark it as custom. It stands in for no maturity status:
+			// a custom entry is as mature as whatever it connects to.
+			customKind: provider.clientKind,
+			catalogId: provider.id,
+		},
+		supportedOptions: customSupportedOptions(provider.clientKind),
+		defaults: {
+			model: provider.id,
+			baseUrl: provider.connection.baseUrl ?? provider.connection.endpoint,
+			toolCalls: true,
+		},
+	};
+}
+
+/**
+ * Enabled custom entries whose client kind this host can present. Kept apart
+ * from {@link getProviderSources} because these are registered and
+ * unregistered as the config file changes, while the built-in list is fixed at
+ * activation.
+ *
+ * An entry of a kind Positron doesn't offer yet is skipped rather than shown
+ * half-configured; `isOfferedCustomKind` says which those are and why.
+ */
+export function getRegistrableCustomProviders(): ResolvedProviderLike[] {
+	return getCachedCustomProviders()
+		.filter(provider => provider.enabled && isOfferedCustomKind(provider.clientKind));
 }

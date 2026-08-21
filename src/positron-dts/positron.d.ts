@@ -3874,6 +3874,13 @@ declare module 'positron' {
 			 */
 			status?: 'preview' | 'experimental';
 			/**
+			 * For a provider that comes from a `providers.custom` entry, the
+			 * entry's type (its client kind, e.g. 'anthropic'). Undefined for
+			 * built-in providers. The configuration modal shows the entry under
+			 * that vendor's icon and marks the row as custom.
+			 */
+			customKind?: string;
+			/**
 			 * Optional data URL for the provider icon shown in the configuration dialog
 			 * (e.g., 'data:image/svg+xml;base64,...'). Falls back to built-in icons
 			 * when not provided.

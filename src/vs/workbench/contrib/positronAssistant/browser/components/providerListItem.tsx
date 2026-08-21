@@ -10,6 +10,7 @@ import { ProviderSectionId } from '../../common/providerGrouping.js';
 import { deriveAuthMethod } from '../providerConnection.js';
 import { AuthMethod } from '../types.js';
 import { LanguageModelIcon, getStatusLabel } from './languageModelButton.js';
+import { providerIconId } from '../customProviderKinds.js';
 
 interface ProviderListItemProps {
 	source: IPositronLanguageModelSource;
@@ -45,6 +46,7 @@ function actionLabel(section: ProviderSectionId): string {
 		case 'needs-attention':
 			return localize('positron.configureLLMProvidersModal.action.fix', "Fix Connection");
 		case 'model-providers':
+		case 'custom':
 			return localize('positron.configureLLMProvidersModal.action.connect', "Connect");
 	}
 }
@@ -62,11 +64,16 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 	return (
 		<div className='provider-list-item' data-provider-section={section} data-testid={`provider-row-${source.provider.id}`}>
 			<div className='provider-list-item-icon'>
-				<LanguageModelIcon logoUrl={source.provider.logoUrl} provider={source.provider.id} />
+				<LanguageModelIcon logoUrl={source.provider.logoUrl} provider={providerIconId(source.provider)} />
 			</div>
 			<div className='provider-list-item-text'>
 				<div className='provider-list-item-name'>
 					<span className='provider-list-item-display-name'>{source.provider.displayName}</span>
+					{source.provider.customKind &&
+						<span className='provider-list-item-badge custom'>
+							{localize('positron.configureLLMProvidersModal.badge.custom', "Custom")}
+						</span>
+					}
 					{maturityLabel && <span className={positronClassNames('provider-list-item-badge', source.provider.status)}>{maturityLabel}</span>}
 					{authLabel && <span className='provider-list-item-badge environment'>{authLabel}</span>}
 					{section === 'needs-attention' &&
@@ -78,13 +85,13 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 				{section === 'needs-attention' && source.statusMessage &&
 					<div className='provider-list-item-error'>{source.statusMessage}</div>
 				}
-				{section === 'model-providers' && description &&
+				{(section === 'model-providers' || section === 'custom') && description &&
 					<div className='provider-list-item-desc'>{description}</div>
 				}
 			</div>
 			<div className='provider-list-item-actions'>
 				<button className='provider-list-item-action' data-testid={`provider-action-${source.provider.id}`} type='button' onClick={onAction}>
-					{section === 'model-providers' && <span aria-hidden='true' className='codicon codicon-add' />}
+					{(section === 'model-providers' || section === 'custom') && <span aria-hidden='true' className='codicon codicon-add' />}
 					{actionLabel(section)}
 				</button>
 			</div>

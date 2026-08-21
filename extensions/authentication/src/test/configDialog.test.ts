@@ -201,7 +201,7 @@ suite('configDialog', () => {
 		chainProvider.dispose();
 	});
 
-	test('save with blank apiKey validates endpoint and succeeds for Custom Provider', async () => {
+	test('save with blank apiKey validates endpoint and succeeds for OpenAI Compatible', async () => {
 		let validatedWithEmptyKey = false;
 		const secrets = new Map<string, string>();
 		const globalState = new Map<string, unknown>();
@@ -226,7 +226,7 @@ suite('configDialog', () => {
 			},
 		} as unknown as vscode.ExtensionContext;
 		const customProvider = new AuthProvider(
-			'openai-compatible', 'Custom Provider', mockContext
+			'openai-compatible', 'OpenAI Compatible', mockContext
 		);
 		registerAuthProvider('openai-compatible', customProvider, {
 			validateApiKey: async (apiKey, _config) => {
@@ -235,7 +235,7 @@ suite('configDialog', () => {
 		});
 
 		await providerAction(
-			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'openai-compatible', displayName: 'Custom Provider' }, supportedOptions: [], defaults: {} },
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'openai-compatible', displayName: 'OpenAI Compatible' }, supportedOptions: [], defaults: {} },
 			{ model: 'local-model', baseUrl: 'http://localhost:1234/v1', apiKey: '' },
 			'save'
 		);

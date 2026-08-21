@@ -7,11 +7,18 @@ import { localize } from '../../../../../nls.js';
 import { IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
 import { groupProviders, ProviderSectionId } from '../../common/providerGrouping.js';
 import { ProviderListItem } from './providerListItem.js';
+import { customProviderDescription, isOfferedCustomProviderKind } from '../customProviderKinds.js';
 
 interface ProviderListProps {
 	sources: IPositronLanguageModelSource[];
 	/** Invoked when a provider row's action fires; the modal routes to connect / connected / not-supported. */
 	onSelectProvider: (source: IPositronLanguageModelSource) => void;
+	/**
+	 * Starts the Add Custom Provider flow. Omitted when the installed Posit
+	 * Assistant can't serve models for a custom entry yet, in which case adding
+	 * one would produce a provider with nothing behind it.
+	 */
+	onAddCustomProvider?: () => void;
 }
 
 /**
@@ -29,10 +36,24 @@ const PROVIDER_DESCRIPTIONS: Record<string, string> = {
 	'google-cloud': localize('positron.configureLLMProvidersModal.desc.googleCloud', "Gemini via Google Cloud with enterprise features"),
 	'ms-foundry': localize('positron.configureLLMProvidersModal.desc.msFoundry', "Access Azure OpenAI and AI Studio models"),
 	'openai-api': localize('positron.configureLLMProvidersModal.desc.openai', "GPT-4o, o1, and OpenAI-compatible endpoints"),
-	'openai-compatible': localize('positron.configureLLMProvidersModal.desc.custom', "Connect any OpenAI-compatible API endpoint"),
+	'openai-compatible': localize('positron.configureLLMProvidersModal.desc.custom', "Connect any endpoint that speaks the OpenAI API"),
 	'posit-ai': localize('positron.configureLLMProvidersModal.desc.positAI', "Managed model service for Positron Desktop"),
 	'snowflake-cortex': localize('positron.configureLLMProvidersModal.desc.snowflake', "Access LLMs via Snowflake data platform"),
 };
+
+/**
+ * The one-line description for a row. A custom entry describes its type ("Custom
+ * Anthropic provider") so two entries of different types are told apart; a
+ * built-in gets its blurb from the map above. A hand-authored entry of a kind
+ * Positron doesn't offer has nothing useful to say, so it gets no line.
+ */
+function descriptionFor(source: IPositronLanguageModelSource): string | undefined {
+	const kind = source.provider.customKind;
+	if (kind) {
+		return isOfferedCustomProviderKind(kind) ? customProviderDescription(kind) : undefined;
+	}
+	return PROVIDER_DESCRIPTIONS[source.provider.id];
+}
 
 /** Localized heading per section id. */
 function sectionTitle(id: ProviderSectionId): string {
@@ -43,6 +64,8 @@ function sectionTitle(id: ProviderSectionId): string {
 			return localize('positron.configureLLMProvidersModal.section.needsAttention', "Needs Attention");
 		case 'model-providers':
 			return localize('positron.configureLLMProvidersModal.section.modelProviders', "Model Providers");
+		case 'custom':
+			return localize('positron.configureLLMProvidersModal.section.custom', "Custom Providers");
 	}
 }
 
@@ -58,7 +81,7 @@ export const ProviderList = (props: ProviderListProps) => {
 					{section.items.map(item => (
 						<ProviderListItem
 							key={item.provider.id}
-							description={PROVIDER_DESCRIPTIONS[item.provider.id]}
+							description={descriptionFor(item)}
 							section={section.id}
 							source={item}
 							onAction={() => props.onSelectProvider(item)}
@@ -66,6 +89,23 @@ export const ProviderList = (props: ProviderListProps) => {
 					))}
 				</div>
 			))}
+			{/* A custom provider is something you create rather than something on
+			offer, so its entry point sits below the sections in the scrollable list
+			rather than among the rows. The footer stays for Back and Close. Once
+			created, the provider appears as its own row: under Connected Providers
+			while it has a working credential, and under Custom Providers, right
+			above this button, when it does not. */}
+			{props.onAddCustomProvider &&
+				<button
+					className='provider-list-add-custom'
+					data-testid='provider-add-custom-button'
+					type='button'
+					onClick={props.onAddCustomProvider}
+				>
+					<span aria-hidden='true' className='codicon codicon-add' />
+					{localize('positron.configureLLMProvidersModal.addCustom', "Add Custom Provider")}
+				</button>
+			}
 		</div>
 	);
 };

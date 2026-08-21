@@ -64,7 +64,7 @@ const databricksOAuth: IPositronLanguageModelSource = {
 
 const custom: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'openai-compatible', displayName: 'Custom Provider', settingName: 'openai-compatible' },
+	provider: { id: 'openai-compatible', displayName: 'OpenAI Compatible', settingName: 'openai-compatible' },
 	supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'protocol', 'customModels'],
 	signedIn: false,
 	defaults: { protocol: 'openai-chat' },
@@ -271,27 +271,27 @@ describe('ConnectProviderView', () => {
 		expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
 	});
 
-	it('spins only the Remove button (not Connect) while an error-state remove is in flight', async () => {
+	it('spins only the Disconnect button (not Connect) while an error-state disconnect is in flight', async () => {
 		const erroredAnthropic = { ...anthropic, status: 'error' as const, signedIn: false };
-		let resolveRemove = () => { };
-		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveRemove = resolve; }));
+		let resolveDisconnect = () => { };
+		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveDisconnect = resolve; }));
 		const user = userEvent.setup();
 		rtl.render(<ConnectProviderView source={erroredAnthropic} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
-		await user.click(screen.getByRole('button', { name: 'Remove' }));
-		expect(screen.getByRole('button', { name: 'Removing...' })).toBeDisabled();
+		await user.click(screen.getByRole('button', { name: 'Disconnect' }));
+		expect(screen.getByRole('button', { name: 'Disconnecting...' })).toBeDisabled();
 		expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
-		await act(async () => { resolveRemove(); });
+		await act(async () => { resolveDisconnect(); });
 	});
 
-	it('keeps Connect disabled while removing an errored, signed-in OAuth provider', async () => {
+	it('keeps Connect disabled while disconnecting an errored, signed-in OAuth provider', async () => {
 		const erroredPositAi = { ...positAi, signedIn: true, status: 'error' as const };
-		let resolveRemove = () => { };
-		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveRemove = resolve; }));
+		let resolveDisconnect = () => { };
+		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveDisconnect = resolve; }));
 		const user = userEvent.setup();
 		rtl.render(<ConnectProviderView source={erroredPositAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
-		await user.click(screen.getByRole('button', { name: 'Remove' }));
+		await user.click(screen.getByRole('button', { name: 'Disconnect' }));
 		expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled();
-		await act(async () => { resolveRemove(); });
+		await act(async () => { resolveDisconnect(); });
 	});
 
 	it('shows no separate progress bar while an action is in flight', async () => {
