@@ -6,7 +6,7 @@
 import { IPositronLanguageModelSource } from './interfaces/positronAssistantService.js';
 
 /** Section identifiers for the built-in provider groups, in fixed display order. */
-export type ProviderSectionId = 'connected' | 'needs-attention' | 'model-providers';
+export type ProviderSectionId = 'connected' | 'needs-attention' | 'model-providers' | 'custom';
 
 /** A non-empty group of providers to render under one heading. */
 export interface ProviderSection {
@@ -14,7 +14,7 @@ export interface ProviderSection {
 	items: IPositronLanguageModelSource[];
 }
 
-const SECTION_ORDER: ProviderSectionId[] = ['connected', 'needs-attention', 'model-providers'];
+const SECTION_ORDER: ProviderSectionId[] = ['connected', 'needs-attention', 'model-providers', 'custom'];
 
 /** Only chat providers (and the copilot-auth completion provider) are shown, mirroring the legacy modal. */
 function isDisplayable(source: IPositronLanguageModelSource): boolean {
@@ -32,6 +32,11 @@ function sectionFor(source: IPositronLanguageModelSource): ProviderSectionId {
 	}
 	if (source.signedIn) {
 		return 'connected';
+	}
+	// An entry the user created is not something Positron offers, so it gets its
+	// own section rather than sitting in the built-in catalogue while signed out.
+	if (source.provider.customKind) {
+		return 'custom';
 	}
 	return 'model-providers';
 }
@@ -67,9 +72,9 @@ function compareSources(a: IPositronLanguageModelSource, b: IPositronLanguageMod
 /**
  * Groups language model sources into ordered, non-empty sections for the
  * Configure LLM Providers modal: Connected, then Needs Attention, then Model
- * Providers. Within a section, providers are ordered Posit AI first, then by
- * maturity (stable, then preview, then experimental), and alphabetically by
- * display name within the same rank.
+ * Providers, then Custom Providers. Within a section, providers are ordered
+ * Posit AI first, then by maturity (stable, then preview, then experimental),
+ * and alphabetically by display name within the same rank.
  */
 export function groupProviders(sources: IPositronLanguageModelSource[]): ProviderSection[] {
 	const buckets = new Map<ProviderSectionId, IPositronLanguageModelSource[]>();

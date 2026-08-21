@@ -79,10 +79,13 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 		?? localize('positron.connectedProvider.error', "This provider reported a problem with its configuration or credentials.");
 
 
-	const title = authMethod === AuthMethod.OAUTH ? localize('positron.connectedProvider.signOut', "Sign Out") : localize('positron.connectedProvider.remove', "Remove");
+	// "Disconnect", not "Remove": it clears the stored credential and leaves the
+	// provider in the list with its settings intact. Deleting a custom entry is a
+	// different action, and the two must not read the same.
+	const title = authMethod === AuthMethod.OAUTH ? localize('positron.connectedProvider.signOut', "Sign Out") : localize('positron.connectedProvider.disconnect', "Disconnect");
 	const loadingTitle = authMethod === AuthMethod.OAUTH
 		? localize('positron.connectedProvider.signingOut', "Signing Out...")
-		: localize('positron.connectedProvider.removing', "Removing...");
+		: localize('positron.connectedProvider.disconnecting', "Disconnecting...");
 
 	return (
 		<>

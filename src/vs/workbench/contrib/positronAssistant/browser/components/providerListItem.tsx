@@ -46,6 +46,7 @@ function actionLabel(section: ProviderSectionId): string {
 		case 'needs-attention':
 			return localize('positron.configureLLMProvidersModal.action.fix', "Fix Connection");
 		case 'model-providers':
+		case 'custom':
 			return localize('positron.configureLLMProvidersModal.action.connect', "Connect");
 	}
 }
@@ -84,13 +85,13 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 				{section === 'needs-attention' && source.statusMessage &&
 					<div className='provider-list-item-error'>{source.statusMessage}</div>
 				}
-				{section === 'model-providers' && description &&
+				{(section === 'model-providers' || section === 'custom') && description &&
 					<div className='provider-list-item-desc'>{description}</div>
 				}
 			</div>
 			<div className='provider-list-item-actions'>
 				<button className='provider-list-item-action' data-testid={`provider-action-${source.provider.id}`} type='button' onClick={onAction}>
-					{section === 'model-providers' && <span aria-hidden='true' className='codicon codicon-add' />}
+					{(section === 'model-providers' || section === 'custom') && <span aria-hidden='true' className='codicon codicon-add' />}
 					{actionLabel(section)}
 				</button>
 			</div>

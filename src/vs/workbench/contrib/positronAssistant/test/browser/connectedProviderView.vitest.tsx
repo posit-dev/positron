@@ -97,7 +97,7 @@ describe('ConnectedProviderView', () => {
 		};
 		rtl.render(<ConnectedProviderView source={envAnthropic} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
 		expect(screen.getByText(/connected via ANTHROPIC_API_KEY/i)).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument();
 	});
 
 	it('shows the managed-credentials message and no Disconnect button for PWB-managed Databricks', () => {
@@ -113,7 +113,7 @@ describe('ConnectedProviderView', () => {
 		rtl.render(<ConnectedProviderView source={managedDatabricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
 		expect(screen.getByText(/connected via oauth \(workbench managed credentials\)/i)).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Sign Out' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument();
 	});
 
 	it('shows Accounts-menu sign-out guidance and no Disconnect for GitHub Copilot', () => {
@@ -144,7 +144,7 @@ describe('ConnectedProviderView', () => {
 		await act(async () => { resolveSignOut(); });
 	});
 
-	it('shows "Removing..." while removing an API-key provider', async () => {
+	it('shows "Disconnecting..." while clearing an API-key provider', async () => {
 		const anthropic: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
 			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
@@ -152,13 +152,13 @@ describe('ConnectedProviderView', () => {
 			signedIn: true,
 			defaults: {},
 		};
-		let resolveRemove = () => { };
-		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveRemove = resolve; }));
+		let resolveDisconnect = () => { };
+		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveDisconnect = resolve; }));
 		const user = userEvent.setup();
 		rtl.render(<ConnectedProviderView source={anthropic} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
-		await user.click(screen.getByRole('button', { name: 'Remove' }));
-		expect(screen.getByRole('button', { name: 'Removing...' })).toBeDisabled();
-		await act(async () => { resolveRemove(); });
+		await user.click(screen.getByRole('button', { name: 'Disconnect' }));
+		expect(screen.getByRole('button', { name: 'Disconnecting...' })).toBeDisabled();
+		await act(async () => { resolveDisconnect(); });
 	});
 
 	it('shows no separate progress bar while an action is in flight', async () => {
@@ -171,7 +171,7 @@ describe('ConnectedProviderView', () => {
 		await act(async () => { resolve(); });
 	});
 
-	it('shows "Connected via API key" and a Remove action for a Databricks connection made with an API key, even though the provider also supports OAuth', async () => {
+	it('shows "Connected via API key" and a Disconnect action for a Databricks connection made with an API key, even though the provider also supports OAuth', async () => {
 		const databricksApiKey: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
 			provider: { id: 'databricks', displayName: 'Databricks' },
@@ -184,9 +184,9 @@ describe('ConnectedProviderView', () => {
 		const user = userEvent.setup();
 		rtl.render(<ConnectedProviderView source={databricksApiKey} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
 		expect(screen.getByText(/connected via api key/i)).toBeInTheDocument();
-		const removeButton = screen.getByRole('button', { name: 'Remove' });
-		expect(removeButton).toBeInTheDocument();
-		await user.click(removeButton);
+		const disconnectButton = screen.getByRole('button', { name: 'Disconnect' });
+		expect(disconnectButton).toBeInTheDocument();
+		await user.click(disconnectButton);
 		expect(onAction).toHaveBeenCalledWith(databricksApiKey, expect.anything(), 'delete');
 	});
 

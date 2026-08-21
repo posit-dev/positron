@@ -88,6 +88,16 @@ describe('ProviderListItem', () => {
 		expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
 	});
 
+	it('keeps the Custom badge, the description, and a Connect action in the custom section', () => {
+		render(<ProviderListItem description='Custom Anthropic provider' section='custom' source={source({
+			id: 'My Gateway',
+			provider: { id: 'My Gateway', displayName: 'My Gateway', customKind: 'anthropic' },
+		})} />);
+		expect(screen.getByText('Custom')).toBeInTheDocument();
+		expect(screen.getByText('Custom Anthropic provider')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
+	});
+
 	it('shows an Environment badge and Edit action for an env-var connected provider', () => {
 		render(<ProviderListItem section='connected' source={source({
 			id: 'a',

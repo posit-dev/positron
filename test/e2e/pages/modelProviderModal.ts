@@ -36,12 +36,12 @@ const APIKEY_INPUT = '#connect-provider-apikey-input';
 const BASEURL_INPUT = '#connect-provider-baseurl-input';
 
 // Footer buttons are rendered by the shared action bar; scope by text within the modal.
-// Substring match: also matches the in-flight "Connecting..." label, which is
-// harmless here - the click lands while the button still reads "Connect", and
-// there is only one primary button so there is no strict-mode collision.
-const CONNECT_BUTTON = `${MODAL} button.positron-button:has-text("Connect")`;
+// Substring match, so the in-flight labels ("Connecting...", "Disconnecting...")
+// match the same button. Connect excludes Disconnect explicitly: the two sit
+// together on the Fix Connection screen, and "Disconnect" contains "Connect".
+const CONNECT_BUTTON = `${MODAL} button.positron-button:has-text("Connect"):not(:has-text("Disconnect"))`;
 const SIGN_OUT_BUTTON = `${MODAL} button.positron-button:has-text("Sign out")`;
-const REMOVE_BUTTON = `${MODAL} button.positron-button:has-text("Remove")`;
+const DISCONNECT_BUTTON = `${MODAL} button.positron-button:has-text("Disconnect")`;
 const CLOSE_BUTTON = `${MODAL} button.positron-button:has-text("Close")`;
 
 /**
@@ -191,10 +191,10 @@ export class ModelProviderModal {
 				await expect(this.code.driver.currentPage.locator(CONNECTED_VIEW)).toBeVisible({ timeout });
 
 				// Env / credential-chain authenticated providers cannot be signed out from
-				// the modal (no Sign out / Remove button); treat that as a no-op close.
+				// the modal (no Sign out / Disconnect button); treat that as a no-op close.
 				const signOut = this.code.driver.currentPage.locator(SIGN_OUT_BUTTON);
-				const remove = this.code.driver.currentPage.locator(REMOVE_BUTTON);
-				const disconnect = (await signOut.isVisible()) ? signOut : (await remove.isVisible()) ? remove : undefined;
+				const clearKey = this.code.driver.currentPage.locator(DISCONNECT_BUTTON);
+				const disconnect = (await signOut.isVisible()) ? signOut : (await clearKey.isVisible()) ? clearKey : undefined;
 				if (!disconnect) {
 					await this.clickCloseButton();
 					return;

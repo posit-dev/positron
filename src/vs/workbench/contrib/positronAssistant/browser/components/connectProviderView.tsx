@@ -159,8 +159,8 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 
 	const cancelButton = props.source.status === 'error' ? {
 		title: pending === 'remove'
-			? localize('positron.connectedProvider.removing', "Removing...")
-			: localize('positron.connectedProvider.remove', "Remove"),
+			? localize('positron.connectedProvider.disconnecting', "Disconnecting...")
+			: localize('positron.connectedProvider.disconnect', "Disconnect"),
 		loading: pending === 'remove',
 		disable: inFlight,
 		onClick: async () => {

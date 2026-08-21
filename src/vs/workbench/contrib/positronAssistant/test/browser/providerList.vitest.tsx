@@ -69,6 +69,23 @@ describe('ProviderList', () => {
 		expect(screen.getByText('Access Claude models directly via Anthropic API')).toBeInTheDocument();
 	});
 
+	it('puts a disconnected custom entry under Custom Providers, above the Add button', () => {
+		rtl.render(<ProviderList
+			sources={[
+				source({ id: 'anthropic-api', displayName: 'Anthropic', signedIn: false }),
+				source({ id: 'My Gateway', provider: { id: 'My Gateway', displayName: 'My Gateway', customKind: 'anthropic' }, signedIn: false }),
+			]}
+			onAddCustomProvider={vi.fn()}
+			onSelectProvider={vi.fn()}
+		/>);
+		// Custom Providers comes last, so the entry sits directly above the Add button.
+		expect(screen.getAllByText(/Providers$/).map(el => el.textContent)).toEqual(['Model Providers', 'Custom Providers']);
+		expect(screen.getByTestId('provider-row-My Gateway')).toHaveAttribute('data-provider-section', 'custom');
+		// The entry says what type it is, so two entries of different types are
+		// told apart without connecting either one.
+		expect(screen.getByText('Custom Anthropic provider')).toBeInTheDocument();
+	});
+
 	it('reports the source when Connect is clicked on Posit AI', async () => {
 		const onSelectProvider = vi.fn();
 		const user = userEvent.setup();
