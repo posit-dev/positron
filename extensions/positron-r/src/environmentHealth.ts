@@ -315,15 +315,18 @@ function skipped(id: HealthItemId): HealthItem {
 
 async function runItem(
 	id: HealthItemId,
-	produce: () => HealthItem | Promise<HealthItem>
+	produce: () => HealthItem | Promise<HealthItem>,
+	logUnexpectedError: (message: string, error?: unknown) => void
 ): Promise<HealthItem> {
 	try {
 		return await produce();
 	} catch (ex) {
+		// The specific cause goes to the log; there is no curated action to offer for an
+		// unexpected probe failure, so the user sees a generic sentence instead.
+		logUnexpectedError(`Environment health check '${id}' failed`, ex);
 		return {
 			id, status: 'fail', summary: itemSummary(id),
-			detail: vscode.l10n.t(
-				'Health check failed: {0}', ex instanceof Error ? ex.message : String(ex)),
+			detail: vscode.l10n.t('This check could not be completed.'),
 		};
 	}
 }
@@ -332,28 +335,31 @@ function finalize(items: HealthItem[]): REnvironmentHealthResult {
 	return { ok: !items.some((i) => i.status === 'fail'), items };
 }
 
-export async function assembleItems(producers: {
-	discovery: () => HealthItem | Promise<HealthItem>;
-	rInstalled: () => HealthItem | Promise<HealthItem>;
-	ready: () => HealthItem | Promise<HealthItem>;
-}): Promise<REnvironmentHealthResult> {
+export async function assembleItems(
+	producers: {
+		discovery: () => HealthItem | Promise<HealthItem>;
+		rInstalled: () => HealthItem | Promise<HealthItem>;
+		ready: () => HealthItem | Promise<HealthItem>;
+	},
+	logUnexpectedError: (message: string, error?: unknown) => void = () => { }
+): Promise<REnvironmentHealthResult> {
 	const items: HealthItem[] = [];
 
-	const discovery = await runItem('discovery', producers.discovery);
+	const discovery = await runItem('discovery', producers.discovery, logUnexpectedError);
 	items.push(discovery);
 	if (discovery.status === 'fail') {
 		items.push(skipped('rInstalled'), skipped('environmentReady'));
 		return finalize(items);
 	}
 
-	const rInstalled = await runItem('rInstalled', producers.rInstalled);
+	const rInstalled = await runItem('rInstalled', producers.rInstalled, logUnexpectedError);
 	items.push(rInstalled);
 	if (rInstalled.status === 'fail') {
 		items.push(skipped('environmentReady'));
 		return finalize(items);
 	}
 
-	items.push(await runItem('environmentReady', producers.ready));
+	items.push(await runItem('environmentReady', producers.ready, logUnexpectedError));
 	return finalize(items);
 }
 
@@ -373,7 +379,9 @@ function arkArchitecture(arkPath: string | undefined): ArkArch | undefined {
 	return undefined;
 }
 
-export async function getEnvironmentHealth(): Promise<REnvironmentHealthResult> {
+export async function getEnvironmentHealth(
+	logUnexpectedError: (message: string, error?: unknown) => void = () => { }
+): Promise<REnvironmentHealthResult> {
 	// Discovery runs once per invocation and every probe below reads that one
 	// snapshot. Nothing is cached across calls; each call re-runs full discovery.
 	let all: RInstallation[] = [];
@@ -416,7 +424,7 @@ export async function getEnvironmentHealth(): Promise<REnvironmentHealthResult> 
 				arkArch,
 			});
 		},
-	});
+	}, logUnexpectedError);
 
 	result.rBinPath = target?.binpath;
 	result.rHome = target?.homepath;

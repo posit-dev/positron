@@ -261,7 +261,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		// Returns a JSON report on whether the current R setup can start a
 		// session. Internal: consumed by a frontend, not surfaced in the palette.
 		vscode.commands.registerCommand('r.getEnvironmentHealth',
-			async () => getEnvironmentHealth()),
+			async () => getEnvironmentHealth((message, error) => LOGGER.warn(message, error))),
 
 		// Commands used in RStudio migration walkthrough
 		vscode.commands.registerCommand('r.walkthrough.updateRStudioKeybindings', async () => {

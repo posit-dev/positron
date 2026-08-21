@@ -454,17 +454,29 @@ suite('Python Environment Health - orchestration', () => {
     });
 
     test('a probe that throws becomes a fail, not a rejection', async () => {
-        const result = await assembleItems({
-            discovery: () => pass('discovery'),
-            pythonInstalled: async () => {
-                throw new Error('boom');
+        const logUnexpectedError = sinon.stub();
+        const thrown = new Error('boom');
+        const result = await assembleItems(
+            {
+                discovery: () => pass('discovery'),
+                pythonInstalled: async () => {
+                    throw thrown;
+                },
+                ready: async () => pass('environmentReady'),
+                dedicated: async () => pass('dedicatedEnvironment'),
             },
-            ready: async () => pass('environmentReady'),
-            dedicated: async () => pass('dedicatedEnvironment'),
-        });
+            logUnexpectedError,
+        );
         assert.strictEqual(result.items[1].status, 'fail');
-        assert.include(result.items[1].detail ?? '', 'boom');
         assert.strictEqual(result.items[1].summary, 'A supported Python is installed');
+        // The error goes to the log, not to the user. It is passed as the error
+        // argument rather than interpolated, so the log keeps the stack.
+        assert.notInclude(result.items[1].detail ?? '', 'boom');
+        assert.isTrue(logUnexpectedError.calledOnce);
+        assert.deepStrictEqual(logUnexpectedError.firstCall.args, [
+            `Environment health check 'pythonInstalled' failed`,
+            thrown,
+        ]);
     });
 
     test('skipped items carry the check summary, not the machine id', async () => {

@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { IDisposableRegistry, IInstaller, InstallerResponse, Product } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
-import { traceError, traceInfo } from '../logging';
+import { traceError, traceInfo, traceWarn } from '../logging';
 import { MINIMUM_PYTHON_VERSION, Commands } from '../common/constants';
 import { getIpykernelBundle } from './ipykernel';
 import { getEnvironmentHealth } from './environmentHealth';
@@ -86,15 +86,16 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                 printInterpreterDebugInfo(interpreters);
             }),
         );
-        // Returns a machine-readable Python environment health report for the welcome page. Running
-        // it writes nothing to the output channel and reveals no panel. It has no
-        // contributes.commands entry, which keeps it off the Command Palette but also costs the
-        // implicit onCommand activation event, so package.json lists that event explicitly: the
-        // welcome page can call this before onStartupFinished has woken the extension.
+        // Returns a machine-readable Python environment health report for the welcome page. It
+        // reveals no panel; the only thing it writes to the output channel is a warning when a
+        // probe throws unexpectedly. It has no contributes.commands entry, which keeps it off the
+        // Command Palette but also costs the implicit onCommand activation event, so package.json
+        // lists that event explicitly: the welcome page can call this before onStartupFinished has
+        // woken the extension.
         disposables.push(
             vscode.commands.registerCommand(
                 Commands.Get_Environment_Health,
-                async (args?: { workspaceFolder?: string }) => getEnvironmentHealth(serviceContainer, args),
+                async (args?: { workspaceFolder?: string }) => getEnvironmentHealth(serviceContainer, args, traceWarn),
             ),
         );
 
