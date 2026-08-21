@@ -44,28 +44,38 @@ const MAX_DESCRIPTION_LENGTH = 1024;
 const MAX_NAME_LENGTH = 64;
 
 /** The validator's shape for `name`: lowercase, digits, single interior hyphens. */
-const NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 interface SkillFrontmatter {
 	/** Skill directory name, which the validator requires `name` to match. */
 	readonly directory: string;
 	readonly name: string | undefined;
-	/** The description with YAML folding applied, i.e. the string the validator measures. */
+	/** The description as the Assistant's parser reads it, i.e. the string the validator measures. */
 	readonly description: string | undefined;
 }
 
 /**
- * Reads the `name` and `description` out of a `SKILL.md`'s frontmatter.
+ * Reads the `name` and `description` out of a `SKILL.md`'s frontmatter, the way
+ * the Assistant's own parser does.
  *
- * Deliberately not a full YAML parse: only these two fields are under test, and
- * both are written either inline (`name: x`) or as a block scalar
- * (`description: >`). A block scalar's continuation lines are folded into the
- * single line the validator sees, so the length measured here is the length it
- * checks.
+ * Deliberately not a YAML parse, because the validator's isn't either: the
+ * Assistant's `parseFrontmatter` (posit-dev/assistant,
+ * `packages/core/src/skill/skill-loader.ts`) is a hand-rolled parser that, for
+ * a `|` or `>` block scalar, keeps each continuation line as-is -- indentation
+ * included -- and joins them with `\n` before trimming. That string is longer
+ * than YAML's folded value, so measuring anything else here (real YAML
+ * included) under-counts what the validator checks against
+ * MAX_DESCRIPTION_LENGTH. Mirroring its exact behavior is the point of this
+ * file.
+ *
+ * The Assistant recognizes only bare `|` and `>` as block-scalar markers.
+ * Chomping variants (`>-`, `|-`) are not markers to it: it reads them as the
+ * field's literal inline value, silently discarding the block underneath -- so
+ * a `>-` marker is treated as inline here too, and asserted against below.
  */
 function readFrontmatter(skillMdPath: string): SkillFrontmatter {
 	const content = fs.readFileSync(skillMdPath, 'utf8');
-	const frontmatter = /^---\n([\s\S]*?)\n---/.exec(content)?.[1] ?? '';
+	const frontmatter = /^---\n(?<frontmatter>[\s\S]*?)\n---/.exec(content)?.groups?.frontmatter ?? '';
 	const lines = frontmatter.split('\n');
 
 	const readField = (field: string): string | undefined => {
@@ -74,20 +84,20 @@ function readFrontmatter(skillMdPath: string): SkillFrontmatter {
 			return undefined;
 		}
 		const inline = lines[index].slice(field.length + 1).trim();
-		// Anything other than a block-scalar marker is the value itself.
-		if (inline !== '>' && inline !== '|' && inline !== '>-' && inline !== '|-') {
+		// Anything other than the two markers the Assistant knows is the value itself.
+		if (inline !== '>' && inline !== '|') {
 			return inline.replace(/^["']|["']$/g, '');
 		}
-		// Block scalar: every following indented line belongs to this field, up to
-		// the next top-level key. Folded into one line, the way YAML would.
+		// Block scalar: every following indented (or blank) line belongs to this field, up to the
+		// next top-level key. Joined raw with newlines and trimmed, the way the Assistant does.
 		const continuation: string[] = [];
 		for (const line of lines.slice(index + 1)) {
 			if (line.trim().length > 0 && !/^[ \t]/.test(line)) {
 				break;
 			}
-			continuation.push(line.trim());
+			continuation.push(line);
 		}
-		return continuation.filter(line => line.length > 0).join(' ');
+		return continuation.join('\n').trim();
 	};
 
 	return {
@@ -124,6 +134,10 @@ describe('agent skill frontmatter', () => {
 				descriptionLength: skill.description?.length,
 				descriptionLengthOk: (skill.description?.length ?? 0) > 0
 					&& (skill.description?.length ?? 0) <= MAX_DESCRIPTION_LENGTH,
+				// A description starting with `>` or `|` means a block-scalar marker the Assistant
+				// doesn't recognize (e.g. the chomping form `>-`): it reads the marker as the literal
+				// description and silently discards the block underneath. See readFrontmatter.
+				descriptionIsProse: !/^[>|]/.test(skill.description ?? ''),
 			}).toEqual({
 				name: skill.directory,
 				nameMatchesDirectory: true,
@@ -131,6 +145,7 @@ describe('agent skill frontmatter', () => {
 				nameShapeOk: true,
 				descriptionLength: skill.description?.length,
 				descriptionLengthOk: true,
+				descriptionIsProse: true,
 			});
 		},
 	);
