@@ -28,6 +28,13 @@ export type SqliteError = Error & { code?: string };
 export interface ISqliteQueryClient {
 	/** Run a SQL query with optional positional (?) parameters and return its rows. */
 	runQuery(sql: string, params?: SqliteBindValue[]): Promise<SqliteRow[]>;
+
+	/**
+	 * Fires when the worker dies and is replaced. A replacement worker starts with an empty `temp`
+	 * schema, so anything cached there -- see `ISqliteReadPlan` -- has to be rebuilt. Optional, so a
+	 * fake that only answers queries still satisfies this interface.
+	 */
+	readonly onDidCrash?: vscode.Event<void>;
 }
 
 /**
