@@ -18,6 +18,7 @@ import {
 	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
+	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
 } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
@@ -201,6 +202,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	// so the dialog and other listeners see updated signedIn state immediately.
 	context.subscriptions.push(
 		vscode.authentication.onDidChangeSessions(async (e) => {
+			if (e.provider.id === POSITRON_CUSTOM_AUTH_PROVIDER_ID) {
+				// One auth provider serves every custom entry, so the event
+				// doesn't say which entry moved, and nothing in `authProviders`
+				// answers to its id. Refresh each registered entry from its own
+				// delegate, which is still keyed by the entry name.
+				for (const id of customProviders.registeredIds) {
+					const entry = authProviders.get(id);
+					if (entry) {
+						await updateProviderFromSessions(id, await entry.getSessions());
+					}
+				}
+				return;
+			}
 			const provider = authProviders.get(e.provider.id);
 			if (provider) {
 				const sessions = await provider.getSessions();

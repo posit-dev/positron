@@ -97,9 +97,11 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	};
 
 	useProviderUpdates(
-		// Tracked ids follow the live list, so a provider that appears while the
-		// modal is open gets its updates subscribed too.
-		sources.map(s => s.provider.id),
+		// Tracked providers follow the live list, so one that appears while the
+		// modal is open gets its updates subscribed too. A custom entry is
+		// marked as such: its sessions come from the shared custom-provider
+		// authentication provider, under the entry name as a scope.
+		sources.map(s => ({ id: s.provider.id, custom: !!s.provider.customKind })),
 		newSource => {
 			setSources(prev => prev.map(s => s.provider.id === newSource.provider.id ? { ...newSource } : s));
 			applySignedInTransition(newSource.provider.id, !!newSource.signedIn);

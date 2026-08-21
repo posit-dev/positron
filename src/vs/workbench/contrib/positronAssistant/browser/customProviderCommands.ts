@@ -5,11 +5,11 @@
 
 /**
  * Creating a custom provider is one operation the authentication extension has
- * to do as a whole: write the `providers.custom` entry, register an auth
- * provider under the entry name, and store the key there. The modal can't do
- * any of that itself, and the usual `onAction` dispatch is keyed on an already
- * registered provider id, which a new entry doesn't have yet, so the create
- * goes through a command instead.
+ * to do as a whole: write the `providers.custom` entry, route it through the
+ * shared authentication provider, and store the key under the entry name. The
+ * modal can't do any of that itself, and the usual `onAction` dispatch is keyed
+ * on an already registered provider id, which a new entry doesn't have yet, so
+ * the create goes through a command instead.
  *
  * The extension registers the handler and owns the checks that matter (name
  * collisions with built-in provider ids and reserved keys, and the same key
@@ -20,8 +20,9 @@ export const ADD_CUSTOM_PROVIDER_COMMAND = 'authentication.addCustomProvider';
 
 /**
  * The argument to {@link ADD_CUSTOM_PROVIDER_COMMAND}. The name is the entry
- * key in providers.json, the provider id, the display name, and the auth
- * provider id, all at once, which is why it can't be changed afterwards.
+ * key in providers.json, the provider id, and the display name all at once,
+ * which is why it can't be changed afterwards. It is also the scope the
+ * credential is filed under; see {@link POSITRON_CUSTOM_AUTH_PROVIDER_ID}.
  */
 export interface IAddCustomProviderRequest {
 	readonly name: string;
@@ -36,6 +37,17 @@ export interface IAddCustomProviderRequest {
 	 */
 	readonly modelIds?: readonly string[];
 }
+
+/**
+ * The one authentication provider every `providers.custom` entry is served
+ * under, with the entry name as the scope. The extension's half of this is
+ * `POSITRON_CUSTOM_AUTH_PROVIDER_ID` in `authentication/src/constants.ts`.
+ *
+ * A session change on it does not say which entry moved, so a listener has to
+ * ask per entry, by scope. An unscoped read returns every entry's sessions at
+ * once.
+ */
+export const POSITRON_CUSTOM_AUTH_PROVIDER_ID = 'positron-custom-provider';
 
 /**
  * Set by Posit Assistant at activation on any build that serves models for
