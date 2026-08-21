@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './positronPackagesCommands.js';
+import './positronPackagesDeveloperActions.js';
 import './positronPackagesInspectActions.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../base/common/errors.js';

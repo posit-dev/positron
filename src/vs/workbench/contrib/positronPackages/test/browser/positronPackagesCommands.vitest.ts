@@ -12,7 +12,7 @@ import { ILogService, NullLogService } from '../../../../../platform/log/common/
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageVulnerability } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
 import { PACKAGES_GET_PACKAGES_COMMAND_ID, getPackages } from '../../browser/positronPackagesCommands.js';
 import { IPackagesSnapshot, IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
@@ -42,7 +42,7 @@ function createSession(runtimeState: RuntimeState = RuntimeState.Idle): ILanguag
  * given an error.
  */
 function createInstance(
-	snapshot: IPackagesSnapshot | Error,
+	snapshot: SnapshotStub | Error,
 	session: ILanguageRuntimeSession = createSession(),
 ): IPositronPackagesInstance {
 	return stubInterface<IPositronPackagesInstance>({
@@ -51,9 +51,34 @@ function createInstance(
 			if (snapshot instanceof Error) {
 				throw snapshot;
 			}
-			return snapshot;
+			// Advisory fields default to what a snapshot that wasn't asked to
+			// refresh reports, so only the tests about advisories mention them.
+			return { vulnerabilityStatus: 'cached' as const, ...snapshot };
 		}),
 	});
+}
+
+/**
+ * A snapshot with its advisory status left out, since most tests are about the
+ * packages rather than where the advisories came from.
+ */
+type SnapshotStub = Omit<IPackagesSnapshot, 'vulnerabilityStatus'> & Partial<Pick<IPackagesSnapshot, 'vulnerabilityStatus'>>;
+
+/** The Package Manager instance a test's advisories came from. */
+const VULNERABILITY_SOURCE = { host: 'ppm.example.com', fetchedAt: Date.parse('2026-08-19T10:00:00.000Z') };
+
+/** An advisory as the vulnerability lookup normalizes it. */
+function advisory(id: string, score?: number): IPackageVulnerability {
+	return {
+		id,
+		osvId: `PYSEC-${id}`,
+		score,
+		scoreVersion: score === undefined ? undefined : 'v3',
+		summary: `${id} summary`,
+		fixedIn: '2.3.0',
+		published: '2026-05-01T00:00:00Z',
+		url: `https://nvd.nist.gov/vuln/detail/${id}`,
+	};
 }
 
 describe('getPackages', () => {
@@ -180,6 +205,7 @@ describe('getPackages', () => {
 			      "outdated": true,
 			      "url": "https://pandas.pydata.org",
 			      "version": "2.2.1",
+			      "vulnerabilities": undefined,
 			    },
 			    {
 			      "attached": undefined,
@@ -189,6 +215,7 @@ describe('getPackages', () => {
 			      "outdated": false,
 			      "url": undefined,
 			      "version": "2.1.0",
+			      "vulnerabilities": undefined,
 			    },
 			  ],
 			  "session": {
@@ -199,8 +226,148 @@ describe('getPackages', () => {
 			    "sessionId": "session-1",
 			    "sessionName": "Python 3.12.4",
 			  },
+			  "vulnerabilitySource": undefined,
+			  "vulnerabilityStatus": "cached",
 			}
 		`);
+	});
+
+	it('reports each package\'s advisories worst first, with the source that served them', async () => {
+		stubServices(createInstance({
+			metadataStatus: 'fresh',
+			vulnerabilityStatus: 'fresh',
+			vulnerabilitySource: VULNERABILITY_SOURCE,
+			packages: [
+				// Deliberately out of order, and mixing scored with unscored:
+				// the payload leads with the advisory the pane leads with.
+				{
+					...pkg('pandas', '2.2.1'),
+					vulnerabilities: [advisory('CVE-2026-2000', 5.4), advisory('RSEC-2026-1'), advisory('CVE-2026-1000', 9.8)],
+				},
+				// Asked about and reported clean: an empty array, not undefined.
+				{ ...pkg('numpy', '2.1.0'), vulnerabilities: [] },
+				// No advisory data at all, so nothing can be concluded.
+				pkg('polars', '1.9.0'),
+			],
+		}));
+
+		const result = await getPackages(ctx.instantiationService);
+
+		expect(result).toMatchObject({
+			available: true,
+			vulnerabilityStatus: 'fresh',
+			// Epoch ms in the snapshot, ISO 8601 in the payload.
+			vulnerabilitySource: { host: VULNERABILITY_SOURCE.host, fetchedAt: '2026-08-19T10:00:00.000Z' },
+			packages: [
+				{
+					name: 'pandas',
+					vulnerabilities: [
+						{ id: 'CVE-2026-1000', score: 9.8, severity: 'critical' },
+						{ id: 'CVE-2026-2000', score: 5.4, severity: 'medium' },
+						// Unscored sorts last but is still reported: known
+						// vulnerable, severity unknown.
+						{ id: 'RSEC-2026-1', score: undefined, severity: 'unscored' },
+					],
+				},
+				{ name: 'numpy', vulnerabilities: [] },
+				{ name: 'polars', vulnerabilities: undefined },
+			],
+		});
+	});
+
+	it('maps every advisory field the lookup carries', async () => {
+		stubServices(createInstance({
+			metadataStatus: 'fresh',
+			vulnerabilityStatus: 'fresh',
+			vulnerabilitySource: VULNERABILITY_SOURCE,
+			packages: [{ ...pkg('pandas', '2.2.1'), vulnerabilities: [advisory('CVE-2026-1000', 7.5)] }],
+		}));
+
+		const result = await getPackages(ctx.instantiationService);
+
+		expect(result).toMatchInlineSnapshot(`
+			{
+			  "available": true,
+			  "metadataStatus": "fresh",
+			  "packages": [
+			    {
+			      "attached": undefined,
+			      "description": undefined,
+			      "latestVersion": undefined,
+			      "name": "pandas",
+			      "outdated": undefined,
+			      "url": undefined,
+			      "version": "2.2.1",
+			      "vulnerabilities": [
+			        {
+			          "fixedIn": "2.3.0",
+			          "id": "CVE-2026-1000",
+			          "osvId": "PYSEC-CVE-2026-1000",
+			          "published": "2026-05-01T00:00:00Z",
+			          "score": 7.5,
+			          "scoreVersion": "v3",
+			          "severity": "high",
+			          "summary": "CVE-2026-1000 summary",
+			          "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1000",
+			        },
+			      ],
+			    },
+			  ],
+			  "session": {
+			    "languageId": "python",
+			    "languageName": "Python",
+			    "languageVersion": "3.12.4",
+			    "runtimeName": "Python 3.12.4 (.venv)",
+			    "sessionId": "session-1",
+			    "sessionName": "Python 3.12.4",
+			  },
+			  "vulnerabilitySource": {
+			    "fetchedAt": "2026-08-19T10:00:00.000Z",
+			    "host": "ppm.example.com",
+			  },
+			  "vulnerabilityStatus": "fresh",
+			}
+		`);
+	});
+
+	it('drops the advisories the cache still holds when lookups are turned off', async () => {
+		// The snapshot reports 'disabled' from the setting but still merges
+		// whatever the cache kept from before it was turned off. The payload
+		// must not report data its own status says isn't there.
+		stubServices(createInstance({
+			metadataStatus: 'fresh',
+			vulnerabilityStatus: 'disabled',
+			packages: [{ ...pkg('pandas', '2.2.1'), vulnerabilities: [advisory('CVE-2026-1000', 9.8)] }],
+		}));
+
+		const result = await getPackages(ctx.instantiationService);
+
+		expect(result).toMatchObject({
+			available: true,
+			vulnerabilityStatus: 'disabled',
+			// Nothing to attribute, so no source is named either.
+			vulnerabilitySource: undefined,
+			packages: [{ name: 'pandas', vulnerabilities: undefined }],
+		});
+	});
+
+	it('passes the advisory status through rather than deriving its own', async () => {
+		// Only the snapshot knows whether a lookup ran, so the payload reports
+		// what it was told -- including 'unavailable', which says a lookup
+		// happened and found nothing, not that one is still owed.
+		stubServices(createInstance({
+			metadataStatus: 'fresh',
+			vulnerabilityStatus: 'unavailable',
+			packages: [pkg('pandas', '2.2.1')],
+		}));
+
+		const result = await getPackages(ctx.instantiationService);
+
+		expect(result).toMatchObject({
+			available: true,
+			vulnerabilityStatus: 'unavailable',
+			vulnerabilitySource: undefined,
+		});
 	});
 
 	it('is registered as an agent-compatible command', async () => {
