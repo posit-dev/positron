@@ -19,9 +19,6 @@ watched_env_vars <- c(
 
   # Forwarded from the live R console session to test-running gestures.
   "TESTTHAT_MAX_FAILS",
-
-  # Forwarded from the live R console session to the R test explorer, where
-  # `spawn()` in the test runner does not pick up the ambient LANG on macOS.
   "LANG",
 
   # Tell cli to format its hyperlinks for Positron.
