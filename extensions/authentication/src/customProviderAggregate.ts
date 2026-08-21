@@ -36,25 +36,53 @@ export class CustomProviderAggregate
 	private readonly delegates = new Map<string, Delegate>();
 
 	/**
-	 * Routes an entry's sessions through this provider. The entry name is the
-	 * scope callers ask for.
+	 * Routes an entry's sessions through this provider, and reports whatever it
+	 * already had as added. The entry name is the scope callers ask for.
 	 */
-	addProvider(entryId: string, provider: AuthProvider): void {
-		this.delegates.set(entryId, {
-			provider,
-			listener: provider.onDidChangeSessions(event =>
-				this._onDidChangeSessions.fire(this.stampEvent(entryId, event))),
+	async addProvider(entryId: string, provider: AuthProvider): Promise<void> {
+		// Subscribe first, and take the snapshot before the delegate is
+		// reachable by any caller. An event that lands while `getSessions` is in
+		// flight is then forwarded rather than dropped in the gap.
+		const listener = provider.onDidChangeSessions(event =>
+			this._onDidChangeSessions.fire(this.stampEvent(entryId, event)));
+		const sessions = await provider.getSessions();
+		this.delegates.set(entryId, { provider, listener });
+		this._onDidChangeSessions.fire({
+			added: this.stamp(entryId, sessions),
+			removed: [],
+			changed: [],
 		});
 	}
 
-	/** Stops routing an entry, when its `providers.custom` entry goes away. */
-	removeProvider(entryId: string): void {
+	/**
+	 * Stops routing an entry, when its `providers.custom` entry is deleted or
+	 * disabled, and reports its sessions as removed.
+	 *
+	 * Firing that is this class's job because nothing else can. Per-entry
+	 * providers used to unregister for real, and the workbench drops a cached
+	 * account on either the provider unregistering or a session change carrying
+	 * `removed`. This provider stays registered, and `AuthProvider.dispose()`
+	 * fires nothing (it sets a flag, stops its timer, and disposes its own
+	 * emitter), so without this a deleted entry leaves a stale account in the
+	 * Accounts menu until the window reloads.
+	 */
+	async removeProvider(entryId: string): Promise<void> {
 		const delegate = this.delegates.get(entryId);
 		if (!delegate) {
 			return;
 		}
+		// Detach first, keeping the delegate object, because `getSessions` is
+		// asynchronous. Read the final sessions while still subscribed and an
+		// event landing in that window is forwarded as `added` and then left out
+		// of `removed`, which is exactly the stale account this prevents.
 		delegate.listener.dispose();
+		const sessions = await delegate.provider.getSessions();
 		this.delegates.delete(entryId);
+		this._onDidChangeSessions.fire({
+			added: [],
+			removed: this.stamp(entryId, sessions),
+			changed: [],
+		});
 	}
 
 	/**

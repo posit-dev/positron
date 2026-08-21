@@ -169,7 +169,7 @@ export class CustomProviderRegistry implements vscode.Disposable {
 
 		for (const id of [...this.registrations.keys()]) {
 			if (!wanted.has(id)) {
-				this.unregister(id);
+				await this.unregister(id);
 			}
 		}
 
@@ -232,33 +232,40 @@ export class CustomProviderRegistry implements vscode.Disposable {
 		const sessions = await authProvider.getSessions();
 		await updateProviderFromSessions(name, sessions);
 
-		// Then route the entry through the shared auth provider, which is what
-		// makes it reachable from Posit Assistant, and announce the sessions it
+		// Then route the entry through the shared auth provider, which both makes
+		// it reachable from Posit Assistant and announces the sessions it
 		// already had. Registering emits nothing to other extensions on its
 		// own, and the assistant remembers "no such auth provider" for the rest
 		// of the session, so an entry with a key already stored would stay dead
 		// until the user happened to sign in or out.
-		this.aggregate.addProvider(name, authProvider);
-		authProvider.fireSessionsChanged({ added: sessions, removed: [], changed: [] });
+		await this.aggregate.addProvider(name, authProvider);
 	}
 
-	private unregister(name: string): void {
-		// Stop routing before disposing the delegate: the shared auth provider
-		// outlives the entry, so a disposed delegate left in it would still be
-		// asked for sessions.
-		this.aggregate.removeProvider(name);
+	private async unregister(name: string): Promise<void> {
+		// Stop routing before disposing the delegate, and let the shared auth
+		// provider report the entry's sessions as removed. It outlives the
+		// entry, so nothing else reports the entry going away, and a disposed
+		// delegate left in it would still be asked for sessions.
+		await this.aggregate.removeProvider(name);
+		this.disposeRegistration(name);
+		log.info(`Unregistered custom provider: ${name}`);
+	}
+
+	private disposeRegistration(name: string): void {
 		for (const disposable of this.registrations.get(name) ?? []) {
 			disposable.dispose();
 		}
 		this.registrations.delete(name);
-		log.info(`Unregistered custom provider: ${name}`);
 	}
 
 	dispose(): void {
-		for (const name of [...this.registrations.keys()]) {
-			this.unregister(name);
-		}
+		// Window teardown, so there is nobody left to tell about the entries
+		// going away. Dropping the shared provider takes every delegate
+		// subscription with it.
 		this.aggregateRegistration.dispose();
 		this.aggregate.dispose();
+		for (const name of [...this.registrations.keys()]) {
+			this.disposeRegistration(name);
+		}
 	}
 }
