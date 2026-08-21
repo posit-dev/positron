@@ -4,9 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { traceError, traceInfo, traceVerbose } from '../logging';
+import { traceError, traceInfo, traceVerbose, traceWarn } from '../logging';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
-import { arePathsSame, isDirectorySync, isParentPath } from '../pythonEnvironments/common/externalDependencies';
+import {
+    arePathsSame,
+    isDirectorySync,
+    isParentPath,
+    pathExistsSync,
+} from '../pythonEnvironments/common/externalDependencies';
 import {
     INTERPRETERS_EXCLUDE_SETTING_KEY,
     INTERPRETERS_INCLUDE_SETTING_KEY,
@@ -300,54 +305,108 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
 }
 
 /**
- * Maps a list of interpreter paths to their installation directories.
+ * Maps a list of interpreter paths to their installation directories. Paths that
+ * don't exist are dropped: there is nothing for the locators to scan, and
+ * mapping one would send them somewhere the user never named.
  * @param interpreterPaths List of interpreter paths to map to their installation directories.
  * @returns List of unique installation directories.
  */
 function mapInterpretersToInstallDirs(interpreterPaths: string[]): string[] {
-    return Array.from(
-        new Set(
-            interpreterPaths.map((interpreterPath) => {
-                // If it's already a directory, return it as-is.
-                if (isDirectorySync(interpreterPath)) {
-                    return interpreterPath;
-                }
+    const installDirs: string[] = [];
+    for (const interpreterPath of interpreterPaths) {
+        const installDir = mapInterpreterToInstallDir(interpreterPath);
+        if (installDir) {
+            installDirs.push(installDir);
+        }
+    }
+    return Array.from(new Set(installDirs));
+}
 
-                // If it's a file, we need to return the installation directory so that the Python locators can find it.
-                // e.g. ~/scratch/3.10.4/bin/python -> ~/scratch/3.10.4
-                let parentDir: string | undefined;
-                let installDir: string | undefined;
-                try {
-                    parentDir = path.dirname(interpreterPath);
-                    installDir = path.dirname(parentDir);
-                } catch (error) {
-                    traceError(
-                        `[mapInterpretersToInterpreterDirs]: Failed to get install directory for Python interpreter ${interpreterPath}`,
-                        error,
-                    );
-                }
+/**
+ * Configured paths already reported as missing. The mapping runs on every
+ * discovery refresh and once per resolved environment, so an unfiltered log line
+ * would repeat dozens of times per refresh and bury the rest of the output.
+ */
+const reportedMissingInterpreterPaths = new Set<string>();
 
-                if (installDir) {
-                    traceVerbose(
-                        `[mapInterpretersToInterpreterDirs]: Mapped ${interpreterPath} to installation directory ${installDir}`,
-                    );
-                    return installDir;
-                }
-
-                if (parentDir) {
-                    traceInfo(
-                        `[mapInterpretersToInterpreterDirs]: Expected ${interpreterPath} to be located in a Python installation directory. It may not be discoverable.`,
-                    );
-                    return parentDir;
-                }
-
-                traceInfo(
-                    `[mapInterpretersToInterpreterDirs]: Unable to map ${interpreterPath} to an installation directory. It may not be discoverable.`,
-                );
-                return interpreterPath;
-            }),
-        ),
+/**
+ * Logs a configured interpreter path that doesn't exist, once per path. A typo in
+ * `interpreters.include` or `interpreters.override` is otherwise invisible: the
+ * setting silently matches nothing.
+ * @param interpreterPath The configured path that doesn't exist.
+ */
+function reportMissingInterpreterPath(interpreterPath: string): void {
+    if (reportedMissingInterpreterPaths.has(interpreterPath)) {
+        return;
+    }
+    reportedMissingInterpreterPaths.add(interpreterPath);
+    traceWarn(
+        `[mapInterpretersToInterpreterDirs]: Python interpreter ${interpreterPath} does not exist...ignoring. Check the ${INTERPRETERS_INCLUDE_SETTING_KEY} and ${INTERPRETERS_OVERRIDE_SETTING_KEY} settings.`,
     );
+}
+
+/**
+ * Maps one interpreter path to the directory the Python locators should scan for
+ * it, or undefined when there is no such directory.
+ * @param interpreterPath The interpreter path to map.
+ */
+function mapInterpreterToInstallDir(interpreterPath: string): string | undefined {
+    // If it's already a directory, return it as-is.
+    if (isDirectorySync(interpreterPath)) {
+        return interpreterPath;
+    }
+
+    // A path that doesn't exist has no installation directory. Mapping it anyway
+    // would hand the locators an unrelated ancestor.
+    if (!pathExistsSync(interpreterPath)) {
+        reportMissingInterpreterPath(interpreterPath);
+        return undefined;
+    }
+
+    // If it's a file, we need to return the installation directory so that the Python locators can find it.
+    // e.g. ~/scratch/3.10.4/bin/python -> ~/scratch/3.10.4
+    let parentDir: string | undefined;
+    let installDir: string | undefined;
+    try {
+        parentDir = path.dirname(interpreterPath);
+        installDir = path.dirname(parentDir);
+    } catch (error) {
+        traceError(
+            `[mapInterpretersToInterpreterDirs]: Failed to get install directory for Python interpreter ${interpreterPath}`,
+            error,
+        );
+    }
+
+    // The root is every path's ancestor, so scanning it would treat every
+    // interpreter on the machine as a user-specified one. This rules out both
+    // candidates: an interpreter directly under the root (e.g. /python) has the
+    // root as its parent directory too.
+    const root = path.parse(interpreterPath).root;
+    if (installDir && installDir !== root) {
+        traceVerbose(
+            `[mapInterpretersToInterpreterDirs]: Mapped ${interpreterPath} to installation directory ${installDir}`,
+        );
+        return installDir;
+    }
+
+    if (parentDir && parentDir !== root) {
+        traceInfo(
+            `[mapInterpretersToInterpreterDirs]: Expected ${interpreterPath} to be located in a Python installation directory. It may not be discoverable.`,
+        );
+        return parentDir;
+    }
+
+    if (parentDir === root) {
+        traceWarn(
+            `[mapInterpretersToInterpreterDirs]: Python interpreter ${interpreterPath} is directly under the filesystem root...ignoring. Scanning the root would treat every interpreter on the machine as user-specified.`,
+        );
+        return undefined;
+    }
+
+    traceInfo(
+        `[mapInterpretersToInterpreterDirs]: Unable to map ${interpreterPath} to an installation directory. It may not be discoverable.`,
+    );
+    return interpreterPath;
 }
 
 /**
