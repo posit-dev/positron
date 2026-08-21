@@ -28,9 +28,6 @@ export const showRemoveDataConnectionConfirmation = (
 	connectionName: string,
 	openDataExplorerCount: number
 ): Promise<boolean> => {
-	// Create the renderer.
-	const renderer = new PositronModalDialogReactRenderer();
-
 	return new Promise<boolean>(resolve => {
 		// Settle once: dispose the renderer and resolve with the user's choice. Guards against the
 		// dialog's onCancel firing again after an explicit Remove or Cancel.
@@ -43,6 +40,12 @@ export const showRemoveDataConnectionConfirmation = (
 			renderer.dispose();
 			resolve(confirmed);
 		};
+
+		// Escape closes the native <dialog> without going through onCancel, so settle from
+		// onDisposed too or the caller waits forever.
+		const renderer = new PositronModalDialogReactRenderer({
+			onDisposed: () => settle(false)
+		});
 
 		// Render the dialog.
 		renderer.render(

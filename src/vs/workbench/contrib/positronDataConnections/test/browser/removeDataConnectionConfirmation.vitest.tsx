@@ -76,6 +76,19 @@ describe('showRemoveDataConnectionConfirmation', () => {
 		expect(await confirmation).toBe(false);
 	});
 
+	it('resolves false when the dialog is dismissed without a choice, as Escape does', async () => {
+		const confirmation = showRemoveDataConnectionConfirmation('My Connection', 0);
+		expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+
+		// Escape closes the native <dialog>, which fires its close event and disposes the renderer
+		// without ever calling onCancel. jsdom does not wire Escape to that default action, so close
+		// the dialog directly, which is the same path.
+		// eslint-disable-next-line no-restricted-syntax
+		document.querySelector<HTMLDialogElement>('dialog.positron-modal-dialog')!.close();
+
+		expect(await confirmation).toBe(false);
+	});
+
 	it('warns about several open Data Explorers', async () => {
 		const confirmation = showRemoveDataConnectionConfirmation('My Connection', 3);
 

@@ -91,7 +91,11 @@ export const MissingPackagesPreflightModal = (props: MissingPackagesPreflightMod
  */
 export function showMissingPackagesPreflightModal(fileName: string, languageName: string | null, packageNames: string[]): Promise<PreflightModalResult> {
 	return new Promise<PreflightModalResult>(resolve => {
-		const renderer = new PositronModalDialogReactRenderer();
+		// Escape closes the native <dialog> without going through onCancel, so settle from
+		// onDisposed too or the caller waits forever. A settled promise ignores the second call.
+		const renderer = new PositronModalDialogReactRenderer({
+			onDisposed: () => resolve({ decision: 'cancel', dontShowAgain: false })
+		});
 		renderer.render(
 			<MissingPackagesPreflightModal
 				fileName={fileName}
