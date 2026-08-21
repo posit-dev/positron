@@ -23,6 +23,10 @@ import { NativeParsedArgs } from '../../platform/environment/common/argv.js';
 import { INativeEnvironmentService } from '../../platform/environment/common/environment.js';
 import { NativeEnvironmentService } from '../../platform/environment/node/environmentService.js';
 import { ExtensionGalleryServiceWithNoStorageService } from '../../platform/extensionManagement/common/extensionGalleryService.js';
+// --- Start Positron ---
+import { IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
+import { PositronAcademicLicenseService } from '../../platform/positronLicense/node/positronAcademicLicenseService.js';
+// --- End Positron ---
 import { IAllowedExtensionsService, IExtensionGalleryService, InstallOptions } from '../../platform/extensionManagement/common/extensionManagement.js';
 import { ExtensionSignatureVerificationService, IExtensionSignatureVerificationService } from '../../platform/extensionManagement/node/extensionSignatureVerificationService.js';
 import { ExtensionManagementCLI } from '../../platform/extensionManagement/common/extensionManagementCLI.js';
@@ -234,6 +238,10 @@ class CliMain extends Disposable {
 		services.set(IAllowedExtensionsService, new SyncDescriptor(AllowedExtensionsService, undefined, true));
 		services.set(INativeServerExtensionManagementService, new SyncDescriptor(ExtensionManagementService, undefined, true));
 		services.set(IExtensionGalleryManifestService, new SyncDescriptor(ExtensionGalleryManifestService));
+		// --- Start Positron ---
+		// The CLI has no license context; not academic.
+		services.set(IPositronAcademicLicenseService, new PositronAcademicLicenseService(false));
+		// --- End Positron ---
 		services.set(IExtensionGalleryService, new SyncDescriptor(ExtensionGalleryServiceWithNoStorageService, undefined, true));
 
 		// Localizations

@@ -1,0 +1,4 @@
+{
+	"displayName": "Positron ODBC Data Connection Driver",
+	"description": "Provides ODBC data connection drivers for the Data Connections panel, using the ODBC drivers configured on this machine."
+}

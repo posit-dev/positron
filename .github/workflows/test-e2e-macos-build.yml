@@ -62,7 +62,7 @@ jobs:
         env:
           npm_config_arch: ${{ inputs.arch }}
         run: |
-          npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+          npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron ${{ inputs.arch }}"
 
       - name: Download built-in extensions (prelaunch)
         run: |

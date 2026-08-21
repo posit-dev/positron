@@ -36,6 +36,7 @@ import { sameGalleryHost } from './extensionGalleryManifestService.js';
 import { TelemetryTrustedValue } from '../../telemetry/common/telemetryUtils.js';
 // --- Start Positron ---
 import { appendPositronGalleryParams, formatPositronVersion, GalleryUsageDataConfigKey, getPositronSessionType, PositronCheckTrigger } from './positronGalleryTelemetry.js';
+import { IPositronAcademicLicenseService } from '../../positronLicense/common/positronAcademicLicenseService.js';
 import { isUnsatisfiableDependency } from './positronExtensionBlocklist.js';
 // --- End Positron ---
 
@@ -641,6 +642,9 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IAllowedExtensionsService private readonly allowedExtensionsService: IAllowedExtensionsService,
 		@IExtensionGalleryManifestService private readonly extensionGalleryManifestService: IExtensionGalleryManifestService,
+		// --- Start Positron ---
+		@IPositronAcademicLicenseService private readonly academicLicenseService: IPositronAcademicLicenseService,
+		// --- End Positron ---
 	) {
 		this.extensionsControlUrl = productService.extensionsGallery?.controlUrl;
 		this.unpkgResourceApi = productService.extensionsGallery?.extensionUrlTemplate;
@@ -797,6 +801,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			options.checkTrigger,
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
+			this.academicLicenseService.isAcademic,
 			sendUsageData,
 		);
 		resourceApi = {
@@ -1472,6 +1477,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			query.checkTrigger,
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
+			this.academicLicenseService.isAcademic,
 			sendUsageData,
 		);
 		// --- End Positron ---
@@ -2132,8 +2138,11 @@ export class ExtensionGalleryService extends AbstractExtensionGalleryService {
 		@IConfigurationService configurationService: IConfigurationService,
 		@IAllowedExtensionsService allowedExtensionsService: IAllowedExtensionsService,
 		@IExtensionGalleryManifestService extensionGalleryManifestService: IExtensionGalleryManifestService,
+		// --- Start Positron ---
+		@IPositronAcademicLicenseService academicLicenseService: IPositronAcademicLicenseService,
 	) {
-		super(storageService, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService);
+		super(storageService, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService, academicLicenseService);
+		// --- End Positron ---
 	}
 }
 
@@ -2149,7 +2158,10 @@ export class ExtensionGalleryServiceWithNoStorageService extends AbstractExtensi
 		@IConfigurationService configurationService: IConfigurationService,
 		@IAllowedExtensionsService allowedExtensionsService: IAllowedExtensionsService,
 		@IExtensionGalleryManifestService extensionGalleryManifestService: IExtensionGalleryManifestService,
+		// --- Start Positron ---
+		@IPositronAcademicLicenseService academicLicenseService: IPositronAcademicLicenseService,
 	) {
-		super(undefined, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService);
+		super(undefined, requestService, logService, environmentService, telemetryService, fileService, productService, configurationService, allowedExtensionsService, extensionGalleryManifestService, academicLicenseService);
+		// --- End Positron ---
 	}
 }

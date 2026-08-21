@@ -161,20 +161,27 @@ export const ConfigureDataConnectionParameters = ({
 						return (
 							<div key={parameter.id} className='parameter-field'>
 								<ParameterLabel htmlFor={fieldId} label={parameter.label} optional={!parameter.required} />
-								<select
-									aria-required={parameter.required || undefined}
-									className={positronClassNames(
-										'parameter-input', 'parameter-select',
-										{ 'error': parameterFieldStates[parameter.id].error }
-									)}
-									id={fieldId}
-									value={parameterFieldStates[parameter.id].value as string}
-									onChange={e => onParameterChanged(parameter.id, e.target.value)}
-								>
-									{parameter.options?.map(option => (
-										<option key={option} value={option}>{option}</option>
-									))}
-								</select>
+								{/*
+								 * The workbench strips the native dropdown arrow from every select and
+								 * restores it with a pseudo-element on this wrapper, so a select without
+								 * it is indistinguishable from a text input.
+								 */}
+								<div className='select-container'>
+									<select
+										aria-required={parameter.required || undefined}
+										className={positronClassNames(
+											'parameter-input', 'parameter-select',
+											{ 'error': parameterFieldStates[parameter.id].error }
+										)}
+										id={fieldId}
+										value={parameterFieldStates[parameter.id].value as string}
+										onChange={e => onParameterChanged(parameter.id, e.target.value)}
+									>
+										{parameter.options?.map(option => (
+											<option key={option} value={option}>{option}</option>
+										))}
+									</select>
+								</div>
 								<ParameterDescription text={parameter.description} />
 							</div>
 						);

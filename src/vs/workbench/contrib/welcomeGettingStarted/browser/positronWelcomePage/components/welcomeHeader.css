@@ -1,0 +1,112 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * The badge and name on the left, the Help button on the right. They swap to
+ * stacked rows once there is no room for both, which is what flex-wrap buys:
+ * the button drops below the name rather than crushing it.
+ */
+.positron-welcome-page-header {
+	align-items: center;
+	column-gap: 24px;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	/* Only seen once the button has wrapped onto its own row. */
+	row-gap: 12px;
+}
+
+/* The badge and the two lines of text move together as one unit. */
+.positron-welcome-page-header .welcome-header-brand {
+	align-items: center;
+	column-gap: 12px;
+	display: flex;
+	/* Lets the text wrap on a narrow page instead of pushing past the edge. */
+	min-width: 0;
+}
+
+/*
+ * The product badge. One file for both themes: it is a solid colored tile, so
+ * it reads on a light and a dark background alike.
+ */
+.positron-welcome-page-header .welcome-header-icon {
+	background-image: url('../../../../../browser/media/positron-icon.svg');
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: contain;
+	/* Square, and about as tall as the two lines of text beside it. */
+	flex: 0 0 auto;
+	height: 40px;
+	width: 40px;
+}
+
+.positron-welcome-page-header .welcome-header-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+/*
+ * gettingStarted.css sets 2.7em, normal weight and white-space: nowrap on every
+ * h1 in this container, so these rules need that same container chain to win on
+ * specificity rather than reaching for !important. The nowrap in particular has
+ * to go, or the name runs past the edge instead of wrapping.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.gettingStartedSlideCategories
+.positron-welcome-page-header {
+	& .welcome-header-title {
+		font-size: 20px;
+		font-weight: 600;
+		line-height: 26px;
+		margin: 0;
+		padding: 0;
+		white-space: normal;
+	}
+
+	& .welcome-header-tagline {
+		color: var(--vscode-descriptionForeground);
+		font-size: 12px;
+		line-height: 16px;
+		margin: 0;
+	}
+
+	/*
+	 * Restores button styling. gettingStarted.css strips the border, forces
+	 * color: inherit and sets 16px padding on every button in the container.
+	 *
+	 * An outline rather than a fill, following Start Session in the top action
+	 * bar (.action-bar-button.border): no background, a thin border, a 4px
+	 * radius and a 12px label. A filled button here would outweigh the fix
+	 * buttons in the environment setup card, which are the only controls on the
+	 * page worth pressing.
+	 */
+	& .welcome-header-help {
+		align-items: center;
+		background-color: transparent;
+		border: 1px solid var(--vscode-positronWelcome-headerButtonBorder);
+		border-radius: 4px;
+		color: var(--vscode-foreground);
+		column-gap: 6px;
+		display: flex;
+		/* Keeps its label's width; the name beside it is what gives way. */
+		flex: 0 0 auto;
+		font-size: 12px;
+		line-height: 16px;
+		margin: 0;
+		padding: 3px 8px;
+		white-space: nowrap;
+	}
+
+	& .welcome-header-help:hover {
+		background-color: var(--vscode-toolbar-hoverBackground);
+	}
+
+	/* The icon takes its color from the button rather than the container. */
+	& .welcome-header-help-icon.codicon {
+		color: inherit;
+		font-size: 14px;
+	}
+}

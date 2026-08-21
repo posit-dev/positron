@@ -72,7 +72,7 @@ describe('PositronWelcomePage', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('renders the banner, then the recent list, the connect action and the footer', () => {
+	it('renders the header, the banner, then the recent list, the connect action and the footer', () => {
 		const { recentList, connectAction, footer } = slottedDom();
 		const { container } = rtl.render(
 			<PositronWelcomePage
@@ -84,7 +84,7 @@ describe('PositronWelcomePage', () => {
 			/>
 		);
 
-		expect(container).toHaveTextContent(/Environment setup.*Learn.*Recent.*Connect to\.\.\..*Show welcome page on startup/);
+		expect(container).toHaveTextContent(/Welcome to .*Help.*Environment setup.*Learn.*Recent.*Connect to\.\.\..*Show welcome page on startup/);
 	});
 
 	it('omits the connect action when there is none, as on web', () => {

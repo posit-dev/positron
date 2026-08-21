@@ -170,7 +170,7 @@ describe('DataConnectionsTreeInstance', () => {
 	 * flips the profile's live state and notifies the tree, standing in for the service connecting or
 	 * disconnecting it.
 	 */
-	function createTree(connected = true) {
+	function createTree(connected = true, discoveredProfiles: IDataConnectionProfile[] = []) {
 		// One leaf under the connection, so a test has a real non-entry node to act on. Its node id is
 		// DTO_ID below.
 		const getChildren = vi.fn(async () => [{
@@ -195,7 +195,9 @@ describe('DataConnectionsTreeInstance', () => {
 		const service = stubInterface<IPositronDataConnectionsService>({
 			onDidChangeProfiles: Event.None,
 			onDidChangeInstances: onDidChangeInstances.event,
+			onDidChangeDiscoveredProfiles: Event.None,
 			getProfiles: () => [profile],
+			getDiscoveredProfiles: () => discoveredProfiles,
 			getInstanceForProfile: () => liveInstance,
 			connect: async () => instance,
 			disconnect,
@@ -213,6 +215,23 @@ describe('DataConnectionsTreeInstance', () => {
 
 		return { tree, service, getChildren, setConnected, disconnect, disconnectWhenUnused };
 	}
+
+	it('lists discovered connections after the saved ones', async () => {
+		const discovered = createProfile({
+			id: 'discovered:odbc:Pagila',
+			connectionName: 'Pagila',
+			discovered: true,
+		});
+		const { tree } = createTree(true, [discovered]);
+		await tree.refresh();
+
+		// Saved first, then discovered: on a machine with a large odbc.ini the discoveries can
+		// outnumber the user's own connections several times over.
+		expect(tree.visibleNodes.map(visible => visible.node.id)).toEqual([
+			ENTRY_ID,
+			'entry:discovered:odbc:Pagila',
+		]);
+	});
 
 	it('gives up its use of the connection when a connected entry is collapsed', async () => {
 		const { tree, service } = createTree();

@@ -13,6 +13,7 @@ import { IBannerService } from '../../../services/banner/browser/bannerService.j
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IPositronAcademicLicenseService } from '../../../../platform/positronLicense/common/positronAcademicLicenseService.js';
 
 const BANNER_ID = 'positron.academicLicense';
 const DISMISSED_KEY = 'workbench.banner.academicLicense.dismissed';
@@ -27,12 +28,17 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 	constructor(
 		@IBannerService private readonly _bannerService: IBannerService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IPositronAcademicLicenseService private readonly _academicLicenseService: IPositronAcademicLicenseService,
 	) {
 		super();
 
 		// Only show on web builds that are not Posit Workbench. Remote SSH runs the UI in
 		// desktop Electron (isWeb === false), so it is already excluded by the !isWeb check.
 		if (!isWeb || isWorkbench) {
+			return;
+		}
+
+		if (!this._academicLicenseService.isAcademic) {
 			return;
 		}
 
@@ -69,6 +75,10 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
 	.registerWorkbenchContribution(PositronAcademicLicenseBannerContribution, LifecyclePhase.Restored);
 
 CommandsRegistry.registerCommand(SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID, (accessor: ServicesAccessor) => {
+	if (!accessor.get(IPositronAcademicLicenseService).isAcademic) {
+		return;
+	}
+
 	const bannerService = accessor.get(IBannerService);
 	const storageService = accessor.get(IStorageService);
 	bannerService.show({

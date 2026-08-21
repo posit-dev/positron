@@ -6,7 +6,7 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
@@ -296,6 +296,22 @@ class MainThreadDataConnectionDriverAdapter implements IDataConnectionDriver {
 	 */
 	async redactParameterValue(mechanismId: string, parameterId: string, value: string): Promise<string | undefined> {
 		return this._proxy.$redactParameterValue(this.id, mechanismId, parameterId, value);
+	}
+
+	/**
+	 * Asks the ext host to run driver.discoverConnections() via RPC, listing the connections already
+	 * configured on this machine. Resolves to an empty array for a driver that does not implement
+	 * discovery.
+	 */
+	async discoverConnections(): Promise<IDiscoveredDataConnection[]> {
+		const discovered = await this._proxy.$discoverConnections(this.id);
+		return discovered.map(connection => ({
+			id: connection.id,
+			name: connection.name,
+			description: connection.description,
+			mechanismId: connection.mechanismId,
+			parameterValues: connection.parameters,
+		}));
 	}
 }
 

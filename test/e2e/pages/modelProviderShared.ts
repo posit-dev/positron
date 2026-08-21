@@ -6,10 +6,11 @@
 import { expect, chromium, Browser, BrowserContext, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 
-// Modal-agnostic helpers shared between page objects that authenticate
-// against model providers (e.g. the legacy ModelProviderAuth page object and
-// the new Configure LLM Providers modal). Keeping these free of any
-// particular modal's selectors lets both consumers reuse the same logic.
+// Modal-agnostic helpers for authenticating against model providers, kept free
+// of any particular modal's selectors. These backed both the legacy provider
+// dialog and the Configure LLM Providers modal; the legacy page object is gone,
+// but the split still keeps provider metadata and the OAuth device-code flow out
+// of the modal's selector-level code.
 
 /**
  * Fills an input element's value using evaluate() instead of Playwright's

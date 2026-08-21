@@ -27,6 +27,7 @@ import { ICSSDevelopmentService } from '../../../platform/cssDev/node/cssDevServ
 import { NoneServerConnectionToken } from '../../node/serverConnectionToken.js';
 import { WebClientServer } from '../../node/webClientServer.js';
 import { ISocketOwnershipCheck } from '../../node/socketOwnership.js';
+import { IPositronAcademicLicenseService } from '../../../platform/positronLicense/common/positronAcademicLicenseService.js';
 
 // None of the tests below exercise real /proc reads -- getListeningPortUid/isProxyPortOwnershipEnforced
 // are stubbed via WebClientServer#setSocketOwnershipCheckForTesting -- so, unlike socketOwnership.vitest.ts,
@@ -44,7 +45,8 @@ function createWebClientServer(ownershipCheck: ISocketOwnershipCheck, logService
 		logService,
 		new EmptyRequestService(),
 		new EmptyProductService(),
-		mockObject<ICSSDevelopmentService>()({ isEnabled: false }) as unknown as ICSSDevelopmentService
+		mockObject<ICSSDevelopmentService>()({ isEnabled: false }) as unknown as ICSSDevelopmentService,
+		mockObject<IPositronAcademicLicenseService>()({ isAcademic: false }) as unknown as IPositronAcademicLicenseService
 	);
 	webClientServer.setSocketOwnershipCheckForTesting(ownershipCheck);
 	return webClientServer;

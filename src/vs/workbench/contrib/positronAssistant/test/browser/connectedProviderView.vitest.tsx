@@ -14,7 +14,7 @@ import { ConnectedProviderView } from '../../browser/components/connectedProvide
 
 const positAi: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'posit-ai', displayName: 'Posit AI', settingName: 'posit-ai' },
+	provider: { id: 'posit-ai', displayName: 'Posit AI' },
 	supportedOptions: ['oauth'],
 	signedIn: true,
 	defaults: {},
@@ -43,7 +43,7 @@ describe('ConnectedProviderView', () => {
 	it('displays the current base URL for a provider that supports it', () => {
 		const anthropic: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' },
+			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
 			supportedOptions: ['apiKey', 'baseUrl'],
 			signedIn: true,
 			defaults: { baseUrl: 'https://proxy.example/v1' },
@@ -58,7 +58,7 @@ describe('ConnectedProviderView', () => {
 			provider: { id: 'databricks', displayName: 'Databricks' },
 			supportedOptions: ['apiKey', 'baseUrl'],
 			signedIn: true,
-			defaults: { baseUrl: 'https://adb-123.7.azuredatabricks.net' },
+			defaults: { baseUrl: 'https://workspace.example.com' },
 		};
 		rtl.render(<ConnectedProviderView source={databricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
 		expect(screen.getByText('Workspace URL')).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe('ConnectedProviderView', () => {
 	it('shows an error banner (and not the connected line) when the provider status is error', () => {
 		const broken: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' },
+			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
 			supportedOptions: ['apiKey', 'baseUrl'],
 			signedIn: true,
 			status: 'error',
@@ -88,7 +88,7 @@ describe('ConnectedProviderView', () => {
 	it('shows the environment variable and no Disconnect footer button for env-authenticated providers', () => {
 		const envAnthropic: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' },
+			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
 			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			signedIn: true,
 			defaults: {
@@ -100,10 +100,26 @@ describe('ConnectedProviderView', () => {
 		expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
 	});
 
+	it('shows the managed-credentials message and no Disconnect button for PWB-managed Databricks', () => {
+		const managedDatabricks: IPositronLanguageModelSource = {
+			type: PositronLanguageModelType.Chat,
+			provider: { id: 'databricks', displayName: 'Databricks' },
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl', 'autoconfigure'],
+			signedIn: true,
+			defaults: {
+				autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'OAuth (Workbench Managed Credentials)', signedIn: true },
+			},
+		};
+		rtl.render(<ConnectedProviderView source={managedDatabricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByText(/connected via oauth \(workbench managed credentials\)/i)).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Sign Out' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+	});
+
 	it('shows Accounts-menu sign-out guidance and no Disconnect for GitHub Copilot', () => {
 		const copilot: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'copilot-auth', displayName: 'GitHub Copilot', settingName: 'githubCopilot' },
+			provider: { id: 'copilot-auth', displayName: 'GitHub Copilot' },
 			supportedOptions: ['oauth', 'autoconfigure'],
 			signedIn: true,
 			defaults: {
@@ -131,7 +147,7 @@ describe('ConnectedProviderView', () => {
 	it('shows "Removing..." while removing an API-key provider', async () => {
 		const anthropic: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
-			provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' },
+			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
 			supportedOptions: ['apiKey', 'baseUrl'],
 			signedIn: true,
 			defaults: {},
@@ -153,5 +169,38 @@ describe('ConnectedProviderView', () => {
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
 		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 		await act(async () => { resolve(); });
+	});
+
+	it('shows "Connected via API key" and a Remove action for a Databricks connection made with an API key, even though the provider also supports OAuth', async () => {
+		const databricksApiKey: IPositronLanguageModelSource = {
+			type: PositronLanguageModelType.Chat,
+			provider: { id: 'databricks', displayName: 'Databricks' },
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+			signedIn: true,
+			authMethods: ['apiKey'],
+			defaults: { baseUrl: 'https://workspace.example.com' },
+		};
+		const onAction = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		rtl.render(<ConnectedProviderView source={databricksApiKey} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByText(/connected via api key/i)).toBeInTheDocument();
+		const removeButton = screen.getByRole('button', { name: 'Remove' });
+		expect(removeButton).toBeInTheDocument();
+		await user.click(removeButton);
+		expect(onAction).toHaveBeenCalledWith(databricksApiKey, expect.anything(), 'delete');
+	});
+
+	it('shows "Connected via OAuth" and a Sign Out action for a Databricks connection made with OAuth', () => {
+		const databricksOAuth: IPositronLanguageModelSource = {
+			type: PositronLanguageModelType.Chat,
+			provider: { id: 'databricks', displayName: 'Databricks' },
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+			signedIn: true,
+			authMethods: ['oauth'],
+			defaults: { baseUrl: 'https://workspace.example.com' },
+		};
+		rtl.render(<ConnectedProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
 	});
 });

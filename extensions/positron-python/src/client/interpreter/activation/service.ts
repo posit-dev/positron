@@ -40,6 +40,9 @@ import { identifyShellFromShellPath } from '../../common/terminal/shellDetectors
 import { getSearchPathEnvVarNames } from '../../common/utils/exec';
 import { cache } from '../../common/utils/decorators';
 import { getRunPixiPythonCommand } from '../../pythonEnvironments/common/environmentManagers/pixi';
+// --- Start Positron ---
+import { moduleMetadataMap } from '../../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+// --- End Positron ---
 
 const ENVIRONMENT_PREFIX = 'e8b39361-0157-4923-80e1-22d70d46dee6';
 const CACHE_DURATION = 10 * 60 * 1000;
@@ -258,7 +261,20 @@ export class EnvironmentActivationService implements IEnvironmentActivationServi
                 if (pythonArgv) {
                     command = [...pythonArgv, ...args].map((arg) => arg.toCommandArgumentForPythonExt()).join(' ');
                 }
+                // --- Start Positron ---
+            } else if (interpreter?.envType === EnvironmentType.Module) {
+                // Module-provided interpreters need their environment modules loaded
+                // before the interpreter runs (e.g. LD_LIBRARY_PATH for C extensions
+                // such as _sqlite3). Run the interpreter under the same startup command
+                // used at kernel launch so the captured environment matches.
+                const startupCommand = moduleMetadataMap.get(interpreter.path)?.startupCommand;
+                if (startupCommand) {
+                    command = `${startupCommand} && echo '${ENVIRONMENT_PREFIX}' && ${interpreter.path.toCommandArgumentForPythonExt()} ${args.join(
+                        ' ',
+                    )}`;
+                }
             }
+            // --- End Positron ---
             if (!command) {
                 const activationCommands = await this.helper.getEnvironmentActivationShellCommands(
                     resource,

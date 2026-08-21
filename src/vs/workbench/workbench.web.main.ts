@@ -79,6 +79,7 @@ import './services/ephemeralState/browser/ephemeralStateService.js';
 import './services/positronMemoryUsage/browser/positronMemoryUsageRemoteProvider.js';
 import './services/positronHeadlessLanguageModel/browser/headlessLanguageModelService.js';
 import './services/positronAiProvider/browser/aiProviderService.js';
+import './services/positronLicense/browser/positronAcademicLicenseService.js';
 // --- End Positron ---
 
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';

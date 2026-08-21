@@ -198,8 +198,32 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$isProviderEnabled(id);
 	}
 
-	async getAgentAllowedCommands(): Promise<extHostProtocol.ISerializedAgentCommand[]> {
-		return this._proxy.$getAgentAllowedCommands();
+	async getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<extHostProtocol.ISerializedAgentCommand[]> {
+		return this._proxy.$getAgentAllowedCommands(options);
+	}
+
+	/**
+	 * Skill roots registered at runtime via {@link registerAgentSkillRoot}.
+	 * Held in the extension host because both the registering extension and the
+	 * reading consumer (the assistant) live here, so no main-thread round-trip
+	 * is needed and registration is observable immediately.
+	 */
+	private readonly _registeredSkillRoots = new Set<string>();
+
+	/**
+	 * Filesystem roots holding the agent skills available to this Positron
+	 * build, registered at runtime via {@link registerAgentSkillRoot}. Empty
+	 * when none are registered.
+	 */
+	async getAgentSkillRoots(): Promise<string[]> {
+		return [...this._registeredSkillRoots];
+	}
+
+	registerAgentSkillRoot(root: string): Disposable {
+		this._registeredSkillRoots.add(root);
+		return new Disposable(() => {
+			this._registeredSkillRoots.delete(root);
+		});
 	}
 
 	async validateAndExecuteCommand(

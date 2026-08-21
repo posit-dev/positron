@@ -33,6 +33,9 @@ import { IInterpreterService, InterpreterChangeEvent } from '../../../client/int
 import { InterpreterService } from '../../../client/interpreter/interpreterService';
 import { EnvironmentType, PythonEnvironment } from '../../../client/pythonEnvironments/info';
 import { getSearchPathEnvVarNames } from '../../../client/common/utils/exec';
+// --- Start Positron ---
+import { moduleMetadataMap } from '../../../client/pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+// --- End Positron ---
 
 const getEnvironmentPrefix = 'e8b39361-0157-4923-80e1-22d70d46dee6';
 const defaultShells = {
@@ -362,4 +365,42 @@ suite('Interpreters Activation - Python Environment Variables', () => {
             });
         }),
     );
+
+    // --- Start Positron ---
+    suite('Module-provided interpreters', () => {
+        const moduleInterpreter: PythonEnvironment = { ...pythonInterpreter, envType: EnvironmentType.Module };
+        const startupCommand = 'source "/opt/init.sh" && module load python/3.11';
+
+        setup(() => {
+            initSetup(moduleInterpreter);
+            moduleMetadataMap.set(moduleInterpreter.path, {
+                type: 'module',
+                environmentName: 'python/3.11',
+                modules: ['python/3.11'],
+                startupCommand,
+                version: '3.6.6',
+            });
+        });
+
+        teardown(() => moduleMetadataMap.delete(moduleInterpreter.path));
+
+        test('Probe runs the interpreter under the module startup command', async () => {
+            when(platform.osType).thenReturn(OSType.Linux);
+            when(processServiceFactory.create(undefined)).thenResolve(instance(processService));
+            when(envVarsService.getEnvironmentVariables(undefined)).thenResolve({});
+
+            await service.getActivatedEnvironmentVariables(undefined, moduleInterpreter);
+
+            const printEnvPyFile = path.join(EXTENSION_ROOT_DIR, 'python_files', 'printEnvVariables.py');
+            const expectedCommand =
+                `${startupCommand} && echo '${getEnvironmentPrefix}' && ` +
+                `${moduleInterpreter.path.toCommandArgumentForPythonExt()} ` +
+                `${printEnvPyFile.fileToCommandArgumentForPythonExt()}`;
+            expect(capture(processService.shellExec).first()[0]).to.equal(expectedCommand);
+
+            // The module startup command replaces the generic shell activation path.
+            verify(helper.getEnvironmentActivationShellCommands(anything(), anything(), anything())).never();
+        });
+    });
+    // --- End Positron ---
 });

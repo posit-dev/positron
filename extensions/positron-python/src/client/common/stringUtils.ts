@@ -48,10 +48,20 @@ export function replaceAll(source: string, substr: string, newSubstr: string): s
 // --- Start Positron ---
 /**
  * Returns the shortest string from an array of strings.
+ *
+ * Equal-length strings are broken lexicographically so that the result depends
+ * only on the set of inputs, not on their order. Callers use this to pick a
+ * single winner among equivalent interpreter paths; an order-dependent result
+ * lets two equal-length paths each displace the other indefinitely.
  * @param strings - The strings to compare.
- * @returns The shortest string.
+ * @returns The shortest string, or the lexicographically first of the shortest.
  */
 export function getShortestString(strings: string[]): string {
-    return strings.reduce((a, b) => (a.length <= b.length ? a : b));
+    return strings.reduce((a, b) => {
+        if (a.length !== b.length) {
+            return a.length < b.length ? a : b;
+        }
+        return a <= b ? a : b;
+    });
 }
 // --- End Positron ---
