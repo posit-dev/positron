@@ -43,8 +43,13 @@ import {
  * - Field order is name, then type, then the provider's connection fields.
  * - Nothing validates on blur or on change. Problems report on submit, in one
  *   inline message, so the primary button is never greyed out unexplained.
- * - Changing the type rebuilds the form and keeps only the name, so a key typed
- *   for one provider can't be submitted against another.
+ * - Changing the type swaps the fields but keeps whatever is typed in them. The
+ *   type is often the last thing corrected, and retyping a key and URL to fix
+ *   it is worse than the risk of sending them to the wrong provider.
+ * - The base URL starts empty. This entry points at an endpoint of its own, and
+ *   the borrowed source's default is whatever the user saved for the built-in,
+ *   so offering it back would suggest reusing that same endpoint. Left blank,
+ *   the entry is written with no URL and the client uses the vendor's own.
  */
 
 /**
@@ -86,7 +91,7 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 	const [name, setName] = useState('');
 	const [kind, setKind] = useState<CustomProviderKind>(DEFAULT_CUSTOM_PROVIDER_KIND);
 	const [apiKey, setApiKey] = useState('');
-	const [baseUrl, setBaseUrl] = useState(() => defaultBaseUrl(props.sources, DEFAULT_CUSTOM_PROVIDER_KIND));
+	const [baseUrl, setBaseUrl] = useState('');
 	const [modelIds, setModelIds] = useState<string[]>(['']);
 	const [saving, setSaving] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string>();
@@ -98,14 +103,10 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 		? { showApiKey: usesApiKey(basedOn.supportedOptions), showBaseUrl: basedOn.supportedOptions.includes('baseUrl') }
 		: FALLBACK_OPTIONS;
 
-	// Changing the type keeps only the name: the connection fields belong to the
-	// provider that was chosen when they were typed. The base URL is re-seeded
-	// from the newly chosen provider's own default.
+	// Changing the type keeps what's already typed. Only the stale error goes,
+	// since it was reported against the old type.
 	const changeKind = (next: CustomProviderKind) => {
 		setKind(next);
-		setApiKey('');
-		setBaseUrl(defaultBaseUrl(props.sources, next));
-		setModelIds(['']);
 		setErrorMessage(undefined);
 	};
 
@@ -269,12 +270,6 @@ function nameProblem(name: string, sources: IPositronLanguageModelSource[]): str
 		return localize('positron.addCustomProvider.error.nameTaken', "There is already a provider named \"{0}\". Choose another name.", name);
 	}
 	return undefined;
-}
-
-/** The base URL the borrowed built-in suggests, if it has one. */
-function defaultBaseUrl(sources: IPositronLanguageModelSource[], kind: CustomProviderKind): string {
-	const basedOn = sources.find(s => s.provider.id === CUSTOM_PROVIDER_KINDS[kind].fieldsFrom);
-	return basedOn?.defaults.baseUrl ?? '';
 }
 
 /** The grouped type-picker entries: a disabled heading per group, then its kinds. */

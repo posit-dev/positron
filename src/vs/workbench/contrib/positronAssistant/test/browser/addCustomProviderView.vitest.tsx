@@ -49,10 +49,11 @@ describe('AddCustomProviderView', () => {
 		return { onCreate, onBack };
 	}
 
-	it('borrows the default kind\'s fields, including its base URL', () => {
+	it('borrows the default kind\'s fields, and prefills neither of them', () => {
 		renderView();
 		expect(screen.getByLabelText(/api key/i)).toHaveValue('');
-		expect(screen.getByLabelText(/base url/i)).toHaveValue('https://localhost:1337/v1');
+		// The saved URL of the built-in it borrows from is not offered back.
+		expect(screen.getByLabelText(/base url/i)).toHaveValue('');
 	});
 
 	it('creates the entry from the name, key, URL, and declared model ids', async () => {
@@ -60,13 +61,14 @@ describe('AddCustomProviderView', () => {
 		const { onCreate, onBack } = renderView();
 		await user.type(screen.getByLabelText('Provider Name'), 'Work Gateway');
 		await user.type(screen.getByLabelText(/api key/i), 'sk-test');
+		await user.type(screen.getByLabelText(/base url/i), 'https://gateway.example.com/v1');
 		await user.click(screen.getByRole('button', { name: /models/i }));
 		await user.type(screen.getByPlaceholderText('Model ID'), 'llama-3.3-70b');
 		await user.click(screen.getByRole('button', { name: 'Add Provider' }));
 		expect(onCreate).toHaveBeenCalledWith({
 			name: 'Work Gateway',
 			kind: 'openai-compatible',
-			baseUrl: 'https://localhost:1337/v1',
+			baseUrl: 'https://gateway.example.com/v1',
 			apiKey: 'sk-test',
 			modelIds: ['llama-3.3-70b'],
 		});
@@ -106,16 +108,20 @@ describe('AddCustomProviderView', () => {
 		expect(screen.getByPlaceholderText('Model ID')).toBeInTheDocument();
 	});
 
-	it('changing the type keeps the name, clears the key, and re-seeds the URL', async () => {
+	it('changing the type keeps everything already typed', async () => {
 		const user = userEvent.setup();
 		renderView();
 		await user.type(screen.getByLabelText('Provider Name'), 'Work Anthropic');
 		await user.type(screen.getByLabelText(/api key/i), 'sk-for-the-gateway');
+		await user.type(screen.getByLabelText(/base url/i), 'https://gateway.example.com/v1');
+		await user.click(screen.getByRole('button', { name: /models/i }));
+		await user.type(screen.getByPlaceholderText('Model ID'), 'claude-opus-4');
 		await user.click(screen.getByRole('button', { name: 'OpenAI Compatible' }));
 		await user.click(screen.getByRole('button', { name: 'Anthropic' }));
 		expect(screen.getByLabelText('Provider Name')).toHaveValue('Work Anthropic');
-		expect(screen.getByLabelText(/api key/i)).toHaveValue('');
-		expect(screen.getByLabelText(/base url/i)).toHaveValue('https://api.anthropic.com/v1');
+		expect(screen.getByLabelText(/api key/i)).toHaveValue('sk-for-the-gateway');
+		expect(screen.getByLabelText(/base url/i)).toHaveValue('https://gateway.example.com/v1');
+		expect(screen.getByPlaceholderText('Model ID')).toHaveValue('claude-opus-4');
 	});
 
 	it('shows the borrowed provider\'s terms notice', () => {
