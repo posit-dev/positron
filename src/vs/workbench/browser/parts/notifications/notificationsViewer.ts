@@ -12,7 +12,7 @@ import { ButtonBar, IButtonOptions } from '../../../../base/browser/ui/button/bu
 import { ActionBar } from '../../../../base/browser/ui/actionbar/actionbar.js';
 import { ActionRunner, IAction, IActionRunner, Separator, toAction } from '../../../../base/common/actions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { dispose, DisposableStore, Disposable } from '../../../../base/common/lifecycle.js';
+import { dispose, DisposableStore, Disposable, markAsSingleton } from '../../../../base/common/lifecycle.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { INotificationViewItem, NotificationViewItem, NotificationViewItemContentChangeKind, INotificationMessage, ChoiceAction, NotificationsSettings, getNotificationsPosition } from '../../../common/notifications.js';
 import { ClearNotificationAction, ExpandNotificationAction, CollapseNotificationAction, ConfigureNotificationAction, getNotificationExpandIcon, getNotificationCollapseIcon } from './notificationsActions.js';
@@ -358,9 +358,18 @@ export class NotificationTemplateRenderer extends Disposable {
 		super();
 
 		if (!NotificationTemplateRenderer.closeNotificationAction) {
-			NotificationTemplateRenderer.closeNotificationAction = instantiationService.createInstance(ClearNotificationAction, ClearNotificationAction.ID, ClearNotificationAction.LABEL);
-			NotificationTemplateRenderer.expandNotificationAction = instantiationService.createInstance(ExpandNotificationAction, ExpandNotificationAction.ID, ExpandNotificationAction.LABEL);
-			NotificationTemplateRenderer.collapseNotificationAction = instantiationService.createInstance(CollapseNotificationAction, CollapseNotificationAction.ID, CollapseNotificationAction.LABEL);
+			// --- Start Positron ---
+			// These actions are process-wide statics that are intentionally never
+			// disposed, so mark them as singletons. Otherwise the leak detector
+			// reports them against whichever test first renders a notification row,
+			// which makes rendered notifications untestable.
+			// NotificationTemplateRenderer.closeNotificationAction = instantiationService.createInstance(ClearNotificationAction, ClearNotificationAction.ID, ClearNotificationAction.LABEL);
+			// NotificationTemplateRenderer.expandNotificationAction = instantiationService.createInstance(ExpandNotificationAction, ExpandNotificationAction.ID, ExpandNotificationAction.LABEL);
+			// NotificationTemplateRenderer.collapseNotificationAction = instantiationService.createInstance(CollapseNotificationAction, CollapseNotificationAction.ID, CollapseNotificationAction.LABEL);
+			NotificationTemplateRenderer.closeNotificationAction = markAsSingleton(instantiationService.createInstance(ClearNotificationAction, ClearNotificationAction.ID, ClearNotificationAction.LABEL));
+			NotificationTemplateRenderer.expandNotificationAction = markAsSingleton(instantiationService.createInstance(ExpandNotificationAction, ExpandNotificationAction.ID, ExpandNotificationAction.LABEL));
+			NotificationTemplateRenderer.collapseNotificationAction = markAsSingleton(instantiationService.createInstance(CollapseNotificationAction, CollapseNotificationAction.ID, CollapseNotificationAction.LABEL));
+			// --- End Positron ---
 			NotificationTemplateRenderer.updateExpandCollapseIcons(configurationService);
 		}
 
