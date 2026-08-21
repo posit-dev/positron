@@ -168,7 +168,7 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         run: |
           npm ci --fetch-timeout 120000
-          npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+          npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron arm64"
           npm run prelaunch
 
       - name: Pre-warm matplotlib font cache
