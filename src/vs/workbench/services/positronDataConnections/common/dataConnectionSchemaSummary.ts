@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { quoteCompactToken } from './dataConnectionCompactFormat.js';
 import { IDataConnectionNodeDTO } from './interfaces/dataConnectionDTOs.js';
 import { IDataConnectionHandle } from './interfaces/dataConnectionDriver.js';
 
@@ -43,6 +44,19 @@ const SUMMARY_LEAF_KINDS = new Set([
 	'stage',
 ]);
 
+// The node kind a driver reports a table's or view's columns as. Columns are the bulk of any
+// schema, and unlike every other kind they are pure leaves, so the renderer folds them onto their
+// parent's line instead of giving each one a line of its own.
+const COLUMN_KIND = 'field';
+
+// The characters a rendered schema line uses as delimiters: `.` between path segments, `,` between
+// folded columns, `:` between a column and its type, the brackets around a node's kind and its
+// column list, and the space that separates a line's path, kind, dataType, `PK` and `+<n> more`
+// parts. A name containing one of these is quoted; see quoteCompactToken. The space matters as
+// much as the rest: `Order Details` and `timestamp without time zone` are both ordinary names in a
+// real schema, and left unquoted a consumer splitting a line on spaces reads them as several parts.
+const SCHEMA_UNSAFE_CHARACTERS = '.,:()[] ';
+
 /**
  * Bounds for a {@link summarizeDataConnectionSchema} call. All fields default when omitted; see
  * DEFAULT_MAX_DEPTH, DEFAULT_MAX_NODES_PER_LEVEL, DEFAULT_MAX_TOTAL_NODES.
@@ -64,10 +78,11 @@ export interface IDataConnectionSchemaSummaryOptions {
 }
 
 /**
- * A single node in a summarized data connection schema tree. Plain JSON -- safe to send to
- * Assistant or serialize for storage.
+ * A single node in the schema tree the walk builds. Internal to this module: the walk's output is
+ * rendered to compact lines (see {@link renderSchemaLines}) before it leaves, so no consumer sees
+ * this shape.
  */
-export interface IDataConnectionSchemaNode {
+interface IDataConnectionSchemaNode {
 	name: string;
 	kind: string; // DataConnectionNodeKind value (positron.d.ts)
 	dataType?: string;
@@ -90,7 +105,8 @@ export interface IDataConnectionSchemaSummary {
 	// handle, stringified).
 	instanceId: string;
 
-	nodes: IDataConnectionSchemaNode[];
+	// The schema, one line per object, in walk order. See {@link renderSchemaLines} for the grammar.
+	lines: string[];
 
 	// True if any cap (maxDepth, maxNodesPerLevel, maxTotalNodes) truncated the output.
 	truncated: boolean;
@@ -105,9 +121,98 @@ interface IWalkState {
 }
 
 /**
+ * Whether a node is a column that can be folded onto its parent's line. A column with children of
+ * its own (a struct field, say) or with children left out by a cap has more to report than the
+ * folded form can carry, so it keeps its own line.
+ * @param node The node to test.
+ */
+function isFoldableColumn(node: IDataConnectionSchemaNode): boolean {
+	return node.kind === COLUMN_KIND
+		&& node.children === undefined
+		&& node.truncatedChildCount === undefined;
+}
+
+/**
+ * Renders one folded column: `<name>[:<dataType>][ PK]`.
+ * @param node The column node.
+ */
+function renderColumn(node: IDataConnectionSchemaNode): string {
+	const name = quoteCompactToken(node.name, SCHEMA_UNSAFE_CHARACTERS);
+	const dataType = node.dataType === undefined
+		? ''
+		: `:${quoteCompactToken(node.dataType, SCHEMA_UNSAFE_CHARACTERS)}`;
+
+	return `${name}${dataType}${node.isPrimaryKey ? ' PK' : ''}`;
+}
+
+/**
+ * Renders a schema tree as one line per object, in walk order. This is the payload's whole shape:
+ * a nested JSON tree spends most of its bytes repeating the keys `name`, `kind`, `dataType` and
+ * `children` once per node, which is pure overhead for a consumer that only wants to know which
+ * tables and columns exist. Folding columns onto their table's line and naming each object by its
+ * fully qualified path carries the same information in roughly half the characters -- and the
+ * qualified path is what a query needs anyway.
+ *
+ * The grammar of a line is:
+ *
+ *     <path> [<kind>][ <dataType>][ PK][ (<column>, ...)][ +<n> more]
+ *
+ * where `<path>` is the dot-joined names from the root, `<column>` is a folded child column, and
+ * `+<n> more` reports children a cap left out (see
+ * {@link IDataConnectionSchemaNode.truncatedChildCount}). Any name containing a delimiter is
+ * quoted as a JSON string. For example:
+ *
+ *     sales.public [schema]
+ *     sales.public.orders [table] (order_id:integer PK, customer_id:integer, total:numeric)
+ *     sales.public.events [table] (id:bigint PK) +37 more
+ *     sales.raw [schema] +12 more
+ *
+ * @param nodes The sibling nodes to render.
+ * @param prefix The qualified path of their parent, or undefined at the root. Tested against
+ * undefined rather than for truthiness: a parent whose rendered name is empty still contributes a
+ * path segment, and treating it as the root would render its descendants one level shallower than
+ * the schema really is.
+ */
+function renderSchemaLines(nodes: readonly IDataConnectionSchemaNode[], prefix?: string): string[] {
+	const lines: string[] = [];
+
+	for (const node of nodes) {
+		const name = quoteCompactToken(node.name, SCHEMA_UNSAFE_CHARACTERS);
+		const path = prefix === undefined ? name : `${prefix}.${name}`;
+
+		// A stray column at a level of its own (no parent to fold onto) still reports its type, so
+		// dataType is rendered here as well as in the folded form.
+		let line = `${path} [${node.kind}]`;
+		if (node.dataType !== undefined) {
+			line += ` ${quoteCompactToken(node.dataType, SCHEMA_UNSAFE_CHARACTERS)}`;
+		}
+		if (node.isPrimaryKey) {
+			line += ' PK';
+		}
+
+		const children = node.children ?? [];
+		const columns = children.filter(isFoldableColumn);
+		if (columns.length > 0) {
+			line += ` (${columns.map(renderColumn).join(', ')})`;
+		}
+		if (node.truncatedChildCount !== undefined) {
+			line += ` +${node.truncatedChildCount} more`;
+		}
+		lines.push(line);
+
+		// Everything that was not folded gets its own line, under this node's path.
+		lines.push(...renderSchemaLines(children.filter(child => !isFoldableColumn(child)), path));
+	}
+
+	return lines;
+}
+
+/**
  * Recursively walks a data connection's schema tree via {@link IDataConnectionHandle.getChildren}
  * and {@link IDataConnectionHandle.nodeGetChildren}, producing a bounded, plain JSON-serializable
- * summary suitable for handing to Assistant. Container-only node kinds (see
+ * summary suitable for handing to Assistant: one compact line per schema object (see
+ * {@link renderSchemaLines}), rather than a nested tree that would spend most of its size on
+ * repeated JSON keys. Container-only node kinds (see
  * CONTAINER_ONLY_KINDS) are flattened into their parent since they add no schema information of
  * their own, and file-holding kinds (see SUMMARY_LEAF_KINDS) are recorded without being expanded.
  * Output is bounded by maxDepth, maxNodesPerLevel, and maxTotalNodes; whenever a cap
@@ -204,7 +309,7 @@ export async function summarizeDataConnectionSchema(
 
 	return {
 		instanceId: String(handle.handle),
-		nodes,
+		lines: renderSchemaLines(nodes),
 		truncated: state.truncated,
 	};
 }

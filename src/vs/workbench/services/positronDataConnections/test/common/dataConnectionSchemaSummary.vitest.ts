@@ -76,7 +76,7 @@ describe('summarizeDataConnectionSchema', () => {
 
 		const summary = await summarizeDataConnectionSchema(handle);
 
-		expect(summary).toEqual({ instanceId: '42', nodes: [], truncated: false });
+		expect(summary).toEqual({ instanceId: '42', lines: [], truncated: false });
 	});
 
 	it('flattens container-only kinds into their parent', async () => {
@@ -99,27 +99,13 @@ describe('summarizeDataConnectionSchema', () => {
 
 		const summary = await summarizeDataConnectionSchema(handle);
 
+		// The Tables group is gone, and the table's columns are folded onto its line rather than each
+		// becoming a node of its own.
 		expect(summary).toMatchInlineSnapshot(`
 			{
 			  "instanceId": "1",
-			  "nodes": [
-			    {
-			      "children": [
-			        {
-			          "dataType": "integer",
-			          "isPrimaryKey": true,
-			          "kind": "field",
-			          "name": "id",
-			        },
-			        {
-			          "dataType": "text",
-			          "kind": "field",
-			          "name": "name",
-			        },
-			      ],
-			      "kind": "table",
-			      "name": "employees",
-			    },
+			  "lines": [
+			    "employees [table] (id:integer PK, name:text)",
 			  ],
 			  "truncated": false,
 			}
@@ -159,14 +145,11 @@ describe('summarizeDataConnectionSchema', () => {
 		expect(summary).toEqual({
 			instanceId: '1',
 			truncated: false,
-			nodes: [
-				{
-					name: 'sales', kind: 'schema', children: [
-						{ name: 'orders', kind: 'table' },
-						// No children and no truncatedChildCount: the files were never asked for.
-						{ name: 'raw_files', kind: 'volume' },
-					]
-				},
+			lines: [
+				'sales [schema]',
+				'sales.orders [table]',
+				// No columns and no `+n more`: the files were never asked for.
+				'sales.raw_files [volume]',
 			],
 		});
 		// The Volumes group is expanded (it is flattened away), but the volume itself never is.
@@ -186,7 +169,7 @@ describe('summarizeDataConnectionSchema', () => {
 		const summary = await summarizeDataConnectionSchema(handle);
 
 		// group-stages is not a container kind, so it stays as a node; the stage under it is a leaf.
-		expect(summary.nodes[0].children).toEqual([{ name: 'my_stage', kind: 'stage' }]);
+		expect(summary.lines).toEqual(['Stages [group-stages]', 'Stages.my_stage [stage]']);
 		expect(expanded).toEqual(['Stages']);
 	});
 
@@ -199,12 +182,9 @@ describe('summarizeDataConnectionSchema', () => {
 		expect(summary).toEqual({
 			instanceId: '1',
 			truncated: true,
-			nodes: [
-				{
-					name: 'level1', kind: 'database', children: [
-						{ name: 'level2', kind: 'database', truncatedChildCount: 1 },
-					]
-				},
+			lines: [
+				'level1 [database]',
+				'level1.level2 [database] +1 more',
 			],
 		});
 	});
@@ -215,8 +195,9 @@ describe('summarizeDataConnectionSchema', () => {
 		const summary = await summarizeDataConnectionSchema(handle, { maxDepth: 4 });
 
 		expect(summary.truncated).toBe(false);
-		// level4 is a leaf (no children), so nothing is left dangling at the boundary.
-		expect(summary.nodes[0].children![0].children![0].children).toEqual([{ name: 'level4', kind: 'database' }]);
+		// level4 is a leaf (no children), so nothing is left dangling at the boundary: its line
+		// carries no `+n more`.
+		expect(summary.lines.at(-1)).toBe('level1.level2.level3.level4 [database]');
 	});
 
 	it('caps children per parent at maxNodesPerLevel, marking truncatedChildCount on the parent', async () => {
@@ -237,14 +218,11 @@ describe('summarizeDataConnectionSchema', () => {
 		expect(summary).toEqual({
 			instanceId: '1',
 			truncated: true,
-			nodes: [
-				{
-					name: 'schema', kind: 'schema', truncatedChildCount: 2, children: [
-						{ name: 't1', kind: 'table' },
-						{ name: 't2', kind: 'table' },
-						{ name: 't3', kind: 'table' },
-					]
-				},
+			lines: [
+				'schema [schema] +2 more',
+				'schema.t1 [table]',
+				'schema.t2 [table]',
+				'schema.t3 [table]',
 			],
 		});
 	});
@@ -258,9 +236,13 @@ describe('summarizeDataConnectionSchema', () => {
 
 		const summary = await summarizeDataConnectionSchema(handle, { maxNodesPerLevel: 2 });
 
-		expect(summary.nodes.map(n => ({ name: n.name, truncatedChildCount: n.truncatedChildCount, children: n.children?.map(c => c.name) }))).toEqual([
-			{ name: 'schemaA', truncatedChildCount: 2, children: ['a1', 'a2'] },
-			{ name: 'schemaB', truncatedChildCount: 2, children: ['b1', 'b2'] },
+		expect(summary.lines).toEqual([
+			'schemaA [schema] +2 more',
+			'schemaA.a1 [table]',
+			'schemaA.a2 [table]',
+			'schemaB [schema] +2 more',
+			'schemaB.b1 [table]',
+			'schemaB.b2 [table]',
 		]);
 	});
 
@@ -277,15 +259,7 @@ describe('summarizeDataConnectionSchema', () => {
 		expect(summary).toEqual({
 			instanceId: '1',
 			truncated: true,
-			nodes: [
-				{
-					name: 'tableA', kind: 'table', children: [
-						{ name: 'f1', kind: 'field' },
-						{ name: 'f2', kind: 'field' },
-						{ name: 'f3', kind: 'field' },
-					]
-				},
-			],
+			lines: ['tableA [table] (f1, f2, f3)'],
 		});
 	});
 
@@ -308,11 +282,59 @@ describe('summarizeDataConnectionSchema', () => {
 		expect(summary).toEqual({
 			instanceId: '1',
 			truncated: true,
-			nodes: [
-				{ name: 't1', kind: 'table' },
-				{ name: 't2', kind: 'table' },
-			],
+			lines: ['t1 [table]', 't2 [table]'],
 		});
+	});
+
+	// A rendered line's delimiters are ordinary characters in a real schema: a dot appears in table
+	// names, and a comma inside a parameterized type. Quoting those tokens is what keeps a line from
+	// reading as an extra path segment or an extra column.
+	it('quotes a name or type containing a line delimiter', async () => {
+		const handle = createFakeHandle([
+			{
+				name: 'sales.2024', kind: 'table', children: [
+					{ name: 'total', kind: 'field', dataType: 'numeric(10,2)' },
+					{ name: 'a:b', kind: 'field', dataType: 'text' },
+				]
+			},
+		]);
+
+		const summary = await summarizeDataConnectionSchema(handle);
+
+		expect(summary.lines).toEqual(['"sales.2024" [table] (total:"numeric(10,2)", "a:b":text)']);
+	});
+
+	// A space separates a line's path, kind, dataType, `PK` and `+<n> more` parts, and spaces are
+	// ordinary in both object names and SQL type names, so they are quoted like any other delimiter.
+	it('quotes a name or type containing a space', async () => {
+		const handle = createFakeHandle([
+			{
+				name: 'Order Details', kind: 'table', children: [
+					{ name: 'created at', kind: 'field', dataType: 'timestamp without time zone' },
+				]
+			},
+		]);
+
+		const summary = await summarizeDataConnectionSchema(handle);
+
+		expect(summary.lines).toEqual(
+			['"Order Details" [table] ("created at":"timestamp without time zone")']);
+	});
+
+	// The path prefix is tested for root-ness, not truthiness: a node whose name renders empty still
+	// occupies a level, so its children stay one dot deeper than it, matching the real schema.
+	it('keeps a level for a node whose name is empty', async () => {
+		const handle = createFakeHandle([
+			{
+				name: '', kind: 'schema', children: [
+					{ name: 'orders', kind: 'table' },
+				]
+			},
+		]);
+
+		const summary = await summarizeDataConnectionSchema(handle);
+
+		expect(summary.lines).toEqual([' [schema]', '.orders [table]']);
 	});
 
 	it('produces a payload that survives a JSON round-trip', async () => {
