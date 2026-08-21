@@ -5,6 +5,8 @@
 
 import { expect, chromium, Browser, BrowserContext, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
+import { completeDatabricksOktaSignIn } from '../utils/databricksOAuth.js';
+import { armExternalUrlCapture, waitForExternalUrl } from '../utils/externalUrl.js';
 
 // Modal-agnostic helpers for authenticating against model providers, kept free
 // of any particular modal's selectors. These backed both the legacy provider
@@ -53,6 +55,7 @@ const POSIT_LOGIN_BUTTON = 'button[type="submit"]:has-text("Log in")';
 export type ModelProvider =
 	| 'anthropic-api'
 	| 'amazon-bedrock'
+	| 'databricks'
 	| 'echo'
 	| 'error'
 	| 'ms-foundry'
@@ -62,7 +65,7 @@ export type ModelProvider =
 /**
  * Authentication types for model providers.
  */
-export type ProviderAuthType = 'none' | 'apiKey' | 'aws' | 'oauth';
+export type ProviderAuthType = 'none' | 'apiKey' | 'aws' | 'oauth' | 'oauthLoopback';
 
 /**
  * Supported OAuth providers for device code flow.
@@ -99,6 +102,12 @@ export interface LoginModelProviderOptions {
 	timeout?: number;
 	/** Whether to run the OAuth browser in headless mode (default: false) */
 	headless?: boolean;
+	/**
+	 * Which authentication method to pick when the provider offers a choice
+	 * (currently Databricks: OAuth or API Key). Defaults to the provider's own
+	 * default, which is whatever the modal preselects.
+	 */
+	authMethod?: 'oauth' | 'apiKey';
 }
 
 export function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
@@ -114,6 +123,10 @@ export function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 			return 'aws';
 		case 'posit-ai':
 			return 'oauth';
+		case 'databricks':
+			// Authorization code + PKCE against a loopback server, not a device code
+			// flow, and only offered on desktop (see completeDatabricksLoopbackOAuth).
+			return 'oauthLoopback';
 		default:
 			throw new Error(`Unknown provider: ${provider}`);
 	}
@@ -123,12 +136,21 @@ export function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
  * Whether the provider requires a Base URL alongside its API key (e.g.
  * Microsoft Foundry's Azure endpoint). These providers expose a "Base URL"
  * field in the Configure Providers modal in addition to the API key field.
+ *
+ * Databricks labels the same field "Workspace URL" and needs it under both auth
+ * methods -- OAuth discovers the workspace's OIDC endpoints from it.
  */
 export function providerRequiresBaseUrl(provider: ModelProvider): boolean {
-	return provider.toLowerCase() === 'ms-foundry';
+	const id = provider.toLowerCase();
+	return id === 'ms-foundry' || id === 'databricks';
 }
 
 export function getProviderBaseUrlEnvVarName(provider: ModelProvider): string {
+	// Databricks reuses the workspace URL the catalog-explorer tests already run
+	// against, rather than introducing a DATABRICKS_BASE_URL alias for it.
+	if (provider.toLowerCase() === 'databricks') {
+		return 'DATABRICKS_WORKSPACE';
+	}
 	return `${provider.toUpperCase().replace(/-/g, '_')}_BASE_URL`;
 }
 
@@ -155,6 +177,9 @@ export function getProviderEnvVarName(provider: ModelProvider): string {
 			return 'ANTHROPIC_KEY';
 		case 'openai-api':
 			return 'OPENAI_KEY';
+		case 'databricks':
+			// Databricks calls its API key a personal access token.
+			return 'DATABRICKS_PAT';
 		default:
 			return `${provider.toUpperCase().replace(/-/g, '_')}_KEY`;
 	}
@@ -271,6 +296,72 @@ export async function completeOAuthDeviceCodeLogin(code: Code, config: OAuthDevi
 		context = await browser.newContext();
 		page = await context.newPage();
 		await completePositLogin(page, config, finalVerificationUrl);
+	} finally {
+		if (context) { await context.close(); }
+		if (browser) { await browser.close(); }
+	}
+}
+
+/**
+ * Completes Databricks' OAuth sign-in, which is authorization code + PKCE against a
+ * loopback server on the machine running Positron -- not a device code flow, and so
+ * offered on desktop only (see `supportedOptions` in the authentication extension's
+ * providerSources.ts).
+ *
+ * The extension hands the authorize URL to the system browser via
+ * `vscode.env.openExternal`, and the URL carries a one-time state and PKCE challenge
+ * the test cannot reconstruct. So the URL is intercepted in the Electron main process
+ * and replayed in a browser Playwright controls; the extension's loopback server
+ * receives the redirect and finishes the token exchange on its own.
+ *
+ * @param code The running app, used for its Electron handle and logger.
+ * @param trigger Starts the sign-in (clicks Connect). Called after interception is armed.
+ */
+export async function completeDatabricksLoopbackOAuth(
+	code: Code,
+	trigger: () => Promise<void>,
+	options: LoginModelProviderOptions = {}
+): Promise<void> {
+	// Headed by default, matching the Posit device-code flow: these IdP pages are not
+	// reliably renderable headless.
+	const { headless = false } = options;
+
+	const electronApp = code.electronApp;
+	if (!electronApp) {
+		throw new Error(
+			'Databricks OAuth sign-in requires the Electron build: the flow redirects to a loopback '
+			+ 'server on the machine running the extension host, and the provider only advertises '
+			+ 'OAuth on desktop. Use the API key (PAT) method on web and remote.'
+		);
+	}
+
+	await armExternalUrlCapture(electronApp);
+	await trigger();
+
+	// The workspace's OIDC authorize endpoint. Databricks serves it under /oidc on the
+	// workspace host itself, whether discovered or fallen back to.
+	const authorizeUrl = await waitForExternalUrl(electronApp, /\/oidc\/.*authorize/);
+
+	// The redirect the loopback server is listening on (ports 8020-8040). Waiting for the
+	// browser to land there is what tells us Databricks completed the handoff.
+	const redirectUri = new URL(authorizeUrl).searchParams.get('redirect_uri');
+	if (!redirectUri) {
+		throw new Error('Databricks authorize URL carried no redirect_uri');
+	}
+	const loopbackHost = new URL(redirectUri).host;
+
+	let browser: Browser | undefined;
+	let context: BrowserContext | undefined;
+	try {
+		browser = await chromium.launch({ headless });
+		context = await browser.newContext();
+		const page = await context.newPage();
+		await page.goto(authorizeUrl);
+		await completeDatabricksOktaSignIn(page, {
+			completionUrl: new RegExp(loopbackHost.replace(/\./g, '\\.')),
+			logger: code.logger,
+			label: 'Desktop',
+		});
 	} finally {
 		if (context) { await context.close(); }
 		if (browser) { await browser.close(); }

@@ -59,6 +59,7 @@ const INLINE_MODEL_TRIGGER = '[data-slot="dropdown-menu-trigger"]:has(svg.lucide
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	'anthropic-api': 'Anthropic',
 	'amazon-bedrock': 'AWS Bedrock',
+	'databricks': 'Databricks',
 	'openai-api': 'OpenAI',
 	'ms-foundry': 'Microsoft Foundry',
 	'posit-ai': 'Posit AI',

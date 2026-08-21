@@ -3,11 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, BrowserContext, Locator } from '@playwright/test';
+import { expect, BrowserContext } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
-import { generateTOTP } from '../../utils/totp.js';
-import { isOktaLockedOut, otpRetryDelayMs } from '../../utils/otpRetry.js';
+import { completeDatabricksOktaSignIn } from '../../utils/databricksOAuth.js';
 
 export class DashboardPage {
 	get title() { return this.code.driver.currentPage.getByRole('link', { name: 'Workbench projects' }); }
@@ -202,99 +201,23 @@ export class DashboardPage {
 
 		this.code.logger.log('Setting up Databricks OAuth...');
 
-		const serviceAccountEmail = process.env.IDE_SERVICE_ACCOUNT_EMAIL!;
-		const serviceAccountPassword = process.env.IDE_SERVICE_ACCOUNT_PASSWORD!;
-		const otpSecret = process.env.IDE_SERVICE_ACCOUNT_OTP_SECRET!;
-
 		// Click Databricks sign in - opens OAuth in new tab
 		const [oauthPage] = await Promise.all([
 			context.waitForEvent('page'),
 			page.locator('[aria-label*="Databricks"]').first().click(),
 		]);
 
-		// Navigate to Okta SSO via Databricks
-		await oauthPage.waitForURL(/cloud\.databricks\.com\/login\.html/, { timeout: 15000 });
-		const ssoButton = oauthPage.locator('a:has-text("Continue with SSO")');
-		await expect(ssoButton).toBeVisible({ timeout: 10000 });
-		await ssoButton.click();
-		await oauthPage.waitForURL(/okta\.com/, { timeout: 15000 });
-
-		// Enter Okta credentials
-		const usernameField = oauthPage.locator('#input28');
-		const passwordField = oauthPage.locator('input[type="password"]');
-		const nextButton = oauthPage.locator('input[value="Next"]');
-		const verifyButton = oauthPage.locator('input[value="Verify"]');
-
-		await expect(usernameField).toBeVisible({ timeout: 10000 });
-		await usernameField.fill(serviceAccountEmail);
-		await expect(nextButton).toBeVisible({ timeout: 10000 });
-		await nextButton.click();
-		await expect(passwordField).toBeVisible({ timeout: 5000 });
-		await passwordField.fill(serviceAccountPassword);
-		await expect(verifyButton).toBeVisible({ timeout: 10000 });
-		await verifyButton.click();
-
-		// Complete 2FA authentication. TOTPs roll every 30s and Okta rejects reused codes, so a
-		// parallel shard (e.g. Azure) consuming the same code seconds earlier can knock us out, or
-		// rapid duplicate submissions can lock the account ("too many attempts"). Retry up to 3
-		// times, backing off with jitter between attempts so we de-align from the competing shard
-		// and land in a different TOTP window (and back off longer on lockout). See otpRetry.ts.
-		await oauthPage.waitForLoadState('networkidle', { timeout: 10000 });
-		const otpField = oauthPage.locator('input[type="text"], input[type="tel"], input[autocomplete="one-time-code"]').first();
-		const verifyOtpButton = oauthPage.locator('button:has-text("Verify"), input[value="Verify"]');
-
-		const maxOtpAttempts = 3;
-		let otpAccepted = false;
-		for (let attempt = 1; attempt <= maxOtpAttempts; attempt++) {
-			await expect(otpField).toBeVisible({ timeout: 15000 });
-			await otpField.fill('');
-			await otpField.fill(generateTOTP(otpSecret));
-			this.code.logger.log(`Submitted TOTP code for Databricks (attempt ${attempt}/${maxOtpAttempts})`);
-			await expect(verifyOtpButton).toBeVisible({ timeout: 10000 });
-			await verifyOtpButton.click();
-
-			try {
-				// After Okta accepts the OTP it redirects back to Databricks, which walks
-				// through up to two OAuth consent screens before completing the redirect to
-				// our callback:
-				//   1. "Authorize as" -- account picker with a Continue control
-				//      (<a data-component-id="oauth.select-group.continue">).
-				//   2. "Permission Requested" -- consent screen with an Authorize control.
-				// Both render as du-bois links (role "link"), not buttons, and either may be
-				// skipped when the account has already granted consent. Click each if shown.
-				await this.clickDatabricksConsentControl(
-					oauthPage.locator('[data-component-id="oauth.select-group.continue"]'),
-					'Authorize as / Continue',
-				);
-				await this.clickDatabricksConsentControl(
-					oauthPage.getByText('Authorize', { exact: true }),
-					'Permission Requested / Authorize',
-				);
-
-				await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 20000 });
-				otpAccepted = true;
-				break;
-			} catch {
-				// The OAuth tab sometimes closes itself on success (or on certain Okta errors).
-				// A closed tab here is more likely "OAuth completed" than "OTP rejected" — bail
-				// out of the retry loop and let the enabledWidget check below decide success.
-				if (oauthPage.isClosed()) {
-					this.code.logger.log('OAuth page closed before URL match; treating as completed and deferring to widget check');
-					break;
-				}
-				if (attempt === maxOtpAttempts) {
-					this.code.logger.log(`OTP not accepted after ${maxOtpAttempts} attempts; falling through to widget-state check`);
-					break;
-				}
-				const lockedOut = await isOktaLockedOut(oauthPage);
-				const delay = otpRetryDelayMs(lockedOut);
-				this.code.logger.log(`Databricks OTP not accepted (attempt ${attempt}/${maxOtpAttempts}, lockedOut=${lockedOut}); backing off ${delay}ms before retry`);
-				await oauthPage.waitForTimeout(delay);
-			}
-		}
+		// From here the flow is the same Okta-fronted sign-in the desktop provider drives,
+		// so it lives in a shared helper. Workbench completes by redirecting back to its
+		// own callback on the dashboard origin.
+		const reachedCallback = await completeDatabricksOktaSignIn(oauthPage, {
+			completionUrl: /oauth_redirect_callback|localhost:8787/,
+			logger: this.code.logger,
+			label: 'Workbench',
+		});
 
 		try {
-			if (otpAccepted) {
+			if (reachedCallback) {
 				await oauthPage.waitForTimeout(2000);
 			}
 			if (!oauthPage.isClosed()) {
@@ -307,24 +230,6 @@ export class DashboardPage {
 		// Verify credentials are enabled
 		await expect(enabledWidget).toBeVisible({ timeout: 30000 });
 		this.code.logger.log('Databricks OAuth setup complete');
-	}
-
-	/**
-	 * Clicks a Databricks OAuth consent control if it appears within a short window.
-	 * These screens ("Authorize as", "Permission Requested") are optional -- Databricks
-	 * skips them once the account has granted consent -- so a control that never shows
-	 * is treated as "already past this step" rather than a failure.
-	 * @param control Locator for the Continue/Authorize control on the consent screen
-	 * @param label Human-readable label for logging which screen was handled
-	 */
-	private async clickDatabricksConsentControl(control: Locator, label: string): Promise<void> {
-		try {
-			await expect(control).toBeVisible({ timeout: 8000 });
-			await control.click();
-			this.code.logger.log(`Clicked Databricks consent control: ${label}`);
-		} catch {
-			this.code.logger.log(`Databricks consent control not shown, skipping: ${label}`);
-		}
 	}
 
 	/**
