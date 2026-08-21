@@ -304,8 +304,15 @@ export class NemotronTranscriber {
 		// Route the download through the same proxy machinery `RequestService`
 		// uses (`@vscode/proxy-agent`), so corporate proxies and strict-SSL are
 		// honoured even though this utility process has no `IRequestService`.
-		const agent = await getProxyAgent(base, process.env, { proxyUrl: proxy?.url, strictSSL: proxy?.strictSSL });
-		const request: IDownloadRequestOptions = { agent, strictSSL: proxy?.strictSSL, authorization: proxy?.authorization };
+		// --- Start PWB: honor http.noProxy and NO_PROXY in node requests ---
+		// const agent = await getProxyAgent(base, process.env, { proxyUrl: proxy?.url, strictSSL: proxy?.strictSSL, noProxy: proxy?.noProxy });
+		const request: IDownloadRequestOptions = {
+			resolveProxyAgent: url => getProxyAgent(url, process.env, { proxyUrl: proxy?.url, strictSSL: proxy?.strictSSL, noProxy: proxy?.noProxy }),
+			strictSSL: proxy?.strictSSL,
+			authorization: proxy?.authorization
+		};
+		// const request: IDownloadRequestOptions = { agent, strictSSL: proxy?.strictSSL, authorization: proxy?.authorization };
+		// --- End PWB ---
 
 		// Determine total bytes up front so progress can be reported as a single
 		// 0..1 value across all files (the .data blobs dominate). The HEAD
@@ -697,6 +704,10 @@ function melToHz(mel: number): number {
 interface IDownloadRequestOptions {
 	/** Proxy agent from `getProxyAgent`, or `null`/`undefined` for a direct connection. */
 	readonly agent?: Agent;
+	// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+	/** Per-request proxy-agent resolver used to re-evaluate redirect targets. */
+	readonly resolveProxyAgent?: (url: string) => Promise<Agent>;
+	// --- End PWB ---
 	/** When `false`, disables certificate validation; strict (secure) by default. */
 	readonly strictSSL?: boolean;
 	/** `Proxy-Authorization` header value, when configured. */
@@ -720,8 +731,14 @@ function toHttpsOptions(options: IDownloadRequestOptions, method: 'HEAD' | 'GET'
 /** Resolve the final content-length of a URL (following redirects). */
 async function headContentLength(url: string, options: IDownloadRequestOptions): Promise<number> {
 	const https = await import('https');
+	// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+	const requestOptions = options.resolveProxyAgent ? await toHttpsOptionsForPwb(url, options, 'HEAD') : toHttpsOptions(options, 'HEAD');
+	// --- End PWB ---
 	return new Promise<number>((resolve, reject) => {
-		const req = https.request(url, toHttpsOptions(options, 'HEAD'), res => {
+		// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+		// const req = https.request(url, toHttpsOptions(options, 'HEAD'), res => {
+		const req = https.request(url, requestOptions, res => {
+			// --- End PWB ---
 			if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
 				res.resume();
 				headContentLength(new URL(res.headers.location, url).toString(), options).then(resolve, reject);
@@ -745,8 +762,14 @@ async function headContentLength(url: string, options: IDownloadRequestOptions):
 /** Stream a URL to `dest` (following redirects), reporting received bytes. */
 async function downloadFile(url: string, dest: string, options: IDownloadRequestOptions, onBytes: (received: number) => void): Promise<void> {
 	const https = await import('https');
+	// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+	const requestOptions = options.resolveProxyAgent ? await toHttpsOptionsForPwb(url, options, 'GET') : toHttpsOptions(options, 'GET');
+	// --- End PWB ---
 	return new Promise<void>((resolve, reject) => {
-		const req = https.request(url, toHttpsOptions(options, 'GET'), res => {
+		// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+		// const req = https.request(url, toHttpsOptions(options, 'GET'), res => {
+		const req = https.request(url, requestOptions, res => {
+			// --- End PWB ---
 			if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
 				res.resume();
 				downloadFile(new URL(res.headers.location, url).toString(), dest, options, onBytes).then(resolve, reject);
@@ -795,3 +818,19 @@ async function downloadFile(url: string, dest: string, options: IDownloadRequest
 		req.end();
 	});
 }
+
+// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+async function toHttpsOptionsForPwb(url: string, options: IDownloadRequestOptions, method: 'HEAD' | 'GET'): Promise<import('https').RequestOptions> {
+	const resolveProxyAgent = options.resolveProxyAgent;
+	if (!resolveProxyAgent) {
+		return toHttpsOptions(options, method);
+	}
+	const agent = await resolveProxyAgent(url);
+	return {
+		method,
+		agent: agent ?? undefined,
+		rejectUnauthorized: options.strictSSL !== false,
+		headers: options.authorization && agent ? { 'Proxy-Authorization': options.authorization } : undefined,
+	};
+}
+// --- End PWB ---
