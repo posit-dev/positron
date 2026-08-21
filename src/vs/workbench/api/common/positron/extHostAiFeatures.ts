@@ -29,9 +29,11 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	private readonly _dialogSessions = new Map<string, { resolve: () => void }>();
 	private readonly _onDidChangeProviderConfigEmitter = this._disposables.add(new Emitter<IPositronLanguageModelSource>());
 	private readonly _onDidChangeProviderEnablementEmitter = this._disposables.add(new Emitter<{ id: string; enabled: boolean }>());
+	private readonly _onDidChangeAgentSkillRootsEmitter = this._disposables.add(new Emitter<void>());
 
 	readonly onDidChangeProviderConfig = this._onDidChangeProviderConfigEmitter.event;
 	readonly onDidChangeProviderEnablement = this._onDidChangeProviderEnablementEmitter.event;
+	readonly onDidChangeAgentSkillRoots = this._onDidChangeAgentSkillRootsEmitter.event;
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -221,8 +223,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	registerAgentSkillRoot(root: string): Disposable {
 		this._registeredSkillRoots.add(root);
+		this._onDidChangeAgentSkillRootsEmitter.fire();
 		return new Disposable(() => {
 			this._registeredSkillRoots.delete(root);
+			this._onDidChangeAgentSkillRootsEmitter.fire();
 		});
 	}
 
