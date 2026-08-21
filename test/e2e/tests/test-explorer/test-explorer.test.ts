@@ -68,6 +68,40 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestStatus('test_that number 2 fails', 'Failed');
 	});
 
+	// A test run gets its environment from three places: contributions from other
+	// extensions, contributions from positron-r, and the live R console session. A
+	// terminal gets all of that from core and a kernel from the supervisor, but the
+	// test runner spawns R directly, so positron-r has to assemble it.
+	// https://github.com/posit-dev/positron/issues/15609
+	test('A test run gets the environment variables it needs', async function ({ app, executeCode }, testInfo) {
+		const { console, testExplorer } = app.workbench;
+		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
+
+		await executeCode('R', 'Sys.setenv(TESTTHAT_MAX_FAILS = 99)');
+
+		// Printed in the same shape as ENV-VARS.txt, so both sides parse the same.
+		const LANG_LINE = /^LANG=(.*)$/m;
+		await executeCode('R', 'cat(paste0("LANG=", Sys.getenv("LANG")))');
+		const langLines = await console.waitForConsoleContents(LANG_LINE);
+		const consoleLang = langLines[0].match(LANG_LINE)![1];
+
+		await testExplorer.expectTestItems(['test-env-vars.R']);
+		await testExplorer.runTest('test-env-vars.R');
+
+		await testExplorer.expectTestStatus('test-env-vars.R', 'Passed', 60000);
+
+		// A skip would still leave the file Passed, so confirm this one really ran.
+		await testExplorer.expandAllTests();
+		await testExplorer.expectTestStatus('TESTTHAT_MAX_FAILS is forwarded from the console', 'Passed');
+
+		// An empty LANG is not forwarded, so there's nothing to assert.
+		if (consoleLang !== '') {
+			const evLines = fs.readFileSync(path.join(testthatDir, 'ENV-VARS.txt'), 'utf8');
+			const runLang = evLines.match(LANG_LINE)![1];
+			expect(runLang, 'the test run should have same LANG as the console').toBe(consoleLang);
+		}
+	});
+
 	test('Tests with tricky descriptions report the correct status', async function ({ app }) {
 		const { testExplorer } = app.workbench;
 

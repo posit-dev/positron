@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import { RMetadataExtra } from '../r-installation';
-import { getRTerminalEnvironmentMutations, TerminalEnvironmentMutation } from '../terminal-environment';
+import { getRTerminalEnvironmentMutations, EnvVarMutation } from '../r-process-environment';
 
 /**
  * Build an RMetadataExtra with sensible defaults for the paths under test.
@@ -25,8 +25,8 @@ function makeMetadataExtra(overrides: Partial<RMetadataExtra> = {}): RMetadataEx
 /**
  * Find the mutation for a given variable, or undefined if none exists.
  */
-function find(mutations: TerminalEnvironmentMutation[], variable: string): TerminalEnvironmentMutation | undefined {
-	return mutations.find(m => m.variable === variable);
+function find(mutations: EnvVarMutation[], variable: string): EnvVarMutation | undefined {
+	return mutations.find(m => m.name === variable);
 }
 
 suite('getRTerminalEnvironmentMutations', () => {
@@ -104,7 +104,7 @@ suite('getRTerminalEnvironmentMutations', () => {
 
 	test('contributes only the expected variables', () => {
 		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), 'darwin');
-		const variables = mutations.map(m => m.variable).sort();
+		const variables = mutations.map(m => m.name).sort();
 
 		assert.deepStrictEqual(variables, ['PATH', 'QUARTO_R']);
 	});
