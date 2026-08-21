@@ -72,21 +72,6 @@ if [ -f "./positron.lic" ]; then
   fi
 fi
 
-# Copy signing key to staging area if it exists. The install script moves it to
-# /etc/positron/signing-key.pem for the Hub minting service. Required for the
-# minting flow: positron-server no longer reads a raw .lic, so without the key
-# (and its matching embedded public key) sessions fail closed.
-if [ -f "./signing-key.pem" ]; then
-  echo "Copying signing key to container staging area..."
-  if docker cp "./signing-key.pem" "jupyter-test:/opt/signing-key.pem"; then
-    echo "  ✓ Signing key staged at /opt/signing-key.pem"
-  else
-    echo "  ✗ Failed to copy signing key to staging area"
-  fi
-else
-  echo "  ⚠ No ./signing-key.pem found; the minting service cannot start and Positron sessions will fail closed"
-fi
-
 # Show current status
 echo ""
 echo "=== Status ==="

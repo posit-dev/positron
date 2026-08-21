@@ -177,11 +177,10 @@ case "$(uname -m)" in
 esac
 
 # Move staged license file to final location if it exists.
-# NOTE: the .lic is now ENTITLEMENT only. It is read by the Hub-side verifier (via
-# license-manager), NOT by user sessions. positron-server no longer reads a raw .lic;
-# it validates a short-lived signed token minted per session (see minting setup below).
+# positron-server validates this .lic itself at startup (via the bundled
+# license-manager binary), so it lives next to that binary and must be
+# readable by user sessions.
 LICENSE_DEST="/opt/positron-server/resources/activation/linux/${LICENSE_ARCH}/license.lic"
-LICENSE_MANAGER_DIR="/opt/positron-server/resources/activation/linux/${LICENSE_ARCH}"
 if [ -f "/opt/positron.lic" ]; then
     echo "Installing license file..."
     if sudo mv /opt/positron.lic "${LICENSE_DEST}"; then
@@ -191,83 +190,26 @@ if [ -f "/opt/positron.lic" ]; then
     fi
 elif [ ! -f "${LICENSE_DEST}" ]; then
     echo "⚠️  WARNING: License file not found at ${LICENSE_DEST}"
-    echo "   The minting service cannot verify entitlement and Positron will fail to start."
+    echo "   Positron will fail to start without a license."
 fi
-# Tighten the .lic so only root (the Hub/verifier) can read it; user sessions must not.
+# User sessions run license-manager verify against the .lic, so it must be readable.
 if [ -f "${LICENSE_DEST}" ]; then
-    sudo chmod 600 "${LICENSE_DEST}" || log_error "Failed to chmod 600 ${LICENSE_DEST}"
+    sudo chmod 644 "${LICENSE_DEST}" || log_error "Failed to chmod 644 ${LICENSE_DEST}"
 fi
 
-# ---------------------------------------------------------------------------
-# License token minting (replaces handing the raw .lic to user sessions).
-# jupyter-positron-verifier runs in the Hub env (privileged), holds the signing
-# key, verifies entitlement via license-manager, and mints short-lived per-session
-# license tokens. Users never see the signing key or the raw .lic.
-# ---------------------------------------------------------------------------
-echo "Installing jupyter-positron-verifier (Hub minting service)..."
-TLJH_HUB_ENV="/opt/tljh/hub"
-if [ -d "${TLJH_HUB_ENV}" ]; then
-    if ! sudo "${TLJH_HUB_ENV}/bin/python3" -m pip install git+https://github.com/posit-dev/jupyter-positron-verifier.git; then
-        log_error "Failed to install jupyter-positron-verifier in TLJH hub environment"
-    fi
-else
-    log_error "TLJH hub environment not found at ${TLJH_HUB_ENV}; cannot install minting service"
-fi
-
-# Install the signing key the verifier uses to mint tokens. It must pair with the
-# OrchestratorPublicKey embedded in positron-server. Provided out-of-band (never committed):
-# staged at /opt/signing-key.pem by the caller (docker cp in CI, or volume locally).
-echo "Installing signing key..."
-sudo mkdir -p /etc/positron
-if [ -f "/opt/signing-key.pem" ]; then
-    if sudo mv /opt/signing-key.pem /etc/positron/signing-key.pem && sudo chmod 600 /etc/positron/signing-key.pem; then
-        echo "  ✓ Signing key installed at /etc/positron/signing-key.pem"
-    else
-        log_error "Failed to install signing key to /etc/positron/signing-key.pem"
-    fi
-elif [ ! -f "/etc/positron/signing-key.pem" ]; then
-    log_error "Signing key not found at /opt/signing-key.pem; minting service cannot start"
-fi
-
-# Write JupyterHub config: register the minting service and point user sessions at it.
-echo "Writing Positron minting JupyterHub config..."
+# Write JupyterHub config: put positron-server on PATH and point sessions at the license.
+echo "Writing Positron JupyterHub config..."
 TLJH_CONFIG_D="/opt/tljh/config/jupyterhub_config.d"
 sudo mkdir -p "${TLJH_CONFIG_D}"
 
-sudo tee "${TLJH_CONFIG_D}/positron-env.py" >/dev/null <<'EOF'
+sudo tee "${TLJH_CONFIG_D}/positron-env.py" >/dev/null <<EOF
 import os
 
 path = os.environ.get("PATH", "/bin:/usr/bin")
 c.SystemdSpawner.environment = {
     "PATH": f"/opt/positron-server/bin:/usr/local/bin:/opt/tljh/user/bin:{path}",
-    "POSITRON_LICENSE_MINTING_ENDPOINT": "http://127.0.0.1:10101/services/positron-license/mint",
+    "POSITRON_LICENSE_KEY_FILE": "${LICENSE_DEST}",
 }
-EOF
-
-sudo tee "${TLJH_CONFIG_D}/positron-minting.py" >/dev/null <<EOF
-# Register jupyter-positron-verifier as a managed JupyterHub service. It runs in
-# the Hub context (privileged), holds the signing key, verifies entitlement via
-# license-manager, and mints short-lived license tokens for each Positron session.
-c.JupyterHub.services = [
-    {
-        "name": "positron-license",
-        "url": "http://127.0.0.1:10101",
-        "command": ["${TLJH_HUB_ENV}/bin/positron-verifier"],
-        "environment": {
-            "POSITRON_MINTING_KEY_FILE": "/etc/positron/signing-key.pem",
-            "POSITRON_LICENSE_MANAGER_PATH": "${LICENSE_MANAGER_DIR}/license-manager",
-            "PORT": "10101",
-        },
-    }
-]
-
-c.JupyterHub.load_roles = [
-    {
-        "name": "positron-license-service",
-        "services": ["positron-license"],
-        "scopes": ["read:users"],
-    }
-]
 EOF
 
 # Set access permissions for TLJH users
