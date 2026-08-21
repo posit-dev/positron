@@ -12,7 +12,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from './packageMetadataCache.js';
-import { IPackageRepositoryAccess, IPackageVulnerabilityResult, IPackageVulnerabilitySource, PackageVulnerabilityLookup } from './packageVulnerabilityLookup.js';
+import { IPackageRepositoryAccess, IPackageVulnerabilityResult, IPackageVulnerabilitySource, PackageVulnerabilityLookup, TOTAL_BUDGET_MS } from './packageVulnerabilityLookup.js';
 
 /**
  * How the `outdated` / `latestVersion` state in a packages snapshot was
@@ -53,8 +53,10 @@ export type PackagesMetadataStatus = 'fresh' | 'cached' | 'unsupported' | 'timed
  *   them -- or the lookup itself failed. The lookup swallows its own transport
  *   failures, so these cannot be told apart from here; in both cases asking
  *   again is unlikely to help.
- * - `timed-out`: the lookup outran its budget. Advisories are whatever the
- *   cache could supply, which may be nothing.
+ * - `timed-out`: the lookup ran out of time partway. Whatever it answered
+ *   before the budget ran out is kept and persisted; the packages it never
+ *   reached carry whatever the cache could supply, which may be nothing, and
+ *   a later call fills those gaps.
  */
 export type PackagesVulnerabilityStatus =
 	| 'fresh'
@@ -114,9 +116,21 @@ export const PACKAGES_SNAPSHOT_METADATA_TIMEOUT_MS = 10_000;
  * because the lookup is chunked -- a large R library is several round trips to
  * Package Manager -- but far short of the lookup's own 90s ceiling, which is
  * sized for the pane's background fetch rather than a caller waiting on an
- * answer.
+ * answer. Handed to the lookup as its budget, so a snapshot that runs out of
+ * time still keeps the chunks that answered.
  */
 export const PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS = 15_000;
+
+/**
+ * Grace on top of {@link PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS} before the
+ * snapshot stops waiting on the lookup itself. The lookup is given the budget
+ * above and returns the chunks it managed within it, so it is what should
+ * expire first; this only covers a request that ignores the timeout it was
+ * handed, where waiting forever would hang the caller. Capped at the budget
+ * itself, so a caller that can only wait milliseconds doesn't then wait seconds
+ * on the backstop.
+ */
+export const PACKAGES_SNAPSHOT_VULNERABILITY_GRACE_MS = 2_000;
 
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
@@ -973,7 +987,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// can't cancel the other's in-flight request.
 		const [metadataStatus, vulnerabilityStatus] = await Promise.all([
 			outdatedSupported
-				? this._snapshotOutdatedStage(packageManager, versionByName, token, metadataDeadline, fetchAll)
+				? this._snapshotOutdatedStage(packageManager, visiblePackages, versionByName, token, metadataDeadline, fetchAll)
 				: Promise.resolve<PackagesMetadataStatus>('unsupported'),
 			this._snapshotVulnerabilityStage(
 				packageManager,
@@ -1025,6 +1039,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 * preempts whatever fetch is in flight and swallows failures -- both wrong
 	 * for a read-only foreground caller that has to label its answer.
 	 * @param packageManager The session's package manager.
+	 * @param visiblePackages One package per name: the copies the pane shows.
 	 * @param versionByName Installed versions as of when the stage was issued.
 	 * @param callerToken The caller's cancellation token.
 	 * @param deadline Epoch ms by which the stage must have answered.
@@ -1035,14 +1050,20 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		packageManager: {
 			getPackageMetadata?: (packageNames: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
 		},
+		visiblePackages: readonly ILanguageRuntimePackage[],
 		versionByName: Map<string, string>,
 		callerToken: CancellationToken,
 		deadline: number,
 		fetchAll: boolean,
 	): Promise<PackagesMetadataStatus> {
+		// Asks about the visible copies, as the advisory stage and the pane's
+		// background fetch do. A shadowed duplicate carries the other copy's
+		// version, so it never matches the cache's single entry per name: it
+		// would look like a permanent gap, refetched on every call and merged
+		// straight back under the visible copy's version.
 		const packagesToFetch = fetchAll
-			? this._packages
-			: this._packages.filter((pkg) => this._freshEntryFor(pkg)?.outdated === undefined);
+			? visiblePackages
+			: visiblePackages.filter((pkg) => this._freshEntryFor(pkg)?.outdated === undefined);
 		if (packagesToFetch.length === 0) {
 			return 'cached';
 		}
@@ -1147,19 +1168,36 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// versions rather than bare names.
 		const specs = packagesToFetch.map((pkg): IPackageSpec => ({ name: pkg.name, version: pkg.version }));
 
+		// Only version-pinned specs are ever asked about -- an unpinned name
+		// answers for the latest release, not the installed one -- so this, not
+		// `specs.length`, is what a complete answer covers.
+		const askableCount = specs.filter((spec) => !!spec.version).length;
+
+		// The lookup clamps whatever budget it is handed to its own 90s
+		// ceiling, so mirror the clamp: the elapsed-time judgment below and the
+		// backstop must measure against the budget the lookup actually ran
+		// under, or a caller timeout above the ceiling would label a
+		// budget-exhausted lookup 'unavailable'.
+		const budgetMs = Math.min(timeoutMs, TOTAL_BUDGET_MS);
 		const cts = new CancellationTokenSource(callerToken);
+		const startedAt = Date.now();
 		try {
 			// The lookup's own budget is sized for the pane's background fetch
 			// (90s), which is far more than a caller waiting on an answer will
-			// sit through, so bound it here too. The .then wrapper keeps a
-			// timeout distinguishable from the lookup answering undefined.
+			// sit through, so this caller's budget is handed to the lookup
+			// instead. It asks in chunks and keeps whatever answered before the
+			// budget ran out, so a partial answer is persisted and the next
+			// call fills the rest; racing the promise from out here would drop
+			// every chunk that had already come back. The raceTimeout is only a
+			// backstop for a request that ignores its own timeout, hence the
+			// grace: the lookup's budget is meant to be what expires first.
 			let outcome: { result: IPackageVulnerabilityResult | undefined } | undefined;
 			try {
 				outcome = await raceTimeout(
 					this._vulnerabilityLookup
-						.getVulnerabilities(this._session.runtimeMetadata.languageId, access, specs, cts.token)
+						.getVulnerabilities(this._session.runtimeMetadata.languageId, access, specs, cts.token, budgetMs)
 						.then((result) => ({ result })),
-					timeoutMs,
+					budgetMs + Math.min(budgetMs, PACKAGES_SNAPSHOT_VULNERABILITY_GRACE_MS),
 					() => cts.cancel(),
 				);
 			} catch (err) {
@@ -1175,12 +1213,22 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				return 'timed-out';
 			}
 			if (outcome.result === undefined) {
-				// No Package Manager that reports advisories, or a failure the
-				// lookup already logged and swallowed. Indistinguishable from
-				// here, and neither is worth another round trip.
-				return 'unavailable';
+				// Nothing at all came back: no Package Manager that reports
+				// advisories, or a failure the lookup already logged and
+				// swallowed. Those are indistinguishable from here, but a
+				// lookup that spent the whole budget was answering, not
+				// missing, and 'timed-out' is the honest label for a caller
+				// deciding whether asking again is worth anything.
+				return Date.now() - startedAt >= budgetMs ? 'timed-out' : 'unavailable';
 			}
 			this._mergeAndPersistMetadata(undefined, versionByName, outcome.result);
+			if (outcome.result.queried.size < askableCount) {
+				// The lookup ran out of budget (or a request failed) partway
+				// through its chunks. What it did answer is merged above, but
+				// the packages it never reached still have no advisory data, so
+				// this is not the full answer 'fresh' or 'cached' would claim.
+				return 'timed-out';
+			}
 			// A gap-fill leaves the rest of the advisories as of the last full
 			// lookup, which is what 'cached' says; only refetching everything
 			// makes the whole set current.

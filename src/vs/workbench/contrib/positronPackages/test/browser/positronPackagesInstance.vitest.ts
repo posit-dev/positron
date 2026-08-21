@@ -724,7 +724,9 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			// The point of the whole exercise: the next read behaves like a cold
 			// start, going back out for advisories instead of reporting the
 			// cache it just dropped.
-			getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]]]));
+			// Both installed packages are asked about and answered for -- pandas
+			// is known to the repository and clean -- so this is a full answer.
+			getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
 			const snapshot = await instance.getPackagesSnapshot();
 			expect(getVulnerabilities).toHaveBeenCalledTimes(1);
 			expect(snapshot.vulnerabilityStatus).toBe('fresh');
@@ -1135,6 +1137,98 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 				['numpy', []],
 				['pandas', [ADVISORY]],
 			]);
+		});
+
+		it('serves a fresh cache for a package installed twice without refetching it', async () => {
+			// The shadowed copy carries the other library's version, so it never
+			// matches the single cache entry. Asked about anyway, it is a gap
+			// that can never be filled -- every call would refetch the whole
+			// library and merge the answer straight back under the visible
+			// copy's version.
+			getPackages.mockResolvedValue([
+				{ ...pkg('Matrix', '1.6-1'), id: 'Matrix-project' },
+				{ ...pkg('Matrix', '1.6-0'), id: 'Matrix-system' },
+			]);
+			seed({
+				matrix: {
+					version: '1.6-1',
+					outdated: true,
+					latestVersion: '1.7-0',
+					vulnerabilities: [],
+					vulnerabilitiesCheckedAt: Date.now(),
+				},
+			}, 0, SOURCE);
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.metadataStatus).toBe('cached');
+			expect(snapshot.vulnerabilityStatus).toBe('cached');
+			expect(getPackageMetadata).not.toHaveBeenCalled();
+			expect(getVulnerabilities).not.toHaveBeenCalled();
+		});
+
+		it('hands the lookup its budget so partial chunks survive, and labels them', async () => {
+			// The lookup asks in chunks of 100 and keeps whatever answered
+			// within its budget. Bounding it from out here with a timeout
+			// instead would throw away every chunk that had already come back,
+			// so the budget goes in as an argument.
+			getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]]], ['numpy']));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { vulnerabilityTimeoutMs: 1_000 });
+
+			expect(getVulnerabilities.mock.calls[0][4]).toBe(1_000);
+			// What answered is kept and persisted, so the next call only has to
+			// fill the rest.
+			expect(snapshot.packages.map(p => [p.name, p.vulnerabilities])).toEqual([
+				['numpy', [ADVISORY]],
+				['pandas', undefined],
+			]);
+			expect(cache.get(RUNTIME_ID)?.packages.numpy?.vulnerabilities).toEqual([ADVISORY]);
+			// But pandas was never reached, so this is not the full answer
+			// 'fresh' would claim.
+			expect(snapshot.vulnerabilityStatus).toBe('timed-out');
+		});
+
+		it('reports timed-out rather than unavailable when a lookup spends the whole budget', async () => {
+			// Nothing came back, but the lookup was answering rather than
+			// missing: a caller told 'unavailable' would stop asking.
+			getVulnerabilities.mockImplementation(async (_lang, _access, _specs, _token, budgetMs) => {
+				// Spends the budget it was handed, as a lookup whose first chunk
+				// never came back does, then reports nothing.
+				await new Promise(resolve => setTimeout(resolve, (budgetMs ?? 0) + 5));
+				return undefined;
+			});
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { vulnerabilityTimeoutMs: 20 });
+
+			expect(snapshot.vulnerabilityStatus).toBe('timed-out');
+		});
+
+		it('judges timed-out against the lookup ceiling when the caller budget is above it', async () => {
+			// The lookup clamps any budget it is handed to its own 90s ceiling,
+			// so that is the most a lookup ever spends. A caller willing to
+			// wait longer must not have a budget-exhausted lookup labelled
+			// 'unavailable' -- documented as not worth retrying -- just because
+			// the ceiling expired before the caller's own number did.
+			vi.useFakeTimers();
+			try {
+				getVulnerabilities.mockImplementation(async (_lang, _access, _specs, _token, budgetMs) => {
+					// Spends the budget it actually runs under, as the real
+					// lookup does, then reports nothing.
+					vi.setSystemTime(Date.now() + Math.min(budgetMs ?? 0, 90_000));
+					return undefined;
+				});
+				const instance = makeInstance();
+
+				const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { vulnerabilityTimeoutMs: 10 * 60 * 1000 });
+
+				expect(snapshot.vulnerabilityStatus).toBe('timed-out');
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 });
