@@ -16,15 +16,44 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IDataConnectionHandle } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
+import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { GET_CONNECTIONS_COMMAND_ID, GET_SCHEMA_COMMAND_ID } from '../../browser/positronDataConnectionsCommands.js';
-import { ShowDataConnectionSchemaAction, ShowDataConnectionsAction } from '../../browser/positronDataConnectionsInspectActions.js';
+import { GET_CONNECTIONS_COMMAND_ID, GET_CONNECTION_CODE_COMMAND_ID, GET_SCHEMA_COMMAND_ID } from '../../browser/positronDataConnectionsCommands.js';
+import { ShowDataConnectionCodeAction, ShowDataConnectionSchemaAction, ShowDataConnectionsAction } from '../../browser/positronDataConnectionsInspectActions.js';
 
-// The field the instance picker's items carry, as much of it as answering the picker needs.
+// The field the picker's items carry, as much of it as answering the picker needs.
 interface IPickAnswer {
-	instance: IDataConnectionInstance;
+	profileId: string;
+}
+
+// A saved profile, named after its id so a test can tell which one the picker answered with.
+function createProfile(id: string): IDataConnectionProfile {
+	return {
+		id,
+		connectionName: `${id}-name`,
+		driverMetadata: { id: 'test-driver', name: 'Test Driver', iconSvg: '', supportedLanguageIds: ['r'] },
+		mechanismId: 'test-mechanism',
+		parameterValues: {},
+	};
+}
+
+// The driver behind every profile in these tests: one r variant whose code names the profile it came
+// from, so a test can tell whose code was shown.
+function createDriver(): IDataConnectionDriver {
+	return stubInterface<IDataConnectionDriver>({
+		id: 'test-driver',
+		metadata: {
+			id: 'test-driver',
+			name: 'Test Driver',
+			description: '',
+			iconSvg: '',
+			supportedLanguageIds: ['r'],
+			mechanisms: [{ id: 'test-mechanism', label: 'Test Mechanism', description: '', parameters: [] }],
+		},
+		generateConnectionCode: vi.fn(async () => [{ id: 'dbi', label: 'DBI', code: 'con <- connect()\n' }]),
+	});
 }
 
 // A live connection whose schema is a single table, named after the profile so a test can tell
@@ -53,20 +82,30 @@ describe('data connections inspect actions', () => {
 	let openEditor: ReturnType<typeof vi.fn<(input: IUntitledTextResourceEditorInput) => Promise<undefined>>>;
 	let info: ReturnType<typeof vi.fn<INotificationService['info']>>;
 
-	// Wires the services run() reads. `instances` is what the connections service reports as live.
-	function stubServices(instances: IDataConnectionInstance[]): void {
+	// Wires the services run() reads. `instances` is what the connections service reports as live, and
+	// `profiles` what it reports as configured -- independent, since a profile needs no live
+	// connection and the code action reads only the profiles.
+	function stubServices(instances: IDataConnectionInstance[], profiles: IDataConnectionProfile[] = []): void {
 		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
 			'dataConnections.enabled': true,
 		}));
 		ctx.instantiationService.stub(ILogService, new NullLogService());
+		const driver = createDriver();
 		ctx.instantiationService.stub(IPositronDataConnectionsService, stubInterface<IPositronDataConnectionsService>({
-			// No profile is configured, so the connections payload is an empty list.
-			getProfiles: vi.fn(() => []),
+			getProfiles: vi.fn(() => profiles),
+			driverManager: stubInterface<IDataConnectionsDriverManager>({
+				getDriver: vi.fn((driverId: string) => driverId === driver.id ? driver : undefined),
+			}),
+			// The catalog payload redacts secrets through the service; these profiles have no
+			// parameters at all, so there is nothing to redact.
+			getProfileSecretIds: vi.fn(() => []),
+			getRedactedParameterValues: vi.fn(async () => ({})),
 			getInstances: vi.fn(() => instances),
 			getInstanceForProfile: vi.fn((profileId: string) =>
 				instances.find(instance => instance.profileId === profileId)),
-			// No stored profile, so the instance picker labels each connection by its profile id.
-			getProfile: vi.fn(() => undefined),
+			// The schema tests pass no profiles, so the instance picker's getProfile lookup finds
+			// nothing there and labels each connection by its profile id.
+			getProfile: vi.fn((profileId: string) => profiles.find(profile => profile.id === profileId)),
 		}));
 		// pick and openEditor are generic over their argument types; the casts tell the compiler what
 		// these mocks already are, the way notebookCommandsQuickPick.vitest.ts stubs createQuickPick.
@@ -86,7 +125,7 @@ describe('data connections inspect actions', () => {
 		stubServices([createInstance('conn-a', 1)]);
 	});
 
-	function run(action: ShowDataConnectionsAction | ShowDataConnectionSchemaAction) {
+	function run(action: ShowDataConnectionsAction | ShowDataConnectionCodeAction | ShowDataConnectionSchemaAction) {
 		return ctx.instantiationService.invokeFunction(accessor => action.run(accessor));
 	}
 
@@ -103,13 +142,62 @@ describe('data connections inspect actions', () => {
 		});
 	});
 
+	it('shows the only configured connection\'s code as JSON, without asking which to show', async () => {
+		stubServices([], [createProfile('conn-a')]);
+
+		await run(new ShowDataConnectionCodeAction());
+
+		expect(openEditor).toHaveBeenCalledWith({
+			resource: undefined,
+			contents: JSON.stringify(
+				{ profileId: 'conn-a', languages: { r: { code: 'con <- connect()\n', variableName: 'con' } } },
+				null, 2),
+			languageId: 'json',
+			options: { pinned: true },
+		});
+		expect(pick).not.toHaveBeenCalled();
+	});
+
+	// The code is generated from the saved profile, so nothing needs to be connected for this to work
+	// -- which is the whole point of the command it wraps.
+	it('shows the code for the connection chosen from the picker, with nothing live', async () => {
+		stubServices([], [createProfile('conn-a'), createProfile('conn-b')]);
+		pick.mockImplementation(async items => items.find(item => item.profileId === 'conn-b'));
+
+		await run(new ShowDataConnectionCodeAction());
+
+		expect(openEditor).toHaveBeenCalledWith(expect.objectContaining({
+			contents: expect.stringContaining('conn-b'),
+		}));
+	});
+
+	it('opens nothing when the connection code picker is dismissed', async () => {
+		stubServices([], [createProfile('conn-a'), createProfile('conn-b')]);
+		pick.mockResolvedValue(undefined);
+
+		await run(new ShowDataConnectionCodeAction());
+
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	// A `not-found` payload would be a confusing thing to open here: the command reports it for an id
+	// that doesn't exist, and the real problem is that the user has configured nothing at all.
+	it('says how to configure a connection, rather than opening a not-found payload', async () => {
+		stubServices([], []);
+
+		await run(new ShowDataConnectionCodeAction());
+
+		expect(info).toHaveBeenCalledWith('No data connections are configured. Add one from the Data Connections panel first.');
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
 	it('shows the only live connection\'s schema as JSON, without asking which to summarize', async () => {
 		await run(new ShowDataConnectionSchemaAction());
 
 		expect(openEditor).toHaveBeenCalledWith({
 			resource: undefined,
 			contents: JSON.stringify(
-				{ instanceId: '1', nodes: [{ name: 'conn-a-table', kind: 'table' }], truncated: false },
+				{ instanceId: '1', lines: ['conn-a-table [table]'], truncated: false },
 				null, 2),
 			languageId: 'json',
 			options: { pinned: true },
@@ -119,7 +207,7 @@ describe('data connections inspect actions', () => {
 
 	it('summarizes the connection chosen from the picker when several are live', async () => {
 		stubServices([createInstance('conn-a', 1), createInstance('conn-b', 2)]);
-		pick.mockImplementation(async items => items.find(item => item.instance.profileId === 'conn-b'));
+		pick.mockImplementation(async items => items.find(item => item.profileId === 'conn-b'));
 
 		await run(new ShowDataConnectionSchemaAction());
 
@@ -134,6 +222,25 @@ describe('data connections inspect actions', () => {
 
 		await run(new ShowDataConnectionSchemaAction());
 
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	// The action promises never to open a connection of its own, but the picker is awaited, so the
+	// chosen connection can close before the answer lands -- and getSchema would then silently
+	// reconnect it. The service stub has no connect() at all (stubInterface throws on unset reads),
+	// so this test fails loudly if the action ever lets getSchema's auto-connect fire.
+	it('does not reconnect a connection that closed while the picker was open', async () => {
+		const instances = [createInstance('conn-a', 1), createInstance('conn-b', 2)];
+		stubServices(instances);
+		pick.mockImplementation(async items => {
+			// The chosen connection closes while the picker is open.
+			instances.splice(1, 1);
+			return items.find(item => item.profileId === 'conn-b');
+		});
+
+		await run(new ShowDataConnectionSchemaAction());
+
+		expect(info).toHaveBeenCalledWith('The selected data connection is no longer active. Connect to it from the Data Connections panel first.');
 		expect(openEditor).not.toHaveBeenCalled();
 	});
 
@@ -159,12 +266,12 @@ describe('data connections inspect actions', () => {
 		{
 			id: GET_SCHEMA_COMMAND_ID,
 			args: { profileId: 'conn-a' },
-			expected: { instanceId: '1', nodes: [{ name: 'conn-a-table', kind: 'table' }], truncated: false },
+			expected: { instanceId: '1', lines: ['conn-a-table [table]'], truncated: false },
 		},
 		{
 			id: GET_SCHEMA_COMMAND_ID,
 			args: { profileId: 'conn-missing' },
-			expected: { connected: false, reason: 'not-connected' },
+			expected: { connected: false, reason: 'not-found' },
 		},
 	])('$id returns its payload to a programmatic caller without opening an editor', async ({ id, args, expected }) => {
 		// The registry types every handler as returning void; these two return their payload, which is
@@ -181,8 +288,8 @@ describe('data connections inspect actions', () => {
 	// Both actions are Command Palette entries gated on the feature flag, and neither is
 	// agentCompatible -- an agent wants the payload commands, which return the payload instead of
 	// opening an editor.
-	it('keeps both palette entries gated on the feature flag', () => {
-		const descriptors = [new ShowDataConnectionsAction(), new ShowDataConnectionSchemaAction()]
+	it('keeps every palette entry gated on the feature flag', () => {
+		const descriptors = [new ShowDataConnectionsAction(), new ShowDataConnectionCodeAction(), new ShowDataConnectionSchemaAction()]
 			.map(({ desc }) => ({
 				id: desc.id,
 				f1: desc.f1,
@@ -201,6 +308,12 @@ describe('data connections inspect actions', () => {
 			  {
 			    "agentCompatible": undefined,
 			    "f1": true,
+			    "id": "positronDataConnections.showConnectionCode",
+			    "precondition": "config.dataConnections.enabled",
+			  },
+			  {
+			    "agentCompatible": undefined,
+			    "f1": true,
 			    "id": "positronDataConnections.showSchema",
 			    "precondition": "config.dataConnections.enabled",
 			  },
@@ -213,8 +326,8 @@ describe('data connections inspect actions', () => {
 // agentCompatible is dropped, or if the argument object stops being marked optional -- the agent path
 // would just stop advertising the command, or start telling the model an argument is required.
 describe('data connections payload commands', () => {
-	it('advertises both payload commands to the agent path', () => {
-		const descriptors = [GET_CONNECTIONS_COMMAND_ID, GET_SCHEMA_COMMAND_ID].map(id => {
+	it('advertises every payload command to the agent path', () => {
+		const descriptors = [GET_CONNECTIONS_COMMAND_ID, GET_CONNECTION_CODE_COMMAND_ID, GET_SCHEMA_COMMAND_ID].map(id => {
 			const metadata = CommandsRegistry.getCommand(id)?.metadata;
 			return {
 				id,
@@ -229,6 +342,13 @@ describe('data connections payload commands', () => {
 			    "agentCompatible": true,
 			    "argsOptional": undefined,
 			    "id": "positronDataConnections.getConnections",
+			  },
+			  {
+			    "agentCompatible": true,
+			    "argsOptional": [
+			      undefined,
+			    ],
+			    "id": "positronDataConnections.getConnectionCode",
 			  },
 			  {
 			    "agentCompatible": true,
