@@ -154,6 +154,8 @@ export class ShowDataConnectionCodeAction extends Action2 {
 /**
  * Command Palette entry that shows the positronDataConnections.getSchema payload for a live
  * connection in an untitled editor, asking which connection to summarize when several are live.
+ * Only live connections are offered, so unlike the command it wraps -- which connects its target
+ * automatically when it isn't live -- this action never opens a connection of its own.
  *
  * Exported so tests can construct it and call run() directly.
  */
@@ -199,7 +201,8 @@ export class ShowDataConnectionSchemaAction extends Action2 {
 		}
 
 		// Always names a profile explicitly, even when only one connection is live, so this path and
-		// a programmatic one resolve their target the same way.
+		// a programmatic one resolve their target the same way. The profile named is always a live
+		// one, so getSchema's auto-connect never fires from here.
 		const summary = await instantiationService.invokeFunction(
 			schemaAccessor => getDataConnectionSchema(schemaAccessor, { profileId }));
 

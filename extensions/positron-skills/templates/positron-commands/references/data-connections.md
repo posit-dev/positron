@@ -1,8 +1,8 @@
 # Positron data connection commands
 
 Reading the data connections the user has configured, fetching the code that
-opens one, and walking the schema -- the tables and columns -- of a connection
-that is currently live. See
+opens one, and walking the schema -- the tables and columns -- of a connection,
+which is connected automatically when it is not live yet. See
 [SKILL.md]({{skill_dir}}/SKILL.md) for how to call these commands.
 
 The **Arguments** and **Returns** entries below are generated from the running
@@ -143,14 +143,23 @@ then work against the resulting live connection.
 
 {{command:positronDataConnections.getConnectionCode}}
 
-## Reading a live connection's schema
+## Reading a connection's schema
 
 ### `positronDataConnections.getSchema`
 
-Walks a live connection and returns a bounded, one-line-per-object listing of
-its schema -- databases, schemas, tables, and columns with their data types. Use
+Walks a connection and returns a bounded, one-line-per-object listing of its
+schema -- databases, schemas, tables, and columns with their data types. Use
 it before writing a query, so table and column names come from the real schema
 rather than from a guess.
+
+**The connection does not have to be live.** When the target profile isn't
+connected yet, the command connects it automatically -- Positron opens the
+connection itself, using the profile's stored secrets, the same way the Data
+Connections pane does. That connect is a real side effect: the connection
+comes up live in the pane and stays open. It is Positron's own connection,
+though, not one the R or Python session can see; running a query still takes
+the session-side connection described under
+`positronDataConnections.getConnectionCode`.
 
 **Reading a line.** Each entry in `lines` is
 `<path> [<kind>][ <dataType>][ PK][ (<column>:<type>, ...)][ +<n> more]`: the
@@ -174,11 +183,13 @@ This shape is deliberately compact: a nested JSON tree of the same schema costs
 roughly twice the characters, and the tool that hands you this result truncates
 long payloads, so the difference is schema you either see or lose.
 
-**When to pass `profileId`:** omit it when exactly one connection is live and
-you want that one. Pass it when you have a specific connection in mind -- take
-the `profileId` from `positronDataConnections.getConnections`, or from
-`liveProfileIds` after an `ambiguous` result. The command never picks between
-several live connections on your behalf.
+**When to pass `profileId`:** omit it when the target is unambiguous -- exactly
+one connection is live, or nothing is live and exactly one profile is saved
+(which the command then connects). Pass it when you have a specific connection
+in mind -- take the `profileId` from
+`positronDataConnections.getConnections`, or from `candidateProfileIds` after
+an `ambiguous` result. The command never picks between several candidates on
+your behalf, and it never auto-connects a profile it would have to pick.
 
 **The caps and `truncated`:** `maxDepth`, `maxNodesPerLevel`, and
 `maxTotalNodes` all default to a modest bound. Omit them and react to the
@@ -197,15 +208,22 @@ summary doesn't carry that.
 
 - **`disabled`** -- the `dataConnections.enabled` setting is off. Tell the user
   to enable it and reload the window. Nothing else will work until then.
-- **`no-live-connections`** -- the feature is on, but nothing is connected.
-  Call `positronDataConnections.getConnections` to see what's configured, and
-  send the user to the Data Connections pane to connect one.
-- **`not-connected`** -- the `profileId` you passed exists but isn't connected.
-  Don't try a different profile silently; either name the connection the user
-  meant, or ask them to connect this one.
-- **`ambiguous`** -- several connections are live and you named none. Retry with
-  one of the `liveProfileIds`, asking the user which they meant if it isn't
-  clear from context.
+- **`not-found`** -- no saved profile has the `profileId` you passed. Re-read
+  the catalog rather than guessing at another id.
+- **`no-driver`** -- the profile's driver extension isn't installed, or hasn't
+  activated yet, so it can't be connected. The same condition the catalog
+  reports by leaving `languages=` out. Report it; don't retry.
+- **`connect-failed`** -- the profile wasn't live and the automatic connection
+  attempt failed: wrong or missing stored parameters, an unreachable server,
+  and so on. Don't retry blindly; send the user to the Data Connections pane
+  to check the profile and connect it there.
+- **`no-connections`** -- the feature is on, but nothing is live and no profile
+  is saved, so there is nothing to summarize or connect. The user needs to add
+  a connection from the Data Connections pane first.
+- **`ambiguous`** -- there are several candidates (the live connections, or
+  every saved profile when none is live) and you named none. Retry with one of
+  the `candidateProfileIds`, asking the user which they meant if it isn't clear
+  from context.
 
 {{command:positronDataConnections.getSchema}}
 
@@ -221,8 +239,9 @@ different causes: the user has no connection configured, *or*
 2. Call `positronDataConnections.getSchema` with no arguments.
 3. `reason: 'disabled'` means the feature is off -- tell the user to turn on
    `dataConnections.enabled` and reload the window.
-4. `reason: 'no-live-connections'` means the feature is on and the user simply
-   hasn't set up a connection yet.
+4. `reason: 'no-connections'` means the feature is on and the user simply
+   hasn't set up a connection yet. (This probe is side-effect-free: with no
+   saved profile there is nothing for `getSchema`'s auto-connect to open.)
 
 Do not assert either cause without step 2. Guessing wrong sends the user
 looking for a connection they never made, or hunting a setting that was already
@@ -232,12 +251,18 @@ on.
 
 1. Call `positronDataConnections.getConnections`. Pick the profile the user
    means, by the `name=` field of its `summary`.
-2. If that profile's `connected` is already `true`, skip to step 5.
-3. Otherwise the connection needs opening. If the `summary`'s `parameters=`
-   shows a redacted secret (e.g. `password=****`), no generated code will run
-   as-is -- send the
-   user to the Data Connections pane's Connect action, and skip to step 5 once
-   they have connected.
+2. Call `positronDataConnections.getSchema` with that `profileId` and read the
+   tables and columns you need from `lines`. The profile does not have to be
+   connected first: the command connects it automatically, using its stored
+   secrets. A `connect-failed` here means those stored parameters don't work --
+   send the user to the Data Connections pane to check the profile, rather
+   than retrying.
+3. The query itself runs in the R or Python session, and the session needs its
+   own connection object -- the connection `getSchema` opened belongs to
+   Positron, not to the session. If the `summary`'s `parameters=` shows a
+   redacted secret (e.g. `password=****`), no generated code will run as-is --
+   send the user to the Data Connections pane's Connect action, which supplies
+   the secret itself, and skip to step 5 once they have connected.
 4. If there is no secret, call `positronDataConnections.getConnectionCode` with
    that `profileId` and the `languageId` of the session the user is working in,
    and run `languages[<languageId>].code` with `executeCode` **verbatim** -- do
@@ -245,13 +270,11 @@ on.
    generated that snippet from the profile, so it already carries the right
    call, arguments, and defaults; a hand-written equivalent silently drops
    whatever the driver knew that you don't. Keep the `variableName` it reports.
-5. Call `positronDataConnections.getSchema` (with `profileId` if more than one
-   connection is live) and read the tables and columns you need from `lines`.
-6. Write the query against those real names and run it with `executeCode`,
-   referring to the connection by the `variableName` from step 4. If you skipped
-   step 4 -- the profile was already `connected`, or the user connected from the
-   pane -- you have no `variableName`: nothing in the `getConnections` payload
-   carries one. Call `positronDataConnections.getConnectionCode` for that
-   `profileId` to see the name the driver's own snippet binds, which is the name
-   the pane's Connect action uses too, and confirm it exists in the session
-   before querying through it. Never guess `conn`.
+5. Write the query against the real names from step 2 and run it with
+   `executeCode`, referring to the connection by the `variableName` from step 4.
+   If you skipped step 4 -- the user connected from the pane -- you have no
+   `variableName`: nothing in the `getConnections` payload carries one. Call
+   `positronDataConnections.getConnectionCode` for that `profileId` to see the
+   name the driver's own snippet binds, which is the name the pane's Connect
+   action uses too, and confirm it exists in the session before querying
+   through it. Never guess `conn`.
