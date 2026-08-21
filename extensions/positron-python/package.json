@@ -376,7 +376,73 @@
             {
                 "category": "Python",
                 "command": "python.installPythonViaUv",
-                "title": "%python.command.python.installPythonViaUv.title%"
+                "title": "%python.command.python.installPythonViaUv.title%",
+                "agent": {
+                    "description": "Install a Python interpreter using uv, register it with Positron, and start it in the Console. Use during onboarding when the user has no Python at all, or no Python other than the system one, and needs a working interpreter. Prompts the user to pick a version, so it can take a moment; there is nothing to pass. Prefer this over shelling out to install Python by hand.",
+                    "returns": "When install succeeds, an object with `pythonPath` (the installed interpreter) and `runtimeId` (the registered runtime, which is also started in the Console). Returns nothing when the user cancels the version picker or the install fails; a failure is reported to the user, so do not retry blindly."
+                }
+            },
+            {
+                "category": "Python",
+                "command": "python.createEnvironmentAndRegister",
+                "title": "%python.command.python.createEnvironmentAndRegister.title%",
+                "agent": {
+                    "description": "Create a Python environment (venv, Conda, or uv) from an existing interpreter or Python version, register it with Positron, and select it. Use during onboarding when a Python interpreter already exists and the user wants an isolated project environment. To skip all prompts, pass `providerId` plus a source: `interpreterPath` for venv, or `condaPythonVersion` / `uvPythonVersion` for Conda / uv. To install Python from scratch instead, use `python.installPythonViaUv`.",
+                    "args": [
+                        {
+                            "name": "options",
+                            "required": true,
+                            "description": "Provider id is required, along with exactly one Python source. Omitting a source triggers interactive prompts.",
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "providerId": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ms-python.python:venv",
+                                            "ms-python.python:conda",
+                                            "ms-python.python:uv"
+                                        ],
+                                        "description": "Which environment to create: venv, Conda, or uv."
+                                    },
+                                    "interpreterPath": {
+                                        "type": "string",
+                                        "description": "Path to an existing interpreter to base a venv on."
+                                    },
+                                    "condaPythonVersion": {
+                                        "type": "string",
+                                        "description": "Python version for a new Conda environment, e.g. \"3.12\"."
+                                    },
+                                    "uvPythonVersion": {
+                                        "type": "string",
+                                        "description": "Python version for a new uv environment, e.g. \"3.12\"."
+                                    },
+                                    "workspaceFolder": {
+                                        "type": "string",
+                                        "description": "URI of the workspace folder to create the environment in. Defaults to the current folder."
+                                    },
+                                    "envName": {
+                                        "type": "string",
+                                        "description": "Name for the new environment."
+                                    }
+                                },
+                                "required": [
+                                    "providerId"
+                                ]
+                            }
+                        }
+                    ],
+                    "returns": "On success, an object with `path` (the new interpreter) and `metadata` (the registered runtime). On a bad request or failure, an object with an `error`. Report the error rather than retrying."
+                }
+            },
+            {
+                "category": "Python",
+                "command": "python.interpreterPath",
+                "title": "%python.command.python.interpreterPath.title%",
+                "agent": {
+                    "description": "Return the path to the Python interpreter currently active in the workspace. Use to find out which Python is selected before running code or creating an environment. Read-only; takes no arguments for the common case. Returns \"python\" when no interpreter is selected.",
+                    "returns": "The interpreter path as a string, shell-quoted for use as a command argument."
+                }
             },
             {
                 "command": "python.installPackages",
@@ -1590,6 +1656,18 @@
                     "category": "Python",
                     "command": "python.createEnvironment-button",
                     "title": "%python.command.python.createEnvironment.title%",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.createEnvironmentAndRegister",
+                    "title": "%python.command.python.createEnvironmentAndRegister.title%",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.interpreterPath",
+                    "title": "%python.command.python.interpreterPath.title%",
                     "when": "false"
                 },
                 {
