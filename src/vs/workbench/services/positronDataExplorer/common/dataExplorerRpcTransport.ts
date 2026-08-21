@@ -37,7 +37,10 @@ export interface IDataExplorerUiEventDto {
 }
 
 /**
- * The transport a core Data Explorer backend uses to reach the providing extension.
+ * The transport a core Data Explorer backend uses to reach the extension providing its dataset. Two
+ * things implement it: `MainThreadDataExplorer`, one per extension host, which forwards each RPC over
+ * the typed ext-host channel to the providing extension; and the service's internal router, which
+ * resolves the host that owns a provider and delegates to that host's transport.
  */
 export interface IDataExplorerRpcTransport {
 	/**
@@ -54,19 +57,4 @@ export interface IDataExplorerRpcTransport {
 	 * @param datasetId The dataset identifier (the RPC `uri`) that was closed.
 	 */
 	disposeBackend(providerId: string, datasetId: string): void;
-}
-
-/**
- * One extension host's transport, implemented by `MainThreadDataExplorer`. There is one per host, so
- * a web workbench with a web-worker and a remote host has two, and only one of them has any given
- * provider.
- */
-export interface IDataExplorerHostTransport extends IDataExplorerRpcTransport {
-	/**
-	 * Activates the extension providing `providerId` in this host, if it runs here. Resolves without
-	 * doing anything in a host the extension isn't installed in, so calling it on every host is how
-	 * the owner of a provider is found.
-	 * @param providerId The provider to activate (e.g. 'positron-duckdb').
-	 */
-	activateProvider(providerId: string): Promise<void>;
 }

@@ -20,7 +20,8 @@ import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorer
 import { DataExplorerBackendRequest, PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
 import { PositronDataExplorerExtensionBackend } from '../common/positronDataExplorerExtensionBackend.js';
-import { IDataExplorerHostTransport, IDataExplorerRpcTransport, IDataExplorerUiEventDto } from '../common/dataExplorerRpcTransport.js';
+import { IDataExplorerRpcTransport, IDataExplorerUiEventDto } from '../common/dataExplorerRpcTransport.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { URI } from '../../../../base/common/uri.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -135,6 +136,15 @@ class DataExplorerRuntime extends Disposable {
 const PROVIDER_REGISTRATION_TIMEOUT_MS = 30_000;
 
 /**
+ * Activation event a Data Explorer backend extension declares so it activates lazily when a dataset
+ * it owns is first accessed. The provider id is the suffix, e.g.
+ * `onPositronDataExplorerBackend:positron-duckdb`.
+ */
+function dataExplorerBackendActivationEvent(providerId: string): string {
+	return `onPositronDataExplorerBackend:${providerId}`;
+}
+
+/**
  * PositronDataExplorerService class.
  */
 export class PositronDataExplorerService extends Disposable implements IPositronDataExplorerService {
@@ -170,16 +180,11 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	>();
 
 	/**
-	 * The transports that reach backend-providing extensions, one per extension host, registered by
-	 * MainThreadDataExplorer. The web workbench has two: the web-worker host and the remote host.
-	 */
-	private readonly _rpcTransports = new Set<IDataExplorerHostTransport>();
-
-	/**
 	 * The transport for the extension host each provider's RPC handler registered in. A provider only
-	 * ever exists in one host (positron-duckdb is native, so it is always the remote one in web).
+	 * ever exists in one host (positron-duckdb is native, so it is always the remote one in web). This
+	 * is the routing table: a host announces its providers as they register, and RPCs go to the owner.
 	 */
-	private readonly _providerTransports = new Map<string, IDataExplorerHostTransport>();
+	private readonly _providerTransports = new Map<string, IDataExplorerRpcTransport>();
 
 	/**
 	 * Fires the provider id whenever a host claims one, so a resolution in flight can pick up a
@@ -216,6 +221,7 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService
@@ -251,16 +257,15 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	}
 
 	/**
-	 * Registers the transport that core Data Explorer backends use to reach backend-providing
-	 * extensions. Called by MainThreadDataExplorer for the extension host's lifetime, so one
-	 * transport is registered per host.
-	 * @param transport The transport.
-	 * @returns A disposable that unregisters the transport and any providers it owns.
+	 * Ties a host's provider claims to its connection. Called by MainThreadDataExplorer for the
+	 * extension host's lifetime.
+	 * @param transport The host's transport.
+	 * @returns A disposable that drops the host's remaining provider claims.
 	 */
-	registerRpcTransport(transport: IDataExplorerHostTransport): IDisposable {
-		this._rpcTransports.add(transport);
+	registerRpcHost(transport: IDataExplorerRpcTransport): IDisposable {
+		// Nothing to record up front: a host is only interesting once it claims a provider. Disposal
+		// drops any claims it still owns, so a disconnecting host stops receiving RPCs.
 		return toDisposable(() => {
-			this._rpcTransports.delete(transport);
 			for (const [providerId, registered] of this._providerTransports) {
 				if (registered === transport) {
 					this._providerTransports.delete(providerId);
@@ -274,7 +279,7 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	 * @param providerId The provider id.
 	 * @param transport The transport for that host.
 	 */
-	registerRpcProvider(providerId: string, transport: IDataExplorerHostTransport): void {
+	registerRpcProvider(providerId: string, transport: IDataExplorerRpcTransport): void {
 		this._providerTransports.set(providerId, transport);
 		this._onDidRegisterRpcProviderEmitter.fire(providerId);
 	}
@@ -284,7 +289,7 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	 * @param providerId The provider id.
 	 * @param transport The transport that previously registered it.
 	 */
-	unregisterRpcProvider(providerId: string, transport: IDataExplorerHostTransport): void {
+	unregisterRpcProvider(providerId: string, transport: IDataExplorerRpcTransport): void {
 		if (this._providerTransports.get(providerId) === transport) {
 			this._providerTransports.delete(providerId);
 		}
@@ -488,18 +493,15 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 	}
 
 	/**
-	 * Resolves the transport for the extension host that can service `providerId`. Activating the
-	 * provider in every host is what identifies the owner: only the host the extension is installed
-	 * in does anything, and it registers its handler as it activates.
+	 * Resolves the transport for the extension host that can service `providerId`, activating the
+	 * provider if no host has claimed it yet. `activateByEvent` fans out to every extension host;
+	 * only the host the extension is installed in does anything, and it registers its handler as it
+	 * activates, which is what identifies the owning transport.
 	 */
-	private async _resolveRpcTransport(providerId: string): Promise<IDataExplorerHostTransport> {
+	private async _resolveRpcTransport(providerId: string): Promise<IDataExplorerRpcTransport> {
 		const registered = this._providerTransports.get(providerId);
 		if (registered) {
 			return registered;
-		}
-
-		if (this._rpcTransports.size === 0) {
-			throw new Error('The Data Explorer RPC transport is not available.');
 		}
 
 		// Subscribe before activating, so a registration that lands while activation is still settling
@@ -510,7 +512,7 @@ export class PositronDataExplorerService extends Disposable implements IPositron
 		);
 
 		try {
-			await Promise.all([...this._rpcTransports].map(transport => transport.activateProvider(providerId)));
+			await this._extensionService.activateByEvent(dataExplorerBackendActivationEvent(providerId));
 			if (!this._providerTransports.has(providerId)) {
 				await raceTimeout(registration, PROVIDER_REGISTRATION_TIMEOUT_MS);
 			}

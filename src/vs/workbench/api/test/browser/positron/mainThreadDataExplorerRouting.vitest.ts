@@ -41,9 +41,31 @@ const NO_FEATURES: SupportedFeatures = {
  * that registered the provider rather than whichever host connected most recently.
  */
 describe('Data Explorer RPC transport routing', () => {
+	// Provider id -> the host whose extension owns it, populated by createExtensionHost, reset per test.
+	const hostsByProvider = new Map<string, { mainThread: MainThreadDataExplorer; deferRegistration: boolean }>();
+
+	// One core extension service shared by every host, as in the real workbench: activateByEvent fans
+	// out to all hosts, and the host that owns the provider registers its handler in response -- either
+	// during activation, or a tick later when the extension awaits work inside activate().
+	const extensionService = stubInterface<IExtensionService>({
+		activateByEvent: async (event: string) => {
+			for (const [providerId, host] of hostsByProvider) {
+				if (event !== `onPositronDataExplorerBackend:${providerId}`) {
+					continue;
+				}
+				if (host.deferRegistration) {
+					void timeout(0).then(() => host.mainThread.$registerRpcHandler(providerId));
+				} else {
+					host.mainThread.$registerRpcHandler(providerId);
+				}
+			}
+		},
+	});
+
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IConfigurationService, new TestConfigurationService())
+		.stub(IExtensionService, extensionService)
 		.stub(IRuntimeSessionService, {
 			activeSessions: [],
 			onWillStartSession: Event.None,
@@ -56,6 +78,7 @@ describe('Data Explorer RPC transport routing', () => {
 	let service: PositronDataExplorerService;
 
 	beforeEach(() => {
+		hostsByProvider.clear();
 		// PositronDataExplorerInstance reads the singleton in its constructor.
 		PositronReactServices.services = ctx.reactServices;
 		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronDataExplorerService));
@@ -76,7 +99,7 @@ describe('Data Explorer RPC transport routing', () => {
 	/**
 	 * Stands up one extension host's MainThreadDataExplorer over the service, recording its RPCs.
 	 * @param providers Provider ids whose extensions are installed in this host; each registers its
-	 * RPC handler when activated, as the real backends do.
+	 * RPC handler when the shared extension service activates it, as the real backends do.
 	 * @param deferRegistration Register the handler after activation resolves rather than during it,
 	 * as an extension that awaits work inside `activate()` does.
 	 */
@@ -94,29 +117,11 @@ describe('Data Explorer RPC transport routing', () => {
 		const extHostContext = stubInterface<IExtHostContext>({
 			getProxy: (<T>() => proxy as T) as IExtHostContext['getProxy'],
 		});
-		// The activation stub reaches back into the customer it belongs to, which doesn't exist yet.
-		const host: { mainThread?: MainThreadDataExplorer } = {};
-		const registerAfterActivation = async (providerId: string) => {
-			await timeout(0);
-			host.mainThread?.$registerRpcHandler(providerId);
-		};
-		const extensionService = stubInterface<IExtensionService>({
-			activateByEvent: async (event: string) => {
-				// Activating a backend extension registers its RPC handler; a host that doesn't have the
-				// extension installed just resolves.
-				const providerId = providers.find(p => event === `onPositronDataExplorerBackend:${p}`);
-				if (!providerId) {
-					return;
-				}
-				if (deferRegistration) {
-					registerAfterActivation(providerId);
-				} else {
-					host.mainThread?.$registerRpcHandler(providerId);
-				}
-			},
-		});
-		host.mainThread = ctx.disposables.add(new MainThreadDataExplorer(extHostContext, service, extensionService));
-		return { mainThread: host.mainThread, calls };
+		const mainThread = ctx.disposables.add(new MainThreadDataExplorer(extHostContext, service));
+		for (const providerId of providers) {
+			hostsByProvider.set(providerId, { mainThread, deferRegistration });
+		}
+		return { mainThread, calls };
 	}
 
 	it('sends RPCs to the host that registered the provider, not the host that connected last', async () => {
