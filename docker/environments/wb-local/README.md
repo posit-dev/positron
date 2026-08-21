@@ -11,7 +11,8 @@ pick, in one command.
   `WB_PASSWORD` if it is unset.
 - Optional: `fzf` for arrow-key pickers (without it you get a numbered prompt).
   Install with `brew install fzf` (macOS), `sudo apt install fzf` (Debian/Ubuntu),
-  or `conda install -c conda-forge fzf`.
+  `winget install junegunn.fzf` (Windows), or `conda install -c conda-forge fzf`.
+- Windows: one extra setup step, see [Windows](#windows).
 
 ## Quick start
 
@@ -27,6 +28,33 @@ pick, in one command.
 
 First run asks which Positron and Workbench you want, installs them, and brings
 the stack up. Open http://localhost:8787 and log in as `user1` and password as set in `WB_PASSWORD`.
+
+## Windows
+
+Works on Windows x64 (the same amd64 packages CI installs). Run the commands from
+PowerShell or Windows Terminal like anywhere else; the script itself executes
+under Git Bash, and you never need a Git Bash window.
+
+That last part is the one setup step. npm has to be pointed at Git Bash:
+
+```bash
+npm config set script-shell "C:\Program Files\Git\bin\bash.exe"
+```
+
+Without it npm runs scripts through `cmd.exe`, where bare `bash` resolves to
+`C:\Windows\System32\bash.exe` -- the WSL launcher -- so the script would run
+inside a Linux distro that typically has no reachable Docker daemon and no `gh`.
+It detects that case and tells you rather than failing obscurely.
+
+Two things behave differently than on macOS or Linux:
+
+- Prefer PowerShell or Windows Terminal over a mintty (Git Bash) window.
+  `npm run pwb -- shell` runs `docker exec -it`, and the `fzf` pickers both want
+  a real Windows console; mintty is not one.
+- The license files must be LF, not CRLF. Connect refuses to parse a CRLF
+  license and just answers 402 forever, and rstudio-server rejects one outright.
+  Both are staged through a CR strip now, so a license saved on Windows is
+  handled, but see [Troubleshooting](#troubleshooting) if you hit it another way.
 
 ## Commands
 
@@ -152,3 +180,13 @@ install; re-run with `--reinstall --credentials=<type>` to switch.
   versions, `down` one and bring up the other.
 - **Apple Silicon**: the Connect service runs emulated (amd64) and is slow to
   start.
+- **`dependency failed to start: container connect is unhealthy`**: usually the
+  Connect license. Connect starts either way, so check what it thinks it has:
+
+  ```bash
+  docker exec connect /opt/rstudio-connect/bin/license-manager status
+  ```
+
+  An empty "License file status" with `Has-Key: No` means the file was not parsed
+  at all, and every request answers 402. A CRLF license does exactly this (see
+  [Windows](#windows)); so does a missing or expired one.

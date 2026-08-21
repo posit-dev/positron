@@ -1,2 +1,2 @@
-# Ignore Connect license file
-connect.lic
+# Ignore Connect license file (and the temp file it is staged through)
+connect.lic*
