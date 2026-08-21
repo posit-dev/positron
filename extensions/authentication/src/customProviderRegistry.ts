@@ -9,6 +9,8 @@ import { randomUUID } from 'crypto';
 import type { SupportedCustomClientKind } from 'ai-config';
 import { AuthProvider } from './authProvider';
 import { authProviders, providerAction, registerAuthProvider, unregisterAuthProvider, updateProviderFromSessions } from './configDialog';
+import { POSITRON_CUSTOM_AUTH_PROVIDER_ID } from './constants';
+import { CustomProviderAggregate } from './customProviderAggregate';
 import { customApiKeyValidator, isOfferedCustomKind } from './customProviderAuth';
 import { log } from './log';
 import {
@@ -54,13 +56,23 @@ export function isAddCustomProviderRequest(value: unknown): value is AddCustomPr
  * providers.json at any point, so this reconciles against the catalog rather
  * than registering a snapshot.
  *
- * The auth provider id is the entry name, which is also the catalog id. That's
- * the contract Posit Assistant's `PositronBackend` resolves credentials
- * against, so it can derive the credential from the provider id instead of
- * carrying a lookup table.
+ * Every entry's credential is served through one shared authentication
+ * provider, {@link CustomProviderAggregate}, with the entry name as the scope.
+ * That is what Posit Assistant's `PositronBackend` resolves against. The
+ * per-entry `AuthProvider` is still constructed with the entry name, so the
+ * secret storage keys are unchanged; only the registration is shared.
  */
 export class CustomProviderRegistry implements vscode.Disposable {
 	private readonly registrations = new Map<string, vscode.Disposable[]>();
+
+	/**
+	 * The one authentication provider all custom entries are served under. It
+	 * is registered for the life of the extension, whether or not any entry
+	 * exists, so that it can be declared in `contributes.authentication` and
+	 * reached by an activation event.
+	 */
+	private readonly aggregate = new CustomProviderAggregate();
+	private readonly aggregateRegistration: vscode.Disposable;
 
 	/**
 	 * Serializes reconciles. Every write refreshes the catalog, which fires a
@@ -77,7 +89,21 @@ export class CustomProviderRegistry implements vscode.Disposable {
 			positron.ai.registerProvider,
 		/** Injectable so a test can add an entry without a live endpoint to check the key against. */
 		private readonly apiKeyValidator: typeof customApiKeyValidator = customApiKeyValidator,
-	) { }
+	) {
+		this.aggregateRegistration = vscode.authentication.registerAuthenticationProvider(
+			POSITRON_CUSTOM_AUTH_PROVIDER_ID,
+			vscode.l10n.t('Custom Providers'),
+			this.aggregate,
+			// The Accounts menu shows one node with an account per entry,
+			// rather than treating them all as one account.
+			{ supportsMultipleAccounts: true },
+		);
+	}
+
+	/** The entry names registered right now, for the session fan-out. */
+	get registeredIds(): string[] {
+		return [...this.registrations.keys()];
+	}
 
 	/**
 	 * Brings registrations in line with the catalog: register entries that are
@@ -186,10 +212,7 @@ export class CustomProviderRegistry implements vscode.Disposable {
 		// environment, and nothing that could resolve the built-in's account
 		// under this entry's name.
 		const authProvider = new AuthProvider(name, name, this.context);
-		disposables.push(
-			authProvider,
-			vscode.authentication.registerAuthenticationProvider(name, name, authProvider),
-		);
+		disposables.push(authProvider);
 
 		registerAuthProvider(name, authProvider, {
 			// The same key check the matching built-in runs, so a bad key is
@@ -209,15 +232,21 @@ export class CustomProviderRegistry implements vscode.Disposable {
 		const sessions = await authProvider.getSessions();
 		await updateProviderFromSessions(name, sessions);
 
-		// Then make the registration itself observable. Registering an auth
-		// provider emits nothing to other extensions, and Posit Assistant
-		// remembers "no such auth provider" for the rest of the session, so an
-		// entry that already had a key stored would stay dead until the user
-		// happened to sign in or out. This is the only signal that reaches it.
+		// Then route the entry through the shared auth provider, which is what
+		// makes it reachable from Posit Assistant, and announce the sessions it
+		// already had. Registering emits nothing to other extensions on its
+		// own, and the assistant remembers "no such auth provider" for the rest
+		// of the session, so an entry with a key already stored would stay dead
+		// until the user happened to sign in or out.
+		this.aggregate.addProvider(name, authProvider);
 		authProvider.fireSessionsChanged({ added: sessions, removed: [], changed: [] });
 	}
 
 	private unregister(name: string): void {
+		// Stop routing before disposing the delegate: the shared auth provider
+		// outlives the entry, so a disposed delegate left in it would still be
+		// asked for sessions.
+		this.aggregate.removeProvider(name);
 		for (const disposable of this.registrations.get(name) ?? []) {
 			disposable.dispose();
 		}
@@ -229,5 +258,7 @@ export class CustomProviderRegistry implements vscode.Disposable {
 		for (const name of [...this.registrations.keys()]) {
 			this.unregister(name);
 		}
+		this.aggregateRegistration.dispose();
+		this.aggregate.dispose();
 	}
 }

@@ -21,6 +21,7 @@
 		"onAuthenticationRequest:google-cloud",
 		"onAuthenticationRequest:deepseek-api",
 		"onAuthenticationRequest:databricks",
+		"onAuthenticationRequest:positron-custom-provider",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateSettingsToProvidersJson"
 	],
@@ -79,6 +80,10 @@
 			{
 				"id": "databricks",
 				"label": "Databricks"
+			},
+			{
+				"id": "positron-custom-provider",
+				"label": "Custom Providers"
 			}
 		],
 		"commands": [
