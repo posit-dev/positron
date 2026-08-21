@@ -15,6 +15,8 @@ import { customApiKeyValidator, customProviderNameConflict, isOfferedCustomKind 
 import { log } from './log';
 import {
 	createCustomProviderEntry,
+	deleteCustomProviderEntry,
+	getCachedProvider,
 	readCustomProviderEntry,
 	saveCustomProviderUrl,
 	type ProviderCatalogChangeEvent,
@@ -46,6 +48,20 @@ export interface AddCustomProviderRequest {
 export function isAddCustomProviderRequest(value: unknown): value is AddCustomProviderRequest {
 	const request = value as AddCustomProviderRequest | undefined;
 	return typeof request?.name === 'string' && typeof request?.kind === 'string';
+}
+
+/**
+ * What the Delete Provider action sends. The workbench half is
+ * `IRemoveCustomProviderRequest` in
+ * `positronAssistant/browser/customProviderCommands.ts`.
+ */
+export interface RemoveCustomProviderRequest {
+	readonly name: string;
+}
+
+/** Narrows the command argument, which arrives as `unknown`. */
+export function isRemoveCustomProviderRequest(value: unknown): value is RemoveCustomProviderRequest {
+	return typeof (value as RemoveCustomProviderRequest | undefined)?.name === 'string';
 }
 
 /**
@@ -176,6 +192,33 @@ export class CustomProviderRegistry implements vscode.Disposable {
 		await authProvider.storeKey(randomUUID(), name, apiKey);
 		await updateProviderFromSessions(name, await authProvider.getSessions());
 		vscode.window.showInformationMessage(vscode.l10n.t('{0} has been added successfully.', name));
+	}
+
+	/**
+	 * Deletes a custom provider: its credential, then its `providers.custom`
+	 * entry, whose removal unregisters it.
+	 *
+	 * The credential goes first, while the entry's auth provider is still
+	 * registered. The reconcile that follows the delete disposes it, and a key
+	 * left behind would come back to life under a re-created entry of the same
+	 * name.
+	 */
+	async remove(name: string): Promise<void> {
+		if (!await readCustomProviderEntry(name)) {
+			// No user-layer record: the entry is either gone already, or it
+			// comes from a default or enforced layer and isn't ours to delete.
+			throw new Error(getCachedProvider(name)
+				? vscode.l10n.t('"{0}" is managed outside Positron. Remove it from the providers.json that defines it.', name)
+				: vscode.l10n.t('There is no custom provider named "{0}".', name));
+		}
+
+		// clearConfiguration, not removeSession: the stored account goes with
+		// the secret, so a re-created entry doesn't inherit a stale row.
+		await authProviders.get(name)?.clearConfiguration();
+		await deleteCustomProviderEntry(name);
+		await this.reconcile();
+
+		log.info(`Deleted custom provider: ${name}`);
 	}
 
 	/** One pass of the reconcile, run one at a time by {@link reconcile}. */

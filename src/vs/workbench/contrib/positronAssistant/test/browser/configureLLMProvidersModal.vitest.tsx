@@ -14,6 +14,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IPositronAssistantConfigurationService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ConfigureLLMProviders } from '../../browser/configureLLMProvidersModal.js';
 
 const positAi: IPositronLanguageModelSource = {
@@ -34,7 +35,7 @@ const anthropic: IPositronLanguageModelSource = {
 
 const myGateway: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'My Gateway', displayName: 'My Gateway' },
+	provider: { id: 'My Gateway', displayName: 'My Gateway', customKind: 'openai-compatible' },
 	supportedOptions: ['apiKey', 'baseUrl'],
 	signedIn: false,
 	defaults: {},
@@ -50,7 +51,9 @@ describe('ConfigureLLMProviders', () => {
 	// What the service reports after a registration change; the modal re-reads
 	// it rather than patching its own list.
 	let registeredSources: IPositronLanguageModelSource[] = [];
-	beforeEach(() => { sessions = []; registeredSources = []; });
+	// The add and delete writes are the extension's, reached by command.
+	const executeCommand = vi.fn().mockResolvedValue(undefined);
+	beforeEach(() => { sessions = []; registeredSources = []; executeCommand.mockClear(); });
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -61,6 +64,7 @@ describe('ConfigureLLMProviders', () => {
 			getRegisteredSources: () => registeredSources,
 		})
 		.stub(IAuthenticationService, { onDidChangeSessions: sessionsChange.event, getSessions: async () => sessions })
+		.stub(ICommandService, { executeCommand })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -245,4 +249,49 @@ describe('ConfigureLLMProviders', () => {
 		expect(actions).toStrictEqual(['oauth-signin', 'cancel']);
 		expect(screen.getByText('Model Providers')).toBeInTheDocument();
 	});
+
+	it('offers Delete Provider for a custom entry, and not for a built-in', async () => {
+		const user = userEvent.setup();
+		renderModal([anthropic, myGateway]);
+
+		await user.click(screen.getAllByRole('button', { name: /connect/i })[1]);
+		expect(screen.getByRole('button', { name: /delete provider/i })).toBeInTheDocument();
+
+		await user.click(screen.getByRole('button', { name: 'Back' }));
+		await user.click(screen.getAllByRole('button', { name: /connect/i })[0]);
+		expect(screen.queryByRole('button', { name: /delete provider/i })).not.toBeInTheDocument();
+	});
+
+	it('confirms a delete, hands the entry name to the extension, and drops the row', async () => {
+		const user = userEvent.setup();
+		renderModal([anthropic, myGateway]);
+
+		await user.click(screen.getAllByRole('button', { name: /connect/i })[1]);
+		await user.click(screen.getByRole('button', { name: /delete provider/i }));
+		// The confirmation is its own screen, so nothing is written yet.
+		expect(executeCommand).not.toHaveBeenCalled();
+
+		await user.click(screen.getByRole('button', { name: 'Delete Provider' }));
+		expect(executeCommand).toHaveBeenCalledWith('authentication.removeCustomProvider', { name: 'My Gateway' });
+		expect(screen.getByText('Model Providers')).toBeInTheDocument();
+
+		// The row itself goes when the entry's source unregisters.
+		registeredSources = [anthropic];
+		act(() => registrationsChange.fire());
+		expect(screen.queryByText('My Gateway')).not.toBeInTheDocument();
+	});
+
+	it('leaves the entry alone when the confirmation is cancelled', async () => {
+		const user = userEvent.setup();
+		renderModal([myGateway]);
+
+		await user.click(screen.getByRole('button', { name: /connect/i }));
+		await user.click(screen.getByRole('button', { name: /delete provider/i }));
+		await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+		expect(executeCommand).not.toHaveBeenCalled();
+		// Back on the provider's own screen, not the list.
+		expect(screen.getByLabelText(/api key/i)).toBeInTheDocument();
+	});
+
 });

@@ -23,7 +23,7 @@ import {
 } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
-import { CustomProviderRegistry, isAddCustomProviderRequest } from './customProviderRegistry';
+import { CustomProviderRegistry, isAddCustomProviderRequest, isRemoveCustomProviderRequest } from './customProviderRegistry';
 import { getProviderSources, PROVIDER_METADATA } from './providerSources';
 import {
 	normalizeToV1Url,
@@ -290,6 +290,20 @@ export async function activate(context: vscode.ExtensionContext) {
 					throw new Error(vscode.l10n.t('A provider name and type are required.'));
 				}
 				await customProviders.create(request);
+			}
+		),
+	);
+	// The Delete Provider action's write. Same reason as the add above: the
+	// modal's provider action is keyed on a provider id, and this one
+	// unregisters it. Errors travel back to the confirmation screen.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'authentication.removeCustomProvider',
+			async (request: unknown) => {
+				if (!isRemoveCustomProviderRequest(request)) {
+					throw new Error(vscode.l10n.t('A provider name is required.'));
+				}
+				await customProviders.remove(request.name);
 			}
 		),
 	);

@@ -81,6 +81,8 @@ export interface ConnectProviderViewProps {
 	 * as much. Only wired for the custom provider create flow.
 	 */
 	onEditRawConfig?: () => void;
+	/** Opens the delete confirmation. Only provided for a custom entry. */
+	onDeleteCustomProvider?: () => void;
 }
 
 export const ConnectProviderView = (props: ConnectProviderViewProps) => {
@@ -241,6 +243,9 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 					}
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
 					<div style={{ flexGrow: 1 }}>&nbsp;</div>
+					{props.onDeleteCustomProvider &&
+						<DeleteCustomProviderAction disabled={inFlight} onClick={props.onDeleteCustomProvider} />
+					}
 					<ProviderNotice source={props.source} />
 				</div>
 			</ContentArea>
@@ -279,6 +284,24 @@ export const ConnectProviderHeader = (props: { source: IPositronLanguageModelSou
 			{props.subtitle && <span className='connect-provider-subtitle'>{props.subtitle}</span>}
 		</div>
 	</div>
+);
+
+/**
+ * Opens the delete confirmation, from a custom entry's screen whether it is
+ * connected or not. Kept out of the footer, where Disconnect sits: two buttons
+ * that both read as removal is how an entry gets deleted by someone meaning to
+ * clear its key.
+ */
+export const DeleteCustomProviderAction = (props: { disabled?: boolean; onClick: () => void }) => (
+	<button
+		className='connect-provider-delete'
+		disabled={props.disabled}
+		type='button'
+		onClick={props.onClick}
+	>
+		<span aria-hidden='true' className='codicon codicon-trash' />
+		{localize('positron.deleteCustomProvider.action', "Delete Provider")}
+	</button>
 );
 
 /** Error banner shared by the connect and connected views. */

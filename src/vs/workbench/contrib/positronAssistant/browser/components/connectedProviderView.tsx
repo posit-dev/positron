@@ -14,7 +14,7 @@ import { AuthMethod } from '../types.js';
 import { deriveAuthMethod, deriveDisconnectAction } from '../providerConnection.js';
 import { getBaseUrlLabel } from '../providerFieldLabels.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
-import { ConnectProviderHeader, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
+import { ConnectProviderHeader, DeleteCustomProviderAction, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
 
 export interface ConnectedProviderViewProps {
@@ -24,6 +24,8 @@ export interface ConnectedProviderViewProps {
 	onBack: () => void;
 	/** Invoked by the footer Close button. */
 	onClose: () => void;
+	/** Opens the delete confirmation. Only provided for a custom entry. */
+	onDeleteCustomProvider?: () => void;
 }
 
 export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
@@ -111,6 +113,9 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 						}
 					</p>
 
+					{props.onDeleteCustomProvider &&
+						<DeleteCustomProviderAction disabled={pending} onClick={props.onDeleteCustomProvider} />
+					}
 					<ProviderNotice source={current} />
 					{errorMessage && <div className='connect-provider-error'>{errorMessage}</div>}
 				</div>

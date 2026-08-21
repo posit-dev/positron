@@ -447,6 +447,42 @@ export async function createCustomProviderEntry(
 }
 
 /**
+ * Removes `providers.custom.<name>` under the config lock, then refreshes the
+ * cache so the entry's provider unregisters. Drops the whole `custom` block
+ * when the last entry goes.
+ *
+ * Throws when the entry has no user-layer record: it is either absent or
+ * externally managed, which the caller tells apart against the resolved
+ * catalog. Clearing the credential is the Delete action's job, not this one's,
+ * so a stray file edit reaching here can't wipe a key.
+ */
+export async function deleteCustomProviderEntry(
+	name: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	const { mutateProvidersConfig } = await import('ai-config/node');
+	await mutateProvidersConfig(
+		(current: ProvidersConfig): ProvidersConfig => {
+			const custom = current.providers?.custom;
+			if (!custom?.[name]) {
+				throw new Error(`No custom provider named "${name}" in providers.json.`);
+			}
+			const { [name]: _deleted, ...remaining } = custom;
+			const providers = { ...current.providers };
+			if (Object.keys(remaining).length > 0) {
+				providers.custom = remaining;
+			} else {
+				delete providers.custom;
+			}
+			return { ...current, providers };
+		},
+		{ configPath: opts.configPath, logger: writeLogger }
+	);
+	await refreshProviderCatalog(opts);
+}
+
+/**
  * Writes the entry's URL onto an existing `providers.custom.<name>` entry under
  * the config lock, then refreshes the cache. Everything else the user authored
  * (`customHeaders`, `protocol`, `endpoints`, `models`, `enabled`) is left

@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import {
 	createCustomProviderEntry,
+	deleteCustomProviderEntry,
 	getCachedCustomProviders,
 	getCachedProvider,
 	initProviderCatalog,
@@ -300,6 +301,86 @@ suite('custom providers', () => {
 				});
 				const sessions = await authProviders.get('My Gateway')!.getSessions();
 				assert.deepStrictEqual(sessions.map(s => s.accessToken), ['sk-test']);
+			} finally {
+				registry.dispose();
+			}
+		});
+	});
+
+	suite('delete', () => {
+		test('takes the entry, its registration, and its stored key together', async () => {
+			writeConfig(configPath, {});
+			await initProviderCatalog(context, { configPath });
+			const registry = new CustomProviderRegistry(
+				storageContext(),
+				() => ({ dispose: () => { } }),
+				() => undefined,
+				noSharedRegistration
+			);
+
+			try {
+				await registry.create({
+					name: 'My Gateway',
+					kind: 'openai-compatible',
+					baseUrl: 'https://gateway.example.com/v1',
+					apiKey: 'sk-test',
+				});
+				const authProvider = authProviders.get('My Gateway')!;
+
+				await registry.remove('My Gateway');
+
+				assert.deepStrictEqual({
+					custom: readConfig(configPath).providers.custom,
+					registered: registry.registeredIds,
+					sessions: (await authProvider.getSessions()).length,
+				}, {
+					// The whole block goes with the last entry in it.
+					custom: undefined,
+					registered: [],
+					sessions: 0,
+				});
+			} finally {
+				registry.dispose();
+			}
+		});
+
+		test('leaves the other entries alone', async () => {
+			writeConfig(configPath, {
+				custom: {
+					Keep: { type: 'openai-compatible', baseUrl: 'https://keep.example.com/v1' },
+					Drop: { type: 'openai-compatible', baseUrl: 'https://drop.example.com/v1' },
+				},
+			});
+			await initProviderCatalog(context, { configPath });
+
+			await deleteCustomProviderEntry('Drop', { configPath });
+
+			assert.deepStrictEqual({
+				custom: Object.keys(readConfig(configPath).providers.custom),
+				cached: getCachedCustomProviders().map(p => p.id),
+			}, {
+				custom: ['Keep'],
+				cached: ['Keep'],
+			});
+		});
+
+		test('refuses an entry it did not author, and one that was never there', async () => {
+			writeConfig(configPath, { custom: { Managed: { type: 'openai-compatible' } } });
+			await initProviderCatalog(context, { configPath });
+			// In the catalog but not in the user's file, which is the state an
+			// entry from a default or enforced layer is in. Rewriting the file
+			// without refreshing puts the catalog there without one.
+			writeConfig(configPath, {});
+			const registry = new CustomProviderRegistry(
+				storageContext(),
+				() => ({ dispose: () => { } }),
+				() => undefined,
+				noSharedRegistration
+			);
+
+			try {
+				await assert.rejects(registry.remove('Managed'), /managed outside Positron/);
+				await assert.rejects(registry.remove('Nothing Here'), /no custom provider named/i);
 			} finally {
 				registry.dispose();
 			}

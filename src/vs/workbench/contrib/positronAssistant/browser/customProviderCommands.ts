@@ -39,6 +39,22 @@ export interface IAddCustomProviderRequest {
 }
 
 /**
+ * Deleting a custom provider is the create in reverse, and just as much one
+ * operation: clear the credential, remove the `providers.custom` entry, and let
+ * the reconcile that follows unregister it. The usual `onAction` dispatch can't
+ * carry it either, since it is keyed on a provider id this removes.
+ *
+ * The extension refuses an entry Positron didn't author and throws; the message
+ * is what the confirmation screen shows.
+ */
+export const REMOVE_CUSTOM_PROVIDER_COMMAND = 'authentication.removeCustomProvider';
+
+/** The argument to {@link REMOVE_CUSTOM_PROVIDER_COMMAND}. */
+export interface IRemoveCustomProviderRequest {
+	readonly name: string;
+}
+
+/**
  * The one authentication provider every `providers.custom` entry is served
  * under, with the entry name as the scope. The extension's half of this is
  * `POSITRON_CUSTOM_AUTH_PROVIDER_ID` in `authentication/src/constants.ts`.
