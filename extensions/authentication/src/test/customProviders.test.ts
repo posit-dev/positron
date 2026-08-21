@@ -336,7 +336,7 @@ suite('custom providers', () => {
 			// connection checked, which is where a missing base URL is caught.
 			await assert.rejects(
 				customApiKeyValidator('openai-compatible')!('', {}),
-				/base URL is required/
+				/Base URL is required/
 			);
 
 			assert.deepStrictEqual(
