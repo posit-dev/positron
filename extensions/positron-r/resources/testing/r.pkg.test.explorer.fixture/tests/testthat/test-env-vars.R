@@ -36,6 +36,28 @@ exe <- function(name) {
   if (.Platform$OS.type == "windows") paste0(name, ".exe") else name
 }
 
+# The directory holding the R front end is not necessarily R.home("bin"); it
+# varies by platform and by how R was installed. So identify an installation by
+# asking it, rather than by comparing paths.
+r_home_of <- function(bin_dir) {
+  out <- tryCatch(
+    suppressWarnings(
+      system2(
+        file.path(bin_dir, exe("R")),
+        "RHOME",
+        stdout = TRUE,
+        stderr = FALSE
+      )
+    ),
+    error = function(e) character()
+  )
+  if (length(out) == 0) {
+    NA_character_
+  } else {
+    normalizePath(out[[1]], mustWork = FALSE)
+  }
+}
+
 test_that("the environment of the test process is recorded", {
   # The test explorer discards stdout that isn't reporter JSON, so the only way
   # to see these values is to write them somewhere.
@@ -68,8 +90,8 @@ test_that("QUARTO_R points at the R running these tests", {
   # Positron sets QUARTO_R to the bin directory of the selected R, so that
   # `quarto render` uses the same R as the console.
   expect_equal(
-    normalizePath(Sys.getenv("QUARTO_R"), mustWork = FALSE),
-    normalizePath(R.home("bin"), mustWork = FALSE)
+    r_home_of(Sys.getenv("QUARTO_R")),
+    normalizePath(R.home(), mustWork = FALSE)
   )
 })
 
@@ -77,12 +99,9 @@ test_that("PATH resolves R and Rscript to the R running these tests", {
   # Positron prepends the selected R's bin directory to PATH. Anything that
   # shells out to R (or Rscript) from inside a test should get the same R as the
   # test runner.
-  bin_dir <- normalizePath(R.home("bin"), mustWork = FALSE)
-  resolved <- normalizePath(
-    dirname(Sys.which(c("R", "Rscript"))),
-    mustWork = FALSE
-  )
-  expect_equal(resolved, rep(bin_dir, 2))
+  home <- normalizePath(R.home(), mustWork = FALSE)
+  expect_equal(r_home_of(dirname(Sys.which("R"))), home)
+  expect_equal(r_home_of(dirname(Sys.which("Rscript"))), home)
 })
 
 test_that("JUPYTER_PATH is set", {
