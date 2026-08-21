@@ -393,9 +393,9 @@ const DECLARED_MODEL_DEFAULTS = {
  * Creates `providers.custom.<name>` under the config lock, then refreshes the
  * cache so the entry's provider registers.
  *
- * The name is the entry key, the provider id, the display name, and the auth
- * provider id all at once, so it has to clear ai-config's naming rules before
- * anything is written: `mintCustomProviderId` rejects a built-in provider id, a
+ * The name is the entry key, the provider id, the display name, and the scope
+ * its credential is filed under, all at once, so it has to clear ai-config's
+ * naming rules before anything is written: `mintCustomProviderId` rejects a built-in provider id, a
  * reserved key, and the unsafe object key `__proto__`. It's called for its
  * throw, not its value, and the check happens inside the lock so a name can't
  * be taken between the check and the write.

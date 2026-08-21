@@ -374,8 +374,9 @@ function customSupportedOptions(kind: string): SupportedOption[] {
 /**
  * Builds the model source for one `providers.custom` entry. The entry name is
  * the provider id, the display name, and the catalog id all at once: it is the
- * key in providers.json, and Positron registers its auth provider under the
- * same string so the credential is derivable from the id alone.
+ * key in providers.json, and it is the scope its credential is filed under in
+ * the shared `POSITRON_CUSTOM_AUTH_PROVIDER_ID` authentication provider, so the
+ * credential is still derivable from the id alone.
  */
 export function customProviderSource(
 	provider: ResolvedProviderLike

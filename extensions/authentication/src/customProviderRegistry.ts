@@ -24,9 +24,10 @@ import { customProviderSource, getRegistrableCustomProviders } from './providerS
 
 /**
  * What the Add Custom Provider form sends. The name is the entry key in
- * providers.json, the provider id, the display name, and the auth provider id,
- * all at once, which is why it can't be changed afterwards. The workbench half
- * of this contract is `IAddCustomProviderRequest` in
+ * providers.json, the provider id, and the display name all at once, and the
+ * scope its credential is filed under, which is why it can't be changed
+ * afterwards. The workbench half of this contract is
+ * `IAddCustomProviderRequest` in
  * `positronAssistant/browser/customProviderCommands.ts`.
  */
 export interface AddCustomProviderRequest {

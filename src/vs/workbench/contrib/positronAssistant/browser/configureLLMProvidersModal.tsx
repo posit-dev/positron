@@ -129,10 +129,10 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	// the capability key rather than a version check.
 	const supportsCustomProviders = useContextKeyFromString<boolean>(SUPPORTS_CUSTOM_PROVIDERS_KEY) === true;
 
-	// The write is the extension's: it creates the providers.json entry,
-	// registers an auth provider under the entry name, and stores the key there.
-	// The new provider's row arrives on its own, through the catalog change that
-	// registers its source.
+	// The write is the extension's: it creates the providers.json entry, routes
+	// it through the shared custom-provider authentication provider, and stores
+	// the key under the entry name. The new provider's row arrives on its own,
+	// through the catalog change that registers its source.
 	const createCustomProvider = async (request: IAddCustomProviderRequest) => {
 		await services.commandService.executeCommand(ADD_CUSTOM_PROVIDER_COMMAND, request);
 	};
