@@ -63,6 +63,31 @@ interface IManagerDiscoveryPlan {
 }
 
 /**
+ * Why a warm start had to run a full discovery pass for at least one bucket.
+ * Precedence when several apply, most-specific first: `cold-start` >
+ * `always-rediscover` > `roots-changed` > `signature-unavailable` > `periodic`.
+ */
+type FullDiscoveryReason =
+	| 'cold-start'
+	| 'always-rediscover'
+	| 'roots-changed'
+	| 'signature-unavailable'
+	| 'periodic';
+
+/**
+ * Outcome of asking a manager for its discovery root signature. `unsupported`
+ * (the manager resolved `undefined`) and `failed` (timed out or threw) both
+ * yield no signature, but they are not the same: `unsupported` is a permanent
+ * property of a manager that never implemented the call, so forcing a pass on
+ * it would rediscover on every window open. `failed` means the state is
+ * unknown for this one attempt, and the cache cannot be trusted.
+ */
+type RootSignatureProbe =
+	| { readonly kind: 'ok'; readonly signature: IRuntimeRootSignature }
+	| { readonly kind: 'unsupported' }
+	| { readonly kind: 'failed' };
+
+/**
  * The serialization format for affiliated runtime metadata.
  */
 interface IAffiliatedRuntimeMetadata {
@@ -1196,20 +1221,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			?? RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT;
 		const periodicCutoff = Date.now() - refreshDays * 24 * 60 * 60 * 1000;
 
-		// Reason precedence: cold-start > always-rediscover > roots-changed >
-		// periodic. Track the most-specific reason observed across all managers
-		// needing discovery. `always-rediscover` is a permanent contribution
-		// opt-out rather than a transient staleness signal, so it ranks below
-		// cold-start (which describes a one-time situation) but above the
-		// staleness reasons.
-		const reasonRank: Record<'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic', number> = {
+		// Track the most-specific reason observed across all managers needing
+		// discovery; see `FullDiscoveryReason` for the ordering. `always-rediscover`
+		// is a permanent contribution opt-out rather than a transient staleness
+		// signal, so it ranks below cold-start (which describes a one-time
+		// situation) but above the staleness reasons.
+		const reasonRank: Record<FullDiscoveryReason, number> = {
 			'cold-start': 0,
 			'always-rediscover': 1,
 			'roots-changed': 2,
-			'periodic': 3,
+			'signature-unavailable': 3,
+			'periodic': 4,
 		};
-		let observedReason: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic' | undefined;
-		const promote = (r: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic') => {
+		let observedReason: FullDiscoveryReason | undefined;
+		const promote = (r: FullDiscoveryReason) => {
 			if (observedReason === undefined || reasonRank[r] < reasonRank[observedReason]) {
 				observedReason = r;
 			}
@@ -1240,8 +1265,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 			const runContributions: IHostedLanguageContribution[] = [];
 			const skipLangs = new Set<string>();
-			let mostSpecificReason: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic' | undefined;
-			const promoteLocal = (r: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic') => {
+			let mostSpecificReason: FullDiscoveryReason | undefined;
+			const promoteLocal = (r: FullDiscoveryReason) => {
 				if (mostSpecificReason === undefined || reasonRank[r] < reasonRank[mostSpecificReason]) {
 					mostSpecificReason = r;
 				}
@@ -1275,12 +1300,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// without `getDiscoveryRootSignature`, e.g. positron-reticulate
 				// for `python`, doesn't shadow the real owner's signature).
 				const persistedSig = this._discoveryCache.getDiscoveryRootSignature(contrib.extensionId, contrib.languageId);
-				const currentSig = await this._safeGetRootSignature(manager, contrib.extensionId, contrib.languageId);
-				const rootsChanged = currentSig !== undefined && !signaturesEqual(persistedSig, currentSig);
+				const probe = await this._probeRootSignature(manager, contrib.extensionId, contrib.languageId);
+				const rootsChanged = probe.kind === 'ok' && !signaturesEqual(persistedSig, probe.signature);
 
 				if (rootsChanged) {
 					runContributions.push(contrib);
 					promoteLocal('roots-changed');
+				} else if (probe.kind === 'failed') {
+					// "Unknown", not "unchanged": an exclusion is a settings-only edit
+					// that moves no mtime, so the digest is the only staleness signal --
+					// and the cache is not re-filtered against settings when loaded.
+					runContributions.push(contrib);
+					promoteLocal('signature-unavailable');
 				} else if (periodicStale) {
 					runContributions.push(contrib);
 					promoteLocal('periodic');
@@ -1354,9 +1385,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 		const sigByPair = new Map<string, IRuntimeRootSignature>();
 		await Promise.all(Array.from(uniquePairs.values()).map(async ({ extensionId, languageId }) => {
-			const sig = await this._safeGetRootSignature(manager, extensionId, languageId);
-			if (sig !== undefined) {
-				sigByPair.set(`${extensionId}::${languageId}`, sig);
+			const probe = await this._probeRootSignature(manager, extensionId, languageId);
+			// Unsupported and failed both leave the persisted signature untouched:
+			// stamping nothing keeps the next warm start on the safe path.
+			if (probe.kind === 'ok') {
+				sigByPair.set(`${extensionId}::${languageId}`, probe.signature);
 			}
 		}));
 
@@ -1406,32 +1439,44 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Call `manager.getDiscoveryRootSignature(extensionId, languageId)`
-	 * defensively: timeout-bound the call, swallow throws, and treat both as
-	 * "no signature available" so the caller falls back to the periodic-
-	 * refresh trigger. We disambiguate by extensionId because multiple
-	 * extensions can register a runtime manager for the same languageId (e.g.
-	 * `ms-python.python` and `positron.positron-reticulate` both register for
-	 * `python`) and only one of them owns the discovery signature for any
-	 * given (extensionId, languageId) bucket.
+	 * defensively: timeout-bound the call and swallow throws, reporting both as
+	 * `failed` (see `RootSignatureProbe` for why that is not `unsupported`). We
+	 * disambiguate by extensionId because multiple extensions can register a
+	 * runtime manager for the same languageId (e.g. `ms-python.python` and
+	 * `positron.positron-reticulate` both register for `python`) and only one
+	 * of them owns the discovery signature for any given (extensionId,
+	 * languageId) bucket.
 	 */
-	private async _safeGetRootSignature(
+	private async _probeRootSignature(
 		manager: IRuntimeManager,
 		extensionId: string,
 		languageId: string,
-	): Promise<IRuntimeRootSignature | undefined> {
+	): Promise<RootSignatureProbe> {
+		let timedOut = false;
 		try {
-			return await raceTimeout(
+			const signature = await raceTimeout(
 				manager.getDiscoveryRootSignature(extensionId, languageId),
 				RuntimeStartupService.ROOT_SIGNATURE_TIMEOUT_MS,
-				() => this._logService.warn(
-					`[Runtime startup] getDiscoveryRootSignature(${extensionId}, ${languageId}) timed out ` +
-					`for manager ${manager.id}; falling back to periodic refresh.`),
+				() => {
+					timedOut = true;
+					this._logService.warn(
+						`[Runtime startup] getDiscoveryRootSignature(${extensionId}, ${languageId}) timed out ` +
+						`for manager ${manager.id}; forcing a full discovery pass.`);
+				},
 			);
+			// `raceTimeout` resolves undefined on timeout too, so the flag is what
+			// separates "took too long" from "manager has no signature to give".
+			if (timedOut) {
+				return { kind: 'failed' };
+			}
+			return signature === undefined
+				? { kind: 'unsupported' }
+				: { kind: 'ok', signature };
 		} catch (err) {
 			this._logService.warn(
 				`[Runtime startup] getDiscoveryRootSignature(${extensionId}, ${languageId}) threw ` +
-				`for manager ${manager.id}; falling back to periodic refresh: ${err}`);
-			return undefined;
+				`for manager ${manager.id}; forcing a full discovery pass: ${err}`);
+			return { kind: 'failed' };
 		}
 	}
 
@@ -1442,21 +1487,21 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * here is cheaper than a sibling helper that re-walks them. `bypassCache`
 	 * paths overwrite this with `'user-triggered'` at the call site.
 	 *
-	 * Precedence (most-specific wins): `cold-start` > `always-rediscover` >
-	 * `roots-changed` > `periodic`. `cold-start` covers managers that never
-	 * produced any cached runtimes; `always-rediscover` covers managers that
-	 * opted out of the cache fast path entirely (non-cacheable runtimes);
-	 * `roots-changed` covers warm starts where a scan-root mtime moved (a new
-	 * interpreter likely showed up); `periodic` covers warm starts where the
-	 * bucket simply aged past the refresh cap.
+	 * `cold-start` covers managers that never produced any cached runtimes;
+	 * `always-rediscover` covers managers that opted out of the cache fast path
+	 * entirely (non-cacheable runtimes); `roots-changed` covers warm starts
+	 * where a scan-root mtime moved (a new interpreter likely showed up);
+	 * `signature-unavailable` covers warm starts where the signature could not
+	 * be obtained, so staleness could not be ruled out; `periodic` covers warm
+	 * starts where the bucket simply aged past the refresh cap.
 	 */
-	private _lastFullDiscoveryReason: 'cold-start' | 'always-rediscover' | 'roots-changed' | 'periodic' = 'cold-start';
+	private _lastFullDiscoveryReason: FullDiscoveryReason = 'cold-start';
 
 	/**
 	 * Per-manager budget for `getDiscoveryRootSignature`. The call should be
 	 * a handful of stats and complete in single-digit milliseconds; if it
-	 * doesn't, log and treat as "no signature" (fall back to periodic) rather
-	 * than blocking warm-start latency on a slow extension.
+	 * doesn't, log and treat as "no signature" (which costs a full rediscovery)
+	 * rather than blocking warm-start latency on a slow extension.
 	 */
 	private static readonly ROOT_SIGNATURE_TIMEOUT_MS = 500;
 
