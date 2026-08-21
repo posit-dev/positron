@@ -255,11 +255,12 @@ describe('summarizeDataConnectionSchema', () => {
 		const summary = await summarizeDataConnectionSchema(handle, { maxTotalNodes: 4 });
 
 		// The global budget is exhausted inside tableA's own children; tableB never gets a node at
-		// all (there's no root-level parent to annotate with a count), but `truncated` still flags it.
+		// all. There's no root-level parent to annotate with a count, so the omission is reported as
+		// a bare trailing `+<n> more` line instead.
 		expect(summary).toEqual({
 			instanceId: '1',
 			truncated: true,
-			lines: ['tableA [table] (f1, f2, f3)'],
+			lines: ['tableA [table] (f1, f2, f3)', '+1 more'],
 		});
 	});
 
@@ -282,7 +283,7 @@ describe('summarizeDataConnectionSchema', () => {
 		expect(summary).toEqual({
 			instanceId: '1',
 			truncated: true,
-			lines: ['t1 [table]', 't2 [table]'],
+			lines: ['t1 [table]', 't2 [table]', '+1 more'],
 		});
 	});
 
@@ -322,8 +323,10 @@ describe('summarizeDataConnectionSchema', () => {
 	});
 
 	// The path prefix is tested for root-ness, not truthiness: a node whose name renders empty still
-	// occupies a level, so its children stay one dot deeper than it, matching the real schema.
-	it('keeps a level for a node whose name is empty', async () => {
+	// occupies a level, so its children stay one dot deeper than it, matching the real schema. The
+	// empty name itself renders quoted -- unquoted it would vanish into the dot, and the child's
+	// path would read as an absolute-looking `.orders` instead of a two-segment one.
+	it('keeps a level for a node whose name is empty, quoting the empty name', async () => {
 		const handle = createFakeHandle([
 			{
 				name: '', kind: 'schema', children: [
@@ -334,7 +337,20 @@ describe('summarizeDataConnectionSchema', () => {
 
 		const summary = await summarizeDataConnectionSchema(handle);
 
-		expect(summary.lines).toEqual([' [schema]', '.orders [table]']);
+		expect(summary.lines).toEqual(['"" [schema]', '"".orders [table]']);
+	});
+
+	// The kind crosses the RPC wire as a plain string, so a driver ignoring the DataConnectionNodeKind
+	// enum can report one containing a delimiter; quoting keeps the line grammar intact. Every real
+	// enum value is delimiter-free, so conforming drivers render exactly as before.
+	it('quotes a nonconforming kind containing a delimiter', async () => {
+		const handle = createFakeHandle([
+			{ name: 'ext', kind: 'external table' },
+		]);
+
+		const summary = await summarizeDataConnectionSchema(handle);
+
+		expect(summary.lines).toEqual(['ext ["external table"]']);
 	});
 
 	it('produces a payload that survives a JSON round-trip', async () => {

@@ -103,8 +103,9 @@ describe('data connections inspect actions', () => {
 			getInstances: vi.fn(() => instances),
 			getInstanceForProfile: vi.fn((profileId: string) =>
 				instances.find(instance => instance.profileId === profileId)),
-			// No stored profile, so the instance picker labels each connection by its profile id.
-			getProfile: vi.fn(() => undefined),
+			// The schema tests pass no profiles, so the instance picker's getProfile lookup finds
+			// nothing there and labels each connection by its profile id.
+			getProfile: vi.fn((profileId: string) => profiles.find(profile => profile.id === profileId)),
 		}));
 		// pick and openEditor are generic over their argument types; the casts tell the compiler what
 		// these mocks already are, the way notebookCommandsQuickPick.vitest.ts stubs createQuickPick.
@@ -221,6 +222,25 @@ describe('data connections inspect actions', () => {
 
 		await run(new ShowDataConnectionSchemaAction());
 
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	// The action promises never to open a connection of its own, but the picker is awaited, so the
+	// chosen connection can close before the answer lands -- and getSchema would then silently
+	// reconnect it. The service stub has no connect() at all (stubInterface throws on unset reads),
+	// so this test fails loudly if the action ever lets getSchema's auto-connect fire.
+	it('does not reconnect a connection that closed while the picker was open', async () => {
+		const instances = [createInstance('conn-a', 1), createInstance('conn-b', 2)];
+		stubServices(instances);
+		pick.mockImplementation(async items => {
+			// The chosen connection closes while the picker is open.
+			instances.splice(1, 1);
+			return items.find(item => item.profileId === 'conn-b');
+		});
+
+		await run(new ShowDataConnectionSchemaAction());
+
+		expect(info).toHaveBeenCalledWith('The selected data connection is no longer active. Connect to it from the Data Connections panel first.');
 		expect(openEditor).not.toHaveBeenCalled();
 	});
 

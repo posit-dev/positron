@@ -200,9 +200,20 @@ export class ShowDataConnectionSchemaAction extends Action2 {
 			return;
 		}
 
+		// The pick was awaited, so the chosen connection may have closed in the meantime -- and
+		// getSchema would then silently reconnect it (see its auto-connect), which this action
+		// promises never to do. Re-checking here, with no await before the getSchema call below,
+		// keeps the promise: getSchema finds the same live instance this check did.
+		if (dataConnectionsService.getInstanceForProfile(profileId) === undefined) {
+			notificationService.info(localize(
+				'positron.dataConnections.showSchema.instanceClosed',
+				"The selected data connection is no longer active. Connect to it from the Data Connections panel first."
+			));
+			return;
+		}
+
 		// Always names a profile explicitly, even when only one connection is live, so this path and
-		// a programmatic one resolve their target the same way. The profile named is always a live
-		// one, so getSchema's auto-connect never fires from here.
+		// a programmatic one resolve their target the same way.
 		const summary = await instantiationService.invokeFunction(
 			schemaAccessor => getDataConnectionSchema(schemaAccessor, { profileId }));
 

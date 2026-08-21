@@ -97,7 +97,9 @@ have?" needs none of it. Once you know which profile the user means, ask
 **`languages=` may be missing** from a profile's summary. That means the driver's
 extension isn't installed or hasn't activated yet, so no code can be generated
 for it. Report that; don't retry, and don't fall back to writing connection code
-yourself.
+yourself. A `languages=` that is present but empty is a different condition: the
+driver is installed and activated but generates no connection code, which is
+what `positronDataConnections.getConnectionCode` reports as `no-code`.
 
 **The parameters are secret-free, by design.** A secret parameter appears in
 `parameters=` only in redacted display form (e.g. `password=****`), or not at
@@ -195,7 +197,9 @@ your behalf, and it never auto-connects a profile it would have to pick.
 `maxTotalNodes` all default to a modest bound. Omit them and react to the
 result rather than pre-tuning: `truncated: true` at the top level means some
 cap left objects out somewhere, and a `+<n> more` on an individual line says how
-many of *that* object's children were dropped. If what you need was cut,
+many of *that* object's children were dropped. Root-level objects have no parent
+line, so a cap that cuts them adds a bare `+<n> more` as the final line
+instead. If what you need was cut,
 raise the one cap that explains it -- a deep tree wants `maxDepth`, a wide
 table list wants `maxNodesPerLevel` -- or narrow the walk with `profileId`.
 Raising all three at once turns a cheap call into an expensive one.

@@ -37,7 +37,7 @@ export function isDataConnectionsCommandEnabled(configurationService: IConfigura
  * for the profile's preferred (or default) variant, and the name of the variable that code binds
  * the connection to.
  */
-export interface IDataConnectionsGetConnectionsLanguageResult {
+export interface IDataConnectionCodeLanguageResult {
 	// The secret-free generated connection code for the profile's preferred variant (falling back to
 	// the driver's default, variants[0], when unset or stale). Meant to be run verbatim.
 	code: string;
@@ -94,7 +94,9 @@ const SUMMARY_UNSAFE_CHARACTERS = '|,=';
  * `languages` lists the language ids the driver can generate connection code for -- what
  * getConnectionCode can be asked for, and which sessions this connection is usable from. It is
  * absent when the driver is unregistered (extension not installed, or not yet activated), which is
- * the same condition that makes getConnectionCode report `no-driver`.
+ * the same condition that makes getConnectionCode report `no-driver`. A registered driver that
+ * supports no languages at all still gets the field, empty, so "driver missing" and "driver
+ * generates no code" (getConnectionCode's `no-code`) stay distinguishable in the line.
  *
  * The parameter values are the redacted set built by {@link getRedactedParameterValues}, so this
  * never renders a cleartext secret: a secret parameter appears in its redacted display form or not
@@ -118,7 +120,7 @@ function formatConnectionSummary(
 		`driver=${quote(profile.driverMetadata.id)}`,
 		`mechanism=${quote(mechanismId)}`,
 	];
-	if (languageIds?.length) {
+	if (languageIds !== undefined) {
 		fields.push(`languages=${languageIds.map(quote).join(', ')}`);
 	}
 
@@ -130,6 +132,18 @@ function formatConnectionSummary(
 	}
 
 	return fields.join(' | ');
+}
+
+/**
+ * The mechanism to generate code for: the profile's configured mechanism when the driver still
+ * offers it, falling back to the stored id when it has gone stale. Shared by the catalog's
+ * `mechanism=` field and getConnectionCode, so the mechanism the catalog reports is always the one
+ * code is generated for.
+ * @param driver The registered driver for the profile.
+ * @param profile The data connection profile.
+ */
+function resolveMechanismId(driver: IDataConnectionDriver, profile: IDataConnectionProfile): string {
+	return resolveDataConnectionMechanism(driver.metadata, profile.mechanismId)?.id ?? profile.mechanismId;
 }
 
 // Matches a top-level (unindented) `name = ...` (Python) or `name <- ...` (R) assignment -- the
@@ -198,11 +212,11 @@ async function getLanguagePayloads(
 	driver: IDataConnectionDriver,
 	logService: ILogService,
 	requestedLanguageId?: string,
-): Promise<Record<string, IDataConnectionsGetConnectionsLanguageResult>> {
-	const languages: Record<string, IDataConnectionsGetConnectionsLanguageResult> = {};
+): Promise<Record<string, IDataConnectionCodeLanguageResult>> {
+	const languages: Record<string, IDataConnectionCodeLanguageResult> = {};
 	const languageIds = requestedLanguageId === undefined
 		? driver.metadata.supportedLanguageIds
-		: driver.metadata.supportedLanguageIds.filter(supported => supported === requestedLanguageId);
+		: driver.metadata.supportedLanguageIds.includes(requestedLanguageId) ? [requestedLanguageId] : [];
 
 	await Promise.all(languageIds.map(async languageId => {
 		// The profile's own parameterValues never contains secret values, so this is always the
@@ -251,9 +265,7 @@ export async function getDataConnections(accessor: ServicesAccessor): Promise<ID
 		// The driver may be unregistered (extension not installed, or not yet activated); fall back
 		// to the profile's own mechanismId and report no code languages in that case.
 		const driver = dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
-		const mechanismId = driver
-			? resolveDataConnectionMechanism(driver.metadata, profile.mechanismId)?.id ?? profile.mechanismId
-			: profile.mechanismId;
+		const mechanismId = driver ? resolveMechanismId(driver, profile) : profile.mechanismId;
 
 		const parameterValues = await getRedactedParameterValues(profile, dataConnectionsService);
 
@@ -319,7 +331,7 @@ export interface IDataConnectionCodeResult {
 
 	// The profile's connection code, keyed by language id. Never empty -- a payload with no code is
 	// reported as {@link IDataConnectionCodeUnavailableResult} instead.
-	languages: Record<string, IDataConnectionsGetConnectionsLanguageResult>;
+	languages: Record<string, IDataConnectionCodeLanguageResult>;
 }
 
 /**
@@ -353,9 +365,11 @@ export async function getDataConnectionCode(
 
 	const profile = args?.profileId === undefined
 		? undefined
-		: dataConnectionsService.getProfiles().find(candidate => candidate.id === args.profileId);
+		: dataConnectionsService.getProfile(args.profileId);
 	if (!profile) {
-		logService.warn(`[DataConnections] getConnectionCode: no profile with id ${args?.profileId}.`);
+		logService.warn(args?.profileId === undefined
+			? '[DataConnections] getConnectionCode: called without a profileId.'
+			: `[DataConnections] getConnectionCode: no profile with id ${args.profileId}.`);
 		return { available: false, reason: 'not-found' };
 	}
 
@@ -365,8 +379,7 @@ export async function getDataConnectionCode(
 		return { available: false, reason: 'no-driver' };
 	}
 
-	const mechanismId = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId)?.id ?? profile.mechanismId;
-	const languages = await getLanguagePayloads(profile, mechanismId, driver, logService, args?.languageId);
+	const languages = await getLanguagePayloads(profile, resolveMechanismId(driver, profile), driver, logService, args?.languageId);
 	if (Object.keys(languages).length === 0) {
 		// Either the requested language isn't supported, or generation failed (which
 		// getLanguagePayloads has already logged). Naming what the driver does support lets the
@@ -605,7 +618,7 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
-		returns: 'An array of saved connection profiles, without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id> | languages=<languageId>, ... | <parameter>=<value>, ... -- with secrets in redacted form only, and `languages` absent when the driver\'s extension is not installed or has not activated. Empty when no connection is configured, or when the dataConnections.enabled setting is off.',
+		returns: 'An array of saved connection profiles, without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id> | languages=<languageId>, ... | parameters=<key>=<value>, ... -- the driver\'s own parameters all nest inside the single parameters= field (split it at its first = only), with secrets in redacted form only. `languages` is absent when the driver\'s extension is not installed or has not activated, and present but empty when the driver generates no code. Empty when no connection is configured, or when the dataConnections.enabled setting is off.',
 	},
 });
 
@@ -680,6 +693,6 @@ CommandsRegistry.registerCommand({
 				},
 			},
 		}],
-		returns: 'The schema as one line per object in `lines`, each of the form `<path> [<kind>][ <dataType>][ PK][ (<column>:<type>, ...)][ +<n> more]`: a dot-joined path from the root, the object\'s kind, a table\'s columns folded onto its own line, and a count of children a cap left out. A name containing a delimiter is quoted as a JSON string. `truncated` is set when any cap applied. When there is no summary to give, an object with connected: false and a reason of \'disabled\', \'not-found\', \'no-driver\', \'connect-failed\', \'no-connections\', or \'ambiguous\' -- the last of which also lists candidateProfileIds to choose from.',
+		returns: 'The schema as one line per object in `lines`, each of the form `<path> [<kind>][ <dataType>][ PK][ (<column>:<type>, ...)][ +<n> more]`: a dot-joined path from the root, the object\'s kind, a table\'s columns folded onto its own line, and a count of children a cap left out (root-level objects a cap left out appear as a bare trailing `+<n> more` line). A name containing a delimiter is quoted as a JSON string. `truncated` is set when any cap applied. When there is no summary to give, an object with connected: false and a reason of \'disabled\', \'not-found\', \'no-driver\', \'connect-failed\', \'no-connections\', or \'ambiguous\' -- the last of which also lists candidateProfileIds to choose from.',
 	},
 });

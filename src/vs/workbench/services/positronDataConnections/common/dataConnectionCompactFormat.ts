@@ -19,11 +19,23 @@
  * path segments, but appears unquoted in a hostname.
  */
 export function quoteCompactToken(text: string, unsafeCharacters: string): string {
+	// An empty token would otherwise vanish into the surrounding delimiters: an unnamed schema
+	// renders its child as `.orders`, and a `name=` field reads as missing. `""` keeps the token
+	// visible and the line parseable.
+	if (text.length === 0) {
+		return '""';
+	}
 	for (const character of text) {
 		// A double quote would be mistaken for the start of a quoted token, and a control character
 		// (a newline above all) breaks the one-object-per-line contract. Both are unsafe whichever
-		// delimiters the caller uses.
-		if (character === '"' || character < ' ' || unsafeCharacters.includes(character)) {
+		// delimiters the caller uses. Controls beyond C0 count too: DEL, the C1 range (NEL among
+		// them), and the U+2028/U+2029 line separators are all line breaks to some consumers.
+		if (character === '"'
+			|| character < ' '
+			|| (character >= '\u007f' && character <= '\u009f')
+			|| character === '\u2028'
+			|| character === '\u2029'
+			|| unsafeCharacters.includes(character)) {
 			return JSON.stringify(text);
 		}
 	}

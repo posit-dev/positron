@@ -77,6 +77,7 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 	return stubInterface<IPositronDataConnectionsService>({
 		driverManager,
 		getProfiles: vi.fn(() => profiles),
+		getProfile: vi.fn((profileId: string) => profiles.find(profile => profile.id === profileId)),
 		getProfileSecretIds: vi.fn(() => secretParameterIds),
 		getRedactedParameterValues: vi.fn(async (_id: string, parameterIds: readonly string[]) =>
 			Object.fromEntries(parameterIds
@@ -184,6 +185,22 @@ describe('getDataConnections', () => {
 
 		expect(result.summary).toBe(
 			'name=My Connection | driver=absent-driver | mechanism=test-mechanism | parameters=host=localhost');
+	});
+
+	// A registered driver that supports no languages is a different condition from a missing driver,
+	// and the summary keeps them distinguishable: the field goes away entirely only when the driver
+	// does. An empty `languages=` matches the `no-code` getConnectionCode would report.
+	it('keeps an empty languages field when the registered driver supports no languages', async () => {
+		const driverMetadata = { ...createProfile().driverMetadata, supportedLanguageIds: [] };
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [createProfile({ driverMetadata })],
+			driver: createDriver({ metadata: { ...createDriver().metadata, supportedLanguageIds: [] } }),
+		});
+
+		const [result] = await run(dataConnectionsService);
+
+		expect(result.summary).toBe(
+			'name=My Connection | driver=test-driver | mechanism=test-mechanism | languages= | parameters=host=localhost');
 	});
 
 	// The summary line's own delimiters are ordinary characters in a connection string, so a value
@@ -580,7 +597,7 @@ describe('getDataConnectionSchema', () => {
 
 		const result = await run(dataConnectionsService, { maxNodesPerLevel: 1 });
 
-		expect(result).toEqual({ instanceId: '1', lines: ['t1 [table]'], truncated: true });
+		expect(result).toEqual({ instanceId: '1', lines: ['t1 [table]', '+2 more'], truncated: true });
 	});
 });
 

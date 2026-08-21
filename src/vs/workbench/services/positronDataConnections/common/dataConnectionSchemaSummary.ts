@@ -181,8 +181,10 @@ function renderSchemaLines(nodes: readonly IDataConnectionSchemaNode[], prefix?:
 		const path = prefix === undefined ? name : `${prefix}.${name}`;
 
 		// A stray column at a level of its own (no parent to fold onto) still reports its type, so
-		// dataType is rendered here as well as in the folded form.
-		let line = `${path} [${node.kind}]`;
+		// dataType is rendered here as well as in the folded form. The kind is quoted like the rest:
+		// every DataConnectionNodeKind value is delimiter-free, but the DTO carries it as a plain
+		// string, so a nonconforming driver can't break the line grammar.
+		let line = `${path} [${quoteCompactToken(node.kind, SCHEMA_UNSAFE_CHARACTERS)}]`;
 		if (node.dataType !== undefined) {
 			line += ` ${quoteCompactToken(node.dataType, SCHEMA_UNSAFE_CHARACTERS)}`;
 		}
@@ -217,7 +219,8 @@ function renderSchemaLines(nodes: readonly IDataConnectionSchemaNode[], prefix?:
  * their own, and file-holding kinds (see SUMMARY_LEAF_KINDS) are recorded without being expanded.
  * Output is bounded by maxDepth, maxNodesPerLevel, and maxTotalNodes; whenever a cap
  * leaves children out, the parent node is annotated with truncatedChildCount rather than the
- * data being dropped silently.
+ * data being dropped silently. Root-level siblings have no parent line, so objects a cap leaves
+ * out at the root are reported as a trailing `+<n> more` line instead.
  * @param handle The live data connection handle to summarize.
  * @param options Bounds for the walk; see {@link IDataConnectionSchemaSummaryOptions}.
  */
@@ -305,11 +308,19 @@ export async function summarizeDataConnectionSchema(
 		return { nodes, omitted };
 	}
 
-	const { nodes } = await summarizeSiblings(await handle.getChildren(), 1);
+	const { nodes, omitted } = await summarizeSiblings(await handle.getChildren(), 1);
+
+	// Root-level siblings have no parent line to carry a truncatedChildCount, so objects a cap
+	// leaves out at the root get their own trailing `+<n> more` line -- otherwise they would be the
+	// one place the summary drops data with nothing but the bare `truncated` flag to show for it.
+	const lines = renderSchemaLines(nodes);
+	if (omitted > 0) {
+		lines.push(`+${omitted} more`);
+	}
 
 	return {
 		instanceId: String(handle.handle),
-		lines: renderSchemaLines(nodes),
+		lines,
 		truncated: state.truncated,
 	};
 }
