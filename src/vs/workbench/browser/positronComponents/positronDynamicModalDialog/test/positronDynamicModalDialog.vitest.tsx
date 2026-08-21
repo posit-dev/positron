@@ -66,4 +66,40 @@ describe('PositronDynamicModalDialog', () => {
 
 		expect(screen.getByRole('dialog')).toHaveFocus();
 	});
+
+	it('does not mark the only open dialog as nested', () => {
+		const { container } = renderDialog();
+
+		// The container is a structural div with no role or text of its own, and the class is the
+		// contract the CSS keys off, so there is no semantic query for it.
+		// eslint-disable-next-line no-restricted-syntax -- see above
+		expect(container.querySelector('.positron-dynamic-modal-dialog-box-container')).not.toHaveClass('nested');
+	});
+
+	it('marks a dialog opened while another is already open as nested', () => {
+		const first = renderDialog();
+		const second = renderDialog();
+
+		expect({
+			// eslint-disable-next-line no-restricted-syntax -- structural div, see above
+			first: first.container.querySelector('.positron-dynamic-modal-dialog-box-container')!.className,
+			// eslint-disable-next-line no-restricted-syntax -- structural div, see above
+			second: second.container.querySelector('.positron-dynamic-modal-dialog-box-container')!.className,
+		}).toEqual({
+			first: 'positron-dynamic-modal-dialog-box-container',
+			second: 'positron-dynamic-modal-dialog-box-container nested',
+		});
+	});
+
+	it('stops marking dialogs nested once the earlier ones have closed', () => {
+		const first = renderDialog();
+		const second = renderDialog();
+		second.unmount();
+		first.unmount();
+
+		const third = renderDialog();
+
+		// eslint-disable-next-line no-restricted-syntax -- structural div, see above
+		expect(third.container.querySelector('.positron-dynamic-modal-dialog-box-container')).not.toHaveClass('nested');
+	});
 });

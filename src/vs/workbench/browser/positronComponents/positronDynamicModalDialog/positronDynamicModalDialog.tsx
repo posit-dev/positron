@@ -11,6 +11,7 @@ import { FormEvent, ReactNode, useEffect, useId, useLayoutEffect, useRef, useSta
 
 // Other dependencies.
 import { TitleBar } from './components/titleBar.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 
@@ -18,6 +19,13 @@ import { PositronModalDialogReactRenderer } from '../../../../base/browser/posit
  * The gutter where the dialog box cannot be moved.
  */
 const kGutter = 40;
+
+/**
+ * The number of dynamic modal dialogs currently mounted. A dialog that opens while another is
+ * already open dims nothing of its own, so the two backdrops do not compound into twice the
+ * darkness.
+ */
+let openDialogCount = 0;
 
 /**
  * PositronDynamicModalDialogProps interface.
@@ -84,6 +92,16 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 
 	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
+
+	// Whether this dialog opened while another was already open. Fixed at mount: a dialog does not
+	// start or stop dimming because something above it came and went.
+	const [isNested] = useState(() => openDialogCount > 0);
+
+	// Keep the open count honest for whoever opens next.
+	useEffect(() => {
+		openDialogCount++;
+		return () => { openDialogCount--; };
+	}, []);
 
 	// Center the dialog box on initial mount. On subsequent renders (e.g. content changes), keep
 	// the current position but clamp to ensure the dialog remains on screen. useLayoutEffect
@@ -241,7 +259,7 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 
 	// Render.
 	return (
-		<div ref={dialogContainerRef} className='positron-dynamic-modal-dialog-box-container'>
+		<div ref={dialogContainerRef} className={positronClassNames('positron-dynamic-modal-dialog-box-container', { 'nested': isNested })}>
 			<div
 				ref={dialogBoxRef}
 				aria-labelledby={titleId}
