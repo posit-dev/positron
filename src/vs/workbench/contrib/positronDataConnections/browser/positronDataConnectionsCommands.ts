@@ -386,8 +386,9 @@ export async function getDataConnectionCode(
  * walk, and the field docs live in one place (see {@link IDataConnectionSchemaSummaryOptions}).
  */
 export interface IDataConnectionSchemaCommandArgs extends IDataConnectionSchemaSummaryOptions {
-	// The profile whose live connection to summarize. Optional: when omitted and exactly one
-	// connection is live, that one is summarized.
+	// The profile to summarize. The profile is connected automatically when it isn't live yet.
+	// Optional: when omitted, the one live connection is summarized -- or, when nothing is live,
+	// the one saved profile is connected and summarized.
 	profileId?: string;
 }
 
@@ -397,14 +398,21 @@ export interface IDataConnectionSchemaCommandArgs extends IDataConnectionSchemaS
  * happened.
  *
  * - `disabled`: the dataConnections.enabled feature flag is off.
- * - `not-connected`: the profile the caller named exists but has no live connection.
- * - `no-live-connections`: nothing is connected, so there is nothing to summarize.
- * - `ambiguous`: several connections are live and the caller named none of them.
+ * - `not-found`: no saved profile has the id the caller named.
+ * - `no-driver`: the target profile's driver is unregistered -- its extension isn't installed, or
+ *   hasn't activated yet -- so there is nothing to connect with.
+ * - `connect-failed`: the target profile isn't live and the automatic connection attempt failed.
+ * - `no-connections`: nothing is live and no profile is saved, so there is nothing to summarize or
+ *   connect.
+ * - `ambiguous`: the caller named no profile and there are several candidates -- the live
+ *   connections, or every saved profile when none is live.
  */
 export type DataConnectionSchemaUnavailableReason =
 	| 'disabled'
-	| 'not-connected'
-	| 'no-live-connections'
+	| 'not-found'
+	| 'no-driver'
+	| 'connect-failed'
+	| 'no-connections'
 	| 'ambiguous';
 
 /**
@@ -417,9 +425,10 @@ export interface IDataConnectionSchemaUnavailableResult {
 
 	reason: DataConnectionSchemaUnavailableReason;
 
-	// The profiles the caller could name, present when `reason` is `ambiguous`. Turns a dead end
-	// into a retry: the caller can pick one of these and call again.
-	liveProfileIds?: string[];
+	// The profiles the caller could name, present when `reason` is `ambiguous`: the live
+	// connections, or every saved profile when none is live. Turns a dead end into a retry: the
+	// caller can pick one of these and call again.
+	candidateProfileIds?: string[];
 }
 
 /**
@@ -436,25 +445,63 @@ type SchemaTarget =
 	| { readonly kind: 'unavailable'; readonly result: IDataConnectionSchemaUnavailableResult };
 
 /**
- * Resolves which live connection getSchema should summarize. Reports the reason rather than
- * guessing when there's no unambiguous answer, since a summary of the wrong connection is worse
- * for the caller than none at all.
+ * Produces a live connection for the given profile, connecting it when it isn't live yet. The
+ * connect is the service's own -- it resolves the profile's stored secrets itself, so nothing
+ * secret passes through here -- and it is attempted only after the cheap checks that would make it
+ * throw, so `not-found` and `no-driver` come back as their own reasons rather than folding into
+ * `connect-failed`.
+ * @param dataConnectionsService The data connections service.
+ * @param profileId The profile to summarize.
+ * @param logService The log service.
+ */
+async function connectSchemaTarget(
+	dataConnectionsService: IPositronDataConnectionsService,
+	profileId: string,
+	logService: ILogService,
+): Promise<SchemaTarget> {
+	// An already-live connection is summarized as-is: it shouldn't stop working because its driver
+	// was unregistered after it connected, so the driver check below applies only to a new connect.
+	const instance = dataConnectionsService.getInstanceForProfile(profileId);
+	if (instance) {
+		return { kind: 'instance', instance };
+	}
+
+	const profile = dataConnectionsService.getProfile(profileId);
+	if (!profile) {
+		logService.warn(`[DataConnections] getSchema: no profile with id ${profileId}.`);
+		return { kind: 'unavailable', result: { connected: false, reason: 'not-found' } };
+	}
+
+	if (!dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id)) {
+		logService.warn(`[DataConnections] getSchema: driver ${profile.driverMetadata.id} is not registered.`);
+		return { kind: 'unavailable', result: { connected: false, reason: 'no-driver' } };
+	}
+
+	try {
+		return { kind: 'instance', instance: await dataConnectionsService.connect(profileId) };
+	} catch (err) {
+		logService.error(`[DataConnections] getSchema: connecting profile ${profileId} failed: ${err}`);
+		return { kind: 'unavailable', result: { connected: false, reason: 'connect-failed' } };
+	}
+}
+
+/**
+ * Resolves which connection getSchema should summarize, connecting it first when it isn't live. A
+ * named profile is always the target; unnamed, the target is the one live connection, or -- when
+ * nothing is live -- the one saved profile. Reports the reason rather than guessing when there's
+ * no unambiguous answer, since a summary of the wrong connection is worse for the caller than none
+ * at all.
  * @param dataConnectionsService The data connections service.
  * @param profileId The requested profile id, if the caller named one.
  * @param logService The log service.
  */
-function resolveSchemaTarget(
+async function resolveSchemaTarget(
 	dataConnectionsService: IPositronDataConnectionsService,
 	profileId: string | undefined,
 	logService: ILogService,
-): SchemaTarget {
+): Promise<SchemaTarget> {
 	if (profileId !== undefined) {
-		const instance = dataConnectionsService.getInstanceForProfile(profileId);
-		if (!instance) {
-			logService.warn(`[DataConnections] getSchema: profile ${profileId} has no live connection.`);
-			return { kind: 'unavailable', result: { connected: false, reason: 'not-connected' } };
-		}
-		return { kind: 'instance', instance };
+		return connectSchemaTarget(dataConnectionsService, profileId, logService);
 	}
 
 	const instances = dataConnectionsService.getInstances();
@@ -462,28 +509,48 @@ function resolveSchemaTarget(
 		return { kind: 'instance', instance: instances[0] };
 	}
 
-	if (instances.length === 0) {
-		logService.warn('[DataConnections] getSchema: no live data connections to summarize.');
-		return { kind: 'unavailable', result: { connected: false, reason: 'no-live-connections' } };
+	if (instances.length > 1) {
+		logService.warn(`[DataConnections] getSchema: ${instances.length} live data connections; pass profileId to choose one.`);
+		return {
+			kind: 'unavailable',
+			result: {
+				connected: false,
+				reason: 'ambiguous',
+				candidateProfileIds: instances.map(instance => instance.profileId),
+			},
+		};
 	}
 
-	logService.warn(`[DataConnections] getSchema: ${instances.length} live data connections; pass profileId to choose one.`);
+	// Nothing is live, so fall back to the saved profiles: a single one is as unambiguous a target
+	// as a single live connection, and connecting it is the point of the auto-connect.
+	const profiles = dataConnectionsService.getProfiles();
+	if (profiles.length === 1) {
+		return connectSchemaTarget(dataConnectionsService, profiles[0].id, logService);
+	}
+
+	if (profiles.length === 0) {
+		logService.warn('[DataConnections] getSchema: no data connections to summarize.');
+		return { kind: 'unavailable', result: { connected: false, reason: 'no-connections' } };
+	}
+
+	logService.warn(`[DataConnections] getSchema: ${profiles.length} configured data connections and none live; pass profileId to choose one.`);
 	return {
 		kind: 'unavailable',
 		result: {
 			connected: false,
 			reason: 'ambiguous',
-			liveProfileIds: instances.map(instance => instance.profileId),
+			candidateProfileIds: profiles.map(profile => profile.id),
 		},
 	};
 }
 
 /**
- * Builds the getSchema payload: a bounded, JSON-serializable summary of a live connection's schema
- * tree, for Assistant to reason about the tables and columns a connection exposes. Unlike
- * getDataConnections this needs a live connection -- it walks the real schema over RPC, so when
- * there is no unambiguous live connection it reports why instead (see
- * {@link IDataConnectionSchemaUnavailableResult}).
+ * Builds the getSchema payload: a bounded, JSON-serializable summary of a connection's schema tree,
+ * for Assistant to reason about the tables and columns a connection exposes. The walk needs a live
+ * connection -- it reads the real schema over RPC -- but the target doesn't have to be live up
+ * front: an unambiguous target that isn't connected yet is connected automatically first (see
+ * {@link connectSchemaTarget}). When there is no unambiguous target, or the connect fails, it
+ * reports why instead (see {@link IDataConnectionSchemaUnavailableResult}).
  * @param accessor The services accessor.
  * @param args The command arguments; see {@link IDataConnectionSchemaCommandArgs}.
  */
@@ -498,7 +565,7 @@ export async function getDataConnectionSchema(
 		return { connected: false, reason: 'disabled' };
 	}
 
-	const target = resolveSchemaTarget(
+	const target = await resolveSchemaTarget(
 		accessor.get(IPositronDataConnectionsService),
 		args.profileId,
 		accessor.get(ILogService),
@@ -580,7 +647,7 @@ CommandsRegistry.registerCommand({
 	metadata: {
 		description: localize(
 			'positron.dataConnections.getSchema.description',
-			"Read the schema -- the tables and columns -- of a data connection that is currently live."
+			"Read the schema -- the tables and columns -- of a data connection, connecting it first when it is not live yet."
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
@@ -596,7 +663,7 @@ CommandsRegistry.registerCommand({
 				properties: {
 					profileId: {
 						type: 'string',
-						description: 'The profile to summarize, as reported by positronDataConnections.getConnections. Optional when exactly one connection is live.',
+						description: 'The profile to summarize, as reported by positronDataConnections.getConnections; it is connected automatically when it is not live yet. Optional when exactly one connection is live, or when nothing is live and exactly one profile is saved.',
 					},
 					maxDepth: {
 						type: 'number',
@@ -613,6 +680,6 @@ CommandsRegistry.registerCommand({
 				},
 			},
 		}],
-		returns: 'The schema as one line per object in `lines`, each of the form `<path> [<kind>][ <dataType>][ PK][ (<column>:<type>, ...)][ +<n> more]`: a dot-joined path from the root, the object\'s kind, a table\'s columns folded onto its own line, and a count of children a cap left out. A name containing a delimiter is quoted as a JSON string. `truncated` is set when any cap applied. When there is no summary to give, an object with connected: false and a reason of \'disabled\', \'not-connected\', \'no-live-connections\', or \'ambiguous\' -- the last of which also lists liveProfileIds to choose from.',
+		returns: 'The schema as one line per object in `lines`, each of the form `<path> [<kind>][ <dataType>][ PK][ (<column>:<type>, ...)][ +<n> more]`: a dot-joined path from the root, the object\'s kind, a table\'s columns folded onto its own line, and a count of children a cap left out. A name containing a delimiter is quoted as a JSON string. `truncated` is set when any cap applied. When there is no summary to give, an object with connected: false and a reason of \'disabled\', \'not-found\', \'no-driver\', \'connect-failed\', \'no-connections\', or \'ambiguous\' -- the last of which also lists candidateProfileIds to choose from.',
 	},
 });

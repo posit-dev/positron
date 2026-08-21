@@ -399,11 +399,32 @@ function createInstance(profileId: string, handle: number, tableNames: string[])
 	});
 }
 
-function createInstancesService(instances: IDataConnectionInstance[]): IPositronDataConnectionsService {
+interface CreateInstancesServiceOptions {
+	// The saved profiles auto-connect can target; empty by default so a test that expects no connect
+	// attempt fails loudly (stubInterface throws) if one happens anyway.
+	profiles?: IDataConnectionProfile[];
+
+	// What connecting a profile produces. Defaults to failing, so a test that expects a summary must
+	// say what the connect yields.
+	connect?: (profileId: string) => Promise<IDataConnectionInstance>;
+}
+
+function createInstancesService(
+	instances: IDataConnectionInstance[],
+	options: CreateInstancesServiceOptions = {},
+): IPositronDataConnectionsService {
+	const { profiles = [], connect = async () => { throw new Error('connection refused'); } } = options;
+
 	return stubInterface<IPositronDataConnectionsService>({
+		driverManager: stubInterface<IDataConnectionsDriverManager>({
+			getDriver: vi.fn((driverId: string) => driverId === 'test-driver' ? createDriver() : undefined),
+		}),
 		getInstances: vi.fn(() => instances),
 		getInstanceForProfile: vi.fn((profileId: string) =>
 			instances.find(instance => instance.profileId === profileId)),
+		getProfiles: vi.fn(() => profiles),
+		getProfile: vi.fn((profileId: string) => profiles.find(profile => profile.id === profileId)),
+		connect: vi.fn(connect),
 	});
 }
 
@@ -452,22 +473,79 @@ describe('getDataConnectionSchema', () => {
 		expect(result).toEqual({ instanceId: '1', lines: ['employees [table]'], truncated: false });
 	});
 
-	it('reports the named profile having no live connection', async () => {
-		const dataConnectionsService = createInstancesService([createInstance('conn-a', 1, ['employees'])]);
+	// The auto-connect: naming a profile is enough, whether or not it is live yet. The service's
+	// connect() resolves the stored secrets itself, so the command needs nothing beyond the id.
+	it('connects the named profile when it is not live, then summarizes it', async () => {
+		const connect = vi.fn(async (profileId: string) => createInstance(profileId, 3, ['invoices']));
+		const dataConnectionsService = createInstancesService(
+			[createInstance('conn-a', 1, ['employees'])],
+			{ profiles: [createProfile({ id: 'conn-cold' })], connect });
 
-		expect(await run(dataConnectionsService, { profileId: 'conn-missing' }))
-			.toEqual({ connected: false, reason: 'not-connected' });
+		const result = await run(dataConnectionsService, { profileId: 'conn-cold' });
+
+		expect(result).toEqual({ instanceId: '3', lines: ['invoices [table]'], truncated: false });
+		expect(connect).toHaveBeenCalledWith('conn-cold');
 	});
 
-	it('reports nothing being connected', async () => {
+	it('reports the named profile not existing, without a connect attempt', async () => {
+		const connect = vi.fn();
+		const dataConnectionsService = createInstancesService(
+			[createInstance('conn-a', 1, ['employees'])],
+			{ connect });
+
+		expect(await run(dataConnectionsService, { profileId: 'conn-missing' }))
+			.toEqual({ connected: false, reason: 'not-found' });
+		expect(connect).not.toHaveBeenCalled();
+	});
+
+	// The same condition getConnectionCode reports as no-driver: the profile's extension isn't
+	// installed or hasn't activated, so a connect attempt could only throw.
+	it('reports the named profile\'s driver being unregistered, without a connect attempt', async () => {
+		const connect = vi.fn();
+		const profile = createProfile({
+			id: 'conn-cold',
+			driverMetadata: { ...createProfile().driverMetadata, id: 'absent-driver' },
+		});
+		const dataConnectionsService = createInstancesService([], { profiles: [profile], connect });
+
+		expect(await run(dataConnectionsService, { profileId: 'conn-cold' }))
+			.toEqual({ connected: false, reason: 'no-driver' });
+		expect(connect).not.toHaveBeenCalled();
+	});
+
+	// A connect that throws is reported the same way as any other no-summary case: the caller gets a
+	// reason, not a rejected promise.
+	it('reports the automatic connect failing', async () => {
+		const dataConnectionsService = createInstancesService([], {
+			profiles: [createProfile({ id: 'conn-cold' })],
+		});
+
+		expect(await run(dataConnectionsService, { profileId: 'conn-cold' }))
+			.toEqual({ connected: false, reason: 'connect-failed' });
+	});
+
+	it('connects the only saved profile when nothing is live and no profileId is given', async () => {
+		const connect = vi.fn(async (profileId: string) => createInstance(profileId, 3, ['invoices']));
+		const dataConnectionsService = createInstancesService([], {
+			profiles: [createProfile({ id: 'conn-cold' })],
+			connect,
+		});
+
+		const result = await run(dataConnectionsService);
+
+		expect(result).toEqual({ instanceId: '3', lines: ['invoices [table]'], truncated: false });
+		expect(connect).toHaveBeenCalledWith('conn-cold');
+	});
+
+	it('reports there being no connections at all', async () => {
 		expect(await run(createInstancesService([])))
-			.toEqual({ connected: false, reason: 'no-live-connections' });
+			.toEqual({ connected: false, reason: 'no-connections' });
 	});
 
 	// Summarizing an arbitrary one of them would be worse than reporting nothing: the caller would
 	// have no way to tell it got the schema of a connection it didn't ask about. Listing the live
 	// profiles turns the dead end into a retry.
-	it('reports an ambiguous target, naming the profiles to choose from', async () => {
+	it('reports an ambiguous target, naming the live profiles to choose from', async () => {
 		const dataConnectionsService = createInstancesService([
 			createInstance('conn-a', 1, ['employees']),
 			createInstance('conn-b', 2, ['orders']),
@@ -476,8 +554,25 @@ describe('getDataConnectionSchema', () => {
 		expect(await run(dataConnectionsService)).toEqual({
 			connected: false,
 			reason: 'ambiguous',
-			liveProfileIds: ['conn-a', 'conn-b'],
+			candidateProfileIds: ['conn-a', 'conn-b'],
 		});
+	});
+
+	// Auto-connecting an arbitrary saved profile would be worse still: it has the wrong-schema
+	// problem above plus a side effect (a connection opened) the caller never asked for.
+	it('reports an ambiguous target among saved profiles when nothing is live, without connecting', async () => {
+		const connect = vi.fn();
+		const dataConnectionsService = createInstancesService([], {
+			profiles: [createProfile({ id: 'conn-a' }), createProfile({ id: 'conn-b' })],
+			connect,
+		});
+
+		expect(await run(dataConnectionsService)).toEqual({
+			connected: false,
+			reason: 'ambiguous',
+			candidateProfileIds: ['conn-a', 'conn-b'],
+		});
+		expect(connect).not.toHaveBeenCalled();
 	});
 
 	it('passes the summary bounds through to the summarizer', async () => {

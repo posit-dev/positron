@@ -251,7 +251,7 @@ describe('data connections inspect actions', () => {
 		{
 			id: GET_SCHEMA_COMMAND_ID,
 			args: { profileId: 'conn-missing' },
-			expected: { connected: false, reason: 'not-connected' },
+			expected: { connected: false, reason: 'not-found' },
 		},
 	])('$id returns its payload to a programmatic caller without opening an editor', async ({ id, args, expected }) => {
 		// The registry types every handler as returning void; these two return their payload, which is
