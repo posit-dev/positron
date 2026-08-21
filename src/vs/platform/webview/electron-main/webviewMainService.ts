@@ -13,8 +13,9 @@ import { IFileService } from '../../files/common/files.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { Rectangle, webFrameMain } from 'electron';
+import { Rectangle, webFrameMain, Menu, MenuItem } from 'electron';
 import { VSBuffer } from '../../../base/common/buffer.js';
+import { Schemas } from '../../../base/common/network.js';
 
 // eslint-disable-next-line no-duplicate-imports
 import { IDisposable } from '../../../base/common/lifecycle.js';
@@ -165,8 +166,30 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 			};
 			window.win!.webContents.on('did-frame-navigate', onNavigated);
 
-			// Disposable for the listener
-			const disposable = { dispose: () => window.win!.webContents.off('did-frame-navigate', onNavigated) };
+			// Show a native context menu for externally-hosted (cross-origin)
+			// Viewer content, whose clipboard actions can't go through the
+			// execCommand round-trip.
+			const onContextMenu = (_e: Electron.Event, params: Electron.ContextMenuParams) => {
+				this.showFrameContextMenu(window.win!, params);
+			};
+			window.win!.webContents.on('context-menu', onContextMenu);
+
+			// Route clipboard shortcuts in externally-hosted Viewer content to the
+			// native clipboard commands, which work where the in-frame/execCommand
+			// paths don't.
+			const onBeforeInput = (e: Electron.Event, input: Electron.Input) => {
+				this.handleClipboardShortcut(window.win!, e, input);
+			};
+			window.win!.webContents.on('before-input-event', onBeforeInput);
+
+			// Disposable for the listeners
+			const disposable = {
+				dispose: () => {
+					window.win!.webContents.off('did-frame-navigate', onNavigated);
+					window.win!.webContents.off('context-menu', onContextMenu);
+					window.win!.webContents.off('before-input-event', onBeforeInput);
+				}
+			};
 			this._navigationListeners.set(windowId, disposable);
 
 			// Register the disposable so we can clean up when the service is
@@ -194,6 +217,89 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 			throw new Error(`No frame found with frameId: ${JSON.stringify(frameId)}`);
 		}
 		return frame.executeJavaScript(script);
+	}
+
+	/**
+	 * Whether the frame is a Positron webview guest frame hosting external
+	 * (cross-origin) content, e.g. a Shiny app in the Viewer. Such a frame loads
+	 * an http(s) URL directly inside the vscode-webview:// wrapper
+	 * (index-external.html), which distinguishes it from the workbench and from
+	 * same-origin webviews.
+	 *
+	 * @param frame The frame to test.
+	 */
+	private isViewerGuestFrame(frame: Electron.WebFrameMain | null): boolean {
+		return !!frame
+			&& /^https?:\/\//.test(frame.url)
+			&& !!frame.parent
+			&& frame.parent.url.startsWith(`${Schemas.vscodeWebview}://`);
+	}
+
+	/**
+	 * Shows a native clipboard context menu for externally-hosted (cross-origin)
+	 * webview content, e.g. a Shiny app in the Viewer. The menu uses native
+	 * clipboard roles, which act on the focused frame's selection - the same
+	 * mechanism as the Edit menu - so Copy/Cut/Paste work where the execCommand
+	 * round-trip does not. Other content (the workbench, same-origin webviews)
+	 * is left to its own menus.
+	 *
+	 * @param window The window in which the menu was requested.
+	 * @param params The context menu parameters from the context-menu event.
+	 */
+	private showFrameContextMenu(window: Electron.BrowserWindow, params: Electron.ContextMenuParams): void {
+		if (!this.isViewerGuestFrame(window.webContents.focusedFrame)) {
+			return;
+		}
+
+		const menu = new Menu();
+		const { editFlags, isEditable } = params;
+		if (isEditable && editFlags.canCut) {
+			menu.append(new MenuItem({ role: 'cut' }));
+		}
+		if (editFlags.canCopy) {
+			menu.append(new MenuItem({ role: 'copy' }));
+		}
+		if (isEditable && editFlags.canPaste) {
+			menu.append(new MenuItem({ role: 'paste' }));
+		}
+		if (menu.items.length > 0) {
+			menu.append(new MenuItem({ type: 'separator' }));
+		}
+		menu.append(new MenuItem({ role: 'selectAll' }));
+
+		menu.popup({ window, x: params.x, y: params.y });
+	}
+
+	/**
+	 * Routes clipboard keyboard shortcuts in externally-hosted (cross-origin)
+	 * webview content to the native clipboard commands. These act on the focused
+	 * frame's selection - the same mechanism as the Edit menu - so they work for
+	 * Viewer content where the in-frame and execCommand paths do not. Other
+	 * content is left alone.
+	 *
+	 * @param window The window in which the key was pressed.
+	 * @param event The before-input event, preventable to stop further handling.
+	 * @param input The keyboard input.
+	 */
+	private handleClipboardShortcut(window: Electron.BrowserWindow, event: Electron.Event, input: Electron.Input): void {
+		if (input.type !== 'keyDown' || input.alt || input.shift) {
+			return;
+		}
+		const modifier = process.platform === 'darwin' ? input.meta : input.control;
+		if (!modifier) {
+			return;
+		}
+		if (!this.isViewerGuestFrame(window.webContents.focusedFrame)) {
+			return;
+		}
+		switch (input.key.toLowerCase()) {
+			case 'c': window.webContents.copy(); break;
+			case 'x': window.webContents.cut(); break;
+			case 'v': window.webContents.paste(); break;
+			case 'a': window.webContents.selectAll(); break;
+			default: return;
+		}
+		event.preventDefault();
 	}
 
 	/**

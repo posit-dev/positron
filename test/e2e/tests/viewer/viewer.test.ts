@@ -104,10 +104,41 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 			expect(await clipboard.getClipboardText()).toContain(VIEWER_COPY_PROBE);
 		}).toPass({ timeout: 15000 });
 	});
+
+	// A Shiny app is served from its own local web server, the real-world case
+	// the copy fix targets. Copy the probe out of the Viewer and paste it into an
+	// editor, matching what a user actually does, rather than only reading the
+	// clipboard API.
+	test('R - Verify selected text can be copied from a Shiny app in the Viewer', {
+		tag: [tags.ARK, tags.WIN]
+	}, async function ({ app, page, r }) {
+		const { console, viewer, editors, hotKeys } = app.workbench;
+
+		// runApp blocks the console, so paste and run it rather than waiting for
+		// a returned prompt.
+		await console.pasteCodeToConsole(rViewerShinyScript);
+		await console.sendEnterKey();
+		await viewer.expectViewerPanelVisible();
+		await viewer.expectContentVisible(frame => frame.getByText(VIEWER_COPY_PROBE));
+
+		// Double-click focuses the webview frame and selects the word, then copy.
+		await viewer.getViewerFrame().getByText(VIEWER_COPY_PROBE).dblclick();
+		await hotKeys.copy();
+
+		// Click the console to pull focus out of the webview (which otherwise
+		// swallows shortcuts), open an editor, and paste. This checks the copied
+		// text actually pastes, not just that it reached the clipboard API.
+		await console.activeConsole.click();
+		await editors.newUntitledFile();
+		await page.locator('.monaco-editor[data-uri$="Untitled-1"] .view-lines').click();
+		await hotKeys.paste();
+		await editors.expectEditorToContain(VIEWER_COPY_PROBE);
+	});
 });
 
-// A single word so a double-click selects the whole token.
-const VIEWER_COPY_PROBE = 'PositronViewerCopyProbe';
+// A single word so a double-click selects the whole token. Avoid the substring
+// "Viewer" so it doesn't collide with the Viewer tab in accessible-name lookups.
+const VIEWER_COPY_PROBE = 'PositronCopyProbeToken';
 
 // Serve the probe text from an ephemeral local web server and open it in the
 // Viewer, mimicking how a Shiny/Dash/Flask app is served from its own origin.
@@ -118,6 +149,11 @@ open(os.path.join(_dir, "index.html"), "w").write("<!doctype html><html><body><p
 _srv = socketserver.TCPServer(("127.0.0.1", 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=_dir))
 threading.Thread(target=_srv.serve_forever, daemon=True).start()
 webbrowser.open(f"http://127.0.0.1:{_srv.server_address[1]}")`;
+
+// Run a minimal Shiny app whose only content is the probe word, opened in the
+// Viewer the same way any Shiny app is. Kept to a single call so the console
+// does not wait on a multi-line block.
+const rViewerShinyScript = `shiny::runApp(shiny::shinyApp(ui = shiny::fluidPage(shiny::p("${VIEWER_COPY_PROBE}")), server = function(input, output) {}))`;
 
 const pythonScript = `import webbrowser
 # will not have any content, but we just want to make sure
