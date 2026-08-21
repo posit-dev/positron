@@ -339,7 +339,10 @@
 		"https://login.staging.posit.cloud",
 		"https://staging.connect.posit.cloud",
 		"https://posit.co",
-		"https://support.posit.co"
+		"https://support.posit.co",
+		"https://*.cloud.databricks.com",
+		"https://*.azuredatabricks.net",
+		"https://*.gcp.databricks.com"
 	],
 	"defaultChatAgent": {
 		"extensionId": "GitHub.copilot-chat",
