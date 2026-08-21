@@ -103,7 +103,7 @@ export class CustomProviderRegistry implements vscode.Disposable {
 	) {
 		this.aggregateRegistration = this.registerSharedAuthProvider(
 			POSITRON_CUSTOM_AUTH_PROVIDER_ID,
-			vscode.l10n.t('Custom Providers'),
+			vscode.l10n.t('Custom Provider'),
 			this.aggregate,
 			// The Accounts menu shows one node with an account per entry,
 			// rather than treating them all as one account.

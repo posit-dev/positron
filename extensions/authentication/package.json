@@ -83,7 +83,7 @@
 			},
 			{
 				"id": "positron-custom-provider",
-				"label": "Custom Providers"
+				"label": "Custom Provider"
 			}
 		],
 		"commands": [

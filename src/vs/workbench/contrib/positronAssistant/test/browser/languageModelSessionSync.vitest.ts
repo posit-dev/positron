@@ -126,7 +126,7 @@ describe('syncAuthSessions', () => {
 		sessionsMap.set('positron-custom-provider::my anthropic', [session('1')]);
 		emitter.fire({
 			providerId: 'positron-custom-provider',
-			label: 'Custom Providers',
+			label: 'Custom Provider',
 			event: { added: [session('1')], removed: undefined, changed: undefined },
 		});
 
@@ -161,7 +161,7 @@ describe('syncAuthSessions', () => {
 
 		emitter.fire({
 			providerId: 'positron-custom-provider',
-			label: 'Custom Providers',
+			label: 'Custom Provider',
 			event: { added: [session('1')], removed: undefined, changed: undefined },
 		});
 		emitter.fire({
