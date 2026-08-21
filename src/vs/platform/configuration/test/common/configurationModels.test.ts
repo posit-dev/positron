@@ -870,6 +870,59 @@ suite('Configuration', () => {
 		assert.strictEqual(testObject.getValue('editor.formatOnSave', { overrideIdentifier: 'r' }, undefined), true);
 		assert.strictEqual(testObject.getValue('editor.formatOnSave', {}, undefined), false);
 	});
+
+	test('getValue picks up a policy configuration change after a read', () => {
+		const testObject: Configuration = new TestConfiguration(
+			ConfigurationModel.createEmptyModel(new NullLogService()),
+			parseConfigurationModel({ '[r]': { 'editor.formatOnSave': true }, 'editor.tabSize': 2 }),
+			ConfigurationModel.createEmptyModel(new NullLogService()),
+			parseConfigurationModel({ 'editor.formatOnSave': false, 'editor.tabSize': 8 }),
+		);
+		testObject.getValue('editor.formatOnSave', { overrideIdentifier: 'r' }, undefined);
+
+		testObject.updatePolicyConfiguration(parseConfigurationModel({ '[r]': { 'editor.formatOnSave': false }, 'editor.tabSize': 4 }));
+
+		assert.deepStrictEqual([
+			testObject.getValue('editor.formatOnSave', { overrideIdentifier: 'r' }, undefined),
+			testObject.getValue('editor.tabSize', {}, undefined),
+		], [false, 4]);
+	});
+
+	test('getValue picks up a user configuration change while a policy is set', () => {
+		const testObject: Configuration = new TestConfiguration(
+			ConfigurationModel.createEmptyModel(new NullLogService()),
+			parseConfigurationModel({ '[r]': { 'editor.formatOnSave': true } }),
+			ConfigurationModel.createEmptyModel(new NullLogService()),
+			parseConfigurationModel({ 'editor.tabSize': 8 }),
+		);
+		testObject.getValue('editor.formatOnSave', { overrideIdentifier: 'r' }, undefined);
+
+		testObject.updateLocalUserConfiguration(parseConfigurationModel({ 'editor.tabSize': 4 }));
+
+		assert.deepStrictEqual([
+			testObject.getValue('editor.formatOnSave', { overrideIdentifier: 'r' }, undefined),
+			testObject.getValue('editor.tabSize', {}, undefined),
+		], [true, 4]);
+	});
+
+	test('getValue does not rebuild the policy overlay for each read', () => {
+		const policyConfigurationModel = parseConfigurationModel({ '[r]': { 'editor.formatOnSave': true } });
+		const testObject: Configuration = new TestConfiguration(
+			ConfigurationModel.createEmptyModel(new NullLogService()),
+			policyConfigurationModel,
+			ConfigurationModel.createEmptyModel(new NullLogService()),
+			parseConfigurationModel({ 'editor.formatOnSave': false }),
+		);
+		testObject.getValue('editor.formatOnSave', { overrideIdentifier: 'r' }, undefined);
+
+		// An installed policy model must be treated as immutable, because the overlay is built from it
+		// only once. This changes it in place to prove that the second read reuses the first overlay.
+		// Production code replaces the model through `updatePolicyConfiguration` instead, which the test
+		// above covers.
+		policyConfigurationModel.setValue('[r]', { 'editor.formatOnSave': false });
+
+		assert.strictEqual(testObject.getValue('editor.formatOnSave', { overrideIdentifier: 'r' }, undefined), true);
+	});
 	// --- End PWB ---
 
 	test('Test update value', () => {

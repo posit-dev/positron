@@ -726,6 +726,9 @@ export class Configuration {
 
 	private _workspaceConsolidatedConfiguration: ConfigurationModel | null = null;
 	private _foldersConsolidatedConfigurations = new ResourceMap<ConfigurationModel>();
+	// --- Start PWB: Cache the policy overlay, keyed by the consolidated model it was built from ---
+	private _policyOverlaidConfigurations = new WeakMap<ConfigurationModel, ConfigurationModel>();
+	// --- End PWB ---
 
 	constructor(
 		private _defaultConfiguration: ConfigurationModel,
@@ -825,6 +828,14 @@ export class Configuration {
 
 	updatePolicyConfiguration(policyConfiguration: ConfigurationModel): void {
 		this._policyConfiguration = policyConfiguration;
+		// --- Start PWB: Discard overlays built from the previous policy configuration ---
+		// Every other update method replaces the consolidated models, so their overlays fall out of the
+		// WeakMap on their own. A policy change leaves those models in place, so it has to invalidate here.
+		// The caller must treat `policyConfiguration` as immutable from here on, because the overlay is
+		// built from it only once. `PolicyConfiguration.update` satisfies this: it always builds a new
+		// model instead of changing the installed one.
+		this._policyOverlaidConfigurations = new WeakMap<ConfigurationModel, ConfigurationModel>();
+		// --- End PWB ---
 	}
 
 	updateApplicationConfiguration(applicationConfiguration: ConfigurationModel): void {
@@ -992,11 +1003,7 @@ export class Configuration {
 		// --- Start PWB: Apply policy before overrides so language-scoped policy keys participate in override flattening ---
 		// if (!this._policyConfiguration.isEmpty() && this._policyConfiguration.getValue(section) !== undefined) {
 		if (!this._policyConfiguration.isEmpty()) {
-			// clone by merging
-			configurationModel = configurationModel.merge();
-			for (const key of this._policyConfiguration.keys) {
-				configurationModel.setValue(key, this._policyConfiguration.getValue(key));
-			}
+			configurationModel = this.getPolicyOverlaidConfigurationModel(configurationModel);
 		}
 		if (overrides.overrideIdentifier) {
 			configurationModel = configurationModel.override(overrides.overrideIdentifier);
@@ -1004,6 +1011,30 @@ export class Configuration {
 		// --- End PWB ---
 		return configurationModel;
 	}
+
+	// --- Start PWB: Apply policy before overrides so language-scoped policy keys participate in override flattening ---
+	/**
+	 * Returns the given consolidated model with the policy configuration stamped on top of it.
+	 *
+	 * The upstream guard `this._policyConfiguration.getValue(section) !== undefined` cannot see
+	 * language-scoped policy keys such as `[r]`, so it is gone and this runs for every read while any
+	 * policy is set. Building the overlay deep-clones the whole configuration tree, which is far too
+	 * expensive per read, so the result is cached against the model it was built from. Reads then also
+	 * share one overlay instance, which lets `override()` reuse its own per-identifier cache.
+	 */
+	private getPolicyOverlaidConfigurationModel(configurationModel: ConfigurationModel): ConfigurationModel {
+		let policyOverlaidConfigurationModel = this._policyOverlaidConfigurations.get(configurationModel);
+		if (!policyOverlaidConfigurationModel) {
+			// clone by merging
+			policyOverlaidConfigurationModel = configurationModel.merge();
+			for (const key of this._policyConfiguration.keys) {
+				policyOverlaidConfigurationModel.setValue(key, this._policyConfiguration.getValue(key));
+			}
+			this._policyOverlaidConfigurations.set(configurationModel, policyOverlaidConfigurationModel);
+		}
+		return policyOverlaidConfigurationModel;
+	}
+	// --- End PWB ---
 
 	private getConsolidatedConfigurationModelForResource({ resource }: IConfigurationOverrides, workspace: Workspace | undefined): ConfigurationModel {
 		let consolidateConfiguration = this.getWorkspaceConsolidatedConfiguration();

@@ -93,7 +93,11 @@ export class LocalTranscriptionService {
 		return {
 			url: inspectLocal<string>('http.proxy'),
 			strictSSL: !!inspectLocal<boolean>('http.proxyStrictSSL'),
-			authorization: inspectLocal<string>('http.proxyAuthorization')
+			// --- Start PWB: honor http.noProxy and NO_PROXY in node requests ---
+			// authorization: inspectLocal<string>('http.proxyAuthorization')
+			authorization: inspectLocal<string>('http.proxyAuthorization'),
+			noProxy: inspectLocal<string[]>('http.noProxy')
+			// --- End PWB ---
 		};
 	}
 }

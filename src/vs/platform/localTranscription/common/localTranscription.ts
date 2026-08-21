@@ -66,6 +66,10 @@ export interface ILocalTranscriptionProxyConfig {
 	readonly strictSSL?: boolean;
 	/** Value of `http.proxyAuthorization`, when configured. */
 	readonly authorization?: string;
+	// --- Start PWB: honor http.noProxy and NO_PROXY in node requests ---
+	/** Value of `http.noProxy`, when configured. */
+	readonly noProxy?: string[];
+	// --- End PWB ---
 }
 
 /**

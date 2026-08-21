@@ -48,6 +48,9 @@ export interface IRawRequestFunction {
 export interface NodeRequestOptions extends IRequestOptions {
 	agent?: Agent;
 	strictSSL?: boolean;
+	// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+	resolveProxyAgent?(url: string): Promise<Agent>;
+	// --- End PWB ---
 	isChromiumNetwork?: boolean;
 	getRawRequest?(options: IRequestOptions): IRawRequestFunction;
 }
@@ -63,6 +66,9 @@ export class RequestService extends AbstractRequestService implements IRequestSe
 	private proxyUrl?: string;
 	private strictSSL: boolean | undefined;
 	private authorization?: string;
+	// --- Start PWB: honor http.noProxy and NO_PROXY in node requests ---
+	private noProxy?: string[];
+	// --- End PWB ---
 	private shellEnvErrorLogged?: boolean;
 
 	constructor(
@@ -84,10 +90,16 @@ export class RequestService extends AbstractRequestService implements IRequestSe
 		this.proxyUrl = this.getConfigValue<string>('http.proxy');
 		this.strictSSL = !!this.getConfigValue<boolean>('http.proxyStrictSSL');
 		this.authorization = this.getConfigValue<string>('http.proxyAuthorization');
+		// --- Start PWB: honor http.noProxy and NO_PROXY in node requests ---
+		this.noProxy = this.getConfigValue<string[]>('http.noProxy');
+		// --- End PWB ---
 	}
 
 	async request(options: NodeRequestOptions, token: CancellationToken): Promise<IRequestContext> {
-		const { proxyUrl, strictSSL } = this;
+		// --- Start PWB: honor http.noProxy and NO_PROXY in node requests ---
+		// const { proxyUrl, strictSSL } = this;
+		const { proxyUrl, strictSSL, noProxy } = this;
+		// --- End PWB ---
 
 		let shellEnv: typeof process.env | undefined = undefined;
 		try {
@@ -103,17 +115,32 @@ export class RequestService extends AbstractRequestService implements IRequestSe
 			...process.env,
 			...shellEnv
 		};
-		const agent = options.agent ? options.agent : await getProxyAgent(options.url || '', env, { proxyUrl, strictSSL });
+		// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+		// const agent = options.agent ? options.agent : await getProxyAgent(options.url || '', env, { proxyUrl, strictSSL, noProxy });
+		const hasCustomAgent = !!options.agent;
+		const agent = options.agent ? options.agent : await getProxyAgent(options.url || '', env, { proxyUrl, strictSSL, noProxy });
+		if (!hasCustomAgent) {
+			options.resolveProxyAgent = url => getProxyAgent(url, env, { proxyUrl, strictSSL, noProxy });
+		}
+		// --- End PWB ---
 
 		options.agent = agent;
 		options.strictSSL = strictSSL;
 
-		if (this.authorization) {
+		// --- Start PWB: only send Proxy-Authorization when proxied ---
+		// if (this.authorization) {
+		if (!options.proxyAuthorization) {
+			options.proxyAuthorization = this.authorization;
+		}
+		if (options.proxyAuthorization && options.agent) {
 			options.headers = {
 				...(options.headers || {}),
-				'Proxy-Authorization': this.authorization
+				// 'Proxy-Authorization': this.authorization
+				'Proxy-Authorization': options.proxyAuthorization
 			};
 		}
+		// }
+		// --- End PWB ---
 
 		return this.logAndRequest(options, () => nodeRequest(options, token));
 	}
@@ -225,10 +252,50 @@ async function nodeRequestAttempt(options: NodeRequestOptions, token: Cancellati
 
 		const req = rawRequest(opts, (res: http.IncomingMessage) => {
 			const followRedirects: number = isNumber(options.followRedirects) ? options.followRedirects : 3;
-			if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && followRedirects > 0 && res.headers['location']) {
+			// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+			// if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && followRedirects > 0 && res.headers['location']) {
+			const redirectLocation = Array.isArray(res.headers['location']) ? res.headers['location'][0] : res.headers['location'];
+			let redirectUrl = redirectLocation;
+			if (redirectLocation && options.url) {
+				try {
+					redirectUrl = new URL(redirectLocation, options.url).toString();
+				} catch {
+					redirectUrl = redirectLocation;
+				}
+			}
+			if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && followRedirects > 0 && redirectUrl) {
+				if (options.resolveProxyAgent && options.url) {
+					const from = new URL(options.url);
+					const to = new URL(redirectUrl);
+					const fromPort = from.port || (from.protocol === 'https:' ? '443' : '80');
+					const toPort = to.port || (to.protocol === 'https:' ? '443' : '80');
+					const isCrossOrigin = from.protocol !== to.protocol || from.hostname !== to.hostname || fromPort !== toPort;
+					if (isCrossOrigin) {
+						options.resolveProxyAgent(redirectUrl).then(redirectAgent => {
+							const headers = { ...(options.headers || {}) };
+							if (options.proxyAuthorization && redirectAgent) {
+								headers['Proxy-Authorization'] = options.proxyAuthorization;
+							} else {
+								delete headers['Proxy-Authorization'];
+							}
+							nodeRequest({
+								...options,
+								url: redirectUrl,
+								agent: redirectAgent,
+								headers: Object.keys(headers).length ? headers : undefined,
+								followRedirects: followRedirects - 1
+							}, token).then(resolve, reject);
+						}, reject);
+						return;
+					}
+				}
+				// --- End PWB ---
 				nodeRequest({
 					...options,
-					url: res.headers['location'],
+					// --- Start PWB: honor noProxy and re-evaluate proxy per redirect ---
+					// url: res.headers['location'],
+					url: redirectUrl,
+					// --- End PWB ---
 					followRedirects: followRedirects - 1
 				}, token).then(resolve, reject);
 			} else {
