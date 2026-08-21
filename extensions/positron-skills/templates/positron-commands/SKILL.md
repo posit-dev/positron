@@ -4,13 +4,13 @@ description: >
   Running Positron IDE commands: changing the window layout, focusing panes
   (Console, Variables, Plots, Help, Packages), clearing the console, adjusting
   the Data Explorer view, discovering or restarting R and Python interpreters,
-  interrupting a stuck session, and refreshing or updating packages. Use when
-  the user wants Positron itself to do something, rather than wanting R or
-  Python code run. Load this skill, then read the reference file for the area in
-  question: layout and pane focus in references/ui.md; interpreters, sessions
-  and packages in references/troubleshooting.md. Triggers: "switch to the data
-  science layout", "show me the variables pane", "clear the console", "my R
-  interpreter isn't showing up", "my session is stuck", "update all my
+  interrupting a stuck session, and reading, installing or updating the
+  packages installed in a session. Use when the user wants Positron itself to
+  do something, or wants to know what is installed in the session, rather than
+  wanting R or Python code run. Load this skill, then read the reference file
+  for the area in question. Triggers: "switch to the data science layout",
+  "show me the variables pane", "my R interpreter isn't showing up", "my
+  session is stuck", "is pandas installed?", "install dplyr", "update all my
   packages".
 ---
 
@@ -52,8 +52,14 @@ notebook, two-pane), bringing a pane into focus (Console, Variables, Help,
 Plots, Packages), clearing console output, or expanding/collapsing the Data
 Explorer's column summary panel.
 
-**Interpreters, sessions and packages** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
+**Interpreters and sessions** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
 Read when the user asks about: an interpreter that isn't showing up or won't
-start, startup diagnostics, a session that is stuck or needs restarting, or
-installed packages that need refreshing or updating. Also covers looking up a
-help topic for a function or symbol.
+start, startup diagnostics, or a session that is stuck or needs restarting.
+Also covers looking up a help topic for a function or symbol.
+
+**Packages** -- [references/packages.md]({{skill_dir}}/references/packages.md)
+Read when the user asks about: what is installed in a session and at which
+version, whether a package is available or out of date, or installing and
+updating packages. Read it **before** answering any question about what the
+session has -- it documents the command that reports the installed packages,
+which is always the right way to find out, rather than running code to check.
