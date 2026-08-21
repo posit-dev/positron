@@ -63,6 +63,61 @@ callable, and tells you in its payload when it has nothing to say. So a
 
 {{command:positronPackages.getPackages}}
 
+## Security advisories
+
+The same payload carries known security advisories against each installed
+version, so a question about vulnerable packages is answered by `getPackages`
+too -- not by a web search, and not by running an auditing tool.
+
+**The three states of `vulnerabilities` are all meaningful, and conflating
+them is the easiest mistake to make here:**
+
+- A non-empty array -- this installed version is affected.
+- An **empty** array -- the advisory host was asked and reports nothing
+  against this version. That is a genuine all-clear; say so.
+- **Absent** -- there is no advisory data for this package. Nothing can be
+  concluded either way. Do not report it as clean.
+
+**Reading an advisory:** entries are pre-sorted worst-first, so the first one
+is the headline and matches what the Packages pane shows the user. `severity`
+is always present (`critical`/`high`/`medium`/`low`/`unscored`) and is the
+field to rank by. `unscored` means the advisory carries no CVSS score, which
+is common for CRAN's RSEC records -- it means "vulnerable, severity unknown",
+not "probably fine". `id` is the CVE when one exists, otherwise the OSV id.
+
+**`vulnerabilityStatus`** is tracked separately from `metadataStatus` because
+the two come from different places: outdated state from the runtime's package
+manager, advisories from Posit Package Manager. Either can fail while the
+other answers, so check the one that matches the claim you are making. On
+`disabled`, `unavailable` or `timed-out`, do not tell the user they have no
+vulnerabilities -- you did not find out.
+
+**Whether to call again** -- the status tells you, and only one value is worth
+a second call:
+
+- `fresh` or `cached` -- the advisory data is as complete as it gets. A package
+  with none was already looked up for you, so calling again returns the same
+  thing. Don't.
+- `timed-out` -- the lookup ran out of time partway. The package list is
+  complete, but some packages carry only what was cached, possibly nothing.
+  Calling again resumes where it stopped, so this is the one case where a
+  second call adds information.
+- `disabled` or `unavailable` -- no advisory data is coming. `disabled` means
+  the user turned advisory lookups off in settings; `unavailable` means the
+  lookup ran and produced nothing, because either no Package Manager here
+  reports advisories or the lookup failed. Neither is worth retrying: say what
+  you could not determine and stop.
+
+**Attribution:** when `vulnerabilitySource` is present, say where the data
+came from (`host`) and when (`fetchedAt`). Advisory data has a date; presenting
+it as timeless fact overstates it.
+
+**Fixing one:** `fixedIn` is display text, and may name fixes on several
+release branches (`"1.26.5, 2.0.2"`). It is deliberately not
+machine-comparable, so do not pass it to `updatePackage` as a version. Pick
+one with the user, then update to that exact version. Do not reach for
+`updateAllPackages` to fix a single advisory.
+
 ## Installing, updating and refreshing
 
 `installPackage` and `updatePackage` take the same argument pair: `name`, then
