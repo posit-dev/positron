@@ -13,11 +13,17 @@ test.use({
 
 const connectionName = 'driverLoggingSQLite';
 
-// The display name each driver registers via `registerDriver`, which is the last statement in
-// every driver's `activate()`. Waiting for all seven provider cards to render is therefore proof
-// that every driver's activation has fully run (including any illegal logging before that call),
-// not just that the extension host has started loading the module.
-const allDriverNames = ['DuckDB', 'Databricks', 'PostgreSQL', 'Posit Connect Pins', 'Redshift', 'SQLite', 'Snowflake'];
+// The display name each driver registers via `registerDriver`. Waiting for all eight provider
+// cards to render is proof that every driver's activation has run past the point where it could
+// have logged illegally, not just that the extension host has started loading the module: for
+// seven of the eight, `registerDriver` is the last statement in `activate()`. ODBC registers its
+// drivers and then installs watchers on the machine's ODBC configuration files, which log when a
+// file changes and not when the watcher is set up, so its card means the same thing.
+//
+// Only the generic 'ODBC' card is listed. That extension also registers one driver per recognized
+// database whose ODBC driver is installed, so the rest of its cards depend on what the machine has
+// configured -- nothing a test can wait for.
+const allDriverNames = ['DuckDB', 'Databricks', 'ODBC', 'PostgreSQL', 'Posit Connect Pins', 'Redshift', 'SQLite', 'Snowflake'];
 
 test.describe('Data connection driver logging', {
 	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
@@ -28,7 +34,7 @@ test.describe('Data connection driver logging', {
 	// `suiteId: __filename` gives this file, and `fullyParallel: false` keeps tests within a file
 	// running in declared order, so this ordering is guaranteed as long as no earlier test connects.
 	test('creates no output channels until a connection is made', async function ({ app }) {
-		// Opening the pane activates all seven driver extensions at once. None of them may log
+		// Opening the pane activates all eight driver extensions at once. None of them may log
 		// during activation, so none of their channels may exist yet.
 		const { dataConnections } = app.workbench;
 		await dataConnections.openDataConnectionsView();

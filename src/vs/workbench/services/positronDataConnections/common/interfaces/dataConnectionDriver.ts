@@ -52,6 +52,16 @@ export interface IDataConnectionProfile {
 	// and languages the user has never picked a variant for are absent. Callers fall back to
 	// variants[0] when a language has no stored preference.
 	preferredCodeVariants?: Record<string, string>;
+
+	// Set when this profile was reported by a driver's discoverConnections rather than saved by the
+	// user. A discovered profile is ephemeral: it is not persisted, it disappears when the driver
+	// stops reporting it, and the pane offers to save it rather than to remove it. Absent on every
+	// saved profile.
+	readonly discovered?: true;
+
+	// A one-line summary of where a discovered connection points, supplied by the driver. Only ever
+	// set alongside `discovered`.
+	readonly description?: string;
 }
 
 /**
@@ -175,6 +185,35 @@ export interface IDataConnectionDriver {
 	 * @param value The stored cleartext parameter value.
 	 */
 	redactParameterValue(mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
+
+	/**
+	 * Lists the connections this driver found already configured on the machine (e.g. ODBC data
+	 * sources). Resolves to an empty array for the drivers that do not implement discovery, which is
+	 * most of them.
+	 */
+	discoverConnections(): Promise<IDiscoveredDataConnection[]>;
+}
+
+/**
+ * Service-level form of a connection a driver found already configured on this machine. Converted
+ * to an ephemeral IDataConnectionProfile by the service, which owns the id namespacing and the
+ * deduplication against saved profiles.
+ */
+export interface IDiscoveredDataConnection {
+	// Unique within the driver and stable across sessions.
+	id: string;
+
+	// The name to show in the pane.
+	name: string;
+
+	// An optional one-line summary of where the connection points.
+	description?: string;
+
+	// The id of the mechanism to connect with. One of the driver's mechanisms.
+	mechanismId: string;
+
+	// The parameter values to connect with.
+	parameterValues: DataConnectionParameterValues;
 }
 
 /**

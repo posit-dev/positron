@@ -31,6 +31,27 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	// Fires when data connection instances change.
 	onDidChangeInstances: Event<IDataConnectionInstance[]>;
 
+	// Fires when the discovered data connections change.
+	onDidChangeDiscoveredProfiles: Event<IDataConnectionProfile[]>;
+
+	/**
+	 * Gets the connections drivers report as already configured on this machine (e.g. ODBC data
+	 * sources), as ephemeral profiles. These are not persisted and are never returned by
+	 * {@link getProfiles}. A discovery that matches a saved profile -- same driver, mechanism, and
+	 * parameter values -- is omitted, so a data source the user has already configured appears once.
+	 * @returns The discovered data connection profiles.
+	 */
+	getDiscoveredProfiles(): readonly IDataConnectionProfile[];
+
+	/**
+	 * Saves a discovered connection as an ordinary profile, so it persists across sessions and can
+	 * be edited and removed. The discovered entry stops being reported separately once saved, since
+	 * the saved profile matches it. A no-op if the id is not a current discovery.
+	 * @param id The discovered profile id.
+	 * @returns The id of the saved profile, or undefined if the discovery was not found.
+	 */
+	saveDiscoveredProfile(id: string): string | undefined;
+
 	/**
 	 * Adds or updates a data connection profile.
 	 * @param profile The data connection profile to add or update.

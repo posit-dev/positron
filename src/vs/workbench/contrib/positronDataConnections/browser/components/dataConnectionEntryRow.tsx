@@ -23,7 +23,7 @@ import { CustomContextMenuItem } from '../../../../browser/positronComponents/cu
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { AnchorPoint } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
-import { resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * DataConnectionEntryRowProps interface.
@@ -84,6 +84,10 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 
 	/**
 	 * Opens the edit dialog for this connection profile.
+	 *
+	 * Editing a discovered connection saves it first. A discovery is derived from the machine's ODBC
+	 * configuration and is rebuilt from it on every refresh, so there is nowhere for an edit to be
+	 * kept; saving turns it into an ordinary profile that the edit can then be written to.
 	 */
 	const editProfile = () => {
 		const driver = positronDataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
@@ -92,9 +96,27 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 			return;
 		}
 
+		if (profile.discovered) {
+			const savedId = positronDataConnectionsService.saveDiscoveredProfile(profile.id);
+			const saved = savedId === undefined ? undefined : positronDataConnectionsService.getProfile(savedId);
+			if (!saved) {
+				return;
+			}
+			// The saved profile replaces this row, and the edit dialog opens on it instead.
+			editSavedProfile(driver, saved);
+			return;
+		}
+
+		editSavedProfile(driver, profile);
+	};
+
+	/**
+	 * Opens the edit dialog for a saved profile.
+	 */
+	const editSavedProfile = (driver: IDataConnectionDriver, target: IDataConnectionProfile) => {
 		// Resolve the mechanism the profile was configured with (falling back to the first for
 		// pre-mechanisms profiles); its parameters drive the form.
-		const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
+		const mechanism = resolveDataConnectionMechanism(driver.metadata, target.mechanismId);
 		if (!mechanism) {
 			reportDriverAccessError();
 			return;
@@ -106,7 +128,7 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 			<ConfigureDataConnection
 				driver={driver}
 				mechanism={mechanism}
-				profile={profile}
+				profile={target}
 				renderer={renderer}
 				onSave={updatedProfile => {
 					positronDataConnectionsService.addUpdateProfile(updatedProfile);
@@ -239,10 +261,8 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 			}
 		}
 
-		// Finally, add a separator and the options that take something away: disconnect (only while
-		// there is a live connection to close), then remove. Only remove is marked destructive --
-		// disconnecting gives up the connection but keeps the saved profile, and nothing about it is
-		// unrecoverable.
+		// Finally, add a separator and the options that change what the pane holds: disconnect (only
+		// while there is a live connection to close), then save or remove.
 		entries.push(new CustomContextMenuSeparator());
 		if (entry.instance) {
 			entries.push(new CustomContextMenuItem({
@@ -251,13 +271,26 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 				onSelected: onDisconnect,
 			}));
 		}
-		entries.push(
-			new CustomContextMenuItem({
+
+		// A discovered connection is not the user's to remove -- it comes from the machine's own
+		// configuration and would simply reappear -- so it offers Save instead, which turns it into
+		// an ordinary saved connection that can then be edited and removed like any other. Only
+		// Remove is marked destructive; disconnecting gives up the connection but keeps the saved
+		// profile, and saving takes nothing away.
+		if (profile.discovered) {
+			entries.push(new CustomContextMenuItem({
+				icon: 'save',
+				label: localize('positron.dataConnections.saveConnection', "Save Connection"),
+				onSelected: () => positronDataConnectionsService.saveDiscoveredProfile(profile.id),
+			}));
+		} else {
+			entries.push(new CustomContextMenuItem({
 				destructive: true,
 				icon: 'trash',
 				label: localize('positron.dataConnections.remove', "Remove"),
 				onSelected: () => confirmRemoveProfile(),
 			}));
+		}
 
 		// Announced before the menu shows so the row is already selected and the tree still reads
 		// as focused when the menu paints over it. Acquired here rather than on entry to the
@@ -302,6 +335,12 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 	// The connected indicator's label, used as both its tooltip and its accessible name.
 	const connectedLabel = localize('positron.dataConnections.connected', "Connected");
 
+	// The discovered badge's label, used as both its tooltip and its accessible name.
+	const discoveredLabel = localize(
+		'positron.dataConnections.discovered',
+		"Detected from this computer's configuration. Save it to keep and edit it."
+	);
+
 	// Render.
 	return (
 		// The row is a presentational element inside a tree that owns focus and keyboard
@@ -313,8 +352,24 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 			<div className='data-connection-entry-text'>
 				{profile.connectionName}
 				{' · '}
-				{profile.driverMetadata.name}
+				{/*
+					A discovered connection's summary ("localhost:5432/pagila") says more than the
+					driver name would: every discovered row in the pane comes from the same driver,
+					so the name is the one thing that cannot tell them apart.
+				*/}
+				{(profile.discovered && profile.description) || profile.driverMetadata.name}
 			</div>
+			{profile.discovered && (
+				// Marks a connection the machine's own configuration provides rather than one the
+				// user saved, so it is clear why it is there and why it offers Save over Remove.
+				<div
+					aria-label={discoveredLabel}
+					className='data-connection-entry-discovered'
+					title={discoveredLabel}
+				>
+					{localize('positron.dataConnections.discoveredBadge', "Detected")}
+				</div>
+			)}
 			{entry.instance && (
 				// Shown whenever the profile has a live connection, including while the entry is
 				// collapsed -- collapsing does not necessarily disconnect, so this is how the user
