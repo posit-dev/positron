@@ -202,7 +202,8 @@ export class QuickInput {
 
 	async selectQuickInputElementContaining(
 		text: string,
-		{ timeout, force = true, deprioritize }: { timeout?: number; force?: boolean; deprioritize?: string[] } = {},
+		{ timeout, force = true, deprioritize, requireNonDeprioritized = false }:
+			{ timeout?: number; force?: boolean; deprioritize?: string[]; requireNonDeprioritized?: boolean } = {},
 	): Promise<string> {
 		const matches = this.code.driver.currentPage
 			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`);
@@ -217,13 +218,29 @@ export class QuickInput {
 		if (deprioritize?.length) {
 			await expect(target).toBeVisible({ timeout });
 			const count = await matches.count();
+			const labels: string[] = [];
+			let found = false;
 			for (let i = 0; i < count; i++) {
 				const row = matches.nth(i);
 				const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
+				labels.push(ariaLabel);
 				if (!deprioritize.some(source => ariaLabel.includes(source))) {
 					target = row;
+					found = true;
 					break;
 				}
+			}
+
+			// A list holding only deprioritized sources may just be incomplete, since
+			// runtimes keep registering after the picker reports discovery complete.
+			// Only worth failing when several rows share `text`: a lone deprioritized row
+			// is the normal shape where one interpreter of this version exists.
+			if (!found && requireNonDeprioritized && count > 1) {
+				throw new Error(
+					`No non-deprioritized "${text}" row in the quick pick; every match is a deprioritized source `
+					+ `(deprioritized: ${deprioritize.join(', ')}; rows: ${labels.join(' | ') || 'none'}). `
+					+ 'The intended runtime has probably not finished registering yet.'
+				);
 			}
 		}
 
