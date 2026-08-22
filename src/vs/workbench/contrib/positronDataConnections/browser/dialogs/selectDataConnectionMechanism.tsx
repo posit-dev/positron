@@ -12,7 +12,7 @@ import { useCallback, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ThreeButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/threeButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { IDataConnectionDriver, IDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
@@ -22,7 +22,7 @@ import { IDataConnectionDriver, IDataConnectionMechanism } from '../../../../ser
  */
 interface SelectDataConnectionMechanismProps {
 	// The renderer.
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 
 	// The driver whose mechanisms are being selected from.
 	driver: IDataConnectionDriver;

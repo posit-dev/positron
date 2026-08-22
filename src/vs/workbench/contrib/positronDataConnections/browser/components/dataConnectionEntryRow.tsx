@@ -17,7 +17,7 @@ import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionW
 import { showRemoveDataConnectionConfirmation } from '../dialogs/removeDataConnectionConfirmation.js';
 import { DataConnectionEntry } from '../classes/dataConnectionsTreeInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { PYTHON_ICON_BASE64, R_ICON_BASE64 } from '../../../../services/positronDataConnections/common/languageIcons.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
@@ -123,7 +123,7 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		}
 
 		// Render the ConfigureDataConnection dialog for this profile.
-		const renderer = new PositronModalDialogReactRenderer();
+		const renderer = new PositronModalReactRenderer();
 		renderer.render(
 			<ConfigureDataConnection
 				driver={driver}

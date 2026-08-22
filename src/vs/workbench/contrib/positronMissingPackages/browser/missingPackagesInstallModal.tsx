@@ -8,13 +8,13 @@ import './missingPackagesInstallModal.css';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { PositronDynamicModalDialog } from '../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { FooterButton } from '../../../browser/positronComponents/positronDynamicModalDialog/components/footerButton.js';
 import { MissingPackagesMessage } from './missingPackagesMessage.js';
 
 interface MissingPackagesInstallModalProps {
-	readonly renderer: PositronModalDialogReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly fileName: string;
 	readonly languageName: string | null;
 	readonly packageNames: string[];
@@ -66,7 +66,7 @@ const MissingPackagesInstallModal = (props: MissingPackagesInstallModalProps) =>
  */
 export function showMissingPackagesInstallModal(fileName: string, languageName: string | null, packageNames: string[], installLabel: string): Promise<boolean> {
 	return new Promise<boolean>(resolve => {
-		const renderer = new PositronModalDialogReactRenderer();
+		const renderer = new PositronModalReactRenderer();
 		renderer.render(
 			<MissingPackagesInstallModal
 				fileName={fileName}

@@ -17,7 +17,7 @@ import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
 import { ConfigureDataConnectionParameters } from './configureDataConnectionParameters.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { ThreeButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/threeButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
@@ -64,7 +64,7 @@ export function getFileDialogFilters(declaredFilters: FileFilter[] | undefined):
  */
 interface ConfigureDataConnectionProps {
 	// The renderer.
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 
 	// The driver for the connection being configured.
 	driver: IDataConnectionDriver;

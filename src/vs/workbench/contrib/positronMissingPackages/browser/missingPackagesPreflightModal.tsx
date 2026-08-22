@@ -11,7 +11,7 @@ import { useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { PositronDynamicModalDialog } from '../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { FooterButton } from '../../../browser/positronComponents/positronDynamicModalDialog/components/footerButton.js';
 import { Checkbox } from '../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
@@ -26,7 +26,7 @@ export interface PreflightModalResult {
 }
 
 interface MissingPackagesPreflightModalProps {
-	readonly renderer: PositronModalDialogReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly fileName: string;
 	readonly languageName: string | null;
 	readonly packageNames: string[];
@@ -91,7 +91,7 @@ export const MissingPackagesPreflightModal = (props: MissingPackagesPreflightMod
  */
 export function showMissingPackagesPreflightModal(fileName: string, languageName: string | null, packageNames: string[]): Promise<PreflightModalResult> {
 	return new Promise<PreflightModalResult>(resolve => {
-		const renderer = new PositronModalDialogReactRenderer();
+		const renderer = new PositronModalReactRenderer();
 		renderer.render(
 			<MissingPackagesPreflightModal
 				fileName={fileName}

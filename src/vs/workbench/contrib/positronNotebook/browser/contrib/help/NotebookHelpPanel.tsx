@@ -15,7 +15,7 @@ import { localize } from '../../../../../../nls.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { PositronDynamicModalDialog } from '../../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { OneButtonFooter } from '../../../../../browser/positronComponents/positronDynamicModalDialog/components/oneButtonFooter.js';
-import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { ResolvedChord, ResolvedKeybinding } from '../../../../../../base/common/keybindings.js';
 import { UILabelProvider } from '../../../../../../base/common/keybindingLabels.js';
 import { OS } from '../../../../../../base/common/platform.js';
@@ -97,7 +97,7 @@ export function resolveShortcutBindings(keybindingService: IKeybindingService): 
 }
 
 interface NotebookHelpPanelProps {
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 	resolvedBindings: ResolvedBindingsMap;
 	onOpenAllShortcuts: () => void;
 	onSeeAllCommands: () => void;

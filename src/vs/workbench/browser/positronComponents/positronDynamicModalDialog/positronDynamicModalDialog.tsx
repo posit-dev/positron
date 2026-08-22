@@ -7,12 +7,15 @@
 import './positronDynamicModalDialog.css';
 
 // React.
-import { FormEvent, ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../base/browser/dom.js';
 import { TitleBar } from './components/titleBar.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { useModalDialogKeyboard } from '../positronModalDialog/useModalDialogKeyboard.js';
 
 /**
  * The gutter where the dialog box cannot be moved.
@@ -20,10 +23,17 @@ import { PositronModalDialogReactRenderer } from '../../../../base/browser/posit
 const kGutter = 40;
 
 /**
+ * The number of dynamic modal dialogs currently mounted. A dialog that opens while another is
+ * already open dims nothing of its own, so the two backdrops do not compound into twice the
+ * darkness.
+ */
+let openDialogCount = 0;
+
+/**
  * PositronDynamicModalDialogProps interface.
  */
 export interface PositronDynamicModalDialogProps {
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 	title: string;
 	titleDescription?: string;
 	width: number;
@@ -78,8 +88,22 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 	const dialogBoxRef = useRef<HTMLDivElement>(undefined!);
 	const hasBeenPositioned = useRef(false);
 
+	// Id hooks. The title element carries this id and aria-labelledby points at it, which is what
+	// gives the dialog its accessible name.
+	const titleId = useId();
+
 	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
+
+	// Whether this dialog opened while another was already open. Fixed at mount: a dialog does not
+	// start or stop dimming because something above it came and went.
+	const [isNested] = useState(() => openDialogCount > 0);
+
+	// Keep the open count honest for whoever opens next.
+	useEffect(() => {
+		openDialogCount++;
+		return () => { openDialogCount--; };
+	}, []);
 
 	// Center the dialog box on initial mount. On subsequent renders (e.g. content changes), keep
 	// the current position but clamp to ensure the dialog remains on screen. useLayoutEffect
@@ -112,6 +136,37 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 			};
 		});
 	}, [props.width]);
+
+	// Escape cancels and Tab stays inside the dialog. Enter is left alone: the content and footer
+	// are wrapped in a <form>, so a footer button with type='submit' already handles it, and having
+	// both would fire two different things for one keystroke.
+	useModalDialogKeyboard({
+		dialogBoxRef,
+		enterActivatesDefaultButton: false,
+		keyboardSource: props.renderer,
+		onCancel: props.onCancel
+	});
+
+	// Move focus into the dialog on mount. An ordinary element does not do this on its own, so a
+	// keyboard user would otherwise still be focused on whatever was behind the dialog. The renderer
+	// restores focus to that element when the dialog closes.
+	useEffect(() => {
+		const dialogBox = dialogBoxRef.current;
+
+		// A control inside the dialog may have claimed focus already, through React's autoFocus.
+		// The native dialog honored that too, so leave it where it is: footers use autoFocus to put
+		// the opening focus on the button that is safe to press, rather than on the first one.
+		if (dialogBox.contains(DOM.getActiveElement())) {
+			return;
+		}
+
+		// eslint-disable-next-line no-restricted-syntax
+		const firstFocusable = dialogBox.querySelector<HTMLElement>(
+			'a[href]:not([disabled]),button:not([disabled]),textarea:not([disabled]),' +
+			'input:not([disabled]),select:not([disabled])'
+		);
+		(firstFocusable ?? dialogBox).focus();
+	}, []);
 
 	// Set up keyboard and resize event handlers.
 	useEffect(() => {
@@ -225,13 +280,21 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 
 	// Render.
 	return (
-		<div ref={dialogContainerRef} className='positron-dynamic-modal-dialog-box-container'>
-			<div ref={dialogBoxRef} className='positron-dynamic-modal-dialog-box' style={{
-				left: dialogBoxState.left,
-				top: dialogBoxState.top,
-				width: props.width,
-			}}>
-				<TitleBar title={props.title} titleDescription={props.titleDescription} onClose={props.onCancel} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
+		<div ref={dialogContainerRef} className={positronClassNames('positron-dynamic-modal-dialog-box-container', { 'nested': isNested })}>
+			<div
+				ref={dialogBoxRef}
+				aria-labelledby={titleId}
+				aria-modal='true'
+				className='positron-dynamic-modal-dialog-box'
+				role='dialog'
+				style={{
+					left: dialogBoxState.left,
+					top: dialogBoxState.top,
+					width: props.width,
+				}}
+				tabIndex={-1}
+			>
+				<TitleBar title={props.title} titleDescription={props.titleDescription} titleId={titleId} onClose={props.onCancel} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
 				{/*
 					The content area and footer are always wrapped in a <form>. Enter-key implicit
 					submission only activates when a submit target exists -- i.e. when the footer
