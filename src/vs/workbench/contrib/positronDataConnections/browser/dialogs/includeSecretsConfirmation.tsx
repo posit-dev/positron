@@ -18,9 +18,6 @@ const INCLUDE_SECRETS_CONFIRMATION_WIDTH = 460;
  * @returns A promise that resolves to true if the user confirmed, or false if they cancelled.
  */
 export const showIncludeSecretsConfirmation = (): Promise<boolean> => {
-	// Create the renderer.
-	const renderer = new PositronModalDialogReactRenderer();
-
 	return new Promise<boolean>(resolve => {
 		// Settle once: dispose the renderer and resolve with the user's choice. Guards against the
 		// dialog's onCancel firing again after an explicit OK or Cancel.
@@ -33,6 +30,12 @@ export const showIncludeSecretsConfirmation = (): Promise<boolean> => {
 			renderer.dispose();
 			resolve(confirmed);
 		};
+
+		// Escape closes the native <dialog> without going through onCancel, so settle from
+		// onDisposed too or the caller waits forever.
+		const renderer = new PositronModalDialogReactRenderer({
+			onDisposed: () => settle(false)
+		});
 
 		// Render the dialog.
 		renderer.render(

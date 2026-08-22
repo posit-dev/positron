@@ -66,7 +66,11 @@ const MissingPackagesInstallModal = (props: MissingPackagesInstallModalProps) =>
  */
 export function showMissingPackagesInstallModal(fileName: string, languageName: string | null, packageNames: string[], installLabel: string): Promise<boolean> {
 	return new Promise<boolean>(resolve => {
-		const renderer = new PositronModalDialogReactRenderer();
+		// Escape closes the native <dialog> without going through onCancel, so settle from
+		// onDisposed too or the caller waits forever. A settled promise ignores the second call.
+		const renderer = new PositronModalDialogReactRenderer({
+			onDisposed: () => resolve(false)
+		});
 		renderer.render(
 			<MissingPackagesInstallModal
 				fileName={fileName}
