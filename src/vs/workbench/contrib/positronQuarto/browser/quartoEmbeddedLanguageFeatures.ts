@@ -59,7 +59,7 @@ import { IQuartoVirtualNotebookService } from './quartoVirtualNotebookService.js
  * Documents that can hold embedded code cells. Taken from the shared list so
  * this cannot drift from what the rest of the contribution treats as Quarto.
  */
-const QUARTO_SELECTOR: LanguageSelector = QUARTO_LANGUAGE_IDS.map(language => ({ language }));
+export const QUARTO_SELECTOR: LanguageSelector = QUARTO_LANGUAGE_IDS.map(language => ({ language }));
 
 /** A provider that declares the characters it wants to be woken for. */
 interface ITriggerCharacterProvider {
@@ -227,7 +227,7 @@ function downstreamProviders<T>(registry: LanguageFeatureRegistry<T>, textModel:
  * Shared behaviour for the providers that serve a Quarto document by asking the
  * providers registered on its hidden notebook cells.
  */
-abstract class QuartoEmbeddedProvider {
+export abstract class QuartoEmbeddedProvider {
 	constructor(
 		protected readonly _virtualNotebooks: IQuartoVirtualNotebookService,
 		protected readonly _languageFeatures: ILanguageFeaturesService,
