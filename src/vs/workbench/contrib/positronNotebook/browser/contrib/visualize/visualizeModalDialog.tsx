@@ -557,11 +557,12 @@ function ColumnPicker({ label, value, onChange, columns, autoFocus, allowClear }
 		);
 	}
 
-	// A native <select> is used instead of the styled DropDownListBox because
-	// this dialog is a native <dialog> opened with showModal(), which lives in
-	// the browser top layer. DropDownListBox renders its popup into the normal
-	// DOM, so it would be occluded behind the dialog. Native <select> popups
-	// render in the OS layer and appear correctly above the dialog.
+	// A native <select> stands in for the styled DropDownListBox. The original reason is gone:
+	// this dialog used to be a native <dialog> opened with showModal(), so it sat in the browser
+	// top layer and occluded the DropDownListBox popup, which renders into the workbench. The
+	// dialog is an ordinary z-indexed element now and the popup lands above it, so the styled
+	// control can come back. Swapping it is a UI change that needs a pass by hand, so it is left
+	// for its own change rather than folded into the renderer migration.
 	const placeholder = localize('positron.notebook.visualize.columnPicker.placeholder', 'Select a column');
 	return (
 		<div className='visualize-column-picker'>
