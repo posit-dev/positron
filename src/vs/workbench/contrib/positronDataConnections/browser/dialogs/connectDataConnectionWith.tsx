@@ -18,7 +18,7 @@ import { showIncludeSecretsConfirmation } from './includeSecretsConfirmation.js'
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { DataConnectionCodeEditor, DataConnectionCodeEditorWidget } from '../components/dataConnectionCodeEditor.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
@@ -66,7 +66,7 @@ export interface ConnectDataConnectionWithOptions {
  */
 export const showConnectDataConnectionWith = (options: ConnectDataConnectionWithOptions) => {
 	// Create the renderer.
-	const renderer = new PositronModalDialogReactRenderer();
+	const renderer = new PositronModalReactRenderer();
 
 	// Render the dialog.
 	renderer.render(
@@ -87,7 +87,7 @@ export const showConnectDataConnectionWith = (options: ConnectDataConnectionWith
  * ConnectDataConnectionWithProps interface.
  */
 interface ConnectDataConnectionWithProps {
-	readonly renderer: PositronModalDialogReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly languageId: string;
 	readonly connectionName: string;
 	readonly driver: IDataConnectionDriver;

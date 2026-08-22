@@ -10,10 +10,12 @@ import './positronDynamicModalDialog.css';
 import { FormEvent, ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../base/browser/dom.js';
 import { TitleBar } from './components/titleBar.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { useModalDialogKeyboard } from '../positronModalDialog/useModalDialogKeyboard.js';
 
 /**
  * The gutter where the dialog box cannot be moved.
@@ -31,7 +33,7 @@ let openDialogCount = 0;
  * PositronDynamicModalDialogProps interface.
  */
 export interface PositronDynamicModalDialogProps {
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 	title: string;
 	titleDescription?: string;
 	width: number;
@@ -135,16 +137,35 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		});
 	}, [props.width]);
 
+	// Escape cancels and Tab stays inside the dialog. Enter is left alone: the content and footer
+	// are wrapped in a <form>, so a footer button with type='submit' already handles it, and having
+	// both would fire two different things for one keystroke.
+	useModalDialogKeyboard({
+		dialogBoxRef,
+		enterActivatesDefaultButton: false,
+		keyboardSource: props.renderer,
+		onCancel: props.onCancel
+	});
+
 	// Move focus into the dialog on mount. An ordinary element does not do this on its own, so a
 	// keyboard user would otherwise still be focused on whatever was behind the dialog. The renderer
 	// restores focus to that element when the dialog closes.
 	useEffect(() => {
+		const dialogBox = dialogBoxRef.current;
+
+		// A control inside the dialog may have claimed focus already, through React's autoFocus.
+		// The native dialog honored that too, so leave it where it is: footers use autoFocus to put
+		// the opening focus on the button that is safe to press, rather than on the first one.
+		if (dialogBox.contains(DOM.getActiveElement())) {
+			return;
+		}
+
 		// eslint-disable-next-line no-restricted-syntax
-		const firstFocusable = dialogBoxRef.current.querySelector<HTMLElement>(
+		const firstFocusable = dialogBox.querySelector<HTMLElement>(
 			'a[href]:not([disabled]),button:not([disabled]),textarea:not([disabled]),' +
 			'input:not([disabled]),select:not([disabled])'
 		);
-		(firstFocusable ?? dialogBoxRef.current).focus();
+		(firstFocusable ?? dialogBox).focus();
 	}, []);
 
 	// Set up keyboard and resize event handlers.

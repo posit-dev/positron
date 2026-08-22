@@ -17,7 +17,7 @@ import { PositronTree } from '../../../../browser/positronTree/positronTree.js';
 import { DataConnectionsTreeInstance } from '../classes/dataConnectionsTreeInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
@@ -85,7 +85,7 @@ export const DataConnectionsPanel = () => {
 				icon={ThemeIcon.fromId('positron-add-connection')}
 				tooltip={addConnection}
 				onPressed={() => {
-					const renderer = new PositronModalDialogReactRenderer();
+					const renderer = new PositronModalReactRenderer();
 					renderer.render(
 						<NewDataConnectionFlow
 							renderer={renderer}

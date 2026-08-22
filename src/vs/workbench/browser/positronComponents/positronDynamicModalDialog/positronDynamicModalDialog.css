@@ -4,13 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * Container that fills the host <dialog>. The native <dialog>'s ::backdrop provides the dimming,
- * so this layer must stay transparent because adding a background here would compound the dimming.
+ * Container that fills the renderer's overlay. This is what dims the workbench behind the dialog,
+ * at the same 20% black the older modal dialog container uses, so the two look identical.
  */
-.positron-dynamic-modal-dialog-box-container {
+.positron - dynamic - modal - dialog - box - container {
 	inset: 0;
 	position: absolute;
-	outline: none !important;
+	outline: none!important;
+	background: rgba(0, 0, 0, 0.2);
+}
+
+/*
+ * A dialog opened on top of another one dims nothing: the dialog underneath is already dimming the
+ * workbench, and a second 20% layer would darken the whole screen to 40%.
+ */
+.positron - dynamic - modal - dialog - box - container.nested {
+	background: transparent;
 }
 
 /*
@@ -18,21 +27,21 @@
  * layout tree so its children (content-area, footer) participate directly in the dialog box's
  * flex column alongside the title bar sibling.
  */
-.positron-dynamic-modal-dialog-form {
+.positron - dynamic - modal - dialog - form {
 	display: contents;
 }
 
 /* Positron Modal Dialog - flex column layout */
-.positron-dynamic-modal-dialog-box {
+.positron - dynamic - modal - dialog - box {
 	display: flex;
 	overflow: hidden;
 	position: absolute;
-	border-radius: 5px;
-	flex-direction: column;
-	color: var(--vscode-positronModalDialog-foreground);
-	background: var(--vscode-positronModalDialog-background);
-	border: 1px solid var(--vscode-positronModalDialog-border);
-	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
+	border - radius: 5px;
+	flex - direction: column;
+	color: var(--vscode - positronModalDialog - foreground);
+	background: var(--vscode - positronModalDialog - background);
+	border: 1px solid var(--vscode - positronModalDialog - border);
+	box - shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
 }
 
 /*
@@ -43,19 +52,19 @@
  * default `auto` min-size of a flex item so the content can actually shrink
  * below its intrinsic size and `overflow: auto` takes over.
  */
-.positron-dynamic-modal-dialog-box .content-area {
+.positron - dynamic - modal - dialog - box.content - area {
 	flex: 1 1 auto;
-	min-height: 0;
+	min - height: 0;
 	padding: 16px;
 	overflow: auto;
-	white-space: pre-line;
+	white - space: pre - line;
 }
 
-.positron-dynamic-modal-dialog-box .content-area code {
+.positron - dynamic - modal - dialog - box.content - area code {
 	color: inherit;
-	font-size: 11px;
-	overflow-wrap: break-word;
-	font-family: var(--monaco-monospace-font);
+	font - size: 11px;
+	overflow - wrap: break-word;
+	font - family: var(--monaco - monospace - font);
 }
 
 /*
@@ -65,42 +74,42 @@
  * consumer (e.g. `.footer-button`, or a `.small` modifier) so the same visual treatment can be
  * applied at different sizes.
  */
-.positron-dynamic-modal-dialog-box .dialog-button {
+.positron - dynamic - modal - dialog - box.dialog - button {
 	display: flex;
 	cursor: pointer;
-	border-radius: 5px;
-	align-items: center;
-	justify-content: center;
-	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
-	color: var(--vscode-positronModalDialog-buttonForeground);
-	background: var(--vscode-positronModalDialog-buttonBackground);
+	border - radius: 5px;
+	align - items: center;
+	justify - content: center;
+	border: 1px solid var(--vscode - positronModalDialog - buttonBorder);
+	color: var(--vscode - positronModalDialog - buttonForeground);
+	background: var(--vscode - positronModalDialog - buttonBackground);
 }
 
-.positron-dynamic-modal-dialog-box .dialog-button:hover {
-	background: var(--vscode-positronModalDialog-buttonHoverBackground);
+.positron - dynamic - modal - dialog - box.dialog - button:hover {
+	background: var(--vscode - positronModalDialog - buttonHoverBackground);
 }
 
 /*
 	VS Code 1.109.0 changed secondary buttons to have transparent background and no border in dark mode.
 	For modal dialog buttons, we need a visible border for secondary buttons (Cancel, Back, etc.)
 */
-.vs-dark .positron-dynamic-modal-dialog-box .dialog-button:not(.default):not(.destructive) {
-	border: 1px solid var(--vscode-button-border);
+.vs - dark.positron - dynamic - modal - dialog - box.dialog - button: not(.default ): not(.destructive) {
+	border: 1px solid var(--vscode - button - border);
 }
 
-.positron-dynamic-modal-dialog-box .dialog-button.default {
-	color: var(--vscode-positronModalDialog-defaultButtonForeground);
-	background: var(--vscode-positronModalDialog-defaultButtonBackground);
+.positron - dynamic - modal - dialog - box.dialog - button.default {
+	color: var(--vscode - positronModalDialog - defaultButtonForeground);
+	background: var(--vscode - positronModalDialog - defaultButtonBackground);
 }
 
-.positron-dynamic-modal-dialog-box .dialog-button.default:hover {
-	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
+.positron - dynamic - modal - dialog - box.dialog - button.default:hover {
+	background: var(--vscode - positronModalDialog - defaultButtonHoverBackground);
 }
 
-.positron-dynamic-modal-dialog-box .dialog-button.destructive {
-	color: var(--vscode-positronModalDialog-buttonDestructiveForeground);
-	border: 1px solid var(--vscode-positronModalDialog-buttonDestructiveBackground);
-	background-color: var(--vscode-positronModalDialog-buttonDestructiveBackground);
+.positron - dynamic - modal - dialog - box.dialog - button.destructive {
+	color: var(--vscode - positronModalDialog - buttonDestructiveForeground);
+	border: 1px solid var(--vscode - positronModalDialog - buttonDestructiveBackground);
+	background - color: var(--vscode - positronModalDialog - buttonDestructiveBackground);
 }
 
 /*
@@ -108,44 +117,44 @@
  * `.dialog-button:hover` but later in the file: without this, a destructive button would be the only
  * one that doesn't respond to the pointer.
  */
-.positron-dynamic-modal-dialog-box .dialog-button.destructive:hover {
-	border-color: var(--vscode-positronModalDialog-buttonDestructiveHoverBackground);
-	background: var(--vscode-positronModalDialog-buttonDestructiveHoverBackground);
+.positron - dynamic - modal - dialog - box.dialog - button.destructive:hover {
+	border - color: var(--vscode - positronModalDialog - buttonDestructiveHoverBackground);
+	background: var(--vscode - positronModalDialog - buttonDestructiveHoverBackground);
 }
 
-.positron-dynamic-modal-dialog-box .dialog-button:focus {
+.positron - dynamic - modal - dialog - box.dialog - button:focus {
 	outline: none;
 }
 
-.positron-dynamic-modal-dialog-box .dialog-button:focus-visible {
-	outline-offset: 2px !important;
-	outline: 1px solid var(--vscode-focusBorder) !important;
+.positron - dynamic - modal - dialog - box.dialog - button: focus - visible {
+	outline - offset: 2px!important;
+	outline: 1px solid var(--vscode - focusBorder)!important;
 }
 
-.positron-dynamic-modal-dialog-box .dialog-button:disabled {
-	color: var(--vscode-positronModalDialog-buttonDisabledForeground);
-	background-color: var(--vscode-positronModalDialog-buttonDisabledBackground) !important;
-	border: 1px solid var(--vscode-positronModalDialog-buttonDisabledBorder);
-	cursor: default;
+.positron - dynamic - modal - dialog - box.dialog - button:disabled {
+	color: var(--vscode - positronModalDialog - buttonDisabledForeground);
+	background - color: var(--vscode - positronModalDialog - buttonDisabledBackground)!important;
+	border: 1px solid var(--vscode - positronModalDialog - buttonDisabledBorder);
+	cursor: default ;
 }
 
 /* Text inputs */
-.positron-dynamic-modal-dialog-box .text-input {
-	width: 100%;
+.positron - dynamic - modal - dialog - box.text - input {
+	width: 100 %;
 	padding: 4px;
-	border-radius: 4px;
-	box-sizing: border-box;
-	background: var(--vscode-positronModalDialog-textInputBackground);
-	border: 1px solid var(--vscode-positronModalDialog-textInputBorder);
+	border - radius: 4px;
+	box - sizing: border - box;
+	background: var(--vscode - positronModalDialog - textInputBackground);
+	border: 1px solid var(--vscode - positronModalDialog - textInputBorder);
 }
 
-.positron-dynamic-modal-dialog-box .text-input::selection {
-	color: var(--vscode-positronModalDialog-textInputSelectionForeground);
-	background: var(--vscode-positronModalDialog-textInputSelectionBackground);
+.positron - dynamic - modal - dialog - box.text - input::selection {
+	color: var(--vscode - positronModalDialog - textInputSelectionForeground);
+	background: var(--vscode - positronModalDialog - textInputSelectionBackground);
 }
 
 /* Error messages */
-.positron-dynamic-modal-dialog-box .error-msg {
-	color: var(--vscode-errorForeground);
-	word-break: break-all;
+.positron - dynamic - modal - dialog - box.error - msg {
+	color: var(--vscode - errorForeground);
+	word -break: break-all;
 }

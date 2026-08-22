@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
-import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { PositronDynamicModalDialog } from '../../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { FooterButton } from '../../../../../browser/positronComponents/positronDynamicModalDialog/components/footerButton.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
@@ -64,7 +64,7 @@ export const showVisualizeModalDialog = (
 		// settle with undefined. finish is the button path: settle with the result, then dispose -- the
 		// dispose's onDisposed -> settle(undefined) is a no-op because settle already ran.
 		const settle = createSingleCallFunction(resolve);
-		const renderer = new PositronModalDialogReactRenderer({
+		const renderer = new PositronModalReactRenderer({
 			onDisposed: () => settle(undefined),
 		});
 		const finish = (r: VisualizeResult | undefined) => {
@@ -86,7 +86,7 @@ export const showVisualizeModalDialog = (
 };
 
 interface Props {
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 	initialDfName: string;
 	columns: DataFrameColumn[];
 	notebookUri?: URI;

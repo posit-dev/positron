@@ -22,7 +22,6 @@ import { LabeledTextInput } from '../../../browser/positronComponents/positronMo
 import { IModalDialogPromptInstance, IPositronModalDialogsService, IThreeButtonModalDialogPromptOptions, ShowConfirmationModalDialogOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ExternalLink } from '../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
-import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 import { PositronDynamicModalDialog } from '../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { ThreeButtonFooter } from '../../../browser/positronComponents/positronDynamicModalDialog/components/threeButtonFooter.js';
 
@@ -263,7 +262,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 				resolve(choice);
 			};
 
-			const renderer = new PositronModalDialogReactRenderer({
+			const renderer = new PositronModalReactRenderer({
 				onDisposed: () => settle(undefined)
 			});
 

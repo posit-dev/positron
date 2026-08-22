@@ -15,12 +15,12 @@ import { showRemoveDataConnectionConfirmation } from '../../browser/dialogs/remo
 describe('showRemoveDataConnectionConfirmation', () => {
 	const ctx = createTestContainer().withReactServices().build();
 
-	// The dialog renders itself through its own PositronModalDialogReactRenderer rather than being
+	// The dialog renders itself through its own PositronModalReactRenderer rather than being
 	// handed to rtl.render, so this only establishes the services context it renders into.
 	setupRTLRenderer(() => ctx.reactServices);
 
 	beforeEach(() => {
-		// PositronModalDialogReactRenderer reads the services singleton in its constructor to find the
+		// PositronModalReactRenderer reads the services singleton in its constructor to find the
 		// container to render into, so the container's services have to be reachable from there.
 		PositronReactServices.services = ctx.reactServices;
 	});

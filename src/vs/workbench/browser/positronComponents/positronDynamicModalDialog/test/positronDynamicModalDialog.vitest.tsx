@@ -20,9 +20,11 @@ describe('PositronDynamicModalDialog', () => {
 	afterEach(cleanup);
 
 	let resize: Emitter<UIEvent>;
+	let keyDown: Emitter<KeyboardEvent>;
 
 	beforeEach(() => {
 		resize = disposables.add(new Emitter<UIEvent>());
+		keyDown = disposables.add(new Emitter<KeyboardEvent>());
 	});
 
 	/**
@@ -31,6 +33,7 @@ describe('PositronDynamicModalDialog', () => {
 	 */
 	function renderDialog(overrides: Partial<PositronDynamicModalDialogProps> = {}) {
 		const renderer = stubInterface<PositronDynamicModalDialogProps['renderer']>({
+			onKeyDown: keyDown.event,
 			onResize: resize.event
 		});
 		return render(
@@ -59,6 +62,14 @@ describe('PositronDynamicModalDialog', () => {
 		renderDialog();
 
 		expect(screen.getByRole('button', { name: 'Inside' })).toHaveFocus();
+	});
+
+	it('leaves focus where a control inside claimed it with autoFocus', () => {
+		// Footers use autoFocus to open with the focus on the button that is safe to press. A dialog
+		// that always grabbed the first focusable would land on the title bar close button instead.
+		renderDialog({ footer: <button autoFocus>Cancel</button> });
+
+		expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
 	});
 
 	it('focuses the dialog box itself when it has nothing focusable inside', () => {
@@ -101,5 +112,23 @@ describe('PositronDynamicModalDialog', () => {
 
 		// eslint-disable-next-line no-restricted-syntax -- structural div, see above
 		expect(third.container.querySelector('.positron-dynamic-modal-dialog-box-container')).not.toHaveClass('nested');
+	});
+
+	it('Escape calls onCancel', () => {
+		const onCancel = vi.fn();
+		renderDialog({ onCancel });
+
+		keyDown.fire(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+
+		expect(onCancel).toHaveBeenCalledTimes(1);
+	});
+
+	it('leaves Enter to the form rather than to a default button', () => {
+		const onDefaultButton = vi.fn();
+		renderDialog({ footer: <button className='default' onClick={onDefaultButton}>OK</button> });
+
+		keyDown.fire(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+		expect(onDefaultButton).not.toHaveBeenCalled();
 	});
 });

@@ -11,7 +11,7 @@ import { QuickAccess } from './quickaccess';
 const DATA_CONNECTIONS_VIEW_FOCUS_COMMAND = 'workbench.panel.positronDataConnections.focus';
 
 // The "Add Data Connection" -> "Configure Data Connection" dialog and its surrounding modal.
-const MODAL_DIALOG = '.positron-modal-dialog';
+const MODAL_DIALOG = '.positron-dynamic-modal-dialog-box';
 const PARAMETER_FIELD = '.parameter-field';
 const MECHANISM_CARD = '.mechanism-card';
 const DATA_CONNECTION_ENTRY_ROW = '.data-connection-entry-row';
