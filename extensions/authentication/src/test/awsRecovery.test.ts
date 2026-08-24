@@ -94,4 +94,20 @@ suite('createAwsSsoRecovery', () => {
 
 		assert.match((err as Error).message, /AccessDenied/);
 	});
+
+	test('a cancelled attempt leaves no stale note behind', async () => {
+		let logins = 0;
+		const recovery = createAwsSsoRecovery({
+			getProfile: () => undefined,
+			login: async () => { logins++; throw new SsoLoginError('cancelled', 'cancelled'); },
+		});
+		recovery.noteFailure(EXPIRED);
+		await recovery.recover(GENERIC);
+
+		// A later failure that does not itself classify must not be treated as
+		// a lapsed SSO session on the strength of the consumed note.
+		const second = await recovery.recover(GENERIC);
+
+		assert.deepStrictEqual([second, logins], [false, 1]);
+	});
 });

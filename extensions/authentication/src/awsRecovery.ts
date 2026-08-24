@@ -47,6 +47,11 @@ export function createAwsSsoRecovery(deps: AwsSsoRecoveryDeps): AwsSsoRecovery {
 	let inFlight: Promise<boolean> | undefined;
 
 	const attempt = async (expired: ExpiredSsoError): Promise<boolean> => {
+		// The note has been consumed. Clear it before the attempt so a cancelled
+		// or failed login cannot leave a stale note behind that makes the next
+		// unrelated failure look like a lapsed SSO session. A repeat attempt
+		// re-resolves the chain, which notes the failure again if it recurs.
+		noted = undefined;
 		const profile = deps.getProfile() ?? expired.profile;
 		try {
 			await vscode.window.withProgress(
@@ -59,7 +64,6 @@ export function createAwsSsoRecovery(deps: AwsSsoRecoveryDeps): AwsSsoRecovery {
 				},
 				(_progress, token) => login(profile, token)
 			);
-			noted = undefined;
 			logger.info('SSO login completed; retrying credential resolution');
 			return true;
 		} catch (err) {
