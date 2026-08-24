@@ -87,10 +87,20 @@ async function resolveRowIdentity(
 	client: ISqliteQueryClient,
 	quotedTable: string,
 ): Promise<string | undefined> {
-	// PRAGMA table_info reports one row per declared column, with `pk` as the 1-based position of the
-	// column within the primary key, or 0 when the column is not part of it. PRAGMA takes no bound
+	// PRAGMA table_xinfo reports one row per column, with `pk` as the 1-based position of the column
+	// within the primary key, or 0 when the column is not part of it. PRAGMA takes no bound
 	// parameters, so the table name is escaped inline.
-	const columns = await client.runQuery(`PRAGMA table_info(${quotedTable})`);
+	//
+	// `table_xinfo` rather than `table_info`, which omits generated columns -- and a generated column
+	// shadows a rowid alias exactly as a stored one does. Given
+	// `CREATE TABLE g(v INTEGER, rowid TEXT GENERATED ALWAYS AS ('x'||v) VIRTUAL)`, measured against
+	// SQLite 3.51.3, `table_info` reports only `v` while `table_xinfo` reports both, and `SELECT rowid`
+	// returns 'x1', 'x2', 'x3' where `SELECT _rowid_` returns 1, 2, 3. Reading the declared columns
+	// through `table_info` would leave `rowid` looking free, and the probe below would confirm it,
+	// because binding succeeds against the generated column. Paging would then order by a text
+	// expression with no uniqueness. The `pk` column is identical in both pragmas, including for a
+	// WITHOUT ROWID table's composite key, so the primary key handling below is unaffected.
+	const columns = await client.runQuery(`PRAGMA table_xinfo(${quotedTable})`);
 
 	// A declared column is allowed to take the name of a rowid alias, and it then shadows the rowid:
 	// given `CREATE TABLE t(rowid TEXT, v INTEGER)`, `SELECT rowid` returns that TEXT column, which

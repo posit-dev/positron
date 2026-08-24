@@ -51,7 +51,7 @@ class ReorderingEngine {
 
 	/**
 	 * @param _totalOrder The ORDER BY text this engine accepts as a total order.
-	 * @param _primaryKey Primary key columns to report from PRAGMA table_info. Supplying them also
+	 * @param _primaryKey Primary key columns to report from PRAGMA table_xinfo. Supplying them also
 	 * makes the `rowid` probe fail, which is how a real WITHOUT ROWID table presents itself.
 	 */
 	constructor(
@@ -69,7 +69,7 @@ class ReorderingEngine {
 			}
 			return [];
 		}
-		if (flat.startsWith('PRAGMA table_info')) {
+		if (flat.startsWith('PRAGMA table_xinfo')) {
 			return (this._primaryKey ?? []).map((name, i) => ({ name, pk: i + 1 }));
 		}
 		if (flat.includes('count(*)')) {

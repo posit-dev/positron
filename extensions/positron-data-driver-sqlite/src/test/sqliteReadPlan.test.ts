@@ -26,10 +26,16 @@ class FakeClient {
 	constructor(
 		private readonly options: {
 			readonly rowidTables?: readonly string[];
-			/** Primary key columns per table, in key order, as PRAGMA table_info would report them. */
+			/** Primary key columns per table, in key order, as PRAGMA table_xinfo would report them. */
 			readonly primaryKeys?: Readonly<Record<string, readonly string[]>>;
-			/** Non-key columns per table, as PRAGMA table_info would report them. */
+			/** Non-key columns per table, as PRAGMA table_xinfo would report them. */
 			readonly declaredColumns?: Readonly<Record<string, readonly string[]>>;
+			/**
+			 * Generated columns per table. SQLite reports these from `table_xinfo` but not from
+			 * `table_info`, and the two pragmas below model that difference, so a read plan that asked
+			 * the wrong one would not see them.
+			 */
+			readonly generatedColumns?: Readonly<Record<string, readonly string[]>>;
 			/** Raised by the rowid probe, to stand in for a failure that is not "no such column". */
 			readonly probeError?: Error;
 		} = {}
@@ -52,12 +58,16 @@ class FakeClient {
 			return [];
 		}
 
-		const pragma = /^PRAGMA table_info\("(.+)"\)$/.exec(sql);
+		const pragma = /^PRAGMA table_(x?)info\("(.+)"\)$/.exec(sql);
 		if (pragma) {
-			const keyColumns = this.options.primaryKeys?.[pragma[1]] ?? [];
+			const [, x, table] = pragma;
+			const keyColumns = this.options.primaryKeys?.[table] ?? [];
+			// Only `table_xinfo` reports generated columns; `table_info` leaves them out entirely.
+			const generated = x === 'x' ? (this.options.generatedColumns?.[table] ?? []) : [];
 			return [
 				...keyColumns.map((name, i) => ({ name, pk: i + 1 })),
-				...(this.options.declaredColumns?.[pragma[1]] ?? []).map(name => ({ name, pk: 0 })),
+				...(this.options.declaredColumns?.[table] ?? []).map(name => ({ name, pk: 0 })),
+				...generated.map(name => ({ name, pk: 0 })),
 				{ name: 'payload', pk: 0 },
 			];
 		}
@@ -69,6 +79,9 @@ class FakeClient {
 		return [
 			...(this.options.primaryKeys?.[table] ?? []),
 			...(this.options.declaredColumns?.[table] ?? []),
+			// Generated columns shadow a rowid alias exactly as stored ones do, so the probe binds to
+			// them and succeeds.
+			...(this.options.generatedColumns?.[table] ?? []),
 		];
 	}
 
@@ -100,7 +113,7 @@ suite('SQLite read plan Tests', () => {
 					rowOrder: 'rowid',
 					// Two checks and no setup: the column list, to confirm nothing shadows the rowid, and
 					// the probe. Neither reads a row.
-					queries: ['PRAGMA table_info("people")', 'SELECT rowid FROM "people" LIMIT 0'],
+					queries: ['PRAGMA table_xinfo("people")', 'SELECT rowid FROM "people" LIMIT 0'],
 				});
 		});
 
@@ -141,6 +154,23 @@ suite('SQLite read plan Tests', () => {
 				declaredColumns: { shadow: ['rowid'] },
 			});
 			const plan = await createSqliteReadPlan(client, 'shadow', 'table', COLUMNS);
+
+			assert.strictEqual(plan.rowOrder, '_rowid_');
+		});
+
+		test('a generated column named rowid shadows the rowid and is seen anyway', async () => {
+			// `table_info` omits generated columns, so reading the schema through it would leave `rowid`
+			// looking free -- and the probe would agree, because binding succeeds against the generated
+			// column. Measured against SQLite 3.51.3 on
+			// `CREATE TABLE g(v INTEGER, rowid TEXT GENERATED ALWAYS AS ('x'||v) VIRTUAL)`, `SELECT rowid`
+			// returns 'x1', 'x2', 'x3' while `SELECT _rowid_` returns 1, 2, 3. Ordering by the first is
+			// exactly the drift this change exists to prevent, so the schema is read through
+			// `table_xinfo`, which reports the column.
+			const client = new FakeClient({
+				rowidTables: ['gen'],
+				generatedColumns: { gen: ['rowid'] },
+			});
+			const plan = await createSqliteReadPlan(client, 'gen', 'table', ['v', 'rowid']);
 
 			assert.strictEqual(plan.rowOrder, '_rowid_');
 		});
