@@ -89,11 +89,16 @@ const handleAuxClick = (event) => {
  * @param {KeyboardEvent} e
  */
 const handleInnerKeydown = (e) => {
-	// If the keypress would trigger a browser event, such as copy or paste,
-	// make sure we block the browser from dispatching it. Instead VS Code
-	// handles these events and will dispatch a copy/paste back to the webview
-	// if needed
-	if (isUndoRedo(e) || isPrint(e) || isFindEvent(e) || isSaveEvent(e) || isCopyPasteOrCut(e)) {
+	// Let the browser natively handle undo/redo in the frame. Clipboard
+	// shortcuts (copy/cut/paste) are handled by the host in the main process
+	// (see WebviewMainService), so they are not special-cased here.
+	if (isUndoRedo(e)) {
+		return;
+	}
+
+	// Block the browser default for shortcuts that VS Code handles itself, then
+	// forward the keydown so the keybinding service can act on it.
+	if (isPrint(e) || isFindEvent(e) || isSaveEvent(e)) {
 		e.preventDefault();
 	}
 	hostMessaging.postMessage('did-keydown', {
@@ -122,18 +127,6 @@ const handleInnerKeyup = (e) => {
 		repeat: e.repeat,
 	});
 };
-
-/**
- * @param {KeyboardEvent} e
- * @return {boolean}
- */
-function isCopyPasteOrCut(e) {
-	const hasMeta = e.ctrlKey || e.metaKey;
-	// 45: keyCode of "Insert"
-	const shiftInsert = e.shiftKey && e.keyCode === 45;
-	// 67, 86, 88: keyCode of "C", "V", "X"
-	return (hasMeta && [67, 86, 88].includes(e.keyCode)) || shiftInsert;
-}
 
 /**
  * @param {KeyboardEvent} e
@@ -296,52 +289,11 @@ window.addEventListener('wheel', handleWheel);
 window.addEventListener('auxclick', handleAuxClick);
 window.addEventListener('keydown', handleInnerKeydown);
 window.addEventListener('keyup', handleInnerKeyup);
-window.addEventListener('contextmenu', (e) => {
-	if (e.defaultPrevented) {
-		// Extension code has already handled this event
-		return;
-	}
-
-	e.preventDefault();
-
-	/** @type { Record<string, boolean>} */
-	let context = {};
-
-	/** @type {HTMLElement | null} */
-	let el = e.target;
-	while (true) {
-		if (!el) {
-			break;
-		}
-
-		// Search self/ancestors for the closest context data attribute
-		el = el.closest("[data-vscode-context]");
-		if (!el) {
-			break;
-		}
-
-		try {
-			context = {
-				...JSON.parse(el.dataset.vscodeContext),
-				...context,
-			};
-		} catch (e) {
-			console.error(
-				`Error parsing 'data-vscode-context' as json`,
-				el,
-				e,
-			);
-		}
-
-		el = el.parentElement;
-	}
-
-	hostMessaging.postMessage('did-context-menu', {
-		clientX: e.clientX,
-		clientY: e.clientY,
-		context: context,
-	});
-});
+// Don't intercept the context menu here. Routing it up to the host and back
+// showed VS Code's WebviewContext menu, whose clipboard actions run through the
+// execCommand round-trip that no longer works for cross-origin Viewer content.
+// Leaving the event alone lets the main process show a native context menu with
+// working Copy/Cut/Paste (see WebviewMainService).
 
 // Ask Positron to open a link instead of handling it internally
 function openLinkInHost(link) {
