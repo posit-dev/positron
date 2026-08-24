@@ -409,4 +409,126 @@ describe('PositronDataConnectionsService', () => {
 			});
 		});
 	});
+
+	describe('discovered connections', () => {
+		// Registers a driver reporting the given discoveries and waits for the service to publish
+		// them. Registration fires onDidChangeDrivers, which is what triggers the refresh.
+		const registerDiscoveringDriver = async (
+			discovered: Array<{ id: string; name: string; description?: string; mechanismId: string; parameterValues: Record<string, string> }>
+		) => {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: createDriverMetadata(),
+				discoverConnections: async () => discovered,
+			}));
+			await vi.waitFor(() => {
+				expect(service.getDiscoveredProfiles().length).toBe(discovered.length);
+			});
+		};
+
+		const pagila = {
+			id: 'odbc-dsn:Pagila',
+			name: 'Pagila',
+			description: 'localhost:5432/pagila',
+			mechanismId: 'test-mechanism',
+			parameterValues: { dsn: 'Pagila' },
+		};
+
+		it('publishes a driver\'s discoveries as ephemeral profiles, namespaced by driver', async () => {
+			await registerDiscoveringDriver([pagila]);
+
+			expect(service.getDiscoveredProfiles()).toEqual([{
+				id: 'discovered:test-driver:odbc-dsn:Pagila',
+				driverMetadata: {
+					id: 'test-driver',
+					name: 'Test Driver',
+					iconSvg: '',
+					supportedLanguageIds: [],
+				},
+				connectionName: 'Pagila',
+				description: 'localhost:5432/pagila',
+				mechanismId: 'test-mechanism',
+				parameterValues: { dsn: 'Pagila' },
+				discovered: true,
+			}]);
+
+			// Discoveries are never persisted, so they must not show up among the saved profiles.
+			expect(service.getProfiles()).toEqual([]);
+		});
+
+		it('hides a discovery that matches a saved profile, so a configured data source appears once', async () => {
+			await registerDiscoveringDriver([pagila]);
+
+			service.addUpdateProfile({
+				...createProfile('saved-1'),
+				mechanismId: 'test-mechanism',
+				parameterValues: { dsn: 'Pagila' },
+			});
+			expect(service.getDiscoveredProfiles()).toEqual([]);
+
+			// A profile whose values differ does not shadow it.
+			service.removeProfile('saved-1');
+			service.addUpdateProfile({
+				...createProfile('saved-2'),
+				mechanismId: 'test-mechanism',
+				parameterValues: { dsn: 'Elsewhere' },
+			});
+			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName)).toEqual(['Pagila']);
+		});
+
+		it('saves a discovery as an ordinary profile under a fresh id, and stops reporting it', async () => {
+			await registerDiscoveringDriver([pagila]);
+
+			const savedId = service.saveDiscoveredProfile('discovered:test-driver:odbc-dsn:Pagila');
+			const saved = service.getProfile(savedId!);
+
+			// The saved profile keeps the connection's identity but sheds every trace of having
+			// been discovered -- both marker fields are gone, not merely undefined -- so the pane
+			// treats it as the user's own from here on. Its id is fresh, since the discovered id
+			// belongs to a discovery that may later disappear.
+			expect({
+				...saved,
+				id: savedId === 'discovered:test-driver:odbc-dsn:Pagila' ? savedId : '<fresh-id>',
+				createdAt: typeof saved?.createdAt,
+			}).toEqual({
+				id: '<fresh-id>',
+				createdAt: 'number',
+				driverMetadata: {
+					id: 'test-driver',
+					name: 'Test Driver',
+					iconSvg: '',
+					supportedLanguageIds: [],
+				},
+				connectionName: 'Pagila',
+				mechanismId: 'test-mechanism',
+				parameterValues: { dsn: 'Pagila' },
+			});
+			expect(service.getDiscoveredProfiles()).toEqual([]);
+		});
+
+		it('resolves a discovery by id so it can be connected without being saved first', async () => {
+			await registerDiscoveringDriver([pagila]);
+
+			const id = 'discovered:test-driver:odbc-dsn:Pagila';
+			expect(service.getProfile(id)?.connectionName).toBe('Pagila');
+			// A discovery holds no secrets, so resolving it with secrets is the same profile.
+			await expect(service.getProfileWithSecrets(id)).resolves.toMatchObject({ connectionName: 'Pagila' });
+		});
+
+		it('is a no-op when the id is not a current discovery', () => {
+			expect(service.saveDiscoveredProfile('discovered:test-driver:missing')).toBeUndefined();
+			expect(service.getProfiles()).toEqual([]);
+		});
+
+		it('keeps other drivers\' discoveries when one driver\'s discovery fails', async () => {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'broken-driver',
+				metadata: { ...createDriverMetadata(), id: 'broken-driver' },
+				discoverConnections: async () => { throw new Error('odbc.ini is unreadable'); },
+			}));
+			await registerDiscoveringDriver([pagila]);
+
+			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName)).toEqual(['Pagila']);
+		});
+	});
 });

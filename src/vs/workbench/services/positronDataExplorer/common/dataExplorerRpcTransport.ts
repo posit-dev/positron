@@ -37,8 +37,10 @@ export interface IDataExplorerUiEventDto {
 }
 
 /**
- * The transport a core Data Explorer backend uses to reach the providing extension. Implemented by
- * `MainThreadDataExplorer`, which forwards each request over the typed ext-host channel.
+ * The transport a core Data Explorer backend uses to reach the extension providing its dataset. Two
+ * things implement it: `MainThreadDataExplorer`, one per extension host, which forwards each RPC over
+ * the typed ext-host channel to the providing extension; and the service's internal router, which
+ * resolves the host that owns a provider and delegates to that host's transport.
  */
 export interface IDataExplorerRpcTransport {
 	/**

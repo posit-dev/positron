@@ -99,10 +99,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.9.1",
+			"version": "2026.9.2",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "ecd5749e452e4e26662052773319645256c506a4c04dd6639e99926bbb5d05da",
+			"sha256": "4597a149e9806927ddb798ca33889f42fea26edbed749791c89860cd7212bf06",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -121,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.72.0",
+			"version": "2026.74.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -339,7 +339,10 @@
 		"https://login.staging.posit.cloud",
 		"https://staging.connect.posit.cloud",
 		"https://posit.co",
-		"https://support.posit.co"
+		"https://support.posit.co",
+		"https://*.cloud.databricks.com",
+		"https://*.azuredatabricks.net",
+		"https://*.gcp.databricks.com"
 	],
 	"defaultChatAgent": {
 		"extensionId": "GitHub.copilot-chat",

@@ -36,6 +36,7 @@ export let dirs = [
 	'extensions/positron-data-explorer-duckdb',
 	'extensions/positron-data-driver-databricks',
 	'extensions/positron-data-driver-duckdb',
+	'extensions/positron-data-driver-odbc',
 	'extensions/positron-data-driver-pins',
 	'extensions/positron-data-driver-postgresql',
 	'extensions/positron-data-driver-redshift',

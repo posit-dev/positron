@@ -1,0 +1,14 @@
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+	<!--
+		Placeholder mark for ODBC connections: a database cylinder with a connector stem. There is no
+		ODBC logo Positron can ship, and an ODBC connection is not tied to any one vendor, so this is
+		deliberately generic. Replace with a designed mark when one exists.
+	-->
+	<g fill="none" stroke="#6b8fb5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<ellipse cx="12" cy="7" rx="8" ry="3.5" />
+		<path d="M4 7v11c0 1.9 3.6 3.5 8 3.5s8-1.6 8-3.5V7" />
+		<path d="M4 12.5c0 1.9 3.6 3.5 8 3.5s8-1.6 8-3.5" />
+		<path d="M20 15h4a4 4 0 0 1 4 4v6" />
+		<path d="M25.5 22.5h5v4h-5z" fill="#6b8fb5" stroke="none" />
+	</g>
+</svg>

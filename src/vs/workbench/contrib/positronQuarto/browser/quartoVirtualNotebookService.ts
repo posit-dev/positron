@@ -8,7 +8,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { basename } from '../../../../base/common/resources.js';
-import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { EndOfLinePreference, ITextModel } from '../../../../editor/common/model.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -16,6 +16,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService, LogLevel } from '../../../../platform/log/common/log.js';
+import { IMarkerService } from '../../../../platform/markers/common/markers.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellDto2, NotebookData } from '../../notebook/common/notebookCommon.js';
@@ -27,7 +28,11 @@ import {
 	usingNativeEmbeddedFeatures,
 } from '../common/positronQuartoConfig.js';
 import { IQuartoDocumentModel, QuartoCodeCell } from '../common/quartoTypes.js';
-import { QUARTO_CELLS_SCHEME, QUARTO_CELLS_VIEW_TYPE } from '../common/quartoVirtualNotebookTypes.js';
+import {
+	QUARTO_CELLS_SCHEME,
+	QUARTO_CELLS_VIEW_TYPE,
+	QUARTO_EMBEDDED_DIAGNOSTICS_OWNER,
+} from '../common/quartoVirtualNotebookTypes.js';
 import { diffCellRuns, ICellRun, ICellSplice } from '../common/quartoCellDiff.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 
@@ -58,6 +63,15 @@ export interface IQuartoVirtualCell {
 	readonly codeEndLine: number;
 	/** The text model bound to this notebook cell. */
 	readonly textModel: ITextModel;
+}
+
+/**
+ * A cell as the notebook holds it, with the disposables that live exactly as
+ * long as it does. Internal, because what is registered there is nobody else's
+ * business: a cell hands out its URI and its span, not its lifetime.
+ */
+interface IQuartoVirtualCellRecord extends IQuartoVirtualCell {
+	readonly store: DisposableStore;
 }
 
 export interface IQuartoVirtualNotebookService {
@@ -152,7 +166,7 @@ function quartoNotebookUri(sourceUri: URI): URI {
  * keeps it in sync with the source text model.
  */
 class QuartoVirtualNotebook extends Disposable {
-	private _cells: IQuartoVirtualCell[] = [];
+	private _cells: IQuartoVirtualCellRecord[] = [];
 	private _notebook: NotebookTextModel | undefined;
 
 	readonly notebookUri: URI;
@@ -163,6 +177,7 @@ class QuartoVirtualNotebook extends Disposable {
 		private readonly _modelService: IModelService,
 		private readonly _notebookService: INotebookService,
 		private readonly _languageService: ILanguageService,
+		private readonly _markerService: IMarkerService,
 		private readonly _logService: ILogService,
 	) {
 		super();
@@ -329,9 +344,7 @@ class QuartoVirtualNotebook extends Disposable {
 		}
 
 		for (const cell of removed) {
-			if (!cell.textModel.isDisposed()) {
-				cell.textModel.dispose();
-			}
+			this._retireCell(cell);
 		}
 
 		notebook.applyEdits(
@@ -356,6 +369,8 @@ class QuartoVirtualNotebook extends Disposable {
 					this._languageService.createById(sourceCell.language),
 					notebookCell.uri
 				);
+				const store = new DisposableStore();
+				store.add(this._markerService.installResourceExclusion(notebookCell.uri));
 				return {
 					cellUri: notebookCell.uri,
 					handle: notebookCell.handle,
@@ -363,6 +378,7 @@ class QuartoVirtualNotebook extends Disposable {
 					codeStartLine: sourceCell.codeStartLine,
 					codeEndLine: sourceCell.codeEndLine,
 					textModel,
+					store,
 				};
 			});
 
@@ -376,15 +392,44 @@ class QuartoVirtualNotebook extends Disposable {
 	}
 
 	/**
-	 * Dispose the cell text models. We own them: a notebook cell holds only a
-	 * weak reference to its text model and drops it on disposal rather than
-	 * disposing it.
+	 * Clear whatever was published against a cell URI, whoever published it.
+	 *
+	 * Required because nothing else ever will. The marker service keeps a
+	 * resource's markers when its text model is disposed, and the extension that
+	 * published them saw its document close rather than its problems go away, so
+	 * its diagnostic collection holds on to them. Left alone they would sit on a
+	 * dead cell URI for the rest of the session.
 	 */
+	private _clearCellMarkers(cellUri: URI): void {
+		const owners = new Set<string>();
+		for (const marker of this._markerService.read({ resource: cellUri, ignoreResourceFilters: true })) {
+			owners.add(marker.owner);
+		}
+		for (const owner of owners) {
+			this._markerService.changeOne(owner, cellUri, []);
+		}
+	}
+
+	/**
+	 * Take a cell out of service. We own its text model: a notebook cell holds
+	 * only a weak reference to one and drops it on disposal rather than disposing
+	 * it.
+	 *
+	 * The markers go before the exclusion that hides them, so that a Problems pane
+	 * reading in between cannot catch the diagnostics of a cell that is already
+	 * gone.
+	 */
+	private _retireCell(cell: IQuartoVirtualCellRecord): void {
+		this._clearCellMarkers(cell.cellUri);
+		cell.store.dispose();
+		if (!cell.textModel.isDisposed()) {
+			cell.textModel.dispose();
+		}
+	}
+
 	private _disposeCells(): void {
 		for (const cell of this._cells) {
-			if (!cell.textModel.isDisposed()) {
-				cell.textModel.dispose();
-			}
+			this._retireCell(cell);
 		}
 		this._cells = [];
 	}
@@ -392,6 +437,7 @@ class QuartoVirtualNotebook extends Disposable {
 	override dispose(): void {
 		super.dispose();
 		this._disposeCells();
+		this._markerService.changeOne(QUARTO_EMBEDDED_DIAGNOSTICS_OWNER, this.sourceUri, []);
 		this._notebook?.dispose();
 		this._notebook = undefined;
 		this._logService.debug(
@@ -418,6 +464,7 @@ export class QuartoVirtualNotebookService extends Disposable implements IQuartoV
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILanguageService private readonly _languageService: ILanguageService,
+		@IMarkerService private readonly _markerService: IMarkerService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
@@ -503,6 +550,7 @@ export class QuartoVirtualNotebookService extends Disposable implements IQuartoV
 			this._modelService,
 			this._notebookService,
 			this._languageService,
+			this._markerService,
 			this._logService,
 		);
 		this._notebooks.set(key, notebook);

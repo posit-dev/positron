@@ -60,6 +60,13 @@ const parsedArgs = minimist(process.argv.slice(2), {
 	}
 });
 
+// --- Start PWB ---
+// Set while the graceful SIGTERM/SIGINT shutdown (installed in the server
+// branch below) owns the process exit; the exit-diagnostics signal listener
+// checks it so the two handlers do not both call process.exit.
+let shuttingDownGracefully = false;
+// --- End PWB ---
+
 const extensionLookupArgs = ['list-extensions', 'locate-extension'];
 const extensionInstallArgs = ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'update-extensions'];
 
@@ -212,6 +219,44 @@ if (shouldSpawnCli) {
 			_remoteExtensionHostAgentServer.dispose();
 		}
 	});
+
+	// --- Start PWB ---
+	// Shut down cleanly on SIGTERM/SIGINT so that terminating a session (for
+	// example quitting it from the Posit Workbench home page, which arrives as
+	// SIGTERM on Kubernetes and Slurm) reports exit code 0 instead of
+	// 128+signal. A non-zero exit marks the Kubernetes session pod Error and
+	// its Job Failed (posit-dev/positron#13719). Setting
+	// RSTUDIO_FORCE_NON_ZERO_EXIT_CODE=1 restores the 128+signal exit codes,
+	// matching the escape hatch rsession honors. prependListener + a deferred
+	// exit lets the exit-diagnostics signal listener (registered earlier,
+	// smoke tests only) still log the signal without double-exiting.
+	for (const shutdownSignal of ['SIGTERM', 'SIGINT'] as NodeJS.Signals[]) {
+		process.prependListener(shutdownSignal, () => {
+			if (shuttingDownGracefully) {
+				return;
+			}
+			shuttingDownGracefully = true;
+			const signalNumber = (os.constants.signals as Record<string, number>)[shutdownSignal];
+			const exitCode = process.env['RSTUDIO_FORCE_NON_ZERO_EXIT_CODE'] === '1' && typeof signalNumber === 'number'
+				? 128 + signalNumber
+				: 0;
+			console.log(`Received ${shutdownSignal}; shutting down (exit code ${exitCode}).`);
+			try {
+				server.close();
+				_remoteExtensionHostAgentServer?.dispose();
+			} catch (err) {
+				// Keep the shutdown path self-contained. `DisposableStore` rethrows
+				// errors from its children, and without this the throw would escape
+				// into the global `uncaughtException` handler that `ErrorTelemetry`
+				// installs, which reports a clean shutdown as an unexpected server
+				// error. The exit code is unaffected either way.
+				console.error(`Error during graceful shutdown; exiting ${exitCode} anyway.`, err);
+			} finally {
+				setImmediate(() => process.exit(exitCode));
+			}
+		});
+	}
+	// --- End PWB ---
 }
 
 function sanitizeStringArg(val: unknown): string | undefined {
@@ -331,6 +376,12 @@ function installServerProcessExitDiagnostics(): void {
 		try {
 			process.on(signal, () => {
 				log(`received signal '${signal}' — terminating. ${describeState()}`);
+				// --- Start PWB ---
+				if (shuttingDownGracefully) {
+					// The graceful shutdown handler owns the exit; we only log.
+					return;
+				}
+				// --- End PWB ---
 				// Preserve default termination semantics after logging.
 				const signalNumber = (os.constants.signals as Record<string, number>)[signal];
 				process.exit(typeof signalNumber === 'number' ? 128 + signalNumber : 1);

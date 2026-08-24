@@ -554,6 +554,274 @@ suite('Native Python API', () => {
         assert.equal(envs[0].executable.filename, shorterPath);
     });
 
+    test('a de-duplicated env that disappears is not kept alive by its longer equivalent', async () => {
+        // The winning (shortest) path is deleted from disk, so the refresh only
+        // reports the longer equivalent. Refresh bookkeeping tracks which paths
+        // the refresh actually reported, so the stale winner must still be
+        // removed rather than being re-confirmed by its equivalent.
+        const additionalDir = '/opt/python';
+        const shorterPath = '/opt/python/bin/python';
+        const longerPath = '/opt/python/3.11/bin/python';
+        const symlinkTarget = '/opt/python/3.11/bin/python3.11';
+
+        sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([additionalDir]);
+        const toTarget = async (p: string) =>
+            p === shorterPath || p === longerPath || p === symlinkTarget ? symlinkTarget : p;
+        sinon.stub(externalDeps, 'resolveSymbolicLink').callsFake(toTarget);
+        sinon.stub(externalDeps, 'canonicalizePath').callsFake(toTarget);
+
+        function envAt(executable: string): NativeEnvInfo {
+            return {
+                displayName: 'Python 3.11',
+                name: 'python',
+                executable,
+                kind: NativePythonEnvironmentKind.LinuxGlobal,
+                version: '3.11.13',
+                prefix: '/opt/python/3.11',
+            };
+        }
+
+        let shorterExists = true;
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* shorterExists ? [envAt(shorterPath), envAt(longerPath)] : [envAt(longerPath)];
+                }
+                return generator();
+            });
+
+        await api.triggerRefresh();
+        assert.deepEqual(
+            api.getEnvs().map((e) => e.executable.filename),
+            [shorterPath],
+            'the shorter path should win the first refresh',
+        );
+
+        // The shorter path is deleted, so the next refresh only reports the longer one.
+        shorterExists = false;
+        await api.triggerRefresh();
+        assert.notInclude(
+            api.getEnvs().map((e) => e.executable.filename),
+            shorterPath,
+            'the deleted path must not survive because its equivalent was reported',
+        );
+
+        // The surviving path is picked up once the stale winner is gone.
+        await api.triggerRefresh();
+        assert.deepEqual(
+            api.getEnvs().map((e) => e.executable.filename),
+            [longerPath],
+            'the remaining path should be discovered',
+        );
+    });
+
+    suite('equal-length equivalent paths', () => {
+        // Two interpreter paths of the same length that reach the same
+        // interpreter, as on a Workbench image that carries both a versioned
+        // directory and a `default` symlink beside it. `default` and `3.11.13`
+        // are both 7 characters, so neither path is shorter.
+        const additionalDir = '/opt/python';
+        const defaultPath = '/opt/python/default/bin/python';
+        const versionPath = '/opt/python/3.11.13/bin/python';
+        const symlinkTarget = '/opt/python/3.11.13/bin/python3.11';
+
+        function envAt(executable: string): NativeEnvInfo {
+            return {
+                displayName: 'Python 3.11',
+                name: 'python',
+                executable,
+                kind: NativePythonEnvironmentKind.LinuxGlobal,
+                version: '3.11.13',
+                prefix: '/opt/python/3.11.13',
+            };
+        }
+
+        setup(() => {
+            assert.equal(defaultPath.length, versionPath.length, 'test premise: the two paths tie on length');
+            sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([additionalDir]);
+            const toTarget = async (p: string) =>
+                p === defaultPath || p === versionPath || p === symlinkTarget ? symlinkTarget : p;
+            sinon.stub(externalDeps, 'resolveSymbolicLink').callsFake(toTarget);
+            sinon.stub(externalDeps, 'canonicalizePath').callsFake(toTarget);
+        });
+
+        test('a tie keeps one env and picks the same winner regardless of arrival order', async () => {
+            // Whichever path arrives second must not displace the first, or each
+            // arrival fires a path-changing event that forces another resolve,
+            // and the two paths resolve each other forever.
+            async function envsAfterRefreshOrder(order: NativeEnvInfo[]): Promise<string[]> {
+                const finder = typemoq.Mock.ofType<NativePythonFinder>();
+                finder
+                    .setup((f) => f.refresh())
+                    .returns(() => {
+                        async function* generator() {
+                            yield* order;
+                        }
+                        return generator();
+                    });
+                const scoped = nativeAPI.createNativeEnvironmentsApi(finder.object);
+                await scoped.triggerRefresh();
+                return scoped.getEnvs().map((e) => e.executable.filename);
+            }
+
+            const defaultFirst = await envsAfterRefreshOrder([envAt(defaultPath), envAt(versionPath)]);
+            const versionFirst = await envsAfterRefreshOrder([envAt(versionPath), envAt(defaultPath)]);
+
+            assert.equal(defaultFirst.length, 1, 'equivalent envs should collapse to one');
+            assert.equal(versionFirst.length, 1, 'equivalent envs should collapse to one');
+            assert.deepEqual(defaultFirst, versionFirst, 'the winner must not depend on arrival order');
+        });
+
+        test('resolving the losing path returns the surviving env', async () => {
+            // The losing path still names a real interpreter. Returning nothing
+            // leaves it uncacheable (only successes are cached) and unregisterable.
+            mockFinder
+                .setup((f) => f.refresh())
+                .returns(() => {
+                    async function* generator() {
+                        yield* [envAt(versionPath), envAt(defaultPath)];
+                    }
+                    return generator();
+                });
+
+            await api.triggerRefresh();
+            const survivor = api.getEnvs()[0].executable.filename;
+            const loser = survivor === defaultPath ? versionPath : defaultPath;
+
+            let resolveCount = 0;
+            mockFinder
+                .setup((f) => f.resolve(loser))
+                .returns(() => {
+                    resolveCount += 1;
+                    return Promise.resolve(envAt(loser));
+                });
+
+            const resolved = await api.resolveEnv(loser);
+            assert.isDefined(resolved, 'the losing path should resolve to the surviving env');
+            assert.equal(resolved?.executable.filename, survivor);
+
+            // And the result is cached under the losing path, so repeated calls
+            // don't spawn PET again.
+            await api.resolveEnv(loser);
+            assert.equal(resolveCount, 1, 'the losing path should be cached after the first resolve');
+        });
+    });
+
+    suite('three equal-length paths', () => {
+        // Three interpreter paths that all tie on length, where only some of them
+        // are equivalent: `/opt/python` holds two real versioned installs plus
+        // `default`, a symlink to one of them. `3.11.11`, `3.11.13`, `current` and
+        // `default` are all 7 characters, so no path is ever shorter than another
+        // and every comparison between them is a tie.
+        const additionalDir = '/opt/python';
+        const olderPath = '/opt/python/3.11.11/bin/python';
+        const newerPath = '/opt/python/3.11.13/bin/python';
+        const defaultPath = '/opt/python/default/bin/python';
+        const currentPath = '/opt/python/current/bin/python';
+
+        // `default` and `current` both point at the 3.11.13 install; `3.11.11` is
+        // its own interpreter. Directories are resolved as well as executables, so
+        // an alias reached through a symlinked *directory* canonicalizes too.
+        const aliasDirs = ['/opt/python/default', '/opt/python/current'];
+        async function canonicalize(p: string): Promise<string> {
+            let resolved = p;
+            for (const aliasDir of aliasDirs) {
+                if (p === aliasDir || p.startsWith(`${aliasDir}/`)) {
+                    resolved = p.replace(aliasDir, '/opt/python/3.11.13');
+                    break;
+                }
+            }
+            return resolved.endsWith('/bin/python') ? `${resolved}3.11` : resolved;
+        }
+
+        function envAt(executable: string, version = '3.11.13'): NativeEnvInfo {
+            return {
+                displayName: `Python ${version}`,
+                name: 'python',
+                executable,
+                kind: NativePythonEnvironmentKind.LinuxGlobal,
+                version,
+                // PET reports the prefix as the path it walked, alias and all.
+                prefix: path.dirname(path.dirname(executable)),
+            };
+        }
+
+        async function envsAfterRefreshOrder(order: NativeEnvInfo[]): Promise<string[]> {
+            const finder = typemoq.Mock.ofType<NativePythonFinder>();
+            finder
+                .setup((f) => f.refresh())
+                .returns(() => {
+                    async function* generator() {
+                        yield* order;
+                    }
+                    return generator();
+                });
+            const scoped = nativeAPI.createNativeEnvironmentsApi(finder.object);
+            await scoped.triggerRefresh();
+            return scoped
+                .getEnvs()
+                .map((e) => e.executable.filename)
+                .sort();
+        }
+
+        /** Every arrival order of the given envs. */
+        function permutations(envs: NativeEnvInfo[]): NativeEnvInfo[][] {
+            if (envs.length <= 1) {
+                return [envs];
+            }
+            const result: NativeEnvInfo[][] = [];
+            for (let i = 0; i < envs.length; i += 1) {
+                const rest = [...envs.slice(0, i), ...envs.slice(i + 1)];
+                for (const tail of permutations(rest)) {
+                    result.push([envs[i], ...tail]);
+                }
+            }
+            return result;
+        }
+
+        setup(() => {
+            for (const p of [olderPath, newerPath, defaultPath, currentPath]) {
+                assert.equal(p.length, newerPath.length, 'test premise: all four paths tie on length');
+            }
+            sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([additionalDir]);
+            sinon.stub(externalDeps, 'resolveSymbolicLink').callsFake(canonicalize);
+            sinon.stub(externalDeps, 'canonicalizePath').callsFake(canonicalize);
+        });
+
+        test('a distinct interpreter is not dropped by a tie between two others', async () => {
+            // Issue reported on PR #15635: with `3.11.11`, `3.11.13` and a
+            // same-length `default` symlinked to `3.11.13`, only the alias may be
+            // de-duplicated. `3.11.11` ties on length but is a different
+            // interpreter, so it must survive in every arrival order.
+            const envs = [envAt(olderPath, '3.11.11'), envAt(newerPath), envAt(defaultPath)];
+            for (const order of permutations(envs)) {
+                const filenames = await envsAfterRefreshOrder(order);
+                assert.deepEqual(
+                    filenames,
+                    [olderPath, newerPath],
+                    `both interpreters should survive, order: ${order.map((e) => e.executable).join(', ')}`,
+                );
+            }
+        });
+
+        test('a three-way tie collapses to one env regardless of arrival order', async () => {
+            // All three paths reach the same interpreter and all three tie on
+            // length, so the winner comes from the lexicographic tiebreak alone.
+            // An order-dependent winner would let the paths displace each other
+            // indefinitely.
+            const envs = [envAt(newerPath), envAt(defaultPath), envAt(currentPath)];
+            for (const order of permutations(envs)) {
+                const filenames = await envsAfterRefreshOrder(order);
+                assert.deepEqual(
+                    filenames,
+                    [newerPath],
+                    `the tie should resolve to one winner, order: ${order.map((e) => e.executable).join(', ')}`,
+                );
+            }
+        });
+    });
+
     test('Issue #14489: a uv interpreter reached through a symlinked version directory is de-duplicated', async () => {
         // uv installs a real `cpython-3.14.6-*` directory alongside a
         // `cpython-3.14-*` symlink pointing at it. The ~/.local/bin shim reaches
@@ -878,6 +1146,61 @@ suite('Native Python API', () => {
             assert.equal(first?.executable.filename, pythonPath);
             assert.equal(second?.executable.filename, pythonPath);
             assert.equal(resolveCount, 1, 'concurrent calls should share a single finder.resolve');
+        });
+
+        test('caches under the requested path when PET reports a different one', async () => {
+            // PET reports its own canonical path, not the alias that was asked
+            // about. Caching only under the reported path leaves the alias
+            // missing the cache forever, so every call spawns PET again.
+            const aliasPath = '/usr/bin/python3';
+            let resolveCount = 0;
+            mockFinder
+                .setup((f) => f.resolve(aliasPath))
+                .returns(() => {
+                    resolveCount += 1;
+                    return Promise.resolve(basicEnv);
+                });
+
+            const first = await api.resolveEnv(aliasPath);
+            assert.equal(first?.executable.filename, pythonPath, 'should report the path PET returned');
+
+            const second = await api.resolveEnv(aliasPath);
+            assert.equal(second?.executable.filename, pythonPath);
+            assert.equal(resolveCount, 1, 'second call for the alias should hit the cache');
+        });
+
+        test('removeEnv invalidates entries cached under an alias path', async () => {
+            const aliasPath = '/usr/bin/python3';
+            let resolveCount = 0;
+            let yieldEnv = true;
+            mockFinder
+                .setup((f) => f.resolve(aliasPath))
+                .returns(() => {
+                    resolveCount += 1;
+                    return Promise.resolve(basicEnv);
+                });
+            mockFinder
+                .setup((f) => f.refresh())
+                .returns(() => {
+                    async function* generator() {
+                        if (yieldEnv) {
+                            yield* [basicEnv];
+                        }
+                    }
+                    return generator();
+                });
+
+            await api.resolveEnv(aliasPath);
+            assert.equal(resolveCount, 1);
+
+            // The env disappears, so removeEnv must drop the alias entry too,
+            // not just the one keyed by the reported path.
+            yieldEnv = false;
+            await api.triggerRefresh();
+            assert.equal(api.getEnvs().length, 0);
+
+            await api.resolveEnv(aliasPath);
+            assert.equal(resolveCount, 2, 'alias cache entry should be cleared by removeEnv');
         });
     });
     // --- End Positron ---
