@@ -440,9 +440,29 @@ export class SqliteTableView {
 	 *
 	 * The tiebreaker matters just as much with no sort keys as with them. Sort keys alone leave tied
 	 * rows free to come back in a different order on each statement, and with no sort keys at all
-	 * every row is tied. Ordering by the row order is free for the relations that reach here: it is
-	 * SQLite's storage order for an ordinary table, the clustered primary key for a WITHOUT ROWID
-	 * table, and the insertion order of a snapshot.
+	 * every row is tied. Unlike DuckDB, SQLite promises no order of its own to fall back on: rows
+	 * arrive in whatever order the chosen plan yields, and that plan can change between two page
+	 * fetches. So the clause is stated unconditionally, rather than only once the user has sorted.
+	 *
+	 * What that costs depends on the plan it displaces.
+	 *
+	 * - Unfiltered, it is free. `rowid` is SQLite's storage order, so the plan is `SCAN t` either
+	 *   way. The same holds for the clustered primary key of a WITHOUT ROWID table and for the
+	 *   insertion order of a snapshot.
+	 * - Sorting on an indexed column, it is free. A SQLite index is ordered by its columns and then
+	 *   by rowid, so appending the tiebreaker asks for an order the index already has:
+	 *   `ORDER BY a, rowid` keeps `SEARCH t USING INDEX ia (a<?)`.
+	 * - Filtering with no sort is where it is not free. An index serving `WHERE a < ?` returns rows
+	 *   in `a` order, which the tiebreaker overrides, so the planner abandons the index and
+	 *   `SEARCH t USING INDEX ia (a<?)` becomes `SCAN t`. Measured on a 2M-row table with 1,000
+	 *   matching rows, a 40-page sweep went from 0.9 ms to 415 ms of CPU with those rows spread
+	 *   through the table. Clustered at its front, where a scan meets them immediately and LIMIT
+	 *   stops early, the same sweep stayed at 0.5 ms -- the cost tracks how far the scan has to go,
+	 *   not the filter itself.
+	 *
+	 * That last case is paid deliberately. A filtered page fetch is the one most exposed to a plan
+	 * change -- an index appearing or ANALYZE running mid-sweep is what flips it -- so dropping the
+	 * tiebreaker there would remove the guarantee exactly where it is doing the most work.
 	 *
 	 * @param includeTiebreaker False only for generated code, which should show the user their own
 	 * sort rather than an internal ordering column.

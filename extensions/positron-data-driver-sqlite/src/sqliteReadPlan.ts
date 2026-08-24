@@ -42,11 +42,13 @@ export interface ISqliteReadPlan {
 /**
  * Chooses how to read a table or view so that paging it is stable.
  *
- * An ordinary table is read in place and ordered by its rowid. That is SQLite's own storage order,
- * so the guarantee is free: the query plan is identical with and without the clause. A WITHOUT ROWID
- * table has no rowid column at all -- ordering by it fails with "no such column: rowid" -- but its
- * primary key is a clustered index whose columns SQLite implicitly marks NOT NULL, so it is both a
- * genuine total order and equally free to sort by.
+ * An ordinary table is read in place and ordered by its rowid, which is SQLite's own storage order,
+ * so an unfiltered page fetch plans identically with and without the clause. A WITHOUT ROWID table
+ * has no rowid column at all -- ordering by it fails with "no such column: rowid" -- but its primary
+ * key is a clustered index whose columns SQLite implicitly marks NOT NULL, so it is a genuine total
+ * order and plans the same way. Once a row filter is in play the clause can cost a plan rather than
+ * come free; `_buildSortClause` in `sqliteTableView.ts` measures where and says why it is still
+ * stated.
  *
  * Anything else is read through a snapshot: a view has no row identity, and neither does a table
  * whose identity cannot be established.
