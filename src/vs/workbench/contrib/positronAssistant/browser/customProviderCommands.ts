@@ -4,48 +4,34 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Creating a custom provider is one operation the authentication extension has
- * to do as a whole: write the `providers.custom` entry, route it through the
- * shared authentication provider, and store the key under the entry name. The
- * modal can't do any of that itself, and the usual `onAction` dispatch is keyed
- * on an already registered provider id, which a new entry doesn't have yet, so
- * the create goes through a command instead.
- *
- * The extension registers the handler and owns the checks that matter (name
- * collisions with built-in provider ids and reserved keys, and the same key
- * check the matching built-in provider runs). It throws on refusal, and the
- * message is what the form shows.
+ * Creates a `providers.custom` entry, routes it through the shared
+ * authentication provider, and stores its key: one operation, all of it the
+ * authentication extension's. A command rather than the usual `onAction`
+ * dispatch, which is keyed on a provider id a new entry doesn't have yet. The
+ * extension owns the checks and throws on refusal, with the message the form
+ * shows.
  */
 export const ADD_CUSTOM_PROVIDER_COMMAND = 'authentication.addCustomProvider';
 
 /**
- * The argument to {@link ADD_CUSTOM_PROVIDER_COMMAND}. The name is the entry
- * key in providers.json, the provider id, and the display name all at once,
- * which is why it can't be changed afterwards. It is also the scope the
- * credential is filed under; see {@link POSITRON_CUSTOM_AUTH_PROVIDER_ID}.
+ * The argument to {@link ADD_CUSTOM_PROVIDER_COMMAND}. The name is the entry key
+ * in providers.json, the provider id, the display name, and the scope the
+ * credential is filed under, which is why it can't be changed afterwards.
  */
 export interface IAddCustomProviderRequest {
 	readonly name: string;
 	readonly kind: string;
 	/** Where to call. Written as `baseUrl` on the entry. */
 	readonly baseUrl?: string;
-	/** The key the user typed, stored under the entry name. */
 	readonly apiKey?: string;
-	/**
-	 * Model ids the user declared, for an endpoint with no `/models` listing.
-	 * The extension fills in the capability fields, since it owns the schema.
-	 */
+	/** Model ids for an endpoint with no `/models` listing. */
 	readonly modelIds?: readonly string[];
 }
 
 /**
- * Deleting a custom provider is the create in reverse, and just as much one
- * operation: clear the credential, remove the `providers.custom` entry, and let
- * the reconcile that follows unregister it. The usual `onAction` dispatch can't
- * carry it either, since it is keyed on a provider id this removes.
- *
- * The extension refuses an entry Positron didn't author and throws; the message
- * is what the confirmation screen shows.
+ * The create in reverse: clear the credential, remove the entry, and let the
+ * reconcile that follows unregister it. A command for the same reason the add
+ * is, and it throws with the message the confirmation screen shows.
  */
 export const REMOVE_CUSTOM_PROVIDER_COMMAND = 'authentication.removeCustomProvider';
 
@@ -56,20 +42,15 @@ export interface IRemoveCustomProviderRequest {
 
 /**
  * The one authentication provider every `providers.custom` entry is served
- * under, with the entry name as the scope. The extension's half of this is
- * `POSITRON_CUSTOM_AUTH_PROVIDER_ID` in `authentication/src/constants.ts`.
- *
- * A session change on it does not say which entry moved, so a listener has to
- * ask per entry, by scope. An unscoped read returns every entry's sessions at
- * once.
+ * under, with the entry name as the scope. A session change on it doesn't say
+ * which entry moved, so a listener has to ask per entry, by scope.
  */
 export const POSITRON_CUSTOM_AUTH_PROVIDER_ID = 'positron-custom-provider';
 
 /**
- * Set by Posit Assistant at activation on any build that serves models for
- * `providers.custom` entries. Until that build is installed a named entry is
- * configurable but invisible in chat, so the Add affordance waits for the key.
- * A capability key rather than a version check: the assistant auto-updates on
- * its own cadence, so a version comparison goes stale.
+ * Set by Posit Assistant on any build that serves models for `providers.custom`
+ * entries. Until then an entry is configurable but invisible in chat, so the Add
+ * affordance waits for the key. A capability key rather than a version check,
+ * since the assistant auto-updates on its own cadence.
  */
 export const SUPPORTS_CUSTOM_PROVIDERS_KEY = 'posit-assistant.supportsCustomProviders';

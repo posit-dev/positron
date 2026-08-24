@@ -16,10 +16,9 @@ import { log } from './log';
 export interface ResolvedProviderLike {
 	readonly id: string;
 	/**
-	 * Which client the provider instantiates. Built-ins get theirs from
-	 * ai-config's registry, custom entries from their authored `type`. Carried
-	 * here so a custom entry can be presented by its kind without re-reading
-	 * the file.
+	 * Which client the provider instantiates: a built-in's comes from ai-config's
+	 * registry, a custom entry's from its authored `type`. Carried here so an
+	 * entry can be presented by its kind without re-reading the file.
 	 */
 	readonly clientKind: ClientKind;
 	readonly enabled: boolean;
@@ -91,9 +90,8 @@ function applyCatalog(next: readonly ResolvedProvider[]): void {
 			disabledIds.push(id);
 		}
 	}
-	// A removed provider changes nothing about the ones that remain, so it needs
-	// its own reason to fire: listeners reconcile against the catalog and would
-	// otherwise keep a deleted custom entry registered.
+	// A removal changes nothing about the providers that remain, so it needs its
+	// own reason to fire, or listeners keep a deleted entry registered.
 	const removed = [...previous.keys()].some(id => !nextMap.has(id));
 
 	cache = nextMap;
@@ -349,14 +347,11 @@ export function getCachedCustomProviders(): ResolvedProviderLike[] {
 }
 
 /**
- * Reads one custom entry exactly as authored in the user's providers.json,
- * with no enforced, default, or environment overlays applied.
- *
- * Edits read through here rather than through the resolved catalog: editing
- * against the merged view would bake an admin's enforced base URL into the
- * user's own file, and it would stop tracking policy from then on. Undefined
- * means the entry has no user-layer record, so it's either absent or
- * externally managed.
+ * Reads one custom entry as authored in the user's providers.json, with no
+ * enforced, default, or environment overlay. Edits read through here, not the
+ * resolved catalog, or they would bake an admin's enforced base URL into the
+ * user's file and stop tracking policy. Undefined means no user-layer record:
+ * the entry is either absent or externally managed.
  */
 export async function readCustomProviderEntry(
 	name: string,
@@ -375,9 +370,9 @@ export interface NewCustomProviderConnection {
 }
 
 /**
- * Capability defaults for a model the user declared by id alone. Mirrors the
- * bridge's OpenAI-compatible defaults, and lives here because the writer owns
- * the schema: the form asks for an id and nothing else.
+ * Capability defaults for a model the user declared by id alone, mirroring the
+ * bridge's OpenAI-compatible defaults. Here because the writer owns the schema;
+ * the form asks for an id and nothing else.
  */
 const DECLARED_MODEL_DEFAULTS = {
 	maxContextLength: 128_000,
@@ -391,20 +386,14 @@ const DECLARED_MODEL_DEFAULTS = {
  * Creates `providers.custom.<name>` under the config lock, then refreshes the
  * cache so the entry's provider registers.
  *
- * The name is the entry key, the provider id, the display name, and the scope
- * its credential is filed under, all at once, so it has to clear ai-config's
- * naming rules before anything is written: `mintCustomProviderId` rejects a built-in provider id, a
- * reserved key, and the unsafe object key `__proto__`. It's called for its
- * throw, not its value, and the check happens inside the lock so a name can't
- * be taken between the check and the write.
+ * `mintCustomProviderId` is called for its throw, not its value: it rejects a
+ * built-in provider id, a reserved key, and `__proto__`. Inside the lock, so a
+ * name can't be taken between the check and the write.
  *
- * `enabled: true` is written explicitly rather than left to the baseline: a
- * provider the user just added should be on even under a `providers.default`
- * block that turns everything else off.
- *
- * Throws when the name is already taken, rather than merging into whatever is
- * there. Two entries of the same name are the same entry, and a silent merge
- * would attach the new key to someone else's endpoint.
+ * `enabled: true` is explicit so a just-added provider is on even under a
+ * `providers.default` block that turns everything else off. A name already taken
+ * throws rather than merging, which would attach the new key to someone else's
+ * endpoint.
  */
 export async function createCustomProviderEntry(
 	name: string,
@@ -429,9 +418,8 @@ export async function createCustomProviderEntry(
 				type: kind,
 				enabled: true,
 				...(connection.baseUrl ? { baseUrl: connection.baseUrl } : {}),
-				// Declared ids replace discovery: an endpoint with no listing
-				// has nothing to discover, and a listing that does exist would
-				// otherwise be merged with the shorter hand-written one.
+				// Declared ids replace discovery, rather than being merged with a
+				// listing the endpoint may also publish.
 				...(declared.length > 0 ? { models: { discovery: 'off' as const, custom: declared } } : {}),
 			} satisfies CustomProviderEntry;
 			return {
@@ -446,13 +434,11 @@ export async function createCustomProviderEntry(
 
 /**
  * Removes `providers.custom.<name>` under the config lock, then refreshes the
- * cache so the entry's provider unregisters. Drops the whole `custom` block
- * when the last entry goes.
+ * cache so the entry's provider unregisters. Drops the whole `custom` block with
+ * the last entry, and throws when there is no user-layer record to remove.
  *
- * Throws when the entry has no user-layer record: it is either absent or
- * externally managed, which the caller tells apart against the resolved
- * catalog. Clearing the credential is the Delete action's job, not this one's,
- * so a stray file edit reaching here can't wipe a key.
+ * Clearing the credential is the Delete action's job, so a stray file edit
+ * reaching here can't wipe a key.
  */
 export async function deleteCustomProviderEntry(
 	name: string,
@@ -481,21 +467,18 @@ export async function deleteCustomProviderEntry(
 }
 
 /**
- * Writes the entry's URL onto an existing `providers.custom.<name>` entry under
- * the config lock, then refreshes the cache. Everything else the user authored
- * (`customHeaders`, `protocol`, `endpoints`, `models`, `enabled`) is left
- * alone. `type` is not writable here: changing the client kind re-keys the
- * credential and any saved model default with it, so that stays
- * delete-and-re-add.
+ * Writes the URL onto an existing `providers.custom.<name>` entry under the
+ * config lock, then refreshes the cache, leaving everything else the user
+ * authored alone. `type` is not writable: changing the kind re-keys the
+ * credential with it, so that stays delete-and-re-add.
  *
- * Writes `baseUrl`, which is the key every offered kind is read from. The local
- * kinds are read from `endpoint` instead, so this grows a field argument when
- * they are offered (#12747); writing the wrong key looks saved and changes
- * nothing.
+ * Writes `baseUrl`, the key every offered kind is read from. The local kinds are
+ * read from `endpoint`, so this grows a field argument when they are offered
+ * (#12747); writing the wrong key looks saved and changes nothing.
  *
- * Throws when the entry has no user-layer record, which is the
- * externally-managed case: its connection comes from a default or enforced
- * layer, and copying it into the user's file would detach it from policy.
+ * Throws when there is no user-layer record, the externally-managed case:
+ * copying an enforced connection into the user's file would detach it from
+ * policy.
  */
 export async function saveCustomProviderUrl(
 	name: string,

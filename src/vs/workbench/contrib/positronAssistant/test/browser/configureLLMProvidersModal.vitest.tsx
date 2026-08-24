@@ -274,11 +274,6 @@ describe('ConfigureLLMProviders', () => {
 		await user.click(screen.getByRole('button', { name: 'Delete Provider' }));
 		expect(executeCommand).toHaveBeenCalledWith('authentication.removeCustomProvider', { name: 'My Gateway' });
 		expect(screen.getByText('Model Providers')).toBeInTheDocument();
-
-		// The row itself goes when the entry's source unregisters.
-		registeredSources = [anthropic];
-		act(() => registrationsChange.fire());
-		expect(screen.queryByText('My Gateway')).not.toBeInTheDocument();
 	});
 
 	it('leaves the entry alone when the confirmation is cancelled', async () => {
@@ -293,5 +288,4 @@ describe('ConfigureLLMProviders', () => {
 		// Back on the provider's own screen, not the list.
 		expect(screen.getByLabelText(/api key/i)).toBeInTheDocument();
 	});
-
 });

@@ -20,15 +20,12 @@ import { ISessionSyncTarget, syncAuthSessions } from './languageModelSessionSync
  *
  * Callbacks are read through refs so a re-render does not resubscribe.
  *
- * @param targets Providers to track. A custom entry has to be marked
- * `custom`, since its sessions live under the shared custom-provider
- * authentication provider rather than one of its own.
+ * @param targets Providers to track. A custom entry has to be marked `custom`;
+ * see {@link ISessionSyncTarget}.
  * @param onConfigChange Called with the updated source on a config change.
  * @param onSignedInChange Called with (providerId, signedIn) on a session change.
- * @param onRegistrationsChange Called when the set of providers to show
- * changes: one is registered or unregistered, or the catalog's enablement
- * moves. Unfiltered, because a provider that has just appeared is by
- * definition not in `targets` yet.
+ * @param onRegistrationsChange Called when the set of providers to show changes.
+ * Unfiltered, because a provider that has just appeared is not in `targets` yet.
  */
 export function useProviderUpdates(
 	targets: readonly ISessionSyncTarget[],
@@ -46,9 +43,8 @@ export function useProviderUpdates(
 	onRegistrationsChangeRef.current = onRegistrationsChange;
 
 	// Serialize to a stable primitive so the effect only resubscribes when the
-	// tracked set actually changes, not on every render. JSON rather than a
-	// delimiter join: nothing restricts the characters in a custom provider's
-	// name, so a provider named `Acme, Inc.` used to split into two bogus ids.
+	// tracked set changes. JSON rather than a delimiter join: nothing restricts
+	// the characters in an entry name, and `Acme, Inc.` split into two bogus ids.
 	const targetsKey = JSON.stringify(targets);
 
 	useEffect(() => {
@@ -68,11 +64,9 @@ export function useProviderUpdates(
 		disposables.push(configService.onChangeProviderRegistrations(() => {
 			onRegistrationsChangeRef.current?.();
 		}));
-		// A source is shown only when the catalog says its provider is enabled,
-		// and the workbench reads that catalog itself, on its own file watch.
-		// For a provider that has just been added, registration arrives first
-		// and the enablement that makes it visible lands after, so without this
-		// the new row waits for the next time the modal is opened.
+		// A source shows only when the catalog says its provider is enabled, and
+		// the workbench reads that on its own file watch: registration lands
+		// first, enablement after, so the new row would wait for a reopen.
 		disposables.push(configService.onChangeEnabledProviders(() => {
 			onRegistrationsChangeRef.current?.();
 		}));

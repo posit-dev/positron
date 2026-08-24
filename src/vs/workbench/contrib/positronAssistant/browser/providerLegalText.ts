@@ -21,12 +21,11 @@ export function linkFragment(label: string, href: string | undefined): string {
 }
 
 /**
- * Whether the legal text should talk about an endpoint the user configured
- * rather than about a vendor: a `providers.custom` entry, or the built-in
- * OpenAI-compatible tile, which is the same thing by another name. A custom
- * entry's display name is whatever the user typed, so naming it as the party
- * behind the terms ("your use of my anthropic") is both odd and wrong; the
- * vendor its type borrows from isn't necessarily who operates the endpoint.
+ * Whether the legal text should talk about an endpoint the user configured rather
+ * than a vendor: a `providers.custom` entry, or the built-in OpenAI-compatible
+ * tile. A custom entry's display name is whatever the user typed, so naming it
+ * as the party behind the terms ("your use of my anthropic") is wrong, and the
+ * vendor its type borrows from needn't be who operates the endpoint.
  */
 function isCustomProvider(provider: IProvider): boolean {
 	return provider.id === 'openai-compatible' || provider.customKind !== undefined;

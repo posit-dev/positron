@@ -33,8 +33,8 @@ function sectionFor(source: IPositronLanguageModelSource): ProviderSectionId {
 	if (source.signedIn) {
 		return 'connected';
 	}
-	// An entry the user created is not something Positron offers, so it gets its
-	// own section rather than sitting in the built-in catalogue while signed out.
+	// Not something Positron offers, so it gets its own section rather than
+	// sitting in the built-in catalogue while signed out.
 	if (source.provider.customKind) {
 		return 'custom';
 	}

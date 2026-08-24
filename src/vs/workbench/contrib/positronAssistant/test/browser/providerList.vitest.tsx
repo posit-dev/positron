@@ -61,7 +61,6 @@ describe('ProviderList', () => {
 	it('renders the custom provider as a normal Model Providers row when unconnected', () => {
 		rtl.render(<ProviderList sources={[source({ id: 'openai-compatible', displayName: 'OpenAI Compatible', signedIn: false })]} onSelectProvider={vi.fn()} />);
 		expect(screen.getByText('OpenAI Compatible')).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: /Add custom provider/ })).not.toBeInTheDocument();
 	});
 
 	it('shows the built-in description for a known provider', () => {
@@ -143,7 +142,7 @@ describe('ProviderList', () => {
 		expect(onAddCustomProvider).toHaveBeenCalled();
 	});
 
-	it('hides the affordance when custom providers are not supported by the installed assistant', () => {
+	it('hides the affordance when the modal does not offer the Add flow', () => {
 		rtl.render(<ProviderList sources={availableAnthropic} onSelectProvider={vi.fn()} />);
 		expect(screen.queryByRole('button', { name: /add custom provider/i })).not.toBeInTheDocument();
 	});

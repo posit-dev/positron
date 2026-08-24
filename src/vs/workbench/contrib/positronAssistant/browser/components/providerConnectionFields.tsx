@@ -22,21 +22,16 @@ export interface ProviderConnectionFieldsProps {
 	baseUrl: string;
 	onApiKeyChange: (value: string) => void;
 	onBaseUrlChange: (value: string) => void;
-	/**
-	 * Distinguishes the input ids when a form embeds these fields alongside its
-	 * own, so every label still points at exactly one input.
-	 */
+	/** Keeps the input ids unique when a form embeds these alongside its own. */
 	idPrefix?: string;
 	/** Rendered inside the field group, after the base URL. */
 	children?: ReactNode;
 }
 
 /**
- * A provider's API key and base URL inputs.
- *
- * Shared so the Add Custom Provider form shows the very same inputs as the
- * built-in provider it borrows from: picking type "Anthropic" gives you
- * Anthropic's fields, not a parallel set that has to be kept in step by hand.
+ * A provider's API key and base URL inputs. Shared so the Add Custom Provider
+ * form shows the same inputs as the built-in it borrows from, rather than a
+ * parallel set to keep in step by hand.
  */
 export const ProviderConnectionFields = (props: ProviderConnectionFieldsProps) => {
 	const prefix = props.idPrefix ?? 'connect-provider';

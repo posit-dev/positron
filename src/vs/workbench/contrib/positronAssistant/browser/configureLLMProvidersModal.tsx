@@ -77,10 +77,8 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	// single subscription can never miss an update, and the child views can stay
 	// presentational and unmount freely. Sources are shallow-cloned on change
 	// because updateProvider mutates the registered source in place.
-	//
-	// The set is not fixed at open time either: a custom provider added to
-	// providers.json registers a source, and deleting one unregisters it, both
-	// of which can happen with the modal open.
+	// The set is not fixed at open time either: adding a custom provider to
+	// providers.json registers a source, and deleting one unregisters it.
 	const [sources, setSources] = useState<IPositronLanguageModelSource[]>(props.sources);
 
 	// Route view changes driven by live sign-in state for the selected provider:
@@ -99,9 +97,8 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 
 	useProviderUpdates(
 		// Tracked providers follow the live list, so one that appears while the
-		// modal is open gets its updates subscribed too. A custom entry is
-		// marked as such: its sessions come from the shared custom-provider
-		// authentication provider, under the entry name as a scope.
+		// modal is open is subscribed too. A custom entry is marked as such: its
+		// sessions come from the shared provider, under the entry name as a scope.
 		sources.map(s => ({ id: s.provider.id, custom: !!s.provider.customKind })),
 		newSource => {
 			setSources(prev => prev.map(s => s.provider.id === newSource.provider.id ? { ...newSource } : s));
@@ -127,21 +124,16 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	const activeView = needsSource && !selectedSource ? 'list' : view;
 
 	// A custom entry is configurable here but invisible in chat until the
-	// installed Posit Assistant serves models for one, so the Add flow waits for
-	// the capability key rather than a version check.
+	// installed Posit Assistant serves models for one.
 	const supportsCustomProviders = useContextKeyFromString<boolean>(SUPPORTS_CUSTOM_PROVIDERS_KEY) === true;
 
-	// The write is the extension's: it creates the providers.json entry, routes
-	// it through the shared custom-provider authentication provider, and stores
-	// the key under the entry name. The new provider's row arrives on its own,
-	// through the catalog change that registers its source.
+	// The write is the extension's; the new row arrives on its own, through the
+	// catalog change that registers its source.
 	const createCustomProvider = async (request: IAddCustomProviderRequest) => {
 		await services.commandService.executeCommand(ADD_CUSTOM_PROVIDER_COMMAND, request);
 	};
 
-	// The delete is the extension's too: it clears the credential the entry name
-	// keys, removes the entry, and unregisters it. Its row disappears through the
-	// same catalog change the add arrives on.
+	// The delete is the extension's too, and the row disappears the same way.
 	const deleteCustomProvider = async (name: string) => {
 		const request: IRemoveCustomProviderRequest = { name };
 		await services.commandService.executeCommand(REMOVE_CUSTOM_PROVIDER_COMMAND, request);

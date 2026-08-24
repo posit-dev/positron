@@ -15,8 +15,7 @@ interface ProviderListProps {
 	onSelectProvider: (source: IPositronLanguageModelSource) => void;
 	/**
 	 * Starts the Add Custom Provider flow. Omitted when the installed Posit
-	 * Assistant can't serve models for a custom entry yet, in which case adding
-	 * one would produce a provider with nothing behind it.
+	 * Assistant can't serve models for a custom entry yet.
 	 */
 	onAddCustomProvider?: () => void;
 }
@@ -42,10 +41,9 @@ const PROVIDER_DESCRIPTIONS: Record<string, string> = {
 };
 
 /**
- * The one-line description for a row. A custom entry describes its type ("Custom
- * Anthropic provider") so two entries of different types are told apart; a
- * built-in gets its blurb from the map above. A hand-authored entry of a kind
- * Positron doesn't offer has nothing useful to say, so it gets no line.
+ * The one-line description for a row: a built-in's blurb from the map above, or
+ * a custom entry's type, so two entries of different types are told apart. A
+ * kind Positron doesn't offer has nothing useful to say, so it gets no line.
  */
 function descriptionFor(source: IPositronLanguageModelSource): string | undefined {
 	const kind = source.provider.customKind;
@@ -89,12 +87,9 @@ export const ProviderList = (props: ProviderListProps) => {
 					))}
 				</div>
 			))}
-			{/* A custom provider is something you create rather than something on
-			offer, so its entry point sits below the sections in the scrollable list
-			rather than among the rows. The footer stays for Back and Close. Once
-			created, the provider appears as its own row: under Connected Providers
-			while it has a working credential, and under Custom Providers, right
-			above this button, when it does not. */}
+			{/* Something you create rather than something on offer, so it sits
+			below the sections in the scrollable list rather than among the rows,
+			directly under the Custom Providers section its entries land in. */}
 			{props.onAddCustomProvider &&
 				<button
 					className='provider-list-add-custom'

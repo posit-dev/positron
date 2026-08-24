@@ -15,9 +15,9 @@ import { POSITRON_CUSTOM_AUTH_PROVIDER_ID } from './customProviderCommands.js';
 export type SessionSyncCallback = (providerId: string, signedIn: boolean) => void;
 
 /**
- * A provider to follow. Custom entries have to be marked as such: their
- * sessions live under one shared authentication provider, keyed by the entry
- * name as a scope, rather than under a provider of their own.
+ * A provider to follow. A custom entry has to be marked as such: its sessions
+ * live under one shared authentication provider, keyed by the entry name as a
+ * scope, rather than under a provider of its own.
  */
 export interface ISessionSyncTarget {
 	readonly id: string;
@@ -42,12 +42,9 @@ export function syncAuthSessions(
 	return authService.onDidChangeSessions(async (e) => {
 		if (e.providerId === POSITRON_CUSTOM_AUTH_PROVIDER_ID) {
 			// One provider serves every custom entry, so the event cannot say
-			// which entry moved: ask each tracked entry for its own scope.
-			//
-			// By scope rather than by matching the event's account label back to
-			// an entry. The label is the entry name today, so that would work,
-			// but it makes a display string load-bearing for identity: the
-			// moment a label and an id diverge it flips the wrong row, silently.
+			// which entry moved: ask each tracked entry for its own scope. By
+			// scope, not by matching the event's account label, which would make
+			// a display string load-bearing for identity.
 			for (const target of targets) {
 				if (!target.custom) {
 					continue;

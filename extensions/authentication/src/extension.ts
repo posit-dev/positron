@@ -204,10 +204,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.authentication.onDidChangeSessions(async (e) => {
 			if (e.provider.id === POSITRON_CUSTOM_AUTH_PROVIDER_ID) {
-				// One auth provider serves every custom entry, so the event
-				// doesn't say which entry moved, and nothing in `authProviders`
-				// answers to its id. Refresh each registered entry from its own
-				// delegate, which is still keyed by the entry name.
+				// The event doesn't say which entry moved, and nothing in
+				// `authProviders` answers to the shared id. Refresh each entry
+				// from its own delegate, still keyed by the entry name.
 				for (const id of customProviders.registeredIds) {
 					const entry = authProviders.get(id);
 					if (entry) {
@@ -278,10 +277,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		),
 	);
 
-	// The Add Custom Provider form's write. It has to happen here rather than
-	// through the modal's usual provider action, which is keyed on an already
-	// registered provider id: a new entry has none until this creates it.
-	// Errors travel back to the form, which shows them inline.
+	// The Add Custom Provider form's write. Here rather than through the modal's
+	// usual provider action, which is keyed on a provider id a new entry doesn't
+	// have yet. Errors travel back to the form, which shows them inline.
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'authentication.addCustomProvider',
@@ -293,9 +291,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		),
 	);
-	// The Delete Provider action's write. Same reason as the add above: the
-	// modal's provider action is keyed on a provider id, and this one
-	// unregisters it. Errors travel back to the confirmation screen.
+	// The Delete Provider action's write, for the same reason as the add above.
+	// Errors travel back to the confirmation screen.
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'authentication.removeCustomProvider',

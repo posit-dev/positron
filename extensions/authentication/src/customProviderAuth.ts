@@ -27,19 +27,12 @@ import {
 } from './validation';
 
 /**
- * Which credential a custom entry's client kind needs. This is a property of
- * the client, not of Positron: Posit Assistant derives the same value for the
- * same entry when it decides which auth provider to read a credential from, so
- * the two products must agree.
+ * Which credential a kind needs. A property of the client, not of Positron: Posit
+ * Assistant derives the same value, so the two products must agree.
  */
 export type CustomAuthMethod = 'apikey' | 'aws-credentials' | 'google-cloud' | 'local';
 
-/**
- * What a kind needs to authenticate. Mirrors ai-credentials' `CustomAuthMapping`
- * field for field, `apiKeyOptional` included: a gateway with auth switched off
- * works with no key at all, and a form that treats it like Anthropic would
- * refuse a setup Posit Assistant accepts.
- */
+/** Mirrors ai-credentials' `CustomAuthMapping` field for field. */
 export interface CustomAuthDescriptor {
 	readonly authMethod: CustomAuthMethod;
 	/** Whether the entry works with no key at all. */
@@ -47,16 +40,11 @@ export interface CustomAuthDescriptor {
 }
 
 /**
- * Local copy of ai-credentials' `CUSTOM_CLIENT_KIND_AUTH_DESCRIPTORS`, which is
- * the authority. It can't be imported: `ai-credentials` publishes only an
- * `import` condition and isn't a dependency of this extension, so the values
- * are duplicated until ai-config re-exports them next to
- * `SUPPORTED_CUSTOM_CLIENT_KIND_VALUES` (posit-dev/ai-lib issue pending).
- *
- * Exhaustive over the supported kinds, so a kind added in ai-config fails to
- * compile here until it is given a credential story. Being in this table says
- * what the kind needs, not that Positron offers it: {@link OFFERED_KINDS} is
- * the shorter list Positron presents today.
+ * Local copy of ai-credentials' `CUSTOM_CLIENT_KIND_AUTH_DESCRIPTORS`, the
+ * authority, which can't be imported: it publishes only an `import` condition and
+ * isn't a dependency here (posit-dev/ai-lib issue pending). Exhaustive, so a kind
+ * added in ai-config fails to compile until it has a credential story; that isn't
+ * the same as Positron offering it, which {@link OFFERED_KINDS} decides.
  */
 const CUSTOM_KIND_AUTH_DESCRIPTORS = {
 	'openai-compatible': { authMethod: 'apikey', apiKeyOptional: true },
@@ -76,41 +64,25 @@ const CUSTOM_KIND_AUTH_DESCRIPTORS = {
 } as const satisfies Record<SupportedCustomClientKind, CustomAuthDescriptor>;
 
 /**
- * The kinds Positron offers as custom entries today: the three that need
- * nothing but an API key and a base URL, and whose built-in counterparts
- * already have a form and a key check to reuse.
- *
- * The rest are deliberately left out for now. Each one needs connection fields
- * Positron can't collect yet (an AWS profile, a Snowflake home, a GCP project
- * and location), and without them an entry either can't reach an account of its
- * own or silently resolves the same ambient credential as its built-in. They
- * come back with the Add and Edit UI, which can ask for those fields (#12747).
- *
- * Until then this list is shorter than the set Posit Assistant registers on, so
- * an entry of another kind still works there and can still be hand-written; it
- * just doesn't appear in Positron's provider list.
+ * The kinds Positron offers today: the three that need nothing but an API key and
+ * a base URL. The rest need a connection field the modal can't ask for yet (an
+ * AWS profile, a Snowflake home, a GCP project), without which an entry can't
+ * reach an account of its own, and arrive with those fields (#12747). Shorter
+ * than the set Posit Assistant registers on, where such an entry still works.
  */
 const OFFERED_KINDS: ReadonlySet<string> = new Set<SupportedCustomClientKind>([
 	'openai-compatible', 'anthropic', 'openai',
 ]);
 
 /**
- * Names a `providers.custom` entry can't have, because this extension already
- * uses them as authentication provider ids.
+ * Names a `providers.custom` entry can't have, because this extension uses them
+ * as authentication provider ids: an entry named after one overwrites that
+ * provider's row in `configDialog`'s maps, keyed by the same string, and deletes
+ * it again on unregister. The last is the shared provider's own, which would
+ * claim the aggregate's session events.
  *
- * These are a different set from what ai-config's name policy rejects, which is
- * built-in *provider* ids (`anthropic`, `openai`, `openai-compatible`). Ten of
- * these are perfectly legal entry names as far as that policy is concerned.
- *
- * An entry named after one of them overwrites the built-in provider's row in
- * `configDialog`'s `authProviders`, validator, and callback maps, all keyed by
- * the same string, and deletes them again when the entry unregisters. The last
- * name is the shared provider's own: an entry called
- * `positron-custom-provider` would claim the aggregate's session events in the
- * fan-out and in the workbench's session sync, with both branches answering to
- * one id.
- *
- * Kept in step with `contributes.authentication` in package.json by a test.
+ * A different set from what ai-config's name policy rejects (built-in *provider*
+ * ids). Kept in step with `contributes.authentication` by a test.
  */
 const RESERVED_AUTH_PROVIDER_IDS: readonly string[] = [
 	ANTHROPIC_AUTH_PROVIDER_ID,
@@ -128,11 +100,9 @@ const RESERVED_AUTH_PROVIDER_IDS: readonly string[] = [
 ];
 
 /**
- * Why this name can't be a custom provider, or undefined if it can.
- *
- * Checked on the registration path as well as at the form, because a reconcile
- * registers whatever the catalog holds: a hand-written or externally managed
- * entry never goes through the form at all.
+ * Why this name can't be a custom provider, or undefined if it can. Checked on
+ * the registration path as well as at the form, since a hand-written or
+ * externally managed entry never goes through the form.
  */
 export function customProviderNameConflict(name: string): string | undefined {
 	if (RESERVED_AUTH_PROVIDER_IDS.includes(name)) {
@@ -156,9 +126,8 @@ export function customAuthDescriptor(kind: string): CustomAuthDescriptor | undef
 }
 
 /**
- * The key check the matching built-in provider runs, by kind. A custom entry
- * gets the same one, so a bad Anthropic key is caught where it's typed instead
- * of at the first chat.
+ * The key check the matching built-in runs, by kind. A custom entry gets the same
+ * one, so a bad key is caught where it's typed rather than at the first chat.
  */
 const VALIDATOR_BY_KIND: Partial<Record<SupportedCustomClientKind, ApiKeyValidator>> = {
 	'openai-compatible': validateCustomProviderApiKey,
@@ -167,22 +136,18 @@ const VALIDATOR_BY_KIND: Partial<Record<SupportedCustomClientKind, ApiKeyValidat
 };
 
 /**
- * The key check to run when a custom entry of this kind is saved, or undefined
- * when there is nothing to check.
+ * The key check to run when an entry of this kind is saved, or undefined when
+ * there is nothing to check. Wraps the kind's own check with the empty-key rule,
+ * so a kind that requires a key says so at save time.
  *
- * Wraps the kind's own check with the empty-key rule, which is the only place
- * `apiKeyOptional` has teeth today: a kind that requires a key says so at save
- * time rather than failing later at the first request.
- *
- * An optional key only means the check can't refuse a blank field. It still
- * runs: for `openai-compatible` it is `validateCustomProviderApiKey`, which is
- * also what requires a base URL and probes it, and which already sends no
- * Authorization header when there's no key.
+ * An optional key only means the check can't refuse a blank field; it still runs.
+ * `openai-compatible`'s is also what requires a base URL and probes it, and it
+ * sends no Authorization header when there's no key.
  */
 export function customApiKeyValidator(kind: string): ApiKeyValidator | undefined {
 	const descriptor = customAuthDescriptor(kind);
-	// No key to check when the credential isn't one: a `local` kind holds none,
-	// and the env-resolved kinds resolve theirs.
+	// Nothing to check when the credential isn't a key: a `local` kind holds
+	// none, and the env-resolved kinds resolve theirs.
 	if (descriptor?.authMethod !== 'apikey') {
 		return undefined;
 	}

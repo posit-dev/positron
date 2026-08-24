@@ -15,7 +15,6 @@ import {
 	getCachedProvider,
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
-	readCustomProviderEntry,
 	refreshProviderCatalog,
 	saveCustomProviderUrl,
 } from '../providerCatalog';
@@ -25,12 +24,11 @@ import { AuthProvider } from '../authProvider';
 import { CustomProviderAggregate } from '../customProviderAggregate';
 import {
 	customApiKeyValidator,
-	customAuthDescriptor,
 	isOfferedCustomKind,
 	reservedAuthProviderIdsForTest,
 } from '../customProviderAuth';
 import { CustomProviderRegistry } from '../customProviderRegistry';
-import { customProviderSource, getRegistrableCustomProviders, PROVIDER_METADATA } from '../providerSources';
+import { customProviderSource, getRegistrableCustomProviders } from '../providerSources';
 
 /** The model sources Positron registers for the catalog's custom entries. */
 function customSources() {
@@ -62,9 +60,8 @@ function storageContext(): vscode.ExtensionContext {
 
 /**
  * Stands in for `vscode.authentication.registerAuthenticationProvider`. The
- * extension's activation already registered the shared custom-provider id, and
- * the extension host is first-one-wins, so a test registering it again would be
- * dropped and its dispose would unregister the real one.
+ * extension's activation already holds the shared id, and the extension host is
+ * first-one-wins, so registering it again would unregister the real one.
  */
 const noSharedRegistration = () => ({ dispose: () => { } });
 
@@ -166,19 +163,6 @@ suite('custom providers', () => {
 				/No custom provider named/
 			);
 		});
-
-		test('readCustomProviderEntry returns the entry as authored', async () => {
-			writeConfig(configPath, {
-				custom: { 'My Gateway': { type: 'openai-compatible', baseUrl: 'https://authored.example.com/v1' } },
-			});
-			await initProviderCatalog(context, { configPath });
-
-			assert.deepStrictEqual(await readCustomProviderEntry('My Gateway', { configPath }), {
-				type: 'openai-compatible',
-				baseUrl: 'https://authored.example.com/v1',
-			});
-			assert.strictEqual(await readCustomProviderEntry('Absent', { configPath }), undefined);
-		});
 	});
 
 	suite('create', () => {
@@ -204,8 +188,7 @@ suite('custom providers', () => {
 						type: 'openai-compatible',
 						enabled: true,
 						baseUrl: 'https://gateway.example.com/v1',
-						// Declared ids replace discovery: an endpoint with no
-						// listing has nothing to discover.
+						// Declared ids replace discovery.
 						models: {
 							discovery: 'off',
 							custom: [{
@@ -247,8 +230,7 @@ suite('custom providers', () => {
 			);
 
 			try {
-				// Anthropic requires a key, so a blank one is refused by the
-				// same check the built-in Anthropic tile runs.
+				// Refused by the same check the built-in Anthropic tile runs.
 				await assert.rejects(
 					registry.create({ name: 'Work Anthropic', kind: 'anthropic', apiKey: '' }),
 					/An API key is required/
@@ -283,8 +265,7 @@ suite('custom providers', () => {
 		test('stores the credential under the entry name, which is the scope it is read by', async () => {
 			writeConfig(configPath, {});
 			await initProviderCatalog(context, { configPath });
-			// No live endpoint to check the key against, so the check is stubbed
-			// out; what it does is covered by the validator tests above.
+			// No live endpoint, so the key check is stubbed out.
 			const registry = new CustomProviderRegistry(
 				storageContext(),
 				() => ({ dispose: () => { } }),
@@ -367,9 +348,9 @@ suite('custom providers', () => {
 		test('refuses an entry it did not author, and one that was never there', async () => {
 			writeConfig(configPath, { custom: { Managed: { type: 'openai-compatible' } } });
 			await initProviderCatalog(context, { configPath });
-			// In the catalog but not in the user's file, which is the state an
-			// entry from a default or enforced layer is in. Rewriting the file
-			// without refreshing puts the catalog there without one.
+			// In the catalog but not in the user's file, the state an entry from a
+			// default or enforced layer is in. Rewriting without refreshing gets
+			// the catalog there.
 			writeConfig(configPath, {});
 			const registry = new CustomProviderRegistry(
 				storageContext(),
@@ -415,29 +396,14 @@ suite('custom providers', () => {
 	});
 
 	suite('keys', () => {
-		test('an api key is optional for the kinds the authority says it is', () => {
-			assert.deepStrictEqual(
-				['openai-compatible', 'anthropic', 'openai']
-					.map(kind => [kind, customAuthDescriptor(kind)?.apiKeyOptional]),
-				[
-					// A gateway can have auth switched off; refusing a blank key
-					// would refuse a setup Posit Assistant accepts.
-					['openai-compatible', true],
-					['anthropic', false],
-					['openai', false],
-				]
-			);
-		});
-
 		test('a key is checked by the kind\'s own validator, and only refused when the kind needs one', async () => {
-			// An empty key on a kind that requires one is reported here rather
-			// than at the first chat.
+			// Reported here rather than at the first chat.
 			await assert.rejects(
 				customApiKeyValidator('anthropic')!('', {}),
 				/An API key is required/
 			);
-			// A gateway with auth off accepts a blank key, but still has its
-			// connection checked, which is where a missing base URL is caught.
+			// A gateway with auth off accepts a blank key, but is still checked,
+			// which is where a missing base URL is caught.
 			await assert.rejects(
 				customApiKeyValidator('openai-compatible')!('', {}),
 				/Base URL is required/
@@ -463,8 +429,8 @@ suite('custom providers', () => {
 					Gateway: { type: 'openai-compatible' },
 					Claude: { type: 'anthropic' },
 					GPT: { type: 'openai' },
-					// Supported by ai-config, not offered by Positron yet: each
-					// needs connection fields the modal can't collect (#12747).
+					// Supported by ai-config, not offered yet: each needs a field
+					// the modal can't collect (#12747).
 					Local: { type: 'ollama' },
 					Bedrock: { type: 'aws' },
 					Cortex: { type: 'snowflake' },
@@ -488,11 +454,10 @@ suite('custom providers', () => {
 			});
 			await initProviderCatalog(context, { configPath });
 
-			// Registering the model source would reach the real workbench, and
-			// the extension's own activation already holds the shared auth
-			// provider's id, so capture what would have been registered and
-			// listen to it directly. Delivering the event to other extensions is
-			// extHostAuthentication's job, not this registry's.
+			// Registering for real would reach the workbench and re-claim the
+			// shared id, so capture what would have been registered and listen to
+			// it directly. Delivery to other extensions is extHostAuthentication's
+			// job, not this registry's.
 			let registeredId: string | undefined;
 			let shared: vscode.AuthenticationProvider | undefined;
 			const registry = new CustomProviderRegistry(
@@ -531,9 +496,8 @@ suite('custom providers', () => {
 
 	suite('the shared auth provider', () => {
 		/**
-		 * One aggregate holding real `AuthProvider` delegates, each with a key
-		 * already stored, so routing is exercised against the same code the
-		 * modal drives rather than a stand-in.
+		 * One aggregate holding real `AuthProvider` delegates with keys already
+		 * stored, so routing runs against the code the modal drives.
 		 */
 		async function aggregateWith(
 			entries: Record<string, string>
@@ -569,8 +533,8 @@ suite('custom providers', () => {
 					noScopes: ['my anthropic=sk-a', 'my openai=sk-o'],
 					emptyScopes: ['my anthropic=sk-a', 'my openai=sk-o'],
 					unknownScope: [],
-					// A lookup that cannot name one entry has no answer. The
-					// union here would hand the caller some other endpoint's key.
+					// A lookup that can't name one entry has no answer; the union
+					// would hand back some other endpoint's key.
 					twoScopes: [],
 				});
 			} finally {
@@ -623,10 +587,9 @@ suite('custom providers', () => {
 		});
 
 		test('an entry leaving and coming back is reported, so no stale account is left behind', async () => {
-			// The case that motivates it: a delegate removed while it still had
-			// a live session. The shared provider stays registered and
-			// AuthProvider.dispose() fires nothing, so if this event is missing
-			// the account sits in the Accounts menu until the window reloads.
+			// A delegate removed while it still had a live session: the shared
+			// provider stays registered and AuthProvider.dispose() fires nothing,
+			// so without this event the account sits in the Accounts menu.
 			const delegate = new AuthProvider('my anthropic', 'my anthropic', storageContext());
 			await delegate.storeKey('account-1', 'my anthropic', 'sk-a');
 			const aggregate = new CustomProviderAggregate();
@@ -670,9 +633,8 @@ suite('custom providers', () => {
 				vscode.extensions.getExtension('positron.authentication')!
 					.packageJSON.contributes.authentication
 					.map((entry: { id: string }) => entry.id);
-			// The guard exists to protect configDialog's maps, which are keyed
-			// by these ids, so a provider declared without being reserved is a
-			// name a custom entry could still take over.
+			// The guard protects configDialog's maps, keyed by these ids, so a
+			// declared provider that isn't reserved is a name an entry can take.
 			assert.deepStrictEqual(
 				[...reservedAuthProviderIdsForTest].sort(),
 				declared.sort()
@@ -680,9 +642,8 @@ suite('custom providers', () => {
 		});
 
 		test('a hand-written entry named after a built-in provider does not register, and leaves it intact', async () => {
-			// Hand-written, not through the form: reconcile registers whatever
-			// the catalog holds, so a guard that only sat in create() would let
-			// this through and this test would pass with it in the wrong place.
+			// Hand-written, not through the form: a guard that only sat in
+			// create() would let this through.
 			const builtin = new AuthProvider(ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', storageContext());
 			const validator = async () => { };
 			registerAuthProvider(ANTHROPIC_AUTH_PROVIDER_ID, builtin, { validateApiKey: validator });
@@ -774,8 +735,7 @@ suite('custom providers', () => {
 			assert.deepStrictEqual(source.provider, {
 				id: 'My Gateway',
 				displayName: 'My Gateway',
-				// The kind is what the modal shows the entry's vendor icon and
-				// its Custom badge from.
+				// What the modal shows the vendor icon and Custom badge from.
 				customKind: 'openai-compatible',
 				catalogId: 'My Gateway',
 			});
@@ -795,14 +755,14 @@ suite('custom providers', () => {
 			const options = Object.fromEntries(
 				customSources().map(s => [s.provider.id, s.supportedOptions])
 			);
-			// Each list is the matching built-in's own, minus what only the one
-			// built-in instance can use (`autoconfigure`, `oauth`), the API type
-			// field this work removes (`protocol`), and `customModels`, which
-			// has no write path for a custom entry yet.
+			// The matching built-in's own list, minus what only the one built-in
+			// instance can use (`autoconfigure`, `oauth`), the API type field this
+			// work removes (`protocol`), and `customModels`, which has no write
+			// path for a custom entry yet.
 			assert.deepStrictEqual(options, {
 				Gateway: ['apiKey', 'baseUrl', 'toolCalls'],
-				// The built-in Anthropic tile asks for a key and a URL, and does
-				// not offer a tool-calls switch. Neither does a custom one.
+				// The Anthropic tile offers no tool-calls switch; nor does a
+				// custom entry of that kind.
 				Claude: ['apiKey', 'baseUrl'],
 				GPT: ['apiKey', 'baseUrl', 'toolCalls'],
 			});

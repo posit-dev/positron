@@ -11,18 +11,15 @@ import { log } from './log';
  * One authentication provider serving every `providers.custom` entry, with the
  * entry name as the scope.
  *
- * One provider per entry cannot work. `trustedExtensionAuthAccess` in
- * product.json is keyed by authentication provider id, and a custom entry's id
- * is a name the user chose, so no static allowlist can contain it. Posit
- * Assistant's silent `getSession` for such an entry is refused with no error,
- * and the entry's models never reach the model picker. A statically named
- * provider can be allowlisted once, and the trust check ignores the account
- * entirely, so that one key covers every entry the user ever adds.
+ * One provider per entry cannot work: `trustedExtensionAuthAccess` is keyed by
+ * provider id, and a custom entry's id is a name the user chose, so no static
+ * allowlist can contain it. Posit Assistant's silent `getSession` is then
+ * refused with no error and the entry's models never reach the picker. One
+ * statically named provider is allowlisted once and covers every entry.
  *
- * No credential moves for this. Each entry keeps its own {@link AuthProvider},
- * constructed with the entry name, so its storage keys (`apiKey-<entry>-<id>`,
- * `auth.accounts.<entry>`) stay exactly where they were and there is nothing to
- * migrate. This class only routes, and it holds no credential of its own.
+ * Routing only, no credential of its own: each entry keeps its own
+ * {@link AuthProvider}, still constructed with the entry name, so its storage
+ * keys stay where they were and there is nothing to migrate.
  */
 export class CustomProviderAggregate
 	implements vscode.AuthenticationProvider, vscode.Disposable {
@@ -40,9 +37,8 @@ export class CustomProviderAggregate
 	 * already had as added. The entry name is the scope callers ask for.
 	 */
 	async addProvider(entryId: string, provider: AuthProvider): Promise<void> {
-		// Subscribe first, and take the snapshot before the delegate is
-		// reachable by any caller. An event that lands while `getSessions` is in
-		// flight is then forwarded rather than dropped in the gap.
+		// Subscribe before the snapshot, so an event landing while `getSessions`
+		// is in flight is forwarded rather than dropped in the gap.
 		const listener = provider.onDidChangeSessions(event =>
 			this._onDidChangeSessions.fire(this.stampEvent(entryId, event)));
 		const sessions = await provider.getSessions();
@@ -55,26 +51,20 @@ export class CustomProviderAggregate
 	}
 
 	/**
-	 * Stops routing an entry, when its `providers.custom` entry is deleted or
-	 * disabled, and reports its sessions as removed.
-	 *
-	 * Firing that is this class's job because nothing else can. Per-entry
-	 * providers used to unregister for real, and the workbench drops a cached
-	 * account on either the provider unregistering or a session change carrying
-	 * `removed`. This provider stays registered, and `AuthProvider.dispose()`
-	 * fires nothing (it sets a flag, stops its timer, and disposes its own
-	 * emitter), so without this a deleted entry leaves a stale account in the
-	 * Accounts menu until the window reloads.
+	 * Stops routing an entry, when it is deleted or disabled, and reports its
+	 * sessions as removed. Nothing else can: the workbench drops a cached account
+	 * on the provider unregistering or on a `removed` session, this provider
+	 * stays registered, and `AuthProvider.dispose()` fires nothing. Without it a
+	 * deleted entry sits in the Accounts menu until the window reloads.
 	 */
 	async removeProvider(entryId: string): Promise<void> {
 		const delegate = this.delegates.get(entryId);
 		if (!delegate) {
 			return;
 		}
-		// Detach first, keeping the delegate object, because `getSessions` is
-		// asynchronous. Read the final sessions while still subscribed and an
-		// event landing in that window is forwarded as `added` and then left out
-		// of `removed`, which is exactly the stale account this prevents.
+		// Detach before the final read, which is async: an event landing in that
+		// window would be forwarded as `added` and then left out of `removed`,
+		// which is exactly the stale account this prevents.
 		delegate.listener.dispose();
 		const sessions = await delegate.provider.getSessions();
 		this.delegates.delete(entryId);
@@ -86,12 +76,10 @@ export class CustomProviderAggregate
 	}
 
 	/**
-	 * No scopes means every entry's sessions, so the Accounts menu can list
-	 * them. One scope means that entry.
-	 *
-	 * Anything else is `[]`. A credential lookup that cannot name a single
-	 * entry has no answer, and returning the union would hand the caller a key
-	 * belonging to some other endpoint.
+	 * No scopes means every entry's sessions, so the Accounts menu can list them;
+	 * one scope means that entry. Anything else is `[]`: a lookup that can't name
+	 * one entry has no answer, and the union would hand back another endpoint's
+	 * key.
 	 */
 	async getSessions(
 		scopes: readonly string[] | undefined,
@@ -116,11 +104,9 @@ export class CustomProviderAggregate
 	}
 
 	/**
-	 * Sign in to one named entry, which prompts for its key.
-	 *
-	 * A call that names no entry, or more than one, has no sensible target, and
-	 * the Accounts menu's own "add account" affordance passes no scopes at all.
-	 * Say which entry is missing rather than picking one.
+	 * Sign in to one named entry, which prompts for its key. A call naming no
+	 * entry (what the Accounts menu's own "add account" does) or more than one
+	 * has no target, so say so rather than picking one.
 	 */
 	async createSession(
 		scopes: readonly string[],
@@ -169,10 +155,9 @@ export class CustomProviderAggregate
 	}
 
 	/**
-	 * Stamps the entry name on as the scope. `AuthProvider` mints `scopes: []`
-	 * in every session it makes and is shared with the built-in providers, so
-	 * the scope that identifies the entry is added here and nothing shared has
-	 * to change.
+	 * Stamps the entry name on as the scope. `AuthProvider` is shared with the
+	 * built-ins and mints `scopes: []`, so the scope that identifies the entry is
+	 * added here instead of changing anything shared.
 	 */
 	private stampOne(
 		entryId: string,

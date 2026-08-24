@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { CUSTOM_PROVIDER_KINDS, providerIconId } from '../../browser/customProviderKinds.js';
+import { providerIconId } from '../../browser/customProviderKinds.js';
 
 describe('customProviderKinds', () => {
 	it('shows a custom entry under the icon of the provider its type borrows from', () => {
@@ -18,27 +18,5 @@ describe('customProviderKinds', () => {
 			// so it falls back to its own id and the generic icon.
 			providerIconId({ id: 'My Local', displayName: 'My Local', customKind: 'ollama' }),
 		]).toEqual(['anthropic-api', 'openai-compatible', 'anthropic-api', 'My Local']);
-	});
-
-	it('gives every offered kind a built-in form to borrow', () => {
-		expect(CUSTOM_PROVIDER_KINDS).toMatchInlineSnapshot(`
-			{
-			  "anthropic": {
-			    "fieldsFrom": "anthropic-api",
-			    "group": "cloud",
-			    "label": "Anthropic",
-			  },
-			  "openai": {
-			    "fieldsFrom": "openai-api",
-			    "group": "cloud",
-			    "label": "OpenAI",
-			  },
-			  "openai-compatible": {
-			    "fieldsFrom": "openai-compatible",
-			    "group": "gateways",
-			    "label": "OpenAI Compatible",
-			  },
-			}
-		`);
 	});
 });

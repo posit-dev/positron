@@ -15,8 +15,7 @@ export interface ProviderModelsSectionProps {
 	onChange: (modelIds: string[]) => void;
 	/**
 	 * Collapse the rows behind a "Models" toggle, for a provider that lists its
-	 * own models and only needs them as an override. Left open otherwise, for a
-	 * provider that has no listing and can't be used without them.
+	 * own and needs these only as an override. Left open for one with no listing.
 	 */
 	collapsible?: boolean;
 	/** Explains why the rows are here. Defaults to the "no listing" wording. */
@@ -26,13 +25,9 @@ export interface ProviderModelsSectionProps {
 }
 
 /**
- * The model id rows for a provider, used by the connect form and the Add
- * Custom Provider form.
- *
- * A user declares model ids when the endpoint has no `/models` listing to read,
- * which is the gateway case. A provider that does publish one needs nothing
- * here, so the rows collapse out of the way rather than asking for work that is
- * already done.
+ * The model id rows, for the connect form and the Add Custom Provider form. A
+ * user declares ids when the endpoint has no `/models` listing, the gateway
+ * case; one that publishes a listing needs nothing here.
  */
 export const ProviderModelsSection = (props: ProviderModelsSectionProps) => {
 	const [open, setOpen] = useState(false);
@@ -94,8 +89,7 @@ export const ProviderModelsSection = (props: ProviderModelsSectionProps) => {
 		);
 	}
 
-	// The count tells the user whether anything is hidden in there, so a
-	// declared list is visible without opening the section.
+	// So a declared list is visible without opening the section.
 	const declared = props.modelIds.filter(id => id.trim().length > 0).length;
 
 	return (

@@ -30,32 +30,15 @@ import {
 } from '../customProviderKinds.js';
 
 /**
- * The Add Custom Provider form.
- *
- * A custom provider is an existing provider reached with a credential of your
- * own, so the form asks for one thing the built-ins don't (the name you'll see
- * in the model picker) and then shows that provider's own fields, read from its
- * registered source. Pick type "Anthropic" and you get Anthropic's inputs, its
- * base URL label, and its terms notice.
- *
- * Interaction rules, matching Posit Assistant standalone:
- *
- * - Field order is name, then type, then the provider's connection fields.
- * - Nothing validates on blur or on change. Problems report on submit, in one
- *   inline message, so the primary button is never greyed out unexplained.
- * - Changing the type swaps the fields but keeps whatever is typed in them. The
- *   type is often the last thing corrected, and retyping a key and URL to fix
- *   it is worse than the risk of sending them to the wrong provider.
- * - The base URL starts empty. This entry points at an endpoint of its own, and
- *   the borrowed source's default is whatever the user saved for the built-in,
- *   so offering it back would suggest reusing that same endpoint. Left blank,
- *   the entry is written with no URL and the client uses the vendor's own.
+ * The Add Custom Provider form. A custom provider is an existing provider
+ * reached with a credential of your own, so the form asks for a name and then
+ * shows that provider's own fields, read from its registered source. Field
+ * behaviour matches Posit Assistant standalone.
  */
 
 /**
  * Fields shown when the built-in a kind borrows from isn't registered in this
- * window. Matches the OpenAI-compatible shape, so the form still asks for a key
- * and a URL rather than nothing.
+ * window, so the form still asks for a key and a URL rather than nothing.
  */
 const FALLBACK_OPTIONS = { showApiKey: true, showBaseUrl: true };
 
@@ -70,15 +53,14 @@ interface KindEntryValue {
 
 export interface AddCustomProviderViewProps {
 	/**
-	 * The registered provider sources. Supplies the connection fields, base URL
-	 * label, default URL and terms notice of whichever built-in the chosen type
-	 * borrows from, and the existing names a new one can't collide with.
+	 * The registered provider sources: the connection fields, labels and terms
+	 * notice of the built-in the chosen type borrows from, and the existing names
+	 * a new one can't collide with.
 	 */
 	sources: IPositronLanguageModelSource[];
 	/**
 	 * Create the entry and store its credential. Rejects with the message the
-	 * form shows, so the checks that belong to the writer (reserved names, the
-	 * provider's own key check) report here.
+	 * form shows, which is how the writer's own checks report.
 	 */
 	onCreate: (request: IAddCustomProviderRequest) => Promise<void>;
 	/** Invoked by the footer Back button, and after a successful create. */
@@ -96,15 +78,13 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 	const [saving, setSaving] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string>();
 
-	// The built-in whose fields this type reuses. Read from its own source so a
-	// field added to that tile appears here too.
+	// The built-in whose fields this type reuses, read from its own source.
 	const basedOn = props.sources.find(s => s.provider.id === CUSTOM_PROVIDER_KINDS[kind].fieldsFrom);
 	const fields = basedOn
 		? { showApiKey: usesApiKey(basedOn.supportedOptions), showBaseUrl: basedOn.supportedOptions.includes('baseUrl') }
 		: FALLBACK_OPTIONS;
 
-	// Changing the type keeps what's already typed. Only the stale error goes,
-	// since it was reported against the old type.
+	// Only the stale error goes; it was reported against the old type.
 	const changeKind = (next: CustomProviderKind) => {
 		setKind(next);
 		setErrorMessage(undefined);
@@ -127,8 +107,7 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 				apiKey: fields.showApiKey ? apiKey : undefined,
 				modelIds: modelIds.map(id => id.trim()).filter(id => id.length > 0),
 			});
-			// No success screen: the flow returns to the list, where the new
-			// provider's own row is the confirmation.
+			// No success screen: the new provider's own row is the confirmation.
 			props.onBack();
 		} catch (e) {
 			setErrorMessage(e instanceof Error ? e.message : String(e));
@@ -142,7 +121,7 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 			<ContentArea>
 				<div className='connect-provider-view add-custom-provider-view' data-testid='provider-add-custom-view'>
 					{/* Headed by the vendor it borrows from, so it reads as "another
-					Anthropic connection" rather than a generic form set to Anthropic. */}
+					Anthropic connection" rather than a form set to Anthropic. */}
 					<div className='connect-provider-header'>
 						<div className='connect-provider-icon'>
 							<LanguageModelIcon
@@ -204,8 +183,7 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 						/>
 					</div>
 
-					{/* The chosen provider's own inputs, rendered by the component the
-					connect view uses, so they match field for field. */}
+					{/* The same component the connect view renders, field for field. */}
 					<ProviderConnectionFields
 						apiKey={apiKey}
 						baseUrl={baseUrl}
@@ -217,8 +195,8 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 						onBaseUrlChange={setBaseUrl}
 					/>
 
-					{/* Every offered kind publishes a model list, so the rows are an
-					override and stay out of the way until asked for. */}
+					{/* Every offered kind publishes a model list, so these are an
+					override and stay collapsed until asked for. */}
 					<ProviderModelsSection
 						collapsible
 						hint={localize('positron.addCustomProvider.modelsHint', "This provider lists its own models. Add IDs here only to override that list.")}
@@ -228,8 +206,7 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
 					<div style={{ flexGrow: 1 }}>&nbsp;</div>
-					{/* The notice belongs to the provider the entry connects to, so
-					changing the type changes the terms under the form. */}
+					{/* The terms belong to the provider the entry connects to. */}
 					{basedOn && <ProviderNotice source={basedOn} />}
 				</div>
 			</ContentArea>
@@ -238,8 +215,8 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 					title: saving
 						? localize('positron.addCustomProvider.adding', "Adding...")
 						: localize('positron.addCustomProvider.add', "Add Provider"),
-					// Never gated on the form being complete: submitting is how the
-					// user finds out what's missing.
+					// Never gated on completeness: submitting is how the user finds
+					// out what's missing.
 					disable: saving,
 					loading: saving,
 					onClick: onSubmit,
@@ -252,11 +229,9 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 };
 
 /**
- * The problem with the chosen name, or undefined when it can be submitted.
- *
- * Only the name is checked here. The rest of the form is checked by the writer,
- * which runs the same key check the matching built-in runs and knows the
- * reserved names, so duplicating either would only let the two disagree.
+ * The problem with the chosen name, or undefined when it can be submitted. Only
+ * the name is checked here; the writer checks the rest, and duplicating its
+ * reserved names or key check would only let the two disagree.
  */
 function nameProblem(name: string, sources: IPositronLanguageModelSource[]): string | undefined {
 	if (!name) {
