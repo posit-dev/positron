@@ -2,8 +2,9 @@
 # value for certain environment variables as in the R console or when tests are
 # run via the "R: Test R Package in Terminal" command.
 #
-# This ENV-VARS.txt file can be interesting to look at during interactive
-# development, using various methods to invoke the tests.
+# This ENV-VARS.txt file is interesting to look at during interactive
+# development, using various methods to invoke the tests. And it's also read
+# by the e2e test.
 
 watched_env_vars <- c(
   # Contributed by the positron-environment extension, so not R-specific.
