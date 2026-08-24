@@ -28,7 +28,7 @@ jobs:
     outputs:
       artifact-name: positron-deb-remote-ssh-x64
     container:
-      image: ghcr.io/posit-dev/positron-builds-rocky8:4
+      image: ghcr.io/posit-dev/positron-builds-rocky8:5
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -126,7 +126,7 @@ jobs:
     outputs:
       artifact-name: positron-reh-remote-ssh-x64
     container:
-      image: ghcr.io/posit-dev/positron-builds-rocky8:4
+      image: ghcr.io/posit-dev/positron-builds-rocky8:5
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
