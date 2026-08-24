@@ -353,6 +353,25 @@ describe('summarizeDataConnectionSchema', () => {
 		expect(summary.lines).toEqual(['ext ["external table"]']);
 	});
 
+	// A name is driver-reported text, so nothing stops it carrying a newline -- and a raw newline
+	// would split one object's line into two, breaking the one-object-per-line contract before the
+	// consumer ever sees the tokens. Quoting escapes it, so the object stays on a single line and
+	// the name survives intact.
+	it('escapes a newline in a name, keeping the object on one line', async () => {
+		const handle = createFakeHandle([
+			{
+				name: 'orders\nrows', kind: 'table', children: [
+					{ name: 'total', kind: 'field', dataType: 'numeric\rint' },
+				]
+			},
+		]);
+
+		const summary = await summarizeDataConnectionSchema(handle);
+
+		expect(summary.lines).toEqual(['"orders\\nrows" [table] (total:"numeric\\rint")']);
+		expect(summary.lines[0]).not.toContain('\n');
+	});
+
 	it('produces a payload that survives a JSON round-trip', async () => {
 		const handle = createFakeHandle([
 			{
