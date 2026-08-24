@@ -26,6 +26,7 @@ RUN dnf install -y \
     gcc \
     gcc-c++ \
     gcc-plugin-annobin \
+    gcc-toolset-14 \
     git \
     gtk3 \
     krb5-devel \
