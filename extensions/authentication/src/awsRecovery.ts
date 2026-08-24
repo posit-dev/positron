@@ -91,15 +91,19 @@ export function createAwsSsoRecovery(deps: AwsSsoRecoveryDeps): AwsSsoRecovery {
 		},
 
 		async recover(err: unknown): Promise<boolean> {
+			// A recovery already in flight is the answer for any concurrent
+			// caller: join it. Classifying again here would fail, because
+			// `attempt` consumes and clears the note synchronously.
+			if (inFlight) {
+				return inFlight;
+			}
 			const expired = classifyAwsChainError(err)
 				?? classifyAwsChainError(noted);
 			if (!expired) {
 				return false;
 			}
-			if (!inFlight) {
-				inFlight = attempt(expired)
-					.finally(() => { inFlight = undefined; });
-			}
+			inFlight = attempt(expired)
+				.finally(() => { inFlight = undefined; });
 			return inFlight;
 		},
 	};
