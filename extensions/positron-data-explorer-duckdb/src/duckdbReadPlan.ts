@@ -122,6 +122,23 @@ const SNAPSHOT_ORDER_COLUMN = '__positron_row_order';
  * the view directly, because the join runs once rather than once per page: a measured 500,000-row
  * join view swept in 392 ms through a snapshot against 840 ms directly, after a 6 ms build.
  *
+ * What that costs, stated plainly, because the numbers above are one view's and bound nothing:
+ *
+ * - It is built when the tab opens, not on first scroll. `DuckDBTableView`'s constructor asks for a
+ *   row count, the count reads through this plan, so the copy is made before the first row renders.
+ *   Deferring it would only relocate the cost, since the grid fetches its first page as soon as it
+ *   has the count.
+ * - It holds the relation's full result for the life of the tab, with no row cap. A snapshot of a
+ *   2M-row relation with a 200-byte payload measured 437 MiB.
+ * - What it adds is holding the rows, not producing them. The row count runs `count(*)` over the
+ *   relation, so a view's joins and aggregates were already being computed at open before any
+ *   snapshot existed.
+ *
+ * Uncapped is deliberate. Past any cap the only options are paging the relation unstably, which is
+ * the defect this class exists to prevent, or refusing to open it. Under real memory pressure DuckDB
+ * spills to `temp_directory`, which defaults to `.tmp` even for an in-memory database, so the
+ * failure mode is disk use rather than exhaustion.
+ *
  * The copy lives in the `temp` catalog, which is private to this connection, so it cannot collide
  * with the user's own objects. It is created even when the database was opened read-only, because
  * `temp` is a separate catalog that stays writable.

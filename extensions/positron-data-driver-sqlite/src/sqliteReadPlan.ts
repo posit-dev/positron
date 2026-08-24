@@ -183,6 +183,23 @@ let snapshotCount = 0;
  * makes paging substantially cheaper than reading the view directly, because the join runs once
  * instead of once per page.
  *
+ * What that costs is worth stating plainly:
+ *
+ * - It is built when the tab opens, not on first scroll. `SqliteTableView`'s constructor asks for a
+ *   row count, the count reads through this plan, so the copy is made before the first row renders.
+ *   Deferring it would only relocate the cost, since the grid fetches its first page as soon as it
+ *   has the count.
+ * - It holds the relation's full result for the life of the tab, with no row cap -- on disk rather
+ *   than in memory. better-sqlite3 builds SQLite without overriding `SQLITE_TEMP_STORE`, so it takes
+ *   the default of 1 and a TEMP table lives in a temporary file; nothing here sets `temp_store` to
+ *   change that. So the cost is disk, and a snapshot far larger than RAM is still openable.
+ * - What it adds is holding the rows, not producing them. The row count runs `count(*)` over the
+ *   relation, so a view's joins and aggregates were already being computed at open before any
+ *   snapshot existed.
+ *
+ * Uncapped is deliberate. Past any cap the only options are paging the relation unstably, which is
+ * the defect this class exists to prevent, or refusing to open it.
+ *
  * The copy lives in the `temp` schema, which is private to this connection and invisible to `main`,
  * so it cannot collide with the user's own objects. It is created even when the database was opened
  * read-only, because `temp` is a separate database that is always writable.
