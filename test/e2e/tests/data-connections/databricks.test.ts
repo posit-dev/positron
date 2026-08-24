@@ -94,12 +94,18 @@ test.describe('Data Connections - Databricks (OAuth U2M)', {
 
 		// The budget here covers the interactive sign-in end to end: the Okta SSO hop, a TOTP that may
 		// be retried with backoff when a parallel consumer of the shared secret takes the same code,
-		// two Databricks consent screens, the token exchange, and the warehouse's first metadata query
-		// (which can cold-start).
-		test.setTimeout(600_000);
+		// two Databricks consent screens, and the token exchange.
+		//
+		// It also has to absorb a cold SQL warehouse. The warehouse auto-stops when idle, and the
+		// first metadata query restarts it, which for serverless routinely takes several minutes --
+		// long enough that a 240s budget flaked in CI while the same chain took ~70s once warm. Note
+		// where that latency lands: `Catalogs` is a static container whose twisty flips with no query
+		// behind it, so expanding it returns immediately and the whole cold-start wait falls on the
+		// *next* expand, the one that lists catalogs.
+		test.setTimeout(900_000);
 
 		const { dataConnections } = app.workbench;
-		dataConnections.actionTimeout = 240_000;
+		dataConnections.actionTimeout = 420_000;
 
 		await dataConnections.openDataConnectionsView();
 		await dataConnections.clickAddConnection();
@@ -134,6 +140,10 @@ test.describe('Data Connections - Databricks (OAuth U2M)', {
 			await dataConnections.expandNode(schema, 'schema');
 			await dataConnections.expandNode('Tables');
 		});
+
+		// The cold-start budget above is only needed for that first chain. Drop back to a normal
+		// wait so a genuine failure in the tests below surfaces in seconds rather than minutes.
+		dataConnections.actionTimeout = 60_000;
 	});
 
 	// Each preview test opens a Data Explorer tab. Close it so the next test starts from a clean
