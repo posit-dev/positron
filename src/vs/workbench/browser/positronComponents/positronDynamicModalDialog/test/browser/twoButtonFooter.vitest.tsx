@@ -39,7 +39,9 @@ describe('TwoButtonFooter', () => {
 		// told why it is unavailable, rather than never finding it.
 		expect(primaryButton).toBeEnabled();
 		expect(primaryButton).toHaveAttribute('tabIndex', '0');
-		expect(primaryButton).toHaveFocus();
+		// It does not take focus on open, though. Opening onto a button announced as unavailable
+		// tells the user nothing about what to do; the dialog focuses its own first field instead.
+		expect(primaryButton).not.toHaveFocus();
 	});
 
 	it('does not run the primary action while the primary button is disabled', async () => {

@@ -86,6 +86,14 @@ describe('ImportDataModalDialog', () => {
 		expect(await screen.findByLabelText('Variable Name')).toHaveValue('flights');
 	});
 
+	it('opens with focus in the variable name field, not on the unavailable Import button', async () => {
+		renderDialog([createImporter()]);
+
+		// Import starts unavailable because no code has been generated yet, so focusing it would
+		// open the dialog on a control that says nothing about what to do first.
+		expect(await screen.findByLabelText('Variable Name')).toHaveFocus();
+	});
+
 	it('explains why Import is unavailable, for a screen reader that reaches it', async () => {
 		renderDialog([createImporter()]);
 

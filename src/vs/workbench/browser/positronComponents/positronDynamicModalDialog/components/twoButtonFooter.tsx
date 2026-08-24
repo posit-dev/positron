@@ -51,7 +51,7 @@ export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
 
 	// Primary button.
 	const primaryButton = (
-		<FooterButton autoFocus default ariaDescribedby={props.primaryButtonDescribedBy} ariaDisabled={props.primaryButtonDisabled} type='submit' onPressed={primaryButtonPressedHandler}>
+		<FooterButton default ariaDescribedby={props.primaryButtonDescribedBy} ariaDisabled={props.primaryButtonDisabled} autoFocus={!props.primaryButtonDisabled} type='submit' onPressed={primaryButtonPressedHandler}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);
