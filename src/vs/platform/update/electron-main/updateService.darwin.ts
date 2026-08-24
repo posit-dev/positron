@@ -223,16 +223,10 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			return;
 		}
 
-		this.setState(State.Downloaded(update, false, false));
+		this.setState(State.Downloaded(update, this.state.explicit, this._overwrite));
+		this.logService.info(`Update downloaded: ${JSON.stringify(update)}`);
 
-		type UpdateDownloadedClassification = {
-			owner: 'joaomoreno';
-			newVersion: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The version number of the new VS Code that has been downloaded.' };
-			comment: 'This is used to know how often VS Code has successfully downloaded the update.';
-		};
-		this.telemetryService.publicLog2<{ newVersion: String }, UpdateDownloadedClassification>('update:downloaded', { newVersion: update.version });
-
-		this.setState(State.Ready(update, false, false));
+		this.setState(State.Ready(update, this.state.explicit, this._overwrite));
 	}
 
 	private onUpdateNotAvailable(): void {

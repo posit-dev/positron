@@ -92,6 +92,7 @@ export enum FeatureTags {
 	TASKS = '@:tasks',
 	TEST_EXPLORER = '@:test-explorer',
 	TOP_ACTION_BAR = '@:top-action-bar',
+	UPDATE = '@:update',
 	VARIABLES = '@:variables',
 	WELCOME = '@:welcome',
 	VSCODE_SETTINGS = '@:vscode-settings',

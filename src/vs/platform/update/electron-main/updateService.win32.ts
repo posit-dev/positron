@@ -42,6 +42,7 @@ import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, Update
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { writeFileSync } from 'fs';
+import { hasUpdate } from '../common/positronVersion.js';
 import { IStateService } from '../../state/node/state.js';
 import { ICodeWindow } from '../../window/electron-main/window.js';
 import { IWindowsMainService } from '../../windows/electron-main/windows.js';
@@ -306,9 +307,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	}
 	// --- End Positron ---
 
-	// Unused for Positron
 	protected doCheckForUpdates(explicit: boolean, pendingCommit?: string): void {
-		// Positron doesn't use these parameters for checking for updates
+		// --- Start Positron ---
+		// In Positron this runs only for the overwrite path (`checkForOverwriteUpdates`); the
+		// regular check flow goes through `AbstractUpdateService.checkForUpdates` -> `updateAvailable`.
+		// Positron resolves the feed from the release channel, so it needs neither the quality
+		// gate nor the commit/internalOrg URL parameters.
 		// if (!this.quality) {
 		// 	return;
 		// }
@@ -317,6 +321,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		// const background = !explicit && !internalOrg;
 		// const url = this.buildUpdateFeedUrl(this.quality, pendingCommit ?? this.productService.commit!, { background, internalOrg });
 		const url = this.buildUpdateFeedUrl(this.getUpdateChannel());
+		// --- End Positron ---
 
 		// Only set CheckingForUpdates if we're not already in Overwriting state
 		if (this.state.type !== StateType.Overwriting) {
@@ -350,18 +355,41 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 					return Promise.resolve(null);
 				}
 
+				// --- Start Positron ---
+				// Positron's feed always returns the latest release rather than answering "no
+				// content" for an up-to-date version like upstream's server does. If the feed no
+				// longer advertises anything newer than the pending update (a race with the
+				// `isLatestVersion` pre-check in `checkForOverwriteUpdates`), restore Ready
+				// instead of downloading the same installer again.
+				if (this.state.type === StateType.Overwriting && pendingCommit && !hasUpdate(update, pendingCommit)) {
+					this._overwrite = false;
+					this.setState(State.Ready(this.state.update, this.state.explicit, false));
+					return Promise.resolve(null);
+				}
+				// --- End Positron ---
+
 				if (updateType === UpdateType.Archive) {
 					this.setState(State.AvailableForDownload(update));
 					return Promise.resolve(null);
 				}
 
-				// When connection is metered and this is not an explicit check,
-				// show update is available but don't start downloading
+				// --- Start Positron ---
+				// Positron has not adopted upstream's deferred-*download* machinery
+				// (`deferAutomaticDownload()` / `resumeAutomaticUpdates()`), which parks the
+				// download and resumes it once the connection is no longer metered. Instead we
+				// surface the update and leave the download to an explicit user action. Upstream
+				// also calls `deferAutomaticDownload()` again further down, before writing the
+				// temp file, and guards the resulting `undefined` package path with
+				// `!packagePath`; both are absent below for the same reason.
+				// if (this.deferAutomaticDownload(update, explicit)) {
+				// 	return Promise.resolve(null);
+				// }
 				if (!explicit && this.meteredConnectionService.isConnectionMetered) {
 					this.logService.info('update#doCheckForUpdates - update available but skipping download because connection is metered');
 					this.setState(State.AvailableForDownload(update));
 					return Promise.resolve(null);
 				}
+				// --- End Positron ---
 
 				const startTime = Date.now();
 				this.setState(State.Downloading(update, explicit, this._overwrite, 0, undefined, startTime));
@@ -419,7 +447,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 						if (fastUpdatesEnabled && this.productService.target === 'user') {
 							this.doApplyUpdate();
 						} else {
-							this.setState(State.Ready(update, false, false));
+							this.setState(State.Ready(update, explicit, this._overwrite));
 						}
 					});
 				});
@@ -458,7 +486,6 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			cts.dispose();
 		});
 	}
-	// --- End Positron ---
 
 	// --- Start Positron ---
 	protected override updateAvailable(update: IUpdate): void {

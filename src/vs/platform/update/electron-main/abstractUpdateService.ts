@@ -101,6 +101,11 @@ function isCancellableState(type: StateType): boolean {
 	}
 }
 
+interface IInternalUpdateState {
+	readonly state: State;
+	readonly deferred: boolean;
+}
+
 export abstract class AbstractUpdateService extends Disposable implements IUpdateService {
 
 	declare readonly _serviceBrand: undefined;
@@ -119,14 +124,10 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	private static readonly ACTIVE_LANGUAGES_MAX_AGE_DAYS = 7;
 	// --- End Positron ---
 
-	private _state: State = State.Uninitialized;
+	private _state: IInternalUpdateState = { state: State.Uninitialized, deferred: false };
 	protected _overwrite: boolean = false;
-	// --- Start Positron ---
-	// These variables are from upstream but not currently used in Positron
-	// @ts-ignore - unused but kept for upstream compatibility
 	private _hasCheckedForOverwriteOnQuit: boolean = false;
 	private readonly overwriteUpdatesCheckInterval = this._register(new IntervalTimer());
-	// --- End Positron ---
 	private _internalOrg: string | undefined = undefined;
 
 	/** Disabled for a non-reversible reason (e.g. not built, missing config); ignores `update.mode` changes. */
@@ -142,22 +143,22 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	readonly onStateChange: Event<State> = this._onStateChange.event;
 
 	get state(): State {
-		return this._state;
+		return this._state.state;
 	}
 
-	protected setState(state: State): void {
+	protected setState(state: State, options?: { deferred?: boolean }): void {
 		if (state.type === StateType.Updating) {
 			this.logService.trace('update#setState', state.type);
 		} else {
 			this.logService.info('update#setState', state.type);
 		}
-		this._state = state;
+		this._state = { state, deferred: options?.deferred ?? false };
 		this._onStateChange.fire(state);
 
 		// Clear transient one-time properties from Idle state after delivering the event.
 		// This prevents new windows from seeing stale error/notAvailable messages.
 		if (state.type === StateType.Idle && (state.error || state.notAvailable)) {
-			this._state = State.Idle(state.updateType);
+			this._state = { state: State.Idle(state.updateType), deferred: false };
 		}
 
 		// Schedule 5-minute checks when in Ready state and overwrite is supported
@@ -167,6 +168,12 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			} else {
 				this.overwriteUpdatesCheckInterval.cancel();
 			}
+		}
+	}
+
+	private setDeferred(deferred: boolean): void {
+		if (this._state.deferred !== deferred) {
+			this._state = { ...this._state, deferred };
 		}
 	}
 
@@ -261,7 +268,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			const reason = policyDisablesUpdates ? DisablementReason.Policy : DisablementReason.ManuallyDisabled;
 
 			// Skip if already disabled for this reason, so a repeated write or policy refresh is a no-op.
-			if (this._state.type === StateType.Disabled && this._state.reason === reason) {
+			if (this.state.type === StateType.Disabled && this.state.reason === reason) {
 				return;
 			}
 
@@ -295,7 +302,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		}
 
 		// Move to Idle so one-time platform init (which may resume a pending update) can act; it requires Idle.
-		if (this._state.type === StateType.Disabled || this._state.type === StateType.Uninitialized) {
+		if (this.state.type === StateType.Disabled || this.state.type === StateType.Uninitialized) {
 			this.setState(State.Idle(this.getUpdateType()));
 		}
 
@@ -316,7 +323,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		this.scheduler.clear();
 
 		// Show a transient Cancelling state only when there is in-flight or pending work to tear down.
-		if (isCancellableState(this._state.type)) {
+		if (isCancellableState(this.state.type)) {
 			this.setState(State.Cancelling);
 		}
 
@@ -626,6 +633,16 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			return Promise.resolve(undefined);
 		}
 
+		if (this.supportsUpdateOverwrite && !this._hasCheckedForOverwriteOnQuit) {
+			this._hasCheckedForOverwriteOnQuit = true;
+			const didOverwrite = await this.checkForOverwriteUpdates(true);
+
+			if (didOverwrite) {
+				this.logService.info('update#quitAndInstall(): overwrite update detected, postponing quitAndInstall');
+				return;
+			}
+		}
+
 		// Remember the Ready state so we can restore it if the quit is vetoed
 		const readyState = this.state;
 
@@ -660,15 +677,17 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		return Promise.resolve(undefined);
 	}
 
-	// --- Start Positron ---
-	// @ts-ignore - unused but kept for upstream compatibility
-	// --- End Positron ---
 	private async checkForOverwriteUpdates(explicit: boolean = false): Promise<boolean> {
-		if (this._state.type !== StateType.Ready) {
+		if (this.state.type !== StateType.Ready) {
 			return false;
 		}
 
-		const pendingUpdateCommit = this._state.update.version;
+		if (this.deferOverwriteCheckIfMetered(explicit)) {
+			return false;
+		}
+
+		this.setDeferred(false);
+		const pendingUpdateCommit = this.state.update.version;
 
 		if (!pendingUpdateCommit || pendingUpdateCommit === 'unknown') {
 			return false;
@@ -676,18 +695,23 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 		let isLatest: boolean | undefined;
 
+		const cts = new CancellationTokenSource();
 		try {
-			const cts = new CancellationTokenSource();
-			const timeoutPromise = timeout(2000).then(() => { cts.cancel(); return undefined; });
-			isLatest = await Promise.race([this.isLatestVersion(pendingUpdateCommit, cts.token), timeoutPromise]);
-			cts.dispose();
+			const timeoutPromise = timeout(2000, cts.token).then(() => { cts.cancel(); return undefined; });
+			isLatest = await Promise.race([this.doIsLatestVersion(pendingUpdateCommit, cts.token), timeoutPromise]);
 		} catch (error) {
 			this.logService.warn('update#checkForOverwriteUpdates(): failed to check for updates, proceeding with restart');
 			this.logService.warn(error);
 			return false;
+		} finally {
+			cts.dispose(true);
 		}
 
-		if (isLatest === false && this._state.type === StateType.Ready) {
+		if (isLatest === false && this.state.type === StateType.Ready) {
+			if (this.deferOverwriteCheckIfMetered(explicit)) {
+				return false;
+			}
+
 			this.logService.info('update#readyStateCheck: newer update available, restarting update machinery');
 
 			try {
@@ -698,8 +722,12 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 				return false;
 			}
 
+			if (this.deferOverwriteCheckIfMetered(explicit)) {
+				return false;
+			}
+
 			this._overwrite = true;
-			this.setState(State.Overwriting(this._state.update, explicit));
+			this.setState(State.Overwriting(this.state.update, explicit));
 			this.doCheckForUpdates(explicit, pendingUpdateCommit);
 			return true;
 		}
@@ -707,13 +735,37 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		return false;
 	}
 
+	private deferOverwriteCheckIfMetered(explicit: boolean): boolean {
+		if (explicit || !this.meteredConnectionService.isConnectionMetered) {
+			return false;
+		}
+
+		this.setDeferred(true);
+		this.logService.info('update#checkForOverwriteUpdates - deferring overwrite because connection is metered');
+		return true;
+	}
+
 	async isLatestVersion(commit?: string, token: CancellationToken = CancellationToken.None): Promise<boolean | undefined> {
+		if (this.meteredConnectionService.isConnectionMetered) {
+			this.logService.info('update#isLatestVersion - skipping automatic check because connection is metered');
+			return undefined;
+		}
+
+		return this.doIsLatestVersion(commit, token);
+	}
+
+	protected async doIsLatestVersion(commit?: string, token: CancellationToken = CancellationToken.None): Promise<boolean | undefined> {
 		// --- Start Positron ---
-		// As long as updates are enabled, we check the update URL
+		// Positron's feed is a static JSON document that always describes the latest release,
+		// unlike upstream's update server, which answers 204 when the given commit is already
+		// the latest. So "latest" is decided client-side by comparing the feed against a
+		// baseline version: the pending update's version when given (the overwrite check in
+		// `checkForOverwriteUpdates`), otherwise the installed version. Returns `true` when
+		// the baseline is already the latest, `undefined` when it cannot be determined.
 		const mode = this.configurationService.getValue<'none' | 'manual' | 'start' | 'default'>('update.mode');
 
 		if (mode === 'none') {
-			return false;
+			return undefined;
 		}
 
 		// The constructor returns early (leaving `this.url` undefined) when
@@ -725,15 +777,17 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			return undefined;
 		}
 
+		// Include the build number: dailies share a calver and differ only by build, and
+		// `compare()` treats a missing build number as equal.
+		const baseline = commit ?? `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`;
+
 		try {
-			return this.requestService.request({ url: this.url, callSite: 'update.poll' }, CancellationToken.None)
-				.then<IUpdate | null>(asJson)
-				.then(update => {
-					if (!update || !update.version) {
-						return Promise.resolve(false);
-					}
-					return Promise.resolve(hasUpdate(update, this.productService.positronVersion));
-				});
+			const context = await this.requestService.request({ url: this.url, callSite: 'update.poll' }, token);
+			const update = await asJson<IUpdate>(context);
+			if (!update || !update.version) {
+				return undefined;
+			}
+			return !hasUpdate(update, baseline);
 		} catch (error) {
 			this.logService.error('update#isLatestVersion(): failed to check for updates');
 			this.logService.error(error);
