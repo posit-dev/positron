@@ -349,6 +349,11 @@ async function registerAwsProvider(
 					const chainInit = resolveAwsChainInit(aws, process.env);
 					const credentialProvider = fromNodeProviderChain(chainInit);
 					const resolved = await credentialProvider();
+					// Clear any note left by an earlier failure now that resolution
+					// has succeeded, so a later failure raised after this closure
+					// returns (e.g. in the caller's own post-resolve checks) is not
+					// misclassified against a stale note.
+					recovery.noteFailure(undefined);
 					return {
 						token: JSON.stringify({
 							accessKeyId: resolved.accessKeyId,

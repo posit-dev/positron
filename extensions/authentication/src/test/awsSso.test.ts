@@ -12,6 +12,11 @@ import { classifyAwsChainError, runSsoLogin, SpawnFn, SsoLoginError } from '../c
 // would fix. Copied verbatim from @aws-sdk/token-providers.
 const REFRESH = `To refresh this SSO session run 'aws sso login' with the corresponding profile.`;
 
+// The unquoted twin of REFRESH, copied verbatim from
+// @aws-sdk/credential-provider-sso. Legacy profiles (sso_start_url etc.
+// directly on the profile, no [sso-session] block) produce this spelling.
+const LEGACY_REFRESH = `To refresh this SSO session run aws sso login with the corresponding profile.`;
+
 /** An error wrapping another as its `cause`, the way the chain wraps ours. */
 function wrapped(message: string, cause: Error): Error {
 	const err = new Error(message);
@@ -42,6 +47,15 @@ suite('classifyAwsChainError', () => {
 			classifyAwsChainError(new Error(`Profile 'dev' could not be found in shared credentials file.`)),
 			// Not an error object at all.
 			classifyAwsChainError(undefined),
+			// Legacy profile shape (no [sso-session] block): invalid session,
+			// unquoted refresh sentence from @aws-sdk/credential-provider-sso.
+			classifyAwsChainError(new Error(
+				`The SSO session associated with this profile is invalid. ${LEGACY_REFRESH}`
+			)),
+			// Legacy profile shape: expired session, same unquoted sentence.
+			classifyAwsChainError(new Error(
+				`The SSO session associated with this profile has expired. ${LEGACY_REFRESH}`
+			)),
 		];
 
 		assert.deepStrictEqual(results, [
@@ -52,6 +66,8 @@ suite('classifyAwsChainError', () => {
 			undefined,
 			undefined,
 			undefined,
+			{ kind: 'expired-sso' },
+			{ kind: 'expired-sso' },
 		]);
 	});
 });
@@ -125,15 +141,30 @@ suite('runSsoLogin', () => {
 		);
 	});
 
-	test('reports a missing CLI distinctly', async () => {
+	test('reports the last stderr line even when it is split across chunks', async () => {
 		const pending = runSsoLogin(undefined, cancellation.token, spawnFn);
-		const spawnError: NodeJS.ErrnoException = new Error('spawn aws ENOENT');
-		spawnError.code = 'ENOENT';
-		child.emit('error', spawnError);
+		child.stderr.emit('data', 'first problem\nAn err');
+		child.stderr.emit('data', 'or occurred: AccessDenied\n');
+		child.emit('close', 1);
 
 		const err = await pending.then(() => undefined, (e: unknown) => e);
 
-		assert.strictEqual((err as SsoLoginError).reason, 'cli-missing');
+		assert.strictEqual((err as SsoLoginError).message, 'An error occurred: AccessDenied');
+	});
+
+	test('reports a missing or unusable CLI distinctly, regardless of errno', async () => {
+		const results = await Promise.all((['ENOENT', 'EACCES', 'EINVAL'] as const).map(async code => {
+			const errnoChild = fakeChild();
+			const errnoSpawnFn = ((_command: string, _args: readonly string[]) => errnoChild) as unknown as SpawnFn;
+			const pending = runSsoLogin(undefined, cancellation.token, errnoSpawnFn);
+			const spawnError: NodeJS.ErrnoException = new Error(`spawn aws ${code}`);
+			spawnError.code = code;
+			errnoChild.emit('error', spawnError);
+			const err = await pending.then(() => undefined, (e: unknown) => e);
+			return (err as SsoLoginError).reason;
+		}));
+
+		assert.deepStrictEqual(results, ['cli-missing', 'cli-missing', 'cli-missing']);
 	});
 
 	test('cancellation kills the child and reports cancelled', async () => {

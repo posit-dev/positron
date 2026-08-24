@@ -95,6 +95,20 @@ suite('createAwsSsoRecovery', () => {
 		assert.match((err as Error).message, /AccessDenied/);
 	});
 
+	test('a cleared note no longer classifies', async () => {
+		let logins = 0;
+		const recovery = createAwsSsoRecovery({
+			getProfile: () => undefined,
+			login: async () => { logins++; },
+		});
+
+		recovery.noteFailure(EXPIRED);
+		recovery.noteFailure(undefined);
+		const recovered = await recovery.recover(GENERIC);
+
+		assert.deepStrictEqual([recovered, logins], [false, 0]);
+	});
+
 	test('a cancelled attempt leaves no stale note behind', async () => {
 		let logins = 0;
 		const recovery = createAwsSsoRecovery({

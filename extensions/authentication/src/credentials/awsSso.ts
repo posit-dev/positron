@@ -8,13 +8,18 @@ import type { CancellationToken } from 'vscode';
 import { AuthProviderLogger } from '../authProviderLogger';
 
 /**
- * The AWS SDK appends this sentence to every token error that running
- * `aws sso login` would fix, and omits it from failures a login cannot fix
- * (no credentials configured, profile missing from the config file). Matching
- * it is how we tell a lapsed SSO session apart from every other credential
- * failure, without parsing `~/.aws/config` ourselves.
+ * Two AWS SDK packages append this sentence to every token error that
+ * running `aws sso login` would fix, and omit it from failures a login
+ * cannot fix (no credentials configured, profile missing from the config
+ * file). They differ in whether `aws sso login` is quoted:
+ * `@aws-sdk/token-providers` quotes it (the `[sso-session]` profile shape),
+ * while `@aws-sdk/credential-provider-sso` does not (the legacy profile shape
+ * with `sso_start_url` etc. directly on the profile, no `[sso-session]`
+ * block). The optional quotes match both. Matching this sentence is how we
+ * tell a lapsed SSO session apart from every other credential failure,
+ * without parsing `~/.aws/config` ourselves.
  */
-const REFRESH_MARKER = /To refresh this SSO session run 'aws sso login'/i;
+const REFRESH_MARKER = /To refresh this SSO session run '?aws sso login'?/i;
 
 /** A credential-chain failure recognized as a lapsed AWS SSO session. */
 export interface ExpiredSsoError {
@@ -99,7 +104,7 @@ export function runSsoLogin(
 
 	return new Promise<void>((resolve, reject) => {
 		const child = spawnFn('aws', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-		let lastStderrLine = '';
+		let stderrText = '';
 		let settled = false;
 
 		const finish = (err?: SsoLoginError) => {
@@ -136,9 +141,13 @@ export function runSsoLogin(
 			}
 		});
 		child.stderr?.on('data', (data: unknown) => {
-			const text = String(data).trim();
+			// Accumulate the raw chunk (not the trimmed one) so a line split
+			// across two chunks is rejoined correctly; only the logged copy
+			// is trimmed.
+			const raw = String(data);
+			stderrText += raw;
+			const text = raw.trim();
 			if (text) {
-				lastStderrLine = text.split('\n').pop() ?? text;
 				logger.warn(`aws sso login: ${text}`);
 			}
 		});
@@ -146,8 +155,14 @@ export function runSsoLogin(
 		// strictFunctionTypes; the errno lives behind a cast.
 		child.on('error', (err: Error) => {
 			const code = (err as NodeJS.ErrnoException).code;
+			// ENOENT: no `aws` on PATH. EACCES: found but not executable.
+			// EINVAL: Windows spawning a .cmd/.bat shim without a shell, which
+			// Node refuses by default as of the CVE-2024-27980 fix. All three
+			// mean there is no usable CLI to run, not that the login itself
+			// failed.
 			finish(new SsoLoginError(
-				code === 'ENOENT' ? 'cli-missing' : 'login-failed',
+				code === 'ENOENT' || code === 'EACCES' || code === 'EINVAL'
+					? 'cli-missing' : 'login-failed',
 				err.message
 			));
 		});
@@ -156,9 +171,10 @@ export function runSsoLogin(
 				finish();
 				return;
 			}
+			const lastLine = stderrText.split('\n').map(line => line.trim()).filter(line => line).pop();
 			finish(new SsoLoginError(
 				'login-failed',
-				lastStderrLine || `aws sso login exited with code ${code}`
+				lastLine || `aws sso login exited with code ${code}`
 			));
 		});
 	});

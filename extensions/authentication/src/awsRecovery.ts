@@ -18,7 +18,10 @@ export interface AwsSsoRecovery {
 	/**
 	 * Record a credential-chain failure. `resolveChainCredentials` swallows the
 	 * chain's error and `createSession` throws a generic one in its place, so
-	 * the real cause has to be kept here for `recover` to classify.
+	 * the real cause has to be kept here for `recover` to classify. Pass
+	 * `undefined` to clear a previously noted failure once resolution has
+	 * gone on to succeed, so a later unrelated failure cannot be classified
+	 * against a stale note.
 	 */
 	noteFailure(err: unknown): void;
 
@@ -58,7 +61,7 @@ export function createAwsSsoRecovery(deps: AwsSsoRecoveryDeps): AwsSsoRecovery {
 				{
 					location: vscode.ProgressLocation.Notification,
 					title: vscode.l10n.t(
-						'Signing in to AWS -- approve the request in your browser'
+						'Signing in to AWS: approve the request in your browser'
 					),
 					cancellable: true,
 				},
