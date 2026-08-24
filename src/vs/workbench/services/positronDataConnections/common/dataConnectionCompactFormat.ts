@@ -4,6 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
+ * The code points a consumer may read as a line break that JSON.stringify leaves raw: DEL and the
+ * C1 range (NEL among them), plus the U+2028/U+2029 line separators. JSON.stringify escapes the C0
+ * controls and the quote, but passes everything above U+007F through as-is, so a token quoted with
+ * it alone could still carry a line break into the middle of a line.
+ */
+const UNESCAPED_LINE_BREAKS = /[\u007f-\u009f\u2028\u2029]/g;
+
+/**
+ * Renders a token as a JSON string literal in which no character can be read as a line break, so
+ * the one-object-per-line contract holds for every consumer however it splits lines.
+ * @param text The token to quote.
+ */
+function quoteToken(text: string): string {
+	return JSON.stringify(text).replace(UNESCAPED_LINE_BREAKS,
+		character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`);
+}
+
+/**
  * Quoting for the compact, line-oriented payloads the data connection commands hand to an agent
  * (see dataConnectionSchemaSummary.ts and positronDataConnectionsCommands.ts). Those payloads trade
  * JSON's per-node keys for size, which makes their delimiters ordinary characters: a table called
@@ -12,7 +30,8 @@
  * while leaving the overwhelmingly common case (an ordinary identifier) untouched.
  *
  * The quoted form is a JSON string literal, so the escaping rules are ones any consumer already
- * knows and every character has a representation.
+ * knows and every character has a representation -- with the line-breaking code points
+ * JSON.stringify passes through unescaped spelled out explicitly; see {@link quoteToken}.
  * @param text The token to render.
  * @param unsafeCharacters The caller's delimiters, as a plain string of characters. Passed in
  * rather than fixed here because each payload delimits with a different set: a dot separates schema
@@ -36,7 +55,7 @@ export function quoteCompactToken(text: string, unsafeCharacters: string): strin
 			|| character === '\u2028'
 			|| character === '\u2029'
 			|| unsafeCharacters.includes(character)) {
-			return JSON.stringify(text);
+			return quoteToken(text);
 		}
 	}
 	return text;

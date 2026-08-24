@@ -372,6 +372,23 @@ describe('summarizeDataConnectionSchema', () => {
 		expect(summary.lines[0]).not.toContain('\n');
 	});
 
+	// U+2028 and the C1 controls are line breaks to some consumers but not to JSON.stringify, which
+	// passes everything above U+007F through raw. They are escaped explicitly so a quoted token is
+	// single-line for every consumer, not just the ones that split on \n.
+	it('escapes a line separator that JSON.stringify would leave raw', async () => {
+		const handle = createFakeHandle([
+			{ name: 'orders\u2028rows', kind: 'table' },
+			{ name: 'events\u0085rows', kind: 'table' },
+		]);
+
+		const summary = await summarizeDataConnectionSchema(handle);
+
+		expect(summary.lines).toEqual([
+			'"orders\\u2028rows" [table]',
+			'"events\\u0085rows" [table]',
+		]);
+	});
+
 	it('produces a payload that survives a JSON round-trip', async () => {
 		const handle = createFakeHandle([
 			{
