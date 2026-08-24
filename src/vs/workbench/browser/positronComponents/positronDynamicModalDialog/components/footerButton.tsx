@@ -17,6 +17,8 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
  * FooterButtonProps interface.
  */
 interface FooterButtonProps {
+	/** Id of the element explaining the button, read after its name. */
+	ariaDescribedby?: string;
 	/**
 	 * Marks the button unavailable while leaving it in the tab order, so a screen reader can
 	 * still reach it and be told it is unavailable. Prefer this over `disabled`, which removes
@@ -44,6 +46,7 @@ interface FooterButtonProps {
 export const FooterButton = (props: PropsWithChildren<FooterButtonProps>) => {
 	return (
 		<Button
+			ariaDescribedby={props.ariaDescribedby}
 			ariaDisabled={props.ariaDisabled}
 			autoFocus={props.autoFocus}
 			className={positronClassNames(

@@ -7,7 +7,7 @@
 import './importDataModalDialog.css';
 
 // React.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
@@ -221,6 +221,29 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 	const code = result?.code ?? '';
 	const canRun = code.length > 0 && variableNameValid;
 
+	// Why Import cannot be used, for a screen reader that reaches the button. The button stays
+	// focusable while unavailable, so without this it announces as disabled and explains nothing.
+	const importDisabledReasonId = useId();
+	const emptyStateId = useId();
+	const importDisabledReason = (() => {
+		if (canRun || props.importers.length === 0) {
+			return undefined;
+		}
+		if (!variableNameValid) {
+			return localize('positron.importData.cannotImportBadName', "Enter a valid variable name to import.");
+		}
+		if (generationError) {
+			return generationError;
+		}
+		return localize('positron.importData.cannotImportNoCode', "Waiting for the import code to be generated.");
+	})();
+
+	// With no importers the visible empty state already gives the reason, so the button points at
+	// that rather than a second copy of the same sentence.
+	const describedBy = canRun
+		? undefined
+		: props.importers.length === 0 ? emptyStateId : importDisabledReasonId;
+
 	// The importers are packages (the install unit in both R and Python) so "Package" is
 	// correct for every language.
 	const packageLabel = localize('positron.importData.package', "Package");
@@ -230,7 +253,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 			content={
 				<div className='import-data'>
 					{props.importers.length === 0
-						? <div className='empty-state'>
+						? <div className='empty-state' id={emptyStateId}>
 							{localize(
 								'positron.importData.noImporters',
 								"No extension can generate code to import this file."
@@ -298,10 +321,19 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 							}
 						</div>
 					}
+					{/*
+						Read only when a screen reader lands on the unavailable Import button, via
+						aria-describedby. No live region, because a described element that also
+						announces itself gets read twice.
+					*/}
+					<div className='import-disabled-reason' id={importDisabledReasonId}>
+						{importDisabledReason}
+					</div>
 				</div>
 			}
 			footer={
 				<TwoButtonFooter
+					primaryButtonDescribedBy={describedBy}
 					primaryButtonDisabled={!canRun}
 					primaryButtonTitle={localize('positron.importData.import', "Import")}
 					secondaryButtonTitle={localize('positron.importData.cancel', "Cancel")}
