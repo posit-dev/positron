@@ -93,7 +93,7 @@ export class ShowDataConnectionsAction extends Action2 {
  * Command Palette entry that shows the positronDataConnections.getConnectionCode payload -- the
  * code that opens a connection -- in an untitled editor, asking which connection when the user has
  * several configured. Unlike the catalog action above this needs no live connection: the code is
- * generated from the saved profile.
+ * generated from the saved or discovered profile.
  *
  * Exported so tests can construct it and call run() directly.
  */
@@ -119,7 +119,9 @@ export class ShowDataConnectionCodeAction extends Action2 {
 		const notificationService = accessor.get(INotificationService);
 		const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
 
-		const profiles = dataConnectionsService.getProfiles();
+		// The same catalog getConnections reports (saved profiles plus discovered connections), so
+		// the picker offers exactly the ids the getConnectionCode command accepts.
+		const profiles = dataConnectionsService.getAllProfiles();
 		if (profiles.length === 0) {
 			notificationService.info(localize(
 				'positron.dataConnections.showConnectionCode.noProfiles',

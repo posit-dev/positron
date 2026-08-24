@@ -32,6 +32,31 @@ function createProfile(overrides: Partial<IDataConnectionProfile> = {}): IDataCo
 	};
 }
 
+// A discovered ODBC data source, the way the service publishes one: a namespaced id, the
+// discovered marker, and no description unless the test sets one.
+function createDiscoveredProfile(overrides: Partial<IDataConnectionProfile> = {}): IDataConnectionProfile {
+	return createProfile({
+		id: 'discovered:test-driver:odbc-dsn:Pagila',
+		connectionName: 'Pagila',
+		parameterValues: { dsn: 'Pagila' },
+		discovered: true,
+		...overrides,
+	});
+}
+
+// The catalog stubs both service factories share, mirroring the real service: getAllProfiles is
+// the saved profiles followed by the discovered ones, and getProfile resolves ids across both.
+function createCatalogStubs(
+	profiles: IDataConnectionProfile[],
+	discoveredProfiles: IDataConnectionProfile[],
+) {
+	const allProfiles = [...profiles, ...discoveredProfiles];
+	return {
+		getAllProfiles: vi.fn(() => allProfiles),
+		getProfile: vi.fn((profileId: string) => allProfiles.find(profile => profile.id === profileId)),
+	};
+}
+
 function createDriver(overrides: Partial<IDataConnectionDriver> = {}): IDataConnectionDriver {
 	return stubInterface<IDataConnectionDriver>({
 		id: 'test-driver',
@@ -51,6 +76,7 @@ function createDriver(overrides: Partial<IDataConnectionDriver> = {}): IDataConn
 
 interface CreateServiceOptions {
 	profiles?: IDataConnectionProfile[];
+	discoveredProfiles?: IDataConnectionProfile[];
 	driver?: IDataConnectionDriver;
 	secretParameterIds?: string[];
 	redactedValues?: Record<string, string>;
@@ -64,6 +90,7 @@ interface CreateServiceOptions {
 function createDataConnectionsService(options: CreateServiceOptions = {}): IPositronDataConnectionsService {
 	const {
 		profiles = [createProfile()],
+		discoveredProfiles = [],
 		driver = createDriver(),
 		secretParameterIds = [],
 		redactedValues = {},
@@ -76,9 +103,11 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 
 	return stubInterface<IPositronDataConnectionsService>({
 		driverManager,
-		getProfiles: vi.fn(() => profiles),
-		getProfile: vi.fn((profileId: string) => profiles.find(profile => profile.id === profileId)),
-		getProfileSecretIds: vi.fn(() => secretParameterIds),
+		...createCatalogStubs(profiles, discoveredProfiles),
+		// The real service reports no secret ids for a discovered profile (nothing is in secret
+		// storage for it), so the ids apply to the saved profiles only.
+		getProfileSecretIds: vi.fn((profileId: string) =>
+			profiles.some(profile => profile.id === profileId) ? secretParameterIds : []),
 		getRedactedParameterValues: vi.fn(async (_id: string, parameterIds: readonly string[]) =>
 			Object.fromEntries(parameterIds
 				.filter(parameterId => redactedValues[parameterId] !== undefined)
@@ -101,13 +130,13 @@ describe('getDataConnections', () => {
 	}
 
 	it('returns an empty list when the feature flag is off, without touching the service', async () => {
-		const getProfiles = vi.fn(() => [createProfile()]);
-		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getProfiles });
+		const getAllProfiles = vi.fn(() => [createProfile()]);
+		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getAllProfiles });
 
 		const result = await run(dataConnectionsService, false);
 
 		expect(result).toEqual([]);
-		expect(getProfiles).not.toHaveBeenCalled();
+		expect(getAllProfiles).not.toHaveBeenCalled();
 	});
 
 	// ai.enabled is deliberately not a gate: these payloads are the user's own configuration, not an
@@ -245,6 +274,38 @@ describe('getDataConnections', () => {
 		expect(disconnectedResult.connected).toBe(false);
 	});
 
+	// Discovered connections (e.g. ODBC data sources) are part of the catalog too: they answer
+	// "which connections do I have?" just as well as a saved profile, and their ids work with
+	// getConnectionCode and getSchema. Saved profiles come first, matching the pane's ordering.
+	it('lists discovered connections after the saved profiles, marked in their summary', async () => {
+		const discovered = createDiscoveredProfile({ description: 'localhost:5432/pagila' });
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [createProfile()],
+			discoveredProfiles: [discovered],
+		});
+
+		const result = await run(dataConnectionsService);
+
+		expect(result.map(entry => entry.profileId)).toEqual(['conn-1', 'discovered:test-driver:odbc-dsn:Pagila']);
+		expect(result[1].summary).toBe(
+			'name=Pagila | driver=test-driver | mechanism=test-mechanism | discovered=true | description=localhost:5432/pagila | languages=python, r | parameters=dsn=Pagila');
+	});
+
+	// `description` is optional on a discovery -- only the marker is guaranteed, and a saved
+	// profile's summary carries neither, so the marker's absence means "saved".
+	it('marks a discovered connection without a description with the bare discovered field', async () => {
+		const discovered = createDiscoveredProfile();
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [],
+			discoveredProfiles: [discovered],
+		});
+
+		const [result] = await run(dataConnectionsService);
+
+		expect(result.summary).toBe(
+			'name=Pagila | driver=test-driver | mechanism=test-mechanism | discovered=true | languages=python, r | parameters=dsn=Pagila');
+	});
+
 	it('produces a payload that survives a JSON round-trip', async () => {
 		const dataConnectionsService = createDataConnectionsService({
 			secretParameterIds: ['apiKey'],
@@ -290,13 +351,13 @@ describe('getDataConnectionCode', () => {
 	}
 
 	it('reports the feature flag being off, without touching the service', async () => {
-		const getProfiles = vi.fn(() => [createProfile()]);
-		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getProfiles });
+		const getProfile = vi.fn(() => createProfile());
+		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ getProfile });
 
 		const result = await run(dataConnectionsService, { profileId: 'conn-1' }, false);
 
 		expect(result).toEqual({ available: false, reason: 'disabled' });
-		expect(getProfiles).not.toHaveBeenCalled();
+		expect(getProfile).not.toHaveBeenCalled();
 	});
 
 	it('honors the preferred variant per language, falling back to variants[0]', async () => {
@@ -340,6 +401,22 @@ describe('getDataConnectionCode', () => {
 		expect(await run(dataConnectionsService, { profileId: 'conn-1' })).toEqual({
 			profileId: 'conn-1',
 			languages: { python: PYTHON_CODE, r: R_CODE },
+		});
+	});
+
+	// A discovered connection's id, as reported by getConnections, is as good as a saved one: the
+	// service resolves discovered profiles by id, so the code path is identical from here on.
+	it('generates code for a discovered connection', async () => {
+		const discovered = createDiscoveredProfile();
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [],
+			discoveredProfiles: [discovered],
+			driver: createCodeDriver().driver,
+		});
+
+		expect(await run(dataConnectionsService, { profileId: discovered.id, languageId: 'python' })).toEqual({
+			profileId: discovered.id,
+			languages: { python: PYTHON_CODE },
 		});
 	});
 
@@ -421,6 +498,9 @@ interface CreateInstancesServiceOptions {
 	// attempt fails loudly (stubInterface throws) if one happens anyway.
 	profiles?: IDataConnectionProfile[];
 
+	// The discovered connections auto-connect can target, alongside the saved profiles.
+	discoveredProfiles?: IDataConnectionProfile[];
+
 	// What connecting a profile produces. Defaults to failing, so a test that expects a summary must
 	// say what the connect yields.
 	connect?: (profileId: string) => Promise<IDataConnectionInstance>;
@@ -430,7 +510,11 @@ function createInstancesService(
 	instances: IDataConnectionInstance[],
 	options: CreateInstancesServiceOptions = {},
 ): IPositronDataConnectionsService {
-	const { profiles = [], connect = async () => { throw new Error('connection refused'); } } = options;
+	const {
+		profiles = [],
+		discoveredProfiles = [],
+		connect = async () => { throw new Error('connection refused'); },
+	} = options;
 
 	return stubInterface<IPositronDataConnectionsService>({
 		driverManager: stubInterface<IDataConnectionsDriverManager>({
@@ -439,8 +523,7 @@ function createInstancesService(
 		getInstances: vi.fn(() => instances),
 		getInstanceForProfile: vi.fn((profileId: string) =>
 			instances.find(instance => instance.profileId === profileId)),
-		getProfiles: vi.fn(() => profiles),
-		getProfile: vi.fn((profileId: string) => profiles.find(profile => profile.id === profileId)),
+		...createCatalogStubs(profiles, discoveredProfiles),
 		connect: vi.fn(connect),
 	});
 }
@@ -554,6 +637,41 @@ describe('getDataConnectionSchema', () => {
 		expect(connect).toHaveBeenCalledWith('conn-cold');
 	});
 
+	// A discovered connection's id, as reported by getConnections, auto-connects just like a saved
+	// one: the service resolves discovered profiles by id, so the code path is identical from here.
+	it('connects the named discovered connection when it is not live, then summarizes it', async () => {
+		const discovered = createDiscoveredProfile();
+		const connect = vi.fn(async (profileId: string) => createInstance(profileId, 4, ['film']));
+		// A saved profile sits alongside the discovery, so the single-candidate fallback can't be
+		// what connects it: reaching the discovered profile takes the caller-supplied id.
+		const dataConnectionsService = createInstancesService([], {
+			profiles: [createProfile()],
+			discoveredProfiles: [discovered],
+			connect,
+		});
+
+		const result = await run(dataConnectionsService, { profileId: discovered.id });
+
+		expect(result).toEqual({ instanceId: '4', lines: ['film [table]'], truncated: false });
+		expect(connect).toHaveBeenCalledWith(discovered.id);
+	});
+
+	// The no-profileId fallback covers the whole catalog getConnections reports, so a machine whose
+	// only connection is a detected ODBC data source still gets the auto-connect.
+	it('connects the only discovered connection when nothing is live, nothing is saved, and no profileId is given', async () => {
+		const discovered = createDiscoveredProfile();
+		const connect = vi.fn(async (profileId: string) => createInstance(profileId, 4, ['film']));
+		const dataConnectionsService = createInstancesService([], {
+			discoveredProfiles: [discovered],
+			connect,
+		});
+
+		const result = await run(dataConnectionsService);
+
+		expect(result).toEqual({ instanceId: '4', lines: ['film [table]'], truncated: false });
+		expect(connect).toHaveBeenCalledWith(discovered.id);
+	});
+
 	it('reports there being no connections at all', async () => {
 		expect(await run(createInstancesService([])))
 			.toEqual({ connected: false, reason: 'no-connections' });
@@ -588,6 +706,24 @@ describe('getDataConnectionSchema', () => {
 			connected: false,
 			reason: 'ambiguous',
 			candidateProfileIds: ['conn-a', 'conn-b'],
+		});
+		expect(connect).not.toHaveBeenCalled();
+	});
+
+	// A single saved profile next to detected connections is no tiebreak: the user's one saved
+	// profile says nothing about which connection they mean now, so the candidates span both.
+	it('reports an ambiguous target across saved and discovered connections when nothing is live', async () => {
+		const connect = vi.fn();
+		const dataConnectionsService = createInstancesService([], {
+			profiles: [createProfile({ id: 'conn-a' })],
+			discoveredProfiles: [createDiscoveredProfile()],
+			connect,
+		});
+
+		expect(await run(dataConnectionsService)).toEqual({
+			connected: false,
+			reason: 'ambiguous',
+			candidateProfileIds: ['conn-a', 'discovered:test-driver:odbc-dsn:Pagila'],
 		});
 		expect(connect).not.toHaveBeenCalled();
 	});

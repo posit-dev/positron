@@ -265,15 +265,12 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 }
 
 /**
- * Builds the entries from the service's current profile + instance collections. One entry per
- * saved profile, followed by one per discovered connection; the entry's instance is set when a live
- * connection exists for that profile.
- *
- * Discovered connections come last so a user's own saved connections keep the top of the pane: on a
- * machine with a large odbc.ini the discoveries can outnumber them several times over.
+ * Builds the entries from the service's current catalog + instance collections. One entry per
+ * profile -- saved first, then discovered, an ordering getAllProfiles owns -- with the entry's
+ * instance set when a live connection exists for that profile.
  */
 function buildEntries(service: IPositronDataConnectionsService): DataConnectionEntry[] {
-	return [...service.getProfiles(), ...service.getDiscoveredProfiles()].map(profile => ({
+	return service.getAllProfiles().map(profile => ({
 		profile,
 		instance: service.getInstanceForProfile(profile.id),
 	}));

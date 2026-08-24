@@ -39,9 +39,22 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * sources), as ephemeral profiles. These are not persisted and are never returned by
 	 * {@link getProfiles}. A discovery that matches a saved profile -- same driver, mechanism, and
 	 * parameter values -- is omitted, so a data source the user has already configured appears once.
+	 * Like a saved profile's, the returned profiles' parameterValues never contain values the
+	 * mechanism declares secret; those are held internally and merged back by
+	 * {@link getProfileWithSecrets}.
 	 * @returns The discovered data connection profiles.
 	 */
 	getDiscoveredProfiles(): readonly IDataConnectionProfile[];
+
+	/**
+	 * Gets the full connection catalog: every saved profile followed by every discovered
+	 * connection. The single owner of the "saved first, discovered after" ordering that the pane
+	 * and the payload commands both present -- a user's own saved connections keep the top, since
+	 * on a machine with a large odbc.ini the discoveries can outnumber them several times over.
+	 * Deduplication is {@link getDiscoveredProfiles}'s, so nothing appears twice.
+	 * @returns The saved profiles followed by the discovered profiles.
+	 */
+	getAllProfiles(): readonly IDataConnectionProfile[];
 
 	/**
 	 * Saves a discovered connection as an ordinary profile, so it persists across sessions and can

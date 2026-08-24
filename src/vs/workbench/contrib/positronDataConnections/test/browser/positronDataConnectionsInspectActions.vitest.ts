@@ -92,7 +92,8 @@ describe('data connections inspect actions', () => {
 		ctx.instantiationService.stub(ILogService, new NullLogService());
 		const driver = createDriver();
 		ctx.instantiationService.stub(IPositronDataConnectionsService, stubInterface<IPositronDataConnectionsService>({
-			getProfiles: vi.fn(() => profiles),
+			// These tests configure no discovered connections, so the catalog is the profiles as-is.
+			getAllProfiles: vi.fn(() => profiles),
 			driverManager: stubInterface<IDataConnectionsDriverManager>({
 				getDriver: vi.fn((driverId: string) => driverId === driver.id ? driver : undefined),
 			}),

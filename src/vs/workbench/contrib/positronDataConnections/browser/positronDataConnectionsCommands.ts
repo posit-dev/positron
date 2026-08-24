@@ -50,9 +50,10 @@ export interface IDataConnectionCodeLanguageResult {
 
 /**
  * Payload for a single data connection profile, as returned by the getConnections command: the
- * catalog entry for one saved connection, with no generated code. Everything Assistant needs to
- * discover a configured connection cold (with no live instance) and decide which one the user
- * means; the code to open it comes from getConnectionCode, for the one profile it settles on.
+ * catalog entry for one saved or discovered connection, with no generated code. Everything
+ * Assistant needs to discover a configured connection cold (with no live instance) and decide
+ * which one the user means; the code to open it comes from getConnectionCode, for the one profile
+ * it settles on.
  *
  * The two fields a caller acts on -- the id it passes to getConnectionCode or getSchema, and
  * whether the connection is already live -- stay structured. Everything descriptive is folded into
@@ -78,7 +79,13 @@ const SUMMARY_UNSAFE_CHARACTERS = '|,=';
 /**
  * Renders a profile's descriptive fields as one line:
  *
- *     name=<connectionName> | driver=<driverId> | mechanism=<mechanismId> | languages=<id>, ... | parameters=<key>=<value>, ...
+ *     name=<connectionName> | driver=<driverId> | mechanism=<mechanismId> | discovered=true | description=<text> | languages=<id>, ... | parameters=<key>=<value>, ...
+ *
+ * `discovered=true` marks a connection the driver detected on this machine (e.g. an ODBC data
+ * source) rather than one the user saved; the field is absent for saved profiles, so its absence
+ * means "saved" without spending a token on every ordinary profile. `description` is the driver's
+ * own one-line summary of where a discovered connection points, present only when the driver
+ * supplied one (and only ever on discovered connections).
  *
  * The keys are spelled out rather than left positional so the line stays self-describing if it is
  * ever read out of context (a truncated payload, a log line). The driver's display name is left
@@ -120,6 +127,12 @@ function formatConnectionSummary(
 		`driver=${quote(profile.driverMetadata.id)}`,
 		`mechanism=${quote(mechanismId)}`,
 	];
+	if (profile.discovered) {
+		fields.push('discovered=true');
+		if (profile.description) {
+			fields.push(`description=${quote(profile.description)}`);
+		}
+	}
 	if (languageIds !== undefined) {
 		fields.push(`languages=${languageIds.map(quote).join(', ')}`);
 	}
@@ -180,7 +193,9 @@ async function getRedactedParameterValues(
 	profile: IDataConnectionProfile,
 	dataConnectionsService: IPositronDataConnectionsService,
 ): Promise<DataConnectionParameterValues> {
-	// profile.parameterValues never contains secret values, so this starts as the full non-secret set.
+	// profile.parameterValues never contains secret values -- a saved profile's live in secret
+	// storage, and the service splits a discovery's out at discovery time -- so this starts as the
+	// full non-secret set.
 	const parameterValues: DataConnectionParameterValues = { ...profile.parameterValues };
 
 	const redacted = await dataConnectionsService.getRedactedParameterValues(
@@ -219,8 +234,9 @@ async function getLanguagePayloads(
 		: driver.metadata.supportedLanguageIds.includes(requestedLanguageId) ? [requestedLanguageId] : [];
 
 	await Promise.all(languageIds.map(async languageId => {
-		// The profile's own parameterValues never contains secret values, so this is always the
-		// secret-free preview.
+		// The profile's own parameterValues never contains secret values -- a saved profile's live
+		// in secret storage, and the service splits a discovery's out at discovery time -- so this
+		// is always the secret-free preview.
 		let variants;
 		try {
 			variants = await driver.generateConnectionCode(mechanismId, languageId, profile.parameterValues);
@@ -245,9 +261,15 @@ async function getLanguagePayloads(
 }
 
 /**
- * Builds the getDataConnections payload: the catalog of every saved data connection profile, for
- * cold-start Assistant awareness (no live connection required). Returns an empty list when the
- * commands are gated off -- see {@link isDataConnectionsCommandEnabled}.
+ * Builds the getDataConnections payload: the catalog of every saved data connection profile, plus
+ * the connections drivers discovered on this machine (e.g. ODBC data sources), for cold-start
+ * Assistant awareness (no live connection required). Discovered connections come after the saved
+ * profiles, matching the pane's ordering, and are marked `discovered=true` in their summary line.
+ * Their ids work everywhere a saved profile's id does -- getConnectionCode, getSchema, and the
+ * connect it performs all resolve them -- so a caller doesn't need to treat them differently. The
+ * service has already dropped any discovery that duplicates a saved profile, so nothing appears
+ * twice. Returns an empty list when the commands are gated off -- see
+ * {@link isDataConnectionsCommandEnabled}.
  *
  * Deliberately carries no generated connection code. Generating it costs a round trip to the driver
  * per profile per language, and the answer to "which connections do I have?" needs none of it: a
@@ -261,7 +283,12 @@ export async function getDataConnections(accessor: ServicesAccessor): Promise<ID
 
 	const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
 
-	return Promise.all(dataConnectionsService.getProfiles().map(async profile => {
+	// The service's full catalog: saved profiles first, discovered connections after, deduped --
+	// the same ordering the pane presents. A discovered profile has nothing in secret storage (it
+	// was never saved; the service splits any secret-declared discovery values out before the
+	// profile is visible here), so getProfileSecretIds reports none and the redaction below is a
+	// no-op for it.
+	return Promise.all(dataConnectionsService.getAllProfiles().map(async profile => {
 		// The driver may be unregistered (extension not installed, or not yet activated); fall back
 		// to the profile's own mechanismId and report no code languages in that case.
 		const driver = dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
@@ -282,9 +309,9 @@ export async function getDataConnections(accessor: ServicesAccessor): Promise<ID
  * Arguments for the getConnectionCode command.
  */
 export interface IDataConnectionCodeCommandArgs {
-	// The profile to generate connection code for, as reported by getConnections. Required: this
-	// command exists to generate code for one profile, and generating it for a profile the caller
-	// did not name is exactly the cost the catalog avoids.
+	// The profile to generate connection code for, saved or discovered, as reported by
+	// getConnections. Required: this command exists to generate code for one profile, and
+	// generating it for a profile the caller did not name is exactly the cost the catalog avoids.
 	profileId: string;
 
 	// The only language to generate code for. Omitted, every language the profile's driver supports
@@ -297,7 +324,8 @@ export interface IDataConnectionCodeCommandArgs {
  * them is fixed by retrying the same call.
  *
  * - `disabled`: the dataConnections.enabled feature flag is off.
- * - `not-found`: no saved profile has the id the caller named, or the caller named none at all.
+ * - `not-found`: no saved or discovered profile has the id the caller named, or the caller named
+ *   none at all.
  * - `no-driver`: the profile's driver is unregistered -- its extension isn't installed, or hasn't
  *   activated yet -- so there is nothing to generate code with.
  * - `no-code`: the driver is registered but produced no code. Either the caller named a language it
@@ -341,8 +369,8 @@ export type DataConnectionCodeCommandResult =
 	IDataConnectionCodeResult | IDataConnectionCodeUnavailableResult;
 
 /**
- * Builds the getConnectionCode payload: the secret-free code that opens one saved connection, in
- * the language(s) asked for. Split out of getConnections because the code is the bulk of what a
+ * Builds the getConnectionCode payload: the secret-free code that opens one saved or discovered
+ * connection, in the language(s) asked for. Split out of getConnections because the code is the bulk of what a
  * profile carries and generating it costs a round trip to the driver per language -- so it is
  * generated for the one profile a caller has settled on, rather than for every profile on every
  * "what connections do I have?" call.
@@ -399,9 +427,9 @@ export async function getDataConnectionCode(
  * walk, and the field docs live in one place (see {@link IDataConnectionSchemaSummaryOptions}).
  */
 export interface IDataConnectionSchemaCommandArgs extends IDataConnectionSchemaSummaryOptions {
-	// The profile to summarize. The profile is connected automatically when it isn't live yet.
-	// Optional: when omitted, the one live connection is summarized -- or, when nothing is live,
-	// the one saved profile is connected and summarized.
+	// The profile to summarize, saved or discovered. The profile is connected automatically when
+	// it isn't live yet. Optional: when omitted, the one live connection is summarized -- or, when
+	// nothing is live, the one saved or discovered connection is connected and summarized.
 	profileId?: string;
 }
 
@@ -411,14 +439,14 @@ export interface IDataConnectionSchemaCommandArgs extends IDataConnectionSchemaS
  * happened.
  *
  * - `disabled`: the dataConnections.enabled feature flag is off.
- * - `not-found`: no saved profile has the id the caller named.
+ * - `not-found`: no saved or discovered profile has the id the caller named.
  * - `no-driver`: the target profile's driver is unregistered -- its extension isn't installed, or
  *   hasn't activated yet -- so there is nothing to connect with.
  * - `connect-failed`: the target profile isn't live and the automatic connection attempt failed.
- * - `no-connections`: nothing is live and no profile is saved, so there is nothing to summarize or
- *   connect.
+ * - `no-connections`: nothing is live and no connection is saved or discovered, so there is
+ *   nothing to summarize or connect.
  * - `ambiguous`: the caller named no profile and there are several candidates -- the live
- *   connections, or every saved profile when none is live.
+ *   connections, or every saved and discovered connection when none is live.
  */
 export type DataConnectionSchemaUnavailableReason =
 	| 'disabled'
@@ -439,8 +467,8 @@ export interface IDataConnectionSchemaUnavailableResult {
 	reason: DataConnectionSchemaUnavailableReason;
 
 	// The profiles the caller could name, present when `reason` is `ambiguous`: the live
-	// connections, or every saved profile when none is live. Turns a dead end into a retry: the
-	// caller can pick one of these and call again.
+	// connections, or every saved and discovered connection when none is live. Turns a dead end
+	// into a retry: the caller can pick one of these and call again.
 	candidateProfileIds?: string[];
 }
 
@@ -501,9 +529,9 @@ async function connectSchemaTarget(
 /**
  * Resolves which connection getSchema should summarize, connecting it first when it isn't live. A
  * named profile is always the target; unnamed, the target is the one live connection, or -- when
- * nothing is live -- the one saved profile. Reports the reason rather than guessing when there's
- * no unambiguous answer, since a summary of the wrong connection is worse for the caller than none
- * at all.
+ * nothing is live -- the one saved or discovered connection. Reports the reason rather than
+ * guessing when there's no unambiguous answer, since a summary of the wrong connection is worse
+ * for the caller than none at all.
  * @param dataConnectionsService The data connections service.
  * @param profileId The requested profile id, if the caller named one.
  * @param logService The log service.
@@ -534,9 +562,16 @@ async function resolveSchemaTarget(
 		};
 	}
 
-	// Nothing is live, so fall back to the saved profiles: a single one is as unambiguous a target
-	// as a single live connection, and connecting it is the point of the auto-connect.
-	const profiles = dataConnectionsService.getProfiles();
+	// Nothing is live, so fall back to the catalog getConnections reports (getAllProfiles: the
+	// saved profiles plus the connections drivers discovered on this machine, e.g. ODBC data
+	// sources). A single entry across both is as unambiguous a target as a single live connection,
+	// and connecting it is the point of the auto-connect -- a discovered id connects just like a
+	// saved one. A saved profile alongside discovered connections is ambiguous, not a tiebreak:
+	// the user's one saved profile says nothing about which connection they mean now. Discovery
+	// refreshes asynchronously as driver extensions activate, so early in a session this fallback
+	// can see fewer candidates than a moment later; either way an ambiguous reply lists the
+	// candidates, so the caller can retry with an explicit id.
+	const profiles = dataConnectionsService.getAllProfiles();
 	if (profiles.length === 1) {
 		return connectSchemaTarget(dataConnectionsService, profiles[0].id, logService);
 	}
@@ -614,11 +649,11 @@ CommandsRegistry.registerCommand({
 	metadata: {
 		description: localize(
 			'positron.dataConnections.getConnections.description',
-			"Read the data connections the user has configured, whether or not they are currently connected."
+			"Read the data connections the user has configured or that were detected on this machine, whether or not they are currently connected."
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
-		returns: 'An array of saved connection profiles, without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id> | languages=<languageId>, ... | parameters=<key>=<value>, ... -- the driver\'s own parameters all nest inside the single parameters= field (split it at its first = only), with secrets in redacted form only. `languages` is absent when the driver\'s extension is not installed or has not activated, and present but empty when the driver generates no code. Empty when no connection is configured, or when the dataConnections.enabled setting is off.',
+		returns: 'An array of connection profiles -- the user\'s saved connections first, then connections detected on this machine (e.g. ODBC data sources) -- without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id>[ | discovered=true][ | description=<one line on where a detected connection points>] | languages=<languageId>, ... | parameters=<key>=<value>, ... -- the driver\'s own parameters all nest inside the single parameters= field (split it at its first = only), with secrets in redacted form only. discovered=true marks a detected connection; its profileId works with getConnectionCode and getSchema just like a saved one, but it is ephemeral -- it stops resolving when the user saves that connection (the saved profile gets a fresh profileId) or the driver stops reporting it -- so re-read this catalog rather than reusing a stored one. `languages` is absent when the driver\'s extension is not installed or has not activated, and present but empty when the driver generates no code. Empty when no connection is configured or detected, or when the dataConnections.enabled setting is off.',
 	},
 });
 
@@ -641,7 +676,7 @@ CommandsRegistry.registerCommand({
 				properties: {
 					profileId: {
 						type: 'string',
-						description: 'The profile to generate connection code for, as reported by positronDataConnections.getConnections.',
+						description: 'The profile to generate connection code for, as reported by positronDataConnections.getConnections (saved or discovered).',
 					},
 					languageId: {
 						type: 'string',
@@ -676,7 +711,7 @@ CommandsRegistry.registerCommand({
 				properties: {
 					profileId: {
 						type: 'string',
-						description: 'The profile to summarize, as reported by positronDataConnections.getConnections; it is connected automatically when it is not live yet. Optional when exactly one connection is live, or when nothing is live and exactly one profile is saved.',
+						description: 'The profile to summarize, as reported by positronDataConnections.getConnections (saved or discovered); it is connected automatically when it is not live yet. Optional when exactly one connection is live, or when nothing is live and exactly one connection is saved or discovered.',
 					},
 					maxDepth: {
 						type: 'number',

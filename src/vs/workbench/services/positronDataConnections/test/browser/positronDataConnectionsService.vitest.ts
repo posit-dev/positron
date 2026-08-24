@@ -456,6 +456,16 @@ describe('PositronDataConnectionsService', () => {
 			expect(service.getProfiles()).toEqual([]);
 		});
 
+		it('reports the full catalog through getAllProfiles, saved profiles first', async () => {
+			await registerDiscoveringDriver([pagila]);
+			service.addUpdateProfile(createProfile('saved-1'));
+
+			expect(service.getAllProfiles().map(profile => profile.id)).toEqual([
+				'saved-1',
+				'discovered:test-driver:odbc-dsn:Pagila',
+			]);
+		});
+
 		it('hides a discovery that matches a saved profile, so a configured data source appears once', async () => {
 			await registerDiscoveringDriver([pagila]);
 
@@ -513,6 +523,49 @@ describe('PositronDataConnectionsService', () => {
 			expect(service.getProfile(id)?.connectionName).toBe('Pagila');
 			// A discovery holds no secrets, so resolving it with secrets is the same profile.
 			await expect(service.getProfileWithSecrets(id)).resolves.toMatchObject({ connectionName: 'Pagila' });
+		});
+
+		// A driver's discovery may carry a value its mechanism declares secret (e.g. a password
+		// embedded in a connection string). The service splits it out at discovery time -- the
+		// profiles every consumer sees (and the catalog command renders verbatim) stay secret-free
+		// -- and merges it back only for the connect, via getProfileWithSecrets. Saving the
+		// discovery routes the value into secret storage like any other saved secret.
+		it('splits secret-declared discovery values out of the public profile, keeping them for connect and save', async () => {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: {
+					...createDriverMetadata(),
+					mechanisms: [{
+						id: 'test-mechanism',
+						label: 'Test Mechanism',
+						description: '',
+						parameters: [{ id: 'pwd', label: 'Password', type: 'password', secret: true }],
+					}],
+				},
+				discoverConnections: async () => [{ ...pagila, parameterValues: { dsn: 'Pagila', pwd: 'hunter2' } }],
+			}));
+			await vi.waitFor(() => {
+				expect(service.getDiscoveredProfiles().length).toBe(1);
+			});
+
+			const id = 'discovered:test-driver:odbc-dsn:Pagila';
+			// The public forms are secret-free, and nothing is in secret storage for a discovery...
+			expect(service.getProfile(id)?.parameterValues).toEqual({ dsn: 'Pagila' });
+			expect(service.getProfileSecretIds(id)).toEqual([]);
+			// ...while the connect-time form has the value the driver reported.
+			await expect(service.getProfileWithSecrets(id)).resolves.toMatchObject({
+				parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
+			});
+
+			// Saving the discovery keeps the secret out of the public profile and round-trips it
+			// through secret storage.
+			const savedId = service.saveDiscoveredProfile(id)!;
+			expect(service.getProfile(savedId)?.parameterValues).toEqual({ dsn: 'Pagila' });
+			await vi.waitFor(async () => {
+				await expect(service.getProfileWithSecrets(savedId)).resolves.toMatchObject({
+					parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
+				});
+			});
 		});
 
 		it('is a no-op when the id is not a current discovery', () => {

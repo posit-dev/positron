@@ -17,7 +17,7 @@ import { PositronDataExplorerUri } from '../../positronDataExplorer/common/posit
 import { IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IDataConnectionHandle, IDataConnectionProfile, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
+import { DataConnectionParameterValues, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
 
 // Storage key prefix for persisted data connection profiles. Each data connection profile gets
@@ -77,6 +77,14 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Rebuilt whenever the registered drivers change and never persisted; see
 	// _refreshDiscoveredProfiles.
 	private _discoveredProfiles: IDataConnectionProfile[] = [];
+
+	// The secret parameter values of the discovered connections, keyed by discovered profile id.
+	// The discovery-time analogue of secret storage: a driver's discoverConnections may report a
+	// value its mechanism declares secret (e.g. a password embedded in a connection string), and
+	// those never appear on the profiles the rest of the workbench sees. Held in memory only and
+	// rebuilt alongside _discoveredProfiles; merged back by getProfileWithSecrets for connect(),
+	// and re-attached by saveDiscoveredProfile so the save persists them into secret storage.
+	private _discoveredSecretValues = new Map<string, DataConnectionParameterValues>();
 
 	// Fires when the discovered data connections change.
 	private readonly _onDidChangeDiscoveredProfilesEmitter = this._register(new Emitter<IDataConnectionProfile[]>());
@@ -169,6 +177,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			...rest,
 			id: generateUuid(),
 			createdAt: Date.now(),
+			// Re-attach any secret values discovery split out, so addUpdateProfile routes them
+			// into secret storage like any other saved secret.
+			parameterValues: { ...rest.parameterValues, ...this._discoveredSecretValues.get(id) },
 		};
 
 		this.addUpdateProfile(profile);
@@ -220,6 +231,14 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
+	 * Gets the full connection catalog: the saved profiles first, then the connections drivers
+	 * discovered on this machine. See {@link IPositronDataConnectionsService.getAllProfiles}.
+	 */
+	getAllProfiles(): readonly IDataConnectionProfile[] {
+		return [...this._profiles, ...this.getDiscoveredProfiles()];
+	}
+
+	/**
 	 * Gets a data connection profile by id. The returned profile's parameterValues never contains
 	 * secret parameter values; use {@link getProfileWithSecrets} when those values are required.
 	 * @param id The data connection profile id.
@@ -242,10 +261,18 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// Look up the data connection profile by id. If not found, return undefined.
 		const profile = this._profiles.find(_ => _.id === id);
 		if (!profile) {
-			// A discovered profile has nothing in secret storage -- it was never saved -- so its
-			// parameter values are already complete. Whatever credentials the connection needs are
-			// the data source's own (an ODBC DSN carries them, or the driver prompts).
-			return this._discoveredProfiles.find(_ => _.id === id);
+			// A discovered profile has nothing in secret storage -- it was never saved. Any secret
+			// values its driver reported were split out at discovery time and held in
+			// _discoveredSecretValues; merge them back so the connect gets the values the driver
+			// reported.
+			const discovered = this._discoveredProfiles.find(_ => _.id === id);
+			if (!discovered) {
+				return undefined;
+			}
+			const secretValues = this._discoveredSecretValues.get(id);
+			return secretValues === undefined
+				? discovered
+				: { ...discovered, parameterValues: { ...discovered.parameterValues, ...secretValues } };
 		}
 
 		// The persisted data connection profile tells us which parameter ids are secrets for this
@@ -588,27 +615,51 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		const results = await Promise.all(drivers.map(async driver => {
 			try {
 				const discovered = await driver.discoverConnections();
-				return discovered.map((connection): IDataConnectionProfile => ({
-					id: `discovered:${driver.id}:${connection.id}`,
-					driverMetadata: {
-						id: driver.metadata.id,
-						name: driver.metadata.name,
-						iconSvg: driver.metadata.iconSvg,
-						supportedLanguageIds: driver.metadata.supportedLanguageIds,
-					},
-					connectionName: connection.name,
-					description: connection.description,
-					mechanismId: connection.mechanismId,
-					parameterValues: connection.parameterValues,
-					discovered: true,
-				}));
+				return discovered.map(connection => {
+					// A discovery's parameterValues come straight from the driver and may include
+					// values its mechanism declares secret (e.g. a password embedded in a
+					// connection string). Split those out, the discovery-time analogue of
+					// _splitAndPersistSecrets: the profile every consumer sees stays secret-free
+					// -- the catalog and code commands render its parameterValues verbatim --
+					// while getProfileWithSecrets merges the secret values back for connect().
+					// This also keeps _isSameConnection symmetric, since a saved profile's
+					// in-memory parameterValues are secret-free too.
+					const mechanism = resolveDataConnectionMechanism(driver.metadata, connection.mechanismId);
+					const secretParameterIds = new Set(
+						mechanism?.parameters.filter(isSecretParameter).map(parameter => parameter.id));
+					const parameterValues: DataConnectionParameterValues = {};
+					const secretValues: DataConnectionParameterValues = {};
+					for (const [parameterId, value] of Object.entries(connection.parameterValues)) {
+						(secretParameterIds.has(parameterId) ? secretValues : parameterValues)[parameterId] = value;
+					}
+
+					const profile: IDataConnectionProfile = {
+						id: `discovered:${driver.id}:${connection.id}`,
+						driverMetadata: {
+							id: driver.metadata.id,
+							name: driver.metadata.name,
+							iconSvg: driver.metadata.iconSvg,
+							supportedLanguageIds: driver.metadata.supportedLanguageIds,
+						},
+						connectionName: connection.name,
+						description: connection.description,
+						mechanismId: connection.mechanismId,
+						parameterValues,
+						discovered: true,
+					};
+					return { profile, secretValues };
+				});
 			} catch (err) {
 				this._logService.error(`[DataConnections] discoverConnections() threw for driver ${driver.id}: ${err}`);
 				return [];
 			}
 		}));
 
-		this._discoveredProfiles = results.flat();
+		const discoveries = results.flat();
+		this._discoveredProfiles = discoveries.map(discovery => discovery.profile);
+		this._discoveredSecretValues = new Map(discoveries
+			.filter(discovery => Object.keys(discovery.secretValues).length > 0)
+			.map(discovery => [discovery.profile.id, discovery.secretValues]));
 		this._logService.trace(`[DataConnections] Discovered ${this._discoveredProfiles.length} connection(s) across ${drivers.length} driver(s)`);
 		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
 	}
