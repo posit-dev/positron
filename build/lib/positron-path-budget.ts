@@ -105,6 +105,10 @@ const EXTENSION_NODE_MODULES_EXCLUDES = [
 	// scopes, because many other packages ship `dist-es` as their only build.
 	'node_modules/@aws-sdk/**/dist-es/**',
 	'node_modules/@smithy/**/dist-es/**',
+	// node-pre-gyp's scratch dir from a source-build fallback (e.g. odbc has
+	// no linux-arm64 prebuilt). Its .deps files bake in the absolute build
+	// path, which is the longest path in the tree.
+	'node_modules/**/build-tmp-napi-v*/**',
 ];
 
 /**
