@@ -490,4 +490,98 @@ suite('configDialog', () => {
 			});
 		});
 	});
+
+	/**
+	 * A chain provider whose resolve fails the given number of times before
+	 * succeeding, for exercising the recover-and-retry path.
+	 */
+	function makeFlakyChainProvider(failures: number) {
+		let attempts = 0;
+		const chainProvider = new AuthProvider(
+			'test-chain', 'Test Chain',
+			{
+				secrets: {
+					get: () => Promise.resolve(undefined),
+					store: () => Promise.resolve(),
+					delete: () => Promise.resolve(),
+				},
+				globalState: {
+					get: () => undefined,
+					update: () => Promise.resolve(),
+				},
+			} as unknown as vscode.ExtensionContext,
+			undefined,
+			{
+				resolve: async () => {
+					attempts++;
+					if (attempts <= failures) {
+						throw new Error('chain unavailable');
+					}
+					return JSON.stringify({ accessKeyId: 'AKIA', secretAccessKey: 'secret' });
+				},
+			}
+		);
+		return { chainProvider, attempts: () => attempts };
+	}
+
+	const chainSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: { id: 'test-chain', displayName: 'Test Chain' },
+		supportedOptions: [],
+		defaults: {},
+	} as positron.ai.LanguageModelSource;
+
+	test('retries the connect once when recover succeeds', async () => {
+		const { chainProvider, attempts } = makeFlakyChainProvider(1);
+		let recoverCalls = 0;
+		registerAuthProvider('test-chain', chainProvider, {
+			recover: async () => { recoverCalls++; return true; },
+		});
+
+		await providerAction(chainSource, { model: 'test-model' }, 'save');
+
+		const sessions = await chainProvider.getSessions();
+		assert.deepStrictEqual(
+			[recoverCalls, attempts(), sessions.length],
+			[1, 2, 1]
+		);
+		chainProvider.dispose();
+	});
+
+	test('propagates the original error when recover declines', async () => {
+		const { chainProvider } = makeFlakyChainProvider(Number.MAX_SAFE_INTEGER);
+		registerAuthProvider('test-chain', chainProvider, {
+			recover: async () => false,
+		});
+
+		const err = await providerAction(chainSource, { model: 'test-model' }, 'save')
+			.then(() => undefined, (e: unknown) => e);
+
+		assert.match((err as Error).message, /No credentials found for Test Chain/);
+		chainProvider.dispose();
+	});
+
+	test('surfaces the recover error in place of the generic one', async () => {
+		const { chainProvider } = makeFlakyChainProvider(Number.MAX_SAFE_INTEGER);
+		registerAuthProvider('test-chain', chainProvider, {
+			recover: async () => { throw new Error('the AWS CLI is required'); },
+		});
+
+		const err = await providerAction(chainSource, { model: 'test-model' }, 'save')
+			.then(() => undefined, (e: unknown) => e);
+
+		assert.match((err as Error).message, /the AWS CLI is required/);
+		chainProvider.dispose();
+	});
+
+	test('does not retry when no recover hook is registered', async () => {
+		const { chainProvider, attempts } = makeFlakyChainProvider(1);
+		registerAuthProvider('test-chain', chainProvider);
+
+		const err = await providerAction(chainSource, { model: 'test-model' }, 'save')
+			.then(() => undefined, (e: unknown) => e);
+
+		assert.deepStrictEqual([attempts(), err !== undefined], [1, true]);
+		chainProvider.dispose();
+	});
 });
