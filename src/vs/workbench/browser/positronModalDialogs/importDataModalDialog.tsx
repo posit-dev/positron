@@ -251,7 +251,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 							<div className='body'>
 								<div className='package-header'>{packageLabel}</div>
 								<div className='code-header'>
-									<span className='code-title'>{localize('positron.importData.code', "Import Code")}</span>
+									<span className='code-title'>{localize('positron.importData.code', "Code")}</span>
 									<Button
 										className='button dialog-button small'
 										disabled={!canRun}
