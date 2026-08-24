@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, Locator, Page } from '@playwright/test';
+import { Browser, BrowserContext, chromium, expect, Locator, Page } from '@playwright/test';
 import { Logger } from '../infra/logger.js';
+import { BrowserLaunchShim } from './browserLaunchShim.js';
 import { generateTOTP } from './totp.js';
 import { isOktaLockedOut, otpRetryDelayMs } from './otpRetry.js';
 
@@ -17,6 +18,9 @@ import { isOktaLockedOut, otpRetryDelayMs } from './otpRetry.js';
 //   - Positron Desktop's Databricks LLM provider hands the URL to the system browser via
 //     vscode.env.openExternal, so the e2e test intercepts it and replays it in a browser
 //     it controls (see modelProviderShared.ts).
+//   - The data connections Databricks driver hands off to @databricks/sql, which runs its own
+//     OAuth and launches the browser through the `open` npm package -- intercepted with a PATH
+//     shim instead (see completeDatabricksSdkOAuth below).
 //
 // Everything between "we are on the workspace login page" and "the provider redirected
 // back to the callback" is identical, and that is what lives here.
@@ -174,4 +178,78 @@ export async function completeDatabricksOktaSignIn(page: Page, options: Databric
 	}
 
 	return false;
+}
+
+/**
+ * Completes the Databricks OAuth sign-in for a flow the *SDK* runs, rather than one Positron
+ * runs -- currently the data connections driver's OAuth User-to-Machine mechanism.
+ *
+ * The distinction matters because it decides where the authorize URL is intercepted. The
+ * assistant's Databricks provider is Positron's own OAuth, so its URL is captured by patching
+ * `shell.openExternal` (see completeDatabricksLoopbackOAuth in modelProviderShared.ts). Here
+ * the driver only hands connection options to @databricks/sql, which runs authorization code
+ * + PKCE itself against its own loopback server on port 8030 and launches the browser through
+ * the `open` npm package -- nothing goes through Positron's opener service. So the capture
+ * point is a PATH shim instead; see browserLaunchShim.ts.
+ *
+ * `trigger` must be the action that establishes the connection, and note that it does *not*
+ * resolve until sign-in completes: the driver connects eagerly, and Positron only calls it
+ * lazily on the first expand of the connection entry, inside the tree's _fetchChildren. So the
+ * trigger is started and deliberately left pending while the browser leg runs, then awaited at
+ * the end. Awaiting it up front would deadlock.
+ *
+ * @param shim The armed PATH shim capturing the SDK's browser launch.
+ * @param trigger Starts the connect (expands the connection entry). Started, not awaited.
+ * @param options.logger Where to report progress; callers pass `code.logger`.
+ * @param options.headless Whether to run the OAuth browser headless. Defaults to false,
+ * matching the other IdP flows: these pages are not reliably renderable headless.
+ */
+export async function completeDatabricksSdkOAuth(
+	shim: BrowserLaunchShim,
+	trigger: () => Promise<void>,
+	options: { logger: Logger; headless?: boolean }
+): Promise<void> {
+	const { logger, headless = false } = options;
+
+	shim.arm();
+
+	// Start the connect and leave it pending. Attach a no-op catch now so that a failure while
+	// we are busy with the browser does not surface as an unhandled rejection; the awaited
+	// `pending` below is what actually reports it.
+	const pending = trigger();
+	pending.catch(() => { /* reported by the await at the end */ });
+
+	// The workspace's OIDC authorize endpoint. The SDK uses /oidc/oauth2/v2.0/authorize, which
+	// is a different endpoint from the /oidc/v1/authorize the assistant's provider discovers,
+	// so match the shared prefix rather than either exact path.
+	const authorizeUrl = await shim.waitForUrl(/\/oidc\/.*authorize/);
+
+	// The SDK's own callback (http://localhost:8030 by default -- DatabricksOAuthManager's
+	// defaultCallbackPorts). Landing there is what tells us Databricks completed the handoff.
+	const redirectUri = new URL(authorizeUrl).searchParams.get('redirect_uri');
+	if (!redirectUri) {
+		throw new Error('Databricks authorize URL carried no redirect_uri');
+	}
+	const loopbackHost = new URL(redirectUri).host;
+
+	let browser: Browser | undefined;
+	let context: BrowserContext | undefined;
+	try {
+		browser = await chromium.launch({ headless });
+		context = await browser.newContext();
+		const page = await context.newPage();
+		await page.goto(authorizeUrl);
+		await completeDatabricksOktaSignIn(page, {
+			completionUrl: new RegExp(loopbackHost.replace(/\./g, '\\.')),
+			logger,
+			label: 'DataConnections',
+		});
+	} finally {
+		if (context) { await context.close(); }
+		if (browser) { await browser.close(); }
+	}
+
+	// The SDK's loopback server has the code by now; awaiting the trigger lets the token
+	// exchange, the connect, and the tree's first metadata query finish (or report a failure).
+	await pending;
 }
