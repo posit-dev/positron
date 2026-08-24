@@ -40,6 +40,28 @@ suite('DuckDB read plan Tests', () => {
 			{ relation: '"main"."people"', rowOrder: 'rowid', queries: [] });
 	});
 
+	test('a table that declares a rowid column is snapshotted, not read in place', async () => {
+		// The declared column shadows the table's real rowid, and DuckDB has no second spelling to reach
+		// past it, so reading in place would order by user data: `('b',1),('a',2),('c',3)` displays 1, 2,
+		// 3 in scan order while an export numbering by `rowid` returns 2, 1, 3. Snapshotting numbers the
+		// rows in a column of the snapshot's own instead. Matched without regard to case, as DuckDB
+		// resolves unquoted identifiers that way.
+		const client = new FakeClient();
+		const plan = createDuckDBReadPlan(client, '"main"."imported"', 'table', ['ROWID', 'v']);
+
+		const relation = await plan.relation();
+
+		assert.deepStrictEqual(
+			{ rowOrder: plan.rowOrder, creates: client.queries },
+			{
+				rowOrder: '"__positron_row_order"',
+				creates: [
+					`CREATE TEMP TABLE ${relation.replace('temp.', '')} AS ` +
+					`SELECT ROW_NUMBER() OVER () AS "__positron_row_order", * FROM "main"."imported"`,
+				],
+			});
+	});
+
 	test('a view is read through a snapshot, materialized once', async () => {
 		const client = new FakeClient();
 		const plan = createDuckDBReadPlan(client, '"main"."sales_by_region"', 'view', ['id', 'label']);

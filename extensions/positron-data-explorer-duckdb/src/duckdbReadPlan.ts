@@ -51,9 +51,18 @@ export interface IDuckDBReadPlan {
  * back in insertion order. A view has no `rowid` and no guaranteed order, so it is read through a
  * snapshot.
  *
- * @param columnNames Every column the relation emits. Consulted only on the snapshot path, and only
- * to detect a column named `rowid` that would shadow the snapshot's own, so it must be the
- * relation's full column list rather than whichever subset a caller means to display.
+ * A table that declares its own column named `rowid` is the exception. That column shadows the
+ * table's real rowid, and DuckDB has no second spelling to reach past it, so `rowid` as a row order
+ * would silently order by user data: a table of `(rowid VARCHAR, v INTEGER)` holding
+ * `('b',1),('a',2),('c',3)` displays `v` as 1, 2, 3 in scan order while an index-based export
+ * numbering by `rowid` returns 2, 1, 3, writing rows the user never selected. Such a table is read
+ * through a snapshot too, which numbers the rows in a column of its own. Copying it is the cost of
+ * having a unique key at all; the shape shows up mainly in data imported from SQLite, which carries
+ * a `rowid` column through CSV and Parquet exports.
+ *
+ * @param columnNames Every column the relation emits, used to detect a column named `rowid` that
+ * would shadow the rowid a plan would otherwise order by, so it must be the relation's full column
+ * list rather than whichever subset a caller means to display.
  */
 export function createDuckDBReadPlan(
 	client: IDuckDBQueryClient,
@@ -61,9 +70,18 @@ export function createDuckDBReadPlan(
 	kind: 'table' | 'view',
 	columnNames: readonly string[],
 ): IDuckDBReadPlan {
-	return kind === 'table'
+	return kind === 'table' && !shadowsRowId(columnNames)
 		? new DirectRead(tableRef)
 		: new SnapshotRead(client, tableRef, columnNames);
+}
+
+/**
+ * Whether a relation emits a column named `rowid`, which shadows the rowid DuckDB supplies. Matched
+ * without regard to case, because DuckDB resolves unquoted identifiers that way, so `ROWID` shadows
+ * just as `rowid` does.
+ */
+function shadowsRowId(columnNames: readonly string[]): boolean {
+	return columnNames.some(name => name.toLowerCase() === 'rowid');
 }
 
 /** Reads a relation in place, relying on DuckDB to return a scan in insertion order. */
@@ -135,12 +153,11 @@ class SnapshotRead implements IDuckDBReadPlan {
 		// instead: measured against DuckDB 1.5.5, the snapshot of a join view that emits `rowid` read
 		// 0, 0, 1, 2, 2 under that name, three distinct values across five rows. Unlike SQLite, DuckDB
 		// has no second spelling of the rowid to fall back on, so the rows are numbered in a column of
-		// our own. That column is unindexed, so each page pays a sort to apply it -- worth accepting for
-		// a shape this rare, and paid only by the views that hit it. Reads
-		// never see the column: every one of them projects an explicit column list from the schema, and
-		// the export path's `SELECT *` is confined to a subquery the outer projection filters.
-		const shadowed = sourceColumns.some(name => name.toLowerCase() === 'rowid');
-		if (shadowed) {
+		// our own. That column is unindexed, so each page pays a sort to apply it, paid only by the
+		// relations that emit `rowid` themselves. Reads never see the column: every one of them projects
+		// an explicit column list from the schema, and the export path's `SELECT *` is confined to a
+		// subquery the outer projection filters.
+		if (shadowsRowId(sourceColumns)) {
 			const ordinal = quoteIdentifier(SNAPSHOT_ORDER_COLUMN);
 			this.rowOrder = ordinal;
 			this._selectList = `ROW_NUMBER() OVER () AS ${ordinal}, *`;
