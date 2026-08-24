@@ -59,12 +59,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
-      # Hard gate, scoped to dirs THIS PR touches -- not the tree-wide weekly
-      # sweep, which stays warn-only because unrelated drift shouldn't fail an
-      # unrelated PR (see check-test-tag-map.sh). A dir this PR itself
-      # introduces or edits with no map entry is the one drift case that's
-      # always the current PR's to fix, so it fails here instead of only
-      # showing up as a comment/Slack ping after the fact.
+      # Scoped to dirs THIS PR touches, unlike the tree-wide weekly sweep
+      # (check-test-tag-map.sh), which stays warn-only so unrelated drift
+      # can't fail an unrelated PR.
       - name: Fail if this PR touches an unmapped Positron dir
         if: ${{ steps.pr-tags.outputs.unmapped_dirs != '' }}
         run: |
