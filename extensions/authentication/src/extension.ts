@@ -334,10 +334,11 @@ async function registerAwsProvider(
 ): Promise<void> {
 	const logger = new AuthProviderLogger('AWS');
 
-	const getProfile = () => getCachedProvider(
-		PROVIDER_METADATA.amazonBedrock.catalogId!
-	)?.connection.aws?.profile;
-	const recovery = createAwsSsoRecovery({ getProfile });
+	const recovery = createAwsSsoRecovery({
+		getProfile: () => getCachedProvider(
+			PROVIDER_METADATA.amazonBedrock.catalogId!
+		)?.connection.aws?.profile,
+	});
 
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
