@@ -1127,11 +1127,10 @@ describe('EvaluateCodeAction', () => {
 		.stub(INotificationService, stubInterface<INotificationService>({ warn }))
 		.stub(IEditorService, stubInterface<IEditorService>({ openEditor }))
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
-			// Narrow to IQuickInputService['input'] because the field is generic
-			// over the options shape; our single-shape stub needs the annotation.
-			input: inputFn as IQuickInputService['input'],
+			input: inputFn,
 		}))
 		.stub(IProgressService, stubInterface<IProgressService>({
+			// Cast: withProgress is generic over its options and progress shapes.
 			withProgress: ((_options: unknown, task: () => Promise<unknown>) =>
 				task()) as IProgressService['withProgress'],
 		}))
@@ -1170,9 +1169,8 @@ describe('EvaluateCodeAction', () => {
 			new EvaluateCodeAction().run(accessor));
 	}
 
-	// `openEditor` is stubbed zero-arg so it satisfies IEditorService's overloads,
-	// which leaves its recorded args untyped; narrow them back to the shape the
-	// action actually passes.
+	// `openEditor` is stubbed zero-arg to satisfy IEditorService's overloads, which
+	// leaves its recorded args untyped; narrow them back to what the action passes.
 	function openedEditor(): IUntitledTextResourceEditorInput {
 		const args: unknown[] = openEditor.mock.calls[0];
 		return args[0] as IUntitledTextResourceEditorInput;

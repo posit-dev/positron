@@ -1753,9 +1753,9 @@ export class EvaluateCodeAction extends Action2 {
 		// Get the active runtime session wrapper (which has the UI client)
 		const activeSession = runtimeSessionService.getActiveSession(foregroundSession.sessionId);
 
-		// The UI comm is started fire-and-forget when the session reaches Ready, so
-		// `uiClient` can still be undefined on a session that already looks ready.
-		// startUiClient() is idempotent and joins an in-flight start.
+		// The UI comm starts fire-and-forget once the session reaches Ready, so a
+		// ready-looking session can still have no `uiClient`. startUiClient() is
+		// idempotent and joins an in-flight start, so calling it again is free.
 		if (activeSession) {
 			try {
 				await activeSession.startUiClient();
