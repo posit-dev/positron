@@ -283,6 +283,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 										// itself to remount whenever the generated code changes.
 										key={code}
 										ref={editorRef}
+										ariaLabel={localize('positron.importData.codeEditorLabel', "Import Code")}
 										code={code}
 										languageId={selectedImporter.languageId}
 									></EditableCodeEditor>

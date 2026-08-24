@@ -19,6 +19,7 @@ import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../
  * EditableCodeEditorProps interface.
  */
 export interface EditableCodeEditorProps {
+	readonly ariaLabel?: string;
 	readonly code: string;
 	readonly languageId: string;
 	readonly ref: Ref<EditableCodeEditorWidget>;
@@ -43,7 +44,7 @@ export const EditableCodeEditor = (props: EditableCodeEditorProps) => {
 	const services = usePositronReactServicesContext();
 
 	// Destructure props.
-	const { code, languageId, ref } = props;
+	const { ariaLabel, code, languageId, ref } = props;
 
 	// The element the editor is mounted into. React populates this before the effect below runs,
 	// so the non-null assertion is safe.
@@ -73,6 +74,9 @@ export const EditableCodeEditor = (props: EditableCodeEditorProps) => {
 			containerRef.current,
 			{
 				...getSimpleEditorOptions(services.configurationService),
+				// The name a screen reader announces for the editor. Left undefined, Monaco falls
+				// back to its generic 'Editor content'.
+				ariaLabel,
 				// The editable code editor is, as the name says, always editable.
 				readOnly: false,
 				domReadOnly: false,
@@ -106,8 +110,8 @@ export const EditableCodeEditor = (props: EditableCodeEditorProps) => {
 		// Dispose editor and model on unmount.
 		return () => disposableStore.dispose();
 
-		// Deps intentionally empty: code/languageId/services are fixed for a given instance, so the
-		// editor is created once. Callers remount via `key` to show different code.
+		// Deps intentionally empty: ariaLabel/code/languageId/services are fixed for a given
+		// instance, so the editor is created once. Callers remount via `key` to show different code.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 

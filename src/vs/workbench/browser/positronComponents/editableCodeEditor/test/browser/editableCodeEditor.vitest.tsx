@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { createRef } from 'react';
+import { screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { IUserInteractionService } from '../../../../../../platform/userInteraction/browser/userInteractionService.js';
@@ -33,15 +34,22 @@ describe('EditableCodeEditor', () => {
 		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(260);
 	});
 
-	function renderEditor() {
+	function renderEditor(ariaLabel?: string) {
 		rtl.render(
 			<EditableCodeEditor
 				ref={createRef<EditableCodeEditorWidget>()}
+				ariaLabel={ariaLabel}
 				code='import pandas as pd'
 				languageId='python'
 			/>
 		);
 	}
+
+	it('announces the given aria label', () => {
+		renderEditor('Import code');
+
+		expect(screen.getByRole('textbox')).toHaveAccessibleName('Import code');
+	});
 
 	it('lets Tab move focus out of the editor', () => {
 		renderEditor();
