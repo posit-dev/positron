@@ -142,10 +142,13 @@ export function defineMemoryScenario(options: {
 					`Present: ${snapshot.processes.map(p => p.processName).join(', ')}`).toBe(true);
 			}
 
-			// waitForSettle gives up at its cap regardless of whether the tree
-			// actually stopped growing. A settleMs near the cap means this snapshot
-			// is a mid-load number, not the steady state the scenario claims.
-			expect(snapshot.settleMs, 'the tree never settled before the cap, so this is a mid-load number rather than a steady state').toBeLessThan(SETTLE_CAP_MS - 5_000);
+			// waitForSettle gives up at its cap regardless of whether the tree actually
+			// stopped growing, so a snapshot taken at the cap is a mid-load number, not
+			// the steady state the scenario claims. Asserted on the reported flag, not
+			// on settleMs, which cannot distinguish the two.
+			expect(snapshot.stoppedGrowing,
+				`the tree never stopped growing within the ${SETTLE_CAP_MS / 1000}s cap, so this is a mid-load number rather than a steady state`)
+				.toBe(true);
 
 			// PSS can never exceed RSS at one instant, so a violation means procfs
 			// was misparsed or the two figures came from different samples -- the
