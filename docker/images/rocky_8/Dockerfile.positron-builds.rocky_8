@@ -44,6 +44,7 @@ RUN dnf install -y \
     python39 \
     rpm-build \
     rpm-sign \
+    unixODBC-devel \
     vim \
     xorg-x11-server-Xvfb \
     xz
