@@ -287,12 +287,14 @@ describe('waitForSettle', () => {
 		expect(result.stoppedGrowing).toBe(false);
 	});
 
-	test('a tree that settles as the cap expires is still settled', async () => {
-		// Why the flag exists rather than a settleMs threshold: this returns a
-		// settleMs at the cap, which the old clock-based check read as never settling.
+	test('a tree that settles late in the window is still settled', async () => {
+		// Why the flag exists rather than a settleMs threshold: settling takes most of
+		// the window here, which is what the old clock-based check read as never
+		// settling. The cap has to stay well clear of the four readings isSettled
+		// needs (three polls, so 90 ms nominal) or the test itself races the cap.
 		const result = await waitForSettle(100, {
 			pollMs: 30,
-			capMs: 100,
+			capMs: 200,
 			readTree: treeReader([500 * MB, 500 * MB, 500 * MB, 500 * MB])
 		});
 		expect(result.stoppedGrowing).toBe(true);
