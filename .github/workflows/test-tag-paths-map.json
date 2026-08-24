@@ -44,6 +44,7 @@
   "extensions/positron-run-app/": ["@:apps"],
   "extensions/positron-viewer/": ["@:viewer"],
   "extensions/positron-duckdb/": ["@:duck-db"],
+  "extensions/positron-skills/": [],
 
   "src/vs/workbench/contrib/positronTelemetry/": [],
   "src/vs/workbench/contrib/positronIdleReporter/": [],
@@ -64,6 +65,7 @@
   "src/vs/workbench/contrib/positronPreview/": ["@:viewer"],
   "src/vs/workbench/contrib/positronPreviewEditor/": ["@:viewer"],
   "src/vs/workbench/contrib/positronWebviewPreloads/": ["@:positron-notebooks"],
+  "src/vs/workbench/contrib/positronCanvas/": [],
 
   "src/vs/workbench/services/positronDataConnections/": ["@:connections"],
   "src/vs/workbench/services/positronDocs/": ["@:help"],
@@ -77,6 +79,7 @@
   "src/vs/workbench/services/positronNewFolder/": ["@:new-folder-flow"],
   "src/vs/workbench/services/positronTopActionBar/": ["@:top-action-bar"],
   "src/vs/workbench/services/positronWebviewPreloads/": ["@:positron-notebooks"],
+  "src/vs/workbench/services/positronLicense/": [],
 
   "extensions/positron-catalog-explorer/": ["@:catalog-explorer"],
   "extensions/positron-code-cells/": [],
@@ -123,6 +126,7 @@
 
   "src/vs/editor/contrib/positronEditorActions/": ["@:editor-action-bar"],
   "src/vs/editor/contrib/positronHelp/": ["@:help"],
+  "src/vs/editor/contrib/positronInputBoundaries/": ["@:console"],
   "src/vs/editor/contrib/positronStatementRange/": [],
   "src/vs/platform/extensionManagement/": [],
   "src/vs/platform/extensionManagement/common/positronGalleryTelemetry.ts": ["@:extensions"],
@@ -135,7 +139,9 @@
   "src/vs/platform/positronDocs/": [],
   "src/vs/platform/positronHeadlessLanguageModel/": ["@:positron-notebooks"],
   "src/vs/platform/positronIdleTracking/": [],
+  "src/vs/platform/positronLicense/": [],
   "src/vs/platform/positronMemoryUsage/": ["@:variables"],
+  "src/vs/platform/positronStandaloneMode/": [],
   "src/vs/platform/update/": [],
   "src/vs/workbench/browser/actions/": [],
   "src/vs/workbench/browser/actions/positronActions.ts": ["@:new-folder-flow"],
