@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { isSettled, joinProcesses, tailIsFlat, treeHasSettled, unstableProcesses } from './snapshot.js';
+import { isSettled, joinProcesses, tailIsFlat, treeHasSettled, unstableProcesses, waitForSettle } from './snapshot.js';
 import { LabeledProcess, RawProcess } from './types.js';
 
 const proc = (pid: number, ppid: number, cmd: string, pss: number): RawProcess =>
@@ -256,6 +256,62 @@ describe('isSettled', () => {
 
 	test('growth resuming after a plateau is not settled', () => {
 		expect(isSettled([500 * MB, 501 * MB, 502 * MB, 700 * MB])).toBe(false);
+	});
+});
+
+describe('waitForSettle', () => {
+	const MB = 1048576;
+
+	/** Feeds `waitForSettle` a scripted sequence of tree totals, one per poll. */
+	const treeReader = (totals: number[]) => {
+		let index = 0;
+		return async () => {
+			const total = totals[Math.min(index++, totals.length - 1)];
+			return [proc(100, 1, 'positron', total)];
+		};
+	};
+
+	test('reports stoppedGrowing once the tree goes flat', async () => {
+		const result = await waitForSettle(100, {
+			pollMs: 0,
+			readTree: treeReader([100 * MB, 300 * MB, 500 * MB, 501 * MB, 502 * MB, 503 * MB])
+		});
+		expect(result.stoppedGrowing).toBe(true);
+	});
+
+	test('reports stoppedGrowing false when it gives up at the cap', async () => {
+		// The gate in memory-scenario.ts rests entirely on this: a tree that grew for
+		// the whole window must not be reported as a steady state.
+		const growing = Array.from({ length: 200 }, (_, i) => (100 + i * 50) * MB);
+		const result = await waitForSettle(100, { pollMs: 0, capMs: 50, readTree: treeReader(growing) });
+		expect(result.stoppedGrowing).toBe(false);
+	});
+
+	test('a tree that settles as the cap expires is still settled', async () => {
+		// Why the flag exists rather than a settleMs threshold: this returns a
+		// settleMs at the cap, which the old clock-based check read as never settling.
+		const result = await waitForSettle(100, {
+			pollMs: 30,
+			capMs: 100,
+			readTree: treeReader([500 * MB, 500 * MB, 500 * MB, 500 * MB])
+		});
+		expect(result.stoppedGrowing).toBe(true);
+		expect(result.settleMs).toBeGreaterThan(50);
+	});
+
+	test('reports the peak it saw, not the last reading', async () => {
+		// captureSnapshot needs the peak because a reclaim landing inside this window
+		// is invisible to treeHasSettled otherwise.
+		const result = await waitForSettle(100, {
+			pollMs: 0,
+			readTree: treeReader([900 * MB, 500 * MB, 500 * MB, 500 * MB, 500 * MB])
+		});
+		expect(result.peakTotalPss).toBe(900 * MB);
+	});
+
+	test('an empty window reports no peak and no settle', async () => {
+		const result = await waitForSettle(100, { capMs: 0, readTree: treeReader([500 * MB]) });
+		expect(result).toMatchObject({ stoppedGrowing: false, peakTotalPss: 0 });
 	});
 });
 

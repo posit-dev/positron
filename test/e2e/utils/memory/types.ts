@@ -85,14 +85,22 @@ export type MemorySnapshot = {
 	/** e.g. `2026.09.0-35`: version plus build number, from the build's product.json. */
 	positronVersion: string;
 	launchIndex: number;
+	/**
+	 * Whether the tree stopped growing before `waitForSettle` hit its cap. Recorded
+	 * rather than inferred from `settleMs`, which cannot tell the two apart: the cap
+	 * is only checked before a reading, so a tree going flat just under it returns
+	 * the same `settleMs` as one that never settled. Undefined on a baseline.
+	 */
+	stoppedGrowing?: boolean;
+	/** How long the tree took to stop growing. */
 	settleMs: number;
 	/** How long sampling ran after settling, waiting for every large process to hold steady. */
 	sampledMs?: number;
 	/**
-	 * Whether sampling stopped because the tree settled rather than because it hit
-	 * its cap. Recorded rather than inferred from `sampledMs`, which cannot tell the
-	 * two apart: an iteration starting just under the cap sleeps past it before
-	 * settling. Undefined on a baseline, which carries neither field.
+	 * The same outcome for the sampling phase: whether it stopped because every large
+	 * process held steady rather than because it hit its cap. `sampledMs` cannot tell
+	 * those apart either, since an iteration starting just under the cap sleeps past
+	 * it before settling.
 	 */
 	treeSettled?: boolean;
 	/**
