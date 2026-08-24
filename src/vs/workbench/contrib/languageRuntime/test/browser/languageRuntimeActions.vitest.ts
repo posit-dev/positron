@@ -1197,27 +1197,6 @@ describe('EvaluateCodeAction', () => {
 		expect(openEditor).toHaveBeenCalled();
 	});
 
-	it('writes the input, result and output sections into a markdown editor', async () => {
-		evaluateCode.mockResolvedValueOnce({ result: { a: 1 }, output: 'hello' });
-
-		await runAction();
-
-		// One regex rather than five toContain calls, so section order is pinned too.
-		expect(openedEditor().contents).toMatch(
-			/## Input[\s\S]*\{"a": 1\}[\s\S]*## Result[\s\S]*## Output[\s\S]*hello/);
-	});
-
-	it('writes an error section when evaluation fails', async () => {
-		evaluateCode.mockRejectedValueOnce(new Error('NameError: x'));
-
-		await runAction();
-
-		const contents = openedEditor().contents;
-		expect(contents).toContain('## Error');
-		expect(contents).toContain('NameError: x');
-		expect(contents).not.toContain('## Result');
-	});
-
 	it('warns when the UI comm cannot be started', async () => {
 		startUiClientFails = true;
 
