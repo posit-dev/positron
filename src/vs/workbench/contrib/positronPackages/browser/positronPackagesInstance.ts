@@ -12,7 +12,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from './packageMetadataCache.js';
-import { IPackageRepositoryAccess, IPackageVulnerabilityResult, IPackageVulnerabilitySource, PackageVulnerabilityLookup } from './packageVulnerabilityLookup.js';
+import { IPackageRepositoryAccess, IPackageVulnerabilityResult, IPackageVulnerabilitySource, PackageVulnerabilityLookup, TOTAL_BUDGET_MS } from './packageVulnerabilityLookup.js';
 
 /**
  * How the `outdated` / `latestVersion` state in a packages snapshot was
@@ -34,12 +34,51 @@ import { IPackageRepositoryAccess, IPackageVulnerabilityResult, IPackageVulnerab
 export type PackagesMetadataStatus = 'fresh' | 'cached' | 'unsupported' | 'timed-out' | 'fetch-failed';
 
 /**
+ * How the security advisories in a packages snapshot were obtained. Tracked
+ * apart from {@link PackagesMetadataStatus} because the two come from different
+ * places -- outdated state from the runtime's package manager, advisories from
+ * Posit Package Manager -- and either can fail while the other answers.
+ *
+ * Shares the metadata vocabulary, and the gap-filling behaviour behind it:
+ *
+ * - `fresh`: a lookup ran during this call, covering every installed package.
+ * - `cached`: the persisted advisories were still inside their freshness
+ *   window, so they are as of the last full lookup; only packages missing an
+ *   entry were looked up now.
+ * - `disabled`: advisory lookups are turned off in settings, so no package
+ *   carries advisories regardless of what the cache holds.
+ * - `unavailable`: a lookup ran and produced nothing. Either nothing here can
+ *   serve advisories -- the runtime can't carry a repository request, or the
+ *   environment's repository is not a Package Manager new enough to report
+ *   them -- or the lookup itself failed. The lookup swallows its own transport
+ *   failures, so these cannot be told apart from here; in both cases asking
+ *   again is unlikely to help.
+ * - `timed-out`: the lookup ran out of time partway. Whatever it answered
+ *   before the budget ran out is kept and persisted; the packages it never
+ *   reached carry whatever the cache could supply, which may be nothing, and
+ *   a later call fills those gaps.
+ */
+export type PackagesVulnerabilityStatus =
+	| 'fresh'
+	| 'cached'
+	| 'disabled'
+	| 'unavailable'
+	| 'timed-out';
+
+/**
  * A point-in-time read of a session's installed packages, with how far its
- * outdated state can be trusted.
+ * outdated state and its security advisories can be trusted.
  */
 export interface IPackagesSnapshot {
 	packages: ILanguageRuntimePackage[];
 	metadataStatus: PackagesMetadataStatus;
+	vulnerabilityStatus: PackagesVulnerabilityStatus;
+
+	/**
+	 * Which Package Manager instance served the advisories the snapshot
+	 * carries, and when. Undefined when there are none to describe.
+	 */
+	vulnerabilitySource?: IPackageVulnerabilitySource;
 }
 
 /**
@@ -55,6 +94,8 @@ export interface IPackagesSnapshotOptions {
 	 * flight and issuing our own share it.
 	 */
 	metadataTimeoutMs?: number;
+	/** Budget for the advisory lookup, when one is run. */
+	vulnerabilityTimeoutMs?: number;
 }
 
 /**
@@ -69,6 +110,27 @@ export const PACKAGES_SNAPSHOT_LIST_TIMEOUT_MS = 5_000;
  * still worth having.
  */
 export const PACKAGES_SNAPSHOT_METADATA_TIMEOUT_MS = 10_000;
+
+/**
+ * How long to wait for security advisories. Longer than the outdated bound
+ * because the lookup is chunked -- a large R library is several round trips to
+ * Package Manager -- but far short of the lookup's own 90s ceiling, which is
+ * sized for the pane's background fetch rather than a caller waiting on an
+ * answer. Handed to the lookup as its budget, so a snapshot that runs out of
+ * time still keeps the chunks that answered.
+ */
+export const PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS = 15_000;
+
+/**
+ * Grace on top of {@link PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS} before the
+ * snapshot stops waiting on the lookup itself. The lookup is given the budget
+ * above and returns the chunks it managed within it, so it is what should
+ * expire first; this only covers a request that ignores the timeout it was
+ * handed, where waiting forever would hang the caller. Capped at the budget
+ * itself, so a caller that can only wait milliseconds doesn't then wait seconds
+ * on the backstop.
+ */
+export const PACKAGES_SNAPSHOT_VULNERABILITY_GRACE_MS = 2_000;
 
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
@@ -102,6 +164,19 @@ export interface IPositronPackagesInstance {
 	readonly vulnerabilitySource: IPackageVulnerabilitySource | undefined;
 
 	/**
+	 * Drop all cached package metadata -- outdated state and security
+	 * advisories -- for this session, in memory and on disk, putting the
+	 * instance back into its cold-start state.
+	 *
+	 * A diagnostic affordance rather than part of any user flow: nothing else
+	 * can reproduce what the pane and the getPackages payload look like before
+	 * any fetch has landed, because the cache is persisted and refilled within
+	 * seconds of a session becoming ready. See
+	 * positronPackagesDeveloperActions.ts.
+	 */
+	clearMetadata(): void;
+
+	/**
 	 * Refetch package metadata (outdated state and advisories) for every
 	 * installed package, without redoing the kernel-side package list.
 	 *
@@ -124,6 +199,12 @@ export interface IPositronPackagesInstance {
 	 * Both stages are bounded, the result says which of them produced the
 	 * metadata, and it is read-only toward other callers: a metadata fetch
 	 * already in flight (a user's refresh) is joined, never cancelled.
+	 *
+	 * Security advisories are gap-filled on the same terms as outdated state: a
+	 * package with no cached advisory data is looked up now, and a cache still
+	 * inside its freshness window is reported as-is. So a caller never has to
+	 * ask twice to find out whether its packages have advisories, and a warm
+	 * cache still costs nothing.
 	 */
 	getPackagesSnapshot(token?: CancellationToken, options?: IPackagesSnapshotOptions): Promise<IPackagesSnapshot>;
 
@@ -346,6 +427,21 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			const fetchAll = forceMetadata || !this._cache.isFresh(this._runtimeId);
 			this._fetchAndMergeMetadata(packageManager, CancellationToken.None, fetchAll);
 		}
+	}
+
+	clearMetadata(): void {
+		// Cancel first: a fetch in flight would otherwise merge its result
+		// after the clear and refill what was just emptied. _fetchAndMergeMetadata
+		// re-checks cancellation before writing, so this makes the clear stick.
+		this._metadataFetch?.cancel();
+		this._metadataCache.clear();
+		this._vulnerabilitySource = undefined;
+		this._cache.clear(this._runtimeId);
+
+		// The pane renders from the `packages` getter, which merges the cache
+		// that was just emptied, so it needs to hear about this to drop its
+		// update indicators and advisory badges.
+		this._onDidRefreshPackagesInstance.fire(this.packages);
 	}
 
 	refreshPackageMetadata(): void {
@@ -793,10 +889,10 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// doesn't do packages" is a real answer.
 		const packageManager = this._session.getPackageManager?.();
 		if (!packageManager) {
-			return { packages: [], metadataStatus: 'unsupported' };
+			return this._snapshotResult([], 'unsupported', this._vulnerabilityStatus('cached'));
 		}
 
-		const cts = new CancellationTokenSource(token);
+		const listCts = new CancellationTokenSource(token);
 		try {
 			// Read the list live on every call rather than trusting
 			// this._packages: the command's contract is "what is installed
@@ -804,9 +900,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// the console) would otherwise never appear. Kernel-local and
 			// bounded, so a dead kernel can't hang the caller.
 			const packages = await raceTimeout(
-				packageManager.getPackages(cts.token),
+				packageManager.getPackages(listCts.token),
 				options.listTimeoutMs ?? PACKAGES_SNAPSHOT_LIST_TIMEOUT_MS,
-				() => cts.cancel(),
+				() => listCts.cancel(),
 			);
 			if (packages === undefined) {
 				throw new Error('Timed out reading the installed packages.');
@@ -815,94 +911,328 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// Mirror refreshPackages' stage 1: the pane should show the list
 			// this caller was just told about.
 			this._onDidRefreshPackagesInstance.fire(this.packages);
+		} finally {
+			listCts.dispose();
+		}
 
-			if (!packageManager.getPackageMetadata) {
-				return { packages: this.packages, metadataStatus: 'unsupported' };
+		// A runtime with no outdated state can still have advisories: the
+		// lookup is Positron's own and doesn't go through getPackageMetadata.
+		// So this labels the outdated stage rather than returning early.
+		const outdatedSupported = packageManager.getPackageMetadata !== undefined;
+
+		if (this._packages.length === 0) {
+			// Nothing installed, so there is no outdated state to be had and
+			// nothing to ask about: the empty list is already current on both
+			// counts.
+			return this._snapshotResult([], outdatedSupported ? 'fresh' : 'unsupported', this._vulnerabilityStatus('fresh'));
+		}
+
+		// The join below and the outdated stage after it share one budget:
+		// joining someone else's fetch must not buy the fetch after it a
+		// second full timeout.
+		const metadataDeadline = Date.now() +
+			(options.metadataTimeoutMs ?? PACKAGES_SNAPSHOT_METADATA_TIMEOUT_MS);
+
+		// A metadata fetch already in flight belongs to the pane -- possibly a
+		// user-forced refresh, whose recompute must not be dropped. Join it
+		// instead of preempting it (or duplicating its repository queries);
+		// whatever it caches serves this caller too. Both stages wait on it,
+		// since that fetch fills both.
+		const inflight = this._metadataFetch;
+		if (inflight) {
+			const joined = await raceTimeout(
+				// Failure is fine here: the stages below are the fallback.
+				inflight.then(() => true, () => true),
+				metadataDeadline - Date.now(),
+			);
+			if (joined === undefined) {
+				// Not ours to cancel; report what the cache has. Neither stage
+				// got to run: the wait this caller was willing to make has
+				// already been spent on someone else's fetch.
+				return this._snapshotResult(this.packages, 'timed-out', this._vulnerabilityStatus('timed-out'));
 			}
-			if (this._packages.length === 0) {
-				// Nothing installed, so there is no outdated state to be had
-				// and nothing to fetch: the empty list is already current.
-				return { packages: [], metadataStatus: 'fresh' };
+		}
+
+		// Anchor entries to the versions installed when the fetch was issued,
+		// as _fetchAndMergeMetadata does, so an install landing mid-fetch can't
+		// mis-anchor them. Shared by both stages: they were issued together.
+		//
+		// `visiblePackages` is the first occurrence of each name -- the copy the
+		// pane shows, and the one the cache's single entry per name has to
+		// describe. The advisory stage asks about these rather than about the
+		// map's keys: the keys are lowercased for the cache, and a repository
+		// asked about 'matrix' has not been asked about 'Matrix'.
+		const versionByName = new Map<string, string>();
+		const visiblePackages: ILanguageRuntimePackage[] = [];
+		for (const pkg of this._packages) {
+			const key = pkg.name.toLowerCase();
+			if (versionByName.has(key)) {
+				continue;
 			}
+			versionByName.set(key, pkg.version);
+			visiblePackages.push(pkg);
+		}
 
-			// The two waits below share one budget: joining someone else's
-			// fetch must not buy the fetch after it a second full timeout.
-			const metadataDeadline = Date.now() +
-				(options.metadataTimeoutMs ?? PACKAGES_SNAPSHOT_METADATA_TIMEOUT_MS);
+		// A cache still inside its freshness window is exactly what the pane
+		// shows, so only refetch everything once it has aged out; gap-filling
+		// happens either way. Read once and shared: both stages judge staleness
+		// against the same entry, and reading it twice would re-parse the
+		// persisted blob for the same answer.
+		const fetchAll = !this._cache.isFresh(this._runtimeId);
 
-			// A metadata fetch already in flight belongs to the pane --
-			// possibly a user-forced refresh, whose recompute must not be
-			// dropped. Join it instead of preempting it (or duplicating its
-			// repository query); whatever it caches serves this caller too.
-			const inflight = this._metadataFetch;
-			if (inflight) {
-				const joined = await raceTimeout(
-					// Failure is fine here: the fetch below is the fallback.
-					inflight.then(() => true, () => true),
-					metadataDeadline - Date.now(),
-				);
-				if (joined === undefined) {
-					// Not ours to cancel; report what the cache has.
-					return { packages: this.packages, metadataStatus: 'timed-out' };
-				}
-			}
+		// Run the two stages concurrently, as the pane's background fetch does:
+		// they read different sources, so a caller waits the longer budget
+		// rather than the sum, and neither can discard or delay the other's
+		// answer. Each holds its own cancellation source, so one stage's timeout
+		// can't cancel the other's in-flight request.
+		const [metadataStatus, vulnerabilityStatus] = await Promise.all([
+			outdatedSupported
+				? this._snapshotOutdatedStage(packageManager, visiblePackages, versionByName, token, metadataDeadline, fetchAll)
+				: Promise.resolve<PackagesMetadataStatus>('unsupported'),
+			this._snapshotVulnerabilityStage(
+				packageManager,
+				visiblePackages,
+				versionByName,
+				token,
+				options.vulnerabilityTimeoutMs ?? PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS,
+				fetchAll,
+			),
+		]);
 
-			// A cache still inside its freshness window is exactly what the
-			// pane shows, so only refetch every package once it has aged out.
-			// Gap-filling for packages with no entry happens either way.
-			const fetchAll = !this._cache.isFresh(this._runtimeId);
-			const packagesToFetch = fetchAll
-				? this._packages
-				: this._packages.filter((pkg) => this._freshEntryFor(pkg)?.outdated === undefined);
-			if (packagesToFetch.length === 0) {
-				return { packages: this.packages, metadataStatus: 'cached' };
-			}
+		return this._snapshotResult(this.packages, metadataStatus, vulnerabilityStatus);
+	}
 
-			// Anchor entries to the versions installed when the fetch was
-			// issued, as _fetchAndMergeMetadata does, so an install landing
-			// mid-fetch can't mis-anchor them.
-			const versionByName = new Map(this._packages.map((pkg) => [pkg.name.toLowerCase(), pkg.version]));
+	/**
+	 * Assembles a snapshot, naming the advisory source only when the snapshot
+	 * actually carries advisories to attribute.
+	 */
+	private _snapshotResult(
+		packages: ILanguageRuntimePackage[],
+		metadataStatus: PackagesMetadataStatus,
+		vulnerabilityStatus: PackagesVulnerabilityStatus,
+	): IPackagesSnapshot {
+		return {
+			packages,
+			metadataStatus,
+			vulnerabilityStatus,
+			// With lookups off the packages carry no advisories, so the
+			// instance that once served them would be describing data that
+			// isn't in this snapshot.
+			vulnerabilitySource: vulnerabilityStatus === 'disabled' ? undefined : this._vulnerabilitySource,
+		};
+	}
 
-			// Fetched directly rather than through _fetchAndMergeMetadata:
-			// that helper preempts whatever fetch is in flight and swallows
-			// failures -- both wrong for a read-only foreground caller that
-			// has to label its answer. Bounded because this stage leaves the
-			// machine (CRAN/P3M/PyPI). The .then wrapper keeps a timeout
-			// (raceTimeout's undefined) distinguishable from the manager
-			// itself answering undefined (no metadata support at runtime).
+	/**
+	 * The advisory status to report when `status` is what the lookup itself
+	 * would say. The setting overrides it: with lookups off, nothing was asked
+	 * and nothing is reported, whatever the cache still holds.
+	 */
+	private _vulnerabilityStatus(status: PackagesVulnerabilityStatus): PackagesVulnerabilityStatus {
+		return this._vulnerabilityLookup.enabled ? status : 'disabled';
+	}
+
+	/**
+	 * The snapshot's outdated/latestVersion stage: fills the cache's gaps from
+	 * the runtime's package manager and says how far the result can be trusted.
+	 *
+	 * Fetched directly rather than through _fetchAndMergeMetadata: that helper
+	 * preempts whatever fetch is in flight and swallows failures -- both wrong
+	 * for a read-only foreground caller that has to label its answer.
+	 * @param packageManager The session's package manager.
+	 * @param visiblePackages One package per name: the copies the pane shows.
+	 * @param versionByName Installed versions as of when the stage was issued.
+	 * @param callerToken The caller's cancellation token.
+	 * @param deadline Epoch ms by which the stage must have answered.
+	 * @param fetchAll Whether the cached entry has aged out of its freshness
+	 * window, so every package is refetched rather than only the gaps.
+	 */
+	private async _snapshotOutdatedStage(
+		packageManager: {
+			getPackageMetadata?: (packageNames: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
+		},
+		visiblePackages: readonly ILanguageRuntimePackage[],
+		versionByName: Map<string, string>,
+		callerToken: CancellationToken,
+		deadline: number,
+		fetchAll: boolean,
+	): Promise<PackagesMetadataStatus> {
+		// Asks about the visible copies, as the advisory stage and the pane's
+		// background fetch do. A shadowed duplicate carries the other copy's
+		// version, so it never matches the cache's single entry per name: it
+		// would look like a permanent gap, refetched on every call and merged
+		// straight back under the visible copy's version.
+		const packagesToFetch = fetchAll
+			? visiblePackages
+			: visiblePackages.filter((pkg) => this._freshEntryFor(pkg)?.outdated === undefined);
+		if (packagesToFetch.length === 0) {
+			return 'cached';
+		}
+
+		const cts = new CancellationTokenSource(callerToken);
+		try {
+			// Bounded because this stage leaves the machine (CRAN/P3M/PyPI).
+			// The .then wrapper keeps a timeout (raceTimeout's undefined)
+			// distinguishable from the manager itself answering undefined (no
+			// metadata support at runtime).
 			let outcome: { map: Map<string, Partial<ILanguageRuntimePackage>> | undefined } | undefined;
 			try {
 				outcome = await raceTimeout(
-					packageManager.getPackageMetadata(packagesToFetch.map((pkg) => pkg.name), cts.token)
+					packageManager.getPackageMetadata!(packagesToFetch.map((pkg) => pkg.name), cts.token)
 						.then((map) => ({ map })),
-					metadataDeadline - Date.now(),
+					deadline - Date.now(),
 					() => cts.cancel(),
 				);
 			} catch (err) {
 				// Our own timeout resolves the race with undefined before it
 				// cancels, so a cancellation landing here is the caller's.
-				if (isCancellationError(err) && token.isCancellationRequested) {
+				if (isCancellationError(err) && callerToken.isCancellationRequested) {
 					throw err;
 				}
 				this._logService.warn(`[Packages] Snapshot metadata fetch failed: ${err}`);
-				return { packages: this.packages, metadataStatus: 'fetch-failed' };
+				return 'fetch-failed';
 			}
 			if (outcome === undefined) {
 				// On expiry the packages getter still merges whatever cached
 				// metadata is valid, which is a better answer than none --
 				// the status says so.
-				return { packages: this.packages, metadataStatus: 'timed-out' };
+				return 'timed-out';
 			}
 			if (outcome.map === undefined) {
-				return { packages: this.packages, metadataStatus: 'unsupported' };
+				return 'unsupported';
 			}
 			if (outcome.map.size > 0) {
 				this._mergeAndPersistMetadata(outcome.map, versionByName);
 			}
-			return {
-				packages: this.packages,
-				metadataStatus: fetchAll ? 'fresh' : 'cached',
-			};
+			return fetchAll ? 'fresh' : 'cached';
+		} finally {
+			cts.dispose();
+		}
+	}
+
+	/**
+	 * The snapshot's security advisory stage: asks Package Manager about the
+	 * installed versions it has no answer for yet, and says how far the result
+	 * can be trusted.
+	 *
+	 * Gap-filled rather than opt-in, on the same terms as the outdated stage: a
+	 * caller asking what is installed shouldn't have to ask a second time to
+	 * find out whether any of it is vulnerable. Because the gap is judged
+	 * against `vulnerabilitiesCheckedAt` rather than the presence of
+	 * advisories, "asked and told nothing" counts as answered and isn't re-asked
+	 * on every call.
+	 * @param packageManager The session's package manager.
+	 * @param visiblePackages One package per name: the copies the pane shows.
+	 * @param versionByName Installed versions as of when the stage was issued.
+	 * @param callerToken The caller's cancellation token.
+	 * @param timeoutMs How long the lookup may take.
+	 * @param fetchAll Whether the cached entry has aged out of its freshness
+	 * window, so every package is refetched rather than only the gaps.
+	 */
+	private async _snapshotVulnerabilityStage(
+		packageManager: {
+			packageRepositoryUrl?: (token?: CancellationToken) => Promise<string | undefined>;
+			repositoryRequest?: (request: IPackageRepositoryRequest, token?: CancellationToken) => Promise<IPackageRepositoryResponse>;
+		},
+		visiblePackages: readonly ILanguageRuntimePackage[],
+		versionByName: Map<string, string>,
+		callerToken: CancellationToken,
+		timeoutMs: number,
+		fetchAll: boolean,
+	): Promise<PackagesVulnerabilityStatus> {
+		if (!this._vulnerabilityLookup.enabled) {
+			return 'disabled';
+		}
+
+		const packagesToFetch = fetchAll
+			? visiblePackages
+			: visiblePackages.filter((pkg) => this._freshEntryFor(pkg)?.vulnerabilitiesCheckedAt === undefined);
+		if (packagesToFetch.length === 0) {
+			return 'cached';
+		}
+
+		// The lookup needs the runtime's host to make its requests (the
+		// renderer can't reach a Package Manager API), so a runtime that can't
+		// carry one can never serve advisories. Both hooks are invoked as
+		// methods on the package manager rather than pulled out into locals
+		// first: the main-thread adapter reads `this._proxy`, so an unbound
+		// call throws.
+		if (!packageManager.repositoryRequest) {
+			return 'unavailable';
+		}
+		const access: IPackageRepositoryAccess = {
+			resolveUrl: (lookupToken) => packageManager.packageRepositoryUrl?.(lookupToken) ?? Promise.resolve(undefined),
+			request: (request, requestToken) => packageManager.repositoryRequest!(request, requestToken),
+		};
+
+		// Advisories are version-specific, so the lookup gets installed
+		// versions rather than bare names.
+		const specs = packagesToFetch.map((pkg): IPackageSpec => ({ name: pkg.name, version: pkg.version }));
+
+		// Only version-pinned specs are ever asked about -- an unpinned name
+		// answers for the latest release, not the installed one -- so this, not
+		// `specs.length`, is what a complete answer covers.
+		const askableCount = specs.filter((spec) => !!spec.version).length;
+
+		// The lookup clamps whatever budget it is handed to its own 90s
+		// ceiling, so mirror the clamp: the elapsed-time judgment below and the
+		// backstop must measure against the budget the lookup actually ran
+		// under, or a caller timeout above the ceiling would label a
+		// budget-exhausted lookup 'unavailable'.
+		const budgetMs = Math.min(timeoutMs, TOTAL_BUDGET_MS);
+		const cts = new CancellationTokenSource(callerToken);
+		const startedAt = Date.now();
+		try {
+			// The lookup's own budget is sized for the pane's background fetch
+			// (90s), which is far more than a caller waiting on an answer will
+			// sit through, so this caller's budget is handed to the lookup
+			// instead. It asks in chunks and keeps whatever answered before the
+			// budget ran out, so a partial answer is persisted and the next
+			// call fills the rest; racing the promise from out here would drop
+			// every chunk that had already come back. The raceTimeout is only a
+			// backstop for a request that ignores its own timeout, hence the
+			// grace: the lookup's budget is meant to be what expires first.
+			let outcome: { result: IPackageVulnerabilityResult | undefined } | undefined;
+			try {
+				outcome = await raceTimeout(
+					this._vulnerabilityLookup
+						.getVulnerabilities(this._session.runtimeMetadata.languageId, access, specs, cts.token, budgetMs)
+						.then((result) => ({ result })),
+					budgetMs + Math.min(budgetMs, PACKAGES_SNAPSHOT_VULNERABILITY_GRACE_MS),
+					() => cts.cancel(),
+				);
+			} catch (err) {
+				// As in the outdated stage, a cancellation landing here is the
+				// caller's: our own timeout resolves the race first.
+				if (isCancellationError(err) && callerToken.isCancellationRequested) {
+					throw err;
+				}
+				this._logService.warn(`[Packages] Snapshot vulnerability lookup failed: ${err}`);
+				return 'unavailable';
+			}
+			if (outcome === undefined) {
+				return 'timed-out';
+			}
+			if (outcome.result === undefined) {
+				// Nothing at all came back: no Package Manager that reports
+				// advisories, or a failure the lookup already logged and
+				// swallowed. Those are indistinguishable from here, but a
+				// lookup that spent the whole budget was answering, not
+				// missing, and 'timed-out' is the honest label for a caller
+				// deciding whether asking again is worth anything.
+				return Date.now() - startedAt >= budgetMs ? 'timed-out' : 'unavailable';
+			}
+			this._mergeAndPersistMetadata(undefined, versionByName, outcome.result);
+			if (outcome.result.queried.size < askableCount) {
+				// The lookup ran out of budget (or a request failed) partway
+				// through its chunks. What it did answer is merged above, but
+				// the packages it never reached still have no advisory data, so
+				// this is not the full answer 'fresh' or 'cached' would claim.
+				return 'timed-out';
+			}
+			// A gap-fill leaves the rest of the advisories as of the last full
+			// lookup, which is what 'cached' says; only refetching everything
+			// makes the whole set current.
+			return fetchAll ? 'fresh' : 'cached';
 		} finally {
 			cts.dispose();
 		}
