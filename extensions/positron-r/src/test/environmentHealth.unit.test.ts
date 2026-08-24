@@ -11,6 +11,8 @@ import './mocha-setup';
 import {
 	archesMismatch,
 	assembleItems,
+	discoverInstallations,
+	logErrorTo,
 	HealthItem,
 	HealthItemId,
 	probeDiscovery,
@@ -117,12 +119,65 @@ suite('environment health: probeDiscovery', () => {
 		assert.strictEqual(item.fix?.commandId, 'positron.startupDiagnostics.show');
 	});
 
-	test('fails and reports the error when discovery threw', () => {
-		const item = probeDiscovery({ binaryCount: 0, error: 'boom' });
+	test('fails without exposing the cause when discovery threw', () => {
+		const item = probeDiscovery({ binaryCount: 0, discoveryFailed: true });
 		assert.strictEqual(item.status, 'fail');
-		assert.ok(item.detail?.includes('boom'));
+		assert.ok(item.detail);
+		assert.strictEqual(item.fix?.commandId, 'positron.startupDiagnostics.show');
 		// Both discovery failure modes point at the same docs.
 		assert.strictEqual(item.learnMoreUrl, 'https://positron.posit.co/r-installations');
+	});
+});
+
+suite('environment health: logErrorTo', () => {
+	test('an Error is logged as its stack, not its message', () => {
+		// warn() renders an Error to its message alone, so the stack has to be passed
+		// as the argument. The stack is what says which line threw.
+		const warn = sinon.stub();
+		const thrown = new Error('kaboom');
+		logErrorTo({ warn })('Discovery failed', thrown);
+		assert.deepStrictEqual(warn.firstCall.args, ['Discovery failed', thrown.stack]);
+	});
+
+	test('an Error with no stack falls back to its message', () => {
+		const warn = sinon.stub();
+		const thrown = new Error('kaboom');
+		thrown.stack = undefined;
+		logErrorTo({ warn })('Discovery failed', thrown);
+		assert.deepStrictEqual(warn.firstCall.args, ['Discovery failed', 'kaboom']);
+	});
+
+	test('a thrown non-Error is passed through', () => {
+		const warn = sinon.stub();
+		logErrorTo({ warn })('Discovery failed', 'a bare string');
+		assert.deepStrictEqual(warn.firstCall.args, ['Discovery failed', 'a bare string']);
+	});
+
+	test('no error logs the message alone, with no trailing undefined', () => {
+		const warn = sinon.stub();
+		logErrorTo({ warn })('Discovery failed');
+		assert.deepStrictEqual(warn.firstCall.args, ['Discovery failed']);
+	});
+});
+
+suite('environment health: discoverInstallations', () => {
+	test('passes the discovered installations through on success', async () => {
+		const logError = sinon.stub();
+		const result = await discoverInstallations(async () => ['r-4.4.1', 'r-4.3.2'], logError);
+		assert.deepStrictEqual(result, { installations: ['r-4.4.1', 'r-4.3.2'], discoveryFailed: false });
+		assert.ok(logError.notCalled);
+	});
+
+	test('a thrown error is logged and becomes an empty list plus the flag', async () => {
+		const logError = sinon.stub();
+		const thrown = new Error('no such directory');
+		const result = await discoverInstallations<string>(async () => {
+			throw thrown;
+		}, logError);
+		assert.deepStrictEqual(result, { installations: [], discoveryFailed: true });
+		// The error object reaches the logger intact rather than flattened into the message;
+		// logErrorTo is what turns it into a stack. probeDiscovery never sees it.
+		assert.deepStrictEqual(logError.firstCall.args, ['R installation discovery failed', thrown]);
 	});
 });
 
@@ -339,24 +394,24 @@ suite('environment health: assembleItems cascade', () => {
 	});
 
 	test('a throwing producer becomes a fail item rather than rejecting', async () => {
-		const logUnexpectedError = sinon.stub();
+		const logError = sinon.stub();
 		const thrown = new Error('kaboom');
 		const result = await assembleItems(
 			{
 				...allPass,
 				ready: () => { throw thrown; },
 			},
-			logUnexpectedError,
+			logError,
 		);
 		assert.strictEqual(result.items[2].status, 'fail');
 		// The summary stays the check's own claim.
 		assert.strictEqual(result.items[2].summary,
 			'The R installation is ready to use with Positron');
-		// The error goes to the log, not to the user. It is passed as the error
-		// argument rather than interpolated, so the log keeps the stack.
+		// The error goes to the log, not to the user, and reaches the logger intact
+		// rather than flattened into the message.
 		assert.ok(!result.items[2].detail?.includes('kaboom'));
-		assert.ok(logUnexpectedError.calledOnce);
-		assert.deepStrictEqual(logUnexpectedError.firstCall.args, [
+		assert.ok(logError.calledOnce);
+		assert.deepStrictEqual(logError.firstCall.args, [
 			`Environment health check 'environmentReady' failed`, thrown,
 		]);
 	});

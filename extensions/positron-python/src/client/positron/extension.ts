@@ -87,15 +87,14 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
             }),
         );
         // Returns a machine-readable Python environment health report for the welcome page. It
-        // reveals no panel; the only thing it writes to the output channel is a warning when a
-        // probe throws unexpectedly. It has no contributes.commands entry, which keeps it off the
-        // Command Palette but also costs the implicit onCommand activation event, so package.json
-        // lists that event explicitly: the welcome page can call this before onStartupFinished has
-        // woken the extension.
+        // reveals no panel, and writes to the output channel only when a check fails. It has no
+        // contributes.commands entry, which keeps it off the Command Palette but also costs the
+        // implicit onCommand activation event, so package.json lists that event explicitly: the
+        // welcome page can call this before onStartupFinished has woken the extension.
         disposables.push(
             vscode.commands.registerCommand(
                 Commands.Get_Environment_Health,
-                async (args?: { workspaceFolder?: string }) => getEnvironmentHealth(serviceContainer, args, traceWarn),
+                async (args?: { workspaceFolder?: string }) => getEnvironmentHealth(serviceContainer, traceWarn, args),
             ),
         );
 
