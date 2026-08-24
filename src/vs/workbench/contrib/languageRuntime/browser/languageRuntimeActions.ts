@@ -1754,14 +1754,12 @@ export class EvaluateCodeAction extends Action2 {
 		const activeSession = runtimeSessionService.getActiveSession(foregroundSession.sessionId);
 
 		// The UI comm starts fire-and-forget once the session reaches Ready, so a
-		// ready-looking session can still have no `uiClient`. startUiClient() is
-		// idempotent and joins an in-flight start, so calling it again is free.
-		if (activeSession) {
-			try {
-				await activeSession.startUiClient();
-			} catch (err) {
-				logService.error(`Failed to start the UI comm for code evaluation: ${err}`);
-			}
+		// ready-looking session can still have no `uiClient`. Joining that start is
+		// idempotent; the check below still reports a session that never gets one.
+		try {
+			await activeSession?.startUiClient();
+		} catch (err) {
+			logService.error(`Failed to start the UI comm for code evaluation: ${err}`);
 		}
 
 		if (!activeSession?.uiClient) {
