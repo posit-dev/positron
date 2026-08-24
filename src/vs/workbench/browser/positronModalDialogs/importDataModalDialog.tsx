@@ -262,7 +262,6 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 						: <>
 							<div className='name-field'>
 								<LabeledTextInput
-									autoFocus
 									error={!variableNameValid}
 									errorMsg={variableNameValid
 										? undefined
