@@ -48,9 +48,22 @@ Creates an isolated Python environment (venv, Conda, or uv), registers it with
 Positron, and selects it. Use this when an interpreter already exists and the
 user wants a per-project environment rather than working against a global Python.
 
+When you pick the provider yourself rather than letting the user choose, follow
+Positron's usual preference: uv, then Conda (if installed), then venv. To see
+what's available, list the registered Python interpreters with
+`workbench.action.language.runtime.getRegisteredRuntimes` (pass `languageId:
+"python"`); each entry's `runtimeSource` names its manager (`uv`, `Conda`,
+`Venv`, `System`, and so on). A `uv`- or `Conda`-sourced interpreter means that
+manager is installed, so prefer the matching provider; otherwise fall back to
+venv on any existing interpreter. If the list is empty there's no Python at all
+-- install one first with `python.installPythonViaUv`. When you're unsure, let
+the command prompt (see below) so Positron applies this preference itself.
+
 You can let it prompt for everything, or drive it non-interactively by passing
 `providerId` together with exactly one Python source:
 
+- **uv** (`ms-python.python:uv`): pass `uvPythonVersion`, e.g. `"3.12"`.
+- **Conda** (`ms-python.python:conda`): pass `condaPythonVersion`, e.g. `"3.12"`.
 - **venv** (`ms-python.python:venv`): pass `interpreterPath` -- the existing
   interpreter to base the venv on. First list the registered Python
   interpreters with
@@ -59,8 +72,6 @@ You can let it prompt for everything, or drive it non-interactively by passing
   base; see [interpreters.md]({{skill_dir}}/references/interpreters.md). If that
   list comes back empty there is no Python to base a venv on, so install one
   first with `python.installPythonViaUv`.
-- **Conda** (`ms-python.python:conda`): pass `condaPythonVersion`, e.g. `"3.12"`.
-- **uv** (`ms-python.python:uv`): pass `uvPythonVersion`, e.g. `"3.12"`.
 
 Passing a `providerId` with no source triggers the interactive prompts instead.
 If the user has no Python at all, install one first with
