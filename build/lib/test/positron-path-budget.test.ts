@@ -64,6 +64,14 @@ suite('positron-path-budget', () => {
 				// extension.
 				'dist/extension.js',
 				'src/extension.ts',
+				// node-pre-gyp's scratch directory from a source build, e.g.
+				// `odbc` on linux-arm64, which has no prebuilt binary. Its
+				// `.deps` files encode the build's absolute path in the file
+				// name.
+				'node_modules/odbc/build-tmp-napi-v8/Release/.deps/x.d',
+				// The compiled binary the package actually resolves at
+				// runtime stays.
+				'node_modules/odbc/lib/bindings/napi-v8/odbc.node',
 			];
 
 			assert.deepStrictEqual(paths.map(isPruned), [
@@ -71,6 +79,8 @@ suite('positron-path-budget', () => {
 				false, false, false, false, false,
 				false,
 				false, false,
+				true,
+				false,
 			]);
 		});
 
