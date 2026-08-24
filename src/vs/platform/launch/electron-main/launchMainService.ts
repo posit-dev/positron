@@ -5,6 +5,12 @@
 
 import { app } from 'electron';
 import { coalesce } from '../../../base/common/arrays.js';
+// --- Start Positron ---
+import { CancellationToken } from '../../../base/common/cancellation.js';
+import { selectCanvasLaunchWindow } from '../common/positronCanvasLaunch.js';
+import { IAuxiliaryWindowsMainService } from '../../auxiliaryWindow/electron-main/auxiliaryWindows.js';
+import { IPositronStandaloneModeMainService } from '../../positronStandaloneMode/common/positronStandaloneMode.js';
+// --- End Positron ---
 import { IProcessEnvironment, isMacintosh } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { whenDeleted } from '../../../base/node/pfs.js';
@@ -45,6 +51,10 @@ export class LaunchMainService implements ILaunchMainService {
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
 		@IURLService private readonly urlService: IURLService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		// --- Start Positron ---
+		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService,
+		@IPositronStandaloneModeMainService private readonly positronStandaloneModeMainService: IPositronStandaloneModeMainService,
+		// --- End Positron ---
 	) { }
 
 	async start(args: NativeParsedArgs, userEnv: IProcessEnvironment): Promise<void> {
@@ -150,6 +160,21 @@ export class LaunchMainService implements ILaunchMainService {
 
 		// Start without file/folder arguments
 		else if (!args._.length && !args['folder-uri'] && !args['file-uri']) {
+			// --- Start Positron ---
+			// A bare relaunch while standalone mode is engaged means "bring
+			// Positron forward", and the product surface is the engaged
+			// window; falling through could open a fresh IDE window beside it.
+			if (this.positronStandaloneModeMainService.isEngaged) {
+				this.logService.info('[standalone mode] Focusing the engaged window for an argumentless launch');
+				const lastActiveAuxiliaryWindow = this.auxiliaryWindowsMainService.getLastActiveWindow();
+				if (lastActiveAuxiliaryWindow && !this.positronStandaloneModeMainService.isEngagedElsewhere(lastActiveAuxiliaryWindow.parentId)) {
+					lastActiveAuxiliaryWindow.focus();
+				} else {
+					this.windowsMainService.getWindows().find(window => !this.positronStandaloneModeMainService.isEngagedElsewhere(window.id))?.focus();
+				}
+				return;
+			}
+			// --- End Positron ---
 			let openNewWindow = false;
 
 			// Force new window
@@ -205,7 +230,11 @@ export class LaunchMainService implements ILaunchMainService {
 
 		// Start with file/folder arguments
 		else {
-			usedWindows = await this.windowsMainService.open({
+			// --- Start Positron ---
+			// An open landing behind an engaged standalone mode window would
+			// reveal the hidden IDE, so every file or folder open first exits it.
+			const openWithArguments = () => this.windowsMainService.open({
+				// --- End Positron ---
 				...baseConfig,
 				forceNewWindow: args['new-window'],
 				preferNewWindow: !args['reuse-window'] && !args.wait,
@@ -217,7 +246,40 @@ export class LaunchMainService implements ILaunchMainService {
 				noRecentEntry: !!args['skip-add-to-recently-opened'],
 				gotoLineMode: args.goto
 			});
+			// --- Start Positron ---
+			let opening: Promise<ICodeWindow[]> | undefined;
+			// `opening` is assigned before `handleExternalOpen` resolves,
+			// even when the open first waits out an engaged window's exit.
+			await this.positronStandaloneModeMainService.handleExternalOpen(
+				() => { opening = openWithArguments(); },
+				(engagedWindowId, exitCommandId) => this.windowsMainService.getWindowById(engagedWindowId)?.sendWhenReady('vscode:runAction', CancellationToken.None, {
+					id: exitCommandId,
+					from: 'menu',
+				})
+			);
+			usedWindows = opening ? await opening : [];
+			// --- End Positron ---
 		}
+
+		// --- Start Positron ---
+		// A freshly opened window consumed the flag off `args`
+		// (`CanvasLaunchWindowAssigner.assign`) and enters through its own
+		// startup contribution. The flag still set here means the launch only
+		// reused windows, which learn about `--canvas` as an action instead.
+		if (args.canvas) {
+			const canvasWindow = selectCanvasLaunchWindow(usedWindows, this.windowsMainService.getLastActiveWindow());
+			if (canvasWindow) {
+				canvasWindow.sendWhenReady('vscode:runAction', CancellationToken.None, {
+					// The palette action rather than `positron.canvas.enter`:
+					// it owns the failure notification, and `runAction`
+					// ignores return values.
+					id: 'positron.canvas.open',
+					from: 'menu',
+				});
+				canvasWindow.focus();
+			}
+		}
+		// --- End Positron ---
 
 		// If the other instance is waiting to be killed, we hook up a window listener if one window
 		// is being used and only then resolve the startup promise which will kill this second instance.

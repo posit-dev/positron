@@ -5,21 +5,25 @@
 
 // CSS.
 import './packageDetail.css';
+import '../packageVulnerabilities.css';
 
 // React.
-import { useEffect, useRef, useState } from 'react';
+import { KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 
 // Other dependencies.
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, IPackageVulnerability } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance } from '../positronPackagesInstance.js';
 import { derivePackageViewState, PackageAction } from '../packageViewState.js';
 import { showPackageHelp } from '../packageHelp.js';
+import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel } from '../packageVulnerabilities.js';
 
 export interface PackageDetailProps {
 	readonly languageId: string;
@@ -27,6 +31,12 @@ export interface PackageDetailProps {
 	readonly packageName: string;
 	readonly packagesService: IPositronPackagesService;
 }
+
+/**
+ * The tabs the detail view can show. Security is only offered when the runtime
+ * reported advisory data for the package.
+ */
+type PackageDetailTab = 'overview' | 'security';
 
 /**
  * Normalize a runtime-provided published date to YYYY-MM-DD. Handles the common
@@ -44,6 +54,19 @@ function formatPublishedDate(raw: string): string {
 		return parsed.toISOString().slice(0, 10);
 	}
 	return raw;
+}
+
+/**
+ * Format a lookup timestamp (epoch ms) as YYYY-MM-DD for display. Read in the
+ * reader's own time zone, unlike the advisory dates above: this one is a local
+ * event ("when Positron asked"), so a UTC rendering would show tomorrow's date
+ * to anyone who refreshed in the evening west of UTC.
+ */
+function formatFetchedDate(fetchedAt: number): string {
+	const fetched = new Date(fetchedAt);
+	const month = `${fetched.getMonth() + 1}`.padStart(2, '0');
+	const day = `${fetched.getDate()}`.padStart(2, '0');
+	return `${fetched.getFullYear()}-${month}-${day}`;
 }
 
 /**
@@ -79,6 +102,60 @@ const MetaRow = (props: { label: string; value: string | number | undefined }) =
 			<div className='package-detail-meta-label'>{props.label}</div>
 			<div className='package-detail-meta-value'>{props.value}</div>
 		</>
+	);
+};
+
+/**
+ * A single advisory in the Security tab: severity + score, the advisory
+ * id (linked to its NVD/OSV page when a URL is available), summary, and the
+ * fixed-in / published metadata line.
+ */
+const VulnerabilityRow = (props: { vulnerability: IPackageVulnerability }) => {
+	const services = usePositronReactServicesContext();
+	const vulnerability = props.vulnerability;
+	const band = severityBand(vulnerability.score);
+	const severityText = vulnerability.score !== undefined
+		? localize('positron.packages.detail.severityScored', "{0} {1}", severityBandLabel(band), vulnerability.score.toFixed(1))
+		: severityBandLabel(band);
+	return (
+		<div className='package-detail-vulnerability'>
+			<div className='package-detail-vulnerability-header'>
+				<span className={positronClassNames('package-detail-vulnerability-severity', `severity-${band}`)}>
+					{severityText}
+				</span>
+				{vulnerability.url ? (
+					<Button
+						ariaLabel={localize('positron.packages.detail.openAdvisory', "Open advisory {0}", vulnerability.id)}
+						className='package-detail-vulnerability-id package-detail-vulnerability-link'
+						onPressed={() => { void services.openerService.open(URI.parse(vulnerability.url!), { openExternal: true }); }}
+					>
+						{vulnerability.id}
+					</Button>
+				) : (
+					<span className='package-detail-vulnerability-id'>{vulnerability.id}</span>
+				)}
+				{vulnerability.score !== undefined && vulnerability.scoreVersion && (
+					<span className='package-detail-vulnerability-cvss'>
+						{vulnerability.scoreVersion === 'v4'
+							? localize('positron.packages.detail.cvssV4', "CVSS v4")
+							: localize('positron.packages.detail.cvssV3', "CVSS v3")}
+					</span>
+				)}
+			</div>
+			{vulnerability.summary && (
+				<div className='package-detail-vulnerability-summary'>{vulnerability.summary}</div>
+			)}
+			{(vulnerability.fixedIn || vulnerability.published) && (
+				<div className='package-detail-vulnerability-meta'>
+					{vulnerability.fixedIn && (
+						<span>{localize('positron.packages.detail.fixedIn', "Fixed in {0}", vulnerability.fixedIn)}</span>
+					)}
+					{vulnerability.published && (
+						<span>{localize('positron.packages.detail.advisoryPublished', "Published {0}", formatPublishedDate(vulnerability.published))}</span>
+					)}
+				</div>
+			)}
+		</div>
 	);
 };
 
@@ -266,6 +343,114 @@ export const PackageDetail = (props: PackageDetailProps) => {
 	// immediately.
 	const merged = { ...pkg, ...detail };
 
+	// Advisories ride in with the list metadata (Stage 2), not the detail
+	// fetch, so they read off the merged entry and may appear after the
+	// Overview first renders. `undefined` means no data (no PPM resolved, or
+	// this package/version is unknown to it): render no Security section at
+	// all rather than an affirmative "no vulnerabilities" that isn't earned.
+	const vulnerabilitiesEnabled = usePositronConfiguration<boolean>(PACKAGES_VULNERABILITIES_ENABLED_SETTING) !== false;
+	const vulnerabilities = vulnerabilitiesEnabled ? merged.vulnerabilities : undefined;
+
+	// Which instance reported them, and when. An instance whose advisory data is
+	// stale or absent reports every package as clean and nothing in its response
+	// says so, so "no advisories" is only meaningful with the source attached.
+	const vulnerabilitySource = vulnerabilitiesEnabled ? instance?.vulnerabilitySource : undefined;
+
+	// Highest-severity first; unscored advisories sort after scored ones.
+	const sortedVulnerabilities = vulnerabilities === undefined ? undefined : [...vulnerabilities].sort(
+		(a, b) => (b.score ?? -1) - (a.score ?? -1));
+
+	// Tab strip. Security is offered only when there is advisory data to show:
+	// `undefined` means no data (no PPM configured, or this package/version is
+	// unknown to it), which is neither a warning nor an earned all-clear.
+	const tabs: PackageDetailTab[] = sortedVulnerabilities === undefined
+		? ['overview']
+		: ['overview', 'security'];
+	const [selectedTab, setSelectedTab] = useState<PackageDetailTab>('overview');
+	// Fall back to the Overview if the selected tab goes away -- e.g. the user
+	// turns the vulnerabilities setting off while the Security tab is open.
+	const activeTab = tabs.includes(selectedTab) ? selectedTab : 'overview';
+
+	// Ids wire each tab to its panel. `useId` keeps them distinct when two
+	// package editors are open side by side.
+	const idPrefix = useId();
+	const tabId = (tab: PackageDetailTab) => `${idPrefix}-tab-${tab}`;
+	const panelId = (tab: PackageDetailTab) => `${idPrefix}-panel-${tab}`;
+
+	const tabRefs = useRef<Partial<Record<PackageDetailTab, HTMLButtonElement | null>>>({});
+
+	// Horizontal tablist keyboard model: arrows wrap, Home/End jump to the ends,
+	// and selection follows focus (both panels are cheap to render).
+	const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+		const index = tabs.indexOf(activeTab);
+		let nextIndex: number | undefined;
+		switch (e.code) {
+			case 'ArrowRight':
+				nextIndex = (index + 1) % tabs.length;
+				break;
+			case 'ArrowLeft':
+				nextIndex = (index - 1 + tabs.length) % tabs.length;
+				break;
+			case 'Home':
+				nextIndex = 0;
+				break;
+			case 'End':
+				nextIndex = tabs.length - 1;
+				break;
+		}
+		if (nextIndex === undefined) {
+			return;
+		}
+		// Consume the key before the Button's own Enter/Space handling sees it.
+		e.preventDefault();
+		e.stopPropagation();
+		const nextTab = tabs[nextIndex];
+		setSelectedTab(nextTab);
+		tabRefs.current[nextTab]?.focus();
+	};
+
+	// Advisory count carried on the Security tab, coloured by the worst
+	// advisory. Moving the advisories behind a tab would otherwise hide the one
+	// thing about them worth noticing at a glance.
+	const vulnerabilityCount = sortedVulnerabilities?.length ?? 0;
+	const vulnerabilityBand = severityBand(maxVulnerabilityScore(sortedVulnerabilities ?? []));
+
+	const renderTab = (tab: PackageDetailTab) => {
+		const selected = tab === activeTab;
+		const label = tab === 'overview'
+			? localize('positron.packages.detail.overview', "Overview")
+			: localize('positron.packages.detail.security', "Security");
+		// Announce the count along with the tab name rather than leaving the
+		// badge to be read as a bare number.
+		const ariaLabel = tab === 'security' && vulnerabilityCount > 0
+			? (vulnerabilityCount === 1
+				? localize('positron.packages.detail.securityTabOne', "Security, 1 known vulnerability")
+				: localize('positron.packages.detail.securityTabMany', "Security, {0} known vulnerabilities", vulnerabilityCount))
+			: undefined;
+		return (
+			<Button
+				key={tab}
+				ref={element => { tabRefs.current[tab] = element; }}
+				ariaControls={panelId(tab)}
+				ariaLabel={ariaLabel}
+				ariaSelected={selected}
+				className={positronClassNames('package-detail-tab', { active: selected })}
+				id={tabId(tab)}
+				role='tab'
+				tabIndex={selected ? 0 : -1}
+				onKeyDown={handleTabKeyDown}
+				onPressed={() => setSelectedTab(tab)}
+			>
+				{label}
+				{tab === 'security' && vulnerabilityCount > 0 &&
+					<span className={positronClassNames('package-detail-tab-badge', `severity-${vulnerabilityBand}`)}>
+						{vulnerabilityCount}
+					</span>
+				}
+			</Button>
+		);
+	};
+
 	// Header subtitle: prefer the short one-line title (R's `Title`, Python's
 	// `Summary`) over the longer list `description` (R's full Description).
 	const subtitle = merged.title || pkg?.description;
@@ -312,32 +497,77 @@ export const PackageDetail = (props: PackageDetailProps) => {
 				</div>
 			}
 
-			<div className='package-detail-tabs'>
-				<div className='package-detail-tab active'>{localize('positron.packages.detail.overview', "Overview")}</div>
+			<div
+				aria-label={localize('positron.packages.detail.tabs', "Package details")}
+				className='package-detail-tabs'
+				role='tablist'
+			>
+				{tabs.map(renderTab)}
 			</div>
 
 			{/*
-			 * Hold the Overview back until the detail fetch resolves, then render
-			 * it all at once. Half-rendering it with the list entry and filling in
-			 * detail-only fields afterwards made the panel jump.
+			 * Every tab gets its panel, with the inactive ones hidden, so each
+			 * tab's `aria-controls` resolves to an element that is really there.
+			 * Both are cheap to render, which is also why selection follows
+			 * focus in the tablist above.
 			 */}
-			{!detailLoading &&
-				<div className='package-detail-overview'>
-					<div className='package-detail-stats'>
-						<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
-						<Stat label={localize('positron.packages.detail.license', "License")} value={merged.license} />
-					</div>
+			{tabs.map(tab =>
+				<div
+					key={tab}
+					aria-labelledby={tabId(tab)}
+					className='package-detail-panel'
+					hidden={tab !== activeTab}
+					id={panelId(tab)}
+					role='tabpanel'
+					tabIndex={0}
+				>
+					{/*
+					 * Hold the Overview back until the detail fetch resolves, then render
+					 * it all at once. Half-rendering it with the list entry and filling in
+					 * detail-only fields afterwards made the panel jump. The advisories
+					 * ride in with the list metadata instead, so the Security tab has
+					 * nothing to wait for.
+					 */}
+					{tab === 'overview' && !detailLoading &&
+						<div className='package-detail-overview'>
+							<div className='package-detail-stats'>
+								<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
+								<Stat label={localize('positron.packages.detail.license', "License")} value={merged.license} />
+							</div>
 
-					<div className='package-detail-section'>
-						<div className='package-detail-section-title'>{localize('positron.packages.detail.metadata', "Metadata")}</div>
-						<div className='package-detail-meta-grid'>
-							<MetaRow label={localize('positron.packages.detail.repository', "Source repository")} value={merged.sourceRepository} />
-							<MetaRow label={localize('positron.packages.detail.published', "Date published")} value={merged.publishedDate ? formatPublishedDate(merged.publishedDate) : undefined} />
-							<MetaRow label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
+							<div className='package-detail-section'>
+								<div className='package-detail-section-title'>{localize('positron.packages.detail.metadata', "Metadata")}</div>
+								<div className='package-detail-meta-grid'>
+									<MetaRow label={localize('positron.packages.detail.repository', "Source repository")} value={merged.sourceRepository} />
+									<MetaRow label={localize('positron.packages.detail.published', "Date published")} value={merged.publishedDate ? formatPublishedDate(merged.publishedDate) : undefined} />
+									<MetaRow label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
+								</div>
+							</div>
 						</div>
-					</div>
+					}
+
+					{tab === 'security' && sortedVulnerabilities !== undefined &&
+						<div className='package-detail-security'>
+							{sortedVulnerabilities.length === 0
+								? <div className='package-detail-security-clean'>
+									{vulnerabilitySource
+										? localize('positron.packages.detail.noVulnerabilitiesFrom', "No advisories reported by {0} as of {1}.", vulnerabilitySource.host, formatFetchedDate(vulnerabilitySource.fetchedAt))
+										: localize('positron.packages.detail.noVulnerabilities', "No advisories were reported for this version.")}
+								</div>
+								: <div className='package-detail-vulnerabilities'>
+									{sortedVulnerabilities.map(vulnerability =>
+										<VulnerabilityRow key={vulnerability.osvId} vulnerability={vulnerability} />)}
+								</div>
+							}
+							{sortedVulnerabilities.length > 0 && vulnerabilitySource &&
+								<div className='package-detail-security-source'>
+									{localize('positron.packages.detail.advisorySource', "Reported by {0} as of {1}.", vulnerabilitySource.host, formatFetchedDate(vulnerabilitySource.fetchedAt))}
+								</div>
+							}
+						</div>
+					}
 				</div>
-			}
+			)}
 		</div>
 	);
 };

@@ -21,6 +21,35 @@ import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.j
 import { AbstractUpdateService } from '../../electron-main/abstractUpdateService.js';
 import { State, StateType } from '../../common/update.js';
 
+// The interfaces above come from `electron-main` files whose import chain pulls in the real
+// `electron` package, and requiring that package runs a postinstall shim that downloads the
+// Electron binary (and throws when it cannot). The unit-test CI container has no binary and no
+// download, so without this mock the whole file fails to load there. Nothing in these tests
+// reaches electron -- every collaborator is a stub -- so inert placeholders are enough. Match
+// the other `electron-main` vitest files and keep the mock.
+vi.mock('electron', () => {
+	const nodeEventEmitter = () => ({ on: () => { }, removeListener: () => { } });
+	return {
+		default: { app: nodeEventEmitter(), ipcMain: nodeEventEmitter() },
+		app: nodeEventEmitter(),
+		ipcMain: nodeEventEmitter(),
+		powerMonitor: nodeEventEmitter(),
+		screen: nodeEventEmitter(),
+		session: {},
+		webContents: { fromId: () => undefined },
+		BrowserWindow: {},
+		Menu: {},
+		Notification: class { },
+		clipboard: {},
+		contentTracing: {},
+		dialog: {},
+		nativeImage: {},
+		powerSaveBlocker: {},
+		shell: {},
+		systemPreferences: {},
+	};
+});
+
 /**
  * The Windows installer reads the update flag file as soon as the app mutex clears, and that mutex
  * is released during `onWillShutdown`, i.e. before `lifecycleMainService.quit()` resolves. So

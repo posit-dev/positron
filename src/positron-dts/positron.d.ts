@@ -1434,6 +1434,28 @@ declare module 'positron' {
 		): Thenable<Map<string, Partial<LanguageRuntimePackage>>>;
 
 		/**
+		 * The repository (R) or package index (Python) URL this environment
+		 * installs from, when the runtime can determine it.
+		 *
+		 * Positron uses this to decide which Posit Package Manager instance, if
+		 * any, to ask for security advisories about the installed packages. Only
+		 * the runtime knows the full precedence its installer follows -- an
+		 * r-versions `Repo:` field, `repos.conf`, `pip config`, environment
+		 * variables -- so the resolution stays here rather than being guessed
+		 * from settings.
+		 *
+		 * Return the repository URL as configured (e.g.
+		 * `https://ppm.example.com/cran/latest`). Positron probes it to see
+		 * whether it is a Package Manager instance and never contacts a
+		 * different host than the one returned. Resolve `undefined` when nothing
+		 * is configured beyond the language's public default; Positron then
+		 * decides for itself whether a public lookup is appropriate.
+		 *
+		 * @param token Optional cancellation token
+		 */
+		packageRepositoryUrl?(token?: vscode.CancellationToken): Thenable<string | undefined>;
+
+		/**
 		 * Fetch detailed metadata for a single package, called when the package
 		 * detail editor opens. Cheap, kernel-local fields only. Returns a partial
 		 * package to merge over the list entry, or undefined when unsupported.
@@ -2343,6 +2365,48 @@ declare module 'positron' {
 		 * @returns The redacted string to display, or undefined to show no placeholder.
 		 */
 		redactParameterValue?(mechanismId: string, parameterId: string, value: string): vscode.ProviderResult<string>;
+
+		/**
+		 * Reports connections this driver already knows about on this machine, without the user
+		 * having configured anything -- ODBC data sources declared in `odbc.ini`, for example.
+		 *
+		 * Positron shows these in the Data Connections pane alongside saved connections, so a data
+		 * source the machine is already set up for is connectable straight away. They are not
+		 * persisted: a discovered connection that stops being reported simply stops appearing, and
+		 * one the user saves becomes an ordinary saved connection from then on (and is no longer
+		 * shown as discovered).
+		 *
+		 * Called when the driver registers and whenever the set of registered drivers changes, so a
+		 * driver whose discoveries change should re-register to have them re-read.
+		 *
+		 * @returns The connections found on this machine, or an empty array if there are none.
+		 */
+		discoverConnections?(): Thenable<DiscoveredDataConnection[]>;
+	}
+
+	/**
+	 * A connection a driver found already configured on this machine, reported by
+	 * {@link DataConnectionDriver.discoverConnections}.
+	 */
+	export interface DiscoveredDataConnection {
+		/**
+		 * An identifier for this connection, unique within the driver and stable across sessions
+		 * (so the pane can keep a discovered connection's expansion state). Positron namespaces it
+		 * by driver, so it need not be globally unique.
+		 */
+		id: string;
+
+		/** The name to show in the pane. */
+		name: string;
+
+		/** An optional one-line summary of where the connection points, shown beneath the name. */
+		description?: string;
+
+		/** The id of the mechanism to connect with. One of this driver's `mechanisms`. */
+		mechanismId: string;
+
+		/** The parameter values to connect with, for the parameters that mechanism defines. */
+		parameters: DataConnectionParameterValues;
 	}
 
 	/**
@@ -3988,6 +4052,8 @@ declare module 'positron' {
 				// Message to show in the UI if autoconfiguration was successful
 				message: string;
 				signedIn: boolean;
+				// Whether this credential is managed by Posit Workbench
+				isPositWorkbench?: boolean;
 			}
 		);
 
@@ -4241,6 +4307,21 @@ declare module 'positron' {
 			};
 
 		/**
+		 * Options for {@link getAgentAllowedCommands}.
+		 */
+		export interface GetAgentAllowedCommandsOptions {
+			/**
+			 * Include agent-compatible commands whose precondition does not
+			 * currently hold (e.g. a Data Explorer command while no Data Explorer
+			 * is open). Defaults to `false`, which returns only commands that are
+			 * enabled right now. Set to `true` when the full static set is needed
+			 * regardless of the current UI state, such as when generating
+			 * documentation.
+			 */
+			includeDisabled?: boolean;
+		}
+
+		/**
 		 * Returns the curated list of Positron commands that are available to
 		 * AI agents, including their IDs, descriptions, and parameter and
 		 * return-value metadata.
@@ -4250,9 +4331,37 @@ declare module 'positron' {
 		 * current build is dropped so the returned list is guaranteed to
 		 * resolve.
 		 *
+		 * @param options Controls which commands are returned.
 		 * @returns A Thenable that resolves to an array of command descriptors.
 		 */
-		export function getAgentAllowedCommands(): Thenable<AgentCommand[]>;
+		export function getAgentAllowedCommands(options?: GetAgentAllowedCommandsOptions): Thenable<AgentCommand[]>;
+
+		/**
+		 * Registers a filesystem root holding agent skills produced at runtime
+		 * (for example, generated skill files written to an extension's storage),
+		 * so it is discovered by {@link getAgentSkillRoots}. The root is a
+		 * directory whose immediate subdirectories each contain a `SKILL.md`.
+		 *
+		 * The registration lives in the extension host. Dispose the returned
+		 * value to remove the root again.
+		 *
+		 * @param root Absolute filesystem path of the skill root to add.
+		 * @returns A Disposable that removes the root when disposed.
+		 */
+		export function registerAgentSkillRoot(root: string): vscode.Disposable;
+
+		/**
+		 * Returns the filesystem roots holding the agent skills available to
+		 * this Positron build, as added via {@link registerAgentSkillRoot}.
+		 *
+		 * Each root is a directory whose immediate subdirectories are skills, one
+		 * `SKILL.md` per subdirectory. Resolved on whichever machine the extension
+		 * host runs on, so the paths are valid for an extension reading them.
+		 *
+		 * @returns A Thenable resolving to absolute paths, empty when no skill
+		 * roots are registered.
+		 */
+		export function getAgentSkillRoots(): Thenable<string[]>;
 
 		/**
 		 * Validate and execute a Positron command.

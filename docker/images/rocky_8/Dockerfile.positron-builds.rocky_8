@@ -26,6 +26,7 @@ RUN dnf install -y \
     gcc \
     gcc-c++ \
     gcc-plugin-annobin \
+    gcc-toolset-14 \
     git \
     gtk3 \
     krb5-devel \
@@ -44,6 +45,7 @@ RUN dnf install -y \
     python39 \
     rpm-build \
     rpm-sign \
+    unixODBC-devel \
     vim \
     xorg-x11-server-Xvfb \
     xz

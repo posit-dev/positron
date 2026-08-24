@@ -5,11 +5,12 @@
 
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { DATABRICKS_AUTH_PROVIDER_ID } from './constants';
-import { AuthProvider } from './authProvider';
+import { DATABRICKS_AUTH_PROVIDER_ID, DATABRICKS_OAUTH_SESSION_ID } from './constants';
+import { AuthProvider, CredentialChainConfig } from './authProvider';
 import { DatabricksLoopbackServer } from './databricksAuthServer';
 import {
 	buildAuthorizeUrl,
+	discoverOAuthEndpoints,
 	exchangeCodeForTokens,
 	generatePkcePair,
 	generateState,
@@ -31,14 +32,23 @@ const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 /** How long to wait for the browser redirect before giving up. */
 const SIGN_IN_TIMEOUT_MS = 5 * 60 * 1000;
 
+function throwIfCancelled(token: vscode.CancellationToken): void {
+	if (token.isCancellationRequested) {
+		throw new Error('Databricks sign-in was cancelled.');
+	}
+}
+
 /**
  * Databricks authentication provider.
  *
- * Two credential paths:
+ * Three credential paths, listed in getSessions() precedence order:
  * 1. OAuth U2M (desktop only) -- authorization code + PKCE against the
  *    built-in `databricks-cli` public client, with a loopback server on
- *    the fixed redirect port 8020. Tokens are refreshed lazily.
- * 2. Personal access tokens -- the base-class API key machinery, used on
+ *    ports 8020-8040. Tokens are refreshed lazily. Uses its own session id
+ *    (DATABRICKS_OAUTH_SESSION_ID) since it can coexist with a chain session.
+ * 2. Credential chain (base-class machinery) -- DATABRICKS_TOKEN env var or
+ *    a Workbench-managed .databrickscfg profile.
+ * 3. Personal access tokens -- the base-class API key machinery, used on
  *    remote/web where the loopback redirect cannot reach the extension
  *    host, or whenever the user prefers a PAT.
  */
@@ -49,8 +59,11 @@ export class DatabricksAuthProvider extends AuthProvider {
 
 	private _signInCancellation: vscode.CancellationTokenSource | null = null;
 
-	constructor(context: vscode.ExtensionContext) {
-		super(DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', context);
+	constructor(
+		context: vscode.ExtensionContext,
+		credentialChain?: CredentialChainConfig,
+	) {
+		super(DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', context, undefined, credentialChain);
 	}
 
 	// --- AuthProvider overrides ---
@@ -67,17 +80,34 @@ export class DatabricksAuthProvider extends AuthProvider {
 			sessions.push(oauthSession);
 		}
 
-		// Stored personal access tokens (base-class machinery).
-		const patSessions = await super.getSessions(scopes, options);
-		return [...sessions, ...patSessions];
+		// Credential chain session, else stored personal access tokens
+		// (base-class machinery).
+		const chainOrPatSessions = await super.getSessions(scopes, options);
+		return [...sessions, ...chainOrPatSessions];
 	}
 
 	override async createSession(
 		_scopes: readonly string[],
 		_options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession> {
+		// The config dialog persists the workspace host before calling this, so
+		// a chain that failed at startup for a missing host can resolve now.
+		const chainSessionBeforeHost = await this.resolveChainCredentials();
+		if (chainSessionBeforeHost) {
+			return chainSessionBeforeHost;
+		}
+
 		const host = normalizeHost(await this.resolveHost());
 		await this.persistHostSetting(host);
+
+		// If the chain failed only because no host was configured (e.g.
+		// DATABRICKS_TOKEN set at startup with no DATABRICKS_HOST), it can
+		// resolve now that resolveHost()/persistHostSetting() just supplied
+		// one -- retry before prompting for OAuth/PAT.
+		const chainSessionAfterHost = await this.resolveChainCredentials();
+		if (chainSessionAfterHost) {
+			return chainSessionAfterHost;
+		}
 
 		if (vscode.env.remoteName !== undefined ||
 			vscode.env.uiKind === vscode.UIKind.Web) {
@@ -90,7 +120,7 @@ export class DatabricksAuthProvider extends AuthProvider {
 	}
 
 	override async removeSession(sessionId: string): Promise<void> {
-		if (sessionId === DATABRICKS_AUTH_PROVIDER_ID) {
+		if (sessionId === DATABRICKS_OAUTH_SESSION_ID) {
 			const removed = await this.buildStoredOAuthSession();
 			await this.clearOAuthSecrets();
 			if (removed) {
@@ -159,7 +189,8 @@ export class DatabricksAuthProvider extends AuthProvider {
 				throw new Error('No stored refresh token or workspace host');
 			}
 			log.info('[Databricks] Refreshing OAuth access token.');
-			const tokens = await refreshTokens(host, refreshToken);
+			const endpoints = await discoverOAuthEndpoints(host);
+			const tokens = await refreshTokens(endpoints.tokenEndpoint, refreshToken);
 			await this.storeOAuthSecrets(host, tokens);
 			log.info('[Databricks] OAuth access token refreshed.');
 			return tokens.accessToken;
@@ -192,17 +223,30 @@ export class DatabricksAuthProvider extends AuthProvider {
 		const server = new DatabricksLoopbackServer(state);
 		const cancellation = new vscode.CancellationTokenSource();
 		this._signInCancellation = cancellation;
+		const abort = new AbortController();
+		const abortOnCancel = cancellation.token.onCancellationRequested(
+			() => abort.abort()
+		);
 
 		try {
 			await server.start();
-			const authorizeUrl = buildAuthorizeUrl(host, state, challenge);
-			log.info(`[Databricks] Starting OAuth sign-in for ${host}.`);
+			throwIfCancelled(cancellation.token);
+			const endpoints = await discoverOAuthEndpoints(host, abort.signal);
+			throwIfCancelled(cancellation.token);
+			const authorizeUrl = buildAuthorizeUrl(
+				endpoints.authorizationEndpoint, state, challenge, server.redirectUri
+			);
+			log.info(`[Databricks] Starting OAuth sign-in for ${host} (redirect ${server.redirectUri}).`);
 			await vscode.env.openExternal(vscode.Uri.parse(authorizeUrl));
 
 			const code = await server.waitForCode(
 				SIGN_IN_TIMEOUT_MS, cancellation.token
 			);
-			const tokens = await exchangeCodeForTokens(host, code, verifier);
+			const tokens = await exchangeCodeForTokens(
+				endpoints.tokenEndpoint, code, verifier, server.redirectUri,
+				abort.signal
+			);
+			throwIfCancelled(cancellation.token);
 			await this.storeOAuthSecrets(host, tokens);
 
 			const session = this.makeOAuthSession(tokens.accessToken, host);
@@ -212,6 +256,7 @@ export class DatabricksAuthProvider extends AuthProvider {
 			log.info('[Databricks] OAuth sign-in successful.');
 			return session;
 		} finally {
+			abortOnCancel.dispose();
 			await server.stop();
 			cancellation.dispose();
 			if (this._signInCancellation === cancellation) {
@@ -298,10 +343,10 @@ export class DatabricksAuthProvider extends AuthProvider {
 		host: string | undefined
 	): vscode.AuthenticationSession {
 		return {
-			id: DATABRICKS_AUTH_PROVIDER_ID,
+			id: DATABRICKS_OAUTH_SESSION_ID,
 			accessToken,
 			account: {
-				id: DATABRICKS_AUTH_PROVIDER_ID,
+				id: DATABRICKS_OAUTH_SESSION_ID,
 				label: this.accountLabel(host),
 			},
 			scopes: [],

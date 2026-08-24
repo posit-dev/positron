@@ -119,6 +119,7 @@ export type IPositronLanguageModelAutoconfigure = (
 		type: LanguageModelAutoconfigureType.Custom;
 		message: string;
 		signedIn: boolean;
+		isPositWorkbench?: boolean;
 	}
 );
 

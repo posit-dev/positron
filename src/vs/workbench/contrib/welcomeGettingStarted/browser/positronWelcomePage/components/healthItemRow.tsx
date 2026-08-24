@@ -14,6 +14,7 @@ import { localize } from '../../../../../../nls.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 import { HealthItemStatus, IHealthItem, IHealthItemFix } from '../environmentHealth.js';
 
 /** Icon and screen reader text for each outcome. */
@@ -32,6 +33,8 @@ export interface HealthItemRowProps {
 	 * second environment.
 	 */
 	readonly busy: boolean;
+	/** See EnvironmentHealthSection: one hover manager per welcome page. */
+	readonly hoverManager?: IHoverManager;
 	readonly onRunFix: (fix: IHealthItemFix) => void;
 }
 
@@ -40,7 +43,7 @@ export interface HealthItemRowProps {
  * @param props A HealthItemRowProps that contains the component properties.
  * @returns The rendered component.
  */
-export const HealthItemRow = ({ item, busy, onRunFix }: HealthItemRowProps) => {
+export const HealthItemRow = ({ item, busy, hoverManager, onRunFix }: HealthItemRowProps) => {
 	const services = usePositronReactServicesContext();
 	const status = STATUS_PRESENTATION[item.status];
 
@@ -59,23 +62,33 @@ export const HealthItemRow = ({ item, busy, onRunFix }: HealthItemRowProps) => {
 			<div className='environment-health-item-main'>
 				<span aria-hidden='true' className={`environment-health-item-icon environment-health-item-icon-${item.status} codicon ${status.codicon}`} />
 				<span className='visually-hidden'>{status.label}</span>
-				<span className='environment-health-item-summary'>{item.summary}</span>
-				{item.fix &&
-					<Button ariaDisabled={busy} className='environment-health-item-fix' onPressed={() => onRunFix(item.fix!)}>
-						{item.fix.label}
-					</Button>}
+				<div className='environment-health-item-content'>
+					<div className='environment-health-item-summary-row'>
+						<span className='environment-health-item-summary'>{item.summary}</span>
+						{item.fix &&
+							<Button
+								ariaDisabled={busy}
+								className='environment-health-item-fix'
+								hoverManager={hoverManager}
+								tooltip={item.fix.label}
+								onPressed={() => onRunFix(item.fix!)}
+							>
+								{item.fix.label}
+							</Button>}
+					</div>
+					{(item.detail || item.learnMoreUrl) &&
+						<div className='environment-health-item-secondary'>
+							{item.detail && <p className='environment-health-item-detail'>{item.detail}</p>}
+							{item.learnMoreUrl &&
+								<a
+									href={item.learnMoreUrl}
+									onClick={openLearnMore}
+								>
+									{localize('positron.welcome.environmentSetupLearnMore', "Learn more")}
+								</a>}
+						</div>}
+				</div>
 			</div>
-			{(item.detail || item.learnMoreUrl) &&
-				<div className='environment-health-item-secondary'>
-					{item.detail && <p className='environment-health-item-detail'>{item.detail}</p>}
-					{item.learnMoreUrl &&
-						<a
-							href={item.learnMoreUrl}
-							onClick={openLearnMore}
-						>
-							{localize('positron.welcome.environmentSetupLearnMore', "Learn more")}
-						</a>}
-				</div>}
 		</li>
 	);
 };

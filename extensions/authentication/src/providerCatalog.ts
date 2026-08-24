@@ -90,7 +90,6 @@ function applyCatalog(next: readonly ResolvedProvider[]): void {
 async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly ResolvedProvider[]> {
 	const { loadResolvedProviderCatalog } = await import('ai-config/node');
 	return loadResolvedProviderCatalog({
-		baseline: { defaultEnabled: true },
 		configPath: options.configPath,
 		envVars: options.envVars,
 		// PROVIDER-SETTINGS-MIGRATION(legacy-positron): keep the legacy
@@ -124,7 +123,6 @@ export async function initProviderCatalog(
 	watcher = watchResolvedProviderCatalog(
 		(change: ProviderCatalogChange) => applyCatalog(change.catalog),
 		{
-			baseline: { defaultEnabled: true },
 			configPath: options.configPath,
 			envVars: options.envVars,
 			// PROVIDER-SETTINGS-MIGRATION(legacy-positron): same opt-in as

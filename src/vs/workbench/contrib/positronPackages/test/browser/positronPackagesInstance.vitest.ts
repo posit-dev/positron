@@ -17,10 +17,20 @@ import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtil
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from '../../browser/packageMetadataCache.js';
+import { IPackageVulnerabilityResult, PackageVulnerabilityLookup } from '../../browser/packageVulnerabilityLookup.js';
 import { PositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const RUNTIME_ID = 'py-3.11';
+
+const ADVISORY = {
+	id: 'CVE-2018-6594',
+	osvId: 'GHSA-6528-wvf6-f6qg',
+	score: 8.7,
+	scoreVersion: 'v4' as const,
+};
+
+const SOURCE = { host: 'ppm.example.com', fetchedAt: 1_700_000_000_000 };
 
 const pkg = (name: string, version: string): ILanguageRuntimePackage => ({
 	id: name,
@@ -39,6 +49,10 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 
 	let getPackages: ReturnType<typeof vi.fn<ILanguageRuntimePackageManager['getPackages']>>;
 	let getPackageMetadata: ReturnType<typeof vi.fn<NonNullable<ILanguageRuntimePackageManager['getPackageMetadata']>>>;
+	let getVulnerabilities: ReturnType<typeof vi.fn<PackageVulnerabilityLookup['getVulnerabilities']>>;
+	let vulnerabilityLookup: PackageVulnerabilityLookup;
+	let repositoryRequest: ReturnType<typeof vi.fn<NonNullable<ILanguageRuntimePackageManager['repositoryRequest']>>>;
+	let packageManager: ILanguageRuntimePackageManager;
 	let session: ILanguageRuntimeSession;
 
 	beforeEach(() => {
@@ -51,10 +65,16 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			['numpy', { outdated: true, latestVersion: '2.1.0' }],
 			['pandas', { outdated: true, latestVersion: '2.2.0' }],
 		]));
+		// No advisory data by default; the vulnerability tests opt in.
+		getVulnerabilities = vi.fn(async () => undefined);
+		vulnerabilityLookup = stubInterface<PackageVulnerabilityLookup>({ getVulnerabilities, enabled: true });
 
-		const packageManager = stubInterface<ILanguageRuntimePackageManager>({
+		repositoryRequest = vi.fn(async () => ({ status: 200, body: '' }));
+		packageManager = stubInterface<ILanguageRuntimePackageManager>({
 			getPackages,
 			getPackageMetadata,
+			packageRepositoryUrl: async () => 'https://ppm.example.com/pypi/latest/simple',
+			repositoryRequest,
 			installPackages: async () => undefined,
 			uninstallPackages: async () => undefined,
 			updatePackages: async () => undefined,
@@ -66,7 +86,7 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		const runtimeStateEmitter = disposables.add(new Emitter<RuntimeState>());
 		session = stubInterface<ILanguageRuntimeSession>({
 			sessionId: 'session-1',
-			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID }),
+			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID, languageId: 'python' }),
 			getRuntimeState: () => RuntimeState.Uninitialized,
 			onDidChangeRuntimeState: runtimeStateEmitter.event,
 			getPackageManager: () => packageManager,
@@ -78,12 +98,24 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 	});
 
 	function makeInstance(): PositronPackagesInstance {
-		return disposables.add(new PositronPackagesInstance(session, new NullLogService(), cache));
+		return disposables.add(new PositronPackagesInstance(session, new NullLogService(), cache, vulnerabilityLookup));
 	}
 
 	/** Seed the on-disk cache with an entry fetched `ageMs` ago. */
-	function seed(packages: Record<string, ICachedPackageMetadata>, ageMs: number): void {
-		cache.upsert(RUNTIME_ID, packages, Date.now() - ageMs);
+	function seed(packages: Record<string, ICachedPackageMetadata>, ageMs: number, source?: typeof SOURCE): void {
+		cache.upsert(RUNTIME_ID, packages, { vulnerabilitySource: source, now: Date.now() - ageMs });
+	}
+
+	/**
+	 * A lookup result carrying `advisories` for the named packages. `queried`
+	 * defaults to those same names; pass it explicitly to model a partial
+	 * lookup that never reached some of the packages it was given.
+	 */
+	function lookupResult(
+		advisories: Array<[string, typeof ADVISORY[] | []]>,
+		queried: string[] = advisories.map(([name]) => name),
+	): IPackageVulnerabilityResult {
+		return { source: SOURCE, vulnerabilities: new Map(advisories), queried: new Set(queried) };
 	}
 
 	/** Waits for `onDidRefreshPackagesInstance` to fire `count` times. */
@@ -102,9 +134,12 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 	}
 
 	it('renders a fresh, fully-covered entry and makes no network call', async () => {
+		// Fully covered means both sources answered: outdated state is present
+		// and an advisory lookup answered (vulnerabilitiesCheckedAt), even if
+		// it reported nothing.
 		seed({
-			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0' },
-			pandas: { version: '2.0.0', outdated: false },
+			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0', vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
+			pandas: { version: '2.0.0', outdated: false, vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
 		}, 1 * HOUR_MS);
 
 		const instance = makeInstance();
@@ -116,6 +151,7 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		// Give a microtask for any (incorrectly scheduled) Stage 2 to run.
 		await new Promise(resolve => setTimeout(resolve, 10));
 		expect(getPackageMetadata).not.toHaveBeenCalled();
+		expect(getVulnerabilities).not.toHaveBeenCalled();
 	});
 
 	it('forces a live refetch on a fresh, fully-covered entry when forceMetadata is set', async () => {
@@ -160,7 +196,7 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 	it('ignores a cached entry whose installed version no longer matches, and refetches just that package', async () => {
 		seed({
 			numpy: { version: '1.0.0', outdated: true, latestVersion: '1.5.0' }, // installed is 1.26.0 now
-			pandas: { version: '2.0.0', outdated: false },
+			pandas: { version: '2.0.0', outdated: false, vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
 		}, 1 * HOUR_MS);
 
 		const instance = makeInstance();
@@ -195,6 +231,310 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.1.0' },
 			pandas: { version: '2.0.0', outdated: true, latestVersion: '2.2.0' },
 		});
+	});
+
+	it('merges both sources into one entry, and persists the advisory source', async () => {
+		// numpy is vulnerable; pandas is affirmatively clean ([]); a package the
+		// repository doesn't know at its installed version is absent from the
+		// map and stays undefined.
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [stage1, stage2] = await fires;
+
+		// Stage 1 has no advisory data yet (cold cache).
+		expect(stage1.find(p => p.name === 'numpy')?.vulnerabilities).toBeUndefined();
+		// Stage 2 merges outdated state (from the runtime) and advisories (from
+		// the lookup) into the same exposed package.
+		expect(stage2.find(p => p.name === 'numpy')).toMatchObject({
+			outdated: true,
+			latestVersion: '2.1.0',
+			vulnerabilities: [ADVISORY],
+		});
+		expect(stage2.find(p => p.name === 'pandas')?.vulnerabilities).toEqual([]);
+		// The advisories and the instance that served them both persist.
+		expect(cache.get(RUNTIME_ID)?.packages.numpy?.vulnerabilities).toEqual([ADVISORY]);
+		expect(cache.get(RUNTIME_ID)?.vulnerabilitySource).toEqual(SOURCE);
+		expect(instance.vulnerabilitySource).toEqual(SOURCE);
+	});
+
+	it('passes installed versions to the lookup and repository access from the runtime', async () => {
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		await fires;
+
+		expect(getVulnerabilities).toHaveBeenCalledWith(
+			'python',
+			expect.anything(),
+			[{ name: 'numpy', version: '1.26.0' }, { name: 'pandas', version: '2.0.0' }],
+			expect.anything(),
+		);
+		// The access the lookup was handed defers to the runtime's own hooks --
+		// its host is the only one that can reach the repository.
+		const access = getVulnerabilities.mock.calls[0][1];
+		expect(await access.resolveUrl(CancellationToken.None)).toBe('https://ppm.example.com/pypi/latest/simple');
+		expect(await access.request({ url: 'https://ppm.example.com/__api__/status' }, CancellationToken.None))
+			.toEqual({ status: 200, body: '' });
+		// And invokes it as a method on the package manager. The main-thread
+		// adapter reads `this._proxy`, so a call that drops the receiver throws
+		// at runtime while still satisfying the types.
+		expect(repositoryRequest.mock.contexts[0]).toBe(packageManager);
+	});
+
+	it('skips the advisory lookup when the runtime cannot carry a repository request', async () => {
+		// Without the runtime's host there is no way to reach a Package Manager
+		// API: the renderer's own fetch is blocked by CORS.
+		const packageManager = stubInterface<ILanguageRuntimePackageManager>({
+			getPackages,
+			getPackageMetadata,
+			repositoryRequest: undefined,
+		});
+		session = stubInterface<ILanguageRuntimeSession>({
+			sessionId: 'session-1',
+			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID, languageId: 'python' }),
+			getRuntimeState: () => RuntimeState.Uninitialized,
+			onDidChangeRuntimeState: Event.None,
+			getPackageManager: () => packageManager,
+		});
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(getVulnerabilities).not.toHaveBeenCalled();
+		// The outdated state still lands.
+		expect(stage2.find(p => p.name === 'numpy')?.latestVersion).toBe('2.1.0');
+	});
+
+	it('keeps outdated state when the vulnerability lookup fails', async () => {
+		// The two sources are independent: a failing advisory lookup must not
+		// cost the pane what it mostly renders.
+		getVulnerabilities.mockRejectedValue(new Error('ppm unreachable'));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(stage2.find(p => p.name === 'numpy')).toMatchObject({ outdated: true, latestVersion: '2.1.0' });
+		expect(stage2.find(p => p.name === 'numpy')?.vulnerabilities).toBeUndefined();
+	});
+
+	it('keeps advisories when the runtime metadata fetch fails', async () => {
+		getPackageMetadata.mockRejectedValue(new Error('resolver offline'));
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]]]));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(stage2.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([ADVISORY]);
+	});
+
+	it('keeps cached advisories for the same version when a later lookup returns nothing', async () => {
+		// A failed lookup is not evidence that the package became clean.
+		seed({ numpy: { version: '1.26.0', outdated: true, vulnerabilities: [ADVISORY] } }, 25 * HOUR_MS, SOURCE);
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(stage2.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([ADVISORY]);
+	});
+
+	it('replaces cached advisories when a later lookup reports the version clean', async () => {
+		// A successful lookup is authoritative, including the empty case.
+		seed({ numpy: { version: '1.26.0', outdated: true, vulnerabilities: [ADVISORY] } }, 25 * HOUR_MS, SOURCE);
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', []]]));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(stage2.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([]);
+	});
+
+	it('keeps cached advisories for packages a partial lookup never reached', async () => {
+		// A failed chunk (or a spent budget) leaves its packages unqueried.
+		// Silence about a package nobody asked about is not an all-clear.
+		seed({
+			numpy: { version: '1.26.0', outdated: true, vulnerabilities: [ADVISORY] },
+			pandas: { version: '2.0.0', outdated: true, vulnerabilities: [ADVISORY] },
+		}, 25 * HOUR_MS, SOURCE);
+		getVulnerabilities.mockResolvedValue(lookupResult([['pandas', []]], ['pandas']));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(stage2.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([ADVISORY]);
+		expect(stage2.find(p => p.name === 'pandas')?.vulnerabilities).toEqual([]);
+	});
+
+	it('retries outdated state after a round where only the advisory lookup answered', async () => {
+		// The advisory entries written by that round must not make the packages
+		// look fresh, or the update indicator stays missing until the freshness
+		// window ages out.
+		getPackageMetadata.mockRejectedValueOnce(new Error('pip list --outdated failed'));
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+
+		const instance = makeInstance();
+		const first = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		await first;
+
+		const second = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await second;
+
+		expect(getPackageMetadata).toHaveBeenCalledTimes(2);
+		expect(stage2.find(p => p.name === 'numpy')).toMatchObject({ outdated: true, latestVersion: '2.1.0' });
+	});
+
+	it('retries advisories after a round where the lookup failed, without redoing the outdated fetch', async () => {
+		// A transient advisory failure must not count as fresh: without the
+		// per-package answered marker, the entry written by the round where
+		// only the runtime metadata landed would suppress the lookup until the
+		// freshness window aged out (24h by default, surviving restarts).
+		getVulnerabilities.mockResolvedValueOnce(undefined);
+
+		const instance = makeInstance();
+		const first = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		await first;
+
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+		const second = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await second;
+
+		// The advisory lookup is retried for the packages it never answered
+		// for, but the outdated state the runtime already reported is not
+		// refetched along with it.
+		expect(getVulnerabilities).toHaveBeenCalledTimes(2);
+		expect(getVulnerabilities.mock.calls[1][2]).toEqual([
+			{ name: 'numpy', version: '1.26.0' },
+			{ name: 'pandas', version: '2.0.0' },
+		]);
+		expect(getPackageMetadata).toHaveBeenCalledTimes(1);
+		expect(stage2.find(p => p.name === 'numpy')).toMatchObject({
+			outdated: true,
+			latestVersion: '2.1.0',
+			vulnerabilities: [ADVISORY],
+		});
+	});
+
+	it('does not retry advisories once a lookup answered, even with none to report', async () => {
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', []], ['pandas', []]]));
+
+		const instance = makeInstance();
+		const first = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		await first;
+
+		await instance.refreshPackages();
+		await new Promise(resolve => setTimeout(resolve, 10));
+
+		expect(getVulnerabilities).toHaveBeenCalledTimes(1);
+	});
+
+	it('skips the advisory lookup when the feature is disabled', async () => {
+		vulnerabilityLookup = stubInterface<PackageVulnerabilityLookup>({ getVulnerabilities, enabled: false });
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(getVulnerabilities).not.toHaveBeenCalled();
+		// The outdated state still lands.
+		expect(stage2.find(p => p.name === 'numpy')?.latestVersion).toBe('2.1.0');
+	});
+
+	it('describes the library copy the pane shows when a package is installed twice', async () => {
+		// R installs the same package into several library paths, and the pane
+		// shows the first (library search order). The single cache entry has to
+		// describe that copy: anchored to the last copy's version instead, the
+		// version-match guard threw the metadata away, leaving no update
+		// indicator and no advisories on exactly the packages that live in two
+		// libraries -- which for CRAN is the base and recommended ones.
+		getPackages.mockResolvedValue([
+			{ ...pkg('Matrix', '1.6-1'), id: 'Matrix-project' },
+			{ ...pkg('Matrix', '1.6-0'), id: 'Matrix-system' },
+			pkg('jsonlite', '1.8.0'),
+		]);
+		getPackageMetadata.mockResolvedValue(new Map<string, Partial<ILanguageRuntimePackage>>([
+			['matrix', { outdated: true, latestVersion: '1.7-0' }],
+		]));
+		getVulnerabilities.mockResolvedValue(lookupResult([['matrix', [ADVISORY]]]));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(stage2.find(p => p.id === 'Matrix-project')).toMatchObject({
+			outdated: true,
+			latestVersion: '1.7-0',
+			vulnerabilities: [ADVISORY],
+		});
+		// The shadowed copy isn't asked about at all: two answers keyed to one
+		// cache slot would let the version the pane doesn't show win.
+		expect(getVulnerabilities.mock.calls[0][2]).toEqual([
+			{ name: 'Matrix', version: '1.6-1' },
+			{ name: 'jsonlite', version: '1.8.0' },
+		]);
+	});
+
+	it('runs Stage 2 for advisories even when the runtime reports no metadata', async () => {
+		const packageManager = stubInterface<ILanguageRuntimePackageManager>({
+			getPackages,
+			getPackageMetadata: undefined,
+			packageRepositoryUrl: async () => 'https://ppm.example.com/pypi/latest/simple',
+			repositoryRequest: async () => ({ status: 200, body: '' }),
+		});
+		session = stubInterface<ILanguageRuntimeSession>({
+			sessionId: 'session-1',
+			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID, languageId: 'python' }),
+			getRuntimeState: () => RuntimeState.Uninitialized,
+			onDidChangeRuntimeState: Event.None,
+			getPackageManager: () => packageManager,
+		});
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]]]));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(stage2.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([ADVISORY]);
+	});
+
+	it('refetches every package on refreshPackageMetadata, ignoring the freshness window', async () => {
+		// What a settings change relies on: cached entries are still fresh but
+		// carry no advisories, so nothing would appear without a forced refetch.
+		seed({
+			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.0.0', vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
+			pandas: { version: '2.0.0', outdated: false, vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
+		}, 1 * HOUR_MS);
+
+		const instance = makeInstance();
+		await instance.refreshPackages();
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]]]));
+
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 1);
+		instance.refreshPackageMetadata();
+		const [refreshed] = await fires;
+
+		expect(refreshed.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([ADVISORY]);
 	});
 
 	it('leaves the on-disk entry intact when Stage 2 returns an empty map', async () => {
@@ -353,6 +693,67 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		});
 	});
 
+	describe('clearMetadata', () => {
+		it('drops cached state in memory and on disk, leaving the next read cold', async () => {
+			// Both packages covered by a fresh entry, so the snapshot below
+			// reports the cache without fetching anything.
+			seed({
+				numpy: {
+					version: '1.26.0',
+					outdated: true,
+					latestVersion: '2.0.0',
+					vulnerabilities: [ADVISORY],
+					vulnerabilitiesCheckedAt: Date.now(),
+				},
+				pandas: { version: '2.0.0', outdated: false, vulnerabilities: [], vulnerabilitiesCheckedAt: Date.now() },
+			}, 0, SOURCE);
+			const instance = makeInstance();
+			await instance.getPackagesSnapshot();
+			// The warm state this is about to undo.
+			expect(instance.vulnerabilitySource).toEqual(SOURCE);
+			expect(instance.packages.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([ADVISORY]);
+
+			instance.clearMetadata();
+
+			// Nothing left in memory, on disk, or attributed to a source.
+			expect(instance.packages.map(p => [p.outdated, p.latestVersion, p.vulnerabilities]))
+				.toEqual([[undefined, undefined, undefined], [undefined, undefined, undefined]]);
+			expect(instance.vulnerabilitySource).toBeUndefined();
+			expect(cache.get(RUNTIME_ID)).toBeUndefined();
+
+			// The point of the whole exercise: the next read behaves like a cold
+			// start, going back out for advisories instead of reporting the
+			// cache it just dropped.
+			// Both installed packages are asked about and answered for -- pandas
+			// is known to the repository and clean -- so this is a full answer.
+			getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+			const snapshot = await instance.getPackagesSnapshot();
+			expect(getVulnerabilities).toHaveBeenCalledTimes(1);
+			expect(snapshot.vulnerabilityStatus).toBe('fresh');
+		});
+
+		it('cancels a fetch in flight so it cannot refill what was cleared', async () => {
+			// Without the cancel, the clear looks like it worked and then
+			// silently undoes itself when the fetch lands a moment later.
+			let releaseFetch: () => void = () => { };
+			getPackageMetadata.mockImplementationOnce(() => new Promise(resolve => {
+				releaseFetch = () => resolve(new Map<string, Partial<ILanguageRuntimePackage>>([
+					['numpy', { outdated: true, latestVersion: '2.1.0' }],
+				]));
+			}));
+			const instance = makeInstance();
+			// refreshPackages leaves its metadata fetch running in the background.
+			await instance.refreshPackages();
+
+			instance.clearMetadata();
+			releaseFetch();
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			expect(instance.packages.find(p => p.name === 'numpy')?.outdated).toBeUndefined();
+			expect(cache.get(RUNTIME_ID)).toBeUndefined();
+		});
+	});
+
 	describe('getPackagesSnapshot', () => {
 		it('populates the list and awaits outdated state when nothing has been refreshed yet', async () => {
 			// What an agent hits: the pane was never opened, so nothing attached the
@@ -365,11 +766,17 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 
 			expect(snapshot).toEqual({
 				metadataStatus: 'fresh',
+				// Nothing was cached, so the advisories were gap-filled too --
+				// the default lookup answers undefined, hence 'unavailable'.
+				vulnerabilityStatus: 'unavailable',
+				vulnerabilitySource: undefined,
 				packages: [
 					{ ...pkg('numpy', '1.26.0'), outdated: true, latestVersion: '2.1.0' },
 					{ ...pkg('pandas', '2.0.0'), outdated: true, latestVersion: '2.2.0' },
 				],
 			});
+			// The caller never has to ask twice: a cold cache is filled here.
+			expect(getVulnerabilities).toHaveBeenCalledTimes(1);
 		});
 
 		it('re-reads the installed list on every call, so a package installed outside Positron appears', async () => {
@@ -471,6 +878,13 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { metadataTimeoutMs: 10 });
 
 			expect(snapshot.metadataStatus).toBe('timed-out');
+			// Neither stage got to run: the wait this caller was willing to make
+			// was spent joining someone else's fetch, so the advisories are
+			// timed-out too rather than reported as a lookup that answered. The
+			// one call is the joined refresh's own, not a second lookup issued
+			// by the snapshot.
+			expect(snapshot.vulnerabilityStatus).toBe('timed-out');
+			expect(getVulnerabilities).toHaveBeenCalledTimes(1);
 
 			// The refresh was not ours to cancel: released after the snapshot
 			// gave up on it, its result still lands for the pane.
@@ -526,7 +940,295 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			});
 			const instance = makeInstance();
 
-			expect(await instance.getPackagesSnapshot()).toEqual({ packages: [], metadataStatus: 'unsupported' });
+			expect(await instance.getPackagesSnapshot()).toEqual({
+				packages: [],
+				metadataStatus: 'unsupported',
+				vulnerabilityStatus: 'cached',
+				vulnerabilitySource: undefined,
+			});
+		});
+
+		it('still reports advisories for a runtime that has no outdated state to give', async () => {
+			// The two sources are independent: advisories are Positron's own
+			// lookup and don't go through getPackageMetadata. Answering
+			// 'unsupported' and stopping there -- as this did before the stages
+			// were split -- would leave every runtime without metadata support
+			// silently advisory-free in the payload an agent reads.
+			const packageManager = stubInterface<ILanguageRuntimePackageManager>({
+				getPackages,
+				getPackageMetadata: undefined,
+				packageRepositoryUrl: async () => 'https://ppm.example.com/pypi/latest/simple',
+				repositoryRequest,
+			});
+			session = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-1',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID, languageId: 'python' }),
+				getRuntimeState: () => RuntimeState.Uninitialized,
+				onDidChangeRuntimeState: Event.None,
+				getPackageManager: () => packageManager,
+			});
+			getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.metadataStatus).toBe('unsupported');
+			expect(snapshot.vulnerabilityStatus).toBe('fresh');
+			expect(snapshot.vulnerabilitySource).toEqual(SOURCE);
+			expect(snapshot.packages.map(p => [p.name, p.outdated, p.vulnerabilities])).toEqual([
+				['numpy', undefined, [ADVISORY]],
+				['pandas', undefined, []],
+			]);
+		});
+
+		it('reports unsupported rather than fresh for an empty library with no metadata support', async () => {
+			// Nothing installed is current on both counts, but the outdated
+			// half is still unsupported: labelling it 'fresh' would tell a
+			// caller this runtime reports outdated state when it never can.
+			getPackages.mockResolvedValue([]);
+			const packageManager = stubInterface<ILanguageRuntimePackageManager>({
+				getPackages,
+				getPackageMetadata: undefined,
+				packageRepositoryUrl: async () => 'https://ppm.example.com/pypi/latest/simple',
+				repositoryRequest,
+			});
+			session = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-1',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID, languageId: 'python' }),
+				getRuntimeState: () => RuntimeState.Uninitialized,
+				onDidChangeRuntimeState: Event.None,
+				getPackageManager: () => packageManager,
+			});
+			const instance = makeInstance();
+
+			expect(await instance.getPackagesSnapshot()).toEqual({
+				packages: [],
+				metadataStatus: 'unsupported',
+				vulnerabilityStatus: 'fresh',
+				vulnerabilitySource: undefined,
+			});
+			expect(getVulnerabilities).not.toHaveBeenCalled();
+		});
+
+		it('looks advisories up for a cold cache, asking about the versions actually installed', async () => {
+			getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.vulnerabilityStatus).toBe('fresh');
+			expect(snapshot.vulnerabilitySource).toEqual(SOURCE);
+			expect(snapshot.packages.map(p => [p.name, p.vulnerabilities])).toEqual([
+				['numpy', [ADVISORY]],
+				// Asked about and reported clean: an empty array, not undefined.
+				['pandas', []],
+			]);
+			// Advisories are version-specific, and the names go out as the
+			// session reported them -- a repository asked about 'numpy' has not
+			// been asked about 'Numpy'.
+			expect(getVulnerabilities.mock.calls[0][2]).toEqual([
+				{ name: 'numpy', version: '1.26.0' },
+				{ name: 'pandas', version: '2.0.0' },
+			]);
+		});
+
+		it('reports unavailable when the lookup produces nothing', async () => {
+			// The lookup swallows its own transport failures, so this covers
+			// both "no Package Manager serves advisories here" and "the lookup
+			// failed" -- neither of which another round trip would fix.
+			getVulnerabilities.mockResolvedValue(undefined);
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.vulnerabilityStatus).toBe('unavailable');
+			// The outdated half still answered: one source failing must not
+			// cost the caller the other.
+			expect(snapshot.metadataStatus).toBe('fresh');
+		});
+
+		it('reports unavailable when the runtime cannot carry a repository request', async () => {
+			// The renderer can't reach a Package Manager API itself, so without
+			// this hook no advisory lookup is possible at all.
+			packageManager = stubInterface<ILanguageRuntimePackageManager>({
+				getPackages,
+				getPackageMetadata,
+				repositoryRequest: undefined,
+				installPackages: async () => undefined,
+				uninstallPackages: async () => undefined,
+				updatePackages: async () => undefined,
+				updateAllPackages: async () => undefined,
+			});
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.vulnerabilityStatus).toBe('unavailable');
+			expect(getVulnerabilities).not.toHaveBeenCalled();
+		});
+
+		it('bounds the lookup rather than waiting out its own 90s budget', async () => {
+			getVulnerabilities.mockImplementation(() => new Promise(() => { /* never settles */ }));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { vulnerabilityTimeoutMs: 10 });
+
+			// The packages and their outdated state are the valuable part; a
+			// hung advisory lookup must not cost the caller either.
+			expect(snapshot.vulnerabilityStatus).toBe('timed-out');
+			expect(snapshot.metadataStatus).toBe('fresh');
+			expect(snapshot.packages.map(p => p.name)).toEqual(['numpy', 'pandas']);
+		});
+
+		it('reports disabled without looking anything up when advisories are turned off', async () => {
+			vulnerabilityLookup = stubInterface<PackageVulnerabilityLookup>({ getVulnerabilities, enabled: false });
+			// Cached advisories from before the setting was turned off: the
+			// status has to say they aren't being reported.
+			seed({ numpy: { version: '1.26.0', vulnerabilities: [ADVISORY], vulnerabilitiesCheckedAt: Date.now() } }, 0, SOURCE);
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.vulnerabilityStatus).toBe('disabled');
+			// No source either: naming one would attribute data the caller is
+			// being told it doesn't have.
+			expect(snapshot.vulnerabilitySource).toBeUndefined();
+			expect(getVulnerabilities).not.toHaveBeenCalled();
+		});
+
+		it('reports the cached advisories, and the instance that served them, without a lookup', async () => {
+			// The warm-start case: a lookup answered in an earlier session and
+			// the entry was persisted, so every package already has an answer
+			// and there is nothing to gap-fill.
+			seed({
+				numpy: { version: '1.26.0', vulnerabilities: [ADVISORY], vulnerabilitiesCheckedAt: Date.now() },
+				pandas: { version: '2.0.0', vulnerabilities: [], vulnerabilitiesCheckedAt: Date.now() },
+			}, 0, SOURCE);
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.vulnerabilityStatus).toBe('cached');
+			expect(snapshot.vulnerabilitySource).toEqual(SOURCE);
+			expect(snapshot.packages.find(p => p.name === 'numpy')?.vulnerabilities).toEqual([ADVISORY]);
+			// The auto lookup must not cost a warm cache a round trip on every
+			// call -- that's what makes gap-filling affordable by default.
+			expect(getVulnerabilities).not.toHaveBeenCalled();
+		});
+
+		it('asks only about the packages it has no advisory answer for', async () => {
+			// numpy was asked about and reported clean; the empty array is an
+			// answer, so re-asking would be a round trip for nothing. pandas has
+			// no advisory marker, so it is the gap.
+			seed({
+				numpy: { version: '1.26.0', vulnerabilities: [], vulnerabilitiesCheckedAt: Date.now() },
+				pandas: { version: '2.0.0', outdated: false },
+			}, 0, SOURCE);
+			getVulnerabilities.mockResolvedValue(lookupResult([['pandas', [ADVISORY]]]));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(getVulnerabilities.mock.calls[0][2]).toEqual([{ name: 'pandas', version: '2.0.0' }]);
+			// A gap-fill leaves the rest as of the last full lookup, which is
+			// what 'cached' says.
+			expect(snapshot.vulnerabilityStatus).toBe('cached');
+			expect(snapshot.packages.map(p => [p.name, p.vulnerabilities])).toEqual([
+				['numpy', []],
+				['pandas', [ADVISORY]],
+			]);
+		});
+
+		it('serves a fresh cache for a package installed twice without refetching it', async () => {
+			// The shadowed copy carries the other library's version, so it never
+			// matches the single cache entry. Asked about anyway, it is a gap
+			// that can never be filled -- every call would refetch the whole
+			// library and merge the answer straight back under the visible
+			// copy's version.
+			getPackages.mockResolvedValue([
+				{ ...pkg('Matrix', '1.6-1'), id: 'Matrix-project' },
+				{ ...pkg('Matrix', '1.6-0'), id: 'Matrix-system' },
+			]);
+			seed({
+				matrix: {
+					version: '1.6-1',
+					outdated: true,
+					latestVersion: '1.7-0',
+					vulnerabilities: [],
+					vulnerabilitiesCheckedAt: Date.now(),
+				},
+			}, 0, SOURCE);
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(snapshot.metadataStatus).toBe('cached');
+			expect(snapshot.vulnerabilityStatus).toBe('cached');
+			expect(getPackageMetadata).not.toHaveBeenCalled();
+			expect(getVulnerabilities).not.toHaveBeenCalled();
+		});
+
+		it('hands the lookup its budget so partial chunks survive, and labels them', async () => {
+			// The lookup asks in chunks of 100 and keeps whatever answered
+			// within its budget. Bounding it from out here with a timeout
+			// instead would throw away every chunk that had already come back,
+			// so the budget goes in as an argument.
+			getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]]], ['numpy']));
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { vulnerabilityTimeoutMs: 1_000 });
+
+			expect(getVulnerabilities.mock.calls[0][4]).toBe(1_000);
+			// What answered is kept and persisted, so the next call only has to
+			// fill the rest.
+			expect(snapshot.packages.map(p => [p.name, p.vulnerabilities])).toEqual([
+				['numpy', [ADVISORY]],
+				['pandas', undefined],
+			]);
+			expect(cache.get(RUNTIME_ID)?.packages.numpy?.vulnerabilities).toEqual([ADVISORY]);
+			// But pandas was never reached, so this is not the full answer
+			// 'fresh' would claim.
+			expect(snapshot.vulnerabilityStatus).toBe('timed-out');
+		});
+
+		it('reports timed-out rather than unavailable when a lookup spends the whole budget', async () => {
+			// Nothing came back, but the lookup was answering rather than
+			// missing: a caller told 'unavailable' would stop asking.
+			getVulnerabilities.mockImplementation(async (_lang, _access, _specs, _token, budgetMs) => {
+				// Spends the budget it was handed, as a lookup whose first chunk
+				// never came back does, then reports nothing.
+				await new Promise(resolve => setTimeout(resolve, (budgetMs ?? 0) + 5));
+				return undefined;
+			});
+			const instance = makeInstance();
+
+			const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { vulnerabilityTimeoutMs: 20 });
+
+			expect(snapshot.vulnerabilityStatus).toBe('timed-out');
+		});
+
+		it('judges timed-out against the lookup ceiling when the caller budget is above it', async () => {
+			// The lookup clamps any budget it is handed to its own 90s ceiling,
+			// so that is the most a lookup ever spends. A caller willing to
+			// wait longer must not have a budget-exhausted lookup labelled
+			// 'unavailable' -- documented as not worth retrying -- just because
+			// the ceiling expired before the caller's own number did.
+			vi.useFakeTimers();
+			try {
+				getVulnerabilities.mockImplementation(async (_lang, _access, _specs, _token, budgetMs) => {
+					// Spends the budget it actually runs under, as the real
+					// lookup does, then reports nothing.
+					vi.setSystemTime(Date.now() + Math.min(budgetMs ?? 0, 90_000));
+					return undefined;
+				});
+				const instance = makeInstance();
+
+				const snapshot = await instance.getPackagesSnapshot(CancellationToken.None, { vulnerabilityTimeoutMs: 10 * 60 * 1000 });
+
+				expect(snapshot.vulnerabilityStatus).toBe('timed-out');
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 });

@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { AuthProviderLogger } from './authProviderLogger';
 import { EXPIRY_REFRESH_BUFFER_MS } from './constants';
+import { hasManagedCredentials } from './managedCredentials';
 
 interface StoredAccount {
 	readonly id: string;
@@ -84,9 +85,17 @@ export class AuthProvider
 		return this.displayName;
 	}
 
-	/** Whether this provider blocks sign-out for chain sessions. */
+	/** Whether this provider blocks sign-out for chain sessions right now. */
 	get chainPreventsSignOut(): boolean {
-		return !!this.credentialChain?.preventSignOut;
+		return !!this.credentialChain?.preventSignOut ||
+			!!hasManagedCredentials(this.providerId);
+	}
+
+	/** What manages the chain credential, for sign-out-blocked messages. */
+	get chainSourceDescription(): string {
+		return hasManagedCredentials(this.providerId)
+			? 'Posit Workbench'
+			: vscode.l10n.t('An environment variable');
 	}
 
 	/**
@@ -261,7 +270,7 @@ export class AuthProvider
 
 	async removeSession(sessionId: string): Promise<void> {
 		if (this.credentialChain && sessionId === this.providerId) {
-			if (this.credentialChain.preventSignOut) {
+			if (this.chainPreventsSignOut) {
 				try {
 					const result = await this.credentialChain.resolve();
 					const token = typeof result === 'string' ? result : result.token;
@@ -272,10 +281,8 @@ export class AuthProvider
 						);
 						vscode.window.showInformationMessage(
 							vscode.l10n.t(
-								'{0} credentials are configured via ' +
-								'environment variable and cannot be ' +
-								'signed out.',
-								this.displayName
+								'{0} manages these credentials. You cannot sign out.',
+								this.chainSourceDescription
 							)
 						);
 						return;

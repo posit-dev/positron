@@ -74,6 +74,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-skills',
+		workspaceFolder: path.join(os.tmpdir(), `positron-skills-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-code-cells',
 		workspaceFolder: path.join(os.tmpdir(), `positron-code-cells-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
@@ -126,6 +131,11 @@ const extensions = [
 	{
 		label: 'positron-data-driver-redshift',
 		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-redshift-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'positron-data-driver-odbc',
+		workspaceFolder: path.join(os.tmpdir(), `positron-data-driver-odbc-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
 	{

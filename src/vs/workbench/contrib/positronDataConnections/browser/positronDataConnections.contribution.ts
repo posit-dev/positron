@@ -33,10 +33,10 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: false,
 			markdownDescription: localize(
 				'positron.dataConnections.enabled',
-				'Enable the Data Connections panel. Requires a reload to take effect.'
+				'Enable the Data Connections panel. Requires a reload to take effect. Can be set per workspace.'
 			),
 			tags: ['preview'],
-			scope: ConfigurationScope.APPLICATION,
+			scope: ConfigurationScope.WINDOW,
 			included: true,
 		},
 	},

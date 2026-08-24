@@ -52,6 +52,19 @@
 	text-transform: uppercase;
 }
 
+/*
+ * gettingStarted.css sets every h2 in the container to 1.5em, weight 400 and
+ * line-height: initial, so this selector repeats the container chain to win on
+ * specificity and keep the label reading like the small caps it is designed as.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page-walkthrough-banner .walkthrough-banner-label {
+	font-size: 11px;
+	font-weight: 600;
+	line-height: normal;
+	margin: 0;
+}
+
 .positron-welcome-page-walkthrough-banner .walkthrough-banner-description {
 	margin: 0;
 }

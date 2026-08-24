@@ -99,10 +99,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.9.1",
+			"version": "2026.9.2",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "ecd5749e452e4e26662052773319645256c506a4c04dd6639e99926bbb5d05da",
+			"sha256": "4597a149e9806927ddb798ca33889f42fea26edbed749791c89860cd7212bf06",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -121,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.72.0",
+			"version": "2026.74.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -245,7 +245,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.8.0",
+			"version": "2.10.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -309,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "1.0.1",
-			"sha256": "53d2abf5f45fc271c47f91f97520d97a5e03363cbcb335228259117e67e5ac60",
+			"version": "1.1.0",
+			"sha256": "2cb3456d18389691ab0f6bdda887b3c6190abb78bd6aa0e1a128ab9bf890c909",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -339,7 +339,10 @@
 		"https://login.staging.posit.cloud",
 		"https://staging.connect.posit.cloud",
 		"https://posit.co",
-		"https://support.posit.co"
+		"https://support.posit.co",
+		"https://*.cloud.databricks.com",
+		"https://*.azuredatabricks.net",
+		"https://*.gcp.databricks.com"
 	],
 	"defaultChatAgent": {
 		"extensionId": "GitHub.copilot-chat",

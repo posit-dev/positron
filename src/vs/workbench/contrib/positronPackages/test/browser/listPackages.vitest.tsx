@@ -399,3 +399,110 @@ describe('ListPackages', () => {
 		expect(delegate.getActions().map(action => action.label)).not.toContain('Open Website');
 	});
 });
+
+describe('ListPackages vulnerability indicators', () => {
+	const onDidRefreshPackagesInstance = new Emitter<ILanguageRuntimePackage[]>();
+	const onDidChangePackages = new Emitter<string[]>();
+
+	// urllib3 is vulnerable (scored), commonmark is vulnerable (unscored,
+	// CRAN-style), requests is affirmatively clean ([]), localbuild is unknown
+	// (no data -> no badge either way).
+	const installed: ILanguageRuntimePackage[] = [
+		{
+			...pkg('urllib3', '1.26.0'),
+			vulnerabilities: [
+				{ id: 'CVE-2021-33503', osvId: 'GHSA-q2q7-5pp4-w6pg', score: 8.7, scoreVersion: 'v4', fixedIn: '1.26.5' },
+				{ id: 'CVE-2021-28363', osvId: 'GHSA-5phf-pp7p-vc2r', score: 6.9, scoreVersion: 'v4' },
+			],
+		},
+		{
+			...pkg('commonmark', '1.7'),
+			vulnerabilities: [{ id: 'RSEC-2023-7', osvId: 'RSEC-2023-7', fixedIn: '1.8' }],
+		},
+		{ ...pkg('requests', '2.32.5'), vulnerabilities: [] },
+		pkg('localbuild', '0.0.1'),
+	];
+
+	const fakeInstance = stubInterface<IPositronPackagesInstance>({
+		packages: installed,
+		attachRuntime: () => { },
+		detachRuntime: () => { },
+		onDidRefreshPackagesInstance: onDidRefreshPackagesInstance.event,
+		onDidChangePackages: onDidChangePackages.event,
+	});
+
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IPositronPackagesService, {
+			activePackagesInstance: fakeInstance,
+			onDidChangeActivePackagesInstance: Event.None,
+			itemSize: 'row',
+			onDidChangeItemSize: Event.None,
+			setSelectedPackage: vi.fn(),
+		})
+		.stub(ICommandService, { executeCommand: vi.fn() })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	const reactComponentContainer = stubInterface<IReactComponentContainer>({});
+
+	let restoreLayout: () => void;
+	beforeEach(() => { restoreLayout = stubGridLayoutWithSize(VIEWPORT_WIDTH, VIEWPORT_HEIGHT); });
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		restoreLayout();
+	});
+
+	function renderList() {
+		rtl.render(
+			<PositronPackagesContextProvider reactComponentContainer={reactComponentContainer}>
+				<ListPackages height={VIEWPORT_HEIGHT} reactComponentContainer={reactComponentContainer} width={VIEWPORT_WIDTH} />
+			</PositronPackagesContextProvider>
+		);
+	}
+
+	it('shows a severity-banded badge with the max score for a vulnerable package', async () => {
+		renderList();
+		expect(await screen.findByText('urllib3')).toBeInTheDocument();
+
+		// The badge leads with the count and the worst advisory in its label.
+		const badge = screen.getByRole('img', { name: /2 known vulnerabilities/ });
+		expect(badge).toHaveClass('severity-high');
+		// Max score across advisories, not the first one's.
+		expect(badge).toHaveTextContent('8.7');
+		expect(badge).toHaveAccessibleName(/CVE-2021-33503/);
+		expect(badge).toHaveAccessibleName(/Fixed in 1.26.5/);
+	});
+
+	it('shows an unscored badge (no number) for a CRAN-style advisory without a score', async () => {
+		renderList();
+		expect(await screen.findByText('commonmark')).toBeInTheDocument();
+
+		const badge = screen.getByRole('img', { name: /1 known vulnerability/ });
+		expect(badge).toHaveClass('severity-unscored');
+		expect(badge).toHaveAccessibleName(/RSEC-2023-7/);
+		expect(badge).toHaveAccessibleName(/Severity unknown/);
+	});
+
+	it('shows no badge for clean or unknown packages', async () => {
+		renderList();
+		expect(await screen.findByText('requests')).toBeInTheDocument();
+
+		// Exactly the two vulnerable packages carry badges.
+		expect(screen.getAllByRole('img', { name: /known vulnerabilit/ })).toHaveLength(2);
+	});
+
+	it('narrows to vulnerable packages with the @vulnerable filter token', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('urllib3')).toBeInTheDocument();
+
+		await user.type(screen.getByPlaceholderText('Filter packages'), '@vulnerable ');
+
+		// 300ms debounce before the filter applies.
+		await waitFor(() => expect(screen.queryByText('requests')).not.toBeInTheDocument());
+		expect(screen.getByText('urllib3')).toBeInTheDocument();
+		expect(screen.getByText('commonmark')).toBeInTheDocument();
+		expect(screen.queryByText('localbuild')).not.toBeInTheDocument();
+	});
+});

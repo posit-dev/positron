@@ -52,9 +52,9 @@ export const WalkthroughBanner = () => {
 		<section aria-labelledby={headingId} className='positron-welcome-page-walkthrough-banner'>
 			<span aria-hidden='true' className='walkthrough-banner-icon codicon codicon-mortar-board' />
 			<div className='walkthrough-banner-text'>
-				<h3 className='walkthrough-banner-label' id={headingId}>
+				<h2 className='walkthrough-banner-label' id={headingId}>
 					{localize('positron.welcome.learn', "Learn")}
-				</h3>
+				</h2>
 				<p className='walkthrough-banner-description'>
 					{localize(
 						'positron.welcome.walkthroughBannerDescription',

@@ -38,6 +38,15 @@ export interface AppFixtureOptions {
 	 * settings into the container settings.
 	 */
 	enableFoundryAssistant?: boolean;
+	/**
+	 * When true, the Posit AI provider is turned on in the container's provider
+	 * catalog before the session starts, and restored on teardown. Workbench only:
+	 * the authentication extension disables Posit AI there by default, and no
+	 * setting can override the catalog file (see
+	 * `enablePositAIProviderInContainer`). The local apps have no such default and
+	 * ignore this flag.
+	 */
+	enablePositAIProvider?: boolean;
 	extraSettings?: Record<string, unknown>;
 }
 

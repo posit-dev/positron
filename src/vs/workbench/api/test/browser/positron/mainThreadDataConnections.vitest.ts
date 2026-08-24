@@ -11,7 +11,7 @@ import { IExtHostContext } from '../../../../services/extensions/common/extHostC
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
 import { IDataConnectionDriver } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IDataConnectionDriverMetadataDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionDriverMetadataDTO, IDiscoveredDataConnectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { MainThreadDataConnections } from '../../../browser/positron/mainThreadDataConnections.js';
 
@@ -43,6 +43,10 @@ describe('MainThreadDataConnections', () => {
 		}],
 	};
 
+	// The ext host end of $discoverConnections, wired into the proxy below. The discovery test sets
+	// what it answers with; the others never call it.
+	const $discoverConnections = vi.fn<() => Promise<IDiscoveredDataConnectionDTO[]>>();
+
 	let registeredDrivers: IDataConnectionDriver[];
 	let mainThread: MainThreadDataConnections;
 
@@ -54,7 +58,7 @@ describe('MainThreadDataConnections', () => {
 		});
 		const dataConnectionsService = stubInterface<IPositronDataConnectionsService>({ driverManager });
 		const extHostContext = stubInterface<IExtHostContext>({
-			getProxy: (<T>() => stubInterface<ExtHostDataConnectionsShape>({}) as T) as IExtHostContext['getProxy'],
+			getProxy: (<T>() => stubInterface<ExtHostDataConnectionsShape>({ $discoverConnections }) as T) as IExtHostContext['getProxy'],
 		});
 		mainThread = disposables.add(new MainThreadDataConnections(extHostContext, dataConnectionsService));
 	});
@@ -101,6 +105,54 @@ describe('MainThreadDataConnections', () => {
 		// The summary must equal what the extension declared: the FileFilter array flattens back
 		// to the label -> extensions dictionary and non-file parameters pass through untouched.
 		expect(summaries[0].mechanisms).toEqual(metadataDto.mechanisms);
+	});
+
+	it('maps a discovered connection onto the service shape, renaming parameters to parameterValues', async () => {
+		mainThread.$registerDataConnectionDriver('duckdb', metadataDto);
+		$discoverConnections.mockResolvedValue([{
+			id: 'pagila',
+			name: 'Pagila',
+			description: 'localhost:5432/pagila',
+			mechanismId: 'file',
+			parameters: { databasePath: '/data/pagila.duckdb', readOnly: true },
+		}]);
+
+		const discovered = await registeredDrivers[0].discoverConnections();
+
+		// The one field that changes name across the boundary is `parameters` -> `parameterValues`.
+		// A rename that silently stops landing leaves the connection with nothing to connect with,
+		// which reaches the user as a failure on empty credentials rather than as a mapping bug --
+		// so the whole mapped shape is pinned here, description included.
+		expect(discovered).toMatchInlineSnapshot(`
+			[
+			  {
+			    "description": "localhost:5432/pagila",
+			    "id": "pagila",
+			    "mechanismId": "file",
+			    "name": "Pagila",
+			    "parameterValues": {
+			      "databasePath": "/data/pagila.duckdb",
+			      "readOnly": true,
+			    },
+			  },
+			]
+		`);
+	});
+
+	// A driver that reports no summary must not invent one: the pane falls back to the driver name,
+	// and an empty string would render as a bare separator with nothing after it.
+	it('leaves a discovered connection description undefined when the driver reports none', async () => {
+		mainThread.$registerDataConnectionDriver('duckdb', metadataDto);
+		$discoverConnections.mockResolvedValue([{
+			id: 'pagila',
+			name: 'Pagila',
+			mechanismId: 'file',
+			parameters: {},
+		}]);
+
+		const discovered = await registeredDrivers[0].discoverConnections();
+
+		expect(discovered[0].description).toBeUndefined();
 	});
 
 	it('leaves filters undefined across the boundary when the file parameter declares none', async () => {

@@ -19,11 +19,11 @@ import {
 	getProviderEnvKey,
 	getProviderEnvVarName,
 	completeOAuthDeviceCodeLogin,
+	completeDatabricksLoopbackOAuth,
 } from './modelProviderShared.js';
 
 // The "Configure LLM Providers" modal, which the Configure Providers command
 // opens by default (`assistant.newProviderModal`).
-// Same public surface as ModelProviderAuth so the sign-in test body is drop-in.
 // The testid sits on a zero-size layout wrapper (its child dialog container is
 // position:absolute, so the wrapper collapses and Playwright reports it hidden).
 // Scope to the actual visible dialog box inside it, so visibility gates and
@@ -35,6 +35,11 @@ const CONNECT_VIEW = '[data-testid="provider-connect-view"]';
 const CONNECTED_VIEW = '[data-testid="provider-connected-view"]';
 const APIKEY_INPUT = '#connect-provider-apikey-input';
 const BASEURL_INPUT = '#connect-provider-baseurl-input';
+// The auth-method radios, rendered only when a provider advertises more than one method
+// (Databricks on desktop: OAuth or API Key). They carry no testid or id, so they are
+// addressed by name and value, which come from the AuthMethod enum.
+const AUTH_METHOD_RADIO = (method: 'oauth' | 'apiKey') =>
+	`input[name="connect-provider-auth-method"][value="${method}"]`;
 
 // Footer buttons are rendered by the shared action bar; scope by text within the modal.
 // Substring match: also matches the in-flight "Connecting..." label, which is
@@ -46,11 +51,11 @@ const REMOVE_BUTTON = `${MODAL} button.positron-button:has-text("Remove")`;
 const CLOSE_BUTTON = `${MODAL} button.positron-button:has-text("Close")`;
 
 /**
- * Page object for the "Configure LLM Providers" modal. Exposes the same
- * loginModelProvider / logoutModelProvider surface as ModelProviderAuth, so the
- * legacy sign-in test body can be reused unchanged. This modal is what the
+ * Page object for the "Configure LLM Providers" modal. This is what the
  * Configure Providers command opens unless a suite pins
- * `assistant.newProviderModal` to false.
+ * `assistant.newProviderModal` to false, and it is the only page object for
+ * provider sign-in -- the legacy dialog's page object was removed once every
+ * suite had moved over (posit-dev/positron#15537).
  */
 export class ModelProviderModal {
 	private hotKeys: HotKeys;
@@ -130,7 +135,22 @@ export class ModelProviderModal {
 				await this.action(provider).click();
 				await expect(this.code.driver.currentPage.locator(CONNECT_VIEW)).toBeVisible({ timeout });
 
-				const authType = getProviderAuthType(provider);
+				// Providers that offer a choice preselect their default (OAuth for
+				// Databricks); only touch the radios when a test asked for the other one.
+				// On web and remote the group is not rendered at all, since those builds
+				// advertise a single method.
+				let authType = getProviderAuthType(provider);
+				if (options.authMethod) {
+					// A missing radio group means the provider advertises a single method here
+					// (Databricks on web and remote offers only the API key), so there is
+					// nothing to select -- honour the requested method and carry on.
+					const radio = this.code.driver.currentPage.locator(AUTH_METHOD_RADIO(options.authMethod));
+					if (await radio.isVisible()) {
+						await radio.check();
+					}
+					authType = options.authMethod === 'apiKey' ? 'apiKey' : authType;
+				}
+
 				switch (authType) {
 					case 'apiKey': {
 						const apiKey = options.apiKey ?? getProviderEnvKey(provider);
@@ -163,6 +183,24 @@ export class ModelProviderModal {
 						// The OAuth "Connect" button carries the same label; click, then drive the device flow.
 						await this.clickConnectButton();
 						await completeOAuthDeviceCodeLogin(this.code, oauthConfig, options);
+						break;
+					}
+					case 'oauthLoopback': {
+						// Databricks needs the workspace URL before Connect: it discovers the
+						// workspace's OIDC endpoints from it. Unlike the API key path, the
+						// Connect button is enabled whether or not the field is filled, so an
+						// empty value here fails later and less legibly.
+						const baseUrlEnvVar = getProviderBaseUrlEnvVarName(provider);
+						const baseUrl = options.baseUrl ?? process.env[baseUrlEnvVar];
+						if (!baseUrl) {
+							throw new Error(
+								`No workspace URL provided for ${provider}. Set the ${baseUrlEnvVar} environment variable or pass baseUrl in options.`
+							);
+						}
+						await fillSecretValue(this.code.driver.currentPage.locator(BASEURL_INPUT), baseUrl);
+						// Interception has to be armed before the click, so the click is passed in
+						// rather than made here.
+						await completeDatabricksLoopbackOAuth(this.code, () => this.clickConnectButton(), options);
 						break;
 					}
 					default:

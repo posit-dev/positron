@@ -37,6 +37,26 @@
 	background-color: var(--vscode-charts-green);
 }
 
+/*
+ * Badge on a connection detected from the machine's ODBC configuration rather than saved by the
+ * user. Quiet by design: it labels the row's provenance and must not compete with the connection
+ * name beside it, so it takes the badge tier's muted surface rather than an accent.
+ */
+.data-connection-entry-discovered {
+	flex: 0 0 auto;
+	margin: 0 5px;
+	padding: 0 5px;
+	border-radius: 3px;
+	font-size: 9px;
+	line-height: 14px;
+	text-transform: uppercase;
+	letter-spacing: 0.4px;
+	white-space: nowrap;
+	color: var(--vscode-badge-foreground);
+	background-color: var(--vscode-badge-background);
+	opacity: 0.8;
+}
+
 .data-connection-entry-actions {
 	display: flex;
 	width: 20px;

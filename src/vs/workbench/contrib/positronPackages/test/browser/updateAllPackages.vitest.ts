@@ -14,6 +14,7 @@ import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRunti
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { PackageMetadataCache } from '../../browser/packageMetadataCache.js';
+import { PackageVulnerabilityLookup } from '../../browser/packageVulnerabilityLookup.js';
 import { PositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
 function pkg(name: string, version: string): ILanguageRuntimePackage {
@@ -34,14 +35,17 @@ function makeInstance(store: DisposableStore, before: ILanguageRuntimePackage[],
 		updateAllPackages: async () => { },
 		// Skip the optional Stage 2 metadata fetch; the diff only needs versions.
 		getPackageMetadata: undefined,
+		repositoryRequest: undefined,
 	});
 	const session = stubInterface<ILanguageRuntimeSession>({
-		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'test-runtime' }),
+		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'test-runtime', languageId: 'r' }),
 		getPackageManager: () => packageManager,
 	});
 	const storage = store.add(new InMemoryStorageService());
 	const cache = new PackageMetadataCache(storage, new NullLogService(), new TestConfigurationService());
-	return store.add(new PositronPackagesInstance(session, new NullLogService(), cache));
+	// No advisory data either; the diff only needs versions.
+	const vulnerabilityLookup = stubInterface<PackageVulnerabilityLookup>({ getVulnerabilities: async () => undefined, enabled: true });
+	return store.add(new PositronPackagesInstance(session, new NullLogService(), cache, vulnerabilityLookup));
 }
 
 describe('PositronPackagesInstance.updateAllPackages', () => {

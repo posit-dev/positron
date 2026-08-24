@@ -29,3 +29,14 @@ export const QUARTO_CELLS_VIEW_TYPE = 'quarto-cells';
  * and a notebook document at the same URI.
  */
 export const QUARTO_CELLS_SCHEME = 'quarto-cells';
+
+/**
+ * Marker owner the diagnostics of the hidden cells are republished under, on the
+ * source document.
+ *
+ * A language server publishes against the cell it was given, so its diagnostics
+ * land on a URI the user cannot open. They are copied onto the document itself
+ * under this owner, which keeps them apart from the owners of the diagnostics
+ * that were published against the document in the first place.
+ */
+export const QUARTO_EMBEDDED_DIAGNOSTICS_OWNER = 'quartoEmbedded';

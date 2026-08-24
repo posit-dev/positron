@@ -52,6 +52,10 @@ import { IThemeMainService } from '../../theme/electron-main/themeMainService.js
 import { IEditorOptions, ITextEditorOptions } from '../../editor/common/editor.js';
 import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.js';
 import { IPolicyService } from '../../policy/common/policy.js';
+// --- Start Positron ---
+import { CanvasLaunchWindowAssigner } from '../../launch/common/positronCanvasLaunch.js';
+import { IPositronStandaloneModeMainService } from '../../positronStandaloneMode/common/positronStandaloneMode.js';
+// --- End Positron ---
 import { IUserDataProfilesMainService } from '../../userDataProfile/electron-main/userDataProfile.js';
 import { ILoggerMainService } from '../../log/electron-main/loggerService.js';
 import { IAuxiliaryWindowsMainService } from '../../auxiliaryWindow/electron-main/auxiliaryWindows.js';
@@ -210,6 +214,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 	readonly onDidTriggerSystemContextMenu = this._onDidTriggerSystemContextMenu.event;
 
 	private readonly windows = new Map<number, ICodeWindow>();
+	// --- Start Positron ---
+	private readonly canvasLaunchWindowAssigner = new CanvasLaunchWindowAssigner();
+	// --- End Positron ---
 
 	private readonly windowsStateHandler: WindowsStateHandler;
 
@@ -235,7 +242,10 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		@IProtocolMainService private readonly protocolMainService: IProtocolMainService,
 		@IThemeMainService private readonly themeMainService: IThemeMainService,
 		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService,
-		@ICSSDevelopmentService private readonly cssDevelopmentService: ICSSDevelopmentService
+		@ICSSDevelopmentService private readonly cssDevelopmentService: ICSSDevelopmentService,
+		// --- Start Positron ---
+		@IPositronStandaloneModeMainService private readonly positronStandaloneModeMainService: IPositronStandaloneModeMainService
+		// --- End Positron ---
 	) {
 		super();
 
@@ -271,7 +281,12 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 	}
 
 	openEmptyWindow(openConfig: IOpenEmptyConfiguration, options?: IOpenEmptyWindowOptions): Promise<ICodeWindow[]> {
-		const cli = this.environmentMainService.args;
+		// --- Start Positron ---
+		// Clone without `--canvas`: an internal open (dock/tray) interleaving
+		// with startup must not consume or re-prime the initial launch's flag.
+		// const cli = this.environmentMainService.args;
+		const cli = { ...this.environmentMainService.args, canvas: undefined };
+		// --- End Positron ---
 		const remoteAuthority = options?.remoteAuthority || undefined;
 		const forceEmpty = true;
 		const forceReuseWindow = options?.forceReuseWindow;
@@ -883,6 +898,14 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 				}
 			}
 		}
+
+		// --- Start Positron ---
+		// Decide up front which of these windows a `--canvas` launch lands on
+		// (see `CanvasLaunchWindowAssigner`), before the `restoreWindows:
+		// 'preserve'` block prepends restored paths, so a requested open
+		// keeps its target.
+		this.canvasLaunchWindowAssigner.prime(openConfig.cli, pathsToOpen, isRestoringPaths);
+		// --- End Positron ---
 
 		// Check for `window.restoreWindows` setting to include all windows
 		// from the previous session if this is the initial startup and we have
@@ -1539,6 +1562,23 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			isPortable: this.environmentMainService.isPortable,
 
 			windowId: -1,	// Will be filled in by the window once loaded later
+
+			// --- Start Positron ---
+			// Granted only to the window `prime()` targeted; a successful
+			// grant consumes the flag off the launch's argument object so no
+			// later window (restore, New Window, protocol open) can see it.
+			canvas: this.canvasLaunchWindowAssigner.assign(options.cli ?? this.environmentMainService.args, {
+				workspaceId: options.workspace?.id,
+				backupFolder: options.emptyWindowBackupInfo?.backupFolder
+			}),
+
+			// For a reused window, "elsewhere" is relative to that window, so
+			// the holder is not locked out of its own re-entry. Refreshed on
+			// reload (CodeWindow#reload).
+			standaloneModeEngagedElsewhere: window
+				? this.positronStandaloneModeMainService.isEngagedElsewhere(window.id)
+				: this.positronStandaloneModeMainService.isEngaged,
+			// --- End Positron ---
 
 			mainPid: process.pid,
 

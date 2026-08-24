@@ -11,6 +11,7 @@ import { localize } from '../../../../../../nls.js';
 import { status } from '../../../../../../base/browser/ui/aria/aria.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { getIconClassesForLanguageId } from '../../../../../../editor/common/services/getIconClasses.js';
+import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 import { EnvironmentHealthLanguage, IHealthItemFix } from '../environmentHealth.js';
 import { IEnvironmentHealthEntry } from '../environmentHealthService.js';
 import { HealthItemRow } from './healthItemRow.js';
@@ -70,6 +71,8 @@ export interface LanguageHealthGroupProps {
 	readonly expandedByLanguage: Map<EnvironmentHealthLanguage, boolean>;
 	/** Whether this language has a check or a fix running. */
 	readonly busy: boolean;
+	/** See EnvironmentHealthSection: one hover manager per welcome page. */
+	readonly hoverManager?: IHoverManager;
 	readonly onRunFix: (fix: IHealthItemFix) => void;
 }
 
@@ -79,7 +82,7 @@ export interface LanguageHealthGroupProps {
  * @param props A LanguageHealthGroupProps that contains the component properties.
  * @returns The rendered component.
  */
-export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix }: LanguageHealthGroupProps) => {
+export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, hoverManager, onRunFix }: LanguageHealthGroupProps) => {
 	const headerId = useId();
 	// Undefined until the user decides for themselves, so a group opens itself
 	// when its results land with something to act on, and stays where the user
@@ -92,6 +95,36 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix
 	};
 
 	const summary = summaryText(health);
+	// Some summaries read fine alone ("You have successfully set up Python"),
+	// but others don't name the language ("3 of 5 checks passed"), so the
+	// tooltip leads with the label every time rather than only when the
+	// summary happens to need it.
+	const tooltip = summary && `${health.label}: ${summary}`;
+
+	// The summary is right-aligned and ellipsized, so a long one loses its tail
+	// with no way to read the rest. The header wraps a `<Button>` when it has a
+	// body to expand, and that already knows how to show `tooltip` on hover; a
+	// language with no body renders a plain `<div>` instead, which needs its
+	// own hover wiring for the same effect.
+	const headerRef = useRef<HTMLDivElement>(undefined!);
+	const [headerHovering, setHeaderHovering] = useState(false);
+	useEffect(() => {
+		if (headerHovering && headerRef.current) {
+			hoverManager?.showHover(headerRef.current, tooltip);
+		}
+	}, [headerHovering, hoverManager, tooltip]);
+
+	// A result can land, or a recheck can fail, while the mouse is still over
+	// the header. Either swaps the div for a button or back again with no
+	// onMouseLeave to clear the flag, so this resets it on the swap rather than
+	// leaving a stale "hovering" flag pointed at whichever element shows up next.
+	const previousHasBody = useRef(hasBody(health));
+	useEffect(() => {
+		if (previousHasBody.current !== hasBody(health)) {
+			previousHasBody.current = hasBody(health);
+			setHeaderHovering(false);
+		}
+	}, [health]);
 
 	// `status` speaks through the workbench's polite live region. In an effect
 	// because results land seconds after the page paints, and it speaks the line
@@ -121,7 +154,7 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix
 		return (
 			<ul className='environment-health-item-list'>
 				{health.state.result.items.map(i =>
-					<HealthItemRow key={i.id} busy={busy} item={i} onRunFix={onRunFix} />)}
+					<HealthItemRow key={i.id} busy={busy} hoverManager={hoverManager} item={i} onRunFix={onRunFix} />)}
 			</ul>
 		);
 	};
@@ -144,19 +177,38 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, onRunFix
 				button's content model has no room for a heading, and this is the
 				shape assistive technology expects from a disclosure.
 			*/}
-			<h4 className='environment-health-group-heading'>
+			<h3 className='environment-health-group-heading'>
 				{hasBody(health)
 					? <Button
 						ariaExpanded={expanded}
 						className='environment-health-group-header'
+						hoverManager={hoverManager}
 						id={headerId}
+						tooltip={tooltip}
 						onPressed={toggle}
 					>
 						{headerContent}
 						<span aria-hidden='true' className={`environment-health-group-chevron codicon codicon-chevron-${expanded ? 'down' : 'right'}`} />
 					</Button>
-					: <div className='environment-health-group-header' id={headerId}>{headerContent}</div>}
-			</h4>
+					/*
+					 * This div only pops up a tooltip on mouse hover. It does nothing
+					 * when clicked, so someone who can't use a mouse loses nothing, and
+					 * a screen reader already reads the full text without it.
+					 */
+					// eslint-disable-next-line jsx-a11y/no-static-element-interactions
+					: <div
+						ref={headerRef}
+						className='environment-health-group-header'
+						id={headerId}
+						onMouseEnter={() => setHeaderHovering(true)}
+						onMouseLeave={() => {
+							setHeaderHovering(false);
+							hoverManager?.hideHover();
+						}}
+					>
+						{headerContent}
+					</div>}
+			</h3>
 			{hasBody(health) && expanded && body()}
 		</div>
 	);

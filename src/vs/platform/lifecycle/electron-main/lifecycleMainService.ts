@@ -682,6 +682,23 @@ export class LifecycleMainService extends Disposable implements ILifecycleMainSe
 		this.trace('Lifecycle#relaunch()');
 
 		const args = process.argv.slice(1);
+		// --- Start Positron ---
+		// A relaunch (update restart, argv.json change) replaying `--canvas`
+		// would boot back into Canvas against an explicit Canvas exit; scrub
+		// every form the parser accepts (`--canvas`, `--canvas=<value>`, and
+		// the bare `true`/`false` minimist consumes after `--canvas`), but
+		// leave positional tokens at or after the first `--` alone.
+		const endOfOptions = args.indexOf('--');
+		const scrubEnd = endOfOptions === -1 ? args.length : endOfOptions;
+		for (let i = scrubEnd - 1; i >= 0; i--) {
+			if (args[i] === '--canvas') {
+				const next = args[i + 1];
+				args.splice(i, next === 'true' || next === 'false' ? 2 : 1);
+			} else if (args[i].startsWith('--canvas=')) {
+				args.splice(i, 1);
+			}
+		}
+		// --- End Positron ---
 		if (options?.addArgs) {
 			args.push(...options.addArgs);
 		}

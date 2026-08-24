@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { Disposable } from '../extHostTypes.js';
 
 /**
@@ -194,6 +194,28 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		}
 
 		return (await driver.redactParameterValue(mechanismId, parameterId, value)) ?? undefined;
+	}
+
+	/**
+	 * Calls the extension's driver.discoverConnections() to list the connections already configured
+	 * on this machine. Returns an empty array for a driver that does not implement discovery, which
+	 * is most of them -- the main thread asks every driver rather than tracking which ones opted in.
+	 * @param driverId The unique identifier of the driver.
+	 */
+	async $discoverConnections(driverId: string): Promise<IDiscoveredDataConnectionDTO[]> {
+		const driver = this._drivers.get(driverId);
+		if (!driver?.discoverConnections) {
+			return [];
+		}
+
+		const discovered = await driver.discoverConnections();
+		return discovered.map(connection => ({
+			id: connection.id,
+			name: connection.name,
+			description: connection.description,
+			mechanismId: connection.mechanismId,
+			parameters: connection.parameters,
+		}));
 	}
 
 	/**

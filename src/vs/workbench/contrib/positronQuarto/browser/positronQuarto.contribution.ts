@@ -28,6 +28,7 @@ import { QuartoImagePreviewContribution } from './quartoImagePreview.js';
 import { QuartoEquationPreviewContribution } from './quartoEquationPreview.js';
 import { IQuartoVirtualNotebookService, QuartoVirtualNotebookContribution, QuartoVirtualNotebookService } from './quartoVirtualNotebookService.js';
 import { QuartoEmbeddedLanguageFeatures } from './quartoEmbeddedLanguageFeatures.js';
+import { QuartoEmbeddedDiagnostics } from './quartoEmbeddedDiagnostics.js';
 import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
@@ -345,6 +346,15 @@ registerWorkbenchContribution2(
 registerWorkbenchContribution2(
 	QuartoEmbeddedLanguageFeatures.ID,
 	QuartoEmbeddedLanguageFeatures,
+	WorkbenchPhase.AfterRestored
+);
+
+// Moves the diagnostics published against the hidden cells onto the document.
+// Deliberately not gated on the setting: the cells only exist while it is on, so
+// with it off there is no cell for a marker to belong to and this does nothing.
+registerWorkbenchContribution2(
+	QuartoEmbeddedDiagnostics.ID,
+	QuartoEmbeddedDiagnostics,
 	WorkbenchPhase.AfterRestored
 );
 

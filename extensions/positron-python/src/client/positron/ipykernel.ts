@@ -14,6 +14,7 @@ import { IPythonExecutionFactory } from '../common/process/types';
 import { traceWarn } from '../logging';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { Architecture } from '../common/utils/platform';
+import { moduleMetadataMap } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 
 /**
  * Get the architecture string for bundle path selection.
@@ -97,7 +98,17 @@ export async function getIpykernelBundle(
         architecture === Architecture.Unknown ||
         architectureMismatchPossible
     ) {
-        const pythonExecutionService = await pythonExecutionFactory.create({ pythonPath: interpreter.path });
+        // Module-provided interpreters must load their environment modules before
+        // the interpreter runs correctly, so probe them through the activated
+        // environment (which applies the module startup command); other
+        // interpreters can be probed directly.
+        const pythonExecutionService = moduleMetadataMap.has(interpreter.path)
+            ? await pythonExecutionFactory.createActivatedEnvironment({
+                  resource,
+                  interpreter,
+                  allowEnvironmentFetchExceptions: true,
+              })
+            : await pythonExecutionFactory.create({ pythonPath: interpreter.path });
         const interpreterInfo = await pythonExecutionService.getInterpreterInformation();
         if (interpreterInfo) {
             implementation = interpreterInfo.implementation;

@@ -59,6 +59,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+      # Scoped to dirs THIS PR touches, unlike the tree-wide weekly sweep
+      # (check-test-tag-map.sh), which stays warn-only so unrelated drift
+      # can't fail an unrelated PR.
+      - name: Fail if this PR touches an unmapped Positron dir
+        if: ${{ steps.pr-tags.outputs.unmapped_dirs != '' }}
+        run: |
+          echo "This PR touches a Positron source dir with no entry in test-tag-paths-map.json:"
+          echo "${{ steps.pr-tags.outputs.unmapped_dirs }}" | tr ',' '\n' | sed 's/^/  - /'
+          echo ""
+          echo "Add each dir to .github/workflows/test-tag-paths-map.json: a feature tag list (e.g. [\"@:console\"]) or [] if it has no e2e coverage."
+          exit 1
       # The advisory comment (no-match / unmapped-dir warnings) is posted from
       # the pr-e2e-comment workflow, folded into the single "E2E Tests" comment.
 

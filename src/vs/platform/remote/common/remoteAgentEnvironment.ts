@@ -12,6 +12,8 @@ import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.j
 export interface IPositronLicenseeInfo {
 	licensee?: string;
 	issuer?: string;
+	/** Whether the validated license grants the Education License Rider terms. */
+	academic?: boolean;
 }
 // --- End Positron ---
 

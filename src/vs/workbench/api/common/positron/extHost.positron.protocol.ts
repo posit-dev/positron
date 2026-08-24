@@ -10,6 +10,7 @@ import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } fr
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape, ITextEditorAddData, IEditorPropertiesChangeData } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
+import { IPackageRepositoryRequest, IPackageRepositoryResponse } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { IRange } from '../../../../editor/common/core/range.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
@@ -17,7 +18,7 @@ import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntim
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IDataImporterMetadata, IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
@@ -172,6 +173,8 @@ export interface ExtHostLanguageRuntimeShape {
 	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 	$getPackageMetadata(handle: number, packageNames: string[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;
+	$packageRepositoryUrl(handle: number, token: CancellationToken): Promise<string | undefined>;
+	$packageRepositoryRequest(handle: number, request: IPackageRepositoryRequest, token: CancellationToken): Promise<IPackageRepositoryResponse>;
 	$listMissingPackages(handle: number, target: RuntimeMissingPackagesTarget, token: CancellationToken): Promise<RuntimeMissingPackage[]>;
 	$getMissingPackageProbe(handle: number, error: RuntimeConsoleError, token: CancellationToken): Promise<string | undefined>;
 	$getPackageDetail(handle: number, name: string, token: CancellationToken): Promise<Partial<LanguageRuntimePackage> | undefined>;
@@ -346,6 +349,7 @@ export interface ExtHostDataConnectionsShape {
 	$driverConnect(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 	$generateConnectionCode(driverId: string, mechanismId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
 	$redactParameterValue(driverId: string, mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
+	$discoverConnections(driverId: string): Promise<IDiscoveredDataConnectionDTO[]>;
 	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
 	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
@@ -446,7 +450,7 @@ export interface MainThreadAiFeaturesShape {
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 	$getEnabledProviders(): Thenable<string[]>;
 	$isProviderEnabled(id: string): Thenable<boolean>;
-	$getAgentAllowedCommands(): Promise<ISerializedAgentCommand[]>;
+	$getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<ISerializedAgentCommand[]>;
 	$validateAndExecuteCommand(
 		commandId: string,
 		args: unknown[] | undefined,
