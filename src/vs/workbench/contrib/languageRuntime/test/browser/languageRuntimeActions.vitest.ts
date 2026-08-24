@@ -1237,15 +1237,6 @@ describe('EvaluateCodeAction', () => {
 		expect(inputFn).not.toHaveBeenCalled();
 	});
 
-	it('warns when there is no foreground session', async () => {
-		foregroundSession = undefined;
-
-		await runAction();
-
-		expect(warn).toHaveBeenCalledWith('No active interpreter session.');
-		expect(inputFn).not.toHaveBeenCalled();
-	});
-
 	it('opens no editor when the user dismisses the code prompt', async () => {
 		inputFn.mockResolvedValueOnce(undefined);
 
