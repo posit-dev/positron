@@ -35,6 +35,7 @@ import {
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { resolveAwsChainInit } from './credentials/aws';
+import { createAwsSsoRecovery } from './awsRecovery';
 import { resolveGeapCredential } from './credentials/geap';
 import {
 	detectSnowflakeCredentials,
@@ -333,23 +334,36 @@ async function registerAwsProvider(
 ): Promise<void> {
 	const logger = new AuthProviderLogger('AWS');
 
+	const getProfile = () => getCachedProvider(
+		PROVIDER_METADATA.amazonBedrock.catalogId!
+	)?.connection.aws?.profile;
+	const recovery = createAwsSsoRecovery({ getProfile });
+
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
 		undefined,
 		{
 			resolve: async () => {
-				const aws = getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws;
-				const chainInit = resolveAwsChainInit(aws, process.env);
-				const credentialProvider = fromNodeProviderChain(chainInit);
-				const resolved = await credentialProvider();
-				return {
-					token: JSON.stringify({
-						accessKeyId: resolved.accessKeyId,
-						secretAccessKey: resolved.secretAccessKey,
-						sessionToken: resolved.sessionToken,
-					}),
-					expiration: resolved.expiration,
-				};
+				try {
+					const aws = getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws;
+					const chainInit = resolveAwsChainInit(aws, process.env);
+					const credentialProvider = fromNodeProviderChain(chainInit);
+					const resolved = await credentialProvider();
+					return {
+						token: JSON.stringify({
+							accessKeyId: resolved.accessKeyId,
+							secretAccessKey: resolved.secretAccessKey,
+							sessionToken: resolved.sessionToken,
+						}),
+						expiration: resolved.expiration,
+					};
+				} catch (err) {
+					// resolveChainCredentials swallows this error and createSession
+					// throws a generic one in its place, so the recover hook would
+					// have nothing to classify. Keep the real cause here.
+					recovery.noteFailure(err);
+					throw err;
+				}
 			},
 		}
 	);
@@ -360,7 +374,9 @@ async function registerAwsProvider(
 		),
 		provider
 	);
-	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider);
+	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider, {
+		recover: recovery.recover,
+	});
 	await provider.resolveChainCredentials().catch(err =>
 		logger.logCredentialResolution(
 			'failed',
