@@ -310,7 +310,6 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 			}
 			renderer={props.renderer}
 			title={localize('positron.importData.title', "Import {0}", basename(props.fileUri))}
-			titleSize='large'
 			width={IMPORT_DATA_DIALOG_WIDTH}
 			onCancel={cancelHandler}
 		/>
