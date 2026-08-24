@@ -55,7 +55,11 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 
 	constructor(private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(SQLITE_DATA_EXPLORER_PROVIDER_ID, {
-			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
+			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc),
+			// Without this, closing a tab leaves its view registered and its snapshot in the `temp`
+			// schema until the connection disconnects or the same dataset is reopened. That was a
+			// bounded waste when a view held nothing but state; now it holds a copy of the relation.
+			closeDataset: (datasetId) => this.closeTableView(datasetId),
 		});
 	}
 
