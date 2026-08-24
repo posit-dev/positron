@@ -76,6 +76,13 @@ export const EditableCodeEditor = (props: EditableCodeEditorProps) => {
 				// The editable code editor is, as the name says, always editable.
 				readOnly: false,
 				domReadOnly: false,
+				// Tab moves focus to the next control instead of inserting indentation, matching what
+				// VS Code does for editors embedded in a widget (chat code blocks, tool
+				// confirmations). This editor is used inside modal dialogs, whose renderer
+				// suppresses all but a handful of keybindings, so toggleTabFocusMode is not
+				// available as an escape hatch. Without this, a keyboard-only user cannot Tab past
+				// the editor to reach the dialog's buttons.
+				tabFocusMode: true,
 				// Vertical breathing room lives inside the editor (rather than as container padding)
 				// so the vertical scrollbar can span the full height of the code box.
 				padding: { top: 10, bottom: 10 },
