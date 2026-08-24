@@ -121,16 +121,3 @@
 .import-data .warnings {
 	color: var(--vscode-editorWarning-foreground);
 }
-
-/*
- * Exists only as an aria-describedby target for the Import button, so it is taken out of the visual
- * layout rather than hidden: display:none or visibility:hidden would drop it from the accessibility
- * tree too, and the button would have nothing to point at.
- */
-.import-data .import-disabled-reason {
-	position: absolute;
-	left: -10000px;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-}

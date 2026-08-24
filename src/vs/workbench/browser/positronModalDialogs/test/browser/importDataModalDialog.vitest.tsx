@@ -86,17 +86,6 @@ describe('ImportDataModalDialog', () => {
 		expect(await screen.findByLabelText('Variable Name')).toHaveValue('flights');
 	});
 
-	it('explains why Import is unavailable, for a screen reader that reaches it', async () => {
-		renderDialog([createImporter()]);
-
-		const nameField = await screen.findByLabelText('Variable Name');
-		await userEvent.clear(nameField);
-
-		expect(screen.getByRole('button', { name: 'Import' })).toHaveAccessibleDescription(
-			'Enter a valid variable name to import.'
-		);
-	});
-
 	it('names the only importer and selects it', async () => {
 		renderDialog([createImporter()]);
 

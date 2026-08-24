@@ -21,11 +21,6 @@ interface TwoButtonFooterProps {
 	 * and pressing it does nothing.
 	 */
 	primaryButtonDisabled?: boolean;
-	/**
-	 * Id of the element saying why the primary button is unavailable. Keeping the button focusable
-	 * is only worth doing if there is a reason to read once the user reaches it.
-	 */
-	primaryButtonDescribedBy?: string;
 	secondaryButtonTitle: string;
 	topBorder?: boolean;
 	onPrimaryButton: () => void;
@@ -51,7 +46,7 @@ export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
 
 	// Primary button.
 	const primaryButton = (
-		<FooterButton autoFocus default ariaDescribedby={props.primaryButtonDescribedBy} ariaDisabled={props.primaryButtonDisabled} type='submit' onPressed={primaryButtonPressedHandler}>
+		<FooterButton autoFocus default ariaDisabled={props.primaryButtonDisabled} type='submit' onPressed={primaryButtonPressedHandler}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);

@@ -37,7 +37,6 @@ export interface KeyboardModifiers {
 export interface ButtonProps {
 	readonly id?: string;
 	readonly ariaControls?: string;
-	readonly ariaDescribedby?: string;
 	/**
 	 * Marks the button unavailable while leaving it in the tab order.
 	 *
@@ -196,7 +195,6 @@ export const Button = (props: PropsWithChildren<ButtonProps>) => {
 		<button
 			ref={buttonRef}
 			aria-controls={props.ariaControls}
-			aria-describedby={props.ariaDescribedby}
 			aria-disabled={props.disabled || props.ariaDisabled ? 'true' : undefined}
 			aria-expanded={props.ariaExpanded}
 			aria-haspopup={props.ariaHaspopup}
