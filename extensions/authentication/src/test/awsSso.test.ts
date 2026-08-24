@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { classifyAwsChainError } from '../credentials/awsSso';
+import { EventEmitter } from 'events';
+import * as vscode from 'vscode';
+import { classifyAwsChainError, runSsoLogin, SpawnFn, SsoLoginError } from '../credentials/awsSso';
 
 // The sentence the AWS SDK appends to every token error an `aws sso login`
 // would fix. Copied verbatim from @aws-sdk/token-providers.
@@ -51,5 +53,98 @@ suite('classifyAwsChainError', () => {
 			undefined,
 			undefined,
 		]);
+	});
+});
+
+/** A stand-in for ChildProcess carrying only what runSsoLogin touches. */
+function fakeChild() {
+	const child = new EventEmitter() as EventEmitter & {
+		stdout: EventEmitter;
+		stderr: EventEmitter;
+		kill: () => void;
+		killed: boolean;
+	};
+	child.stdout = new EventEmitter();
+	child.stderr = new EventEmitter();
+	child.killed = false;
+	child.kill = () => { child.killed = true; };
+	return child;
+}
+
+suite('runSsoLogin', () => {
+	let child: ReturnType<typeof fakeChild>;
+	let spawnArgs: { command: string; args: readonly string[] } | undefined;
+	let spawnFn: SpawnFn;
+	let cancellation: vscode.CancellationTokenSource;
+
+	setup(() => {
+		child = fakeChild();
+		spawnArgs = undefined;
+		spawnFn = ((command: string, args: readonly string[]) => {
+			spawnArgs = { command, args };
+			return child;
+		}) as unknown as SpawnFn;
+		cancellation = new vscode.CancellationTokenSource();
+	});
+
+	teardown(() => {
+		cancellation.dispose();
+	});
+
+	test('passes the profile through and resolves on a clean exit', async () => {
+		const pending = runSsoLogin('sso-dev', cancellation.token, spawnFn);
+		child.emit('close', 0);
+
+		await pending;
+
+		assert.deepStrictEqual(spawnArgs, {
+			command: 'aws',
+			args: ['sso', 'login', '--profile', 'sso-dev'],
+		});
+	});
+
+	test('omits --profile when no profile is configured', async () => {
+		const pending = runSsoLogin(undefined, cancellation.token, spawnFn);
+		child.emit('close', 0);
+
+		await pending;
+
+		assert.deepStrictEqual(spawnArgs?.args, ['sso', 'login']);
+	});
+
+	test('reports the last stderr line when the CLI exits non-zero', async () => {
+		const pending = runSsoLogin(undefined, cancellation.token, spawnFn);
+		child.stderr.emit('data', 'first problem\nAn error occurred: AccessDenied\n');
+		child.emit('close', 1);
+
+		const err = await pending.then(() => undefined, (e: unknown) => e);
+
+		assert.deepStrictEqual(
+			[(err as SsoLoginError).reason, (err as SsoLoginError).message],
+			['login-failed', 'An error occurred: AccessDenied']
+		);
+	});
+
+	test('reports a missing CLI distinctly', async () => {
+		const pending = runSsoLogin(undefined, cancellation.token, spawnFn);
+		const spawnError: NodeJS.ErrnoException = new Error('spawn aws ENOENT');
+		spawnError.code = 'ENOENT';
+		child.emit('error', spawnError);
+
+		const err = await pending.then(() => undefined, (e: unknown) => e);
+
+		assert.strictEqual((err as SsoLoginError).reason, 'cli-missing');
+	});
+
+	test('cancellation kills the child and reports cancelled', async () => {
+		const pending = runSsoLogin(undefined, cancellation.token, spawnFn);
+		cancellation.cancel();
+
+		const err = await pending.then(() => undefined, (e: unknown) => e);
+
+		assert.deepStrictEqual(
+			[(err as SsoLoginError).reason, child.killed],
+			['cancelled', true]
+		);
 	});
 });

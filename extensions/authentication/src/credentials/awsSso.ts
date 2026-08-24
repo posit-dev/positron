@@ -3,6 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { spawn } from 'child_process';
+import type { CancellationToken } from 'vscode';
+import { AuthProviderLogger } from '../authProviderLogger';
+
 /**
  * The AWS SDK appends this sentence to every token error that running
  * `aws sso login` would fix, and omits it from failures a login cannot fix
@@ -56,4 +60,106 @@ function errorMessages(err: unknown): string[] {
 		current = (current as { cause?: unknown }).cause;
 	}
 	return messages;
+}
+
+const logger = new AuthProviderLogger('AWS');
+
+/** How long to let the CLI run. Matches the SSO device-code expiry. */
+const LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** Injection point so tests do not spawn a real process. */
+export type SpawnFn = typeof spawn;
+
+/** Why an `aws sso login` attempt did not produce credentials. */
+export class SsoLoginError extends Error {
+	constructor(
+		readonly reason: 'cli-missing' | 'login-failed' | 'cancelled',
+		message: string,
+	) {
+		super(message);
+		this.name = 'SsoLoginError';
+	}
+}
+
+/**
+ * Run `aws sso login`, resolving when the CLI exits cleanly. The CLI opens the
+ * user's browser and polls for approval itself, so there is nothing to drive
+ * here beyond watching the process. Output is logged to the AWS channel;
+ * failures carry a `reason` the caller turns into a user-facing message.
+ */
+export function runSsoLogin(
+	profile: string | undefined,
+	token: CancellationToken,
+	spawnFn: SpawnFn = spawn,
+): Promise<void> {
+	const args = profile
+		? ['sso', 'login', '--profile', profile]
+		: ['sso', 'login'];
+	logger.info(`Running: aws ${args.join(' ')}`);
+
+	return new Promise<void>((resolve, reject) => {
+		const child = spawnFn('aws', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+		let lastStderrLine = '';
+		let settled = false;
+
+		const finish = (err?: SsoLoginError) => {
+			if (settled) {
+				return;
+			}
+			settled = true;
+			clearTimeout(timer);
+			cancelListener.dispose();
+			if (err) {
+				reject(err);
+			} else {
+				resolve();
+			}
+		};
+
+		const abort = (message: string) => {
+			child.kill();
+			finish(new SsoLoginError('cancelled', message));
+		};
+
+		const timer = setTimeout(
+			() => abort('aws sso login timed out'),
+			LOGIN_TIMEOUT_MS
+		);
+		const cancelListener = token.onCancellationRequested(
+			() => abort('aws sso login cancelled')
+		);
+
+		child.stdout?.on('data', (data: unknown) => {
+			const text = String(data).trim();
+			if (text) {
+				logger.info(`aws sso login: ${text}`);
+			}
+		});
+		child.stderr?.on('data', (data: unknown) => {
+			const text = String(data).trim();
+			if (text) {
+				lastStderrLine = text.split('\n').pop() ?? text;
+				logger.warn(`aws sso login: ${text}`);
+			}
+		});
+		// Typed as Error to match the ChildProcess overload under
+		// strictFunctionTypes; the errno lives behind a cast.
+		child.on('error', (err: Error) => {
+			const code = (err as NodeJS.ErrnoException).code;
+			finish(new SsoLoginError(
+				code === 'ENOENT' ? 'cli-missing' : 'login-failed',
+				err.message
+			));
+		});
+		child.on('close', (code: number | null) => {
+			if (code === 0) {
+				finish();
+				return;
+			}
+			finish(new SsoLoginError(
+				'login-failed',
+				lastStderrLine || `aws sso login exited with code ${code}`
+			));
+		});
+	});
 }
