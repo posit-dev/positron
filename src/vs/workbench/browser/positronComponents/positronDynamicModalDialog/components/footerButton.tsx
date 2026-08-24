@@ -17,12 +17,6 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
  * FooterButtonProps interface.
  */
 interface FooterButtonProps {
-	/**
-	 * Marks the button unavailable while leaving it in the tab order, so a screen reader can
-	 * still reach it and be told it is unavailable. Prefer this over `disabled`, which removes
-	 * the button from the tab order entirely. Presses do nothing either way.
-	 */
-	ariaDisabled?: boolean;
 	autoFocus?: boolean;
 	default?: boolean;
 	/**
@@ -44,7 +38,6 @@ interface FooterButtonProps {
 export const FooterButton = (props: PropsWithChildren<FooterButtonProps>) => {
 	return (
 		<Button
-			ariaDisabled={props.ariaDisabled}
 			autoFocus={props.autoFocus}
 			className={positronClassNames(
 				'dialog-button',

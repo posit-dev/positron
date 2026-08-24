@@ -16,10 +16,6 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
  */
 interface TwoButtonFooterProps {
 	primaryButtonTitle: string;
-	/**
-	 * Marks the primary button unavailable. It stays focusable and is announced as disabled,
-	 * and pressing it does nothing.
-	 */
 	primaryButtonDisabled?: boolean;
 	secondaryButtonTitle: string;
 	topBorder?: boolean;
@@ -33,20 +29,9 @@ interface TwoButtonFooterProps {
  * @returns The rendered component.
  */
 export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
-	// Primary button press handler. The button is only aria-disabled, so it is natively enabled
-	// and remains the form's implicit submit target; the guard keeps a press from running the
-	// action while the button reads as unavailable.
-	const primaryButtonPressedHandler = () => {
-		if (props.primaryButtonDisabled) {
-			return;
-		}
-
-		props.onPrimaryButton();
-	};
-
 	// Primary button.
 	const primaryButton = (
-		<FooterButton autoFocus default ariaDisabled={props.primaryButtonDisabled} type='submit' onPressed={primaryButtonPressedHandler}>
+		<FooterButton autoFocus default disabled={props.primaryButtonDisabled} type='submit' onPressed={props.onPrimaryButton}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);

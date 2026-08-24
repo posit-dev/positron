@@ -119,7 +119,7 @@ describe('ImportDataModalDialog', () => {
 		await user.type(nameInput, '2020 data');
 
 		expect(await screen.findByText('Enter a valid variable name.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Import' })).toHaveAttribute('aria-disabled', 'true');
+		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
 	});
 
 	it('preselects the importer matching the foreground session language', async () => {
@@ -158,7 +158,7 @@ describe('ImportDataModalDialog', () => {
 
 		expect(screen.queryByText(codeTextMatching(/pd\.read_csv/))).not.toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Copy' })).toBeDisabled();
-		expect(screen.getByRole('button', { name: 'Import' })).toHaveAttribute('aria-disabled', 'true');
+		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
 	});
 
 	it('drops a generation failure once the name is no longer the one that failed', async () => {
@@ -180,14 +180,14 @@ describe('ImportDataModalDialog', () => {
 		renderDialog([createImporter({ generateCode: async () => undefined })]);
 
 		expect(await screen.findByRole('alert')).toHaveTextContent('Python (pandas) did not generate import code for this file.');
-		expect(screen.getByRole('button', { name: 'Import' })).toHaveAttribute('aria-disabled', 'true');
+		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
 	});
 
 	it('shows an empty state when no importer can read the file', () => {
 		renderDialog([]);
 
 		expect(screen.getByText('No extension can generate code to import this file.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Import' })).toHaveAttribute('aria-disabled', 'true');
+		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
 	});
 
 	it('warns about anything the importer could not translate', async () => {
