@@ -7,7 +7,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IDataConnectionInstance } from './dataConnectionInstance.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IDataConnectionHandle, IDataConnectionProfile } from './dataConnectionDriver.js';
+import { DataConnectionParameterValues, IDataConnectionHandle, IDataConnectionProfile } from './dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from './dataConnectionsDriverManager.js';
 
 // DI token used to inject IPositronDataConnectionsService throughout the workbench.
@@ -37,8 +37,13 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	/**
 	 * Gets the connections drivers report as already configured on this machine (e.g. ODBC data
 	 * sources), as ephemeral profiles. These are not persisted and are never returned by
-	 * {@link getProfiles}. A discovery that matches a saved profile -- same driver, mechanism, and
-	 * parameter values -- is omitted, so a data source the user has already configured appears once.
+	 * {@link getProfiles}. A discovery the user has already saved -- via
+	 * {@link saveDiscoveredProfile}, which records the discovery it came from -- is omitted, so a
+	 * data source saved from this pane appears once. A connection the user instead configured by
+	 * hand has no such link and appears alongside the discovery it resembles: two rows are
+	 * recoverable, whereas guessing they are the same and hiding one is not, since the values that
+	 * would distinguish two same-shaped data sources are exactly the secret ones neither profile
+	 * carries.
 	 * Like a saved profile's, the returned profiles' parameterValues never contain values the
 	 * mechanism declares secret; those are held internally and merged back by
 	 * {@link getProfileWithSecrets}.
@@ -51,15 +56,16 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * connection. The single owner of the "saved first, discovered after" ordering that the pane
 	 * and the payload commands both present -- a user's own saved connections keep the top, since
 	 * on a machine with a large odbc.ini the discoveries can outnumber them several times over.
-	 * Deduplication is {@link getDiscoveredProfiles}'s, so nothing appears twice.
+	 * Which discoveries are dropped is {@link getDiscoveredProfiles}'s to decide.
 	 * @returns The saved profiles followed by the discovered profiles.
 	 */
 	getAllProfiles(): readonly IDataConnectionProfile[];
 
 	/**
 	 * Saves a discovered connection as an ordinary profile, so it persists across sessions and can
-	 * be edited and removed. The discovered entry stops being reported separately once saved, since
-	 * the saved profile matches it. A no-op if the id is not a current discovery.
+	 * be edited and removed. The discovered entry stops being reported separately once saved: the
+	 * saved profile records the discovery it came from. A no-op if the id is not a current
+	 * discovery.
 	 * @param id The discovered profile id.
 	 * @returns The id of the saved profile, or undefined if the discovery was not found.
 	 */
@@ -117,6 +123,22 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * stored value or the driver does not implement redaction.
 	 */
 	getRedactedParameterValues(id: string, parameterIds: readonly string[]): Promise<Record<string, string>>;
+
+	/**
+	 * Gets the profile's full parameter values in display-safe form, for showing the connection to
+	 * something other than the user who configured it (the agent-facing connection catalog). Every
+	 * parameter is offered to the driver for redaction, not only the ones the mechanism declares
+	 * secret, because a credential can sit inside an ordinary `string` parameter -- an ODBC
+	 * connection string embedding `PWD=` -- and only the driver knows its own formats. A value the
+	 * driver redacts appears in its redacted form; a value it does not is passed through when the
+	 * parameter is non-secret, and omitted when it is secret.
+	 *
+	 * When the driver or mechanism cannot be resolved, nothing can be redacted, so this falls back
+	 * to the profile's own secret-free parameterValues rather than risking a cleartext passthrough.
+	 * @param id The data connection profile id.
+	 * @returns The display-safe parameter values. Empty if the profile no longer exists.
+	 */
+	getDisplayParameterValues(id: string): Promise<DataConnectionParameterValues>;
 
 	/**
 	 * Sets the user's preferred connection code variant for a profile and language, persisted

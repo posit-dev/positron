@@ -62,6 +62,14 @@ export interface IDataConnectionProfile {
 	// A one-line summary of where a discovered connection points, supplied by the driver. Only ever
 	// set alongside `discovered`.
 	readonly description?: string;
+
+	// The id of the discovery this profile was saved from, set by saveDiscoveredProfile and
+	// persisted with the profile. This is what suppresses the discovery's own row once it has been
+	// saved: the two profiles cannot be matched by comparing values, since a discovery's secret
+	// values are held aside and a saved profile's live in secret storage, so the one field that
+	// distinguishes two otherwise identical data sources is invisible to both. Absent on a profile
+	// the user configured by hand.
+	readonly discoveredFromId?: string;
 }
 
 /**
@@ -176,10 +184,16 @@ export interface IDataConnectionDriver {
 	generateConnectionCode(mechanismId: string, languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]>;
 
 	/**
-	 * Produces a display-safe, redacted form of a stored secret parameter value (e.g. masking the
-	 * password embedded in a connection string) for display in the configuration dialog. The cleartext
-	 * value is passed to the driver in the ext host; only the redacted result returns. Resolves to
-	 * undefined when the driver does not implement redaction.
+	 * Produces a display-safe, redacted form of a stored parameter value (e.g. masking the password
+	 * embedded in a connection string) for display in the configuration dialog and in the
+	 * agent-facing connection catalog. The cleartext value is passed to the driver in the ext host;
+	 * only the redacted result returns. Resolves to undefined when the driver does not implement
+	 * redaction, or has nothing to redact in this value.
+	 *
+	 * Called for every parameter, not only the ones the mechanism declares secret: a credential can
+	 * sit inside an ordinary `string` parameter (an ODBC connection string embedding `PWD=`), and
+	 * only the driver knows its own formats well enough to find it. A driver that masks such values
+	 * should do so here regardless of how the parameter is declared.
 	 * @param mechanismId The id of the mechanism the connection was configured with.
 	 * @param parameterId The id of the parameter to redact.
 	 * @param value The stored cleartext parameter value.

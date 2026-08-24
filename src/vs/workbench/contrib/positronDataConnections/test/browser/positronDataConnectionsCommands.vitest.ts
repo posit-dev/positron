@@ -104,14 +104,21 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 	return stubInterface<IPositronDataConnectionsService>({
 		driverManager,
 		...createCatalogStubs(profiles, discoveredProfiles),
-		// The real service reports no secret ids for a discovered profile (nothing is in secret
-		// storage for it), so the ids apply to the saved profiles only.
-		getProfileSecretIds: vi.fn((profileId: string) =>
-			profiles.some(profile => profile.id === profileId) ? secretParameterIds : []),
-		getRedactedParameterValues: vi.fn(async (_id: string, parameterIds: readonly string[]) =>
-			Object.fromEntries(parameterIds
-				.filter(parameterId => redactedValues[parameterId] !== undefined)
-				.map(parameterId => [parameterId, redactedValues[parameterId]]))),
+		// Mirrors the real getDisplayParameterValues: every parameter the profile carries, plus the
+		// secret ones it holds elsewhere, offered to the driver for redaction. A value the driver
+		// redacts appears masked; a secret it cannot redact is left out entirely.
+		getDisplayParameterValues: vi.fn(async (profileId: string) => {
+			const profile = [...profiles, ...discoveredProfiles].find(_ => _.id === profileId);
+			const displayValues = { ...profile?.parameterValues };
+			for (const parameterId of [...Object.keys(displayValues), ...secretParameterIds]) {
+				if (redactedValues[parameterId] !== undefined) {
+					displayValues[parameterId] = redactedValues[parameterId];
+				} else if (secretParameterIds.includes(parameterId)) {
+					delete displayValues[parameterId];
+				}
+			}
+			return displayValues;
+		}),
 		getInstanceForProfile: vi.fn((profileId: string) => connectedProfileIds.includes(profileId)
 			? stubInterface<IDataConnectionInstance>({ id: 'instance-1' })
 			: undefined),
@@ -182,6 +189,24 @@ describe('getDataConnections', () => {
 
 		expect(result.summary).toBe(
 			'name=My Connection | driver=test-driver | mechanism=test-mechanism | languages=python, r | parameters=host=localhost');
+	});
+
+	// The parameter a driver declares `string` can still carry a credential -- an ODBC connection
+	// string embedding PWD= -- and the driver is the only thing that can find it, so the catalog
+	// offers it every value rather than only the declared secrets.
+	it('masks a credential the driver redacts out of a non-secret parameter', async () => {
+		const profile = createProfile({
+			parameterValues: { connectionString: 'DSN=Pagila;UID=admin;PWD=hunter2' },
+		});
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [profile],
+			redactedValues: { connectionString: 'DSN=Pagila;UID=admin;PWD=****' },
+		});
+
+		const [result] = await run(dataConnectionsService);
+
+		expect(result.summary).toBe(
+			'name=My Connection | driver=test-driver | mechanism=test-mechanism | languages=python, r | parameters=connectionString="DSN=Pagila;UID=admin;PWD=****"');
 	});
 
 	// The catalog answers "which connections do I have?", and generating code for every profile in it

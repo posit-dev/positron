@@ -105,14 +105,14 @@ const SUMMARY_UNSAFE_CHARACTERS = '|,=';
  * supports no languages at all still gets the field, empty, so "driver missing" and "driver
  * generates no code" (getConnectionCode's `no-code`) stay distinguishable in the line.
  *
- * The parameter values are the redacted set built by {@link getRedactedParameterValues}, so this
- * never renders a cleartext secret: a secret parameter appears in its redacted display form or not
- * at all.
+ * The parameter values are the display-safe set from
+ * {@link IPositronDataConnectionsService.getDisplayParameterValues}: every value the driver can
+ * redact appears masked, and a secret parameter it cannot redact is left out entirely.
  * @param profile The data connection profile.
  * @param mechanismId The id of the mechanism the profile was configured with.
  * @param languageIds The language ids the profile's driver supports, or undefined when the driver is
  * unregistered.
- * @param parameterValues The profile's redacted parameter values.
+ * @param parameterValues The profile's display-safe parameter values.
  */
 function formatConnectionSummary(
 	profile: IDataConnectionProfile,
@@ -181,33 +181,6 @@ function extractConnectionVariableName(code: string): string | undefined {
 }
 
 /**
- * Builds the profile's parameter values for the getConnections payload: non-secret values as-is,
- * plus a redacted display string for each secret parameter that has one. Never reads a secret
- * parameter's cleartext value directly -- redaction is delegated to
- * {@link IPositronDataConnectionsService.getRedactedParameterValues}, which keeps the cleartext
- * within the service/driver and returns only the redacted result.
- * @param profile The data connection profile.
- * @param dataConnectionsService The data connections service.
- */
-async function getRedactedParameterValues(
-	profile: IDataConnectionProfile,
-	dataConnectionsService: IPositronDataConnectionsService,
-): Promise<DataConnectionParameterValues> {
-	// profile.parameterValues never contains secret values -- a saved profile's live in secret
-	// storage, and the service splits a discovery's out at discovery time -- so this starts as the
-	// full non-secret set.
-	const parameterValues: DataConnectionParameterValues = { ...profile.parameterValues };
-
-	const redacted = await dataConnectionsService.getRedactedParameterValues(
-		profile.id,
-		dataConnectionsService.getProfileSecretIds(profile.id),
-	);
-	Object.assign(parameterValues, redacted);
-
-	return parameterValues;
-}
-
-/**
  * Builds the per-language connection code payload for a profile, using the profile's preferred
  * variant per language (falling back to the driver's default) -- the same generateConnectionCode
  * call dataConnectionEntryRow.tsx uses to populate the Connect With dialog. A driver that throws
@@ -267,8 +240,8 @@ async function getLanguagePayloads(
  * profiles, matching the pane's ordering, and are marked `discovered=true` in their summary line.
  * Their ids work everywhere a saved profile's id does -- getConnectionCode, getSchema, and the
  * connect it performs all resolve them -- so a caller doesn't need to treat them differently. The
- * service has already dropped any discovery that duplicates a saved profile, so nothing appears
- * twice. Returns an empty list when the commands are gated off -- see
+ * service has already dropped any discovery the user has saved, so a connection saved from the pane
+ * does not appear twice. Returns an empty list when the commands are gated off -- see
  * {@link isDataConnectionsCommandEnabled}.
  *
  * Deliberately carries no generated connection code. Generating it costs a round trip to the driver
@@ -283,18 +256,17 @@ export async function getDataConnections(accessor: ServicesAccessor): Promise<ID
 
 	const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
 
-	// The service's full catalog: saved profiles first, discovered connections after, deduped --
-	// the same ordering the pane presents. A discovered profile has nothing in secret storage (it
-	// was never saved; the service splits any secret-declared discovery values out before the
-	// profile is visible here), so getProfileSecretIds reports none and the redaction below is a
-	// no-op for it.
+	// The service's full catalog: saved profiles first, discovered connections after, with the
+	// discoveries already saved dropped -- the same rows, in the same order, the pane presents. Discovered profiles go through the same display-safe
+	// parameter path as saved ones: their driver-reported secrets are held in the service rather
+	// than secret storage, but they redact identically.
 	return Promise.all(dataConnectionsService.getAllProfiles().map(async profile => {
 		// The driver may be unregistered (extension not installed, or not yet activated); fall back
 		// to the profile's own mechanismId and report no code languages in that case.
 		const driver = dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
 		const mechanismId = driver ? resolveMechanismId(driver, profile) : profile.mechanismId;
 
-		const parameterValues = await getRedactedParameterValues(profile, dataConnectionsService);
+		const parameterValues = await dataConnectionsService.getDisplayParameterValues(profile.id);
 
 		return {
 			profileId: profile.id,
@@ -653,7 +625,7 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
-		returns: 'An array of connection profiles -- the user\'s saved connections first, then connections detected on this machine (e.g. ODBC data sources) -- without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id>[ | discovered=true][ | description=<one line on where a detected connection points>] | languages=<languageId>, ... | parameters=<key>=<value>, ... -- the driver\'s own parameters all nest inside the single parameters= field (split it at its first = only), with secrets in redacted form only. discovered=true marks a detected connection; its profileId works with getConnectionCode and getSchema just like a saved one, but it is ephemeral -- it stops resolving when the user saves that connection (the saved profile gets a fresh profileId) or the driver stops reporting it -- so re-read this catalog rather than reusing a stored one. `languages` is absent when the driver\'s extension is not installed or has not activated, and present but empty when the driver generates no code. Empty when no connection is configured or detected, or when the dataConnections.enabled setting is off.',
+		returns: 'An array of connection profiles -- the user\'s saved connections first, then connections detected on this machine (e.g. ODBC data sources) -- without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id>[ | discovered=true][ | description=<one line on where a detected connection points>] | languages=<languageId>, ... | parameters=<key>=<value>, ... -- the driver\'s own parameters all nest inside the single parameters= field (split it at its first = only), with every value the driver can redact shown in that redacted form and a secret it cannot redact left out. discovered=true marks a detected connection; its profileId works with getConnectionCode and getSchema just like a saved one, but it is ephemeral -- it stops resolving when the user saves that connection (the saved profile gets a fresh profileId) or the driver stops reporting it -- so re-read this catalog rather than reusing a stored one. `languages` is absent when the driver\'s extension is not installed or has not activated, and present but empty when the driver generates no code. Empty when no connection is configured or detected, or when the dataConnections.enabled setting is off.',
 	},
 });
 

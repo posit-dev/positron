@@ -19,7 +19,7 @@ import { IEditorService } from '../../../editor/common/editorService.js';
 import { PositronDataExplorerUri } from '../../../positronDataExplorer/common/positronDataExplorerUri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
 import { IPositronDataConnectionsService } from '../../common/interfaces/positronDataConnectionsService.js';
 import { PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
 
@@ -466,7 +466,27 @@ describe('PositronDataConnectionsService', () => {
 			]);
 		});
 
-		it('hides a discovery that matches a saved profile, so a configured data source appears once', async () => {
+		// Saving one of two discoveries must not take the other down with it. They cannot be told
+		// apart by comparing values -- two data sources can differ only in a password, which no
+		// profile carries in public -- so the saved profile records which discovery it came from
+		// and exactly that one stops being reported.
+		it('stops reporting the discovery a profile was saved from, and only that one', async () => {
+			await registerDiscoveringDriver([
+				pagila,
+				{ ...pagila, id: 'odbc-dsn:Pagila (readonly)', name: 'Pagila (readonly)' },
+			]);
+
+			service.saveDiscoveredProfile('discovered:test-driver:odbc-dsn:Pagila');
+
+			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName))
+				.toEqual(['Pagila (readonly)']);
+		});
+
+		// A hand-configured profile has no link to any discovery, and the fields that would settle
+		// whether it is the same data source are the secret ones neither side carries. Two rows the
+		// user can reconcile beat one row that silently hides a connection from the pane and from
+		// the catalog the Assistant reads.
+		it('keeps reporting a discovery that a hand-configured profile resembles', async () => {
 			await registerDiscoveringDriver([pagila]);
 
 			service.addUpdateProfile({
@@ -474,15 +494,7 @@ describe('PositronDataConnectionsService', () => {
 				mechanismId: 'test-mechanism',
 				parameterValues: { dsn: 'Pagila' },
 			});
-			expect(service.getDiscoveredProfiles()).toEqual([]);
 
-			// A profile whose values differ does not shadow it.
-			service.removeProfile('saved-1');
-			service.addUpdateProfile({
-				...createProfile('saved-2'),
-				mechanismId: 'test-mechanism',
-				parameterValues: { dsn: 'Elsewhere' },
-			});
 			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName)).toEqual(['Pagila']);
 		});
 
@@ -512,6 +524,8 @@ describe('PositronDataConnectionsService', () => {
 				connectionName: 'Pagila',
 				mechanismId: 'test-mechanism',
 				parameterValues: { dsn: 'Pagila' },
+				// What it was saved from, which is what suppresses that discovery's own row.
+				discoveredFromId: 'discovered:test-driver:odbc-dsn:Pagila',
 			});
 			expect(service.getDiscoveredProfiles()).toEqual([]);
 		});
@@ -549,9 +563,11 @@ describe('PositronDataConnectionsService', () => {
 			});
 
 			const id = 'discovered:test-driver:odbc-dsn:Pagila';
-			// The public forms are secret-free, and nothing is in secret storage for a discovery...
+			// The public form is secret-free, while the secret it holds aside is still reported as
+			// one -- a display-safe view must know to redact it rather than be told there is
+			// nothing there.
 			expect(service.getProfile(id)?.parameterValues).toEqual({ dsn: 'Pagila' });
-			expect(service.getProfileSecretIds(id)).toEqual([]);
+			expect(service.getProfileSecretIds(id)).toEqual(['pwd']);
 			// ...while the connect-time form has the value the driver reported.
 			await expect(service.getProfileWithSecrets(id)).resolves.toMatchObject({
 				parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
@@ -582,6 +598,95 @@ describe('PositronDataConnectionsService', () => {
 			await registerDiscoveringDriver([pagila]);
 
 			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName)).toEqual(['Pagila']);
+		});
+	});
+	// Every parameter is offered to the driver for redaction, not only the ones the mechanism
+	// declares secret: a credential can sit inside an ordinary string parameter (an ODBC connection
+	// string embedding PWD=), and only the driver knows its own formats well enough to find it.
+	describe('getDisplayParameterValues', () => {
+		// A driver that masks the password inside any value carrying one, and reports nothing to
+		// redact in the rest -- the shape a real driver's format-specific redaction has.
+		const registerRedactingDriver = (parameters: IDataConnectionParameter[]) => {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: {
+					...createDriverMetadata(),
+					mechanisms: [{ id: 'test-mechanism', label: 'Test Mechanism', description: '', parameters }],
+				},
+				redactParameterValue: async (_mechanismId: string, _parameterId: string, value: string) =>
+					value.includes('PWD=') ? value.replace(/PWD=[^;]*/, 'PWD=****') : undefined,
+				discoverConnections: async () => [],
+			}));
+		};
+
+		it('masks a credential the driver finds in a parameter the mechanism does not call secret', async () => {
+			registerRedactingDriver([{ id: 'connectionString', label: 'Connection String', type: 'string' }]);
+			service.addUpdateProfile({
+				...createProfile('conn-1'),
+				parameterValues: { connectionString: 'DSN=Pagila;UID=admin;PWD=hunter2' },
+			});
+
+			await expect(service.getDisplayParameterValues('conn-1')).resolves.toEqual({
+				connectionString: 'DSN=Pagila;UID=admin;PWD=****',
+			});
+		});
+
+		it('leaves out a secret the driver reports nothing to redact in, rather than passing it through', async () => {
+			registerRedactingDriver([{ id: 'pwd', label: 'Password', type: 'password' }]);
+			service.addUpdateProfile({
+				...createProfile('conn-1'),
+				parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
+			});
+
+			await expect(service.getDisplayParameterValues('conn-1')).resolves.toEqual({ dsn: 'Pagila' });
+		});
+
+		// A discovery's secrets live in the service rather than in secret storage, so a display-safe
+		// view that only knew about secret storage would render them as if they were ordinary values.
+		it('redacts a discovered connection\'s secret the same way a saved one\'s is', async () => {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: {
+					...createDriverMetadata(),
+					mechanisms: [{
+						id: 'test-mechanism',
+						label: 'Test Mechanism',
+						description: '',
+						parameters: [{ id: 'pwd', label: 'Password', type: 'password' }],
+					}],
+				},
+				redactParameterValue: async (_mechanismId: string, _parameterId: string, value: string) =>
+					value.includes('PWD=') ? value.replace(/PWD=[^;]*/, 'PWD=****') : undefined,
+				discoverConnections: async () => [{
+					id: 'odbc-dsn:Pagila',
+					name: 'Pagila',
+					mechanismId: 'test-mechanism',
+					parameterValues: { dsn: 'Pagila', pwd: 'PWD=hunter2' },
+				}],
+			}));
+			await vi.waitFor(() => {
+				expect(service.getDiscoveredProfiles().length).toBe(1);
+			});
+
+			await expect(service.getDisplayParameterValues('discovered:test-driver:odbc-dsn:Pagila'))
+				.resolves.toEqual({ dsn: 'Pagila', pwd: 'PWD=****' });
+		});
+
+		// Nothing can be redacted without a driver, and passing values through unredacted is what
+		// this method exists to avoid, so it stops at what the profile holds in public.
+		it('falls back to the profile\'s secret-free values when the driver is unregistered', async () => {
+			service.addUpdateProfile({
+				...createProfile('conn-1'),
+				parameterValues: { connectionString: 'DSN=Pagila;PWD=hunter2' },
+			});
+
+			await expect(service.getDisplayParameterValues('conn-1')).resolves.toEqual({
+				connectionString: 'DSN=Pagila;PWD=hunter2',
+			});
+		});
+
+		it('is empty for a profile that does not exist', async () => {
+			await expect(service.getDisplayParameterValues('missing')).resolves.toEqual({});
 		});
 	});
 });

@@ -97,10 +97,9 @@ describe('data connections inspect actions', () => {
 			driverManager: stubInterface<IDataConnectionsDriverManager>({
 				getDriver: vi.fn((driverId: string) => driverId === driver.id ? driver : undefined),
 			}),
-			// The catalog payload redacts secrets through the service; these profiles have no
+			// The catalog payload redacts parameters through the service; these profiles have no
 			// parameters at all, so there is nothing to redact.
-			getProfileSecretIds: vi.fn(() => []),
-			getRedactedParameterValues: vi.fn(async () => ({})),
+			getDisplayParameterValues: vi.fn(async () => ({})),
 			getInstances: vi.fn(() => instances),
 			getInstanceForProfile: vi.fn((profileId: string) =>
 				instances.find(instance => instance.profileId === profileId)),

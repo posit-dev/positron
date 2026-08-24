@@ -17,7 +17,7 @@ import { PositronDataExplorerUri } from '../../positronDataExplorer/common/posit
 import { IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { DataConnectionParameterValues, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
 
 // Storage key prefix for persisted data connection profiles. Each data connection profile gets
@@ -150,18 +150,22 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	/**
 	 * Gets the connections drivers report as already configured on this machine, as ephemeral
-	 * profiles. Discoveries matching a saved profile are filtered out here rather than at refresh
+	 * profiles. Discoveries the user has already saved are filtered out here rather than at refresh
 	 * time, so saving or removing a profile takes effect without waiting for a re-discovery.
 	 */
 	getDiscoveredProfiles(): readonly IDataConnectionProfile[] {
-		return this._discoveredProfiles.filter(discovered =>
-			!this._profiles.some(saved => this._isSameConnection(saved, discovered)));
+		const savedFromIds = new Set(this._profiles
+			.map(saved => saved.discoveredFromId)
+			.filter((id): id is string => id !== undefined));
+		return this._discoveredProfiles.filter(discovered => !savedFromIds.has(discovered.id));
 	}
 
 	/**
 	 * Saves a discovered connection as an ordinary profile. The saved profile gets a fresh id: the
 	 * discovered id is scoped to the driver's discovery namespace, and reusing it would tie the
-	 * saved profile's identity to a discovery that may later disappear.
+	 * saved profile's identity to a discovery that may later disappear. The discovered id is instead
+	 * recorded as `discoveredFromId`, which is what stops the discovery being reported alongside the
+	 * profile now saved from it.
 	 * @param id The discovered profile id.
 	 */
 	saveDiscoveredProfile(id: string): string | undefined {
@@ -177,6 +181,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			...rest,
 			id: generateUuid(),
 			createdAt: Date.now(),
+			// Remember which discovery this came from, so getDiscoveredProfiles suppresses that one
+			// row and only that one.
+			discoveredFromId: id,
 			// Re-attach any secret values discovery split out, so addUpdateProfile routes them
 			// into secret storage like any other saved secret.
 			parameterValues: { ...rest.parameterValues, ...this._discoveredSecretValues.get(id) },
@@ -305,7 +312,15 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * stored secrets (or no longer exists).
 	 */
 	getProfileSecretIds(id: string): readonly string[] {
-		return this._readPersistedProfile(id)?.secretParameterIds ?? [];
+		const persistedProfile = this._readPersistedProfile(id);
+		if (persistedProfile) {
+			return persistedProfile.secretParameterIds;
+		}
+
+		// A discovered profile has nothing persisted, but a driver may well have reported secret
+		// values for it; _discoveredSecretValues is its secret storage. Report those ids too, so a
+		// caller redacting a discovery's secrets is not told it has none.
+		return Object.keys(this._discoveredSecretValues.get(id) ?? {});
 	}
 
 	/**
@@ -348,17 +363,61 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			if (typeof value !== 'string') {
 				return;
 			}
-			try {
-				const redacted = await driver.redactParameterValue(mechanism.id, parameterId, value);
-				if (redacted !== undefined) {
-					result[parameterId] = redacted;
-				}
-			} catch (err) {
-				this._logService.error(`[DataConnections] Failed to redact ${id}/${parameterId}: ${err}`);
+			const redacted = await this._redactParameterValue(driver, mechanism.id, id, parameterId, value);
+			if (redacted !== undefined) {
+				result[parameterId] = redacted;
 			}
 		}));
 
 		return result;
+	}
+
+	/**
+	 * Gets the profile's full parameter values in display-safe form. Offers every parameter to the
+	 * driver for redaction, not only the ones the mechanism declares secret: a credential can sit
+	 * inside an ordinary `string` parameter -- an ODBC connection string embedding `PWD=` -- and
+	 * only the driver knows its own formats well enough to find it. See
+	 * {@link IPositronDataConnectionsService.getDisplayParameterValues}.
+	 * @param id The data connection profile id.
+	 */
+	async getDisplayParameterValues(id: string): Promise<DataConnectionParameterValues> {
+		const profile = this.getProfile(id);
+		if (!profile) {
+			return {};
+		}
+
+		// The profile's own values are secret-free already, saved or discovered, so this starts from
+		// the answer that leaks nothing and improves on it below.
+		const displayValues: DataConnectionParameterValues = { ...profile.parameterValues };
+
+		// Without a driver and mechanism nothing can be redacted, and passing values through
+		// unredacted is exactly what this method exists to avoid, so stop at the secret-free set.
+		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
+		const mechanism = driver && resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
+		if (!driver || !mechanism) {
+			return displayValues;
+		}
+
+		// Resolve the profile once with its secrets, so the parameters held out of the profile can
+		// be offered to the driver too -- a secret it can redact is more useful shown masked than
+		// missing.
+		const profileWithSecrets = await this.getProfileWithSecrets(id) ?? profile;
+		const secretParameterIds = new Set(
+			mechanism.parameters.filter(isSecretParameter).map(parameter => parameter.id));
+
+		await Promise.all(Object.entries(profileWithSecrets.parameterValues).map(async ([parameterId, value]) => {
+			// Only strings can be redacted. A secret that can't be is dropped, never passed through.
+			const redacted = typeof value === 'string'
+				? await this._redactParameterValue(driver, mechanism.id, id, parameterId, value)
+				: undefined;
+			if (redacted !== undefined) {
+				displayValues[parameterId] = redacted;
+			} else if (secretParameterIds.has(parameterId)) {
+				delete displayValues[parameterId];
+			}
+		}));
+
+		return displayValues;
 	}
 
 	/**
@@ -603,6 +662,31 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	//#region Private Methods
 
 	/**
+	 * Asks a driver for the redacted form of one parameter value. A driver that throws is treated
+	 * as one that cannot redact this value: the caller then masks or drops it, so a broken driver
+	 * cannot turn into a cleartext passthrough.
+	 * @param driver The profile's registered driver.
+	 * @param mechanismId The id of the mechanism the connection was configured with.
+	 * @param profileId The data connection profile id, for logging.
+	 * @param parameterId The id of the parameter to redact.
+	 * @param value The cleartext parameter value.
+	 */
+	private async _redactParameterValue(
+		driver: IDataConnectionDriver,
+		mechanismId: string,
+		profileId: string,
+		parameterId: string,
+		value: string,
+	): Promise<string | undefined> {
+		try {
+			return await driver.redactParameterValue(mechanismId, parameterId, value);
+		} catch (err) {
+			this._logService.error(`[DataConnections] Failed to redact ${profileId}/${parameterId}: ${err}`);
+			return undefined;
+		}
+	}
+
+	/**
 	 * Re-reads every registered driver's discovered connections and republishes them as ephemeral
 	 * profiles.
 	 *
@@ -622,8 +706,8 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 					// _splitAndPersistSecrets: the profile every consumer sees stays secret-free
 					// -- the catalog and code commands render its parameterValues verbatim --
 					// while getProfileWithSecrets merges the secret values back for connect().
-					// This also keeps _isSameConnection symmetric, since a saved profile's
-					// in-memory parameterValues are secret-free too.
+					// A discovery's split-out secrets are still reported by getProfileSecretIds, so
+					// the display-safe views redact them the same way a saved profile's are.
 					const mechanism = resolveDataConnectionMechanism(driver.metadata, connection.mechanismId);
 					const secretParameterIds = new Set(
 						mechanism?.parameters.filter(isSecretParameter).map(parameter => parameter.id));
@@ -662,25 +746,6 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			.map(discovery => [discovery.profile.id, discovery.secretValues]));
 		this._logService.trace(`[DataConnections] Discovered ${this._discoveredProfiles.length} connection(s) across ${drivers.length} driver(s)`);
 		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
-	}
-
-	/**
-	 * Whether two profiles describe the same connection: the same driver, configured the same way,
-	 * with the same values. Used to suppress a discovery the user has already saved.
-	 *
-	 * Only the public parameter values are compared, which is all a saved profile holds in memory --
-	 * its secrets live in secret storage. A discovery carries no secrets either (an ODBC data source
-	 * names itself and leaves the credentials to the DSN), so the comparison is like for like.
-	 */
-	private _isSameConnection(saved: IDataConnectionProfile, discovered: IDataConnectionProfile): boolean {
-		if (saved.driverMetadata.id !== discovered.driverMetadata.id || saved.mechanismId !== discovered.mechanismId) {
-			return false;
-		}
-
-		const savedKeys = Object.keys(saved.parameterValues);
-		const discoveredKeys = Object.keys(discovered.parameterValues);
-		return savedKeys.length === discoveredKeys.length
-			&& savedKeys.every(key => saved.parameterValues[key] === discovered.parameterValues[key]);
 	}
 
 	/**

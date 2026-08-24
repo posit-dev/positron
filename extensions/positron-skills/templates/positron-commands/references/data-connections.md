@@ -101,9 +101,12 @@ yourself. A `languages=` that is present but empty is a different condition: the
 driver is installed and activated but generates no connection code, which is
 what `positronDataConnections.getConnectionCode` reports as `no-code`.
 
-**The parameters are secret-free, by design.** A secret parameter appears in
-`parameters=` only in redacted display form (e.g. `password=****`), or not at
-all. Never invent, guess, or prompt for a credential to fill one in.
+**The parameters are redacted, by design.** Every value is put through the
+driver's redaction first, so a secret parameter appears in `parameters=` only in
+redacted display form (e.g. `password=****`), or not at all -- and so does a
+credential the driver finds embedded in an ordinary value, such as the `PWD=` in
+an ODBC connection string. Never invent, guess, or prompt for a credential to
+fill one in.
 
 {{command:positronDataConnections.getConnections}}
 
