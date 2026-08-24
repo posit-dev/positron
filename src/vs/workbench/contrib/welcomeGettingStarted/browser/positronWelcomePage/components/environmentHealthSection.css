@@ -212,9 +212,15 @@
 	min-width: 0;
 }
 
-.positron-welcome-page-environment-setup .environment-health-item-detail {
+.positron-welcome-page-environment-setup .environment-health-item-detail,
+.positron-welcome-page-environment-setup .environment-health-item-path {
 	color: var(--vscode-descriptionForeground);
 	margin: 0;
+}
+
+.positron-welcome-page-environment-setup .environment-health-item-path {
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
 }
 
 /*
