@@ -12,13 +12,18 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
+import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ActiveRuntimeSession } from '../../../../services/runtimeSession/common/activeRuntimeSession.js';
+import { UiClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeUiClient.js';
+import { EvalResult } from '../../../../services/languageRuntime/common/positronUiComm.js';
+import { IProgressService } from '../../../../../platform/progress/common/progress.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../../positronNotebook/common/positronNotebookCommon.js';
 
@@ -1097,5 +1102,159 @@ describe('SelectSessionAction', () => {
 		expect(result).toMatchObject({ selected: false });
 		expect(pickFn).toHaveBeenCalled();
 		expect(foregroundSession).toBeUndefined();
+	});
+});
+
+describe('EvaluateCodeAction', () => {
+	const openEditor = vi.fn(async () => undefined);
+	const warn = vi.fn();
+	const evaluateCode = vi.fn(async (): Promise<EvalResult> => ({ result: { a: 1 }, output: '' }));
+	const inputFn = vi.fn(async (): Promise<string | undefined> => '{"a": 1}');
+
+	let foregroundSession: ILanguageRuntimeSession | undefined;
+	let activeSession: ActiveRuntimeSession | undefined;
+	// Set by startUiClient, mirroring how ActiveRuntimeSession only assigns
+	// `uiClient` once the comm round-trip to the kernel resolves.
+	let uiClient: UiClientInstance | undefined;
+	let startUiClientFails: boolean;
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+			get foregroundSession() { return foregroundSession; },
+			getActiveSession: () => activeSession,
+		}))
+		.stub(INotificationService, stubInterface<INotificationService>({ warn }))
+		.stub(IEditorService, stubInterface<IEditorService>({ openEditor }))
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			// Narrow to IQuickInputService['input'] because the field is generic
+			// over the options shape; our single-shape stub needs the annotation.
+			input: inputFn as IQuickInputService['input'],
+		}))
+		.stub(IProgressService, stubInterface<IProgressService>({
+			withProgress: ((_options: unknown, task: () => Promise<unknown>) =>
+				task()) as IProgressService['withProgress'],
+		}))
+		.build();
+
+	const startUiClient = vi.fn(async () => {
+		// Resolve on a later turn, so a caller that reads `uiClient` without
+		// awaiting sees the pre-comm state.
+		await new Promise(resolve => setTimeout(resolve, 0));
+		if (startUiClientFails) {
+			throw new Error('comm_open failed');
+		}
+		uiClient = readyUiClient();
+		return 'ui-client-1';
+	});
+
+	function readyUiClient(): UiClientInstance {
+		return stubInterface<UiClientInstance>({ evaluateCode });
+	}
+
+	beforeEach(() => {
+		uiClient = undefined;
+		startUiClientFails = false;
+		foregroundSession = stubInterface<ILanguageRuntimeSession>({
+			sessionId: 'python-session-1',
+			runtimeMetadata: makeRuntime(),
+		});
+		activeSession = stubInterface<ActiveRuntimeSession>({
+			get uiClient() { return uiClient; },
+			startUiClient,
+		});
+	});
+
+	function runAction() {
+		return ctx.instantiationService.invokeFunction(accessor =>
+			new EvaluateCodeAction().run(accessor));
+	}
+
+	// `openEditor` is stubbed zero-arg so it satisfies IEditorService's overloads,
+	// which leaves its recorded args untyped; narrow them back to the shape the
+	// action actually passes.
+	function openedEditor(): IUntitledTextResourceEditorInput {
+		const args: unknown[] = openEditor.mock.calls[0];
+		return args[0] as IUntitledTextResourceEditorInput;
+	}
+
+	it('waits for the UI comm on a session whose comm is still starting', async () => {
+		await runAction();
+
+		expect(warn).not.toHaveBeenCalled();
+		expect(startUiClient).toHaveBeenCalled();
+		expect(openedEditor()).toMatchObject({
+			languageId: 'markdown',
+			contents: expect.stringContaining('## Result'),
+		});
+	});
+
+	it('evaluates immediately when the UI comm is already up', async () => {
+		uiClient = readyUiClient();
+
+		await runAction();
+
+		expect(warn).not.toHaveBeenCalled();
+		expect(evaluateCode).toHaveBeenCalledWith('{"a": 1}');
+		expect(openEditor).toHaveBeenCalled();
+	});
+
+	it('writes the input, result and output sections into a markdown editor', async () => {
+		evaluateCode.mockResolvedValueOnce({ result: { a: 1 }, output: 'hello' });
+
+		await runAction();
+
+		// One regex rather than five toContain calls, so section order is pinned too.
+		expect(openedEditor().contents).toMatch(
+			/## Input[\s\S]*\{"a": 1\}[\s\S]*## Result[\s\S]*## Output[\s\S]*hello/);
+	});
+
+	it('writes an error section when evaluation fails', async () => {
+		evaluateCode.mockRejectedValueOnce(new Error('NameError: x'));
+
+		await runAction();
+
+		const contents = openedEditor().contents;
+		expect(contents).toContain('## Error');
+		expect(contents).toContain('NameError: x');
+		expect(contents).not.toContain('## Result');
+	});
+
+	it('warns when the UI comm cannot be started', async () => {
+		startUiClientFails = true;
+
+		await runAction();
+
+		expect(warn).toHaveBeenCalledWith('Session does not support code evaluation.');
+		expect(inputFn).not.toHaveBeenCalled();
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
+	it('warns when the session has no active session wrapper', async () => {
+		activeSession = undefined;
+
+		await runAction();
+
+		expect(warn).toHaveBeenCalledWith('Session does not support code evaluation.');
+		expect(inputFn).not.toHaveBeenCalled();
+	});
+
+	it('warns when there is no foreground session', async () => {
+		foregroundSession = undefined;
+
+		await runAction();
+
+		expect(warn).toHaveBeenCalledWith('No active interpreter session.');
+		expect(inputFn).not.toHaveBeenCalled();
+	});
+
+	it('opens no editor when the user dismisses the code prompt', async () => {
+		inputFn.mockResolvedValueOnce(undefined);
+
+		await runAction();
+
+		expect(warn).not.toHaveBeenCalled();
+		expect(evaluateCode).not.toHaveBeenCalled();
+		expect(openEditor).not.toHaveBeenCalled();
 	});
 });

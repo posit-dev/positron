@@ -1716,7 +1716,7 @@ export function registerLanguageRuntimeActions() {
 	});
 }
 
-registerAction2(class EvaluateCodeAction extends Action2 {
+export class EvaluateCodeAction extends Action2 {
 
 	constructor() {
 		super({
@@ -1738,6 +1738,7 @@ registerAction2(class EvaluateCodeAction extends Action2 {
 		const notificationService = accessor.get(INotificationService);
 		const progressService = accessor.get(IProgressService);
 		const editorService = accessor.get(IEditorService);
+		const logService = accessor.get(ILogService);
 
 		// Get the foreground session
 		const foregroundSession = runtimeSessionService.foregroundSession;
@@ -1752,7 +1753,18 @@ registerAction2(class EvaluateCodeAction extends Action2 {
 		// Get the active runtime session wrapper (which has the UI client)
 		const activeSession = runtimeSessionService.getActiveSession(foregroundSession.sessionId);
 
-		if (!activeSession || !activeSession.uiClient) {
+		// The UI comm is started fire-and-forget when the session reaches Ready, so
+		// `uiClient` can still be undefined on a session that already looks ready.
+		// startUiClient() is idempotent and joins an in-flight start.
+		if (activeSession) {
+			try {
+				await activeSession.startUiClient();
+			} catch (err) {
+				logService.error(`Failed to start the UI comm for code evaluation: ${err}`);
+			}
+		}
+
+		if (!activeSession?.uiClient) {
 			notificationService.warn(
 				localize('positron.evaluateCode.noUiClient', "Session does not support code evaluation.")
 			);
@@ -1824,7 +1836,9 @@ registerAction2(class EvaluateCodeAction extends Action2 {
 			languageId: 'markdown',
 		});
 	}
-});
+}
+
+registerAction2(EvaluateCodeAction);
 
 registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 	// from explorer
