@@ -185,23 +185,44 @@ jobs:
 
       # Three launches, because launch-to-launch variance dominates. Each is a
       # separate Playwright invocation so every launch is genuinely cold.
+      #
+      # BUILD must only be set for the desktop lane. options.fixtures.ts reads
+      # it unconditionally as codePath, and codePath ?? VSCODE_REMOTE_SERVER_PATH
+      # (playwrightBrowser.ts) means any defined value -- even '' -- wins over
+      # the extracted server path. So the desktop build path is exported
+      # conditionally in the shell rather than assigned an empty value here:
+      # a step env: entry is always present, even when its expression is '',
+      # which would silently resolve to the source server script instead of
+      # either build.
       - name: Measure (launch 0)
         env:
-          BUILD: ${{ steps.build.outputs.BUILD }}
+          DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 0
-        run: npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
+        run: |
+          if [ "${{ matrix.lane }}" != "server" ]; then
+            export BUILD="$DESKTOP_BUILD"
+          fi
+          npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
 
       - name: Measure (launch 1)
         env:
-          BUILD: ${{ steps.build.outputs.BUILD }}
+          DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 1
-        run: npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
+        run: |
+          if [ "${{ matrix.lane }}" != "server" ]; then
+            export BUILD="$DESKTOP_BUILD"
+          fi
+          npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
 
       - name: Measure (launch 2)
         env:
-          BUILD: ${{ steps.build.outputs.BUILD }}
+          DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 2
-        run: npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
+        run: |
+          if [ "${{ matrix.lane }}" != "server" ]; then
+            export BUILD="$DESKTOP_BUILD"
+          fi
+          npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
 
       # Separate from the launches so a failure to render cannot lose the
       # measurements, which are the expensive part.
@@ -210,12 +231,19 @@ jobs:
       # a follow-up. Set here rather than omitted so the switch is visible at the
       # point someone will look for it. The step summary and the HTML artifact
       # are produced either way, so the run is still useful with it off.
+      #
+      # BUILD is exported conditionally for the same reason as the Measure
+      # steps above: it must be genuinely unset in the server lane, not empty.
       - name: Render report
         env:
-          BUILD: ${{ steps.build.outputs.BUILD }}
+          DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_PUBLISH: 'false'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
-        run: npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Render and publish'
+        run: |
+          if [ "${{ matrix.lane }}" != "server" ]; then
+            export BUILD="$DESKTOP_BUILD"
+          fi
+          npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Render and publish'
 
       - name: Upload report
         if: always()
