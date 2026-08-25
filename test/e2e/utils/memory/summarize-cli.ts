@@ -358,8 +358,10 @@ function main(): void {
 // Compiled to CommonJS, an unguarded call runs on any `require` of those exports:
 // under Vitest, `process.argv.slice(2)` is something like ['run', 'some.vitest.ts'],
 // both truthy, so the argument check passes and `summarize` writes its HTML over
-// whatever the second argument names. Nothing imports it today; the guard is here
-// so that doing so cannot overwrite a source file.
+// whatever the second argument names. This guard is load-bearing: summary.vitest.ts
+// imports four of this module's exports (buildLaneSections, collectScenarios,
+// containerHtmlFrom, renderLaneSectionsHtml), and every one of those `import`s runs
+// this file top to bottom under exactly the argv shape described above.
 if (require.main === module) {
 	main();
 }
