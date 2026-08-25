@@ -7,7 +7,11 @@ import * as assert from 'assert';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as fsapi from '../../../client/common/platform/fs-paths';
-import { canonicalizePath, checkParentDirs } from '../../../client/pythonEnvironments/common/externalDependencies';
+import {
+    canonicalizePath,
+    checkParentDirs,
+    isDirectorySync,
+} from '../../../client/pythonEnvironments/common/externalDependencies';
 
 suite('checkParentDirs tests', () => {
     let pathExistsSyncStub: sinon.SinonStub;
@@ -70,5 +74,20 @@ suite('canonicalizePath tests', () => {
         const actual = await canonicalizePath(input);
 
         assert.strictEqual(actual, path.normalize(input));
+    });
+});
+
+suite('isDirectorySync tests', () => {
+    test('returns true for a directory', () => {
+        assert.strictEqual(isDirectorySync(__dirname), true);
+    });
+
+    test('returns false for a file', () => {
+        assert.strictEqual(isDirectorySync(__filename), false);
+    });
+
+    test('returns false instead of throwing for a path that does not exist', () => {
+        const missing = path.join(__dirname, 'asdalsk-positron-does-not-exist');
+        assert.strictEqual(isDirectorySync(missing), false);
     });
 });
