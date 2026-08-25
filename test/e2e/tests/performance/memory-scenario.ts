@@ -8,7 +8,7 @@ import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
-import { collectAllGarbage } from '../../utils/memory/gc.js';
+import { collectAllGarbage, gcTargetsFor } from '../../utils/memory/gc.js';
 import { MemoryLane } from '../../utils/memory/lanes.js';
 import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
@@ -132,7 +132,7 @@ export function defineMemoryScenario(options: {
 				userDataDir: app.userDataPath,
 				launchIndex: Number(process.env.MEMORY_LAUNCH_INDEX ?? 0),
 				extensions,
-				forceGc: () => collectAllGarbage()
+				forceGc: () => collectAllGarbage(gcTargetsFor(lane))
 			});
 
 			expect(snapshot.processes.length, 'no processes found in the tree').toBeGreaterThan(3);
@@ -183,6 +183,13 @@ export function defineMemoryScenario(options: {
 			expect(snapshot.treeSettled,
 				`sampling ran to its ${SAMPLING_CAP_MS / 1000}s cap without the tree settling, so this is a mid-load number`)
 				.toBe(true);
+
+			// The server route to the inspector is traced in code but new, so a
+			// silently absent GC must fail rather than publish a noisier number that
+			// looks like a regression later.
+			expect(snapshot.forcedGc?.map(stats => stats.role),
+				'no forced GC ran; the inspector port did not come up and these figures carry uncollected startup garbage')
+				.toEqual(gcTargetsFor(lane).map(target => target.role));
 
 			// Per-process quiescence, which is a weaker condition than the tree
 			// settling: this catches a process still visibly moving within the

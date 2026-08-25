@@ -15,6 +15,8 @@
  * MB, which is the only way to make either figure comparable across launches.
  */
 
+import { MemoryLane } from './lanes.js';
+
 export interface GcTarget {
 	role: 'shared' | 'extension_host';
 	label: string;
@@ -26,6 +28,20 @@ export const GC_TARGETS: GcTarget[] = [
 	{ role: 'shared', label: 'shared process', port: 5879, flag: '--inspect-sharedprocess' },
 	{ role: 'extension_host', label: 'extension host', port: 5870, flag: '--inspect-extensions' }
 ];
+
+/**
+ * Which processes to collect in a given lane.
+ *
+ * The shared process is Electron-only, so the server lane has one target. Its
+ * inspector is not opened by a launch flag either: the remote extension host
+ * takes its port from the client, over the workbench payload. See the spec's
+ * "Forced GC in the server lane".
+ */
+export function gcTargetsFor(lane: MemoryLane): GcTarget[] {
+	return lane === 'server'
+		? GC_TARGETS.filter(target => target.role === 'extension_host')
+		: GC_TARGETS;
+}
 
 export interface ForcedGcStats {
 	role: GcTarget['role'];

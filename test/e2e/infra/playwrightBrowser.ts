@@ -222,7 +222,13 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 		'["enableProposedApi",""]',
 		'["skipWelcome", "true"]',
 		'["skipReleaseNotes", "true"]',
-		`["logLevel","${options.verbose ? 'trace' : 'info'}"]`
+		`["logLevel","${options.verbose ? 'trace' : 'info'}"]`,
+		// --- Start Positron ---
+		// The remote extension host takes its inspect port from the client, not the
+		// server's argv, so the memory lane's forced GC is enabled here rather than
+		// through extraArgs (which only the Electron launcher consumes).
+		...(process.env.MEMORY_LANE === 'server' ? [`["inspect-extensions","5870"]`] : []),
+		// --- End Positron ---
 	].join(',')}]`;
 
 	// Build URL with optional workspace path
