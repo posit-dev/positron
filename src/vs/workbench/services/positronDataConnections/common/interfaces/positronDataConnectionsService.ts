@@ -37,13 +37,13 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	/**
 	 * Gets the connections drivers report as already configured on this machine (e.g. ODBC data
 	 * sources), as ephemeral profiles. These are not persisted and are never returned by
-	 * {@link getProfiles}. A discovery the user has already saved -- via
-	 * {@link saveDiscoveredProfile}, which records the discovery it came from -- is omitted, so a
-	 * data source saved from this pane appears once. A connection the user instead configured by
-	 * hand has no such link and appears alongside the discovery it resembles: two rows are
-	 * recoverable, whereas guessing they are the same and hiding one is not, since the values that
-	 * would distinguish two same-shaped data sources are exactly the secret ones neither profile
-	 * carries.
+	 * {@link getProfiles}. A discovery the user has already saved is omitted, so a data source the
+	 * user has configured appears once. Two things suppress a discovery: the saved profile records
+	 * which discovery it was saved from (see {@link saveDiscoveredProfile}), which survives renaming
+	 * and editing it; and, for a connection the user configured by hand instead, a match on driver,
+	 * mechanism, name, and values. The name is part of that match because the secret values that
+	 * would otherwise distinguish two same-shaped data sources are held out of both profiles, so
+	 * without it, saving either one would hide both.
 	 * Like a saved profile's, the returned profiles' parameterValues never contain values the
 	 * mechanism declares secret; those are held internally and merged back by
 	 * {@link getProfileWithSecrets}.

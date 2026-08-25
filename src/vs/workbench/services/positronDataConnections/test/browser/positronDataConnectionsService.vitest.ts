@@ -482,19 +482,23 @@ describe('PositronDataConnectionsService', () => {
 				.toEqual(['Pagila (readonly)']);
 		});
 
-		// A hand-configured profile has no link to any discovery, and the fields that would settle
-		// whether it is the same data source are the secret ones neither side carries. Two rows the
-		// user can reconcile beat one row that silently hides a connection from the pane and from
-		// the catalog the Assistant reads.
-		it('keeps reporting a discovery that a hand-configured profile resembles', async () => {
+		// A profile the user typed in by hand has no link to any discovery, so it is matched by
+		// value instead -- including its name, without which two data sources differing only in a
+		// credential would look identical to this comparison.
+		it('hides a discovery a hand-configured profile matches, name included', async () => {
 			await registerDiscoveringDriver([pagila]);
 
-			service.addUpdateProfile({
+			const handConfigured = {
 				...createProfile('saved-1'),
+				connectionName: 'Pagila',
 				mechanismId: 'test-mechanism',
 				parameterValues: { dsn: 'Pagila' },
-			});
+			};
+			service.addUpdateProfile(handConfigured);
+			expect(service.getDiscoveredProfiles()).toEqual([]);
 
+			// Same values under another name is another connection, and stays visible.
+			service.addUpdateProfile({ ...handConfigured, connectionName: 'Pagila (readonly)' });
 			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName)).toEqual(['Pagila']);
 		});
 

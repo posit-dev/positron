@@ -157,7 +157,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		const savedFromIds = new Set(this._profiles
 			.map(saved => saved.discoveredFromId)
 			.filter((id): id is string => id !== undefined));
-		return this._discoveredProfiles.filter(discovered => !savedFromIds.has(discovered.id));
+		return this._discoveredProfiles.filter(discovered =>
+			!savedFromIds.has(discovered.id)
+			&& !this._profiles.some(saved => this._isSameConnection(saved, discovered)));
 	}
 
 	/**
@@ -746,6 +748,30 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			.map(discovery => [discovery.profile.id, discovery.secretValues]));
 		this._logService.trace(`[DataConnections] Discovered ${this._discoveredProfiles.length} connection(s) across ${drivers.length} driver(s)`);
 		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
+	}
+
+	/**
+	 * Whether a saved profile describes the same connection as a discovery: same driver, same
+	 * mechanism, same name, same values. Suppresses the discovery behind a connection the user
+	 * configured by hand rather than saving from the pane -- a profile saved from the pane is
+	 * matched by `discoveredFromId` instead, which survives renaming and editing.
+	 *
+	 * The name is part of the comparison, not decoration. Only the public parameter values can be
+	 * compared -- a saved profile's secrets live in secret storage and a discovery's are held aside
+	 * -- so without it, two data sources differing only in a credential would look identical and
+	 * saving either one would hide both. The name is what still tells them apart.
+	 */
+	private _isSameConnection(saved: IDataConnectionProfile, discovered: IDataConnectionProfile): boolean {
+		if (saved.driverMetadata.id !== discovered.driverMetadata.id
+			|| saved.mechanismId !== discovered.mechanismId
+			|| saved.connectionName !== discovered.connectionName) {
+			return false;
+		}
+
+		const savedKeys = Object.keys(saved.parameterValues);
+		const discoveredKeys = Object.keys(discovered.parameterValues);
+		return savedKeys.length === discoveredKeys.length
+			&& savedKeys.every(key => saved.parameterValues[key] === discovered.parameterValues[key]);
 	}
 
 	/**
