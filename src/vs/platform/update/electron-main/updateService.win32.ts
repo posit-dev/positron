@@ -347,8 +347,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 					// If we were checking for an overwrite update and found nothing newer,
 					// restore the Ready state with the pending update
 					if (this.state.type === StateType.Overwriting) {
-						this._overwrite = false;
-						this.setState(State.Ready(this.state.update, this.state.explicit, false));
+						// --- Start Positron ---
+						// this._overwrite = false;
+						// this.setState(State.Ready(this.state.update, this.state.explicit, false));
+						return this.restorePendingUpdate(this.state.update, this.state.explicit).then(() => null);
+						// --- End Positron ---
 					} else {
 						this.setState(State.Idle(updateType, undefined, explicit || undefined));
 					}
@@ -362,9 +365,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				// `isLatestVersion` pre-check in `checkForOverwriteUpdates`), restore Ready
 				// instead of downloading the same installer again.
 				if (this.state.type === StateType.Overwriting && pendingCommit && !hasUpdate(update, pendingCommit)) {
-					this._overwrite = false;
-					this.setState(State.Ready(this.state.update, this.state.explicit, false));
-					return Promise.resolve(null);
+					return this.restorePendingUpdate(this.state.update, this.state.explicit).then(() => null);
 				}
 				// --- End Positron ---
 
@@ -467,10 +468,14 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				// If we were checking for an overwrite update and it failed,
 				// restore the Ready state with the pending update
 				if (this.state.type === StateType.Overwriting) {
-					this._overwrite = false;
-					this.setState(State.Ready(this.state.update, this.state.explicit, false));
+					// --- Start Positron ---
+					// this._overwrite = false;
+					// this.setState(State.Ready(this.state.update, this.state.explicit, false));
+					return this.restorePendingUpdate(this.state.update, this.state.explicit);
+					// --- End Positron ---
 				} else {
 					this.setState(State.Idle(getUpdateType(), message));
+					return;
 				}
 			});
 
@@ -527,6 +532,48 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				}
 			});
 		});
+	}
+	// --- End Positron ---
+
+	// --- Start Positron ---
+	/**
+	 * Puts back a pending update that `cancelPendingUpdate()` tore down for an overwrite check that
+	 * turned out to have nothing newer to install.
+	 *
+	 * Restoring `Ready` on its own is not enough: `cancelPendingUpdate()` clears `availableUpdate`
+	 * and deletes the flag file the waiting installer relaunches from, so the next "Restart to
+	 * Update" would fall through `doQuitAndInstall()`'s `availableUpdate` guard and relaunch without
+	 * installing anything. The downloaded installer itself survives cancellation, so re-stage it the
+	 * same way the download path does.
+	 */
+	private async restorePendingUpdate(update: IUpdate, explicit: boolean): Promise<void> {
+		this._overwrite = false;
+
+		try {
+			const packagePath = await this.getUpdatePackagePath(update.version);
+
+			if (await pfs.Promises.exists(packagePath)) {
+				this.availableUpdate = { packagePath };
+				this.setState(State.Downloaded(update, explicit, false));
+
+				const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
+				if (fastUpdatesEnabled && this.productService.target === 'user') {
+					// Rewrites the flag file that `cancelPendingUpdate()` deleted and ends in `Ready`.
+					await this.doApplyUpdate();
+				} else {
+					this.setState(State.Ready(update, explicit, false));
+				}
+				return;
+			}
+
+			this.logService.warn('update#restorePendingUpdate: the downloaded installer is gone, dropping to Idle');
+		} catch (err) {
+			this.logService.error('update#restorePendingUpdate: failed to restore the pending update', err);
+		}
+
+		// Advertising no update is better than a `Ready` one that cannot be installed; the next check
+		// downloads it again.
+		this.setState(State.Idle(getUpdateType()));
 	}
 	// --- End Positron ---
 

@@ -24,6 +24,7 @@ import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, Update
 // --- End Positron ---
 
 // --- Start Positron ---
+import { hasUpdate } from '../common/positronVersion.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IStateService } from '../../state/node/state.js';
 import { arch } from 'os';
@@ -101,6 +102,14 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			return;
 		}
 
+		// --- Start Positron ---
+		// A failed overwrite check must not cost the user the update that is already staged.
+		if (this.state.type === StateType.Overwriting) {
+			this.restorePendingUpdate(this.state.update, this.state.explicit);
+			return;
+		}
+		// --- End Positron ---
+
 		// only show message when explicitly checking for updates
 		const message = (this.state.type === StateType.CheckingForUpdates && this.state.explicit) ? err : undefined;
 		this.setState(State.Idle(UpdateType.Archive, message));
@@ -125,14 +134,23 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 	protected doCheckForUpdates(explicit: boolean, pendingCommit?: string): void {
 		// --- Start Positron ---
-		// pendingCommit is accepted for compatibility with the abstract base class but is unused
-		// in Positron's update flow; we gate on `this.url` (not `this.quality`).
+		// Positron gates on `this.url` rather than `this.quality`, and uses `pendingCommit` to verify
+		// the feed itself (see below) rather than to build the feed URL.
 		if (!this.url) {
 			// --- End Positron ---
 			return;
 		}
 
-		this.setState(State.CheckingForUpdates(explicit));
+		// --- Start Positron ---
+		// Don't clobber `Overwriting`: `checkForOverwriteUpdates` sets it immediately before calling
+		// this, and the rest of the overwrite flow keys off it (win32 guards the same way). Without
+		// the guard the state machine falls back to `Idle` on the next `update-not-available`, losing
+		// the pending update with no way back to it.
+		// this.setState(State.CheckingForUpdates(explicit));
+		if (this.state.type !== StateType.Overwriting) {
+			this.setState(State.CheckingForUpdates(explicit));
+		}
+		// --- End Positron ---
 
 		const internalOrg = this.getInternalOrg();
 		const background = !explicit && !internalOrg;
@@ -144,9 +162,28 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		// --- End Positron ---
 
 		if (!url) {
+			// --- Start Positron ---
+			if (this.state.type === StateType.Overwriting) {
+				this.restorePendingUpdate(this.state.update, this.state.explicit);
+				return;
+			}
+			// --- End Positron ---
 			this.setState(State.Idle(UpdateType.Archive));
 			return;
 		}
+
+		// --- Start Positron ---
+		// Electron's auto-updater can only compare the feed against the *installed* version, and
+		// Positron's feed always returns the latest release rather than answering "no content" for an
+		// up-to-date version like upstream's server does. So an overwrite check has to verify the feed
+		// itself before handing off to Electron, or a race with the `isLatestVersion` pre-check in
+		// `checkForOverwriteUpdates` re-downloads the build that is already staged. This is the darwin
+		// equivalent of the `hasUpdate` guard in `updateService.win32.ts`.
+		if (this.state.type === StateType.Overwriting && pendingCommit) {
+			this.checkForOverwriteDownload(url, pendingCommit);
+			return;
+		}
+		// --- End Positron ---
 
 		// When connection is metered and this is not an explicit check, avoid electron call as to not to trigger auto-download.
 		if (!explicit && this.meteredConnectionService.isConnectionMetered) {
@@ -178,6 +215,49 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		}
 	}
 	//--- End Positron ---
+
+	// --- Start Positron ---
+	/**
+	 * Verify that the feed really does advertise something newer than the pending update before
+	 * letting Electron download it. Restores the pending update when it does not.
+	 */
+	private async checkForOverwriteDownload(url: string, pendingCommit: string): Promise<void> {
+		if (this.state.type !== StateType.Overwriting) {
+			return;
+		}
+
+		const pendingUpdate = this.state.update;
+		const explicit = this.state.explicit;
+		const headers = getUpdateRequestHeaders(this.productService.version);
+
+		try {
+			const context = await this.requestService.request({ url, headers, callSite: 'updateService.darwin.checkForOverwriteDownload' }, CancellationToken.None);
+			const update = await asJson<IUpdate>(context);
+
+			if (update && update.url && update.version && update.productVersion && hasUpdate(update, pendingCommit)) {
+				this.logService.trace('update#checkForOverwriteDownload - newer update confirmed, downloading', { version: update.version });
+				electron.autoUpdater.checkForUpdates();
+				return;
+			}
+
+			this.logService.info('update#checkForOverwriteDownload - the feed no longer advertises a newer update, restoring the pending update');
+		} catch (err) {
+			this.logService.error('update#checkForOverwriteDownload - failed to check for update', err);
+		}
+
+		this.restorePendingUpdate(pendingUpdate, explicit);
+	}
+
+	/**
+	 * Abandon an overwrite check and go back to advertising the update that was already staged.
+	 * Unlike win32 there is nothing to re-stage: the pending update lives inside Electron's
+	 * auto-updater, and `cancelPendingUpdate()` is a no-op on macOS, so it is still installable.
+	 */
+	private restorePendingUpdate(update: IUpdate, explicit: boolean): void {
+		this._overwrite = false;
+		this.setState(State.Ready(update, explicit, false));
+	}
+	// --- End Positron ---
 
 	/**
 	 * Manually check the update feed URL without triggering Electron's auto-download.
@@ -231,6 +311,13 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 	private onUpdateNotAvailable(): void {
 		this.logService.trace('update#onUpdateNotAvailable - Electron autoUpdater reported no update available');
+
+		// --- Start Positron ---
+		if (this.state.type === StateType.Overwriting) {
+			this.restorePendingUpdate(this.state.update, this.state.explicit);
+			return;
+		}
+		// --- End Positron ---
 
 		if (this.state.type !== StateType.CheckingForUpdates) {
 			return;
