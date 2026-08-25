@@ -206,25 +206,50 @@ the number.
 
 Desktop forces a GC in the shared process and extension host over CDP before
 sampling, so figures reflect what a scenario retains rather than whether V8 had
-swept yet. The server lane cannot do this, and not merely because the inspector
-ports are unverified: the flags cannot reach a spawned server at all. They are passed as `extraArgs`, which only `electron.ts:95-96` consumes;
-`playwrightBrowser.ts` builds its own argument list and ignores `extraArgs`
-entirely. That is precisely why the existing wiring gates them on `!browser`
-(`options.fixtures.ts:94`).
+swept yet. The server lane does the same, but reaches the inspector by a different
+route.
 
-**So the server lane does not force a GC in this PR, deliberately.** Plumbing
-`extraArgs` through `playwrightBrowser`'s `codeServerArgs` is a separate change
-and a separate risk, and bundling it here would mean shipping a new lane and new
-launch plumbing together.
+The desktop route does not work here. The inspector flags travel as `extraArgs`,
+which only `electron.ts:95-96` consumes; `playwrightBrowser.ts` builds its own
+argument list and ignores them, which is why the existing wiring gates them on
+`!browser` (`options.fixtures.ts:94`). Plumbing `extraArgs` into the server launch
+is not the answer either -- the remote extension host is not a child of the server
+CLI's argument list; the client asks for it.
 
-The consequence must be recorded rather than discovered: server extension-host
-figures will carry the uncollected V8 startup garbage that the desktop lane used
-to, which on desktop was worth roughly 40 MB and swung launch to launch. The
-series is still usable for trending because the noise is present in every launch
-equally, but it is **not** comparable to a desktop extension-host figure, and no
-threshold should be set on it until GC is plumbed. The report notes that the
-lane's GC did not run, so nobody reads an un-collected extension host as a
-regression. Follow-up issue: plumb `extraArgs` to the spawned server.
+The working route is the **workbench payload**, and the whole chain already
+exists:
+
+1. `playwrightBrowser.ts:229-234` already appends a `payload=` array to the
+   workbench URL, today carrying `["logLevel", ...]`. Add
+   `["inspect-extensions", "5870"]` to it for the server memory lane.
+2. `WorkspaceProvider` parses `payload` from the URL query
+   (`workbench.ts:422`, `:468`).
+3. `BrowserWorkbenchEnvironmentService` maps the `inspect-extensions` key onto
+   `debugExtensionHost.port` (`environmentService.ts:420-421`).
+4. The client passes that as `startParams.port` when it asks the server to start
+   the remote extension host (`remoteExtensionHost.ts:112`).
+5. The server spawns the extension host with `--inspect=<port>`
+   (`extensionHostConnection.ts:311-314`).
+6. `gc.ts` connects to `localhost:5870` and collects, unchanged. The server runs
+   in the same container as the test, so the port is reachable.
+
+So one entry in an existing array, following a pattern already there, rather than
+new launch plumbing.
+
+Two consequences to get right:
+
+- **`GC_TARGETS` must become lane-aware.** The desktop list has two entries,
+  `shared` and `extension_host`. There is no shared process in the server lane at
+  all -- it is an Electron concept -- so the server target list is
+  `extension_host` only. Attempting the shared-process port would fail on every
+  run and, worse, invite someone to "fix" it.
+- **Timing is already correct.** The remote extension host starts when the client
+  connects, so the inspector port exists only after page load. The GC runs after
+  settle and before sampling, which is well after that.
+
+This also keeps the two lanes methodologically aligned rather than introducing a
+difference: desktop already measures an extension host running with an inspector
+attached, so doing the same on the server is consistency, not a new bias.
 
 ### Summary report
 
@@ -373,11 +398,13 @@ production. Do not consider this design verified without it.
 - **Server-lane noise is uncharacterised.** Desktop needed four runs and a forced
   GC pass before its spreads were understood. Do not set any threshold for this
   lane until several nightlies exist.
-- **Whether the server extension host is force-GC-able** the way the desktop one
-  is. `GC_TARGETS` drives the desktop GC over CDP on `--inspect-extensions`; the
-  server may expose it differently or not at all. If it does not, server
-  extension-host figures will carry the ~40 MB of uncollected startup garbage
-  that the desktop lane used to, and the series will be correspondingly noisier.
+- **The server GC route is traced in code but not yet run.** Every link exists
+  (see "Forced GC in the server lane"), but nothing has exercised the chain end to
+  end. If the inspector does not come up, server extension-host figures carry the
+  ~40 MB of uncollected startup garbage the desktop lane used to, and the series
+  is correspondingly noisier. Detect it rather than assume it: assert the forced-GC
+  stats are present for the server lane, so a silently-absent GC fails the run
+  instead of quietly publishing a noisier number.
 - **The keynote's 638 MB is unverified.** This design exists to check it, not to
   confirm it. A materially different number is a finding, not a bug in the
   harness.
