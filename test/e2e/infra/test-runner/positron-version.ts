@@ -75,6 +75,17 @@ function getVersionFromBuild(testCodePath: string): PositronVersion | null {
 			return null;
 	}
 
+	// A positron-server build keeps product.json at its root rather than under
+	// resources/app, so the platform paths above miss it. Falling back rather than
+	// branching on a lane keeps this helper free of the memory harness's concepts:
+	// the question is only where this build put its product.json.
+	if (!fs.existsSync(productJsonPath)) {
+		const serverProductJsonPath = join(testCodePath, 'product.json');
+		if (fs.existsSync(serverProductJsonPath)) {
+			productJsonPath = serverProductJsonPath;
+		}
+	}
+
 	try {
 		const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
 		const positronVersion = productJson.positronVersion ?? null;

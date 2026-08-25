@@ -58,6 +58,13 @@ jobs:
       # started server, so the collector would have no process tree; see
       # playwright.config.ts and the server lane's design doc for why.
       PW_PROJECT_NAME: ${{ matrix.lane == 'server' && 'e2e-chromium' || 'e2e-electron' }}
+      # test-setup.ts reads process.env.WEB and, when it is unset, treats BUILD
+      # as an Electron build: it calls getBuildElectronPath, which requires
+      # resources/app/product.json. A positron-server build keeps product.json at
+      # its root, so that lookup throws in global setup before any test runs. The
+      # ordinary e2e-chromium lane never hits this only because it leaves BUILD
+      # unset. The server lane genuinely is a web run, so say so.
+      WEB: ${{ matrix.lane == 'server' && 'true' || '' }}
       # Job-wide, not per-step: playwright.config.ts keys test collection off
       # this, so the render step needs it too. Now sourced from the matrix
       # rather than hardcoded.
@@ -205,14 +212,11 @@ jobs:
           MEMORY_LAUNCH_INDEX: 0
         run: |
           if [ "${{ matrix.lane }}" = "server" ]; then
-            # Point BUILD at the server build, not the desktop one. BUILD is
-            # read three ways and all three need the server build here:
-            # options.fixtures.ts passes it as codePath, which
-            # resolveServerLocation reads for bin/<serverApplicationName>;
-            # memory-scenario.ts asserts it is set; and getPositronVersion
-            # reads its product.json, which is the only way the snapshot gets
-            # a real version. Unsetting it satisfied the first and broke the
-            # other two.
+            # BUILD stays pointed at the server build so memory-scenario.ts's
+            # build-root assertion and getPositronVersion both see it. Safe only
+            # because WEB is set for this lane: without it, test-setup.ts treats
+            # BUILD as an Electron build and getBuildElectronPath throws on the
+            # missing resources/app/product.json before any test runs.
             export BUILD="$VSCODE_REMOTE_SERVER_PATH"
           else
             export BUILD="$DESKTOP_BUILD"
@@ -225,14 +229,11 @@ jobs:
           MEMORY_LAUNCH_INDEX: 1
         run: |
           if [ "${{ matrix.lane }}" = "server" ]; then
-            # Point BUILD at the server build, not the desktop one. BUILD is
-            # read three ways and all three need the server build here:
-            # options.fixtures.ts passes it as codePath, which
-            # resolveServerLocation reads for bin/<serverApplicationName>;
-            # memory-scenario.ts asserts it is set; and getPositronVersion
-            # reads its product.json, which is the only way the snapshot gets
-            # a real version. Unsetting it satisfied the first and broke the
-            # other two.
+            # BUILD stays pointed at the server build so memory-scenario.ts's
+            # build-root assertion and getPositronVersion both see it. Safe only
+            # because WEB is set for this lane: without it, test-setup.ts treats
+            # BUILD as an Electron build and getBuildElectronPath throws on the
+            # missing resources/app/product.json before any test runs.
             export BUILD="$VSCODE_REMOTE_SERVER_PATH"
           else
             export BUILD="$DESKTOP_BUILD"
@@ -245,14 +246,11 @@ jobs:
           MEMORY_LAUNCH_INDEX: 2
         run: |
           if [ "${{ matrix.lane }}" = "server" ]; then
-            # Point BUILD at the server build, not the desktop one. BUILD is
-            # read three ways and all three need the server build here:
-            # options.fixtures.ts passes it as codePath, which
-            # resolveServerLocation reads for bin/<serverApplicationName>;
-            # memory-scenario.ts asserts it is set; and getPositronVersion
-            # reads its product.json, which is the only way the snapshot gets
-            # a real version. Unsetting it satisfied the first and broke the
-            # other two.
+            # BUILD stays pointed at the server build so memory-scenario.ts's
+            # build-root assertion and getPositronVersion both see it. Safe only
+            # because WEB is set for this lane: without it, test-setup.ts treats
+            # BUILD as an Electron build and getBuildElectronPath throws on the
+            # missing resources/app/product.json before any test runs.
             export BUILD="$VSCODE_REMOTE_SERVER_PATH"
           else
             export BUILD="$DESKTOP_BUILD"
@@ -276,14 +274,11 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: |
           if [ "${{ matrix.lane }}" = "server" ]; then
-            # Point BUILD at the server build, not the desktop one. BUILD is
-            # read three ways and all three need the server build here:
-            # options.fixtures.ts passes it as codePath, which
-            # resolveServerLocation reads for bin/<serverApplicationName>;
-            # memory-scenario.ts asserts it is set; and getPositronVersion
-            # reads its product.json, which is the only way the snapshot gets
-            # a real version. Unsetting it satisfied the first and broke the
-            # other two.
+            # BUILD stays pointed at the server build so memory-scenario.ts's
+            # build-root assertion and getPositronVersion both see it. Safe only
+            # because WEB is set for this lane: without it, test-setup.ts treats
+            # BUILD as an Electron build and getBuildElectronPath throws on the
+            # missing resources/app/product.json before any test runs.
             export BUILD="$VSCODE_REMOTE_SERVER_PATH"
           else
             export BUILD="$DESKTOP_BUILD"
