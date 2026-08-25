@@ -1113,10 +1113,10 @@ describe('EvaluateCodeAction', () => {
 
 	let foregroundSession: ILanguageRuntimeSession | undefined;
 	let activeSession: ActiveRuntimeSession | undefined;
-	// Set by startUiClient, mirroring how ActiveRuntimeSession only assigns
+	// Set by ensureUiClient, mirroring how ActiveRuntimeSession only assigns
 	// `uiClient` once the comm round-trip to the kernel resolves.
 	let uiClient: UiClientInstance | undefined;
-	let startUiClientFails: boolean;
+	let ensureUiClientFails: boolean;
 
 	const ctx = createTestContainer()
 		.withRuntimeServices()
@@ -1136,11 +1136,11 @@ describe('EvaluateCodeAction', () => {
 		}))
 		.build();
 
-	const startUiClient = vi.fn(async () => {
+	const ensureUiClient = vi.fn(async () => {
 		// Resolve on a later turn, so a caller that reads `uiClient` without
 		// awaiting sees the pre-comm state.
 		await new Promise(resolve => setTimeout(resolve, 0));
-		if (startUiClientFails) {
+		if (ensureUiClientFails) {
 			throw new Error('comm_open failed');
 		}
 		uiClient = readyUiClient();
@@ -1153,14 +1153,14 @@ describe('EvaluateCodeAction', () => {
 
 	beforeEach(() => {
 		uiClient = undefined;
-		startUiClientFails = false;
+		ensureUiClientFails = false;
 		foregroundSession = stubInterface<ILanguageRuntimeSession>({
 			sessionId: 'python-session-1',
 			runtimeMetadata: makeRuntime(),
 		});
 		activeSession = stubInterface<ActiveRuntimeSession>({
 			get uiClient() { return uiClient; },
-			startUiClient,
+			ensureUiClient,
 		});
 	});
 
@@ -1180,7 +1180,7 @@ describe('EvaluateCodeAction', () => {
 		await runAction();
 
 		expect(warn).not.toHaveBeenCalled();
-		expect(startUiClient).toHaveBeenCalled();
+		expect(ensureUiClient).toHaveBeenCalled();
 		expect(openedEditor()).toMatchObject({
 			languageId: 'markdown',
 			contents: expect.stringContaining('## Result'),
@@ -1198,7 +1198,7 @@ describe('EvaluateCodeAction', () => {
 	});
 
 	it('warns when the UI comm cannot be started', async () => {
-		startUiClientFails = true;
+		ensureUiClientFails = true;
 
 		await runAction();
 

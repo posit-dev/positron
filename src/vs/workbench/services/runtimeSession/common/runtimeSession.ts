@@ -2018,7 +2018,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					}
 
 					// Start the UI client instance once the runtime is fully online.
-					activeSession.startUiClient().then((clientId) => {
+					activeSession.ensureUiClient().then((clientId) => {
 						this._logService.debug(`UI client ${clientId} bound to session ${session.sessionId}`);
 					});
 					break;
