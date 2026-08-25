@@ -21,9 +21,11 @@ describe('PositronDynamicModalDialog', () => {
 	afterEach(cleanup);
 
 	let resize: Emitter<UIEvent>;
+	let keyDown: Emitter<KeyboardEvent>;
 
 	beforeEach(() => {
 		resize = disposables.add(new Emitter<UIEvent>());
+		keyDown = disposables.add(new Emitter<KeyboardEvent>());
 	});
 
 	/**
@@ -32,6 +34,7 @@ describe('PositronDynamicModalDialog', () => {
 	 */
 	function renderDialog(overrides: Partial<PositronDynamicModalDialogProps> = {}) {
 		const renderer = stubInterface<PositronDynamicModalDialogProps['renderer']>({
+			onKeyDown: keyDown.event,
 			onResize: resize.event
 		});
 		return render(
@@ -62,6 +65,14 @@ describe('PositronDynamicModalDialog', () => {
 		expect(screen.getByRole('button', { name: 'Inside' })).toHaveFocus();
 	});
 
+	it('leaves focus where a control inside claimed it with autoFocus', () => {
+		// Footers use autoFocus to open with the focus on the button that is safe to press. A dialog
+		// that always grabbed the first focusable would land on the title bar close button instead.
+		renderDialog({ footer: <button autoFocus>Cancel</button> });
+
+		expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+	});
+
 	it('focuses the dialog box itself when it has nothing focusable inside', () => {
 		renderDialog({ content: <span>nothing focusable</span> });
 
@@ -81,15 +92,10 @@ describe('PositronDynamicModalDialog', () => {
 		const first = renderDialog();
 		const second = renderDialog();
 
-		expect({
-			// eslint-disable-next-line no-restricted-syntax -- structural div, see above
-			first: first.container.querySelector('.positron-dynamic-modal-dialog-box-container')!.className,
-			// eslint-disable-next-line no-restricted-syntax -- structural div, see above
-			second: second.container.querySelector('.positron-dynamic-modal-dialog-box-container')!.className,
-		}).toEqual({
-			first: 'positron-dynamic-modal-dialog-box-container',
-			second: 'positron-dynamic-modal-dialog-box-container nested',
-		});
+		// eslint-disable-next-line no-restricted-syntax -- structural div, see above
+		expect(first.container.querySelector('.positron-dynamic-modal-dialog-box-container')).not.toHaveClass('nested');
+		// eslint-disable-next-line no-restricted-syntax -- structural div, see above
+		expect(second.container.querySelector('.positron-dynamic-modal-dialog-box-container')).toHaveClass('nested');
 	});
 
 	it('stops marking dialogs nested once the earlier ones have closed', () => {
@@ -102,6 +108,24 @@ describe('PositronDynamicModalDialog', () => {
 
 		// eslint-disable-next-line no-restricted-syntax -- structural div, see above
 		expect(third.container.querySelector('.positron-dynamic-modal-dialog-box-container')).not.toHaveClass('nested');
+	});
+
+	it('Escape calls onCancel', () => {
+		const onCancel = vi.fn();
+		renderDialog({ onCancel });
+
+		keyDown.fire(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+
+		expect(onCancel).toHaveBeenCalledTimes(1);
+	});
+
+	it('leaves Enter to the form rather than to a default button', () => {
+		const onDefaultButton = vi.fn();
+		renderDialog({ footer: <button className='default' onClick={onDefaultButton}>OK</button> });
+
+		keyDown.fire(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+		expect(onDefaultButton).not.toHaveBeenCalled();
 	});
 
 	it('does not mark a dialog nested when it replaces one in the same commit', () => {

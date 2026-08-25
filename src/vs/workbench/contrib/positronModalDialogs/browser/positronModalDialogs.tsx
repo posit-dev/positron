@@ -22,7 +22,6 @@ import { LabeledTextInput } from '../../../browser/positronComponents/positronMo
 import { IModalDialogPromptInstance, IPositronModalDialogsService, IThreeButtonModalDialogPromptOptions, ShowConfirmationModalDialogOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ExternalLink } from '../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
-import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 import { PositronDynamicModalDialog } from '../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { ThreeButtonFooter } from '../../../browser/positronComponents/positronDynamicModalDialog/components/threeButtonFooter.js';
 
@@ -250,9 +249,9 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	): Promise<string | undefined> {
 		return new Promise<string | undefined>(resolve => {
 			// Settle once. Every exit runs through here: the three buttons, Enter, the title bar
-			// close button, and Escape. Escape closes the native <dialog> and disposes the renderer
-			// without calling onCancel, so onDisposed is what settles that path, and the guard is
-			// what keeps the dispose() below from settling a second time.
+			// close button, and Escape. Each of them calls settle, which disposes the renderer, and
+			// disposal calls onDisposed, which calls settle again. The guard is what stops that
+			// second call from resolving a promise that already has an answer.
 			let settled = false;
 			const settle = (choice: string | undefined) => {
 				if (settled) {
@@ -263,7 +262,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 				resolve(choice);
 			};
 
-			const renderer = new PositronModalDialogReactRenderer({
+			const renderer = new PositronModalReactRenderer({
 				onDisposed: () => settle(undefined)
 			});
 
@@ -296,9 +295,6 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 					title={options.title}
 					width={THREE_BUTTON_MODAL_DIALOG_PROMPT_WIDTH}
 					onCancel={() => settle(undefined)}
-					// ThreeButtonFooter's primary button is the form's submit target, so Enter and a
-					// click on it have to do the same thing.
-					onSubmit={() => settle(options.primaryButtonTitle)}
 				/>
 			);
 		});
