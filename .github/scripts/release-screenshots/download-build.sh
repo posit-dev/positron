@@ -117,3 +117,9 @@ else
 fi
 
 echo "BUILD=$BUILD_PATH"
+# The resolved version, distinct from $VERSION_INPUT when that was an alias
+# (latest-prerelease, latest-release). Callers that need a second, independent
+# download of the same release (e.g. the memory metrics server lane) must reuse
+# this rather than re-resolving the alias, which can drift to a different
+# release between the two calls.
+echo "VERSION=$VERSION"
