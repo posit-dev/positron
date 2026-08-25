@@ -253,7 +253,7 @@ export function defineMemoryScenario(options: {
 			const scenarios = [...new Set(snapshots.map(s => s.scenario))];
 			expect(scenarios, `snapshots span more than one scenario: ${scenarios.join(', ')}`).toEqual([scenario]);
 
-			const baseline = await fetchBaseline(scenario);
+			const baseline = await fetchBaseline(scenario, lane);
 			const markdown = renderMarkdown(snapshots, baseline);
 			const html = renderHtml(snapshots, baseline);
 

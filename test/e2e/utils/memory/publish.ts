@@ -12,7 +12,7 @@ import {
 	platformVersion,
 	positronVersion
 } from '../metrics/metric-base.js';
-import { MemoryLane } from './lanes.js';
+import { isMemoryLane, MemoryLane } from './lanes.js';
 import { MemoryScenario } from './scenarios.js';
 import { MemorySnapshot, ProcessRole } from './types.js';
 
@@ -211,32 +211,51 @@ export async function publishSnapshots(snapshots: MemorySnapshot[], meta: RunMet
  * Response shape for `GET /memory/baseline`. This is a contract with the
  * dashboard plan, not an inference from whatever it happens to return.
  *
- *   GET /memory/baseline?scenario=idle&branch=main
+ *   GET /memory/baseline?scenario=idle&branch=main&lane=desktop&container_image=...
  *   Authorization: Key <CONNECT_API_KEY>
  *
- * 200 with `{ "found": false }` when no baseline exists yet. That is a normal
- * first-run state, not an error, and must not be a 404: a 404 is
- * indistinguishable from a typo in the path.
+ * Nothing has ever published to this endpoint, so there is no released shape
+ * to stay compatible with: every field below is required, not defensively
+ * optional.
  *
- * 200 with `{ "found": true, "snapshot": {...} }` otherwise, where `snapshot`
- * carries the median launch of the most recent main-branch nightly, using the
- * same field names as one entry of `MemoryPayload.launches` plus the run-level
- * `tree_total_pss_bytes`.
+ * 200 with `{ "found": false, "reason": ... }` when no baseline exists yet.
+ * That is a normal first-run state, not an error, and must not be a 404: a
+ * 404 is indistinguishable from a typo in the path.
+ *
+ * 200 with `{ "found": true, ... }` otherwise, where `snapshot` carries the
+ * median launch of the most recent main-branch nightly for the same lane,
+ * using the same field names as one entry of `MemoryPayload.launches` plus
+ * the run-level `tree_total_pss_bytes`.
  */
 export type BaselineResponse =
-	| { found: false }
+	| { found: false; reason: 'no_baseline' }
+	| { found: false; reason: 'image_mismatch'; available_container_image: string }
 	| {
 		found: true;
+		container_image: string;
+		run_id: string;
+		app_version: string;
+		lane: string;
 		snapshot: {
 			tree_total_pss_bytes: number;
 			settle_ms: number;
 			processes: { process_name: string; process_role: string; pss_bytes: number }[];
-			// Optional because an endpoint deployed before this field was read will
-			// omit it. The report degrades to an eager count with no newly-eager
-			// list rather than treating every extension as newly eager.
-			extensions: { extension_id: string; activation_event?: string | null }[];
+			extensions: { extension_id: string; activation_event: string | null }[];
 		};
 	};
+
+/**
+ * Builds the query string for `GET /memory/baseline`. The baseline must match
+ * both the fetching run's lane and its container image: a server figure
+ * diffed against a desktop one, or a baseline built from a stale image,
+ * would render a delta that looks meaningful but is not.
+ */
+export function baselineQuery(scenario: MemoryScenario, lane: MemoryLane, containerImage: string): string {
+	const params = new URLSearchParams({
+		scenario, branch: 'main', lane, container_image: containerImage
+	});
+	return `?${params.toString()}`;
+}
 
 /**
  * Map a baseline response onto a snapshot. Only the fields the report's delta
@@ -248,11 +267,17 @@ export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScena
 	if (!body.found) {
 		return undefined;
 	}
+	if (!isMemoryLane(body.lane)) {
+		// Rejected rather than coerced. A bad process_role below falls back to
+		// 'unlabeled' because any role is safe to lump into one bucket, but there
+		// is no safe default lane: falling back to 'desktop' is exactly the
+		// cross-lane contamination this whole change exists to prevent.
+		console.error(`[memory] baseline response has an unrecognized lane '${body.lane}'; treating as no baseline rather than mislabeling it`);
+		return undefined;
+	}
 	return {
 		scenario,
-		// A later task parametrizes this by the fetching run's own lane; until then
-		// every baseline caller is desktop, so this is not yet a guess.
-		lane: 'desktop',
+		lane: body.lane,
 		// Neutral rather than faked, per the note above: the baseline predates this run
 		// and the response carries neither field. The report reads neither for the
 		// baseline, and '' fails the freshness check loudly if anything ever starts to.
@@ -277,29 +302,43 @@ export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScena
 		})),
 		extensions: body.snapshot.extensions.map(e => ({
 			extensionId: e.extension_id, isBuiltin: false,
-			activationTimeMs: null, activationEvent: e.activation_event ?? null
+			activationTimeMs: null,
+			// Validated rather than cast, matching processRole above. `??` defends
+			// against absence but not against the wrong type.
+			activationEvent: typeof e.activation_event === 'string' ? e.activation_event : null
 		}))
 	};
 }
 
 /**
- * Most recent main-branch nightly, used for the delta in the run report.
- * Undefined when there is no baseline yet or the endpoint is unavailable, in
- * which case the report shows absolute numbers only.
+ * Most recent main-branch nightly for the given lane, used for the delta in
+ * the run report. Undefined when there is no baseline yet, the image does
+ * not match, or the endpoint is unavailable, in which case the report shows
+ * absolute numbers only.
  */
-export async function fetchBaseline(scenario: MemoryScenario): Promise<MemorySnapshot | undefined> {
+export async function fetchBaseline(scenario: MemoryScenario, lane: MemoryLane): Promise<MemorySnapshot | undefined> {
 	if (!publishingEnabled() || !CONNECT_API_KEY) {
 		return undefined;
 	}
 	try {
-		const response = await request(`${memoryUrl(PROD_API_URL)}/baseline?scenario=${scenario}&branch=main`, {
+		const containerImage = process.env.MEMORY_CONTAINER_IMAGE ?? 'unknown';
+		const response = await request(`${memoryUrl(PROD_API_URL)}/baseline${baselineQuery(scenario, lane, containerImage)}`, {
 			method: 'GET',
 			headers: { Authorization: `Key ${CONNECT_API_KEY}` }
 		});
 		if (response.statusCode >= 400) {
+			// Logged, not swallowed. The API returns 400 on an invalid lane, and
+			// without this that is as invisible as an empty store, so a typo in the
+			// query would read as a permanently missing baseline.
+			console.error(`[memory] baseline request failed with ${response.statusCode}: ${await response.body.text()}`);
 			return undefined;
 		}
-		return baselineToSnapshot(await response.body.json() as BaselineResponse, scenario);
+		const body = await response.body.json() as BaselineResponse;
+		if (!body.found) {
+			console.log(`[memory] no baseline: ${body.reason}` +
+				(body.reason === 'image_mismatch' ? ` (newest available: ${body.available_container_image})` : ''));
+		}
+		return baselineToSnapshot(body, scenario);
 	} catch (error) {
 		console.error(`[memory] could not fetch baseline: ${error}`);
 		return undefined;

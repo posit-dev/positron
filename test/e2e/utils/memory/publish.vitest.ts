@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { baselineToSnapshot, buildPayload, fetchBaseline, publishingEnabled, publishSnapshots, redactProcessName, RunMeta } from './publish.js';
+import { BaselineResponse, baselineQuery, baselineToSnapshot, buildPayload, fetchBaseline, publishingEnabled, publishSnapshots, redactProcessName, RunMeta } from './publish.js';
 import { LabeledProcess, MemorySnapshot } from './types.js';
 
 vi.mock('undici', () => ({
@@ -122,19 +122,27 @@ describe('buildPayload', () => {
 	});
 });
 
+// Common provenance fields every found:true BaselineResponse now requires.
+// Nothing has ever published to this endpoint, so these are not defensive
+// optionals to preserve compatibility with a shape that was never released.
+const baselineProvenance = {
+	container_image: 'img', run_id: 'r', app_version: 'v', lane: 'desktop'
+} as const;
+
 describe('baselineToSnapshot', () => {
 	test('returns undefined on a first run, when no baseline exists yet', () => {
-		expect(baselineToSnapshot({ found: false }, 'idle')).toBeUndefined();
+		expect(baselineToSnapshot({ found: false, reason: 'no_baseline' }, 'idle')).toBeUndefined();
 	});
 
 	test('maps the fields the report delta reads', () => {
 		const mapped = baselineToSnapshot({
 			found: true,
+			...baselineProvenance,
 			snapshot: {
 				tree_total_pss_bytes: 1000,
 				settle_ms: 5000,
 				processes: [{ process_name: 'gpu-process', process_role: 'gpu', pss_bytes: 40 }],
-				extensions: [{ extension_id: 'vscode.git' }]
+				extensions: [{ extension_id: 'vscode.git', activation_event: null }]
 			}
 		}, 'idle');
 		expect(mapped?.treeTotalPssBytes).toBe(1000);
@@ -149,6 +157,7 @@ describe('baselineToSnapshot', () => {
 		// ProcessRole value that no downstream switch handles.
 		const mapped = baselineToSnapshot({
 			found: true,
+			...baselineProvenance,
 			snapshot: {
 				tree_total_pss_bytes: 1000, settle_ms: 5000,
 				processes: [{ process_name: 'something-new', process_role: 'quantum_host', pss_bytes: 40 }],
@@ -161,6 +170,7 @@ describe('baselineToSnapshot', () => {
 	test('keeps a role the client does know', () => {
 		const mapped = baselineToSnapshot({
 			found: true,
+			...baselineProvenance,
 			snapshot: {
 				tree_total_pss_bytes: 1000, settle_ms: 5000,
 				processes: [{ process_name: 'ark', process_role: 'kernel', pss_bytes: 40 }],
@@ -173,6 +183,7 @@ describe('baselineToSnapshot', () => {
 	test('fills unmapped numbers with zero rather than plausible values', () => {
 		const mapped = baselineToSnapshot({
 			found: true,
+			...baselineProvenance,
 			snapshot: {
 				tree_total_pss_bytes: 1000, settle_ms: 5000,
 				processes: [{ process_name: 'gpu-process', process_role: 'gpu', pss_bytes: 40 }],
@@ -184,23 +195,60 @@ describe('baselineToSnapshot', () => {
 	});
 });
 
-describe('baseline activation events', () => {
-	const baseline = (extensions: { extension_id: string; activation_event?: string | null }[]) =>
-		baselineToSnapshot({
-			found: true,
-			snapshot: { tree_total_pss_bytes: 1000, settle_ms: 5000, processes: [], extensions }
-		}, 'idle');
-
-	test('carries the activation event through', () => {
-		// Without it the report cannot tell an extension that was always eager
-		// from one that just became eager, which is the whole point of the diff.
-		const mapped = baseline([{ extension_id: 'github.copilot', activation_event: 'onStartupFinished' }]);
-		expect(mapped?.extensions[0].activationEvent).toBe('onStartupFinished');
+describe('baselineToSnapshot lane', () => {
+	test('rejects a response whose lane is not a known member rather than defaulting to desktop', () => {
+		// A server baseline mislabeled desktop (or vice versa) is exactly the
+		// cross-lane contamination the lane dimension exists to prevent, so an
+		// unrecognized lane must not be coerced into a plausible-looking default.
+		const body = {
+			found: true, container_image: 'img', run_id: 'r', app_version: 'v', lane: 'workbench',
+			snapshot: { tree_total_pss_bytes: 1000, settle_ms: 5000, processes: [], extensions: [] }
+		} as unknown as BaselineResponse;
+		expect(baselineToSnapshot(body, 'idle')).toBeUndefined();
 	});
 
-	test('degrades to null when the endpoint does not send one', () => {
-		const mapped = baseline([{ extension_id: 'github.copilot' }]);
-		expect(mapped?.extensions[0].activationEvent).toBeNull();
+	test('carries the lane from the response rather than a hardcoded desktop', () => {
+		const body = {
+			found: true, container_image: 'img', run_id: 'r', app_version: 'v', lane: 'server',
+			snapshot: { tree_total_pss_bytes: 1000, settle_ms: 5000, processes: [], extensions: [] }
+		} as BaselineResponse;
+		expect(baselineToSnapshot(body, 'idle')?.lane).toBe('server');
+	});
+});
+
+describe('baselineToSnapshot activation_event', () => {
+	test('coerces a non-string to null rather than passing it through', () => {
+		// The API briefly serialized null as {}. Truthy, so `?? null` kept it, and
+		// it inverted the baselineKnowsEvents guard in render.ts so every eager
+		// extension read as newly eager. Validate, do not cast: the same function
+		// already does this for process_role.
+		const body = {
+			found: true, container_image: 'img', run_id: 'r', app_version: 'v', lane: 'desktop',
+			snapshot: {
+				tree_total_pss_bytes: 1, settle_ms: 1, processes: [],
+				extensions: [{ extension_id: 'a.b', activation_event: {} as unknown as string }]
+			}
+		} as BaselineResponse;
+		const snapshot = baselineToSnapshot(body, 'idle');
+		expect(snapshot?.extensions[0].activationEvent).toBeNull();
+	});
+
+	test('keeps a real activation event', () => {
+		const body = {
+			found: true, container_image: 'img', run_id: 'r', app_version: 'v', lane: 'desktop',
+			snapshot: {
+				tree_total_pss_bytes: 1, settle_ms: 1, processes: [],
+				extensions: [{ extension_id: 'a.b', activation_event: 'onStartupFinished' }]
+			}
+		} as BaselineResponse;
+		expect(baselineToSnapshot(body, 'idle')?.extensions[0].activationEvent).toBe('onStartupFinished');
+	});
+});
+
+describe('baseline query', () => {
+	test('sends lane and container_image', () => {
+		expect(baselineQuery('idle', 'server', 'ghcr.io/x:1'))
+			.toBe('?scenario=idle&branch=main&lane=server&container_image=ghcr.io%2Fx%3A1');
 	});
 });
 
@@ -236,7 +284,7 @@ describe('publishingEnabled', () => {
 
 	test('fetchBaseline yields no baseline, so the report shows absolute numbers', async () => {
 		delete process.env.MEMORY_PUBLISH;
-		expect(await fetchBaseline('idle')).toBeUndefined();
+		expect(await fetchBaseline('idle', 'desktop')).toBeUndefined();
 	});
 });
 
