@@ -178,6 +178,18 @@ export async function publishSnapshots(snapshots: MemorySnapshot[], meta: RunMet
 		console.log('[memory] no CONNECT_API_KEY, skipping publish');
 		return false;
 	}
+	// The spec gates on both flags before a snapshot is ever written, so this is
+	// belt and braces. It is here anyway because that guarantee rests on
+	// statement ordering in another file: gates before writeFileSync, and a
+	// publish step that requires all three launch files. A refactor could defeat
+	// either silently, and an unsettled launch that becomes the baseline is
+	// permanent, where a failed job is not.
+	const unsettled = snapshots.filter(s => s.stoppedGrowing !== true || s.treeSettled !== true);
+	if (unsettled.length > 0) {
+		console.error('[memory] refusing to publish: ' +
+			unsettled.map(s => `launch ${s.launchIndex} (stoppedGrowing=${s.stoppedGrowing}, treeSettled=${s.treeSettled})`).join(', '));
+		return false;
+	}
 	try {
 		const response = await request(apiUrl(meta.branch), {
 			method: 'POST',

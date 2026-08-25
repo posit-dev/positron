@@ -239,3 +239,38 @@ describe('buildPayload lane', () => {
 		expect(payload.lane).toBe('desktop');
 	});
 });
+
+describe('publishSnapshots quality precondition', () => {
+	const baseSnapshot = { ...snapshot, stoppedGrowing: true, treeSettled: true };
+
+	afterEach(() => {
+		delete process.env.MEMORY_PUBLISH;
+		delete process.env.CONNECT_API_KEY;
+	});
+
+	test('refuses a snapshot whose tree never stopped growing', async () => {
+		process.env.MEMORY_PUBLISH = 'true';
+		process.env.CONNECT_API_KEY = 'fake-key';
+		const published = await publishSnapshots(
+			[{ ...baseSnapshot, stoppedGrowing: false }], meta);
+		expect(published).toBe(false);
+	});
+
+	test('refuses a snapshot whose sampling never settled', async () => {
+		process.env.MEMORY_PUBLISH = 'true';
+		process.env.CONNECT_API_KEY = 'fake-key';
+		const published = await publishSnapshots(
+			[{ ...baseSnapshot, treeSettled: false }], meta);
+		expect(published).toBe(false);
+	});
+
+	test('refuses when any one launch of three is unsettled', async () => {
+		// The median of three is only as good as its worst launch, and a baseline
+		// is permanent where a failed job is not.
+		process.env.MEMORY_PUBLISH = 'true';
+		process.env.CONNECT_API_KEY = 'fake-key';
+		const published = await publishSnapshots(
+			[baseSnapshot, { ...baseSnapshot, treeSettled: false }, baseSnapshot], meta);
+		expect(published).toBe(false);
+	});
+});
