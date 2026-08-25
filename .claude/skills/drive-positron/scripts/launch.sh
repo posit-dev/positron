@@ -70,6 +70,17 @@ is_process_alive() {
 	fi
 }
 
+# Escape a value for literal use inside a generated batch file. cmd.exe expands
+# `%` when it runs the wrapper, and `%1`-`%9` are positional parameters, so a
+# percent-encoded path silently loses characters: `file:///c%3A/my%20dir` would
+# reach the app as `file:///cA/my0dir`. Doubling `%` makes cmd emit one.
+#
+# This assumes exactly one expansion pass, which holds only because the wrapper
+# invokes code.bat without `call`. See the note at the write site.
+cmd_escape() {
+	printf '%s' "${1//%/%%}"
+}
+
 # Copy a directory tree, honoring rsync-style exclude patterns.
 #
 # Prefers rsync where it exists so the established macOS and Linux behavior is
@@ -324,18 +335,27 @@ if [[ "$IS_WINDOWS" == "1" ]]; then
 	{
 		echo "@echo off"
 		echo "set VSCODE_SKIP_PRELAUNCH=1"
-		printf 'cd /d "%s"\n' "$(to_native_path "$REPO")"
-		printf 'call scripts\\code.bat'
+		printf 'cd /d "%s"\n' "$(cmd_escape "$(to_native_path "$REPO")")"
+		# Deliberately not `call`: `call` performs an extra round of percent
+		# expansion, which would consume the escaping applied below (an
+		# argument containing %20 would arrive as "0"). Nothing follows this
+		# line, so there is no need to return to the wrapper.
+		printf 'scripts\\code.bat'
 		for arg in "${ARGS[@]}"; do
-			printf ' "%s"' "$arg"
+			printf ' "%s"' "$(cmd_escape "$arg")"
 		done
-		printf ' >> "%s" 2>&1\n' "$(to_native_path "$LOG_FILE")"
+		printf ' >> "%s" 2>&1\n' "$(cmd_escape "$(to_native_path "$LOG_FILE")")"
 	} >"$APP_CMD"
+
+	# The wrapper path lands inside a single-quoted PowerShell string, where a
+	# literal quote is escaped by doubling it.
+	APP_CMD_NATIVE="$(to_native_path "$APP_CMD")"
+	APP_CMD_NATIVE="${APP_CMD_NATIVE//\'/\'\'}"
 
 	APP_PS1="$RUN_DIR/launch-app.ps1"
 	cat >"$APP_PS1" <<-PSEOF
 		\$result = Invoke-CimMethod -ClassName Win32_Process -MethodName Create \`
-			-Arguments @{ CommandLine = 'cmd.exe /c "$(to_native_path "$APP_CMD")"' }
+			-Arguments @{ CommandLine = 'cmd.exe /c "$APP_CMD_NATIVE"' }
 		if (\$result.ReturnValue -ne 0) {
 			Write-Error "Win32_Process.Create failed with ReturnValue \$(\$result.ReturnValue)."
 			exit 1
