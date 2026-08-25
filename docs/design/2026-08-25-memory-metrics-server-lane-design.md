@@ -57,9 +57,9 @@ migration story.
 The release publishes three server-side tarballs: `positron-server` (the web-UI
 backend), `positron-reh` (the remote extension host, used by Remote SSH, no web
 UI) and `positron-workbench` (the Posit Workbench variant). The keynote's number
-is `positron-server`, and the existing `e2e-server` Playwright project already
-drives it. The other two are separate questions and should get their own issues
-if anyone wants them.
+is `positron-server`, and the e2e infrastructure already knows how to drive it.
+The other two are separate questions and should get their own issues if anyone
+wants them.
 
 ### `idle` only
 
@@ -161,7 +161,33 @@ a bare scenario list. The server job additionally:
   extracted directory, which is what `resolveServerLocation`
   (`playwrightBrowser.ts:120`) reads to run a built server instead of the
   source script
-- runs with `PW_PROJECT_NAME: e2e-server` instead of `e2e-electron`
+- runs with `PW_PROJECT_NAME: e2e-memory-server`, a new dedicated project (see
+  below), instead of `e2e-electron`
+
+### Why a new Playwright project, and not `e2e-server`
+
+The existing `e2e-server` project sets `useExternalServer: true` against
+`http://localhost:8080`, which routes through `launchPlaywrightExternalServer`.
+That path constructs `Code` with `null` in the process slot (`code.ts:149`), so
+there is no `ChildProcess` and `rootPid` would return `undefined`. The server it
+talks to was started outside Playwright, so the harness has no handle on it.
+
+The spawned path is the one we need: `web: true` with `useExternalServer` unset
+routes through `launchPlaywrightBrowser`, which spawns the server itself and
+passes the `ChildProcess` into `Code` (`code.ts:155-158`). That is what makes
+`rootPid` work, and it is also what honours `VSCODE_REMOTE_SERVER_PATH`.
+
+The other `@:web` projects (`e2e-chromium`, `e2e-firefox`, `e2e-webkit`,
+`e2e-edge`) do use the spawned path, but reusing one is wrong for a second
+reason: they select tests by `grep: /@:web/`, so making the memory spec eligible
+would require tagging it `@:web`, which would make it eligible in *every* one of
+those lanes. `memorySpecsToIgnore` is currently applied only to `e2e-electron`
+(`playwright.config.ts:112`), so nothing would hold it back.
+
+So: a dedicated `e2e-memory-server` project, using the spawned path, selecting
+the memory specs directly rather than by tag, and carrying its own
+`memorySpecsToIgnore` list exactly as `e2e-electron` does. It stays inert in
+ordinary CI because nothing else runs that project.
 
 ### Forced GC in the server lane
 
