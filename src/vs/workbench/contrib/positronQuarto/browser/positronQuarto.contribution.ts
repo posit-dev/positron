@@ -29,6 +29,7 @@ import { QuartoEquationPreviewContribution } from './quartoEquationPreview.js';
 import { IQuartoVirtualNotebookService, QuartoVirtualNotebookContribution, QuartoVirtualNotebookService } from './quartoVirtualNotebookService.js';
 import { QuartoEmbeddedLanguageFeatures } from './quartoEmbeddedLanguageFeatures.js';
 import { QuartoEmbeddedDiagnostics } from './quartoEmbeddedDiagnostics.js';
+import { QuartoEmbeddedSemanticTokens } from './quartoEmbeddedSemanticTokens.js';
 import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
@@ -355,6 +356,15 @@ registerWorkbenchContribution2(
 registerWorkbenchContribution2(
 	QuartoEmbeddedDiagnostics.ID,
 	QuartoEmbeddedDiagnostics,
+	WorkbenchPhase.AfterRestored
+);
+
+// Serves semantic tokens for a Quarto document from its cells. Registers its
+// provider separately from the features above because the provider has to be
+// replaced, not updated, whenever the available token names change.
+registerWorkbenchContribution2(
+	QuartoEmbeddedSemanticTokens.ID,
+	QuartoEmbeddedSemanticTokens,
 	WorkbenchPhase.AfterRestored
 );
 
