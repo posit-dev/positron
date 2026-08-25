@@ -87,8 +87,11 @@ export function defineMemoryScenario(options: {
 			const buildRoot = process.env.BUILD;
 			expect(buildRoot, 'BUILD must point at a Positron build; memory numbers from a dev build are meaningless').toBeTruthy();
 
-			const mainPid = app.code.electronApp?.process().pid;
-			expect(mainPid, 'no Electron main pid; this spec only runs against Electron').toBeTruthy();
+			// Lane-agnostic: Electron supplies its main process, the server lane
+			// supplies the server. Undefined means the external-server path, which
+			// has no tree to walk and would otherwise publish an empty process list.
+			const rootPid = app.code.rootPid;
+			expect(rootPid, 'no root pid; this lane gives the collector no process tree to walk').toBeTruthy();
 
 			if (prepare) {
 				await prepare({ app, sessions, openDataFile, openFile });
@@ -110,7 +113,7 @@ export function defineMemoryScenario(options: {
 
 			const snapshot = await captureSnapshot({
 				scenario,
-				rootPid: mainPid!,
+				rootPid: rootPid!,
 				buildRoot: buildRoot!,
 				userDataDir: app.userDataPath,
 				launchIndex: Number(process.env.MEMORY_LAUNCH_INDEX ?? 0),
