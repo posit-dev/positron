@@ -81,7 +81,7 @@ export const LanguageModelIcon = (props: { provider: string; logoUrl?: string; m
 			// color and clip it to the logo shape with a CSS mask. Otherwise the
 			// logo renders as-is.
 			return props.monochrome
-				? <div className={iconClassName}
+				? <div className={iconClassName} data-testid='language-model-icon'
 					style={{
 						flex: 'none',
 						backgroundColor: 'var(--vscode-icon-foreground)',
@@ -95,39 +95,39 @@ export const LanguageModelIcon = (props: { provider: string; logoUrl?: string; m
 						maskPosition: 'center',
 					}}
 				/>
-				: <img className={iconClassName} src={props.logoUrl} />;
+				: <img className={iconClassName} data-testid='language-model-icon' src={props.logoUrl} />;
 		}
 		switch (props.provider) {
 			case 'anthropic-api':
-				return <Claude className={iconClassName} />;
+				return <Claude className={iconClassName} data-testid='language-model-icon' />;
 			case 'google':
-				return <Gemini className={iconClassName} />;
+				return <Gemini className={iconClassName} data-testid='language-model-icon' />;
 			case 'google-cloud':
-				return <Geap className={iconClassName} />;
+				return <Geap className={iconClassName} data-testid='language-model-icon' />;
 			case 'copilot':
 			case 'copilot-auth':
-				return <GithubCopilot className={iconClassName} />;
+				return <GithubCopilot className={iconClassName} data-testid='language-model-icon' />;
 			case 'amazon-bedrock': // Vercel API uses this as an id
-				return <Bedrock className={iconClassName} />;
+				return <Bedrock className={iconClassName} data-testid='language-model-icon' />;
 			case 'deepseek-api':
-				return <DeepSeek className={iconClassName} />;
+				return <DeepSeek className={iconClassName} data-testid='language-model-icon' />;
 			case 'openai-api':
-				return <OpenAI className={iconClassName} />;
+				return <OpenAI className={iconClassName} data-testid='language-model-icon' />;
 			case 'ms-foundry':
-				return <MicrosoftFoundry className={iconClassName} />;
+				return <MicrosoftFoundry className={iconClassName} data-testid='language-model-icon' />;
 			case 'posit-ai':
-				return <PositAi className={iconClassName} />;
+				return <PositAi className={iconClassName} data-testid='language-model-icon' />;
 			case 'snowflake-cortex':
-				return <Snowflake className={iconClassName} />;
+				return <Snowflake className={iconClassName} data-testid='language-model-icon' />;
 			case 'databricks':
-				return <Databricks className={iconClassName} />;
+				return <Databricks className={iconClassName} data-testid='language-model-icon' />;
 			case 'openai-compatible':
-				return <div className={`language-model icon button-icon codicon codicon-wrench`} />;
+				return <div className={`language-model icon button-icon codicon codicon-wrench`} data-testid='language-model-icon' />;
 			case 'error':
-				return <div className={`language-model icon button-icon codicon codicon-error`} />;
+				return <div className={`language-model icon button-icon codicon codicon-error`} data-testid='language-model-icon' />;
 			case 'echo':
 			case 'test':
-				return <div className={`language-model icon button-icon codicon codicon-info`} />;
+				return <div className={`language-model icon button-icon codicon codicon-info`} data-testid='language-model-icon' />;
 			default:
 				return null;
 		}
