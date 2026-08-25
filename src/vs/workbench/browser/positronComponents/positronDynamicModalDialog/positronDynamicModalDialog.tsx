@@ -7,7 +7,7 @@
 import './positronDynamicModalDialog.css';
 
 // React.
-import { FormEvent, ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { TitleBar } from './components/titleBar.js';
@@ -78,6 +78,10 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 	const dialogBoxRef = useRef<HTMLDivElement>(undefined!);
 	const hasBeenPositioned = useRef(false);
 
+	// Id hooks. The title element carries this id and aria-labelledby points at it, which is what
+	// gives the dialog its accessible name.
+	const titleId = useId();
+
 	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
 
@@ -112,6 +116,18 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 			};
 		});
 	}, [props.width]);
+
+	// Move focus into the dialog on mount. An ordinary element does not do this on its own, so a
+	// keyboard user would otherwise still be focused on whatever was behind the dialog. The renderer
+	// restores focus to that element when the dialog closes.
+	useEffect(() => {
+		// eslint-disable-next-line no-restricted-syntax
+		const firstFocusable = dialogBoxRef.current.querySelector<HTMLElement>(
+			'a[href]:not([disabled]),button:not([disabled]),textarea:not([disabled]),' +
+			'input:not([disabled]),select:not([disabled])'
+		);
+		(firstFocusable ?? dialogBoxRef.current).focus();
+	}, []);
 
 	// Set up keyboard and resize event handlers.
 	useEffect(() => {
@@ -226,12 +242,20 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 	// Render.
 	return (
 		<div ref={dialogContainerRef} className='positron-dynamic-modal-dialog-box-container'>
-			<div ref={dialogBoxRef} className='positron-dynamic-modal-dialog-box' style={{
-				left: dialogBoxState.left,
-				top: dialogBoxState.top,
-				width: props.width,
-			}}>
-				<TitleBar title={props.title} titleDescription={props.titleDescription} onClose={props.onCancel} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
+			<div
+				ref={dialogBoxRef}
+				aria-labelledby={titleId}
+				aria-modal='true'
+				className='positron-dynamic-modal-dialog-box'
+				role='dialog'
+				style={{
+					left: dialogBoxState.left,
+					top: dialogBoxState.top,
+					width: props.width,
+				}}
+				tabIndex={-1}
+			>
+				<TitleBar title={props.title} titleDescription={props.titleDescription} titleId={titleId} onClose={props.onCancel} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
 				{/*
 					The content area and footer are always wrapped in a <form>. Enter-key implicit
 					submission only activates when a submit target exists -- i.e. when the footer
