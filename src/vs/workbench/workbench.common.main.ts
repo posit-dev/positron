@@ -358,6 +358,7 @@ import './contrib/positronWelcome/browser/positronWelcome.contribution.js';
 import './contrib/positronTelemetry/browser/positronTelemetry.contribution.js';
 import './contrib/positronEditorActions/browser/positronEditorActions.contribution.js';
 import './contrib/positronControlGallery/browser/positronControlGalleryEditor.contribution.js';
+import './contrib/positronSettings/browser/positronSettings.contribution.js';
 // --- End Positron ---
 
 // Terminal

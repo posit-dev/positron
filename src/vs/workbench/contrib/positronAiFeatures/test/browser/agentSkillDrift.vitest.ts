@@ -53,7 +53,7 @@ const CANDIDATE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/
  * is missing here is still covered as long as its directive exists somewhere
  * in the templates.
  */
-const ALLOWED_PREFIXES = ['positron.', 'positronPackages.', 'positronVariables.', 'workbench.'];
+const ALLOWED_PREFIXES = ['positron.', 'positronPackages.', 'positronSettings.', 'positronVariables.', 'workbench.'];
 
 /**
  * Command ids referenced by the templates that are registered from extension
