@@ -3,18 +3,18 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes
   (Console, Variables, Plots, Help, Packages), clearing the console, listing or
-  discovering registered interpreters, restarting or interrupting a stuck
-  session, and refreshing or updating packages. Use when the user wants Positron
-  itself to do something, rather than to run R or Python code. Load this skill,
-  then read the reference file for the area: layout and pane focus in
-  references/ui.md; listing interpreters in references/interpreters.md; sessions
-  and packages in references/troubleshooting.md; installing Python, creating an
-  environment, and finding the active interpreter in references/python-setup.md.
+  discovering registered interpreters, listing running sessions, switching or
+  starting a session, restarting or interrupting a stuck one, and refreshing or
+  updating packages. Use when the user wants Positron itself to do something,
+  rather than to run R or Python code. Load this skill, then read the reference
+  file for the area: layout and pane focus in references/ui.md; listing
+  interpreters in references/interpreters.md; sessions and packages in
+  references/troubleshooting.md; installing Python, creating an environment, and
+  finding the active interpreter in references/python-setup.md.
   Triggers: "switch to the data science layout", "show the variables pane",
-  "clear the console", "what interpreters are available", "my R interpreter
-  isn't showing up", "my session is stuck", "update all my packages", "I don't
-  have Python installed", "set up a Python environment", "which Python am I
-  using".
+  "clear the console", "what interpreters are available", "switch to my R
+  session", "start a new Python session", "my session is stuck", "update all my
+  packages", "set up a Python environment".
 ---
 
 # Positron IDE commands
@@ -32,6 +32,12 @@ given under that command's "Arguments" entry. Omit `args` entirely for commands
 that take none -- do not pass an empty object or array. Never invent an argument
 value the user hasn't given you or that isn't documented; if a required value is
 unknown, ask the user first.
+
+Some commands take or return an internal id -- a runtime id or a session id.
+These are opaque handles you pass back into another command; they are not shown
+anywhere in the Positron UI, so a user won't recognize one and it would only
+confuse them. Use ids to make the call, but never repeat one to the user. Refer
+to a session or interpreter by its name instead.
 
 ## When a command doesn't work
 
@@ -63,9 +69,10 @@ interpreter before creating an environment.
 
 **Sessions and packages** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
 Read when the user asks about: an interpreter that isn't showing up or won't
-start, startup diagnostics, a session that is stuck or needs restarting, or
-installed packages that need refreshing or updating. Also covers looking up a
-help topic for a function or symbol.
+start, startup diagnostics, listing the running sessions, switching to a
+different session or starting a new one, a session that is stuck or needs
+restarting, or installed packages that need refreshing or updating. Also covers
+looking up a help topic for a function or symbol.
 
 **Python environment setup** -- [references/python-setup.md]({{skill_dir}}/references/python-setup.md)
 Read when the user is getting Python set up: installing a Python interpreter when

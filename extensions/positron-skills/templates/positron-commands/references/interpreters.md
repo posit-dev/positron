@@ -25,6 +25,12 @@ you expected one to be there, force a rescan with
 `workbench.action.language.runtime.discoverAllRuntimes` (below) and list again
 before concluding it's missing.
 
+Each entry's `runtimeId` is the internal id you pass to
+`workbench.action.language.runtime.startNewConsoleSession` (see
+[troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)) to start a session
+for that interpreter. It appears nowhere in the Positron UI, so use it to make
+the call but never show it to the user -- refer to the interpreter by name.
+
 {{command:workbench.action.language.runtime.getRegisteredRuntimes}}
 
 ## Diagnosing why an interpreter isn't showing up

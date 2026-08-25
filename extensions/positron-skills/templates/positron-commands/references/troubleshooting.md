@@ -11,12 +11,20 @@ guidance is hand-written.
 
 ## Controlling the active interpreter session
 
+Both commands below act on the *foreground* session -- the one currently
+selected. Neither has a precondition, so both are always enabled; but when no
+session is running they do nothing and return no value rather than reporting
+`disabled`. So don't infer from a successful call that something happened: if
+you're not sure a session is running, list sessions first (see below) and, if
+the list is empty, tell the user there's no session to act on instead of
+claiming you interrupted or restarted one.
+
 ### `workbench.action.languageRuntime.interrupt`
 
 Interrupts the active interpreter runtime session -- e.g., stops a running
 computation. Non-destructive: session state (variables, loaded packages) is
 preserved. Try this first when code appears stuck (an infinite loop, a
-long-running call the user wants to cancel). No precondition -- always enabled.
+long-running call the user wants to cancel).
 
 {{command:workbench.action.languageRuntime.interrupt}}
 
@@ -26,9 +34,56 @@ Restarts the active interpreter runtime session. **This discards all session
 state** -- variables, loaded packages, and command history in that session are
 lost. Always tell the user this will happen before calling it, and prefer
 `interrupt` first when the goal is just to stop something running rather than
-to get a clean session. No precondition -- always enabled.
+to get a clean session.
 
 {{command:workbench.action.language.runtime.restartActiveSession}}
+
+## Listing, switching, and starting sessions
+
+An interpreter *session* is a running instance of an interpreter. There can be
+several at once (e.g. an R console and two Python consoles); one is the
+foreground session that the console and the interrupt/restart commands act on.
+
+Both switching and starting take an internal id (a session id, a runtime id).
+Those ids appear nowhere in the Positron UI, so never show one to the user --
+list first to find the id, use it to make the call, then refer to the session
+or interpreter by its name. See the id rule in [SKILL.md]({{skill_dir}}/SKILL.md).
+
+### `workbench.action.language.runtime.getActiveSessions`
+
+Lists the interpreter sessions currently running. This is how you find the
+`sessionId` to hand to `selectSession`, and how you confirm a session exists
+before interrupting or restarting. Read-only and always enabled. Pass a
+`languageId` (e.g. `"python"` or `"r"`) to narrow the results to one language;
+omit it for every language. Each entry's `foreground: true` marks the currently
+active session, and `sessionName` is the name to use when talking to the user.
+An empty array means nothing is running.
+
+{{command:workbench.action.language.runtime.getActiveSessions}}
+
+### `workbench.action.language.runtime.selectSession`
+
+Makes an already-running session the foreground session. Use when the user
+wants to switch to a different session they already have open. Call
+`getActiveSessions` first and pass the `sessionId` of the session the user
+named; do not call this without an id, which opens a picker and waits on the
+user. A `selected: false` result means the picker was dismissed; report that
+rather than retrying.
+
+{{command:workbench.action.language.runtime.selectSession}}
+
+### `workbench.action.language.runtime.startNewConsoleSession`
+
+Starts a brand-new console session for a registered interpreter. Use when the
+user wants a fresh session rather than switching to an existing one. It needs
+the `runtimeId` of a registered interpreter, which comes from
+`workbench.action.language.runtime.getRegisteredRuntimes` in
+[interpreters.md]({{skill_dir}}/references/interpreters.md) -- list the interpreters,
+match the one the user asked for, and pass its `runtimeId`. Do not call this
+without an id, which opens a picker and waits on the user. A `started: false`
+result means the picker was dismissed; report that rather than retrying.
+
+{{command:workbench.action.language.runtime.startNewConsoleSession}}
 
 ## Managing packages
 
