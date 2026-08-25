@@ -41,7 +41,7 @@ const SKILLS_ROOT = path.join(REPO_ROOT, 'extensions', 'positron-skills', 'templ
 
 /** Dotted-identifier shape, e.g. `workbench.action.foo` or `positron.help.lookupHelpTopic`. */
 const CANDIDATE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/;
-const ALLOWED_PREFIXES = ['positron.', 'positronVariables.', 'workbench.'];
+const ALLOWED_PREFIXES = ['positron.', 'positronVariables.', 'positronSettings.', 'workbench.'];
 
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -11,14 +11,14 @@ description: >
   and packages in references/troubleshooting.md. Triggers: "switch to the data
   science layout", "show me the variables pane", "clear the console", "my R
   interpreter isn't showing up", "my session is stuck", "update all my
-  packages".
+  packages", "what are my settings".
 ---
 
 # Positron IDE commands
 
 These commands act on the Positron workbench itself -- layout, panes, interpreter
-sessions, and packages. They do not run R or Python code; use `executeCode` for
-that.
+sessions, packages, and settings. They do not run R or Python code; use
+`executeCode` for that.
 
 ## Calling these commands
 
@@ -29,6 +29,10 @@ given under that command's "Arguments" entry. Omit `args` entirely for commands
 that take none -- do not pass an empty object or array. Never invent an argument
 value the user hasn't given you or that isn't documented; if a required value is
 unknown, ask the user first.
+
+Some commands return a payload with information about the current state of
+Positron. Do not treat an empty or absent field as permission to guess: if the
+payload does not say something, say that it does not.
 
 ## When a command doesn't work
 
@@ -57,3 +61,7 @@ Read when the user asks about: an interpreter that isn't showing up or won't
 start, startup diagnostics, a session that is stuck or needs restarting, or
 installed packages that need refreshing or updating. Also covers looking up a
 help topic for a function or symbol.
+
+**Configured settings** -- [references/settings.md]({{skill_dir}}/references/settings.md)
+Read when the user asks which settings they have configured, or why a setting
+they set is not taking effect.
