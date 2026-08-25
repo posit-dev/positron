@@ -4,46 +4,47 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './dataConnectionCodeEditor.css';
+import './editableCodeEditor.css';
 
 // React.
 import { Ref, useEffect, useImperativeHandle, useRef } from 'react';
 
 // Other dependencies.
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../../codeEditor/browser/simpleEditorOptions.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { CodeEditorWidget } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../../contrib/codeEditor/browser/simpleEditorOptions.js';
 
 /**
- * DataConnectionCodeEditorProps interface.
+ * EditableCodeEditorProps interface.
  */
-export interface DataConnectionCodeEditorProps {
+export interface EditableCodeEditorProps {
+	readonly ariaLabel?: string;
 	readonly code: string;
 	readonly languageId: string;
-	readonly ref: Ref<DataConnectionCodeEditorWidget>;
+	readonly ref: Ref<EditableCodeEditorWidget>;
 }
 
 /**
- * The imperative handle exposed by {@link DataConnectionCodeEditor}. Callers read the editor's
- * current code through this rather than tracking the buffer in React state.
+ * The imperative handle exposed by {@link EditableCodeEditor}. Callers read the editor's current
+ * code through this rather than tracking the buffer in React state.
  */
-export interface DataConnectionCodeEditorWidget {
+export interface EditableCodeEditorWidget {
 	getCode(): string;
 }
 
 /**
- * Data Connection Code Editor component. Renders an always-editable Monaco editor seeded with the
- * given code and language, which are fixed for the lifetime of the component. Callers read the live
- * buffer via the imperative handle's getCode(); to show different code (e.g. a different variant),
- * mount a fresh instance with a distinct `key`.
+ * Editable Code Editor component. Renders an always-editable Monaco editor seeded with the given
+ * code and language, which are fixed for the lifetime of the component. Callers read the live
+ * buffer via the imperative handle's getCode(); to show different code, mount a fresh instance
+ * with a distinct `key`.
  */
-export const DataConnectionCodeEditor = (props: DataConnectionCodeEditorProps) => {
+export const EditableCodeEditor = (props: EditableCodeEditorProps) => {
 	// Get services.
 	const services = usePositronReactServicesContext();
 
 	// Destructure props.
-	const { code, languageId, ref } = props;
+	const { ariaLabel, code, languageId, ref } = props;
 
 	// The element the editor is mounted into. React populates this before the effect below runs,
 	// so the non-null assertion is safe.
@@ -73,9 +74,19 @@ export const DataConnectionCodeEditor = (props: DataConnectionCodeEditorProps) =
 			containerRef.current,
 			{
 				...getSimpleEditorOptions(services.configurationService),
-				// The data connection code editor is always editable.
+				// The name a screen reader announces for the editor. Left undefined, Monaco falls
+				// back to its generic 'Editor content'.
+				ariaLabel,
+				// The editable code editor is, as the name says, always editable.
 				readOnly: false,
 				domReadOnly: false,
+				// Tab moves focus to the next control instead of inserting indentation, matching what
+				// VS Code does for editors embedded in a widget (chat code blocks, tool
+				// confirmations). This editor is used inside modal dialogs, whose renderer
+				// suppresses all but a handful of keybindings, so toggleTabFocusMode is not
+				// available as an escape hatch. Without this, a keyboard-only user cannot Tab past
+				// the editor to reach the dialog's buttons.
+				tabFocusMode: true,
 				// Vertical breathing room lives inside the editor (rather than as container padding)
 				// so the vertical scrollbar can span the full height of the code box.
 				padding: { top: 10, bottom: 10 },
@@ -99,11 +110,11 @@ export const DataConnectionCodeEditor = (props: DataConnectionCodeEditorProps) =
 		// Dispose editor and model on unmount.
 		return () => disposableStore.dispose();
 
-		// Deps intentionally empty: code/languageId/services are fixed for a given instance, so the
-		// editor is created once. Callers remount via `key` to show different code.
+		// Deps intentionally empty: ariaLabel/code/languageId/services are fixed for a given
+		// instance, so the editor is created once. Callers remount via `key` to show different code.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	// Render the container for the editor.
-	return <div ref={containerRef} className='data-connection-code-editor' />;
+	return <div ref={containerRef} className='editable-code-editor' />;
 };

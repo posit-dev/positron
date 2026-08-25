@@ -28,6 +28,13 @@
 	display: block;
 }
 
-.positron-modal-dialog-box .labeled-text-input input.error {
+/*
+ * The dynamic dialog renderer wraps its content in `.positron-dynamic-modal-dialog-box`, so the
+ * rules above never reach it. The red border is listed for both, because the dynamic dialog has no
+ * equivalent of its own; the red message text there already comes from `.error-msg` in
+ * positronDynamicModalDialog.css.
+ */
+.positron-modal-dialog-box .labeled-text-input input.error,
+.positron-dynamic-modal-dialog-box .labeled-text-input input.error {
 	border-color: var(--vscode-errorForeground);
 }

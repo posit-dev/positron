@@ -20,6 +20,7 @@ import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnec
 import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
+import { IDataImporterMetadata, IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
@@ -368,6 +369,8 @@ export interface MainThreadDataExplorerShape extends IDisposable {
 	$unregisterRpcHandler(providerId: string): void;
 	$sendUiEvent(event: IDataExplorerUiEventDto): void;
 	$open(providerId: string, datasetId: string, displayName: string): Promise<void>;
+	$registerDataImporter(handle: number, metadata: IDataImporterMetadata): void;
+	$unregisterDataImporter(handle: number): void;
 }
 
 /**
@@ -377,6 +380,7 @@ export interface MainThreadDataExplorerShape extends IDisposable {
 export interface ExtHostDataExplorerShape {
 	$handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto>;
 	$disposeBackend(providerId: string, datasetId: string): void;
+	$generateImportCode(handle: number, request: IDataImportRequestDto): Promise<IDataImportResult | undefined>;
 }
 
 export interface MainThreadEnvironmentShape extends IDisposable {
