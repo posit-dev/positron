@@ -950,14 +950,10 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 		throw new Error('Server does not support dynamic registration');
 	}
 
-	const requestBody: IAuthorizationDynamicClientRegistrationRequest = {
-		client_name: clientName,
-		client_uri: 'https://code.visualstudio.com',
-		grant_types: serverMetadata.grant_types_supported
-			? serverMetadata.grant_types_supported.filter(gt => grantTypesSupported.includes(gt))
-			: grantTypesSupported,
-		response_types: ['code'],
-		redirect_uris: [
+	// --- Start Positron ---
+	const redirectUris = additionalRedirectUris?.length
+		? additionalRedirectUris
+		: [
 			'https://insiders.vscode.dev/redirect',
 			'https://vscode.dev/redirect',
 			'http://127.0.0.1/',
@@ -966,10 +962,19 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 			// though the spec says it should not care
 			// about the port.
 			`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`,
-			// --- Start Positron ---
-			...(additionalRedirectUris ?? [])
-			// --- End Positron ---
-		],
+		];
+	// --- End Positron ---
+
+	const requestBody: IAuthorizationDynamicClientRegistrationRequest = {
+		client_name: clientName,
+		// --- Start Positron ---
+		client_uri: 'https://positron.posit.co',
+		// --- End Positron ---
+		grant_types: serverMetadata.grant_types_supported
+			? serverMetadata.grant_types_supported.filter(gt => grantTypesSupported.includes(gt))
+			: grantTypesSupported,
+		response_types: ['code'],
+		redirect_uris: redirectUris,
 		scope: scopes?.join(AUTH_SCOPE_SEPARATOR),
 		token_endpoint_auth_method: 'none',
 		application_type: 'native'

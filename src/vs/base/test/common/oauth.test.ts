@@ -483,7 +483,7 @@ suite('OAuth', () => {
 			// Verify request body
 			const requestBody = JSON.parse(options.body as string);
 			assert.strictEqual(requestBody.client_name, 'Test Client');
-			assert.strictEqual(requestBody.client_uri, 'https://code.visualstudio.com');
+			assert.strictEqual(requestBody.client_uri, 'https://positron.posit.co');
 			assert.deepStrictEqual(requestBody.grant_types, ['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:device_code']);
 			assert.deepStrictEqual(requestBody.response_types, ['code']);
 			assert.deepStrictEqual(requestBody.redirect_uris, [
@@ -498,7 +498,7 @@ suite('OAuth', () => {
 		});
 
 		// --- Start Positron ---
-		test('fetchDynamicRegistration should append additional redirect URIs to the request', async () => {
+		test('fetchDynamicRegistration uses the supplied callback route as the redirect URI list', async () => {
 			fetchStub.resolves({
 				ok: true,
 				json: async () => ({
@@ -517,19 +517,16 @@ suite('OAuth', () => {
 				serverMetadata,
 				'Test Client',
 				undefined,
-				['https://workbench.example.com/positron/callback']
+				['https://workbench.example.com/positron-static/callback-0/static/out/vs/code/browser/workbench/callback.html']
 			);
 
 			const [, options] = fetchStub.firstCall.args;
 			const requestBody = JSON.parse(options.body as string);
 			assert.deepStrictEqual(requestBody.redirect_uris, [
-				'https://insiders.vscode.dev/redirect',
-				'https://vscode.dev/redirect',
-				'http://127.0.0.1/',
-				`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`,
-				'https://workbench.example.com/positron/callback'
+				'https://workbench.example.com/positron-static/callback-0/static/out/vs/code/browser/workbench/callback.html'
 			]);
 		});
+
 		// --- End Positron ---
 
 		test('fetchDynamicRegistration should throw error on non-OK response', async () => {
