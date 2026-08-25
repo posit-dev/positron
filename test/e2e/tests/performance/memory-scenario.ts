@@ -9,6 +9,7 @@ import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
 import { collectAllGarbage } from '../../utils/memory/gc.js';
+import { MemoryLane } from '../../utils/memory/lanes.js';
 import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
 import { captureSnapshot, SAMPLING_CAP_MS, SETTLE_CAP_MS, unstableProcesses } from '../../utils/memory/snapshot.js';
@@ -41,8 +42,8 @@ const MEASURE_OVERHEAD_MS = 90_000;
  * Per scenario, so a matrix job cannot read a sibling scenario's snapshots and
  * render a report that mixes two app states.
  */
-function snapshotDir(scenario: MemoryScenario): string {
-	return join(process.env.RUNNER_TEMP ?? '/tmp', `memory-snapshots-${scenario}`);
+function snapshotDir(lane: MemoryLane, scenario: MemoryScenario): string {
+	return join(process.env.RUNNER_TEMP ?? '/tmp', `memory-snapshots-${lane}-${scenario}`);
 }
 
 export function defineMemoryScenario(options: {
@@ -68,11 +69,23 @@ export function defineMemoryScenario(options: {
 	 * basename, either of which identifies the worker.
 	 */
 	expectProcesses?: RegExp[];
+	/**
+	 * Which tree to measure. Defaults to `desktop` so the seven existing specs
+	 * need no edit.
+	 */
+	lane?: MemoryLane;
+	/**
+	 * Extra Playwright tag. The server spec needs `@:web` to be eligible in
+	 * e2e-chromium, which is the project that spawns the server and so gives the
+	 * collector a tree to walk.
+	 */
+	tag?: string;
 }): void {
-	const { scenario, prepare, expectRoles = [], expectProcesses = [] } = options;
-	const SNAPSHOT_DIR = snapshotDir(scenario);
+	const { scenario, lane = 'desktop', tag, prepare, expectRoles = [], expectProcesses = [] } = options;
+	const SNAPSHOT_DIR = snapshotDir(lane, scenario);
+	const testTags = tag ? [tags.PERFORMANCE, tag] : [tags.PERFORMANCE];
 
-	test.describe(`Memory: ${scenario}`, { tag: [tags.PERFORMANCE] }, () => {
+	test.describe(`Memory: ${lane} ${scenario}`, { tag: testTags }, () => {
 
 		test(`Memory footprint of the Positron process tree: ${scenario}`, async function ({ app, sessions, logsPath, openDataFile, openFile }) {
 			// Derived rather than a round number, because the default 2 minutes is
@@ -113,6 +126,7 @@ export function defineMemoryScenario(options: {
 
 			const snapshot = await captureSnapshot({
 				scenario,
+				lane,
 				rootPid: rootPid!,
 				buildRoot: buildRoot!,
 				userDataDir: app.userDataPath,
@@ -201,7 +215,7 @@ export function defineMemoryScenario(options: {
 		});
 	});
 
-	test.describe(`Memory report: ${scenario}`, { tag: [tags.PERFORMANCE] }, () => {
+	test.describe(`Memory report: ${lane} ${scenario}`, { tag: testTags }, () => {
 
 		test(`Render and publish the memory report: ${scenario}`, async function ({ }, testInfo) {
 			const paths = [0, 1, 2].map(i => join(SNAPSHOT_DIR, `memory-snapshot-${i}.json`));

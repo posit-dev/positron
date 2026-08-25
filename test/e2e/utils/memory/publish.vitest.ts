@@ -16,6 +16,7 @@ const process1: LabeledProcess = {
 
 const snapshot: MemorySnapshot = {
 	scenario: 'idle',
+	lane: 'desktop',
 	capturedAt: '2026-08-11T00:00:00.000Z',
 	positronVersion: '2026.09.0-35',
 	launchIndex: 2,
@@ -222,5 +223,19 @@ describe('publishingEnabled', () => {
 	test('fetchBaseline yields no baseline, so the report shows absolute numbers', async () => {
 		delete process.env.MEMORY_PUBLISH;
 		expect(await fetchBaseline('idle')).toBeUndefined();
+	});
+});
+
+describe('buildPayload lane', () => {
+	test('carries the snapshot lane onto the payload', () => {
+		const payload = buildPayload([{ ...snapshot, lane: 'server' as const }], meta);
+		expect(payload.lane).toBe('server');
+	});
+
+	test('desktop snapshots publish lane desktop explicitly, never undefined', () => {
+		// An absent lane would be defaulted server-side, which is a guess we can
+		// avoid making by always stating it.
+		const payload = buildPayload([{ ...snapshot, lane: 'desktop' as const }], meta);
+		expect(payload.lane).toBe('desktop');
 	});
 });

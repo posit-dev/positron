@@ -30,7 +30,7 @@ const ext = (extensionId: string, activationEvent: string | null): ActivatedExte
 	({ extensionId, isBuiltin: true, activationTimeMs: null, activationEvent });
 
 const snapshot = (procs: LabeledProcess[], launchIndex = 0, extensions: ActivatedExtension[] = []): MemorySnapshot => ({
-	scenario: 'idle', capturedAt: '2026-08-11T00:00:00.000Z',
+	scenario: 'idle', lane: 'desktop', capturedAt: '2026-08-11T00:00:00.000Z',
 	positronVersion: '2026.09.0-35', launchIndex, settleMs: 12_000,
 	treeTotalPssBytes: procs.reduce((sum, p) => sum + p.pssBytes, 0),
 	processes: procs, extensions

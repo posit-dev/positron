@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ForcedGcStats } from './gc.js';
+import { MemoryLane } from './lanes.js';
 import { MemoryScenario } from './scenarios.js';
 
 /**
@@ -80,6 +81,8 @@ export type ActivatedExtension = {
 /** Everything one app launch produced. */
 export type MemorySnapshot = {
 	scenario: MemoryScenario;
+	/** Which process tree this measured. Part of the published series key. */
+	lane: MemoryLane;
 	/** ISO 8601, set when the tree was read. Lets the report reject stale files. */
 	capturedAt: string;
 	/** e.g. `2026.09.0-35`: version plus build number, from the build's product.json. */

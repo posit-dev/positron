@@ -12,6 +12,7 @@ import {
 	platformVersion,
 	positronVersion
 } from '../metrics/metric-base.js';
+import { MemoryLane } from './lanes.js';
 import { MemoryScenario } from './scenarios.js';
 import { MemorySnapshot, ProcessRole } from './types.js';
 
@@ -81,6 +82,7 @@ export type MemoryPayload = {
 	platform_version: string;
 	container_image: string;
 	scenario: MemoryScenario;
+	lane: MemoryLane;
 	launches: {
 		launch_index: number;
 		settle_ms: number;
@@ -144,6 +146,7 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 		platform_version: platformVersion,
 		container_image: meta.containerImage,
 		scenario: first.scenario,
+		lane: first.lane,
 		launches: snapshots.map(snapshot => ({
 			launch_index: snapshot.launchIndex,
 			settle_ms: snapshot.settleMs,
@@ -235,6 +238,9 @@ export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScena
 	}
 	return {
 		scenario,
+		// A later task parametrizes this by the fetching run's own lane; until then
+		// every baseline caller is desktop, so this is not yet a guess.
+		lane: 'desktop',
 		// Neutral rather than faked, per the note above: the baseline predates this run
 		// and the response carries neither field. The report reads neither for the
 		// baseline, and '' fails the freshness check loudly if anything ever starts to.
