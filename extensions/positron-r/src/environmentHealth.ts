@@ -91,6 +91,32 @@ export interface RInstallationLike {
 const R_INSTALL_DOCS = 'https://positron.posit.co/r-installations';
 
 /**
+ * Where the developer-facing text behind a failed check goes. The report shows a
+ * generic sentence, so this is the only place the real message survives.
+ *
+ * Keep in sync with positron-python's `environmentHealth.ts`.
+ */
+export type LogError = (message: string, error?: unknown) => void;
+
+/**
+ * Sends the text to an output channel at warn level, with the stack when there is
+ * one.
+ *
+ * `warn()` renders an Error to its message alone: it calls `format()` without the
+ * verbose flag, which drops the stack (see `log.ts`). The stack is the part that
+ * says which line threw, so pass it as the argument instead of the Error.
+ */
+export function logErrorTo(channel: Pick<vscode.LogOutputChannel, 'warn'>): LogError {
+	return (message, error) => {
+		if (error === undefined) {
+			channel.warn(message);
+			return;
+		}
+		channel.warn(message, error instanceof Error ? error.stack ?? error.message : error);
+	};
+}
+
+/**
  * The claim a check makes, phrased so it reads the same whatever the outcome is:
  * the UI uses it as the row title and shows `status` separately. Callers that
  * never ran the probe (a skipped item, a probe that threw) still need the text,
@@ -115,13 +141,13 @@ function diagnosticsFix(): HealthItemFix {
 	};
 }
 
-export function probeDiscovery(deps: { binaryCount: number; error?: string }): HealthItem {
+export function probeDiscovery(deps: { binaryCount: number; discoveryFailed?: boolean }): HealthItem {
 	const id = 'discovery';
 	const summary = itemSummary(id);
-	if (deps.error) {
+	if (deps.discoveryFailed) {
 		return {
 			id, status: 'fail', summary,
-			detail: vscode.l10n.t('R discovery could not complete: {0}', deps.error),
+			detail: vscode.l10n.t('R discovery could not complete.'),
 			fix: diagnosticsFix(),
 			learnMoreUrl: R_INSTALL_DOCS,
 		};
@@ -315,15 +341,17 @@ function skipped(id: HealthItemId): HealthItem {
 
 async function runItem(
 	id: HealthItemId,
-	produce: () => HealthItem | Promise<HealthItem>
+	produce: () => HealthItem | Promise<HealthItem>,
+	logError: LogError
 ): Promise<HealthItem> {
 	try {
 		return await produce();
 	} catch (ex) {
+		// No curated action to offer for an unexpected probe failure, so this item carries no fix.
+		logError(`Environment health check '${id}' failed`, ex);
 		return {
 			id, status: 'fail', summary: itemSummary(id),
-			detail: vscode.l10n.t(
-				'Health check failed: {0}', ex instanceof Error ? ex.message : String(ex)),
+			detail: vscode.l10n.t('This check could not be completed.'),
 		};
 	}
 }
@@ -332,28 +360,31 @@ function finalize(items: HealthItem[]): REnvironmentHealthResult {
 	return { ok: !items.some((i) => i.status === 'fail'), items };
 }
 
-export async function assembleItems(producers: {
-	discovery: () => HealthItem | Promise<HealthItem>;
-	rInstalled: () => HealthItem | Promise<HealthItem>;
-	ready: () => HealthItem | Promise<HealthItem>;
-}): Promise<REnvironmentHealthResult> {
+export async function assembleItems(
+	producers: {
+		discovery: () => HealthItem | Promise<HealthItem>;
+		rInstalled: () => HealthItem | Promise<HealthItem>;
+		ready: () => HealthItem | Promise<HealthItem>;
+	},
+	logError: LogError = () => { }
+): Promise<REnvironmentHealthResult> {
 	const items: HealthItem[] = [];
 
-	const discovery = await runItem('discovery', producers.discovery);
+	const discovery = await runItem('discovery', producers.discovery, logError);
 	items.push(discovery);
 	if (discovery.status === 'fail') {
 		items.push(skipped('rInstalled'), skipped('environmentReady'));
 		return finalize(items);
 	}
 
-	const rInstalled = await runItem('rInstalled', producers.rInstalled);
+	const rInstalled = await runItem('rInstalled', producers.rInstalled, logError);
 	items.push(rInstalled);
 	if (rInstalled.status === 'fail') {
 		items.push(skipped('environmentReady'));
 		return finalize(items);
 	}
 
-	items.push(await runItem('environmentReady', producers.ready));
+	items.push(await runItem('environmentReady', producers.ready, logError));
 	return finalize(items);
 }
 
@@ -373,22 +404,38 @@ function arkArchitecture(arkPath: string | undefined): ArkArch | undefined {
 	return undefined;
 }
 
-export async function getEnvironmentHealth(): Promise<REnvironmentHealthResult> {
+/**
+ * Turns a thrown discovery error into the flag probeDiscovery takes. The exception is developer
+ * text, so it goes to the log; probeDiscovery never receives it. A failure yields an empty list,
+ * which is what the probes below read.
+ *
+ * Generic over the installation type so a test can supply plain stand-ins.
+ */
+export async function discoverInstallations<T>(
+	discover: () => Promise<T[]>,
+	logError: LogError
+): Promise<{ installations: T[]; discoveryFailed: boolean }> {
+	try {
+		return { installations: await discover(), discoveryFailed: false };
+	} catch (ex) {
+		logError('R installation discovery failed', ex);
+		return { installations: [], discoveryFailed: true };
+	}
+}
+
+export async function getEnvironmentHealth(
+	logError: LogError
+): Promise<REnvironmentHealthResult> {
 	// Discovery runs once per invocation and every probe below reads that one
 	// snapshot. Nothing is cached across calls; each call re-runs full discovery.
-	let all: RInstallation[] = [];
-	let discoveryError: string | undefined;
-	try {
-		all = await discoverRInstallations();
-	} catch (ex) {
-		discoveryError = ex instanceof Error ? ex.message : String(ex);
-	}
+	const { installations: all, discoveryFailed } = await discoverInstallations<RInstallation>(
+		discoverRInstallations, logError);
 
 	const preferred = await positron.runtime.getPreferredRuntime('r');
 	const target = selectTargetInstallation(all, preferred?.runtimePath);
 
 	const result = await assembleItems({
-		discovery: () => probeDiscovery({ binaryCount: all.length, error: discoveryError }),
+		discovery: () => probeDiscovery({ binaryCount: all.length, discoveryFailed }),
 		rInstalled: () => probeRInstalled({ installations: all }),
 		ready: () => {
 			if (!target) {
@@ -416,7 +463,7 @@ export async function getEnvironmentHealth(): Promise<REnvironmentHealthResult> 
 				arkArch,
 			});
 		},
-	});
+	}, logError);
 
 	result.rBinPath = target?.binpath;
 	result.rHome = target?.homepath;
