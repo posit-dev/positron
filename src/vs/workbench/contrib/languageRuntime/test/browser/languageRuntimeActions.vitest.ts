@@ -12,7 +12,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -42,6 +42,36 @@ function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILangua
 	};
 	return { ...base, ...overrides };
 }
+
+describe('summarizeRegisteredRuntime', () => {
+	test('keeps the fields an agent needs and drops the icon and extra data', () => {
+		const summary = summarizeRegisteredRuntime(makeRuntime({
+			runtimeId: 'python-abc',
+			runtimeDisplayPath: '~/venvs/proj/bin/python',
+			base64EncodedIconSvg: 'PHN2Zz4uLi48L3N2Zz4=',
+			extraRuntimeData: { pythonPath: '/secret' },
+		}));
+
+		expect(summary).toEqual({
+			runtimeId: 'python-abc',
+			languageId: 'python',
+			languageName: 'Python',
+			languageVersion: '3.12.0',
+			runtimeName: 'Python 3.12 (System)',
+			runtimeShortName: '3.12',
+			runtimeVersion: '0.0.0',
+			runtimeSource: 'System',
+			runtimePath: '~/venvs/proj/bin/python',
+			startupBehavior: 'implicit',
+			extensionId: 'test-extension',
+		});
+	});
+
+	test('falls back to the raw path when there is no display path', () => {
+		const summary = summarizeRegisteredRuntime(makeRuntime({ runtimePath: '/usr/bin/python3' }));
+		expect(summary.runtimePath).toBe('/usr/bin/python3');
+	});
+});
 
 describe('selectNewLanguageRuntime', () => {
 	let preferredByLanguage: Map<string, ILanguageRuntimeMetadata>;

@@ -574,6 +574,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerAgentSkillRoot(root: string): vscode.Disposable {
 				return extHostAiFeatures.registerAgentSkillRoot(root);
 			},
+			onDidChangeAgentSkillRoots: extHostAiFeatures.onDidChangeAgentSkillRoots,
 			validateAndExecuteCommand(
 				commandId: string,
 				args?: unknown[],

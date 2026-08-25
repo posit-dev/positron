@@ -2,22 +2,25 @@
 name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes
-  (Console, Variables, Plots, Help, Packages), clearing the console, adjusting
-  the Data Explorer view, discovering or restarting R and Python interpreters,
-  interrupting a stuck session, and refreshing or updating packages. Use when
-  the user wants Positron itself to do something, rather than wanting R or
-  Python code run. Load this skill, then read the reference file for the area in
-  question: layout and pane focus in references/ui.md; interpreters, sessions
-  and packages in references/troubleshooting.md. Triggers: "switch to the data
-  science layout", "show me the variables pane", "clear the console", "my R
-  interpreter isn't showing up", "my session is stuck", "update all my
-  packages".
+  (Console, Variables, Plots, Help, Packages), clearing the console, listing or
+  discovering registered interpreters, restarting or interrupting a stuck
+  session, and refreshing or updating packages. Use when the user wants Positron
+  itself to do something, rather than to run R or Python code. Load this skill,
+  then read the reference file for the area: layout and pane focus in
+  references/ui.md; listing interpreters in references/interpreters.md; sessions
+  and packages in references/troubleshooting.md; installing Python, creating an
+  environment, and finding the active interpreter in references/python-setup.md.
+  Triggers: "switch to the data science layout", "show the variables pane",
+  "clear the console", "what interpreters are available", "my R interpreter
+  isn't showing up", "my session is stuck", "update all my packages", "I don't
+  have Python installed", "set up a Python environment", "which Python am I
+  using".
 ---
 
 # Positron IDE commands
 
 These commands act on the Positron workbench itself -- layout, panes, interpreter
-sessions, and packages. They do not run R or Python code; use `executeCode` for
+sessions, and packages. They do not run interpreter code; use `executeCode` for
 that.
 
 ## Calling these commands
@@ -52,8 +55,19 @@ notebook, two-pane), bringing a pane into focus (Console, Variables, Help,
 Plots, Packages), clearing console output, or expanding/collapsing the Data
 Explorer's column summary panel.
 
-**Interpreters, sessions and packages** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
+**Registered interpreters** -- [references/interpreters.md]({{skill_dir}}/references/interpreters.md)
+Read when the user asks what interpreters are available, wants the registered
+interpreters listed (Python, R, or another language), or needs Positron to
+rescan for newly installed environments. Also the place to find a base
+interpreter before creating an environment.
+
+**Sessions and packages** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
 Read when the user asks about: an interpreter that isn't showing up or won't
 start, startup diagnostics, a session that is stuck or needs restarting, or
 installed packages that need refreshing or updating. Also covers looking up a
 help topic for a function or symbol.
+
+**Python environment setup** -- [references/python-setup.md]({{skill_dir}}/references/python-setup.md)
+Read when the user is getting Python set up: installing a Python interpreter when
+they have none, creating a project environment (venv, Conda, or uv), or finding
+out which interpreter is currently active.

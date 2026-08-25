@@ -28,12 +28,15 @@ export class InterpreterPathCommand implements IExtensionSingleActivationService
     }
 
     public async _getSelectedInterpreterPath(
-        args: { workspaceFolder: string; type: string } | string[],
+        args?: { workspaceFolder: string; type: string } | string[],
     ): Promise<string> {
         // If `launch.json` is launching this command, `args.workspaceFolder` carries the workspaceFolder
         // If `tasks.json` is launching this command, `args[1]` carries the workspaceFolder
+        // An agent calls this with no args to get the active interpreter.
         let workspaceFolder;
-        if ('workspaceFolder' in args) {
+        if (!args) {
+            workspaceFolder = undefined;
+        } else if ('workspaceFolder' in args) {
             workspaceFolder = args.workspaceFolder;
         } else if (args[1]) {
             const [, second] = args;
