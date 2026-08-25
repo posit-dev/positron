@@ -205,7 +205,8 @@ export class UnionSemanticTokensLegend {
 		}
 
 		let tokenModifiers = 0;
-		for (let bit = 0; bit < sourceLegend.tokenModifiers.length; bit++) {
+		const readableBits = Math.min(sourceLegend.tokenModifiers.length, MAX_TOKEN_MODIFIERS);
+		for (let bit = 0; bit < readableBits; bit++) {
 			if ((token.tokenModifiers & (1 << bit)) === 0) {
 				continue;
 			}

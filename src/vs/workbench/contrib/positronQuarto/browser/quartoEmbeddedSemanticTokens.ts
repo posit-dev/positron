@@ -18,7 +18,7 @@ import { LanguageFeatureRegistry } from '../../../../editor/common/languageFeatu
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { isSemanticTokens } from '../../../../editor/contrib/semanticTokens/common/getSemanticTokens.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ILogService, LogLevel } from '../../../../platform/log/common/log.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { ICellLineSpan } from '../common/quartoCellPositionMapping.js';
 import {
@@ -108,6 +108,9 @@ class QuartoEmbeddedSemanticTokensProvider extends QuartoEmbeddedProvider implem
 	 * Subscribe to every downstream provider's own change event, rebinding when
 	 * the set of them changes. Modelled on core's `bindProviderChangeListeners`,
 	 * which does the same for the providers it holds.
+	 *
+	 * Subscribed to the whole registry, but forwarded only for the providers that
+	 * answer for a cell open right now; see `_servesAnOpenCell`.
 	 */
 	private _bindDownstreamListeners(): void {
 		this._downstreamListeners.clear();
@@ -118,9 +121,43 @@ class QuartoEmbeddedSemanticTokensProvider extends QuartoEmbeddedProvider implem
 				if (provider instanceof QuartoEmbeddedProvider || !provider.onDidChange) {
 					continue;
 				}
-				this._downstreamListeners.add(provider.onDidChange(() => this._onDidChange.fire()));
+				this._downstreamListeners.add(provider.onDidChange(() => {
+					if (this._servesAnOpenCell(provider)) {
+						this._onDidChange.fire();
+					}
+				}));
 			}
 		}
+	}
+
+	/**
+	 * Whether a provider answers for any cell of any open Quarto document.
+	 *
+	 * Firing our event re-tokenizes every open Quarto document, so a server for a
+	 * language that appears in no chunk must not reach it. Most of the registry
+	 * is exactly that: every language installed, whether or not a chunk uses it.
+	 *
+	 * Asked when the event arrives rather than when the subscription is made,
+	 * because the set of open cells changes with no event to rebind on. A
+	 * subscription list built from cells would miss the server for a language
+	 * whose first chunk is written later, and missing a refresh is the stale
+	 * colouring this forwarding exists to prevent. Evaluating here cannot go
+	 * stale, and costs a scored walk only on a downstream change.
+	 */
+	private _servesAnOpenCell(provider: DocumentSemanticTokensProvider | DocumentRangeSemanticTokensProvider): boolean {
+		for (const cell of this._virtualNotebooks.getAllCells()) {
+			// A cell's model can be disposed by a rebuild between the event and
+			// this walk, and scoring a disposed model throws.
+			if (cell.textModel.isDisposed()) {
+				continue;
+			}
+			for (const registry of this._registries()) {
+				if (this._downstream(registry, cell.textModel).includes(provider)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	getLegend(): SemanticTokensLegend {
@@ -203,11 +240,9 @@ class QuartoEmbeddedSemanticTokensProvider extends QuartoEmbeddedProvider implem
 			return null;
 		}
 
-		if (this._tracing) {
-			this._logService.trace(`[QuartoEmbedded] semantic tokens answered from ` +
-				`${answered.length} of ${cells.length} cell(s) with ` +
-				`${data.length / FIELDS_PER_TOKEN} token(s)`);
-		}
+		this._logService.trace(`[QuartoEmbedded] semantic tokens answered from ` +
+			`${answered.length} of ${cells.length} cell(s) with ` +
+			`${data.length / FIELDS_PER_TOKEN} token(s)`);
 
 		return { data };
 	}
@@ -503,11 +538,9 @@ export class QuartoEmbeddedSemanticTokens extends Disposable implements IWorkben
 		store.add(this._languageFeatures.documentSemanticTokensProvider.register(QUARTO_SELECTOR, provider));
 		this._registration.value = store;
 
-		if (this._logService.getLevel() === LogLevel.Trace) {
-			this._logService.trace('[QuartoEmbedded] semantic tokens legend now covers ' +
-				`${union.legend.tokenTypes.length} type(s) and ` +
-				`${union.legend.tokenModifiers.length} modifier(s)`);
-		}
+		this._logService.trace('[QuartoEmbedded] semantic tokens legend now covers ' +
+			`${union.legend.tokenTypes.length} type(s) and ` +
+			`${union.legend.tokenModifiers.length} modifier(s)`);
 	}
 }
 

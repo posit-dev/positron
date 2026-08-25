@@ -384,6 +384,61 @@ describe('QuartoEmbeddedSemanticTokens', () => {
 		expect(fired).toBe(1);
 	});
 
+	it('ignores a refresh from a server that answers for no open cell', async () => {
+		// Firing re-tokenizes every open Quarto document. Most of the registry is
+		// languages that appear in no chunk, and a Go server reindexing has
+		// nothing to say about a document of R and prose.
+		const goChange = new Emitter<void>();
+		ctx.disposables.add(goChange);
+		ctx.disposables.add(languageFeatures.documentSemanticTokensProvider.register({ language: 'go' }, {
+			onDidChange: goChange.event,
+			getLegend: () => R_LEGEND,
+			provideDocumentSemanticTokens: () => ({ data: tokenStream(0, 0, 0) }),
+			releaseDocumentSemanticTokens: () => { },
+		}));
+		createContribution([rCell]);
+
+		let fired = 0;
+		ctx.disposables.add(provider().onDidChange!(() => { fired++; }));
+		goChange.fire();
+
+		expect(fired).toBe(0);
+	});
+
+	it('forwards a refresh for a language whose first chunk appeared after registration', async () => {
+		// The reason this is judged when the event arrives rather than when the
+		// subscription is made. Cells change with no event to rebind a
+		// subscription list on, so a list built from the cells open at
+		// registration would never learn about this server.
+		const pythonChange = new Emitter<void>();
+		ctx.disposables.add(pythonChange);
+		ctx.disposables.add(languageFeatures.documentSemanticTokensProvider.register({ language: 'python' }, {
+			onDidChange: pythonChange.event,
+			getLegend: () => PYTHON_LEGEND,
+			provideDocumentSemanticTokens: () => ({ data: tokenStream(0, 0, 0) }),
+			releaseDocumentSemanticTokens: () => { },
+		}));
+
+		// The document holds only an R chunk when the provider is registered.
+		const cells = [rCell];
+		createContribution(cells);
+
+		let fired = 0;
+		ctx.disposables.add(provider().onDidChange!(() => { fired++; }));
+		pythonChange.fire();
+		const beforePythonChunk = fired;
+
+		// The user writes a `{python}` chunk. `createContribution` closed over
+		// this array, as the service's own cells would change under it.
+		cells.push(pythonCell);
+		pythonChange.fire();
+
+		expect({ beforePythonChunk, afterPythonChunk: fired }).toEqual({
+			beforePythonChunk: 0,
+			afterPythonChunk: 1,
+		});
+	});
+
 	it('answers nothing when every token was dropped as outside its cell', async () => {
 		// The tokens survive the legend but not the span guard, which runs when
 		// the stream is encoded. Counting before that would call this an answer

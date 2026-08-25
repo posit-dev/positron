@@ -233,6 +233,32 @@ describe('quartoSemanticTokens', () => {
 			});
 		});
 
+		it('ignores a source bit past 31 rather than aliasing it onto another name', () => {
+			// A legend may name more modifiers than a token can carry. `1 << 32`
+			// is `1`, so reading bit 32 of a token re-reads its bit 0, under the
+			// name the source legend has at index 32. That name can be in the
+			// union at a low index when another provider contributed it first,
+			// in which case the alias is not dropped but silently applied.
+			const namesAsyncFirst = { tokenTypes: ['variable'], tokenModifiers: ['async'] };
+			const wide = {
+				tokenTypes: ['variable'],
+				tokenModifiers: [...Array.from({ length: 32 }, (_, index) => `mod${index}`), 'async'],
+			};
+			const union = new UnionSemanticTokensLegend([namesAsyncFirst, wide]);
+
+			expect({
+				asyncIndex: union.legend.tokenModifiers.indexOf('async'),
+				mod0Index: union.legend.tokenModifiers.indexOf('mod0'),
+				// Only bit 0 is set, which is `mod0` in the wide legend.
+				onlyMod0: union.remap(token(0, 0, 1, 0, 0b1), wide),
+			}).toEqual({
+				asyncIndex: 0,
+				mod0Index: 1,
+				// `mod0` alone, at union bit 1. `async` at union bit 0 is not set.
+				onlyMod0: token(0, 0, 1, 0, 0b10),
+			});
+		});
+
 		it('is empty when no provider declared a legend', () => {
 			// The cold start case: nothing has registered yet, so there is no
 			// legend to offer and no token that could be expressed in it.
