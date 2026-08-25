@@ -6,10 +6,11 @@
 /// <reference types="vitest/globals" />
 /// <reference types="@testing-library/jest-dom/vitest" />
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { useState } from 'react';
 import { PositronDynamicModalDialog, PositronDynamicModalDialogProps } from '../positronDynamicModalDialog.js';
 
 describe('PositronDynamicModalDialog', () => {
@@ -65,5 +66,76 @@ describe('PositronDynamicModalDialog', () => {
 		renderDialog({ content: <span>nothing focusable</span> });
 
 		expect(screen.getByRole('dialog')).toHaveFocus();
+	});
+
+	it('does not mark the only open dialog as nested', () => {
+		const { container } = renderDialog();
+
+		// The container is a structural div with no role or text of its own, and the class is the
+		// contract the CSS keys off, so there is no semantic query for it.
+		// eslint-disable-next-line no-restricted-syntax -- see above
+		expect(container.querySelector('.positron-dynamic-modal-dialog-box-container')).not.toHaveClass('nested');
+	});
+
+	it('marks a dialog opened while another is already open as nested', () => {
+		const first = renderDialog();
+		const second = renderDialog();
+
+		expect({
+			// eslint-disable-next-line no-restricted-syntax -- structural div, see above
+			first: first.container.querySelector('.positron-dynamic-modal-dialog-box-container')!.className,
+			// eslint-disable-next-line no-restricted-syntax -- structural div, see above
+			second: second.container.querySelector('.positron-dynamic-modal-dialog-box-container')!.className,
+		}).toEqual({
+			first: 'positron-dynamic-modal-dialog-box-container',
+			second: 'positron-dynamic-modal-dialog-box-container nested',
+		});
+	});
+
+	it('stops marking dialogs nested once the earlier ones have closed', () => {
+		const first = renderDialog();
+		const second = renderDialog();
+		second.unmount();
+		first.unmount();
+
+		const third = renderDialog();
+
+		// eslint-disable-next-line no-restricted-syntax -- structural div, see above
+		expect(third.container.querySelector('.positron-dynamic-modal-dialog-box-container')).not.toHaveClass('nested');
+	});
+
+	it('does not mark a dialog nested when it replaces one in the same commit', () => {
+		// A multi-step flow renders a different component per step, each with its own dialog, so the
+		// incoming dialog mounts and the outgoing one unmounts in the same commit. If the incoming
+		// dialog decided its nesting during render it would see the outgoing one still counted, and
+		// the workbench would stop being dimmed from step two onward.
+		const renderer = stubInterface<PositronDynamicModalDialogProps['renderer']>({
+			onKeyDown: keyDown.event,
+			onResize: resize.event
+		});
+		const StepOne = () => (
+			<PositronDynamicModalDialog content={<span>First step content</span>} renderer={renderer} title='One' width={400} />
+		);
+		const StepTwo = () => (
+			<PositronDynamicModalDialog content={<span>Second step content</span>} renderer={renderer} title='Two' width={400} />
+		);
+		function Flow() {
+			const [step, setStep] = useState(1);
+			return (
+				<>
+					<button onClick={() => setStep(2)}>Next</button>
+					{step === 1 ? <StepOne /> : <StepTwo />}
+				</>
+			);
+		}
+		const { container } = render(<Flow />);
+
+		act(() => {
+			screen.getByRole('button', { name: 'Next' }).click();
+		});
+
+		expect(screen.getByText('Second step content')).toBeInTheDocument();
+		// eslint-disable-next-line no-restricted-syntax -- structural div, no semantic query
+		expect(container.querySelector('.positron-dynamic-modal-dialog-box-container')).not.toHaveClass('nested');
 	});
 });
