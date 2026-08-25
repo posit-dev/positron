@@ -9,8 +9,9 @@ import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
 import { collectAllGarbage, gcTargetsFor, malformedForcedGc } from '../../utils/memory/gc.js';
+import { namedShareGateApplies } from '../../utils/memory/label.js';
 import { MemoryLane } from '../../utils/memory/lanes.js';
-import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
+import { containerImageFromEnv, fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
 import { captureSnapshot, SAMPLING_CAP_MS, SETTLE_CAP_MS, unstableProcesses } from '../../utils/memory/snapshot.js';
 import { MemoryScenario } from '../../utils/memory/scenarios.js';
@@ -212,8 +213,15 @@ export function defineMemoryScenario(options: {
 			expect(moving.map(p => `${p.processName} (${p.processRole})`),
 				`sampling hit its ${SAMPLING_CAP_MS / 1000}s cap with processes still moving, so these figures are mid-swing`).toEqual([]);
 
-			const namedShare = snapshot.processes.filter(p => p.labeled).length / snapshot.processes.length;
-			expect(namedShare, 'Positron named too few processes; --status probably failed, and an unattributable total is worse than no data').toBeGreaterThan(0.5);
+			// See namedShareGateApplies (label.ts) for why the server lane skips this:
+			// `--status` cannot answer there at all, so every process is unlabeled by
+			// construction and the gate would fail every server run regardless of
+			// attribution quality. The unlabeledBytes gate below stays lane-agnostic
+			// and still catches a genuinely unattributable tree.
+			if (namedShareGateApplies(lane)) {
+				const namedShare = snapshot.processes.filter(p => p.labeled).length / snapshot.processes.length;
+				expect(namedShare, 'Positron named too few processes; --status probably failed, and an unattributable total is worse than no data').toBeGreaterThan(0.5);
+			}
 
 			const unlabeledBytes = snapshot.processes
 				.filter(p => p.processRole === 'unlabeled')
