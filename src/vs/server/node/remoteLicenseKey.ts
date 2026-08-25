@@ -223,7 +223,7 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 			return { valid: false };
 		}
 	} catch (e) {
-		console.error('Error reading license file: ', licenseFile);
+		console.error('Error validating license file: ', licenseFile);
 		console.error(e);
 	}
 	return { valid: false };

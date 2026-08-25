@@ -115,23 +115,38 @@ class LocalLicenseManager {
 	async activateLicenseFile(licenseFilePath: string): Promise<ILicenseValidationResult> {
 		const licenseManagerDir = path.dirname(this.licenseManagerPath);
 
-		let localLic: string | undefined;
-		try {
-			localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
-		} catch {
-			throw new Error(`Cannot read license-manager directory: ${licenseManagerDir}`);
+		if (!fs.existsSync(licenseFilePath)) {
+			throw new Error(`License file not found: ${licenseFilePath}`);
 		}
 
-		if (localLic) {
-			// A .lic file already exists next to the binary; the provided
-			// licenseFilePath is not copied. Verify the existing one.
-			console.log(`Using existing license file: ${path.join(licenseManagerDir, localLic)}`);
-		} else {
+		const localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
+		if (!localLic) {
 			// No .lic next to the binary -- copy the provided file there.
-			if (!fs.existsSync(licenseFilePath)) {
-				throw new Error(`License file not found: ${licenseFilePath}`);
-			}
 			fs.copyFileSync(licenseFilePath, path.join(licenseManagerDir, path.basename(licenseFilePath)));
+		} else {
+			const localLicPath = path.join(licenseManagerDir, localLic);
+			// Compare contents rather than paths: the provided path may be the
+			// local file itself, and copying a file onto itself truncates it.
+			let sameContents: boolean | undefined;
+			try {
+				sameContents = fs.readFileSync(licenseFilePath).equals(fs.readFileSync(localLicPath));
+			} catch {
+				// One of the files is unreadable; leave the existing file in
+				// place and let verification report its state.
+			}
+			if (sameContents === false) {
+				// The provided license differs from the local one -- overwrite
+				// the local file in place so a renewal takes effect. Sessions
+				// without write access keep using the existing file.
+				try {
+					fs.copyFileSync(licenseFilePath, localLicPath);
+					console.log(`Replaced license file: ${localLicPath}`);
+				} catch (e) {
+					console.warn(`Cannot replace license file at ${localLicPath}: ${e}; using the existing license file.`);
+				}
+			} else {
+				console.log(`Using existing license file: ${localLicPath}`);
+			}
 		}
 
 		return this.verify();
