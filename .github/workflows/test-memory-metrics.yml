@@ -204,7 +204,17 @@ jobs:
           DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 0
         run: |
-          if [ "${{ matrix.lane }}" != "server" ]; then
+          if [ "${{ matrix.lane }}" = "server" ]; then
+            # Point BUILD at the server build, not the desktop one. BUILD is
+            # read three ways and all three need the server build here:
+            # options.fixtures.ts passes it as codePath, which
+            # resolveServerLocation reads for bin/<serverApplicationName>;
+            # memory-scenario.ts asserts it is set; and getPositronVersion
+            # reads its product.json, which is the only way the snapshot gets
+            # a real version. Unsetting it satisfied the first and broke the
+            # other two.
+            export BUILD="$VSCODE_REMOTE_SERVER_PATH"
+          else
             export BUILD="$DESKTOP_BUILD"
           fi
           npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
@@ -214,7 +224,17 @@ jobs:
           DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 1
         run: |
-          if [ "${{ matrix.lane }}" != "server" ]; then
+          if [ "${{ matrix.lane }}" = "server" ]; then
+            # Point BUILD at the server build, not the desktop one. BUILD is
+            # read three ways and all three need the server build here:
+            # options.fixtures.ts passes it as codePath, which
+            # resolveServerLocation reads for bin/<serverApplicationName>;
+            # memory-scenario.ts asserts it is set; and getPositronVersion
+            # reads its product.json, which is the only way the snapshot gets
+            # a real version. Unsetting it satisfied the first and broke the
+            # other two.
+            export BUILD="$VSCODE_REMOTE_SERVER_PATH"
+          else
             export BUILD="$DESKTOP_BUILD"
           fi
           npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
@@ -224,7 +244,17 @@ jobs:
           DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 2
         run: |
-          if [ "${{ matrix.lane }}" != "server" ]; then
+          if [ "${{ matrix.lane }}" = "server" ]; then
+            # Point BUILD at the server build, not the desktop one. BUILD is
+            # read three ways and all three need the server build here:
+            # options.fixtures.ts passes it as codePath, which
+            # resolveServerLocation reads for bin/<serverApplicationName>;
+            # memory-scenario.ts asserts it is set; and getPositronVersion
+            # reads its product.json, which is the only way the snapshot gets
+            # a real version. Unsetting it satisfied the first and broke the
+            # other two.
+            export BUILD="$VSCODE_REMOTE_SERVER_PATH"
+          else
             export BUILD="$DESKTOP_BUILD"
           fi
           npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
@@ -245,7 +275,17 @@ jobs:
           MEMORY_PUBLISH: 'false'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: |
-          if [ "${{ matrix.lane }}" != "server" ]; then
+          if [ "${{ matrix.lane }}" = "server" ]; then
+            # Point BUILD at the server build, not the desktop one. BUILD is
+            # read three ways and all three need the server build here:
+            # options.fixtures.ts passes it as codePath, which
+            # resolveServerLocation reads for bin/<serverApplicationName>;
+            # memory-scenario.ts asserts it is set; and getPositronVersion
+            # reads its product.json, which is the only way the snapshot gets
+            # a real version. Unsetting it satisfied the first and broke the
+            # other two.
+            export BUILD="$VSCODE_REMOTE_SERVER_PATH"
+          else
             export BUILD="$DESKTOP_BUILD"
           fi
           npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Render and publish'
@@ -260,6 +300,21 @@ jobs:
           # start of every invocation.
           path: ${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/
           if-no-files-found: warn
+
+      # Only on failure, and deliberately including test-results/: when the app
+      # fixture times out there is no snapshot to upload, and the server's own
+      # log is the only thing that says why. Without this a failed server-lane
+      # job is diagnosable only by re-running it with more logging.
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-logs-${{ matrix.lane }}-${{ matrix.scenario }}
+          path: |
+            test-results/
+            .build/logs/
+          if-no-files-found: warn
+          retention-days: 5
 
       # This job deliberately writes no step summary. It cannot publish the report
       # itself -- the image ships no AWS CLI, the same reason gh is hand-installed
