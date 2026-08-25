@@ -161,28 +161,46 @@ a bare scenario list. The server job additionally:
   extracted directory, which is what `resolveServerLocation`
   (`playwrightBrowser.ts:120`) reads to run a built server instead of the
   source script
-- runs with `PW_PROJECT_NAME: e2e-memory-server`, a new dedicated project (see
-  below), instead of `e2e-electron`
+- runs with `PW_PROJECT_NAME: e2e-chromium` instead of `e2e-electron`
 
-### Why a new Playwright project, and not `e2e-server`
+### Which Playwright project, and why not a new one
 
-The existing `e2e-server` project sets `useExternalServer: true` against
-`http://localhost:8080`, which routes through `launchPlaywrightExternalServer`.
-That path constructs `Code` with `null` in the process slot (`code.ts:149`), so
-there is no `ChildProcess` and `rootPid` would return `undefined`. The server it
-talks to was started outside Playwright, so the harness has no handle on it.
+**Reuse `e2e-chromium`. Do not add a project, and do not use `e2e-server`.**
 
-The spawned path is the one we need: `web: true` with `useExternalServer` unset
-routes through `launchPlaywrightBrowser`, which spawns the server itself and
-passes the `ChildProcess` into `Code` (`code.ts:155-158`). That is what makes
-`rootPid` work, and it is also what honours `VSCODE_REMOTE_SERVER_PATH`.
+`e2e-server` cannot work. It sets `useExternalServer: true` against
+`http://localhost:8080`, which routes through `launchPlaywrightExternalServer`,
+and that path constructs `Code` with `null` in the process slot (`code.ts:149`).
+The server it talks to was started outside Playwright, so the harness has no
+handle on it, `rootPid` returns `undefined`, and the collector has no tree. It
+would not fail loudly either -- it would produce an empty process list, a run
+that looks like it worked.
 
-The other `@:web` projects (`e2e-chromium`, `e2e-firefox`, `e2e-webkit`,
-`e2e-edge`) do use the spawned path, but reusing one is wrong for a second
-reason: they select tests by `grep: /@:web/`, so making the memory spec eligible
-would require tagging it `@:web`, which would make it eligible in *every* one of
-those lanes. `memorySpecsToIgnore` is currently applied only to `e2e-electron`
-(`playwright.config.ts:112`), so nothing would hold it back.
+The spawned path is the one we need: `web: true` (which is just `!!browser`,
+`options.fixtures.ts:73`) with `useExternalServer` unset routes through
+`launchPlaywrightBrowser`, which spawns the server itself and passes the
+`ChildProcess` into `Code` (`code.ts:155-158`). That is what makes `rootPid`
+work, and what honours `VSCODE_REMOTE_SERVER_PATH`.
+
+`e2e-chromium` is exactly that: `browserName: 'chromium'`, no
+`useExternalServer`. So it needs no new project, only the same guard
+`e2e-electron` already carries.
+
+Blast radius is small because `@:web` selects into **only two** projects,
+`e2e-chromium` and `e2e-server`. The other browser lanes select on
+`@:cross-browser`, so they are unaffected. Concretely:
+
+- tag the server memory spec `@:web`, which is simply true of it
+- add `...memorySpecsToIgnore(...)` to both `e2e-chromium` and `e2e-server`, so
+  the spec is inert unless the memory workflow selects it. `e2e-electron` already
+  does this (`playwright.config.ts:112`); this extends an existing pattern rather
+  than inventing one, and the `e2e-server` entry is what stops the broken
+  external-server path from ever picking it up.
+
+The trade-off accepted here: the memory job now shares a project name with a real
+web CI lane, so `e2e-chromium`'s `use` block (notably `headless: false`) applies
+to memory runs too. That is fine for this lane -- the renderer is in the browser
+and outside the tree we measure, so browser-side window configuration cannot move
+the number.
 
 So: a dedicated `e2e-memory-server` project, using the spawned path, selecting
 the memory specs directly rather than by tag, and carrying its own
@@ -195,11 +213,25 @@ Desktop forces a GC in the shared process and extension host over CDP before
 sampling, so figures reflect what a scenario retains rather than whether V8 had
 swept yet. Whether the server exposes the same inspector ports is unverified.
 
-The behaviour is therefore specified rather than left to the implementer: attempt
-the GC, and on an unavailable inspector **log a warning and continue**. Do not
-fail the run -- a noisier series is worth having and the absence is itself the
-finding. The report notes when a lane's GC did not run, so nobody reads an
-un-collected extension host as a regression.
+It is worse than unverified: the flags cannot currently reach a spawned server at
+all. They are passed as `extraArgs`, which only `electron.ts:95-96` consumes;
+`playwrightBrowser.ts` builds its own argument list and ignores `extraArgs`
+entirely. That is precisely why the existing wiring gates them on `!browser`
+(`options.fixtures.ts:94`).
+
+**So the server lane does not force a GC in this PR, deliberately.** Plumbing
+`extraArgs` through `playwrightBrowser`'s `codeServerArgs` is a separate change
+and a separate risk, and bundling it here would mean shipping a new lane and new
+launch plumbing together.
+
+The consequence must be recorded rather than discovered: server extension-host
+figures will carry the uncollected V8 startup garbage that the desktop lane used
+to, which on desktop was worth roughly 40 MB and swung launch to launch. The
+series is still usable for trending because the noise is present in every launch
+equally, but it is **not** comparable to a desktop extension-host figure, and no
+threshold should be set on it until GC is plumbed. The report notes that the
+lane's GC did not run, so nobody reads an un-collected extension host as a
+regression. Follow-up issue: plumb `extraArgs` to the spawned server.
 
 ### Summary report
 
