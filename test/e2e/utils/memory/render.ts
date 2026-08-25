@@ -563,14 +563,14 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Positron memory: ${escapeHtml(first.scenario)}</title>
+	<title>Positron memory: ${escapeHtml(first.lane)} ${escapeHtml(first.scenario)}</title>
 	<style>${REPORT_CSS}
 	</style>
 </head>
 <body>
 <div class="container">
 	<div class="header">
-		<h1>${escapeHtml(first.scenario)}</h1>
+		<h1>${escapeHtml(first.lane)} ${escapeHtml(first.scenario)}</h1>
 		<div class="meta">${first.positronVersion ? `Build: ${escapeHtml(first.positronVersion)}` : ''}</div>
 		<div class="hero">${formatBytes(total)}</div>
 		${baseline ? `<div class="meta">${deltaHtml(total, baseline.treeTotalPssBytes)} vs previous nightly</div>` : ''}

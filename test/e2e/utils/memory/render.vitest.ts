@@ -183,6 +183,19 @@ describe('renderHtml', () => {
 		expect(output).toContain('</html>');
 	});
 
+	test('titles and heads the document with its lane, not just the scenario', () => {
+		// desktop-idle.html and server-idle.html land in the same S3 directory.
+		// Without the lane in the document itself, both open as a page headed
+		// only "idle" and a reader cannot tell which is which.
+		const desktop = renderHtml([snapshot([proc()])]);
+		expect(desktop).toContain('<title>Positron memory: desktop idle</title>');
+		expect(desktop).toContain('<h1>desktop idle</h1>');
+
+		const server = renderHtml([{ ...snapshot([proc()]), lane: 'server' as const }]);
+		expect(server).toContain('<title>Positron memory: server idle</title>');
+		expect(server).toContain('<h1>server idle</h1>');
+	});
+
 	// The report published a renderer median of 433 MB for a process that was at
 	// 306 MB when sampling ended, and said nothing about it. A number taken from
 	// the middle of a swing has to announce itself, or it reads as steady state.
