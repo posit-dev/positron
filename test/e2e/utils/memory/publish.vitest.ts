@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { BaselineResponse, baselineQuery, baselineToSnapshot, buildPayload, fetchBaseline, publishingEnabled, publishSnapshots, redactProcessName, RunMeta } from './publish.js';
+import { BaselineResponse, baselineQuery, baselineToSnapshot, buildPayload, containerImageFromEnv, fetchBaseline, publishingEnabled, publishSnapshots, redactProcessName, RunMeta } from './publish.js';
 import { LabeledProcess, MemorySnapshot } from './types.js';
 
 vi.mock('undici', () => ({
@@ -46,6 +46,20 @@ const meta: RunMeta = {
 	branch: 'mi/mem-usage',
 	containerImage: 'ghcr.io/posit-dev/positron-ci:latest'
 };
+
+describe('containerImageFromEnv', () => {
+	afterEach(() => { delete process.env.MEMORY_CONTAINER_IMAGE; });
+
+	test('falls back to unknown when unset', () => {
+		delete process.env.MEMORY_CONTAINER_IMAGE;
+		expect(containerImageFromEnv()).toBe('unknown');
+	});
+
+	test('reads MEMORY_CONTAINER_IMAGE when set', () => {
+		process.env.MEMORY_CONTAINER_IMAGE = 'ghcr.io/posit-dev/positron-ubuntu24:24.18.0';
+		expect(containerImageFromEnv()).toBe('ghcr.io/posit-dev/positron-ubuntu24:24.18.0');
+	});
+});
 
 describe('redactProcessName', () => {
 	test('drops the workspace title from a window name', () => {

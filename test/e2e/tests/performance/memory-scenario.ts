@@ -279,7 +279,7 @@ export function defineMemoryScenario(options: {
 				runId: process.env.GITHUB_RUN_ID ?? 'local',
 				commitSha: process.env.GITHUB_SHA ?? 'unknown',
 				branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || 'local',
-				containerImage: process.env.MEMORY_CONTAINER_IMAGE ?? 'unknown'
+				containerImage: containerImageFromEnv()
 			});
 		});
 	});

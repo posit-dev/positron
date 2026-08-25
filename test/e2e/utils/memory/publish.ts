@@ -114,6 +114,21 @@ function apiUrl(branch: string): string {
 }
 
 /**
+ * The container image the current run is measuring under, from the
+ * `MEMORY_CONTAINER_IMAGE` workflow environment variable
+ * (test-memory-metrics.yml). Both the publish side (`RunMeta.containerImage`,
+ * built by the spec) and the query side (`fetchBaseline` below) must read the
+ * same variable with the same fallback: a baseline written under one
+ * derivation and queried under another would never match, and the failure
+ * would look like a permanently missing baseline rather than a bug. One
+ * function rather than two copies of `?? 'unknown'` means changing the
+ * fallback cannot desync the round trip.
+ */
+export function containerImageFromEnv(): string {
+	return process.env.MEMORY_CONTAINER_IMAGE ?? 'unknown';
+}
+
+/**
  * Drop the window title from a process name before publishing.
  *
  * `window [1] (my-project)` carries the workspace name, and in a manually
@@ -321,7 +336,7 @@ export async function fetchBaseline(scenario: MemoryScenario, lane: MemoryLane):
 		return undefined;
 	}
 	try {
-		const containerImage = process.env.MEMORY_CONTAINER_IMAGE ?? 'unknown';
+		const containerImage = containerImageFromEnv();
 		const response = await request(`${memoryUrl(PROD_API_URL)}/baseline${baselineQuery(scenario, lane, containerImage)}`, {
 			method: 'GET',
 			headers: { Authorization: `Key ${CONNECT_API_KEY}` }
