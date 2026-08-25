@@ -262,16 +262,34 @@ export function buildLaneSections(entries: (ScenarioSnapshots & { lane: MemoryLa
 }
 
 /**
+ * Pulls the `<div class="container">...</div>` body out of one lane's
+ * `renderSummaryHtml` document.
+ *
+ * Throws rather than falling back to the whole document on a non-match: a
+ * fallback would nest a complete `<html>`/`<head>` document inside the
+ * combined report, producing a page that still looks like a successful job,
+ * just broken, and nobody would notice until a reader stumbled on it.
+ * Failing the summarize job loudly here is strictly better than shipping that
+ * silently.
+ */
+export function containerHtmlFrom(doc: string, lane: MemoryLane): string {
+	const match = doc.match(/<div class="container">([\s\S]*)<\/div>\s*<\/body>/);
+	if (match === null) {
+		throw new Error(`containerHtmlFrom: could not find the expected container markup in the '${lane}' lane's rendered HTML; renderSummaryHtml's output shape has changed.`);
+	}
+	return match[1];
+}
+
+/**
  * Lifts each lane's `renderSummaryHtml` document down to its inner container
  * markup and stacks the results into one document, rather than nesting N full
  * `<html>` documents into one file. Reuses `renderSummaryHtml` unmodified, so
  * the combined view cannot drift from the per-lane one in styling.
  */
-function renderLaneSectionsHtml(sections: LaneSection[]): string {
+export function renderLaneSectionsHtml(sections: LaneSection[]): string {
 	const bodies = sections.map(section => {
 		const doc = renderSummaryHtml(section.matrix);
-		const match = doc.match(/<div class="container">([\s\S]*)<\/div>\s*<\/body>/);
-		const inner = match ? match[1] : doc;
+		const inner = containerHtmlFrom(doc, section.lane);
 		const note = section.lane === 'server' ? `<p class="meta">${escapeHtml(SERVER_LANE_NOTE)}</p>` : '';
 		return `<section>
 	<h1>${escapeHtml(section.lane)} lane</h1>

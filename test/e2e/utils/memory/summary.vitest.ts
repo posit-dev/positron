@@ -3,9 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { describe, expect, test } from 'vitest';
 import { buildSummaryMatrix, renderSummaryHtml, ScenarioSnapshots } from './summary.js';
-import { buildLaneSections } from './summarize-cli.js';
+import { buildLaneSections, collectScenarios, containerHtmlFrom, renderLaneSectionsHtml } from './summarize-cli.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot } from './types.js';
 import { MemoryScenario } from './scenarios.js';
 import { MemoryLane } from './lanes.js';
@@ -343,5 +346,89 @@ describe('lane partitioning', () => {
 			{ lane: 'desktop', scenario: 'idle', snapshots: [desktopIdle] }
 		]);
 		expect(sections.map(s => s.lane)).toEqual(['desktop']);
+	});
+});
+
+describe('collectScenarios lane provenance', () => {
+	// A directory literally named memory-report-desktop-idle, whose snapshot JSON
+	// says 'server': the only fixture shape that can distinguish "grouped by the
+	// directory name" from "grouped by the snapshot's own field". A fixture where
+	// the two agree would pass even if collectScenarios reverted to trusting the
+	// directory, which is the exact regression this test exists to catch.
+	const writeArtifact = (dirName: string, files: Record<string, string>): string => {
+		const root = mkdtempSync(join(tmpdir(), 'memory-summarize-'));
+		const dir = join(root, dirName);
+		mkdirSync(dir, { recursive: true });
+		for (const [name, contents] of Object.entries(files)) {
+			writeFileSync(join(dir, name), contents);
+		}
+		return root;
+	};
+
+	test('trusts the snapshot JSON lane over the directory name it was found in', () => {
+		const mislabeled = snapshot('idle', [proc()], 0, 'server');
+		const root = writeArtifact('memory-report-desktop-idle', {
+			'memory-snapshot-0.json': JSON.stringify(mislabeled)
+		});
+
+		const collected = collectScenarios(root);
+		const idle = collected.find(c => c.scenario === 'idle' && c.snapshots.length > 0);
+
+		expect(idle?.lane).toBe('server');
+	});
+
+	test('falls back to the directory name when no snapshot could be parsed', () => {
+		const root = writeArtifact('memory-report-desktop-idle', {
+			'memory-snapshot-0.json': 'not valid json'
+		});
+
+		const collected = collectScenarios(root);
+		const idle = collected.find(c => c.scenario === 'idle');
+
+		// Nothing parsed, so there is no snapshot lane to trust; the directory's
+		// lane is the only thing left to attribute the warning to.
+		expect(idle?.snapshots).toHaveLength(0);
+		expect(idle?.lane).toBe('desktop');
+		expect(idle?.warnings.some(w => w.includes('could not parse'))).toBe(true);
+	});
+});
+
+describe('renderLaneSectionsHtml', () => {
+	const desktopIdle = snapshot('idle', [proc({ processRole: 'main', pssBytes: 1495 * MB })], 0, 'desktop');
+	const serverIdle = snapshot('idle', [proc({ processRole: 'main', pssBytes: 820 * MB })], 0, 'server');
+
+	test('combines every lane into one document with exactly one outer <html>', () => {
+		const sections = buildLaneSections([
+			{ lane: 'desktop', scenario: 'idle', snapshots: [desktopIdle] },
+			{ lane: 'server', scenario: 'idle', snapshots: [serverIdle] }
+		]);
+		const html = renderLaneSectionsHtml(sections);
+
+		expect(html).toContain('<h1>desktop lane</h1>');
+		expect(html).toContain('<h1>server lane</h1>');
+		// One <html> for the whole document; a second would mean a per-lane
+		// document got nested wholesale instead of just its container markup.
+		expect(html.match(/<html/g)).toHaveLength(1);
+		expect(html).toContain('<!DOCTYPE html>');
+	});
+
+	test('names the lane whose total is not comparable across lanes', () => {
+		const sections = buildLaneSections([{ lane: 'server', scenario: 'idle', snapshots: [serverIdle] }]);
+		expect(renderLaneSectionsHtml(sections)).toContain('not comparable to the desktop lane');
+	});
+});
+
+describe('containerHtmlFrom', () => {
+	test('extracts the container markup from a well-formed document', () => {
+		const doc = '<html><body><div class="container"><p>hi</p></div></body></html>';
+		expect(containerHtmlFrom(doc, 'desktop')).toBe('<p>hi</p>');
+	});
+
+	test('throws rather than falling back to the whole document when the container markup is missing', () => {
+		// Guards against renderSummaryHtml's output shape changing (container
+		// renamed, or content added after its closing div) silently nesting a
+		// whole document inside the combined report instead of failing the job.
+		const doc = '<html><body><p>no container here</p></body></html>';
+		expect(() => containerHtmlFrom(doc, 'server')).toThrow(/server/);
 	});
 });
