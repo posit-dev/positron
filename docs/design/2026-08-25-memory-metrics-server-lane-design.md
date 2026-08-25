@@ -26,6 +26,21 @@ in the user's browser, outside the server's process tree entirely, so a server
 total is not comparable to a desktop total and must never be differenced against
 one.
 
+## There is no existing published data
+
+Worth stating before anything else, because it removes a whole class of concern.
+`MEMORY_PUBLISH` is hardcoded `'false'` in the nightly workflow
+(`.github/workflows/test-memory-metrics.yml:170`), and the `/memory` endpoints are
+still unmerged. **Nothing has ever been published.** So adding `lane` to the series
+key orphans no history, needs no backfill, and cannot regress desktop trend
+detection -- there is no desktop trend yet. Confirmed with the endpoint's
+implementer that #220 has had no production or staging deploy, which is also what
+licenses tightening `BaselineResponse` below.
+
+This stops being true the moment the endpoint deploys and the nightly flips
+`MEMORY_PUBLISH` to `'true'`. Any later change to the series key does need a
+migration story.
+
 ## Decisions
 
 | Question | Decision |
@@ -98,7 +113,9 @@ authoritative. `MemorySnapshot.lane` is the source of truth that the summary
 partitions on. The lane in the artifact directory name exists solely to keep two
 jobs from colliding, and `summarize-cli.ts` parses it only to locate files -- it
 must not be trusted over the snapshot's own field, so that a renamed artifact can
-never silently reclassify a measurement.
+never silently reclassify a measurement. Concretely: the directory path is
+consumed to locate files and discarded *before* any `MemorySnapshot` is
+constructed, so no code path can leave a path-derived lane on the object.
 
 ## Implementation
 
@@ -128,7 +145,11 @@ required, and which process supplies it is the lane's business.
   every existing invocation keeps working untouched.
 - `lane` added to `MemoryPayload` and to `MemorySnapshot`.
 - Which spec runs is now keyed on the lane/scenario pair, so
-  `memorySpecsToIgnore` takes both.
+  `memorySpecsToIgnore` takes both. The lane parameter is **required, with no
+  default**: every existing call site is updated to pass `'desktop'` explicitly.
+  A default would let a missed call site silently produce a lane-filtered ignore
+  list where the old code meant a lane-agnostic one, and the compiler would not
+  catch it.
 
 ### Workflow
 
@@ -141,6 +162,18 @@ a bare scenario list. The server job additionally:
   (`playwrightBrowser.ts:120`) reads to run a built server instead of the
   source script
 - runs with `PW_PROJECT_NAME: e2e-server` instead of `e2e-electron`
+
+### Forced GC in the server lane
+
+Desktop forces a GC in the shared process and extension host over CDP before
+sampling, so figures reflect what a scenario retains rather than whether V8 had
+swept yet. Whether the server exposes the same inspector ports is unverified.
+
+The behaviour is therefore specified rather than left to the implementer: attempt
+the GC, and on an unavailable inspector **log a warning and continue**. Do not
+fail the run -- a noisier series is worth having and the absence is itself the
+finding. The report notes when a lane's GC did not run, so nobody reads an
+un-collected extension host as a regression.
 
 ### Summary report
 
@@ -168,6 +201,12 @@ tag tracks the Node version from `.nvmrc`
 (`ghcr.io/posit-dev/positron-ubuntu24:24.18.0`), so every routine Node bump rolls
 it -- a few times a year, and a Node bump plausibly moves memory for real, which
 is precisely when a fake delta is most confusing.
+
+The image value comes from the `MEMORY_CONTAINER_IMAGE` workflow environment
+variable (`test-memory-metrics.yml:18`), which is already what `publishSnapshots`
+sends on the POST. Both sides of the round trip must read that same variable: a
+baseline written under one derivation and queried under another would never match,
+and the failure would look like a permanently missing baseline rather than a bug.
 
 The baseline request gains `lane` and `container_image`:
 
@@ -221,6 +260,14 @@ Also tighten `BaselineResponse`: the provenance fields (`container_image`,
 required-but-nullable. The optionality was defensive against endpoint versions
 that never shipped -- the endpoint is not deployed, so there is no released shape
 to stay compatible with.
+
+## Packaging
+
+This ships as **one PR**, including the two correctness fixes above. They are
+strictly speaking adjacent rather than part of the server lane, and splitting them
+out was considered and rejected: they are small, they are already reviewed in
+design here, and the `activation_event` fix wants to be in before the endpoint
+deploys.
 
 ## Testing
 
