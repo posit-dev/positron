@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './languageModelButton.css';
+
 import * as React from 'react';
 
 import { localize } from '../../../../../nls.js';
@@ -68,35 +70,57 @@ export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageMode
 	);
 });
 
-export const LanguageModelIcon = (props: { provider: string; logoUrl?: string }) => {
+export const LanguageModelIcon = (props: { provider: string; logoUrl?: string; monochrome?: boolean }) => {
+	// When `monochrome`, recolor the icon to the theme's icon foreground so it stays
+	// legible on every theme (see #15321). Only the new provider modal opts in;
+	// the legacy dialog renders icons in their original brand colors.
+	const iconClassName = positronClassNames('language-model icon', { monochrome: props.monochrome });
 	function getIcon() {
 		if (props.logoUrl) {
-			return <img className='language-model icon' src={props.logoUrl} />;
+			// A plain <img> can't be recolored, so when monochrome we paint the theme
+			// color and clip it to the logo shape with a CSS mask. Otherwise the
+			// logo renders as-is.
+			return props.monochrome
+				? <div className={iconClassName}
+					style={{
+						flex: 'none',
+						backgroundColor: 'var(--vscode-icon-foreground)',
+						WebkitMaskImage: `url(${props.logoUrl})`,
+						maskImage: `url(${props.logoUrl})`,
+						WebkitMaskSize: 'contain',
+						maskSize: 'contain',
+						WebkitMaskRepeat: 'no-repeat',
+						maskRepeat: 'no-repeat',
+						WebkitMaskPosition: 'center',
+						maskPosition: 'center',
+					}}
+				/>
+				: <img className={iconClassName} src={props.logoUrl} />;
 		}
 		switch (props.provider) {
 			case 'anthropic-api':
-				return <Claude className='language-model icon' />;
+				return <Claude className={iconClassName} />;
 			case 'google':
-				return <Gemini className='language-model icon' />;
+				return <Gemini className={iconClassName} />;
 			case 'google-cloud':
-				return <Geap className='language-model icon' />;
+				return <Geap className={iconClassName} />;
 			case 'copilot':
 			case 'copilot-auth':
-				return <GithubCopilot className='language-model icon' />;
+				return <GithubCopilot className={iconClassName} />;
 			case 'amazon-bedrock': // Vercel API uses this as an id
-				return <Bedrock className='language-model icon' />;
+				return <Bedrock className={iconClassName} />;
 			case 'deepseek-api':
-				return <DeepSeek className='language-model icon' />;
+				return <DeepSeek className={iconClassName} />;
 			case 'openai-api':
-				return <OpenAI className='language-model icon' />;
+				return <OpenAI className={iconClassName} />;
 			case 'ms-foundry':
-				return <MicrosoftFoundry className='language-model icon' />;
+				return <MicrosoftFoundry className={iconClassName} />;
 			case 'posit-ai':
-				return <PositAi className='language-model icon' />;
+				return <PositAi className={iconClassName} />;
 			case 'snowflake-cortex':
-				return <Snowflake className='language-model icon' />;
+				return <Snowflake className={iconClassName} />;
 			case 'databricks':
-				return <Databricks className='language-model icon' />;
+				return <Databricks className={iconClassName} />;
 			case 'openai-compatible':
 				return <div className={`language-model icon button-icon codicon codicon-wrench`} />;
 			case 'error':

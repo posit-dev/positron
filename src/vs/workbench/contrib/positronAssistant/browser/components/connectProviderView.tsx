@@ -333,7 +333,7 @@ const ApiTypeEntry = (props: { option: ApiTypeOption }) => (
 export const ConnectProviderHeader = (props: { source: IPositronLanguageModelSource; subtitle?: string }) => (
 	<div className='connect-provider-header'>
 		<div className='connect-provider-icon'>
-			<LanguageModelIcon logoUrl={props.source.provider.logoUrl} provider={props.source.provider.id} />
+			<LanguageModelIcon monochrome logoUrl={props.source.provider.logoUrl} provider={props.source.provider.id} />
 		</div>
 		<div className='connect-provider-header-text'>
 			<span className='connect-provider-name'>{props.source.provider.displayName}</span>
