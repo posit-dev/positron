@@ -76,6 +76,15 @@ describe('showRemoveDataConnectionConfirmation', () => {
 		expect(await confirmation).toBe(false);
 	});
 
+	it('resolves false when the dialog is dismissed with Escape', async () => {
+		const confirmation = showRemoveDataConnectionConfirmation('My Connection', 0);
+		expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+
+		await userEvent.keyboard('{Escape}');
+
+		expect(await confirmation).toBe(false);
+	});
+
 	it('warns about several open Data Explorers', async () => {
 		const confirmation = showRemoveDataConnectionConfirmation('My Connection', 3);
 
