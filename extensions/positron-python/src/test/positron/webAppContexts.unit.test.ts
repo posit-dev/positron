@@ -44,7 +44,7 @@ suite('Discover Web app frameworks', () => {
         });
     });
 
-    const frameworks = ['streamlit', 'gradio', 'flask', 'fastapi', 'numpy'];
+    const frameworks = ['marimo', 'streamlit', 'gradio', 'flask', 'fastapi', 'numpy'];
     frameworks.forEach((framework) => {
         const expected = framework === 'numpy' ? undefined : framework;
         test(`should detect ${expected}: import framework`, () => {
@@ -137,6 +137,39 @@ def greet(name):
 interface = gr.Interface(fn=greet, inputs="text", outputs="text")
 `;
             assert.strictEqual(getFramework(code), 'gradio');
+        });
+
+        test('should detect marimo notebook', () => {
+            const code = `
+import marimo
+
+__generated_with = "0.24.0"
+app = marimo.App(width="medium")
+
+
+@app.cell
+def _():
+    import marimo as mo
+    mo.md("# Hello marimo")
+    return (mo,)
+`;
+            assert.strictEqual(getFramework(code), 'marimo');
+        });
+
+        test('should detect marimo when a cell imports another supported framework', () => {
+            const code = `
+import marimo
+
+app = marimo.App()
+
+
+@app.cell
+def _():
+    import streamlit as st
+    st.write("hello")
+    return
+`;
+            assert.strictEqual(getFramework(code), 'marimo');
         });
 
         test('should prioritize app creation over imports', () => {

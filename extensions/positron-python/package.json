@@ -496,6 +496,13 @@
             },
             {
                 "category": "Python",
+                "command": "python.execMarimoInTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execMarimoInTerminal.title%",
+                "enablement": "pythonAppFramework == marimo"
+            },
+            {
+                "category": "Python",
                 "command": "python.execStreamlitInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execStreamlitInTerminal.title%",
@@ -534,6 +541,13 @@
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugGradioInTerminal.title%",
                 "enablement": "pythonAppFramework == gradio"
+            },
+            {
+                "category": "Python",
+                "command": "python.debugMarimoInTerminal",
+                "icon": "$(debug-alt)",
+                "title": "%python.command.python.debugMarimoInTerminal.title%",
+                "enablement": "pythonAppFramework == marimo"
             },
             {
                 "category": "Python",
@@ -1853,6 +1867,11 @@
                     "when": "pythonAppFramework == flask"
                 },
                 {
+                    "command": "python.execMarimoInTerminal",
+                    "group": "Python",
+                    "when": "pythonAppFramework == marimo"
+                },
+                {
                     "command": "python.execStreamlitInTerminal",
                     "group": "Python",
                     "when": "pythonAppFramework == streamlit"
@@ -1910,6 +1929,12 @@
                     "when": "pythonAppFramework == flask"
                 },
                 {
+                    "command": "python.execMarimoInTerminal",
+                    "group": "navigation@0",
+                    "title": "%python.command.python.execMarimoInTerminal.title%",
+                    "when": "pythonAppFramework == marimo"
+                },
+                {
                     "command": "python.execStreamlitInTerminal",
                     "group": "navigation@0",
                     "title": "%python.command.python.execStreamlitInTerminal.title%",
@@ -1950,6 +1975,12 @@
                     "group": "navigation@3",
                     "title": "%python.command.python.debugFlaskInTerminal.title%",
                     "when": "pythonAppFramework == flask"
+                },
+                {
+                    "command": "python.debugMarimoInTerminal",
+                    "group": "navigation@3",
+                    "title": "%python.command.python.debugMarimoInTerminal.title%",
+                    "when": "pythonAppFramework == marimo"
                 },
                 {
                     "command": "python.debugStreamlitInTerminal",

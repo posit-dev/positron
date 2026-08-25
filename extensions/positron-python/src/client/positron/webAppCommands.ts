@@ -53,6 +53,17 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             ['Running on local URL:  {{APP_URL}}', 'Running on public URL:  {{APP_URL}}'],
         ),
         registerExecCommand(
+            Commands.Exec_Marimo_In_Terminal,
+            'Marimo',
+            (_runtime, document, urlPrefix) => getMarimoDebugConfig(document, urlPrefix),
+            undefined,
+            undefined,
+            // marimo url string: https://github.com/marimo-team/marimo/blob/main/marimo/_server/print.py
+            // marimo prints the banner as an arrow, two spaces, then 'URL: <url>'. Matching those
+            // two spaces avoids also matching its experimental 'MCP server URL: <url>' line.
+            ['  URL: {{APP_URL}}'],
+        ),
+        registerExecCommand(
             Commands.Exec_Streamlit_In_Terminal,
             'Streamlit',
             (_runtime, document, _urlPrefix) => getStreamlitDebugConfig(document),
@@ -96,6 +107,17 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             undefined,
             // Gradio url strings: https://github.com/gradio-app/gradio/blob/main/gradio/strings.py
             ['Running on local URL:  {{APP_URL}}', 'Running on public URL:  {{APP_URL}}'],
+        ),
+        registerDebugCommand(
+            Commands.Debug_Marimo_In_Terminal,
+            'Marimo',
+            (_runtime, document, urlPrefix) => getMarimoDebugConfig(document, urlPrefix),
+            undefined,
+            undefined,
+            // marimo url string: https://github.com/marimo-team/marimo/blob/main/marimo/_server/print.py
+            // marimo prints the banner as an arrow, two spaces, then 'URL: <url>'. Matching those
+            // two spaces avoids also matching its experimental 'MCP server URL: <url>' line.
+            ['  URL: {{APP_URL}}'],
         ),
         registerDebugCommand(
             Commands.Debug_Streamlit_In_Terminal,
@@ -264,6 +286,19 @@ function getFlaskDebugConfig(document: vscode.TextDocument): DebugConfiguration 
 function getGradioDebugConfig(document: vscode.TextDocument): DebugConfiguration {
     const env: { [key: string]: string } = {};
     return { program: document.uri.fsPath, env };
+}
+
+function getMarimoDebugConfig(document: vscode.TextDocument, urlPrefix?: string): DebugConfiguration {
+    const args = ['run', document.uri.fsPath, '--headless'];
+
+    // marimo rejects a base URL that is '/' or that ends in '/', so drop any trailing slash and
+    // only pass the flag when a path segment remains.
+    const baseUrl = urlPrefix?.replace(/\/+$/, '');
+    if (baseUrl) {
+        args.push('--base-url', baseUrl);
+    }
+
+    return { module: 'marimo', args };
 }
 
 function getStreamlitDebugConfig(document: vscode.TextDocument): DebugConfiguration {
