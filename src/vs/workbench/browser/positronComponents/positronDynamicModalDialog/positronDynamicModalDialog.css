@@ -139,6 +139,16 @@
 	border: 1px solid var(--vscode-positronModalDialog-textInputBorder);
 }
 
+/*
+ * Without this the input falls back to the browser's own focus ring, which on macOS is the system
+ * accent colour and so does not match the rest of the dialog. The outline sits outside the border,
+ * leaving a red invalid border visible underneath it.
+ */
+.positron-dynamic-modal-dialog-box .text-input:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
 .positron-dynamic-modal-dialog-box .text-input::selection {
 	color: var(--vscode-positronModalDialog-textInputSelectionForeground);
 	background: var(--vscode-positronModalDialog-textInputSelectionBackground);

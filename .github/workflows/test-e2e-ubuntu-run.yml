@@ -173,10 +173,13 @@ jobs:
           REDSHIFT_TEST_HOST: "op://Positron/Redshift_Test_Environment/hostname"
           REDSHIFT_TEST_USERNAME: "op://Positron/Redshift_Test_Environment/username"
           REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
-          # Databricks LLM provider OAuth sign-in (posit-assistant). Desktop only: the
-          # flow redirects to a loopback server on this machine. The same workspace and
-          # service account the Workbench managed-credentials lane uses.
+          # Databricks OAuth sign-in, shared by the posit-assistant LLM provider test and
+          # the data-connections driver test. Desktop only: both flows redirect to a
+          # loopback server on this machine. The same workspace and service account the
+          # Workbench managed-credentials lane uses. DATABRICKS_HTTP_PATH is the SQL
+          # warehouse in that workspace, needed only by the data-connections test.
           DATABRICKS_URL: "op://Positron/Databricks-WB-Auto/url"
+          DATABRICKS_HTTP_PATH: "op://Positron/Databricks-WB-Auto/http-path"
           IDE_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
           IDE_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
           IDE_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"

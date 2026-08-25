@@ -8,6 +8,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { createDuckDBReadPlan } from './duckdbReadPlan.js';
 import { IDuckDBQueryClient } from './duckdbWorkerClient.js';
 import { DuckDBSchemaEntry, DuckDBTableView, duckdbDisplayType, IDuckDBTableCodeGenerator } from './duckdbTableView.js';
 import {
@@ -91,7 +92,9 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 
 	dispose(): void {
 		this._session.dispose();
-		this._views.clear();
+		for (const datasetId of [...this._views.keys()]) {
+			this._dropView(datasetId);
+		}
 		this._onClose.clear();
 	}
 
@@ -108,7 +111,9 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 		options: OpenTableViewOptions = {},
 	): Promise<void> {
 		const schema = await buildDuckDBSchema(client, schemaName, tableName);
-		this._views.set(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), options.displayName ?? tableName, kind, schema, options.codeGenerator));
+		const readPlan = createDuckDBReadPlan(
+			client, tableRef(schemaName, tableName), kind, schema.map(c => c.column_name));
+		this._setView(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), options.displayName ?? tableName, readPlan, schema, options.codeGenerator));
 		if (options.onClose) {
 			this._onClose.set(datasetId, options.onClose);
 		} else {
@@ -133,7 +138,29 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 		if (!column) {
 			throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
 		}
-		this._views.set(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), tableName, kind, [column]));
+		// The plan is given every column the relation has, not just the requested one: what it needs to
+		// know is whether the relation emits a column named `rowid`, which the restricted schema hides.
+		const readPlan = createDuckDBReadPlan(
+			client, tableRef(schemaName, tableName), kind, schema.map(c => c.column_name));
+		this._setView(datasetId, new DuckDBTableView(client, tableRef(schemaName, tableName), tableName, readPlan, [column]));
+	}
+
+	/**
+	 * Registers a view, disposing any view the same dataset id already had so that reopening a
+	 * dataset does not leave its predecessor's snapshot behind.
+	 */
+	private _setView(datasetId: string, view: DuckDBTableView): void {
+		this._dropView(datasetId);
+		this._views.set(datasetId, view);
+	}
+
+	/** Forgets a dataset's view and releases whatever its read plan holds. */
+	private _dropView(datasetId: string): void {
+		const view = this._views.get(datasetId);
+		this._views.delete(datasetId);
+		// Dropping the snapshot is best-effort cleanup of a private temp table, so nothing waits on
+		// it and a failure (typically a worker that is already gone) must not surface to the caller.
+		void view?.dispose().catch(() => { });
 	}
 
 	/**
@@ -142,7 +169,7 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 	 * that wholesale cleanup.
 	 */
 	closeTableView(datasetId: string): void {
-		this._views.delete(datasetId);
+		this._dropView(datasetId);
 		this._onClose.delete(datasetId);
 	}
 
@@ -152,7 +179,7 @@ export class DuckDBDataExplorerRpcHandler implements vscode.Disposable, IDuckDBD
 	 * release that dataset's resources.
 	 */
 	closeDataset(datasetId: string): void {
-		this._views.delete(datasetId);
+		this._dropView(datasetId);
 		const onClose = this._onClose.get(datasetId);
 		this._onClose.delete(datasetId);
 		onClose?.();

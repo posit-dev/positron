@@ -8,7 +8,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
+import { FileAccess } from '../../base/common/network.js';
 import { LicenseManager } from './licenseManager.js';
+import { activateWithManager, verifyLocalLicense } from './localLicense.js';
 
 /**
  * The result of validating a license.
@@ -22,15 +24,19 @@ export interface ILicenseValidationResult {
 	issuer?: string;
 	/**
 	 * Whether this license grants Positron's Education License Rider terms (drives the
-	 * academic license banner and P3M telemetry). Left undefined (falsy) for validation
-	 * paths that have no way to determine this, such as the external license manager.
+	 * academic license banner and P3M telemetry). True for licenses validated from a raw
+	 * license file, which is every deployment that is neither Posit Workbench (signed
+	 * token, always false) nor the AWS license manager (left undefined, i.e. falsy).
+	 * Note for Positron Server Pro: this license miust carry its own signal,
+	 * or it will inherit `academic` as true
 	 */
 	academic?: boolean;
 }
 
 /**
  * This file validates Positron license keys. Positron requires a license key to
- * be provided in order to run in a hosted or managed environment.
+ * be provided in order to run in a hosted or managed environment. Raw .lic license
+ * files are also accepted and are validated with the bundled license-manager binary.
  *
  * Positron license keys are JSON objects naming the connection token, issuer,
  * licensee, timestamp, and a PKCS1 v1.5 cryptographic signature of all of the
@@ -85,24 +91,6 @@ vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
 -----END PUBLIC KEY-----`;
 
 /**
- * A RSA-4096 public key used to verify license keys in Positron Server deployments
- */
-const OrchestratorPublicKey = `-----BEGIN PUBLIC KEY-----
-MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvL/qcnvIj+A7cXhUgism
-MYfMzg6wrPgVOp3AezejarPGF+t9qwX1BRQZT176PLoujmZsD92wwh9yEK31TnVD
-YENhtUymnNLvt5UbMoWI+dlttruTOYvoiBMUMajPqTF3jr0TE39YhLgc5fKidvLR
-ZX4u0DQ0YVaJqfV7SUUAp9j6APtPuiP4SsJxIjlZo0Hvw+EZ5Y6TmgwfHhAwEBoP
-5L9CwVjRAg34HP5wGl/znipXb3drMyUgpVuhyN+GrCXz30GXbWJcfoVw7y7G46Z4
-En2Z/2Rs9P4wd6FeybSNOceit+5mnI5amvpaDrCSq1BnOm6NemdoNMYEuUI+0WSJ
-2eYAI2x36wXFE+6zPkqZYEuFxN4L8xvZvu/LYBd1qyLjSEN9yoLekRzAAa1n222n
-JKiTum02wdrvcjnBHZyB+OVLAySeM7JElh79A6OYe32ENSXvA3ZT+vUGbsptdggq
-NjfOoqWxWVO3L8Gvx+0SjiczLt8c9Wp9dW7xiiAO6CMgy8wgnQircW00ZjadYPbI
-J96J0myarwU9s46B9SbyWKzcTpEvHgD47/rRcMx64PlmtS6hxgIdyIKNFjWrGt5g
-5AzUF63cLtv+he4d4CtfPo9TCbqLbaUop0g/3aqPAOAz/7wPLPnzURJGfiUYB/gx
-jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
------END PUBLIC KEY-----`;
-
-/**
  * Validates a license key. If any errors are encountered, they are logged to
  * the console.
  *
@@ -111,68 +99,107 @@ jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
  * - As a file path with the --license-key-file flag.
  * - As an environment variable named POSITRON_LICENSE_KEY.
  * - As a file path in an environment variable named POSITRON_LICENSE_KEY_FILE.
+ * - As a .lic file next to the bundled license-manager binary.
+ *
+ * A provided license that does not validate falls back to the local .lic file, so
+ * an environment that still injects retired verifier-minted tokens keeps working
+ * off its license file.
  *
  * @param connectionToken The token to validate the license key against.
  * @param args The parsed command-line arguments.
+ * @param verifyLocal Checks for a .lic next to the bundled license-manager binary.
+ * Test-only, like `validateLicense`'s `publicKeys`.
  * @returns A promise that resolves to the license validation result.
  */
-export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs): Promise<ILicenseValidationResult> {
+export async function validateLicenseKey(connectionToken: string, args: ServerParsedArgs, verifyLocal: typeof verifyLocalLicense = verifyLocalLicense): Promise<ILicenseValidationResult> {
 
 	if (isRemoteLicenseManagerMode()) {
 		console.log('Acquiring a Positron license through the license manager named by POSITRON_LICENSE_MANAGER_PATH.');
 		return validateWithLicenseManager(process.env.POSITRON_LICENSE_MANAGER_PATH!);
 	}
 
-	// Check the command-line arguments for a license key.
+	// Check the provided license sources in order.
+	let provided: ILicenseValidationResult | undefined;
 	if (args['license-key']) {
 		console.log('Checking Positron license key from the --license-key argument.');
-		return validateLicense(connectionToken, args['license-key']);
-	}
-
-	// Check to see if a license key file is provided as a command-line
-	// argument.
-	if (args['license-key-file']) {
+		provided = await validateLicense(connectionToken, args['license-key']);
+	} else if (args['license-key-file']) {
 		console.log('Checking Positron license key from the file in the --license-key-file argument.');
-		return validateLicenseFile(connectionToken, args['license-key-file']);
-	}
-
-	// Check the POSITRON_LICENSE_KEY environment variable.
-	if (process.env.POSITRON_LICENSE_KEY) {
+		provided = await validateLicenseFile(connectionToken, args['license-key-file']);
+	} else if (process.env.POSITRON_LICENSE_KEY) {
 		console.log('Checking Positron license key from the POSITRON_LICENSE_KEY environment variable.');
-		return validateLicense(connectionToken, process.env.POSITRON_LICENSE_KEY);
-	}
-
-	// Check the POSITRON_LICENSE_KEY_FILE environment variable.
-	if (process.env.POSITRON_LICENSE_KEY_FILE) {
+		provided = await validateLicense(connectionToken, process.env.POSITRON_LICENSE_KEY);
+	} else if (process.env.POSITRON_LICENSE_KEY_FILE) {
 		console.log('Checking Positron license key from the file in the POSITRON_LICENSE_KEY_FILE environment variable.');
-		return validateLicenseFile(connectionToken, process.env.POSITRON_LICENSE_KEY_FILE);
-	}
-
-	// If none of these were specified, check the user data directory for a
-	// license key file. It is expected to live alongside the connection token.
-	if (args['user-data-dir']) {
+		provided = await validateLicenseFile(connectionToken, process.env.POSITRON_LICENSE_KEY_FILE);
+	} else if (args['user-data-dir']) {
+		// If none of these were specified, check the user data directory for a
+		// license key file. It is expected to live alongside the connection token.
 		const storageLocation = path.join(args['user-data-dir'], 'license-key');
 		if (fs.existsSync(storageLocation)) {
-			return validateLicenseFile(connectionToken, storageLocation);
+			provided = await validateLicenseFile(connectionToken, storageLocation);
 		}
 	}
 
-	// We need at least one signed license token to proceed. There is no fallback
-	// to a raw license file: if no signed token is provided, validation fails closed.
-	console.error('No license key provided. A signed license token is required to use Positron in a hosted environment. Provide one with the --license-key or --license-key-file command-line arguments, or set the POSITRON_LICENSE_KEY or POSITRON_LICENSE_KEY_FILE environment variables.');
+	if (provided?.valid) {
+		return provided;
+	}
+
+	// No license was provided, or the provided one did not validate (for example a
+	// token minted by a retired jupyter-positron-verifier). Look for a .lic next to
+	// the license-manager binary; file-based licenses mark the deployment academic.
+	// A license file that exists but does not verify (expired, tampered with) throws
+	// rather than returning; hold onto the reason so the failure below can name it.
+	let localError: unknown;
+	try {
+		const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
+		const localResult = await verifyLocal(installPath);
+		if (localResult?.valid) {
+			if (provided) {
+				console.log('The provided license key did not validate; using the license file next to the license-manager binary instead.');
+			} else {
+				console.log('Verified license from license-manager directory.');
+			}
+			return { ...localResult, academic: true };
+		}
+	} catch (e) {
+		localError = e;
+	}
+
+	if (localError) {
+		console.error('The license file next to the license-manager binary was rejected: ', localError);
+	}
+
+	if (provided) {
+		// The provided license failed and there is no usable local license; the
+		// failure was already logged by the validation path above.
+		return provided;
+	}
+
+	if (localError) {
+		// A license file was found and rejected. Saying "no license key provided" here
+		// would send operators looking for a missing license instead of a bad one.
+		return { valid: false };
+	}
+
+	// We need at least one license key to proceed.
+	console.error('No license key provided. A license key is required to use Positron in a hosted environment. Provide a license key with the --license-key or --license-key-file command-line arguments, or set the POSITRON_LICENSE_KEY or POSITRON_LICENSE_KEY_FILE environment variables.');
 
 	return { valid: false };
 }
 
 /**
- * Validates a license file. The file must contain a signed JSON license token;
- * raw license files are not accepted.
+ * Validates a license file. Signed JSON license tokens are verified in-process; raw
+ * RSTUDIO/Posit license files are activated and verified with the bundled
+ * license-manager binary and mark the deployment academic.
  *
  * @param connectionToken The connection token.
  * @param licenseFile The path to the license file.
+ * @param activate Activates a raw license file with the license-manager binary.
+ * Test-only, like `validateLicense`'s `publicKeys`.
  * @returns The license validation result.
  */
-export async function validateLicenseFile(connectionToken: string, licenseFile: string): Promise<ILicenseValidationResult> {
+export async function validateLicenseFile(connectionToken: string, licenseFile: string, activate: typeof activateWithManager = activateWithManager): Promise<ILicenseValidationResult> {
 	if (!fs.existsSync(licenseFile)) {
 		console.error('License file does not exist: ', licenseFile);
 		return { valid: false };
@@ -180,14 +207,23 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 	// Read the contents of the license file into a string.
 	try {
 		const contents = fs.readFileSync(licenseFile, 'utf8');
-		// Only signed JSON license tokens are accepted; raw license files are not.
-		if (contents.trim().startsWith('{')) {
+		const trimmedContents = contents.trim();
+		if (trimmedContents.startsWith('{')) {
+			// A signed JSON license token, minted by Posit Workbench.
 			return validateLicense(connectionToken, contents);
+		} else if (trimmedContents.startsWith('-----BEGIN RSTUDIO LICENSE-----')) {
+			// A raw license file; activate and verify it with the license-manager
+			// binary. File-based licenses mark the deployment academic; see
+			// ILicenseValidationResult.academic.
+			const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
+			const result = await activate(installPath, licenseFile);
+			return result.valid ? { ...result, academic: true } : result;
+		} else {
+			console.error('Unrecognized license file format. Expected a JSON license key or an RSA license file.');
+			return { valid: false };
 		}
-		console.error('Unrecognized license file format. Expected a signed JSON license token.');
-		return { valid: false };
 	} catch (e) {
-		console.error('Error reading license file: ', licenseFile);
+		console.error('Error validating license file: ', licenseFile);
 		console.error(e);
 	}
 	return { valid: false };
@@ -199,12 +235,9 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
  * @param connectionToken The connection token.
  * @param license The license key.
  * @param publicKeys Keys to verify against. Test-only; production uses the built-in keys.
- * @param orchestratorKey The key whose match marks the license `academic`. Test-only, like
- * `publicKeys`: the real orchestrator private key is held by the minting service, not this
- * repo, so tests substitute their own pair.
  * @returns A promise that resolves to the license validation result.
  */
-export async function validateLicense(connectionToken: string, license: string, publicKeys?: readonly string[], orchestratorKey: string = OrchestratorPublicKey): Promise<ILicenseValidationResult> {
+export async function validateLicense(connectionToken: string, license: string, publicKeys?: readonly string[]): Promise<ILicenseValidationResult> {
 	// Parse the license key JSON.
 	let licenseKey: LicenseKey;
 	try {
@@ -236,9 +269,9 @@ export async function validateLicense(connectionToken: string, license: string, 
 	}
 
 	// Try each supplied public key; accept the license if any key verifies.
-	const keysToTry = publicKeys ?? [PublicKey, OrchestratorPublicKey];
+	const keysToTry = publicKeys ?? [PublicKey];
 	const signature = Buffer.from(licenseKey.signature, 'base64');
-	let matchedKey: string | undefined;
+	let signatureValid = false;
 	for (const keyPem of keysToTry) {
 		if (!keyPem.trim()) {
 			continue;
@@ -259,7 +292,7 @@ export async function validateLicense(connectionToken: string, license: string, 
 			verifier.update(licenseKey.licensee);
 			verifier.update(licenseKey.timestamp);
 			if (verifier.verify(key, signature)) {
-				matchedKey = keyPem;
+				signatureValid = true;
 				break;
 			}
 		} catch {
@@ -267,7 +300,7 @@ export async function validateLicense(connectionToken: string, license: string, 
 		}
 	}
 
-	if (!matchedKey) {
+	if (!signatureValid) {
 		console.error('Invalid license key; signature is invalid: ', licenseKey.signature);
 		return { valid: false };
 	}
@@ -277,10 +310,9 @@ export async function validateLicense(connectionToken: string, license: string, 
 		valid: true,
 		licensee: licenseKey.licensee,
 		issuer: licenseKey.issuer,
-		// The orchestrator key is used exclusively by the JupyterHub/TLJH academic minting
-		// flow (jupyter-positron-verifier); Server Pro and other primary-key deployments are
-		// not academic.
-		academic: matchedKey === orchestratorKey,
+		// Signed tokens are minted by Posit Workbench, which is never an academic
+		// deployment. Academic status comes from the raw-license-file paths.
+		academic: false,
 	};
 }
 

@@ -32,6 +32,7 @@ export class DataExplorer {
 	private _editorActionBar: EditorActionBar;
 	private _dataGrid: DataGrid;
 	private _convertToCodeModal: ConvertToCodeModal;
+	private _importDataModal: ImportDataModal;
 	private _summaryPanel: SummaryPanel;
 
 	constructor(private code: Code, private workbench: Workbench) {
@@ -39,6 +40,7 @@ export class DataExplorer {
 		this._editorActionBar = new EditorActionBar(this.code, this.workbench);
 		this._dataGrid = new DataGrid(this.code, this);
 		this._convertToCodeModal = new ConvertToCodeModal(this.code, this.workbench);
+		this._importDataModal = new ImportDataModal(this.workbench);
 		this._summaryPanel = new SummaryPanel(this.code, this.workbench);
 		this.statusBar = this.code.driver.currentPage.locator(STATUS_BAR);
 		this.idleStatus = this.code.driver.currentPage.locator('.status-bar-indicator .icon.idle');
@@ -87,6 +89,10 @@ export class DataExplorer {
 		return this._convertToCodeModal;
 	}
 
+	get importDataModal(): ImportDataModal {
+		return this._importDataModal;
+	}
+
 	get summaryPanel(): SummaryPanel {
 		return this._summaryPanel;
 	}
@@ -101,7 +107,7 @@ export class EditorActionBar {
 
 	// --- Actions ---
 
-	async clickButton(buttonLabel: 'Convert to Code' | 'Clear Column Sorting' | 'Open as Plain Text File'): Promise<void> {
+	async clickButton(buttonLabel: 'Convert to Code' | 'Import Data' | 'Clear Column Sorting' | 'Open as Plain Text File'): Promise<void> {
 		await this.workbench.editorActionBar.clickButton(buttonLabel);
 	}
 
@@ -1139,6 +1145,44 @@ export class ConvertToCodeModal {
 			// Verify bracket highlighting
 			const bracketHighlightingCount = await this.code.driver.currentPage.locator('[class*="bracket-highlighting-"]').count();
 			expect(bracketHighlightingCount).toBeGreaterThan(0);
+		});
+	}
+}
+
+// -----------------------------
+//    Import Data Modal
+// -----------------------------
+
+/**
+ * The Import Data dialog. Unlike ConvertToCodeModal, this one is a PositronDynamicModalDialog, so
+ * its buttons and title come from the DynamicModals page object rather than Modals.
+ */
+export class ImportDataModal {
+
+	constructor(private workbench: Workbench) { }
+
+	get codeBox(): Locator {
+		return this.workbench.dynamicModals.dialogBox.locator('.import-data .code');
+	}
+
+	// --- Actions ---
+
+	async clickImport() {
+		await this.workbench.dynamicModals.clickButton('Import');
+	}
+
+	// --- Verifications ---
+
+	async expectToBeVisible() {
+		await test.step('Verify import data modal is visible', async () => {
+			await this.workbench.dynamicModals.expectToBeVisible();
+			await this.workbench.dynamicModals.expectButtonsToBeVisible(['Copy', 'Import', 'Cancel']);
+		});
+	}
+
+	async expectCodeToContain(text: string | RegExp) {
+		await test.step(`Verify import code contains: ${text}`, async () => {
+			await expect(this.codeBox).toContainText(text);
 		});
 	}
 }

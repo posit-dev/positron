@@ -153,6 +153,17 @@ jobs:
           POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
           POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+          # Databricks OAuth sign-in, shared by the posit-assistant LLM provider test and
+          # the data-connections driver test. Both are desktop-only and skip themselves
+          # when these are absent -- which is why they belong here and not only on the
+          # merge lane: a PR carrying @:connections or @:assistant should actually run
+          # them rather than silently skip. DATABRICKS_HTTP_PATH is the SQL warehouse in
+          # the workspace DATABRICKS_URL points at.
+          DATABRICKS_URL: "op://Positron/Databricks-WB-Auto/url"
+          DATABRICKS_HTTP_PATH: "op://Positron/Databricks-WB-Auto/http-path"
+          IDE_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
+          IDE_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
+          IDE_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"

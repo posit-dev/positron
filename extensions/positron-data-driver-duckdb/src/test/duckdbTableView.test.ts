@@ -9,6 +9,7 @@ import {
 	DuckDBRow,
 	DuckDBSchemaEntry,
 	DuckDBTableView,
+	IDuckDBReadPlan,
 	duckdbDisplayType,
 	makeWhereExpr
 } from 'positron-data-explorer-duckdb';
@@ -25,6 +26,14 @@ import {
 	RowFilterType,
 	TextSearchType,
 } from 'positron-data-explorer-protocol';
+
+/**
+ * The read plan of a DuckDB base table: read in place, with `rowid` available as the row order for
+ * sorted paging and for numbering export rows. `duckdbReadPlan` covers the plan choice itself.
+ */
+function rowidReadPlan(tableRef: string): IDuckDBReadPlan {
+	return { relation: async () => tableRef, rowOrder: 'rowid', dispose: async () => { } };
+}
 
 /** A fake query client that records SQL and answers from a caller-supplied responder. */
 class FakeQueryClient {
@@ -125,7 +134,7 @@ suite('DuckDB Data Explorer Tests', () => {
 					{ c0: 3, c1: Infinity },
 				];
 			});
-			const view = new DuckDBTableView(client, '"main"."people"', 'people', 'table', schema);
+			const view = new DuckDBTableView(client, '"main"."people"', 'people', rowidReadPlan('"main"."people"'), schema);
 			const data = await view.getDataValues({
 				columns: [
 					{ column_index: 0, spec: { first_index: 0, last_index: 2 } },
@@ -157,7 +166,7 @@ suite('DuckDB Data Explorer Tests', () => {
 			];
 			const client = new FakeQueryClient(sql =>
 				sql.includes('count(*)') ? [{ n: 2 }] : [{ c0: 1.5 }, { c0: 2.5 }]);
-			const view = new DuckDBTableView(client, '"main"."people"', 'people', 'table', oneColumn);
+			const view = new DuckDBTableView(client, '"main"."people"', 'people', rowidReadPlan('"main"."people"'), oneColumn);
 
 			const state = await view.getState();
 			const data = await view.getDataValues({
@@ -181,7 +190,7 @@ suite('DuckDB Data Explorer Tests', () => {
 		const idleClient = new FakeQueryClient(() => [{ n: 0 }]);
 
 		test('without a generator, advertises SQL and emits a SELECT over the table', async () => {
-			const view = new DuckDBTableView(idleClient, '"main"."people"', 'people', 'table', schema);
+			const view = new DuckDBTableView(idleClient, '"main"."people"', 'people', rowidReadPlan('"main"."people"'), schema);
 			const state = await view.getState();
 			assert.deepStrictEqual(state.supported_features.convert_to_code.code_syntaxes, [{ code_syntax_name: 'SQL' }]);
 			assert.deepStrictEqual(await view.suggestCodeSyntax(), { code_syntax_name: 'SQL' });
@@ -195,7 +204,7 @@ suite('DuckDB Data Explorer Tests', () => {
 				defaultSyntaxName: 'R',
 				generate: (syntax: string) => [`# ${syntax} code`],
 			};
-			const view = new DuckDBTableView(idleClient, '"main"."people"', 'people', 'table', schema, generator);
+			const view = new DuckDBTableView(idleClient, '"main"."people"', 'people', rowidReadPlan('"main"."people"'), schema, generator);
 
 			const state = await view.getState();
 			assert.deepStrictEqual(state.supported_features.convert_to_code.code_syntaxes, [

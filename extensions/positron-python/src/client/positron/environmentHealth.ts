@@ -6,10 +6,7 @@
 import * as os from 'os';
 import * as vscode from 'vscode';
 import * as fs from '../common/platform/fs-paths';
-import {
-    NativePythonFinder,
-    getNativePythonFinder,
-} from '../pythonEnvironments/base/locators/common/nativePythonFinder';
+import { getNativePythonFinder } from '../pythonEnvironments/base/locators/common/nativePythonFinder';
 import {
     isVersionSupported,
     isBaseCondaEnvironment,
@@ -29,6 +26,7 @@ import { Architecture } from '../common/utils/platform';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { getIpykernelBundle } from './ipykernel';
 import { isUvInstalled } from '../pythonEnvironments/common/environmentManagers/uv';
+import { noop } from '../common/utils/misc';
 
 // Human-readable inclusive supported range (e.g. "3.9-3.14") for user-facing messages, derived from
 // the version bounds so it stays in sync when they change. The exclusive maximum is set at a minor
@@ -91,18 +89,44 @@ export function itemSummary(id: HealthItemId): string {
     return summaries[id];
 }
 
-export function probeDiscovery(finder: Pick<NativePythonFinder, 'lastDiscoveryError'>): HealthItem {
+/**
+ * Where the developer-facing text behind a failed check goes. The report shows a generic sentence,
+ * so this is the only place the real message survives.
+ */
+export type LogError = (message: string, error?: unknown) => void;
+
+// Keep in sync with positron-r's environmentHealth.ts.
+function diagnosticsFix(): HealthItemFix {
+    return {
+        commandId: 'positron.startupDiagnostics.show',
+        label: vscode.l10n.t('Show Runtime Startup Diagnostics'),
+    };
+}
+
+/**
+ * Reduces the locator's recorded error to the flag the probes take, logging the message on the way.
+ * The probes never receive the message, so this is the only chance to record it.
+ */
+export function readDiscoveryFailure(
+    lastDiscoveryError: string | undefined,
+    context: string,
+    logError: LogError,
+): boolean {
+    if (lastDiscoveryError) {
+        logError(`${context}: ${lastDiscoveryError}`);
+    }
+    return Boolean(lastDiscoveryError);
+}
+
+export function probeDiscovery(deps: { discoveryFailed: boolean }): HealthItem {
     const summary = itemSummary('discovery');
-    if (finder.lastDiscoveryError) {
+    if (deps.discoveryFailed) {
         return {
             id: 'discovery',
             status: 'fail',
             summary,
-            detail: vscode.l10n.t('Python environment discovery could not start: {0}', finder.lastDiscoveryError),
-            fix: {
-                commandId: 'positron.startupDiagnostics.show',
-                label: vscode.l10n.t('Show Runtime Startup Diagnostics'),
-            },
+            detail: vscode.l10n.t('Python environment discovery could not start.'),
+            fix: diagnosticsFix(),
         };
     }
     return { id: 'discovery', status: 'pass', summary };
@@ -136,7 +160,7 @@ async function discoveryFinishedWithin(refreshPromise: Promise<void>, waitMs: nu
 export async function probePythonInstalled(deps: {
     getInterpreters: () => PythonEnvironment[];
     refreshPromise: Promise<void> | undefined;
-    lastDiscoveryError: () => string | undefined;
+    discoveryFailed: () => boolean;
     allowUvPythonInstall: boolean;
     waitMs: number;
 }): Promise<HealthItem> {
@@ -169,25 +193,18 @@ export async function probePythonInstalled(deps: {
         };
     }
 
-    // The discovery probe (item 1) samples lastDiscoveryError once, before this bounded wait.
-    // A locator failure that only surfaces during the wait (e.g. the initial refresh rejecting)
-    // is set on the finder afterwards, so re-check it here: no supported Python plus a discovery
-    // error means the locator is broken, not that Python is missing. Point at diagnostics rather
-    // than offer an install-Python fix that would not resolve a broken locator.
-    const discoveryError = deps.lastDiscoveryError();
-    if (discoveryError) {
+    // The discovery probe (item 1) samples the locator once, before this bounded wait. A locator
+    // failure that only surfaces during the wait (e.g. the initial refresh rejecting) is recorded
+    // afterwards, so re-check it here: no supported Python plus a discovery failure means the
+    // locator is broken, not that Python is missing. Point at diagnostics rather than offer an
+    // install-Python fix that would not resolve a broken locator.
+    if (deps.discoveryFailed()) {
         return {
             id: 'pythonInstalled',
             status: 'fail',
             summary,
-            detail: vscode.l10n.t(
-                'A supported Python could not be confirmed because environment discovery failed: {0}',
-                discoveryError,
-            ),
-            fix: {
-                commandId: 'positron.startupDiagnostics.show',
-                label: vscode.l10n.t('Show Runtime Startup Diagnostics'),
-            },
+            detail: vscode.l10n.t('A supported Python could not be confirmed because environment discovery failed.'),
+            fix: diagnosticsFix(),
         };
     }
 
@@ -435,29 +452,38 @@ function skipped(id: HealthItemId): HealthItem {
     return { id, status: 'skipped', summary: itemSummary(id) };
 }
 
-async function runItem(id: HealthItemId, produce: () => HealthItem | Promise<HealthItem>): Promise<HealthItem> {
+async function runItem(
+    id: HealthItemId,
+    produce: () => HealthItem | Promise<HealthItem>,
+    logError: LogError,
+): Promise<HealthItem> {
     try {
         return await produce();
     } catch (ex) {
+        // No curated action to offer for an unexpected probe failure, so this item carries no fix.
+        logError(`Environment health check '${id}' failed`, ex);
         return {
             id,
             status: 'fail',
             summary: itemSummary(id),
-            detail: vscode.l10n.t('Health check failed: {0}', ex instanceof Error ? ex.message : String(ex)),
+            detail: vscode.l10n.t('This check could not be completed.'),
         };
     }
 }
 
-export async function assembleItems(producers: ItemProducers): Promise<EnvironmentHealthResult> {
+export async function assembleItems(
+    producers: ItemProducers,
+    logError: LogError = noop,
+): Promise<EnvironmentHealthResult> {
     const items: HealthItem[] = [];
-    const discovery = await runItem('discovery', producers.discovery);
+    const discovery = await runItem('discovery', producers.discovery, logError);
     items.push(discovery);
     if (discovery.status === 'fail') {
         items.push(skipped('pythonInstalled'), skipped('environmentReady'), skipped('dedicatedEnvironment'));
         return finalize(items);
     }
 
-    const pythonInstalled = await runItem('pythonInstalled', producers.pythonInstalled);
+    const pythonInstalled = await runItem('pythonInstalled', producers.pythonInstalled, logError);
     items.push(pythonInstalled);
     if (pythonInstalled.status === 'fail') {
         items.push(skipped('environmentReady'), skipped('dedicatedEnvironment'));
@@ -470,14 +496,14 @@ export async function assembleItems(producers: ItemProducers): Promise<Environme
     // envType and would be misclassified as non-dedicated, so skip dedicatedEnvironment on a
     // readiness failure and let the recreate fix stand alone rather than emit a misleading
     // "use a dedicated environment" verdict alongside it.
-    const ready = await runItem('environmentReady', producers.ready);
+    const ready = await runItem('environmentReady', producers.ready, logError);
     items.push(ready);
     if (ready.status === 'fail') {
         items.push(skipped('dedicatedEnvironment'));
         return finalize(items);
     }
 
-    items.push(await runItem('dedicatedEnvironment', producers.dedicated));
+    items.push(await runItem('dedicatedEnvironment', producers.dedicated, logError));
     return finalize(items);
 }
 
@@ -490,6 +516,7 @@ function finalize(items: HealthItem[]): EnvironmentHealthResult {
 
 export async function getEnvironmentHealth(
     serviceContainer: IServiceContainer,
+    logError: LogError,
     args?: { workspaceFolder?: string },
 ): Promise<EnvironmentHealthResult> {
     const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
@@ -521,26 +548,43 @@ export async function getEnvironmentHealth(
         return snapshot;
     };
 
-    const result = await assembleItems({
-        discovery: () => probeDiscovery(getNativePythonFinder()),
-        pythonInstalled: () =>
-            probePythonInstalled({
-                getInterpreters: () => interpreterService.getInterpreters(workspaceUri),
-                refreshPromise: interpreterService.getRefreshPromise(),
-                lastDiscoveryError: () => getNativePythonFinder().lastDiscoveryError,
-                allowUvPythonInstall,
-                waitMs: DISCOVERY_WAIT_MS,
-            }),
-        ready: async () =>
-            evaluateReady(serviceContainer, {
-                workspaceUri,
-                uvInstalled,
-                allowUvPythonInstall,
-                ...(await resolveSnapshot()),
-            }),
-        dedicated: async () =>
-            evaluateDedicated({ workspaceUri, uvInstalled, allowUvPythonInstall, ...(await resolveSnapshot()) }),
-    });
+    const result = await assembleItems(
+        {
+            discovery: () =>
+                probeDiscovery({
+                    discoveryFailed: readDiscoveryFailure(
+                        getNativePythonFinder().lastDiscoveryError,
+                        'Python environment discovery could not start',
+                        logError,
+                    ),
+                }),
+            pythonInstalled: () =>
+                probePythonInstalled({
+                    getInterpreters: () => interpreterService.getInterpreters(workspaceUri),
+                    refreshPromise: interpreterService.getRefreshPromise(),
+                    // Read per call, not once up front: probePythonInstalled asks again after its
+                    // bounded wait, which is when a late locator failure first becomes visible.
+                    discoveryFailed: () =>
+                        readDiscoveryFailure(
+                            getNativePythonFinder().lastDiscoveryError,
+                            'Python environment discovery failed during the health check',
+                            logError,
+                        ),
+                    allowUvPythonInstall,
+                    waitMs: DISCOVERY_WAIT_MS,
+                }),
+            ready: async () =>
+                evaluateReady(serviceContainer, {
+                    workspaceUri,
+                    uvInstalled,
+                    allowUvPythonInstall,
+                    ...(await resolveSnapshot()),
+                }),
+            dedicated: async () =>
+                evaluateDedicated({ workspaceUri, uvInstalled, allowUvPythonInstall, ...(await resolveSnapshot()) }),
+        },
+        logError,
+    );
     // Read the memoized snapshot directly rather than calling resolveSnapshot() again.
     // When discovery or pythonInstalled failed, the cascade skipped environmentReady before it
     // could resolve the snapshot, so it stays undefined and interpreterPath is omitted. (A

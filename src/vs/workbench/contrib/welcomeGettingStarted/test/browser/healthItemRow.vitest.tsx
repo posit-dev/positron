@@ -8,11 +8,20 @@
 import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { URI } from '../../../../../base/common/uri.js';
+import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { IHealthItem } from '../../browser/positronWelcomePage/environmentHealth.js';
 import { HealthItemRow } from '../../browser/positronWelcomePage/components/healthItemRow.js';
+
+// showCustomContextMenu renders a modal popup into the workbench DOM, which isn't what these
+// tests are about -- the behavior under test is which entry the row offers and what it does when
+// selected. Mocking the one module lets us read the entries straight off the call.
+const { showCustomContextMenu } = vi.hoisted(() => ({ showCustomContextMenu: vi.fn() }));
+vi.mock('../../../../browser/positronComponents/customContextMenu/customContextMenu.js', () => ({
+	showCustomContextMenu,
+}));
 
 const item = (overrides: Partial<IHealthItem> = {}): IHealthItem => ({
 	id: 'environmentReady',
@@ -23,10 +32,15 @@ const item = (overrides: Partial<IHealthItem> = {}): IHealthItem => ({
 
 describe('HealthItemRow', () => {
 	const open = vi.fn();
-	const ctx = createTestContainer().withReactServices().stub(IOpenerService, { open }).build();
+	const writeText = vi.fn();
+	const ctx = createTestContainer().withReactServices()
+		.stub(IOpenerService, { open })
+		.stub(IClipboardService, { writeText })
+		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	beforeEach(() => {
+		showCustomContextMenu.mockClear();
 	});
 
 	it.each([
@@ -95,5 +109,34 @@ describe('HealthItemRow', () => {
 		expect(button).toBeEnabled();
 		await userEvent.setup().click(button);
 		expect(onRunFix).not.toHaveBeenCalled();
+	});
+
+	it('renders no path when none is given', () => {
+		rtl.render(<HealthItemRow busy={false} item={item()} onRunFix={vi.fn()} />);
+		expect(screen.queryByText('/usr/bin/python3')).not.toBeInTheDocument();
+	});
+
+	it('renders the path when one is given', () => {
+		rtl.render(<HealthItemRow busy={false} item={item()} path='/usr/bin/python3' onRunFix={vi.fn()} />);
+		expect(screen.getByText('/usr/bin/python3')).toBeInTheDocument();
+	});
+
+	it('copies the path to the clipboard from its context menu', async () => {
+		rtl.render(<HealthItemRow busy={false} item={item()} path='/usr/bin/python3' onRunFix={vi.fn()} />);
+		const path = screen.getByText('/usr/bin/python3');
+		await userEvent.setup().pointer({ keys: '[MouseRight]', target: path });
+
+		const call = showCustomContextMenu.mock.calls.at(-1)?.[0];
+		const copyEntry = call?.entries.find((entry: { options?: { label?: string } }) => entry.options?.label === 'Copy');
+		expect(copyEntry).toBeDefined();
+		await copyEntry.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+
+		expect(writeText).toHaveBeenCalledWith('/usr/bin/python3');
+	});
+
+	it('leaves a left click on the path alone', async () => {
+		rtl.render(<HealthItemRow busy={false} item={item()} path='/usr/bin/python3' onRunFix={vi.fn()} />);
+		await userEvent.setup().click(screen.getByText('/usr/bin/python3'));
+		expect(showCustomContextMenu).not.toHaveBeenCalled();
 	});
 });

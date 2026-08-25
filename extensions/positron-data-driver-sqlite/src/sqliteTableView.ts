@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ISqliteReadPlan } from './sqliteReadPlan.js';
+import { quoteIdentifier, quoteLiteral } from './sqliteSql.js';
 import { ISqliteQueryClient } from './sqliteWorkerClient.js';
 import {
 	ArraySelection,
@@ -115,16 +117,6 @@ export function sqliteDisplayType(declaredType: string): ColumnDisplayType {
 	return ColumnDisplayType.Floating;
 }
 
-/** Quotes and escapes an identifier for SQLite by doubling embedded double-quotes. */
-function quoteIdentifier(name: string): string {
-	return '"' + name.replace(/"/g, '""') + '"';
-}
-
-/** Escapes a value for use inside a single-quoted SQLite string literal. */
-function quoteLiteral(value: string): string {
-	return value.replace(/'/g, '\'\'');
-}
-
 const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
 	[FilterComparisonOp.Eq, '='],
 	[FilterComparisonOp.NotEq, '<>'],
@@ -227,26 +219,45 @@ export class SqliteTableView {
 	/**
 	 * @param client The query client for the owning connection.
 	 * @param tableName The unquoted table/view name.
-	 * @param objectKind Whether this is a table (has a stable rowid) or a view.
+	 * @param readPlan How this relation is read so that its LIMIT/OFFSET paging is stable.
 	 * @param schema The resolved column schema.
 	 */
 	constructor(
 		private readonly client: ISqliteQueryClient,
 		private readonly tableName: string,
-		private readonly objectKind: 'table' | 'view',
+		private readonly readPlan: ISqliteReadPlan,
 		private readonly schema: Array<SqliteSchemaEntry>,
 	) {
+		// Seed the ORDER BY before anything is read. The frontend only sends set_sort_columns once
+		// the user sorts -- on a fresh tab it mirrors back whatever sort_keys get_state reports and
+		// pushes nothing -- so without this the first pages would run with no total order at all.
+		this._sortClause = this._buildSortClause(this.sortKeys, true);
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
 	}
 
-	/** The quoted table name for use in FROM clauses. */
+	/**
+	 * The quoted relation that reads should target. This is the snapshot rather than the original
+	 * relation whenever the read plan uses one, so the row count, the displayed rows, the exports,
+	 * and the column profiles all describe the same set of rows.
+	 */
+	private _relation(): Promise<string> {
+		return this.readPlan.relation();
+	}
+
+	/** The user's own relation, for generated code that has to name what they opened. */
 	private get _quotedTable(): string {
 		return quoteIdentifier(this.tableName);
 	}
 
+	/** Releases the read plan's resources; call when the dataset's view is dropped. */
+	async dispose(): Promise<void> {
+		await this.readPlan.dispose();
+	}
+
 	private async _countRows(whereClause: string): Promise<number> {
-		const rows = await this.client.runQuery(`SELECT count(*) AS n FROM ${this._quotedTable}${whereClause}`);
+		const rows = await this.client.runQuery(
+			`SELECT count(*) AS n FROM ${await this._relation()}${whereClause}`);
 		return Number(rows[0]?.n ?? 0);
 	}
 
@@ -341,7 +352,7 @@ export class SqliteTableView {
 		// Select each requested column under a positional alias so duplicates are unambiguous.
 		const selectors = params.columns.map((column, i) =>
 			`${quoteIdentifier(this.schema[column.column_index].column_name)} AS c${i}`);
-		const query = `SELECT ${selectors.join(', ')} FROM ${this._quotedTable}` +
+		const query = `SELECT ${selectors.join(', ')} FROM ${await this._relation()}` +
 			`${this._whereClause}${this._orderClause()} LIMIT ${numRows} OFFSET ${lowerLimit}`;
 		const rows = await this.client.runQuery(query);
 
@@ -424,16 +435,45 @@ export class SqliteTableView {
 	}
 
 	/**
-	 * Builds an ORDER BY clause for the given sort keys. For tables a trailing `rowid` is appended
-	 * as a stable tiebreaker so pagination is deterministic; views have no rowid, so they omit it.
+	 * Builds an ORDER BY clause for the given sort keys, with the read plan's row order appended as
+	 * a tiebreaker so that paging is reproducible.
+	 *
+	 * The tiebreaker matters just as much with no sort keys as with them. Sort keys alone leave tied
+	 * rows free to come back in a different order on each statement, and with no sort keys at all
+	 * every row is tied. Unlike DuckDB, SQLite promises no order of its own to fall back on: rows
+	 * arrive in whatever order the chosen plan yields, and that plan can change between two page
+	 * fetches. So the clause is stated unconditionally, rather than only once the user has sorted.
+	 *
+	 * What that costs depends on the plan it displaces.
+	 *
+	 * - Unfiltered, it is free. `rowid` is SQLite's storage order, so the plan is `SCAN t` either
+	 *   way. The same holds for the clustered primary key of a WITHOUT ROWID table and for the
+	 *   insertion order of a snapshot.
+	 * - Sorting on an indexed column, it is free. A SQLite index is ordered by its columns and then
+	 *   by rowid, so appending the tiebreaker asks for an order the index already has:
+	 *   `ORDER BY a, rowid` keeps `SEARCH t USING INDEX ia (a<?)`.
+	 * - Filtering with no sort is where it is not free. An index serving `WHERE a < ?` returns rows
+	 *   in `a` order, which the tiebreaker overrides, so the planner abandons the index and
+	 *   `SEARCH t USING INDEX ia (a<?)` becomes `SCAN t`. Measured on a 2M-row table with 1,000
+	 *   matching rows, a 40-page sweep went from 0.9 ms to 415 ms of CPU with those rows spread
+	 *   through the table. Clustered at its front, where a scan meets them immediately and LIMIT
+	 *   stops early, the same sweep stayed at 0.5 ms -- the cost tracks how far the scan has to go,
+	 *   not the filter itself.
+	 *
+	 * That last case is paid deliberately. A filtered page fetch is the one most exposed to a plan
+	 * change -- an index appearing or ANALYZE running mid-sweep is what flips it -- so dropping the
+	 * tiebreaker there would remove the guarantee exactly where it is doing the most work.
+	 *
+	 * @param includeTiebreaker False only for generated code, which should show the user their own
+	 * sort rather than an internal ordering column.
 	 */
-	private _buildSortClause(sortKeys: Array<ColumnSortKey>, includeRowidTiebreaker: boolean): string {
+	private _buildSortClause(sortKeys: Array<ColumnSortKey>, includeTiebreaker: boolean): string {
 		const exprs = sortKeys.map(key => {
 			const quotedName = quoteIdentifier(this.schema[key.column_index].column_name);
 			return `${quotedName}${key.ascending ? '' : ' DESC'}`;
 		});
-		if (includeRowidTiebreaker && this.objectKind === 'table') {
-			exprs.push('rowid');
+		if (includeTiebreaker) {
+			exprs.push(this.readPlan.rowOrder);
 		}
 		return exprs.length > 0 ? `\nORDER BY ${exprs.join(', ')}` : '';
 	}
@@ -523,6 +563,7 @@ export class SqliteTableView {
 	async exportDataSelection(params: ExportDataSelectionParams): Promise<ExportedData> {
 		const kind = params.selection.kind;
 		const order = this._orderClause();
+		const relation = await this._relation();
 
 		const runExport = async (query: string, columns: Array<SqliteSchemaEntry>): Promise<ExportedData> => {
 			const rows = await this.client.runQuery(query);
@@ -540,7 +581,7 @@ export class SqliteTableView {
 			case TableSelectionKind.SingleCell: {
 				const sel = params.selection.selection as DataSelectionSingleCell;
 				const column = this.schema[sel.column_index];
-				const query = `SELECT ${quoteIdentifier(column.column_name)} AS c0 FROM ${this._quotedTable}` +
+				const query = `SELECT ${quoteIdentifier(column.column_name)} AS c0 FROM ${relation}` +
 					`${this._whereClause}${order} LIMIT 1 OFFSET ${sel.row_index}`;
 				const rows = await this.client.runQuery(query);
 				return { data: stringifyExportCell(rows[0]?.c0), format: params.format };
@@ -548,37 +589,37 @@ export class SqliteTableView {
 			case TableSelectionKind.CellRange: {
 				const sel = params.selection.selection as DataSelectionCellRange;
 				const columns = this.schema.slice(sel.first_column_index, sel.last_column_index + 1);
-				const query = `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}` +
+				const query = `SELECT ${selectorsFor(columns)} FROM ${relation}` +
 					`${this._whereClause}${order} LIMIT ${sel.last_row_index - sel.first_row_index + 1} OFFSET ${sel.first_row_index}`;
 				return runExport(query, columns);
 			}
 			case TableSelectionKind.RowRange: {
 				const sel = params.selection.selection as DataSelectionRange;
-				const query = `SELECT ${selectorsFor(this.schema)} FROM ${this._quotedTable}` +
+				const query = `SELECT ${selectorsFor(this.schema)} FROM ${relation}` +
 					`${this._whereClause}${order} LIMIT ${sel.last_index - sel.first_index + 1} OFFSET ${sel.first_index}`;
 				return runExport(query, this.schema);
 			}
 			case TableSelectionKind.ColumnRange: {
 				const sel = params.selection.selection as DataSelectionRange;
 				const columns = this.schema.slice(sel.first_index, sel.last_index + 1);
-				const query = `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}${this._whereClause}${order}`;
+				const query = `SELECT ${selectorsFor(columns)} FROM ${relation}${this._whereClause}${order}`;
 				return runExport(query, columns);
 			}
 			case TableSelectionKind.ColumnIndices: {
 				const sel = params.selection.selection as DataSelectionIndices;
 				const columns = sel.indices.map(i => this.schema[i]);
-				const query = `SELECT ${selectorsFor(columns)} FROM ${this._quotedTable}${this._whereClause}${order}`;
+				const query = `SELECT ${selectorsFor(columns)} FROM ${relation}${this._whereClause}${order}`;
 				return runExport(query, columns);
 			}
 			case TableSelectionKind.RowIndices: {
 				const sel = params.selection.selection as DataSelectionIndices;
-				const query = this._rowIndexQuery(selectorsFor(this.schema), sel.indices);
+				const query = this._rowIndexQuery(relation, selectorsFor(this.schema), sel.indices);
 				return runExport(query, this.schema);
 			}
 			case TableSelectionKind.CellIndices: {
 				const sel = params.selection.selection as DataSelectionCellIndices;
 				const columns = sel.column_indices.map(i => this.schema[i]);
-				const query = this._rowIndexQuery(selectorsFor(columns), sel.row_indices);
+				const query = this._rowIndexQuery(relation, selectorsFor(columns), sel.row_indices);
 				return runExport(query, columns);
 			}
 		}
@@ -586,13 +627,18 @@ export class SqliteTableView {
 
 	/**
 	 * Builds a query that selects specific (post-sort, post-filter) row positions in the requested
-	 * order. Uses a ROW_NUMBER() window so it works for both tables and views without relying on
-	 * rowid, mirroring the requested-row ordering.
+	 * order, using a ROW_NUMBER() window to number the rows.
+	 *
+	 * The window has to be ordered the same way the pages were, or the positions the frontend asks
+	 * for refer to rows the user never saw at those positions -- and this path writes a file the user
+	 * keeps, so a wrong row here is worse than a wrong row in the grid. `_sortClause` already ends in
+	 * the read plan's row order, which makes it a total order, so reusing it is what keeps the
+	 * numbering and the display in agreement.
 	 */
-	private _rowIndexQuery(selectors: string, rowIndices: number[]): string {
-		const ordering = this._sortClause ? this._sortClause.replace(/^\n/, '') : 'ORDER BY (SELECT 1)';
+	private _rowIndexQuery(relation: string, selectors: string, rowIndices: number[]): string {
+		const ordering = this._sortClause.replace(/^\n/, '');
 		const numbered = `SELECT *, ROW_NUMBER() OVER (${ordering}) - 1 AS __row_index ` +
-			`FROM ${this._quotedTable}${this._whereClause}`;
+			`FROM ${relation}${this._whereClause}`;
 		const order = rowIndices.map((rowIdx, i) => `WHEN ${rowIdx} THEN ${i}`).join(' ');
 		const inList = rowIndices.join(', ');
 		return `SELECT ${selectors} FROM (${numbered}) WHERE __row_index IN (${inList}) ` +
@@ -650,7 +696,7 @@ export class SqliteTableView {
 
 	private async _nullCount(quotedName: string): Promise<number> {
 		const rows = await this.client.runQuery(
-			`SELECT count(*) - count(${quotedName}) AS n FROM ${this._quotedTable}${this._whereClause}`);
+			`SELECT count(*) - count(${quotedName}) AS n FROM ${await this._relation()}${this._whereClause}`);
 		return Number(rows[0]?.n ?? 0);
 	}
 
@@ -664,12 +710,13 @@ export class SqliteTableView {
 		formatOptions: FormatOptions,
 	): Promise<ColumnSummaryStats> {
 		const display = entry.type_display;
+		const relation = await this._relation();
 		if (display === ColumnDisplayType.Integer || display === ColumnDisplayType.Floating || display === ColumnDisplayType.Decimal) {
 			// One pass for the moment-based stats; a second query for the median.
 			const rows = await this.client.runQuery(
 				`SELECT count(${quotedName}) AS n, min(${quotedName}) AS lo, max(${quotedName}) AS hi, ` +
 				`sum(${quotedName} * 1.0) AS s, sum(${quotedName} * 1.0 * ${quotedName}) AS ss ` +
-				`FROM ${this._quotedTable}${this._whereClause}`);
+				`FROM ${relation}${this._whereClause}`);
 			const n = Number(rows[0]?.n ?? 0);
 			const sum = Number(rows[0]?.s ?? 0);
 			const sumsq = Number(rows[0]?.ss ?? 0);
@@ -693,7 +740,7 @@ export class SqliteTableView {
 			const rows = await this.client.runQuery(
 				`SELECT count(DISTINCT ${quotedName}) AS nunique, ` +
 				`count(CASE WHEN ${quotedName} = '' THEN 1 END) AS nempty ` +
-				`FROM ${this._quotedTable}${this._whereClause}`);
+				`FROM ${relation}${this._whereClause}`);
 			return {
 				type_display: ColumnDisplayType.String,
 				string_stats: { num_unique: Number(rows[0]?.nunique ?? 0), num_empty: Number(rows[0]?.nempty ?? 0) },
@@ -703,7 +750,7 @@ export class SqliteTableView {
 			const rows = await this.client.runQuery(
 				`SELECT count(CASE WHEN ${quotedName} <> 0 THEN 1 END) AS ntrue, ` +
 				`count(CASE WHEN ${quotedName} = 0 THEN 1 END) AS nfalse ` +
-				`FROM ${this._quotedTable}${this._whereClause}`);
+				`FROM ${relation}${this._whereClause}`);
 			return {
 				type_display: ColumnDisplayType.Boolean,
 				boolean_stats: { true_count: Number(rows[0]?.ntrue ?? 0), false_count: Number(rows[0]?.nfalse ?? 0) },
@@ -712,7 +759,7 @@ export class SqliteTableView {
 		if (display === ColumnDisplayType.Date || display === ColumnDisplayType.Datetime) {
 			const rows = await this.client.runQuery(
 				`SELECT min(${quotedName}) AS lo, max(${quotedName}) AS hi, count(DISTINCT ${quotedName}) AS nunique ` +
-				`FROM ${this._quotedTable}${this._whereClause}`);
+				`FROM ${relation}${this._whereClause}`);
 			const stats = {
 				num_unique: Number(rows[0]?.nunique ?? 0),
 				min_date: rows[0]?.lo === null || rows[0]?.lo === undefined ? undefined : String(rows[0].lo),
@@ -723,7 +770,7 @@ export class SqliteTableView {
 				: { type_display: display, datetime_stats: stats };
 		}
 		const rows = await this.client.runQuery(
-			`SELECT count(DISTINCT ${quotedName}) AS nunique FROM ${this._quotedTable}${this._whereClause}`);
+			`SELECT count(DISTINCT ${quotedName}) AS nunique FROM ${relation}${this._whereClause}`);
 		return { type_display: display, other_stats: { num_unique: Number(rows[0]?.nunique ?? 0) } };
 	}
 
@@ -756,7 +803,7 @@ export class SqliteTableView {
 		}
 		const offset = Math.min(n - 1, Math.max(0, Math.floor(q * (n - 1))));
 		const rows = await this.client.runQuery(
-			`SELECT ${quotedName} AS v FROM ${this._quotedTable}${this._wherePlus(`${quotedName} IS NOT NULL`)} ` +
+			`SELECT ${quotedName} AS v FROM ${await this._relation()}${this._wherePlus(`${quotedName} IS NOT NULL`)} ` +
 			`ORDER BY ${quotedName} LIMIT 1 OFFSET ${offset}`);
 		const value = rows[0]?.v;
 		return value === null || value === undefined ? undefined : Number(value);
@@ -764,7 +811,7 @@ export class SqliteTableView {
 
 	private async _frequencyTable(quotedName: string, limit: number, filteredRows: number): Promise<ColumnFrequencyTable> {
 		const rows = await this.client.runQuery(
-			`SELECT ${quotedName} AS value, count(*) AS freq FROM ${this._quotedTable}` +
+			`SELECT ${quotedName} AS value, count(*) AS freq FROM ${await this._relation()}` +
 			`${this._wherePlus(`${quotedName} IS NOT NULL`)} GROUP BY ${quotedName} ` +
 			`ORDER BY freq DESC, value ASC LIMIT ${limit}`);
 		const values: ColumnValue[] = [];
@@ -793,7 +840,7 @@ export class SqliteTableView {
 		}
 
 		const rows = await this.client.runQuery(
-			`SELECT min(${quotedName}) AS lo, max(${quotedName}) AS hi FROM ${this._quotedTable}${this._whereClause}`);
+			`SELECT min(${quotedName}) AS lo, max(${quotedName}) AS hi FROM ${await this._relation()}${this._whereClause}`);
 		const minValue = Number(rows[0]?.lo);
 		const maxValue = Number(rows[0]?.hi);
 		const peakToPeak = maxValue - minValue;
@@ -840,7 +887,7 @@ export class SqliteTableView {
 		// SQLite truncates toward zero on CAST; values are >= minValue so the bin id is non-negative.
 		const binRows = await this.client.runQuery(
 			`SELECT CAST((${quotedName} * 1.0 - ${minValue}) / ${binWidth} AS INTEGER) AS bin_id, count(*) AS bin_count ` +
-			`FROM ${this._quotedTable}${this._wherePlus(`${quotedName} IS NOT NULL`)} GROUP BY bin_id`);
+			`FROM ${await this._relation()}${this._wherePlus(`${quotedName} IS NOT NULL`)} GROUP BY bin_id`);
 		const histEntries = new Map<number, number>(
 			binRows.map(row => [Number(row.bin_id), Number(row.bin_count)]));
 

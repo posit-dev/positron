@@ -1,0 +1,123 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.import-data {
+	display: flex;
+	gap: 12px;
+	flex-direction: column;
+}
+
+/*
+ * The variable name field spans the full width above the package/code split. labeledTextInput.css
+ * only stacks its label over its input inside the older `.positron-modal-dialog-box`, so the
+ * stacking is repeated here.
+ */
+.import-data .name-field .label {
+	display: flex;
+	gap: 4px;
+	flex-direction: column;
+}
+
+/* Package list (master) beside the code preview (detail), as in the data connections dialog. */
+.import-data .body {
+	height: 300px;
+	display: grid;
+	gap: 4px 10px;
+	grid-template-rows: auto 1fr;
+	grid-template-columns: 170px auto;
+	grid-template-areas:
+		"package-header code-header"
+		"importers      code";
+}
+
+.import-data .package-header {
+	grid-area: package-header;
+	display: flex;
+	align-items: center;
+}
+
+.import-data .code-header {
+	grid-area: code-header;
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	justify-content: space-between;
+}
+
+/* Importer listbox (master). */
+.import-data .importer-list {
+	grid-area: importers;
+	display: flex;
+	gap: 2px;
+	padding: 4px;
+	overflow-y: auto;
+	border-radius: 5px;
+	flex-direction: column;
+	border: 1px solid var(--vscode-positronModalDialog-border);
+}
+
+.import-data .importer-list-item {
+	width: 100%;
+	display: flex;
+	cursor: pointer;
+	min-height: 28px;
+	padding: 8px;
+	flex-shrink: 0;
+	border-radius: 4px;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: flex-start;
+	overflow-wrap: break-word;
+	color: var(--vscode-foreground);
+	background: transparent;
+}
+
+.import-data .importer-list-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.import-data .importer-list-item.selected {
+	color: var(--vscode-list-activeSelectionForeground);
+	background: var(--vscode-list-activeSelectionBackground);
+}
+
+.import-data .importer-list-item:focus-visible {
+	outline-offset: -1px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+/*
+ * Compact variant for the Copy button in the code header. The shared button treatment comes from
+ * `.positron-dynamic-modal-dialog-box .dialog-button` (positronDynamicModalDialog.css); this only
+ * overrides the size.
+ */
+.import-data .dialog-button.small {
+	height: 22px;
+	padding: 0 8px;
+	font-size: 11px;
+	border-radius: 4px;
+}
+
+/*
+ * Code preview (detail). Only left padding here: the editor fills the top, right, and bottom edges
+ * so its vertical scrollbar spans the full height and sits flush against the border.
+ */
+.import-data .code {
+	grid-area: code;
+	overflow: auto;
+	padding: 0 0 0 10px;
+	border-radius: 5px;
+	border: solid 1px var(--vscode-positronModalDialog-border);
+}
+
+.import-data .empty-state {
+	padding: 20px 0;
+	text-align: center;
+	color: var(--vscode-descriptionForeground);
+}
+
+.import-data .warnings {
+	color: var(--vscode-editorWarning-foreground);
+}

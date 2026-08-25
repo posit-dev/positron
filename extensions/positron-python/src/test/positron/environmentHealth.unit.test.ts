@@ -5,25 +5,53 @@
 
 import * as sinon from 'sinon';
 import { assert } from 'chai';
-import { probeDiscovery, probePythonInstalled, DISCOVERY_WAIT_MS } from '../../client/positron/environmentHealth';
+import {
+    probeDiscovery,
+    probePythonInstalled,
+    readDiscoveryFailure,
+    DISCOVERY_WAIT_MS,
+} from '../../client/positron/environmentHealth';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 
 suite('Python Environment Health - discovery (item 1)', () => {
     teardown(() => sinon.restore());
 
     test('passes when discovery is operational', () => {
-        const item = probeDiscovery({ lastDiscoveryError: undefined });
+        const item = probeDiscovery({ discoveryFailed: false });
         assert.strictEqual(item.id, 'discovery');
         assert.strictEqual(item.status, 'pass');
         assert.isUndefined(item.fix);
     });
 
     test('fails with a diagnostics link-out on fatal discovery error', () => {
-        const item = probeDiscovery({ lastDiscoveryError: 'spawn ENOENT' });
+        // The probe takes a flag, not the locator's message, so it has no developer text to leak.
+        const item = probeDiscovery({ discoveryFailed: true });
         assert.strictEqual(item.status, 'fail');
         assert.strictEqual(item.fix?.commandId, 'positron.startupDiagnostics.show');
         assert.isUndefined(item.fix?.args);
-        assert.include(item.detail ?? '', 'spawn ENOENT');
+        assert.isDefined(item.detail);
+    });
+});
+
+suite('Python Environment Health - readDiscoveryFailure', () => {
+    test('no recorded error means no failure and nothing logged', () => {
+        const logError = sinon.stub();
+        assert.isFalse(readDiscoveryFailure(undefined, 'context', logError));
+        assert.isTrue(logError.notCalled);
+    });
+
+    test('a recorded error is logged with its context and reported as a failure', () => {
+        const logError = sinon.stub();
+        assert.isTrue(readDiscoveryFailure('spawn ENOENT', 'Discovery could not start', logError));
+        assert.deepStrictEqual(logError.firstCall.args, ['Discovery could not start: spawn ENOENT']);
+    });
+
+    test('an empty message is not a failure', () => {
+        // The locator clears lastDiscoveryError by assigning undefined, but an empty string would
+        // otherwise fail the check with nothing to log.
+        const logError = sinon.stub();
+        assert.isFalse(readDiscoveryFailure('', 'context', logError));
+        assert.isTrue(logError.notCalled);
     });
 });
 
@@ -38,7 +66,7 @@ suite('Python Environment Health - pythonInstalled (item 2)', () => {
         const item = await probePythonInstalled({
             getInterpreters: () => [unsupported, supported],
             refreshPromise: undefined,
-            lastDiscoveryError: () => undefined,
+            discoveryFailed: () => false,
             allowUvPythonInstall: true,
             waitMs: 10,
         });
@@ -51,7 +79,7 @@ suite('Python Environment Health - pythonInstalled (item 2)', () => {
         const item = await probePythonInstalled({
             getInterpreters: () => list,
             refreshPromise,
-            lastDiscoveryError: () => undefined,
+            discoveryFailed: () => false,
             allowUvPythonInstall: true,
             waitMs: 50,
         });
@@ -62,23 +90,23 @@ suite('Python Environment Health - pythonInstalled (item 2)', () => {
     test('reports a broken locator, not a missing Python, when discovery errors during the wait', async () => {
         // The discovery probe (item 1) already passed because the error had not surfaced yet.
         // The refresh rejects during the bounded wait; the finder records the error afterwards.
-        let discoveryError: string | undefined;
+        let discoveryFailed = false;
         const refreshPromise = new Promise<void>((r) =>
             setTimeout(() => {
-                discoveryError = 'Refresh error: spawn ENOENT';
+                discoveryFailed = true;
                 r();
             }, 1),
         );
         const item = await probePythonInstalled({
             getInterpreters: () => [],
             refreshPromise,
-            lastDiscoveryError: () => discoveryError,
+            discoveryFailed: () => discoveryFailed,
             allowUvPythonInstall: true,
             waitMs: 50,
         });
         assert.strictEqual(item.status, 'fail');
         assert.strictEqual(item.fix?.commandId, 'positron.startupDiagnostics.show');
-        assert.include(item.detail ?? '', 'spawn ENOENT');
+        assert.isDefined(item.detail);
     });
 
     test('times out with no fix when discovery does not finish in time', async () => {
@@ -86,7 +114,7 @@ suite('Python Environment Health - pythonInstalled (item 2)', () => {
         const item = await probePythonInstalled({
             getInterpreters: () => [],
             refreshPromise: neverResolves,
-            lastDiscoveryError: () => undefined,
+            discoveryFailed: () => false,
             allowUvPythonInstall: true,
             waitMs: 10,
         });
@@ -98,7 +126,7 @@ suite('Python Environment Health - pythonInstalled (item 2)', () => {
         const item = await probePythonInstalled({
             getInterpreters: () => [],
             refreshPromise: undefined,
-            lastDiscoveryError: () => undefined,
+            discoveryFailed: () => false,
             allowUvPythonInstall: false,
             waitMs: 10,
         });
@@ -454,17 +482,26 @@ suite('Python Environment Health - orchestration', () => {
     });
 
     test('a probe that throws becomes a fail, not a rejection', async () => {
-        const result = await assembleItems({
-            discovery: () => pass('discovery'),
-            pythonInstalled: async () => {
-                throw new Error('boom');
+        const logError = sinon.stub();
+        const thrown = new Error('boom');
+        const result = await assembleItems(
+            {
+                discovery: () => pass('discovery'),
+                pythonInstalled: async () => {
+                    throw thrown;
+                },
+                ready: async () => pass('environmentReady'),
+                dedicated: async () => pass('dedicatedEnvironment'),
             },
-            ready: async () => pass('environmentReady'),
-            dedicated: async () => pass('dedicatedEnvironment'),
-        });
+            logError,
+        );
         assert.strictEqual(result.items[1].status, 'fail');
-        assert.include(result.items[1].detail ?? '', 'boom');
         assert.strictEqual(result.items[1].summary, 'A supported Python is installed');
+        // The error goes to the log, not to the user. It is passed as the error
+        // argument rather than interpolated, so the log keeps the stack.
+        assert.notInclude(result.items[1].detail ?? '', 'boom');
+        assert.isTrue(logError.calledOnce);
+        assert.deepStrictEqual(logError.firstCall.args, [`Environment health check 'pythonInstalled' failed`, thrown]);
     });
 
     test('skipped items carry the check summary, not the machine id', async () => {

@@ -19,8 +19,7 @@ import {
 import { localize } from '../../../../nls.js';
 import { welcomePageTileBackground, welcomePageTileBorder } from './gettingStartedColors.js';
 
-// Colors for the redesigned welcome page, behind the `welcomePage.experimental`
-// setting.
+// Colors for the Positron welcome page.
 
 // The Help button in the header is an outline: no fill, so it stays quieter than
 // the fix buttons in the environment setup card, which are the only controls on

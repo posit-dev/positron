@@ -52,6 +52,8 @@ export interface IEnvironmentHealthResult {
 	readonly ok: boolean;
 	/** The full set, in dependency order, with skipped items after the first failure. */
 	readonly items: readonly IHealthItem[];
+	readonly interpreterPath?: string;
+	readonly rBinPath?: string;
 }
 
 export type EnvironmentHealthLanguage = 'python' | 'r';
@@ -131,4 +133,30 @@ export function isEnvironmentHealthResult(value: unknown): value is IEnvironment
 		&& Array.isArray(result.items)
 		&& result.items.length > 0
 		&& result.items.every(isHealthItem);
+}
+
+/**
+ * The path to show next to the "a supported X is installed" step, or undefined
+ * when there is nothing to show.
+ *
+ * Only shown on a passing item: Python's failure details never have a path to
+ * point at (there is no supported interpreter yet), so showing one only on
+ * success keeps both languages consistent rather than inventing a path for one
+ * and not the other.
+ */
+export function pathForItem(
+	language: EnvironmentHealthLanguage,
+	item: IHealthItem,
+	result: IEnvironmentHealthResult
+): string | undefined {
+	if (item.status !== 'pass') {
+		return undefined;
+	}
+	if (language === 'python' && item.id === 'pythonInstalled') {
+		return typeof result.interpreterPath === 'string' ? result.interpreterPath : undefined;
+	}
+	if (language === 'r' && item.id === 'rInstalled') {
+		return typeof result.rBinPath === 'string' ? result.rBinPath : undefined;
+	}
+	return undefined;
 }

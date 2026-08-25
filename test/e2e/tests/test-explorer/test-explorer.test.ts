@@ -55,7 +55,8 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestStatus('test-test-that.R', 'Failed');
 
 		// Reveal the test_that() and describe()/it() items inside the files.
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-describe-it.R', { recurse: true });
+		await testExplorer.expandTest('test-test-that.R');
 
 		await testExplorer.expectTestStatus('simple describe() 1 passes', 'Passed');
 		await testExplorer.expectTestStatus('it number 1-1', 'Passed');
@@ -68,6 +69,40 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestStatus('test_that number 2 fails', 'Failed');
 	});
 
+	// A test run gets its environment from three places: contributions from other
+	// extensions, contributions from positron-r, and the live R console session. A
+	// terminal gets all of that from core and a kernel from the supervisor, but the
+	// test runner spawns R directly, so positron-r has to assemble it.
+	// https://github.com/posit-dev/positron/issues/15609
+	test('A test run gets the environment variables it needs', async function ({ app, executeCode }, testInfo) {
+		const { console, testExplorer } = app.workbench;
+		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
+
+		await executeCode('R', 'Sys.setenv(TESTTHAT_MAX_FAILS = 99)');
+
+		// Printed in the same shape as ENV-VARS.txt, so both sides parse the same.
+		const LANG_LINE = /^LANG=(.*)$/m;
+		await executeCode('R', 'cat(paste0("LANG=", Sys.getenv("LANG")))');
+		const langLines = await console.waitForConsoleContents(LANG_LINE);
+		const consoleLang = langLines[0].match(LANG_LINE)![1];
+
+		await testExplorer.expectTestItems(['test-env-vars.R']);
+		await testExplorer.runTest('test-env-vars.R');
+
+		await testExplorer.expectTestStatus('test-env-vars.R', 'Passed', 60000);
+
+		// A skip would still leave the file Passed, so confirm this one really ran.
+		await testExplorer.expandTest('test-env-vars.R');
+		await testExplorer.expectTestStatus('TESTTHAT_MAX_FAILS is forwarded from the console', 'Passed');
+
+		// An empty LANG is not forwarded, so there's nothing to assert.
+		if (consoleLang !== '') {
+			const evLines = fs.readFileSync(path.join(testthatDir, 'ENV-VARS.txt'), 'utf8');
+			const runLang = evLines.match(LANG_LINE)![1];
+			expect(runLang, 'the test run should have same LANG as the console').toBe(consoleLang);
+		}
+	});
+
 	test('Tests with tricky descriptions report the correct status', async function ({ app }) {
 		const { testExplorer } = app.workbench;
 
@@ -75,7 +110,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.runAllTests();
 		await testExplorer.expectTestStatus('test-tricky-desc.R', 'Failed', 60000);
 
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-tricky-desc.R');
 		await testExplorer.expectTestStatus('test_that with a multi-line description passes', 'Passed');
 		await testExplorer.expectTestStatus('test_that with \'single quotes\' fails', 'Failed');
 		await testExplorer.expectTestStatus('test_that with one \' single quote passes', 'Passed');
@@ -89,7 +124,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		const { testExplorer } = app.workbench;
 
 		await testExplorer.expectTestItems(['test-tricky-desc.R']);
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-tricky-desc.R');
 
 		await testExplorer.runTest('test_that with a multi-line description passes');
 		await testExplorer.expectTestStatus('test_that with a multi-line description passes', 'Passed', 60000);
@@ -122,7 +157,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
 
 		// Make sure test-test-that.R has been materialized in the explorer.
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-test-that.R');
 		// These are the children nodes (the tests) in test-test-that.R.
 		await testExplorer.expectTestItems(['test_that number 1 passes', 'test_that number 2 fails']);
 
@@ -156,7 +191,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		// First run: no STOP sentinel, so the whole file runs and both tests pass.
 		await testExplorer.runAllTests();
 		await testExplorer.expectTestStatus('test-early-stop.R', 'Passed', 60000);
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-early-stop.R');
 		await testExplorer.expectTestStatus(BEFORE, 'Passed');
 		await testExplorer.expectTestStatus(AFTER, 'Passed');
 
@@ -180,7 +215,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		fs.writeFileSync(path.join(testthatDir, 'CANCEL'), '');
 
 		await testExplorer.expectTestItems(['test-cancel.R']);
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-cancel.R');
 		await testExplorer.runTest(LABEL);
 
 		// Cancel only once the test is genuinely running, so we exercise a real

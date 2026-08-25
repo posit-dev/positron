@@ -5,6 +5,8 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { createSqliteReadPlan } from './sqliteReadPlan.js';
+import { quoteIdentifier } from './sqliteSql.js';
 import { ISqliteQueryClient } from './sqliteWorkerClient.js';
 import { SqliteSchemaEntry, SqliteTableView, sqliteDisplayType } from './sqliteTableView.js';
 import {
@@ -53,13 +55,19 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 
 	constructor(private readonly _logger?: positron.DataConnectionLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(SQLITE_DATA_EXPLORER_PROVIDER_ID, {
-			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
+			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc),
+			// Without this, closing a tab leaves its view registered and its snapshot in the `temp`
+			// schema until the connection disconnects or the same dataset is reopened. That was a
+			// bounded waste when a view held nothing but state; now it holds a copy of the relation.
+			closeDataset: (datasetId) => this.closeTableView(datasetId),
 		});
 	}
 
 	dispose(): void {
 		this._session.dispose();
-		this._views.clear();
+		for (const datasetId of [...this._views.keys()]) {
+			this.closeTableView(datasetId);
+		}
 	}
 
 	/**
@@ -72,8 +80,12 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 		tableName: string,
 		kind: 'table' | 'view',
 	): Promise<void> {
+		// Sequenced, not concurrent: a plan that has already taken a snapshot has nothing to dispose it
+		// if the schema query then fails, so nothing is created until the schema is in hand.
 		const schema = await buildSqliteSchema(client, tableName);
-		this._views.set(datasetId, new SqliteTableView(client, tableName, kind, schema));
+		const readPlan = await createSqliteReadPlan(
+			client, tableName, kind, schema.map(c => c.column_name));
+		this._setView(datasetId, new SqliteTableView(client, tableName, readPlan, schema));
 	}
 
 	/**
@@ -92,12 +104,29 @@ export class SqliteDataExplorerRpcHandler implements vscode.Disposable, ISqliteD
 		if (!column) {
 			throw new Error(`Column '${columnName}' not found in '${tableName}'`);
 		}
-		this._views.set(datasetId, new SqliteTableView(client, tableName, kind, [column]));
+		// The plan is given every column the relation has, not just the requested one: what it needs to
+		// know is whether the relation shadows a rowid alias, which the restricted schema would hide.
+		const readPlan = await createSqliteReadPlan(
+			client, tableName, kind, schema.map(c => c.column_name));
+		this._setView(datasetId, new SqliteTableView(client, tableName, readPlan, [column]));
+	}
+
+	/**
+	 * Registers a view, disposing any view the same dataset id already had so that reopening a
+	 * dataset does not leave its predecessor's snapshot behind.
+	 */
+	private _setView(datasetId: string, view: SqliteTableView): void {
+		this.closeTableView(datasetId);
+		this._views.set(datasetId, view);
 	}
 
 	/** Drops a dataset's view, e.g. when its connection is disconnected. */
 	closeTableView(datasetId: string): void {
+		const view = this._views.get(datasetId);
 		this._views.delete(datasetId);
+		// Dropping the snapshot is best-effort cleanup of a private temp table, so nothing waits on
+		// it and a failure (typically a worker that is already gone) must not surface to the caller.
+		void view?.dispose().catch(() => { });
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
@@ -173,8 +202,7 @@ export async function buildSqliteSchema(
 	client: ISqliteQueryClient,
 	tableName: string,
 ): Promise<SqliteSchemaEntry[]> {
-	const safeName = tableName.replace(/"/g, '""');
-	const rows = await client.runQuery(`PRAGMA table_info("${safeName}")`);
+	const rows = await client.runQuery(`PRAGMA table_info(${quoteIdentifier(tableName)})`);
 	return rows.map(row => {
 		const declaredType = row.type ? String(row.type) : '';
 		return {
