@@ -11,14 +11,15 @@ vi.mock('undici', () => ({
 	request: vi.fn()
 }));
 
-vi.mock('../metrics/metric-base.js', () => ({
-	CONNECT_API_KEY: 'fake-key-for-testing',
-	LOCAL_API_URL: 'http://localhost:3000/metrics',
-	PROD_API_URL: 'https://api.example.com/metrics',
-	platformOs: 'Linux',
-	platformVersion: '5.10',
-	positronVersion: { positronVersion: '2026.09.0', buildNumber: 1 }
-}));
+vi.mock('../metrics/metric-base.js', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../metrics/metric-base.js')>();
+	return {
+		...actual,
+		CONNECT_API_KEY: 'fake-key-for-testing',
+		LOCAL_API_URL: 'http://localhost:3000/metrics',
+		PROD_API_URL: 'https://api.example.com/metrics'
+	};
+});
 
 const process1: LabeledProcess = {
 	pid: 100, ppid: 1, depth: 0,
