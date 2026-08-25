@@ -337,6 +337,19 @@ export async function fetchBaseline(scenario: MemoryScenario, lane: MemoryLane):
 		if (!body.found) {
 			console.log(`[memory] no baseline: ${body.reason}` +
 				(body.reason === 'image_mismatch' ? ` (newest available: ${body.available_container_image})` : ''));
+			return undefined;
+		}
+		// The query already sent `lane`, but nothing upstream of this guarantees the
+		// API filters on it -- the design doc notes it may accept the parameter
+		// without filtering yet. Without this check, such a build would hand a
+		// server run a desktop baseline (or vice versa), and render.ts would happily
+		// diff the two lanes against each other: exactly the invalid comparison this
+		// whole change exists to prevent. isMemoryLane in baselineToSnapshot only
+		// catches a garbage value; it cannot catch a valid lane that is simply the
+		// wrong one.
+		if (body.lane !== lane) {
+			console.error(`[memory] baseline response lane '${body.lane}' does not match requested lane '${lane}'; treating as no baseline rather than mixing lanes`);
+			return undefined;
 		}
 		return baselineToSnapshot(body, scenario);
 	} catch (error) {

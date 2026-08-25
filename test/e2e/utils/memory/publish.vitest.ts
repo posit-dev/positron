@@ -288,6 +288,60 @@ describe('publishingEnabled', () => {
 	});
 });
 
+describe('fetchBaseline lane mismatch', () => {
+	const foundBody: BaselineResponse = {
+		found: true,
+		container_image: 'ghcr.io/posit-dev/positron-ci:latest',
+		run_id: 'r',
+		app_version: '2026.09.0-35',
+		lane: 'desktop',
+		snapshot: {
+			tree_total_pss_bytes: 1000,
+			settle_ms: 100,
+			processes: [],
+			extensions: []
+		}
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		process.env.MEMORY_PUBLISH = 'true';
+	});
+
+	afterEach(() => {
+		delete process.env.MEMORY_PUBLISH;
+	});
+
+	async function mockResponse(statusCode: number, body: unknown) {
+		const { request } = await import('undici');
+		vi.mocked(request).mockResolvedValue({
+			statusCode,
+			body: {
+				json: async () => body,
+				text: async () => JSON.stringify(body),
+				dump: async () => { }
+			}
+		} as never);
+	}
+
+	test('rejects a baseline whose lane does not match the requested lane', async () => {
+		// The API is documented to accept `lane` without necessarily filtering on
+		// it yet (see the design doc). A response carrying the wrong lane must not
+		// become a baseline: it would render as a cross-lane delta, exactly the
+		// invalid comparison this whole change exists to prevent. This test fails
+		// if the mismatch check is deleted, because the response's `desktop` lane
+		// would otherwise map straight through baselineToSnapshot.
+		await mockResponse(200, foundBody);
+		expect(await fetchBaseline('idle', 'server')).toBeUndefined();
+	});
+
+	test('accepts a baseline whose lane matches the requested lane', async () => {
+		await mockResponse(200, foundBody);
+		const baseline = await fetchBaseline('idle', 'desktop');
+		expect(baseline?.lane).toBe('desktop');
+	});
+});
+
 describe('buildPayload lane', () => {
 	test('carries the snapshot lane onto the payload', () => {
 		const payload = buildPayload([{ ...snapshot, lane: 'server' as const }], meta);
