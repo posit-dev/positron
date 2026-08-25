@@ -83,6 +83,38 @@ export async function showShellIntegrationNotSupportedMessage(): Promise<void> {
 }
 
 /**
+ * Show a message explaining that the app's URL was not found in the console output.
+ *
+ * The app itself is left running, so this is a warning rather than an error: the
+ * app may simply be slower to start than the URL detection timeout allows.
+ * @param appName The name of the app e.g. `'Shiny'`.
+ * @param timeoutSetting The setting that governed the timeout, if it was one of
+ *  ours. Omit when the caller passed an explicit timeout, since we can't know
+ *  which of the caller's settings (if any) produced it, and pointing at our own
+ *  setting would be wrong: an explicit timeout takes precedence over it.
+ */
+export async function showUrlDetectionTimedOutMessage(appName: string, timeoutSetting?: string): Promise<void> {
+	const changeTimeout = vscode.l10n.t('Change Timeout');
+	const showLog = vscode.l10n.t('Show Log');
+	const actions = timeoutSetting ? [changeTimeout, showLog] : [showLog];
+
+	const selection = await vscode.window.showWarningMessage(
+		vscode.l10n.t(
+			'Could not find the {0} app URL in the console output, so the app was not previewed. ' +
+			'The app is still running and may need more time to start.',
+			appName,
+		),
+		...actions,
+	);
+
+	if (selection === changeTimeout && timeoutSetting) {
+		await vscode.commands.executeCommand('workbench.action.openSettings', `@id:${timeoutSetting}`);
+	} else if (selection === showLog) {
+		log.show();
+	}
+}
+
+/**
  * Check if the Positron proxy should be used for the given app.
  * Generally, we should avoid skipping the proxy unless there is a good reason to do so, as the
  * proxy gives us the ability to intercept requests and responses to the app, which is useful for

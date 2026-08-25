@@ -13,7 +13,7 @@ import { AppUrlDetector } from './appUrlDetector';
 import { buildCommandLine, raceTimeout, SequencerByKey } from './utils';
 import { DAP_CONFIGURATION_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
-import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage } from './api-utils.js';
+import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage, showUrlDetectionTimedOutMessage } from './api-utils.js';
 
 function readDefaultPreviewMode(): PreviewMode {
 	const setting = vscode.workspace.getConfiguration().get<string>(Config.PreviewMode);
@@ -410,11 +410,11 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			// Set up URL detection via an observer for the output of our execute request.
 			// Always created but only consumed when `preview` is not `'none'`.
 			const detector = new AppUrlDetector(options.appUrlStrings, options.appReadyMessage);
-			const cancellation = new vscode.CancellationTokenSource();
-			cleanup.push(cancellation);
 
+			// Deliberately no cancellation token: cancelling an execution
+			// observer's token interrupts the session, which would kill the
+			// user's app. The app outlives URL detection, so we never cancel.
 			const observer: positron.runtime.ExecutionObserver = {
-				token: cancellation.token,
 				onOutput: (data) => detector.processOutput(data),
 				onError: (data) => detector.processOutput(data),
 			};
@@ -442,13 +442,26 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 					const url = await raceTimeout(
 						detector.found,
 						options.urlDetectionTimeout ?? readUrlDetectionTimeout(),
-						() => {
-							cancellation.cancel();
-							throw new Error(vscode.l10n.t('Timed out waiting for {0} app URL in console output.', options.name));
-						},
+						() => log.warn(`Timed out waiting for ${options.name} app URL in console output`),
 					);
 
-					const previewUri = await this.previewApp(url!, {
+					if (!url) {
+						if (preview === 'manual') {
+							throw new Error(vscode.l10n.t(
+								'Could not find the {0} app URL in the console output. The app is still running in the console session.',
+								options.name,
+							));
+						}
+						// Only offer to change our own timeout setting when it was
+						// the one in effect. A caller-supplied timeout overrides it.
+						showUrlDetectionTimedOutMessage(
+							options.name,
+							options.urlDetectionTimeout === undefined ? Config.UrlDetectionTimeout : undefined,
+						).catch(() => { });
+						break;
+					}
+
+					const previewUri = await this.previewApp(url, {
 						preview,
 						proxyInfo,
 						urlPath: options.urlPath,
