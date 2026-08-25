@@ -20,11 +20,6 @@ type EnvVarAction = 'replace' | 'prepend' | 'append';
 
 /**
  * A single mutation to an environment variable.
- *
- * Deliberately the same shape as `CapturedEnvironmentVariable`, which the
- * positron-environment-modules extension publishes and provider-module.ts
- * mirrors locally. That lets module-captured variables and the mutations
- * computed below share the appliers with no conversion.
  */
 export interface EnvVarMutation {
 	readonly name: string;
@@ -100,45 +95,6 @@ export function getRTerminalEnvironmentMutations(
 }
 
 /**
- * Apply mutations to a terminal environment variable collection.
- *
- * @param collection The collection to mutate.
- * @param mutations The mutations to apply.
- * @param options Controls whether the variables reach process creation, shell
- *   integration, or both.
- */
-export function applyMutationsToCollection(
-	collection: vscode.EnvironmentVariableCollection,
-	mutations: readonly EnvVarMutation[],
-	options: vscode.EnvironmentVariableMutatorOptions
-): void {
-	for (const mutation of mutations) {
-		// Skip variables that already hold the desired value, to avoid
-		// needlessly marking open terminals as stale.
-		if (collection.get(mutation.name)?.value === mutation.value) {
-			continue;
-		}
-		switch (mutation.action) {
-			case 'replace':
-				collection.replace(mutation.name, mutation.value, options);
-				break;
-			case 'prepend':
-				collection.prepend(mutation.name, mutation.value, options);
-				break;
-			case 'append':
-				collection.append(mutation.name, mutation.value, options);
-				break;
-			default: {
-				const unhandled: never = mutation.action;
-				LOGGER.error(`Unhandled environment variable action ${unhandled} for ${mutation.name}`);
-				break;
-			}
-		}
-		LOGGER.debug(`Updated terminal environment variable ${mutation.name} (${mutation.action}) to ${mutation.value}`);
-	}
-}
-
-/**
  * Apply mutations to a process environment, in place.
  *
  * Prepend and append concatenate directly: the mutation's value carries any
@@ -207,17 +163,10 @@ function toEnvVarAction(type: vscode.EnvironmentVariableMutatorType): EnvVarActi
  * These are what a terminal gets from core and a kernel gets from the
  * supervisor: RSTUDIO_PANDOC from positron-environment, PATH and QUARTO_R from
  * this extension, JUPYTER_PATH so Quarto can find the bundled ark kernel, plus
- * anything the user configured. Contributions that opt out of process creation
- * are already excluded upstream (see mainThreadEnvironment.ts), which is how
- * module environments stay terminal-only.
+ * anything the user configured.
  *
- * Extensions are visited in an unspecified order, so when several contribute to
- * the same variable (three prepend to PATH today) the order they land in is not
- * defined. This matches what a terminal gets, which is the point.
- *
- * The supervisor does the equivalent translation for kernels in
- * KallichoreSession.ts. Extensions can't share code, so the two are duplicates
- * that have to be kept in step by hand.
+ * KallichoreSession.ts does the same translation for kernels. It's a separate
+ * implementation, so a change here is worth checking there and vice versa.
  *
  * @returns The contributed mutations, in no particular order.
  */

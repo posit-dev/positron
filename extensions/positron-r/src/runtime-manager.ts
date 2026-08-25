@@ -15,7 +15,7 @@ import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
 import { getEnvironmentModulesApi } from './provider-module.js';
 import { setupArkJupyterKernel } from './kernel';
-import { applyMutationsToCollection, getRTerminalEnvironmentMutations } from './r-process-environment';
+import { getRTerminalEnvironmentMutations } from './r-process-environment';
 import { RSessionManager } from './session-manager';
 
 /**
@@ -202,11 +202,25 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// user selected. Apply at both process creation and shell integration so
 		// the variables are present however the terminal resolves them.
 		const options = { applyAtProcessCreation: true, applyAtShellIntegration: true };
-		applyMutationsToCollection(
-			collection,
-			getRTerminalEnvironmentMutations(metadataExtra),
-			options
-		);
+		for (const mutation of getRTerminalEnvironmentMutations(metadataExtra)) {
+			// Skip variables that already hold the desired value, to avoid
+			// needlessly marking open terminals as stale.
+			if (collection.get(mutation.name)?.value === mutation.value) {
+				continue;
+			}
+			switch (mutation.action) {
+				case 'replace':
+					collection.replace(mutation.name, mutation.value, options);
+					break;
+				case 'prepend':
+					collection.prepend(mutation.name, mutation.value, options);
+					break;
+				case 'append':
+					collection.append(mutation.name, mutation.value, options);
+					break;
+			}
+			LOGGER.debug(`Updated terminal environment variable ${mutation.name} (${mutation.action}) to ${mutation.value}`);
+		}
 
 		// Update the ark Jupyter kernel spec with this R's environment.
 		// This ensures that when Quarto launches ark via Jupyter, it will use
@@ -289,8 +303,18 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// getEnvironmentContributions in mainThreadEnvironment.ts, which skips
 		// mutators that opt out of process creation.
 		const options = { applyAtProcessCreation: false, applyAtShellIntegration: true };
-		applyMutationsToCollection(collection, captured, options);
 		for (const v of captured) {
+			switch (v.action) {
+				case 'prepend':
+					collection.prepend(v.name, v.value, options);
+					break;
+				case 'append':
+					collection.append(v.name, v.value, options);
+					break;
+				default:
+					collection.replace(v.name, v.value, options);
+					break;
+			}
 			this._appliedModuleEnvKeys.add(v.name);
 		}
 
