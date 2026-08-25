@@ -56,6 +56,20 @@ to_native_path() {
 	fi
 }
 
+# Whether a process is still running. On Windows the launch PID is a native
+# Windows PID (see the launch block below), which MSYS `kill` does not
+# reliably address, so ask Windows instead. Elsewhere this is `kill -0`.
+#
+# CSV output is matched on the quoted PID field so the digits cannot also match
+# the memory column: plain output for PID 268 would match "4,268 K".
+is_process_alive() {
+	if [[ "$IS_WINDOWS" == "1" ]]; then
+		tasklist //FI "PID eq $1" //FO CSV //NH 2>/dev/null | grep -q "\"$1\""
+	else
+		kill -0 "$1" 2>/dev/null
+	fi
+}
+
 # Copy a directory tree, honoring rsync-style exclude patterns.
 #
 # Prefers rsync where it exists so the established macOS and Linux behavior is
@@ -288,19 +302,68 @@ if ! ( cd "$REPO" && node build/lib/preLaunch.ts ) >>"$LOG_FILE" 2>&1; then
 	exit 1
 fi
 
-# Detach code.sh after pre-launch. Once CDP responds, Electron has established
+# Detach the app after pre-launch. Once CDP responds, Electron has established
 # its independent process tree.
-nohup env VSCODE_SKIP_PRELAUNCH=1 "$CODE_SH" "${ARGS[@]}" \
-	</dev/null >>"$LOG_FILE" 2>&1 &
-PID=$!
-disown $PID 2>/dev/null || true
+#
+# On Windows the app must not be a descendant of this script's process tree.
+# Ark (the R kernel) statically links a ZeroMQ built with the `wepoll` poller,
+# which opens \Device\Afd directly; that call fails for any process inside an
+# agent session's process tree, so every R session dies at startup with
+# "not a socket (...epoll.cpp:73)" and exit code 1073741845. Handing the launch
+# to WMI reparents the app to WmiPrvSE, still in the interactive session, which
+# clears it. Python is unaffected (its ZeroMQ uses the `select` poller), so the
+# symptom reads as an R-specific bug. Do not "simplify" this back to a direct
+# spawn. macOS and Linux use kqueue and kernel epoll, need no device handle,
+# and keep the plain background spawn below.
+if [[ "$IS_WINDOWS" == "1" ]]; then
+	# Route through generated wrapper scripts rather than inline quoting: the
+	# command line crosses bash -> PowerShell -> cmd, and each layer would
+	# otherwise need its own escaping. Both files stay in $RUN_DIR for
+	# debugging.
+	APP_CMD="$RUN_DIR/launch-app.cmd"
+	{
+		echo "@echo off"
+		echo "set VSCODE_SKIP_PRELAUNCH=1"
+		printf 'cd /d "%s"\n' "$(to_native_path "$REPO")"
+		printf 'call scripts\\code.bat'
+		for arg in "${ARGS[@]}"; do
+			printf ' "%s"' "$arg"
+		done
+		printf ' >> "%s" 2>&1\n' "$(to_native_path "$LOG_FILE")"
+	} >"$APP_CMD"
+
+	APP_PS1="$RUN_DIR/launch-app.ps1"
+	cat >"$APP_PS1" <<-PSEOF
+		\$result = Invoke-CimMethod -ClassName Win32_Process -MethodName Create \`
+			-Arguments @{ CommandLine = 'cmd.exe /c "$(to_native_path "$APP_CMD")"' }
+		if (\$result.ReturnValue -ne 0) {
+			Write-Error "Win32_Process.Create failed with ReturnValue \$(\$result.ReturnValue)."
+			exit 1
+		}
+		\$result.ProcessId
+	PSEOF
+
+	PID=$(powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass \
+		-File "$(to_native_path "$APP_PS1")" 2>>"$LOG_FILE" | tr -d '\r' | tail -n 1)
+	if [[ ! "$PID" =~ ^[0-9]+$ ]]; then
+		echo "[launch.sh] WMI launch did not return a PID. Log tail:" >&2
+		tail -n 80 "$LOG_FILE" >&2
+		exit 1
+	fi
+	echo "[launch.sh] launched out-of-tree via WMI (wrapper PID $PID)" >&2
+else
+	nohup env VSCODE_SKIP_PRELAUNCH=1 "$CODE_SH" "${ARGS[@]}" \
+		</dev/null >>"$LOG_FILE" 2>&1 &
+	PID=$!
+	disown $PID 2>/dev/null || true
+fi
 
 # Wait until CDP responds, reporting an early exit or timeout with the log tail.
 echo "[launch.sh] waiting for CDP on port $CDP_PORT (timeout 90s)..." >&2
 READY=0
 for i in $(seq 1 90); do
-	if ! kill -0 "$PID" 2>/dev/null; then
-		echo "[launch.sh] code.sh (PID $PID) exited before CDP came up. Log tail:" >&2
+	if ! is_process_alive "$PID"; then
+		echo "[launch.sh] launcher (PID $PID) exited before CDP came up. Log tail:" >&2
 		tail -n 80 "$LOG_FILE" >&2
 		exit 1
 	fi
@@ -320,7 +383,7 @@ fi
 # CDP can become available immediately before a main-process socket failure.
 # Recheck liveness after a short delay before reporting success.
 sleep 2
-if ! kill -0 "$PID" 2>/dev/null; then
+if ! is_process_alive "$PID"; then
 	echo "[launch.sh] app exited immediately after CDP came up. Log tail:" >&2
 	tail -n 80 "$LOG_FILE" >&2
 	exit 1
