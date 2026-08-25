@@ -12,17 +12,41 @@ import { Event } from '../../../../base/common/event.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 /**
- * Focusable element selectors.
+ * Tags the browser puts in the tab order with no tabindex of their own. `tabIndex` reports these
+ * correctly in a browser, so this is only a backstop for environments that under-report it.
  */
-const focusableElementSelectors =
-	'a[href]:not([disabled]),' +
-	'button:not([disabled]),' +
-	'textarea:not([disabled]),' +
-	'input[type="text"]:not([disabled]),' +
-	'input[type="number"]:not([disabled]),' +
-	'input[type="radio"]:not([disabled]),' +
-	'input[type="checkbox"]:not([disabled]),' +
-	'select:not([disabled])';
+const nativelyTabbableSelector = 'summary,iframe,area[href],audio[controls],video[controls]';
+
+/**
+ * Whether Tab can reach an element.
+ *
+ * This asks the browser rather than naming the tags that count. A hand-written list of tags is not
+ * merely incomplete when it misses one: the Tab handler reads an unlisted element as focus escaping
+ * the dialog and throws focus back to the top, stranding everything past it. A password input and a
+ * <summary> were both missed that way.
+ *
+ * @param element The element to test.
+ */
+function isTabbable(element: HTMLElement): boolean {
+	// An open quick pick marks the dialog's own children inert, where focusing is a silent no-op.
+	// inert is inherited, so test ancestry rather than the attribute.
+	if (element.closest('[inert]')) {
+		return false;
+	}
+
+	// A disabled control reports a tabIndex but cannot take focus.
+	if ((element as HTMLElement & { disabled?: boolean }).disabled) {
+		return false;
+	}
+
+	// An explicit tabindex is the author overriding the default, either way.
+	const tabIndexAttribute = element.getAttribute('tabindex');
+	if (tabIndexAttribute !== null) {
+		return Number(tabIndexAttribute) >= 0;
+	}
+
+	return element.tabIndex >= 0 || element.matches(nativelyTabbableSelector);
+}
 
 /**
  * Whatever supplies keydown events to the dialog. A modal renderer fires window-level keydowns
@@ -157,10 +181,9 @@ export function useModalDialogKeyboard(options: IModalDialogKeyboardOptions): vo
 				// Tab moves between dialog elements. This code works to keep the focus in the dialog.
 				case 'Tab': {
 					// Get the focusable elements.
-					const focusableElements = Array.from(
-						// eslint-disable-next-line no-restricted-syntax
-						dialogBox.querySelectorAll<HTMLElement>(focusableElementSelectors)
-					);
+					// eslint-disable-next-line no-restricted-syntax
+					const focusableElements = Array.from(dialogBox.querySelectorAll<HTMLElement>('*'))
+						.filter(isTabbable);
 
 					if (focusableElements.length) {
 						// For convenience, get the first and last focusable elements.
