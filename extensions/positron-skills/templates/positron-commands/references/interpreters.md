@@ -6,9 +6,9 @@ appeared yet. See [SKILL.md]({{skill_dir}}/SKILL.md) for how to call these comma
 how to handle failures.
 
 An interpreter being *registered* means Positron knows about it and can start a
-session for it; it does not mean a session is running. To start or switch a
-session, or to recover one that's misbehaving, see
-[troubleshooting.md]({{skill_dir}}/references/troubleshooting.md).
+session for it; it does not mean a session is running. To list, start, or switch
+a session, see [sessions.md]({{skill_dir}}/references/sessions.md); to recover one
+that's misbehaving, see [troubleshooting.md]({{skill_dir}}/references/troubleshooting.md).
 
 ## Listing available interpreters
 
@@ -27,9 +27,9 @@ before concluding it's missing.
 
 Each entry's `runtimeId` is the internal id you pass to
 `workbench.action.language.runtime.startNewConsoleSession` (see
-[troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)) to start a session
-for that interpreter. It appears nowhere in the Positron UI, so use it to make
-the call but never show it to the user -- refer to the interpreter by name.
+[sessions.md]({{skill_dir}}/references/sessions.md)) to start a session for that
+interpreter. It appears nowhere in the Positron UI, so use it to make the call
+but never show it to the user -- refer to the interpreter by name.
 
 {{command:workbench.action.language.runtime.getRegisteredRuntimes}}
 

@@ -1644,6 +1644,9 @@ export function registerLanguageRuntimeActions() {
 			const foregroundSessionId = runtimeSessionService.foregroundSession?.sessionId;
 			return runtimeSessionService.activeSessions
 				.filter(isActiveSessionState)
+				// Background sessions have no console or notebook behind them, so
+				// they can't be selected or shown to the user; leave them out.
+				.filter(session => session.metadata.sessionMode !== LanguageRuntimeSessionMode.Background)
 				.filter(session => !filter || session.runtimeMetadata.languageId === filter)
 				.map(session => summarizeActiveSession(session, foregroundSessionId));
 		}
