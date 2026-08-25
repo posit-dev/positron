@@ -128,6 +128,11 @@ jobs:
       # downloads cannot land on different releases.
       - name: Download server build
         if: matrix.lane == 'server'
+        # Every other step in this workflow runs under the container's default
+        # `sh`, which is dash and rejects `set -o pipefail`. This is the only
+        # step that needs it, so it asks for bash rather than making bash the
+        # default for steps that do not need it.
+        shell: bash
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           VERSION: ${{ steps.build.outputs.VERSION }}
