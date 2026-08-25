@@ -16,7 +16,6 @@ export * from './archMismatchNotification';
 export * from '../pages/console';
 export * from '../pages/dialog-modals';
 export * from '../pages/dialog-toasts';
-export * from '../pages/dialog-popups.js';
 export * from '../pages/variables';
 export * from '../pages/dataExplorer';
 export * from '../pages/sideBar';
