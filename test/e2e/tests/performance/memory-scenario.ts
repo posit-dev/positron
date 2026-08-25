@@ -8,7 +8,7 @@ import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
-import { collectAllGarbage, gcTargetsFor } from '../../utils/memory/gc.js';
+import { collectAllGarbage, gcTargetsFor, malformedForcedGc } from '../../utils/memory/gc.js';
 import { MemoryLane } from '../../utils/memory/lanes.js';
 import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
@@ -190,6 +190,14 @@ export function defineMemoryScenario(options: {
 			expect(snapshot.forcedGc?.map(stats => stats.role),
 				'no forced GC ran; the inspector port did not come up and these figures carry uncollected startup garbage')
 				.toEqual(gcTargetsFor(lane).map(target => target.role));
+
+			// A live process cannot legitimately report a zero pid, RSS, or heap total,
+			// so any entry that does is a malformed reading, not a GC pass that ran.
+			const malformed = malformedForcedGc(snapshot.forcedGc ?? []);
+			expect(malformed,
+				`forced GC for ${gcTargetsFor(lane).map(target => target.label).join(', ')} returned malformed readings ` +
+				`(zero pid, RSS, or heap total): ${JSON.stringify(malformed)}`)
+				.toEqual([]);
 
 			// Per-process quiescence, which is a weaker condition than the tree
 			// settling: this catches a process still visibly moving within the

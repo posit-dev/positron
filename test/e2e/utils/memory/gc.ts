@@ -52,6 +52,19 @@ export interface ForcedGcStats {
 	postHeapTotalBytes: number;
 }
 
+/**
+ * Entries a real CDP reading could never produce: a live process cannot report
+ * a zero or negative pid, RSS, or heap total. Anything matching this is not a
+ * GC pass that ran, it is a malformed or absent reading masquerading as one.
+ *
+ * Deliberately does not compare pre/post: a GC that legitimately freed nothing
+ * is a valid outcome and must not fail this check.
+ */
+export function malformedForcedGc(stats: ForcedGcStats[]): ForcedGcStats[] {
+	return stats.filter(entry =>
+		entry.pid <= 0 || entry.preRssBytes <= 0 || entry.preHeapTotalBytes <= 0);
+}
+
 /** Minimal structural slice of the DOM/Node WebSocket this module actually uses. */
 export interface WebSocketLike {
 	send(data: string): void;

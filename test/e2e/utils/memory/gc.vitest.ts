@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { collectAllGarbage, collectGarbageIn, gcTargetsFor, GcTarget, WebSocketLike } from './gc.js';
+import { collectAllGarbage, collectGarbageIn, ForcedGcStats, gcTargetsFor, GcTarget, malformedForcedGc, WebSocketLike } from './gc.js';
 
 /** Records every method sent, and lets the test script a reply per call. */
 class ScriptedSocket implements WebSocketLike {
@@ -170,5 +170,42 @@ describe('gcTargetsFor', () => {
 		// There is no shared process in the server lane; it is an Electron concept.
 		// Attempting its port would fail on every run and invite someone to fix it.
 		expect(gcTargetsFor('server').map(t => t.role)).toEqual(['extension_host']);
+	});
+});
+
+describe('malformedForcedGc', () => {
+	function validEntry(): ForcedGcStats {
+		return {
+			role: 'extension_host',
+			pid: 4242,
+			preRssBytes: 200_000_000,
+			postRssBytes: 150_000_000,
+			preHeapTotalBytes: 100_000_000,
+			postHeapTotalBytes: 80_000_000
+		};
+	}
+
+	test('a well-formed entry is not flagged', () => {
+		expect(malformedForcedGc([validEntry()])).toEqual([]);
+	});
+
+	test('a zero pid is flagged', () => {
+		const entry = { ...validEntry(), pid: 0 };
+		expect(malformedForcedGc([entry])).toEqual([entry]);
+	});
+
+	test('a zero preRssBytes is flagged', () => {
+		const entry = { ...validEntry(), preRssBytes: 0 };
+		expect(malformedForcedGc([entry])).toEqual([entry]);
+	});
+
+	test('a zero preHeapTotalBytes is flagged', () => {
+		const entry = { ...validEntry(), preHeapTotalBytes: 0 };
+		expect(malformedForcedGc([entry])).toEqual([entry]);
+	});
+
+	test('a zero postRssBytes is not flagged, since a GC that freed nothing is valid', () => {
+		const entry = { ...validEntry(), postRssBytes: 0 };
+		expect(malformedForcedGc([entry])).toEqual([]);
 	});
 });
