@@ -6,6 +6,7 @@
 import { defineConfig, ReporterDescription } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
 import { memorySpecsToIgnore } from './test/e2e/utils/memory/scenarios';
+import { laneFromEnv } from './test/e2e/utils/memory/lanes';
 import * as fs from 'fs';
 
 process.env.PW_TEST = '1';
@@ -109,7 +110,7 @@ export default defineConfig<CustomTestOptions>({
 				// Set only by test-memory-metrics.yml, one scenario per matrix job.
 				// Ignored rather than skipped in-test because merge-to-main runs this
 				// lane ungrepped, so a skip would report a permanently skipped row.
-				...memorySpecsToIgnore(process.env.MEMORY_SCENARIO),
+				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), process.env.MEMORY_SCENARIO),
 			],
 			use: {
 				artifactDir: 'e2e-electron'
@@ -118,6 +119,15 @@ export default defineConfig<CustomTestOptions>({
 		},
 		{
 			name: 'e2e-chromium',
+			// --- Start Positron ---
+			// The server memory lane runs here, because e2e-chromium takes the
+			// spawned-server path that gives the collector a process tree to walk.
+			// Without this guard the server memory spec would be eligible in every
+			// ordinary @:web run.
+			testIgnore: [
+				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), process.env.MEMORY_SCENARIO),
+			],
+			// --- End Positron ---
 			use: {
 				artifactDir: 'e2e-chromium',
 				headless: false,
@@ -163,6 +173,15 @@ export default defineConfig<CustomTestOptions>({
 		},
 		{
 			name: 'e2e-server',
+			// --- Start Positron ---
+			// e2e-server uses an externally started server, so Code holds null in
+			// the process slot and there is no tree to walk. A memory spec running
+			// here would produce an empty process list rather than an error, so it
+			// is excluded unconditionally.
+			testIgnore: [
+				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), undefined),
+			],
+			// --- End Positron ---
 			use: {
 				artifactDir: 'e2e-server',
 				headless: false,
