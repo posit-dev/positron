@@ -55,7 +55,8 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestStatus('test-test-that.R', 'Failed');
 
 		// Reveal the test_that() and describe()/it() items inside the files.
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-describe-it.R', { recurse: true });
+		await testExplorer.expandTest('test-test-that.R');
 
 		await testExplorer.expectTestStatus('simple describe() 1 passes', 'Passed');
 		await testExplorer.expectTestStatus('it number 1-1', 'Passed');
@@ -91,7 +92,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestStatus('test-env-vars.R', 'Passed', 60000);
 
 		// A skip would still leave the file Passed, so confirm this one really ran.
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-env-vars.R');
 		await testExplorer.expectTestStatus('TESTTHAT_MAX_FAILS is forwarded from the console', 'Passed');
 
 		// An empty LANG is not forwarded, so there's nothing to assert.
@@ -109,7 +110,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.runAllTests();
 		await testExplorer.expectTestStatus('test-tricky-desc.R', 'Failed', 60000);
 
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-tricky-desc.R');
 		await testExplorer.expectTestStatus('test_that with a multi-line description passes', 'Passed');
 		await testExplorer.expectTestStatus('test_that with \'single quotes\' fails', 'Failed');
 		await testExplorer.expectTestStatus('test_that with one \' single quote passes', 'Passed');
@@ -123,7 +124,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		const { testExplorer } = app.workbench;
 
 		await testExplorer.expectTestItems(['test-tricky-desc.R']);
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-tricky-desc.R');
 
 		await testExplorer.runTest('test_that with a multi-line description passes');
 		await testExplorer.expectTestStatus('test_that with a multi-line description passes', 'Passed', 60000);
@@ -156,7 +157,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
 
 		// Make sure test-test-that.R has been materialized in the explorer.
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-test-that.R');
 		// These are the children nodes (the tests) in test-test-that.R.
 		await testExplorer.expectTestItems(['test_that number 1 passes', 'test_that number 2 fails']);
 
@@ -190,7 +191,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		// First run: no STOP sentinel, so the whole file runs and both tests pass.
 		await testExplorer.runAllTests();
 		await testExplorer.expectTestStatus('test-early-stop.R', 'Passed', 60000);
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-early-stop.R');
 		await testExplorer.expectTestStatus(BEFORE, 'Passed');
 		await testExplorer.expectTestStatus(AFTER, 'Passed');
 
@@ -214,7 +215,7 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		fs.writeFileSync(path.join(testthatDir, 'CANCEL'), '');
 
 		await testExplorer.expectTestItems(['test-cancel.R']);
-		await testExplorer.expandAllTests();
+		await testExplorer.expandTest('test-cancel.R');
 		await testExplorer.runTest(LABEL);
 
 		// Cancel only once the test is genuinely running, so we exercise a real

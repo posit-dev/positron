@@ -64,19 +64,56 @@ export class TestExplorer extends Explorer {
 	async runTest(label: string): Promise<void> {
 		const tree = this.code.driver.currentPage.locator('.test-explorer');
 		const row = tree.locator('.monaco-list-row', { hasText: label });
+		// Addressing a row by label only works once it is rendered; see revealTestItem.
+		await this.revealTestItem(row);
 		await row.hover();
 		await row.getByLabel('Run Test', { exact: true }).click();
 	}
 
-	async expandAllTests(): Promise<void> {
+	/**
+	 * Expands one test item, revealing it first. Allows us to expand, e.g., a
+	 * specific test file and worry less about un-realized test items.
+	 *
+	 * @param recurse Also expand the descendants, for an item whose tests nest --
+	 *   a `describe()` holding `it()` calls, say. Items deeper than this one can
+	 *   only be its descendants, because the other files stay collapsed.
+	 */
+	async expandTest(label: string, { recurse = false } = {}): Promise<void> {
 		const tree = this.code.driver.currentPage.locator('.test-explorer');
-		const collapsed = tree.locator('.monaco-list-row[aria-expanded="false"]');
+		const row = tree.locator('.monaco-list-row', { hasText: label }).first();
+		await this.revealTestItem(row);
+		await this.expandRow(row);
 
-		// Technically we just expand up to 100 items, so raise this cap if we
-		// ever create a test fixture that requires more expansion.
-		const MAX_EXPAND_ATTEMPTS = 100;
-		for (let attempt = 0; attempt < MAX_EXPAND_ATTEMPTS && await collapsed.count() > 0; attempt++) {
-			await collapsed.first().locator('.monaco-tl-twistie').click();
+		if (!recurse) {
+			return;
+		}
+
+		const parentLevel = Number(await row.getAttribute('aria-level'));
+		// FWIW a depth of 2 is all we currently need in practice and I believe
+		// that to be true of most real-world usage as well.
+		const MAX_DEPTH = 5;
+		for (let childLevel = parentLevel + 1; childLevel <= parentLevel + MAX_DEPTH; childLevel++) {
+			const collapsedChildren = tree.locator(`.monaco-list-row[aria-expanded="false"][aria-level="${childLevel}"]`);
+			let remaining = await collapsedChildren.count();
+			// Deeper generations only exist once these are expanded.
+			if (remaining === 0) {
+				break;
+			}
+			while (remaining > 0) {
+				await this.expandRow(collapsedChildren.first());
+				const left = await collapsedChildren.count();
+				// Give up if a click made no difference, rather than spinning.
+				if (left >= remaining) {
+					break;
+				}
+				remaining = left;
+			}
+		}
+	}
+
+	private async expandRow(row: Locator): Promise<void> {
+		if (await row.getAttribute('aria-expanded') === 'false') {
+			await row.locator('.monaco-tl-twistie').click();
 		}
 	}
 
