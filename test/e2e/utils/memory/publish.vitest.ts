@@ -3,9 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { baselineToSnapshot, buildPayload, fetchBaseline, publishingEnabled, publishSnapshots, redactProcessName, RunMeta } from './publish.js';
 import { LabeledProcess, MemorySnapshot } from './types.js';
+
+vi.mock('undici', () => ({
+	request: vi.fn()
+}));
+
+vi.mock('../metrics/metric-base.js', () => ({
+	CONNECT_API_KEY: 'fake-key-for-testing',
+	LOCAL_API_URL: 'http://localhost:3000/metrics',
+	PROD_API_URL: 'https://api.example.com/metrics',
+	platformOs: 'Linux',
+	platformVersion: '5.10',
+	positronVersion: { positronVersion: '2026.09.0', buildNumber: 1 }
+}));
 
 const process1: LabeledProcess = {
 	pid: 100, ppid: 1, depth: 0,
@@ -243,34 +256,40 @@ describe('buildPayload lane', () => {
 describe('publishSnapshots quality precondition', () => {
 	const baseSnapshot = { ...snapshot, stoppedGrowing: true, treeSettled: true };
 
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
 	afterEach(() => {
 		delete process.env.MEMORY_PUBLISH;
-		delete process.env.CONNECT_API_KEY;
 	});
 
 	test('refuses a snapshot whose tree never stopped growing', async () => {
 		process.env.MEMORY_PUBLISH = 'true';
-		process.env.CONNECT_API_KEY = 'fake-key';
 		const published = await publishSnapshots(
 			[{ ...baseSnapshot, stoppedGrowing: false }], meta);
 		expect(published).toBe(false);
+		const { request } = await import('undici');
+		expect(vi.mocked(request)).not.toHaveBeenCalled();
 	});
 
 	test('refuses a snapshot whose sampling never settled', async () => {
 		process.env.MEMORY_PUBLISH = 'true';
-		process.env.CONNECT_API_KEY = 'fake-key';
 		const published = await publishSnapshots(
 			[{ ...baseSnapshot, treeSettled: false }], meta);
 		expect(published).toBe(false);
+		const { request } = await import('undici');
+		expect(vi.mocked(request)).not.toHaveBeenCalled();
 	});
 
 	test('refuses when any one launch of three is unsettled', async () => {
 		// The median of three is only as good as its worst launch, and a baseline
 		// is permanent where a failed job is not.
 		process.env.MEMORY_PUBLISH = 'true';
-		process.env.CONNECT_API_KEY = 'fake-key';
 		const published = await publishSnapshots(
 			[baseSnapshot, { ...baseSnapshot, treeSettled: false }, baseSnapshot], meta);
 		expect(published).toBe(false);
+		const { request } = await import('undici');
+		expect(vi.mocked(request)).not.toHaveBeenCalled();
 	});
 });
