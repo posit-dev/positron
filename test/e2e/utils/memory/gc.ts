@@ -43,6 +43,20 @@ export function gcTargetsFor(lane: MemoryLane): GcTarget[] {
 		: GC_TARGETS;
 }
 
+/**
+ * The workbench payload entry (playwrightBrowser.ts) that opens the remote
+ * extension host's inspector port in the server lane, or `undefined` outside
+ * it. Derived from `GC_TARGETS` rather than a literal, so the port this
+ * requests and the port `gc.ts` itself connects to cannot drift apart.
+ */
+export function extensionHostInspectPayloadEntry(lane: MemoryLane): [key: string, value: string] | undefined {
+	if (lane !== 'server') {
+		return undefined;
+	}
+	const target = GC_TARGETS.find(t => t.role === 'extension_host')!;
+	return [target.flag.replace(/^--/, ''), String(target.port)];
+}
+
 export interface ForcedGcStats {
 	role: GcTarget['role'];
 	pid: number;

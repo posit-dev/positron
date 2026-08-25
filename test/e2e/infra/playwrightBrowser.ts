@@ -11,6 +11,10 @@ import { URI } from 'vscode-uri';
 import { Logger, measureAndLog } from './logger';
 import type { LaunchOptions } from './code';
 import { PlaywrightDriver } from './playwrightDriver';
+// --- Start Positron ---
+import { extensionHostInspectPayloadEntry } from '../utils/memory/gc.js';
+import { laneFromEnv } from '../utils/memory/lanes.js';
+// --- End Positron ---
 
 const root = join(__dirname, '..', '..', '..');
 
@@ -227,7 +231,16 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 		// The remote extension host takes its inspect port from the client, not the
 		// server's argv, so the memory lane's forced GC is enabled here rather than
 		// through extraArgs (which only the Electron launcher consumes).
-		...(process.env.MEMORY_LANE === 'server' ? [`["inspect-extensions","5870"]`] : []),
+		//
+		// Uses the lane helper rather than comparing MEMORY_LANE directly, so a
+		// casing typo throws (laneFromEnv rejects an unrecognized value) instead of
+		// silently reading as not-server and dropping the GC. The key/port pair
+		// comes from gc.ts's own GC_TARGETS, so what this requests cannot drift out
+		// of sync with the port gc.ts itself connects to.
+		...(() => {
+			const entry = extensionHostInspectPayloadEntry(laneFromEnv(process.env.MEMORY_LANE));
+			return entry ? [`["${entry[0]}","${entry[1]}"]`] : [];
+		})(),
 		// --- End Positron ---
 	].join(',')}]`;
 

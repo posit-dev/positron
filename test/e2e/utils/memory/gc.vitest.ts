@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { collectAllGarbage, collectGarbageIn, ForcedGcStats, gcTargetsFor, GcTarget, malformedForcedGc, WebSocketLike } from './gc.js';
+import { collectAllGarbage, collectGarbageIn, extensionHostInspectPayloadEntry, ForcedGcStats, gcTargetsFor, GcTarget, GC_TARGETS, malformedForcedGc, WebSocketLike } from './gc.js';
 
 /** Records every method sent, and lets the test script a reply per call. */
 class ScriptedSocket implements WebSocketLike {
@@ -170,6 +170,20 @@ describe('gcTargetsFor', () => {
 		// There is no shared process in the server lane; it is an Electron concept.
 		// Attempting its port would fail on every run and invite someone to fix it.
 		expect(gcTargetsFor('server').map(t => t.role)).toEqual(['extension_host']);
+	});
+});
+
+describe('extensionHostInspectPayloadEntry', () => {
+	test('returns undefined on desktop, where extraArgs already opens the inspector', () => {
+		expect(extensionHostInspectPayloadEntry('desktop')).toBeUndefined();
+	});
+
+	test('returns the extension host key/port on server, sourced from GC_TARGETS', () => {
+		// Asserted against GC_TARGETS itself, not a repeated literal: a port bump
+		// in GC_TARGETS must not silently desync from what the workbench payload
+		// requests, which is exactly the drift Finding 7 flagged.
+		const extHost = GC_TARGETS.find(t => t.role === 'extension_host')!;
+		expect(extensionHostInspectPayloadEntry('server')).toEqual(['inspect-extensions', String(extHost.port)]);
 	});
 });
 
