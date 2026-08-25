@@ -16,7 +16,7 @@ import { IDataConnectionInstance } from '../../../services/positronDataConnectio
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { getDataConnectionCode, getDataConnectionSchema, getDataConnections } from './positronDataConnectionsCommands.js';
 
-// The Command Palette category both actions appear under.
+// The Command Palette category these actions appear under.
 const CATEGORY = localize2('positron.dataConnections.category', 'Data Connections');
 
 // Both actions are gated on the data connections feature flag alone. Not on ai.enabled: they show
