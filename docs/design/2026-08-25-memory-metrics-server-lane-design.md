@@ -202,19 +202,12 @@ to memory runs too. That is fine for this lane -- the renderer is in the browser
 and outside the tree we measure, so browser-side window configuration cannot move
 the number.
 
-So: a dedicated `e2e-memory-server` project, using the spawned path, selecting
-the memory specs directly rather than by tag, and carrying its own
-`memorySpecsToIgnore` list exactly as `e2e-electron` does. It stays inert in
-ordinary CI because nothing else runs that project.
-
 ### Forced GC in the server lane
 
 Desktop forces a GC in the shared process and extension host over CDP before
 sampling, so figures reflect what a scenario retains rather than whether V8 had
-swept yet. Whether the server exposes the same inspector ports is unverified.
-
-It is worse than unverified: the flags cannot currently reach a spawned server at
-all. They are passed as `extraArgs`, which only `electron.ts:95-96` consumes;
+swept yet. The server lane cannot do this, and not merely because the inspector
+ports are unverified: the flags cannot reach a spawned server at all. They are passed as `extraArgs`, which only `electron.ts:95-96` consumes;
 `playwrightBrowser.ts` builds its own argument list and ignores `extraArgs`
 entirely. That is precisely why the existing wiring gates them on `!browser`
 (`options.fixtures.ts:94`).
