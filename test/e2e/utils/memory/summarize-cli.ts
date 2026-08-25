@@ -23,7 +23,7 @@
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { MEMORY_LANES, MemoryLane } from './lanes.js';
+import { isMemoryLane, MEMORY_LANES, MemoryLane } from './lanes.js';
 import { MEMORY_SCENARIOS, MemoryScenario } from './scenarios.js';
 import { buildSummaryMatrix, renderSummaryHtml, ScenarioSnapshots, SummaryMatrix } from './summary.js';
 import { escapeHtml, formatBytes, REPORT_CSS } from './report-shell.js';
@@ -162,6 +162,19 @@ export function collectScenarios(inputDir: string): CollectedScenario[] {
 			// Grouping trusts each snapshot's own `lane`, so a directory renamed to
 			// the wrong lane cannot relabel the measurement it contains.
 			const snapshotLane = snapshots[0]?.lane ?? lane;
+
+			// publish.ts applies this same guard to a baseline response; this is the
+			// one other place lane provenance is trusted without it. A lane string
+			// outside MEMORY_LANES would otherwise flow straight into
+			// buildLaneSections, which filters entries against MEMORY_LANES and drops
+			// anything that does not match with no warning at all -- fail-safe, but
+			// silent.
+			if (!isMemoryLane(snapshotLane)) {
+				warnings.push(`snapshot lane '${snapshotLane}' is not a recognized lane (expected one of: ${MEMORY_LANES.join(', ')}); dropping ${ARTIFACT_PREFIX}${lane}-${scenario} from every section`);
+				results.push({ lane, scenario, snapshots: [], warnings });
+				continue;
+			}
+
 			for (const snap of snapshots) {
 				if (snap.lane !== snapshotLane) {
 					warnings.push(`snapshot lane '${snap.lane}' disagrees with '${snapshotLane}' within ${ARTIFACT_PREFIX}${lane}-${scenario}`);

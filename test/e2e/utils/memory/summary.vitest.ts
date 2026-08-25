@@ -377,6 +377,26 @@ describe('collectScenarios lane provenance', () => {
 		expect(idle?.lane).toBe('server');
 	});
 
+	test('warns and drops a snapshot whose lane is not a recognized member, rather than silently dropping it later', () => {
+		// A lane string outside MEMORY_LANES flowing through unchecked would pass
+		// straight into buildLaneSections, which filters entries against
+		// MEMORY_LANES and drops anything that does not match with no warning at
+		// all. This test fails if the isMemoryLane guard in collectScenarios is
+		// removed: the bogus lane would then flow through as `idle?.lane` instead
+		// of being caught here with a warning.
+		const bogus = { ...snapshot('idle', [proc()], 0, 'desktop'), lane: 'bogus-lane' };
+		const root = writeArtifact('memory-report-desktop-idle', {
+			'memory-snapshot-0.json': JSON.stringify(bogus)
+		});
+
+		const collected = collectScenarios(root);
+		const idle = collected.find(c => c.scenario === 'idle');
+
+		expect(idle?.snapshots).toHaveLength(0);
+		expect(idle?.lane).toBe('desktop');
+		expect(idle?.warnings.some(w => w.includes('not a recognized lane'))).toBe(true);
+	});
+
 	test('falls back to the directory name when no snapshot could be parsed', () => {
 		const root = writeArtifact('memory-report-desktop-idle', {
 			'memory-snapshot-0.json': 'not valid json'
