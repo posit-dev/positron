@@ -130,10 +130,12 @@ export function collectScenarios(inputDir: string): CollectedScenario[] {
 	const results: CollectedScenario[] = [];
 
 	for (const lane of MEMORY_LANES) {
-		const laneFound = found.get(lane);
-		if (laneFound === undefined) {
-			continue;
-		}
+		// An empty map rather than `continue`: a lane whose every job failed has no
+		// directory at all, and skipping it here would drop it from the report with
+		// no warning. The server lane is one job, so that is its ordinary failure,
+		// not an edge case -- it happened on the first real dispatch, and the
+		// summary rendered a desktop-only report and reported success.
+		const laneFound = found.get(lane) ?? new Map<string, string[]>();
 
 		for (const scenario of EXPECTED_SCENARIOS_BY_LANE[lane]) {
 			const files = laneFound.get(scenario);
