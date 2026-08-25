@@ -222,6 +222,17 @@ different image. On a miss it returns a reason:
 | { found: false; reason: 'image_mismatch'; available_container_image: string }
 ```
 
+`fetchBaseline` must also **log the status and body of any non-2xx response**. It
+currently returns `undefined` silently on `statusCode >= 400` (publish.ts:280-282)
+while only the `catch` path logs, so a rejected query is today indistinguishable
+from an empty store. This matters because `lane` is a closed enum and the API
+rejects an invalid one with a 400: without this logging that 400 is invisible, and
+a typo in the query builder would read as a permanently missing baseline -- exactly
+the failure mode called out for the image derivation above. Note the asymmetry is
+deliberate: an invalid `lane` is a 400 because no legitimate query produces one,
+whereas an unknown `container_image` stays a `{found:false}` because it is an open
+set of strings and "no match" is a real answer.
+
 We log the reason. No new rendering: `{found: false}` already renders absolute
 numbers with no delta column, which is the correct presentation for "there is no
 comparable baseline". The reason exists because a bare `{found: false}` cannot
@@ -287,6 +298,20 @@ Vitest, in `test/e2e/utils/memory/`:
 Real verification is a `workflow_dispatch` of `Test: Memory Metrics`, as with
 every previous scenario PR: these specs only collect when `MEMORY_SCENARIO` is
 set and no PR tag runs them.
+
+**A dispatch cannot exercise the publish path, so it is not sufficient on its
+own.** Two independent reasons: `apiUrl()` routes any branch other than `main` to
+`LOCAL_API_URL`, and the workflow hardcodes `MEMORY_PUBLISH: 'false'`. So the
+first POST ever to carry `lane=server` would otherwise be a live main-branch
+nightly, after both the endpoint deploy and the `MEMORY_PUBLISH` flip, with
+nothing having exercised it first.
+
+Required extra step: hand the first dispatch's server-lane snapshot artifacts to
+the insights implementer, who rebuilds the payload field-for-field from
+`buildPayload` and POSTs it to the real API -- the same replay already done for
+two real desktop nights. That verifies the storage layout, lane isolation,
+baseline shape and image guard for `lane=server` before it ever runs in
+production. Do not consider this design verified without it.
 
 ## Risks and unknowns
 
