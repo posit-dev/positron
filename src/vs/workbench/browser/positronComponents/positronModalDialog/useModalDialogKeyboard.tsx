@@ -39,6 +39,14 @@ function isTabbable(element: HTMLElement): boolean {
 		return false;
 	}
 
+	// So does a hidden one, and counting it puts the boundary in the wrong place: Tab from the real
+	// last control is not consumed and focus leaves the dialog, or the wrap focuses something that
+	// cannot take it and Tab appears dead. checkVisibility answers for ancestors too, so a control
+	// inside a hidden container is caught.
+	if (!element.checkVisibility({ checkVisibilityCSS: true })) {
+		return false;
+	}
+
 	// An explicit tabindex is the author overriding the default, either way.
 	const tabIndexAttribute = element.getAttribute('tabindex');
 	if (tabIndexAttribute !== null) {

@@ -269,6 +269,38 @@ describe('useModalDialogKeyboard', () => {
 		}).toEqual({ defaultButtonClicked: 0, preventedDefault: false });
 	});
 
+	it('ignores a hidden control, which reports a tabIndex but cannot take focus', () => {
+		// Counting a hidden trailing button puts the wrap boundary past the last control a user can
+		// reach, so Tab off that control is not consumed and focus leaves the dialog entirely.
+		render(
+			<Harness onKeyDown={emitter.event}>
+				<button>First</button>
+				<button>Last visible</button>
+				<button style={{ display: 'none' }}>Hidden</button>
+			</Harness>
+		);
+		screen.getByText('Last visible').focus();
+
+		press('Tab');
+
+		expect(screen.getByText('First')).toHaveFocus();
+	});
+
+	it('ignores a control inside a hidden container', () => {
+		render(
+			<Harness onKeyDown={emitter.event}>
+				<button>First</button>
+				<button>Last visible</button>
+				<div style={{ display: 'none' }}><button>Hidden</button></div>
+			</Harness>
+		);
+		screen.getByText('Last visible').focus();
+
+		press('Tab');
+
+		expect(screen.getByText('First')).toHaveFocus();
+	});
+
 	it('ignores controls Tab can never reach, such as a negative tabIndex', () => {
 		// A negative tabIndex means focusable from code only. Counting one as the last element makes
 		// the trap wrap early, so everything after it becomes unreachable by keyboard. The notebook
