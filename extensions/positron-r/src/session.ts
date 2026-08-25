@@ -585,9 +585,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/**
 	 * Get environment variables from the R session.
 	 */
-	async getEnvVars(envVarNames: string[]): Promise<EnvVar[]> {
+	async getEnvVars(envVarNames: string[]): Promise<EnvVar> {
 		try {
-			const envVars: EnvVar[] = await this.callMethod('get_env_vars', envVarNames);
+			const envVars: EnvVar = await this.callMethod('get_env_vars', envVarNames);
 			return envVars;
 		} catch (err) {
 			const runtimeError = err as positron.RuntimeMethodError;
@@ -1231,7 +1231,7 @@ export async function getLocale(session?: RSession): Promise<Locale> {
 	throw new Error(`Cannot get locale information; no R session available`);
 }
 
-export async function getEnvVars(envVars: string[], session?: RSession): Promise<EnvVar[]> {
+export async function getEnvVars(envVars: string[], session?: RSession): Promise<EnvVar> {
 	session = session || await RSessionManager.instance.getConsoleSession();
 	if (session) {
 		return session.getEnvVars(envVars);
