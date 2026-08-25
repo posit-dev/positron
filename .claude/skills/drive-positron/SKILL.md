@@ -51,6 +51,25 @@ Tools they expect on `PATH`:
 | `rsync` or `tar` | `launch.sh` | `rsync` preferred; `tar` is the fallback, and is what Git Bash has |
 | `jq` | `monaco-paste.sh` | not present in a bare Git Bash; install it separately |
 | `cygpath` | `launch.sh` on Windows | ships with Git Bash |
+| `tasklist`, `powershell` | `launch.sh` on Windows | liveness check and the WMI launch below |
+
+### Windows launches the app out-of-process on purpose
+
+On Windows `launch.sh` does not spawn the app directly. It writes
+`launch-app.cmd` and `launch-app.ps1` into the run directory and has WMI
+(`Win32_Process.Create`) start the app, which reparents it to `WmiPrvSE` while
+keeping it in the interactive session. Do not "simplify" this back to a direct
+background spawn.
+
+The reason is Ark, the R kernel. It statically links a ZeroMQ built with the
+`wepoll` poller, which opens `\Device\Afd` directly, and that call fails for any
+process inside an agent session's process tree. A directly spawned app therefore
+starts, but every R session dies immediately with `exit code 1073741845` and
+`not a socket (...epoll.cpp:73)`. Python is unaffected, because its ZeroMQ uses
+the `select` poller -- so the symptom looks like an R-specific bug and is not.
+
+macOS and Linux keep the plain background spawn: their ZeroMQ uses kqueue and
+kernel epoll, neither of which opens a device handle.
 
 ## Launch Positron
 
