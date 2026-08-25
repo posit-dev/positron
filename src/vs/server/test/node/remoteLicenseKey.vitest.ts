@@ -6,8 +6,16 @@
 /// <reference types="vitest/globals" />
 
 import * as crypto from 'crypto';
-import { validateLicense, validateLicenseKey } from '../../node/remoteLicenseKey.js';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from '../../../base/common/path.js';
+import { validateLicense, validateLicenseFile, validateLicenseKey } from '../../node/remoteLicenseKey.js';
 import type { ServerParsedArgs } from '../../node/serverEnvironmentService.js';
+
+// remoteLicenseKey.ts locates the license-manager binary with FileAccess.asFileUri(''), which
+// requires globalThis._VSCODE_FILE_ROOT. That's normally set by a bootstrap entry point (see
+// agentHostServerMain.ts), which this plain Vitest run doesn't go through -- set it ourselves.
+globalThis._VSCODE_FILE_ROOT = new URL('../../../../..', import.meta.url).pathname;
 
 function createServerArgs(): ServerParsedArgs {
 	return {
@@ -61,10 +69,10 @@ describe('validateLicense', () => {
 	});
 
 	it('validates a token with empty issuer and licensee', async () => {
-		// The minting service legitimately issues tokens with empty issuer/licensee
-		// (e.g. dev mode, or a license-manager whose verify output omits issuer).
-		// The empty strings are still part of the signed payload, so the token must
-		// validate rather than be rejected as "missing fields".
+		// Signed tokens may legitimately carry empty issuer/licensee (e.g. dev
+		// tokens, or an issuer that omits them). The empty strings are still part
+		// of the signed payload, so the token must validate rather than be
+		// rejected as "missing fields".
 		const token = 'test-token-empty-fields';
 		const timestamp = new Date().toISOString();
 		const license = mintLicense(token, '', '', timestamp);
@@ -109,47 +117,7 @@ describe('validateLicense', () => {
 		expect(result.valid).toBe(false);
 	});
 
-	it('validates against a second key when the first fails', async () => {
-		const { privateKey: orchestratorPrivKey, publicKey: orchestratorPubKeyPem } =
-			crypto.generateKeyPairSync('rsa', {
-				modulusLength: 2048,
-				publicKeyEncoding: { type: 'spki', format: 'pem' },
-				privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-			});
-
-		const token = 'test-token-orchestrator';
-		const timestamp = new Date().toISOString();
-		const license = mintLicense(token, 'JupyterHub', 'Acme Corp', timestamp, orchestratorPrivKey);
-
-		// testPubKeyPem fails, orchestratorPubKeyPem succeeds.
-		const result = await validateLicense(token, license, [testPubKeyPem, orchestratorPubKeyPem]);
-
-		expect(result.valid).toBe(true);
-		expect(result.issuer).toBe('JupyterHub');
-		expect(result.licensee).toBe('Acme Corp');
-	});
-
-	it('marks the license academic when it validates against the orchestrator key', async () => {
-		// The real OrchestratorPublicKey's private key is held by the minting service, not
-		// this repo, so a throwaway pair stands in as the orchestrator key.
-		const { privateKey: orchestratorPrivKey, publicKey: orchestratorPubKeyPem } =
-			crypto.generateKeyPairSync('rsa', {
-				modulusLength: 2048,
-				publicKeyEncoding: { type: 'spki', format: 'pem' },
-				privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-			});
-
-		const token = 'test-token-academic';
-		const timestamp = new Date().toISOString();
-		const license = mintLicense(token, 'JupyterHub', 'Acme University', timestamp, orchestratorPrivKey);
-
-		const result = await validateLicense(token, license, [testPubKeyPem, orchestratorPubKeyPem], orchestratorPubKeyPem);
-
-		expect(result.valid).toBe(true);
-		expect(result.academic).toBe(true);
-	});
-
-	it('does not mark the license academic when it validates against the primary key', async () => {
+	it('marks a signed token not academic', async () => {
 		const token = 'test-token-not-academic';
 		const timestamp = new Date().toISOString();
 		const license = mintLicense(token, 'Test Hub', 'Test Corp', timestamp);
@@ -195,8 +163,66 @@ describe('validateLicense', () => {
 	});
 });
 
+describe('validateLicenseFile', () => {
+	function writeTempLicense(contents: string): string {
+		const licPath = path.join(os.tmpdir(), `positron-test-${Date.now()}-${Math.random().toString(36).slice(2)}.lic`);
+		fs.writeFileSync(licPath, contents);
+		return licPath;
+	}
+
+	it('marks a raw license file academic when the license manager verifies it', async () => {
+		const licPath = writeTempLicense('-----BEGIN RSTUDIO LICENSE-----\nabc123\n-----END RSTUDIO LICENSE-----\n');
+		try {
+			const result = await validateLicenseFile('any-token', licPath, async () => ({ valid: true, licensee: 'Acme University' }));
+			expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true });
+		} finally {
+			fs.unlinkSync(licPath);
+		}
+	});
+
+	it('does not mark a rejected raw license file academic', async () => {
+		const licPath = writeTempLicense('-----BEGIN RSTUDIO LICENSE-----\nabc123\n-----END RSTUDIO LICENSE-----\n');
+		try {
+			const result = await validateLicenseFile('any-token', licPath, async () => ({ valid: false }));
+			expect(result).toEqual({ valid: false });
+		} finally {
+			fs.unlinkSync(licPath);
+		}
+	});
+
+	it('rejects an unrecognized license file format without invoking the license manager', async () => {
+		const licPath = writeTempLicense('this is not a license\n');
+		try {
+			let activateCalled = false;
+			const result = await validateLicenseFile('any-token', licPath, async () => {
+				activateCalled = true;
+				return { valid: true };
+			});
+			expect({ valid: result.valid, activateCalled }).toEqual({ valid: false, activateCalled: false });
+		} finally {
+			fs.unlinkSync(licPath);
+		}
+	});
+});
+
 describe('validateLicenseKey', () => {
-	it('fails closed when no signed token is available (no raw-license fallback)', async () => {
+	/** Runs fn with the license env vars cleared, restoring them afterwards. */
+	async function withCleanLicenseEnv(fn: () => Promise<void>): Promise<void> {
+		const saved: Record<string, string | undefined> = {};
+		for (const name of ['POSITRON_LICENSE_KEY', 'POSITRON_LICENSE_KEY_FILE', 'POSITRON_LICENSE_MANAGER_PATH']) {
+			saved[name] = process.env[name];
+			delete process.env[name];
+		}
+		try {
+			await fn();
+		} finally {
+			for (const [name, value] of Object.entries(saved)) {
+				if (value === undefined) { delete process.env[name]; } else { process.env[name] = value; }
+			}
+		}
+	}
+
+	it('fails closed when no license is available anywhere', async () => {
 		const prevKey = process.env.POSITRON_LICENSE_KEY;
 		const prevFile = process.env.POSITRON_LICENSE_KEY_FILE;
 		const prevManager = process.env.POSITRON_LICENSE_MANAGER_PATH;
@@ -205,7 +231,7 @@ describe('validateLicenseKey', () => {
 		delete process.env.POSITRON_LICENSE_MANAGER_PATH;
 		try {
 			const args = createServerArgs();
-			const result = await validateLicenseKey('some-token', args);
+			const result = await validateLicenseKey('some-token', args, async () => undefined);
 			expect(result.valid).toBe(false);
 		} finally {
 			if (prevKey !== undefined) { process.env.POSITRON_LICENSE_KEY = prevKey; }
@@ -230,5 +256,61 @@ describe('validateLicenseKey', () => {
 			if (prevKey === undefined) { delete process.env.POSITRON_LICENSE_KEY; } else { process.env.POSITRON_LICENSE_KEY = prevKey; }
 			if (prevManager === undefined) { delete process.env.POSITRON_LICENSE_MANAGER_PATH; } else { process.env.POSITRON_LICENSE_MANAGER_PATH = prevManager; }
 		}
+	});
+
+	it('marks a local .lic license academic', async () => {
+		await withCleanLicenseEnv(async () => {
+			const result = await validateLicenseKey('some-token', createServerArgs(), async () => ({ valid: true, licensee: 'Acme University' }));
+			expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true });
+		});
+	});
+
+	it('falls back to the local .lic when the provided license does not validate', async () => {
+		// A lingering jupyter-positron-verifier deployment injects a minted token
+		// that is no longer accepted; the session must still license off the local
+		// .lic and stay academic.
+		await withCleanLicenseEnv(async () => {
+			process.env.POSITRON_LICENSE_KEY = JSON.stringify({
+				connection_token: 'some-token',
+				issuer: 'JupyterHub',
+				licensee: 'Acme University',
+				timestamp: new Date().toISOString(),
+				signature: 'bm90LWEtcmVhbC1zaWduYXR1cmU=',
+			});
+			const result = await validateLicenseKey('some-token', createServerArgs(), async () => ({ valid: true, licensee: 'Acme University' }));
+			expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true });
+		});
+	});
+
+	it('fails closed when the provided license is invalid and there is no local license', async () => {
+		await withCleanLicenseEnv(async () => {
+			process.env.POSITRON_LICENSE_KEY = 'not-valid-json{{{';
+			const result = await validateLicenseKey('some-token', createServerArgs(), async () => undefined);
+			expect(result.valid).toBe(false);
+		});
+	});
+
+	it('names the reason a local license was rejected rather than claiming none was provided', async () => {
+		// A .lic that exists but does not verify makes the license-manager throw. The
+		// operator needs to hear that the license was rejected; "no license key provided"
+		// would send them looking for a missing file instead of an expired one.
+		await withCleanLicenseEnv(async () => {
+			const errors: string[] = [];
+			const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+				errors.push(args.map(String).join(' '));
+			});
+			try {
+				const result = await validateLicenseKey('some-token', createServerArgs(), async () => {
+					throw new Error('License has expired. Please renew your license.');
+				});
+				expect({
+					valid: result.valid,
+					namedTheRejection: errors.some(e => e.includes('License has expired')),
+					claimedMissing: errors.some(e => e.includes('No license key provided')),
+				}).toEqual({ valid: false, namedTheRejection: true, claimedMissing: false });
+			} finally {
+				spy.mockRestore();
+			}
+		});
 	});
 });
