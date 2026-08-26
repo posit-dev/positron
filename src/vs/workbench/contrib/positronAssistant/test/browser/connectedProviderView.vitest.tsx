@@ -69,6 +69,9 @@ describe('ConnectedProviderView', () => {
 	it('omits the base URL row when the provider does not support it', () => {
 		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} />);
 		expect(screen.queryByText(/base url/i)).not.toBeInTheDocument();
+		// The row's element goes too, not just its text. It used to render empty
+		// and grow to fill the body, pushing the notice down against the footer.
+		expect(screen.queryByTestId('provider-base-url')).not.toBeInTheDocument();
 	});
 
 	it('shows an error banner (and not the connected line) when the provider status is error', () => {

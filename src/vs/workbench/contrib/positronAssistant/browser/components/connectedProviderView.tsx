@@ -99,19 +99,15 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 						<EmbeddedLink>
 							{localize('positron.connectedProvider.copilotSignOut', "To sign out of GitHub, use the [Accounts: Manage Accounts]({0}) command. This signs you out of GitHub for every extension in Positron.", 'command:workbench.action.manageAccounts')}
 						</EmbeddedLink>
-
 					}
-					<p className='connect-provider-detail'>
-						{current.supportedOptions.includes('baseUrl') && current.defaults.baseUrl &&
-							<>
-								<span className='connect-provider-detail-label'>
-									{getBaseUrlLabel(current.provider.id)}
-								</span>
-								<span className='connect-provider-detail-value'>{current.defaults.baseUrl}</span>
-							</>
-						}
-					</p>
-
+					{current.supportedOptions.includes('baseUrl') && current.defaults.baseUrl &&
+						<p className='connect-provider-detail' data-testid='provider-base-url'>
+							<span className='connect-provider-detail-label'>
+								{getBaseUrlLabel(current.provider.id)}
+							</span>
+							<span className='connect-provider-detail-value'>{current.defaults.baseUrl}</span>
+						</p>
+					}
 					<ProviderNotice source={current} />
 					{errorMessage && <div className='connect-provider-error'>{errorMessage}</div>}
 				</div>
