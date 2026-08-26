@@ -7,6 +7,7 @@ import { basename } from 'path';
 import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
 import { ForcedGcStats } from './gc.js';
 import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
+import { MemoryLane } from './lanes.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
 import { MemoryScenario } from './scenarios.js';
@@ -331,6 +332,7 @@ export const SAMPLING_CAP_MS = 90_000;
  */
 export async function captureSnapshot(input: {
 	scenario: MemoryScenario;
+	lane: MemoryLane;
 	rootPid: number;
 	buildRoot: string;
 	userDataDir: string;
@@ -367,6 +369,7 @@ export async function captureSnapshot(input: {
 
 	return {
 		scenario: input.scenario,
+		lane: input.lane,
 		capturedAt: new Date().toISOString(),
 		positronVersion: readPositronVersion(input.buildRoot),
 		launchIndex: input.launchIndex,

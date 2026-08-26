@@ -30,7 +30,7 @@ const ext = (extensionId: string, activationEvent: string | null): ActivatedExte
 	({ extensionId, isBuiltin: true, activationTimeMs: null, activationEvent });
 
 const snapshot = (procs: LabeledProcess[], launchIndex = 0, extensions: ActivatedExtension[] = []): MemorySnapshot => ({
-	scenario: 'idle', capturedAt: '2026-08-11T00:00:00.000Z',
+	scenario: 'idle', lane: 'desktop', capturedAt: '2026-08-11T00:00:00.000Z',
 	positronVersion: '2026.09.0-35', launchIndex, settleMs: 12_000,
 	treeTotalPssBytes: procs.reduce((sum, p) => sum + p.pssBytes, 0),
 	processes: procs, extensions
@@ -181,6 +181,19 @@ describe('renderHtml', () => {
 		const output = renderHtml([snapshot([proc()])]);
 		expect(output).toContain('<!DOCTYPE html>');
 		expect(output).toContain('</html>');
+	});
+
+	test('titles and heads the document with its lane, not just the scenario', () => {
+		// desktop-idle.html and server-idle.html land in the same S3 directory.
+		// Without the lane in the document itself, both open as a page headed
+		// only "idle" and a reader cannot tell which is which.
+		const desktop = renderHtml([snapshot([proc()])]);
+		expect(desktop).toContain('<title>Positron memory: desktop idle</title>');
+		expect(desktop).toContain('<h1>desktop idle</h1>');
+
+		const server = renderHtml([{ ...snapshot([proc()]), lane: 'server' as const }]);
+		expect(server).toContain('<title>Positron memory: server idle</title>');
+		expect(server).toContain('<h1>server idle</h1>');
 	});
 
 	// The report published a renderer median of 433 MB for a process that was at
