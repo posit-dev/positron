@@ -13,6 +13,11 @@ interface ValidationCatalogFixture {
 	dispose(): Promise<void>;
 }
 
+/** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */
+function fakeContext(): vscode.ExtensionContext {
+	return { subscriptions: [] } as unknown as vscode.ExtensionContext;
+}
+
 export async function initializeValidationCatalog(
 	providers: Record<string, unknown>
 ): Promise<ValidationCatalogFixture> {
@@ -20,8 +25,7 @@ export async function initializeValidationCatalog(
 	const configPath = path.join(directory, 'providers.json');
 	fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers }));
 
-	// eslint-disable-next-line local/code-no-dangerous-type-assertions
-	const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+	const context = fakeContext();
 	await initProviderCatalog(context, { configPath });
 
 	return {
@@ -31,8 +35,7 @@ export async function initializeValidationCatalog(
 			}
 
 			fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers: {} }));
-			// eslint-disable-next-line local/code-no-dangerous-type-assertions
-			const resetContext = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+			const resetContext = fakeContext();
 			await initProviderCatalog(resetContext, { configPath });
 			for (const disposable of resetContext.subscriptions) {
 				disposable.dispose();
