@@ -72,8 +72,31 @@ const logger = new AuthProviderLogger('AWS');
 /** How long to let the CLI run. Matches the SSO device-code expiry. */
 const LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
 
+/** One of a child process's output streams. */
+export interface SsoLoginOutput {
+	on(event: 'data', listener: (chunk: unknown) => void): unknown;
+}
+
+/**
+ * The parts of a spawned child process this module uses. Declaring the shape we
+ * depend on, rather than aliasing Node's fully overloaded `spawn`, keeps the
+ * real `spawn` assignable while letting a test fake satisfy the type directly
+ * instead of asserting it through a cast.
+ */
+export interface SsoLoginProcess {
+	readonly stdout: SsoLoginOutput | null;
+	readonly stderr: SsoLoginOutput | null;
+	on(event: 'error', listener: (err: NodeJS.ErrnoException) => void): unknown;
+	on(event: 'close', listener: (code: number | null) => void): unknown;
+	kill(): void;
+}
+
 /** Injection point so tests do not spawn a real process. */
-export type SpawnFn = typeof spawn;
+export type SpawnFn = (
+	command: string,
+	args: readonly string[],
+	options: { stdio: ['ignore', 'pipe', 'pipe'] },
+) => SsoLoginProcess;
 
 /** Why an `aws sso login` attempt did not produce credentials. */
 export class SsoLoginError extends Error {
@@ -151,10 +174,8 @@ export function runSsoLogin(
 				logger.warn(`aws sso login: ${text}`);
 			}
 		});
-		// Typed as Error to match the ChildProcess overload under
-		// strictFunctionTypes; the errno lives behind a cast.
-		child.on('error', (err: Error) => {
-			const code = (err as NodeJS.ErrnoException).code;
+		child.on('error', (err: NodeJS.ErrnoException) => {
+			const code = err.code;
 			// ENOENT: no `aws` on PATH. EACCES: found but not executable.
 			// EINVAL: Windows spawning a .cmd/.bat shim without a shell, which
 			// Node refuses by default as of the CVE-2024-27980 fix. All three

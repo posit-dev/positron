@@ -96,10 +96,10 @@ suite('runSsoLogin', () => {
 	setup(() => {
 		child = fakeChild();
 		spawnArgs = undefined;
-		spawnFn = ((command: string, args: readonly string[]) => {
+		spawnFn = (command: string, args: readonly string[]) => {
 			spawnArgs = { command, args };
 			return child;
-		}) as unknown as SpawnFn;
+		};
 		cancellation = new vscode.CancellationTokenSource();
 	});
 
@@ -155,7 +155,7 @@ suite('runSsoLogin', () => {
 	test('reports a missing or unusable CLI distinctly, regardless of errno', async () => {
 		const results = await Promise.all((['ENOENT', 'EACCES', 'EINVAL'] as const).map(async code => {
 			const errnoChild = fakeChild();
-			const errnoSpawnFn = ((_command: string, _args: readonly string[]) => errnoChild) as unknown as SpawnFn;
+			const errnoSpawnFn: SpawnFn = (_command: string, _args: readonly string[]) => errnoChild;
 			const pending = runSsoLogin(undefined, cancellation.token, errnoSpawnFn);
 			const spawnError: NodeJS.ErrnoException = new Error(`spawn aws ${code}`);
 			spawnError.code = code;
