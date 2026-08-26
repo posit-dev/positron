@@ -168,14 +168,14 @@ jobs:
       # Separate from the launches so a failure to render cannot lose the
       # measurements, which are the expensive part.
       #
-      # MEMORY_PUBLISH stays 'false' until the /memory endpoints exist; they are
-      # a follow-up. Set here rather than omitted so the switch is visible at the
-      # point someone will look for it. The step summary and the HTML artifact
-      # are produced either way, so the run is still useful with it off.
+      # The /memory endpoints are live, so this run records as well as reports.
+      # Only main reaches the production dataset: publish.ts routes every other
+      # branch at the local URL, so a manual dispatch from a branch still
+      # measures and renders but writes nothing to the trend.
       - name: Render report
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
-          MEMORY_PUBLISH: 'false'
+          MEMORY_PUBLISH: 'true'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Render and publish'
 

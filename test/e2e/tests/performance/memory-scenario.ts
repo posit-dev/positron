@@ -11,7 +11,7 @@ import { readActivatedExtensions } from '../../utils/memory/extensions.js';
 import { collectAllGarbage, gcTargetsFor, malformedForcedGc } from '../../utils/memory/gc.js';
 import { namedShareGateApplies } from '../../utils/memory/label.js';
 import { MemoryLane } from '../../utils/memory/lanes.js';
-import { containerImageFromEnv, fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
+import { containerImageFromEnv, fetchBaseline, publishingEnabled, publishSnapshots, publishTargetIsProduction } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
 import { captureSnapshot, SAMPLING_CAP_MS, SETTLE_CAP_MS, unstableProcesses } from '../../utils/memory/snapshot.js';
 import { MemoryScenario } from '../../utils/memory/scenarios.js';
@@ -275,12 +275,24 @@ export function defineMemoryScenario(options: {
 			// table in both places is the copy that goes stale.
 			console.log(markdown);
 
-			await publishSnapshots(snapshots, {
+			const branch = process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || 'local';
+			const published = await publishSnapshots(snapshots, {
 				runId: process.env.GITHUB_RUN_ID ?? 'local',
 				commitSha: process.env.GITHUB_SHA ?? 'unknown',
-				branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || 'local',
+				branch,
 				containerImage: containerImageFromEnv()
 			});
+
+			// publishSnapshots never throws, by design: the report is the point and a
+			// dead endpoint should not cost us the measurement. But that means a
+			// nightly that measured everything and published nothing looks identical
+			// to one that worked, which is the whole failure mode the dataset cannot
+			// afford. So on the runs that are actually supposed to write -- publishing
+			// enabled, on main -- a failed POST fails the job. Elsewhere the local URL
+			// has nothing listening and a failure is the expected outcome.
+			if (publishingEnabled() && publishTargetIsProduction(branch)) {
+				expect(published, 'publishing is enabled on main but the POST failed; this run measured everything and recorded nothing').toBe(true);
+			}
 		});
 	});
 }

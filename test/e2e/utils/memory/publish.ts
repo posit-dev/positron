@@ -40,11 +40,9 @@ const memoryUrl = (base: string): string => base.replace(/\/metrics$/, '/memory'
 /**
  * Whether to talk to the insights API at all. Opt in with `MEMORY_PUBLISH=true`.
  *
- * The `/memory` endpoints do not exist yet; they are a follow-up. Until they do,
- * a run should not attempt the call. Failing soft is not sufficient on its own:
- * a POST that errors and a POST to an endpoint nobody has written look identical
- * in the log, so an absent endpoint could sit unnoticed behind a line that reads
- * like ordinary noise.
+ * The switch outlives the endpoints' arrival: a local or manually dispatched run
+ * still has no business writing to the dataset, and a contributor debugging the
+ * harness should not have to think about whether they are.
  *
  * Exactly `'true'`, not any truthy string. A workflow that sets `MEMORY_PUBLISH:
  * 'false'` to document the switch must not thereby turn it on.
@@ -109,8 +107,22 @@ export type MemoryPayload = {
 	}[];
 };
 
+/**
+ * Whether this branch's runs go to the production dataset. Only `main` does;
+ * everything else is routed at the local URL, which follows the convention the
+ * rest of the metrics client uses to keep branch experiments out of the trend.
+ *
+ * Exported because the spec needs the same answer for a different question: a
+ * failed POST is a real failure on `main` and an expected one everywhere else,
+ * where nothing is listening on the local URL. Both callers reading one
+ * function means the assertion cannot start disagreeing with the routing.
+ */
+export function publishTargetIsProduction(branch: string): boolean {
+	return branch === 'main';
+}
+
 function apiUrl(branch: string): string {
-	return memoryUrl(branch === 'main' ? PROD_API_URL : LOCAL_API_URL);
+	return memoryUrl(publishTargetIsProduction(branch) ? PROD_API_URL : LOCAL_API_URL);
 }
 
 /**
@@ -229,9 +241,10 @@ export async function publishSnapshots(snapshots: MemorySnapshot[], meta: RunMet
  *   GET /memory/baseline?scenario=idle&branch=main&lane=desktop&container_image=...
  *   Authorization: Key <CONNECT_API_KEY>
  *
- * Nothing has ever published to this endpoint, so there is no released shape
- * to stay compatible with: every field below is required, not defensively
- * optional.
+ * Every field below is required rather than defensively optional. That was
+ * settled while nothing had published yet and no released shape had to be kept
+ * compatible; publishing is on now, so widening any of these is a change to a
+ * live contract, not a local relaxation.
  *
  * 200 with `{ "found": false, "reason": ... }` when no baseline exists yet.
  * That is a normal first-run state, not an error, and must not be a 404: a

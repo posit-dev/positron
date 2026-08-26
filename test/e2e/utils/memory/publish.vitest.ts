@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { BaselineResponse, baselineQuery, baselineToSnapshot, buildPayload, containerImageFromEnv, fetchBaseline, publishingEnabled, publishSnapshots, redactProcessName, RunMeta } from './publish.js';
+import { BaselineResponse, baselineQuery, baselineToSnapshot, buildPayload, containerImageFromEnv, fetchBaseline, publishingEnabled, publishSnapshots, publishTargetIsProduction, redactProcessName, RunMeta } from './publish.js';
 import { LabeledProcess, MemorySnapshot } from './types.js';
 
 vi.mock('undici', () => ({
@@ -270,8 +270,8 @@ describe('publishingEnabled', () => {
 	afterEach(() => { delete process.env.MEMORY_PUBLISH; });
 
 	test('is off unless explicitly turned on', () => {
-		// The /memory endpoint does not exist yet. Off by default means a run
-		// cannot post into the void, and cannot appear to have published.
+		// Off by default keeps a local or manually driven run out of the dataset:
+		// only the workflow opts in, and only main's runs reach production.
 		delete process.env.MEMORY_PUBLISH;
 		expect(publishingEnabled()).toBe(false);
 	});
@@ -299,6 +299,19 @@ describe('publishingEnabled', () => {
 	test('fetchBaseline yields no baseline, so the report shows absolute numbers', async () => {
 		delete process.env.MEMORY_PUBLISH;
 		expect(await fetchBaseline('idle', 'desktop')).toBeUndefined();
+	});
+});
+
+describe('publishTargetIsProduction', () => {
+	// The spec fails a run whose POST failed, but only where a POST was meant to
+	// land. If this ever answered true for a branch, every branch dispatch would
+	// fail on an endpoint nobody is running; if it answered false for main, a
+	// nightly could publish nothing and still pass.
+	test('is true only for main', () => {
+		expect(publishTargetIsProduction('main')).toBe(true);
+		expect(publishTargetIsProduction('midleman/some-branch')).toBe(false);
+		expect(publishTargetIsProduction('local')).toBe(false);
+		expect(publishTargetIsProduction('release/2026.09')).toBe(false);
 	});
 });
 
