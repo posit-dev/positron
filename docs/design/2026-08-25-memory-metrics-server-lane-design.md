@@ -3,6 +3,19 @@
 Design for [#15493](https://github.com/posit-dev/positron/issues/15493), part of
 epic [#15001](https://github.com/posit-dev/positron/issues/15001).
 
+## Status: the lane is built but not scheduled
+
+Everything below is implemented except the nightly job itself. A released
+`positron-server` will not start without a license key signed by the production
+issuer, and no CI lane has that key, so there is no server matrix row and
+`EXPECTED_SCENARIOS_BY_LANE.server` is empty. The lane dimension, the partitioned
+report and `memory-server-idle.test.ts` all landed: restoring the lane means
+restoring that entry and the matrix row together.
+
+The evidence and the three options for getting a licensed server into CI are on
+[#15493](https://github.com/posit-dev/positron/issues/15493#issuecomment-5424957294).
+Read that before acting on the sections below.
+
 ## Problem
 
 Every memory scenario we measure is Electron desktop. The collector takes its
