@@ -329,7 +329,6 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 			title={props.title}
 			width={props.width}
 			onCancel={() => props.renderer.dispose()}
-			onSubmit={onConnect}
 		/>
 	);
 };
