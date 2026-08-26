@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { log } from '../log';
 import { PROVIDER_METADATA } from '../providerSources';
-import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
+import { getValidationHeaders } from './validationHeaders';
 
 /**
  * Placeholder model sent with the validation request. We only want to probe
@@ -65,7 +65,7 @@ export async function validateCustomProviderApiKey(
 		headers['Authorization'] = `Bearer ${apiKey}`;
 	}
 	const validationHeaders = getValidationHeaders(
-		getProviderCatalogId(PROVIDER_METADATA.customProvider),
+		PROVIDER_METADATA.customProvider.catalogId!,
 		headers
 	);
 

@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS, OPENAI_DEFAULT_BASE_URL } from '../constants';
 import { PROVIDER_METADATA } from '../providerSources';
-import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
+import { getValidationHeaders } from './validationHeaders';
 
 class OpenaiValidationError extends Error {
 	constructor(message: string) {
@@ -24,7 +24,7 @@ export async function validateOpenaiApiKey(
 		.replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 	const headers = getValidationHeaders(
-		getProviderCatalogId(PROVIDER_METADATA.openai),
+		PROVIDER_METADATA.openai.catalogId!,
 		{
 			'Authorization': `Bearer ${apiKey}`,
 		}

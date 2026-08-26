@@ -5,14 +5,6 @@
 
 import { log } from '../log';
 import { getCachedProvider } from '../providerCatalog';
-import type { ProviderMetadata } from '../providerSources';
-
-export function getProviderCatalogId(metadata: ProviderMetadata): string {
-	if (!metadata.catalogId) {
-		throw new Error(`Provider "${metadata.id}" does not have a catalog id`);
-	}
-	return metadata.catalogId;
-}
 
 export function getValidationHeaders(
 	catalogId: string,

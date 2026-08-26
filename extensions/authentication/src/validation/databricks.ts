@@ -9,7 +9,7 @@ import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { normalizeHost } from '../databricksOAuth';
 import { getCachedProvider } from '../providerCatalog';
 import { PROVIDER_METADATA } from '../providerSources';
-import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
+import { getValidationHeaders } from './validationHeaders';
 
 class DatabricksValidationError extends Error {
 	constructor(message: string) {
@@ -50,7 +50,7 @@ export async function validateDatabricksApiKey(
 	const host = normalizeHost(rawHost);
 	const meEndpoint = `${host}/api/2.0/preview/scim/v2/Me`;
 	const headers = getValidationHeaders(
-		getProviderCatalogId(PROVIDER_METADATA.databricks),
+		PROVIDER_METADATA.databricks.catalogId!,
 		{
 			'Authorization': `Bearer ${apiKey}`,
 		}

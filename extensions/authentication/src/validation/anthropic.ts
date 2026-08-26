@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ANTHROPIC_API_VERSION, ANTHROPIC_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { PROVIDER_METADATA } from '../providerSources';
-import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
+import { getValidationHeaders } from './validationHeaders';
 
 class ApiKeyValidationError extends Error {
 	constructor(message: string) {
@@ -20,7 +20,7 @@ export async function validateAnthropicApiKey(apiKey: string, config: positron.a
 	const baseUrl = (config.baseUrl?.trim() || ANTHROPIC_DEFAULT_BASE_URL).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 	const headers = getValidationHeaders(
-		getProviderCatalogId(PROVIDER_METADATA.anthropic),
+		PROVIDER_METADATA.anthropic.catalogId!,
 		{
 			'x-api-key': apiKey,
 			'anthropic-version': ANTHROPIC_API_VERSION,

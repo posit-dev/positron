@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { DEEPSEEK_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { PROVIDER_METADATA } from '../providerSources';
-import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
+import { getValidationHeaders } from './validationHeaders';
 
 class DeepSeekValidationError extends Error {
 	constructor(message: string) {
@@ -25,7 +25,7 @@ export async function validateDeepSeekApiKey(
 	).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 	const headers = getValidationHeaders(
-		getProviderCatalogId(PROVIDER_METADATA.deepseek),
+		PROVIDER_METADATA.deepseek.catalogId!,
 		{
 			'Authorization': `Bearer ${apiKey}`,
 		}

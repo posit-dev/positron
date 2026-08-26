@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { PROVIDER_METADATA } from '../providerSources';
-import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
+import { getValidationHeaders } from './validationHeaders';
 
 class FoundryValidationError extends Error {
 	constructor(message: string) {
@@ -63,7 +63,7 @@ export async function validateFoundryApiKey(
 	const baseUrl = normalizeToV1Url(rawBaseUrl);
 	const endpoint = `${baseUrl}/chat/completions`;
 	const headers = getValidationHeaders(
-		getProviderCatalogId(PROVIDER_METADATA.foundry),
+		PROVIDER_METADATA.foundry.catalogId!,
 		{
 			'Authorization': `Bearer ${apiKey}`,
 			'Content-Type': 'application/json',
