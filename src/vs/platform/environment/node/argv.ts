@@ -191,6 +191,7 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'canvas': { type: 'boolean', cat: 'o', description: localize('canvas', "Open Canvas as the only window instead of the full Positron interface.") },
 	// --- End Positron ---
 	'disable-telemetry': { type: 'boolean' },
+	'telemetry-level': { type: 'string' },
 	'disable-updates': { type: 'boolean' },
 	'share-secrets-with-agents-app': { type: 'boolean' },
 	'transient': { type: 'boolean', cat: 't', description: localize('transient', "Run with temporary data and extension directories, as if launched for the first time.") },

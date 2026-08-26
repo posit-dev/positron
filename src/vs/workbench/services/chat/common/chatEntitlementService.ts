@@ -12,6 +12,7 @@ import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle
 import { IRequestContext } from '../../../../base/parts/request/common/request.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ChatAIDisabledSettingId } from '../../../../platform/chat/common/chatSettings.js';
 import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { createDecorator, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -187,11 +188,8 @@ export interface IChatSetupRequirement {
 }
 
 /**
- * Single source of truth for whether Chat still requires setup before it can
- * service a request. Shared by the setup agent (which routes a sent message
- * through setup) and the model picker (which surfaces a "Sign in to use Copilot"
- * state instead of a misleading lone "Auto"). BYOK models and anonymous access
- * intentionally satisfy the entitlement-based checks so those flows keep working.
+ * Returns whether Chat requires setup before it can service a request.
+ * The model picker uses a narrower condition that only surfaces interactive setup.
  */
 export function chatRequiresSetup(context: IChatSetupRequirement): boolean {
 	return (
@@ -578,6 +576,7 @@ export class ChatEntitlementService extends Disposable implements IChatEntitleme
 	readonly onDidChangeUsageBasedBilling = this._onDidChangeUsageBasedBilling.event;
 
 	private _quotas: IQuotas;
+	private quotaCopilotTrackingId: string | undefined;
 	get quotas() { return this._quotas; }
 
 	private readonly chatQuotaExceededContextKey: IContextKey<boolean>;
@@ -628,8 +627,18 @@ export class ChatEntitlementService extends Disposable implements IChatEntitleme
 		this._register(this.onDidChangeSentiment(() => updateAnonymousUsage()));
 	}
 
-	acceptQuotas(quotas: IQuotas): void {
+	acceptQuotas(incomingQuotas: IQuotas): void {
 		const oldQuota = this._quotas;
+		const cachedQuota = this.quotaCopilotTrackingId === this.copilotTrackingId ? oldQuota : {};
+		const quotas: IQuotas = {
+			...incomingQuotas,
+			chat: incomingQuotas.chat ? mergeDefinedSnapshot(cachedQuota.chat, incomingQuotas.chat) : undefined,
+			completions: incomingQuotas.completions ? mergeDefinedSnapshot(cachedQuota.completions, incomingQuotas.completions) : undefined,
+			premiumChat: incomingQuotas.premiumChat ? mergeDefinedSnapshot(cachedQuota.premiumChat, incomingQuotas.premiumChat) : undefined,
+			sessionRateLimit: incomingQuotas.sessionRateLimit ? mergeDefinedSnapshot(cachedQuota.sessionRateLimit, incomingQuotas.sessionRateLimit) : undefined,
+			weeklyRateLimit: incomingQuotas.weeklyRateLimit ? mergeDefinedSnapshot(cachedQuota.weeklyRateLimit, incomingQuotas.weeklyRateLimit) : undefined,
+		};
+		this.quotaCopilotTrackingId = this.copilotTrackingId;
 		this._quotas = quotas;
 		this.updateContextKeys();
 
@@ -872,6 +881,16 @@ interface IQuotas {
 
 	readonly sessionRateLimit?: IRateLimitSnapshot;
 	readonly weeklyRateLimit?: IRateLimitSnapshot;
+}
+
+function mergeDefinedSnapshot<T extends object>(previous: T | undefined, current: T): T {
+	const result = { ...previous, ...current };
+	for (const key of Object.keys(current) as (keyof T)[]) {
+		if (current[key] === undefined && previous?.[key] !== undefined) {
+			result[key] = previous[key];
+		}
+	}
+	return result;
 }
 
 export function parseQuotas(entitlementsData: IEntitlementsData): IQuotas {
@@ -1327,13 +1346,12 @@ export class ChatEntitlementContext extends Disposable {
 	private static readonly CHAT_ENTITLEMENT_CONTEXT_STORAGE_KEY = 'chat.setupContext';
 	private static readonly CHAT_ENTITLEMENT_CONTEXT_MIGRATED_STORAGE_KEY = 'chat.setupContext.migrated.v1';
 
-	private static readonly CHAT_DISABLED_CONFIGURATION_KEY = 'chat.disableAIFeatures';
-
 	// --- Start Positron ---
 	// Positron's main AI switch. When off, it hides the chat UI (pane and status
 	// icon) just like `chat.disableAIFeatures`, so it feeds the same hidden state.
 	private static readonly AI_ENABLED_CONFIGURATION_KEY = 'ai.enabled';
 	// --- End Positron ---
+
 
 	private readonly canSignUpContextKey: IContextKey<boolean>;
 	private readonly signedOutContextKey: IContextKey<boolean>;
@@ -1428,7 +1446,7 @@ export class ChatEntitlementContext extends Disposable {
 			// Recompute when either Copilot's own switch or Positron's `ai.enabled`
 			// changes, so toggling `ai.enabled` at runtime hides/shows the chat UI
 			// without a reload.
-			if (e.affectsConfiguration(ChatEntitlementContext.CHAT_DISABLED_CONFIGURATION_KEY) || e.affectsConfiguration(ChatEntitlementContext.AI_ENABLED_CONFIGURATION_KEY)) {
+			if (e.affectsConfiguration(ChatAIDisabledSettingId) || e.affectsConfiguration(ChatEntitlementContext.AI_ENABLED_CONFIGURATION_KEY)) {
 				// --- End Positron ---
 				this.updateContext();
 			}
@@ -1441,7 +1459,7 @@ export class ChatEntitlementContext extends Disposable {
 		// --- Start Positron ---
 		// `ai.enabled === false` is Positron's main switch and hides the chat UI
 		// the same way `chat.disableAIFeatures === true` does.
-		if (this._forceHidden || this.configurationService.getValue(ChatEntitlementContext.CHAT_DISABLED_CONFIGURATION_KEY) === true || this.configurationService.getValue(ChatEntitlementContext.AI_ENABLED_CONFIGURATION_KEY) === false) {
+		if (this._forceHidden || this.configurationService.getValue(ChatAIDisabledSettingId) === true || this.configurationService.getValue(ChatEntitlementContext.AI_ENABLED_CONFIGURATION_KEY) === false) {
 			// --- End Positron ---
 			return {
 				...state,

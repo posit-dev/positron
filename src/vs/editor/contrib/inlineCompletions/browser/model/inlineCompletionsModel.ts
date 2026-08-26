@@ -16,6 +16,7 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ICodeEditor } from '../../../../browser/editorBrowser.js';
 import { observableCodeEditor } from '../../../../browser/observableCodeEditor.js';
+import product from '../../../../../platform/product/common/product.js';
 import { EditorOption } from '../../../../common/config/editorOptions.js';
 import { CursorColumns } from '../../../../common/core/cursorColumns.js';
 import { LineRange } from '../../../../common/core/ranges/lineRange.js';
@@ -123,6 +124,7 @@ export class InlineCompletionsModel extends Disposable {
 		private readonly _positions: IObservable<readonly Position[]>,
 		private readonly _debounceValue: IFeatureDebounceInformation,
 		private readonly _enabled: IObservable<boolean>,
+		private readonly _isSuppressed: () => boolean,
 		private readonly _editor: ICodeEditor,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ICommandService private readonly _commandService: ICommandService,
@@ -140,7 +142,7 @@ export class InlineCompletionsModel extends Disposable {
 		// --- Start Positron ---
 		this._aiEnabled = observableConfigValue<boolean>('ai.enabled', true, this._configurationService);
 		// --- End Positron ---
-		this._source = this._register(this._instantiationService.createInstance(InlineCompletionsSource, this.textModel, this._textModelVersionId, this._debounceValue, this.primaryPosition));
+		this._source = this._register(this._instantiationService.createInstance(InlineCompletionsSource, this.textModel, this._textModelVersionId, this._debounceValue, this.primaryPosition, product.defaultChatAgent?.completionsEnablementSetting));
 		this.lastTriggerKind = this._source.inlineCompletions.map(this, v => v?.request?.context.triggerKind);
 
 		this._editorObs = observableCodeEditor(this._editor);
@@ -390,7 +392,8 @@ export class InlineCompletionsModel extends Disposable {
 		// --- Start Positron ---
 		this._aiEnabled.read(reader); // re-run this fetch when `ai.enabled` toggles, so turning the switch off clears completions immediately
 		// --- End Positron ---
-		const shouldUpdate = ((this._enabled.read(reader) && this._selectedSuggestItem.read(reader)) || this._isActive.read(reader))
+		const shouldUpdate = !this._isSuppressed()
+			&& ((this._enabled.read(reader) && this._selectedSuggestItem.read(reader)) || this._isActive.read(reader))
 			&& (!this._inlineCompletionsService.isSnoozing() || changeSummary.inlineCompletionTriggerKind === InlineCompletionTriggerKind.Explicit);
 		if (!shouldUpdate) {
 			this._source.cancelUpdate();
@@ -1128,7 +1131,7 @@ export class InlineCompletionsModel extends Disposable {
 				const edits = [primaryEdit, ...getSecondaryEdits(this.textModel, positions, primaryEdit)].filter(isDefined);
 				const selections = getEndPositionsAfterApplying(edits).map(p => Selection.fromPositions(p));
 
-				editor.edit(TextEdit.fromParallelReplacementsUnsorted(edits), this._getMetadata(completion, type));
+				editor.edit(TextEdit.fromParallelReplacementsUnsorted(edits), this._getMetadata(completion, this.textModel.getLanguageId(), type));
 				editor.setSelections(selections, 'inlineCompletionPartialAccept');
 				editor.revealPositionInCenterIfOutsideViewport(editor.getPosition()!, ScrollType.Smooth);
 			} finally {

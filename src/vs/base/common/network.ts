@@ -90,8 +90,14 @@ export namespace Schemas {
 	/** Scheme used for the chat input part */
 	export const vscodeChatInput = 'chatSessionInput';
 
+	/** Scheme used for the Agents window new-session composer input */
+	export const sessionsChatInput = 'sessions-chat';
+
 	/** Scheme used for local chat session content */
 	export const vscodeLocalChatSession = 'vscode-chat-session';
+
+	/** Scheme used for read-only resources owned by a chat response or attachment */
+	export const vscodeChatResponseResource = 'vscode-chat-response-resource';
 
 	/**
 	 * Scheme used internally for webviews that aren't linked to a resource (i.e. not custom editors)
@@ -262,11 +268,13 @@ class RemoteAuthoritiesImpl {
 		return URI.from({
 			scheme: platform.isWeb ? this._preferredWebSchema : Schemas.vscodeRemoteResource,
 			authority: `${host}:${port}`,
-			// --- Start Positron ---
+			// --- Start PWB
 			path: platform.isWeb
-				? (window.location.pathname + '/' + this._remoteResourcesPath).replace(/\/\/+/g, '/')
+				// This module is also type-checked against Node/Worker layers where `window` isn't declared;
+				// `globalThis` resolves to the same object as `window` at runtime in a browser.
+				? ((globalThis as unknown as { location: { pathname: string } }).location.pathname + '/' + this._remoteResourcesPath).replace(/\/\/+/g, '/')
 				: this._remoteResourcesPath,
-			// --- End Positron ---
+			// --- End PWB ---
 			query
 		});
 	}

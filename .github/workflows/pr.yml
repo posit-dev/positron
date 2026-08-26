@@ -1,0 +1,104 @@
+# --- Start PWB: deliberate Posit branding for this workflow's display name ---
+name: PWB Code Server PR Tests
+# --- End PWB ---
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release/*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  VSCODE_QUALITY: 'oss'
+
+# --- Start PWB: test matrix deliberately reduced to browser tests on Linux only (see
+# pr-linux-test.yml for detail). Electron test jobs for Linux/macOS/Windows are intentionally not
+# run here. Upstream's Linux CLI job, all remote/extra-browser job variants, and the whole
+# Copilot extension test block are intentionally not reincorporated here -- Copilot Chat testing
+# already has its own separate chat-lib-package.yml/chat-perf.yml workflows.
+# --- End PWB ---
+jobs:
+  compile:
+    name: Compile & Hygiene
+    # --- Start PWB: Posit self-hosted runner, not a GitHub-hosted/1ES pool ---
+    runs-on: posit-ubuntu-24-amd64-4-core
+    # --- End PWB ---
+    steps:
+      - name: Checkout microsoft/vscode
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        # --- Start PWB: this fork disables git-lfs (see .gitattributes) and the runner image
+        # doesn't have git-lfs installed, so omit lfs: true here ---
+        # --- End PWB ---
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        id: cache-node-modules
+        uses: ./.github/actions/restore-node-modules
+        with:
+          key-prefix: node_modules-compile
+          key-args: "compile $(node -p process.arch)"
+
+      - name: Install build tools
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: sudo apt update -y && sudo apt install -y build-essential pkg-config libx11-dev libx11-xcb-dev libxkbfile-dev libnotify-bin libkrb5-dev
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: |
+          set -e
+
+          for i in {1..5}; do # try 5 times
+            npm ci && break
+            if [ $i -eq 5 ]; then
+              echo "Npm install failed too many times" >&2
+              exit 1
+            fi
+            echo "Npm install failed $i, trying again..."
+          done
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Type check /build/ scripts
+        run: npm run typecheck
+        working-directory: build
+
+      # --- Start PWB: replaces upstream's combined compile & hygiene command (which also ran
+      # define-class-fields-check, vscode-dts-compile-check, tsec-compile-check,
+      # test-build-scripts and core-ci) plus the built-in-extensions caching, Markdown editor
+      # manifest check, Codex protocol sync check, and cyclic-dependency check -- none of those
+      # extra checks have been validated in this pipeline, so they're intentionally left out
+      # rather than reintroduced. ---
+      - name: Hygiene
+        run: npm run hygiene
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ESLint
+        run: npm run eslint
+
+      - name: Valid layers check
+        run: npm run valid-layers-check
+      # --- End PWB ---
+
+  linux-browser-tests:
+    name: Linux
+    # --- Start PWB: gate test jobs behind the compile job ---
+    needs: compile
+    # --- End PWB ---
+    uses: ./.github/workflows/pr-linux-test.yml
+    with:
+      job_name: Browser

@@ -138,25 +138,17 @@ export function checkNoReintroducedDependencies(repoRoot: string): string | unde
  * Main hygiene function that runs checks on files
  */
 export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, runEslint = true): NodeJS.ReadWriteStream {
-	console.log('Starting hygiene...');
-
+	const started = Date.now();
+	const requestedPaths = Array.isArray(some) ? some : undefined;
+	const scope = requestedPaths ? `${requestedPaths.length} requested path${requestedPaths.length === 1 ? '' : 's'}` : some ? 'provided file stream' : 'full repository';
+	console.log(`Starting hygiene (${scope})...`);
 	let errorCount = 0;
 
+	// --- Start PWB: This fork's product.json intentionally points extensionsGallery at open-vsx.org, so the upstream check for an accidentally-embedded gallery config doesn't apply ---
 	const productJson = es.through(function (file: VinylFile) {
-		// --- Start Positron ---
-		// Ignore because Positron adds OpenVSX as the extensions gallery
-		/*
-		const product = JSON.parse(file.contents!.toString('utf8'));
-
-		if (product.extensionsGallery) {
-			console.error(`product.json: Contains 'extensionsGallery'`);
-			errorCount++;
-		}
-		*/
-		// --- End Positron ---
-
 		this.emit('data', file);
 	});
+	// --- End PWB ---
 
 	const unicode = es.through(function (file: VinylFileWithLines) {
 		const lines = file.contents!.toString('utf8').split(/\r\n|\r|\n/);
@@ -232,48 +224,31 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 		this.emit('data', file);
 	});
 
-	// --- Start Positron ---
-	// const copyrights = es.through(function (file: VinylFileWithLines) {
-	// 	const lines = file.__lines;
-	//
-	// 	for (let i = 0; i < copyrightHeaderLines.length; i++) {
-	// 		if (lines[i] !== copyrightHeaderLines[i]) {
-	// 			console.error(file.relative + ': Missing or bad copyright statement');
-	// 			errorCount++;
-	// 			break;
-	// 		}
-	// 	}
-	//
-	// 	this.emit('data', file);
-	// });
 
 	const copyrights = es.through(function (file: VinylFileWithLines) {
 		const lines = file.__lines;
 
-		const matchHeaderLines = (headerLines: readonly string[]) => {
-			for (let i = 0; i < headerLines.length; i++) {
-				if (headerLines[i] !== lines[i]) {
-					return false;
-				}
-			}
+		// --- Start Positron ---
+		// Accept the upstream Microsoft header or a Posit copyright header (block or hash
+		// comment). Skip a leading shebang and/or `/* eslint-disable header/header */` line
+		// (some wholly-Posit files carry one) before matching.
+		let headerOffset = 0;
+		if (lines[headerOffset]?.startsWith('#!')) {
+			headerOffset++;
+		}
+		if (lines[headerOffset] === '/* eslint-disable header/header */') {
+			headerOffset++;
+		}
+		const headerLines = headerOffset > 0 ? lines.slice(headerOffset) : lines;
 
-			return true;
-		};
-
-		const regexMatchHeaderLines = (headerLines: readonly RegExp[]) => {
-			for (let i = 0; i < headerLines.length; i++) {
-				if (!lines[i]?.match(headerLines[i])) {
-					return false;
-				}
-			}
-
-			return true;
-		};
+		const matchHeaderLines = (expected: readonly string[]) => expected.every((line, i) => headerLines[i] === line);
+		const regexMatchHeaderLines = (expected: readonly RegExp[]) => expected.every((re, i) => !!headerLines[i]?.match(re));
 
 		if (!(matchHeaderLines(copyrightHeaderLines) ||
 			regexMatchHeaderLines(positCopyrightHeaderLines) ||
 			regexMatchHeaderLines(positCopyrightHeaderLinesHash))) {
 			console.error(file.relative + ': ' + 'Missing or bad copyright statement'.magenta);
+			// --- End Positron ---
 			errorCount++;
 		}
 
@@ -318,6 +293,11 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 	const snapshotFilter = filter(['**', '!**/*.snap', '!**/*.snap.actual']);
 	const yarnLockFilter = filter(['**', '!**/yarn.lock']);
 	const unicodeFilterStream = filter(Array.from(unicodeFilter), { restore: true });
+	const checkedFiles = new Set<string>();
+	const trackCheckedFile = () => es.through(function (file: VinylFile) {
+		checkedFiles.add(file.relative);
+		this.emit('data', file);
+	});
 
 	const result = input
 		.pipe(filter((f) => Boolean(f.stat && !f.stat.isDirectory())))
@@ -327,24 +307,28 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 		// --- End Positron ---
 		.pipe(yarnLockFilter)
 		.pipe(productJsonFilter)
-		.pipe(process.env['BUILD_SOURCEVERSION'] ? es.through() : productJson)
+		.pipe(process.env['BUILD_SOURCEVERSION'] ? es.through() : trackCheckedFile().pipe(productJson))
 		.pipe(productJsonFilter.restore)
 		.pipe(unicodeFilterStream)
+		.pipe(trackCheckedFile())
 		.pipe(unicode)
 		.pipe(unicodeFilterStream.restore)
 		.pipe(filter(Array.from(indentationFilter)))
+		.pipe(trackCheckedFile())
 		.pipe(indentation)
 		.pipe(filter(Array.from(copyrightFilter)))
+		.pipe(trackCheckedFile())
 		.pipe(copyrights);
 
 	const streams: NodeJS.ReadWriteStream[] = [
-		result.pipe(filter(Array.from(tsFormattingFilter))).pipe(formatting)
+		result.pipe(filter(Array.from(tsFormattingFilter))).pipe(trackCheckedFile()).pipe(formatting)
 	];
 
 	if (runEslint) {
 		streams.push(
 			result
 				.pipe(filter(Array.from(eslintFilter)))
+				.pipe(trackCheckedFile())
 				.pipe(
 					eslint((results) => {
 						errorCount += results.warningCount;
@@ -367,14 +351,14 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 	}
 
 	streams.push(
-		result.pipe(filter(Array.from(stylelintFilter))).pipe(gulpstylelint(((message: string, isError: boolean) => {
+		result.pipe(filter(Array.from(stylelintFilter))).pipe(trackCheckedFile()).pipe(gulpstylelint(((message: string, isError: boolean) => {
 			if (isError) {
 				console.error(message);
 				errorCount++;
 			} else {
 				console.warn(message);
 			}
-		})))
+		}), false, false))
 	);
 
 	let count = 0;
@@ -395,7 +379,10 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 			},
 			function () {
 				process.stdout.write('\n');
-				if (errorCount > 0) {
+				console.log(`Hygiene checked ${checkedFiles.size} file${checkedFiles.size === 1 ? '' : 's'} in ${Date.now() - started}ms.`);
+				if (requestedPaths && checkedFiles.size === 0) {
+					this.emit('error', `No hygiene-eligible files matched the requested paths: ${requestedPaths.join(', ')}`);
+				} else if (errorCount > 0) {
 					this.emit(
 						'error',
 						'Hygiene failed with ' +
@@ -523,7 +510,7 @@ if (import.meta.main) {
 						}
 					}
 
-					console.log('Reading git index versions...');
+					console.log(`Reading ${some.length} git index version${some.length === 1 ? '' : 's'}...`);
 
 					createGitIndexVinyls(some)
 						.then(
@@ -540,6 +527,9 @@ if (import.meta.main) {
 							console.error(err);
 							process.exit(1);
 						});
+				} else {
+					console.error('No staged files found. Pass file paths to check unstaged files.');
+					process.exit(1);
 				}
 			}
 		);

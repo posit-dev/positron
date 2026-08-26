@@ -18,8 +18,7 @@ extensions/**/dist/
 build/node_modules
 build/darwin/.dmgbuild
 coverage/
-!src/vs/platform/agentHost/test/node/protocol/coverage/
-!src/vs/platform/agentHost/test/node/protocol/coverage/agentHostE2E.json
+!/src/vs/platform/agentHost/test/node/e2e/coverage/
 test_data/
 test-results/
 test-results.xml
@@ -91,7 +90,11 @@ dist
 .agents/skills/.local/
 .github/skills/.local/
 .sbom-tmp/
-.sbom-tmp/
+
+# Throwaway Code OSS dev profiles created by the launch skill
+.v[0-9]*/
+# Local agent validation evidence
+.agent-validation/
 
 # --- Start Positron ---
 # ci-arm dev container local secrets
