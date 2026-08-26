@@ -23,15 +23,11 @@ test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE, tags.WEB] }, () 
 		await app.workbench.console.waitForReady('>>>');
 		await app.workbench.console.pasteCodeToConsole(pyCode);
 		await app.workbench.console.sendEnterKey();
-		// Gate on the output itself, not the prompt: the active line reads '>>>' both
-		// before and after execution, so waiting on it can pass with an empty console
-		// and the width assertion below would then trivially succeed.
+		// '>>>' shows before and after execution, so gate on the output itself.
 		await app.workbench.console.waitForConsoleContents(/^'(Blah){300}'$/);
 
 		const el = app.workbench.console.activeConsole;
-		// Measure both dimensions in one evaluate: read separately, the vertical
-		// scrollbar can appear between the two reads and shrink clientWidth by its
-		// own width, reporting overflow that never existed at any single instant.
+		// One evaluate: a scrollbar appearing between two reads fakes overflow.
 		await expect.poll(async () => el.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(0);
 	});
 });
