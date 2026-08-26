@@ -60,7 +60,10 @@ import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_CATEGORY, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellActionGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
-import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
+import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
+import { CONTEXT_ACCESSIBILITY_MODE_ENABLED } from '../../../../platform/accessibility/common/accessibility.js';
+import { Position } from '../../../../editor/common/core/position.js';
+import { ScrollType } from '../../../../editor/common/editorCommon.js';
 import { CellContextKeys } from '../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
 import { bindNotebookAIEnabledContextKey } from './notebookAIEnabledContextKey.js';
@@ -529,6 +532,167 @@ export class AddSelectionUpAction extends NotebookAction2 {
 	}
 }
 registerAction2(AddSelectionUpAction);
+
+/**
+ * Keybinding gate for crossing a cell boundary with the cursor: the cell
+ * editor has focus and the cursor has no line left to move to in the given
+ * direction. Requires the cursor to already be at the start/end of its line
+ * so that a first Up/Down on a boundary line goes to the line start/end
+ * (stock Monaco behavior, matching browser textboxes and JupyterLab) and
+ * only a second press crosses into the adjacent cell.
+ */
+function cursorAtCellBoundary(direction: 'up' | 'down') {
+	return ContextKeyExpr.and(
+		NotebookContextKeys.cellEditorFocused,
+		EditorContextKeys.editorTextFocus,
+		CONTEXT_ACCESSIBILITY_MODE_ENABLED.negate(),
+		NotebookContextKeys.cursorAtBoundary.notEqualsTo(direction === 'down' ? 'top' : 'bottom'),
+		NotebookContextKeys.cursorAtBoundary.notEqualsTo('none'),
+		ContextKeyExpr.or(
+			NotebookContextKeys.cursorAtLineBoundary.isEqualTo(direction === 'down' ? 'end' : 'start'),
+			NotebookContextKeys.cursorAtLineBoundary.isEqualTo('both'),
+		),
+	);
+}
+
+/**
+ * Keybinding entries for a cross-cell cursor navigation action.
+ *
+ * The base rule handles the plain arrow key. Vim emulation extensions
+ * (VSCodeVim, vscode-neovim) intercept arrows and j/k at extension weight and
+ * move the cursor programmatically, so at a cell boundary the key does
+ * nothing. The extra rules reclaim those keys at ExternalExtension + 1
+ * (precedent: positronNotebook.cell.quitEdit) - j/k and arrows in vim normal
+ * mode, arrows in insert mode. They only match at the boundary, where vim's
+ * own motion is a no-op anyway. Without a vim extension the vim mode context
+ * keys are undefined and the extra rules never match.
+ */
+function crossCellKeybindings(direction: 'up' | 'down') {
+	const boundary = cursorAtCellBoundary(direction);
+	const arrowKey = direction === 'down' ? KeyCode.DownArrow : KeyCode.UpArrow;
+	const vimKey = direction === 'down' ? KeyCode.KeyJ : KeyCode.KeyK;
+	// Don't shadow list navigation in editor popups (e.g. the suggest widget)
+	const suggestNotVisible = ContextKeyExpr.not('suggestWidgetVisible');
+	return [
+		{
+			when: ContextKeyExpr.and(boundary, suggestNotVisible),
+			weight: KeybindingWeight.EditorContrib,
+			primary: arrowKey,
+		},
+		// VSCodeVim (vscodevim.vim)
+		{
+			when: ContextKeyExpr.and(boundary, suggestNotVisible, ContextKeyExpr.equals('vim.mode', 'Normal')),
+			weight: KeybindingWeight.ExternalExtension + 1,
+			primary: arrowKey,
+			secondary: [vimKey],
+		},
+		{
+			when: ContextKeyExpr.and(boundary, suggestNotVisible, ContextKeyExpr.equals('vim.mode', 'Insert')),
+			weight: KeybindingWeight.ExternalExtension + 1,
+			primary: arrowKey,
+		},
+		// vscode-neovim (asvetliakov.vscode-neovim)
+		{
+			when: ContextKeyExpr.and(boundary, suggestNotVisible, ContextKeyExpr.equals('neovim.mode', 'normal')),
+			weight: KeybindingWeight.ExternalExtension + 1,
+			primary: arrowKey,
+			secondary: [vimKey],
+		},
+		{
+			when: ContextKeyExpr.and(boundary, suggestNotVisible, ContextKeyExpr.equals('neovim.mode', 'insert')),
+			weight: KeybindingWeight.ExternalExtension + 1,
+			primary: arrowKey,
+		},
+	];
+}
+
+/**
+ * Move the cursor into an adjacent cell after crossing a cell boundary.
+ * Lands on the first line (moving down) or the end of the last line (moving
+ * up), so repeated presses walk through every line of the notebook.
+ */
+async function crossIntoCell(notebook: IPositronNotebookInstance, target: IPositronNotebookCell, direction: 'up' | 'down'): Promise<void> {
+	// Scroll first so the target is on-screen before it takes focus.
+	await target.reveal({ reason: 'keyboardNavigation', direction });
+
+	// Markdown cells in preview mode have no editor to land in: select the
+	// cell in command mode instead (mirrors the upstream notebook's
+	// 'container' focus). Further arrow presses continue cell-to-cell via
+	// selectUp/selectDown.
+	if (target.isMarkdownCell() && !target.editorShown.get()) {
+		notebook.selectionStateMachine.selectCell(target, CellSelectionType.Normal);
+		target.container?.focus();
+		return;
+	}
+
+	await notebook.selectionStateMachine.enterEditor(target);
+	const editor = target.currentEditor;
+	if (!editor) {
+		return;
+	}
+	const model = editor.getModel();
+	const position = direction === 'down' || !model
+		? new Position(1, 1)
+		: new Position(model.getLineCount(), model.getLineMaxColumn(model.getLineCount()));
+	editor.setPosition(position);
+	editor.revealPosition(position, ScrollType.Immediate);
+}
+
+// Down/j at the last line of a cell: move the cursor into the next cell
+export class FocusNextCellEditorAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.focusNextCellEditor',
+			title: localize2('positronNotebook.focusNextCellEditor', "Focus Next Cell Editor"),
+			// The action manages focus itself; grabbing focus first would pull
+			// it out of the source cell editor before the handler runs.
+			grabFocusOnRun: false,
+			keybinding: crossCellKeybindings('down'),
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): Promise<void> {
+		const state = notebook.selectionStateMachine.state.get();
+		if (state.type !== SelectionState.EditingSelection) {
+			return;
+		}
+		const cells = notebook.cells.get();
+		const target = cells[cells.indexOf(state.active) + 1];
+		if (!target) {
+			return;
+		}
+		await crossIntoCell(notebook, target, 'down');
+	}
+}
+registerAction2(FocusNextCellEditorAction);
+
+// Up/k at the first line of a cell: move the cursor into the previous cell
+export class FocusPreviousCellEditorAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.focusPreviousCellEditor',
+			title: localize2('positronNotebook.focusPreviousCellEditor', "Focus Previous Cell Editor"),
+			// The action manages focus itself; grabbing focus first would pull
+			// it out of the source cell editor before the handler runs.
+			grabFocusOnRun: false,
+			keybinding: crossCellKeybindings('up'),
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): Promise<void> {
+		const state = notebook.selectionStateMachine.state.get();
+		if (state.type !== SelectionState.EditingSelection) {
+			return;
+		}
+		const cells = notebook.cells.get();
+		const index = cells.indexOf(state.active);
+		if (index < 1) {
+			return;
+		}
+		await crossIntoCell(notebook, cells[index - 1], 'up');
+	}
+}
+registerAction2(FocusPreviousCellEditorAction);
 
 // Enter key: Enter edit mode when cell is selected but NOT editing
 export class EnterEditModeAction extends NotebookAction2 {

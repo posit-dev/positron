@@ -12,6 +12,18 @@ export namespace NotebookContextKeys {
 	export const editorFocused = new RawContextKey<boolean>('positronNotebookEditorFocused', false, { type: 'boolean', description: localize('positronNotebookFocused', "Whether a Positron notebook editor or a notebook editor widget (e.g. a cell editor or the find widget) has focus") });
 	/** Set when a cell editor (Monaco editor within a notebook cell) is focused. */
 	export const cellEditorFocused = new RawContextKey<boolean>('positronNotebookCellEditorFocused', false, { type: 'boolean', description: localize('positronNotebookCellEditorFocused', "Whether a code editor within a Positron notebook cell is focused") });
+	/**
+	 * Where the cursor sits relative to the focused cell editor's view lines.
+	 * 'top' = first view line, 'bottom' = last view line, 'both' = single-line
+	 * editor, 'none' = neither (or a non-empty selection).
+	 */
+	export const cursorAtBoundary = new RawContextKey<'none' | 'top' | 'bottom' | 'both'>('positronNotebookCursorAtBoundary', 'none', { type: 'string', description: localize('positronNotebookCursorAtBoundary', "Whether the cursor in a Positron notebook cell editor is on the first view line ('top'), last view line ('bottom'), both ('both'), or neither ('none')") });
+	/**
+	 * Where the cursor sits within its line in the focused cell editor.
+	 * 'start' = column 1, 'end' = last column, 'both' = empty line, 'none' =
+	 * neither (or a non-empty selection).
+	 */
+	export const cursorAtLineBoundary = new RawContextKey<'none' | 'start' | 'end' | 'both'>('positronNotebookCursorAtLineBoundary', 'none', { type: 'string', description: localize('positronNotebookCursorAtLineBoundary', "Whether the cursor in a Positron notebook cell editor is at the start of its line ('start'), the end ('end'), both ('both'), or neither ('none')") });
 	/** Mirrors the `positron.notebook.experimental` configuration. */
 	export const experimental = new RawContextKey<boolean>('positronNotebook.experimental', false, { type: 'boolean', description: localize('positronNotebookExperimental', "Whether experimental Positron Notebook features are enabled") });
 	/** Composite notebook AI gate: true only when both `ai.enabled` and `notebook.ai.enabled` are on. Derived from configuration; see `bindNotebookAIEnabledContextKey`. Bound (default `true`) before any notebook editor opens, so it's never read unbound in practice; if it were, the expression form (`precondition`/`when`) reads unset as `false` (fail-closed) while `getValue`/`useContextKey` consumers use `!== false` (default-enabled). */

@@ -22,6 +22,8 @@ import {
 	ExecuteAndSelectBelowAction,
 	ExecuteOrToggleEditorAction,
 	ExitEditModeAction,
+	FocusNextCellEditorAction,
+	FocusPreviousCellEditorAction,
 	InterruptKernelAction,
 	MoveCellDownAction,
 	MoveCellUpAction,
@@ -67,6 +69,16 @@ describe('Positron Notebook keyboard shortcuts', () => {
 		}
 	}
 	class TestableExitEditMode extends ExitEditModeAction {
+		testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+			return this.runNotebookAction(notebook, accessor);
+		}
+	}
+	class TestableFocusNextCellEditor extends FocusNextCellEditorAction {
+		testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+			return this.runNotebookAction(notebook, accessor);
+		}
+	}
+	class TestableFocusPreviousCellEditor extends FocusPreviousCellEditorAction {
 		testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
 			return this.runNotebookAction(notebook, accessor);
 		}
@@ -271,6 +283,128 @@ describe('Positron Notebook keyboard shortcuts', () => {
 			new TestableExitEditMode().testRun(notebook, unusedAccessor);
 
 			expect(exitEditor).toHaveBeenCalledOnce();
+		});
+	});
+
+	describe('Down / Up at cell boundary (Focus Next/Previous Cell Editor)', () => {
+		it('declares Down gated on the cursor boundary context keys, plus vim overrides', () => {
+			const action = new FocusNextCellEditorAction();
+			const keybindings = action.desc.keybinding;
+			expect(Array.isArray(keybindings)).toBe(true);
+			if (!Array.isArray(keybindings)) { return; }
+			for (const keybinding of keybindings) {
+				expect(keybinding.primary).toBe(KeyCode.DownArrow);
+				const keys = keybinding.when?.keys() ?? [];
+				expect(keys).toContain(NotebookContextKeys.cellEditorFocused.key);
+				expect(keys).toContain(NotebookContextKeys.cursorAtBoundary.key);
+				expect(keys).toContain(NotebookContextKeys.cursorAtLineBoundary.key);
+			}
+			// Vim overrides reclaim j and the arrow from vim emulation extensions.
+			const allKeys = keybindings.flatMap(kb => kb.when?.keys() ?? []);
+			expect(allKeys).toContain('vim.mode');
+			expect(allKeys).toContain('neovim.mode');
+			const secondaries = keybindings.flatMap(kb => kb.secondary ?? []);
+			expect(secondaries).toContain(KeyCode.KeyJ);
+		});
+
+		it('declares Up gated on the cursor boundary context keys, plus vim overrides', () => {
+			const action = new FocusPreviousCellEditorAction();
+			const keybindings = action.desc.keybinding;
+			expect(Array.isArray(keybindings)).toBe(true);
+			if (!Array.isArray(keybindings)) { return; }
+			for (const keybinding of keybindings) {
+				expect(keybinding.primary).toBe(KeyCode.UpArrow);
+				const keys = keybinding.when?.keys() ?? [];
+				expect(keys).toContain(NotebookContextKeys.cellEditorFocused.key);
+				expect(keys).toContain(NotebookContextKeys.cursorAtBoundary.key);
+				expect(keys).toContain(NotebookContextKeys.cursorAtLineBoundary.key);
+			}
+			const allKeys = keybindings.flatMap(kb => kb.when?.keys() ?? []);
+			expect(allKeys).toContain('vim.mode');
+			expect(allKeys).toContain('neovim.mode');
+			const secondaries = keybindings.flatMap(kb => kb.secondary ?? []);
+			expect(secondaries).toContain(KeyCode.KeyK);
+		});
+
+		it('enters the next cell editor when editing', async () => {
+			const active = stubInterface<IPositronNotebookCell>({});
+			const enterEditor = vi.fn().mockResolvedValue(undefined);
+			const target = stubInterface<IPositronNotebookCell>({
+				reveal: vi.fn().mockResolvedValue(true),
+				isMarkdownCell: () => false,
+				currentEditor: undefined,
+			});
+			const notebook = stubInterface<IPositronNotebookInstance>({
+				cells: observableValue('cells', [active, target]),
+				selectionStateMachine: {
+					state: observableValue('state', { type: SelectionState.EditingSelection, active }),
+					enterEditor,
+				} as unknown as SelectionStateMachine,
+			});
+
+			await new TestableFocusNextCellEditor().testRun(notebook, unusedAccessor);
+
+			expect(target.reveal).toHaveBeenCalledWith({ reason: 'keyboardNavigation', direction: 'down' });
+			expect(enterEditor).toHaveBeenCalledWith(target);
+		});
+
+		it('selects a preview markdown cell in command mode instead of entering its editor', async () => {
+			const active = stubInterface<IPositronNotebookCell>({});
+			const enterEditor = vi.fn().mockResolvedValue(undefined);
+			const selectCell = vi.fn();
+			const target = stubInterface<IPositronNotebookCell>({
+				reveal: vi.fn().mockResolvedValue(true),
+				isMarkdownCell: () => true,
+				editorShown: observableValue('editorShown', false),
+				container: undefined,
+			});
+			const notebook = stubInterface<IPositronNotebookInstance>({
+				cells: observableValue('cells', [target, active]),
+				selectionStateMachine: {
+					state: observableValue('state', { type: SelectionState.EditingSelection, active }),
+					enterEditor,
+					selectCell,
+				} as unknown as SelectionStateMachine,
+			});
+
+			await new TestableFocusPreviousCellEditor().testRun(notebook, unusedAccessor);
+
+			expect(selectCell).toHaveBeenCalledWith(target, CellSelectionType.Normal);
+			expect(enterEditor).not.toHaveBeenCalled();
+		});
+
+		it('does nothing when not in edit mode', async () => {
+			const active = stubInterface<IPositronNotebookCell>({});
+			const enterEditor = vi.fn();
+			const notebook = stubInterface<IPositronNotebookInstance>({
+				cells: observableValue('cells', [active]),
+				selectionStateMachine: {
+					state: observableValue('state', { type: SelectionState.SingleSelection, active }),
+					enterEditor,
+				} as unknown as SelectionStateMachine,
+			});
+
+			await new TestableFocusNextCellEditor().testRun(notebook, unusedAccessor);
+			await new TestableFocusPreviousCellEditor().testRun(notebook, unusedAccessor);
+
+			expect(enterEditor).not.toHaveBeenCalled();
+		});
+
+		it('does nothing at the ends of the notebook', async () => {
+			const active = stubInterface<IPositronNotebookCell>({});
+			const enterEditor = vi.fn();
+			const notebook = stubInterface<IPositronNotebookInstance>({
+				cells: observableValue('cells', [active]),
+				selectionStateMachine: {
+					state: observableValue('state', { type: SelectionState.EditingSelection, active }),
+					enterEditor,
+				} as unknown as SelectionStateMachine,
+			});
+
+			await new TestableFocusNextCellEditor().testRun(notebook, unusedAccessor);
+			await new TestableFocusPreviousCellEditor().testRun(notebook, unusedAccessor);
+
+			expect(enterEditor).not.toHaveBeenCalled();
 		});
 	});
 

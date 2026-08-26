@@ -27,6 +27,7 @@ import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
+import { computeCursorAtBoundary, computeCursorAtLineBoundary } from './cellCursorBoundary.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
@@ -172,6 +173,20 @@ function createCellEditor(
 	// Bind the cell editor focused context key to the editor's internal scoped service
 	// (CodeEditorWidget creates this synchronously in its constructor)
 	const cellEditorFocusedKey = NotebookContextKeys.cellEditorFocused.bindTo(editor.contextKeyService);
+
+	// Track whether the cursor sits at the editor's boundaries so the
+	// focusNextCellEditor/focusPreviousCellEditor keybindings only claim
+	// Up/Down when there is no line left to move to within this cell.
+	const cursorAtBoundaryKey = NotebookContextKeys.cursorAtBoundary.bindTo(editor.contextKeyService);
+	const cursorAtLineBoundaryKey = NotebookContextKeys.cursorAtLineBoundary.bindTo(editor.contextKeyService);
+	const updateCursorBoundaryKeys = () => {
+		cursorAtBoundaryKey.set(computeCursorAtBoundary(editor));
+		cursorAtLineBoundaryKey.set(computeCursorAtLineBoundary(editor));
+	};
+	disposables.add(editor.onDidChangeCursorSelection(updateCursorBoundaryKeys));
+	// Recompute when the model arrives (setModel resolves asynchronously below)
+	disposables.add(editor.onDidChangeModel(updateCursorBoundaryKeys));
+	updateCursorBoundaryKeys();
 
 	// Track whether the most recent mousedown had modifier keys held.
 	// Monaco's _onMouseDown calls focus() BEFORE emitting onMouseDown,
