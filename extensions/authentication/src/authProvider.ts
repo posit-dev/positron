@@ -210,27 +210,28 @@ export class AuthProvider
 		_options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession> {
 		if (this.credentialChain) {
-			const noCredentials = () => new Error(
-				vscode.l10n.t(
-					'No credentials found for {0}. Configure credentials ' +
-					'using the provider CLI or environment variables.',
-					this.displayName
-				)
-			);
 			let session: vscode.AuthenticationSession | undefined;
+			let cause: unknown;
 			try {
 				session = await this.resolveChainCredentialsOrThrow();
 			} catch (err) {
+				cause = err;
+			}
+			if (!session) {
 				// Keep the actionable message the user sees, but chain the real
 				// failure beneath it so a caller that can recover from a specific
 				// cause -- an expired AWS SSO session, say -- can still find it.
+				// `cause` stays undefined when the chain simply produced nothing.
 				// `lib: es2020` has no `new Error(msg, { cause })`.
-				const error = noCredentials();
-				(error as { cause?: unknown }).cause = err;
+				const error = new Error(
+					vscode.l10n.t(
+						'No credentials found for {0}. Configure credentials ' +
+						'using the provider CLI or environment variables.',
+						this.displayName
+					)
+				);
+				(error as { cause?: unknown }).cause = cause;
 				throw error;
-			}
-			if (!session) {
-				throw noCredentials();
 			}
 			return session;
 		}
