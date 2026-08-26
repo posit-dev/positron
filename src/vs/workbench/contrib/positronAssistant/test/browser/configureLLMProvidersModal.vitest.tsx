@@ -14,6 +14,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IPositronAssistantConfigurationService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
 import { ConfigureLLMProviders, PendingSignIn } from '../../browser/configureLLMProvidersModal.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { makeDialogRenderer } from './providerModalTestUtils.js';
 
 const positAi: IPositronLanguageModelSource = {
@@ -51,12 +52,13 @@ describe('ConfigureLLMProviders', () => {
 		preselectedProviderId?: string,
 		onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void> = async () => { },
 		pendingSignIn: PendingSignIn = {},
+		renderer: PositronModalReactRenderer = makeDialogRenderer(),
 	) {
 		return rtl.render(
 			<ConfigureLLMProviders
 				pendingSignIn={pendingSignIn}
 				preselectedProviderId={preselectedProviderId}
-				renderer={makeDialogRenderer()}
+				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
 			/>
@@ -216,6 +218,21 @@ describe('ConfigureLLMProviders', () => {
 		expect(pendingSignIn.cancel).toBeUndefined();
 		await user.click(screen.getByRole('button', { name: 'Back' }));
 		expect(actions).toStrictEqual(['oauth-signin']);
+	});
+
+	// Each view mounts its own dialog, so arriving at one is a fresh dialog taking focus. It takes
+	// focus on the box rather than on the first control, which is the title bar's close button, so
+	// Enter straight after a view change does not dismiss the modal.
+	it('does not close when Enter follows a view change', async () => {
+		const user = userEvent.setup();
+		let disposeCount = 0;
+		renderModal([anthropic], undefined, undefined, undefined, makeDialogRenderer(() => { disposeCount++; }));
+
+		await user.click(screen.getByTestId('provider-action-anthropic-api'));
+		await user.keyboard('{Enter}');
+
+		expect({ disposeCount, onConnectView: !!screen.queryByTestId('provider-connect-view') })
+			.toStrictEqual({ disposeCount: 0, onConnectView: true });
 	});
 
 	it('cancels an in-flight OAuth sign-in when Back returns to the list', async () => {

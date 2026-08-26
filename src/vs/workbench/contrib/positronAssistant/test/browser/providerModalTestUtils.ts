@@ -10,12 +10,15 @@ import { PositronModalReactRenderer } from '../../../../../base/browser/positron
 /**
  * A renderer for view tests. PositronDynamicModalDialog reads onResize and onKeyDown from it
  * while mounted; dispose is there for the close paths.
+ *
+ * @param onDispose Called instead of the no-op when the modal disposes the renderer, for a test
+ * that asserts whether a given interaction closes the modal.
  */
-export function makeDialogRenderer(): PositronModalReactRenderer {
+export function makeDialogRenderer(onDispose: () => void = () => { }): PositronModalReactRenderer {
 	return stubInterface<PositronModalReactRenderer>({
 		onKeyDown: new Emitter<KeyboardEvent>().event,
 		onResize: new Emitter<UIEvent>().event,
-		dispose: () => { },
+		dispose: onDispose,
 	});
 }
 
