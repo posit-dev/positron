@@ -110,10 +110,34 @@ export class SsoLoginError extends Error {
 }
 
 /**
+ * Classify a spawn failure. `spawn` reports these two ways -- an `'error'` event,
+ * or a synchronous throw, which is how Node refuses to run a `.bat`/`.cmd` shim
+ * without a shell (the CVE-2024-27980 mitigation) -- and both have to reach the
+ * caller as the same actionable reason.
+ */
+function toSsoLoginError(err: unknown): SsoLoginError {
+	const code = (err as NodeJS.ErrnoException | undefined)?.code;
+	// ENOENT: nothing named `aws` on PATH -- note Windows CreateProcess only
+	// appends `.exe`, so a shim-only install lands here too. EACCES: found but
+	// not executable. EINVAL: the `.bat`/`.cmd` refusal above. All three mean
+	// there is no usable CLI to run, not that the login itself failed.
+	const reason = code === 'ENOENT' || code === 'EACCES' || code === 'EINVAL'
+		? 'cli-missing'
+		: 'login-failed';
+	return new SsoLoginError(
+		reason,
+		err instanceof Error ? err.message : String(err)
+	);
+}
+
+/**
  * Run `aws sso login`, resolving when the CLI exits cleanly. The CLI opens the
  * user's browser and polls for approval itself, so there is nothing to drive
  * here beyond watching the process. Output is logged to the AWS channel;
  * failures carry a `reason` the caller turns into a user-facing message.
+ *
+ * Never passes `shell: true`: the profile name comes from the provider catalog,
+ * so a shell would make it a command-injection vector.
  */
 export function runSsoLogin(
 	profile: string | undefined,
@@ -126,7 +150,15 @@ export function runSsoLogin(
 	logger.info(`Running: aws ${args.join(' ')}`);
 
 	return new Promise<void>((resolve, reject) => {
-		const child = spawnFn('aws', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+		let child: SsoLoginProcess;
+		try {
+			child = spawnFn('aws', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+		} catch (err) {
+			// Thrown before any timer or listener exists, so reject directly
+			// rather than going through `finish`.
+			reject(toSsoLoginError(err));
+			return;
+		}
 		let stderrText = '';
 		let settled = false;
 
@@ -175,17 +207,7 @@ export function runSsoLogin(
 			}
 		});
 		child.on('error', (err: NodeJS.ErrnoException) => {
-			const code = err.code;
-			// ENOENT: no `aws` on PATH. EACCES: found but not executable.
-			// EINVAL: Windows spawning a .cmd/.bat shim without a shell, which
-			// Node refuses by default as of the CVE-2024-27980 fix. All three
-			// mean there is no usable CLI to run, not that the login itself
-			// failed.
-			finish(new SsoLoginError(
-				code === 'ENOENT' || code === 'EACCES' || code === 'EINVAL'
-					? 'cli-missing' : 'login-failed',
-				err.message
-			));
+			finish(toSsoLoginError(err));
 		});
 		child.on('close', (code: number | null) => {
 			if (code === 0) {

@@ -167,6 +167,25 @@ suite('runSsoLogin', () => {
 		assert.deepStrictEqual(results, ['cli-missing', 'cli-missing', 'cli-missing']);
 	});
 
+	test('classifies a synchronous spawn throw the same as an error event', async () => {
+		// Node refuses to spawn a .bat/.cmd shim without a shell by throwing
+		// rather than emitting 'error', so the classification cannot live only
+		// in the event handler.
+		const throwingSpawnFn: SpawnFn = () => {
+			const spawnError: NodeJS.ErrnoException = new Error('spawn aws EINVAL');
+			spawnError.code = 'EINVAL';
+			throw spawnError;
+		};
+
+		const err = await runSsoLogin('sso-dev', cancellation.token, throwingSpawnFn)
+			.then(() => undefined, (e: unknown) => e);
+
+		assert.deepStrictEqual(
+			[(err as SsoLoginError).reason, (err as SsoLoginError).name],
+			['cli-missing', 'SsoLoginError']
+		);
+	});
+
 	test('cancellation kills the child and reports cancelled', async () => {
 		const pending = runSsoLogin(undefined, cancellation.token, spawnFn);
 		cancellation.cancel();
