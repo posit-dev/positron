@@ -7,8 +7,6 @@ import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { IPositronLanguageModelSource, LanguageModelAutoconfigureType } from '../../common/interfaces/positronAssistantService.js';
 import { ProviderSectionId } from '../../common/providerGrouping.js';
-import { deriveAuthMethod } from '../providerConnection.js';
-import { AuthMethod } from '../types.js';
 import { LanguageModelIcon, getStatusLabel } from './languageModelButton.js';
 
 interface ProviderListItemProps {
@@ -21,7 +19,7 @@ interface ProviderListItemProps {
 	onAction?: () => void;
 }
 
-/** How a connected provider authenticated, shown as a badge. */
+/** Where an autoconfigured provider's credentials came from, shown as a badge. */
 function authBadgeLabel(source: IPositronLanguageModelSource): string | undefined {
 	const autoconfigure = source.defaults.autoconfigure;
 	if (autoconfigure?.type === LanguageModelAutoconfigureType.EnvVariable && autoconfigure.signedIn) {
@@ -30,9 +28,6 @@ function authBadgeLabel(source: IPositronLanguageModelSource): string | undefine
 	if (autoconfigure?.type === LanguageModelAutoconfigureType.Custom && autoconfigure.signedIn &&
 		autoconfigure.isPositWorkbench) {
 		return localize('positron.configureLLMProvidersModal.badge.pwbManaged', "PWB Managed");
-	}
-	if (deriveAuthMethod(source) === AuthMethod.OAUTH) {
-		return localize('positron.configureLLMProvidersModal.badge.oauth', "OAuth");
 	}
 	return undefined;
 }
