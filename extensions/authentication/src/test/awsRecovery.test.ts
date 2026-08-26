@@ -26,12 +26,12 @@ const CHAINED = wrapped(
 suite('createAwsSsoRecovery', () => {
 	test('ignores a failure that no login would fix', async () => {
 		let logins = 0;
-		const recovery = createAwsSsoRecovery({
+		const recover = createAwsSsoRecovery({
 			getProfile: () => undefined,
 			login: async () => { logins++; },
 		});
 
-		const recovered = await recovery.recover(
+		const recovered = await recover(
 			wrapped('No credentials found for AWS.', new Error('Could not load credentials from any providers'))
 		);
 
@@ -40,12 +40,12 @@ suite('createAwsSsoRecovery', () => {
 
 	test('classifies the cause chained beneath the generic message', async () => {
 		const profiles: Array<string | undefined> = [];
-		const recovery = createAwsSsoRecovery({
+		const recover = createAwsSsoRecovery({
 			getProfile: () => 'sso-dev',
 			login: async (profile) => { profiles.push(profile); },
 		});
 
-		const recovered = await recovery.recover(CHAINED);
+		const recovered = await recover(CHAINED);
 
 		assert.deepStrictEqual([recovered, profiles], [true, ['sso-dev']]);
 	});
@@ -54,13 +54,13 @@ suite('createAwsSsoRecovery', () => {
 		let logins = 0;
 		let release = () => { };
 		const gate = new Promise<void>(resolve => { release = resolve; });
-		const recovery = createAwsSsoRecovery({
+		const recover = createAwsSsoRecovery({
 			getProfile: () => undefined,
 			login: async () => { logins++; await gate; },
 		});
 
-		const first = recovery.recover(CHAINED);
-		const second = recovery.recover(CHAINED);
+		const first = recover(CHAINED);
+		const second = recover(CHAINED);
 		release();
 		const [firstResult, secondResult] = await Promise.all([first, second]);
 
@@ -73,48 +73,48 @@ suite('createAwsSsoRecovery', () => {
 		let logins = 0;
 		let release = () => { };
 		const gate = new Promise<void>(resolve => { release = resolve; });
-		const recovery = createAwsSsoRecovery({
+		const recover = createAwsSsoRecovery({
 			getProfile: () => undefined,
 			login: async () => { logins++; await gate; },
 		});
 
-		const sso = recovery.recover(CHAINED);
+		const sso = recover(CHAINED);
 		// Classification happens before the in-flight check, so a failure with no
 		// SSO cause is reported as unrecoverable rather than inheriting this
 		// login's outcome.
-		const unrelated = await recovery.recover(new Error('Could not load credentials from any providers'));
+		const unrelated = await recover(new Error('Could not load credentials from any providers'));
 		release();
 
 		assert.deepStrictEqual([unrelated, await sso, logins], [false, true, 1]);
 	});
 
 	test('cancellation reports no recovery without throwing', async () => {
-		const recovery = createAwsSsoRecovery({
+		const recover = createAwsSsoRecovery({
 			getProfile: () => undefined,
 			login: async () => { throw new SsoLoginError('cancelled', 'cancelled'); },
 		});
 
-		assert.strictEqual(await recovery.recover(CHAINED), false);
+		assert.strictEqual(await recover(CHAINED), false);
 	});
 
 	test('surfaces a missing CLI as an actionable error', async () => {
-		const recovery = createAwsSsoRecovery({
+		const recover = createAwsSsoRecovery({
 			getProfile: () => undefined,
 			login: async () => { throw new SsoLoginError('cli-missing', 'spawn aws ENOENT'); },
 		});
 
-		const err = await recovery.recover(CHAINED).then(() => undefined, (e: unknown) => e);
+		const err = await recover(CHAINED).then(() => undefined, (e: unknown) => e);
 
 		assert.match((err as Error).message, /AWS CLI/);
 	});
 
 	test('surfaces a failed login with the CLI reason', async () => {
-		const recovery = createAwsSsoRecovery({
+		const recover = createAwsSsoRecovery({
 			getProfile: () => undefined,
 			login: async () => { throw new SsoLoginError('login-failed', 'AccessDenied'); },
 		});
 
-		const err = await recovery.recover(CHAINED).then(() => undefined, (e: unknown) => e);
+		const err = await recover(CHAINED).then(() => undefined, (e: unknown) => e);
 
 		assert.match((err as Error).message, /AccessDenied/);
 	});

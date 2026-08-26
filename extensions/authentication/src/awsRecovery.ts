@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthProviderLogger } from './authProviderLogger';
+import type { RecoverCallback } from './configDialog';
 import {
 	classifyAwsChainError,
 	ExpiredSsoError,
@@ -13,16 +14,6 @@ import {
 } from './awsSso';
 
 const logger = new AuthProviderLogger('AWS');
-
-export interface AwsSsoRecovery {
-	/**
-	 * Re-run the SSO login when the failure warrants it. Returns true when the
-	 * caller should retry the connect, false when there was nothing to recover
-	 * or the user cancelled. Throws a user-facing error when the login was
-	 * attempted and failed.
-	 */
-	recover(err: unknown): Promise<boolean>;
-}
 
 export interface CreateAwsSsoRecoveryOptions {
 	/** The AWS profile from the provider catalog, when one is configured. */
@@ -34,7 +25,13 @@ export interface CreateAwsSsoRecoveryOptions {
 	) => Promise<void>;
 }
 
-export function createAwsSsoRecovery(options: CreateAwsSsoRecoveryOptions): AwsSsoRecovery {
+/**
+ * Build the `recover` hook for the AWS provider: it re-runs the SSO login when
+ * the failure warrants it, returning true when the caller should retry the
+ * connect and false when there was nothing to recover or the user cancelled. It
+ * throws a user-facing error when the login was attempted and failed.
+ */
+export function createAwsSsoRecovery(options: CreateAwsSsoRecoveryOptions): RecoverCallback {
 	const login = options.login ?? runSsoLogin;
 	let inFlight: Promise<boolean> | undefined;
 
@@ -72,20 +69,18 @@ export function createAwsSsoRecovery(options: CreateAwsSsoRecoveryOptions): AwsS
 		}
 	};
 
-	return {
-		async recover(err: unknown): Promise<boolean> {
-			const expired = classifyAwsChainError(err);
-			if (!expired) {
-				return false;
-			}
-			// A login already in flight is the answer for any concurrent caller
-			// with the same diagnosis: join it rather than spawning a second one.
-			if (inFlight) {
-				return inFlight;
-			}
-			inFlight = attempt(expired)
-				.finally(() => { inFlight = undefined; });
+	return async (err: unknown): Promise<boolean> => {
+		const expired = classifyAwsChainError(err);
+		if (!expired) {
+			return false;
+		}
+		// A login already in flight is the answer for any concurrent caller
+		// with the same diagnosis: join it rather than spawning a second one.
+		if (inFlight) {
 			return inFlight;
-		},
+		}
+		inFlight = attempt(expired)
+			.finally(() => { inFlight = undefined; });
+		return inFlight;
 	};
 }
