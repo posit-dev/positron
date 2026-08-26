@@ -40,10 +40,10 @@ const insightsReporters: ReporterDescription[] = [
 const projectName = process.env.PW_PROJECT_NAME || 'default';
 
 // A project's own testIgnore REPLACES this one rather than merging with it, so any
-// project that declares testIgnore has to spread `rootIgnore` back in. #15737 added a
+// project that declares testIgnore has to spread this back in. #15737 added a
 // memory-spec ignore to e2e-chromium and e2e-server without it, which re-enabled
 // example.test.ts and the lsp specs in the web lanes.
-const baseIgnore = [
+const rootIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
 	'**/connect/**',
@@ -51,11 +51,8 @@ const baseIgnore = [
 	'**/remote-wsl/**',
 	'**/assistant-eval/**',
 	'**/release-screenshots/**',
+	...(process.env.ALLOW_PYREFLY === 'true' ? [] : ['**/lsp/**']),
 ];
-
-const rootIgnore = process.env.ALLOW_PYREFLY === 'true'
-	? baseIgnore
-	: [...baseIgnore, '**/lsp/**'];
 
 let reporter: ReporterDescription[];
 if (process.env.CI) {
