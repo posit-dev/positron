@@ -565,22 +565,55 @@ registerAction2(EnterEditModeAction);
  */
 export class ExitEditModeAction extends NotebookAction2 {
 	constructor() {
+		const escapeGuards = [
+			// Don't exit when multiple selections are active (escape should cancel multi selection first #10385)
+			EditorContextKeys.hasMultipleSelections.toNegated(),
+			// Don't exit when text is selected (escape should deselect first)
+			EditorContextKeys.hasNonEmptySelection.toNegated(),
+			// Don't exit when a hover tooltip is shown (escape should dismiss hover first)
+			EditorContextKeys.hoverVisible.toNegated()
+		];
 		super({
 			id: 'positronNotebook.cell.quitEdit',
 			title: localize2('positronNotebook.cell.quitEdit', "Exit Cell Edit Mode"),
-			keybinding: {
-				when: ContextKeyExpr.and(
-					NotebookContextKeys.cellEditorFocused,
-					// Don't exit when multiple selections are active (escape should cancel multi selection first #10385)
-					EditorContextKeys.hasMultipleSelections.toNegated(),
-					// Don't exit when text is selected (escape should deselect first)
-					EditorContextKeys.hasNonEmptySelection.toNegated(),
-					// Don't exit when a hover tooltip is shown (escape should dismiss hover first)
-					EditorContextKeys.hoverVisible.toNegated()
-				),
-				weight: KeybindingWeight.EditorContrib,
-				primary: KeyCode.Escape
-			}
+			keybinding: [
+				{
+					when: ContextKeyExpr.and(
+						NotebookContextKeys.cellEditorFocused,
+						...escapeGuards
+					),
+					weight: KeybindingWeight.EditorContrib,
+					primary: KeyCode.Escape
+				},
+				// Vim emulation extensions bind Escape at extension weight, which
+				// outranks any core weight, so the rule above never fires while a
+				// vim extension owns the editor and users get stuck in edit mode.
+				// These rules reclaim Escape only in vim Normal mode (Insert/Visual
+				// still escape to Normal first, matching Jupyter vim conventions)
+				// by outweighing the extensions' bindings. They reference the
+				// extensions' own context keys, which are undefined (never equal)
+				// when the extension isn't installed, so the rules are inert then.
+				{
+					// VSCodeVim (vscodevim.vim)
+					when: ContextKeyExpr.and(
+						NotebookContextKeys.cellEditorFocused,
+						ContextKeyExpr.equals('vim.mode', 'Normal'),
+						...escapeGuards
+					),
+					weight: KeybindingWeight.ExternalExtension + 1,
+					primary: KeyCode.Escape
+				},
+				{
+					// vscode-neovim (asvetliakov.vscode-neovim)
+					when: ContextKeyExpr.and(
+						NotebookContextKeys.cellEditorFocused,
+						ContextKeyExpr.equals('neovim.mode', 'normal'),
+						...escapeGuards
+					),
+					weight: KeybindingWeight.ExternalExtension + 1,
+					primary: KeyCode.Escape
+				}
+			]
 		});
 	}
 
