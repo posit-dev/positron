@@ -10,7 +10,10 @@ export default defineConfig({
 		include: [
 			'src/vs/**/*.vitest.{ts,tsx}',
 			'src/*.vitest.{ts,tsx}',
-			'test/e2e/**/*.vitest.{ts,tsx}'
+			'test/e2e/**/*.vitest.{ts,tsx}',
+			// Built-in extensions opt in per file; only modules that do not import
+			// `vscode` can be loaded here.
+			'extensions/open-remote-ssh/**/*.vitest.{ts,tsx}'
 		],
 		environment: 'happy-dom',
 		globals: true,

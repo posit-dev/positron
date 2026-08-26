@@ -11,6 +11,7 @@ import * as crypto from 'crypto';
 import Log from './common/logger';
 import { getVSCodeServerConfig } from './serverConfig';
 import SSHConnection from './ssh/sshConnection';
+import { appendSshEnvironmentParam, buildEnvironmentProbeCommand, detectSshEnvironment, parseEnvironmentProbeOutput, SshEnvironment } from './common/sshEnvironment';
 
 export interface ServerInstallOptions {
 	id: string;
@@ -45,6 +46,31 @@ export class ServerInstallError extends Error {
 }
 
 const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz';
+
+/**
+ * Asks the remote host which of the probed environment variables it has set, to
+ * identify the kind of compute environment the server is about to be installed
+ * into. Runs before the install script, so the verdict can be reported on the
+ * download URL.
+ *
+ * Never throws: a host whose shell rejects the probe is simply unidentified, and
+ * must still be able to connect.
+ */
+async function probeSshEnvironment(conn: SSHConnection, logger: Log): Promise<SshEnvironment | undefined> {
+	try {
+		const result = await conn.exec(buildEnvironmentProbeCommand());
+		const setVariables = parseEnvironmentProbeOutput(result.stdout);
+		const environment = detectSshEnvironment(setVariables);
+		logger.trace(`Probed remote environment variables: ${setVariables.join(', ') || '(none)'}`);
+		if (environment) {
+			logger.info(`Detected remote compute environment: ${environment}`);
+		}
+		return environment;
+	} catch (e) {
+		logger.trace('Could not probe the remote environment', e);
+		return undefined;
+	}
+}
 
 /**
  * Converts a wildcard pattern to a regular expression.
@@ -128,6 +154,10 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
 		serverDataFolderName = matchedPath;
 	}
 
+	// Identify the remote's compute environment before anything is downloaded, so
+	// the download URL can report it to the CDN.
+	const sshEnvironment = await probeSshEnvironment(conn, logger);
+
 	const installOptions: ServerInstallOptions = {
 		id: scriptId,
 		version: vscodeServerConfig.version,
@@ -139,7 +169,10 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
 		useSocketPath,
 		serverApplicationName: vscodeServerConfig.serverApplicationName,
 		serverDataFolderName,
-		serverDownloadUrlTemplate: serverDownloadUrlTemplate || vscodeServerConfig.serverDownloadUrlTemplate || DEFAULT_DOWNLOAD_URL_TEMPLATE,
+		serverDownloadUrlTemplate: appendSshEnvironmentParam(
+			serverDownloadUrlTemplate || vscodeServerConfig.serverDownloadUrlTemplate || DEFAULT_DOWNLOAD_URL_TEMPLATE,
+			sshEnvironment
+		),
 	};
 
 	let commandOutput: { stdout: string; stderr: string };
@@ -415,9 +448,9 @@ if [[ ! -f $SERVER_SCRIPT ]]; then
 	rm -f vscode-server.tar.gz
 
 	if [[ ! -z $(which wget) ]]; then
-		wget --tries=3 --timeout=10 --continue --no-verbose -O vscode-server.tar.gz $SERVER_DOWNLOAD_URL
+		wget --tries=3 --timeout=10 --continue --no-verbose -O vscode-server.tar.gz "$SERVER_DOWNLOAD_URL"
 	elif [[ ! -z $(which curl) ]]; then
-		curl --retry 3 --connect-timeout 10 --location --show-error --silent --output vscode-server.tar.gz $SERVER_DOWNLOAD_URL
+		curl --retry 3 --connect-timeout 10 --location --show-error --silent --output vscode-server.tar.gz "$SERVER_DOWNLOAD_URL"
 	else
 		echo "Error no tool to download server binary"
 		print_install_results_and_exit 1
