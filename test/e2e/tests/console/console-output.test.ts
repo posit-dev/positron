@@ -26,7 +26,10 @@ test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE, tags.WEB] }, () 
 		await app.workbench.console.waitForReady('>>>');
 
 		const el = app.workbench.console.activeConsole;
-		expect(await el.evaluate((el) => el.scrollWidth)).toBeLessThanOrEqual(await el.evaluate((el) => el.clientWidth));
+		// Measure both dimensions in one evaluate: read separately, the vertical
+		// scrollbar can appear between the two reads and shrink clientWidth by its
+		// own width, reporting overflow that never existed at any single instant.
+		await expect.poll(async () => el.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(0);
 	});
 });
 
