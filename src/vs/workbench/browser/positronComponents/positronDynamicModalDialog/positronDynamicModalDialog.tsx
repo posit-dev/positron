@@ -300,7 +300,12 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 				*/}
 				<form className='positron-dynamic-modal-dialog-form' onSubmit={event => event.preventDefault()}>
 					<div className='content-area' style={{
-						minHeight: props.contentMinHeight,
+						// The starting size rather than a floor. A min-height would be one, and a
+						// floor cannot be crossed by flex shrinking, so the content area would
+						// refuse to give up room and push the footer out of the bottom of a box
+						// that has hit its height ceiling. As a basis it still holds this size
+						// whenever there is room for it.
+						flexBasis: props.contentMinHeight,
 						maxHeight: props.contentMaxHeight,
 					}}>
 						{props.content}

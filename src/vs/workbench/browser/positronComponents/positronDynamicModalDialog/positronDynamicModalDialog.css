@@ -43,11 +43,20 @@
 	display: contents;
 }
 
-/* Positron Modal Dialog - flex column layout */
+/*
+ * Positron Modal Dialog - flex column layout.
+ *
+ * The box is as tall as its content, so the ceiling here is what stops tall content from drawing a
+ * box taller than the window. Without it the box keeps growing downward from the top edge it was
+ * centered at, and the footer, with the dialog's primary button in it, ends up below the bottom of
+ * the window where nothing can scroll to it. The 80px is the kGutter the component positions by,
+ * top and bottom. Once the box stops growing, .content-area takes over and scrolls.
+ */
 .positron-dynamic-modal-dialog-box {
 	display: flex;
 	overflow: hidden;
 	position: absolute;
+	max-height: calc(100% - 80px);
 	border-radius: 5px;
 	flex-direction: column;
 	color: var(--vscode-positronModalDialog-foreground);
