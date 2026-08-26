@@ -31,8 +31,12 @@ test.use({
 // assertion would pass on the error text that a rejected token renders.
 const HELLO_PROMPT = 'Reply with only the word hello.';
 
+// WIN covers the Windows lane and, because the e2e-macOS-ci project greps /@:win/, the
+// macOS one too. Unlike Databricks -- which rides on the DATABRICKS_* vars those lanes
+// already export for the catalog-explorer suite -- Snowflake had no credentials there, so
+// SNOWFLAKE_ACCOUNT and SNOWFLAKE_API_KEY were added to both workflows for this test.
 test.describe('Posit Assistant - Snowflake Cortex API Key', {
-	tag: [tags.ASSISTANT, tags.WEB],
+	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
 	test('Sign in with an API key, send hello, sign out', async function ({ app }) {
 		test.skip(!process.env.SNOWFLAKE_API_KEY || !process.env.SNOWFLAKE_ACCOUNT,
@@ -40,7 +44,8 @@ test.describe('Posit Assistant - Snowflake Cortex API Key', {
 
 		// SNOWFLAKE_API_KEY / SNOWFLAKE_ACCOUNT, resolved by the page object from the
 		// provider's env var names. SNOWFLAKE_ACCOUNT is already present on the Linux
-		// lanes for the data-connections Snowflake suite.
+		// lanes for the data-connections Snowflake suite; both are exported on the
+		// Windows and macOS lanes for this test.
 		await app.workbench.modelProviderModal.loginModelProvider(provider);
 
 		try {
