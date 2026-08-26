@@ -9,7 +9,10 @@ import type { TestProtocolClient } from '../../serverIntegrationTestHelpers.js';
 import { defineCoreTests } from './coreSuite.js';
 import { defineCustomizationDiscoveryTests } from './customizationDiscoverySuite.js';
 import { defineAnnotationsTests } from './annotationsSuite.js';
-import { defineChangesetTests } from './changesetSuite.js';
+// --- Start Positron ---
+// Disabled in Positron: see the defineChangesetTests call site below.
+// import { defineChangesetTests } from './changesetSuite.js';
+// --- End Positron ---
 import { defineClientFilesystemTests } from './clientFilesystemSuite.js';
 import { defineProtocolContractTests } from './protocolContractsSuite.js';
 import { defineServerToolsTests } from './serverToolsSuite.js';
@@ -164,7 +167,13 @@ function defineSuite(config: IAgentHostE2EProviderConfig, options: IDefineOption
 		// peer turns and capability advertisement are provider-dependent
 		// (parity). The registrars self-select on `context.tier`.
 		defineMultiChatTests(context);
-		defineChangesetTests(context);
+		// --- Start Positron ---
+		// The changeset conformance suite (new upstream in the 1.134 merge) relies on
+		// git change-summary propagation that does not hold up in Positron's environment;
+		// Positron does not ship the agent host, so these are disabled rather than chased.
+		// Re-enable if/when the agent host and its changeset feature become relevant.
+		// defineChangesetTests(context);
+		// --- End Positron ---
 		defineMcpPluginTests(context);
 		defineServerToolsTests(context);
 		defineCustomizationDiscoveryTests(context);
