@@ -21,7 +21,7 @@ import { IStateService } from '../../../state/node/state.js';
 import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { AbstractUpdateService } from '../../electron-main/abstractUpdateService.js';
-import { State, StateType } from '../../common/update.js';
+import { State, StateType, UpdateType } from '../../common/update.js';
 
 // The interfaces above come from `electron-main` files whose import chain pulls in the real
 // `electron` package, and requiring that package runs a postinstall shim that downloads the
@@ -180,10 +180,16 @@ describe('AbstractUpdateService overwrite updates', () => {
 	let cancelFails: boolean;
 	/** Whether the fake connection reports itself as metered. */
 	let metered: boolean;
+	/** How long a pending update waits before re-checking the feed; kept long unless a test wants it. */
+	let overwriteCheckIntervalMs: number;
 
 	class TestUpdateService extends AbstractUpdateService {
 		protected override doCheckForUpdates(_explicit: boolean, pendingCommit?: string): void {
 			calls.push(`doCheckForUpdates(${pendingCommit})`);
+		}
+
+		protected override get overwriteCheckIntervalMs(): number {
+			return overwriteCheckIntervalMs;
 		}
 
 		protected override buildUpdateFeedUrl(): string | undefined { return undefined; }
@@ -208,6 +214,11 @@ describe('AbstractUpdateService overwrite updates', () => {
 		becomeReady(): void {
 			this.setFeed();
 			this.setState(State.Ready({ version: PENDING_VERSION }, false, false));
+		}
+
+		/** Leaving Ready, e.g. because updates were disabled after the update was staged. */
+		backToIdle(): void {
+			this.setState(State.Idle(UpdateType.Archive));
 		}
 	}
 
@@ -260,6 +271,8 @@ describe('AbstractUpdateService overwrite updates', () => {
 		feedVersion = PENDING_VERSION;
 		cancelFails = false;
 		metered = false;
+		// Long enough that the interval never fires unless a test shortens it.
+		overwriteCheckIntervalMs = 60 * 60 * 1000;
 	});
 
 	describe('quitAndInstall', () => {
@@ -331,6 +344,66 @@ describe('AbstractUpdateService overwrite updates', () => {
 			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
 
 			expect(calls).toEqual(['cancelPendingUpdate', 'quit', 'doQuitAndInstall']);
+			service.dispose();
+		});
+	});
+
+	describe('automatic overwrite checks', () => {
+
+		// A pending update can sit in Ready for hours while a newer build ships, so the service
+		// re-checks the feed on an interval rather than waiting for the user to hit restart.
+
+		it('starts an overwrite when a newer version ships while an update is pending', async () => {
+			feedVersion = '2026.09.0-2';
+			overwriteCheckIntervalMs = 5;
+			const service = createService();
+			service.becomeReady();
+
+			await vi.waitFor(() => expect(service.state.type).toBe(StateType.Overwriting));
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			service.dispose();
+		});
+
+		it('leaves the pending update alone while the feed still advertises it', async () => {
+			overwriteCheckIntervalMs = 5;
+			const service = createService();
+			service.becomeReady();
+
+			// Several intervals' worth, so a check that wrongly fired has time to show up.
+			await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+			expect(calls).toEqual([]);
+			expect(service.state.type).toBe(StateType.Ready);
+			service.dispose();
+		});
+
+		it('defers the check on a metered connection, so no background download starts', async () => {
+			// Unlike the restart, which is explicit, this check is automatic: on a metered
+			// connection it must not spend the user's data re-downloading the update.
+			feedVersion = '2026.09.0-2';
+			metered = true;
+			overwriteCheckIntervalMs = 5;
+			const service = createService();
+			service.becomeReady();
+
+			await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+			expect(calls).toEqual([]);
+			expect(service.state.type).toBe(StateType.Ready);
+			service.dispose();
+		});
+
+		it('stops checking once the pending update is gone', async () => {
+			feedVersion = '2026.09.0-2';
+			overwriteCheckIntervalMs = 5;
+			const service = createService();
+			service.becomeReady();
+			service.backToIdle();
+
+			await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+			expect(calls).toEqual([]);
 			service.dispose();
 		});
 	});

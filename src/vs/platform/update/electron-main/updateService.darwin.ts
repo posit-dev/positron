@@ -121,9 +121,19 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		// Always use automatic architecture detection
 		const platform = 'mac/' + arch();
 		const url = createUpdateURL(platform, channel, this.productService) + '/releases.json';
+
 		try {
 			electron.autoUpdater.setFeedURL({ url: url });
 		} catch (e) {
+			// --- Start Positron ---
+			// A source build is unsigned, so the auto-updater always rejects the feed. Dev update
+			// testing only exercises the check, which goes through the request service, so keep the
+			// URL rather than disabling updates outright.
+			if (this.devUpdateTesting) {
+				this.logService.info('update#buildUpdateFeedUrl - unbuilt Positron cannot use the Electron autoUpdater; checking the feed directly', url);
+				return url;
+			}
+			// --- End Positron ---
 			// application is very likely not signed
 			this.logService.error('Failed to set update feed URL', e);
 			return undefined;
@@ -206,6 +216,11 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			return;
 		}
 
+		if (this.devUpdateTesting) {
+			this.simulateStagedUpdate(update, false);
+			return;
+		}
+
 		if (!this.enableAutoUpdate) {
 			super.updateAvailable(update);
 		} else {
@@ -236,6 +251,12 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 			if (update && update.url && update.version && update.productVersion && hasUpdate(update, pendingCommit)) {
 				this.logService.trace('update#checkForOverwriteDownload - newer update confirmed, downloading', { version: update.version });
+				// --- Start Positron ---
+				if (this.devUpdateTesting) {
+					this.simulateStagedUpdate(update, explicit);
+					return;
+				}
+				// --- End Positron ---
 				electron.autoUpdater.checkForUpdates();
 				return;
 			}
@@ -246,6 +267,19 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		}
 
 		this.restorePendingUpdate(pendingUpdate, explicit);
+	}
+
+	/**
+	 * Stands in for Electron's download pipeline, which a source build cannot use because it is
+	 * unsigned. Walks the same states a real download does so the pending-update UI and the
+	 * `Ready` -> `Overwriting` -> `Ready` flow can be exercised by hand; nothing is downloaded and
+	 * a restart will not install anything.
+	 */
+	private simulateStagedUpdate(update: IUpdate, explicit: boolean): void {
+		this.logService.info('update#simulateStagedUpdate - dev update testing, staging update without downloading it', update.version);
+		this.setState(State.Downloading(update, explicit, this._overwrite));
+		this.setState(State.Downloaded(update, explicit, this._overwrite));
+		this.setState(State.Ready(update, explicit, this._overwrite));
 	}
 
 	/**

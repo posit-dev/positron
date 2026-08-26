@@ -161,10 +161,10 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			this._state = { state: State.Idle(state.updateType), deferred: false };
 		}
 
-		// Schedule 5-minute checks when in Ready state and overwrite is supported
+		// Schedule recurring checks when in Ready state and overwrite is supported
 		if (this.supportsUpdateOverwrite) {
 			if (state.type === StateType.Ready) {
-				this.overwriteUpdatesCheckInterval.cancelAndSet(() => this.checkForOverwriteUpdates(), 5 * 60 * 1000);
+				this.overwriteUpdatesCheckInterval.cancelAndSet(() => this.checkForOverwriteUpdates(), this.overwriteCheckIntervalMs);
 			} else {
 				this.overwriteUpdatesCheckInterval.cancel();
 			}
@@ -283,7 +283,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 		// Auto-updates don't work in dev, so when running unbuilt we disable update checking
 		// only if auto-update is enabled; when it's off we still allow manual/explicit checks.
-		if (!this.environmentMainService.isBuilt && this.enableAutoUpdate) {
+		if (!this.environmentMainService.isBuilt && this.enableAutoUpdate && !this.devUpdateTesting) {
 			this.setState(State.Disabled(DisablementReason.NotBuilt));
 			return; // updates are never enabled when running out of sources
 		}
@@ -381,6 +381,30 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		}
 
 		return process.env.POSITRON_UPDATE_CHANNEL ?? persistedUpdateChannel;
+	}
+
+	/**
+	 * Whether a source build has been deliberately configured to check for updates.
+	 *
+	 * `quality` is empty in the repo's product.json, so the only way an unbuilt Positron has one is
+	 * through the gitignored `product.overrides.json`, which is a dev-only opt-in. That same file is
+	 * where an older `positronVersion` / `positronBuildNumber` goes, so the feed's latest release
+	 * looks like an update instead of being older than the unreleased calver a source build carries.
+	 *
+	 * Checking is all this enables: the flow stops at `AvailableForDownload`, which opens the
+	 * download page rather than installing anything.
+	 */
+	protected get devUpdateTesting(): boolean {
+		return !this.environmentMainService.isBuilt && !!this.productService.quality;
+	}
+
+	/**
+	 * How often a pending update re-checks the feed, so that a restart installs whatever is latest
+	 * at restart time. Shortened for dev update testing, where waiting five minutes for each attempt
+	 * makes the overwrite flow impractical to exercise by hand.
+	 */
+	protected get overwriteCheckIntervalMs(): number {
+		return this.devUpdateTesting ? 30 * 1000 : 5 * 60 * 1000;
 	}
 	// --- End Positron ---
 
