@@ -8,6 +8,7 @@ import { mainWindow } from '../../../../base/browser/window.js';
 // --- End PWB ---
 import { Schemas } from '../../../../base/common/network.js';
 import { joinPath } from '../../../../base/common/resources.js';
+import { isWeb } from '../../../../base/common/platform.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ExtensionKind, IEnvironmentService, IExtensionHostDebugParams } from '../../../../platform/environment/common/environment.js';
 import { IPath } from '../../../../platform/window/common/window.js';
@@ -133,13 +134,14 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 
 	@memoize
 	// --- Start PWB: Local storage ---
-	get userRoamingDataHome(): URI { return joinPath(URI.file(this.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User'); }
-
-	get userDataPath(): string {
-		if (!this.options.userDataPath) {
-			throw new Error('userDataPath was not provided to the browser');
-		}
-		return this.options.userDataPath;
+	get userRoamingDataHome(): URI {
+		// In a web context, derive the user data path from the `userDataPath`
+		// option if provided (always used on PWB). Fall back to the vscode-user-data
+		// scheme otherwise so the service never throws before we know updates/storage
+		// are needed (e.g. in tests that construct it without a userDataPath).
+		return isWeb && this.options.userDataPath ?
+			joinPath(URI.file(this.options.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User') :
+			URI.file('/User').with({ scheme: Schemas.vscodeUserData });
 	}
 	// --- End PWB ---
 
