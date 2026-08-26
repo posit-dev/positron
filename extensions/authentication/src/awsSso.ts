@@ -73,7 +73,7 @@ const logger = new AuthProviderLogger('AWS');
 const LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
 
 /** One of a child process's output streams. */
-export interface SsoLoginOutput {
+interface SsoLoginOutput {
 	on(event: 'data', listener: (chunk: unknown) => void): unknown;
 }
 
@@ -83,7 +83,7 @@ export interface SsoLoginOutput {
  * real `spawn` assignable while letting a test fake satisfy the type directly
  * instead of asserting it through a cast.
  */
-export interface SsoLoginProcess {
+interface SsoLoginProcess {
 	readonly stdout: SsoLoginOutput | null;
 	readonly stderr: SsoLoginOutput | null;
 	on(event: 'error', listener: (err: NodeJS.ErrnoException) => void): unknown;

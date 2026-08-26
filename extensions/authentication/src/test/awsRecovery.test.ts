@@ -9,10 +9,17 @@ import { SsoLoginError } from '../awsSso';
 
 const REFRESH = `To refresh this SSO session run 'aws sso login' with the corresponding profile.`;
 
-/** An error carrying another as its `cause`, the way `createSession` does. */
+/**
+ * An error carrying another as its `cause`, the way `createSession` does --
+ * non-enumerable, matching the native `cause` this `lib: es2020` target cannot
+ * pass to the `Error` constructor. Classification must not depend on the
+ * property being enumerable.
+ */
 function wrapped(message: string, cause: Error): Error {
 	const err = new Error(message);
-	(err as { cause?: unknown }).cause = cause;
+	Object.defineProperty(err, 'cause', {
+		value: cause, writable: true, configurable: true,
+	});
 	return err;
 }
 
