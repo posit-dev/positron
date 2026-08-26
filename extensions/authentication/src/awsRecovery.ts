@@ -34,7 +34,7 @@ export interface AwsSsoRecovery {
 	recover(err: unknown): Promise<boolean>;
 }
 
-export interface AwsSsoRecoveryDeps {
+export interface CreateAwsSsoRecoveryOptions {
 	/** The AWS profile from the provider catalog, when one is configured. */
 	getProfile: () => string | undefined;
 	/** Runs the login. Injected by tests so no process is spawned. */
@@ -44,8 +44,8 @@ export interface AwsSsoRecoveryDeps {
 	) => Promise<void>;
 }
 
-export function createAwsSsoRecovery(deps: AwsSsoRecoveryDeps): AwsSsoRecovery {
-	const login = deps.login ?? runSsoLogin;
+export function createAwsSsoRecovery(options: CreateAwsSsoRecoveryOptions): AwsSsoRecovery {
+	const login = options.login ?? runSsoLogin;
 	let noted: unknown;
 	let inFlight: Promise<boolean> | undefined;
 
@@ -55,7 +55,7 @@ export function createAwsSsoRecovery(deps: AwsSsoRecoveryDeps): AwsSsoRecovery {
 		// unrelated failure look like a lapsed SSO session. A repeat attempt
 		// re-resolves the chain, which notes the failure again if it recurs.
 		noted = undefined;
-		const profile = deps.getProfile() ?? expired.profile;
+		const profile = options.getProfile() ?? expired.profile;
 		try {
 			await vscode.window.withProgress(
 				{
