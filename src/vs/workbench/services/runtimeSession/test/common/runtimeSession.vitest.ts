@@ -10,6 +10,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IOpener } from '../../../../../platform/opener/common/opener.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
@@ -185,9 +186,9 @@ describe('Positron - RuntimeSessionService', () => {
 	}
 
 	async function restoreSession(
-		sessionMetadata: IRuntimeSessionMetadata, runtime: ILanguageRuntimeMetadata,
+		sessionMetadata: IRuntimeSessionMetadata, runtime: ILanguageRuntimeMetadata, activate = true,
 	) {
-		await runtimeSessionService.restoreRuntimeSession(runtime, sessionMetadata, sessionName, true, true);
+		await runtimeSessionService.restoreRuntimeSession(runtime, sessionMetadata, sessionName, true, activate);
 
 		// Ensure that the session gets disposed after the test.
 		const session = runtimeSessionService.getSession(sessionMetadata.sessionId);
@@ -1593,6 +1594,80 @@ describe('Positron - RuntimeSessionService', () => {
 
 			// Not queued for reconnection, so deletion proceeds normally.
 			expect(await runtimeSessionService.deleteSession(session.sessionId)).toBe(true);
+		});
+
+		// Reconnecting brings the same session id back as a *new* session object,
+		// bound to the new extension host. The old object's RPC protocol is
+		// disposed, so anything still holding it talks to a dead extension host.
+		// `activate` is false to match the reconnect in the extension-activation
+		// handler.
+		async function disconnectAndReconnect() {
+			const workspaceRuntime = createTestLanguageRuntimeMetadata(
+				ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Workspace);
+			const replaced = await startConsole(workspaceRuntime);
+			await waitForRuntimeState(replaced, RuntimeState.Ready);
+			runtimeSessionService.foregroundSession = replaced;
+
+			await disconnectViaExtensionHost(replaced);
+			const reconnected = await restoreSession(
+				replaced.metadata, replaced.runtimeMetadata, /* activate */ false);
+
+			// Without a replacement there is nothing stale to catch, and every
+			// case below would pass vacuously.
+			expect(reconnected, 'Expected reconnect to replace the session object').not.toBe(replaced);
+
+			return { runtime: workspaceRuntime, replaced, reconnected };
+		}
+
+		function openHelpResource() {
+			return (runtimeSessionService as unknown as IOpener)
+				.open(URI.parse('x-r-help:utils::sessionInfo'));
+		}
+
+		it('opens a resource with the reconnected session, not the replaced one', async () => {
+			const { replaced, reconnected } = await disconnectAndReconnect();
+			const replacedOpen = vi.spyOn(replaced, 'openResource').mockResolvedValue(true);
+			const reconnectedOpen = vi.spyOn(reconnected, 'openResource').mockResolvedValue(true);
+
+			expect(await openHelpResource(), 'Expected the resource to be opened').toBe(true);
+			expect(reconnectedOpen, 'Expected the reconnected session to open the resource')
+				.toHaveBeenCalled();
+			expect(replacedOpen, 'Expected the replaced session not to be used')
+				.not.toHaveBeenCalled();
+		});
+
+		it('opens a resource with the reconnected session after it is set as foreground', async () => {
+			const { replaced, reconnected } = await disconnectAndReconnect();
+			const replacedOpen = vi.spyOn(replaced, 'openResource').mockResolvedValue(true);
+			const reconnectedOpen = vi.spyOn(reconnected, 'openResource').mockResolvedValue(true);
+
+			// The console pane does this whenever it gains focus, so a stale
+			// reference should not outlive the next click in the console.
+			runtimeSessionService.foregroundSession = reconnected;
+
+			expect(await openHelpResource(), 'Expected the resource to be opened').toBe(true);
+			expect(reconnectedOpen, 'Expected the reconnected session to open the resource')
+				.toHaveBeenCalled();
+			expect(replacedOpen, 'Expected the replaced session not to be used')
+				.not.toHaveBeenCalled();
+		});
+
+		it('returns the reconnected session from getConsoleSessionForLanguage', async () => {
+			const { runtime: workspaceRuntime, reconnected } = await disconnectAndReconnect();
+
+			expect(
+				runtimeSessionService.getConsoleSessionForLanguage(workspaceRuntime.languageId) === reconnected,
+				'Expected the console session for the language to be the reconnected session, not the replaced one'
+			).toBe(true);
+		});
+
+		it('returns the reconnected session from getLastActiveConsoleSession', async () => {
+			const { reconnected } = await disconnectAndReconnect();
+
+			expect(
+				runtimeSessionService.getLastActiveConsoleSession() === reconnected,
+				'Expected the last active console session to be the reconnected session, not the replaced one'
+			).toBe(true);
 		});
 	});
 
