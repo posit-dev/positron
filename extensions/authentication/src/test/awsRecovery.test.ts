@@ -8,10 +8,20 @@ import { createAwsSsoRecovery } from '../awsRecovery';
 import { SsoLoginError } from '../awsSso';
 
 const REFRESH = `To refresh this SSO session run 'aws sso login' with the corresponding profile.`;
-const EXPIRED = new Error(`Token is expired. ${REFRESH}`);
-// What AuthProvider.createSession actually throws: the chain swallows the real
-// cause, so this generic message is all the recover hook is handed.
-const GENERIC = new Error('No credentials found for AWS.');
+
+/** An error carrying another as its `cause`, the way `createSession` does. */
+function wrapped(message: string, cause: Error): Error {
+	const err = new Error(message);
+	(err as { cause?: unknown }).cause = cause;
+	return err;
+}
+
+// What AuthProvider.createSession throws: its own actionable message with the
+// real chain failure chained beneath it.
+const CHAINED = wrapped(
+	'No credentials found for AWS.',
+	new Error(`Token is expired. ${REFRESH}`)
+);
 
 suite('createAwsSsoRecovery', () => {
 	test('ignores a failure that no login would fix', async () => {
@@ -22,21 +32,20 @@ suite('createAwsSsoRecovery', () => {
 		});
 
 		const recovered = await recovery.recover(
-			new Error('Could not load credentials from any providers')
+			wrapped('No credentials found for AWS.', new Error('Could not load credentials from any providers'))
 		);
 
 		assert.deepStrictEqual([recovered, logins], [false, 0]);
 	});
 
-	test('classifies the noted failure when handed the generic error', async () => {
+	test('classifies the cause chained beneath the generic message', async () => {
 		const profiles: Array<string | undefined> = [];
 		const recovery = createAwsSsoRecovery({
 			getProfile: () => 'sso-dev',
 			login: async (profile) => { profiles.push(profile); },
 		});
 
-		recovery.noteFailure(EXPIRED);
-		const recovered = await recovery.recover(GENERIC);
+		const recovered = await recovery.recover(CHAINED);
 
 		assert.deepStrictEqual([recovered, profiles], [true, ['sso-dev']]);
 	});
@@ -49,10 +58,9 @@ suite('createAwsSsoRecovery', () => {
 			getProfile: () => undefined,
 			login: async () => { logins++; await gate; },
 		});
-		recovery.noteFailure(EXPIRED);
 
-		const first = recovery.recover(GENERIC);
-		const second = recovery.recover(GENERIC);
+		const first = recovery.recover(CHAINED);
+		const second = recovery.recover(CHAINED);
 		release();
 		const [firstResult, secondResult] = await Promise.all([first, second]);
 
@@ -61,14 +69,32 @@ suite('createAwsSsoRecovery', () => {
 		assert.deepStrictEqual([firstResult, secondResult, logins], [true, true, 1]);
 	});
 
+	test('an unrelated failure during a login does not join it', async () => {
+		let logins = 0;
+		let release = () => { };
+		const gate = new Promise<void>(resolve => { release = resolve; });
+		const recovery = createAwsSsoRecovery({
+			getProfile: () => undefined,
+			login: async () => { logins++; await gate; },
+		});
+
+		const sso = recovery.recover(CHAINED);
+		// Classification happens before the in-flight check, so a failure with no
+		// SSO cause is reported as unrecoverable rather than inheriting this
+		// login's outcome.
+		const unrelated = await recovery.recover(new Error('Could not load credentials from any providers'));
+		release();
+
+		assert.deepStrictEqual([unrelated, await sso, logins], [false, true, 1]);
+	});
+
 	test('cancellation reports no recovery without throwing', async () => {
 		const recovery = createAwsSsoRecovery({
 			getProfile: () => undefined,
 			login: async () => { throw new SsoLoginError('cancelled', 'cancelled'); },
 		});
-		recovery.noteFailure(EXPIRED);
 
-		assert.strictEqual(await recovery.recover(GENERIC), false);
+		assert.strictEqual(await recovery.recover(CHAINED), false);
 	});
 
 	test('surfaces a missing CLI as an actionable error', async () => {
@@ -76,9 +102,8 @@ suite('createAwsSsoRecovery', () => {
 			getProfile: () => undefined,
 			login: async () => { throw new SsoLoginError('cli-missing', 'spawn aws ENOENT'); },
 		});
-		recovery.noteFailure(EXPIRED);
 
-		const err = await recovery.recover(GENERIC).then(() => undefined, (e: unknown) => e);
+		const err = await recovery.recover(CHAINED).then(() => undefined, (e: unknown) => e);
 
 		assert.match((err as Error).message, /AWS CLI/);
 	});
@@ -88,40 +113,9 @@ suite('createAwsSsoRecovery', () => {
 			getProfile: () => undefined,
 			login: async () => { throw new SsoLoginError('login-failed', 'AccessDenied'); },
 		});
-		recovery.noteFailure(EXPIRED);
 
-		const err = await recovery.recover(GENERIC).then(() => undefined, (e: unknown) => e);
+		const err = await recovery.recover(CHAINED).then(() => undefined, (e: unknown) => e);
 
 		assert.match((err as Error).message, /AccessDenied/);
-	});
-
-	test('a cleared note no longer classifies', async () => {
-		let logins = 0;
-		const recovery = createAwsSsoRecovery({
-			getProfile: () => undefined,
-			login: async () => { logins++; },
-		});
-
-		recovery.noteFailure(EXPIRED);
-		recovery.noteFailure(undefined);
-		const recovered = await recovery.recover(GENERIC);
-
-		assert.deepStrictEqual([recovered, logins], [false, 0]);
-	});
-
-	test('a cancelled attempt leaves no stale note behind', async () => {
-		let logins = 0;
-		const recovery = createAwsSsoRecovery({
-			getProfile: () => undefined,
-			login: async () => { logins++; throw new SsoLoginError('cancelled', 'cancelled'); },
-		});
-		recovery.noteFailure(EXPIRED);
-		await recovery.recover(GENERIC);
-
-		// A later failure that does not itself classify must not be treated as
-		// a lapsed SSO session on the strength of the consumed note.
-		const second = await recovery.recover(GENERIC);
-
-		assert.deepStrictEqual([second, logins], [false, 1]);
 	});
 });

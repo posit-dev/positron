@@ -345,31 +345,18 @@ async function registerAwsProvider(
 		undefined,
 		{
 			resolve: async () => {
-				try {
-					const aws = getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws;
-					const chainInit = resolveAwsChainInit(aws, process.env);
-					const credentialProvider = fromNodeProviderChain(chainInit);
-					const resolved = await credentialProvider();
-					// Clear any note left by an earlier failure now that resolution
-					// has succeeded, so a later failure raised after this closure
-					// returns (e.g. in the caller's own post-resolve checks) is not
-					// misclassified against a stale note.
-					recovery.noteFailure(undefined);
-					return {
-						token: JSON.stringify({
-							accessKeyId: resolved.accessKeyId,
-							secretAccessKey: resolved.secretAccessKey,
-							sessionToken: resolved.sessionToken,
-						}),
-						expiration: resolved.expiration,
-					};
-				} catch (err) {
-					// resolveChainCredentials swallows this error and createSession
-					// throws a generic one in its place, so the recover hook would
-					// have nothing to classify. Keep the real cause here.
-					recovery.noteFailure(err);
-					throw err;
-				}
+				const aws = getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws;
+				const chainInit = resolveAwsChainInit(aws, process.env);
+				const credentialProvider = fromNodeProviderChain(chainInit);
+				const resolved = await credentialProvider();
+				return {
+					token: JSON.stringify({
+						accessKeyId: resolved.accessKeyId,
+						secretAccessKey: resolved.secretAccessKey,
+						sessionToken: resolved.sessionToken,
+					}),
+					expiration: resolved.expiration,
+				};
 			},
 		}
 	);

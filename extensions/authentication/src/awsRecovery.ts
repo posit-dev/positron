@@ -16,16 +16,6 @@ const logger = new AuthProviderLogger('AWS');
 
 export interface AwsSsoRecovery {
 	/**
-	 * Record a credential-chain failure. `resolveChainCredentials` swallows the
-	 * chain's error and `createSession` throws a generic one in its place, so
-	 * the real cause has to be kept here for `recover` to classify. Pass
-	 * `undefined` to clear a previously noted failure once resolution has
-	 * gone on to succeed, so a later unrelated failure cannot be classified
-	 * against a stale note.
-	 */
-	noteFailure(err: unknown): void;
-
-	/**
 	 * Re-run the SSO login when the failure warrants it. Returns true when the
 	 * caller should retry the connect, false when there was nothing to recover
 	 * or the user cancelled. Throws a user-facing error when the login was
@@ -46,15 +36,9 @@ export interface CreateAwsSsoRecoveryOptions {
 
 export function createAwsSsoRecovery(options: CreateAwsSsoRecoveryOptions): AwsSsoRecovery {
 	const login = options.login ?? runSsoLogin;
-	let noted: unknown;
 	let inFlight: Promise<boolean> | undefined;
 
 	const attempt = async (expired: ExpiredSsoError): Promise<boolean> => {
-		// The note has been consumed. Clear it before the attempt so a cancelled
-		// or failed login cannot leave a stale note behind that makes the next
-		// unrelated failure look like a lapsed SSO session. A repeat attempt
-		// re-resolves the chain, which notes the failure again if it recurs.
-		noted = undefined;
 		const profile = options.getProfile() ?? expired.profile;
 		try {
 			await vscode.window.withProgress(
@@ -89,21 +73,15 @@ export function createAwsSsoRecovery(options: CreateAwsSsoRecoveryOptions): AwsS
 	};
 
 	return {
-		noteFailure(err: unknown): void {
-			noted = err;
-		},
-
 		async recover(err: unknown): Promise<boolean> {
-			// A recovery already in flight is the answer for any concurrent
-			// caller: join it. Classifying again here would fail, because
-			// `attempt` consumes and clears the note synchronously.
-			if (inFlight) {
-				return inFlight;
-			}
-			const expired = classifyAwsChainError(err)
-				?? classifyAwsChainError(noted);
+			const expired = classifyAwsChainError(err);
 			if (!expired) {
 				return false;
+			}
+			// A login already in flight is the answer for any concurrent caller
+			// with the same diagnosis: join it rather than spawning a second one.
+			if (inFlight) {
+				return inFlight;
 			}
 			inFlight = attempt(expired)
 				.finally(() => { inFlight = undefined; });

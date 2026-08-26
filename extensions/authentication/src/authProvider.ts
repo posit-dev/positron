@@ -210,15 +210,27 @@ export class AuthProvider
 		_options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession> {
 		if (this.credentialChain) {
-			const session = await this.resolveChainCredentials();
+			const noCredentials = () => new Error(
+				vscode.l10n.t(
+					'No credentials found for {0}. Configure credentials ' +
+					'using the provider CLI or environment variables.',
+					this.displayName
+				)
+			);
+			let session: vscode.AuthenticationSession | undefined;
+			try {
+				session = await this.resolveChainCredentialsOrThrow();
+			} catch (err) {
+				// Keep the actionable message the user sees, but chain the real
+				// failure beneath it so a caller that can recover from a specific
+				// cause -- an expired AWS SSO session, say -- can still find it.
+				// `lib: es2020` has no `new Error(msg, { cause })`.
+				const error = noCredentials();
+				(error as { cause?: unknown }).cause = err;
+				throw error;
+			}
 			if (!session) {
-				throw new Error(
-					vscode.l10n.t(
-						'No credentials found for {0}. Configure credentials ' +
-						'using the provider CLI or environment variables.',
-						this.displayName
-					)
-				);
+				throw noCredentials();
 			}
 			return session;
 		}
@@ -373,15 +385,30 @@ export class AuthProvider
 	 */
 	async resolveChainCredentials(
 	): Promise<vscode.AuthenticationSession | undefined> {
+		return this.resolveChainCredentialsOrThrow().catch(() => undefined);
+	}
+
+	/**
+	 * As `resolveChainCredentials`, but surfaces the chain's own failure instead
+	 * of reporting it as an absent session. Callers that can act on the reason a
+	 * credential did not resolve -- `createSession`, which chains it beneath its
+	 * own message -- use this; callers that only care whether a session exists
+	 * use the swallowing form above.
+	 */
+	private async resolveChainCredentialsOrThrow(
+	): Promise<vscode.AuthenticationSession | undefined> {
 		if (!this.credentialChain) {
 			return undefined;
 		}
 		const resolution = this.doResolveChainCredentials();
-		this._chainResolution = resolution;
+		// `getSessions` and the refresh timer await this without a rejection
+		// handler, so publish the swallowing form of the same resolution.
+		const swallowed = resolution.catch(() => undefined);
+		this._chainResolution = swallowed;
 		try {
 			return await resolution;
 		} finally {
-			if (this._chainResolution === resolution) {
+			if (this._chainResolution === swallowed) {
 				this._chainResolution = undefined;
 			}
 		}
@@ -449,7 +476,7 @@ export class AuthProvider
 				});
 				this.logger.logCredentialResolution('invalidated', 'Cached session invalidated');
 			}
-			return undefined;
+			throw err;
 		}
 	}
 
