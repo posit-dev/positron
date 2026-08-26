@@ -31,10 +31,11 @@ const MODAL_WIDTH = 600;
  * How tall the provider list grows before it scrolls: a section heading plus
  * seven rows, at 52px a row with a 4px gap (20 + 4 + 7 * 52 + 6 * 4). Adding the
  * title bar, the footer and the content padding puts the dialog a little over
- * 500px, which clears the gutters on a 640px-tall window. Nothing caps the
- * dialog itself, so without this the full list would draw a box taller than the
- * window and strand the title bar above the top edge. There is no minimum: a
- * short list shrinks the box, as it does on the connect and connected views.
+ * 500px, which clears the gutters on a 640px-tall window. The box already stops
+ * at the window height less its gutters, so this is not what keeps it on screen;
+ * it stops a long list from stretching the box to fill a tall one. There is no
+ * minimum: a short list shrinks the box, as it does on the connect and connected
+ * views.
  */
 const LIST_CONTENT_MAX_HEIGHT = 412;
 
