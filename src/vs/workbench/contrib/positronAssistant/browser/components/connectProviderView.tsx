@@ -115,6 +115,13 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 
 	const methods = availableAuthMethods(props.source);
 	const [selectedMethod, setSelectedMethod] = useState<AuthMethod | undefined>(undefined);
+
+	// Switching method drops the last failure, which belonged to the method the user
+	// just moved away from. The field values stay: the user may be coming back.
+	const onSelectMethod = (method: AuthMethod) => {
+		setSelectedMethod(method);
+		setErrorMessage(undefined);
+	};
 	const authMethod = deriveAuthMethod(props.source, selectedMethod);
 	const authStatus = deriveAuthStatus(props.source, { showProgress: inFlight, apiKey, selected: selectedMethod });
 
@@ -207,7 +214,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 										name='connect-provider-auth-method'
 										type='radio'
 										value={method}
-										onChange={() => setSelectedMethod(method)}
+										onChange={() => onSelectMethod(method)}
 									/>
 									{method === AuthMethod.OAUTH
 										? localize('positron.connectProvider.oauth', "OAuth")
