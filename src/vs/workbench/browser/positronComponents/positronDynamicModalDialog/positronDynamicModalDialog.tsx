@@ -7,7 +7,7 @@
 import './positronDynamicModalDialog.css';
 
 // React.
-import { ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
@@ -28,6 +28,16 @@ const kGutter = 40;
  * darkness.
  */
 let openDialogCount = 0;
+
+/**
+ * Inline-style shape for the dialog box. Extends CSSProperties with the custom properties the box
+ * sets, so TypeScript accepts the literal without a per-key cast. The leading underscore marks them
+ * private to this component, which is also what keeps the stylesheet's variable checker off them.
+ */
+interface DialogBoxCSSProperties extends CSSProperties {
+	'--_dialog-box-top': string;
+	'--_dialog-box-gutter': string;
+}
 
 /**
  * PositronDynamicModalDialogProps interface.
@@ -274,6 +284,20 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		setDialogBoxState(prevDialogBoxState => updateDialogBoxState(prevDialogBoxState, x, y, false));
 	};
 
+	// The box's inline layout. Built as a typed const rather than inline on the element so the
+	// custom properties are not measured against React's own CSSProperties as excess keys.
+	const dialogBoxStyle: DialogBoxCSSProperties = {
+		left: dialogBoxState.left,
+		top: dialogBoxState.top,
+		width: props.width,
+		// The height ceiling in the CSS runs from the box's top edge down to the bottom gutter, so
+		// the box stops growing when it reaches that gutter rather than passing through it. Both
+		// numbers come from here so the ceiling cannot drift from the position this component
+		// actually lays the box out at.
+		'--_dialog-box-top': `${dialogBoxState.top}px`,
+		'--_dialog-box-gutter': `${kGutter}px`,
+	};
+
 	// Render.
 	return (
 		<div ref={dialogContainerRef} className={positronClassNames('positron-dynamic-modal-dialog-box-container', { 'nested': isNested })}>
@@ -283,11 +307,7 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 				aria-modal='true'
 				className='positron-dynamic-modal-dialog-box'
 				role='dialog'
-				style={{
-					left: dialogBoxState.left,
-					top: dialogBoxState.top,
-					width: props.width,
-				}}
+				style={dialogBoxStyle}
 				tabIndex={-1}
 			>
 				<TitleBar title={props.title} titleDescription={props.titleDescription} titleId={titleId} onClose={props.onCancel} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
