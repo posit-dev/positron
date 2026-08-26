@@ -39,6 +39,12 @@ const insightsReporters: ReporterDescription[] = [
  */
 const projectName = process.env.PW_PROJECT_NAME || 'default';
 
+// --- Start Positron ---
+// A project's own testIgnore REPLACES this one rather than merging with it, so any
+// project that declares testIgnore has to spread `rootIgnore` back in. #15737 added a
+// memory-spec ignore to e2e-chromium and e2e-server without it, which re-enabled
+// example.test.ts and the lsp specs in the web lanes.
+// --- End Positron ---
 const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
@@ -48,6 +54,10 @@ const baseIgnore = [
 	'**/assistant-eval/**',
 	'**/release-screenshots/**',
 ];
+
+const rootIgnore = process.env.ALLOW_PYREFLY === 'true'
+	? baseIgnore
+	: [...baseIgnore, '**/lsp/**'];
 
 let reporter: ReporterDescription[];
 if (process.env.CI) {
@@ -70,9 +80,7 @@ export default defineConfig<CustomTestOptions>({
 	globalTeardown: './test/e2e/tests/_global.teardown.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
-	testIgnore: process.env.ALLOW_PYREFLY === 'true'
-		? baseIgnore
-		: [...baseIgnore, '**/lsp/**'],
+	testIgnore: rootIgnore,
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
@@ -123,8 +131,10 @@ export default defineConfig<CustomTestOptions>({
 			// The server memory lane runs here, because e2e-chromium takes the
 			// spawned-server path that gives the collector a process tree to walk.
 			// Without this guard the server memory spec would be eligible in every
-			// ordinary @:web run.
+			// ordinary @:web run. rootIgnore is spread back in because a project's
+			// testIgnore replaces the root one.
 			testIgnore: [
+				...rootIgnore,
 				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), process.env.MEMORY_SCENARIO),
 			],
 			// --- End Positron ---
@@ -177,8 +187,10 @@ export default defineConfig<CustomTestOptions>({
 			// e2e-server uses an externally started server, so Code holds null in
 			// the process slot and there is no tree to walk. A memory spec running
 			// here would produce an empty process list rather than an error, so it
-			// is excluded unconditionally.
+			// is excluded unconditionally. rootIgnore is spread back in because a
+			// project's testIgnore replaces the root one.
 			testIgnore: [
+				...rootIgnore,
 				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), undefined),
 			],
 			// --- End Positron ---
