@@ -8,6 +8,8 @@ import * as sinon from 'sinon';
 import * as positron from 'positron';
 import { validateDeepSeekApiKey } from '../validation/deepseek';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { log } from '../log';
+import { initializeValidationCatalog } from './validationTestUtils';
 
 suite('validateDeepSeekApiKey', () => {
 	let originalFetch: typeof globalThis.fetch;
@@ -65,6 +67,37 @@ suite('validateDeepSeekApiKey', () => {
 		await validateDeepSeekApiKey('sk-valid', makeConfig('https://proxy.example.com/v1'));
 
 		assert.strictEqual(requestedUrls[0], 'https://proxy.example.com/v1/models');
+	});
+
+	test('uses the deepseek catalog id and matches collisions case-insensitively', async () => {
+		const catalog = await initializeValidationCatalog({
+			deepseek: {
+				customHeaders: {
+					'X-Gateway-Token': 'gateway-key',
+					AUTHORIZATION: 'configured-auth',
+				},
+			},
+		});
+		const warn = sinon.stub(log, 'warn');
+		globalThis.fetch = async (_url, init) => {
+			requestedHeaders.push(init?.headers as Record<string, string>);
+			return { ok: true, status: 200 } as Response;
+		};
+
+		try {
+			await validateDeepSeekApiKey('sk-valid', makeConfig());
+		} finally {
+			await catalog.dispose();
+		}
+
+		assert.deepStrictEqual(requestedHeaders[0], {
+			'Authorization': 'Bearer sk-valid',
+			'X-Gateway-Token': 'gateway-key',
+		});
+		assert.strictEqual(
+			warn.firstCall.args[0],
+			'[Validation] Skipping configured header "AUTHORIZATION" for provider "deepseek" because the validation request already defines it.'
+		);
 	});
 
 	test('strips trailing slashes from baseUrl', async () => {

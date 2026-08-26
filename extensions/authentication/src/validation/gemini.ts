@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { GEMINI_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { PROVIDER_METADATA } from '../providerSources';
+import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
 
 class GeminiValidationError extends Error {
 	constructor(message: string) {
@@ -28,9 +30,12 @@ export async function validateGeminiApiKey(
 	try {
 		const response = await fetch(modelsEndpoint, {
 			method: 'GET',
-			headers: {
-				'x-goog-api-key': apiKey,
-			},
+			headers: getValidationHeaders(
+				getProviderCatalogId(PROVIDER_METADATA.google),
+				{
+					'x-goog-api-key': apiKey,
+				}
+			),
 			signal: controller.signal,
 		});
 

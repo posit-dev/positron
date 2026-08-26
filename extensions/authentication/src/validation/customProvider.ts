@@ -7,6 +7,8 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { log } from '../log';
+import { PROVIDER_METADATA } from '../providerSources';
+import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
 
 /**
  * Placeholder model sent with the validation request. We only want to probe
@@ -62,6 +64,10 @@ export async function validateCustomProviderApiKey(
 	if (apiKey?.trim()) {
 		headers['Authorization'] = `Bearer ${apiKey}`;
 	}
+	const validationHeaders = getValidationHeaders(
+		getProviderCatalogId(PROVIDER_METADATA.customProvider),
+		headers
+	);
 
 	const controller = new AbortController();
 	const timeout = setTimeout(
@@ -70,7 +76,7 @@ export async function validateCustomProviderApiKey(
 	try {
 		const response = await fetch(endpoint, {
 			method: 'POST',
-			headers,
+			headers: validationHeaders,
 			body: JSON.stringify({ model: VALIDATION_MODEL, messages: [] }),
 			signal: controller.signal,
 		});

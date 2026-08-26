@@ -8,6 +8,8 @@ import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { normalizeHost } from '../databricksOAuth';
 import { getCachedProvider } from '../providerCatalog';
+import { PROVIDER_METADATA } from '../providerSources';
+import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
 
 class DatabricksValidationError extends Error {
 	constructor(message: string) {
@@ -53,9 +55,12 @@ export async function validateDatabricksApiKey(
 	try {
 		const response = await fetch(meEndpoint, {
 			method: 'GET',
-			headers: {
-				'Authorization': `Bearer ${apiKey}`,
-			},
+			headers: getValidationHeaders(
+				getProviderCatalogId(PROVIDER_METADATA.databricks),
+				{
+					'Authorization': `Bearer ${apiKey}`,
+				}
+			),
 			signal: controller.signal,
 		});
 

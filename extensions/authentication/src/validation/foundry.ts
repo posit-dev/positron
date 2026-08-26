@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { PROVIDER_METADATA } from '../providerSources';
+import { getProviderCatalogId, getValidationHeaders } from './validationHeaders';
 
 class FoundryValidationError extends Error {
 	constructor(message: string) {
@@ -66,10 +68,13 @@ export async function validateFoundryApiKey(
 	try {
 		const response = await fetch(endpoint, {
 			method: 'POST',
-			headers: {
-				'Authorization': `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-			},
+			headers: getValidationHeaders(
+				getProviderCatalogId(PROVIDER_METADATA.foundry),
+				{
+					'Authorization': `Bearer ${apiKey}`,
+					'Content-Type': 'application/json',
+				}
+			),
 			body: JSON.stringify({ model: '', messages: [] }),
 			signal: controller.signal,
 		});
