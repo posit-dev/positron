@@ -3,15 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Matches the dynamic modal dialog's own three-button footer. Scoped to that
-dialog's box because FooterButton's colors and sizing are scoped there too. */
+/* Matches the dynamic modal dialog's own three-button footer in its bordered
+form, so this footer sits at the same height as the Add Data Connection wizard's.
+Scoped to the dialog's box because FooterButton's colors and sizing are too. The
+rule above the buttons is the only one below the title bar: the views draw none
+of their own. */
 .positron-dynamic-modal-dialog-box .provider-modal-footer {
-	height: 48px;
 	display: flex;
-	padding: 0 16px;
+	padding: 16px;
 	flex: 0 0 auto;
 	justify-content: space-between;
 	align-items: flex-start;
+	border-top: solid 1px var(--vscode-positronModalDialog-border);
 }
 
 .positron-dynamic-modal-dialog-box .provider-modal-footer .provider-modal-footer-right {

@@ -94,7 +94,6 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 			content={
 				<div className='connect-provider-view' data-testid='provider-connected-view'>
 					<ConnectProviderHeader source={current} subtitle={subtitle} />
-					<div className='connect-provider-divider' />
 					{hasError && <ProviderErrorBanner message={errorBannerMessage} />}
 					{isCopilot && isAutoAuth &&
 						<EmbeddedLink>
