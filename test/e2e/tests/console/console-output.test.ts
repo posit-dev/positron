@@ -23,7 +23,10 @@ test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE, tags.WEB] }, () 
 		await app.workbench.console.waitForReady('>>>');
 		await app.workbench.console.pasteCodeToConsole(pyCode);
 		await app.workbench.console.sendEnterKey();
-		await app.workbench.console.waitForReady('>>>');
+		// Gate on the output itself, not the prompt: the active line reads '>>>' both
+		// before and after execution, so waiting on it can pass with an empty console
+		// and the width assertion below would then trivially succeed.
+		await app.workbench.console.waitForConsoleContents(/^'(Blah){300}'$/);
 
 		const el = app.workbench.console.activeConsole;
 		// Measure both dimensions in one evaluate: read separately, the vertical
