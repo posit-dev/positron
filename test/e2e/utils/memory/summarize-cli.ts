@@ -49,7 +49,12 @@ export type CollectedScenario = {
  */
 const EXPECTED_SCENARIOS_BY_LANE: Record<MemoryLane, readonly MemoryScenario[]> = {
 	desktop: MEMORY_SCENARIOS,
-	server: ['idle']
+	// Empty because the server lane has no matrix job yet: a released
+	// positron-server cannot be licensed in CI (see #15493). Expecting 'idle'
+	// here would put a "that matrix job probably failed" warning on every
+	// nightly summary, which is how a report teaches its readers to ignore it.
+	// Restoring the lane means restoring this entry and the matrix row together.
+	server: []
 };
 
 /**

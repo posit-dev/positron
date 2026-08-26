@@ -35,10 +35,6 @@ jobs:
           - { lane: desktop, scenario: notebook }
           - { lane: desktop, scenario: editors }
           - { lane: desktop, scenario: console-output }
-          # Only idle in the server lane: the desktop feature scenarios put ~90%
-          # of their cost in the renderer, which is in the browser and outside
-          # this tree, so they would measure the leftover tenth.
-          - { lane: server, scenario: idle }
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # The image is private, so the pull needs credentials. Copied from
@@ -53,27 +49,13 @@ jobs:
     env:
       HOME: /root
       PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-      # e2e-chromium takes the spawned-server path, which hands Code a real
-      # ChildProcess to root the walk at. e2e-server talks to an externally
-      # started server, so the collector would have no process tree; see
-      # playwright.config.ts and the server lane's design doc for why.
-      PW_PROJECT_NAME: ${{ matrix.lane == 'server' && 'e2e-chromium' || 'e2e-electron' }}
-      # test-setup.ts reads process.env.WEB and, when it is unset, treats BUILD
-      # as an Electron build: it calls getBuildElectronPath, which requires
-      # resources/app/product.json. A positron-server build keeps product.json at
-      # its root, so that lookup throws in global setup before any test runs. The
-      # ordinary e2e-chromium lane never hits this only because it leaves BUILD
-      # unset. The server lane genuinely is a web run, so say so.
-      WEB: ${{ matrix.lane == 'server' && 'true' || '' }}
+      PW_PROJECT_NAME: e2e-electron
       # Job-wide, not per-step: playwright.config.ts keys test collection off
       # this, so the render step needs it too. Now sourced from the matrix
       # rather than hardcoded.
       MEMORY_LANE: ${{ matrix.lane }}
       MEMORY_SCENARIO: ${{ matrix.scenario }}
-      # Matches SPEC_BY_LANE_SCENARIO in scenarios.ts: the server lane's idle
-      # scenario lives in its own spec file (memory-server-idle.test.ts), not
-      # the desktop memory-idle.test.ts.
-      MEMORY_SPEC: test/e2e/tests/performance/memory-${{ matrix.lane == 'server' && 'server-' || '' }}${{ matrix.scenario }}.test.ts
+      MEMORY_SPEC: test/e2e/tests/performance/memory-${{ matrix.scenario }}.test.ts
       # The insights reporter and its sharding hook are off deliberately. This
       # workflow publishes its own payload to /memory, and letting the reporter
       # upload would add memory runs to the e2e results dataset as if they were
@@ -130,38 +112,6 @@ jobs:
           OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ inputs.version || 'latest-prerelease' }}")
           echo "$OUTPUT" >> "$GITHUB_OUTPUT"
 
-      # Only the server lane needs this. Reuses steps.build.outputs.VERSION
-      # rather than re-resolving 'latest-prerelease' itself, so the two
-      # downloads cannot land on different releases.
-      - name: Download server build
-        if: matrix.lane == 'server'
-        # Every other step in this workflow runs under the container's default
-        # `sh`, which is dash and rejects `set -o pipefail`. This is the only
-        # step that needs it, so it asks for bash rather than making bash the
-        # default for steps that do not need it.
-        shell: bash
-        env:
-          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
-          VERSION: ${{ steps.build.outputs.VERSION }}
-        run: |
-          set -euo pipefail
-          case "$(uname -m)" in
-            aarch64|arm64) ARCH=arm64 ;;
-            x86_64|amd64)  ARCH=x64 ;;
-            *) echo "Unsupported arch: $(uname -m)" >&2; exit 1 ;;
-          esac
-          ASSET="positron-server-linux-${ARCH}-${VERSION}.tar.gz"
-          gh release download "$VERSION" --repo posit-dev/positron-builds --pattern "$ASSET" --dir "$RUNNER_TEMP"
-          mkdir -p "$RUNNER_TEMP/positron-server"
-          # The release tarball wraps a single top-level directory around
-          # bin/ and product.json (same layout positronDownload.sh extracts
-          # with the same flag), so stripping it puts bin/ where
-          # resolveServerLocation expects it, directly under this path.
-          tar -xzf "$RUNNER_TEMP/$ASSET" -C "$RUNNER_TEMP/positron-server" --strip-components=1
-          # resolveServerLocation (playwrightBrowser.ts:120) reads this to run the
-          # built server's bin/<serverApplicationName> instead of the source script.
-          echo "VSCODE_REMOTE_SERVER_PATH=$RUNNER_TEMP/positron-server" >> "$GITHUB_ENV"
-
       # Installs the Playwright and e2e dependencies and compiles test/e2e,
       # rather than a full `npm ci`: nothing here builds Positron from source.
       - name: Setup test dependencies and compile tests
@@ -197,65 +147,23 @@ jobs:
 
       # Three launches, because launch-to-launch variance dominates. Each is a
       # separate Playwright invocation so every launch is genuinely cold.
-      #
-      # BUILD must only be set for the desktop lane. options.fixtures.ts reads
-      # it unconditionally as codePath, and codePath ?? VSCODE_REMOTE_SERVER_PATH
-      # (playwrightBrowser.ts) means any defined value -- even '' -- wins over
-      # the extracted server path. So the desktop build path is exported
-      # conditionally in the shell rather than assigned an empty value here:
-      # a step env: entry is always present, even when its expression is '',
-      # which would silently resolve to the source server script instead of
-      # either build.
       - name: Measure (launch 0)
         env:
-          DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
+          BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 0
-        run: |
-          if [ "${{ matrix.lane }}" = "server" ]; then
-            # BUILD stays pointed at the server build so memory-scenario.ts's
-            # build-root assertion and getPositronVersion both see it. Safe only
-            # because WEB is set for this lane: without it, test-setup.ts treats
-            # BUILD as an Electron build and getBuildElectronPath throws on the
-            # missing resources/app/product.json before any test runs.
-            export BUILD="$VSCODE_REMOTE_SERVER_PATH"
-          else
-            export BUILD="$DESKTOP_BUILD"
-          fi
-          npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
 
       - name: Measure (launch 1)
         env:
-          DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
+          BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 1
-        run: |
-          if [ "${{ matrix.lane }}" = "server" ]; then
-            # BUILD stays pointed at the server build so memory-scenario.ts's
-            # build-root assertion and getPositronVersion both see it. Safe only
-            # because WEB is set for this lane: without it, test-setup.ts treats
-            # BUILD as an Electron build and getBuildElectronPath throws on the
-            # missing resources/app/product.json before any test runs.
-            export BUILD="$VSCODE_REMOTE_SERVER_PATH"
-          else
-            export BUILD="$DESKTOP_BUILD"
-          fi
-          npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
 
       - name: Measure (launch 2)
         env:
-          DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
+          BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_LAUNCH_INDEX: 2
-        run: |
-          if [ "${{ matrix.lane }}" = "server" ]; then
-            # BUILD stays pointed at the server build so memory-scenario.ts's
-            # build-root assertion and getPositronVersion both see it. Safe only
-            # because WEB is set for this lane: without it, test-setup.ts treats
-            # BUILD as an Electron build and getBuildElectronPath throws on the
-            # missing resources/app/product.json before any test runs.
-            export BUILD="$VSCODE_REMOTE_SERVER_PATH"
-          else
-            export BUILD="$DESKTOP_BUILD"
-          fi
-          npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Memory footprint'
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Memory footprint'
 
       # Separate from the launches so a failure to render cannot lose the
       # measurements, which are the expensive part.
@@ -264,26 +172,12 @@ jobs:
       # a follow-up. Set here rather than omitted so the switch is visible at the
       # point someone will look for it. The step summary and the HTML artifact
       # are produced either way, so the run is still useful with it off.
-      #
-      # BUILD is exported conditionally for the same reason as the Measure
-      # steps above: it must be genuinely unset in the server lane, not empty.
       - name: Render report
         env:
-          DESKTOP_BUILD: ${{ steps.build.outputs.BUILD }}
+          BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_PUBLISH: 'false'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
-        run: |
-          if [ "${{ matrix.lane }}" = "server" ]; then
-            # BUILD stays pointed at the server build so memory-scenario.ts's
-            # build-root assertion and getPositronVersion both see it. Safe only
-            # because WEB is set for this lane: without it, test-setup.ts treats
-            # BUILD as an Electron build and getBuildElectronPath throws on the
-            # missing resources/app/product.json before any test runs.
-            export BUILD="$VSCODE_REMOTE_SERVER_PATH"
-          else
-            export BUILD="$DESKTOP_BUILD"
-          fi
-          npx playwright test "$MEMORY_SPEC" --project "$PW_PROJECT_NAME" --grep 'Render and publish'
+        run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Render and publish'
 
       - name: Upload report
         if: always()
@@ -297,9 +191,9 @@ jobs:
           if-no-files-found: warn
 
       # Only on failure, and deliberately including test-results/: when the app
-      # fixture times out there is no snapshot to upload, and the server's own
-      # log is the only thing that says why. Without this a failed server-lane
-      # job is diagnosable only by re-running it with more logging.
+      # fixture times out there is no snapshot to upload, so the app's own log is
+      # the only thing that says why. Without this a failed job is diagnosable
+      # only by re-running it with more logging.
       - name: Upload failure logs
         if: failure()
         uses: actions/upload-artifact@v7

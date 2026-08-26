@@ -365,20 +365,21 @@ describe('collectScenarios lane provenance', () => {
 		return root;
 	};
 
-	test('reports a lane whose every job failed, rather than dropping it silently', () => {
-		// The server lane is a single job, so "every job in the lane failed" is its
-		// ordinary failure and produces no directory at all. Skipping a lane with no
-		// directories would render a desktop-only report with no note that the server
-		// lane was expected -- which is what the first real CI dispatch produced.
-		const root = writeArtifact('memory-report-desktop-idle', {
-			'memory-snapshot-0.json': JSON.stringify(snapshot('idle', [proc()], 0, 'desktop'))
+	test('surfaces an artifact from a lane that expects no scenarios, rather than dropping it silently', () => {
+		// The server lane is parked, so EXPECTED_SCENARIOS_BY_LANE.server is empty and
+		// no lane directory is expected. A lane with no expected scenarios must still
+		// be walked: skipping it wholesale would silently discard an artifact that did
+		// arrive, which is how someone re-enabling the matrix row without restoring
+		// the expectation entry would get a report that omits their lane and calls
+		// itself a success.
+		const root = writeArtifact('memory-report-server-idle', {
+			'memory-snapshot-0.json': JSON.stringify(snapshot('idle', [proc()], 0, 'server'))
 		});
 
 		const collected = collectScenarios(root);
 		const serverIdle = collected.find(c => c.lane === 'server' && c.scenario === 'idle');
 
-		expect(serverIdle, 'the server lane vanished from the report entirely').toBeDefined();
-		expect(serverIdle!.snapshots).toHaveLength(0);
+		expect(serverIdle, 'the server artifact vanished from the report entirely').toBeDefined();
 		expect(serverIdle!.warnings.join(' ')).toContain('memory-report-server-idle');
 	});
 
