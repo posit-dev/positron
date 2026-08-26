@@ -950,21 +950,6 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 		throw new Error('Server does not support dynamic registration');
 	}
 
-	// --- Start Positron ---
-	const redirectUris = additionalRedirectUris?.length
-		? additionalRedirectUris
-		: [
-			'https://insiders.vscode.dev/redirect',
-			'https://vscode.dev/redirect',
-			'http://127.0.0.1/',
-			// Added these for any server that might do
-			// only exact match on the redirect URI even
-			// though the spec says it should not care
-			// about the port.
-			`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`,
-		];
-	// --- End Positron ---
-
 	const requestBody: IAuthorizationDynamicClientRegistrationRequest = {
 		client_name: clientName,
 		// --- Start Positron ---
@@ -974,7 +959,18 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 			? serverMetadata.grant_types_supported.filter(gt => grantTypesSupported.includes(gt))
 			: grantTypesSupported,
 		response_types: ['code'],
-		redirect_uris: redirectUris,
+		// --- Start Positron ---
+		redirect_uris: additionalRedirectUris?.length ? additionalRedirectUris : [
+			'https://insiders.vscode.dev/redirect',
+			'https://vscode.dev/redirect',
+			'http://127.0.0.1/',
+			// Added these for any server that might do
+			// only exact match on the redirect URI even
+			// though the spec says it should not care
+			// about the port.
+			`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`,
+		],
+		// --- End Positron ---
 		scope: scopes?.join(AUTH_SCOPE_SEPARATOR),
 		token_endpoint_auth_method: 'none',
 		application_type: 'native'
