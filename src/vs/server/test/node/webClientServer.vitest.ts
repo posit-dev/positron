@@ -17,7 +17,7 @@ const originalEnv = vi.hoisted(() => {
 	};
 	globalThis._VSCODE_FILE_ROOT = new URL('../../../../..', import.meta.url).pathname;
 	process.env['RS_SERVER_URL'] = 'http://workbench.example.com';
-	process.env['RSTUDIO_VERSION'] = '2026.05.0';
+	process.env['RSTUDIO_VERSION'] = '2026.08.0';
 	return env;
 });
 
