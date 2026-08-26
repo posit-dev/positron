@@ -35,8 +35,8 @@ export interface ProviderModalFooterProps {
 	onBack?: () => void;
 	/** The view's primary action button, if it has one. */
 	primaryButton?: ProviderFooterButtonConfig;
-	/** The view's optional secondary button, e.g. Remove on an errored provider. */
-	cancelButton?: ProviderFooterButtonConfig;
+	/** A second right-hand button, e.g. Remove on an errored provider. */
+	secondaryButton?: ProviderFooterButtonConfig;
 }
 
 /**
@@ -68,9 +68,9 @@ const footerButton = (config: ProviderFooterButtonConfig | undefined, isDefault:
  * @param props A ProviderModalFooterProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ProviderModalFooter = ({ onBack, primaryButton, cancelButton }: ProviderModalFooterProps) => {
+export const ProviderModalFooter = ({ onBack, primaryButton, secondaryButton }: ProviderModalFooterProps) => {
 	const primary = footerButton(primaryButton, true);
-	const secondary = footerButton(cancelButton, false);
+	const secondary = footerButton(secondaryButton, false);
 
 	return (
 		<div className='provider-modal-footer'>

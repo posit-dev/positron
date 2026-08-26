@@ -165,7 +165,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 		onPendingSignInChange?.(signInPending ? () => cancelSignInRef.current() : undefined);
 	}, [onPendingSignInChange, authMethod, inFlight]);
 
-	const cancelButton = props.source.status === 'error' ? {
+	const removeButton = props.source.status === 'error' ? {
 		title: pending === 'remove'
 			? localize('positron.connectedProvider.removing', "Removing...")
 			: localize('positron.connectedProvider.remove', "Remove"),
@@ -312,7 +312,6 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 			}
 			footer={
 				<ProviderModalFooter
-					cancelButton={cancelButton}
 					primaryButton={{
 						title: pending === 'connect'
 							? localize('positron.connectProvider.connecting', "Connecting...")
@@ -322,6 +321,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 						submit: true,
 						onClick: onConnect,
 					}}
+					secondaryButton={removeButton}
 					onBack={props.onBack}
 				/>
 			}
