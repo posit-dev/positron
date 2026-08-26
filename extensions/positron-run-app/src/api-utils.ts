@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { log } from './extension.js';
 import { IS_POSITRON_WEB, IS_RUNNING_ON_PWB, APP_URL_PLACEHOLDER, URL_LIKE_REGEX, HTTP_URL_REGEX } from './constants.js';
@@ -83,32 +84,46 @@ export async function showShellIntegrationNotSupportedMessage(): Promise<void> {
 }
 
 /**
- * Show a message explaining that the app's URL was not found in the console output.
+ * Show a message explaining that the app's URL has not appeared in the console
+ * output yet.
  *
- * The app itself is left running, so this is a warning rather than an error: the
- * app may simply be slower to start than the URL detection timeout allows.
+ * The app itself is left running and we keep watching for its URL, so this is a
+ * warning rather than an error: the app may simply be slower to start than the
+ * URL detection timeout allows.
  * @param appName The name of the app e.g. `'Shiny'`.
- * @param timeoutSetting The setting that governed the timeout, if it was one of
- *  ours. Omit when the caller passed an explicit timeout, since we can't know
- *  which of the caller's settings (if any) produced it, and pointing at our own
- *  setting would be wrong: an explicit timeout takes precedence over it.
+ * @param options.sessionId The console session running the app, if known. Used
+ *  to offer to focus the session, which is where the app's own output is.
+ * @param options.timeoutSetting The setting that governed the timeout, if it was
+ *  one of ours. Omit when the caller passed an explicit timeout, since we can't
+ *  know which of the caller's settings (if any) produced it, and pointing at our
+ *  own setting would be wrong: an explicit timeout takes precedence over it.
  */
-export async function showUrlDetectionTimedOutMessage(appName: string, timeoutSetting?: string): Promise<void> {
+export async function showUrlDetectionTimedOutMessage(
+	appName: string,
+	options?: { sessionId?: string; timeoutSetting?: string },
+): Promise<void> {
+	const showConsole = vscode.l10n.t('Show Console');
 	const changeTimeout = vscode.l10n.t('Change Timeout');
 	const showLog = vscode.l10n.t('Show Log');
-	const actions = timeoutSetting ? [changeTimeout, showLog] : [showLog];
+	const actions = [
+		...(options?.sessionId ? [showConsole] : []),
+		...(options?.timeoutSetting ? [changeTimeout] : []),
+		showLog,
+	];
 
 	const selection = await vscode.window.showWarningMessage(
 		vscode.l10n.t(
-			'Could not find the {0} app URL in the console output, so the app was not previewed. ' +
-			'The app is still running and may need more time to start.',
+			'Could not find the {0} app URL in the console output yet, so the app has not been previewed. ' +
+			'The app is still running, and Positron will preview it as soon as its URL appears.',
 			appName,
 		),
 		...actions,
 	);
 
-	if (selection === changeTimeout && timeoutSetting) {
-		await vscode.commands.executeCommand('workbench.action.openSettings', `@id:${timeoutSetting}`);
+	if (selection === showConsole && options?.sessionId) {
+		positron.runtime.focusSession(options.sessionId);
+	} else if (selection === changeTimeout && options?.timeoutSetting) {
+		await vscode.commands.executeCommand('workbench.action.openSettings', `@id:${options.timeoutSetting}`);
 	} else if (selection === showLog) {
 		log.show();
 	}

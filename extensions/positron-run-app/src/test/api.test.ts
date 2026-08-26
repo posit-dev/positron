@@ -191,10 +191,12 @@ suite('PositronRunApp', () => {
 		};
 
 		let observer: positron.runtime.ExecutionObserver | undefined;
+		let finishExecution: (() => void) | undefined;
 		let showWarningMessageStub: sinon.SinonStub;
 
 		setup(() => {
 			observer = undefined;
+			finishExecution = undefined;
 
 			// Always start a fresh console session rather than reusing a
 			// persisted one from an earlier test.
@@ -204,11 +206,14 @@ suite('PositronRunApp', () => {
 			sinon.stub(positron.runtime, 'focusSession');
 
 			// Capture the observer so the test can drive console output, and
-			// never resolve: the real Thenable only resolves once the app stops.
+			// capture a resolver so a test can end the execution: the real
+			// Thenable only resolves once the app stops.
 			sinon.stub(positron.runtime, 'executeCode')
 				.callsFake((..._args) => {
 					observer = _args[6] as positron.runtime.ExecutionObserver;
-					return new Promise(() => { });
+					return new Promise<Record<string, any>>(resolve => {
+						finishExecution = () => resolve({});
+					});
 				});
 
 			showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
@@ -270,8 +275,52 @@ suite('PositronRunApp', () => {
 			sinon.assert.calledOnceWithExactly(
 				showWarningMessageStub,
 				sinon.match.string,
+				'Show Console',
 				'Show Log',
 			);
+		});
+
+		test('previews the app URL that appears after the detection timeout', async () => {
+			// A slow app prints its URL after we have given up waiting. Detection
+			// keeps listening, so the app is still previewed without the user
+			// having to do anything.
+			const runPromise = runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				urlDetectionTimeout: 500,
+			});
+
+			await waitFor(() => observer !== undefined, 'Timed out waiting for code execution');
+
+			// The run task ends at the timeout so that a re-run is never blocked.
+			// The watch for the app's URL outlives it.
+			await runPromise;
+
+			observer!.onOutput!('Listening on http://localhost:1234\n');
+
+			await waitFor(() => previewUrlStub.called, 'Timed out waiting for the app to be previewed');
+			sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+		});
+
+		test('stops watching when the console execution finishes without a URL', async () => {
+			// An app that stopped without ever printing a URL is never going to
+			// print one, so the watch must end with the execution rather than
+			// previewing whatever a later session happens to print.
+			const runPromise = runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				urlDetectionTimeout: 500,
+			});
+
+			await waitFor(() => observer !== undefined, 'Timed out waiting for code execution');
+			await runPromise;
+
+			// End the execution, as if the app stopped, then print a URL anyway.
+			assert.ok(finishExecution, 'The execution resolver should have been captured');
+			finishExecution();
+			await new Promise(resolve => setTimeout(resolve, 100));
+			observer!.onOutput!('Listening on http://localhost:1234\n');
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			sinon.assert.notCalled(previewUrlStub);
 		});
 	});
 
