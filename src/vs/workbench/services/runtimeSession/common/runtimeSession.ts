@@ -864,8 +864,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
-		// Check if the session is already the foreground session
-		if (session && this._foregroundSession && session.sessionId === this._foregroundSession.sessionId) {
+		// Check if the session is already the foreground session. This compares
+		// object identity, not session ID: a reconnected session carries the
+		// same ID as the disposed object it replaces, and treating that as "no
+		// change" would leave the stale object in place.
+		if (session && session === this._foregroundSession) {
 			return; // No change, don't update or fire events
 		}
 
@@ -1975,6 +1978,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Clean up any previous active session info for this session.
 		const oldSession = this._activeSessionsBySessionId.get(session.sessionId);
 		if (oldSession) {
+			// The old session object is about to be disposed; move any cached
+			// references onto the replacement before that happens.
+			this.replaceCachedSessionReferences(oldSession.session, session);
 			oldSession.dispose();
 		}
 
@@ -2327,6 +2333,58 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			session.metadata.notebookUri,
 			new RuntimeSessionDisplayInfo(session),
 		);
+	}
+
+	/**
+	 * Swaps every cached reference to a session object for its replacement.
+	 *
+	 * A reconnect (such as after an extension host restart) builds a new
+	 * session object bound to the new extension host proxy and disposes the old
+	 * one. The caches below hold the session object itself rather than its ID,
+	 * so without this they keep pointing at the disposed object and every call
+	 * made through them is cancelled by the dead RPC protocol.
+	 *
+	 * @param oldSession The session object being replaced.
+	 * @param newSession The session object replacing it.
+	 */
+	private replaceCachedSessionReferences(
+		oldSession: ILanguageRuntimeSession,
+		newSession: ILanguageRuntimeSession): void {
+		if (oldSession === newSession) {
+			return;
+		}
+
+		if (this._foregroundSession === oldSession) {
+			this._foregroundSession = newSession;
+			this.foregroundSessionDisplayInfo =
+				this._createRuntimeSessionDisplayInfo(newSession);
+		}
+
+		if (this._lastActiveConsoleSession === oldSession) {
+			this._lastActiveConsoleSession = newSession;
+		}
+
+		for (const [languageId, session] of this._lastActiveConsoleSessionByLanguageId) {
+			if (session === oldSession) {
+				this._lastActiveConsoleSessionByLanguageId.set(languageId, newSession);
+			}
+		}
+
+		for (const [runtimeId, sessions] of this._consoleSessionsByRuntimeId) {
+			const index = sessions.indexOf(oldSession);
+			if (index !== -1) {
+				const updated = [...sessions];
+				updated[index] = newSession;
+				this._consoleSessionsByRuntimeId.set(runtimeId, updated);
+			}
+		}
+
+		if (isNotebookLanguageRuntimeSession(newSession)) {
+			const notebookUri = newSession.metadata.notebookUri;
+			if (this._notebookSessionsByNotebookUri.get(notebookUri) === oldSession) {
+				this._notebookSessionsByNotebookUri.set(notebookUri, newSession);
+			}
+		}
 	}
 
 	/**
