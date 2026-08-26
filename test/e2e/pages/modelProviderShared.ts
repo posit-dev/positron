@@ -60,7 +60,8 @@ export type ModelProvider =
 	| 'error'
 	| 'ms-foundry'
 	| 'openai-api'
-	| 'posit-ai';
+	| 'posit-ai'
+	| 'snowflake-cortex';
 
 /**
  * Authentication types for model providers.
@@ -118,6 +119,7 @@ export function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 		case 'anthropic-api':
 		case 'openai-api':
 		case 'ms-foundry':
+		case 'snowflake-cortex':
 			return 'apiKey';
 		case 'amazon-bedrock':
 			return 'aws';
@@ -138,11 +140,14 @@ export function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
  * field in the Configure Providers modal in addition to the API key field.
  *
  * Databricks labels the same field "Workspace URL" and needs it under both auth
- * methods -- OAuth discovers the workspace's OIDC endpoints from it.
+ * methods -- OAuth discovers the workspace's OIDC endpoints from it. Snowflake
+ * labels it "Account Identifier" and stores the bare account rather than a URL,
+ * deriving the Cortex endpoint from it (see getBaseUrlLabel in
+ * src/vs/workbench/contrib/positronAssistant/browser/providerFieldLabels.ts).
  */
 export function providerRequiresBaseUrl(provider: ModelProvider): boolean {
 	const id = provider.toLowerCase();
-	return id === 'ms-foundry' || id === 'databricks';
+	return id === 'ms-foundry' || id === 'databricks' || id === 'snowflake-cortex';
 }
 
 export function getProviderBaseUrlEnvVarName(provider: ModelProvider): string {
@@ -150,6 +155,12 @@ export function getProviderBaseUrlEnvVarName(provider: ModelProvider): string {
 	// against, rather than introducing a DATABRICKS_BASE_URL alias for it.
 	if (provider.toLowerCase() === 'databricks') {
 		return 'DATABRICKS_WORKSPACE';
+	}
+	// Snowflake's "base URL" is the bare account identifier, so it reuses the
+	// SNOWFLAKE_ACCOUNT the data-connections suite already runs against rather
+	// than a SNOWFLAKE_CORTEX_BASE_URL alias for it.
+	if (provider.toLowerCase() === 'snowflake-cortex') {
+		return 'SNOWFLAKE_ACCOUNT';
 	}
 	return `${provider.toUpperCase().replace(/-/g, '_')}_BASE_URL`;
 }
@@ -180,6 +191,10 @@ export function getProviderEnvVarName(provider: ModelProvider): string {
 		case 'databricks':
 			// Databricks calls its API key a personal access token.
 			return 'DATABRICKS_PAT';
+		case 'snowflake-cortex':
+			// The default derivation would ask for SNOWFLAKE_CORTEX_KEY; the account's
+			// programmatic access token is stored under the platform's own name.
+			return 'SNOWFLAKE_API_KEY';
 		default:
 			return `${provider.toUpperCase().replace(/-/g, '_')}_KEY`;
 	}
