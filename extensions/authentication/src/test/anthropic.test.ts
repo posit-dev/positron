@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import { validateAnthropicApiKey } from '../validation/anthropic';
-import { initializeValidationCatalog } from './validationTestUtils';
+import { stubValidationCatalog } from './validationTestUtils';
 
 suite('validateAnthropicApiKey', () => {
 	let originalFetch: typeof globalThis.fetch;
@@ -65,7 +65,7 @@ suite('validateAnthropicApiKey', () => {
 	});
 
 	test('sends configured headers on the initial request and retry', async () => {
-		const catalog = await initializeValidationCatalog({
+		const catalog = stubValidationCatalog({
 			anthropic: {
 				customHeaders: { 'X-Gateway-Token': 'gateway-key' },
 			},
@@ -84,7 +84,7 @@ suite('validateAnthropicApiKey', () => {
 				makeConfig('https://api.anthropic.com')
 			);
 		} finally {
-			await catalog.dispose();
+			catalog.restore();
 		}
 
 		assert.deepStrictEqual(

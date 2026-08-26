@@ -3,44 +3,25 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import * as vscode from 'vscode';
-import { initProviderCatalog } from '../providerCatalog';
+import * as sinon from 'sinon';
+import * as providerCatalog from '../providerCatalog';
 
-interface ValidationCatalogFixture {
-	dispose(): Promise<void>;
+interface ValidationProvider {
+	readonly customHeaders?: Record<string, string>;
 }
 
-/** Minimal ExtensionContext stub: only `subscriptions` is read by initProviderCatalog. */
-function fakeContext(): vscode.ExtensionContext {
-	return { subscriptions: [] } as unknown as vscode.ExtensionContext;
-}
-
-export async function initializeValidationCatalog(
-	providers: Record<string, unknown>
-): Promise<ValidationCatalogFixture> {
-	const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'validation-headers-'));
-	const configPath = path.join(directory, 'providers.json');
-	fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers }));
-
-	const context = fakeContext();
-	await initProviderCatalog(context, { configPath });
-
-	return {
-		async dispose() {
-			for (const disposable of context.subscriptions) {
-				disposable.dispose();
-			}
-
-			fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers: {} }));
-			const resetContext = fakeContext();
-			await initProviderCatalog(resetContext, { configPath });
-			for (const disposable of resetContext.subscriptions) {
-				disposable.dispose();
-			}
-			fs.rmSync(directory, { recursive: true, force: true });
-		},
-	};
+export function stubValidationCatalog(
+	providers: Record<string, ValidationProvider>
+): sinon.SinonStub {
+	return sinon.stub(providerCatalog, 'getCachedProvider').callsFake(catalogId => {
+		const provider = providers[catalogId];
+		if (!provider) {
+			return undefined;
+		}
+		return {
+			id: catalogId,
+			enabled: true,
+			connection: { customHeaders: provider.customHeaders },
+		};
+	});
 }

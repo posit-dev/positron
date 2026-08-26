@@ -5,11 +5,11 @@
 
 import * as assert from 'assert';
 import { validateOpenaiApiKey } from '../validation/openai';
-import { initializeValidationCatalog } from './validationTestUtils';
+import { stubValidationCatalog } from './validationTestUtils';
 
 suite('validateOpenaiApiKey custom headers', () => {
 	test('sends configured headers from the openai catalog entry', async () => {
-		const catalog = await initializeValidationCatalog({
+		const catalog = stubValidationCatalog({
 			openai: {
 				customHeaders: { 'X-Gateway-Token': 'gateway-key' },
 			},
@@ -25,7 +25,7 @@ suite('validateOpenaiApiKey custom headers', () => {
 			await validateOpenaiApiKey('openai-key', {});
 		} finally {
 			globalThis.fetch = originalFetch;
-			await catalog.dispose();
+			catalog.restore();
 		}
 
 		assert.strictEqual(requestedHeaders?.['X-Gateway-Token'], 'gateway-key');

@@ -9,7 +9,7 @@ import * as positron from 'positron';
 import { validateDeepSeekApiKey } from '../validation/deepseek';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { log } from '../log';
-import { initializeValidationCatalog } from './validationTestUtils';
+import { stubValidationCatalog } from './validationTestUtils';
 
 suite('validateDeepSeekApiKey', () => {
 	let originalFetch: typeof globalThis.fetch;
@@ -70,7 +70,7 @@ suite('validateDeepSeekApiKey', () => {
 	});
 
 	test('uses the deepseek catalog id and matches collisions case-insensitively', async () => {
-		const catalog = await initializeValidationCatalog({
+		const catalog = stubValidationCatalog({
 			deepseek: {
 				customHeaders: {
 					'X-Gateway-Token': 'gateway-key',
@@ -87,7 +87,7 @@ suite('validateDeepSeekApiKey', () => {
 		try {
 			await validateDeepSeekApiKey('sk-valid', makeConfig());
 		} finally {
-			await catalog.dispose();
+			catalog.restore();
 		}
 
 		assert.deepStrictEqual(requestedHeaders[0], {

@@ -8,7 +8,7 @@ import * as sinon from 'sinon';
 import * as positron from 'positron';
 import { validateCustomProviderApiKey } from '../validation/customProvider';
 import { log } from '../log';
-import { initializeValidationCatalog } from './validationTestUtils';
+import { stubValidationCatalog } from './validationTestUtils';
 
 suite('validateCustomProviderApiKey', () => {
 	let originalFetch: typeof globalThis.fetch;
@@ -56,7 +56,7 @@ suite('validateCustomProviderApiKey', () => {
 	});
 
 	test('merges configured headers without replacing base headers', async () => {
-		const catalog = await initializeValidationCatalog({
+		const catalog = stubValidationCatalog({
 			'openai-compatible': {
 				customHeaders: {
 					'Ocp-Apim-Subscription-Key': 'gateway-key',
@@ -69,7 +69,7 @@ suite('validateCustomProviderApiKey', () => {
 		try {
 			await validateCustomProviderApiKey('sk-test', makeConfig());
 		} finally {
-			await catalog.dispose();
+			catalog.restore();
 		}
 
 		assert.deepStrictEqual(requestedHeaders[0], {

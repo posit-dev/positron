@@ -5,11 +5,11 @@
 
 import * as assert from 'assert';
 import { validateGeminiApiKey } from '../validation/gemini';
-import { initializeValidationCatalog } from './validationTestUtils';
+import { stubValidationCatalog } from './validationTestUtils';
 
 suite('validateGeminiApiKey custom headers', () => {
 	test('sends configured headers from the gemini catalog entry', async () => {
-		const catalog = await initializeValidationCatalog({
+		const catalog = stubValidationCatalog({
 			gemini: {
 				customHeaders: { 'Ocp-Apim-Subscription-Key': 'gateway-key' },
 			},
@@ -25,7 +25,7 @@ suite('validateGeminiApiKey custom headers', () => {
 			await validateGeminiApiKey('gemini-key', {});
 		} finally {
 			globalThis.fetch = originalFetch;
-			await catalog.dispose();
+			catalog.restore();
 		}
 
 		assert.strictEqual(
