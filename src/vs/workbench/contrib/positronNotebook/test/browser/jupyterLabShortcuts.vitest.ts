@@ -261,7 +261,7 @@ describe('Positron Notebook keyboard shortcuts', () => {
 				// `when` is a composite ContextKeyExpr.and(...), so check it includes the cell-editor key.
 				expect(keybinding.when?.keys()).toContain(NotebookContextKeys.cellEditorFocused.key);
 			}
-			// The vim overrides are gated on the vim extensions' mode context keys.
+			// The vim overrides only apply when the vim extensions' mode context keys match.
 			const allKeys = keybindings.flatMap(kb => kb.when?.keys() ?? []);
 			expect(allKeys).toContain('vim.mode');
 			expect(allKeys).toContain('neovim.mode');
