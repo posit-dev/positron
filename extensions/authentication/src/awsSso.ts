@@ -5,7 +5,7 @@
 
 import { spawn } from 'child_process';
 import type { CancellationToken } from 'vscode';
-import { AuthProviderLogger } from '../authProviderLogger';
+import { AuthProviderLogger } from './authProviderLogger';
 
 /**
  * Two AWS SDK packages append this sentence to every token error that

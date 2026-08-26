@@ -10,7 +10,7 @@ import {
 	ExpiredSsoError,
 	runSsoLogin,
 	SsoLoginError,
-} from './credentials/awsSso';
+} from './awsSso';
 
 const logger = new AuthProviderLogger('AWS');
 

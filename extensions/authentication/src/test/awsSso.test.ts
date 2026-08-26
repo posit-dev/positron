@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import { EventEmitter } from 'events';
 import * as vscode from 'vscode';
-import { classifyAwsChainError, runSsoLogin, SpawnFn, SsoLoginError } from '../credentials/awsSso';
+import { classifyAwsChainError, runSsoLogin, SpawnFn, SsoLoginError } from '../awsSso';
 
 // The sentence the AWS SDK appends to every token error an `aws sso login`
 // would fix. Copied verbatim from @aws-sdk/token-providers.

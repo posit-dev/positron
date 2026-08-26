@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import { createAwsSsoRecovery } from '../awsRecovery';
-import { SsoLoginError } from '../credentials/awsSso';
+import { SsoLoginError } from '../awsSso';
 
 const REFRESH = `To refresh this SSO session run 'aws sso login' with the corresponding profile.`;
 const EXPIRED = new Error(`Token is expired. ${REFRESH}`);
