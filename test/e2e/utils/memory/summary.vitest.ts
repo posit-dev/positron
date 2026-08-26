@@ -235,6 +235,21 @@ describe('delta emphasis', () => {
 });
 
 describe('renderSummaryHtml', () => {
+	// The header used to restate what the columns already say. What a reader cannot
+	// read off the table is which build produced the numbers.
+	test('heads the report with the build, lane and launch count rather than a description of the table', () => {
+		const entries: ScenarioSnapshots[] = [
+			{ scenario: 'idle', snapshots: [snapshot('idle', [proc()], 0), snapshot('idle', [proc()], 1)] }
+		];
+		const html = renderSummaryHtml(buildSummaryMatrix(entries));
+
+		expect(html).toContain('Build 2026.09.0-35');
+		expect(html).toContain('Desktop');
+		expect(html).toContain('2 launches/scenario');
+		expect(html).toContain('Aug 11, 2026 at 00:00 UTC');
+		expect(html).not.toContain('Median PSS per role');
+	});
+
 	// This page is what the workflow links first, so a scenario measured mid-swing
 	// has to say so here. Reading it only in the per-scenario report means the
 	// landing page presents a contaminated delta as fact.
@@ -304,6 +319,28 @@ describe('renderSummaryHtml', () => {
 		const entries: ScenarioSnapshots[] = [scenarioEntry('idle', [proc({ pssBytes: 100 * MB })])];
 		const html = renderSummaryHtml(buildSummaryMatrix(entries));
 		expect(html).toContain('TOTAL');
+	});
+
+	test('footnotes the roles read after a forced GC, and only those', () => {
+		const gc = (role: 'shared' | 'extension_host') => ({ role, pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 });
+		const procs = [proc({ processRole: 'shared' }), proc({ processRole: 'extension_host' }), proc({ processRole: 'main' })];
+
+		const both = renderSummaryHtml(buildSummaryMatrix([
+			{ scenario: 'idle', snapshots: [{ ...snapshot('idle', procs, 0), forcedGc: [gc('shared'), gc('extension_host')] }] }
+		]));
+		expect(both).toContain('<code>shared</code><span class="fn-marker">*</span>');
+		expect(both).toContain('<code>extension_host</code><span class="fn-marker">*</span>');
+		expect(both).toContain('<code>main</code></td>');
+		// Under the table it qualifies, not in the copy above it.
+		expect(both.indexOf('class="footnote"')).toBeGreaterThan(both.indexOf('</table>'));
+
+		// The server lane collects only the extension host, so a fixed pair of roles
+		// would footnote a `shared` figure that was never collected.
+		const extHostOnly = renderSummaryHtml(buildSummaryMatrix([
+			{ scenario: 'idle', snapshots: [{ ...snapshot('idle', procs, 0), forcedGc: [gc('extension_host')] }] }
+		]));
+		expect(extHostOnly).toContain('<code>extension_host</code><span class="fn-marker">*</span>');
+		expect(extHostOnly).toContain('<code>shared</code></td>');
 	});
 
 	test('shows the GC note when a snapshot carries a forced-GC reading, not otherwise', () => {
@@ -448,6 +485,26 @@ describe('renderLaneSectionsHtml', () => {
 		// document got nested wholesale instead of just its container markup.
 		expect(html.match(/<html/g)).toHaveLength(1);
 		expect(html).toContain('<!DOCTYPE html>');
+	});
+
+	// The combined page builds its own <html> shell, so it has to opt into the
+	// matrix rules explicitly: with only REPORT_CSS it lost the stacked delta
+	// lines, the baseline tint and the container width, and rendered as a
+	// different table from the per-lane document it is stitched from.
+	test('carries the matrix styling and the container width the per-lane document has', () => {
+		const sections = buildLaneSections([{ lane: 'desktop', scenario: 'idle', snapshots: [desktopIdle] }]);
+		const html = renderLaneSectionsHtml(sections);
+
+		expect(html).toContain('.matrix .delta-line');
+		expect(html).toContain('.matrix .baseline');
+		expect(html).toContain('<div class="container">');
+	});
+
+	// One lane is the normal case, and there the heading was a second title above
+	// a header that already names the lane.
+	test('drops the lane heading when there is only one lane', () => {
+		const sections = buildLaneSections([{ lane: 'desktop', scenario: 'idle', snapshots: [desktopIdle] }]);
+		expect(renderLaneSectionsHtml(sections)).not.toContain('<h1>desktop lane</h1>');
 	});
 
 	test('names the lane whose total is not comparable across lanes', () => {
