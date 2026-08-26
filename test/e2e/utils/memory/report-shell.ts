@@ -15,8 +15,15 @@
 
 const MB = 1024 * 1024;
 
-/** Shown by both reports whenever a snapshot carries a forced-GC reading, so live usage is not mistaken for it. */
-export const GC_NOTE = 'Shared process and extension host are measured after a forced garbage collection; live usage can sit higher.';
+/** Shown by the per-scenario report whenever a snapshot carries a forced-GC reading, so live usage is not mistaken for it. */
+export const GC_NOTE = 'Shared process and extension host values are measured after forced garbage collection; live usage may be higher.';
+
+/**
+ * The same caveat as {@link GC_NOTE} for the summary matrix, which marks the
+ * affected roles with an asterisk instead of naming them in prose. Kept next to
+ * GC_NOTE so the two cannot end up making different claims about the same reading.
+ */
+export const GC_FOOTNOTE = 'Measured after forced garbage collection; live usage may be higher.';
 
 /**
  * Always MB, never GB. Every scenario in the report sits in the hundreds to

@@ -25,7 +25,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { isMemoryLane, MEMORY_LANES, MemoryLane } from './lanes.js';
 import { MEMORY_SCENARIOS, MemoryScenario } from './scenarios.js';
-import { buildSummaryMatrix, renderSummaryHtml, ScenarioSnapshots, SummaryMatrix } from './summary.js';
+import { buildSummaryMatrix, renderSummaryHtml, ScenarioSnapshots, SUMMARY_CSS, SummaryMatrix } from './summary.js';
 import { escapeHtml, formatBytes, REPORT_CSS } from './report-shell.js';
 import { MemorySnapshot } from './types.js';
 
@@ -311,8 +311,11 @@ export function renderLaneSectionsHtml(sections: LaneSection[]): string {
 		const doc = renderSummaryHtml(section.matrix);
 		const inner = containerHtmlFrom(doc, section.lane);
 		const note = section.lane === 'server' ? `<p class="meta">${escapeHtml(SERVER_LANE_NOTE)}</p>` : '';
-		return `<section>
-	<h1>${escapeHtml(section.lane)} lane</h1>
+		// Only worth a heading when there is a second lane to tell it apart from.
+		// Each lane's own header names its lane already, so on the single-lane page
+		// this was a title repeating the line under it.
+		const heading = sections.length > 1 ? `\n\t<h1>${escapeHtml(section.lane)} lane</h1>` : '';
+		return `<section>${heading}
 	${note}
 	${inner}
 </section>`;
@@ -323,10 +326,12 @@ export function renderLaneSectionsHtml(sections: LaneSection[]): string {
 <head>
 	<meta charset="utf-8">
 	<title>Positron memory: cross-scenario summary</title>
-	<style>${REPORT_CSS}</style>
+	<style>${REPORT_CSS}${SUMMARY_CSS}</style>
 </head>
 <body>
+<div class="container">
 ${bodies.join('\n')}
+</div>
 </body>
 </html>`;
 }
