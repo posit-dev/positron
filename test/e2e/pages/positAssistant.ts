@@ -63,6 +63,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	'openai-api': 'OpenAI',
 	'ms-foundry': 'Microsoft Foundry',
 	'posit-ai': 'Posit AI',
+	'snowflake-cortex': 'Snowflake Cortex',
 };
 
 // Chat message elements
