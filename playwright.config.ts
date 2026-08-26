@@ -39,12 +39,10 @@ const insightsReporters: ReporterDescription[] = [
  */
 const projectName = process.env.PW_PROJECT_NAME || 'default';
 
-// --- Start Positron ---
 // A project's own testIgnore REPLACES this one rather than merging with it, so any
 // project that declares testIgnore has to spread `rootIgnore` back in. #15737 added a
 // memory-spec ignore to e2e-chromium and e2e-server without it, which re-enabled
 // example.test.ts and the lsp specs in the web lanes.
-// --- End Positron ---
 const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
@@ -127,7 +125,6 @@ export default defineConfig<CustomTestOptions>({
 		},
 		{
 			name: 'e2e-chromium',
-			// --- Start Positron ---
 			// The server memory lane runs here, because e2e-chromium takes the
 			// spawned-server path that gives the collector a process tree to walk.
 			// Without this guard the server memory spec would be eligible in every
@@ -137,7 +134,6 @@ export default defineConfig<CustomTestOptions>({
 				...rootIgnore,
 				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), process.env.MEMORY_SCENARIO),
 			],
-			// --- End Positron ---
 			use: {
 				artifactDir: 'e2e-chromium',
 				headless: false,
@@ -183,7 +179,6 @@ export default defineConfig<CustomTestOptions>({
 		},
 		{
 			name: 'e2e-server',
-			// --- Start Positron ---
 			// e2e-server uses an externally started server, so Code holds null in
 			// the process slot and there is no tree to walk. A memory spec running
 			// here would produce an empty process list rather than an error, so it
@@ -193,7 +188,6 @@ export default defineConfig<CustomTestOptions>({
 				...rootIgnore,
 				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), undefined),
 			],
-			// --- End Positron ---
 			use: {
 				artifactDir: 'e2e-server',
 				headless: false,
