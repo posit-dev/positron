@@ -49,18 +49,19 @@ export async function validateDatabricksApiKey(
 	}
 	const host = normalizeHost(rawHost);
 	const meEndpoint = `${host}/api/2.0/preview/scim/v2/Me`;
+	const headers = getValidationHeaders(
+		getProviderCatalogId(PROVIDER_METADATA.databricks),
+		{
+			'Authorization': `Bearer ${apiKey}`,
+		}
+	);
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
 	try {
 		const response = await fetch(meEndpoint, {
 			method: 'GET',
-			headers: getValidationHeaders(
-				getProviderCatalogId(PROVIDER_METADATA.databricks),
-				{
-					'Authorization': `Bearer ${apiKey}`,
-				}
-			),
+			headers,
 			signal: controller.signal,
 		});
 

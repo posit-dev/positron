@@ -23,18 +23,19 @@ export async function validateOpenaiApiKey(
 	const baseUrl = (config.baseUrl?.trim() || OPENAI_DEFAULT_BASE_URL)
 		.replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
+	const headers = getValidationHeaders(
+		getProviderCatalogId(PROVIDER_METADATA.openai),
+		{
+			'Authorization': `Bearer ${apiKey}`,
+		}
+	);
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
 	try {
 		const response = await fetch(modelsEndpoint, {
 			method: 'GET',
-			headers: getValidationHeaders(
-				getProviderCatalogId(PROVIDER_METADATA.openai),
-				{
-					'Authorization': `Bearer ${apiKey}`,
-				}
-			),
+			headers,
 			signal: controller.signal,
 		});
 

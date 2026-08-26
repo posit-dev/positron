@@ -62,19 +62,20 @@ export async function validateFoundryApiKey(
 
 	const baseUrl = normalizeToV1Url(rawBaseUrl);
 	const endpoint = `${baseUrl}/chat/completions`;
+	const headers = getValidationHeaders(
+		getProviderCatalogId(PROVIDER_METADATA.foundry),
+		{
+			'Authorization': `Bearer ${apiKey}`,
+			'Content-Type': 'application/json',
+		}
+	);
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
 	try {
 		const response = await fetch(endpoint, {
 			method: 'POST',
-			headers: getValidationHeaders(
-				getProviderCatalogId(PROVIDER_METADATA.foundry),
-				{
-					'Authorization': `Bearer ${apiKey}`,
-					'Content-Type': 'application/json',
-				}
-			),
+			headers,
 			body: JSON.stringify({ model: '', messages: [] }),
 			signal: controller.signal,
 		});
