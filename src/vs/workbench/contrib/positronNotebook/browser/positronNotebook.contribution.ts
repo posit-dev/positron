@@ -585,14 +585,8 @@ export class ExitEditModeAction extends NotebookAction2 {
 					weight: KeybindingWeight.EditorContrib,
 					primary: KeyCode.Escape
 				},
-				// Vim emulation extensions bind Escape at extension weight, which
-				// outranks any core weight, so the rule above never fires while a
-				// vim extension owns the editor and users get stuck in edit mode.
-				// These rules reclaim Escape only in vim Normal mode (Insert/Visual
-				// still escape to Normal first, matching Jupyter vim conventions)
-				// by outweighing the extensions' bindings. They reference the
-				// extensions' own context keys, which are undefined (never equal)
-				// when the extension isn't installed, so the rules are inert then.
+				// Vim extensions bind Escape at extension weight, outranking the rule
+				// above. These higher-weight rules reclaim Escape in vim Normal mode.
 				{
 					// VSCodeVim (vscodevim.vim)
 					when: ContextKeyExpr.and(
