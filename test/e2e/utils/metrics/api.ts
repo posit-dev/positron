@@ -13,7 +13,8 @@ import {
 	platformVersion,
 	MetricResponse,
 	MetricContext,
-	positronVersion
+	positronVersion,
+	arkVersion
 } from './metric-base.js';
 import { SPEC_NAME } from '../../fixtures/test-setup/constants.js';
 import { type AssistantMetricContext } from './metric-assistant.js';
@@ -94,9 +95,17 @@ export async function logMetric(
 }
 
 /**
- * Creates a metric payload from the provided metric data
+ * Creates a metric payload from the provided metric data.
+ *
+ * `ark` is a parameter with a default rather than a direct read of the module
+ * constant, so the payload builder is testable without a module mock. Production
+ * callers leave it unset.
  */
-function createMetricPayload(metric: PerfMetric, isElectronApp: boolean): MetricPayload {
+export function createMetricPayload(
+	metric: PerfMetric,
+	isElectronApp: boolean,
+	ark: string | undefined = arkVersion
+): MetricPayload {
 	const {
 		feature_area,
 		action,
@@ -125,7 +134,11 @@ function createMetricPayload(metric: PerfMetric, isElectronApp: boolean): Metric
 		target_description,
 		variant,
 		spec_name: spec_name || SPEC_NAME,
-		context: JSON.stringify(context_json)
+		// Spread first, so a call site that set ark_version deliberately still
+		// wins over the build-wide read. Absent when there is nothing to report:
+		// never a placeholder, which would put a fake version into a column the
+		// dashboard promotes and marks changes on.
+		context: JSON.stringify({ ...(ark ? { ark_version: ark } : {}), ...context_json })
 	};
 }
 
