@@ -7,7 +7,7 @@
 import './configureLLMProvidersModal.css';
 
 // React.
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
@@ -56,39 +56,25 @@ export const showConfigureLLMProvidersModal = (
 	onClose: () => void,
 	options?: IShowLanguageModelConfigOptions,
 ) => {
-	// Function to cancel a pending sign-in, if one exists.
-	let cancelPendingSignIn: (() => void) | undefined;
-	// Function to set the cancel callback.
-	const setCancelPendingSignIn = (cancel: (() => void) | undefined) => {
-		cancelPendingSignIn = cancel;
-	};
-	// Function that does the actual cancellation of the pending sign-in, if one exists.
-	const doCancelPendingSignIn = () => {
-		// Save the current cancel function and clear it before invoking it.
-		// We clear the cancel function before invoking it because we don't
-		// want it to be called again accidentally during the cancellation process.
-		const cancel = cancelPendingSignIn;
-		cancelPendingSignIn = undefined;
-		cancel?.();
-	};
-
+	// Disposing the renderer is the one thing every way out of the modal does: the
+	// title bar's close button, and Escape, which the browser handles itself on a
+	// native <dialog> without going through React. So the teardown hangs off the
+	// renderer rather than the component.
+	const pendingSignIn: PendingSignIn = {};
 	const renderer = new PositronModalReactRenderer({
 		onDisposed: () => {
-			// Disposing the modal should cancel any OAuth sign-in that is still running,
-			// regardless of what caused the disposal (esc key, close button, back button, etc).
-			doCancelPendingSignIn();
+			pendingSignIn.cancel?.();
 			onClose();
 		},
 	});
 	renderer.render(
 		<div className='configure-llm-providers-modal' data-testid='configure-llm-providers-modal'>
 			<ConfigureLLMProviders
+				pendingSignIn={pendingSignIn}
 				preselectedProviderId={options?.preselectedProviderId}
 				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
-				onCancelPendingSignIn={doCancelPendingSignIn}
-				onSetCancelPendingSignIn={setCancelPendingSignIn}
 			/>
 		</div>
 	);
@@ -96,14 +82,12 @@ export const showConfigureLLMProvidersModal = (
 
 export interface ConfigureLLMProvidersProps {
 	renderer: PositronModalReactRenderer;
+	/** Where the connect view's cancel handler is left for the renderer's teardown to find. */
+	pendingSignIn: PendingSignIn;
 	sources: IPositronLanguageModelSource[];
 	/** Provider to open on, skipping the list. Ignored if it is not in `sources`. */
 	preselectedProviderId?: string;
 	onAction: OnAction;
-	/** Cancels an in-flight OAuth sign-in, if one exists. */
-	onCancelPendingSignIn: () => void;
-	/** Sets the cancellation function for an in-flight OAuth sign-in. */
-	onSetCancelPendingSignIn: (cancel: (() => void) | undefined) => void;
 }
 
 export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
@@ -155,6 +139,18 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	const selectedSource = sources.find(s => s.provider.id === selectedProviderId);
 	const activeView = (view === 'connect' || view === 'connected') && !selectedSource ? 'list' : view;
 
+	// A cancel handler reported by the connect view while an OAuth sign-in is in
+	// flight. Written straight into the shared handle so it does not re-render the
+	// modal as the sign-in progresses.
+	const pendingSignIn = props.pendingSignIn;
+	const setPendingCancel = useCallback((cancel: (() => void) | undefined) => {
+		pendingSignIn.cancel = cancel;
+	}, [pendingSignIn]);
+
+	const cancelPendingSignIn = () => {
+		pendingSignIn.cancel?.();
+	};
+
 	// Disposing runs the teardown the show function installed, which cancels an
 	// in-flight sign-in and reports the modal closed.
 	const close = () => {
@@ -171,7 +167,8 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	// Leaving the connect view cancels any sign-in it started and drops the handler,
 	// so a later close does not try to cancel a flow that has already gone.
 	const backToList = () => {
-		props.onCancelPendingSignIn();
+		cancelPendingSignIn();
+		setPendingCancel(undefined);
 		setView('list');
 	};
 
@@ -207,7 +204,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					onAction={props.onAction}
 					onBack={backToList}
 					onEditRawConfig={editRawConfig}
-					onPendingSignInChange={props.onSetCancelPendingSignIn}
+					onPendingSignInChange={setPendingCancel}
 				/>
 			}
 			{activeView === 'connected' && selectedSource &&
