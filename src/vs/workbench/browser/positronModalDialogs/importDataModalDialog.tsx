@@ -19,7 +19,7 @@ import { positronClassNames } from '../../../base/common/positronUtilities.js';
 import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../base/browser/positronModalDialogReactRenderer.js';
-import { deriveVariableName, isValidVariableName } from './importDataVariableName.js';
+import { deriveVariableName } from './importDataVariableName.js';
 import { LabeledTextInput } from '../positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { TwoButtonFooter } from '../positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
@@ -39,7 +39,7 @@ export interface ImportDataModalDialogOptions {
 	readonly fileUri: URI;
 
 	/**
-	 * The importers that can read this file, in registration order. Empty when no extension offers
+	 * The importers that can read this file, sorted by display name. Empty when no extension offers
 	 * one, which the dialog renders as an empty state rather than refusing to open: the button's
 	 * visibility is keyed on the file, and context keys cannot cheaply reflect async registry
 	 * contents.
@@ -100,14 +100,41 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 	});
 	const selectedImporter = props.importers[selectedIndex];
 
-	// The target variable name, seeded from the file name.
-	const [variableName, setVariableName] = useState(() => deriveVariableName(basename(props.fileUri)));
-	const variableNameValid = isValidVariableName(variableName);
+	const fileName = basename(props.fileUri);
+
+	// The name the file derives under the selected importer, which is both the field's starting
+	// value and what an emptied field falls back to.
+	const derivedName = selectedImporter
+		? deriveVariableName(fileName, selectedImporter.reservedNames)
+		: '';
+
+	// The target variable name. The dialog does not validate it: the derived default is always
+	// assignable, so a name that does not run is one the user typed over it with, and the code
+	// preview below already shows them exactly what will run.
+	const [variableName, setVariableName] = useState(() => derivedName);
+
+	// Whether the user has typed in the name field. An untouched default follows the selected
+	// importer's language; an edited name is the user's and survives a package switch.
+	const [variableNameEdited, setVariableNameEdited] = useState(false);
+
+	const selectImporter = (index: number) => {
+		setSelectedIndex(index);
+		if (!variableNameEdited) {
+			setVariableName(deriveVariableName(fileName, props.importers[index].reservedNames));
+		}
+	};
+
+	// An emptied field generates with the derived default rather than with nothing, so clearing the
+	// name previews 'flights <- read_csv(...)' instead of a statement with no left-hand side. The
+	// field itself is left alone: the box stays empty and the preview shows what running it now
+	// would do. Emptiness is judged on the trimmed value, but the raw value is what gets used, since
+	// trimming a name the user typed would be a silent rewrite.
+	const effectiveVariableName = variableName.trim().length > 0 ? variableName : derivedName;
 
 	// Identifies the inputs a generation belongs to. Everything the dialog shows is compared against
 	// the current key, so a result or error left over from earlier inputs is never displayed, copied
 	// or run, including in the window where a newer generation is still in flight.
-	const inputKey = `${selectedIndex}:${variableName}`;
+	const inputKey = `${selectedIndex}:${effectiveVariableName}`;
 
 	// The outcome of the last generation: the generated code and anything the importer could not
 	// express, or the reason nothing came back. The two are mutually exclusive, and `error` is kept
@@ -127,7 +154,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 	// Regenerate whenever the inputs change. An in-flight generation whose inputs have moved on is
 	// dropped rather than allowed to overwrite the newer outcome.
 	useEffect(() => {
-		if (!selectedImporter || !variableNameValid) {
+		if (!selectedImporter) {
 			return;
 		}
 
@@ -136,7 +163,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 			try {
 				const generated = await selectedImporter.generateCode({
 					fileUri: props.fileUri,
-					variableName,
+					variableName: effectiveVariableName,
 					options: props.options,
 				});
 				if (cancelled) {
@@ -173,7 +200,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 		return () => {
 			cancelled = true;
 		};
-	}, [selectedImporter, variableName, variableNameValid, inputKey, props.fileUri, props.options]);
+	}, [selectedImporter, effectiveVariableName, inputKey, props.fileUri, props.options]);
 
 	const cancelHandler = () => {
 		props.renderer.dispose();
@@ -217,9 +244,11 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 		}
 	};
 
-	// The generated code, or the empty string when there is nothing to show yet.
+	// The generated code, or the empty string when there is nothing to show yet. Having no code is
+	// the only thing that stops Copy and Import, and it covers every case that should: the empty
+	// state, a generation still in flight, and an importer that declined or threw.
 	const code = result?.code ?? '';
-	const canRun = code.length > 0 && variableNameValid;
+	const canRun = code.length > 0;
 
 	// The importers are packages (the install unit in both R and Python) so "Package" is
 	// correct for every language.
@@ -239,13 +268,12 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 						: <>
 							<div className='name-field'>
 								<LabeledTextInput
-									error={!variableNameValid}
-									errorMsg={variableNameValid
-										? undefined
-										: localize('positron.importData.invalidName', "Enter a valid variable name.")}
 									label={localize('positron.importData.name', "Variable Name")}
 									value={variableName}
-									onChange={event => setVariableName(event.target.value)}
+									onChange={event => {
+										setVariableNameEdited(true);
+										setVariableName(event.target.value);
+									}}
 								/>
 							</div>
 							<div className='body'>
@@ -271,7 +299,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 											ariaSelected={index === selectedIndex}
 											className={positronClassNames('importer-list-item', { 'selected': index === selectedIndex })}
 											role='option'
-											onPressed={() => setSelectedIndex(index)}
+											onPressed={() => selectImporter(index)}
 										>
 											{importer.displayName}
 										</Button>
@@ -310,7 +338,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 				/>
 			}
 			renderer={props.renderer}
-			title={localize('positron.importData.title', "Import {0}", basename(props.fileUri))}
+			title={localize('positron.importData.title', "Import {0}", fileName)}
 			width={IMPORT_DATA_DIALOG_WIDTH}
 			onCancel={cancelHandler}
 		/>

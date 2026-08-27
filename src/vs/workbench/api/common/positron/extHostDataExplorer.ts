@@ -89,7 +89,8 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 		this._proxy.$registerDataImporter(handle, {
 			languageId: importer.languageId,
 			displayName: importer.displayName,
-			fileExtensions: importer.fileExtensions
+			fileExtensions: importer.fileExtensions,
+			reservedNames: importer.reservedNames
 		});
 
 		return new Disposable(() => {

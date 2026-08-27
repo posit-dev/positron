@@ -53,7 +53,7 @@ export function escapePythonString(value: string): string {
  * 'class': the generated 'class = pd.read_csv(...)' is a SyntaxError. The soft keywords ('match',
  * 'case', 'type', '_') are deliberately absent, because they are valid identifiers.
  */
-const PYTHON_KEYWORDS = new Set([
+export const PYTHON_KEYWORDS = new Set([
     'False',
     'None',
     'True',
@@ -90,23 +90,6 @@ const PYTHON_KEYWORDS = new Set([
     'with',
     'yield',
 ]);
-
-/**
- * Derives a valid Python identifier from a file name, e.g. 'flights.csv' becomes 'flights'.
- */
-export function deriveVariableName(fileName: string): string {
-    const withoutExtension = fileName.replace(/\.[^.]*$/, '');
-    const sanitized = withoutExtension.replace(/[^A-Za-z0-9_]/g, '_').replace(/^_+|_+$/g, '');
-    if (sanitized.length === 0) {
-        return 'data';
-    }
-    // A Python identifier cannot start with a digit.
-    if (/^[0-9]/.test(sanitized)) {
-        return `_${sanitized}`;
-    }
-    // A keyword is suffixed rather than prefixed, so the name still reads as the file it came from.
-    return PYTHON_KEYWORDS.has(sanitized) ? `${sanitized}_` : sanitized;
-}
 
 /** Whether a path names a tab-separated file, which pandas needs told explicitly. */
 function isTabSeparated(filePath: string): boolean {

@@ -73,6 +73,7 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 			languageId: metadata.languageId,
 			displayName: metadata.displayName,
 			fileExtensions: metadata.fileExtensions,
+			reservedNames: metadata.reservedNames,
 			generateCode: (request: IDataImportRequest): Promise<IDataImportResult | undefined> =>
 				this._proxy.$generateImportCode(handle, {
 					fileUri: request.fileUri.toJSON(),

@@ -51,12 +51,17 @@ describe('ImportDataModalDialog', () => {
 			languageId: 'python',
 			displayName: 'Python (pandas)',
 			fileExtensions: ['csv', 'tsv'],
+			reservedNames: ['class', 'import'],
 			generateCode: async (request: IDataImportRequest) => ({
 				code: `${request.variableName} = pd.read_csv("${request.fileUri.fsPath}")\n`,
 			}),
 			...overrides,
 		};
 	}
+
+	// Shaped like the list the readr importer registers, so the tests exercise a genuinely
+	// different language's reserved words rather than a copy of Python's.
+	const R_RESERVED_NAMES = ['if', 'TRUE', 'NA'];
 
 	// Monaco splits a rendered line's text across nested spans (one per token), and every ancestor up
 	// to the view-lines container also reports the matching text via textContent, so the match is
@@ -68,10 +73,10 @@ describe('ImportDataModalDialog', () => {
 			&& pattern.test((element?.textContent ?? '').replace(/\u00A0/g, ' '));
 	}
 
-	function renderDialog(importers: readonly IDataImporter[], preferredLanguageId?: string) {
+	function renderDialog(importers: readonly IDataImporter[], preferredLanguageId?: string, uri: URI = fileUri) {
 		rtl.render(
 			<ImportDataModalDialog
-				fileUri={fileUri}
+				fileUri={uri}
 				importers={importers}
 				options={{ hasHeaderRow: true }}
 				preferredLanguageId={preferredLanguageId}
@@ -110,20 +115,71 @@ describe('ImportDataModalDialog', () => {
 		expect(await screen.findByText(codeTextMatching(/df = /))).toBeInTheDocument();
 	});
 
-	it('rejects a name that is not a valid identifier', async () => {
+	it('generates with a name the language cannot assign to rather than blocking it', async () => {
 		const user = userEvent.setup();
+		const executeCode = vi.fn();
+		ctx.instantiationService.stub(IPositronConsoleService, { executeCode });
 		renderDialog([createImporter()]);
 		const nameInput = await screen.findByLabelText('Variable Name');
 
 		await user.clear(nameInput);
 		await user.type(nameInput, '2020 data');
+		expect(await screen.findByText(codeTextMatching(/pd\.read_csv/))).toBeInTheDocument();
 
-		expect(await screen.findByText('Enter a valid variable name.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
+		await user.click(screen.getByRole('button', { name: 'Import' }));
+
+		// The dialog does not validate the name. The user gets the code they asked for, and the
+		// syntax error (if any) surfaces in the console where they can see and fix it.
+		expect(executeCode).toHaveBeenCalledWith(
+			'python',
+			undefined,
+			expect.stringContaining('2020 data = pd.read_csv'),
+			expect.objectContaining({ source: 'interactive' }),
+			true
+		);
+	});
+
+	it('falls back to the derived name when the field is emptied', async () => {
+		const user = userEvent.setup();
+		renderDialog([createImporter()]);
+		const nameInput = await screen.findByLabelText('Variable Name');
+
+		await user.clear(nameInput);
+
+		// The field is left as the user left it, but the preview shows what Import would run now,
+		// rather than a statement with no left-hand side.
+		expect(nameInput).toHaveValue('');
+		expect(await screen.findByText(codeTextMatching(/flights = /))).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Import' })).toBeEnabled();
+	});
+
+	it('re-derives an untouched default name when the package changes', async () => {
+		const user = userEvent.setup();
+		const r = createImporter({ languageId: 'r', displayName: 'R (readr)', reservedNames: R_RESERVED_NAMES });
+		renderDialog([createImporter(), r], undefined, URI.file('/Users/austin/data/class.csv'));
+		// 'class' is reserved in Python, so the default is suffixed; R assigns to it happily.
+		expect(await screen.findByLabelText('Variable Name')).toHaveValue('class_');
+
+		await user.click(screen.getByRole('option', { name: 'R (readr)' }));
+
+		expect(await screen.findByLabelText('Variable Name')).toHaveValue('class');
+	});
+
+	it('keeps an edited name when the package changes', async () => {
+		const user = userEvent.setup();
+		const r = createImporter({ languageId: 'r', displayName: 'R (readr)', reservedNames: R_RESERVED_NAMES });
+		renderDialog([createImporter(), r]);
+		const nameInput = await screen.findByLabelText('Variable Name');
+		await user.clear(nameInput);
+		await user.type(nameInput, 'df');
+
+		await user.click(screen.getByRole('option', { name: 'R (readr)' }));
+
+		expect(screen.getByLabelText('Variable Name')).toHaveValue('df');
 	});
 
 	it('preselects the importer matching the foreground session language', async () => {
-		const r = createImporter({ languageId: 'r', displayName: 'R (readr)' });
+		const r = createImporter({ languageId: 'r', displayName: 'R (readr)', reservedNames: R_RESERVED_NAMES });
 		renderDialog([createImporter(), r], 'r');
 
 		expect(await screen.findByRole('option', { name: 'R (readr)' })).toHaveAttribute('aria-selected', 'true');
@@ -134,6 +190,7 @@ describe('ImportDataModalDialog', () => {
 		const r = createImporter({
 			languageId: 'r',
 			displayName: 'R (readr)',
+			reservedNames: R_RESERVED_NAMES,
 			generateCode: async (request: IDataImportRequest) => ({ code: `${request.variableName} <- read_csv()\n` }),
 		});
 		renderDialog([createImporter(), r]);
@@ -148,6 +205,7 @@ describe('ImportDataModalDialog', () => {
 		const r = createImporter({
 			languageId: 'r',
 			displayName: 'R (readr)',
+			reservedNames: R_RESERVED_NAMES,
 			// Never settles, so the test observes the window while generation is in flight.
 			generateCode: () => new Promise<IDataImportResult>(() => { }),
 		});
@@ -164,15 +222,20 @@ describe('ImportDataModalDialog', () => {
 	it('drops a generation failure once the name is no longer the one that failed', async () => {
 		const user = userEvent.setup();
 		renderDialog([createImporter({
-			generateCode: async () => { throw new Error('importer exploded'); },
+			generateCode: async (request: IDataImportRequest) => {
+				if (request.variableName === 'flights') {
+					throw new Error('importer exploded');
+				}
+				return { code: `${request.variableName} = pd.read_csv()\n` };
+			},
 		})]);
 		expect(await screen.findByRole('alert')).toHaveTextContent('importer exploded');
 
 		const nameInput = screen.getByLabelText('Variable Name');
 		await user.clear(nameInput);
-		await user.type(nameInput, '2020 data');
+		await user.type(nameInput, 'df');
 
-		expect(await screen.findByText('Enter a valid variable name.')).toBeInTheDocument();
+		expect(await screen.findByText(codeTextMatching(/df = /))).toBeInTheDocument();
 		expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 	});
 
@@ -264,15 +327,14 @@ describe('ImportDataModalDialog', () => {
 		);
 	});
 
-	it('ignores Enter while the variable name is invalid', async () => {
+	it('ignores Enter while there is no generated code to run', async () => {
 		const user = userEvent.setup();
 		const executeCode = vi.fn();
 		ctx.instantiationService.stub(IPositronConsoleService, { executeCode });
-		renderDialog([createImporter()]);
-		const nameInput = await screen.findByLabelText('Variable Name');
+		// Never settles, so Enter arrives while the first generation is still in flight.
+		renderDialog([createImporter({ generateCode: () => new Promise<IDataImportResult>(() => { }) })]);
 
-		await user.clear(nameInput);
-		await user.type(nameInput, '2020 data{Enter}');
+		await user.type(await screen.findByLabelText('Variable Name'), '{Enter}');
 
 		expect(executeCode).not.toHaveBeenCalled();
 	});

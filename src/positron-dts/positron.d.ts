@@ -3641,7 +3641,13 @@ declare module 'positron' {
 		/** The original file, not the positron-data-explorer URI. */
 		fileUri: vscode.Uri;
 
-		/** The target variable name, already valid in the importer's language. */
+		/**
+		 * The target variable name, as entered by the user. This is arbitrary text, not
+		 * validated or sanitized for the importer's language: Positron does not check that it is
+		 * assignable, and importers are not expected to either. A name that is not a valid
+		 * identifier in the importer's language produces code that fails to run, which the code
+		 * preview already shows the user before they run it.
+		 */
 		variableName: string;
 
 		/** Format and parsing options. */
@@ -3676,6 +3682,17 @@ declare module 'positron' {
 
 		/** File extensions this importer can read, without a leading dot, e.g. ['csv', 'tsv']. */
 		fileExtensions: string[];
+
+		/**
+		 * Words this language will not let you assign to, e.g. 'class' for Python or 'if' for R.
+		 *
+		 * Positron derives the default variable name from the file name, restricted to an ASCII
+		 * letter followed by letters, digits and underscores, which is assignable in any language
+		 * an importer is likely to target. A reserved word is the one case that rule cannot catch,
+		 * so supply the language's list and Positron suffixes any collision: a file named class.csv
+		 * is offered as 'class_'. Omitting the list means such a file is offered as 'class'.
+		 */
+		reservedNames?: string[];
 
 		/**
 		 * Generates the code that loads the requested file.

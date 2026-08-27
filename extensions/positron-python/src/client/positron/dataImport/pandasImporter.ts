@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import { generatePandasImportCode } from './pandasCodeGenerator';
+import { generatePandasImportCode, PYTHON_KEYWORDS } from './pandasCodeGenerator';
 
 /**
  * Registers the pandas data importer, which generates the code that loads a delimited file into a
@@ -17,6 +17,7 @@ export function registerPandasDataImporter(disposables: vscode.Disposable[]): vo
         languageId: 'python',
         displayName: 'Python (pandas)',
         fileExtensions: ['csv', 'tsv'],
+        reservedNames: [...PYTHON_KEYWORDS],
         generateCode: (request: positron.DataImportRequest): positron.DataImportResult => ({
             code: generatePandasImportCode({
                 filePath: request.fileUri.fsPath,
