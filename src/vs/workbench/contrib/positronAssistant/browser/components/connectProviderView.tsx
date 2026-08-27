@@ -155,10 +155,14 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	const cancelSignInRef = useRef(cancelSignIn);
 	cancelSignInRef.current = cancelSignIn;
 
-	// While an OAuth sign-in is in progress, report a cancel handler so dismissing
-	// the modal aborts the flow, and clear it once the sign-in finishes. The modal
-	// clears it on leaving this view; an unmount cleanup here would also run when the
-	// dialog closes, wiping the handler before the close could use it.
+
+	// While an OAuth sign-in is in progress, register the cancellation function
+	// with the modal controller (showConfigureLLMProvidersModal). It uses this
+	// function when the user tries to close the modal via the Escape key or the
+	// close button.
+	// We do not want to clear the cancellation function reference for the modal
+	// controller (useEffect cleanup) because we want the modal controller to do
+	// the actual cancellation if needed, even after this component unmounts.
 	const onPendingSignInChange = props.onPendingSignInChange;
 	useEffect(() => {
 		const signInPending = authMethod === AuthMethod.OAUTH && inFlight;
