@@ -73,12 +73,6 @@ export interface ConnectProviderViewProps {
 	/** Invoked by the footer Back button. */
 	onBack: () => void;
 	/**
-	 * Report a way to cancel an in-flight OAuth sign-in (or `undefined` when none
-	 * is pending), so dismissing the modal aborts the device flow instead of
-	 * orphaning it.
-	 */
-	onPendingSignInChange?: (cancel: (() => void) | undefined) => void;
-	/**
 	 * Open providers.json for advanced editing. Closes the modal (so the editor
 	 * is visible), which discards any unsaved form input, so the affordance says
 	 * as much. Only wired for the custom provider create flow.
@@ -149,21 +143,37 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 		? authStatus === AuthStatus.SIGNING_IN
 		: authStatus !== AuthStatus.SIGN_IN_PENDING;
 
-	// Cancel an in-flight OAuth sign-in (the Posit device flow). Kept in a ref so
-	// the reported handler stays stable while dispatching against the latest state.
-	const cancelSignIn = () => { props.onAction(props.source, configRef.current, 'cancel'); };
+	// Cancel an in-flight OAuth sign-in.
+	const cancelSignIn = () => {
+		props.onAction(props.source, configRef.current, 'cancel');
+	};
+
 	const cancelSignInRef = useRef(cancelSignIn);
 	cancelSignInRef.current = cancelSignIn;
 
-	// While an OAuth sign-in is in progress, report a cancel handler so dismissing
-	// the modal aborts the flow, and clear it once the sign-in finishes. The modal
-	// clears it on leaving this view; an unmount cleanup here would also run when the
-	// dialog closes, wiping the handler before the close could use it.
-	const onPendingSignInChange = props.onPendingSignInChange;
+	// Keep track of whether an OAuth sign-in is currently in progress so the
+	// unmount cleanup can cancel it using the latest state.
+	const oauthSignInInProgressRef = useRef(false);
+	oauthSignInInProgressRef.current = authMethod === AuthMethod.OAUTH && inFlight;
+
+	// Cancel an OAuth sign-in if this view is unmounted while the sign-in is still
+	// in progress. This handles the modal being dismissed via Escape or its close
+	// button, as well as any other way this view might be unmounted.
 	useEffect(() => {
-		const signInPending = authMethod === AuthMethod.OAUTH && inFlight;
-		onPendingSignInChange?.(signInPending ? () => cancelSignInRef.current() : undefined);
-	}, [onPendingSignInChange, authMethod, inFlight]);
+		return () => {
+			if (oauthSignInInProgressRef.current) {
+				cancelSignInRef.current();
+			}
+		};
+	}, []);
+
+	// When the user navigates back from the connect view, cancel any in-flight OAuth sign-in.
+	const handleBack = () => {
+		if (oauthSignInInProgressRef.current) {
+			cancelSignInRef.current();
+		}
+		props.onBack();
+	};
 
 	const removeButton = props.source.status === 'error' ? {
 		title: pending === 'remove'
@@ -322,7 +332,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 						onClick: onConnect,
 					}}
 					secondaryButton={removeButton}
-					onBack={props.onBack}
+					onBack={handleBack}
 				/>
 			}
 			renderer={props.renderer}
