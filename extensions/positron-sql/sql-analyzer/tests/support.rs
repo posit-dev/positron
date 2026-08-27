@@ -12,6 +12,16 @@
 
 use serde_json::Value;
 
+/// A document with the cursor written as `|`, split into its text and the cursor's offset.
+///
+/// Every completion case is SQL halfway through being typed and the offset is the whole question,
+/// so it is written into the SQL rather than counted out by hand beside it. Counted in UTF-16
+/// units, like every offset the analyzer deals in, so a case may hold an emoji.
+pub fn cursor(marked: &str) -> (String, u32) {
+    let (before, after) = marked.split_once('|').expect("the text marks the cursor with |");
+    (format!("{before}{after}"), before.encode_utf16().count() as u32)
+}
+
 pub fn request(request: Value) -> Value {
     let response = positron_sql_analyzer::api::handle(&request.to_string());
     serde_json::to_value(response).expect("the response serializes")

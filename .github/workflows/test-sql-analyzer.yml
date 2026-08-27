@@ -4,7 +4,10 @@ name: "Test: SQL Analyzer"
 # module at extensions/positron-sql/resources/sql-analyzer.wasm. Two things therefore need
 # checking, and neither is covered by the Node test suites:
 #
-#   - the crate's own tests (`cargo test`), which are where the parsing behaviour is pinned
+#   - the crate's own tests (`cargo test`), which are where the parsing behaviour is pinned.
+#     That includes tests/keyword_table.rs, which regenerates the committed keyword table from
+#     the parser and fails if it has drifted -- so `npm run build-keywords` is gated here too,
+#     without needing a step of its own.
 #   - that the committed module still matches the crate (`--check`), since it is rebuilt by hand
 #
 # Path-filtered and toolchain-only: this needs no npm install, because build-analyzer.mts uses

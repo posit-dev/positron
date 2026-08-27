@@ -15,7 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{dialects, diagnostics, scopes, sources, statements, text::TextIndex};
+use crate::{dialects, diagnostics, keywords, scopes, sources, statements, text::TextIndex};
 
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
@@ -27,8 +27,11 @@ pub enum Request {
     Analyze { text: String, #[serde(default)] dialect: String },
     /// The tables named by the statement at an offset, read off the tokens rather than a tree.
     Sources { text: String, #[serde(default)] dialect: String, offset: u32 },
-    /// The keywords worth completing.
+    /// The keywords worth completing, whatever the position: the caller's fallback for a prefix
+    /// that matches nothing offered at the cursor.
     Keywords,
+    /// The keywords worth completing at an offset, which is nearly always a much shorter list.
+    KeywordsAt { text: String, #[serde(default)] dialect: String, offset: u32 },
 }
 
 #[derive(Serialize)]
@@ -125,6 +128,16 @@ pub enum Response {
     },
     Sources { sources: Vec<SourceRef> },
     Keywords { keywords: Vec<String> },
+    // `rename_all` on the enum renames the variants rather than their fields, so a variant with a
+    // second field has to say so itself.
+    #[serde(rename_all = "camelCase")]
+    KeywordsAt {
+        keywords: Vec<String>,
+        /// The position the scan decided the cursor is in. A heuristic answer, and a surprising
+        /// one is otherwise indistinguishable from a broken one, so the caller can log which rule
+        /// fired.
+        position: String,
+    },
     /// The request itself could not be understood. Never the user's SQL being wrong -- that is a
     /// diagnostic -- so it means the two sides have drifted apart.
     Error { message: String },
@@ -137,7 +150,20 @@ pub fn handle(request: &str) -> Response {
     };
 
     match request {
-        Request::Keywords => Response::Keywords { keywords: dialects::keywords() },
+        Request::Keywords => Response::Keywords { keywords: keywords::everything() },
+
+        Request::KeywordsAt { text, dialect, offset } => {
+            let canonical = dialects::canonical(&dialect).unwrap_or("generic");
+            let (dialect, _) = dialects::resolve(&dialect);
+            let index = TextIndex::new(&text);
+            let tokenized = statements::split(&text, dialect.as_ref(), &index);
+            let statement = statements::statement_at(&tokenized.statements, offset);
+            let position = keywords::at(statement, offset, &index);
+            Response::KeywordsAt {
+                keywords: keywords::offered(position, canonical),
+                position: position.name().to_string(),
+            }
+        }
 
         Request::Statements { text, dialect } => {
             let (dialect, _) = dialects::resolve(&dialect);

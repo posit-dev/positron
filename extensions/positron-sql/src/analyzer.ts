@@ -123,6 +123,17 @@ export interface SourceRef {
 	readonly alias?: string;
 }
 
+/** The keywords that belong at one position, and which position that was. */
+export interface KeywordsAt {
+	readonly keywords: readonly string[];
+
+	/**
+	 * The name of the position the analyzer placed the cursor in, such as `tableItem` or
+	 * `expectingBy`, or `everything` when it could not place it. For the log, not for logic.
+	 */
+	readonly position: string;
+}
+
 /** What every feature falls back to when there is nothing to analyze with. */
 export const EMPTY_ANALYSIS: Analysis = {
 	diagnostics: [],
@@ -131,6 +142,15 @@ export const EMPTY_ANALYSIS: Analysis = {
 	columns: [],
 	unknownDialect: false,
 };
+
+/**
+ * What a failed keyword request answers.
+ *
+ * An empty list rather than the whole vocabulary: the module is only unavailable when it could not
+ * be loaded at all, which the caller has already reported, and completing keywords into a document
+ * nothing else is analyzing would be the one feature that looked like it was working.
+ */
+const EMPTY_KEYWORDS_AT: KeywordsAt = { keywords: [], position: 'unavailable' };
 
 /** The shape of the module's exports; see the crate's `lib.rs` for the contract. */
 interface AnalyzerExports {
@@ -192,9 +212,30 @@ export class SqlAnalyzer {
 		)?.sources ?? [];
 	}
 
-	/** The keywords worth completing. Fixed for the life of the module, so callers cache it. */
+	/**
+	 * Every keyword the analyzer knows, whatever the position.
+	 *
+	 * Fixed for the life of the module, so callers cache it. Not what a completion request should
+	 * offer -- that is {@link keywordsAt}, which is shorter by a factor of forty at most positions
+	 * -- but the list to fall back on when a typed prefix matches nothing offered at the cursor.
+	 */
 	public keywords(): readonly string[] {
 		return this._request<{ keywords: string[] }>({ op: 'keywords' })?.keywords ?? [];
+	}
+
+	/**
+	 * The keywords worth completing at an offset, and the name of the position they came from.
+	 *
+	 * Varies with the offset and the dialect, so unlike {@link keywords} it cannot be cached. Pass
+	 * the plain cursor offset: the analyzer drops the word being typed itself, so that
+	 * `SELECT * FROM ord` answers for the table slot rather than for whatever `ord` might become.
+	 *
+	 * The position is returned for the caller's log. The list is a heuristic answer, and a
+	 * surprising one is otherwise indistinguishable from a broken one.
+	 */
+	public keywordsAt(text: string, dialect: string, offset: number): KeywordsAt {
+		return this._request<KeywordsAt>({ op: 'keywordsAt', text, dialect, offset })
+			?? EMPTY_KEYWORDS_AT;
 	}
 
 	private _request<T>(request: object): T | undefined {
