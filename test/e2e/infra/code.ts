@@ -207,6 +207,19 @@ export class Code {
 		});
 	}
 
+	// --- Start Positron ---
+	/**
+	 * The process to root a process-tree walk at, whichever lane is running.
+	 *
+	 * Electron supplies the main process; the spawned browser path supplies the
+	 * server. Undefined on the external-server path, which holds null here
+	 * because the server was started outside Playwright.
+	 */
+	get rootPid(): number | undefined {
+		return this.electronApp?.process().pid ?? this.mainProcess?.pid ?? undefined;
+	}
+	// --- End Positron ---
+
 	get editContextEnabled(): boolean {
 		return !(this.quality === Quality.Stable && this.version.major === 1 && this.version.minor < 101);
 	}

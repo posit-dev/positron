@@ -358,6 +358,14 @@ export namespace GlobalEnvironment {
         l10n.t(
             'Could not create the global Python environment because no home directory was found. Set WORKON_HOME to a directory to use for it.',
         );
+    export const promptTitle = l10n.t('Create a Python Environment');
+    export const promptMessage = (venvPath: string) =>
+        l10n.t(
+            'Opening a folder lets Positron create an environment for that project. Otherwise, Positron can create a shared environment at {0} for use outside of projects.',
+            venvPath,
+        );
+    export const createButton = l10n.t('Create Global Environment');
+    export const notNow = l10n.t('Not Now');
 }
 // --- End Positron ---
 

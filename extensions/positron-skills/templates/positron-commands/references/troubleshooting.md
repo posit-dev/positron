@@ -1,9 +1,11 @@
-# Positron session and package commands
+# Positron session commands
 
-Recovering interpreter sessions (Python, R, or another language), managing
-packages, and looking up help topics. See [SKILL.md]({{skill_dir}}/SKILL.md) for how to call these commands and how
+Recovering interpreter sessions (Python, R, or another language) and looking up
+help topics. See [SKILL.md]({{skill_dir}}/SKILL.md) for how to call these commands and how
 to handle failures. To list the available interpreters or rescan for a newly
 installed one, see [interpreters.md]({{skill_dir}}/references/interpreters.md).
+For the packages installed in a session, see
+[packages.md]({{skill_dir}}/references/packages.md).
 
 The **Arguments** and **Returns** entries below are generated from the running
 build's command metadata, so they always match this Positron. The surrounding
@@ -29,35 +31,6 @@ lost. Always tell the user this will happen before calling it, and prefer
 to get a clean session. No precondition -- always enabled.
 
 {{command:workbench.action.language.runtime.restartActiveSession}}
-
-## Managing packages
-
-### `positronPackages.refreshPackages`
-
-Refreshes the list of installed packages in the active runtime session. Use
-when a package was installed or removed outside of Positron (e.g., from a
-terminal) and the Packages pane looks stale.
-
-Precondition: the Packages pane must be enabled by configuration, and a
-package operation must currently be able to run (in practice, this generally
-requires an active runtime session).
-
-{{command:positronPackages.refreshPackages}}
-
-### `positronPackages.updateAllPackages`
-
-Updates every installed package in the active runtime session to its latest
-available version. Use when the user asks to update all their packages.
-Updating can take a while for large environments -- say so. If code that's
-already running in the session doesn't reflect an update afterward, a session
-restart may be needed for it to take effect; mention that possibility and, if
-the user wants to proceed, use `workbench.action.language.runtime.restartActiveSession`
-with the state-loss warning above.
-
-Precondition: same as `refreshPackages` -- Packages pane enabled and a package
-operation currently able to run.
-
-{{command:positronPackages.updateAllPackages}}
 
 ## Looking up help topics
 

@@ -113,14 +113,15 @@ export class ActiveRuntimeSession extends Disposable {
 	}
 
 	/**
-	 * Starts a UI client instance for the runtime session. The UI client
-	 * instance is used for two-way communication of global state and events
-	 * between the frontend and the backend.
+	 * Returns the session's UI client instance, starting one if it isn't
+	 * already running. The UI client instance is used for two-way
+	 * communication of global state and events between the frontend and the
+	 * backend.
 	 *
-	 * Resolves when the UI client instance is created, with the ID of the
-	 * newly created comm.
+	 * Resolves with the comm ID once the client is available. Safe to call
+	 * concurrently: an in-flight start is joined rather than duplicated.
 	 */
-	public async startUiClient(): Promise<string> {
+	public async ensureUiClient(): Promise<string> {
 		// If we already know the client ID, just return it.
 		if (this._uiClient) {
 			const clientState = this._uiClient.getClientState();

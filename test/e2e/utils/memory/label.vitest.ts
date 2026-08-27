@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { deriveExtensionName, normalizeProcessName, resolveRole } from './label.js';
+import { deriveExtensionName, namedShareGateApplies, normalizeProcessName, resolveRole } from './label.js';
 
 /**
  * Command lines for the child processes the memory-hog deck named as Culprit 1.
@@ -257,5 +257,15 @@ describe('names that CI proved wrong', () => {
 			isRoot: false
 		});
 		expect(role).toBe('extension_child');
+	});
+});
+
+describe('namedShareGateApplies', () => {
+	test('applies on desktop, where --status can name processes', () => {
+		expect(namedShareGateApplies('desktop')).toBe(true);
+	});
+
+	test('does not apply on server, where --status has no running instance to ask', () => {
+		expect(namedShareGateApplies('server')).toBe(false);
 	});
 });

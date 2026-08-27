@@ -8,15 +8,18 @@ import * as sinon from 'sinon';
 import * as positron from 'positron';
 import { validateCustomProviderApiKey } from '../validation/customProvider';
 import { log } from '../log';
+import { stubValidationCatalog } from './validationTestUtils';
 
 suite('validateCustomProviderApiKey', () => {
 	let originalFetch: typeof globalThis.fetch;
 	let requestedBodies: string[];
+	let requestedHeaders: Record<string, string>[];
 	let logWarnStub: sinon.SinonStub;
 
 	setup(() => {
 		originalFetch = globalThis.fetch;
 		requestedBodies = [];
+		requestedHeaders = [];
 		logWarnStub = sinon.stub(log, 'warn');
 	});
 
@@ -32,6 +35,7 @@ suite('validateCustomProviderApiKey', () => {
 	function stubFetch(status: number, body = ''): void {
 		globalThis.fetch = async (_url, init) => {
 			requestedBodies.push((init?.body as string) ?? '');
+			requestedHeaders.push(init?.headers as Record<string, string>);
 			return {
 				ok: status >= 200 && status < 300,
 				status,
@@ -49,6 +53,36 @@ suite('validateCustomProviderApiKey', () => {
 			model: 'positron-connectivity-check',
 			messages: [],
 		});
+	});
+
+	test('merges configured headers without replacing base headers', async () => {
+		const catalog = stubValidationCatalog({
+			'openai-compatible': {
+				customHeaders: {
+					'Ocp-Apim-Subscription-Key': 'gateway-key',
+					authorization: 'configured-auth',
+				},
+			},
+		});
+		stubFetch(200);
+
+		try {
+			await validateCustomProviderApiKey('sk-test', makeConfig());
+		} finally {
+			catalog.restore();
+		}
+
+		assert.deepStrictEqual(requestedHeaders[0], {
+			'Content-Type': 'application/json',
+			'Authorization': 'Bearer sk-test',
+			'Ocp-Apim-Subscription-Key': 'gateway-key',
+		});
+		assert.deepStrictEqual(
+			logWarnStub.args.map(args => args[0]),
+			[
+				'[Validation] Skipping configured header "authorization" for provider "openai-compatible" because the validation request already defines it.',
+			]
+		);
 	});
 
 	test('rejects a 401 whose body points at the key', async () => {

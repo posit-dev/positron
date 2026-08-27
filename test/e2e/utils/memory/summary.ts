@@ -15,9 +15,10 @@
  * real memory run.
  */
 
-import { deltaHtmlFromDiff, escapeHtml, formatBytes, GC_NOTE, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
+import { deltaHtmlFromDiff, escapeHtml, formatBytes, GC_FOOTNOTE, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
 import { byRole } from './render.js';
 import { unstableProcesses } from './snapshot.js';
+import { MemoryLane } from './lanes.js';
 import { MemoryScenario } from './scenarios.js';
 import { MemorySnapshot, ProcessRole } from './types.js';
 
@@ -60,6 +61,25 @@ export type UnstableEntry = {
 	reported: number;
 };
 
+/**
+ * What run produced the matrix, all read off the snapshots rather than passed
+ * in, so the header cannot claim a build the figures did not come from.
+ */
+export type SummaryMeta = {
+	/**
+	 * Version plus build number, e.g. `2026.09.0-35`. A list because more than
+	 * one means the matrix jobs did not all run the same build, and a delta
+	 * across two builds is not a delta -- the header has to say so rather than
+	 * quietly show the first one.
+	 */
+	builds: string[];
+	lanes: MemoryLane[];
+	/** Launches per scenario. Min and max differ when a scenario lost a launch. */
+	launches: { min: number; max: number };
+	/** Latest `capturedAt` across every snapshot, ISO 8601. */
+	capturedAt?: string;
+};
+
 export type SummaryMatrix = {
 	scenarios: MemoryScenario[];
 	rows: SummaryRow[];
@@ -73,8 +93,16 @@ export type SummaryMatrix = {
 	 * may have been moving, and this is what says which.
 	 */
 	unstable: UnstableEntry[];
-	/** Whether any snapshot behind this matrix carries a forced-GC reading, so the legend can gate on it. */
-	hasForcedGc: boolean;
+	/**
+	 * The roles whose figures were read after a forced garbage collection, taken
+	 * from the readings themselves rather than a fixed list: the server lane
+	 * collects only the extension host, so hardcoding both would footnote a
+	 * `shared` row that was never collected. Empty when no snapshot forced a GC,
+	 * which is what gates the footnote.
+	 */
+	forcedGcRoles: ProcessRole[];
+	/** What run this matrix describes, for the header. */
+	meta: SummaryMeta;
 };
 
 /**
@@ -133,6 +161,18 @@ function median(values: number[]): number {
 /** Sum of the present values in a row, absent scenarios counting as zero, used only to order rows. */
 function rowMagnitude(row: SummaryRow): number {
 	return Object.values(row.values).reduce((sum: number, v) => sum + (v ?? 0), 0);
+}
+
+/** Collects the header facts from the same snapshots the matrix is built from. */
+function buildSummaryMeta(entries: ScenarioSnapshots[]): SummaryMeta {
+	const snapshots = entries.flatMap(e => e.snapshots);
+	const counts = entries.map(e => e.snapshots.length).filter(n => n > 0);
+	return {
+		builds: [...new Set(snapshots.map(s => s.positronVersion).filter(Boolean))],
+		lanes: [...new Set(snapshots.map(s => s.lane))],
+		launches: counts.length === 0 ? { min: 0, max: 0 } : { min: Math.min(...counts), max: Math.max(...counts) },
+		capturedAt: snapshots.map(s => s.capturedAt).sort().at(-1)
+	};
 }
 
 /**
@@ -225,9 +265,9 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 	const others = scenarios.filter(s => s !== 'idle').sort((a, b) => totalDeltaVsIdle.get(a)! - totalDeltaVsIdle.get(b)!);
 	const sortedScenarios = scenarios.includes('idle') ? ['idle' as MemoryScenario, ...others] : others;
 
-	const hasForcedGc = entries.some(({ snapshots }) => snapshots.some(s => (s.forcedGc?.length ?? 0) > 0));
+	const forcedGcRoles = [...new Set(entries.flatMap(({ snapshots }) => snapshots.flatMap(s => (s.forcedGc ?? []).map(gc => gc.role))))];
 
-	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable, hasForcedGc };
+	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable, forcedGcRoles, meta: buildSummaryMeta(entries) };
 }
 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
@@ -260,10 +300,12 @@ function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: nu
 	return `<td align="right"${baselineClass(scenario)}><span class="value">${formatBytes(value)}</span>${deltaLine}</td>`;
 }
 
-function rowHtml(row: SummaryRow, scenarios: MemoryScenario[]): string {
+function rowHtml(row: SummaryRow, scenarios: MemoryScenario[], forcedGcRoles: ProcessRole[]): string {
 	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario], row.emphasisThreshold[scenario])).join('');
+	// Outside the <code>, so the marker cannot be misread as part of the role name.
+	const marker = forcedGcRoles.includes(row.role) ? '<span class="fn-marker">*</span>' : '';
 	return `<tr>
-		<td><code>${escapeHtml(row.role)}</code></td>
+		<td><code>${escapeHtml(row.role)}</code>${marker}</td>
 		${cells}
 	</tr>`;
 }
@@ -312,25 +354,43 @@ function instabilityHtml(unstable: UnstableEntry[]): string {
  * than a flat "5 MB or more": the real bar is per role and usually higher, and a
  * legend that understated it would invite reading an unmarked 8 MB move as a bug.
  */
-const DELTA_LEGEND = `Deltas appear only when a change beats launch-to-launch noise
-	(${formatBytes(MIN_EMPHASIS_BYTES)} minimum); cells without one are within noise.`;
+const DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to-launch variation
+	and are at least ${formatBytes(MIN_EMPHASIS_BYTES)}.`;
 
 /**
- * Renders the matrix as a standalone HTML document, using the same shell
- * (CSS, escaping, delta glyphs) as the per-scenario report so the two cannot
- * drift apart visually.
+ * The rules only the matrix needs, on top of {@link REPORT_CSS}.
+ *
+ * Exported rather than inlined in the document below because the combined
+ * multi-lane page in `summarize-cli.ts` builds its own `<html>` shell out of
+ * these lanes' container markup: with only `REPORT_CSS` it lost the stacked
+ * delta lines and the baseline tint, and the matrix silently rendered as a
+ * different table from the per-lane one.
  */
-export function renderSummaryHtml(matrix: SummaryMatrix): string {
-	const rows = matrix.rows.map(row => rowHtml(row, matrix.scenarios)).join('\n');
-	const total = totalRowHtml(matrix);
-	const instabilityCard = instabilityHtml(matrix.unstable);
-
-	return `<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="utf-8">
-	<title>Positron memory: cross-scenario summary</title>
-	<style>${REPORT_CSS}
+export const SUMMARY_CSS = `
+		/* Secondary to the title rather than a second headline: smaller and dimmer, with
+		enough air under the h1 that the two still read as one block. */
+		.header { padding: 13px 20px; }
+		.header h1 { margin-bottom: 6px; }
+		.header .meta { font-size: 0.8125rem; opacity: 0.72; }
+		/* Whitespace instead of a rule. With two lines of copy stacked under it, the
+		hairline cut the card into bands and the explanation drifted away from the table
+		it belongs to. */
+		.card h2 { border-bottom: none; padding-bottom: 0; margin-bottom: 6px; }
+		/* Both lines under the heading read the same way: how to read a delta, and how the
+		figures were taken. Styling one of them down invented a third level of hierarchy
+		the wording already carries, so they share a size, color and weight and are
+		separated only by the gap between them. */
+		.card .meta { font-size: 0.875rem; line-height: 1.35; margin-bottom: 0; }
+		.card .meta + .meta { margin-top: 5px; }
+		/* Air before the table, so the copy does not sit on top of the header row. Set on
+		the table rather than on the last .meta: the footnote below the table is a div
+		too, so a :last-of-type rule on .meta silently stopped matching once it existed. */
+		.matrix { margin-top: 20px; }
+		/* Attached to the table it qualifies, and quieter than the copy above it: this
+		is a reading-the-figures caveat, not something to take in before the data. */
+		.footnote { color: #6b7280; font-size: 0.78rem; line-height: 1.35; margin-top: 10px; }
+		/* Enough to see, not enough to break the role column's left edge. */
+		.fn-marker { color: #9ca3af; }
 		/* Reads as a summary rather than one more row: a darker rule than the hairlines
 		between roles, and air above it that the hairlines do not get. */
 		.total-row td { border-top: 2px solid #d1d5db; font-weight: 600; padding-top: 10px; }
@@ -355,26 +415,95 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 			.matrix .value { color: #9ca3af; }
 			.matrix .baseline { background: #201f1e; border-right-color: #3a3a38; }
 			.matrix tr:hover td:not(.baseline) { background: rgba(255, 255, 255, 0.04); }
-		}
+			.footnote { color: #9ca3af; }
+		}`;
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * `Aug 26, 2026 at 14:38 UTC` from an ISO timestamp. The minute is as precise as
+ * a nightly needs, and UTC is named rather than converted: the reader is usually
+ * matching this against a CI run, which is stamped in UTC too.
+ *
+ * Built from the UTC getters rather than `toLocaleString`, whose output depends on
+ * the machine's locale and would read differently for different readers.
+ */
+function formatCapturedAt(iso: string): string {
+	const at = new Date(iso);
+	if (Number.isNaN(at.getTime())) {
+		return iso;
+	}
+	const time = `${String(at.getUTCHours()).padStart(2, '0')}:${String(at.getUTCMinutes()).padStart(2, '0')}`;
+	return `${MONTHS[at.getUTCMonth()]} ${at.getUTCDate()}, ${at.getUTCFullYear()} at ${time} UTC`;
+}
+
+/** `desktop` -> `Desktop`: the metadata line reads as labels, not as field values. */
+function laneLabel(lane: MemoryLane): string {
+	return lane.charAt(0).toUpperCase() + lane.slice(1);
+}
+
+/**
+ * The header's second line: which build, lane and launches produced the figures.
+ *
+ * Replaced a restatement of what the table already shows ("median PSS per role,
+ * delta against idle"), which a reader learns from the columns anyway. What they
+ * cannot get from the table is which build this was, and that is the first thing
+ * anyone asks of a number they want to file a regression against.
+ */
+function metaLineHtml(meta: SummaryMeta): string {
+	const parts: string[] = [];
+	if (meta.builds.length > 0) {
+		parts.push(`Build ${meta.builds.map(escapeHtml).join(', ')}`);
+	}
+	if (meta.lanes.length > 0) {
+		parts.push(meta.lanes.map(lane => escapeHtml(laneLabel(lane))).join(', '));
+	}
+	if (meta.launches.max > 0) {
+		const count = meta.launches.min === meta.launches.max ? `${meta.launches.max}` : `${meta.launches.min}-${meta.launches.max}`;
+		parts.push(`${count} launches/scenario`);
+	}
+	if (meta.capturedAt !== undefined) {
+		parts.push(escapeHtml(formatCapturedAt(meta.capturedAt)));
+	}
+	return parts.join(' &middot; ');
+}
+
+/**
+ * Renders the matrix as a standalone HTML document, using the same shell
+ * (CSS, escaping, delta glyphs) as the per-scenario report so the two cannot
+ * drift apart visually.
+ */
+export function renderSummaryHtml(matrix: SummaryMatrix): string {
+	const rows = matrix.rows.map(row => rowHtml(row, matrix.scenarios, matrix.forcedGcRoles)).join('\n');
+	const total = totalRowHtml(matrix);
+	const instabilityCard = instabilityHtml(matrix.unstable);
+
+	return `<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Positron memory: cross-scenario summary</title>
+	<style>${REPORT_CSS}${SUMMARY_CSS}
 	</style>
 </head>
 <body>
 <div class="container">
 	<div class="header">
 		<h1>Cross-scenario memory summary</h1>
-		<div class="meta">Median PSS per role across launches. Delta is against idle.</div>
+		<div class="meta">${metaLineHtml(matrix.meta)}</div>
 	</div>
 
 	${instabilityCard}
 
 	<div class="card">
 		<h2>Memory by role</h2>
-		<div class="meta">${DELTA_LEGEND}${matrix.hasForcedGc ? ` ${GC_NOTE}` : ''}</div>
+		<div class="meta">${DELTA_LEGEND}</div>
 		<table class="matrix">
 			<tr><th>Role</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>
 			${rows}
 			${total}
 		</table>
+		${matrix.forcedGcRoles.length > 0 ? `<div class="footnote">* ${GC_FOOTNOTE}</div>` : ''}
 	</div>
 </div>
 </body>

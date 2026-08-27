@@ -19,10 +19,12 @@ import * as venvUtils from '../../../../client/pythonEnvironments/creation/provi
 import * as apiInternal from '../../../../client/envExt/api.internal';
 import * as platformApis from '../../../../client/common/utils/platform';
 import * as fsapi from '../../../../client/common/platform/fs-paths';
+import * as globalEnvironment from '../../../../client/pythonEnvironments/common/environmentManagers/globalEnvironment';
 import { getAvailablePythonVersions } from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import {
     installPythonViaUv,
     showUvInstallError,
+    ensureUvInstalled,
 } from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import { mockedPositronNamespaces, mockedVSCodeNamespaces } from '../../../vscode-mock';
 import { Common, GlobalEnvironment, InterpreterQuickPickList } from '../../../../client/common/utils/localize';
@@ -73,6 +75,62 @@ suite('UV Python Installer Tests', () => {
             await showUvInstallError('something went wrong');
 
             verify(mockedVSCodeNamespaces.commands!.executeCommand(Commands.ViewOutput)).never();
+        });
+    });
+
+    suite('ensureUvInstalled Tests', () => {
+        let isUvInstalledStub: sinon.SinonStub;
+
+        setup(() => {
+            isUvInstalledStub = sinon.stub(uv, 'isUvInstalled');
+            sinon.stub(uv, 'resetUvCache');
+        });
+
+        test('Already installed does not prompt or report installing', async () => {
+            isUvInstalledStub.resolves(true);
+            const onInstalling = sinon.stub();
+
+            assert.deepStrictEqual(await ensureUvInstalled(onInstalling), { ok: true });
+            assert.strictEqual(onInstalling.called, false);
+            verify(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).never();
+        });
+
+        test('Declining the consent prompt exits without an error', async () => {
+            isUvInstalledStub.resolves(false);
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenReturn(Promise.resolve(undefined) as any);
+
+            assert.deepStrictEqual(await ensureUvInstalled(), { ok: false });
+        });
+
+        test('Reports uv still being unreachable after a successful install', async () => {
+            isUvInstalledStub.onFirstCall().resolves(false);
+            isUvInstalledStub.onSecondCall().resolves(false);
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenReturn(Promise.resolve(InterpreterQuickPickList.UvInstall.confirmUvInstallYes) as any);
+            execStub.resolves({ stdout: '', stderr: '' });
+
+            assert.deepStrictEqual(await ensureUvInstalled(), {
+                ok: false,
+                error: InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall,
+            });
+        });
+
+        test('A successful install reports ok and reports installing', async () => {
+            isUvInstalledStub.onFirstCall().resolves(false);
+            isUvInstalledStub.onSecondCall().resolves(true);
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenReturn(Promise.resolve(InterpreterQuickPickList.UvInstall.confirmUvInstallYes) as any);
+            execStub.resolves({ stdout: '', stderr: '' });
+            const onInstalling = sinon.stub();
+
+            assert.deepStrictEqual(await ensureUvInstalled(onInstalling), { ok: true });
+            assert.strictEqual(onInstalling.calledOnce, true);
         });
     });
 
@@ -374,6 +432,7 @@ suite('UV Python Installer Tests', () => {
         let pickExistingVenvActionStub: sinon.SinonStub;
         let deleteEnvironmentStub: sinon.SinonStub;
         let getVenvExecutableStub: sinon.SinonStub;
+        let promptForGlobalEnvironmentStub: sinon.SinonStub;
 
         const mockProgress = {
             report: sinon.stub(),
@@ -423,6 +482,9 @@ suite('UV Python Installer Tests', () => {
             sinon.stub(fsapi, 'pathExists').resolves(false);
             (fsapi.pathExists as sinon.SinonStub).withArgs(getExpectedGlobalEnvPython()).resolves(true);
             sinon.stub(fsapi, 'mkdirp').resolves();
+            promptForGlobalEnvironmentStub = sinon
+                .stub(globalEnvironment, 'promptForGlobalEnvironment')
+                .resolves('create');
 
             quickPickCallCount = 0;
             quickPickResponses = [];
@@ -1080,6 +1142,70 @@ suite('UV Python Installer Tests', () => {
             // Only install + find: nothing is created outside a discovered directory.
             assert.strictEqual(execStub.callCount, 2);
             verify(mockedVSCodeNamespaces.window!.showErrorMessage(GlobalEnvironment.unsupported(), anything())).once();
+        });
+
+        suite('No workspace prompt', () => {
+            setup(() => {
+                isUvInstalledStub.resolves(true);
+                getWorkspaceFoldersStub.returns(undefined);
+                getAvailablePythonVersionsStub.resolves([{ version: '3.13', identifier: 'cpython-3.13' }]);
+                when(mockedVSCodeNamespaces.window!.showQuickPick(anything(), anything())).thenReturn(
+                    Promise.resolve({ label: 'Python 3.13', version: '3.13', isInstalled: false }) as any,
+                );
+                execStub.onFirstCall().resolves({ stdout: '' }); // uv python install
+                execStub.onSecondCall().resolves({ stdout: '/usr/local/bin/python3.13' }); // uv python find
+                execStub.onThirdCall().resolves({ stdout: '' }); // uv venv, when creation is requested
+            });
+
+            test('Asks before creating anything', async () => {
+                await installPythonViaUv();
+
+                assert.ok(promptForGlobalEnvironmentStub.calledOnce);
+            });
+
+            test('Open Folder ends the flow without creating an environment', async () => {
+                // The user asked to open a folder, so this window is reloading or abandoned;
+                // registering an interpreter into it would start a session the user left.
+                promptForGlobalEnvironmentStub.resolves('openFolder');
+
+                const result = await installPythonViaUv();
+
+                assert.strictEqual(result.success, false);
+                assert.strictEqual(result.error, 'Cancelled');
+                assert.ok(!execStub.getCalls().some((c) => c.args[1]?.[0] === 'venv'));
+            });
+
+            test('Not Now falls back to the base interpreter', async () => {
+                promptForGlobalEnvironmentStub.resolves('dismiss');
+
+                const result = await installPythonViaUv();
+
+                assert.strictEqual(result.success, true);
+                assert.strictEqual(result.pythonPath, '/usr/local/bin/python3.13');
+                assert.ok(!execStub.getCalls().some((c) => c.args[1]?.[0] === 'venv'));
+            });
+
+            test('Create Global Environment creates it and uses it', async () => {
+                promptForGlobalEnvironmentStub.resolves('create');
+
+                const result = await installPythonViaUv();
+
+                assert.strictEqual(result.success, true);
+                assert.strictEqual(result.pythonPath, getExpectedGlobalEnvPython());
+            });
+
+            test('A failed creation falls back to the base interpreter', async () => {
+                promptForGlobalEnvironmentStub.resolves('create');
+                sinon.stub(globalEnvironment, 'createGlobalEnvironment').resolves({
+                    outcome: 'occupied',
+                    venvDir: '/venvs/positron',
+                });
+
+                const result = await installPythonViaUv();
+
+                assert.strictEqual(result.success, true);
+                assert.strictEqual(result.pythonPath, '/usr/local/bin/python3.13');
+            });
         });
     });
 });

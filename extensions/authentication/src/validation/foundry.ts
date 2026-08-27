@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { PROVIDER_METADATA } from '../providerSources';
+import { getValidationHeaders } from './validationHeaders';
 
 class FoundryValidationError extends Error {
 	constructor(message: string) {
@@ -60,16 +62,20 @@ export async function validateFoundryApiKey(
 
 	const baseUrl = normalizeToV1Url(rawBaseUrl);
 	const endpoint = `${baseUrl}/chat/completions`;
+	const headers = getValidationHeaders(
+		PROVIDER_METADATA.foundry.catalogId!,
+		{
+			'Authorization': `Bearer ${apiKey}`,
+			'Content-Type': 'application/json',
+		}
+	);
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
 	try {
 		const response = await fetch(endpoint, {
 			method: 'POST',
-			headers: {
-				'Authorization': `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-			},
+			headers,
 			body: JSON.stringify({ model: '', messages: [] }),
 			signal: controller.signal,
 		});

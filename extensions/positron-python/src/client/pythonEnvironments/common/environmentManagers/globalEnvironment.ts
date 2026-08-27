@@ -9,6 +9,9 @@ import { getEnvironmentVariable, getUserHomeDir } from '../../../common/utils/pl
 import * as fsapi from '../../../common/platform/fs-paths';
 import { traceError, traceInfo } from '../../../logging';
 import { execUv } from './uv';
+import { executeCommand } from '../../../common/vscodeApis/commandApis';
+import { Common, GlobalEnvironment } from '../../../common/utils/localize';
+import { showThreeButtonModalDialogPrompt } from '../../../positron/positronApis';
 
 /**
  * Directory name of the environment Positron creates when no folder is open.
@@ -131,4 +134,66 @@ export async function createGlobalEnvironment(base: string): Promise<GlobalEnvir
 
     traceInfo(`Global environment created at ${pythonPath}`);
     return { outcome: 'created', venvDir, pythonPath };
+}
+
+/**
+ * Message to show when the global environment could not be created.
+ * @param result A non-`created` outcome from `createGlobalEnvironment()`.
+ */
+export function globalEnvironmentErrorMessage(
+    result: Exclude<GlobalEnvironmentResult, { outcome: 'created' }>,
+): string {
+    switch (result.outcome) {
+        case 'occupied':
+            return GlobalEnvironment.occupied(result.venvDir);
+        case 'unsupported':
+            return GlobalEnvironment.unsupported();
+        default:
+            return GlobalEnvironment.creationFailed(result.venvDir);
+    }
+}
+
+/** What the user asked for in the global environment modal. */
+export type GlobalEnvironmentChoice = 'openFolder' | 'create' | 'dismiss';
+
+/**
+ * Asks whether to open a folder, create the global environment, or do neither.
+ *
+ * "Open Folder..." is the primary action because the question these surfaces are
+ * really asking is where the environment should live, and a project folder is the
+ * better answer. Escape and the close button land on `dismiss`: a dialog the user
+ * did not answer is never consent to create anything.
+ *
+ * `openFolder` means the user asked to open a folder and the picker was shown. If a
+ * folder is actually opened the extension host reloads, ending whatever flow called
+ * this, so callers must return rather than carry on. A cancelled picker also comes
+ * back as `openFolder`; the flow has already ended either way.
+ *
+ * When there is no directory discovery would scan (no `$WORKON_HOME`, no home dir),
+ * there is no environment to offer, so no dialog is shown and the answer is `dismiss`.
+ *
+ * @returns The user's choice.
+ */
+export async function promptForGlobalEnvironment(): Promise<GlobalEnvironmentChoice> {
+    const venvDir = getGlobalEnvironmentDir();
+    if (!venvDir) {
+        traceError('Not offering a global environment: no WORKON_HOME and no home directory.');
+        return 'dismiss';
+    }
+
+    const choice = await showThreeButtonModalDialogPrompt({
+        title: GlobalEnvironment.promptTitle,
+        message: GlobalEnvironment.promptMessage(venvDir),
+        primaryButtonTitle: Common.openFolder,
+        secondaryButtonTitle: GlobalEnvironment.createButton,
+        tertiaryButtonTitle: GlobalEnvironment.notNow,
+    });
+    if (choice === GlobalEnvironment.createButton) {
+        return 'create';
+    }
+    if (choice === Common.openFolder) {
+        await executeCommand('workbench.action.files.openFolder');
+        return 'openFolder';
+    }
+    return 'dismiss';
 }
