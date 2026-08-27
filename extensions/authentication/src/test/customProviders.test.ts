@@ -7,7 +7,11 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as sinon from 'sinon';
 import * as vscode from 'vscode';
+import * as positron from 'positron';
+import { validateCustomProviderApiKey } from '../validation/customProvider';
+import { log } from '../log';
 import {
 	createCustomProviderEntry,
 	deleteCustomProviderEntry,
@@ -444,6 +448,74 @@ suite('custom providers', () => {
 				['Gateway', 'Claude', 'GPT']
 			);
 			assert.strictEqual(isOfferedCustomKind('not-a-real-kind'), false);
+		});
+	});
+
+	suite('validateCustomProviderApiKey', () => {
+		let originalFetch: typeof globalThis.fetch;
+		let requestedBodies: string[];
+		let logWarnStub: sinon.SinonStub;
+
+		setup(() => {
+			originalFetch = globalThis.fetch;
+			requestedBodies = [];
+			logWarnStub = sinon.stub(log, 'warn');
+		});
+
+		teardown(() => {
+			globalThis.fetch = originalFetch;
+			sinon.restore();
+		});
+
+		function makeApiKeyConfig(): positron.ai.LanguageModelConfig {
+			return { baseUrl: 'https://example.com/v1' };
+		}
+
+		function stubFetch(status: number, body = ''): void {
+			globalThis.fetch = async (_url, init) => {
+				requestedBodies.push((init?.body as string) ?? '');
+				return {
+					ok: status >= 200 && status < 300,
+					status,
+					text: async () => body,
+				} as Response;
+			};
+		}
+
+		test('sends a placeholder model, not a real one', async () => {
+			stubFetch(200);
+
+			await validateCustomProviderApiKey('sk-test', makeApiKeyConfig());
+
+			assert.deepStrictEqual(JSON.parse(requestedBodies[0]), {
+				model: 'positron-connectivity-check',
+				messages: [],
+			});
+		});
+
+		test('rejects a 401 whose body points at the key', async () => {
+			stubFetch(401, '{"error":{"message":"Invalid authentication credentials"}}');
+
+			await assert.rejects(
+				validateCustomProviderApiKey('sk-test', makeApiKeyConfig()),
+				/Invalid API key/
+			);
+		});
+
+		test('accepts a 401 whose body points at the model, not the key', async () => {
+			stubFetch(401, '{"error":{"type":"ModelError","message":"Model is not supported"}}');
+
+			await validateCustomProviderApiKey('sk-test', makeApiKeyConfig());
+
+			assert.match(logWarnStub.firstCall.args[0] as string, /model reason/);
+		});
+
+		test('soft-fails HTTP 404 with a warning', async () => {
+			stubFetch(404);
+
+			await validateCustomProviderApiKey('sk-test', makeApiKeyConfig());
+
+			assert.match(logWarnStub.firstCall.args[0] as string, /404/);
 		});
 	});
 
