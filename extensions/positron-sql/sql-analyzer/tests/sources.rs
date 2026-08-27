@@ -11,7 +11,7 @@
 mod support;
 
 use serde_json::json;
-use support::request;
+use support::{cursor, request};
 
 /// The tables the statement at `offset` names, as `name` or `name AS alias`.
 fn sources(text: &str, offset: usize) -> Vec<String> {
@@ -34,9 +34,9 @@ fn sources(text: &str, offset: usize) -> Vec<String> {
 }
 
 /// The tables named by the statement the cursor is in, with the cursor written as `|`.
-fn at_cursor(text: &str) -> Vec<String> {
-    let offset = text.find('|').expect("the text marks the cursor with |");
-    sources(&text.replace('|', ""), offset)
+fn at_cursor(marked: &str) -> Vec<String> {
+    let (text, offset) = cursor(marked);
+    sources(&text, offset as usize)
 }
 
 #[test]
@@ -131,6 +131,14 @@ fn only_the_statement_the_cursor_is_in_is_read() {
 fn a_cursor_between_statements_names_nothing() {
     // What the user types there starts a new statement, which reads from nothing yet.
     assert!(at_cursor("SELECT a FROM orders;\n|\nSELECT b FROM customers").is_empty());
+}
+
+#[test]
+fn a_cursor_directly_after_a_semicolon_names_nothing() {
+    // The semicolon ended the statement, so what the user types next is a new one and must not be
+    // scoped to the tables of the one above.
+    assert!(at_cursor("SELECT a FROM orders;|").is_empty());
+    assert_eq!(at_cursor("SELECT a FROM orders|").as_slice(), ["orders"]);
 }
 
 #[test]
