@@ -70,10 +70,17 @@ function sectionTitle(id: ProviderSectionId): string {
 /** The grouped, sectioned provider list shown in the Configure LLM Providers modal. */
 export const ProviderList = (props: ProviderListProps) => {
 	const sections = groupProviders(props.sources);
+	// groupProviders() omits a section with no items, but the Custom Providers
+	// section also hosts the Add Custom Provider button. Render it here instead
+	// of in the sections.map below, so the heading and button show up together
+	// even before any custom provider has been added ('custom' is always last
+	// in SECTION_ORDER, so pulling it out of the loop doesn't change ordering).
+	const otherSections = sections.filter(section => section.id !== 'custom');
+	const customSection = sections.find(section => section.id === 'custom');
 
 	return (
 		<div className='provider-list'>
-			{sections.map(section => (
+			{otherSections.map(section => (
 				<div key={section.id} className='provider-list-section'>
 					<label className='provider-list-section-heading'>{sectionTitle(section.id)}</label>
 					{section.items.map(item => (
@@ -87,19 +94,30 @@ export const ProviderList = (props: ProviderListProps) => {
 					))}
 				</div>
 			))}
-			{/* Something you create rather than something on offer, so it sits
-			below the sections in the scrollable list rather than among the rows,
-			directly under the Custom Providers section its entries land in. */}
-			{props.onAddCustomProvider &&
-				<button
-					className='provider-list-add-custom'
-					data-testid='provider-add-custom-button'
-					type='button'
-					onClick={props.onAddCustomProvider}
-				>
-					<span aria-hidden='true' className='codicon codicon-add' />
-					{localize('positron.configureLLMProvidersModal.addCustom', "Add Custom Provider")}
-				</button>
+			{(customSection || props.onAddCustomProvider) &&
+				<div className='provider-list-section'>
+					<label className='provider-list-section-heading'>{sectionTitle('custom')}</label>
+					{customSection?.items.map(item => (
+						<ProviderListItem
+							key={item.provider.id}
+							description={descriptionFor(item)}
+							section='custom'
+							source={item}
+							onAction={() => props.onSelectProvider(item)}
+						/>
+					))}
+					{props.onAddCustomProvider &&
+						<button
+							className='provider-list-add-custom'
+							data-testid='provider-add-custom-button'
+							type='button'
+							onClick={props.onAddCustomProvider}
+						>
+							<span aria-hidden='true' className='codicon codicon-add' />
+							{localize('positron.configureLLMProvidersModal.addCustom', "Add Custom Provider")}
+						</button>
+					}
+				</div>
 			}
 		</div>
 	);
