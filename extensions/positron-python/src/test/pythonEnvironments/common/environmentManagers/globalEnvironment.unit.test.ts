@@ -11,11 +11,16 @@ import * as platformApis from '../../../../client/common/utils/platform';
 import * as fsapi from '../../../../client/common/platform/fs-paths';
 import * as externalDependencies from '../../../../client/pythonEnvironments/common/externalDependencies';
 import * as logging from '../../../../client/logging';
+import * as commandApis from '../../../../client/common/vscodeApis/commandApis';
+import * as positronApis from '../../../../client/positron/positronApis';
+import { Common, GlobalEnvironment } from '../../../../client/common/utils/localize';
 import {
     getGlobalEnvironmentDir,
     getGlobalEnvironmentParent,
     getGlobalEnvironmentPython,
     createGlobalEnvironment,
+    globalEnvironmentErrorMessage,
+    promptForGlobalEnvironment,
 } from '../../../../client/pythonEnvironments/common/environmentManagers/globalEnvironment';
 
 suite('Global environment path', () => {
@@ -205,5 +210,88 @@ suite('createGlobalEnvironment', () => {
 
         assert.deepStrictEqual(result, { outcome: 'failed', venvDir });
         assert.ok(!execStub.called);
+    });
+});
+
+suite('promptForGlobalEnvironment', () => {
+    let getUserHomeDirStub: sinon.SinonStub;
+    let showPromptStub: sinon.SinonStub;
+    let executeCommandStub: sinon.SinonStub;
+
+    setup(() => {
+        sinon.stub(platformApis, 'getEnvironmentVariable').returns(undefined);
+        getUserHomeDirStub = sinon.stub(platformApis, 'getUserHomeDir').returns('/home/user');
+        sinon.stub(logging, 'traceError');
+        showPromptStub = sinon.stub(positronApis, 'showThreeButtonModalDialogPrompt').resolves(undefined);
+        executeCommandStub = sinon.stub(commandApis, 'executeCommand').resolves(undefined);
+    });
+
+    teardown(() => {
+        sinon.restore();
+    });
+
+    test('Leads with Open Folder and names the global path', async () => {
+        await promptForGlobalEnvironment();
+
+        assert.deepStrictEqual(showPromptStub.firstCall.args[0], {
+            title: GlobalEnvironment.promptTitle,
+            message: GlobalEnvironment.promptMessage(path.join('/home/user', '.virtualenvs', 'positron')),
+            primaryButtonTitle: Common.openFolder,
+            secondaryButtonTitle: GlobalEnvironment.createButton,
+            tertiaryButtonTitle: GlobalEnvironment.notNow,
+        });
+    });
+
+    test('Open Folder opens the folder picker', async () => {
+        showPromptStub.resolves(Common.openFolder);
+
+        assert.strictEqual(await promptForGlobalEnvironment(), 'openFolder');
+        assert.ok(executeCommandStub.calledOnceWithExactly('workbench.action.files.openFolder'));
+    });
+
+    test('Create Global Environment asks the caller to create', async () => {
+        showPromptStub.resolves(GlobalEnvironment.createButton);
+
+        assert.strictEqual(await promptForGlobalEnvironment(), 'create');
+        assert.ok(executeCommandStub.notCalled);
+    });
+
+    test('Not Now creates nothing', async () => {
+        showPromptStub.resolves(GlobalEnvironment.notNow);
+
+        assert.strictEqual(await promptForGlobalEnvironment(), 'dismiss');
+    });
+
+    test('Dismissal is not consent', async () => {
+        showPromptStub.resolves(undefined);
+
+        assert.strictEqual(await promptForGlobalEnvironment(), 'dismiss');
+    });
+
+    test('Shows nothing when there is nowhere to put the environment', async () => {
+        getUserHomeDirStub.returns(undefined);
+
+        assert.strictEqual(await promptForGlobalEnvironment(), 'dismiss');
+        assert.ok(showPromptStub.notCalled, 'there is no environment to offer creating');
+    });
+});
+
+suite('globalEnvironmentErrorMessage', () => {
+    test('Occupied names the path', () => {
+        assert.strictEqual(
+            globalEnvironmentErrorMessage({ outcome: 'occupied', venvDir: '/venvs/positron' }),
+            GlobalEnvironment.occupied('/venvs/positron'),
+        );
+    });
+
+    test('Failed names the path', () => {
+        assert.strictEqual(
+            globalEnvironmentErrorMessage({ outcome: 'failed', venvDir: '/venvs/positron' }),
+            GlobalEnvironment.creationFailed('/venvs/positron'),
+        );
+    });
+
+    test('Unsupported explains there is nowhere to put it', () => {
+        assert.strictEqual(globalEnvironmentErrorMessage({ outcome: 'unsupported' }), GlobalEnvironment.unsupported());
     });
 });
