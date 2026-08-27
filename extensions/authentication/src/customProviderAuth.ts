@@ -68,15 +68,21 @@ const OFFERED_KINDS: ReadonlySet<string> = new Set<SupportedCustomClientKind>([
  * claim the aggregate's session events.
  *
  * Read straight from this extension's own `contributes.authentication` manifest
- * entries rather than a hand-kept list, so the two can't drift apart.
+ * entries rather than a hand-kept list, so the two can't drift apart. Plus
+ * `copilot-auth`, which is never in that manifest: it's a synthetic id this
+ * extension invents to key its own bookkeeping for Copilot, which rides
+ * GitHub's built-in auth provider rather than one registered here (see
+ * `extension.ts`'s and `configDialog.ts`'s uses of the same string).
  *
  * A different set from what ai-config's name policy rejects (built-in *provider*
  * ids).
  */
 export function reservedAuthProviderIds(): readonly string[] {
-	return vscode.extensions.getExtension('positron.authentication')!
-		.packageJSON.contributes.authentication
-		.map((entry: { id: string }) => entry.id);
+	const manifestIds: string[] =
+		vscode.extensions.getExtension('positron.authentication')!
+			.packageJSON.contributes.authentication
+			.map((entry: { id: string }) => entry.id);
+	return [...manifestIds, 'copilot-auth'];
 }
 
 /**

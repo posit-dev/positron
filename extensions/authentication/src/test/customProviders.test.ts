@@ -28,6 +28,7 @@ import { AuthProvider } from '../authProvider';
 import { CustomProviderAggregate } from '../customProviderAggregate';
 import {
 	customApiKeyValidator,
+	customProviderNameConflict,
 	isOfferedCustomKind,
 	reservedAuthProviderIds,
 } from '../customProviderAuth';
@@ -700,17 +701,24 @@ suite('custom providers', () => {
 	});
 
 	suite('names', () => {
-		test('the reserved names are every auth provider id the manifest declares', () => {
+		test('the reserved names are every auth provider id the manifest declares, plus copilot-auth', () => {
 			const declared: string[] =
 				vscode.extensions.getExtension('positron.authentication')!
 					.packageJSON.contributes.authentication
 					.map((entry: { id: string }) => entry.id);
 			// The guard protects configDialog's maps, keyed by these ids, so a
 			// declared provider that isn't reserved is a name an entry can take.
+			// copilot-auth is never declared: it's a synthetic id this extension
+			// invents to key Copilot's bookkeeping, since Copilot rides GitHub's
+			// built-in auth provider rather than one registered here.
 			assert.deepStrictEqual(
 				[...reservedAuthProviderIds()].sort(),
-				declared.sort()
+				[...declared, 'copilot-auth'].sort()
 			);
+		});
+
+		test('refuses copilot-auth as a custom provider name', () => {
+			assert.ok(customProviderNameConflict('copilot-auth'));
 		});
 
 		test('a hand-written entry named after a built-in provider does not register, and leaves it intact', async () => {
