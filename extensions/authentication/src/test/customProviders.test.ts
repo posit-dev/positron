@@ -25,7 +25,7 @@ import { CustomProviderAggregate } from '../customProviderAggregate';
 import {
 	customApiKeyValidator,
 	isOfferedCustomKind,
-	reservedAuthProviderIdsForTest,
+	reservedAuthProviderIds,
 } from '../customProviderAuth';
 import { CustomProviderRegistry } from '../customProviderRegistry';
 import { customProviderSource, getRegistrableCustomProviders } from '../providerSources';
@@ -636,7 +636,7 @@ suite('custom providers', () => {
 			// The guard protects configDialog's maps, keyed by these ids, so a
 			// declared provider that isn't reserved is a name an entry can take.
 			assert.deepStrictEqual(
-				[...reservedAuthProviderIdsForTest].sort(),
+				[...reservedAuthProviderIds()].sort(),
 				declared.sort()
 			);
 		});

@@ -7,20 +7,6 @@ import * as vscode from 'vscode';
 import type { SupportedCustomClientKind } from 'ai-config';
 import type { ApiKeyValidator } from './configDialog';
 import {
-	ANTHROPIC_AUTH_PROVIDER_ID,
-	AWS_AUTH_PROVIDER_ID,
-	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
-	DATABRICKS_AUTH_PROVIDER_ID,
-	DEEPSEEK_AUTH_PROVIDER_ID,
-	FOUNDRY_AUTH_PROVIDER_ID,
-	GEMINI_AUTH_PROVIDER_ID,
-	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
-	OPENAI_AUTH_PROVIDER_ID,
-	POSIT_AUTH_PROVIDER_ID,
-	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
-	SNOWFLAKE_AUTH_PROVIDER_ID,
-} from './constants';
-import {
 	validateAnthropicApiKey,
 	validateCustomProviderApiKey,
 	validateOpenaiApiKey,
@@ -81,23 +67,17 @@ const OFFERED_KINDS: ReadonlySet<string> = new Set<SupportedCustomClientKind>([
  * it again on unregister. The last is the shared provider's own, which would
  * claim the aggregate's session events.
  *
+ * Read straight from this extension's own `contributes.authentication` manifest
+ * entries rather than a hand-kept list, so the two can't drift apart.
+ *
  * A different set from what ai-config's name policy rejects (built-in *provider*
- * ids). Kept in step with `contributes.authentication` by a test.
+ * ids).
  */
-const RESERVED_AUTH_PROVIDER_IDS: readonly string[] = [
-	ANTHROPIC_AUTH_PROVIDER_ID,
-	POSIT_AUTH_PROVIDER_ID,
-	FOUNDRY_AUTH_PROVIDER_ID,
-	AWS_AUTH_PROVIDER_ID,
-	SNOWFLAKE_AUTH_PROVIDER_ID,
-	OPENAI_AUTH_PROVIDER_ID,
-	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
-	GEMINI_AUTH_PROVIDER_ID,
-	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
-	DEEPSEEK_AUTH_PROVIDER_ID,
-	DATABRICKS_AUTH_PROVIDER_ID,
-	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
-];
+export function reservedAuthProviderIds(): readonly string[] {
+	return vscode.extensions.getExtension('positron.authentication')!
+		.packageJSON.contributes.authentication
+		.map((entry: { id: string }) => entry.id);
+}
 
 /**
  * Why this name can't be a custom provider, or undefined if it can. Checked on
@@ -105,15 +85,12 @@ const RESERVED_AUTH_PROVIDER_IDS: readonly string[] = [
  * externally managed entry never goes through the form.
  */
 export function customProviderNameConflict(name: string): string | undefined {
-	if (RESERVED_AUTH_PROVIDER_IDS.includes(name)) {
+	if (reservedAuthProviderIds().includes(name)) {
 		return vscode.l10n.t(
 			'"{0}" is reserved for a built-in provider. Choose a different name.', name);
 	}
 	return undefined;
 }
-
-/** The reserved names, for the test that keeps them in step with the manifest. */
-export const reservedAuthProviderIdsForTest = RESERVED_AUTH_PROVIDER_IDS;
 
 /** Whether Positron presents this kind as a custom entry. */
 export function isOfferedCustomKind(kind: string): boolean {
