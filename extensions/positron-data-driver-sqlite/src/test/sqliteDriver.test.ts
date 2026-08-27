@@ -298,57 +298,36 @@ suite('SQLite Driver Tests', () => {
 
 suite('SQLite Query Code', () => {
 
-	// The connection variable defaults to what the Python connection code binds; sqlite3 binds `conn`,
-	// SQLAlchemy binds `engine`, and DBI binds `con`.
-	function code(languageId: string, variantId: string, query: string, connectionVariable = 'conn'): string | undefined {
-		return generateQueryCode({ languageId, variantId, connectionVariable, query });
+	// The quoting and the recipes themselves are covered by positron-data-driver-common's own tests.
+	// What is this driver's own is which variant ids map to which recipe, so that is what is asserted
+	// here. The connection variable is whatever the session bound, which is why each variant is given
+	// the name its own connection code binds.
+	function code(languageId: string, variantId: string, connectionVariable: string): string | undefined {
+		return generateQueryCode({ languageId, variantId, connectionVariable, query: 'SELECT 1' });
 	}
 
-	test('every Python variant reads the query through pandas, which returns a data frame', () => {
-		// pandas takes a plain string for a DBAPI2 connection and a SQLAlchemy connectable alike, so
-		// the two variants differ only in the object they are handed.
+	test('each connection code variant is queried the way its own connection object is', () => {
 		assert.deepStrictEqual(
 			{
-				sqlite3: code('python', 'sqlite3', 'SELECT 1'),
-				sqlalchemy: code('python', 'sqlalchemy', 'SELECT 1', 'engine'),
+				sqlite3: code('python', 'sqlite3', 'conn'),
+				sqlalchemy: code('python', 'sqlalchemy', 'engine'),
+				dbi: code('r', 'dbi', 'con'),
 			},
 			{
 				sqlite3: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", conn)',
 				sqlalchemy: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", engine)',
+				dbi: 'DBI::dbGetQuery(con, "SELECT 1")',
 			}
 		);
-	});
-
-	test('R code queries the DBI connection, qualified so it needs no library() line', () => {
-		assert.strictEqual(code('r', 'dbi', 'SELECT 1', 'con'),
-			'DBI::dbGetQuery(con, "SELECT 1")');
 	});
 
 	test('nothing is generated for a variant or a language this driver cannot query', () => {
 		assert.deepStrictEqual(
 			{
-				unknownVariant: code('python', 'duckdb', 'SELECT 1'),
-				unknownLanguage: code('julia', 'sqlite3', 'SELECT 1'),
+				unknownVariant: code('python', 'duckdb', 'conn'),
+				unknownLanguage: code('julia', 'sqlite3', 'conn'),
 			},
 			{ unknownVariant: undefined, unknownLanguage: undefined }
-		);
-	});
-
-	test('a query carrying quotes, backslashes, and newlines is quoted rather than broken', () => {
-		// R escapes both characters. Python's triple-quoted form leaves a lone quote alone, and the
-		// newline padding keeps a query that ends in a quote from running into the delimiter.
-		const sql = 'SELECT "a\\b"\nFROM t';
-		assert.deepStrictEqual(
-			{
-				python: code('python', 'sqlite3', sql),
-				pythonTrailingQuote: code('python', 'sqlite3', 'SELECT "t"'),
-				r: code('r', 'dbi', sql, 'con'),
-			},
-			{
-				python: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT "a\\\\b"\nFROM t\n""", conn)',
-				pythonTrailingQuote: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT "t"\n""", conn)',
-				r: 'DBI::dbGetQuery(con, "SELECT \\"a\\\\b\\"\nFROM t")',
-			}
 		);
 	});
 });

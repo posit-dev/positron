@@ -131,6 +131,13 @@ run_extension_suite npm run test-extension -- -l positron-duckdb
 kill_app
 
 echo
+echo "### Data driver shared query code tests"
+echo
+# Plain Node mocha, not an extension-host suite: the shared query code module has no vscode
+# dependency, and its tests cover the quoting and the recipes for every data driver at once.
+npm test --prefix extensions/positron-data-driver-common
+
+echo
 echo "### Positron DuckDB data connection tests"
 echo
 run_extension_suite npm run test-extension -- -l positron-data-driver-duckdb

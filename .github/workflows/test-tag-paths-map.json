@@ -86,6 +86,7 @@
   "extensions/open-remote-wsl/": ["@:remote-wsl"],
   "extensions/positron-catalog-explorer/": ["@:catalog-explorer"],
   "extensions/positron-code-cells/": [],
+  "extensions/positron-data-driver-common/": ["@:connections"],
   "extensions/positron-data-driver-databricks/": ["@:connections"],
   "extensions/positron-data-driver-duckdb/": ["@:connections"],
   "extensions/positron-data-driver-pins/": ["@:connect", "@:connections"],

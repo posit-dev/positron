@@ -825,48 +825,35 @@ suite('Redshift Lazy pg Loading', () => {
 });
 suite('Redshift Query Code', () => {
 
-	// The connection variable defaults to what the Python connection code binds; redshift_connector
-	// binds `conn`, and DBI binds `con`.
-	function code(languageId: string, variantId: string, query: string, connectionVariable = 'conn'): string | undefined {
-		return generateQueryCode({ languageId, variantId, connectionVariable, query });
+	// The quoting and the recipes themselves are covered by positron-data-driver-common's own tests.
+	// What is this driver's own is which variant ids map to which recipe, so that is what is asserted
+	// here. The connection variable is whatever the session bound, which is why each variant is given
+	// the name its own connection code binds.
+	function code(languageId: string, variantId: string, connectionVariable: string): string | undefined {
+		return generateQueryCode({ languageId, variantId, connectionVariable, query: 'SELECT 1' });
 	}
 
-	test('Python code reads the query through pandas, which returns a data frame', () => {
-		assert.strictEqual(code('python', 'redshift_connector', 'SELECT 1'),
-			'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", conn)');
-	});
-
-	test('R code queries the DBI connection, qualified so it needs no library() line', () => {
-		assert.strictEqual(code('r', 'dbi', 'SELECT 1', 'con'),
-			'DBI::dbGetQuery(con, "SELECT 1")');
+	test('each connection code variant is queried the way its own connection object is', () => {
+		assert.deepStrictEqual(
+			{
+				redshiftConnector: code('python', 'redshift_connector', 'conn'),
+				dbi: code('r', 'dbi', 'con'),
+			},
+			{
+				redshiftConnector: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", conn)',
+				dbi: 'DBI::dbGetQuery(con, "SELECT 1")',
+			}
+		);
 	});
 
 	test('nothing is generated for a variant or a language this driver cannot query', () => {
 		assert.deepStrictEqual(
 			{
 				// Redshift offers no SQLAlchemy variant, so there is no connection for it to query.
-				unknownVariant: code('python', 'sqlalchemy', 'SELECT 1'),
-				unknownLanguage: code('julia', 'redshift_connector', 'SELECT 1'),
+				unknownVariant: code('python', 'sqlalchemy', 'conn'),
+				unknownLanguage: code('julia', 'redshift_connector', 'conn'),
 			},
 			{ unknownVariant: undefined, unknownLanguage: undefined }
-		);
-	});
-
-	test('a query carrying quotes, backslashes, and newlines is quoted rather than broken', () => {
-		// R escapes both characters. Python's triple-quoted form leaves a lone quote alone, and the
-		// newline padding keeps a query that ends in a quote from running into the delimiter.
-		const sql = 'SELECT "a\\b"\nFROM t';
-		assert.deepStrictEqual(
-			{
-				python: code('python', 'redshift_connector', sql),
-				pythonTrailingQuote: code('python', 'redshift_connector', 'SELECT "t"'),
-				r: code('r', 'dbi', sql, 'con'),
-			},
-			{
-				python: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT "a\\\\b"\nFROM t\n""", conn)',
-				pythonTrailingQuote: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT "t"\n""", conn)',
-				r: 'DBI::dbGetQuery(con, "SELECT \\"a\\\\b\\"\nFROM t")',
-			}
 		);
 	});
 });
