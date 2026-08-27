@@ -248,7 +248,7 @@ export class CustomProviderRegistry implements vscode.Disposable {
 			// for default: ai-config has no way yet to tell "no user record
 			// because it's default-sourced" (which should still be overridable)
 			// apart from "no user record because it's enforced" (which
-			// shouldn't be). See ai-lib issue TODO.
+			// shouldn't be). See https://github.com/posit-dev/ai-lib/issues/90.
 			if (!await readCustomProviderEntry(name)) {
 				log.info(`Not saving a URL for externally managed custom provider: ${name}`);
 				return false;
