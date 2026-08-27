@@ -188,7 +188,14 @@ Stage any lockfile updates. If you see problems, fix them and run `npm install`
 again until all lockfile issues are resolved.
 
 Once `npm install` succeeds, run `npm ci` until it passes to confirm that the
-lockfile is complete.
+lockfile is complete. Do not skip this: a hand-resolved lockfile can leave an
+entry that `npm install` reports as "up to date" (it only reconciles against the
+node_modules already on disk) while `npm ci` rejects it with an error like
+`Missing: <pkg>@ from lock file`. This bites hardest on `overrides` (e.g. the
+`sharp` stub), where the merge can nest the override under the wrong package
+instead of at the top level. If `npm ci` fails, regenerate the lockfile from
+package.json alone with `npm install --package-lock-only` rather than editing it
+further by hand, then confirm with `npm ci --dry-run`.
 
 ### Step 4: Compile
 
@@ -206,13 +213,37 @@ failures, and keep running until they pass.
 Next, install all e2e test dependencies and run the test suite. Investigate any
 failures and fix them if they are caused by the merge.
 
-### Step 6: Document
+### Step 6: Check the test tag map
+
+The `pr-tags` CI job fails if the merge touches a Positron-owned source dir that
+has no entry in `.github/workflows/test-tag-paths-map.json`. A merge often pulls
+Positron edits into upstream dirs that aren't mapped yet (e.g. a change under
+`src/vs/platform/policy/`), so check this before pushing. Reproduce the exact CI
+check locally:
+
+```bash
+source scripts/lib/pr-tags-lib.sh
+find_unmapped_positron_dirs "$(git diff --name-only origin/main...HEAD)" \
+  .github/workflows/test-tag-paths-map.json
+```
+
+On a large merge this takes a minute or two (it reads each changed file's
+copyright header). Add every dir it prints to the map: a feature tag list like
+`["@:console"]` if that dir has e2e coverage, or `[]` if it doesn't. For an
+upstream dir where only a Posit-owned file or two live, map the dir to `[]` and,
+if a Posit-owned file has coverage, add a longer per-file key for it.
+
+Note this local check is stricter than CI: the `pr-tags` job only sees the first
+3000 changed files (GitHub's API cap), so on a big merge it can miss dirs this
+command catches. Map them anyway.
+
+### Step 7: Document
 
 Summarize all your findings and any design decisions you made during the merge
 at the end of the log file. Include any manual steps engineers will need to take
 when pulling down the merged code.
 
-## Step 7: Final Tests
+## Step 8: Final Tests
 
 Prompt the user to commit the change (a prerequisite to running the CI lab
 tests). Tell them you're done with the merge and preliminary tests are passing,
