@@ -6,6 +6,7 @@
 import { defineConfig, ReporterDescription } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
 import { memorySpecsToIgnore } from './test/e2e/utils/memory/scenarios';
+import { laneFromEnv } from './test/e2e/utils/memory/lanes';
 import * as fs from 'fs';
 
 process.env.PW_TEST = '1';
@@ -38,7 +39,11 @@ const insightsReporters: ReporterDescription[] = [
  */
 const projectName = process.env.PW_PROJECT_NAME || 'default';
 
-const baseIgnore = [
+// A project's own testIgnore REPLACES this one rather than merging with it, so any
+// project that declares testIgnore has to spread this back in. #15737 added a
+// memory-spec ignore to e2e-chromium and e2e-server without it, which re-enabled
+// example.test.ts and the lsp specs in the web lanes.
+const rootIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
 	'**/connect/**',
@@ -46,6 +51,7 @@ const baseIgnore = [
 	'**/remote-wsl/**',
 	'**/assistant-eval/**',
 	'**/release-screenshots/**',
+	...(process.env.ALLOW_PYREFLY === 'true' ? [] : ['**/lsp/**']),
 ];
 
 let reporter: ReporterDescription[];
@@ -69,9 +75,7 @@ export default defineConfig<CustomTestOptions>({
 	globalTeardown: './test/e2e/tests/_global.teardown.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
-	testIgnore: process.env.ALLOW_PYREFLY === 'true'
-		? baseIgnore
-		: [...baseIgnore, '**/lsp/**'],
+	testIgnore: rootIgnore,
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
@@ -109,7 +113,7 @@ export default defineConfig<CustomTestOptions>({
 				// Set only by test-memory-metrics.yml, one scenario per matrix job.
 				// Ignored rather than skipped in-test because merge-to-main runs this
 				// lane ungrepped, so a skip would report a permanently skipped row.
-				...memorySpecsToIgnore(process.env.MEMORY_SCENARIO),
+				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), process.env.MEMORY_SCENARIO),
 			],
 			use: {
 				artifactDir: 'e2e-electron'
@@ -118,6 +122,15 @@ export default defineConfig<CustomTestOptions>({
 		},
 		{
 			name: 'e2e-chromium',
+			// The server memory lane runs here, because e2e-chromium takes the
+			// spawned-server path that gives the collector a process tree to walk.
+			// Without this guard the server memory spec would be eligible in every
+			// ordinary @:web run. rootIgnore is spread back in because a project's
+			// testIgnore replaces the root one.
+			testIgnore: [
+				...rootIgnore,
+				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), process.env.MEMORY_SCENARIO),
+			],
 			use: {
 				artifactDir: 'e2e-chromium',
 				headless: false,
@@ -163,6 +176,15 @@ export default defineConfig<CustomTestOptions>({
 		},
 		{
 			name: 'e2e-server',
+			// e2e-server uses an externally started server, so Code holds null in
+			// the process slot and there is no tree to walk. A memory spec running
+			// here would produce an empty process list rather than an error, so it
+			// is excluded unconditionally. rootIgnore is spread back in because a
+			// project's testIgnore replaces the root one.
+			testIgnore: [
+				...rootIgnore,
+				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), undefined),
+			],
 			use: {
 				artifactDir: 'e2e-server',
 				headless: false,

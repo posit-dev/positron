@@ -62,6 +62,18 @@ describe('LanguageHealthGroup', () => {
 		expect(screen.getAllByRole('listitem')).toHaveLength(2);
 	});
 
+	it('passes the resolved path through to the matching item only', async () => {
+		const rInstalled = { id: 'rInstalled', status: 'pass', summary: 'A supported R is installed' } as const;
+		const other = { id: 'environmentReady', status: 'pass', summary: 'The R installation is ready to use with Positron' } as const;
+		const state = {
+			kind: 'result',
+			result: { ok: true, items: [rInstalled, other], rBinPath: '/usr/lib/R/bin/R' },
+		} as const;
+		rtl.render(<LanguageHealthGroup busy={false} expandedByLanguage={overrides} health={{ language: 'r', label: 'R', state }} onRunFix={vi.fn()} />);
+		await userEvent.setup().click(screen.getByRole('button', { name: /^R/ }));
+		expect(screen.getByText('/usr/lib/R/bin/R')).toBeInTheDocument();
+	});
+
 	it('lets the user overrule what it chose for them', async () => {
 		render(failing);
 		await userEvent.setup().click(header());

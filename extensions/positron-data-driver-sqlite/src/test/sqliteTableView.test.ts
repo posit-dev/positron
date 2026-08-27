@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { ISqliteReadPlan } from '../sqliteReadPlan.js';
 import { SqliteRow } from '../sqliteWorkerClient.js';
 import { SqliteBindValue } from '../sqliteWorkerProtocol.js';
 import { SqliteSchemaEntry, SqliteTableView, makeWhereExpr, sqliteDisplayType } from '../sqliteTableView.js';
@@ -25,6 +26,15 @@ class FakeQueryClient {
 		this.queries.push(sql);
 		return this.responder(sql);
 	}
+}
+
+/**
+ * The read plan of an ordinary rowid table: read in place, ordered by `rowid`. Stubbed rather than
+ * resolved through `createSqliteReadPlan` so that the probe it issues does not appear among the
+ * queries these tests assert on; `sqliteReadPlan.test.ts` covers the resolution itself.
+ */
+function rowidReadPlan(quotedTable: string): ISqliteReadPlan {
+	return { relation: async () => quotedTable, rowOrder: 'rowid', dispose: async () => { } };
 }
 
 const FORMAT: FormatOptions = {
@@ -128,7 +138,7 @@ suite('SQLite Data Explorer Tests', () => {
 					{ c0: 3, c1: Infinity },
 				];
 			});
-			const view = new SqliteTableView(client, 'people', 'table', schema);
+			const view = new SqliteTableView(client, 'people', rowidReadPlan('"people"'), schema);
 			const data = await view.getDataValues({
 				columns: [
 					{ column_index: 0, spec: { first_index: 0, last_index: 2 } },
@@ -142,9 +152,9 @@ suite('SQLite Data Explorer Tests', () => {
 			]);
 		});
 
-		test('paginates with LIMIT/OFFSET and a rowid tiebreaker once sorted', async () => {
+		test('paginates with LIMIT/OFFSET and a rowid tiebreaker after the sort keys', async () => {
 			const client = new FakeQueryClient(sql => (sql.includes('count(*)') ? [{ n: 10 }] : [{ c0: 5 }]));
-			const view = new SqliteTableView(client, 'people', 'table', schema);
+			const view = new SqliteTableView(client, 'people', rowidReadPlan('"people"'), schema);
 			await view.setSortColumns({ sort_keys: [{ column_index: 0, ascending: false }] });
 			await view.getDataValues({
 				columns: [{ column_index: 0, spec: { first_index: 2, last_index: 2 } }],
@@ -162,7 +172,7 @@ suite('SQLite Data Explorer Tests', () => {
 			];
 			const client = new FakeQueryClient(sql =>
 				sql.includes('count(*)') ? [{ n: 2 }] : [{ c0: 1.5 }, { c0: 2.5 }]);
-			const view = new SqliteTableView(client, 'people', 'table', oneColumn);
+			const view = new SqliteTableView(client, 'people', rowidReadPlan('"people"'), oneColumn);
 
 			const state = await view.getState();
 			const data = await view.getDataValues({

@@ -63,8 +63,7 @@ export interface PositronWelcomePageProps {
 }
 
 /**
- * PositronWelcomePage component. The redesigned welcome page, shown when the
- * `welcomePage.experimental` setting is on.
+ * PositronWelcomePage component. The contents of the welcome page.
  * @param props A PositronWelcomePageProps that contains the component properties.
  * @returns The rendered component.
  */

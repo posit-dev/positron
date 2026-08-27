@@ -7,17 +7,15 @@
 import test, { expect, type Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
-const LOGO = '.product-logo';
-const FOOTER = '.gettingStartedCategoriesContainer div.footer';
-const START_SECTION = '.positron-welcome-page-start';
-const HELP_TITLE = '.welcome-help-links';
-const OPEN_SECTION = '.start-container';
+const PAGE = '.positron-welcome-page';
+const HEADER = '.positron-welcome-page-header';
+const HEADER_TITLE = '.positron-welcome-page-header .welcome-header-title';
+const HELP_BUTTON = '.positron-welcome-page-header .welcome-header-help';
+const WALKTHROUGH_BANNER = '.positron-welcome-page-walkthrough-banner';
+const SEE_ALL_WALKTHROUGHS = '.positron-welcome-page-walkthrough-banner .walkthrough-banner-link';
 const RECENT_SECTION = '.recently-opened';
-const WALKTHROUGH_SECTION = '.getting-started';
-const WALKTHROUGH_CARD = '.getting-started-category';
 const HEADING_ROLE = 'heading';
 const BUTTON_ROLE = 'button';
-const REDESIGNED_PAGE = '.positron-welcome-page';
 const CATEGORIES_SLIDE = '.gettingStartedSlideCategories';
 const DETAILS_SLIDE = '.gettingStartedSlideDetails';
 const STARTUP_CHECKBOX = '#showOnStartup';
@@ -26,25 +24,14 @@ const ENVIRONMENT_SETUP_SUMMARY = '.positron-welcome-page-environment-setup .env
 
 export class Welcome {
 
-	get logo(): Locator { return this.code.driver.currentPage.locator(LOGO); }
-	get footer(): Locator { return this.code.driver.currentPage.locator(FOOTER); }
-	get startSection(): Locator { return this.code.driver.currentPage.locator(START_SECTION); }
-	get startButtons(): Locator { return this.startSection.getByRole(BUTTON_ROLE); }
-	get helpSection(): Locator { return this.code.driver.currentPage.locator(HELP_TITLE); }
-	get helpTitle(): Locator { return this.helpSection.getByRole(HEADING_ROLE); }
-	get helpLinks(): Locator { return this.helpSection.getByRole(BUTTON_ROLE); }
-	get openSection(): Locator { return this.code.driver.currentPage.locator(OPEN_SECTION); }
-	get openTitle(): Locator { return this.openSection.getByRole(HEADING_ROLE); }
-	get openButtons(): Locator { return this.openSection.getByRole(BUTTON_ROLE); }
+	get welcomePage(): Locator { return this.code.driver.currentPage.locator(PAGE); }
+	get header(): Locator { return this.code.driver.currentPage.locator(HEADER); }
+	get headerTitle(): Locator { return this.code.driver.currentPage.locator(HEADER_TITLE); }
+	get helpButton(): Locator { return this.code.driver.currentPage.locator(HELP_BUTTON); }
+	get walkthroughBanner(): Locator { return this.code.driver.currentPage.locator(WALKTHROUGH_BANNER); }
+	get seeAllWalkthroughsButton(): Locator { return this.code.driver.currentPage.locator(SEE_ALL_WALKTHROUGHS); }
 	get recentSection(): Locator { return this.code.driver.currentPage.locator(RECENT_SECTION); }
 	get recentTitle(): Locator { return this.recentSection.getByRole(HEADING_ROLE); }
-	get newNotebookButton(): Locator { return this.startButtons.getByText('New Notebook'); }
-	get newFileButton(): Locator { return this.startButtons.getByText('New File'); }
-	get newFolderFromTemplateButton(): Locator { return this.startButtons.getByText('New Folder'); }
-	get openFolderButton(): Locator { return this.startButtons.getByText('Open Folder'); }
-	get walkthroughSection(): Locator { return this.code.driver.currentPage.locator(WALKTHROUGH_SECTION); }
-	get walkthroughButtons(): Locator { return this.walkthroughSection.locator(WALKTHROUGH_CARD); }
-	get redesignedPage(): Locator { return this.code.driver.currentPage.locator(REDESIGNED_PAGE); }
 	get startupCheckbox(): Locator { return this.code.driver.currentPage.locator(STARTUP_CHECKBOX); }
 	get environmentSetup(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP); }
 	get environmentSetupProgress(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP).getByRole('progressbar'); }
@@ -52,16 +39,23 @@ export class Welcome {
 
 	constructor(private code: Code) { }
 
-	async expectLogoToBeVisible() {
-		await test.step('Verify logo is visible', async () => {
-			await expect(this.logo).toBeVisible();
+	async expectPageToBeVisible() {
+		await test.step('Verify welcome page is visible', async () => {
+			await expect(this.welcomePage).toBeVisible();
 		});
 	}
 
-	async expectFooterToBeVisible() {
-		await test.step('Verify footer is visible', async () => {
-			await expect(this.footer).toBeVisible();
-			await expect(this.footer).toHaveText('Show welcome page on startup');
+	/**
+	 * Verify the header renders.
+	 *
+	 * The title is matched loosely because it carries the product name, which
+	 * reads "Positron Dev" on a dev build and "Positron" on a release one.
+	 */
+	async expectHeaderToBeVisible() {
+		await test.step('Verify header is visible', async () => {
+			await expect(this.header).toBeVisible();
+			await expect(this.headerTitle).toContainText('Welcome to Positron');
+			await expect(this.helpButton).toBeVisible();
 		});
 	}
 
@@ -83,27 +77,6 @@ export class Welcome {
 		});
 	}
 
-	async expectStartToContain(startButtons: string[]) {
-		await test.step(`Verify start section contains expected buttons: ${startButtons}`, async () => {
-			await expect(this.startSection).toBeVisible();
-
-			for (const button of startButtons) {
-				await expect(this.startButtons.filter({ hasText: button })).toBeVisible();
-			}
-		});
-	}
-
-	async expectHelpToContain(helpButtons: string[]) {
-		await test.step(`Verify help section contains expected links: ${helpButtons}`, async () => {
-			await expect(this.helpTitle).toBeVisible();
-			await expect(this.helpTitle).toHaveText('Help');
-
-			for (const link of helpButtons) {
-				await expect(this.helpLinks.filter({ hasText: link })).toBeVisible();
-			}
-		});
-	}
-
 	/**
 	 * Verify the "Recent" section renders.
 	 *
@@ -114,33 +87,6 @@ export class Welcome {
 		await test.step('Verify recent section is visible', async () => {
 			await expect(this.recentSection).toBeVisible();
 			await expect(this.recentTitle).toHaveText('Recent');
-		});
-	}
-
-	async expectWalkthroughsToContain(walkthroughs: string[]) {
-		await test.step(`Verify walkthrough section contains expected items: ${walkthroughs}`, async () => {
-			await expect(this.walkthroughSection).toBeVisible();
-			await expect(this.walkthroughSection).toContainText('Walkthroughs');
-
-			for (const item of walkthroughs) {
-				await expect(this.walkthroughButtons.filter({ hasText: item })).toBeVisible();
-			}
-		});
-	}
-
-	async expectWalkthroughsToHaveCount(count: number) {
-		await test.step(`Verify walkthroughs count is ${count}`, async () => {
-			await expect(this.walkthroughButtons).toHaveCount(count);
-		});
-	}
-
-	/**
-	 * Verify the redesigned welcome page renders. Only shows when the
-	 * `welcomePage.experimental` setting is on.
-	 */
-	async expectRedesignedPageToBeVisible() {
-		await test.step('Verify redesigned welcome page is visible', async () => {
-			await expect(this.redesignedPage).toBeVisible();
 		});
 	}
 

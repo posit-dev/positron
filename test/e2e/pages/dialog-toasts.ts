@@ -65,7 +65,7 @@ export class Toasts {
 			: this.notificationsCenter.locator('.notification-list-item');
 
 		await Promise.race([
-			toastLocator.waitFor({ state: 'attached', timeout }),
+			toastLocator.first().waitFor({ state: 'attached', timeout }),
 			centerLocator.first().waitFor({ state: 'attached', timeout }),
 		]);
 
@@ -86,7 +86,9 @@ export class Toasts {
 			const scopedToast = notificationFilter
 				? this.toastNotification.filter({ hasText: notificationFilter })
 				: this.toastNotification;
-			const toastButton = scopedToast.getByRole('button', { name: button });
+			// Use first() so a duplicated or same-labelled notification cannot trigger
+			// a strict mode violation.
+			const toastButton = scopedToast.getByRole('button', { name: button }).first();
 			if (await toastButton.isVisible()) {
 				await toastButton.click();
 				return;
@@ -98,7 +100,7 @@ export class Toasts {
 			const scopedCenter = notificationFilter
 				? this.notificationsCenter.locator('.notification-list-item').filter({ hasText: notificationFilter })
 				: this.notificationsCenter;
-			const notificationCenterButton = scopedCenter.getByRole('button', { name: button });
+			const notificationCenterButton = scopedCenter.getByRole('button', { name: button }).first();
 			if (await notificationCenterButton.isVisible()) {
 				await notificationCenterButton.click();
 				await this.closeNotificationCenter();

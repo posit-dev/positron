@@ -121,11 +121,10 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	/**
 	 * Whether a welcome page has asked for a check yet.
 	 *
-	 * The editor pane takes this service as a constructor dependency, and it is
-	 * the pane for the classic welcome page as well as the redesigned one. Merely
-	 * injecting a delayed service builds it at the next idle callback, so if the
-	 * constructor started runs, every user would activate the Python and R
-	 * extensions on startup for a card that the feature flag keeps hidden.
+	 * The editor pane takes this service as a constructor dependency, and a
+	 * delayed service is built at the next idle callback once anything asks for
+	 * it. Starting the checks from the constructor would activate the Python and
+	 * R extensions before a page had asked for an answer.
 	 */
 	private _started = false;
 	private _disposed = false;

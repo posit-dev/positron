@@ -3,10 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerRpcTransport, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
+import { IDataImporter, IDataImporterMetadata, IDataImportRequest, IDataImportResult, IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { ExtHostDataExplorerShape, ExtHostPositronContext, MainPositronContext, MainThreadDataExplorerShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -22,9 +23,13 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 	private readonly _proxy: ExtHostDataExplorerShape;
 	private readonly _disposables = new DisposableStore();
 
+	/** Registry registrations for importers contributed by the ext host, keyed by handle. */
+	private readonly _importerRegistrations = new Map<number, IDisposable>();
+
 	constructor(
 		extHostContext: IExtHostContext,
-		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService
+		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService,
+		@IPositronDataImporterRegistry private readonly _dataImporterRegistry: IPositronDataImporterRegistry
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostDataExplorer);
 		// Register this host so its provider claims are cleared if the host disconnects.
@@ -63,7 +68,29 @@ export class MainThreadDataExplorer implements MainThreadDataExplorerShape, IDat
 		return this._dataExplorerService.openWithExtensionBackend({ providerId, datasetId, displayName });
 	}
 
+	$registerDataImporter(handle: number, metadata: IDataImporterMetadata): void {
+		const importer: IDataImporter = {
+			languageId: metadata.languageId,
+			displayName: metadata.displayName,
+			fileExtensions: metadata.fileExtensions,
+			generateCode: (request: IDataImportRequest): Promise<IDataImportResult | undefined> =>
+				this._proxy.$generateImportCode(handle, {
+					fileUri: request.fileUri.toJSON(),
+					variableName: request.variableName,
+					options: request.options
+				})
+		};
+		this._importerRegistrations.set(handle, this._dataImporterRegistry.registerImporter(importer));
+	}
+
+	$unregisterDataImporter(handle: number): void {
+		this._importerRegistrations.get(handle)?.dispose();
+		this._importerRegistrations.delete(handle);
+	}
+
 	dispose(): void {
+		this._importerRegistrations.forEach(registration => registration.dispose());
+		this._importerRegistrations.clear();
 		this._disposables.dispose();
 	}
 }

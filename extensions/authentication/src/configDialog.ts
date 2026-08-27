@@ -25,16 +25,24 @@ export type OnSaveCallback = (config: positron.ai.LanguageModelConfig) => Promis
 
 export type OnDeleteCallback = () => Promise<void>;
 
+export type RecoverCallback = (err: unknown) => Promise<boolean>;
+
 export interface RegisterAuthProviderOptions {
 	validateApiKey?: ApiKeyValidator;
 	onSave?: OnSaveCallback;
 	onDelete?: OnDeleteCallback;
+	/**
+	 * Attempt to recover from a failed connect -- for example by re-running an
+	 * external sign-in. Return true when the connect is worth retrying once.
+	 */
+	recover?: RecoverCallback;
 }
 
 export const authProviders = new Map<string, AuthProvider>();
 const apiKeyValidators = new Map<string, ApiKeyValidator>();
 const onSaveCallbacks = new Map<string, OnSaveCallback>();
 const onDeleteCallbacks = new Map<string, OnDeleteCallback>();
+const recoverCallbacks = new Map<string, RecoverCallback>();
 
 /**
  * Register an auth provider so the config dialog can store/remove
@@ -60,6 +68,11 @@ export function registerAuthProvider(
 		onDeleteCallbacks.set(providerId, options.onDelete);
 	} else {
 		onDeleteCallbacks.delete(providerId);
+	}
+	if (options?.recover) {
+		recoverCallbacks.set(providerId, options.recover);
+	} else {
+		recoverCallbacks.delete(providerId);
 	}
 }
 
@@ -283,8 +296,31 @@ async function handleSave(
 	const onSave = onSaveCallbacks.get(providerId);
 	const baseUrlPersisted = onSave ? (await onSave(config)) !== false : true;
 
-	const session = await provider.createSession([], {});
+	const session = await createSessionWithRecovery(providerId, provider);
 	return { accountId: session.account.id, baseUrlPersisted };
+}
+
+/**
+ * Resolve a session, giving the provider one chance to recover from a failure
+ * first -- AWS uses this to re-run `aws sso login` when the SSO session has
+ * lapsed. Exactly one retry: a recovery that succeeds while the chain still
+ * fails (wrong region, missing model permission) must surface that failure
+ * rather than loop.
+ */
+async function createSessionWithRecovery(
+	providerId: string,
+	provider: AuthProvider
+): Promise<vscode.AuthenticationSession> {
+	try {
+		return await provider.createSession([], {});
+	} catch (err) {
+		const recover = recoverCallbacks.get(providerId);
+		if (!recover || !await recover(err)) {
+			throw err;
+		}
+		log.info(`Recovered credentials for provider "${providerId}"; retrying connect`);
+		return provider.createSession([], {});
+	}
 }
 
 async function handleApiKeySave(

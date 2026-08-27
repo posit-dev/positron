@@ -7,6 +7,7 @@ import { basename } from 'path';
 import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
 import { ForcedGcStats } from './gc.js';
 import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
+import { MemoryLane } from './lanes.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
 import { MemoryScenario } from './scenarios.js';
@@ -138,28 +139,38 @@ export const SETTLE_CAP_MS = 90_000;
  * Wait until the process tree stops growing, rather than sleeping a fixed
  * amount.
  *
- * Returns how long that took, which is worth recording on its own, and the
- * highest total it saw. The peak matters because the startup reclaim can land
- * inside this window rather than after it: see {@link treeHasSettled}, which
- * cannot detect a drop it never observed.
+ * Returns whether it actually stopped, how long that took, which is worth
+ * recording on its own, and the highest total it saw. The peak matters because
+ * the startup reclaim can land inside this window rather than after it: see
+ * {@link treeHasSettled}, which cannot detect a drop it never observed.
+ *
+ * `stoppedGrowing` is reported rather than left to the caller to infer from
+ * `settleMs`, which cannot express it: see {@link MemorySnapshot.stoppedGrowing}.
+ *
+ * `options.readTree` exists so the loop can be tested without a live process
+ * tree; production callers leave it unset.
  */
 export async function waitForSettle(
 	rootPid: number,
-	options: { pollMs?: number; capMs?: number } = {}
-): Promise<{ settleMs: number; peakTotalPss: number }> {
+	options: { pollMs?: number; capMs?: number; readTree?: (pid: number) => Promise<RawProcess[]> } = {}
+): Promise<{ stoppedGrowing: boolean; settleMs: number; peakTotalPss: number }> {
 	const pollMs = options.pollMs ?? 1000;
 	const capMs = options.capMs ?? SETTLE_CAP_MS;
+	const readTree = options.readTree ?? readProcessTree;
 	const started = Date.now();
 	const readings: number[] = [];
+	let stoppedGrowing = false;
 
 	while (Date.now() - started < capMs) {
-		readings.push(totalPss(await readProcessTree(rootPid)));
+		readings.push(totalPss(await readTree(rootPid)));
 		if (isSettled(readings)) {
+			stoppedGrowing = true;
 			break;
 		}
 		await new Promise(resolve => setTimeout(resolve, pollMs));
 	}
 	return {
+		stoppedGrowing,
 		settleMs: Date.now() - started,
 		peakTotalPss: readings.length > 0 ? Math.max(...readings) : 0
 	};
@@ -321,6 +332,7 @@ export const SAMPLING_CAP_MS = 90_000;
  */
 export async function captureSnapshot(input: {
 	scenario: MemoryScenario;
+	lane: MemoryLane;
 	rootPid: number;
 	buildRoot: string;
 	userDataDir: string;
@@ -328,7 +340,7 @@ export async function captureSnapshot(input: {
 	extensions: ActivatedExtension[];
 	forceGc?: () => Promise<ForcedGcStats[]>;
 }): Promise<MemorySnapshot> {
-	const { settleMs, peakTotalPss } = await waitForSettle(input.rootPid);
+	const { stoppedGrowing, settleMs, peakTotalPss } = await waitForSettle(input.rootPid);
 
 	// Must land after settle, so startup allocation is already done, and before
 	// sampling starts, so the reported tail reflects the collected state.
@@ -357,9 +369,11 @@ export async function captureSnapshot(input: {
 
 	return {
 		scenario: input.scenario,
+		lane: input.lane,
 		capturedAt: new Date().toISOString(),
 		positronVersion: readPositronVersion(input.buildRoot),
 		launchIndex: input.launchIndex,
+		stoppedGrowing,
 		settleMs,
 		sampledMs,
 		treeSettled,

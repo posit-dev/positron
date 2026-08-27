@@ -18,8 +18,55 @@ env:
   MEMORY_CONTAINER_IMAGE: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
 
 jobs:
+  # Resolves the build ONCE for the whole matrix. Without this each of the seven
+  # jobs resolved latest-prerelease independently, seconds apart, so a
+  # prerelease published mid-run split the matrix across two builds: in run
+  # 33070335039 the editors job measured -166 while the other six asked for
+  # -177. Had -177's asset been ready that run would have gone green with one
+  # scenario measured against a different build than the rest, all filed under
+  # one night, and nothing in the dashboard compares app_version across
+  # scenarios.
+  #
+  # Deliberately NOT downloading here and sharing an artifact: that puts a 1 GiB
+  # upload on the critical path before any measurement starts and makes one
+  # download a single point of failure for all seven jobs. Resolving alone gets
+  # the consistency guarantee; each job still fetches the build itself and a
+  # transient download failure still costs one scenario rather than the night.
+  #
+  # Runs on a plain runner rather than the private container image because gh is
+  # preinstalled there.
+  resolve-build:
+    name: resolve-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.resolve.outputs.VERSION }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # positron-builds is a separate private repo, so the job's default
+      # GITHUB_TOKEN cannot see it and every gh call there 404s.
+      - name: Generate POSITRON_BOT token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Resolve the build version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+        run: |
+          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh \
+            --resolve-only "${{ inputs.version || 'latest-prerelease' }}")
+          echo "$OUTPUT" >> "$GITHUB_OUTPUT"
+          echo "resolved: $OUTPUT"
+
   memory:
-    name: measure-${{ matrix.scenario }}-memory
+    name: measure-${{ matrix.lane }}-${{ matrix.scenario }}-memory
+    needs: resolve-build
     runs-on: ubuntu-latest-8x
     timeout-minutes: 45
     strategy:
@@ -27,7 +74,14 @@ jobs:
       # scenario must not cost us that night's idle datapoint.
       fail-fast: false
       matrix:
-        scenario: [idle, session-python, session-r, data-explorer, notebook, editors, console-output]
+        include:
+          - { lane: desktop, scenario: idle }
+          - { lane: desktop, scenario: session-python }
+          - { lane: desktop, scenario: session-r }
+          - { lane: desktop, scenario: data-explorer }
+          - { lane: desktop, scenario: notebook }
+          - { lane: desktop, scenario: editors }
+          - { lane: desktop, scenario: console-output }
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # The image is private, so the pull needs credentials. Copied from
@@ -46,6 +100,7 @@ jobs:
       # Job-wide, not per-step: playwright.config.ts keys test collection off
       # this, so the render step needs it too. Now sourced from the matrix
       # rather than hardcoded.
+      MEMORY_LANE: ${{ matrix.lane }}
       MEMORY_SCENARIO: ${{ matrix.scenario }}
       MEMORY_SPEC: test/e2e/tests/performance/memory-${{ matrix.scenario }}.test.ts
       # The insights reporter and its sharding hook are off deliberately. This
@@ -101,7 +156,10 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
-          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ inputs.version || 'latest-prerelease' }}")
+          # The literal tag from resolve-build, never the alias: re-resolving
+          # here is exactly the split-build bug that job exists to prevent.
+          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh \
+            "${{ needs.resolve-build.outputs.version }}")
           echo "$OUTPUT" >> "$GITHUB_OUTPUT"
 
       # Installs the Playwright and e2e dependencies and compiles test/e2e,
@@ -160,14 +218,14 @@ jobs:
       # Separate from the launches so a failure to render cannot lose the
       # measurements, which are the expensive part.
       #
-      # MEMORY_PUBLISH stays 'false' until the /memory endpoints exist; they are
-      # a follow-up. Set here rather than omitted so the switch is visible at the
-      # point someone will look for it. The step summary and the HTML artifact
-      # are produced either way, so the run is still useful with it off.
+      # The /memory endpoints are live, so this run records as well as reports.
+      # Only main reaches the production dataset: publish.ts routes every other
+      # branch at the local URL, so a manual dispatch from a branch still
+      # measures and renders but writes nothing to the trend.
       - name: Render report
         env:
           BUILD: ${{ steps.build.outputs.BUILD }}
-          MEMORY_PUBLISH: 'false'
+          MEMORY_PUBLISH: 'true'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Render and publish'
 
@@ -175,12 +233,27 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: memory-report-${{ matrix.scenario }}
-          # Matches snapshotDir() in the spec, which is per scenario.
+          name: memory-report-${{ matrix.lane }}-${{ matrix.scenario }}
+          # Matches snapshotDir() in the spec, which is per lane and scenario.
           # Deliberately not test-results/, which Playwright wipes at the
           # start of every invocation.
-          path: ${{ runner.temp }}/memory-snapshots-${{ matrix.scenario }}/
+          path: ${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/
           if-no-files-found: warn
+
+      # Only on failure, and deliberately including test-results/: when the app
+      # fixture times out there is no snapshot to upload, so the app's own log is
+      # the only thing that says why. Without this a failed job is diagnosable
+      # only by re-running it with more logging.
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-logs-${{ matrix.lane }}-${{ matrix.scenario }}
+          path: |
+            test-results/
+            .build/logs/
+          if-no-files-found: warn
+          retention-days: 5
 
       # This job deliberately writes no step summary. It cannot publish the report
       # itself -- the image ships no AWS CLI, the same reason gh is hand-installed
@@ -189,7 +262,7 @@ jobs:
       # for a later job to append to this one's summary, so all four links are
       # printed by summarize-memory instead, and appear on the run's Summary page.
 
-  # Combines the matrix jobs' per-scenario reports into one
+  # Combines the matrix jobs' per-lane-and-scenario reports into one
   # cross-scenario view: the per-role numbers are 20-50x quieter than the
   # tree TOTAL and are the useful signal, but nothing compared them side by
   # side before this job existed.
@@ -198,7 +271,7 @@ jobs:
   # JSON off disk and renders HTML, so it needs none of the memory job's
   # requirements (container image, Xvfb, a Positron build, an interpreter).
   # `if: always()` and no `needs` result requirement means it still runs, and
-  # still produces a summary, when one scenario's matrix job failed.
+  # still produces a summary, when one lane/scenario matrix job failed.
   summarize:
     name: summarize-memory
     needs: memory
@@ -218,12 +291,12 @@ jobs:
       - name: Setup test dependencies and compile tests
         uses: ./.github/actions/setup-e2e-test-dependencies
 
-      # Downloads every memory-report-<scenario> artifact that was uploaded,
-      # each into its own subdirectory named after the artifact -- exactly the
-      # memory-report-<scenario>/memory-snapshot-*.json layout summarize-cli.ts
-      # expects. A scenario whose matrix job failed before uploading simply has
-      # no matching artifact, which the CLI treats as a missing scenario rather
-      # than an error.
+      # Downloads every memory-report-<lane>-<scenario> artifact that was
+      # uploaded, each into its own subdirectory named after the artifact --
+      # exactly the memory-report-<lane>-<scenario>/memory-snapshot-*.json
+      # layout summarize-cli.ts expects. A lane/scenario pair whose matrix job
+      # failed before uploading simply has no matching artifact, which the CLI
+      # treats as a missing scenario rather than an error.
       - name: Download memory reports
         uses: actions/download-artifact@v8
         with:
@@ -233,9 +306,9 @@ jobs:
       # Staged into `playwright-report/` because upload-report-to-s3 hardcodes
       # that as its source, and 15 other workflows use that action.
       #
-      # The scenario reports are published alongside the summary, not replaced by
-      # it: only they carry the delta against the previous nightly, the process
-      # tree, and the activated-extension cards.
+      # The per-lane-and-scenario reports are published alongside the summary,
+      # not replaced by it: only they carry the delta against the previous
+      # nightly, the process tree, and the activated-extension cards.
       - name: Render cross-scenario summary
         run: |
           STAGE="${{ runner.temp }}/playwright-report"
@@ -245,14 +318,14 @@ jobs:
             "$STAGE/index.html"
 
           # Driven by the artifacts that actually arrived rather than a hardcoded
-          # scenario list, so this cannot drift from the matrix. A scenario whose
+          # lane/scenario list, so this cannot drift from the matrix. A pair whose
           # matrix job failed before uploading simply has no artifact and is
           # skipped, the same way summarize-cli treats a missing scenario.
           for SRC in "${{ runner.temp }}"/memory-reports/memory-report-*/memory-report.html; do
             [ -f "$SRC" ] || continue
             DIR=$(dirname "$SRC")
-            SCENARIO=${DIR##*/memory-report-}
-            cp "$SRC" "$STAGE/$SCENARIO.html"
+            LANE_SCENARIO=${DIR##*/memory-report-}
+            cp "$SRC" "$STAGE/$LANE_SCENARIO.html"
           done
           ls -la "$STAGE"
 
@@ -260,7 +333,7 @@ jobs:
       # identifier or distro suffix has to agree with this one.
       #
       # skip-summary because gen-report-dir's own line links index.html alone; the
-      # step below links the scenario reports too.
+      # step below links the per-lane-and-scenario reports too.
       - name: Generate the report directory
         uses: ./.github/actions/gen-report-dir
         with:
@@ -285,8 +358,8 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
           working-directory: ${{ runner.temp }}
 
-      # Links only what was staged, so a scenario missing from this run is left
-      # out rather than linked to a 404.
+      # Links only what was staged, so a lane/scenario pair missing from this
+      # run is left out rather than linked to a 404.
       - name: Link the reports in the step summary
         if: always()
         run: |

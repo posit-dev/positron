@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ANTHROPIC_API_VERSION, ANTHROPIC_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { PROVIDER_METADATA } from '../providerSources';
+import { getValidationHeaders } from './validationHeaders';
 
 class ApiKeyValidationError extends Error {
 	constructor(message: string) {
@@ -14,9 +16,25 @@ class ApiKeyValidationError extends Error {
 	}
 }
 
+async function getAnthropicErrorMessage(response: Response): Promise<string | undefined> {
+	try {
+		const body = await response.json() as { error?: { message?: string } };
+		return body?.error?.message;
+	} catch {
+		return undefined;
+	}
+}
+
 export async function validateAnthropicApiKey(apiKey: string, config: positron.ai.LanguageModelConfig): Promise<void> {
 	const baseUrl = (config.baseUrl?.trim() || ANTHROPIC_DEFAULT_BASE_URL).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
+	const headers = getValidationHeaders(
+		PROVIDER_METADATA.anthropic.catalogId!,
+		{
+			'x-api-key': apiKey,
+			'anthropic-version': ANTHROPIC_API_VERSION,
+		}
+	);
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
@@ -25,10 +43,7 @@ export async function validateAnthropicApiKey(apiKey: string, config: positron.a
 		try {
 			firstResponse = await fetch(modelsEndpoint, {
 				method: 'GET',
-				headers: {
-					'x-api-key': apiKey,
-					'anthropic-version': ANTHROPIC_API_VERSION,
-				},
+				headers,
 				signal: controller.signal,
 			});
 		} catch (err) {
@@ -51,7 +66,8 @@ export async function validateAnthropicApiKey(apiKey: string, config: positron.a
 		// Skip the retry if the URL already ends with /v1 to avoid /v1/v1/models.
 		if (baseUrl.endsWith('/v1')) {
 			if (firstResponse) {
-				throw new ApiKeyValidationError(vscode.l10n.t(
+				const errorMessage = await getAnthropicErrorMessage(firstResponse);
+				throw new ApiKeyValidationError(errorMessage ?? vscode.l10n.t(
 					'Unable to validate Anthropic API key (HTTP {0})',
 					String(firstResponse.status)
 				));
@@ -60,10 +76,7 @@ export async function validateAnthropicApiKey(apiKey: string, config: positron.a
 		}
 		const response = await fetch(`${baseUrl}/v1/models`, {
 			method: 'GET',
-			headers: {
-				'x-api-key': apiKey,
-				'anthropic-version': ANTHROPIC_API_VERSION,
-			},
+			headers,
 			signal: controller.signal,
 		});
 
@@ -75,7 +88,8 @@ export async function validateAnthropicApiKey(apiKey: string, config: positron.a
 			throw new ApiKeyValidationError(vscode.l10n.t('Invalid Anthropic API key'));
 		}
 
-		throw new ApiKeyValidationError(vscode.l10n.t(
+		const errorMessage = await getAnthropicErrorMessage(response);
+		throw new ApiKeyValidationError(errorMessage ?? vscode.l10n.t(
 			'Unable to validate Anthropic API key (HTTP {0})',
 			String(response.status)
 		));

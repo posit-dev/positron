@@ -205,6 +205,17 @@ ENV PATH="/root/.venv/bin:/root/.local/bin:$PATH"
 # Configure R for root user - using openSUSE repository
 RUN echo -e 'options(\n  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/opensuse156/latest"),\n  HTTPUserAgent = sprintf("R/%s (opensuse-leap-156)", getRversion())\n)' > ~/.Rprofile
 
+# Disable pak's system-requirements step. When PPM has no binary for a package
+# on this distro, pak builds it from source and first shells out to
+# `zypper --non-interactive install ...`. zypper cannot rebuild its repo caches
+# in this container (repo2solv: "rpmmd repo type is not supported"), so that
+# command exits non-zero and pak aborts the install -- even though every
+# requirement is already baked into the image. This is the same cache breakage
+# that makes R itself install via rpm above. The build-time installs below
+# already pass pkg.sysreqs=FALSE; PKG_SYSREQS carries it into the R sessions
+# the e2e tests drive.
+ENV PKG_SYSREQS=false
+
 # Stable CRAN mirror for openSUSE
 ENV RSPM=https://packagemanager.posit.co/cran/__linux__/opensuse156/latest
 

@@ -38,6 +38,7 @@ import {
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { resolveAwsChainInit } from './credentials/aws';
+import { createAwsSsoRecovery } from './awsRecovery';
 import { resolveGeapCredential } from './credentials/geap';
 import {
 	detectSnowflakeCredentials,
@@ -348,12 +349,7 @@ async function registerAnthropicProvider(
 
 	// Eagerly resolve env var credentials so the session is
 	// available before positron-assistant registers models.
-	await provider.resolveChainCredentials().catch(err =>
-		logger.logCredentialResolution(
-			'failed',
-			`Initial credential resolution: ${err}`
-		)
-	);
+	await provider.resolveChainCredentials();
 
 	logger.info('Registered auth provider');
 }
@@ -410,13 +406,14 @@ async function registerAwsProvider(
 		),
 		provider
 	);
-	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider);
-	await provider.resolveChainCredentials().catch(err =>
-		logger.logCredentialResolution(
-			'failed',
-			`Initial credential resolution failed: ${err}`
-		)
-	);
+	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider, {
+		recover: createAwsSsoRecovery({
+			getProfile: () => getCachedProvider(
+				PROVIDER_METADATA.amazonBedrock.catalogId!
+			)?.connection.aws?.profile,
+		}),
+	});
+	await provider.resolveChainCredentials();
 	logger.info('Registered auth provider');
 }
 
@@ -545,12 +542,7 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 			}
 		},
 	});
-	await provider.resolveChainCredentials().catch(err =>
-		logger.logCredentialResolution(
-			'failed',
-			`Initial credential resolution failed: ${err}`
-		)
-	);
+	await provider.resolveChainCredentials();
 	logger.info('Registered auth provider');
 }
 
@@ -589,9 +581,7 @@ async function registerOpenaiProvider(
 		},
 	});
 
-	await provider.resolveChainCredentials().catch(err =>
-		log.debug(`[OpenAI] Initial credential resolution: ${err}`)
-	);
+	await provider.resolveChainCredentials();
 
 	log.info(`Registered auth provider: ${OPENAI_AUTH_PROVIDER_ID}`);
 }
@@ -634,9 +624,7 @@ async function registerGeminiProvider(
 		},
 	});
 
-	await provider.resolveChainCredentials().catch(err =>
-		log.debug(`[Gemini] Initial credential resolution: ${err}`)
-	);
+	await provider.resolveChainCredentials();
 
 	log.info(`Registered auth provider: ${GEMINI_AUTH_PROVIDER_ID}`);
 }
@@ -672,9 +660,7 @@ async function registerGeapProvider(
 		},
 	});
 
-	await provider.resolveChainCredentials().catch(err =>
-		logger.debug(`Initial credential resolution: ${err}`)
-	);
+	await provider.resolveChainCredentials();
 
 	logger.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
 }
@@ -714,9 +700,7 @@ async function registerDeepSeekProvider(
 		},
 	});
 
-	await provider.resolveChainCredentials().catch(err =>
-		log.debug(`[DeepSeek] Initial credential resolution: ${err}`)
-	);
+	await provider.resolveChainCredentials();
 
 	log.info(`Registered auth provider: ${DEEPSEEK_AUTH_PROVIDER_ID}`);
 }
@@ -805,9 +789,7 @@ async function registerDatabricksProvider(
 		},
 	});
 
-	await provider.resolveChainCredentials().catch(err =>
-		logger.logCredentialResolution('failed', `Initial credential resolution failed: ${err}`)
-	);
+	await provider.resolveChainCredentials();
 	logger.info('Registered auth provider');
 }
 

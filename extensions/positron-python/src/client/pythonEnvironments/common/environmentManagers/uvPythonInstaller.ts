@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as os from 'os';
-import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { traceError, traceInfo } from '../../../logging';
@@ -18,6 +16,11 @@ import { ExistingVenvAction, deleteEnvironment, pickExistingVenvAction } from '.
 import { getVenvExecutable, hasVenv } from '../../creation/common/commonUtils';
 import { MultiStepAction } from '../../../common/vscodeApis/windowApis';
 import { refreshEnvironments } from '../../../envExt/api.internal';
+import {
+    createGlobalEnvironment,
+    globalEnvironmentErrorMessage,
+    promptForGlobalEnvironment,
+} from './globalEnvironment';
 
 /**
  * Shows an error notification for the uv Python install flow with a button that
@@ -93,6 +96,47 @@ async function installUv(): Promise<boolean> {
 }
 
 /**
+ * Outcome of making sure uv is available.
+ *
+ * `error` is a message the caller should surface; it is absent when the user simply
+ * declined the install, which is not a failure worth a notification. Callers differ
+ * in how they show it -- `installPythonViaUv()` returns it upward for
+ * `handleInstallPythonResult` to display -- so this deliberately shows nothing itself.
+ */
+export type EnsureUvResult = { ok: true } | { ok: false; error?: string };
+
+/**
+ * Makes sure uv is available, prompting for consent and installing it if it is not.
+ *
+ * @param onInstalling Called only when uv is actually missing and about to be
+ *   installed, so callers can report progress without claiming to install uv that
+ *   is already there.
+ */
+export async function ensureUvInstalled(onInstalling?: () => void): Promise<EnsureUvResult> {
+    if (await isUvInstalled()) {
+        return { ok: true };
+    }
+
+    onInstalling?.();
+
+    if (!(await installUv())) {
+        // User declined or installation failed - exit silently
+        return { ok: false };
+    }
+
+    // Verify uv is now reachable. The installer drops the binary at a known
+    // location and updates shell rc files, but those PATH changes don't reach
+    // the running extension host. isUvInstalled() also probes uv's known
+    // install locations; if it still can't be found, surface an actionable
+    // message instead of the misleading "no versions available" error later.
+    if (!(await isUvInstalled())) {
+        return { ok: false, error: InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall };
+    }
+
+    return { ok: true };
+}
+
+/**
  * Installs a Python version using uv and returns the path to the installed Python.
  * @param version The version to install (e.g., "3.13.1" or "3.13")
  * @param identifier Optional full identifier for Windows ARM64 (e.g., "cpython-3.13.1-windows-aarch64-none")
@@ -127,56 +171,11 @@ async function installPythonVersionAndGetPath(version: string, identifier?: stri
 }
 
 /**
- * Gets the path to the global venv in the user's home directory.
- * @returns The path to ~/.venv (or equivalent on Windows)
- */
-function getGlobalVenvPath(): string {
-    return path.join(os.homedir(), '.venv');
-}
-
-/**
- * Creates a global virtual environment for use when no workspace is open.
- * The venv is created at ~/.venv so that `uv pip install` works from the home directory.
- * @param version The Python version (e.g., "3.13")
- * @param progress Progress reporter
- * @returns The path to the venv's Python executable, or undefined if creation failed
- */
-async function createGlobalVenv(
-    version: string,
-    progress: vscode.Progress<{ message?: string }>,
-): Promise<string | undefined> {
-    const venvPath = getGlobalVenvPath();
-
-    traceInfo(`Creating global venv at ${venvPath}...`);
-    progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
-
-    try {
-        // Create the venv using uv
-        // --seed installs pip/setuptools for compatibility
-        const args = ['venv', venvPath, '--seed', '-p', version];
-        await execUv('uv', args, { throwOnStdErr: false });
-
-        // Return the path to the Python executable
-        const pythonPath =
-            process.platform === 'win32'
-                ? path.join(venvPath, 'Scripts', 'python.exe')
-                : path.join(venvPath, 'bin', 'python');
-
-        traceInfo(`Global venv created at ${pythonPath}`);
-        return pythonPath;
-    } catch (error) {
-        traceError(`Failed to create global venv: ${error}`);
-        return undefined;
-    }
-}
-
-/**
  * Creates a uv venv at the given folder, reusing the Create Environment "use
  * existing / delete and recreate" flow when a `.venv` already exists there. uv
  * fails outright if a `.venv` already exists, so this collision must be handled.
  *
- * @param folder The folder to create the venv in (the open workspace, or a
- *   home-directory stand-in for the global `~/.venv` case).
+ * @param folder The open workspace folder to create the venv in.
  * @param create Creates the venv once any existing one has been resolved.
  * @returns `venvPython` is the venv's Python executable (from a fresh create or
  *   an existing env the user chose to keep), or undefined if creation failed or
@@ -308,20 +307,11 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
         async (progress) => {
             try {
                 // Install uv if needed
-                if (!(await isUvInstalled())) {
-                    progress.report({ message: InterpreterQuickPickList.UvInstall.installingUv });
-                    if (!(await installUv())) {
-                        // User declined or installation failed - exit silently
-                        return { success: false };
-                    }
-                    // Verify uv is now reachable. The installer drops the binary at a known
-                    // location and updates shell rc files, but those PATH changes don't reach
-                    // the running extension host. isUvInstalled() also probes uv's known
-                    // install locations; if it still can't be found, surface an actionable
-                    // message instead of the misleading "no versions available" error later.
-                    if (!(await isUvInstalled())) {
-                        return { success: false, error: InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall };
-                    }
+                const uvReady = await ensureUvInstalled(() =>
+                    progress.report({ message: InterpreterQuickPickList.UvInstall.installingUv }),
+                );
+                if (!uvReady.ok) {
+                    return { success: false, error: uvReady.error };
                 }
 
                 // Select and install Python version
@@ -383,23 +373,35 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                         }
                     }
                 } else {
-                    // No workspace - create (or reuse) a global venv at ~/.venv. The existing-venv
-                    // helpers are workspace-folder based, so wrap the home directory in a
-                    // WorkspaceFolder to reuse the same use-existing / recreate handling.
-                    const homeFolder: vscode.WorkspaceFolder = {
-                        uri: vscode.Uri.file(os.homedir()),
-                        name: 'home',
-                        index: 0,
-                    };
-                    const venvResult = await createVenvHandlingExisting(homeFolder, () =>
-                        createGlobalVenv(selected.version, progress),
-                    );
-                    if (venvResult.venvPython) {
-                        resolvedPath = venvResult.venvPython;
-                        venvWasCreated = venvResult.attempted;
-                    } else if (venvResult.attempted) {
-                        progress.report({ message: InterpreterQuickPickList.UvInstall.venvCreationFailed });
+                    // No folder open. The question this flow is really asking is where the
+                    // environment should live, so lead with "Open Folder..." and only create
+                    // the global environment at $WORKON_HOME/positron (default
+                    // ~/.virtualenvs/positron) when the user asks for it. Nothing already at
+                    // that path is reused, upgraded, or deleted.
+                    const choice = await promptForGlobalEnvironment();
+
+                    if (choice === 'openFolder') {
+                        // The user asked to open a folder, so this window is done: if they
+                        // pick one, the window reloads. Registering the interpreter here
+                        // would start a session in a window they are leaving. The Python
+                        // just installed persists on disk, so the folder's window picks it
+                        // up. 'Cancelled' suppresses the error toast.
+                        return { success: false, error: 'Cancelled' };
                     }
+
+                    if (choice === 'create') {
+                        progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
+                        const globalResult = await createGlobalEnvironment(selected.version);
+                        if (globalResult.outcome === 'created') {
+                            resolvedPath = globalResult.pythonPath;
+                            venvWasCreated = true;
+                        } else {
+                            await showUvInstallError(globalEnvironmentErrorMessage(globalResult));
+                        }
+                    }
+
+                    // 'dismiss' leaves resolvedPath on the base uv interpreter, which is the
+                    // same fallback a failed creation takes.
                 }
 
                 // Trigger a refresh of Python environments so the new interpreter is discovered

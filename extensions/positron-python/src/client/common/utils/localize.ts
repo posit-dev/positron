@@ -339,8 +339,35 @@ export namespace InterpreterQuickPickList {
         export const refreshingEnvironments = l10n.t('Refreshing environments');
         export const globalVenvCreated = (path: string) => l10n.t('Virtual environment created at {0}', path);
     }
-    // --- End Positron ---
 }
+
+/**
+ * Messages for the global environment Positron creates when no folder is open.
+ * There is exactly one global environment path, and Positron never manages an
+ * environment that is already there, so both failure modes just name the path.
+ */
+export namespace GlobalEnvironment {
+    export const occupied = (venvPath: string) =>
+        l10n.t(
+            'Could not create the global Python environment because something already exists at {0}. Move or remove it and try again.',
+            venvPath,
+        );
+    export const creationFailed = (venvPath: string) =>
+        l10n.t('Failed to create the global Python environment at {0}.', venvPath);
+    export const unsupported = () =>
+        l10n.t(
+            'Could not create the global Python environment because no home directory was found. Set WORKON_HOME to a directory to use for it.',
+        );
+    export const promptTitle = l10n.t('Create a Python Environment');
+    export const promptMessage = (venvPath: string) =>
+        l10n.t(
+            'Opening a folder lets Positron create an environment for that project. Otherwise, Positron can create a shared environment at {0} for use outside of projects.',
+            venvPath,
+        );
+    export const createButton = l10n.t('Create Global Environment');
+    export const notNow = l10n.t('Not Now');
+}
+// --- End Positron ---
 
 export namespace OutputChannelNames {
     export const languageServer = l10n.t('Python Language Server');

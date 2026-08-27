@@ -8,8 +8,10 @@ import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
-import { collectAllGarbage } from '../../utils/memory/gc.js';
-import { fetchBaseline, publishSnapshots } from '../../utils/memory/publish.js';
+import { collectAllGarbage, gcTargetsFor, malformedForcedGc } from '../../utils/memory/gc.js';
+import { namedShareGateApplies } from '../../utils/memory/label.js';
+import { MemoryLane } from '../../utils/memory/lanes.js';
+import { containerImageFromEnv, fetchBaseline, publishingEnabled, publishSnapshots, publishTargetIsProduction } from '../../utils/memory/publish.js';
 import { renderHtml, renderMarkdown } from '../../utils/memory/render.js';
 import { captureSnapshot, SAMPLING_CAP_MS, SETTLE_CAP_MS, unstableProcesses } from '../../utils/memory/snapshot.js';
 import { MemoryScenario } from '../../utils/memory/scenarios.js';
@@ -41,8 +43,8 @@ const MEASURE_OVERHEAD_MS = 90_000;
  * Per scenario, so a matrix job cannot read a sibling scenario's snapshots and
  * render a report that mixes two app states.
  */
-function snapshotDir(scenario: MemoryScenario): string {
-	return join(process.env.RUNNER_TEMP ?? '/tmp', `memory-snapshots-${scenario}`);
+function snapshotDir(lane: MemoryLane, scenario: MemoryScenario): string {
+	return join(process.env.RUNNER_TEMP ?? '/tmp', `memory-snapshots-${lane}-${scenario}`);
 }
 
 export function defineMemoryScenario(options: {
@@ -68,11 +70,23 @@ export function defineMemoryScenario(options: {
 	 * basename, either of which identifies the worker.
 	 */
 	expectProcesses?: RegExp[];
+	/**
+	 * Which tree to measure. Defaults to `desktop` so the seven existing specs
+	 * need no edit.
+	 */
+	lane?: MemoryLane;
+	/**
+	 * Extra Playwright tag. The server spec needs `@:web` to be eligible in
+	 * e2e-chromium, which is the project that spawns the server and so gives the
+	 * collector a tree to walk.
+	 */
+	tag?: string;
 }): void {
-	const { scenario, prepare, expectRoles = [], expectProcesses = [] } = options;
-	const SNAPSHOT_DIR = snapshotDir(scenario);
+	const { scenario, lane = 'desktop', tag, prepare, expectRoles = [], expectProcesses = [] } = options;
+	const SNAPSHOT_DIR = snapshotDir(lane, scenario);
+	const testTags = tag ? [tags.PERFORMANCE, tag] : [tags.PERFORMANCE];
 
-	test.describe(`Memory: ${scenario}`, { tag: [tags.PERFORMANCE] }, () => {
+	test.describe(`Memory: ${lane} ${scenario}`, { tag: testTags }, () => {
 
 		test(`Memory footprint of the Positron process tree: ${scenario}`, async function ({ app, sessions, logsPath, openDataFile, openFile }) {
 			// Derived rather than a round number, because the default 2 minutes is
@@ -87,8 +101,11 @@ export function defineMemoryScenario(options: {
 			const buildRoot = process.env.BUILD;
 			expect(buildRoot, 'BUILD must point at a Positron build; memory numbers from a dev build are meaningless').toBeTruthy();
 
-			const mainPid = app.code.electronApp?.process().pid;
-			expect(mainPid, 'no Electron main pid; this spec only runs against Electron').toBeTruthy();
+			// Lane-agnostic: Electron supplies its main process, the server lane
+			// supplies the server. Undefined means the external-server path, which
+			// has no tree to walk and would otherwise publish an empty process list.
+			const rootPid = app.code.rootPid;
+			expect(rootPid, 'no root pid; this lane gives the collector no process tree to walk').toBeTruthy();
 
 			if (prepare) {
 				await prepare({ app, sessions, openDataFile, openFile });
@@ -110,12 +127,13 @@ export function defineMemoryScenario(options: {
 
 			const snapshot = await captureSnapshot({
 				scenario,
-				rootPid: mainPid!,
+				lane,
+				rootPid: rootPid!,
 				buildRoot: buildRoot!,
 				userDataDir: app.userDataPath,
 				launchIndex: Number(process.env.MEMORY_LAUNCH_INDEX ?? 0),
 				extensions,
-				forceGc: () => collectAllGarbage()
+				forceGc: () => collectAllGarbage(gcTargetsFor(lane))
 			});
 
 			expect(snapshot.processes.length, 'no processes found in the tree').toBeGreaterThan(3);
@@ -142,10 +160,13 @@ export function defineMemoryScenario(options: {
 					`Present: ${snapshot.processes.map(p => p.processName).join(', ')}`).toBe(true);
 			}
 
-			// waitForSettle gives up at its cap regardless of whether the tree
-			// actually stopped growing. A settleMs near the cap means this snapshot
-			// is a mid-load number, not the steady state the scenario claims.
-			expect(snapshot.settleMs, 'the tree never settled before the cap, so this is a mid-load number rather than a steady state').toBeLessThan(SETTLE_CAP_MS - 5_000);
+			// waitForSettle gives up at its cap regardless of whether the tree actually
+			// stopped growing, so a snapshot taken at the cap is a mid-load number, not
+			// the steady state the scenario claims. Asserted on the reported flag, not
+			// on settleMs, which cannot distinguish the two.
+			expect(snapshot.stoppedGrowing,
+				`the tree never stopped growing within the ${SETTLE_CAP_MS / 1000}s cap, so this is a mid-load number rather than a steady state`)
+				.toBe(true);
 
 			// PSS can never exceed RSS at one instant, so a violation means procfs
 			// was misparsed or the two figures came from different samples -- the
@@ -164,6 +185,21 @@ export function defineMemoryScenario(options: {
 				`sampling ran to its ${SAMPLING_CAP_MS / 1000}s cap without the tree settling, so this is a mid-load number`)
 				.toBe(true);
 
+			// The server route to the inspector is traced in code but new, so a
+			// silently absent GC must fail rather than publish a noisier number that
+			// looks like a regression later.
+			expect(snapshot.forcedGc?.map(stats => stats.role),
+				'no forced GC ran; the inspector port did not come up and these figures carry uncollected startup garbage')
+				.toEqual(gcTargetsFor(lane).map(target => target.role));
+
+			// A live process cannot legitimately report a zero pid, RSS, or heap total,
+			// so any entry that does is a malformed reading, not a GC pass that ran.
+			const malformed = malformedForcedGc(snapshot.forcedGc ?? []);
+			expect(malformed,
+				`forced GC for ${gcTargetsFor(lane).map(target => target.label).join(', ')} returned malformed readings ` +
+				`(zero pid, RSS, or heap total): ${JSON.stringify(malformed)}`)
+				.toEqual([]);
+
 			// Per-process quiescence, which is a weaker condition than the tree
 			// settling: this catches a process still visibly moving within the
 			// retained tail. Asserted rather than logged: a plausible-looking number
@@ -177,8 +213,15 @@ export function defineMemoryScenario(options: {
 			expect(moving.map(p => `${p.processName} (${p.processRole})`),
 				`sampling hit its ${SAMPLING_CAP_MS / 1000}s cap with processes still moving, so these figures are mid-swing`).toEqual([]);
 
-			const namedShare = snapshot.processes.filter(p => p.labeled).length / snapshot.processes.length;
-			expect(namedShare, 'Positron named too few processes; --status probably failed, and an unattributable total is worse than no data').toBeGreaterThan(0.5);
+			// See namedShareGateApplies (label.ts) for why the server lane skips this:
+			// `--status` cannot answer there at all, so every process is unlabeled by
+			// construction and the gate would fail every server run regardless of
+			// attribution quality. The unlabeledBytes gate below stays lane-agnostic
+			// and still catches a genuinely unattributable tree.
+			if (namedShareGateApplies(lane)) {
+				const namedShare = snapshot.processes.filter(p => p.labeled).length / snapshot.processes.length;
+				expect(namedShare, 'Positron named too few processes; --status probably failed, and an unattributable total is worse than no data').toBeGreaterThan(0.5);
+			}
 
 			const unlabeledBytes = snapshot.processes
 				.filter(p => p.processRole === 'unlabeled')
@@ -195,7 +238,7 @@ export function defineMemoryScenario(options: {
 		});
 	});
 
-	test.describe(`Memory report: ${scenario}`, { tag: [tags.PERFORMANCE] }, () => {
+	test.describe(`Memory report: ${lane} ${scenario}`, { tag: testTags }, () => {
 
 		test(`Render and publish the memory report: ${scenario}`, async function ({ }, testInfo) {
 			const paths = [0, 1, 2].map(i => join(SNAPSHOT_DIR, `memory-snapshot-${i}.json`));
@@ -218,7 +261,7 @@ export function defineMemoryScenario(options: {
 			const scenarios = [...new Set(snapshots.map(s => s.scenario))];
 			expect(scenarios, `snapshots span more than one scenario: ${scenarios.join(', ')}`).toEqual([scenario]);
 
-			const baseline = await fetchBaseline(scenario);
+			const baseline = await fetchBaseline(scenario, lane);
 			const markdown = renderMarkdown(snapshots, baseline);
 			const html = renderHtml(snapshots, baseline);
 
@@ -232,12 +275,24 @@ export function defineMemoryScenario(options: {
 			// table in both places is the copy that goes stale.
 			console.log(markdown);
 
-			await publishSnapshots(snapshots, {
+			const branch = process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || 'local';
+			const published = await publishSnapshots(snapshots, {
 				runId: process.env.GITHUB_RUN_ID ?? 'local',
 				commitSha: process.env.GITHUB_SHA ?? 'unknown',
-				branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || 'local',
-				containerImage: process.env.MEMORY_CONTAINER_IMAGE ?? 'unknown'
+				branch,
+				containerImage: containerImageFromEnv()
 			});
+
+			// publishSnapshots never throws, by design: the report is the point and a
+			// dead endpoint should not cost us the measurement. But that means a
+			// nightly that measured everything and published nothing looks identical
+			// to one that worked, which is the whole failure mode the dataset cannot
+			// afford. So on the runs that are actually supposed to write -- publishing
+			// enabled, on main -- a failed POST fails the job. Elsewhere the local URL
+			// has nothing listening and a failure is the expected outcome.
+			if (publishingEnabled() && publishTargetIsProduction(branch)) {
+				expect(published, 'publishing is enabled on main but the POST failed; this run measured everything and recorded nothing').toBe(true);
+			}
 		});
 	});
 }

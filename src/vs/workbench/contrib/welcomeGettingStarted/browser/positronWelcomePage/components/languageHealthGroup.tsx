@@ -12,7 +12,7 @@ import { status } from '../../../../../../base/browser/ui/aria/aria.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { getIconClassesForLanguageId } from '../../../../../../editor/common/services/getIconClasses.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
-import { EnvironmentHealthLanguage, IHealthItemFix } from '../environmentHealth.js';
+import { EnvironmentHealthLanguage, IHealthItemFix, pathForItem } from '../environmentHealth.js';
 import { IEnvironmentHealthEntry } from '../environmentHealthService.js';
 import { HealthItemRow } from './healthItemRow.js';
 
@@ -151,10 +151,17 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, hoverMan
 		if (health.state.kind !== 'result') {
 			return null;
 		}
+		const result = health.state.result;
 		return (
 			<ul className='environment-health-item-list'>
-				{health.state.result.items.map(i =>
-					<HealthItemRow key={i.id} busy={busy} hoverManager={hoverManager} item={i} onRunFix={onRunFix} />)}
+				{result.items.map(i =>
+					<HealthItemRow
+						key={i.id}
+						busy={busy}
+						hoverManager={hoverManager}
+						item={i}
+						path={pathForItem(health.language, i, result)}
+						onRunFix={onRunFix} />)}
 			</ul>
 		);
 	};

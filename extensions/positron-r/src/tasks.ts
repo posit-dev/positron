@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
 import { RSessionManager } from './session-manager';
-import { getEnvVars } from './session';
+import { getForwardedSessionEnvVars } from './r-process-environment';
 import { prepCliEnvVars } from './uri-handler';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
@@ -73,7 +73,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			rcode: 'devtools::test()',
 			package: 'devtools',
 			envVars: {
-				... await getEnvVars(['TESTTHAT_MAX_FAILS']),
+				... await getForwardedSessionEnvVars(),
 				... await prepCliEnvVars()
 			}
 		},

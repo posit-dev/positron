@@ -57,15 +57,16 @@ async function syncNow(context: vscode.ExtensionContext, log: vscode.LogOutputCh
 		const skillRoot = path.join(context.globalStorageUri.fsPath, 'skills');
 		await fs.mkdir(skillRoot, { recursive: true });
 
-		// Register the root before generating so it is present even on the first
-		// launch, when the files are still being written. Once registered it stays
-		// put across regenerations; only the files underneath change.
+		// Generate the skill files before registering the root. Registration fires
+		// the change event consumers watch, so the directory must already be
+		// populated when it lands or a consumer that scans on the event finds
+		// nothing. Once registered the root stays put across regenerations.
+		await generateSkills(context, log);
+
 		if (!skillRootRegistration) {
 			skillRootRegistration = positron.ai.registerAgentSkillRoot(skillRoot);
 			log.info(`Registered command skill root at ${skillRoot}.`);
 		}
-
-		await generateSkills(context, log);
 	} catch (error) {
 		// Keep the stack; it is the useful part when a sync fails.
 		log.error(`Failed to sync command skills: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);

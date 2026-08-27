@@ -15,7 +15,7 @@ import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
 import { getEnvironmentModulesApi } from './provider-module.js';
 import { setupArkJupyterKernel } from './kernel';
-import { getRTerminalEnvironmentMutations } from './terminal-environment';
+import { getRTerminalEnvironmentMutations } from './r-process-environment';
 import { RSessionManager } from './session-manager';
 
 /**
@@ -205,21 +205,21 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		for (const mutation of getRTerminalEnvironmentMutations(metadataExtra)) {
 			// Skip variables that already hold the desired value, to avoid
 			// needlessly marking open terminals as stale.
-			if (collection.get(mutation.variable)?.value === mutation.value) {
+			if (collection.get(mutation.name)?.value === mutation.value) {
 				continue;
 			}
 			switch (mutation.action) {
 				case 'replace':
-					collection.replace(mutation.variable, mutation.value, options);
+					collection.replace(mutation.name, mutation.value, options);
 					break;
 				case 'prepend':
-					collection.prepend(mutation.variable, mutation.value, options);
+					collection.prepend(mutation.name, mutation.value, options);
 					break;
 				case 'append':
-					collection.append(mutation.variable, mutation.value, options);
+					collection.append(mutation.name, mutation.value, options);
 					break;
 			}
-			LOGGER.debug(`Updated terminal environment variable ${mutation.variable} (${mutation.action}) to ${mutation.value}`);
+			LOGGER.debug(`Updated terminal environment variable ${mutation.name} (${mutation.action}) to ${mutation.value}`);
 		}
 
 		// Update the ark Jupyter kernel spec with this R's environment.

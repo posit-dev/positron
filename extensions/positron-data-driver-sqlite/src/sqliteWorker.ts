@@ -103,7 +103,19 @@ process.on('message', (request: WorkerQueryRequest) => {
 		return;
 	}
 	try {
-		const rows = db.prepare(request.sql).all(...(request.params ?? [])) as Array<Record<string, unknown>>;
+		const statement = db.prepare(request.sql);
+		const params = request.params ?? [];
+		// `all()` throws "This statement does not return data. Use run() instead" on a statement that
+		// returns no rows, so the two have to be dispatched separately. Statements that return nothing
+		// are part of the Data Explorer's normal work, not an edge case: a view is paged through a
+		// TEMP table (see sqliteReadPlan.ts), which means a CREATE when it opens and a DROP when it
+		// closes. `reader` is better-sqlite3's own answer for which kind this is.
+		let rows: Array<Record<string, unknown>> = [];
+		if (statement.reader) {
+			rows = statement.all(...params) as Array<Record<string, unknown>>;
+		} else {
+			statement.run(...params);
+		}
 		send({ kind: 'result', id: request.id, rows });
 	} catch (error) {
 		const err = error as NodeJS.ErrnoException;

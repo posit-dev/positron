@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Explorer } from './explorer';
 
 const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
@@ -64,26 +64,89 @@ export class TestExplorer extends Explorer {
 	async runTest(label: string): Promise<void> {
 		const tree = this.code.driver.currentPage.locator('.test-explorer');
 		const row = tree.locator('.monaco-list-row', { hasText: label });
+		// Addressing a row by label only works once it is rendered; see revealTestItem.
+		await this.revealTestItem(row);
 		await row.hover();
 		await row.getByLabel('Run Test', { exact: true }).click();
 	}
 
-	async expandAllTests(): Promise<void> {
+	/**
+	 * Expands one test item, revealing it first. Allows us to expand, e.g., a
+	 * specific test file and worry less about un-realized test items.
+	 *
+	 * @param recurse Also expand the descendants, for an item whose tests nest --
+	 *   a `describe()` holding `it()` calls, say. Items deeper than this one can
+	 *   only be its descendants, because the other files stay collapsed.
+	 */
+	async expandTest(label: string, { recurse = false } = {}): Promise<void> {
 		const tree = this.code.driver.currentPage.locator('.test-explorer');
-		const collapsed = tree.locator('.monaco-list-row[aria-expanded="false"]');
+		const row = tree.locator('.monaco-list-row', { hasText: label }).first();
+		await this.revealTestItem(row);
+		await this.expandRow(row);
 
-		// Technically we just expand up to 100 items, so raise this cap if we
-		// ever create a test fixture that requires more expansion.
-		const MAX_EXPAND_ATTEMPTS = 100;
-		for (let attempt = 0; attempt < MAX_EXPAND_ATTEMPTS && await collapsed.count() > 0; attempt++) {
-			await collapsed.first().locator('.monaco-tl-twistie').click();
+		if (!recurse) {
+			return;
+		}
+
+		const parentLevel = Number(await row.getAttribute('aria-level'));
+		// FWIW a depth of 2 is all we currently need in practice and I believe
+		// that to be true of most real-world usage as well.
+		const MAX_DEPTH = 5;
+		for (let childLevel = parentLevel + 1; childLevel <= parentLevel + MAX_DEPTH; childLevel++) {
+			const collapsedChildren = tree.locator(`.monaco-list-row[aria-expanded="false"][aria-level="${childLevel}"]`);
+			let remaining = await collapsedChildren.count();
+			// Deeper generations only exist once these are expanded.
+			if (remaining === 0) {
+				break;
+			}
+			while (remaining > 0) {
+				await this.expandRow(collapsedChildren.first());
+				const left = await collapsedChildren.count();
+				// Give up if a click made no difference, rather than spinning.
+				if (left >= remaining) {
+					break;
+				}
+				remaining = left;
+			}
+		}
+	}
+
+	private async expandRow(row: Locator): Promise<void> {
+		if (await row.getAttribute('aria-expanded') === 'false') {
+			await row.locator('.monaco-tl-twistie').click();
 		}
 	}
 
 	// State is encoded in the accessible label as "<label> (<state>)"; substring match ignores the trailing ", in <duration>".
 	async expectTestStatus(label: string, state: 'Passed' | 'Failed' | 'Errored' | 'Skipped', timeout?: number): Promise<void> {
 		const tree = this.code.driver.currentPage.locator('.test-explorer');
-		await expect(tree.getByLabel(`${label} (${state})`)).toBeVisible({ timeout });
+		const target = tree.getByLabel(`${label} (${state})`);
+
+		// Reveal before asserting: the tree is virtualized, so a row outside the
+		// rendered range is absent from the DOM and would never become visible no
+		// matter how long we wait. Retry the whole reveal-and-assert, since early
+		// attempts can run while the test is still queued.
+		await expect(async () => {
+			await this.revealTestItem(target);
+			await expect(target).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: timeout ?? 15000 });
+	}
+
+	/**
+	 * Scrolls the test tree until the given row is rendered, or gives up. Resets to
+	 * the top first, so the scan is deterministic regardless of where the tree was
+	 * left. A no-op when the row is already rendered.
+	 */
+	private async revealTestItem(row: Locator): Promise<void> {
+		if (await row.count() > 0) {
+			return;
+		}
+		const page = this.code.driver.currentPage;
+		await page.locator('.test-explorer').hover();
+		await page.mouse.wheel(0, -100000);
+		for (let i = 0; i < 60 && await row.count() === 0; i++) {
+			await page.mouse.wheel(0, 200);
+		}
 	}
 
 	async expectTestIcon(label: string, state: keyof typeof STATE_ICON_CLASS, timeout?: number): Promise<void> {
