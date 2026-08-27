@@ -15,9 +15,9 @@ import { qualifiedName, SchemaIndex } from './schemaIndex';
  *
  * Completion has to work on text that does not parse, because the user is in the middle of typing
  * it. So the cursor's surroundings are read off the raw text (see `cursor.ts`), and the statement
- * around it is consulted only to answer one question -- which tables are in scope -- which the
- * analyzer reads off the statement's tokens rather than a tree, and so can answer whatever state
- * the statement is in.
+ * around it is consulted for the two questions that text alone cannot answer -- which tables are in
+ * scope, and which keywords belong where the cursor is. The analyzer reads both off the statement's
+ * tokens rather than a tree, and so can answer whatever state the statement is in.
  */
 
 /**
@@ -28,9 +28,9 @@ import { qualifiedName, SchemaIndex } from './schemaIndex';
  * marked incomplete, so the editor asks again with a longer prefix rather than showing a
  * truncated list as though it were the whole answer.
  *
- * Well clear of the keyword list, which is over a thousand entries on its own. A cap that the
- * keywords alone could reach would silently drop the ones late in the alphabet from every
- * unfiltered request.
+ * Only a schema can reach it. A position offers keywords in the tens, and even the full vocabulary
+ * the prefix-miss fallback restores is a fraction of the cap, so a wide schema is the one thing
+ * that is ever truncated -- which is the case the cap exists for.
  */
 const MAX_ITEMS = 5000;
 
@@ -73,6 +73,16 @@ export interface CompletionContext {
 	readonly analyzer: SqlAnalyzer | undefined;
 	readonly schema: SchemaIndex;
 	readonly dialect: string;
+
+	/**
+	 * Every keyword the analyzer knows, cached by the caller, held for the prefix-miss fallback
+	 * rather than offered as it stands.
+	 *
+	 * What belongs at a position is a heuristic, and some keywords -- a `CASE` arm, `ESCAPE` after
+	 * `LIKE` -- it deliberately places nowhere; see the crate's `keywords.rs`. Restoring the whole
+	 * vocabulary when a typed prefix matches nothing at all means a blind spot costs a user another
+	 * keystroke rather than a completion they could reach before.
+	 */
 	readonly keywords: readonly string[];
 
 	/**
@@ -126,6 +136,11 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 			: undefined;
 
 		let items: vscode.CompletionItem[];
+
+		// Where the keywords came from, in the words the log ends up using. Left undefined after a
+		// dot, where the qualifier already accounts for there being none.
+		let keywordSource: string | undefined;
+
 		if (qualifier !== undefined) {
 			const qualified = qualifiedItems(qualifier, scope, schema, dialect, replace);
 			items = qualified.items;
@@ -133,16 +148,30 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 				log.trace(explainEmptyQualifier(qualifier, qualified.tables));
 			}
 		} else {
+			const contextual = contextualKeywords(analyzer, cursor, text, dialect, offset);
+			keywordSource = contextual.source;
 			items = [
 				...columnItems(scope, dialect, replace),
 				...schema.tables.map(table => tableItem(table, dialect, replace)),
-				...keywords.map(keyword => keywordItem(keyword, replace)),
+				...contextual.keywords.map(keyword => keywordItem(keyword, replace)),
 			];
 		}
 
 		const prefix = cursor.prefix.toLowerCase();
 		if (prefix) {
-			items = items.filter(item => label(item).toLowerCase().startsWith(prefix));
+			const matching = items.filter(item => label(item).toLowerCase().startsWith(prefix));
+			if (matching.length === 0 && qualifier === undefined && !cursor.quoted) {
+				// Nothing offered matched, so the likeliest thing to have been wrong is the position
+				// the keywords were chosen for, and the full vocabulary goes in rather than leaving
+				// the user with an empty list. Conditioned on no item at all matching, so a prefix
+				// that names a table does not drag a thousand keywords in behind it.
+				items = keywords
+					.filter(keyword => keyword.toLowerCase().startsWith(prefix))
+					.map(keyword => keywordItem(keyword, replace));
+				keywordSource = 'the full keyword list, nothing at the cursor having matched';
+			} else {
+				items = matching;
+			}
 		}
 
 		const isIncomplete = items.length > MAX_ITEMS;
@@ -151,17 +180,47 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 			items = items.slice(0, MAX_ITEMS);
 		}
 
-		// One line per request, naming everything that decided the list: the qualifier the items
-		// had to belong to, the prefix they were filtered by, and how many tables the statement
-		// put in scope. Between them they account for an empty list without having to guess.
+		// One line per request, naming everything that decided the list: the qualifier the items had
+		// to belong to, the prefix they were filtered by, how many tables the statement put in
+		// scope, and the position the keywords were chosen for. Between them they account for an
+		// empty list, or a surprising one, without having to guess.
 		log.trace(`Completed ${items.length} item(s) at ${at(position)}`
 			+ `${qualifier === undefined ? '' : ` after "${qualifier}."`}`
 			+ `${cursor.prefix ? ` for prefix "${cursor.prefix}"` : ''}:`
 			+ ` ${scope.length} table(s) in scope, ${schema.tables.length} known`
+			+ `${keywordSource === undefined ? '' : `, ${keywordSource}`}`
 			+ `${isIncomplete ? `, capped at ${MAX_ITEMS}` : ''}.`);
 
 		return new vscode.CompletionList(items, isIncomplete);
 	}
+}
+
+/**
+ * The keywords that belong where an unqualified cursor is, and a phrase naming where they came
+ * from for the log.
+ *
+ * One analyzer call per request, which cannot be cached the way the full vocabulary is: the answer
+ * is what the offset and the dialect make it. A document with no connection open therefore does
+ * make a call per keystroke now, where the schema-guarded table lookup used to leave it making
+ * none -- keywords need no schema. It tokenizes the document and nothing more.
+ */
+function contextualKeywords(
+	analyzer: SqlAnalyzer,
+	cursor: ReturnType<typeof readCursor>,
+	text: string,
+	dialect: string,
+	offset: number,
+): { keywords: readonly string[]; source: string } {
+	if (cursor.quoted) {
+		// A quoted identifier is never a keyword, by the same reasoning that offers none after a
+		// dot. The analyzer is not asked a question whose answer would only be thrown away.
+		return { keywords: [], source: 'no keywords inside a quoted identifier' };
+	}
+	// The plain cursor offset, not `prefixStart`: the analyzer drops the partial word itself, so
+	// that `SELECT * FROM ord` answers for the table slot rather than reading `ord` as a finished
+	// token.
+	const placed = analyzer.keywordsAt(text, dialect, offset);
+	return { keywords: placed.keywords, source: `keywords for ${placed.position}` };
 }
 
 /**

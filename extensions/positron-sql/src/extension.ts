@@ -365,8 +365,10 @@ class SqlSession implements vscode.Disposable {
 		return this._dialectInUse(document).dialect;
 	}
 
+	/** The whole vocabulary, which completion falls back on when a prefix matches nothing. */
 	private _keywordList(): readonly string[] {
-		// Fixed for the life of the module, so read once rather than marshalled per keystroke.
+		// Fixed for the life of the module, so read once rather than marshalled per keystroke. What
+		// a given cursor offers is a separate, per-request call; see `contextualKeywords`.
 		this._keywords ??= this._require()?.keywords() ?? [];
 		return this._keywords;
 	}
