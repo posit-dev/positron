@@ -124,3 +124,25 @@ export interface IDataConnectionDriverSummaryDTO {
 	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
 }
+
+/**
+ * A connection the user has configured, as reported to an extension by
+ * `positron.dataConnections.getConnections`.
+ *
+ * Deliberately holds no parameter values, redacted or otherwise. An extension asks for this to
+ * find out what the user is connected to, not how they connected, and a payload that carries a
+ * host name or an account identifier is one every consumer then has to be careful with.
+ */
+export interface IDataConnectionSummaryDTO {
+	/** Stable identifier for the connection, and the key for every other call about it. */
+	readonly profileId: string;
+
+	/** The user-chosen name for the connection. */
+	readonly name: string;
+
+	readonly driverId: string;
+	readonly driverName: string;
+
+	/** Whether the connection is live right now. Only a live one has a schema to read. */
+	readonly connected: boolean;
+}
