@@ -307,6 +307,41 @@ suite('configDialog', () => {
 		chainProvider.dispose();
 	});
 
+	test('save does not reflect a base URL onSave reports it did not persist', async () => {
+		const secrets = new Map<string, string>();
+		const globalState = new Map<string, unknown>();
+		const mockContext = {
+			secrets: {
+				get: (key: string) => Promise.resolve(secrets.get(key)),
+				store: (key: string, value: string) => { secrets.set(key, value); return Promise.resolve(); },
+				delete: (key: string) => { secrets.delete(key); return Promise.resolve(); },
+			},
+			globalState: {
+				get: <T>(key: string) => globalState.get(key) as T | undefined,
+				update: (key: string, value: unknown) => { globalState.set(key, value); return Promise.resolve(); },
+			},
+		} as unknown as vscode.ExtensionContext;
+		const customProvider = new AuthProvider('openai-compatible', 'OpenAI Compatible', mockContext);
+		registerAuthProvider('openai-compatible', customProvider, {
+			validateApiKey: async () => { },
+			// Mirrors a custom entry with no user-owned providers.json record.
+			onSave: async () => false,
+		});
+
+		await providerAction(
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'openai-compatible', displayName: 'OpenAI Compatible' }, supportedOptions: [], defaults: {} },
+			{ model: 'local-model', baseUrl: 'http://localhost:1234/v1', apiKey: 'sk-key' },
+			'save'
+		);
+
+		assert.ok(
+			!updateCalls.some(c => c.id === 'openai-compatible' && c.update.defaults?.baseUrl),
+			'a base URL onSave reported unpersisted should not be reflected into the provider defaults'
+		);
+
+		customProvider.dispose();
+	});
+
 	test('copilot sign-in shows no success message when no session results', async () => {
 		const originalGetSession = vscode.authentication.getSession;
 		const originalShowInfo = vscode.window.showInformationMessage;
