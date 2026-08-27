@@ -102,6 +102,20 @@
         "title": "%command.selectDataConnection.title%",
         "category": "SQL",
         "enablement": "editorLangId == sql"
+      },
+      {
+        "command": "sql.runStatement",
+        "title": "%command.runStatement.title%",
+        "category": "SQL",
+        "enablement": "editorLangId == sql"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "sql.runStatement",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
       }
     ]
   },
