@@ -21,7 +21,7 @@ import { ConnectDataConnectionWith } from '../../browser/dialogs/connectDataConn
 describe('ConnectDataConnectionWith', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
-		// The variant selector renders a real Monaco code editor (DataConnectionCodeEditor), whose
+		// The variant selector renders a real Monaco code editor (EditableCodeEditor), whose
 		// view needs IUserInteractionService to create its DOM focus tracker. Use the real
 		// implementation so it wires up to genuine jsdom focus/blur events.
 		.stub(IUserInteractionService, new UserInteractionService())

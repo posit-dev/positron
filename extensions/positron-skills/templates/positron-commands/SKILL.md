@@ -2,24 +2,24 @@
 name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes
-  (Console, Variables, Plots, Help, Packages), clearing the console, adjusting
-  the Data Explorer view, discovering or restarting R and Python interpreters,
-  interrupting a stuck session, refreshing or updating packages, and reading
-  the connections configured in Positron's Data Connections pane -- which code
-  in the session cannot see -- including a live connection's tables and
-  columns. Use when the user wants Positron itself to do something, rather than
-  wanting R or Python code run. Load this skill, then read the reference file
-  for the area: layout and panes in references/ui.md; interpreters, sessions
-  and packages in references/troubleshooting.md; data connections in
-  references/data-connections.md. Triggers: "show me the variables pane", "my R
-  interpreter isn't showing up", "update all my packages", "what databases am I
+  (Console, Variables, Plots, Help, Packages), clearing the console, listing or
+  discovering registered interpreters, restarting or interrupting a stuck
+  session, setting up Python, reading, installing or updating the packages in a
+  session, and reading the connections configured in Positron's Data
+  Connections pane -- which code in the session cannot see -- including a live
+  connection's tables and columns. Use when the user wants Positron itself to do
+  something, or wants to know what is installed, rather than to run R or Python
+  code. Load this skill, then read the reference file for the area in question.
+  Triggers: "show the variables pane", "what interpreters are available", "my R
+  interpreter isn't showing up", "my session is stuck", "is pandas installed?",
+  "update all my packages", "set up a Python environment", "what databases am I
   connected to", "what tables are in my warehouse".
 ---
 
 # Positron IDE commands
 
 These commands act on the Positron workbench itself -- layout, panes, interpreter
-sessions, and packages. They do not run R or Python code; use `executeCode` for
+sessions, and packages. They do not run interpreter code; use `executeCode` for
 that.
 
 ## Calling these commands
@@ -54,11 +54,28 @@ notebook, two-pane), bringing a pane into focus (Console, Variables, Help,
 Plots, Packages), clearing console output, or expanding/collapsing the Data
 Explorer's column summary panel.
 
-**Interpreters, sessions and packages** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
-Read when the user asks about: an interpreter that isn't showing up or won't
-start, startup diagnostics, a session that is stuck or needs restarting, or
-installed packages that need refreshing or updating. Also covers looking up a
-help topic for a function or symbol.
+**Registered interpreters** -- [references/interpreters.md]({{skill_dir}}/references/interpreters.md)
+Read when the user asks what interpreters are available, wants the registered
+interpreters listed (Python, R, or another language), or needs Positron to
+rescan for newly installed environments. Also the place to find a base
+interpreter before creating an environment.
+
+**Sessions** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
+Read when the user asks about a session that is stuck, needs interrupting, or
+needs restarting. Also covers looking up a help topic for a function or symbol.
+
+**Packages** -- [references/packages.md]({{skill_dir}}/references/packages.md)
+Read when the user asks about: what is installed in a session and at which
+version, whether a package is available, out of date or affected by a known
+security advisory, or installing and updating packages. Read it **before**
+answering any question about what the session has -- it documents the command
+that reports the installed packages, which is always the right way to find out,
+rather than running code to check.
+
+**Python environment setup** -- [references/python-setup.md]({{skill_dir}}/references/python-setup.md)
+Read when the user is getting Python set up: installing a Python interpreter when
+they have none, creating a project environment (venv, Conda, or uv), or finding
+out which interpreter is currently active.
 
 **Data connections and schemas** -- [references/data-connections.md]({{skill_dir}}/references/data-connections.md)
 Read when the user asks about: the database or warehouse connections they have

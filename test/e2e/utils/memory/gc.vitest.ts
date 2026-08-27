@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { collectAllGarbage, collectGarbageIn, GcTarget, WebSocketLike } from './gc.js';
+import { collectAllGarbage, collectGarbageIn, extensionHostInspectPayloadEntry, ForcedGcStats, gcTargetsFor, GcTarget, GC_TARGETS, malformedForcedGc, WebSocketLike } from './gc.js';
 
 /** Records every method sent, and lets the test script a reply per call. */
 class ScriptedSocket implements WebSocketLike {
@@ -158,5 +158,68 @@ describe('collectAllGarbage', () => {
 		// timer is set, so no timer flush is needed and the rejection is attached
 		// before the microtask that produces it runs.
 		await expect(collectAllGarbage([SHARED_TARGET, EXT_HOST_TARGET])).rejects.toThrow(/5870/);
+	});
+});
+
+describe('gcTargetsFor', () => {
+	test('desktop collects the shared process and the extension host', () => {
+		expect(gcTargetsFor('desktop').map(t => t.role)).toEqual(['shared', 'extension_host']);
+	});
+
+	test('server collects only the extension host', () => {
+		// There is no shared process in the server lane; it is an Electron concept.
+		// Attempting its port would fail on every run and invite someone to fix it.
+		expect(gcTargetsFor('server').map(t => t.role)).toEqual(['extension_host']);
+	});
+});
+
+describe('extensionHostInspectPayloadEntry', () => {
+	test('returns undefined on desktop, where extraArgs already opens the inspector', () => {
+		expect(extensionHostInspectPayloadEntry('desktop')).toBeUndefined();
+	});
+
+	test('returns the extension host key/port on server, sourced from GC_TARGETS', () => {
+		// Asserted against GC_TARGETS itself, not a repeated literal: a port bump
+		// in GC_TARGETS must not silently desync from what the workbench payload
+		// requests, which is exactly the drift Finding 7 flagged.
+		const extHost = GC_TARGETS.find(t => t.role === 'extension_host')!;
+		expect(extensionHostInspectPayloadEntry('server')).toEqual(['inspect-extensions', String(extHost.port)]);
+	});
+});
+
+describe('malformedForcedGc', () => {
+	function validEntry(): ForcedGcStats {
+		return {
+			role: 'extension_host',
+			pid: 4242,
+			preRssBytes: 200_000_000,
+			postRssBytes: 150_000_000,
+			preHeapTotalBytes: 100_000_000,
+			postHeapTotalBytes: 80_000_000
+		};
+	}
+
+	test('a well-formed entry is not flagged', () => {
+		expect(malformedForcedGc([validEntry()])).toEqual([]);
+	});
+
+	test('a zero pid is flagged', () => {
+		const entry = { ...validEntry(), pid: 0 };
+		expect(malformedForcedGc([entry])).toEqual([entry]);
+	});
+
+	test('a zero preRssBytes is flagged', () => {
+		const entry = { ...validEntry(), preRssBytes: 0 };
+		expect(malformedForcedGc([entry])).toEqual([entry]);
+	});
+
+	test('a zero preHeapTotalBytes is flagged', () => {
+		const entry = { ...validEntry(), preHeapTotalBytes: 0 };
+		expect(malformedForcedGc([entry])).toEqual([entry]);
+	});
+
+	test('a zero postRssBytes is not flagged, since a GC that freed nothing is valid', () => {
+		const entry = { ...validEntry(), postRssBytes: 0 };
+		expect(malformedForcedGc([entry])).toEqual([]);
 	});
 });

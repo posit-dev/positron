@@ -60,7 +60,9 @@ the guidance below fills that gap.
 ### `workbench.view.positronPackages.view.focus`
 
 Focuses the Packages pane. Use after installing, updating, or removing
-packages, or whenever the user asks to see what's installed.
+packages, so the user can see the result. This shows the pane; it is not how
+you find out what is installed -- for that, read `positronPackages.getPackages`
+in [packages.md]({{skill_dir}}/references/packages.md).
 
 {{command:workbench.view.positronPackages.view.focus}}
 

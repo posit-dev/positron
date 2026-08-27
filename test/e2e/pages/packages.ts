@@ -22,6 +22,7 @@ export class Packages {
 	filterButton: Locator;
 	filterOptionsMenu: Locator;
 	filterOptionsSubmenu: Locator;
+	packageDetail: Locator;
 
 	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts, private help: Help) {
 		this.packagesButton = this.code.driver.currentPage.locator('a.action-label.codicon-package');
@@ -42,6 +43,9 @@ export class Packages {
 			.locator('.positron-modal-popup-container .custom-context-menu-items');
 		this.filterOptionsMenu = popupItems.first();
 		this.filterOptionsSubmenu = popupItems.nth(1);
+		// The package editor's detail view. It opens in the editor area, not the
+		// pane, so it hangs off the page rather than off `packagesContainer`.
+		this.packageDetail = this.code.driver.currentPage.locator('.positron-package-detail');
 	}
 
 	/**
@@ -95,6 +99,27 @@ export class Packages {
 	async searchPackages(text: string): Promise<void> {
 		await this.clickPackagesButton();
 		await this.packagesContainer.getByPlaceholder('Filter packages').fill(text);
+		await this.scrollListToTop();
+	}
+
+	/**
+	 * Scrolls the packages list back to the top.
+	 *
+	 * Called after filtering because the list is a virtualized grid that tracks
+	 * its own vertical offset, and that offset is not clamped when the row count
+	 * shrinks (`PositronListInstance.setEntries` only fires an update; the clamp
+	 * against `maximumVerticalScrollOffset` lives in `DataGridInstance.setSize`,
+	 * which runs on resize). So a list scrolled even one row down -- which the
+	 * post-install scroll-and-flash does on its own -- renders *zero* rows once a
+	 * filter narrows it, because the render window sits past the new end of the
+	 * content. Scrolling to the top first puts the offset somewhere always valid.
+	 *
+	 * A wheel event rather than setting `scrollTop`: the grid's offset is internal
+	 * state, not the element's native scroll position.
+	 */
+	private async scrollListToTop(): Promise<void> {
+		await this.packagesContainer.hover({ position: { x: 20, y: 100 } });
+		await this.code.driver.currentPage.mouse.wheel(0, -20_000);
 	}
 
 	/**
@@ -253,13 +278,17 @@ export class Packages {
 		await this.quickInput.waitForQuickInputOpened();
 
 		if (options?.version) {
-			// Type the specific version
+			// Filter the version list down to the requested version, then click that
+			// row. Submitting the input box instead would accept whichever row the
+			// picker happens to have active, and the click below would then be left
+			// waiting on a picker that has already closed.
 			await this.quickInput.type(options.version);
-			await this.quickInput.submitInputBox();
+			await this.quickInput.selectQuickInputElementExact(options.version);
+		} else {
+			// Accept the first item: the version list is sorted descending, so this
+			// installs the newest version.
+			await this.quickInput.selectQuickInputElement(0);
 		}
-
-		// Press Enter to confirm version selection (select first item)
-		await this.quickInput.selectQuickInputElement(0);
 
 		await this.quickInput.waitForQuickInputClosed();
 
@@ -296,5 +325,115 @@ export class Packages {
 			menuTriggerButton: 'right',
 			exact: true
 		});
+	}
+
+	/**
+	 * Locates a package's whole row in the currently filtered list, so callers can
+	 * reach the badges that sit alongside the name rather than just the name cell.
+	 * The list is virtualized, so filter down to the package first.
+	 * @param packageName The exact package name whose row to return.
+	 */
+	private packageRow(packageName: string): Locator {
+		return this.packagesContainer.locator('.packages-list-item', {
+			// Anchored: a substring match would also accept 'bottleneck' when asked
+			// for 'bottle'.
+			has: this.code.driver.currentPage.locator('.packages-list-item-name', {
+				hasText: new RegExp(`^${packageName}$`),
+			}),
+		}).first();
+	}
+
+	/**
+	 * Locates the security advisory badge on a package row. Rendered only once
+	 * Package Manager has reported advisories for the installed version, so use
+	 * {@link expectVulnerabilityBadge} to wait for it.
+	 * @param packageName The exact package name whose badge to return.
+	 */
+	vulnerabilityBadge(packageName: string): Locator {
+		return this.packageRow(packageName).locator('.packages-list-item-vulnerable');
+	}
+
+	/**
+	 * Filters the list to a package and asserts its row carries a security
+	 * advisory badge for the expected advisory and severity. Asserts against the
+	 * badge's accessible name, which names the worst advisory and either its CVSS
+	 * score and band or -- for an advisory published without a score, as every
+	 * CRAN advisory is -- "Severity unknown".
+	 *
+	 * The default timeout is generous: the badge appears when the pane's metadata
+	 * stage completes, and that stage waits for the runtime's own outdated-version
+	 * fetch alongside the Package Manager round trip (whose budget is
+	 * `TOTAL_BUDGET_MS` in packageVulnerabilityLookup.ts) before it merges either
+	 * one. So the badge lands well after the row does.
+	 * @param packageName The exact package name whose badge to check.
+	 * @param expected The advisory id the badge should lead with, and the severity
+	 * band it should report ('unscored' for an advisory with no CVSS score).
+	 * @param timeout Max time to wait for the advisory data to land.
+	 */
+	async expectVulnerabilityBadge(
+		packageName: string,
+		expected: { advisoryId: string; severity: 'Critical' | 'High' | 'Medium' | 'Low' | 'unscored' },
+		timeout = 120_000,
+	): Promise<void> {
+		await this.searchPackages(packageName);
+		// Assert the row before the badge. Both a missing row and a missing badge
+		// fail the badge locator with "element(s) not found", and they have nothing
+		// to do with each other: no row means the filter or the list is the problem,
+		// no badge on a present row means the advisory data never arrived.
+		await expect(this.packageRow(packageName)).toBeVisible({ timeout: 60_000 });
+		const highest = expected.severity === 'unscored'
+			? 'Severity unknown'
+			// The score itself is deliberately loose: NVD rescores advisories, and
+			// PPM can start reporting a newer CVSS revision for the same one.
+			: `CVSS \\d+\\.\\d, ${expected.severity}`;
+		await expect(this.vulnerabilityBadge(packageName)).toHaveAttribute(
+			'aria-label',
+			new RegExp(`Highest: ${expected.advisoryId} \\(${highest}\\)`),
+			{ timeout },
+		);
+	}
+
+	/**
+	 * Opens a package's detail view by selecting its row, which opens the package
+	 * editor as a preview tab. Filters the list to the package first, since the
+	 * list is virtualized.
+	 * @param packageName The exact package name to open.
+	 */
+	async openPackageDetail(packageName: string): Promise<void> {
+		await this.searchPackages(packageName);
+		// The list is a virtualized grid whose rows are recreated whenever a
+		// refresh lands, and a freshly installed row also carries a transient
+		// 'recently-changed' class. A single click loses the race ("element was
+		// detached from the DOM"), so retry the click together with its outcome.
+		await expect(async () => {
+			await this.packageRow(packageName).click({ timeout: 5_000 });
+			await expect(
+				this.packageDetail.getByRole('heading', { name: packageName })
+			).toBeVisible({ timeout: 5_000 });
+		}).toPass({ timeout: 60_000 });
+	}
+
+	/**
+	 * Selects the Security tab in the open package detail view. The tab is offered
+	 * only when the runtime has advisory data for the package, so assert the row's
+	 * badge first.
+	 */
+	async clickSecurityTab(): Promise<void> {
+		// The tab's accessible name carries the advisory count ("Security, 1 known
+		// vulnerability"), so match on the leading word.
+		const tab = this.packageDetail.getByRole('tab', { name: /^Security/ });
+		await tab.click();
+		await expect(tab).toHaveAttribute('aria-selected', 'true');
+	}
+
+	/**
+	 * Asserts an advisory is listed in the open package detail view. Matches the
+	 * advisory's link, whose accessible name names the advisory.
+	 * @param advisoryId The advisory id as displayed, e.g. 'CVE-2022-31799'.
+	 */
+	async expectAdvisoryListed(advisoryId: string): Promise<void> {
+		await expect(
+			this.packageDetail.getByRole('button', { name: `Open advisory ${advisoryId}` })
+		).toBeVisible();
 	}
 }

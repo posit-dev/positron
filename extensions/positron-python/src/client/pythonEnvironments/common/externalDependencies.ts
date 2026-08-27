@@ -92,9 +92,19 @@ export async function isDirectory(filename: string): Promise<boolean> {
 }
 
 // --- Start Positron ---
+/**
+ * Whether `filename` is a directory. Returns false when it cannot be stat'ed at
+ * all -- it does not exist, or it is unreadable. Callers treat this as a
+ * question about a path they did not choose (a user setting, for instance), so a
+ * throw here becomes a failure far from the cause.
+ */
 export function isDirectorySync(filename: string): boolean {
-    const stat = fsapi.statSync(filename);
-    return stat.isDirectory();
+    try {
+        return fsapi.statSync(filename).isDirectory();
+    } catch (error) {
+        traceVerbose(`[isDirectorySync]: Failed to stat ${filename}`, error);
+        return false;
+    }
 }
 // --- End Positron ---
 

@@ -442,7 +442,14 @@ export class WalkthroughsService extends Disposable implements IWalkthroughsServ
 
 			this._registerWalkthrough(walkthoughDescriptor);
 
-			this._onDidAddWalkthrough.fire(this.resolveWalkthrough(walkthoughDescriptor));
+			// --- Start Positron ---
+			// _registerWalkthrough() silently skips hidden walkthroughs, so resolving one here
+			// would throw "Could not find walkthrough" for e.g. the built-in Copilot Chat and
+			// Python walkthroughs Positron hides.
+			if (!isHiddenWalkthrough(walkthoughDescriptor.id)) {
+				this._onDidAddWalkthrough.fire(this.resolveWalkthrough(walkthoughDescriptor));
+			}
+			// --- End Positron ---
 		}));
 
 		this.storageService.store(walkthroughMetadataConfigurationKey, JSON.stringify([...this.metadata.entries()]), StorageScope.PROFILE, StorageTarget.USER);

@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { IDisposableRegistry, IInstaller, InstallerResponse, Product } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
-import { traceError, traceInfo } from '../logging';
+import { traceError, traceInfo, traceWarn } from '../logging';
 import { MINIMUM_PYTHON_VERSION, Commands } from '../common/constants';
 import { getIpykernelBundle } from './ipykernel';
 import { getEnvironmentHealth } from './environmentHealth';
@@ -18,6 +18,7 @@ import { activateWalkthroughCommands } from './walkthroughCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
 import { registerLanguageServerManager } from './languageServerManager';
 import { registerPythonFilePasteAndDropProvider } from '../languageFeatures/pythonFilePasteAndDropProvider';
+import { registerPandasDataImporter } from './dataImport/pandasImporter';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
@@ -86,15 +87,15 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                 printInterpreterDebugInfo(interpreters);
             }),
         );
-        // Returns a machine-readable Python environment health report for the welcome page. Running
-        // it writes nothing to the output channel and reveals no panel. It has no
+        // Returns a machine-readable Python environment health report for the welcome page. It
+        // reveals no panel, and writes to the output channel only when a check fails. It has no
         // contributes.commands entry, which keeps it off the Command Palette but also costs the
         // implicit onCommand activation event, so package.json lists that event explicitly: the
         // welcome page can call this before onStartupFinished has woken the extension.
         disposables.push(
             vscode.commands.registerCommand(
                 Commands.Get_Environment_Health,
-                async (args?: { workspaceFolder?: string }) => getEnvironmentHealth(serviceContainer, args),
+                async (args?: { workspaceFolder?: string }) => getEnvironmentHealth(serviceContainer, traceWarn, args),
             ),
         );
 
@@ -112,6 +113,9 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
 
         // Register Python file paste and drop provider.
         registerPythonFilePasteAndDropProvider(disposables);
+
+        // Register the pandas data importer used by Import Data.
+        registerPandasDataImporter(disposables);
 
         traceInfo('activatePositron: done!');
     } catch (ex) {

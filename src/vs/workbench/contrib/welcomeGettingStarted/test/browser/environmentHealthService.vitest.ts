@@ -74,10 +74,8 @@ describe('EnvironmentHealthService', () => {
 	};
 
 	it('checks nothing until a welcome page opens', async () => {
-		// The editor pane takes this as a constructor dependency, and it is the
-		// pane for the classic welcome page too. If construction started runs,
-		// every user would activate the Python and R extensions on startup for a
-		// card the feature flag keeps hidden.
+		// Building the service must not activate the Python and R extensions.
+		// Only a page asking for an answer may do that.
 		const environmentHealthService = build();
 		await settle();
 		expect(executeCommand).not.toHaveBeenCalled();

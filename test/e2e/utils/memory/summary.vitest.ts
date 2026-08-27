@@ -3,10 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { describe, expect, test } from 'vitest';
 import { buildSummaryMatrix, renderSummaryHtml, ScenarioSnapshots } from './summary.js';
+import { buildLaneSections, collectScenarios, containerHtmlFrom, renderLaneSectionsHtml } from './summarize-cli.js';
 import { ActivatedExtension, LabeledProcess, MemorySnapshot } from './types.js';
 import { MemoryScenario } from './scenarios.js';
+import { MemoryLane } from './lanes.js';
 
 const MB = 1024 * 1024;
 
@@ -20,8 +25,8 @@ const proc = (overrides: Partial<LabeledProcess> = {}): LabeledProcess => ({
 
 const extensions: ActivatedExtension[] = [];
 
-const snapshot = (scenario: MemoryScenario, procs: LabeledProcess[], launchIndex = 0): MemorySnapshot => ({
-	scenario, capturedAt: '2026-08-11T00:00:00.000Z',
+const snapshot = (scenario: MemoryScenario, procs: LabeledProcess[], launchIndex = 0, lane: MemoryLane = 'desktop'): MemorySnapshot => ({
+	scenario, lane, capturedAt: '2026-08-11T00:00:00.000Z',
 	positronVersion: '2026.09.0-35', launchIndex, settleMs: 12_000,
 	treeTotalPssBytes: procs.reduce((sum, p) => sum + p.pssBytes, 0),
 	processes: procs, extensions
@@ -230,6 +235,21 @@ describe('delta emphasis', () => {
 });
 
 describe('renderSummaryHtml', () => {
+	// The header used to restate what the columns already say. What a reader cannot
+	// read off the table is which build produced the numbers.
+	test('heads the report with the build, lane and launch count rather than a description of the table', () => {
+		const entries: ScenarioSnapshots[] = [
+			{ scenario: 'idle', snapshots: [snapshot('idle', [proc()], 0), snapshot('idle', [proc()], 1)] }
+		];
+		const html = renderSummaryHtml(buildSummaryMatrix(entries));
+
+		expect(html).toContain('Build 2026.09.0-35');
+		expect(html).toContain('Desktop');
+		expect(html).toContain('2 launches/scenario');
+		expect(html).toContain('Aug 11, 2026 at 00:00 UTC');
+		expect(html).not.toContain('Median PSS per role');
+	});
+
 	// This page is what the workflow links first, so a scenario measured mid-swing
 	// has to say so here. Reading it only in the per-scenario report means the
 	// landing page presents a contaminated delta as fact.
@@ -301,6 +321,28 @@ describe('renderSummaryHtml', () => {
 		expect(html).toContain('TOTAL');
 	});
 
+	test('footnotes the roles read after a forced GC, and only those', () => {
+		const gc = (role: 'shared' | 'extension_host') => ({ role, pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 });
+		const procs = [proc({ processRole: 'shared' }), proc({ processRole: 'extension_host' }), proc({ processRole: 'main' })];
+
+		const both = renderSummaryHtml(buildSummaryMatrix([
+			{ scenario: 'idle', snapshots: [{ ...snapshot('idle', procs, 0), forcedGc: [gc('shared'), gc('extension_host')] }] }
+		]));
+		expect(both).toContain('<code>shared</code><span class="fn-marker">*</span>');
+		expect(both).toContain('<code>extension_host</code><span class="fn-marker">*</span>');
+		expect(both).toContain('<code>main</code></td>');
+		// Under the table it qualifies, not in the copy above it.
+		expect(both.indexOf('class="footnote"')).toBeGreaterThan(both.indexOf('</table>'));
+
+		// The server lane collects only the extension host, so a fixed pair of roles
+		// would footnote a `shared` figure that was never collected.
+		const extHostOnly = renderSummaryHtml(buildSummaryMatrix([
+			{ scenario: 'idle', snapshots: [{ ...snapshot('idle', procs, 0), forcedGc: [gc('extension_host')] }] }
+		]));
+		expect(extHostOnly).toContain('<code>extension_host</code><span class="fn-marker">*</span>');
+		expect(extHostOnly).toContain('<code>shared</code></td>');
+	});
+
 	test('shows the GC note when a snapshot carries a forced-GC reading, not otherwise', () => {
 		const withoutGc = renderSummaryHtml(buildSummaryMatrix([scenarioEntry('idle', [proc()])]));
 		expect(withoutGc).not.toContain('forced garbage collection');
@@ -312,5 +354,176 @@ describe('renderSummaryHtml', () => {
 		const gcSnapshot = { ...snapshot('idle', [proc()], 0), forcedGc: [{ role: 'shared' as const, pid: 1, preRssBytes: 1, postRssBytes: 1, preHeapTotalBytes: 1, postHeapTotalBytes: 1 }] };
 		const withGc = renderSummaryHtml(buildSummaryMatrix([{ scenario: 'idle', snapshots: [gcSnapshot] }]));
 		expect(withGc).toContain('forced garbage collection');
+	});
+});
+
+describe('lane partitioning', () => {
+	// Desktop idle is ~1495 MB and a server tree is ~820 MB because the
+	// renderer is in the browser. Differencing them yields a ~-675 MB "drop"
+	// that sorts to a prominent column, which is the whole failure this
+	// partition exists to prevent.
+	const desktopIdle = snapshot('idle', [proc({ processRole: 'main', pssBytes: 1495 * MB })], 0, 'desktop');
+	const serverIdle = snapshot('idle', [proc({ processRole: 'main', pssBytes: 820 * MB })], 0, 'server');
+
+	test('a server column is never differenced against desktop idle', () => {
+		const sections = buildLaneSections([
+			{ lane: 'desktop', scenario: 'idle', snapshots: [desktopIdle] },
+			{ lane: 'server', scenario: 'idle', snapshots: [serverIdle] }
+		]);
+		expect(sections.map(s => s.lane)).toEqual(['desktop', 'server']);
+		const server = sections.find(s => s.lane === 'server')!;
+		expect(server.matrix.scenarios).toEqual(['idle']);
+		for (const row of server.matrix.rows) {
+			expect(row.deltaVsIdle).toEqual({});
+		}
+	});
+
+	test('a lane with no data produces no section rather than an empty one', () => {
+		const sections = buildLaneSections([
+			{ lane: 'desktop', scenario: 'idle', snapshots: [desktopIdle] }
+		]);
+		expect(sections.map(s => s.lane)).toEqual(['desktop']);
+	});
+});
+
+describe('collectScenarios lane provenance', () => {
+	// A directory literally named memory-report-desktop-idle, whose snapshot JSON
+	// says 'server': the only fixture shape that can distinguish "grouped by the
+	// directory name" from "grouped by the snapshot's own field". A fixture where
+	// the two agree would pass even if collectScenarios reverted to trusting the
+	// directory, which is the exact regression this test exists to catch.
+	const writeArtifact = (dirName: string, files: Record<string, string>): string => {
+		const root = mkdtempSync(join(tmpdir(), 'memory-summarize-'));
+		const dir = join(root, dirName);
+		mkdirSync(dir, { recursive: true });
+		for (const [name, contents] of Object.entries(files)) {
+			writeFileSync(join(dir, name), contents);
+		}
+		return root;
+	};
+
+	test('surfaces an artifact from a lane that expects no scenarios, rather than dropping it silently', () => {
+		// The server lane is parked, so EXPECTED_SCENARIOS_BY_LANE.server is empty and
+		// no lane directory is expected. A lane with no expected scenarios must still
+		// be walked: skipping it wholesale would silently discard an artifact that did
+		// arrive, which is how someone re-enabling the matrix row without restoring
+		// the expectation entry would get a report that omits their lane and calls
+		// itself a success.
+		const root = writeArtifact('memory-report-server-idle', {
+			'memory-snapshot-0.json': JSON.stringify(snapshot('idle', [proc()], 0, 'server'))
+		});
+
+		const collected = collectScenarios(root);
+		const serverIdle = collected.find(c => c.lane === 'server' && c.scenario === 'idle');
+
+		expect(serverIdle, 'the server artifact vanished from the report entirely').toBeDefined();
+		expect(serverIdle!.warnings.join(' ')).toContain('memory-report-server-idle');
+	});
+
+	test('trusts the snapshot JSON lane over the directory name it was found in', () => {
+		const mislabeled = snapshot('idle', [proc()], 0, 'server');
+		const root = writeArtifact('memory-report-desktop-idle', {
+			'memory-snapshot-0.json': JSON.stringify(mislabeled)
+		});
+
+		const collected = collectScenarios(root);
+		const idle = collected.find(c => c.scenario === 'idle' && c.snapshots.length > 0);
+
+		expect(idle?.lane).toBe('server');
+	});
+
+	test('warns and drops a snapshot whose lane is not a recognized member, rather than silently dropping it later', () => {
+		// A lane string outside MEMORY_LANES flowing through unchecked would pass
+		// straight into buildLaneSections, which filters entries against
+		// MEMORY_LANES and drops anything that does not match with no warning at
+		// all. This test fails if the isMemoryLane guard in collectScenarios is
+		// removed: the bogus lane would then flow through as `idle?.lane` instead
+		// of being caught here with a warning.
+		const bogus = { ...snapshot('idle', [proc()], 0, 'desktop'), lane: 'bogus-lane' };
+		const root = writeArtifact('memory-report-desktop-idle', {
+			'memory-snapshot-0.json': JSON.stringify(bogus)
+		});
+
+		const collected = collectScenarios(root);
+		const idle = collected.find(c => c.scenario === 'idle');
+
+		expect(idle?.snapshots).toHaveLength(0);
+		expect(idle?.lane).toBe('desktop');
+		expect(idle?.warnings.some(w => w.includes('not a recognized lane'))).toBe(true);
+	});
+
+	test('falls back to the directory name when no snapshot could be parsed', () => {
+		const root = writeArtifact('memory-report-desktop-idle', {
+			'memory-snapshot-0.json': 'not valid json'
+		});
+
+		const collected = collectScenarios(root);
+		const idle = collected.find(c => c.scenario === 'idle');
+
+		// Nothing parsed, so there is no snapshot lane to trust; the directory's
+		// lane is the only thing left to attribute the warning to.
+		expect(idle?.snapshots).toHaveLength(0);
+		expect(idle?.lane).toBe('desktop');
+		expect(idle?.warnings.some(w => w.includes('could not parse'))).toBe(true);
+	});
+});
+
+describe('renderLaneSectionsHtml', () => {
+	const desktopIdle = snapshot('idle', [proc({ processRole: 'main', pssBytes: 1495 * MB })], 0, 'desktop');
+	const serverIdle = snapshot('idle', [proc({ processRole: 'main', pssBytes: 820 * MB })], 0, 'server');
+
+	test('combines every lane into one document with exactly one outer <html>', () => {
+		const sections = buildLaneSections([
+			{ lane: 'desktop', scenario: 'idle', snapshots: [desktopIdle] },
+			{ lane: 'server', scenario: 'idle', snapshots: [serverIdle] }
+		]);
+		const html = renderLaneSectionsHtml(sections);
+
+		expect(html).toContain('<h1>desktop lane</h1>');
+		expect(html).toContain('<h1>server lane</h1>');
+		// One <html> for the whole document; a second would mean a per-lane
+		// document got nested wholesale instead of just its container markup.
+		expect(html.match(/<html/g)).toHaveLength(1);
+		expect(html).toContain('<!DOCTYPE html>');
+	});
+
+	// The combined page builds its own <html> shell, so it has to opt into the
+	// matrix rules explicitly: with only REPORT_CSS it lost the stacked delta
+	// lines, the baseline tint and the container width, and rendered as a
+	// different table from the per-lane document it is stitched from.
+	test('carries the matrix styling and the container width the per-lane document has', () => {
+		const sections = buildLaneSections([{ lane: 'desktop', scenario: 'idle', snapshots: [desktopIdle] }]);
+		const html = renderLaneSectionsHtml(sections);
+
+		expect(html).toContain('.matrix .delta-line');
+		expect(html).toContain('.matrix .baseline');
+		expect(html).toContain('<div class="container">');
+	});
+
+	// One lane is the normal case, and there the heading was a second title above
+	// a header that already names the lane.
+	test('drops the lane heading when there is only one lane', () => {
+		const sections = buildLaneSections([{ lane: 'desktop', scenario: 'idle', snapshots: [desktopIdle] }]);
+		expect(renderLaneSectionsHtml(sections)).not.toContain('<h1>desktop lane</h1>');
+	});
+
+	test('names the lane whose total is not comparable across lanes', () => {
+		const sections = buildLaneSections([{ lane: 'server', scenario: 'idle', snapshots: [serverIdle] }]);
+		expect(renderLaneSectionsHtml(sections)).toContain('not comparable to the desktop lane');
+	});
+});
+
+describe('containerHtmlFrom', () => {
+	test('extracts the container markup from a well-formed document', () => {
+		const doc = '<html><body><div class="container"><p>hi</p></div></body></html>';
+		expect(containerHtmlFrom(doc, 'desktop')).toBe('<p>hi</p>');
+	});
+
+	test('throws rather than falling back to the whole document when the container markup is missing', () => {
+		// Guards against renderSummaryHtml's output shape changing (container
+		// renamed, or content added after its closing div) silently nesting a
+		// whole document inside the combined report instead of failing the job.
+		const doc = '<html><body><p>no container here</p></body></html>';
+		expect(() => containerHtmlFrom(doc, 'server')).toThrow(/server/);
 	});
 });

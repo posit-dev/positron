@@ -183,6 +183,10 @@ jobs:
           IDE_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
           IDE_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
           IDE_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"
+          # Snowflake programmatic access token for the posit-assistant Snowflake Cortex
+          # test. Pairs with the SNOWFLAKE_ACCOUNT secret already exported above, which
+          # doubles as the account identifier that test types into the modal.
+          SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
           TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
           TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
 

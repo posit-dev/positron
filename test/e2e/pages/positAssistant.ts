@@ -63,6 +63,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	'openai-api': 'OpenAI',
 	'ms-foundry': 'Microsoft Foundry',
 	'posit-ai': 'Posit AI',
+	'snowflake-cortex': 'Snowflake Cortex',
 };
 
 // Chat message elements
@@ -829,11 +830,11 @@ export class PositAssistant {
 			return;
 		}
 
-		await toasts.clickButton('Update Now');
+		await toasts.clickButton('Update Now', { notificationFilter: /newer Posit Assistant dev build is available/i });
 
 		// 4. Wait for the follow-up "reload to apply changes" toast and click "Reload".
 		await toasts.waitForAppear(/Posit Assistant has been updated\. You must reload Positron/i, { timeout: toastTimeout });
-		await toasts.clickButton('Reload');
+		await toasts.clickButton('Reload', { notificationFilter: /Posit Assistant has been updated\. You must reload Positron/i });
 
 		// 5. Clicking Reload reloads the window natively. Wait for the
 		//    workbench to come back up.

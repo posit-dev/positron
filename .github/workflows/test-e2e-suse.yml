@@ -152,6 +152,9 @@ jobs:
           POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
           POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+          # Snowflake programmatic access token for the posit-assistant Snowflake Cortex
+          # test. Pairs with the SNOWFLAKE_ACCOUNT env var set on the job above.
+          SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"

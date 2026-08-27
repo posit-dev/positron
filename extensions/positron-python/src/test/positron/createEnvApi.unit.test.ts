@@ -140,21 +140,35 @@ suite('Positron Create Environment APIs', () => {
     });
 
     Object.entries(envOptionsMissingInfo).forEach(([optionsName, options]) => {
-        test(`Environment creation fails when options are missing: ${optionsName} `, async () => {
+        test(`Environment creation rejects when options are missing: ${optionsName} `, async () => {
             pythonRuntimeManager
                 .setup((p) => p.registerLanguageRuntimeFromPath(typemoq.It.isAny()))
                 .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object))
                 .verifiable(typemoq.Times.never());
 
-            const result = await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, options);
+            await assert.isRejected(createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, options));
 
-            assert.isDefined(result);
-            assert.isUndefined(result?.path);
-            assert.isUndefined(result?.metadata);
-            assert.isDefined(result?.error);
             assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
             pythonRuntimeManager.verifyAll();
         });
+    });
+
+    test('Environment creation rejects when no workspace folder is passed or open', async () => {
+        getWorkspaceFoldersStub.returns([]);
+        pythonRuntimeManager
+            .setup((p) => p.registerLanguageRuntimeFromPath(typemoq.It.isAny()))
+            .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object))
+            .verifiable(typemoq.Times.never());
+
+        await assert.isRejected(
+            createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, {
+                ...envOptions,
+                workspaceFolder: undefined,
+            }),
+        );
+
+        assert.isTrue(handleCreateEnvironmentCommandStub.notCalled);
+        pythonRuntimeManager.verifyAll();
     });
 
     test('Rehydrates workspaceFolder URI string to a WorkspaceFolder before dispatching', async () => {

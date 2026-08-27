@@ -18,6 +18,7 @@ import { getExtension } from '../common/vscodeApis/extensionsApi';
 import { PythonExtension } from '../api/types';
 import { PVSC_EXTENSION_ID } from '../common/constants';
 import { getConfiguration, getWorkspaceFolder, getWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
+import { CreateEnv } from '../common/utils/localize';
 import { CONDA_PROVIDER_ID } from '../pythonEnvironments/creation/provider/condaCreationProvider';
 import { VenvCreationProviderId } from '../pythonEnvironments/creation/provider/venvCreationProvider';
 import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
@@ -100,15 +101,20 @@ export async function createEnvironmentAndRegister(
     options: CreateEnvironmentAndRegisterOptions,
 ): Promise<CreateEnvironmentAndRegisterResult | undefined> {
     if (!options.providerId || (!options.interpreterPath && !options.condaPythonVersion && !options.uvPythonVersion)) {
-        return {
-            error: new Error(
-                'Missing required options for creating an environment. Please specify a provider ID and a Python interpreter path or a Conda or uv Python version.',
-            ),
-        };
+        throw new Error(
+            'Missing required options for creating an environment. Please specify a provider ID and a Python interpreter path or a Conda or uv Python version.',
+        );
+    }
+    const workspaceFolder = rehydrateWorkspaceFolder(options.workspaceFolder);
+    // Every provider creates the environment inside a workspace folder. With none passed and none
+    // open, the interactive flow blocks on a notification until the user opens one, so a non-
+    // interactive caller (e.g. the assistant) hangs. Reject up front instead.
+    if (!workspaceFolder && (getWorkspaceFolders() ?? []).length === 0) {
+        throw new Error(CreateEnv.noWorkspace);
     }
     const resolvedOptions: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal = {
         ...options,
-        workspaceFolder: await rehydrateWorkspaceFolder(options.workspaceFolder),
+        workspaceFolder,
     };
     const result = await handleCreateEnvironmentCommand(providers, resolvedOptions);
     if (result?.path) {
