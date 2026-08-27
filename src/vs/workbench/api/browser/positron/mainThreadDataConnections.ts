@@ -6,12 +6,14 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../contrib/positronDataConnections/browser/positronDataConnectionsConfiguration.js';
+import { connectDataConnectionWith } from '../../../contrib/positronDataConnections/browser/dataConnectionConnectWith.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk, walkDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionProfile, IDataConnectionQueryCodeRequest, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSessionBindingDTO, IDataConnectionSummaryDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -126,6 +128,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		// Get the ext host proxy so adapters can call back for connect/getChildren/etc.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostDataConnections);
@@ -157,7 +160,122 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 			driverId: profile.driverMetadata.id,
 			driverName: profile.driverMetadata.name,
 			connected: live.has(profile.id),
+			// From the profile rather than the registered driver, so a connection whose driver
+			// extension has not activated yet still reports the languages it supports. The profile
+			// records them when it is saved.
+			supportedLanguageIds: profile.driverMetadata.supportedLanguageIds,
 		}));
+	}
+
+	/**
+	 * Reports every connection a runtime session already holds.
+	 */
+	async $getDataConnectionSessionBindings(sessionId: string): Promise<IDataConnectionSessionBindingDTO[]> {
+		if (!this._isEnabled()) {
+			this._logService.trace('[DataConnections] getSessionBindings: the feature is disabled.');
+			return [];
+		}
+		return this._dataConnectionsService.getSessionBindings(sessionId);
+	}
+
+	/**
+	 * Shows the Connect With dialog for a profile and reports what the user connected.
+	 *
+	 * The dialog is the same one the pane opens, and is shown rather than skipped for the same
+	 * reason it is there at all: which library to connect with, and whether to put a stored
+	 * password into code that will run in the console, are the user's decisions.
+	 */
+	async $connectDataConnectionWith(
+		profileId: string,
+		languageId: string,
+		takenVariableNames: string[],
+	): Promise<IDataConnectionSessionBindingDTO | undefined> {
+		if (!this._isEnabled()) {
+			this._logService.trace('[DataConnections] connectDataConnectionWith: the feature is disabled.');
+			return undefined;
+		}
+		return connectDataConnectionWith(
+			this._dataConnectionsService,
+			this._notificationService,
+			profileId,
+			languageId,
+			takenVariableNames,
+		);
+	}
+
+	/**
+	 * Records that a runtime session holds a connection to a profile, for one the caller arranged
+	 * rather than one made through the dialog.
+	 */
+	async $registerDataConnectionSessionBinding(binding: IDataConnectionSessionBindingDTO): Promise<void> {
+		if (!this._isEnabled()) {
+			this._logService.trace('[DataConnections] registerSessionBinding: the feature is disabled.');
+			return;
+		}
+		this._dataConnectionsService.registerSessionBinding(binding);
+	}
+
+	/**
+	 * Generates the code that runs a query through a connection a session holds.
+	 *
+	 * The profile's driver writes it, because only the driver knows what its own connection code
+	 * created. Resolves to undefined when there is no such profile, its driver is not registered,
+	 * or the driver cannot query that connection.
+	 */
+	async $generateDataConnectionQueryCode(binding: IDataConnectionSessionBindingDTO, query: string): Promise<string | undefined> {
+		if (!this._isEnabled()) {
+			this._logService.trace('[DataConnections] generateQueryCode: the feature is disabled.');
+			return undefined;
+		}
+
+		const profile = this._dataConnectionsService.getProfile(binding.profileId);
+		const driver = profile && this._dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
+		if (!driver) {
+			this._logService.warn(`[DataConnections] generateQueryCode: no registered driver for profile ${binding.profileId}.`);
+			return undefined;
+		}
+
+		const variantId = binding.variantId ?? await this._preferredVariantId(profile, driver, binding.languageId);
+		if (!variantId) {
+			this._logService.warn(`[DataConnections] generateQueryCode: ${profile.driverMetadata.name}`
+				+ ` generates no ${binding.languageId} connection code, so there is no variant to assume.`);
+			return undefined;
+		}
+
+		return driver.generateQueryCode({
+			languageId: binding.languageId,
+			variantId,
+			connectionVariable: binding.variableName,
+			query,
+		});
+	}
+
+	/**
+	 * The variant to assume for a binding that does not name one -- a connection the user made by
+	 * hand and then pointed at, so Positron never saw which library made it.
+	 *
+	 * The profile's remembered preference, or the driver's default, which between them are what the
+	 * Connect With dialog would have offered. A user who connected by hand almost certainly used
+	 * the snippet that dialog suggests, and if they did not, the generated query will say so
+	 * plainly by failing against the wrong kind of object rather than quietly doing the wrong
+	 * thing.
+	 */
+	private async _preferredVariantId(
+		profile: IDataConnectionProfile,
+		driver: IDataConnectionDriver,
+		languageId: string,
+	): Promise<string | undefined> {
+		const remembered = profile.preferredCodeVariants?.[languageId];
+		let variants: IDataConnectionCodeVariant[];
+		try {
+			variants = await driver.generateConnectionCode(profile.mechanismId, languageId, profile.parameterValues);
+		} catch (err) {
+			this._logService.error(`[DataConnections] generateQueryCode: could not read ${profile.id}'s variants: ${err}`);
+			return remembered;
+		}
+		return variants.some(variant => variant.id === remembered)
+			? remembered
+			: variants[0]?.id;
 	}
 
 	/**
@@ -376,6 +494,16 @@ class MainThreadDataConnectionDriverAdapter implements IDataConnectionDriver {
 	async generateConnectionCode(mechanismId: string, languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]> {
 		const variants = await this._proxy.$generateConnectionCode(this.id, mechanismId, languageId, params);
 		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code }));
+	}
+
+	/**
+	 * Asks the ext host to run driver.generateQueryCode() via RPC, returning the code that runs a
+	 * query through a connection this driver's connection code made. Resolves to undefined when
+	 * the driver does not implement query generation, or does not for that variant.
+	 * @param request What to run and what to run it through.
+	 */
+	async generateQueryCode(request: IDataConnectionQueryCodeRequest): Promise<string | undefined> {
+		return this._proxy.$generateQueryCode(this.id, request);
 	}
 
 	/**

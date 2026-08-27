@@ -16,7 +16,7 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { IDataConnectionInstance } from '../common/interfaces/dataConnectionInstance.js';
 import { PositronDataExplorerUri } from '../../positronDataExplorer/common/positronDataExplorerUri.js';
 import { IViewsService } from '../../views/common/viewsService.js';
-import { IDataConnectionRevealRequest, IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionRevealRequest, IDataConnectionSessionBinding, IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
@@ -34,6 +34,14 @@ const profileStorageKey = (profileId: string) =>
 // Builds the secret storage key for a given data connection secret profile/parameter pair.
 const secretKey = (profileId: string, parameterId: string) =>
 	`positron.dataConnections.secret.${profileId}.${parameterId}`;
+
+// Keys a session binding. Both halves are needed: one session can hold several connections, and
+// one connection can be held by several sessions.
+//
+// The session id leads because it is a UUID and so cannot contain the separator, which keeps the
+// key unambiguous even though a profile id can be a driver-namespaced name that does.
+const sessionBindingKey = (profileId: string, sessionId: string) =>
+	`${sessionId} ${profileId}`;
 
 // Marks the one-time read-only correction applied to DuckDB profiles saved before the driver's
 // Read Only parameter defaulted to true. See _migrateDuckDBProfilesToReadOnly.
@@ -127,6 +135,16 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// before the pane is rendered and so before anything is subscribed, so the request waits here
 	// for the pane to claim on mount. See takePendingReveal.
 	private _pendingReveal: IDataConnectionRevealRequest | undefined;
+
+	// The connections runtime sessions hold, keyed by session and profile. Populated when
+	// connection code is submitted to a session; see registerSessionBinding.
+	//
+	// Never pruned, and deliberately so. There is one entry per (session, profile) pair the user
+	// has actually connected in this window, which is a handful; a session that has exited leaves
+	// an entry naming a session id that will never be asked about again. Watching sessions to
+	// clear them would couple this service to the runtime for no benefit the caller can observe,
+	// since a caller has to confirm the variable still exists either way.
+	private readonly _sessionBindings = new Map<string, IDataConnectionSessionBinding>();
 
 	//#endregion Private Properties
 
@@ -792,6 +810,32 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 */
 	getInstanceForProfile(profileId: string): IDataConnectionInstance | undefined {
 		return this._instances.find(i => i.profileId === profileId);
+	}
+
+	/**
+	 * Records that a runtime session now holds a connection to a profile.
+	 */
+	registerSessionBinding(binding: IDataConnectionSessionBinding): void {
+		this._sessionBindings.set(sessionBindingKey(binding.profileId, binding.sessionId), binding);
+		this._logService.trace(
+			`[DataConnections] Session ${binding.sessionId} holds ${binding.profileId}`
+			+ ` as '${binding.variableName}' (${binding.languageId}/${binding.variantId}).`
+		);
+	}
+
+	/**
+	 * Gets the connection a runtime session holds for a profile, or undefined if it holds none.
+	 */
+	getSessionBinding(profileId: string, sessionId: string): IDataConnectionSessionBinding | undefined {
+		return this._sessionBindings.get(sessionBindingKey(profileId, sessionId));
+	}
+
+	/**
+	 * Gets every connection a runtime session holds, across all profiles.
+	 */
+	getSessionBindings(sessionId: string): IDataConnectionSessionBinding[] {
+		return [...this._sessionBindings.values()]
+			.filter(binding => binding.sessionId === sessionId);
 	}
 
 	//#endregion IPositronDataConnectionsService Implementation

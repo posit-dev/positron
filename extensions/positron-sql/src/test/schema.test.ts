@@ -224,7 +224,14 @@ suite('readConnectionSchema', () => {
 		connected: boolean,
 		driverId = 'positron-data-driver-duckdb',
 	) {
-		return { profileId, name, driverId, driverName: 'DuckDB', connected };
+		return {
+			profileId,
+			name,
+			driverId,
+			driverName: 'DuckDB',
+			connected,
+			supportedLanguageIds: ['python', 'r'],
+		};
 	}
 
 	test('an unavailable API is not an error', async () => {

@@ -394,6 +394,44 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostDataConnections.getSchema(profileId, options);
 			},
 
+			/**
+			 * The connections a runtime session already holds.
+			 * @param sessionId The session to ask about.
+			 * @returns The connections that session holds; empty when it holds none.
+			 */
+			getSessionBindings(sessionId: string): Thenable<positron.DataConnectionBinding[]> {
+				return extHostDataConnections.getSessionBindings(sessionId);
+			},
+
+			/**
+			 * Shows the Connect With dialog for a connection and reports what the user connected.
+			 * @param profileId The connection to connect to.
+			 * @param languageId The language to connect in.
+			 * @returns What the user connected, or undefined if they dismissed the dialog.
+			 */
+			connectDataConnectionWith(profileId: string, languageId: string, options?: positron.ConnectDataConnectionOptions): Thenable<positron.DataConnectionBinding | undefined> {
+				return extHostDataConnections.connectDataConnectionWith(profileId, languageId, options);
+			},
+
+			/**
+			 * Records that a runtime session holds a connection to a profile, for one the caller
+			 * arranged rather than one made through the dialog.
+			 * @param binding The connection the session holds.
+			 */
+			registerSessionBinding(binding: positron.DataConnectionBinding): Thenable<void> {
+				return extHostDataConnections.registerSessionBinding(binding);
+			},
+
+			/**
+			 * Generates the code that runs a query through a connection a session holds.
+			 * @param binding The connection to query through.
+			 * @param query The query to run.
+			 * @returns The code to execute, or undefined if the driver cannot query that connection.
+			 */
+			generateQueryCode(binding: positron.DataConnectionBinding, query: string): Thenable<string | undefined> {
+				return extHostDataConnections.generateQueryCode(binding, query);
+			},
+
 			/** Fires when the user's connections change. */
 			onDidChangeConnections: extHostDataConnections.onDidChangeConnections,
 		};

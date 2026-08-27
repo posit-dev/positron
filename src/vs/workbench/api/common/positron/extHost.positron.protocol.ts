@@ -18,7 +18,7 @@ import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, Environmen
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionQueryCodeRequestDTO, IDataConnectionSessionBindingDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IDataImporterMetadata, IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
@@ -377,6 +377,38 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * disabled.
 	 */
 	$getDataConnectionSchema(profileId: string, options: IDataConnectionSchemaSummaryOptions): Promise<IDataConnectionSchemaWalk | undefined>;
+
+	/**
+	 * Reports every connection a runtime session already holds.
+	 *
+	 * A data connection is opened by its driver in this process, not inside the user's session, so
+	 * a session holds one only when connection code has run there. Resolves to an empty list when
+	 * none has, or when the feature is disabled.
+	 */
+	$getDataConnectionSessionBindings(sessionId: string): Promise<IDataConnectionSessionBindingDTO[]>;
+
+	/**
+	 * Shows the Connect With dialog for a profile and reports what the user connected.
+	 *
+	 * Shown rather than skipped because the choices in it are the user's: which library to connect
+	 * with, and whether to put the stored password into code that runs in their console. Resolves
+	 * when the dialog closes -- `undefined` if the user dismissed it, or if there was nothing to
+	 * show (no such profile, no connection code for that language, or the feature is disabled).
+	 */
+	$connectDataConnectionWith(profileId: string, languageId: string, takenVariableNames: string[]): Promise<IDataConnectionSessionBindingDTO | undefined>;
+
+	/**
+	 * Records that a runtime session holds a connection to a profile, for a connection the caller
+	 * arranged rather than one made through $connectDataConnectionWith -- the user pointing at a
+	 * connection they already had open, typically. Not verified and not watched.
+	 */
+	$registerDataConnectionSessionBinding(binding: IDataConnectionSessionBindingDTO): Promise<void>;
+
+	/**
+	 * Generates the code that runs a query through a connection a session holds, by asking the
+	 * profile's driver. Resolves to `undefined` when the driver cannot query that connection.
+	 */
+	$generateDataConnectionQueryCode(binding: IDataConnectionSessionBindingDTO, query: string): Promise<string | undefined>;
 }
 
 /**
@@ -395,6 +427,7 @@ export interface ExtHostDataConnectionsShape {
 	$onDidChangeDataConnections(): void;
 	$driverConnect(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 	$generateConnectionCode(driverId: string, mechanismId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
+	$generateQueryCode(driverId: string, request: IDataConnectionQueryCodeRequestDTO): Promise<string | undefined>;
 	$redactParameterValue(driverId: string, mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
 	$discoverConnections(driverId: string): Promise<IDiscoveredDataConnectionDTO[]>;
 	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;

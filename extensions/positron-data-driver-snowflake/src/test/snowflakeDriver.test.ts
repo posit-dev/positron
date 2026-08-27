@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
 import { defaultConnectionFactory, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
 import { createDatabaseNode, createSchemaNode } from '../snowflakeNodes.js';
-import { parseSnowflakeAccount } from '../snowflakeDriver.js';
+import { generateQueryCode, parseSnowflakeAccount } from '../snowflakeDriver.js';
 
 // Default config for tests -- not used to connect, just to construct.
 const TEST_CONFIG: SnowflakeConnectionConfig = {
@@ -642,6 +642,54 @@ suite('Snowflake Account Parsing', () => {
 		assert.strictEqual(
 			parseSnowflakeAccount('https://app.snowflake.com/duloftf/posit_software_pbc_dev/'),
 			'DULOFTF-POSIT_SOFTWARE_PBC_DEV'
+		);
+	});
+});
+
+suite('Snowflake Query Code', () => {
+
+	// The connection variable defaults to what the Python connection code binds; snowflake.connector
+	// binds `conn`, and DBI binds `con`.
+	function code(languageId: string, variantId: string, query: string, connectionVariable = 'conn'): string | undefined {
+		return generateQueryCode({ languageId, variantId, connectionVariable, query });
+	}
+
+	test('Python code reads the query through pandas, which returns a data frame', () => {
+		assert.strictEqual(code('python', 'snowflake-connector-python', 'SELECT 1'),
+			'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", conn)');
+	});
+
+	test('R code queries the DBI connection, qualified so it needs no library() line', () => {
+		assert.strictEqual(code('r', 'dbi', 'SELECT 1', 'con'),
+			'DBI::dbGetQuery(con, "SELECT 1")');
+	});
+
+	test('nothing is generated for a variant or a language this driver cannot query', () => {
+		assert.deepStrictEqual(
+			{
+				// Snowflake offers no SQLAlchemy variant, so there is no connection for it to query.
+				unknownVariant: code('python', 'sqlalchemy', 'SELECT 1'),
+				unknownLanguage: code('julia', 'snowflake-connector-python', 'SELECT 1'),
+			},
+			{ unknownVariant: undefined, unknownLanguage: undefined }
+		);
+	});
+
+	test('a query carrying quotes, backslashes, and newlines is quoted rather than broken', () => {
+		// R escapes both characters. Python's triple-quoted form leaves a lone quote alone, and the
+		// newline padding keeps a query that ends in a quote from running into the delimiter.
+		const sql = 'SELECT "a\\b"\nFROM t';
+		assert.deepStrictEqual(
+			{
+				python: code('python', 'snowflake-connector-python', sql),
+				pythonTrailingQuote: code('python', 'snowflake-connector-python', 'SELECT "t"'),
+				r: code('r', 'dbi', sql, 'con'),
+			},
+			{
+				python: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT "a\\\\b"\nFROM t\n""", conn)',
+				pythonTrailingQuote: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT "t"\n""", conn)',
+				r: 'DBI::dbGetQuery(con, "SELECT \\"a\\\\b\\"\nFROM t")',
+			}
 		);
 	});
 });

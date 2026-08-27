@@ -13,8 +13,7 @@ import { MouseEvent as ReactMouseEvent, useRef } from 'react';
 import { localize } from '../../../../../nls.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
-import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionWith.js';
-import { showIncludeSecretsConfirmation } from '../dialogs/includeSecretsConfirmation.js';
+import { connectDataConnectionWith } from '../dataConnectionConnectWith.js';
 import { showRemoveDataConnectionConfirmation } from '../dialogs/removeDataConnectionConfirmation.js';
 import { showSaveDataConnectionConfirmation } from '../dialogs/saveDataConnectionConfirmation.js';
 import { DataConnectionEntry } from '../classes/dataConnectionsTreeInstance.js';
@@ -25,7 +24,7 @@ import { CustomContextMenuItem } from '../../../../browser/positronComponents/cu
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { AnchorPoint } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
-import { IDataConnectionDriver, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * DataConnectionEntryRowProps interface.
@@ -182,78 +181,12 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 			return;
 		}
 
-		// Resolve the mechanism id (falling back to the first for pre-mechanisms profiles) once for
-		// all code generation calls below.
-		const mechanismId = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId)?.id ?? profile.mechanismId;
-
-		// Generates the connection code variants for the given language and, if any are available,
-		// opens the Connect dialog to preview and run them.
-		const connectWith = async (languageId: string) => {
-			// Regenerates the code with secret values (e.g. passwords) pulled from secret storage.
-			// Invoked after the user confirms an Include Secrets prompt, either the dialog's own action
-			// or the one shown below when there is no secret-free preview to show at all.
-			const generateSecretVariants = async () => {
-				const profileWithSecrets = await positronDataConnectionsService.getProfileWithSecrets(profile.id);
-				if (!profileWithSecrets) {
-					return [];
-				}
-				return driver.generateConnectionCode(mechanismId, languageId, profileWithSecrets.parameterValues);
-			};
-
-			const reportFailure = () => notificationService.error(localize(
-				'positron.dataConnections.codeGenerationFailed',
-				"Could not generate connection code for '{0}'.",
-				profile.connectionName
-			));
-
-			// The in-memory profile's parameterValues never contains secret values (those live in
-			// secret storage), so this is the default, secret-free preview.
-			let variants = await driver.generateConnectionCode(mechanismId, languageId, profile.parameterValues);
-			let initialIncludeSecrets = false;
-
-			if (variants.length === 0) {
-				// A mechanism whose only parameters are secret (e.g. a pasted connection string) has no
-				// secret-free preview at all -- ask up front whether to include the secrets Connect
-				// needs, instead of reporting a hard failure. A mechanism with a genuine but incomplete
-				// preview (e.g. missing just a password) is instead covered by the dialog's own Include
-				// Secrets action.
-				//
-				// Both halves are required, matching the dialog: the schema must declare a secret
-				// parameter and the profile must have a value stored for one of them. On the schema
-				// alone, a connection whose preview is empty for some other reason (a Postgres
-				// key=value DSN, which has no structured form to render) would prompt for secrets and
-				// then fail anyway, having promised the prompt would help.
-				const mechanism = resolveDataConnectionMechanism(driver.metadata, mechanismId);
-				const secretParameterIds = mechanism?.parameters.filter(isSecretParameter).map(parameter => parameter.id) ?? [];
-				const storedSecretIds = positronDataConnectionsService.getProfileSecretIds(profile.id);
-				if (!secretParameterIds.some(id => storedSecretIds.includes(id))) {
-					reportFailure();
-					return;
-				}
-
-				const confirmed = await showIncludeSecretsConfirmation({ requiredForConnect: true });
-				if (!confirmed) {
-					return;
-				}
-
-				variants = await generateSecretVariants();
-				if (variants.length === 0) {
-					reportFailure();
-					return;
-				}
-				initialIncludeSecrets = true;
-			}
-
-			showConnectDataConnectionWith({
-				languageId,
-				connectionName: profile.connectionName,
-				driver,
-				generateSecretVariants,
-				initialIncludeSecrets,
-				mechanismId,
-				profileId: profile.id,
-				variants,
-			});
+		// Opens the Connect With dialog for this connection in the given language. The result --
+		// what the user connected -- matters only to a caller that is going to use the connection
+		// afterwards, which the menu is not.
+		const connectWith = (languageId: string) => {
+			void connectDataConnectionWith(
+				positronDataConnectionsService, notificationService, profile.id, languageId);
 		};
 
 		// Find out what languages the are supported.

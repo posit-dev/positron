@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionQueryCodeRequestDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../extHostTypes.js';
 
@@ -103,6 +103,57 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		// The walk carries no connection identity of its own, so the profile id is added here:
 		// callers hold that, it is what they asked with, and it stays the same across a reconnect.
 		return { profileId, nodes: walk.nodes, truncated: walk.truncated };
+	}
+
+	/**
+	 * The connections a runtime session already holds.
+	 *
+	 * A data connection is opened by its driver in this process, not inside the user's R or Python
+	 * session; the session gets its own connection only when connection code runs there. This is
+	 * how a caller finds out what is already there, so it can use one of those rather than opening
+	 * a second beside them.
+	 */
+	public async getSessionBindings(sessionId: string): Promise<positron.DataConnectionBinding[]> {
+		return this._proxy.$getDataConnectionSessionBindings(sessionId);
+	}
+
+	/**
+	 * Shows the Connect With dialog for a connection, and reports what the user connected.
+	 *
+	 * Shown rather than skipped: the code runs in the user's console and may carry their stored
+	 * password, and neither is a decision to make on their behalf.
+	 */
+	public async connectDataConnectionWith(
+		profileId: string,
+		languageId: string,
+		options: positron.ConnectDataConnectionOptions = {},
+	): Promise<positron.DataConnectionBinding | undefined> {
+		return this._proxy.$connectDataConnectionWith(
+			profileId, languageId, [...options.takenVariableNames ?? []]);
+	}
+
+	/**
+	 * Records that a runtime session holds a connection to a profile.
+	 *
+	 * For the connection this did not make: the user pointing at one they already had open. What
+	 * they picked is remembered the same way as what they connected, so they are asked once.
+	 */
+	public async registerSessionBinding(binding: positron.DataConnectionBinding): Promise<void> {
+		return this._proxy.$registerDataConnectionSessionBinding(binding);
+	}
+
+	/**
+	 * Generates the code that runs a query through a connection a session holds.
+	 *
+	 * Asked of the driver rather than assembled here, because only the driver knows what its own
+	 * connection code produced. Positron does not run the result; the caller decides what to do
+	 * with it.
+	 */
+	public async generateQueryCode(
+		binding: positron.DataConnectionBinding,
+		query: string,
+	): Promise<string | undefined> {
+		return this._proxy.$generateDataConnectionQueryCode(binding, query);
 	}
 
 	/** Fires when a connection is opened or closed, or a profile is added, renamed or removed. */
@@ -232,6 +283,26 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 		const variants = await driver.generateConnectionCode(mechanismId, languageId, params);
 		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code }));
+	}
+
+	/**
+	 * Calls the extension's driver.generateQueryCode() to produce the code that runs a query
+	 * through a connection the driver's connection code made.
+	 *
+	 * Returns undefined rather than throwing for a driver that does not implement it, unlike
+	 * $generateConnectionCode above. A driver whose connections are not queried with SQL -- a pin
+	 * board, say -- is an ordinary case that a caller handles by not offering to run queries, not
+	 * an error to report to the user.
+	 * @param driverId The unique identifier of the driver to generate code with.
+	 * @param request What to run and what to run it through.
+	 */
+	async $generateQueryCode(driverId: string, request: IDataConnectionQueryCodeRequestDTO): Promise<string | undefined> {
+		const driver = this._drivers.get(driverId);
+		if (!driver?.generateQueryCode) {
+			return undefined;
+		}
+
+		return (await driver.generateQueryCode(request)) ?? undefined;
 	}
 
 	/**
