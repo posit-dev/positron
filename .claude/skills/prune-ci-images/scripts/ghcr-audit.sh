@@ -185,7 +185,13 @@ cand = [v for v in versions if not v["keep_reason"]]
 child_of_cand = {}
 for v in cand:
 	ch = children(v["pkg"], v["digest"])
-	v["children"] = ch or []
+	if ch is None:
+		# Never assume "no children" on a failed read -- that would let an
+		# index be listed without its per-arch manifests.
+		unresolved.append(v)
+		v["children"] = []
+		continue
+	v["children"] = ch
 	for c in v["children"]:
 		child_of_cand[(v["pkg"], c)] = v["digest"]
 
@@ -261,9 +267,11 @@ if skipped_protected:
 if unresolved:
 	w("## Warning: manifests that could not be resolved")
 	w("")
-	w("These retained versions could not be read from the registry, so their child")
-	w("manifests may be missing from the protected set. Review the candidate list")
-	w("with extra care, or re-run after fixing registry access:")
+	w("**Do not prune this list.** These versions could not be read from the")
+	w("registry, so their child manifests may be missing from the protected set")
+	w("and a live image could be broken. Fix registry access and re-run the audit.")
+	w("(ghcr-prune.sh independently re-resolves every manifest and will refuse to")
+	w("run while any of them are unreadable.)")
 	w("")
 	for v in unresolved:
 		w(f"- `{v['pkg']}` `{v['digest'][:19]}` (tags: {','.join(v['tags']) or 'none'})")
