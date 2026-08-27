@@ -7,7 +7,7 @@
 	<!-- Start PWB: serve same origin -->
 	<!-- Start Positron -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-mXmbGZWc7y57qzxx5u1Cv1JgPhGq1xeU/qZdSKeBwIo=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-kd0dWBJejWJWmOVXjRQoKCQ8/87IiHZ4xfo+bzXc+jo=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -282,6 +282,21 @@
 					) {
 						await new Promise(r => {
 							navigator.serviceWorker.addEventListener('controllerchange', r, { once: true });
+
+							// --- Start Positron ---
+							// Firefox does not automatically make a newly created webview iframe a
+							// controlled client, even when this worker is already active. When that
+							// happens nothing is installing or waiting, so `controllerchange` would
+							// never fire and this promise would hang forever, leaving every webview
+							// after the first one permanently blank. Ask the active worker to claim
+							// this client so the event does fire. The listener is registered first so
+							// a claim that lands immediately cannot be missed.
+							if (navigator.serviceWorker.controller) {
+								r();
+							} else if (registration.active) {
+								registration.active.postMessage({ channel: 'claim' });
+							}
+							// --- End Positron ---
 						});
 					}
 

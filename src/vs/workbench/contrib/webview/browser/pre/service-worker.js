@@ -258,6 +258,15 @@ sw.addEventListener('message', async (event) => {
 	/** @type {Client} */
 	const source = event.source;
 	switch (event.data.channel) {
+		// --- Start Positron ---
+		case 'claim': {
+			// See the matching comment in pre/index.html: Firefox can leave a newly
+			// created webview iframe uncontrolled even though this worker is already
+			// active, which would otherwise hang the webview's content update.
+			await sw.clients.claim();
+			return;
+		}
+		// --- End Positron ---
 		case 'did-load-resource': {
 			/** @type {ResourceResponse} */
 			const response = event.data.data;
