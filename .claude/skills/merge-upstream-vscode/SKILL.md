@@ -250,6 +250,35 @@ edits. Watch for all of them, not just the first:
   test still exercises the pre-Positron behavior. Update the test to set up the
   Positron inputs the production code now reads.
 
+#### Extension host tests
+
+The `test / ext-host` CI job runs three driver scripts in sequence, matching
+`.github/workflows/test-ext-host.yml`: `scripts/test-integration-pr.sh` (Positron
+extensions, Electron), `scripts/test-remote-integration.sh` (upstream API/language
+suites, Remote), and `scripts/test-web-integration.sh` (Chromium). A red job can
+come from any of the three, not just the first.
+
+Read this job's failure carefully: it has a signature that looks green. Every
+suite can report `N passing` and `Extension host test runner exit code: 0` while
+the job still ends in `##[error]Process completed with exit code 1`. When that
+happens the failure is in the driver script, not a test:
+
+- **`set -e` cleanup race.** The drivers `rm -rf` a throwaway user-data temp dir
+  at the end. A builtin extension (notably `ms-python`) can still be writing a
+  bytecache into it during teardown, so `rm` fails with `rm: cannot remove ...
+  Directory not empty` and `set -e` turns that into exit 1. That one `rm:` line
+  sits just above the exit code, after the last suite's `exited with code: 0`.
+  These temp-dir cleanups must be best-effort (`|| true`); don't chase it as a
+  test failure.
+- **Unhandled rejection at shutdown.** A rejected promise logged as `rejected
+  promise not handled within 1 second` can fail the process after tests pass.
+  Note it appears benignly in many suites (e.g. copilot's `GitHubLoginFailed`);
+  only treat it as the cause if it correlates with the failing process.
+
+So when the ext-host job is red, don't stop at the mocha summary. Scan the tail of
+the failing suite for a non-test line (`rm:`, a stack trace, a crash) between the
+last `exited with code: 0` and the final exit code.
+
 Next, install all e2e test dependencies and run the test suite. Investigate any
 failures and fix them if they are caused by the merge.
 
