@@ -751,6 +751,27 @@
 			}
 		},
 		{
+			"label": "Mock Update Server",
+			"type": "npm",
+			"script": "mock-update-server",
+			"isBackground": true,
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			},
+			"problemMatcher": {
+				"owner": "mock-update-server",
+				"pattern": {
+					"regexp": "^$"
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "mock-update-server",
+					"endsPattern": "Mock update feed on"
+				}
+			}
+		},
+		{
 			"label": "Echo E2E Status",
 			"type": "shell",
 			"command": "pwsh",

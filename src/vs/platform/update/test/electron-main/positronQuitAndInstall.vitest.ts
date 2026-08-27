@@ -182,6 +182,8 @@ describe('AbstractUpdateService overwrite updates', () => {
 	let metered: boolean;
 	/** How long a pending update waits before re-checking the feed; kept long unless a test wants it. */
 	let overwriteCheckIntervalMs: number;
+	/** The versions handed to the platform installer, in order. */
+	let installed: (string | undefined)[];
 
 	class TestUpdateService extends AbstractUpdateService {
 		protected override doCheckForUpdates(_explicit: boolean, pendingCommit?: string): void {
@@ -196,6 +198,9 @@ describe('AbstractUpdateService overwrite updates', () => {
 
 		protected override doQuitAndInstall(): void {
 			calls.push('doQuitAndInstall');
+			// The platform installs whatever the *current* state carries, which is the whole point
+			// of the overwrite flow, so record it rather than the version that was first pending.
+			installed.push(this.state.type === StateType.Restarting ? this.state.update.version : undefined);
 		}
 
 		protected override async cancelPendingUpdate(): Promise<void> {
@@ -211,9 +216,9 @@ describe('AbstractUpdateService overwrite updates', () => {
 		}
 
 		/** The real service reaches Ready through the download/apply chain, which needs a network. */
-		becomeReady(): void {
+		becomeReady(version: string = PENDING_VERSION): void {
 			this.setFeed();
-			this.setState(State.Ready({ version: PENDING_VERSION }, false, false));
+			this.setState(State.Ready({ version }, false, false));
 		}
 
 		/** Leaving Ready, e.g. because updates were disabled after the update was staged. */
@@ -273,6 +278,7 @@ describe('AbstractUpdateService overwrite updates', () => {
 		metered = false;
 		// Long enough that the interval never fires unless a test shortens it.
 		overwriteCheckIntervalMs = 60 * 60 * 1000;
+		installed = [];
 	});
 
 	describe('quitAndInstall', () => {
@@ -316,6 +322,28 @@ describe('AbstractUpdateService overwrite updates', () => {
 			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
 
 			expect(calls).toEqual(['quit', 'doQuitAndInstall']);
+			service.dispose();
+		});
+
+		it('installs the version from the overwrite check, not the one that was first pending', async () => {
+			// The point of the whole flow: a build that shipped while the update sat pending is the
+			// one that gets installed.
+			const NEWER_VERSION = '2026.09.0-2';
+			feedVersion = NEWER_VERSION;
+			const service = createService();
+			service.becomeReady();
+
+			// First restart request: postponed while the newer version is fetched.
+			await service.quitAndInstall();
+			expect(service.state.type).toBe(StateType.Overwriting);
+
+			// The platform download pipeline lands the newer version in Ready.
+			service.becomeReady(NEWER_VERSION);
+
+			await service.quitAndInstall();
+			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
+
+			expect(installed).toEqual([NEWER_VERSION]);
 			service.dispose();
 		});
 
