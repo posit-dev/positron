@@ -79,6 +79,7 @@
     "watch": "tsc -watch -p ./",
     "build-analyzer": "node ./scripts/build-analyzer.mts",
     "check-analyzer": "node ./scripts/build-analyzer.mts --check",
+    "build-keywords": "UPDATE_KEYWORD_TABLE=1 cargo test --manifest-path ./sql-analyzer/Cargo.toml --test keyword_table",
     "test-analyzer": "cargo test --manifest-path ./sql-analyzer/Cargo.toml",
     "lint": "eslint src --ext ts"
   },

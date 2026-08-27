@@ -133,8 +133,10 @@ fn flush(
 ///
 /// An offset inside the whitespace that follows a terminated statement belongs to no statement:
 /// what the user types there starts a new one, so its completions should not be scoped to the
-/// tables of the statement above. An offset past the end of an *unterminated* final statement
-/// does belong to it, since that is what continuing to type it looks like.
+/// tables of the statement above. That includes the offset immediately past the semicolon, which
+/// is why the test below is exclusive -- `end` is already past it. An offset past the end of an
+/// *unterminated* final statement does belong to it, since that is what continuing to type it
+/// looks like.
 pub fn statement_at(statements: &[Statement], offset: u32) -> Option<&Statement> {
     let mut found: Option<&Statement> = None;
     for statement in statements {
@@ -144,7 +146,7 @@ pub fn statement_at(statements: &[Statement], offset: u32) -> Option<&Statement>
         found = Some(statement);
     }
     let statement = found?;
-    if offset <= statement.end || !statement.terminated {
+    if offset < statement.end || !statement.terminated {
         Some(statement)
     } else {
         None
