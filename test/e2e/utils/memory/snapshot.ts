@@ -104,20 +104,41 @@ export function joinProcesses(
 /**
  * Mark which processes were sampled after a forced garbage collection.
  *
- * By role rather than by pid, even though {@link ForcedGcStats} carries one. The
- * GC reaches a process through its role's inspector port, so every process of a
- * collected role is in the collected state; flagging only the pid that answered
- * would leave a sibling of the same role reading as live. The API's trend
- * summary aggregates this per role with `any()` on exactly that assumption.
+ * Primarily by role rather than by pid, even though {@link ForcedGcStats}
+ * carries one. The GC reaches a process through its role's inspector port, so
+ * every process of a collected role is in the collected state; flagging only
+ * the pid that answered would leave a sibling of the same role reading as
+ * live. The API's trend summary aggregates this per role with `any()` on
+ * exactly that assumption.
+ *
+ * Pid is an additional, fallback match for lanes where the role cannot be
+ * resolved at all: the server lane cannot answer `--status` (label.ts,
+ * memory-scenario.ts), so `shared` and `extension_host` never come from
+ * `NAME_RULES` there and the collected extension host resolves to
+ * `unlabeled`. Matching its pid against the stats identifies exactly the
+ * process the GC pass reached, which is strictly more truthful than leaving
+ * an unlabeled-but-collected process reading as live.
+ *
+ * Role matching errs toward over-claiming rather than under-claiming: if a
+ * role ever has two processes (two windows, two extension hosts), the GC
+ * reaches one inspector port but both get flagged. That is the safer
+ * direction -- a visible asterisk on a partly-collected role beats a silent
+ * absent one on a role that really was collected -- and moot today since every
+ * scenario runs a single window.
  *
  * Absent stats mean no GC pass ran, so every process keeps the `false`
  * {@link joinProcesses} set.
  */
 export function withForcedGc(processes: LabeledProcess[], forcedGc: ForcedGcStats[] | undefined): LabeledProcess[] {
+	const stats = forcedGc ?? [];
 	// Typed as strings rather than GcTarget['role'], so the lookup below can ask
 	// about any ProcessRole without a cast.
-	const collected = new Set<string>((forcedGc ?? []).map(stats => stats.role));
-	return processes.map(proc => ({ ...proc, forcedGc: collected.has(proc.processRole) }));
+	const collectedRoles = new Set<string>(stats.map(entry => entry.role));
+	const collectedPids = new Set<number>(stats.map(entry => entry.pid));
+	return processes.map(proc => ({
+		...proc,
+		forcedGc: collectedRoles.has(proc.processRole) || collectedPids.has(proc.pid)
+	}));
 }
 
 const totalPss = (procs: RawProcess[]): number => procs.reduce((sum, p) => sum + p.pssBytes, 0);

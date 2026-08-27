@@ -67,10 +67,18 @@ const ARK_SIDECARS = ['VERSION', 'SUBMODULE_COMMIT'] as const;
  * and by the time this is called a memory run has already measured everything --
  * failing here would cost the measurement to gain nothing.
  */
-export function readArkVersion(buildRoot: string = process.env.BUILD ?? ''): string | undefined {
-	// No build means a dev-mode run, which publishes to the local URL and is not
-	// in the dataset. Deliberately does not fall back to the repo checkout: the
-	// path would have to be guessed from __dirname, and a wrong guess is silent.
+export function readArkVersion(buildRoot: string = process.env.BUILD || process.cwd()): string | undefined {
+	// `BUILD` is only set on the memory lane plus two hardcoded remote lanes
+	// (test-memory-metrics.yml), but the performance client decides prod vs.
+	// local by branch, not by `BUILD` (api.ts) -- so the nightly full suite that
+	// produces every performance row has no `BUILD` and would never resolve an
+	// ark version without a further fallback. That fallback is the checkout
+	// itself: `process.cwd()` is this repo's own existing convention (see
+	// `ROOT_PATH` in fixtures/test-setup/constants.ts), not a guess derived from
+	// `__dirname`, and `arkResourceDirs`'s build-root candidate already resolves
+	// a plain dev checkout's layout with no changes needed here. An explicit
+	// empty string (as opposed to an omitted argument) still short-circuits
+	// below, since a default parameter only applies to `undefined`.
 	if (!buildRoot) {
 		return undefined;
 	}

@@ -392,6 +392,28 @@ describe('withForcedGc', () => {
 		withForcedGc(input, [stats('shared', 1)]);
 		expect(input[0].forcedGc).toBe(false);
 	});
+
+	// The server lane cannot answer `--status` at all (label.ts), so `shared`
+	// and `extension_host` never resolve there and the collected extension host
+	// reads as `unlabeled`. Matching by pid as well identifies exactly the
+	// process the GC pass actually reached, which is strictly more truthful
+	// than leaving an unlabeled-but-collected process reading as live.
+	test('flags an unlabeled process whose pid matches, as on the server lane', () => {
+		const flagged = withForcedGc(
+			[proc(2, 'unlabeled')],
+			[stats('extension_host', 2)]);
+		expect(flagged.map(p => p.forcedGc)).toEqual([true]);
+	});
+
+	// Confirms pid matching is additive, not a replacement for role matching: a
+	// process whose pid does not match any stats entry still falls through to
+	// the role check rather than defaulting to false.
+	test('still flags by role when pids do not match', () => {
+		const flagged = withForcedGc(
+			[proc(1, 'extension_host')],
+			[stats('extension_host', 999)]);
+		expect(flagged.map(p => p.forcedGc)).toEqual([true]);
+	});
 });
 
 describe('joinProcesses forcedGc default', () => {

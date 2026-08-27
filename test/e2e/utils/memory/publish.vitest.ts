@@ -26,6 +26,7 @@ const process1: LabeledProcess = {
 	processName: 'window [1] (secret-client-project)',
 	processRole: 'renderer', labeled: true, cmdBasename: 'positron',
 	pssBytes: 300, rssBytes: 600, pssMin: 290, pssMax: 310,
+	pssSamples: [290, 300, 310], rssSamples: [580, 600, 620],
 	forcedGc: false
 };
 

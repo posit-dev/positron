@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -87,8 +87,33 @@ describe('readArkVersion', () => {
 		expect(readArkVersion(buildRoot)).toBeUndefined();
 	});
 
-	test('returns undefined with no build root, rather than searching the repo', () => {
+	// An explicit empty string is not the same as omitting the argument: a
+	// default parameter only kicks in for `undefined`, so this still returns
+	// undefined rather than falling back to the checkout.
+	test('returns undefined with an explicit empty build root, rather than searching the repo', () => {
 		expect(readArkVersion('')).toBeUndefined();
+	});
+
+	// The performance pipeline decides prod vs. local by branch, not by `BUILD`
+	// (api.ts), and `BUILD` is only set on the memory lane plus two hardcoded
+	// remote lanes -- so the nightly full suite that produces every performance
+	// row would never resolve an ark version without this fallback. `process.cwd()`
+	// is this repo's own convention (see ROOT_PATH in fixtures/test-setup/constants.ts),
+	// not a derived guess, and it is exactly the build root arkResourceDirs already
+	// knows how to search.
+	test('falls back to the checkout when BUILD is unset and no argument is given', () => {
+		const previousBuild = process.env.BUILD;
+		delete process.env.BUILD;
+		try {
+			expect(readArkVersion()).toBe(
+				readFileSync(join(process.cwd(), 'extensions', 'positron-r', 'resources', 'ark', 'VERSION'), 'utf8').trim());
+		} finally {
+			if (previousBuild === undefined) {
+				delete process.env.BUILD;
+			} else {
+				process.env.BUILD = previousBuild;
+			}
+		}
 	});
 
 	// An unreadable sidecar must not take a memory run down with it: the run has
