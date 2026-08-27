@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { DEEPSEEK_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { PROVIDER_METADATA } from '../providerSources';
+import { getValidationHeaders } from './validationHeaders';
 
 class DeepSeekValidationError extends Error {
 	constructor(message: string) {
@@ -22,15 +24,19 @@ export async function validateDeepSeekApiKey(
 		config.baseUrl?.trim() || DEEPSEEK_DEFAULT_BASE_URL
 	).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
+	const headers = getValidationHeaders(
+		PROVIDER_METADATA.deepseek.catalogId!,
+		{
+			'Authorization': `Bearer ${apiKey}`,
+		}
+	);
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), KEY_VALIDATION_TIMEOUT_MS);
 	try {
 		const response = await fetch(modelsEndpoint, {
 			method: 'GET',
-			headers: {
-				'Authorization': `Bearer ${apiKey}`,
-			},
+			headers,
 			signal: controller.signal,
 		});
 
