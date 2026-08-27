@@ -1,0 +1,25 @@
+{
+  "name": "positron-data-driver-common",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared helpers for Positron data driver extensions: query code generation and the language quoting it depends on. Build-time-only: consumed by the data driver extensions via esbuild, not packaged or activated as an extension.",
+  "main": "./out/index.js",
+  "types": "./out/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./out/index.d.ts",
+      "default": "./out/index.js"
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "watch": "tsc -w -p tsconfig.json",
+    "prepare": "npm run compile",
+    "test": "node ../../node_modules/mocha/bin/mocha"
+  },
+  "devDependencies": {
+    "@types/mocha": "^9.1.0",
+    "@types/node": "14.x",
+    "typescript": "^4.5.5"
+  }
+}
