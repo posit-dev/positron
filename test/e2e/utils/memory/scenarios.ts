@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { MEMORY_LANES, MemoryLane } from './lanes.js';
+
 /**
  * Which app states a memory run can measure. The dashboard keys one series per
  * scenario, so these strings are a published contract; renaming one splits its
@@ -26,26 +28,42 @@ export function isMemoryScenario(value: string | undefined): value is MemoryScen
 	return value !== undefined && MEMORY_SCENARIOS.includes(value as MemoryScenario);
 }
 
-/** The spec file that measures each scenario. */
-const SPEC_BY_SCENARIO: Record<MemoryScenario, string> = {
-	'idle': '**/performance/memory-idle.test.ts',
-	'session-python': '**/performance/memory-session-python.test.ts',
-	'session-r': '**/performance/memory-session-r.test.ts',
-	'data-explorer': '**/performance/memory-data-explorer.test.ts',
-	'notebook': '**/performance/memory-notebook.test.ts',
-	'editors': '**/performance/memory-editors.test.ts',
-	'console-output': '**/performance/memory-console-output.test.ts'
+/**
+ * The spec file that measures each lane/scenario pair.
+ *
+ * Sparse on purpose: only `idle` exists in the server lane. A pair with no spec
+ * is not runnable, and asking for one must ignore everything rather than fall
+ * through to the desktop spec of the same name.
+ */
+const SPEC_BY_LANE_SCENARIO: Record<MemoryLane, Partial<Record<MemoryScenario, string>>> = {
+	desktop: {
+		'idle': '**/performance/memory-idle.test.ts',
+		'session-python': '**/performance/memory-session-python.test.ts',
+		'session-r': '**/performance/memory-session-r.test.ts',
+		'data-explorer': '**/performance/memory-data-explorer.test.ts',
+		'notebook': '**/performance/memory-notebook.test.ts',
+		'editors': '**/performance/memory-editors.test.ts',
+		'console-output': '**/performance/memory-console-output.test.ts'
+	},
+	server: {
+		'idle': '**/performance/memory-server-idle.test.ts'
+	}
 };
 
+/** Every memory spec, in every lane. */
+const ALL_MEMORY_SPECS: string[] = MEMORY_LANES
+	.flatMap(lane => Object.values(SPEC_BY_LANE_SCENARIO[lane]))
+	.filter((spec): spec is string => spec !== undefined);
+
 /**
- * Which memory specs a run must not collect. Every one of them except the
- * running scenario's, and all of them when no scenario is set.
+ * Which memory specs a run must not collect: every one except the running
+ * lane/scenario pair's, and all of them when no scenario is set.
  *
- * Ignored rather than skipped in-test because merge-to-main runs this lane
- * ungrepped, so a skip would report a permanently skipped row.
+ * `lane` is required with no default. A default would let a call site that was
+ * never updated produce a lane-filtered list where the old code meant a
+ * lane-agnostic one, and the compiler could not catch it.
  */
-export function memorySpecsToIgnore(scenario: string | undefined): string[] {
-	return MEMORY_SCENARIOS
-		.filter(candidate => candidate !== scenario)
-		.map(candidate => SPEC_BY_SCENARIO[candidate]);
+export function memorySpecsToIgnore(lane: MemoryLane, scenario: string | undefined): string[] {
+	const running = isMemoryScenario(scenario) ? SPEC_BY_LANE_SCENARIO[lane][scenario] : undefined;
+	return ALL_MEMORY_SPECS.filter(spec => spec !== running);
 }

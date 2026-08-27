@@ -4,17 +4,16 @@ description: >
   Running Positron IDE commands: changing the window layout, focusing panes
   (Console, Variables, Plots, Help, Packages), clearing the console, listing or
   discovering registered interpreters, listing running sessions, switching or
-  starting a session, restarting or interrupting a stuck one, and refreshing or
-  updating packages. Use when the user wants Positron itself to do something,
+  starting a session, restarting or interrupting a stuck one, setting up Python,
+  and reading, installing or updating the packages in a session. Use when the
+  user wants Positron itself to do something, or wants to know what is installed,
   rather than to run R or Python code. Load this skill, then read the reference
-  file for the area: panes and layout in references/ui.md; interpreters in
-  references/interpreters.md; sessions in references/sessions.md; stuck sessions,
-  packages, and help in references/troubleshooting.md; Python setup in
-  references/python-setup.md.
-  Triggers: "switch to the data science layout", "show the variables pane",
-  "clear the console", "what interpreters are available", "switch to my R
-  session", "start a new Python session", "my session is stuck", "update all my
-  packages", "set up a Python environment".
+  file for the area in question. Triggers: "switch to the data science layout",
+  "show the variables pane", "clear the console", "what interpreters are
+  available", "switch to my R session", "start a new Python session", "my
+  session is stuck", "is pandas installed?", "install dplyr", "update all my
+  packages", "do I have any vulnerable packages?", "I don't have Python
+  installed", "set up a Python environment", "which Python am I using".
 ---
 
 # Positron IDE commands
@@ -73,10 +72,17 @@ different session, or starting a new one. Also explains the difference between
 console sessions and notebook sessions, which decides whether a session can be
 selected.
 
-**Stuck sessions, packages, and help** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
-Read when the user asks about: a session that is stuck or needs interrupting or
-restarting, installed packages that need refreshing or updating, or looking up a
-help topic for a function or symbol.
+**Stuck sessions and help** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
+Read when the user asks about a session that is stuck, needs interrupting, or
+needs restarting. Also covers looking up a help topic for a function or symbol.
+
+**Packages** -- [references/packages.md]({{skill_dir}}/references/packages.md)
+Read when the user asks about: what is installed in a session and at which
+version, whether a package is available, out of date or affected by a known
+security advisory, or installing and updating packages. Read it **before**
+answering any question about what the session has -- it documents the command
+that reports the installed packages, which is always the right way to find out,
+rather than running code to check.
 
 **Python environment setup** -- [references/python-setup.md]({{skill_dir}}/references/python-setup.md)
 Read when the user is getting Python set up: installing a Python interpreter when

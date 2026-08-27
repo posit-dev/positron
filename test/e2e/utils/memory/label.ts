@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { MemoryLane } from './lanes.js';
 import { ProcessRole } from './types.js';
 
 /**
@@ -212,4 +213,21 @@ export function resolveRole(input: { positronName?: string; cmd: string; isRoot:
 	}
 
 	return { role: 'unlabeled', labeled };
+}
+
+/**
+ * Whether the namedShare attribution gate (memory-scenario.ts) applies to a
+ * lane. `--status` is inherently an Electron IPC call: the CLI spawns a child
+ * Electron main to query an already-running instance (positron-status.ts). The
+ * server lane has no such instance to ask, so every process is unlabeled by
+ * construction there, and the gate would fail every run regardless of how good
+ * attribution actually is.
+ *
+ * The lane is not left ungated: `resolveRole` above classifies by argv and by
+ * the extension directory a process was spawned from, with no dependence on
+ * `positronName`, so the unlabeledBytes gate stays lane-agnostic and still
+ * catches a genuinely unattributable tree in the server lane.
+ */
+export function namedShareGateApplies(lane: MemoryLane): boolean {
+	return lane !== 'server';
 }

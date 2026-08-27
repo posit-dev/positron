@@ -72,6 +72,10 @@ jobs:
       AWS_S3_BUCKET: positron-test-reports
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+      # Account identifier for the posit-assistant Snowflake Cortex test, which types it
+      # into the modal alongside SNOWFLAKE_API_KEY (loaded from 1Password below). The
+      # Linux lanes set this from the same secret for the data-connections suite.
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
       LANG: "en_US.UTF-8"
     steps:
       - uses: actions/checkout@v7
@@ -111,6 +115,9 @@ jobs:
           REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
           TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
           TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
+          # Snowflake programmatic access token for the posit-assistant Snowflake Cortex
+          # test. Pairs with the SNOWFLAKE_ACCOUNT env var set on the job above.
+          SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
 
       # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
       # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
