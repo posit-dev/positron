@@ -117,15 +117,17 @@ describe('validateLicense', () => {
 		expect(result.valid).toBe(false);
 	});
 
-	it('marks a signed token not academic', async () => {
+	it('marks a signed token not academic and gives it no license hash', async () => {
+		// A signed token is minted per connection, so hashing it would identify the
+		// connection rather than a license Posit issued.
 		const token = 'test-token-not-academic';
 		const timestamp = new Date().toISOString();
 		const license = mintLicense(token, 'Test Hub', 'Test Corp', timestamp);
 
 		const result = await validateLicense(token, license, [testPubKeyPem]);
 
-		expect(result.valid).toBe(true);
-		expect(result.academic).toBe(false);
+		expect({ valid: result.valid, academic: result.academic, licenseHash: result.licenseHash })
+			.toEqual({ valid: true, academic: false, licenseHash: undefined });
 	});
 
 	it('rejects malformed JSON', async () => {
@@ -170,15 +172,20 @@ describe('validateLicenseFile', () => {
 		return licPath;
 	}
 
-	it('marks a raw license file academic when the license manager verifies it', async () => {
-		const licPath = writeTempLicense('-----BEGIN RSTUDIO LICENSE-----\nabc123\n-----END RSTUDIO LICENSE-----\n');
-		try {
-			const result = await validateLicenseFile('any-token', licPath, async () => ({ valid: true, licensee: 'Acme University' }));
-			expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true });
-		} finally {
-			fs.unlinkSync(licPath);
-		}
-	});
+	// The hash is computed where the verified file lives (localLicense.ts), so this path
+	// only has to mark the deployment academic and pass the hash through untouched,
+	// whether the license manager reported one or not.
+	it.each([undefined, 'a1b2c3d4e5f60718'])(
+		'marks a verified raw license file academic, carrying licenseHash %s',
+		async licenseHash => {
+			const licPath = writeTempLicense('-----BEGIN RSTUDIO LICENSE-----\nabc123\n-----END RSTUDIO LICENSE-----\n');
+			try {
+				const result = await validateLicenseFile('any-token', licPath, async () => ({ valid: true, licensee: 'Acme University', licenseHash }));
+				expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true, licenseHash });
+			} finally {
+				fs.unlinkSync(licPath);
+			}
+		});
 
 	it('does not mark a rejected raw license file academic', async () => {
 		const licPath = writeTempLicense('-----BEGIN RSTUDIO LICENSE-----\nabc123\n-----END RSTUDIO LICENSE-----\n');
@@ -258,12 +265,14 @@ describe('validateLicenseKey', () => {
 		}
 	});
 
-	it('marks a local .lic license academic', async () => {
-		await withCleanLicenseEnv(async () => {
-			const result = await validateLicenseKey('some-token', createServerArgs(), async () => ({ valid: true, licensee: 'Acme University' }));
-			expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true });
+	it.each([undefined, 'a1b2c3d4e5f60718'])(
+		'marks a local .lic license academic, carrying licenseHash %s',
+		async licenseHash => {
+			await withCleanLicenseEnv(async () => {
+				const result = await validateLicenseKey('some-token', createServerArgs(), async () => ({ valid: true, licensee: 'Acme University', licenseHash }));
+				expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true, licenseHash });
+			});
 		});
-	});
 
 	it('falls back to the local .lic when the provided license does not validate', async () => {
 		// A lingering jupyter-positron-verifier deployment injects a minted token

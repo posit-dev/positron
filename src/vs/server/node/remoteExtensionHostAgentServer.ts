@@ -753,7 +753,7 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		issuer: licenseValidationResult.issuer,
 		academic: licenseValidationResult.academic === true,
 	} : undefined;
-	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronLicenseeInfo);
+	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronLicenseeInfo, licenseValidationResult?.licenseHash);
 	// --- End Positron ---
 
 	// --- Start Positron ---

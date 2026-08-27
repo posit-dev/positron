@@ -31,6 +31,14 @@ export interface ILicenseValidationResult {
 	 * or it will inherit `academic` as true
 	 */
 	academic?: boolean;
+	/**
+	 * A short, stable hash of the license file that licensed this deployment, reported to
+	 * P3M as `positron-license-hash` so Posit can count session starts per license it
+	 * issued. Computed by `hashLicenseContents` in `localLicense.ts` and carried up
+	 * through the raw-license-file paths; a signed Workbench token is per-connection and
+	 * the AWS license manager exposes no key material, so neither of those sets it.
+	 */
+	licenseHash?: string;
 }
 
 /**
