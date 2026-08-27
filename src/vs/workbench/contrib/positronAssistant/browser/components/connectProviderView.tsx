@@ -214,6 +214,16 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 						baseUrl={baseUrl}
 						providerId={props.source.provider.id}
 						showApiKey={authMethod === AuthMethod.API_KEY}
+						// supportsBaseUrl only says this provider has a base URL concept
+						// at all; it says nothing about whether the value is currently
+						// admin-enforced and so shouldn't be user-editable. There's no
+						// such case today because nothing produces that signal yet --
+						// ai-config has no generic per-field provenance a host could read
+						// (https://github.com/posit-dev/ai-lib/issues/90) -- and
+						// ProviderConnectionFields has no disabled/read-only state for
+						// the input regardless. Once both land, this needs its own
+						// derived value (and showBaseUrl would gate visibility while a
+						// new prop gates editability), not a reuse of supportsBaseUrl.
 						showBaseUrl={supportsBaseUrl}
 						onApiKeyChange={setApiKey}
 						onBaseUrlChange={setBaseUrl}
