@@ -762,7 +762,11 @@ export const codiconsLibrary = {
 	xai: register('xai', 0xecec),
 	arrowCircleUpSparkle: register('arrow-circle-up-sparkle', 0xeced),
 	closeSmall: register('close-small', 0xecee),
-	// --- Start Positron ---
+	bookCompact: register('book-compact', 0xecef),
+	micOff: register('mic-off', 0xecf0),
+	micOffCompact: register('mic-off-compact', 0xecf1),
+	copilotDot: register('copilot-dot', 0xecf2),
+	copilotDotCompact: register('copilot-dot-compact', 0xecf3),
 	positronNew: register('positron-new', 0xf230),
 	positronOpen: register('positron-open', 0xf231),
 	positronSave: register('positron-save', 0xf232),
@@ -884,5 +888,4 @@ export const codiconsLibrary = {
 	positronDbTables: register('positron-db-tables', 0xf2a6),
 	positronDbView: register('positron-db-view', 0xf2a7),
 	positronDbViews: register('positron-db-views', 0xf2a8),
-	// --- End Positron ---
 } as const;
