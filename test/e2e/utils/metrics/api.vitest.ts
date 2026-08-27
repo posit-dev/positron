@@ -3,19 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { createMetricPayload, PerfMetric } from './api.js';
-
-// createMetricPayload's `ark` parameter defaults to this module's `arkVersion`
-// constant, which is a real value whenever the checkout has an ark sidecar
-// (see ark-version.ts's checkout fallback) -- including this repo, while these
-// tests run. Forced to undefined here so 'omits ark_version when the build
-// reported none' exercises the no-ark path regardless of what this checkout
-// happens to have installed.
-vi.mock('./metric-base.js', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('./metric-base.js')>();
-	return { ...actual, arkVersion: undefined };
-});
 
 const metric: PerfMetric = {
 	feature_area: 'data_explorer',

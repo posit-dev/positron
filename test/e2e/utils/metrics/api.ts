@@ -84,7 +84,7 @@ export async function logMetric(
 		process.env.GITHUB_REF_NAME;   // Push, dispatch, etc.
 
 	const apiUrl = branch === 'main' ? PROD_API_URL : LOCAL_API_URL;
-	const payload = createMetricPayload(metric, isElectronApp);
+	const payload = createMetricPayload(metric, isElectronApp, arkVersion);
 
 	logger.log(`--- Log Metric ---`);
 	logger.log(`Current branch: ${branch || 'unknown'}`);
@@ -97,14 +97,15 @@ export async function logMetric(
 /**
  * Creates a metric payload from the provided metric data.
  *
- * `ark` is a parameter with a default rather than a direct read of the module
- * constant, so the payload builder is testable without a module mock. Production
- * callers leave it unset.
+ * The `ark` parameter is passed in rather than read from the module constant,
+ * so the payload builder is a pure function of its arguments and a test can pass
+ * `undefined` to mean "this build reported no ark version" — which a defaulted
+ * parameter cannot express, because a default fires on an explicit `undefined`.
  */
 export function createMetricPayload(
 	metric: PerfMetric,
 	isElectronApp: boolean,
-	ark: string | undefined = arkVersion
+	ark: string | undefined
 ): MetricPayload {
 	const {
 		feature_area,
