@@ -22,6 +22,9 @@ import { InMemoryStorageService, IStorageService } from '../../../../../platform
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../../../platform/telemetry/common/telemetryUtils.js';
 import { AuthenticationSession, IAuthenticationExtensionsService, IAuthenticationService } from '../../../authentication/common/authentication.js';
+// --- Start Positron ---
+import { IAuthenticationAccessService } from '../../../authentication/browser/authenticationAccessService.js';
+// --- End Positron ---
 import { IWorkbenchEnvironmentService } from '../../../environment/common/environmentService.js';
 import { IExtensionService } from '../../../extensions/common/extensions.js';
 import { IHostService } from '../../../host/browser/host.js';
@@ -238,6 +241,12 @@ suite('DefaultAccountProvider managed settings', () => {
 			onDidChangeFocus: Event.None,
 		});
 		instantiationService.stub(ICommandService, {});
+		// --- Start Positron ---
+		instantiationService.stub(IAuthenticationAccessService, {
+			onDidChangeExtensionSessionAccess: Event.None,
+			isAccessAllowed: () => true,
+		});
+		// --- End Positron ---
 
 		const provider = disposables.add(instantiationService.createInstance(DefaultAccountProvider, {
 			preferredExtensions: [],
