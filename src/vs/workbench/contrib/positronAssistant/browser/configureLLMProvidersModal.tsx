@@ -216,6 +216,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					onAction={props.onAction}
 					onBack={backToList}
 					onClose={close}
+					onEditRawConfig={editRawConfig}
 				/>
 			}
 		</PositronModalDialog>

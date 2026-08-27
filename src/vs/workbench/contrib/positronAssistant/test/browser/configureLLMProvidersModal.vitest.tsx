@@ -51,7 +51,8 @@ describe('ConfigureLLMProviders', () => {
 	// What the service reports after a registration change; the modal re-reads
 	// it rather than patching its own list.
 	let registeredSources: IPositronLanguageModelSource[] = [];
-	// The add write is the extension's, reached by command.
+	// The add write is the extension's, reached by command; opening
+	// providers.json for advanced editing goes through the same service.
 	const executeCommand = vi.fn().mockResolvedValue(undefined);
 	beforeEach(() => { sessions = []; registeredSources = []; executeCommand.mockClear(); });
 
@@ -81,6 +82,7 @@ describe('ConfigureLLMProviders', () => {
 		sources: IPositronLanguageModelSource[],
 		preselectedProviderId?: string,
 		onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void> = async () => { },
+		onClose: () => void = () => { },
 	) {
 		return rtl.render(
 			<ConfigureLLMProviders
@@ -88,7 +90,7 @@ describe('ConfigureLLMProviders', () => {
 				renderer={makeRenderer()}
 				sources={sources}
 				onAction={onAction}
-				onClose={() => { }}
+				onClose={onClose}
 			/>
 		);
 	}
@@ -250,4 +252,34 @@ describe('ConfigureLLMProviders', () => {
 		expect(screen.getByText('Model Providers')).toBeInTheDocument();
 	});
 
+	it('offers Edit providers.json on the connect view for a custom entry, and not for a built-in', async () => {
+		const user = userEvent.setup();
+		renderModal([anthropic, myGateway]);
+
+		await user.click(screen.getAllByRole('button', { name: /connect/i })[1]);
+		expect(screen.getByRole('button', { name: /edit providers\.json/i })).toBeInTheDocument();
+
+		await user.click(screen.getByRole('button', { name: 'Back' }));
+		await user.click(screen.getAllByRole('button', { name: /connect/i })[0]);
+		expect(screen.queryByRole('button', { name: /edit providers\.json/i })).not.toBeInTheDocument();
+	});
+
+	it('offers Edit providers.json on the connected view for a custom entry', async () => {
+		const connectedGateway = { ...myGateway, signedIn: true, status: 'ok' as const };
+		renderModal([connectedGateway], connectedGateway.provider.id);
+
+		expect(screen.getByRole('button', { name: /edit providers\.json/i })).toBeInTheDocument();
+	});
+
+	it('opens providers.json and closes the modal from Edit providers.json', async () => {
+		const user = userEvent.setup();
+		const onClose = vi.fn();
+		renderModal([myGateway], undefined, undefined, onClose);
+
+		await user.click(screen.getByRole('button', { name: /connect/i }));
+		await user.click(screen.getByRole('button', { name: /edit providers\.json/i }));
+
+		expect(executeCommand).toHaveBeenCalledWith('workbench.action.positronAssistant.openAiProviderSettingsJson');
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
 });

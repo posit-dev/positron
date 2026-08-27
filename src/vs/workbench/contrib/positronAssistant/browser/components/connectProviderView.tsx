@@ -78,7 +78,8 @@ export interface ConnectProviderViewProps {
 	/**
 	 * Open providers.json for advanced editing. Closes the modal (so the editor
 	 * is visible), which discards any unsaved form input, so the affordance says
-	 * as much. Only wired for the custom provider create flow.
+	 * as much. Rendered for a custom entry in place of the Delete action that
+	 * used to sit here -- deleting is now a providers.json edit, not a button.
 	 */
 	onEditRawConfig?: () => void;
 }
@@ -251,6 +252,9 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 					}
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
 					<div style={{ flexGrow: 1 }}>&nbsp;</div>
+					{props.source.provider.customKind && props.onEditRawConfig &&
+						<EditRawConfigLink onClick={props.onEditRawConfig} />
+					}
 					<ProviderNotice source={props.source} />
 				</div>
 			</ContentArea>
@@ -289,6 +293,17 @@ export const ConnectProviderHeader = (props: { source: IPositronLanguageModelSou
 			{props.subtitle && <span className='connect-provider-subtitle'>{props.subtitle}</span>}
 		</div>
 	</div>
+);
+
+/**
+ * Points at providers.json for what a custom entry's screen doesn't cover --
+ * the slot where a Delete Provider action used to sit, before deleting moved
+ * to editing the file directly. Shared with the connected view.
+ */
+export const EditRawConfigLink = (props: { onClick: () => void }) => (
+	<button className='connect-provider-edit-json' type='button' onClick={props.onClick}>
+		{localize('positron.connectProvider.editJson', "Edit providers.json for advanced options (closes this dialog)")}
+	</button>
 );
 
 /** Error banner shared by the connect and connected views. */

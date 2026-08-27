@@ -14,7 +14,7 @@ import { AuthMethod } from '../types.js';
 import { deriveAuthMethod, deriveDisconnectAction } from '../providerConnection.js';
 import { getBaseUrlLabel } from '../providerFieldLabels.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
-import { ConnectProviderHeader, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
+import { ConnectProviderHeader, EditRawConfigLink, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
 
 export interface ConnectedProviderViewProps {
@@ -24,6 +24,11 @@ export interface ConnectedProviderViewProps {
 	onBack: () => void;
 	/** Invoked by the footer Close button. */
 	onClose: () => void;
+	/**
+	 * Open providers.json for advanced editing. Only provided for a custom
+	 * entry, in place of the Delete action that used to sit here.
+	 */
+	onEditRawConfig?: () => void;
 }
 
 export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
@@ -111,6 +116,9 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 						}
 					</p>
 
+					{current.provider.customKind && props.onEditRawConfig &&
+						<EditRawConfigLink onClick={props.onEditRawConfig} />
+					}
 					<ProviderNotice source={current} />
 					{errorMessage && <div className='connect-provider-error'>{errorMessage}</div>}
 				</div>
