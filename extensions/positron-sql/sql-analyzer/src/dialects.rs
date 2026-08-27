@@ -3,9 +3,32 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-//! Resolving the dialect the user configured, and the keywords worth completing.
+//! Resolving the dialect the user configured.
 
 use sqlparser::dialect::{dialect_from_str, Dialect, GenericDialect};
+
+/// Every dialect sqlparser implements, under the one spelling this crate uses for it.
+///
+/// The generated keyword table has a row per entry here, so this is the list [`canonical`] maps
+/// into and the order is part of that table's contract.
+pub const CANONICAL: &[&str] = &[
+    "generic",
+    "ansi",
+    "bigquery",
+    "clickhouse",
+    "databricks",
+    "duckdb",
+    "hive",
+    "mssql",
+    "mysql",
+    "oracle",
+    "postgres",
+    "redshift",
+    "snowflake",
+    "sparksql",
+    "sqlite",
+    "teradata",
+];
 
 /// Names this accepts that sqlparser spells differently, or does not have a parser for.
 ///
@@ -16,6 +39,7 @@ use sqlparser::dialect::{dialect_from_str, Dialect, GenericDialect};
 const ALIASES: &[(&str, &str)] = &[
     // Spelled differently by sqlparser.
     ("tsql", "mssql"),
+    ("postgresql", "postgres"),
     ("spark", "sparksql"),
     ("spark2", "sparksql"),
     ("mariadb", "mysql"),
@@ -33,64 +57,30 @@ const ALIASES: &[(&str, &str)] = &[
 /// neither should leave a SQL file with no diagnostics and no explanation. The caller says so
 /// once rather than silently parsing as something the user did not ask for.
 pub fn resolve(name: &str) -> (Box<dyn Dialect>, bool) {
-    let normalized = name.trim().to_ascii_lowercase();
-    if normalized.is_empty() {
-        return (Box::new(GenericDialect {}), true);
-    }
-    if let Some(dialect) = dialect_from_str(&normalized) {
-        return (dialect, true);
-    }
-    let aliased = ALIASES
-        .iter()
-        .find(|(from, _)| *from == normalized)
-        .and_then(|(_, to)| dialect_from_str(to));
-    match aliased {
-        Some(dialect) => (dialect, true),
+    match canonical(name) {
+        // Every entry of CANONICAL is a name `dialect_from_str` knows, which the tests pin.
+        Some(name) => (
+            dialect_from_str(name).unwrap_or_else(|| Box::new(GenericDialect {})),
+            true,
+        ),
         None => (Box::new(GenericDialect {}), false),
     }
 }
 
-/// Multi-word keywords worth offering as one completion.
+/// The entry of [`CANONICAL`] a configured name means, or `None` if it means nothing.
 ///
-/// sqlparser tokenizes each word separately and its keyword table has no notion of a phrase, so
-/// unlike SQLGlot's it holds no `GROUP BY`. These are the phrases common enough that completing
-/// them whole saves a real keystroke; the single words they are built from are still offered
-/// individually from [`ALL_KEYWORDS`](sqlparser::keywords::ALL_KEYWORDS).
-const PHRASES: &[&str] = &[
-    "CROSS JOIN",
-    "DELETE FROM",
-    "FULL OUTER JOIN",
-    "GROUP BY",
-    "INNER JOIN",
-    "INSERT INTO",
-    "IS NOT NULL",
-    "IS NULL",
-    "LEFT JOIN",
-    "LEFT OUTER JOIN",
-    "NOT NULL",
-    "ORDER BY",
-    "OUTER JOIN",
-    "PARTITION BY",
-    "PRIMARY KEY",
-    "RIGHT JOIN",
-    "RIGHT OUTER JOIN",
-    "UNION ALL",
-    "WITH RECURSIVE",
-];
-
-/// Every keyword the completion list offers, sorted and deduplicated.
-///
-/// sqlparser keeps one keyword table for all dialects, so unlike the SQLGlot implementation this
-/// does not vary with the configured dialect. Offering a keyword a dialect does not have costs an
-/// entry in a list the user is filtering by prefix anyway; withholding one it does have would
-/// cost a completion that ought to work.
-pub fn keywords() -> Vec<String> {
-    let mut all: Vec<String> = sqlparser::keywords::ALL_KEYWORDS
-        .iter()
-        .map(|keyword| (*keyword).to_string())
-        .chain(PHRASES.iter().map(|phrase| (*phrase).to_string()))
-        .collect();
-    all.sort_unstable();
-    all.dedup();
-    all
+/// The one place that knows how the `sql.dialect` setting's spellings map onto sqlparser's, so that
+/// the parser and the generated keyword table cannot end up keyed on different answers.
+pub fn canonical(name: &str) -> Option<&'static str> {
+    let normalized = name.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return Some("generic");
+    }
+    if let Some(found) = CANONICAL.iter().find(|known| **known == normalized) {
+        return Some(found);
+    }
+    if let Some((_, to)) = ALIASES.iter().find(|(from, _)| *from == normalized) {
+        return CANONICAL.iter().copied().find(|known| known == to);
+    }
+    None
 }
