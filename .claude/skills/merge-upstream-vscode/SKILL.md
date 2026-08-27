@@ -210,6 +210,18 @@ build. If you're on macOS: `npm run gulp vscode-darwin-arm64`
 Run the unit tests and the extension host tests. Investigate and fix any
 failures, and keep running until they pass.
 
+"Unit tests" means BOTH runners, not just one. The Positron vitest suite is fast
+and needs no build daemons, so it's tempting to run it and assume units are
+covered -- but it does not execute the core Mocha `.test.ts` files, which is
+exactly where upstream's own tests collide with Positron's edits. In particular:
+when the merge adds a constructor dependency to an upstream class (a new
+`@IService` parameter), that class's upstream `.test.ts` must stub the new
+service or it throws at construction. Only the core Mocha run catches this;
+vitest never sees it. This is a recurring merge signature -- a single merge often
+needs stub/arg fixes across several upstream tests (e.g. `defaultAccount.test.ts`,
+`chatAgents.test.ts`, `extensionGalleryService.test.ts`). Run the core Mocha
+suite, don't just infer coverage from a green vitest run.
+
 Next, install all e2e test dependencies and run the test suite. Investigate any
 failures and fix them if they are caused by the merge.
 
