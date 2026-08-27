@@ -168,6 +168,20 @@ suite('custom providers', () => {
 				/No custom provider named/
 			);
 		});
+
+		test('saveCustomProviderUrl normalizes a bare host to its versioned form', async () => {
+			writeConfig(configPath, {
+				custom: { 'My Anthropic': { type: 'anthropic', baseUrl: 'https://old.example.com/v1' } },
+			});
+			await initProviderCatalog(context, { configPath });
+
+			await saveCustomProviderUrl('My Anthropic', 'https://api.anthropic.com', { configPath });
+
+			assert.strictEqual(
+				readConfig(configPath).providers.custom['My Anthropic'].baseUrl,
+				'https://api.anthropic.com/v1'
+			);
+		});
 	});
 
 	suite('create', () => {
@@ -209,6 +223,23 @@ suite('custom providers', () => {
 					},
 				},
 			});
+		});
+
+		test('normalizes a bare host to its versioned form', async () => {
+			writeConfig(configPath, {});
+			await initProviderCatalog(context, { configPath });
+
+			await createCustomProviderEntry(
+				'My Anthropic',
+				'anthropic',
+				{ baseUrl: 'https://api.anthropic.com' },
+				{ configPath }
+			);
+
+			assert.strictEqual(
+				readConfig(configPath).providers.custom['My Anthropic'].baseUrl,
+				'https://api.anthropic.com/v1'
+			);
 		});
 
 		test('refuses a name that is a built-in provider id, a reserved key, or already taken', async () => {

@@ -417,7 +417,7 @@ export async function createCustomProviderEntry(
 			const entry = {
 				type: kind,
 				enabled: true,
-				...(connection.baseUrl ? { baseUrl: connection.baseUrl } : {}),
+				...(connection.baseUrl ? { baseUrl: normalizeSavedBaseUrl(kind, connection.baseUrl) } : {}),
 				// Declared ids replace discovery, rather than being merged with a
 				// listing the endpoint may also publish.
 				...(declared.length > 0 ? { models: { discovery: 'off' as const, custom: declared } } : {}),
@@ -496,7 +496,13 @@ export async function saveCustomProviderUrl(
 			}
 			return {
 				...current,
-				providers: { ...current.providers, custom: { ...custom, [name]: { ...existing, baseUrl: url } } },
+				providers: {
+					...current.providers,
+					custom: {
+						...custom,
+						[name]: { ...existing, baseUrl: normalizeSavedBaseUrl(getCachedProvider(name)?.clientKind ?? name, url) },
+					},
+				},
 			};
 		},
 		{ configPath: opts.configPath, logger: writeLogger }
