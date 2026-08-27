@@ -435,6 +435,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         const promptOutcome = await promptToCreateVirtualEnvironment(
             this.serviceContainer,
             this.interpreterService,
+            this,
             extraData.pythonPath,
             sessionMetadata,
         );
