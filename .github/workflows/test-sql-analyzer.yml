@@ -1,0 +1,77 @@
+name: "Test: SQL Analyzer"
+
+# The SQL analyzer is a Rust crate compiled to WebAssembly, and what ships is the committed
+# module at extensions/positron-sql/resources/sql-analyzer.wasm. Two things therefore need
+# checking, and neither is covered by the Node test suites:
+#
+#   - the crate's own tests (`cargo test`), which are where the parsing behaviour is pinned
+#   - that the committed module still matches the crate (`--check`), since it is rebuilt by hand
+#
+# Path-filtered and toolchain-only: this needs no npm install, because build-analyzer.mts uses
+# only Node builtins. Keeping it out of Test: Unit means PRs that do not touch the crate do not
+# pay for a Rust toolchain.
+
+on:
+  pull_request:
+    paths:
+      - 'extensions/positron-sql/sql-analyzer/**'
+      - 'extensions/positron-sql/resources/sql-analyzer.wasm'
+      - 'extensions/positron-sql/scripts/build-analyzer.mts'
+      - '.github/workflows/test-sql-analyzer.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'extensions/positron-sql/sql-analyzer/**'
+      - 'extensions/positron-sql/resources/sql-analyzer.wasm'
+      - 'extensions/positron-sql/scripts/build-analyzer.mts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-sql-analyzer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyzer:
+    name: Test and verify the SQL analyzer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: extensions/positron-sql
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            extensions/positron-sql/sql-analyzer/target
+          key: sql-analyzer-${{ runner.os }}-${{ hashFiles('extensions/positron-sql/sql-analyzer/Cargo.lock') }}
+          restore-keys: sql-analyzer-${{ runner.os }}-
+
+      - name: Run the crate's tests
+        run: npm run test-analyzer
+
+      # Rebuilds into a temporary file and byte-compares, without touching the committed module.
+      # Fails with the command to run when the two have drifted apart.
+      - name: Check the committed module matches the crate
+        run: npm run check-analyzer

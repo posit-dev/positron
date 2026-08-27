@@ -1,0 +1,5 @@
+# The analyzer's Rust sources and the script that builds them are development inputs. What ships
+# is the compiled module at resources/sql-analyzer.wasm, which is committed; see
+# scripts/build-analyzer.mts.
+sql-analyzer/**
+scripts/**

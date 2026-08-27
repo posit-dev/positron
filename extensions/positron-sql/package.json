@@ -1,0 +1,89 @@
+{
+  "name": "positron-sql",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "positron",
+  "license": "Elastic-2.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:sql"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "sql.dialect": {
+          "type": "string",
+          "default": "",
+          "order": 1,
+          "enum": [
+            "",
+            "ansi",
+            "athena",
+            "bigquery",
+            "clickhouse",
+            "databricks",
+            "duckdb",
+            "hive",
+            "mariadb",
+            "mysql",
+            "oracle",
+            "postgres",
+            "presto",
+            "redshift",
+            "snowflake",
+            "spark",
+            "sqlite",
+            "teradata",
+            "trino",
+            "tsql"
+          ],
+          "enumItemLabels": [
+            "%configuration.dialect.generic%",
+            "ANSI SQL",
+            "Athena",
+            "BigQuery",
+            "ClickHouse",
+            "Databricks",
+            "DuckDB",
+            "Hive",
+            "MariaDB",
+            "MySQL",
+            "Oracle",
+            "PostgreSQL",
+            "Presto",
+            "Redshift",
+            "Snowflake",
+            "Spark SQL",
+            "SQLite",
+            "Teradata",
+            "Trino",
+            "Transact-SQL"
+          ],
+          "markdownDescription": "%configuration.dialect.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build-analyzer": "node ./scripts/build-analyzer.mts",
+    "check-analyzer": "node ./scripts/build-analyzer.mts --check",
+    "test-analyzer": "cargo test --manifest-path ./sql-analyzer/Cargo.toml",
+    "lint": "eslint src --ext ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  }
+}
