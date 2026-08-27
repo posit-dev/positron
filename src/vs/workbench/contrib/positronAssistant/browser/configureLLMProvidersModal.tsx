@@ -19,13 +19,12 @@ import { ProviderList } from './components/providerList.js';
 import { AddCustomProviderView } from './components/addCustomProviderView.js';
 import { ConnectProviderView } from './components/connectProviderView.js';
 import { ConnectedProviderView } from './components/connectedProviderView.js';
-import { DeleteCustomProviderView } from './components/deleteCustomProviderView.js';
 import { ProviderModalFooter } from './components/providerModalFooter.js';
 import { selectProviderView } from './providerConnection.js';
 import { useProviderUpdates } from './useProviderUpdates.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { useContextKeyFromString } from '../../../../base/browser/positronReactHooks.js';
-import { ADD_CUSTOM_PROVIDER_COMMAND, IAddCustomProviderRequest, REMOVE_CUSTOM_PROVIDER_COMMAND, IRemoveCustomProviderRequest, SUPPORTS_CUSTOM_PROVIDERS_KEY } from './customProviderCommands.js';
+import { ADD_CUSTOM_PROVIDER_COMMAND, IAddCustomProviderRequest, SUPPORTS_CUSTOM_PROVIDERS_KEY } from './customProviderCommands.js';
 
 /** Command that opens providers.json in an editor (registered in the contribution). */
 const OPEN_PROVIDERS_JSON_COMMAND = 'workbench.action.positronAssistant.openAiProviderSettingsJson';
@@ -68,7 +67,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	// provider error notification does, so the user lands on the provider that
 	// reported the problem rather than hunting for it in the list.
 	const preselectedSource = props.sources.find(s => s.provider.id === props.preselectedProviderId);
-	const [view, setView] = useState<'list' | 'connect' | 'connected' | 'add-custom' | 'delete-custom'>(
+	const [view, setView] = useState<'list' | 'connect' | 'connected' | 'add-custom'>(
 		preselectedSource ? selectProviderView(preselectedSource) : 'list'
 	);
 	const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(preselectedSource?.provider.id);
@@ -120,7 +119,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	// The selected provider, always read from the fresh sources. Defensive: if it
 	// ever cannot be resolved while on a detail view, fall back to the list.
 	const selectedSource = sources.find(s => s.provider.id === selectedProviderId);
-	const needsSource = view === 'connect' || view === 'connected' || view === 'delete-custom';
+	const needsSource = view === 'connect' || view === 'connected';
 	const activeView = needsSource && !selectedSource ? 'list' : view;
 
 	// A custom entry is configurable here but invisible in chat until the
@@ -131,13 +130,6 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	// catalog change that registers its source.
 	const createCustomProvider = async (request: IAddCustomProviderRequest) => {
 		await services.commandService.executeCommand(ADD_CUSTOM_PROVIDER_COMMAND, request);
-	};
-
-	// The delete is the extension's too, and the row disappears the same way.
-	const deleteCustomProvider = async (name: string) => {
-		const request: IRemoveCustomProviderRequest = { name };
-		await services.commandService.executeCommand(REMOVE_CUSTOM_PROVIDER_COMMAND, request);
-		setView('list');
 	};
 
 	// A cancel handler reported by the connect view while an OAuth sign-in is in
@@ -174,13 +166,11 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 
 	const title = activeView === 'add-custom'
 		? localize('positron.configureLLMProvidersModal.addCustomTitle', "Add Custom Provider")
-		: activeView === 'delete-custom'
-			? localize('positron.configureLLMProvidersModal.deleteCustomTitle', "Delete Provider")
-			: activeView === 'list' || !selectedSource
-				? localize('positron.configureLLMProvidersModal.title', "Configure LLM Providers")
-				: activeView === 'connect'
-					? localize('positron.configureLLMProvidersModal.connectTitle', "Connect to {0}", selectedSource.provider.displayName)
-					: selectedSource.provider.displayName;
+		: activeView === 'list' || !selectedSource
+			? localize('positron.configureLLMProvidersModal.title', "Configure LLM Providers")
+			: activeView === 'connect'
+				? localize('positron.configureLLMProvidersModal.connectTitle', "Connect to {0}", selectedSource.provider.displayName)
+				: selectedSource.provider.displayName;
 
 	return (
 		<PositronModalDialog
@@ -216,7 +206,6 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					onAction={props.onAction}
 					onBack={backToList}
 					onClose={close}
-					onDeleteCustomProvider={selectedSource.provider.customKind ? () => setView('delete-custom') : undefined}
 					onEditRawConfig={editRawConfig}
 					onPendingSignInChange={setPendingCancel}
 				/>
@@ -227,15 +216,6 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 					onAction={props.onAction}
 					onBack={backToList}
 					onClose={close}
-					onDeleteCustomProvider={selectedSource.provider.customKind ? () => setView('delete-custom') : undefined}
-				/>
-			}
-			{activeView === 'delete-custom' && selectedSource &&
-				<DeleteCustomProviderView
-					source={selectedSource}
-					onCancel={() => setView(selectProviderView(selectedSource))}
-					onClose={close}
-					onDelete={() => deleteCustomProvider(selectedSource.provider.id)}
 				/>
 			}
 		</PositronModalDialog>

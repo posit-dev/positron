@@ -51,7 +51,7 @@ describe('ConfigureLLMProviders', () => {
 	// What the service reports after a registration change; the modal re-reads
 	// it rather than patching its own list.
 	let registeredSources: IPositronLanguageModelSource[] = [];
-	// The add and delete writes are the extension's, reached by command.
+	// The add write is the extension's, reached by command.
 	const executeCommand = vi.fn().mockResolvedValue(undefined);
 	beforeEach(() => { sessions = []; registeredSources = []; executeCommand.mockClear(); });
 
@@ -250,42 +250,4 @@ describe('ConfigureLLMProviders', () => {
 		expect(screen.getByText('Model Providers')).toBeInTheDocument();
 	});
 
-	it('offers Delete Provider for a custom entry, and not for a built-in', async () => {
-		const user = userEvent.setup();
-		renderModal([anthropic, myGateway]);
-
-		await user.click(screen.getAllByRole('button', { name: /connect/i })[1]);
-		expect(screen.getByRole('button', { name: /delete provider/i })).toBeInTheDocument();
-
-		await user.click(screen.getByRole('button', { name: 'Back' }));
-		await user.click(screen.getAllByRole('button', { name: /connect/i })[0]);
-		expect(screen.queryByRole('button', { name: /delete provider/i })).not.toBeInTheDocument();
-	});
-
-	it('confirms a delete, hands the entry name to the extension, and drops the row', async () => {
-		const user = userEvent.setup();
-		renderModal([anthropic, myGateway]);
-
-		await user.click(screen.getAllByRole('button', { name: /connect/i })[1]);
-		await user.click(screen.getByRole('button', { name: /delete provider/i }));
-		// The confirmation is its own screen, so nothing is written yet.
-		expect(executeCommand).not.toHaveBeenCalled();
-
-		await user.click(screen.getByRole('button', { name: 'Delete Provider' }));
-		expect(executeCommand).toHaveBeenCalledWith('authentication.removeCustomProvider', { name: 'My Gateway' });
-		expect(screen.getByText('Model Providers')).toBeInTheDocument();
-	});
-
-	it('leaves the entry alone when the confirmation is cancelled', async () => {
-		const user = userEvent.setup();
-		renderModal([myGateway]);
-
-		await user.click(screen.getByRole('button', { name: /connect/i }));
-		await user.click(screen.getByRole('button', { name: /delete provider/i }));
-		await user.click(screen.getByRole('button', { name: 'Cancel' }));
-
-		expect(executeCommand).not.toHaveBeenCalled();
-		// Back on the provider's own screen, not the list.
-		expect(screen.getByLabelText(/api key/i)).toBeInTheDocument();
-	});
 });
