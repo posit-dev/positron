@@ -58,7 +58,10 @@ function actionLabel(section: ProviderSectionId): string {
  */
 export const ProviderListItem = (props: ProviderListItemProps) => {
 	const { source, section, description, onAction } = props;
-	const maturityLabel = getStatusLabel(source.provider.status);
+	// A custom entry is always shown as experimental, regardless of any status
+	// its metadata carries: the custom-provider feature itself is still evolving.
+	const maturityStatus = source.provider.customKind ? 'experimental' : source.provider.status;
+	const maturityLabel = getStatusLabel(maturityStatus);
 	const authLabel = section === 'connected' ? authBadgeLabel(source) : undefined;
 
 	return (
@@ -74,7 +77,7 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 							{localize('positron.configureLLMProvidersModal.badge.custom', "Custom")}
 						</span>
 					}
-					{maturityLabel && <span className={positronClassNames('provider-list-item-badge', source.provider.status)}>{maturityLabel}</span>}
+					{maturityLabel && <span className={positronClassNames('provider-list-item-badge', maturityStatus)}>{maturityLabel}</span>}
 					{authLabel && <span className='provider-list-item-badge environment'>{authLabel}</span>}
 					{section === 'needs-attention' &&
 						<span className='provider-list-item-badge error'>

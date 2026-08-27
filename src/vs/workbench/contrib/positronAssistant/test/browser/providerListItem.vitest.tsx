@@ -88,6 +88,15 @@ describe('ProviderListItem', () => {
 		expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
 	});
 
+	it('shows an Experimental badge for a custom provider regardless of its own status', () => {
+		render(<ProviderListItem section='custom' source={source({
+			id: 'My Gateway',
+			provider: { id: 'My Gateway', displayName: 'My Gateway', customKind: 'anthropic', status: 'preview' },
+		})} />);
+		expect(screen.getByText('Experimental')).toBeInTheDocument();
+		expect(screen.queryByText('Preview')).not.toBeInTheDocument();
+	});
+
 	it('shows an Environment badge and Edit action for an env-var connected provider', () => {
 		render(<ProviderListItem section='connected' source={source({
 			id: 'a',

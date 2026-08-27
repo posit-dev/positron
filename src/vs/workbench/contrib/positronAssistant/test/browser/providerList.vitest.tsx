@@ -77,8 +77,10 @@ describe('ProviderList', () => {
 			onAddCustomProvider={vi.fn()}
 			onSelectProvider={vi.fn()}
 		/>);
-		// Custom Providers comes last, so the entry sits directly above the Add button.
-		expect(screen.getAllByText(/Providers$/).map(el => el.textContent)).toEqual(['Model Providers', 'Custom Providers']);
+		// Custom Providers comes last, so the entry sits directly above the Add
+		// button. Its heading carries an Experimental badge, which .textContent
+		// picks up alongside the heading text itself.
+		expect(screen.getAllByText(/Providers$/).map(el => el.textContent)).toEqual(['Model Providers', 'Custom ProvidersExperimental']);
 		expect(screen.getByTestId('provider-row-My Gateway')).toHaveAttribute('data-provider-section', 'custom');
 		// The entry says what type it is, so two entries of different types are
 		// told apart without connecting either one.

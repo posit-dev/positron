@@ -7,6 +7,7 @@ import { localize } from '../../../../../nls.js';
 import { IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
 import { groupProviders, ProviderSectionId } from '../../common/providerGrouping.js';
 import { ProviderListItem } from './providerListItem.js';
+import { getStatusLabel } from './languageModelButton.js';
 import { customProviderDescription, isOfferedCustomProviderKind } from '../customProviderKinds.js';
 
 interface ProviderListProps {
@@ -96,7 +97,10 @@ export const ProviderList = (props: ProviderListProps) => {
 			))}
 			{(customSection || props.onAddCustomProvider) &&
 				<div className='provider-list-section'>
-					<label className='provider-list-section-heading'>{sectionTitle('custom')}</label>
+					<label className='provider-list-section-heading'>
+						{sectionTitle('custom')}
+						<span className='provider-list-item-badge experimental'>{getStatusLabel('experimental')}</span>
+					</label>
 					{customSection?.items.map(item => (
 						<ProviderListItem
 							key={item.provider.id}
