@@ -5,7 +5,8 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../extHostTypes.js';
 
 /**
@@ -51,10 +52,65 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	/** Tracks which connection handles belong to which driver for cleanup on dispose. */
 	private readonly _driverConnections = new Map<string, Set<number>>();
 
+	/** Fires when the user's connections change; see {@link onDidChangeConnections}. */
+	private readonly _onDidChangeConnections = new Emitter<void>();
+
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
 	) {
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadDataConnections);
+	}
+
+	// --- Reading the user's own connections ---
+
+	/**
+	 * The connections the user has configured, live or not.
+	 *
+	 * These are the user's connections, not ones this extension opened. What comes back is a
+	 * summary rather than a live object: an extension has no business disconnecting a connection
+	 * it does not own, so there is nothing here to do that with.
+	 */
+	public async getConnections(): Promise<positron.DataConnectionSummary[]> {
+		const dtos: IDataConnectionSummaryDTO[] = await this._proxy.$getDataConnections();
+		return dtos;
+	}
+
+	/**
+	 * Opens the user's connection for a profile, if it is not already open.
+	 *
+	 * Still no live object comes back, only whether it is now open: an extension may ask for a
+	 * connection the user configured to be opened, but has no business closing one.
+	 */
+	public async openConnection(profileId: string): Promise<boolean> {
+		return this._proxy.$openDataConnection(profileId);
+	}
+
+	/**
+	 * Reads a live connection's tables and columns, bounded so a large database cannot produce an
+	 * unbounded reply.
+	 *
+	 * One call rather than a tree to walk, because walking costs a round trip per node. Resolves
+	 * to `undefined` when the profile has no live connection.
+	 */
+	public async getSchema(
+		profileId: string,
+		options: positron.DataConnectionSchemaOptions = {},
+	): Promise<positron.DataConnectionSchema | undefined> {
+		const walk = await this._proxy.$getDataConnectionSchema(profileId, options);
+		if (!walk) {
+			return undefined;
+		}
+		// The walk carries no connection identity of its own, so the profile id is added here:
+		// callers hold that, it is what they asked with, and it stays the same across a reconnect.
+		return { profileId, nodes: walk.nodes, truncated: walk.truncated };
+	}
+
+	/** Fires when a connection is opened or closed, or a profile is added, renamed or removed. */
+	public readonly onDidChangeConnections = this._onDidChangeConnections.event;
+
+	/** Called by the main thread when the user's connections change. */
+	public $onDidChangeDataConnections(): void {
+		this._onDidChangeConnections.fire();
 	}
 
 	// --- Public API (called by extension via positron.dataConnections.registerDriver) ---

@@ -13,6 +13,36 @@ import { IDataConnectionsDriverManager } from './dataConnectionsDriverManager.js
 // DI token used to inject IPositronDataConnectionsService throughout the workbench.
 export const IPositronDataConnectionsService = createDecorator<IPositronDataConnectionsService>('positronDataConnectionsService');
 
+// Id of the Data Connections view. Lives here rather than with the view registration so the
+// service can open its own view, matching POSITRON_CONNECTIONS_VIEW_ID in the older service.
+export const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
+
+/**
+ * One level of a reveal path: what the pane calls the row, and which kind of row it is.
+ *
+ * A path is named rather than addressed by node id because a node's id embeds the handle it was
+ * fetched under, and a fresh fetch mints new handles. Kind and name are what survive.
+ */
+export interface IDataConnectionNodeStep {
+	// A DataConnectionNodeKind value, e.g. 'schema', 'table', 'field'.
+	readonly kind: string;
+
+	readonly name: string;
+}
+
+/**
+ * A request to reveal one row of a connection's tree: expand down to it, select it, scroll it
+ * into view. Raised by {@link IPositronDataConnectionsService.revealNode}.
+ */
+export interface IDataConnectionRevealRequest {
+	// The profile whose tree holds the row.
+	readonly profileId: string;
+
+	// The row's path from the connection down. Display-only grouping rows ("Tables", "Columns")
+	// are left out; the walk descends through them on its own.
+	readonly path: readonly IDataConnectionNodeStep[];
+}
+
 /**
  * Service that manages data connection drivers and active data connection instances. Drivers are
  * registered by extensions via the ext host RPC pipeline; the UI consumes this service to list
@@ -33,6 +63,9 @@ export interface IPositronDataConnectionsService extends IDisposable {
 
 	// Fires when the discovered data connections change.
 	onDidChangeDiscoveredProfiles: Event<IDataConnectionProfile[]>;
+
+	// Fires when something has asked for a row of a connection's tree to be revealed.
+	onDidRequestReveal: Event<IDataConnectionRevealRequest>;
 
 	// Fires when a connection should be shown in the Data Connections pane. A nudge, not the
 	// request itself: the profile to show comes from takePendingRevealConnection, so the tree
@@ -259,6 +292,28 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @param profileId The data connection profile id.
 	 */
 	cancelDisconnectWhenUnused(profileId: string): void;
+
+	/**
+	 * Asks the pane to reveal a row of a connection's tree, opening the view first.
+	 *
+	 * Only meaningful for a profile with a live connection: walking to a row fetches each level
+	 * from the driver, and a caller reaching in from outside the pane -- a link in a SQL editor,
+	 * say -- should not be able to open a database connection as a side effect of a click.
+	 *
+	 * The request is held until the pane picks it up, since the view may not have been rendered
+	 * yet when this is called; see {@link takePendingReveal}.
+	 * @param request The row to reveal.
+	 */
+	revealNode(request: IDataConnectionRevealRequest): Promise<void>;
+
+	/**
+	 * Takes the reveal request the pane has not handled yet, if any, clearing it.
+	 *
+	 * For the pane to call on mount: a reveal that opened the view arrives before anything is
+	 * listening, so the request waits here rather than being lost. Returns undefined once
+	 * consumed, so one request is never acted on twice.
+	 */
+	takePendingReveal(): IDataConnectionRevealRequest | undefined;
 
 	/**
 	 * Gets all data connection instances.

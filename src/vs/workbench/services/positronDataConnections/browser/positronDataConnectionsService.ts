@@ -15,7 +15,8 @@ import { IEditorService } from '../../editor/common/editorService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IDataConnectionInstance } from '../common/interfaces/dataConnectionInstance.js';
 import { PositronDataExplorerUri } from '../../positronDataExplorer/common/positronDataExplorerUri.js';
-import { IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
+import { IViewsService } from '../../views/common/viewsService.js';
+import { IDataConnectionRevealRequest, IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
@@ -119,6 +120,14 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Fires when the discovered data connections change.
 	private readonly _onDidChangeDiscoveredProfilesEmitter = this._register(new Emitter<IDataConnectionProfile[]>());
 
+	// Fires when something has asked for a row of a connection's tree to be revealed.
+	private readonly _onDidRequestRevealEmitter = this._register(new Emitter<IDataConnectionRevealRequest>());
+
+	// The reveal request the pane has not picked up yet. A reveal that had to open the view fires
+	// before the pane is rendered and so before anything is subscribed, so the request waits here
+	// for the pane to claim on mount. See takePendingReveal.
+	private _pendingReveal: IDataConnectionRevealRequest | undefined;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -130,6 +139,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param _logService The log service.
 	 * @param _secretStorageService The secret storage service (secret parameter values).
 	 * @param _storageService The storage service (profile metadata).
+	 * @param _viewsService The views service (used to open the pane when revealing a row).
 	 */
 	constructor(
 		@IExtensionService extensionService: IExtensionService,
@@ -137,6 +147,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		@ILogService private readonly _logService: ILogService,
 		@ISecretStorageService private readonly _secretStorageService: ISecretStorageService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IViewsService private readonly _viewsService: IViewsService,
 	) {
 		// Call the base class constructor.
 		super();
@@ -177,6 +188,41 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	// Fires when the discovered data connections change.
 	readonly onDidChangeDiscoveredProfiles: Event<IDataConnectionProfile[]> = this._onDidChangeDiscoveredProfilesEmitter.event;
+
+	// Fires when something has asked for a row of a connection's tree to be revealed.
+	readonly onDidRequestReveal: Event<IDataConnectionRevealRequest> = this._onDidRequestRevealEmitter.event;
+
+	/**
+	 * Asks the pane to reveal a row of a connection's tree, opening the view first.
+	 *
+	 * Refuses a profile with no live connection: walking to a row fetches each level from the
+	 * driver, so revealing into a closed connection would open it, and a caller reaching in from
+	 * outside the pane should not open a database as a side effect of a click.
+	 * @param request The row to reveal.
+	 */
+	async revealNode(request: IDataConnectionRevealRequest): Promise<void> {
+		if (this.getInstanceForProfile(request.profileId) === undefined) {
+			this._logService.warn(
+				`[DataConnections] revealNode: profile ${request.profileId} has no live connection.`
+			);
+			return;
+		}
+
+		// Recorded before the view is opened, so a pane rendered by this very call finds the
+		// request waiting rather than missing the event that fires after it.
+		this._pendingReveal = request;
+		await this._viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
+		this._onDidRequestRevealEmitter.fire(request);
+	}
+
+	/**
+	 * Takes the reveal request the pane has not handled yet, if any, clearing it.
+	 */
+	takePendingReveal(): IDataConnectionRevealRequest | undefined {
+		const pending = this._pendingReveal;
+		this._pendingReveal = undefined;
+		return pending;
+	}
 
 	// Fires when a connection should be shown in the Data Connections pane.
 	readonly onDidRequestRevealConnection: Event<void> = this._onDidRequestRevealConnectionEmitter.event;
