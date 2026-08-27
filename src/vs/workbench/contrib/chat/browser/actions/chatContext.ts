@@ -43,6 +43,12 @@ import { ITerminalService } from '../../../terminal/browser/terminal.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';
 import { buildHostLocalEventsPath } from '../copilotCliEventsUri.js';
 import { IChatSessionRoutingProviderService, IRoutableSession } from '../../common/sessionRouter.js';
+// --- Start Positron ---
+// Upstream registers this service via chatInputWindow.contribution, which is wired
+// only into the sessions entrypoint that Positron does not load. SessionReferenceContextPickerPick
+// (below) depends on it, so import the registration here to keep chat context picks working.
+import '../sessionRouter/chatSessionRoutingProviderService.js';
+// --- End Positron ---
 
 /**
  * Command ID that extensions can call to enable debug tools for the current
