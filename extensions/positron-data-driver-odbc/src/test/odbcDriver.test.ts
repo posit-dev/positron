@@ -295,4 +295,56 @@ suite('createOdbcDrivers', () => {
 			}
 		);
 	});
+
+	test('generates the code that runs a query through each connection variant', async () => {
+		const [generic] = createOdbcDrivers(testContext(), CONFIG, noopHost);
+
+		// The connection variable is whatever the session bound: pyodbc binds `conn`, SQLAlchemy
+		// `engine`, and DBI `con`.
+		const queryCode = (languageId: string, variantId: string, connectionVariable: string, query: string) =>
+			generic.generateQueryCode!({ languageId, variantId, connectionVariable, query });
+
+		// A query carrying a backslash, a quote, and a newline, to show it is quoted rather than
+		// broken: R escapes both characters, while Python's triple-quoted form leaves a lone quote
+		// alone and only has to fend off a run of three.
+		const messy = 'SELECT "a\\b"\nFROM t';
+
+		assert.deepStrictEqual(
+			{
+				pyodbc: await queryCode('python', 'pyodbc', 'conn', 'SELECT 1'),
+				sqlalchemy: await queryCode('python', 'sqlalchemy', 'engine', 'SELECT 1'),
+				dbi: await queryCode('r', 'dbi', 'con', 'SELECT 1'),
+				pythonMessy: await queryCode('python', 'pyodbc', 'conn', messy),
+				// The newline padding is what keeps this query's final quote off the delimiter.
+				pythonTrailingQuote: await queryCode('python', 'pyodbc', 'conn', 'SELECT "t"'),
+				rMessy: await queryCode('r', 'dbi', 'con', messy),
+			},
+			{
+				// pandas reads from a DBAPI2 connection and a SQLAlchemy connectable alike, taking the
+				// query as a plain string in both cases.
+				pyodbc: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", conn)',
+				sqlalchemy: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", engine)',
+				dbi: 'DBI::dbGetQuery(con, "SELECT 1")',
+				pythonMessy: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT "a\\\\b"\nFROM t\n""", conn)',
+				pythonTrailingQuote: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT "t"\n""", conn)',
+				rMessy: 'DBI::dbGetQuery(con, "SELECT \\"a\\\\b\\"\nFROM t")',
+			}
+		);
+	});
+
+	test('generates no query code for a variant or a language it cannot query', async () => {
+		const [generic] = createOdbcDrivers(testContext(), CONFIG, noopHost);
+
+		assert.deepStrictEqual(
+			{
+				unknownVariant: await generic.generateQueryCode!({
+					languageId: 'python', variantId: 'duckdb', connectionVariable: 'conn', query: 'SELECT 1',
+				}),
+				unknownLanguage: await generic.generateQueryCode!({
+					languageId: 'julia', variantId: 'pyodbc', connectionVariable: 'conn', query: 'SELECT 1',
+				}),
+			},
+			{ unknownVariant: undefined, unknownLanguage: undefined }
+		);
+	});
 });

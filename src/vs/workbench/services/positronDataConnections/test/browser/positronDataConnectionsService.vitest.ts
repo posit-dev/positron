@@ -1000,4 +1000,50 @@ describe('PositronDataConnectionsService', () => {
 			expect(service.takePendingReveal()).toBeUndefined();
 		});
 	});
+
+	describe('session bindings', () => {
+		function binding(profileId: string, sessionId: string, variableName = 'con') {
+			return { profileId, sessionId, languageId: 'r', variantId: 'dbi', variableName };
+		}
+
+		it('reports the connection a session holds back to the session that holds it', () => {
+			service.registerSessionBinding(binding('conn-1', 'session-1'));
+
+			expect(service.getSessionBinding('conn-1', 'session-1')).toEqual(binding('conn-1', 'session-1'));
+		});
+
+		it('keys on both the session and the profile', () => {
+			// One session can hold several connections, and one connection can be held by several
+			// sessions, so neither half of the key identifies a binding on its own.
+			service.registerSessionBinding(binding('conn-1', 'session-1'));
+
+			expect(service.getSessionBinding('conn-2', 'session-1')).toBeUndefined();
+			expect(service.getSessionBinding('conn-1', 'session-2')).toBeUndefined();
+		});
+
+		it('replaces a binding when the same connection is made again in the same session', () => {
+			// The newest connection code is the one that bound the variable, including when the
+			// user edited it to bind a different name.
+			service.registerSessionBinding(binding('conn-1', 'session-1', 'con'));
+			service.registerSessionBinding(binding('conn-1', 'session-1', 'warehouse'));
+
+			expect(service.getSessionBinding('conn-1', 'session-1')?.variableName).toBe('warehouse');
+		});
+
+		it('has nothing for a session that never ran connection code', () => {
+			// The ordinary state: a data connection is opened by its driver, not inside a session.
+			expect(service.getSessionBinding('conn-1', 'session-1')).toBeUndefined();
+		});
+
+		it('lists every connection one session holds, and no other session\'s', () => {
+			// What a caller offering the user a choice needs: one session can hold several
+			// connections, and which of them to query through is the user's call.
+			service.registerSessionBinding(binding('conn-1', 'session-1'));
+			service.registerSessionBinding(binding('conn-2', 'session-1', 'warehouse'));
+			service.registerSessionBinding(binding('conn-1', 'session-2'));
+
+			expect(service.getSessionBindings('session-1').map(each => each.variableName))
+				.toEqual(['con', 'warehouse']);
+		});
+	});
 });

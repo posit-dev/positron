@@ -14,6 +14,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { IUserInteractionService } from '../../../../../platform/userInteraction/browser/userInteractionService.js';
 import { UserInteractionService } from '../../../../../platform/userInteraction/browser/userInteractionServiceImpl.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { ConnectDataConnectionWith } from '../../browser/dialogs/connectDataConnectionWith.js';
@@ -65,17 +66,25 @@ describe('ConnectDataConnectionWith', () => {
 
 	function stubDataConnectionsService(profile?: IDataConnectionProfile, storedSecretIds: readonly string[] = []) {
 		const setPreferredCodeVariant = vi.fn();
+		const registerSessionBinding = vi.fn();
 		ctx.instantiationService.stub(IPositronDataConnectionsService, stubInterface<IPositronDataConnectionsService>({
 			getProfile: () => profile,
 			// The dialog treats a connection as having secrets only when the profile actually has a
 			// value stored, not merely because the mechanism declares a secret parameter.
 			getProfileSecretIds: () => storedSecretIds,
 			setPreferredCodeVariant,
+			registerSessionBinding,
 		}));
-		return { setPreferredCodeVariant };
+		return { setPreferredCodeVariant, registerSessionBinding };
 	}
 
+	/**
+	 * Renders the dialog, and returns what the Connect handler hands back: the connection it is
+	 * making, awaited. Undefined until the user connects, which is what showConnectDataConnectionWith
+	 * turns into "the user dismissed the dialog".
+	 */
 	function renderDialog() {
+		let connecting: Promise<unknown> | undefined;
 		rtl.render(
 			<ConnectDataConnectionWith
 				connectionName='My Connection'
@@ -86,8 +95,10 @@ describe('ConnectDataConnectionWith', () => {
 				profileId='conn-1'
 				renderer={renderer}
 				variants={variants}
+				onConnecting={pending => { connecting = pending; }}
 			/>
 		);
+		return { connected: () => connecting };
 	}
 
 	it('defaults to the first variant when the profile has no stored preference', () => {
@@ -122,5 +133,29 @@ describe('ConnectDataConnectionWith', () => {
 
 		expect(screen.getByRole('option', { name: 'SQLAlchemy' })).toHaveAttribute('aria-selected', 'true');
 		expect(setPreferredCodeVariant).toHaveBeenCalledWith('conn-1', 'python', 'sqlalchemy');
+	});
+
+	it('records the connection the session now holds, and reports it to whoever opened the dialog', async () => {
+		// What lets a later caller -- running a SQL statement, say -- use this connection instead
+		// of opening a second one beside it. The variable name is read out of the code that ran.
+		const user = userEvent.setup();
+		const { registerSessionBinding } = stubDataConnectionsService(undefined);
+		ctx.instantiationService.stub(IPositronConsoleService, stubInterface<IPositronConsoleService>({
+			executeCode: async () => 'session-1',
+		}));
+		const { connected } = renderDialog();
+
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+
+		await expect(connected()).resolves.toMatchInlineSnapshot(`
+			{
+			  "languageId": "python",
+			  "profileId": "conn-1",
+			  "sessionId": "session-1",
+			  "variableName": "conn",
+			  "variantId": "default",
+			}
+		`);
+		expect(registerSessionBinding).toHaveBeenCalledOnce();
 	});
 });
