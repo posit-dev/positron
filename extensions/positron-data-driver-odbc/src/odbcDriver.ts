@@ -15,6 +15,7 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { createQueryCodeGenerator, dbiGetQuery, pandasReadSql } from 'positron-data-driver-common';
 import { buildConnectionString, describeConnectionTarget, redactConnectionString } from './odbcConnectionString';
 import { OdbcConnection } from './odbcConnection';
 import { IOdbcDataExplorerHost } from './odbcDataExplorerRpcHandler';
@@ -268,62 +269,22 @@ function renderGgsqlCode(connectionString: string): positron.ConnectionCodeVaria
 	}];
 }
 // --- Query code generation ---
-//
-// The query comes from the user's editor, so it is quoted as a string literal rather than
-// concatenated into the surrounding call. The escaping rules differ enough between R and Python that
-// each language gets its own quoting helper.
-
-/**
- * Quotes a query as an R double-quoted string literal. R treats backslash as an escape character, so
- * backslashes and double quotes have to be escaped; literal newlines are legal inside an R string, so
- * multi-line SQL needs no further treatment.
- */
-function rStringLiteral(value: string): string {
-	return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-}
-
-/**
- * Quotes a query as a Python triple-quoted string literal. Backslashes are escaped so the SQL reaches
- * the data source as the user wrote it, and any embedded `"""` is escaped so it cannot close the
- * literal early.
- *
- * The query goes on its own lines. The leading and trailing newlines look removable and are not: a
- * query ending in a double quote would otherwise run straight into the closing delimiter and be read
- * as a fourth quote. The whitespace they add around the SQL is insignificant to the data source.
- */
-function pythonStringLiteral(value: string): string {
-	const escaped = value.replace(/\\/g, '\\\\').replace(/"""/g, '\\"\\"\\"');
-	return `"""\n${escaped}\n"""`;
-}
 
 /**
  * Generates the code that runs a query through a connection one of the code variants above created.
- * Shared by every driver this extension registers, since they all connect the same way.
+ * Shared by every driver this extension registers, since they all connect the same way; the recipes
+ * and the quoting they depend on are shared with the other SQL driver extensions too, so only the
+ * variant ids below are this extension's own.
  */
-function generateQueryCode(request: positron.QueryCodeRequest): string | undefined {
-	switch (request.languageId) {
-		case 'python':
-			switch (request.variantId) {
-				case 'pyodbc':
-				case 'sqlalchemy':
-					// pandas reads from a DBAPI2 connection and a SQLAlchemy connectable alike, taking the
-					// query as a plain string in both cases, and returns a data frame worth printing.
-					return `import pandas as pd\n\npd.read_sql_query(${pythonStringLiteral(request.query)}, ${request.connectionVariable})`;
-				default:
-					return undefined;
-			}
-		case 'r':
-			switch (request.variantId) {
-				case 'dbi':
-					// Fully qualified with `::` so the code needs no library(DBI) line of its own.
-					return `DBI::dbGetQuery(${request.connectionVariable}, ${rStringLiteral(request.query)})`;
-				default:
-					return undefined;
-			}
-		default:
-			return undefined;
-	}
-}
+const generateQueryCode: (request: positron.QueryCodeRequest) => string | undefined = createQueryCodeGenerator({
+	python: {
+		pyodbc: pandasReadSql,
+		sqlalchemy: pandasReadSql,
+	},
+	r: {
+		dbi: dbiGetQuery,
+	},
+});
 
 // --- Driver construction ---
 
@@ -484,9 +445,7 @@ function createDriver(
 			}
 		},
 
-		generateQueryCode(request: positron.QueryCodeRequest): string | undefined {
-			return generateQueryCode(request);
-		},
+		generateQueryCode,
 
 		redactParameterValue(mechanismId: string, parameterId: string, value: string): string | undefined {
 			// The connection string is the only parameter shown in plaintext while embedding a
