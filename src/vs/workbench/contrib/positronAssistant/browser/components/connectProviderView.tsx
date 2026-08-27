@@ -79,9 +79,9 @@ export interface ConnectProviderViewProps {
 	/**
 	 * Open providers.json for advanced editing. Closes the modal (so the editor
 	 * is visible), which discards any unsaved form input, so the affordance says
-	 * as much. Only shown for a custom entry.
+	 * as much.
 	 */
-	onEditRawConfig?: () => void;
+	onEditRawConfig: () => void;
 }
 
 export const ConnectProviderView = (props: ConnectProviderViewProps) => {
@@ -242,14 +242,11 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 						<ProviderModelsSection
 							modelIds={modelIds}
 							onChange={setModelIds}
-							onEditRawConfig={props.onEditRawConfig}
 						/>
 					}
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
 					<div style={{ flexGrow: 1 }}>&nbsp;</div>
-					{props.source.provider.customKind && props.onEditRawConfig &&
-						<EditRawConfigLink onClick={props.onEditRawConfig} />
-					}
+					<EditRawConfigLink onClick={props.onEditRawConfig} />
 					<ProviderNotice source={props.source} />
 				</div>
 			</ContentArea>

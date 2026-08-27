@@ -25,8 +25,8 @@ export interface ConnectedProviderViewProps {
 	onBack: () => void;
 	/** Invoked by the footer Close button. */
 	onClose: () => void;
-	/** Open providers.json for advanced editing. Only provided for a custom entry. */
-	onEditRawConfig?: () => void;
+	/** Open providers.json for advanced editing. */
+	onEditRawConfig: () => void;
 }
 
 export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
@@ -114,9 +114,7 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 						}
 					</p>
 
-					{current.provider.customKind && props.onEditRawConfig &&
-						<EditRawConfigLink onClick={props.onEditRawConfig} />
-					}
+					<EditRawConfigLink onClick={props.onEditRawConfig} />
 					<ProviderNotice source={current} />
 					{errorMessage && <div className='connect-provider-error'>{errorMessage}</div>}
 				</div>

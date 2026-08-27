@@ -252,7 +252,7 @@ describe('ConfigureLLMProviders', () => {
 		expect(screen.getByText('Model Providers')).toBeInTheDocument();
 	});
 
-	it('offers Edit providers.json on the connect view for a custom entry, and not for a built-in', async () => {
+	it('offers Edit providers.json on the connect view for both a custom entry and a built-in', async () => {
 		const user = userEvent.setup();
 		renderModal([anthropic, myGateway]);
 
@@ -261,7 +261,7 @@ describe('ConfigureLLMProviders', () => {
 
 		await user.click(screen.getByRole('button', { name: 'Back' }));
 		await user.click(screen.getAllByRole('button', { name: /connect/i })[0]);
-		expect(screen.queryByRole('button', { name: /edit providers\.json/i })).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /edit providers\.json/i })).toBeInTheDocument();
 	});
 
 	it('offers Edit providers.json on the connected view for a custom entry', async () => {

@@ -8,7 +8,6 @@ import './connectProviderView.css';
 import { useState } from 'react';
 
 import { localize } from '../../../../../nls.js';
-import { EditRawConfigLink } from './editRawConfigLink.js';
 
 export interface ProviderModelsSectionProps {
 	/** One entry per row, including the blank ones. */
@@ -21,8 +20,6 @@ export interface ProviderModelsSectionProps {
 	collapsible?: boolean;
 	/** Explains why the rows are here. Defaults to the "no listing" wording. */
 	hint?: string;
-	/** Offers providers.json for what this form doesn't cover. */
-	onEditRawConfig?: () => void;
 }
 
 /**
@@ -71,7 +68,6 @@ export const ProviderModelsSection = (props: ProviderModelsSectionProps) => {
 				<span aria-hidden='true' className='codicon codicon-add' />
 				{localize('positron.connectProvider.addModel', "Add Model")}
 			</button>
-			{props.onEditRawConfig && <EditRawConfigLink onClick={props.onEditRawConfig} />}
 		</>
 	);
 

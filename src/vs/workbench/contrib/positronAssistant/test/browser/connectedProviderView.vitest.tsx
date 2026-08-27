@@ -27,7 +27,7 @@ describe('ConnectedProviderView', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	it('shows how the provider is connected and reports a Sign Out footer action', () => {
-		rtl.render(<ConnectedProviderView source={positAi} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={positAi} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
 	});
@@ -35,7 +35,7 @@ describe('ConnectedProviderView', () => {
 	it('dispatches oauth-signout when the footer action runs', async () => {
 		const onAction = vi.fn().mockResolvedValue(undefined);
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView source={positAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={positAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
 		expect(onAction).toHaveBeenCalledWith(positAi, expect.anything(), 'oauth-signout');
 	});
@@ -48,7 +48,7 @@ describe('ConnectedProviderView', () => {
 			signedIn: true,
 			defaults: { baseUrl: 'https://proxy.example/v1' },
 		};
-		rtl.render(<ConnectedProviderView source={anthropic} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={anthropic} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText('https://proxy.example/v1')).toBeInTheDocument();
 	});
 
@@ -60,13 +60,13 @@ describe('ConnectedProviderView', () => {
 			signedIn: true,
 			defaults: { baseUrl: 'https://workspace.example.com' },
 		};
-		rtl.render(<ConnectedProviderView source={databricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={databricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText('Workspace URL')).toBeInTheDocument();
 		expect(screen.queryByText('Base URL')).not.toBeInTheDocument();
 	});
 
 	it('omits the base URL row when the provider does not support it', () => {
-		rtl.render(<ConnectedProviderView source={positAi} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={positAi} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.queryByText(/base url/i)).not.toBeInTheDocument();
 	});
 
@@ -80,7 +80,7 @@ describe('ConnectedProviderView', () => {
 			statusMessage: 'Bad base URL',
 			defaults: {},
 		};
-		rtl.render(<ConnectedProviderView source={broken} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={broken} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText('Bad base URL')).toBeInTheDocument();
 		expect(screen.queryByText(/connected to anthropic/i)).not.toBeInTheDocument();
 	});
@@ -95,7 +95,7 @@ describe('ConnectedProviderView', () => {
 				autoconfigure: { type: LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: true },
 			},
 		};
-		rtl.render(<ConnectedProviderView source={envAnthropic} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={envAnthropic} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via ANTHROPIC_API_KEY/i)).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument();
 	});
@@ -110,7 +110,7 @@ describe('ConnectedProviderView', () => {
 				autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'OAuth (Workbench Managed Credentials)', signedIn: true },
 			},
 		};
-		rtl.render(<ConnectedProviderView source={managedDatabricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={managedDatabricks} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via oauth \(workbench managed credentials\)/i)).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Sign Out' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument();
@@ -126,7 +126,7 @@ describe('ConnectedProviderView', () => {
 				autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'the Accounts menu.', signedIn: true },
 			},
 		};
-		rtl.render(<ConnectedProviderView source={copilot} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={copilot} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByRole('link', { name: /manage accounts/i })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Sign Out' })).not.toBeInTheDocument();
 	});
@@ -135,7 +135,7 @@ describe('ConnectedProviderView', () => {
 		let resolveSignOut = () => { };
 		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveSignOut = resolve; }));
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView source={positAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={positAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
 		const signingOut = screen.getByRole('button', { name: 'Signing Out...' });
 		expect(signingOut).toBeDisabled();
@@ -155,7 +155,7 @@ describe('ConnectedProviderView', () => {
 		let resolveDisconnect = () => { };
 		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveDisconnect = resolve; }));
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView source={anthropic} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={anthropic} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		await user.click(screen.getByRole('button', { name: 'Disconnect' }));
 		expect(screen.getByRole('button', { name: 'Disconnecting...' })).toBeDisabled();
 		await act(async () => { resolveDisconnect(); });
@@ -165,7 +165,7 @@ describe('ConnectedProviderView', () => {
 		let resolve = () => { };
 		const onAction = vi.fn().mockImplementation(() => new Promise<void>(r => { resolve = r; }));
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView source={positAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={positAi} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
 		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 		await act(async () => { resolve(); });
@@ -182,7 +182,7 @@ describe('ConnectedProviderView', () => {
 		};
 		const onAction = vi.fn().mockResolvedValue(undefined);
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView source={databricksApiKey} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={databricksApiKey} onAction={onAction} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via api key/i)).toBeInTheDocument();
 		const disconnectButton = screen.getByRole('button', { name: 'Disconnect' });
 		expect(disconnectButton).toBeInTheDocument();
@@ -199,7 +199,7 @@ describe('ConnectedProviderView', () => {
 			authMethods: ['oauth'],
 			defaults: { baseUrl: 'https://workspace.example.com' },
 		};
-		rtl.render(<ConnectedProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} />);
+		rtl.render(<ConnectedProviderView source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onClose={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
 	});
