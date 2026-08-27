@@ -64,10 +64,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _encounteredLanguagesByLanguageId = new Set<string>();
 
 	/**
-	 * The foreground session. This is the session that is currently active in
-	 * the Console view.
+	 * The ID of the foreground session. This is the session that is currently
+	 * active in the Console view.
+	 *
+	 * Stored as an ID rather than a session object: reconnecting replaces the
+	 * session object, and anything holding the old one talks to a disposed
+	 * extension host.
 	 */
-	private _foregroundSession?: ILanguageRuntimeSession;
+	private _foregroundSessionId?: string;
 
 	// A map of the currently active sessions. This is keyed by the session ID.
 	private readonly _activeSessionsBySessionId = new Map<string, ActiveRuntimeSession>();
@@ -100,14 +104,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// This map is keyed by the runtimeId (metadata.runtimeId) of the session.
 	private readonly _consoleSessionsByRuntimeId = new Map<string, ILanguageRuntimeSession[]>();
 
-	// A map of the last active console session per langauge.
+	// A map of the last active console session ID per langauge.
 	// We can have multiple console sessions per language,
 	// and this map provides access to the session that was
 	// last active per language.
-	private readonly _lastActiveConsoleSessionByLanguageId = new Map<string, ILanguageRuntimeSession>();
+	private readonly _lastActiveConsoleSessionIdByLanguageId = new Map<string, string>();
 
-	// The last active console session, regardless of language.
-	private _lastActiveConsoleSession: ILanguageRuntimeSession | undefined;
+	// The ID of the last active console session, regardless of language.
+	private _lastActiveConsoleSessionId: string | undefined;
 
 	// A map of the currently active notebook sessions. This is keyed by the notebook URI
 	// owning the session.
@@ -421,7 +425,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return this.foregroundSession;
 		}
 		// Otherwise, return the last active console session for the languageId if there is one
-		return this._lastActiveConsoleSessionByLanguageId.get(languageId);
+		const lastActiveSessionId = this._lastActiveConsoleSessionIdByLanguageId.get(languageId);
+		return lastActiveSessionId ? this.getSession(lastActiveSessionId) : undefined;
 	}
 
 	/**
@@ -856,32 +861,46 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * The foreground session, resolved from its ID.
+	 */
+	private get _foregroundSession(): ILanguageRuntimeSession | undefined {
+		return this._foregroundSessionId ?
+			this.getSession(this._foregroundSessionId) : undefined;
+	}
+
+	/**
+	 * The last active console session, resolved from its ID.
+	 */
+	private get _lastActiveConsoleSession(): ILanguageRuntimeSession | undefined {
+		return this._lastActiveConsoleSessionId ?
+			this.getSession(this._lastActiveConsoleSessionId) : undefined;
+	}
+
+	/**
 	 * Sets the foreground session.
 	 */
 	set foregroundSession(session: ILanguageRuntimeSession | undefined) {
 		// If there's nothing to do, return.
-		if (!session && !this._foregroundSession) {
+		if (!session && !this._foregroundSessionId) {
 			return;
 		}
 
-		// Check if the session is already the foreground session. This compares
-		// object identity, not session ID: a reconnected session carries the
-		// same ID as the disposed object it replaces, and treating that as "no
-		// change" would leave the stale object in place.
-		if (session && session === this._foregroundSession) {
+		// Check if the session is already the foreground session
+		if (session && session.sessionId === this._foregroundSessionId) {
 			return; // No change, don't update or fire events
 		}
 
-		this._foregroundSession = session;
+		this._foregroundSessionId = session?.sessionId;
 
 		if (session && session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			// Update the map of active console sessions per language.
 			// Only track Console sessions here; notebook sessions should not
 			// replace the last active console session, as that would cause
 			// getConsoleSessionForLanguage() to return the wrong session.
-			this._lastActiveConsoleSessionByLanguageId.set(session.runtimeMetadata.languageId, session);
+			this._lastActiveConsoleSessionIdByLanguageId.set(
+				session.runtimeMetadata.languageId, session.sessionId);
 			// Update the global last active console session
-			this._lastActiveConsoleSession = session;
+			this._lastActiveConsoleSessionId = session.sessionId;
 		}
 
 		// Keep the foreground session display info in sync
@@ -1419,8 +1438,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this.updateSessionMapsAfterExit(session);
 
 			// Clear the last active console session if it is the session being deleted.
-			if (this._lastActiveConsoleSession?.sessionId === sessionId) {
-				this._lastActiveConsoleSession = undefined;
+			if (this._lastActiveConsoleSessionId === sessionId) {
+				this._lastActiveConsoleSessionId = undefined;
 			}
 
 			// Remove stale display-state entries for the deleted session.
@@ -1612,7 +1631,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Enumerate the last known active console sessions per language and attempt to open
 		// the resource.
-		for (const session of this._lastActiveConsoleSessionByLanguageId.values()) {
+		for (const sessionId of this._lastActiveConsoleSessionIdByLanguageId.values()) {
+			const session = this.getSession(sessionId);
+			if (!session) {
+				continue;
+			}
 			try {
 				if (await session.openResource(resource)) {
 					return true;
@@ -1978,9 +2001,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Clean up any previous active session info for this session.
 		const oldSession = this._activeSessionsBySessionId.get(session.sessionId);
 		if (oldSession) {
-			// The old session object is about to be disposed; move any cached
-			// references onto the replacement before that happens.
-			this.replaceCachedSessionReferences(oldSession.session, session);
 			oldSession.dispose();
 		}
 
@@ -2333,58 +2353,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			session.metadata.notebookUri,
 			new RuntimeSessionDisplayInfo(session),
 		);
-	}
-
-	/**
-	 * Swaps every cached reference to a session object for its replacement.
-	 *
-	 * A reconnect (such as after an extension host restart) builds a new
-	 * session object bound to the new extension host proxy and disposes the old
-	 * one. The caches below hold the session object itself rather than its ID,
-	 * so without this they keep pointing at the disposed object and every call
-	 * made through them is cancelled by the dead RPC protocol.
-	 *
-	 * @param oldSession The session object being replaced.
-	 * @param newSession The session object replacing it.
-	 */
-	private replaceCachedSessionReferences(
-		oldSession: ILanguageRuntimeSession,
-		newSession: ILanguageRuntimeSession): void {
-		if (oldSession === newSession) {
-			return;
-		}
-
-		if (this._foregroundSession === oldSession) {
-			this._foregroundSession = newSession;
-			this.foregroundSessionDisplayInfo =
-				this._createRuntimeSessionDisplayInfo(newSession);
-		}
-
-		if (this._lastActiveConsoleSession === oldSession) {
-			this._lastActiveConsoleSession = newSession;
-		}
-
-		for (const [languageId, session] of this._lastActiveConsoleSessionByLanguageId) {
-			if (session === oldSession) {
-				this._lastActiveConsoleSessionByLanguageId.set(languageId, newSession);
-			}
-		}
-
-		for (const [runtimeId, sessions] of this._consoleSessionsByRuntimeId) {
-			const index = sessions.indexOf(oldSession);
-			if (index !== -1) {
-				const updated = [...sessions];
-				updated[index] = newSession;
-				this._consoleSessionsByRuntimeId.set(runtimeId, updated);
-			}
-		}
-
-		if (isNotebookLanguageRuntimeSession(newSession)) {
-			const notebookUri = newSession.metadata.notebookUri;
-			if (this._notebookSessionsByNotebookUri.get(notebookUri) === oldSession) {
-				this._notebookSessionsByNotebookUri.set(notebookUri, newSession);
-			}
-		}
 	}
 
 	/**
