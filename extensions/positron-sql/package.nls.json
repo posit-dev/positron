@@ -1,7 +1,12 @@
 {
 	"displayName": "SQL",
-	"description": "SQL support for Positron, including sending statements from an editor to the Console.",
+	"description": "SQL support for Positron, including completions, hovers and syntax diagnostics against a data connection.",
 	"configuration.title": "SQL",
-	"configuration.dialect.generic": "Generic",
-	"configuration.dialect.description": "The SQL dialect used to parse `.sql` files. Affects which quoting styles are accepted when a statement is split. Generic accepts a superset of most dialects."
+	"configuration.dialect.automatic": "Automatic",
+	"configuration.dialect.description": "The SQL dialect used to parse `.sql` files. Affects syntax diagnostics and which quoting styles are accepted. Automatic follows the data connection a file is written against, and parses a file with no connection permissively, accepting a superset of most dialects and reporting fewer errors. Set a dialect here to use it for every `.sql` file whatever it is written against.",
+	"configuration.diagnostics.enabled.description": "Report syntax errors in SQL files.",
+	"configuration.connectOnOpen.description": "Open the data connection a SQL file is written against when the file is opened, so its completions work without connecting by hand. Only applies to a file whose connection was chosen explicitly, and only once per connection: one that cannot be opened is not retried until the schema is refreshed. Turn this off if connecting is something you would rather do deliberately, such as when it prompts for credentials or costs money to wake a warehouse.",
+	"command.refreshDatabaseSchema.title": "Refresh Database Schema",
+	"command.selectDataConnection.title": "Select Data Connection",
+	"configuration.diagnostics.unknownNames.description": "Report table and column names that are not in the data connection a file is written against. Reported as warnings, and skipped entirely while the file has no connection to check against or while a connection's schema is too large to read in full, so an incomplete picture cannot flag valid SQL."
 }
