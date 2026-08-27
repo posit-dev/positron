@@ -134,6 +134,7 @@
   "src/vs/platform/extensions/": [],
   "src/vs/platform/extensions/common/positronExtensionValidator.ts": ["@:extensions"],
   "src/vs/platform/markers/": ["@:problems"],
+  "src/vs/platform/policy/": [],
   "src/vs/platform/positronActionBar/": [],
   "src/vs/platform/positronAiProvider/": ["@:assistant"],
   "src/vs/platform/positronDocs/": [],
