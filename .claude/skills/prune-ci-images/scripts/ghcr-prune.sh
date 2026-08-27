@@ -333,8 +333,32 @@ echo ""
 echo "==> Deleted $OK, failed $FAIL of $ROWS"
 echo "A deleted version can usually be restored within 30 days:"
 echo "  gh api -X POST /orgs/$ORG/packages/container/<pkg>/versions/<id>/restore"
+
 if [ "$FAIL" -gt 0 ]; then
-	echo "Failures:" >&2
-	cat "$WORK/failed.tsv" >&2
+	# GHCR will not delete a package's last tagged version. It reports this two
+	# different ways, and the second is misleading -- it claims the version is
+	# "publicly visible" with >5000 downloads even for private/internal
+	# packages. Both mean the same thing: only a package-level delete clears it.
+	grep -E 'last tagged version|more than 5000 downloads' "$WORK/failed.tsv" 		| cut -f1 | sort -u > "$WORK/lastver.txt" || true
+	grep -vE 'last tagged version|more than 5000 downloads' "$WORK/failed.tsv" 		> "$WORK/otherfail.tsv" || true
+
+	if [ -s "$WORK/lastver.txt" ]; then
+		echo ""
+		echo "$(wc -l < "$WORK/lastver.txt" | tr -d ' ') package(s) are down to their last"
+		echo "tagged version, which GHCR will not delete. This is expected for a"
+		echo "package the audit listed under \"would be emptied completely\"."
+		echo ""
+		echo "To clear them, delete the packages themselves (a separate decision --"
+		echo "this removes them from the org package list):"
+		echo ""
+		echo "  $(dirname "$0")/ghcr-delete-packages.sh --org $ORG \\"
+		sed 's/^/    --package /; s/$/ \\/' "$WORK/lastver.txt"
+		echo ""
+	fi
+
+	if [ -s "$WORK/otherfail.tsv" ]; then
+		echo "Unexpected failures:" >&2
+		cat "$WORK/otherfail.tsv" >&2
+	fi
 	exit 1
 fi

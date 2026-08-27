@@ -247,11 +247,22 @@ w("")
 if emptied:
 	w("## Packages that would be emptied completely")
 	w("")
-	w("Deleting every version of a package leaves it empty (GHCR then hides it).")
-	w("Confirm these images are genuinely retired:")
+	w("Every version of these packages is a candidate. **GHCR refuses to delete")
+	w("the last tagged version of a package**, so the prune step will delete all")
+	w("but one and report the final version as a failure. Clearing them needs a")
+	w("package-level delete, which is a separate decision -- it removes the")
+	w("package from the org list entirely:")
 	w("")
+	w("```bash")
 	for p in emptied:
-		w(f"- `{p}` ({by_pkg_del[p]} of {by_pkg_total[p]} versions)")
+		w(f"# {p} ({by_pkg_del[p]} of {by_pkg_total[p]} versions)")
+	w(f"scripts/ghcr-delete-packages.sh --org {org} \\")
+	for i, p in enumerate(emptied):
+		cont = " \\" if i < len(emptied) - 1 else ""
+		w(f"  --package {p}{cont}")
+	w("```")
+	w("")
+	w("Confirm these images are genuinely retired first.")
 	w("")
 if skipped_protected:
 	w("## Excluded: children of retained images (do not delete)")

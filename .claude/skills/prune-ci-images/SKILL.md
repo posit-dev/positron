@@ -11,6 +11,8 @@ Two-phase, human-gated cleanup of stale container versions in
 1. **Audit** (read-only) -> a markdown review list of deletion candidates.
 2. **Human review** -> the reviewer removes rows they want to KEEP.
 3. **Prune** -> batch-delete exactly the rows that remain.
+4. **Delete emptied packages** (optional, separate approval) -> clear packages
+   that are down to a last tagged version GHCR will not remove.
 
 `<dir>` below means `.claude/skills/prune-ci-images`.
 
@@ -98,8 +100,10 @@ tagged image.
 ### Reading the report
 
 - **"Packages that would be emptied completely"** -- every version of these is a
-  candidate, so GHCR will hide the package entirely. Surface this list to the
-  user explicitly and confirm the image is retired before deleting.
+  candidate. **GHCR refuses to delete a package's last tagged version**, so the
+  prune step deletes all but one and reports the final version as a failure.
+  That is expected, not a bug; clearing them needs phase 4. Surface this list to
+  the user explicitly and confirm the image is retired.
 - **"Warning: manifests that could not be resolved"** -- registry reads failed,
   so the protected set may be incomplete. Do not proceed on a list with this
   section; fix access and re-run.
@@ -161,6 +165,44 @@ Then, only after explicit user approval:
 
 It deletes one version at a time, prints a line per deletion, and exits non-zero
 with a failure summary if any call fails.
+
+## Phase 4 -- Delete emptied packages (optional)
+
+Only for packages the audit listed under "would be emptied completely" and whose
+last version the prune step could not delete. GHCR reports that block two ways,
+and **the second message is misleading**:
+
+```
+You cannot delete the last tagged version of a package. You must delete the
+package instead. (HTTP 400)
+
+Publicly visible package versions with more than 5000 downloads cannot be
+deleted. Contact GitHub support for further assistance. (HTTP 400)
+```
+
+The second appears verbatim even for `private` and `internal` packages, where
+"publicly visible" is simply false. Do not chase it or open a support ticket --
+treat both as "this is the last tagged version". `ghcr-prune.sh` classifies them
+together and prints the follow-up command.
+
+This is a **bigger action than deleting versions** and needs its own explicit
+approval: the package disappears from the org package list, and restore is less
+reliable for a whole package than for a single version. Get the user to confirm
+the specific list, then:
+
+```bash
+<dir>/scripts/ghcr-delete-packages.sh --org posit-dev --repo-path "$REPO" \
+  --package <name> --package <name> ...
+```
+
+Dry run unless given `--confirm`. It prints each package's visibility, version
+count, and tags first, and aborts if a package cannot be read (already deleted,
+or a typo) or if `--repo-path` still mentions the package **by name** anywhere
+under `.github/`, `docker/`, `test/`, `scripts/`, or `build/`. That name check is
+stricter than the tag check used in phases 1 and 3, which is what you want when
+removing a whole image.
+
+Package deletion needs admin rights on the package, not just `delete:packages`.
 
 ## After pruning
 
