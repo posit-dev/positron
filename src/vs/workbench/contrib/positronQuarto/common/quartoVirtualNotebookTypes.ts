@@ -23,10 +23,15 @@ export const QUARTO_CELLS_VIEW_TYPE = 'quarto-cells';
 /**
  * URI scheme of the hidden notebooks.
  *
- * A notebook URI is its source document's URI with the scheme swapped, so the
- * path is preserved and path-pattern LSP selectors still match. The source file
- * URI cannot be reused as-is: the extension host cannot hold a text document
- * and a notebook document at the same URI.
+ * A notebook URI is its source document's URI with the scheme swapped and an
+ * `.ipynb` suffix added, because a server can refuse a notebook on the strength
+ * of its path alone (see `quartoNotebookUri`). The source file URI cannot be
+ * reused as-is: the extension host cannot hold a text document and a notebook
+ * document at the same URI.
+ *
+ * The path is not a way to recognize these cells. An LSP client selects them by
+ * the notebook's type, and code holding a cell URI matches this scheme out of the
+ * cell's fragment.
  */
 export const QUARTO_CELLS_SCHEME = 'quarto-cells';
 
