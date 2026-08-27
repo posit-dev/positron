@@ -239,16 +239,11 @@ export class CustomProviderRegistry implements vscode.Disposable {
 			if (!config.baseUrl) {
 				return;
 			}
-			// No user-layer record: the entry comes from a default or enforced
-			// layer, so its URL isn't ours to write. The credential still is.
-			// Reports false so the caller doesn't reflect the typed URL into
-			// the provider's in-memory defaults as if it had taken effect.
-			//
-			// This treats default and enforced the same, which is overly broad
-			// for default: ai-config has no way yet to tell "no user record
-			// because it's default-sourced" (which should still be overridable)
-			// apart from "no user record because it's enforced" (which
-			// shouldn't be). See https://github.com/posit-dev/ai-lib/issues/90.
+			// No user-layer record: could be default-sourced (should be overridable)
+			// or enforced-sourced (correctly not). ai-config can't tell them apart
+			// yet (https://github.com/posit-dev/ai-lib/issues/90), so this treats
+			// both as not ours to write. The credential still is. Reports false so
+			// the caller doesn't reflect the typed URL as if it had taken effect.
 			if (!await readCustomProviderEntry(name)) {
 				log.info(`Not saving a URL for externally managed custom provider: ${name}`);
 				return false;

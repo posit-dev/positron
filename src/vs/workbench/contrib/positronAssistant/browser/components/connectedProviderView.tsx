@@ -25,10 +25,7 @@ export interface ConnectedProviderViewProps {
 	onBack: () => void;
 	/** Invoked by the footer Close button. */
 	onClose: () => void;
-	/**
-	 * Open providers.json for advanced editing. Only provided for a custom
-	 * entry, in place of the Delete action that used to sit here.
-	 */
+	/** Open providers.json for advanced editing. Only provided for a custom entry. */
 	onEditRawConfig?: () => void;
 }
 

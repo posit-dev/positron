@@ -15,11 +15,11 @@ import { getProviderSources } from './providerSources';
 export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModelConfig) => Promise<void>;
 
 /**
- * Persists a config change (e.g. base URL) for a provider. Return `false` to
- * report that nothing was actually written -- e.g. a custom entry with no
- * user-owned providers.json record -- so the caller doesn't reflect an
- * unpersisted value into the provider's in-memory defaults. Anything else,
- * including no return value, means it persisted.
+ * Persists a config change (e.g. base URL) for a provider. Return `false` if
+ * nothing was actually written (e.g. a custom entry with no user-owned
+ * providers.json record), so the caller doesn't reflect an unpersisted value
+ * into the provider's in-memory defaults. Anything else, including no return
+ * value, means it persisted.
  */
 export type OnSaveCallback = (config: positron.ai.LanguageModelConfig) => Promise<void | boolean>;
 

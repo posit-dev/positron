@@ -79,8 +79,7 @@ export interface ConnectProviderViewProps {
 	/**
 	 * Open providers.json for advanced editing. Closes the modal (so the editor
 	 * is visible), which discards any unsaved form input, so the affordance says
-	 * as much. Rendered for a custom entry in place of the Delete action that
-	 * used to sit here -- deleting is now a providers.json edit, not a button.
+	 * as much. Only shown for a custom entry.
 	 */
 	onEditRawConfig?: () => void;
 }
@@ -214,16 +213,11 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 						baseUrl={baseUrl}
 						providerId={props.source.provider.id}
 						showApiKey={authMethod === AuthMethod.API_KEY}
-						// supportsBaseUrl only says this provider has a base URL concept
-						// at all; it says nothing about whether the value is currently
-						// admin-enforced and so shouldn't be user-editable. There's no
-						// such case today because nothing produces that signal yet --
-						// ai-config has no generic per-field provenance a host could read
-						// (https://github.com/posit-dev/ai-lib/issues/90) -- and
-						// ProviderConnectionFields has no disabled/read-only state for
-						// the input regardless. Once both land, this needs its own
-						// derived value (and showBaseUrl would gate visibility while a
-						// new prop gates editability), not a reuse of supportsBaseUrl.
+						// supportsBaseUrl says this provider has a base URL, not whether
+						// it's user-editable (an admin-enforced one shouldn't be). No such
+						// case exists yet: ai-config has no per-field provenance signal
+						// (https://github.com/posit-dev/ai-lib/issues/90), and this input
+						// has no disabled state regardless.
 						showBaseUrl={supportsBaseUrl}
 						onApiKeyChange={setApiKey}
 						onBaseUrlChange={setBaseUrl}
