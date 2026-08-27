@@ -41,10 +41,10 @@ export interface CustomAuthDescriptor {
 
 /**
  * Local copy of ai-credentials' `CUSTOM_CLIENT_KIND_AUTH_DESCRIPTORS`, the
- * authority, which can't be imported: it publishes only an `import` condition and
- * isn't a dependency here (posit-dev/ai-lib issue pending). Exhaustive, so a kind
- * added in ai-config fails to compile until it has a credential story; that isn't
- * the same as Positron offering it, which {@link OFFERED_KINDS} decides.
+ * authority, which can't be imported here yet: https://github.com/posit-dev/ai-lib/issues/89.
+ * Exhaustive, so a kind added in ai-config fails to compile until it has a
+ * credential story; that isn't the same as Positron offering it, which
+ * {@link OFFERED_KINDS} decides.
  */
 const CUSTOM_KIND_AUTH_DESCRIPTORS = {
 	'openai-compatible': { authMethod: 'apikey', apiKeyOptional: true },
