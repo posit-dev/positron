@@ -42,7 +42,7 @@ describe('positronGalleryTelemetry', function () {
 		});
 
 		it('emits every session-type value without alteration', () => {
-			for (const sessionType of ['desktop', 'workbench', 'workbench-server', 'positron-server', 'remote-server'] as const) {
+			for (const sessionType of ['desktop', 'workbench', 'workbench-server', 'positron-server', 'positron-sagemaker', 'remote-server'] as const) {
 				const result = appendPositronGalleryParams(baseUrl, undefined, sessionType, '2026.06.0', true, true);
 				expect(result).toContain(`positron-session-type=${sessionType}`);
 			}

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { isElectron, isWeb, isWorkbench } from '../../../base/common/platform.js';
+import { isSageMakerSession } from '../../positronLicense/common/positronSageMakerSession.js';
 
 /**
  * Setting key for opting out of P3M gallery telemetry. Boolean; defaults to true.
@@ -30,6 +31,7 @@ export type PositronSessionType =
 	| 'workbench'         // PWB-hosted Positron, browser tab side.
 	| 'workbench-server'  // PWB-hosted Positron, Node backend (RS_SERVER_URL set).
 	| 'positron-server'   // Positron Server such as JupyterHub, browser tab side.
+	| 'positron-sagemaker'  // Positron Server on Amazon SageMaker, browser tab and Node backend.
 	| 'remote-server';    // Non-PWB Node backend: JupyterHub, remote SSH / WSL / dev container backend.
 
 /**
@@ -39,10 +41,16 @@ export type PositronSessionType =
  * process; both can independently hit the gallery, and we tag them separately so P3M
  * can correlate or count them as needed.
  *
+ * SageMaker is the exception to that split: both sides report `positron-sagemaker`, so the
+ * deployment counts as one thing instead of landing in the generic `positron-server` and
+ * `remote-server` buckets. See {@link isSageMakerSession} for where the signal comes from.
  */
 export function getPositronSessionType(): PositronSessionType {
 	if (isWorkbench) {
 		return isWeb ? 'workbench' : 'workbench-server';
+	}
+	if (isSageMakerSession()) {
+		return 'positron-sagemaker';
 	}
 	if (isWeb) {
 		return 'positron-server';

@@ -12,6 +12,11 @@ import { FileAccess } from '../../base/common/network.js';
 import { LicenseManager } from './licenseManager.js';
 import { activateWithManager, verifyLocalLicense } from './localLicense.js';
 
+/** How a validated license was issued, where that matters downstream. */
+export type PositronLicenseKind =
+	| 'academic'    // Raw .lic file; grants the Education License Rider terms.
+	| 'sagemaker';  // AWS license manager lease, i.e. Positron Server on SageMaker.
+
 /**
  * The result of validating a license.
  */
@@ -23,14 +28,13 @@ export interface ILicenseValidationResult {
 	/** The issuer name, if validation was successful. */
 	issuer?: string;
 	/**
-	 * Whether this license grants Positron's Education License Rider terms (drives the
-	 * academic license banner and P3M telemetry). True for licenses validated from a raw
-	 * license file, which is every deployment that is neither Posit Workbench (signed
-	 * token, always false) nor the AWS license manager (left undefined, i.e. falsy).
-	 * Note for Positron Server Pro: this license miust carry its own signal,
-	 * or it will inherit `academic` as true
+	 * How this license was issued; drives the academic banner and the P3M session type.
+	 * The kinds are mutually exclusive, since each comes from a different branch of
+	 * {@link validateLicenseKey}. Undefined for signed Posit Workbench tokens and for
+	 * anything else with no signal, so a new license path must set its own kind rather
+	 * than inherit one.
 	 */
-	academic?: boolean;
+	kind?: PositronLicenseKind;
 }
 
 /**
@@ -160,7 +164,7 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 			} else {
 				console.log('Verified license from license-manager directory.');
 			}
-			return { ...localResult, academic: true };
+			return { ...localResult, kind: 'academic' };
 		}
 	} catch (e) {
 		localError = e;
@@ -214,10 +218,10 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 		} else if (trimmedContents.startsWith('-----BEGIN RSTUDIO LICENSE-----')) {
 			// A raw license file; activate and verify it with the license-manager
 			// binary. File-based licenses mark the deployment academic; see
-			// ILicenseValidationResult.academic.
+			// ILicenseValidationResult.kind.
 			const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
 			const result = await activate(installPath, licenseFile);
-			return result.valid ? { ...result, academic: true } : result;
+			return result.valid ? { ...result, kind: 'academic' } : result;
 		} else {
 			console.error('Unrecognized license file format. Expected a JSON license key or an RSA license file.');
 			return { valid: false };
@@ -310,9 +314,8 @@ export async function validateLicense(connectionToken: string, license: string, 
 		valid: true,
 		licensee: licenseKey.licensee,
 		issuer: licenseKey.issuer,
-		// Signed tokens are minted by Posit Workbench, which is never an academic
-		// deployment. Academic status comes from the raw-license-file paths.
-		academic: false,
+		// No kind: signed tokens are minted by Posit Workbench, which is neither academic
+		// nor SageMaker.
 	};
 }
 
@@ -388,5 +391,6 @@ async function validateWithLicenseManager(binaryPath: string): Promise<ILicenseV
 		return { valid: false };
 	}
 
-	return { valid: true };
+	// The lease verified under the AWS license manager's key, so this deployment is on SageMaker.
+	return { valid: true, kind: 'sagemaker' };
 }

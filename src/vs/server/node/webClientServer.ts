@@ -42,6 +42,7 @@ import type * as net from 'net';
 import { HAS_STATIC_ROUTE } from './pwbConstants.js';
 import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
 import { academicMarkerScript, IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
+import { isSageMakerSession, sageMakerMarkerScript } from '../../platform/positronLicense/common/positronSageMakerSession.js';
 // --- End Positron ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
@@ -691,6 +692,7 @@ export class WebClientServer {
 		// Same early-injection trick as the Workbench marker above, reusing the PWB_WORKBENCH_MARKER
 		// slot so no template changes are needed.
 		const academicMarker = academicMarkerScript(this._academicLicenseService.isAcademic);
+		const sageMakerMarker = sageMakerMarkerScript(isSageMakerSession());
 		// --- End Positron ---
 
 		const values: { [key: string]: string } = {
@@ -705,7 +707,7 @@ export class WebClientServer {
 			BASE: base,
 			VS_BASE: vscodeBase,
 			RS_LOGIN_CHECK_SCRIPT: rsLoginCheckScript,
-			PWB_WORKBENCH_MARKER: pwbWorkbenchMarker + academicMarker,
+			PWB_WORKBENCH_MARKER: pwbWorkbenchMarker + academicMarker + sageMakerMarker,
 			// --- End PWB ---
 		};
 

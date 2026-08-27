@@ -125,7 +125,7 @@ describe('validateLicense', () => {
 		const result = await validateLicense(token, license, [testPubKeyPem]);
 
 		expect(result.valid).toBe(true);
-		expect(result.academic).toBe(false);
+		expect(result.kind).toBeUndefined();
 	});
 
 	it('rejects malformed JSON', async () => {
@@ -174,7 +174,7 @@ describe('validateLicenseFile', () => {
 		const licPath = writeTempLicense('-----BEGIN RSTUDIO LICENSE-----\nabc123\n-----END RSTUDIO LICENSE-----\n');
 		try {
 			const result = await validateLicenseFile('any-token', licPath, async () => ({ valid: true, licensee: 'Acme University' }));
-			expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true });
+			expect(result).toEqual({ valid: true, licensee: 'Acme University', kind: 'academic' });
 		} finally {
 			fs.unlinkSync(licPath);
 		}
@@ -261,7 +261,7 @@ describe('validateLicenseKey', () => {
 	it('marks a local .lic license academic', async () => {
 		await withCleanLicenseEnv(async () => {
 			const result = await validateLicenseKey('some-token', createServerArgs(), async () => ({ valid: true, licensee: 'Acme University' }));
-			expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true });
+			expect(result).toEqual({ valid: true, licensee: 'Acme University', kind: 'academic' });
 		});
 	});
 
@@ -278,7 +278,7 @@ describe('validateLicenseKey', () => {
 				signature: 'bm90LWEtcmVhbC1zaWduYXR1cmU=',
 			});
 			const result = await validateLicenseKey('some-token', createServerArgs(), async () => ({ valid: true, licensee: 'Acme University' }));
-			expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true });
+			expect(result).toEqual({ valid: true, licensee: 'Acme University', kind: 'academic' });
 		});
 	});
 
