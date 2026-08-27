@@ -263,7 +263,14 @@ sw.addEventListener('message', async (event) => {
 			// See the matching comment in pre/index.html: Firefox can leave a newly
 			// created webview iframe uncontrolled even though this worker is already
 			// active, which would otherwise hang the webview's content update.
-			await sw.clients.claim();
+			try {
+				await sw.clients.claim();
+			} catch (e) {
+				// The client is waiting on `controllerchange` and has no other signal
+				// that the claim failed, so make the failure visible instead of letting
+				// it hang silently.
+				console.error(`Failed to claim webview clients: ${e}`);
+			}
 			return;
 		}
 		// --- End Positron ---
