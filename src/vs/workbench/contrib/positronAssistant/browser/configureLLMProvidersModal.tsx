@@ -56,9 +56,10 @@ export const showConfigureLLMProvidersModal = (
 	onClose: () => void,
 	options?: IShowLanguageModelConfigOptions,
 ) => {
-	// Disposing the renderer is the one thing every way out of the modal does, whether
-	// that is the title bar's close button or Escape, and it outlives whichever view
-	// was on screen. So the teardown hangs off the renderer rather than the component.
+	// Disposing the renderer is the one thing every way out of the modal does: the
+	// title bar's close button, and Escape, which the browser handles itself on a
+	// native <dialog> without going through React. So the teardown hangs off the
+	// renderer rather than the component.
 	const pendingSignIn: PendingSignIn = {};
 	const renderer = new PositronModalReactRenderer({
 		onDisposed: () => {
