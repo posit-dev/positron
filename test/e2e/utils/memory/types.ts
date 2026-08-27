@@ -126,6 +126,15 @@ export type MemorySnapshot = {
 	 */
 	forcedGc?: ForcedGcStats[];
 	/**
+	 * Which ark the build bundles, e.g. `0.1.252+209.885fac4`. Undefined when the
+	 * build shipped no sidecar to read it from.
+	 *
+	 * On the snapshot rather than read at publish time because the report and
+	 * publish step is a separate `npx playwright test` invocation that reads these
+	 * files back off disk -- the app and its build are long gone by then.
+	 */
+	arkVersion?: string;
+	/**
 	 * Samples taken before the tail and thrown away: the startup plateau, before
 	 * Chromium reclaimed its startup memory. Non-zero is normal and healthy.
 	 */

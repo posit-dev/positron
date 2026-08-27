@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
+import { readArkVersion } from '../ark-version.js';
 import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
 import { ForcedGcStats } from './gc.js';
 import { deriveExtensionName, isGenericName, normalizeProcessName, resolveRole } from './label.js';
@@ -397,6 +398,7 @@ export async function captureSnapshot(input: {
 		lane: input.lane,
 		capturedAt: new Date().toISOString(),
 		positronVersion: readPositronVersion(input.buildRoot),
+		arkVersion: readArkVersion(input.buildRoot),
 		launchIndex: input.launchIndex,
 		stoppedGrowing,
 		settleMs,
