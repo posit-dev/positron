@@ -87,8 +87,11 @@ suite('ChatSessionOperationLog', () => {
 		instantiationService.stub(ILogService, new NullLogService());
 		instantiationService.stub(IExtensionService, new TestExtensionService());
 		instantiationService.stub(IContextKeyService, new MockContextKeyService());
-		instantiationService.stub(IChatAgentService, store.add(instantiationService.createInstance(ChatAgentService)));
+		// --- Start Positron ---
+		// ChatAgentService reads IConfigurationService in its constructor; stub it first.
 		instantiationService.stub(IConfigurationService, new TestConfigurationService());
+		// --- End Positron ---
+		instantiationService.stub(IChatAgentService, store.add(instantiationService.createInstance(ChatAgentService)));
 		instantiationService.stub(IChatService, new MockChatService());
 
 		const model = store.add(instantiationService.createInstance(ChatModel, undefined, { initialLocation: ChatAgentLocation.Chat, canUseTools: true }));

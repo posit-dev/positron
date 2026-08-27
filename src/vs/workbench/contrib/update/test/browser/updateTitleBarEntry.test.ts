@@ -100,7 +100,13 @@ suite('UpdateTooltip', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('removes hidden actions from the tab order', () => {
-		const configurationService = new TestConfigurationService({ 'update.mode': 'default' });
+		const configurationService = new TestConfigurationService({
+			'update.mode': 'default',
+			// --- Start Positron ---
+			// Positron only shows the Release Notes button on the `releases` channel.
+			'update.positron.channel': 'releases',
+			// --- End Positron ---
+		});
 		store.add(configurationService.onDidChangeConfigurationEmitter);
 		const tooltip = store.add(new UpdateTooltip(
 			new class extends mock<IClipboardService>() { },
@@ -113,6 +119,10 @@ suite('UpdateTooltip', () => {
 			new class extends mock<IProductService>() {
 				override readonly nameLong = 'Code - OSS Dev';
 				override readonly version = '1.134.0';
+				// --- Start Positron ---
+				// Positron shows the current version from `positronVersion`.
+				override readonly positronVersion = '2026.8.0';
+				// --- End Positron ---
 				override readonly commit = 'current';
 			},
 		));

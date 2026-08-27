@@ -106,6 +106,12 @@ suite('AgentHostTelemetryService', () => {
 		const logService = new NullLogService();
 		const fileService = localDisposables.add(new FileService(logService));
 		localDisposables.add(fileService.registerProvider(Schemas.file, localDisposables.add(new InMemoryFileSystemProvider())));
+		// --- Start Positron ---
+		// Positron defaults `telemetry.telemetryLevel` to `off`, so opt the config
+		// back in to `all`; otherwise the delegate telemetry service reports NONE
+		// and masks the launch-source level this test is verifying.
+		await fileService.writeFile(URI.file('/User/settings.json'), VSBuffer.fromString(JSON.stringify({ 'telemetry.telemetryLevel': 'all' })));
+		// --- End Positron ---
 		return createAgentHostTelemetryService({
 			environmentService: {
 				args: telemetryLevelArg === undefined ? {} : { 'telemetry-level': telemetryLevelArg },

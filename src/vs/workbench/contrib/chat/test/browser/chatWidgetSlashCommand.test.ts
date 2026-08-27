@@ -6,6 +6,10 @@
 import assert from 'assert';
 import { mockObject } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+// --- Start Positron ---
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+// --- End Positron ---
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
@@ -37,6 +41,10 @@ suite('ChatWidget Slash Commands', () => {
 		instantiationService.stub(IExtensionService, new TestExtensionService());
 		instantiationService.stub(IChatService, new MockChatService());
 		instantiationService.stub(IContextKeyService, new MockContextKeyService());
+		// --- Start Positron ---
+		// ChatAgentService reads IConfigurationService in its constructor; stub it first.
+		instantiationService.stub(IConfigurationService, new TestConfigurationService());
+		// --- End Positron ---
 		instantiationService.stub(IChatAgentService, disposables.add(instantiationService.createInstance(ChatAgentService)));
 		instantiationService.stub(IPromptsService, disposables.add(new MockPromptsService()));
 		instantiationService.stub(IChatVariablesService, new MockChatVariablesService());

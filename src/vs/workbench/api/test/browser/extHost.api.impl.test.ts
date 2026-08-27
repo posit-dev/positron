@@ -22,11 +22,16 @@ suite('ExtHost API', function () {
 		}
 	});
 
-	test('TerminalOptions.isRemoteResolverTerminal requires terminalRemoteResolver proposal', () => {
+	// --- Start Positron ---
+	// PWB patches `isProposedApiEnabled` to always return true, so
+	// `checkProposedApiEnabled` never throws and the proposal gate this test
+	// asserts on does not apply in Positron.
+	test.skip('TerminalOptions.isRemoteResolverTerminal requires terminalRemoteResolver proposal', () => {
 		const options = { isRemoteResolverTerminal: true };
 		assert.throws(() => getTerminalInternalOptions(nullExtensionDescription, options), /CANNOT use API proposal: terminalRemoteResolver/);
 		assert.deepStrictEqual(getTerminalInternalOptions({ ...nullExtensionDescription, enabledApiProposals: ['terminalRemoteResolver'] }, options), { isRemoteResolverTerminal: true });
 	});
+	// --- End Positron ---
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 });
