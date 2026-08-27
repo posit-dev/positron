@@ -213,14 +213,42 @@ failures, and keep running until they pass.
 "Unit tests" means BOTH runners, not just one. The Positron vitest suite is fast
 and needs no build daemons, so it's tempting to run it and assume units are
 covered -- but it does not execute the core Mocha `.test.ts` files, which is
-exactly where upstream's own tests collide with Positron's edits. In particular:
-when the merge adds a constructor dependency to an upstream class (a new
-`@IService` parameter), that class's upstream `.test.ts` must stub the new
-service or it throws at construction. Only the core Mocha run catches this;
-vitest never sees it. This is a recurring merge signature -- a single merge often
-needs stub/arg fixes across several upstream tests (e.g. `defaultAccount.test.ts`,
-`chatAgents.test.ts`, `extensionGalleryService.test.ts`). Run the core Mocha
-suite, don't just infer coverage from a green vitest run.
+exactly where upstream's own tests collide with Positron's edits. A green vitest
+run is NOT evidence that units pass. You must run the core Mocha suite to green
+before treating unit tests as done or relying on CI:
+
+```bash
+npm run build-start && npm run build-check   # daemons must be green first
+npm run test:core                            # the full core Mocha suite
+```
+
+Do not push the merge with the core Mocha suite unrun. If the log records units
+as "not run yet," they are not done -- CI will find what you skipped. The `test /
+unit` CI job runs this suite, so any red here is a red CI job.
+
+These are the recurring ways an upstream `.test.ts` collides with Positron's
+edits. Watch for all of them, not just the first:
+
+- **New constructor dependency.** The merge adds a `@IService` parameter to an
+  upstream class, and its upstream `.test.ts` doesn't stub the service, so it
+  throws at construction. A variant: the test *does* stub it but registers the
+  stub AFTER `createInstance(...)` of the class -- order matters, stub first.
+  Recurring casualties: `chatAgents.test.ts`, `defaultAccount.test.ts`,
+  `extensionGalleryService.test.ts`.
+- **Positron flips an upstream default.** A test assumes an upstream config
+  default, but Positron changed it (e.g. `telemetry.telemetryLevel` defaults to
+  `off`, not `all`), so the test's expected value no longer holds. Fix the test
+  setup to establish the value it needs explicitly rather than leaning on the
+  default.
+- **PWB behavioral patch invalidates a negative assertion.** PWB patches
+  `isProposedApiEnabled` to always return true, so any upstream test asserting
+  that a proposed-API check *throws* (`checkProposedApiEnabled`) can never pass.
+  Skip such a test with a `// --- Start Positron ---` note explaining the patch.
+- **Positron edited the production class, not the test.** Positron modified an
+  upstream class (new fields it reads, new gates it checks -- e.g. reading
+  `positronVersion` or gating on `update.positron.channel`) but the upstream
+  test still exercises the pre-Positron behavior. Update the test to set up the
+  Positron inputs the production code now reads.
 
 Next, install all e2e test dependencies and run the test suite. Investigate any
 failures and fix them if they are caused by the merge.
