@@ -260,15 +260,11 @@ sw.addEventListener('message', async (event) => {
 	switch (event.data.channel) {
 		// --- Start Positron ---
 		case 'claim': {
-			// See the matching comment in pre/index.html: Firefox can leave a newly
-			// created webview iframe uncontrolled even though this worker is already
-			// active, which would otherwise hang the webview's content update.
+			// Requested by pre/index.html when Firefox leaves a webview iframe uncontrolled.
 			try {
 				await sw.clients.claim();
 			} catch (e) {
-				// The client is waiting on `controllerchange` and has no other signal
-				// that the claim failed, so make the failure visible instead of letting
-				// it hang silently.
+				// The client is blocked on `controllerchange`, so surface the failure.
 				console.error(`Failed to claim webview clients: ${e}`);
 			}
 			return;

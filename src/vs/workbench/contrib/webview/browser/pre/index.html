@@ -7,7 +7,7 @@
 	<!-- Start PWB: serve same origin -->
 	<!-- Start Positron -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-0D+AFCMmo481MDo+WkbCgb0FjhJ3F6emhV9yH79LGfk=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-qUITkH/ymeyLH2q9+oOB7y9UndRxtlJwBAzpZtu7daM=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -284,17 +284,10 @@
 							navigator.serviceWorker.addEventListener('controllerchange', r, { once: true });
 
 							// --- Start Positron ---
-							// Firefox does not automatically make a newly created webview iframe a
-							// controlled client, even when this worker is already active. When that
-							// happens there is no worker installing or waiting, so `controllerchange`
-							// would never fire and this promise would hang forever, leaving every
-							// webview after the first one permanently blank. Ask the active worker to
-							// claim this client so the event does fire.
-							//
-							// Only ask when no new worker is on its way in: if one is installing or
-							// waiting, the wait above is what lets it take over, and claiming with the
-							// current worker would pull a stale one in ahead of it. The listener is
-							// registered first so a claim that lands immediately cannot be missed.
+							// Firefox leaves a new webview iframe uncontrolled even when this worker is
+							// active, so `controllerchange` never fires and this hangs; claiming makes it
+							// fire. Skipped while a worker is installing or waiting, which needs the wait
+							// above so the incoming worker takes over instead of the current one.
 							if (!registration.installing && !registration.waiting && registration.active) {
 								registration.active.postMessage({ channel: 'claim' });
 							}
