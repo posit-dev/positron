@@ -14,7 +14,8 @@ import { AuthMethod } from '../types.js';
 import { deriveAuthMethod, deriveDisconnectAction } from '../providerConnection.js';
 import { getBaseUrlLabel } from '../providerFieldLabels.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
-import { ConnectProviderHeader, EditRawConfigLink, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
+import { ConnectProviderHeader, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
+import { EditRawConfigLink } from './editRawConfigLink.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
 
 export interface ConnectedProviderViewProps {

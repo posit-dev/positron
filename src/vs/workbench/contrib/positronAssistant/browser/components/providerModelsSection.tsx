@@ -8,6 +8,7 @@ import './connectProviderView.css';
 import { useState } from 'react';
 
 import { localize } from '../../../../../nls.js';
+import { EditRawConfigLink } from './editRawConfigLink.js';
 
 export interface ProviderModelsSectionProps {
 	/** One entry per row, including the blank ones. */
@@ -70,11 +71,7 @@ export const ProviderModelsSection = (props: ProviderModelsSectionProps) => {
 				<span aria-hidden='true' className='codicon codicon-add' />
 				{localize('positron.connectProvider.addModel', "Add Model")}
 			</button>
-			{props.onEditRawConfig &&
-				<button className='connect-provider-edit-json' type='button' onClick={props.onEditRawConfig}>
-					{localize('positron.connectProvider.editJson', "Edit providers.json for advanced options (closes this dialog)")}
-				</button>
-			}
+			{props.onEditRawConfig && <EditRawConfigLink onClick={props.onEditRawConfig} />}
 		</>
 	);
 

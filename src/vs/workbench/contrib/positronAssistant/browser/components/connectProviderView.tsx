@@ -16,6 +16,7 @@ import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProvid
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
+import { EditRawConfigLink } from './editRawConfigLink.js';
 import { LanguageModelIcon } from './languageModelButton.js';
 import { ProviderConnectionFields } from './providerConnectionFields.js';
 import { ProviderModelsSection } from './providerModelsSection.js';
@@ -293,17 +294,6 @@ export const ConnectProviderHeader = (props: { source: IPositronLanguageModelSou
 			{props.subtitle && <span className='connect-provider-subtitle'>{props.subtitle}</span>}
 		</div>
 	</div>
-);
-
-/**
- * Points at providers.json for what a custom entry's screen doesn't cover --
- * the slot where a Delete Provider action used to sit, before deleting moved
- * to editing the file directly. Shared with the connected view.
- */
-export const EditRawConfigLink = (props: { onClick: () => void }) => (
-	<button className='connect-provider-edit-json' type='button' onClick={props.onClick}>
-		{localize('positron.connectProvider.editJson', "Edit providers.json for advanced options (closes this dialog)")}
-	</button>
 );
 
 /** Error banner shared by the connect and connected views. */
