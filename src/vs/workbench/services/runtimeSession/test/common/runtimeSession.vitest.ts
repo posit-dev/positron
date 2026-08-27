@@ -1656,18 +1656,18 @@ describe('Positron - RuntimeSessionService', () => {
 			const { runtime: workspaceRuntime, reconnected } = await disconnectAndReconnect();
 
 			expect(
-				runtimeSessionService.getConsoleSessionForLanguage(workspaceRuntime.languageId) === reconnected,
+				runtimeSessionService.getConsoleSessionForLanguage(workspaceRuntime.languageId),
 				'Expected the console session for the language to be the reconnected session, not the replaced one'
-			).toBe(true);
+			).toBe(reconnected);
 		});
 
 		it('returns the reconnected session from getLastActiveConsoleSession', async () => {
 			const { reconnected } = await disconnectAndReconnect();
 
 			expect(
-				runtimeSessionService.getLastActiveConsoleSession() === reconnected,
+				runtimeSessionService.getLastActiveConsoleSession(),
 				'Expected the last active console session to be the reconnected session, not the replaced one'
-			).toBe(true);
+			).toBe(reconnected);
 		});
 	});
 
