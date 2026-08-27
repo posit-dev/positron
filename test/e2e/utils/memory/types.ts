@@ -69,6 +69,19 @@ export type LabeledProcess = {
 	pssSamples: number[];
 	/** Index-aligned with `pssSamples`, so `pssSamples[i] <= rssSamples[i]` per instant. */
 	rssSamples: number[];
+	/**
+	 * Whether this process was sampled after a forced garbage collection (`gc.ts`).
+	 *
+	 * Per process rather than a role list on the snapshot, so every band on the
+	 * dashboard's Memory by Process Role chart is self-describing: the lane
+	 * difference -- the server lane collects only the extension host -- needs no
+	 * rule anywhere downstream, and the CSV export and any ad-hoc query get the
+	 * column for free. Matches how `labeled` already works on this type.
+	 *
+	 * Required rather than optional, so a process that never passed through
+	 * `withForcedGc` is a compile error rather than a silently un-flagged band.
+	 */
+	forcedGc: boolean;
 };
 
 export type ActivatedExtension = {

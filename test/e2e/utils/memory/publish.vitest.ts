@@ -25,7 +25,8 @@ const process1: LabeledProcess = {
 	pid: 100, ppid: 1, depth: 0,
 	processName: 'window [1] (secret-client-project)',
 	processRole: 'renderer', labeled: true, cmdBasename: 'positron',
-	pssBytes: 300, rssBytes: 600, pssMin: 290, pssMax: 310
+	pssBytes: 300, rssBytes: 600, pssMin: 290, pssMax: 310,
+	forcedGc: false
 };
 
 const snapshot: MemorySnapshot = {

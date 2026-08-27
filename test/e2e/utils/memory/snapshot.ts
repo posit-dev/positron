@@ -92,9 +92,31 @@ export function joinProcesses(
 			pssMin: Math.min(...observed),
 			pssMax: Math.max(...observed),
 			pssSamples: observed,
-			rssSamples: observedRss
+			rssSamples: observedRss,
+			// Corrected by withForcedGc, which runs where the GC pass is in scope.
+			// False rather than undefined so the field can be required on the type.
+			forcedGc: false
 		};
 	});
+}
+
+/**
+ * Mark which processes were sampled after a forced garbage collection.
+ *
+ * By role rather than by pid, even though {@link ForcedGcStats} carries one. The
+ * GC reaches a process through its role's inspector port, so every process of a
+ * collected role is in the collected state; flagging only the pid that answered
+ * would leave a sibling of the same role reading as live. The API's trend
+ * summary aggregates this per role with `any()` on exactly that assumption.
+ *
+ * Absent stats mean no GC pass ran, so every process keeps the `false`
+ * {@link joinProcesses} set.
+ */
+export function withForcedGc(processes: LabeledProcess[], forcedGc: ForcedGcStats[] | undefined): LabeledProcess[] {
+	// Typed as strings rather than GcTarget['role'], so the lookup below can ask
+	// about any ProcessRole without a cast.
+	const collected = new Set<string>((forcedGc ?? []).map(stats => stats.role));
+	return processes.map(proc => ({ ...proc, forcedGc: collected.has(proc.processRole) }));
 }
 
 const totalPss = (procs: RawProcess[]): number => procs.reduce((sum, p) => sum + p.pssBytes, 0);
@@ -365,7 +387,10 @@ export async function captureSnapshot(input: {
 	// median taken across the step between them describes neither state.
 	const reported = samples.slice(-TAIL_LENGTH);
 	const names = await readProcessNames(input.buildRoot, input.userDataDir);
-	const processes = joinProcesses(samples[samples.length - 1], names, input.rootPid, reported);
+	const joined = joinProcesses(samples[samples.length - 1], names, input.rootPid, reported);
+	// Stamped here rather than inside joinProcesses, which is called from the
+	// baseline path too and has no view of the GC pass.
+	const processes = withForcedGc(joined, forcedGc);
 
 	return {
 		scenario: input.scenario,

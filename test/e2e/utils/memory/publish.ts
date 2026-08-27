@@ -322,6 +322,10 @@ export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScena
 			// fall through every switch downstream.
 			processRole: isProcessRole(p.process_role) ? p.process_role : 'unlabeled',
 			labeled: true, cmdBasename: '',
+			// The response carries no such field and the report reads it for neither
+			// side of the delta, so this is neutral rather than a claim -- the same
+			// reasoning as `labeled: true` above.
+			forcedGc: false,
 			pssBytes: p.pss_bytes, rssBytes: 0, pssMin: p.pss_bytes, pssMax: p.pss_bytes,
 			// One sample, because the response carries one figure per process. That
 			// also keeps a baseline out of the unstable-process report: a single
