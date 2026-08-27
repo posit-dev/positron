@@ -97,9 +97,13 @@ suite('SqlCompletionItemProvider', () => {
 
 	test('an unqualified position also offers tables and keywords', async () => {
 		const { list } = await complete('SELECT | FROM orders');
+		const keywords = ofKind(list, vscode.CompletionItemKind.Keyword);
 
 		assert.deepStrictEqual(ofKind(list, vscode.CompletionItemKind.Class), ['orders', 'customers']);
-		assert.ok(ofKind(list, vscode.CompletionItemKind.Keyword).includes('WHERE'));
+		// A select list, so `DISTINCT` belongs here and `WHERE`, which opens the clause after it,
+		// does not.
+		assert.ok(keywords.includes('DISTINCT'), keywords.join(', '));
+		assert.ok(!keywords.includes('WHERE'), keywords.join(', '));
 	});
 
 	test('columns are offered from the statement the cursor is in', async () => {
@@ -206,15 +210,55 @@ suite('SqlCompletionItemProvider', () => {
 		const { list } = await complete('SELECT | FROM orders', { schema: new SchemaIndex() });
 
 		assert.deepStrictEqual(ofKind(list, vscode.CompletionItemKind.Class), []);
-		assert.ok(ofKind(list, vscode.CompletionItemKind.Keyword).includes('WHERE'));
+		assert.ok(ofKind(list, vscode.CompletionItemKind.Keyword).includes('DISTINCT'));
 	});
 
-	test('an unfiltered request keeps the whole keyword list', async () => {
-		// The keyword list runs to over a thousand entries, so a cap it could reach on its own
-		// would quietly lose the ones late in the alphabet.
+	test('an unfiltered request offers one position\'s keywords, not the vocabulary', async () => {
+		// Written out rather than compared against the analyzer, so that what a user sees in the
+		// commonest position of all -- an empty document -- is legible here, and a change to it is
+		// something a reviewer reads rather than something the assertion quietly follows.
 		const { labels } = await complete('|', { schema: new SchemaIndex() });
 
-		assert.deepStrictEqual(labels, [...testAnalyzer().keywords()]);
+		assert.deepStrictEqual(labels, [
+			'ALTER TABLE', 'ALTER VIEW', 'ANALYZE', 'BEGIN', 'CALL', 'COMMIT', 'COPY', 'CREATE',
+			'CREATE INDEX', 'CREATE MATERIALIZED VIEW', 'CREATE OR REPLACE VIEW', 'CREATE SCHEMA',
+			'CREATE TABLE', 'CREATE TEMPORARY TABLE', 'CREATE VIEW', 'DELETE FROM', 'DESCRIBE',
+			'DROP INDEX', 'DROP TABLE', 'DROP VIEW', 'EXECUTE', 'EXPLAIN', 'GRANT', 'INSERT INTO',
+			'MERGE INTO', 'PRAGMA', 'PREPARE', 'REVOKE', 'ROLLBACK', 'SELECT', 'SET', 'SHOW',
+			'START TRANSACTION', 'TRUNCATE TABLE', 'UPDATE', 'USE', 'VACUUM', 'VALUES', 'WITH',
+			'WITH RECURSIVE',
+		]);
+	});
+
+	test('the keywords offered follow the cursor', async () => {
+		// A table slot and a select list are offered nothing alike. Which keywords belong to which
+		// position, across dialects, is pinned by the analyzer crate's own tests rather than here.
+		const table = await complete('SELECT * FROM |', { schema: new SchemaIndex() });
+		const selectList = await complete('SELECT |', { schema: new SchemaIndex() });
+
+		assert.deepStrictEqual(table.labels, ['IF EXISTS', 'IF NOT EXISTS', 'LATERAL', 'TABLE', 'UNNEST']);
+		assert.ok(selectList.labels.includes('DISTINCT'), selectList.labels.join(', '));
+		assert.ok(!selectList.labels.includes('UNNEST'), selectList.labels.join(', '));
+	});
+
+	test('a prefix that matches nothing falls back to the whole vocabulary', async () => {
+		// `WHEN` belongs to a CASE arm, which the position classifier deliberately places nowhere.
+		// The fallback is what keeps a keyword it does not place reachable anyway.
+		const missed = await complete('SELECT CASE WHEN true THEN 1 WHE|');
+		// Conditioned on nothing at all matching, so a prefix that does name something is answered
+		// with that one thing rather than with the vocabulary dragged in behind it.
+		const matched = await complete('SELECT * FROM ord|');
+
+		assert.deepStrictEqual(missed.labels, ['WHEN', 'WHENEVER', 'WHERE']);
+		assert.deepStrictEqual(matched.labels, ['orders']);
+	});
+
+	test('no keywords are offered inside a quoted identifier', async () => {
+		// A quoted identifier is never a keyword, by the reasoning that already offers none after a
+		// dot -- and the fallback does not reintroduce them when the prefix matches nothing.
+		const { labels } = await complete('SELECT "sel| FROM orders');
+
+		assert.deepStrictEqual(labels, []);
 	});
 
 	test('a long list is capped and marked incomplete', async () => {
