@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -101,13 +101,20 @@ describe('readArkVersion', () => {
 	// is this repo's own convention (see ROOT_PATH in fixtures/test-setup/constants.ts),
 	// not a derived guess, and it is exactly the build root arkResourceDirs already
 	// knows how to search.
+	//
+	// The temp fixture stands in for the checkout rather than reading the real
+	// one: `resources/ark` only holds a sidecar after install-kernel has run, and
+	// the unit lane never runs it, so asserting against the real file passes on a
+	// developer machine and throws ENOENT in CI.
 	test('falls back to the checkout when BUILD is unset and no argument is given', () => {
 		const previousBuild = process.env.BUILD;
 		delete process.env.BUILD;
+		writeFileSync(join(arkDir, 'VERSION'), '0.1.252+209.885fac4\n');
+		const cwd = vi.spyOn(process, 'cwd').mockReturnValue(buildRoot);
 		try {
-			expect(readArkVersion()).toBe(
-				readFileSync(join(process.cwd(), 'extensions', 'positron-r', 'resources', 'ark', 'VERSION'), 'utf8').trim());
+			expect(readArkVersion()).toBe('0.1.252+209.885fac4');
 		} finally {
+			cwd.mockRestore();
 			if (previousBuild === undefined) {
 				delete process.env.BUILD;
 			} else {
