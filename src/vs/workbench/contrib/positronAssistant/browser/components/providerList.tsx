@@ -99,7 +99,7 @@ export const ProviderList = (props: ProviderListProps) => {
 				<div className='provider-list-section'>
 					<label className='provider-list-section-heading'>
 						{sectionTitle('custom')}
-						<span className='provider-list-item-badge experimental'>{getStatusLabel('experimental')}</span>
+						<span className='provider-list-item-badge'>{getStatusLabel('experimental')}</span>
 					</label>
 					{customSection?.items.map(item => (
 						<ProviderListItem

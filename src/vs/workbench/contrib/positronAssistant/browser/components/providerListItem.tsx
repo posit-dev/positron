@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../../nls.js';
-import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { IPositronLanguageModelSource, LanguageModelAutoconfigureType } from '../../common/interfaces/positronAssistantService.js';
 import { ProviderSectionId } from '../../common/providerGrouping.js';
 import { deriveAuthMethod } from '../providerConnection.js';
@@ -73,12 +72,12 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 				<div className='provider-list-item-name'>
 					<span className='provider-list-item-display-name'>{source.provider.displayName}</span>
 					{source.provider.customKind &&
-						<span className='provider-list-item-badge custom'>
+						<span className='provider-list-item-badge'>
 							{localize('positron.configureLLMProvidersModal.badge.custom', "Custom")}
 						</span>
 					}
-					{maturityLabel && <span className={positronClassNames('provider-list-item-badge', maturityStatus)}>{maturityLabel}</span>}
-					{authLabel && <span className='provider-list-item-badge environment'>{authLabel}</span>}
+					{maturityLabel && <span className='provider-list-item-badge'>{maturityLabel}</span>}
+					{authLabel && <span className='provider-list-item-badge'>{authLabel}</span>}
 					{section === 'needs-attention' &&
 						<span className='provider-list-item-badge error'>
 							{localize('positron.configureLLMProvidersModal.badge.error', "Error")}
