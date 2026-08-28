@@ -76,6 +76,16 @@ function runPolicyExport(codeScript: string, outputPath: string, userDataPath: s
 		args.unshift('--agents');
 	}
 
+	// --- Start Positron ---
+	// This headless export launches Electron. Positron's CI runs it as root
+	// inside a container, where Chromium's sandbox aborts with SIGTRAP unless
+	// disabled. The export process is short-lived and local, so the sandbox adds
+	// no value here.
+	if (process.platform === 'linux') {
+		args.push('--no-sandbox');
+	}
+	// --- End Positron ---
+
 	const env = { ...process.env };
 	delete env['VSCODE_PORTABLE'];
 	delete env['VSCODE_APPDATA'];

@@ -721,6 +721,16 @@ AGENT_HOST_UPDATE_SNAPSHOTS=1 ./scripts/test-integration.sh --run \
 
 Closing this requires separately reviewed Windows baselines generated on runners with consistent PowerShell capabilities. Linux and macOS already detect provider-wide prompt drift.
 
+<!-- --- Start Positron --- -->
+### Copilot prompt snapshots in Positron
+
+- Tests: the `Agent Host E2E - Copilot prompts` suite in `copilotPromptsE2E.integrationTest.ts` (all models).
+- Scope: Positron.
+- Expected: one `<custom_instruction>` block per discovered agent-instruction file, matching the committed baselines.
+- Observed: Positron's checkout discovers a different set of agent-instruction files than the upstream baselines capture, so every model's prompt drifts by that block. The block contents are elided, so only the count/structure differs.
+- Gate: `suite.skip` in Positron. Positron does not own the bundled CLI's prompt, so we skip rather than maintain Positron-specific baselines that re-break whenever the instruction-file set changes. The pure formatting suite in the same file still runs.
+<!-- --- End Positron --- -->
+
 ### Windows shell and filesystem behavior
 
 Most of this section is resolved — see [What is still Windows-scoped, and why](#what-is-still-windows-scoped-and-why). Thirteen tests that were disabled on Windows because their capture contained a POSIX-only command now run there.

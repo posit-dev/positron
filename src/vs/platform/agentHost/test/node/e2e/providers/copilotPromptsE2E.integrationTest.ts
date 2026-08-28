@@ -78,7 +78,17 @@ const SNAPSHOT_MODELS = [
 	'gemini-2.0-flash',
 ] as const;
 
-suite('Agent Host E2E — Copilot prompts', function () {
+// --- Start Positron ---
+// These baselines pin the bundled @github/copilot CLI's assembled prompt, which
+// carries one <custom_instruction> block per discovered agent-instruction file.
+// Positron's checkout discovers a different set of those files than the upstream
+// baselines capture, so every model drifts by that block. Positron does not own
+// this prompt, so skip the suite here rather than maintain Positron-specific
+// baselines that re-break whenever the instruction-file set changes. The pure
+// formatting suite below still runs. See KNOWN_ISSUES.md.
+// Upstream: suite('Agent Host E2E — Copilot prompts', function () {
+suite.skip('Agent Host E2E — Copilot prompts', function () {
+// --- End Positron ---
 
 	let client: TestProtocolClient;
 	let lease: AgentHostE2EServerLease | undefined;
