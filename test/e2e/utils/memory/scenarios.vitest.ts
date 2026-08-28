@@ -33,6 +33,7 @@ describe('memorySpecsToIgnore', () => {
 			'**/performance/memory-editors.test.ts',
 			'**/performance/memory-console-output.test.ts',
 			'**/performance/memory-quarto-render.test.ts',
+			'**/performance/memory-quarto-inline.test.ts',
 			'**/performance/memory-server-idle.test.ts'
 		]);
 	});
@@ -46,6 +47,7 @@ describe('memorySpecsToIgnore', () => {
 			'**/performance/memory-editors.test.ts',
 			'**/performance/memory-console-output.test.ts',
 			'**/performance/memory-quarto-render.test.ts',
+			'**/performance/memory-quarto-inline.test.ts',
 			'**/performance/memory-server-idle.test.ts'
 		]);
 	});
@@ -58,8 +60,8 @@ describe('memorySpecsToIgnore', () => {
 describe('memorySpecsToIgnore with lanes', () => {
 	test('ignores every memory spec when no scenario is set', () => {
 		const ignored = memorySpecsToIgnore('desktop', undefined);
-		// 8 desktop specs + 1 server spec: an ordinary e2e lane must run none.
-		expect(ignored).toHaveLength(9);
+		// 9 desktop specs + 1 server spec: an ordinary e2e lane must run none.
+		expect(ignored).toHaveLength(10);
 	});
 
 	test('keeps only the running desktop scenario', () => {
@@ -78,6 +80,6 @@ describe('memorySpecsToIgnore with lanes', () => {
 		// Only idle exists in the server lane. Asking for server/notebook must not
 		// silently fall through to the desktop notebook spec.
 		const ignored = memorySpecsToIgnore('server', 'notebook');
-		expect(ignored).toHaveLength(9);
+		expect(ignored).toHaveLength(10);
 	});
 });

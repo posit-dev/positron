@@ -291,7 +291,8 @@ const SCENARIO_DESCRIPTIONS: Record<MemoryScenario, string> = {
 	'notebook': 'A 30-cell notebook opened with stored outputs.',
 	'editors': 'Ten files of mixed languages open in editors.',
 	'console-output': 'A Python session with 10k lines of console output.',
-	'quarto-render': 'A Quarto document rendered to HTML.'
+	'quarto-render': 'A Quarto document rendered to HTML.',
+	'quarto-inline': 'A Quarto cell run inline, with a live kernel.'
 };
 
 function scenarioHeaderHtml(scenarios: MemoryScenario[]): string {
