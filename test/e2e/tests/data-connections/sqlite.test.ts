@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags } from '../_test.setup';
+import { Application } from '../../infra';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
@@ -40,6 +41,49 @@ const detailColumns = [
 	{ name: 'created_at', dataType: 'TEXT' },
 ];
 const detailIndexes = ['idx_customers_country'];
+
+// The slice of the positronDataConnections.getConnections payload these tests validate. Mirrors
+// IDataConnectionsGetConnectionsResult (positronDataConnectionsCommands.ts).
+interface ConnectionsPayloadEntry {
+	connectionName: string;
+	driverName: string;
+	connected: boolean;
+	parameterValues: Record<string, unknown>;
+	languages: Record<string, { code: string }>;
+}
+
+// The slice of the positronDataConnections.getSchema payload these tests validate. Mirrors
+// IDataConnectionSchemaSummary (dataConnectionSchemaSummary.ts).
+interface SchemaSummaryNode {
+	name: string;
+	dataType?: string;
+	children?: SchemaSummaryNode[];
+}
+interface SchemaSummaryPayload {
+	nodes: SchemaSummaryNode[];
+	truncated: boolean;
+}
+
+/**
+ * Reads the JSON payload out of the untitled editor a "Show ... as JSON" command opened.
+ * Select-all + copy is deliberate: Monaco virtualizes rendered lines, so scraping the editor DOM
+ * would truncate any payload taller than the viewport, while the clipboard sees the whole buffer.
+ * The whole read retries so a copy that fires before the editor has focus can't strand the test.
+ */
+async function readActiveUntitledJson(app: Application): Promise<unknown> {
+	const { clipboard, editors, hotKeys } = app.workbench;
+
+	// The command opens the payload in a new dirty untitled editor.
+	await editors.waitForActiveTab(/^Untitled-\d+$/, true);
+
+	let payload: unknown;
+	await expect(async () => {
+		await hotKeys.selectAll();
+		await clipboard.copy();
+		payload = JSON.parse(await clipboard.getClipboardText() ?? '');
+	}).toPass();
+	return payload;
+}
 
 test.describe('Data Connections - SQLite', {
 	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
@@ -138,5 +182,49 @@ test.describe('Data Connections - SQLite', {
 			await dataConnections.expectConnectionCodeVariantSelected('SQLAlchemy');
 			await dataConnections.closeConnectWith();
 		});
+	});
+
+	// The next two tests validate the JSON payloads Assistant consumes, via the Command Palette
+	// commands that open them in an editor (positronDataConnectionsInspectActions.ts).
+
+	test('Shows the connections payload as valid JSON', async function ({ app }) {
+		await app.workbench.quickaccess.runCommand('positronDataConnections.showConnections');
+
+		const payload = await readActiveUntitledJson(app) as ConnectionsPayloadEntry[];
+
+		expect(payload).toHaveLength(1);
+		const [profile] = payload;
+		expect(profile.connectionName).toBe(connectionName);
+		expect(profile.driverName).toBe('SQLite');
+		expect(profile.connected).toBe(true);
+		expect(profile.parameterValues.databasePath).toContain('order_tracking.db');
+		// One code snippet per supported language, each referencing the database file. The variant
+		// is not asserted: another test changes the preferred Python variant, and the payload
+		// reflects that preference.
+		expect(profile.languages.python.code).toContain('order_tracking.db');
+		expect(profile.languages.r.code).toContain('order_tracking.db');
+	});
+
+	test('Shows the schema summary as valid JSON', async function ({ app }) {
+		await app.workbench.quickaccess.runCommand('positronDataConnections.showSchema');
+
+		const summary = await readActiveUntitledJson(app) as SchemaSummaryPayload;
+
+		// Group nodes ("Tables", "Views") are flattened out of the summary, so tables and views
+		// all appear at the root. The database is small enough that nothing should be truncated.
+		expect(summary.truncated).toBe(false);
+		const rootNames = summary.nodes.map(node => node.name);
+		expect(rootNames).toEqual(expect.arrayContaining([...tables, ...views]));
+
+		const detailNode = summary.nodes.find(node => node.name === detailTable);
+		const childNames = detailNode?.children?.map(child => child.name) ?? [];
+		expect(childNames).toEqual(expect.arrayContaining([
+			...detailColumns.map(({ name }) => name),
+			...detailIndexes,
+		]));
+
+		// Column nodes carry their data type through to the payload.
+		const columnNode = detailNode?.children?.find(child => child.name === detailColumns[0].name);
+		expect(columnNode?.dataType).toBe(detailColumns[0].dataType);
 	});
 });
