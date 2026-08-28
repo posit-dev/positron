@@ -93,8 +93,59 @@ fn a_trailing_comment_is_not_swallowed_by_the_statement_above_it() {
 
 #[test]
 fn statements_are_still_split_around_an_unterminated_literal() {
-    // Tokenizing stops at the failure, but everything before it is intact and still runnable.
-    assert_eq!(split("SELECT 1;\nSELECT 'oops"), [("SELECT 1;".into(), true), ("SELECT".into(), false)]);
+    // The quote is closed at the end of its line, so the statement holding it is whole rather
+    // than cut off where the tokenizer stopped.
+    assert_eq!(
+        split("SELECT 1;\nSELECT 'oops"),
+        [("SELECT 1;".into(), true), ("SELECT 'oops".into(), false)]
+    );
+}
+
+#[test]
+fn an_unterminated_quote_does_not_swallow_the_statements_below_it() {
+    // The whole point of closing it. Before, the stray quote ran to the end of the file and took
+    // every statement below it; now it ends with the line it was typed on, and the ranges below
+    // are the ranges they would have been. These are sliced out of the original text by the
+    // offsets the analyzer reported, so text added to close the quote shifting anything under it
+    // would show up here as well.
+    assert_eq!(
+        split("SELECT *\nFROM t\nWHERE a = 'oops\n  AND b = 1;\nSELECT 2;\nSELECT 3;"),
+        [
+            ("SELECT *\nFROM t\nWHERE a = 'oops\n  AND b = 1;".into(), true),
+            ("SELECT 2;".into(), true),
+            ("SELECT 3;".into(), true),
+        ]
+    );
+}
+
+#[test]
+fn a_semicolon_the_stray_quote_had_swallowed_stays_swallowed() {
+    // Closing the quote at the end of its line, rather than before the semicolon on it, is what
+    // keeps this from inventing a statement boundary the author did not write. The two statements
+    // still run together, which is what the text says; what is recovered is everything below.
+    assert_eq!(
+        split("SELECT 'oops;\nSELECT 2;\nSELECT 3;"),
+        [("SELECT 'oops;\nSELECT 2;".into(), true), ("SELECT 3;".into(), true)]
+    );
+}
+
+#[test]
+fn an_unterminated_block_comment_still_runs_to_the_end_of_the_document() {
+    // The other way round from a quote, and deliberately: a block comment is written across lines
+    // on purpose, so ending it at the first newline would resurrect the text the author was in
+    // the middle of commenting out and bury it in diagnostics.
+    assert_eq!(split("SELECT 1;\n/* SELECT 2;\nSELECT 3;"), [("SELECT 1;".into(), true)]);
+}
+
+#[test]
+fn an_unterminated_dollar_quoted_body_still_runs_to_the_end_of_the_document() {
+    // Multi-line by construction, like a block comment, so it is closed the same way.
+    let text = "SELECT 1;\nSELECT $tag$ oops;\nSELECT 3;";
+    let response = request(json!({ "op": "statements", "dialect": "postgres", "text": text }));
+    assert_eq!(
+        statements(&response, text),
+        [("SELECT 1;".into(), true), ("SELECT $tag$ oops;\nSELECT 3;".into(), false)]
+    );
 }
 
 #[test]

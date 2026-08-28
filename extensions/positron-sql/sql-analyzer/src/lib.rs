@@ -26,6 +26,7 @@
 //! `cargo build --target wasm32-unknown-unknown` with no toolchain pinned to a bindgen version.
 
 pub mod api;
+pub mod cursor;
 pub mod diagnostics;
 pub mod dialects;
 pub mod keywords;
