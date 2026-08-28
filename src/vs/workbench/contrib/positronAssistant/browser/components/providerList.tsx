@@ -83,7 +83,9 @@ export const ProviderList = (props: ProviderListProps) => {
 		<div className='provider-list'>
 			{otherSections.map(section => (
 				<div key={section.id} className='provider-list-section'>
-					<label className='provider-list-section-heading'>{sectionTitle(section.id)}</label>
+					<div className='provider-list-section-heading'>
+						<label className='provider-list-section-title'>{sectionTitle(section.id)}</label>
+					</div>
 					{section.items.map(item => (
 						<ProviderListItem
 							key={item.provider.id}
@@ -97,10 +99,10 @@ export const ProviderList = (props: ProviderListProps) => {
 			))}
 			{(customSection || props.onAddCustomProvider) &&
 				<div className='provider-list-section'>
-					<label className='provider-list-section-heading'>
-						{sectionTitle('custom')}
+					<div className='provider-list-section-heading'>
+						<label className='provider-list-section-title'>{sectionTitle('custom')}</label>
 						<span className='provider-list-item-badge'>{getStatusLabel('experimental')}</span>
-					</label>
+					</div>
 					{customSection?.items.map(item => (
 						<ProviderListItem
 							key={item.provider.id}
