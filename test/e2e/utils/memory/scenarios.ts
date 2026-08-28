@@ -14,7 +14,7 @@ import { MEMORY_LANES, MemoryLane } from './lanes.js';
  * that adding a scenario here and forgetting it everywhere else is a compile
  * error, not a silent gap.
  */
-export const MEMORY_SCENARIOS = ['idle', 'session-python', 'session-r', 'data-explorer', 'notebook', 'editors', 'console-output'] as const;
+export const MEMORY_SCENARIOS = ['idle', 'session-python', 'session-r', 'data-explorer', 'notebook', 'editors', 'console-output', 'quarto-render'] as const;
 
 export type MemoryScenario = typeof MEMORY_SCENARIOS[number];
 
@@ -43,7 +43,8 @@ const SPEC_BY_LANE_SCENARIO: Record<MemoryLane, Partial<Record<MemoryScenario, s
 		'data-explorer': '**/performance/memory-data-explorer.test.ts',
 		'notebook': '**/performance/memory-notebook.test.ts',
 		'editors': '**/performance/memory-editors.test.ts',
-		'console-output': '**/performance/memory-console-output.test.ts'
+		'console-output': '**/performance/memory-console-output.test.ts',
+		'quarto-render': '**/performance/memory-quarto-render.test.ts'
 	},
 	server: {
 		'idle': '**/performance/memory-server-idle.test.ts'

@@ -82,6 +82,7 @@ jobs:
           - { lane: desktop, scenario: notebook }
           - { lane: desktop, scenario: editors }
           - { lane: desktop, scenario: console-output }
+          - { lane: desktop, scenario: quarto-render }
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # The image is private, so the pull needs credentials. Copied from
