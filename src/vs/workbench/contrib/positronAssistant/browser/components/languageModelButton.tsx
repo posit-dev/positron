@@ -78,15 +78,21 @@ export const LanguageModelIcon = (props: { provider: string; logoUrl?: string; m
 	function getIcon() {
 		if (props.logoUrl) {
 			// A plain <img> can't be recolored, so when monochrome we paint the theme
-			// color and clip it to the logo shape with a CSS mask. Otherwise the
-			// logo renders as-is.
-			return props.monochrome
-				? <div className={iconClassName} data-testid='language-model-icon'
+			// color and clip it to the logo shape with a CSS mask (logoUrl is a
+			// transparent-background icon; see IPositronProviderMetadata).
+			// Otherwise the logo renders as-is.
+			if (props.monochrome) {
+				// Quote and escape the URL: an unquoted CSS url() token can't hold
+				// whitespace, quotes, or parens, which some values (e.g. inline SVG
+				// data URIs) contain -- an invalid declaration would drop the mask
+				// and leave a solid theme-colored square.
+				const maskUrl = `url("${props.logoUrl.replace(/["\\]/g, '\\$&')}")`;
+				return <div className={iconClassName} data-testid='language-model-icon'
 					style={{
 						flex: 'none',
 						backgroundColor: 'var(--vscode-icon-foreground)',
-						WebkitMaskImage: `url(${props.logoUrl})`,
-						maskImage: `url(${props.logoUrl})`,
+						WebkitMaskImage: maskUrl,
+						maskImage: maskUrl,
 						WebkitMaskSize: 'contain',
 						maskSize: 'contain',
 						WebkitMaskRepeat: 'no-repeat',
@@ -94,8 +100,9 @@ export const LanguageModelIcon = (props: { provider: string; logoUrl?: string; m
 						WebkitMaskPosition: 'center',
 						maskPosition: 'center',
 					}}
-				/>
-				: <img className={iconClassName} data-testid='language-model-icon' src={props.logoUrl} />;
+				/>;
+			}
+			return <img className={iconClassName} data-testid='language-model-icon' src={props.logoUrl} />;
 		}
 		switch (props.provider) {
 			case 'anthropic-api':
