@@ -28,6 +28,7 @@ import type { IExtensionPromptFileResult } from '../../contrib/chat/common/promp
 // --- Start Positron ---
 import { onUnexpectedExternalError } from '../../../base/common/errors.js';
 import { IQuartoCellSymbols } from '../../contrib/positronQuarto/common/quartoCellSymbols.js';
+import { IQuartoCellFormattingResult } from '../../contrib/positronQuarto/common/quartoCellFormatting.js';
 import type * as positron from 'positron';
 import * as extHostTypes from './positron/extHostTypes.positron.js';
 // --- End Positron ---
@@ -620,6 +621,36 @@ const newCommands: ApiCommand[] = [
 				symbols: toVscodeSymbols(cell.symbols),
 			}));
 		})
+	),
+	// -- quarto cell formatting
+	// Two commands rather than a formatting provider. The Quarto extension's LSP
+	// server declares the formatting capabilities for a `.qmd`, so `quarto.quarto`
+	// is the one formatter a Quarto document has. A second one would make the
+	// choice ambiguous, which turns an explicit format into a "Configure Default
+	// Formatter" modal and makes format-on-save silently do nothing.
+	new ApiCommand(
+		'positron.executeQuartoCellFormattingProvider', '_executeQuartoCellFormattingProvider',
+		'Execute the formatting providers of a Quarto document\'s code cells.',
+		[ApiCommandArgument.Uri],
+		new ApiCommandResult<
+			IQuartoCellFormattingResult,
+			{ edits: types.TextEdit[]; vetoedCells: number }
+		>('A promise that resolves to edits in document coordinates. When vetoedCells is above zero the format was abandoned and edits is empty.', value => ({
+			edits: value.edits.map(typeConverters.TextEdit.to),
+			vetoedCells: value.vetoedCells,
+		}))
+	),
+	new ApiCommand(
+		'positron.executeQuartoCellRangeFormattingProvider', '_executeQuartoCellRangeFormattingProvider',
+		'Execute the range formatting providers of the Quarto code cell a range sits in.',
+		[ApiCommandArgument.Uri, ApiCommandArgument.Range],
+		new ApiCommandResult<
+			IQuartoCellFormattingResult,
+			{ edits: types.TextEdit[]; vetoedCells: number }
+		>('A promise that resolves to edits in document coordinates, or to no edits when the range leaves the cell.', value => ({
+			edits: value.edits.map(typeConverters.TextEdit.to),
+			vetoedCells: value.vetoedCells,
+		}))
 	),
 	// --- End Positron ---
 
