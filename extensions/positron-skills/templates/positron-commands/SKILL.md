@@ -3,18 +3,18 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes
   (Console, Variables, Plots, Help, Packages), clearing the console, opening a
-  file or data file in the right editor, listing or discovering registered
-  interpreters, listing running sessions, switching or starting a session,
-  restarting or interrupting a stuck one, setting up Python, and reading,
-  installing or updating the packages in a session. Use when the user wants
-  Positron itself to do something, or wants to know what is installed, rather
-  than to run R or Python code. Triggers: "switch to the data science layout",
-  "show the variables pane", "clear the console", "open data.csv", "what
-  interpreters are available", "switch to my R session", "start a new Python
-  session", "my R interpreter isn't showing up", "my session is stuck", "is
-  pandas installed?", "install dplyr", "update all my packages", "do I have any
-  vulnerable packages?", "I don't have Python
-  installed", "set up a Python environment", "which Python am I using".
+  file or data file in the right editor, listing or discovering interpreters,
+  listing running sessions, switching or starting a session, restarting or
+  interrupting a stuck one, setting up Python, and reading, installing or
+  updating the packages in a session. Use when the user wants Positron itself
+  to act, or to know what is installed, rather than to run R or Python code.
+  Triggers: "switch to the data science layout", "show the variables pane",
+  "clear the console", "open data.csv", "what interpreters are available",
+  "switch to my R session", "start a new Python session", "my R interpreter
+  isn't showing up", "my session is stuck", "is pandas installed?", "install
+  dplyr", "update all my packages", "do I have any vulnerable packages?", "I
+  don't have Python installed", "set up a Python environment", "which Python am
+  I using".
 ---
 
 # Positron IDE commands
