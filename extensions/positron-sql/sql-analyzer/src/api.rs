@@ -15,7 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{dialects, diagnostics, keywords, scopes, sources, statements, text::TextIndex};
+use crate::{cursor, dialects, diagnostics, keywords, scopes, sources, statements, text::TextIndex};
 
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
@@ -25,7 +25,7 @@ pub enum Request {
     Statements { text: String, #[serde(default)] dialect: String },
     /// Parse a document: its syntax errors, and every name it refers to.
     Analyze { text: String, #[serde(default)] dialect: String },
-    /// The tables named by the statement at an offset, read off the tokens rather than a tree.
+    /// The tables and names the statement at an offset can see from there.
     Sources { text: String, #[serde(default)] dialect: String, offset: u32 },
     /// The keywords worth completing, whatever the position: the caller's fallback for a prefix
     /// that matches nothing offered at the cursor.
@@ -126,7 +126,20 @@ pub enum Response {
         /// why their dialect's syntax is being flagged.
         unknown_dialect: bool,
     },
-    Sources { sources: Vec<SourceRef> },
+    Sources {
+        sources: Vec<SourceRef>,
+        /// The names the statement defines for itself that the cursor can refer to: CTEs, derived
+        /// table aliases, and the names those are read under. Always empty when `origin` is
+        /// `tokens`, which cannot tell one from a real table.
+        locals: Vec<String>,
+        /// Whether the cursor can see something whose columns cannot be known. A column completed
+        /// here may belong to the part that cannot be seen, so the caller must not judge it.
+        opaque: bool,
+        /// How the answer was reached: `parsed` when the statement parsed with the cursor filled
+        /// in, and the tables are the ones the cursor can actually see; `tokens` when it did not,
+        /// and they are every table the statement mentions. For the caller's log, not for logic.
+        origin: String,
+    },
     Keywords { keywords: Vec<String> },
     // `rename_all` on the enum renames the variants rather than their fields, so a variant with a
     // second field has to say so itself.
@@ -229,11 +242,29 @@ pub fn handle(request: &str) -> Response {
             let (dialect, _) = dialects::resolve(&dialect);
             let index = TextIndex::new(&text);
             let tokenized = statements::split(&text, dialect.as_ref(), &index);
-            let found = statements::statement_at(&tokenized.statements, offset)
-                .map(|statement| sources::scan(&statement.tokens))
-                .unwrap_or_default();
+            let statement = statements::statement_at(&tokenized.statements, offset);
+
+            // Parsing the statement with the cursor filled in is what makes the answer a scope
+            // rather than a list, so it is tried first. When half typed SQL defeats even that, the
+            // token scan still knows which tables the statement mentions, which is the answer that
+            // was being given before there was anything better.
+            let found = statement
+                .and_then(|statement| cursor::at(statement, offset, dialect.as_ref(), &index));
+            let (found, origin) = match found {
+                Some(found) => (found, "parsed"),
+                None => (
+                    cursor::AtCursor {
+                        sources: statement.map(|at| sources::scan(&at.tokens)).unwrap_or_default(),
+                        locals: Vec::new(),
+                        opaque: false,
+                    },
+                    "tokens",
+                ),
+            };
+
             Response::Sources {
                 sources: found
+                    .sources
                     .into_iter()
                     .map(|source| SourceRef {
                         name: source.name,
@@ -242,6 +273,9 @@ pub fn handle(request: &str) -> Response {
                         alias: source.alias,
                     })
                     .collect(),
+                locals: found.locals,
+                opaque: found.opaque,
+                origin: origin.to_string(),
             }
         }
     }

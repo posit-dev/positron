@@ -21,7 +21,7 @@ use std::ops::ControlFlow;
 
 use sqlparser::ast::{
     AssignmentTarget, Expr, Ident, ObjectName, ObjectNamePart, ObjectType, Query, Select,
-    Statement, TableFactor, TableWithJoins, Visit, Visitor,
+    SelectItem, Statement, TableFactor, TableWithJoins, Visit, Visitor,
 };
 
 use crate::text::TextIndex;
@@ -272,6 +272,45 @@ impl<'a> Collector<'a> {
         let scope = self.current();
         self.analysis.scopes[scope as usize].locals.push(name);
     }
+
+    /// Hands a scope's sources up to its parent as the scope closes.
+    ///
+    /// A query's `ORDER BY`, `LIMIT` and `OFFSET` sit on the query rather than on the select
+    /// inside it, and the traversal reaches them after the select has closed -- so without this
+    /// they would land in a scope that reads from nothing, and every column in an `ORDER BY` would
+    /// look like a column of no table. What they can actually name is what the select reads from,
+    /// which is exactly what is lifted here.
+    ///
+    /// `produced` are the names the select list gives its own results. Those go up as locals
+    /// rather than as tables, because `ORDER BY t` after `SELECT total AS t` names neither a
+    /// column of a table nor a mistake: it names something the statement made up, and a caller
+    /// looking it up in the schema would find nothing and be wrong to say so.
+    fn lift(&mut self, from: u32, produced: Vec<String>) {
+        let Some(parent) = self.analysis.scopes[from as usize].parent else { return };
+        let tables = self.analysis.scopes[from as usize].tables.clone();
+        let locals = self.analysis.scopes[from as usize].locals.clone();
+        let opaque = self.analysis.scopes[from as usize].opaque;
+        let into = &mut self.analysis.scopes[parent as usize];
+        into.tables.extend(tables);
+        into.locals.extend(locals);
+        into.locals.extend(produced);
+        into.opaque |= opaque;
+    }
+}
+
+/// The names a select list gives its own results.
+///
+/// Only the ones it made up. An item written without an alias is named after the column it reads,
+/// which resolves against a table like any other name and needs no help.
+fn produced(select: &Select) -> Vec<String> {
+    select
+        .projection
+        .iter()
+        .filter_map(|item| match item {
+            SelectItem::ExprWithAlias { alias, .. } => Some(alias.value.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 /// The alias a table factor was given, for the forms that only ever produce local names.
@@ -384,7 +423,10 @@ impl Visitor for Collector<'_> {
         ControlFlow::Continue(())
     }
 
-    fn post_visit_select(&mut self, _select: &Select) -> ControlFlow<()> {
+    fn post_visit_select(&mut self, select: &Select) -> ControlFlow<()> {
+        if let Some(scope) = self.stack.last().copied() {
+            self.lift(scope, produced(select));
+        }
         self.pop();
         ControlFlow::Continue(())
     }

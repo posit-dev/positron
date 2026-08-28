@@ -76,6 +76,59 @@ fn an_unterminated_block_comment_is_reported_at_the_comment() {
 }
 
 #[test]
+fn an_unterminated_quote_does_not_cost_the_statements_below_it_their_diagnostics() {
+    // Before the quote was closed for it, the tokenizer stopped at the stray quote and everything
+    // under it went unlinted -- so one keystroke on line two took a whole file's diagnostics.
+    assert_eq!(
+        diagnostics("SELECT 'oops\nFROM t;\nSELECT * FRM a;\nSELECT * FRM b"),
+        [
+            ("'oops".to_string(), "Unterminated string literal.".to_string()),
+            ("FRM".to_string(), "Expected: end of statement, found: FRM.".to_string()),
+            ("FRM".to_string(), "Expected: end of statement, found: FRM.".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn the_statement_holding_a_closed_quote_is_not_reported_twice() {
+    // The parser is reading a delimiter the author never wrote, so anything it objects to in that
+    // statement is an artefact of closing the quote rather than something to show anyone.
+    assert_eq!(
+        diagnostics("SELECT * FRM t WHERE a = 'oops\n;\nSELECT 1;"),
+        [("'oops".to_string(), "Unterminated string literal.".to_string())]
+    );
+}
+
+#[test]
+fn a_statement_whose_quote_was_closed_still_gives_up_its_tables() {
+    // Recovering the statements below is only half of it: the statement holding the stray quote
+    // parses now, so the names in it are still linked and completed against.
+    let tables = support::analyze("SELECT a FROM orders WHERE b = 'oops\n;")["tables"].clone();
+    assert_eq!(tables.as_array().map(Vec::len), Some(1));
+    assert_eq!(tables[0]["name"], "orders");
+}
+
+#[test]
+fn each_construct_that_never_closed_is_reported_once() {
+    // Closing the quote is what lets the comment below it be seen at all, so both are reported,
+    // in the order they appear rather than in the order they were found.
+    let reported = diagnostics("SELECT 'a\n/* and then this");
+    assert_eq!(reported.len(), 2, "got {reported:?}");
+    assert_eq!(reported[0].0, "'a");
+    assert_eq!(reported[1].0, "/* and then this");
+}
+
+#[test]
+fn a_quote_that_cannot_be_closed_reports_the_rest_of_the_document() {
+    // A backslash at the end of the line escapes the delimiter that would have closed it, so the
+    // literal really does run to the end of the file, and saying so is the honest report.
+    let text = "SELECT 'oops\\\nSELECT 2;";
+    let reported = diagnostics_of(&analyze_as("mysql", text), text);
+    assert_eq!(reported.len(), 1, "got {reported:?}");
+    assert_eq!(reported[0].0, "'oops\\\nSELECT 2;");
+}
+
+#[test]
 fn messages_do_not_leak_internal_positions() {
     // The position is already the position of the squiggle; repeating it reads like debug output.
     for (_, message) in diagnostics("SELECT * FRM t") {
