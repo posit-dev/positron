@@ -278,8 +278,24 @@ function baselineClass(scenario: MemoryScenario): string {
 	return scenario === 'idle' ? ' class="baseline"' : '';
 }
 
+/**
+ * One-line reminder of what each scenario measures, shown as a hover tooltip on
+ * the column header. Kept brief on purpose -- the full rationale for a scenario
+ * lives as a comment beside its `defineMemoryScenario` call, not here.
+ */
+const SCENARIO_DESCRIPTIONS: Record<MemoryScenario, string> = {
+	'idle': 'Freshly launched app, nothing opened (baseline).',
+	'session-python': 'A Python interpreter session, idle after startup.',
+	'session-r': 'An R interpreter session, idle after startup.',
+	'data-explorer': 'A small CSV opened in the Data Explorer.',
+	'notebook': 'A 30-cell notebook opened with stored outputs.',
+	'editors': 'Ten files of mixed languages open in editors.',
+	'console-output': 'A Python session with 10k lines of console output.',
+	'quarto-render': 'A Quarto document rendered to HTML.'
+};
+
 function scenarioHeaderHtml(scenarios: MemoryScenario[]): string {
-	return scenarios.map(s => `<th align="right"${baselineClass(s)}>${escapeHtml(s)}</th>`).join('');
+	return scenarios.map(s => `<th align="right"${baselineClass(s)} title="${escapeHtml(SCENARIO_DESCRIPTIONS[s])}">${escapeHtml(s)}<span class="info-icon" aria-hidden="true">ⓘ</span></th>`).join('');
 }
 
 /** One scenario's cell: the PSS value, plus (for a non-idle scenario) its delta against idle underneath. */
@@ -397,7 +413,9 @@ export const SUMMARY_CSS = `
 		/* Only some cells carry a delta on a second line. Centering would then drop a bare
 		value half a line below its emphasized neighbour, so the row no longer reads
 		across. Top-aligned, every PSS figure shares a baseline and the deltas hang below. */
-		.matrix td { vertical-align: top; }
+		/* Scoped to td, not th: scenario-name headers may wrap, but a PSS value or its
+		delta must not break across lines. */
+		.matrix td { vertical-align: top; white-space: nowrap; }
 		/* The delta is what the table is for, so the figure it is measured from gives up a
 		little size and contrast instead of competing with it. */
 		.matrix .value { font-size: 0.95em; color: #6b7280; }
@@ -410,12 +428,29 @@ export const SUMMARY_CSS = `
 		cell keeps its own tint: the two values are close enough that the hovered row still
 		reads as one band. */
 		.matrix tr:hover td:not(.baseline) { background: #f8f9fa; }
+		/* The header text alone doesn't look interactive, so a small marker plus the
+		help cursor signals that hovering a scenario name reveals a description. */
+		.matrix th[title] { cursor: help; }
+		.matrix .info-icon { margin-left: 3px; font-size: 0.75em; color: #9ca3af; }
+		/* Role and idle (what every delta is measured from) stay in view while the rest
+		of the matrix scrolls horizontally; .card supplies the overflow-x. Widths are
+		fixed so the second sticky column's left offset lines up with the first. */
+		.matrix th:first-child, .matrix td:first-child {
+			position: sticky; left: 0; z-index: 2;
+			box-sizing: border-box; width: 150px;
+			background: white;
+		}
+		.matrix th.baseline, .matrix td.baseline {
+			position: sticky; left: 150px; z-index: 1;
+			box-sizing: border-box; width: 130px;
+		}
 		@media (prefers-color-scheme: dark) {
 			.total-row td { border-top-color: #4b5563; }
 			.matrix .value { color: #9ca3af; }
 			.matrix .baseline { background: #201f1e; border-right-color: #3a3a38; }
 			.matrix tr:hover td:not(.baseline) { background: rgba(255, 255, 255, 0.04); }
 			.footnote { color: #9ca3af; }
+			.matrix th:first-child, .matrix td:first-child { background: #262624; }
 		}`;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
