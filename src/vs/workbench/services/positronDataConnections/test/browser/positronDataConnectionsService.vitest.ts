@@ -8,7 +8,7 @@
 import { URI } from '../../../../../base/common/uri.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
-import { IStorageService } from '../../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ISecretStorageService } from '../../../../../platform/secrets/common/secrets.js';
 import { TestSecretStorageService } from '../../../../../platform/secrets/test/common/testSecretStorageService.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
@@ -502,6 +502,68 @@ describe('PositronDataConnectionsService', () => {
 			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName)).toEqual(['Pagila']);
 		});
 
+		// A profile saved from the pane on a build before `discoveredFromId` existed carries no link
+		// to its discovery, and was suppressed purely by matching driver, mechanism and values --
+		// so renaming it was free. Now that the value match includes the name, the link has to be
+		// recovered on the way in, or the rename brings the discovery back as a duplicate row.
+		describe('profiles persisted before provenance was recorded', () => {
+			// Writes the profile the way an older build did: no `discoveredFromId`, and none of the
+			// marker this build stamps on everything it persists.
+			const persistLegacyProfile = (profile: IDataConnectionProfile) => {
+				storageService.store(
+					`positron.dataConnections.profile.${profile.id}`,
+					JSON.stringify({ profile, secretParameterIds: [] }),
+					StorageScope.PROFILE,
+					StorageTarget.USER,
+				);
+				const reloaded = ctx.instantiationService.createInstance(PositronDataConnectionsService);
+				ctx.disposables.add(reloaded);
+				return reloaded;
+			};
+
+			const registerPagilaDriver = (target: IPositronDataConnectionsService) =>
+				target.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					discoverConnections: async () => [pagila],
+				}));
+
+			it('links one to the discovery it matches, so a rename can\'t resurrect it', async () => {
+				// Saved from this discovery, renamed since, with nothing recording where it came from.
+				const reloaded = persistLegacyProfile({
+					...createProfile('saved-1'),
+					connectionName: 'Pagila (prod)',
+					parameterValues: { dsn: 'Pagila' },
+				});
+				registerPagilaDriver(reloaded);
+
+				await vi.waitFor(() => {
+					expect(reloaded.getProfile('saved-1')?.discoveredFromId)
+						.toBe('discovered:test-driver:odbc-dsn:Pagila');
+				});
+				expect(reloaded.getDiscoveredProfiles()).toEqual([]);
+			});
+
+			// The backfill exists for profiles an older build left unmarked. A profile saved by this
+			// build already says where it came from -- including by saying nothing, for one the user
+			// typed in -- so a same-shaped discovery under another name stays a row of its own.
+			it('leaves a profile this build persisted alone, discovery and all', async () => {
+				const reloaded = persistLegacyProfile(createProfile('saved-1'));
+				reloaded.addUpdateProfile({
+					...createProfile('saved-2'),
+					connectionName: 'Pagila (prod)',
+					parameterValues: { dsn: 'Pagila' },
+				});
+				registerPagilaDriver(reloaded);
+
+				await vi.waitFor(() => {
+					expect(reloaded.getDiscoveredProfiles().map(profile => profile.connectionName))
+						.toEqual(['Pagila']);
+				});
+				expect(reloaded.getProfile('saved-2')?.discoveredFromId).toBeUndefined();
+			});
+		});
+
 		it('saves a discovery as an ordinary profile under a fresh id, and stops reporting it', async () => {
 			await registerDiscoveringDriver([pagila]);
 
@@ -630,7 +692,7 @@ describe('PositronDataConnectionsService', () => {
 				parameterValues: { connectionString: 'DSN=Pagila;UID=admin;PWD=hunter2' },
 			});
 
-			await expect(service.getDisplayParameterValues('conn-1')).resolves.toEqual({
+			await expect(service.getDisplayParameterValues(service.getProfile('conn-1')!)).resolves.toEqual({
 				connectionString: 'DSN=Pagila;UID=admin;PWD=****',
 			});
 		});
@@ -642,7 +704,7 @@ describe('PositronDataConnectionsService', () => {
 				parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
 			});
 
-			await expect(service.getDisplayParameterValues('conn-1')).resolves.toEqual({ dsn: 'Pagila' });
+			await expect(service.getDisplayParameterValues(service.getProfile('conn-1')!)).resolves.toEqual({ dsn: 'Pagila' });
 		});
 
 		// A discovery's secrets live in the service rather than in secret storage, so a display-safe
@@ -672,7 +734,7 @@ describe('PositronDataConnectionsService', () => {
 				expect(service.getDiscoveredProfiles().length).toBe(1);
 			});
 
-			await expect(service.getDisplayParameterValues('discovered:test-driver:odbc-dsn:Pagila'))
+			await expect(service.getDisplayParameterValues(service.getProfile('discovered:test-driver:odbc-dsn:Pagila')!))
 				.resolves.toEqual({ dsn: 'Pagila', pwd: 'PWD=****' });
 		});
 
@@ -684,13 +746,18 @@ describe('PositronDataConnectionsService', () => {
 				parameterValues: { connectionString: 'DSN=Pagila;PWD=hunter2' },
 			});
 
-			await expect(service.getDisplayParameterValues('conn-1')).resolves.toEqual({
+			await expect(service.getDisplayParameterValues(service.getProfile('conn-1')!)).resolves.toEqual({
 				connectionString: 'DSN=Pagila;PWD=hunter2',
 			});
 		});
 
-		it('is empty for a profile that does not exist', async () => {
-			await expect(service.getDisplayParameterValues('missing')).resolves.toEqual({});
+		// The caller passes the profile it is rendering, from a catalog snapshot it took earlier.
+		// Discovery refreshes while that snapshot is in flight, so the profile can already be gone
+		// by the time this runs; its public values are still what the caller asked to display.
+		it('renders a profile that has since left the catalog from the profile it was given', async () => {
+			const gone = { ...createProfile('conn-gone'), parameterValues: { dsn: 'Pagila' } };
+
+			await expect(service.getDisplayParameterValues(gone)).resolves.toEqual({ dsn: 'Pagila' });
 		});
 	});
 });

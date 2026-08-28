@@ -33,13 +33,22 @@ export function isDataConnectionsCommandEnabled(configurationService: IConfigura
 }
 
 /**
- * Payload for a single language a data connection profile supports: the secret-free generated code
- * for the profile's preferred (or default) variant, and the name of the variable that code binds
- * the connection to.
+ * Payload for a single language a data connection profile supports: the generated code for the
+ * profile's preferred (or default) variant, and the name of the variable that code binds the
+ * connection to.
+ *
+ * The code carries no value the profile's mechanism declares secret -- those live in secret storage
+ * (saved) or are held aside by the service (discovered), and neither is passed to the driver's code
+ * generator. That is the whole of the guarantee: unlike the catalog summary, nothing here is
+ * redacted, so a driver that lets a credential ride along in a parameter it has not declared secret
+ * puts that credential in this code. Declaring such a parameter secret is the driver's job; see
+ * IDataConnectionDriver.redactParameterValue.
  */
 export interface IDataConnectionCodeLanguageResult {
-	// The secret-free generated connection code for the profile's preferred variant (falling back to
-	// the driver's default, variants[0], when unset or stale). Meant to be run verbatim.
+	// The generated connection code for the profile's preferred variant (falling back to the
+	// driver's default, variants[0], when unset or stale). Meant to be run verbatim, and carrying no
+	// value the mechanism declares secret -- so code for a connection with a stored password needs
+	// the user to supply it.
 	code: string;
 
 	// The name of the variable the generated code binds the connection/board/engine to (e.g.
@@ -207,9 +216,10 @@ async function getLanguagePayloads(
 		: driver.metadata.supportedLanguageIds.includes(requestedLanguageId) ? [requestedLanguageId] : [];
 
 	await Promise.all(languageIds.map(async languageId => {
-		// The profile's own parameterValues never contains secret values -- a saved profile's live
-		// in secret storage, and the service splits a discovery's out at discovery time -- so this
-		// is always the secret-free preview.
+		// The profile's own parameterValues never contains a value the mechanism declares secret -- a
+		// saved profile's live in secret storage, and the service splits a discovery's out at
+		// discovery time -- so the generated code carries none of them. It is not redacted, though:
+		// a credential a driver leaves in an undeclared parameter reaches the code as typed.
 		let variants;
 		try {
 			variants = await driver.generateConnectionCode(mechanismId, languageId, profile.parameterValues);
@@ -266,7 +276,7 @@ export async function getDataConnections(accessor: ServicesAccessor): Promise<ID
 		const driver = dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
 		const mechanismId = driver ? resolveMechanismId(driver, profile) : profile.mechanismId;
 
-		const parameterValues = await dataConnectionsService.getDisplayParameterValues(profile.id);
+		const parameterValues = await dataConnectionsService.getDisplayParameterValues(profile);
 
 		return {
 			profileId: profile.id,
@@ -341,8 +351,9 @@ export type DataConnectionCodeCommandResult =
 	IDataConnectionCodeResult | IDataConnectionCodeUnavailableResult;
 
 /**
- * Builds the getConnectionCode payload: the secret-free code that opens one saved or discovered
- * connection, in the language(s) asked for. Split out of getConnections because the code is the bulk of what a
+ * Builds the getConnectionCode payload: the code that opens one saved or discovered connection, in
+ * the language(s) asked for, with every value the mechanism declares secret left out (see
+ * {@link IDataConnectionCodeLanguageResult}). Split out of getConnections because the code is the bulk of what a
  * profile carries and generating it costs a round trip to the driver per language -- so it is
  * generated for the one profile a caller has settled on, rather than for every profile on every
  * "what connections do I have?" call.
@@ -657,7 +668,7 @@ CommandsRegistry.registerCommand({
 				},
 			},
 		}],
-		returns: 'The profileId, plus the connection code per language under languages[<languageId>].code and the variable that code binds under .variableName. The code is secret-free and meant to be run verbatim. When there is no code to give, an object with available: false and a reason of \'disabled\', \'not-found\', \'no-driver\', or \'no-code\' -- the last of which also lists supportedLanguageIds, in case the language asked for was simply the wrong one.',
+		returns: 'The profileId, plus the connection code per language under languages[<languageId>].code and the variable that code binds under .variableName. The code is meant to be run verbatim, and omits every parameter the connection stores as a secret -- so code for a connection with a stored password needs the user to supply it before it will run. When there is no code to give, an object with available: false and a reason of \'disabled\', \'not-found\', \'no-driver\', or \'no-code\' -- the last of which also lists supportedLanguageIds, in case the language asked for was simply the wrong one.',
 	},
 });
 

@@ -135,10 +135,14 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 *
 	 * When the driver or mechanism cannot be resolved, nothing can be redacted, so this falls back
 	 * to the profile's own secret-free parameterValues rather than risking a cleartext passthrough.
-	 * @param id The data connection profile id.
-	 * @returns The display-safe parameter values. Empty if the profile no longer exists.
+	 *
+	 * Takes the profile rather than its id so a caller iterating a catalog snapshot gets the values
+	 * of the profile it is rendering. Discovered profiles come and go as drivers refresh discovery,
+	 * and an id looked up again after an await can already be gone.
+	 * @param profile The data connection profile.
+	 * @returns The display-safe parameter values.
 	 */
-	getDisplayParameterValues(id: string): Promise<DataConnectionParameterValues>;
+	getDisplayParameterValues(profile: IDataConnectionProfile): Promise<DataConnectionParameterValues>;
 
 	/**
 	 * Sets the user's preferred connection code variant for a profile and language, persisted

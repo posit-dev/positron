@@ -126,11 +126,14 @@ in. Left out, every language the driver supports is generated -- usually two, so
 the payload is roughly twice the size and the extra half is code you will not
 run.
 
-**The code is secret-free, by design.** It is always the redacted preview, so for
-a driver that needs a password, running the snippet verbatim will fail. Do not
-invent, guess, or prompt for credentials to patch it up: point the user at the
-Data Connections pane's Connect action, which supplies the secret itself, and
-then work against the resulting live connection.
+**The code omits the connection's stored secrets, by design.** Every value the
+connection stores as a secret is left out, so for a driver that needs a password,
+running the snippet verbatim will fail. Do not invent, guess, or prompt for
+credentials to patch it up: point the user at the Data Connections pane's Connect
+action, which supplies the secret itself, and then work against the resulting
+live connection. Nothing in the code is masked either -- unlike the catalog's
+`summary`, what you get is what the driver generated -- so treat the snippet as
+sensitive and don't paste it anywhere the user hasn't asked you to.
 
 **What each `reason` means when `available: false`:**
 
@@ -247,8 +250,20 @@ different causes: the user has no connection configured, *or*
 3. `reason: 'disabled'` means the feature is off -- tell the user to turn on
    `dataConnections.enabled` and reload the window.
 4. `reason: 'no-connections'` means the feature is on and the user simply
-   hasn't set up a connection yet. (This probe is side-effect-free: with no
-   saved profile there is nothing for `getSchema`'s auto-connect to open.)
+   hasn't set up a connection yet.
+5. Anything else -- a schema, or `ambiguous` -- means a connection appeared
+   between the two calls. Drivers report the connections they find on the
+   machine asynchronously as their extensions activate, so an empty catalog
+   early in a session can fill in a moment later. Re-read
+   `positronDataConnections.getConnections` and carry on from there; do not tell
+   the user they have no connections.
+
+Both answers this probe exists for are decided before `getSchema` touches a
+database. Step 5 is the case where it doesn't stop there: with exactly one
+connection in the catalog, `getSchema` opens it, which is a real connection to a
+real data source. That is the intended behavior of an unnamed call, not a
+failure -- but it is why this probe is worth running only when the catalog came
+back empty.
 
 Do not assert either cause without step 2. Guessing wrong sends the user
 looking for a connection they never made, or hunting a setting that was already

@@ -68,8 +68,9 @@ export interface IDataConnectionProfile {
 	// saved: the two profiles cannot be matched by comparing values, since a discovery's secret
 	// values are held aside and a saved profile's live in secret storage, so the one field that
 	// distinguishes two otherwise identical data sources is invisible to both. Absent on a profile
-	// the user configured by hand.
-	readonly discoveredFromId?: string;
+	// the user configured by hand, and on profiles saved before this field existed -- the service
+	// backfills those from the discovery they match, so a rename can't resurrect the row.
+	discoveredFromId?: string;
 }
 
 /**
@@ -194,6 +195,12 @@ export interface IDataConnectionDriver {
 	 * sit inside an ordinary `string` parameter (an ODBC connection string embedding `PWD=`), and
 	 * only the driver knows its own formats well enough to find it. A driver that masks such values
 	 * should do so here regardless of how the parameter is declared.
+	 *
+	 * Redaction is a display convenience, not the boundary that keeps a credential out of what
+	 * leaves Positron. That boundary is the mechanism's `secret` declaration: only declared secrets
+	 * are held out of the profile, and everything else is handed to generateConnectionCode as typed
+	 * and can reach an agent through the getConnectionCode command. A driver whose parameter can
+	 * carry a credential must declare it secret; redacting it here is not enough.
 	 * @param mechanismId The id of the mechanism the connection was configured with.
 	 * @param parameterId The id of the parameter to redact.
 	 * @param value The stored cleartext parameter value.

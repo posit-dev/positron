@@ -107,9 +107,8 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 		// Mirrors the real getDisplayParameterValues: every parameter the profile carries, plus the
 		// secret ones it holds elsewhere, offered to the driver for redaction. A value the driver
 		// redacts appears masked; a secret it cannot redact is left out entirely.
-		getDisplayParameterValues: vi.fn(async (profileId: string) => {
-			const profile = [...profiles, ...discoveredProfiles].find(_ => _.id === profileId);
-			const displayValues = { ...profile?.parameterValues };
+		getDisplayParameterValues: vi.fn(async (profile: IDataConnectionProfile) => {
+			const displayValues = { ...profile.parameterValues };
 			for (const parameterId of [...Object.keys(displayValues), ...secretParameterIds]) {
 				if (redactedValues[parameterId] !== undefined) {
 					displayValues[parameterId] = redactedValues[parameterId];

@@ -39,6 +39,13 @@ const secretKey = (profileId: string, parameterId: string) =>
 interface IPersistedDataConnectionProfile {
 	profile: IDataConnectionProfile;
 	secretParameterIds: string[];
+
+	// Set on every profile this build writes, whether or not it was saved from a discovery: its
+	// provenance is known either way, since saveDiscoveredProfile records `discoveredFromId` and a
+	// hand-configured profile genuinely has none. Absent only on profiles persisted before
+	// `discoveredFromId` existed, which is what makes them candidates for the one-time backfill in
+	// _backfillDiscoveredFromIds.
+	provenanceChecked?: true;
 }
 
 /**
@@ -51,6 +58,11 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	// Data connection profiles.
 	private readonly _profiles: IDataConnectionProfile[] = [];
+
+	// Ids of profiles persisted before `discoveredFromId` existed, so nothing records which
+	// discovery (if any) they were saved from. Seeded from storage by _loadProfiles and emptied as
+	// _backfillDiscoveredFromIds links them or the user saves over them.
+	private readonly _profilesPredatingProvenance = new Set<string>();
 
 	// Data connection instances.
 	private readonly _instances: IDataConnectionInstance[] = [];
@@ -216,10 +228,14 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			this._profiles.push(sanitizedProfile.profile);
 		}
 
-		// Persist the sanitized data connection profile under its own storage key.
+		// Persist the sanitized data connection profile under its own storage key. Anything written
+		// here has known provenance -- saveDiscoveredProfile has set `discoveredFromId`, or the user
+		// configured this profile themselves and there is none -- so it is never a backfill
+		// candidate again, whatever it was before this save.
+		this._profilesPredatingProvenance.delete(sanitizedProfile.profile.id);
 		this._storageService.store(
 			profileStorageKey(sanitizedProfile.profile.id),
-			JSON.stringify(sanitizedProfile),
+			JSON.stringify({ ...sanitizedProfile, provenanceChecked: true } satisfies IPersistedDataConnectionProfile),
 			StorageScope.PROFILE,
 			StorageTarget.USER,
 		);
@@ -380,13 +396,10 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * inside an ordinary `string` parameter -- an ODBC connection string embedding `PWD=` -- and
 	 * only the driver knows its own formats well enough to find it. See
 	 * {@link IPositronDataConnectionsService.getDisplayParameterValues}.
-	 * @param id The data connection profile id.
+	 * @param profile The data connection profile.
 	 */
-	async getDisplayParameterValues(id: string): Promise<DataConnectionParameterValues> {
-		const profile = this.getProfile(id);
-		if (!profile) {
-			return {};
-		}
+	async getDisplayParameterValues(profile: IDataConnectionProfile): Promise<DataConnectionParameterValues> {
+		const id = profile.id;
 
 		// The profile's own values are secret-free already, saved or discovered, so this starts from
 		// the answer that leaks nothing and improves on it below.
@@ -402,7 +415,8 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 		// Resolve the profile once with its secrets, so the parameters held out of the profile can
 		// be offered to the driver too -- a secret it can redact is more useful shown masked than
-		// missing.
+		// missing. A profile that has since left the catalog -- a discovery a refresh dropped -- has
+		// no secrets to look up, so the passed profile stands in and its public values still render.
 		const profileWithSecrets = await this.getProfileWithSecrets(id) ?? profile;
 		const secretParameterIds = new Set(
 			mechanism.parameters.filter(isSecretParameter).map(parameter => parameter.id));
@@ -747,6 +761,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			.filter(discovery => Object.keys(discovery.secretValues).length > 0)
 			.map(discovery => [discovery.profile.id, discovery.secretValues]));
 		this._logService.trace(`[DataConnections] Discovered ${this._discoveredProfiles.length} connection(s) across ${drivers.length} driver(s)`);
+		this._backfillDiscoveredFromIds();
 		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
 	}
 
@@ -762,9 +777,18 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * saving either one would hide both. The name is what still tells them apart.
 	 */
 	private _isSameConnection(saved: IDataConnectionProfile, discovered: IDataConnectionProfile): boolean {
+		return saved.connectionName === discovered.connectionName
+			&& this._hasSameConnectionShape(saved, discovered);
+	}
+
+	/**
+	 * Whether a saved profile and a discovery agree on everything but the name: same driver, same
+	 * mechanism, same public parameter values. The name-agnostic half of {@link _isSameConnection},
+	 * used on its own only by {@link _backfillDiscoveredFromIds}.
+	 */
+	private _hasSameConnectionShape(saved: IDataConnectionProfile, discovered: IDataConnectionProfile): boolean {
 		if (saved.driverMetadata.id !== discovered.driverMetadata.id
-			|| saved.mechanismId !== discovered.mechanismId
-			|| saved.connectionName !== discovered.connectionName) {
+			|| saved.mechanismId !== discovered.mechanismId) {
 			return false;
 		}
 
@@ -772,6 +796,52 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		const discoveredKeys = Object.keys(discovered.parameterValues);
 		return savedKeys.length === discoveredKeys.length
 			&& savedKeys.every(key => saved.parameterValues[key] === discovered.parameterValues[key]);
+	}
+
+	/**
+	 * Links saved profiles persisted before `discoveredFromId` existed to the discovery they came
+	 * from, so a discovery the user saved and then renamed stays suppressed.
+	 *
+	 * Builds before this one had no provenance to record, and suppressed a saved discovery purely by
+	 * comparing driver, mechanism and values -- the name played no part, so renaming the profile
+	 * kept the discovery hidden. {@link _isSameConnection} now includes the name, which is what a
+	 * profile saved from the pane no longer needs to rely on. Without this backfill, a profile saved
+	 * and renamed on an earlier build would match neither route, and its discovery would come back
+	 * as a duplicate row in the pane and in the agent-facing catalog.
+	 *
+	 * Only profiles an older build persisted are eligible, and the match is deliberately the old,
+	 * name-agnostic one: every profile this can link is one that build was already suppressing the
+	 * discovery for, so adopting the link cannot hide a row that used to be visible. A profile this
+	 * build wrote is never a candidate -- its provenance is recorded either way -- so a connection
+	 * the user configures by hand today keeps a same-shaped discovery visible beside it. A discovery
+	 * another profile has already claimed is left alone, so one discovery is never adopted twice.
+	 */
+	private _backfillDiscoveredFromIds(): void {
+		if (this._profilesPredatingProvenance.size === 0) {
+			return;
+		}
+
+		const claimedIds = new Set(this._profiles
+			.map(saved => saved.discoveredFromId)
+			.filter((id): id is string => id !== undefined));
+
+		for (const saved of this._profiles) {
+			if (!this._profilesPredatingProvenance.has(saved.id)) {
+				continue;
+			}
+
+			const discovered = this._discoveredProfiles.find(discovery =>
+				!claimedIds.has(discovery.id) && this._hasSameConnectionShape(saved, discovery));
+			if (!discovered) {
+				continue;
+			}
+
+			saved.discoveredFromId = discovered.id;
+			claimedIds.add(discovered.id);
+			this._profilesPredatingProvenance.delete(saved.id);
+			this._persistProfileMetadata(saved);
+			this._logService.trace(`[DataConnections] Backfilled discoveredFromId '${discovered.id}' for profile ${saved.id}`);
+		}
 	}
 
 	/**
@@ -829,6 +899,13 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			try {
 				const persistedDataConnectionProfile = JSON.parse(rawProfileValue) as IPersistedDataConnectionProfile;
 				this._profiles.push(persistedDataConnectionProfile.profile);
+
+				// An older build wrote this one and left no provenance behind: remember it, so the
+				// first discovery that matches it can supply the link it never got.
+				if (!persistedDataConnectionProfile.provenanceChecked
+					&& persistedDataConnectionProfile.profile.discoveredFromId === undefined) {
+					this._profilesPredatingProvenance.add(persistedDataConnectionProfile.profile.id);
+				}
 			} catch (error) {
 				// Log and skip any unparsable raw profile values so one bad entry doesn't block the whole list.
 				this._logService.error(`[DataConnections] Failed to parse persisted profile at ${profileKey}: ${error}`);
@@ -862,10 +939,15 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param profile The in-memory data connection profile to persist.
 	 */
 	private _persistProfileMetadata(profile: IDataConnectionProfile): void {
-		const secretParameterIds = this._readPersistedProfile(profile.id)?.secretParameterIds ?? [];
+		const persisted = this._readPersistedProfile(profile.id);
+		const secretParameterIds = persisted?.secretParameterIds ?? [];
 		this._storageService.store(
 			profileStorageKey(profile.id),
-			JSON.stringify({ profile, secretParameterIds } satisfies IPersistedDataConnectionProfile),
+			JSON.stringify({
+				profile,
+				secretParameterIds,
+				provenanceChecked: persisted?.provenanceChecked,
+			} satisfies IPersistedDataConnectionProfile),
 			StorageScope.PROFILE,
 			StorageTarget.USER,
 		);
