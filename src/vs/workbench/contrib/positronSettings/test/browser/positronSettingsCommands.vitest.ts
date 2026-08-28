@@ -15,7 +15,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
 import { IUserDataProfileService } from '../../../../services/userDataProfile/common/userDataProfile.js';
-import { getConfiguredSettings, SETTINGS_GET_CONFIGURED_SETTINGS_COMMAND_ID } from '../../browser/positronSettingsCommands.js';
+import { findSettings, getConfiguredSettings, SETTINGS_FIND_SETTINGS_COMMAND_ID, SETTINGS_GET_CONFIGURED_SETTINGS_COMMAND_ID, summarizeRegisteredText } from '../../browser/positronSettingsCommands.js';
 
 /** Settings registered for these tests, so `registered` and `scope` are real. */
 const TEST_CONFIGURATION: IConfigurationNode = {
@@ -28,6 +28,51 @@ const TEST_CONFIGURATION: IConfigurationNode = {
 		'testSettings.apiKey': { type: 'string', scope: ConfigurationScope.WINDOW },
 		'testSettings.credentials': { type: 'object', scope: ConfigurationScope.WINDOW },
 		'testSettings.folderSetting': { type: 'string', scope: ConfigurationScope.RESOURCE },
+		// The keys above have no description on purpose: most tests here assert
+		// whole entries with toEqual, and a description would repeat in every one.
+		// The description/deprecation behavior gets its own keys instead.
+		'testSettings.described': {
+			type: 'boolean',
+			scope: ConfigurationScope.WINDOW,
+			description: 'Enable ghost text suggestions. Requires the notebook AI switch to also be on.',
+		},
+		'testSettings.markdownDescribed': {
+			type: 'string',
+			scope: ConfigurationScope.WINDOW,
+			markdownDescription: 'Controls the [ghost text](https://example.com/docs) style used when `#testSettings.described#` is on.',
+		},
+		'testSettings.legacyEnable': {
+			type: 'boolean',
+			scope: ConfigurationScope.WINDOW,
+			deprecationMessage: 'Use testSettings.described instead.',
+		},
+		'testSettings.silentlyRetired': {
+			type: 'boolean',
+			scope: ConfigurationScope.WINDOW,
+			markdownDeprecationMessage: '',
+		},
+		// Keys for the findSettings registry-lookup tests.
+		'testSettings.previewFeature': {
+			type: 'boolean',
+			scope: ConfigurationScope.WINDOW,
+			default: false,
+			tags: ['preview'],
+			description: 'Enable the preview canvas. Subject to change.',
+		},
+		'testSettings.hiddenSetting': {
+			type: 'string',
+			scope: ConfigurationScope.WINDOW,
+			default: 'plain',
+			included: false,
+			tags: ['experimental'],
+			description: 'Not shown in the Settings editor.',
+		},
+		'testSettings.choice': {
+			type: 'string',
+			scope: ConfigurationScope.WINDOW,
+			default: 'auto',
+			enum: ['auto', 'always', 'never'],
+		},
 	},
 };
 
@@ -117,6 +162,16 @@ function createConfigurationService(targets: ITargetValues): IConfigurationServi
 	return stubInterface<IConfigurationService>({
 		inspect: <T>(key: string, overrides?: IConfigurationOverrides) =>
 			inspectKey(key, overrides) as IConfigurationValue<T>,
+		// Resolves the way production does: an explicit value from any target,
+		// falling back to the registered default.
+		getValue: ((key: string) => {
+			const explicit = inspectKey(key).value;
+			if (explicit !== undefined) {
+				return explicit;
+			}
+			const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+			return (registry.getConfigurationProperties()[key] ?? registry.getExcludedConfigurationProperties()[key])?.default;
+		}) as IConfigurationService['getValue'],
 		keys: () => ({
 			default: [],
 			policy: Object.keys(policy),
@@ -164,7 +219,8 @@ describe('getConfiguredSettings', () => {
 
 		expect(getConfiguredSettings(ctx.instantiationService)).toEqual({
 			deployment: { remote: false, defaultProfile: true },
-			redactedKeys: [],
+			// No redacted entry, so redactedCount is omitted rather than 0.
+			redactedCount: undefined,
 			settings: [{
 				key: 'testSettings.fontSize',
 				value: 14,
@@ -186,8 +242,8 @@ describe('getConfiguredSettings', () => {
 
 		const result = getConfiguredSettings(ctx.instantiationService);
 
-		expect({ settings: result.settings, redactedKeys: result.redactedKeys }).toEqual({
-			redactedKeys: [],
+		expect({ settings: result.settings, redactedCount: result.redactedCount }).toEqual({
+			redactedCount: undefined,
 			settings: [{
 				key: 'testSettings.fontSizee',
 				value: 14,
@@ -207,8 +263,8 @@ describe('getConfiguredSettings', () => {
 
 		const result = getConfiguredSettings(ctx.instantiationService);
 
-		expect({ settings: result.settings, redactedKeys: result.redactedKeys }).toEqual({
-			redactedKeys: ['some.extension.apiKey'],
+		expect({ settings: result.settings, redactedCount: result.redactedCount }).toEqual({
+			redactedCount: 1,
 			settings: [{
 				key: 'some.extension.apiKey',
 				value: '<redacted>',
@@ -348,14 +404,14 @@ describe('getConfiguredSettings', () => {
 		const result = getConfiguredSettings(ctx.instantiationService);
 
 		expect({
-			redactedKeys: result.redactedKeys,
+			redactedCount: result.redactedCount,
 			settings: result.settings.map(setting => ({
 				key: setting.key,
 				value: setting.value,
 				sources: setting.sources,
 			})),
 		}).toEqual({
-			redactedKeys: ['testSettings.apiKey', 'testSettings.credentials'],
+			redactedCount: 2,
 			settings: [
 				{
 					key: 'testSettings.apiKey',
@@ -393,7 +449,7 @@ describe('getConfiguredSettings', () => {
 		expect(getConfiguredSettings(ctx.instantiationService)).toEqual({
 			deployment: { remote: true, defaultProfile: false },
 			settings: [],
-			redactedKeys: [],
+			redactedCount: undefined,
 		});
 	});
 
@@ -464,12 +520,281 @@ describe('getConfiguredSettings', () => {
 		expect(unregisteredSetting?.registered).toBe(false);
 	});
 
+	it('glosses a key from its registered description, first sentence only', () => {
+		// The gloss must come from the registry, not from model memory: without
+		// the field a model invents plausible-sounding explanations for keys.
+		stubServices({ userLocal: { 'testSettings.described': true } });
+
+		const [setting] = getConfiguredSettings(ctx.instantiationService).settings;
+
+		expect(setting.description).toBe('Enable ghost text suggestions.');
+	});
+
+	it('strips markdown link syntax and setting references from a description', () => {
+		stubServices({ userLocal: { 'testSettings.markdownDescribed': 'subtle' } });
+
+		const [setting] = getConfiguredSettings(ctx.instantiationService).settings;
+
+		expect(setting.description).toBe('Controls the ghost text style used when testSettings.described is on.');
+	});
+
+	it('omits descriptions when the caller opts out', () => {
+		stubServices({ userLocal: { 'testSettings.described': true } });
+
+		const [setting] = getConfiguredSettings(ctx.instantiationService, undefined, false).settings;
+
+		expect(setting.description).toBeUndefined();
+	});
+
+	it('carries the deprecation message, and a plain marker when the registry has none', () => {
+		stubServices({
+			userLocal: {
+				'testSettings.legacyEnable': true,
+				'testSettings.silentlyRetired': true,
+			},
+		});
+
+		const settings = getConfiguredSettings(ctx.instantiationService).settings;
+
+		expect(settings.map(setting => ({ key: setting.key, deprecated: setting.deprecated }))).toEqual([
+			{ key: 'testSettings.legacyEnable', deprecated: 'Use testSettings.described instead.' },
+			// An empty deprecationMessage still marks the key deprecated; the
+			// field must not vanish with the missing message.
+			{ key: 'testSettings.silentlyRetired', deprecated: 'deprecated' },
+		]);
+	});
+
+	it('filters by case-insensitive key substring', () => {
+		stubServices({
+			userLocal: {
+				'testSettings.fontSize': 14,
+				'testSettings.described': true,
+			},
+		});
+
+		const settings = getConfiguredSettings(ctx.instantiationService, 'FONTSIZE').settings;
+
+		expect(settings.map(setting => setting.key)).toEqual(['testSettings.fontSize']);
+	});
+
+	it('orders entries by interest: ignored, then deprecated, then the rest', () => {
+		// An agent transport that truncates a large payload keeps an array's
+		// leading elements, so the entries that call for a warning must come
+		// first, ahead of key order.
+		stubServices({
+			userLocal: {
+				'testSettings.applicationOnly': 'set',
+				'testSettings.fontSize': 14,
+				'testSettings.legacyEnable': true,
+			},
+			policy: { 'testSettings.fontSize': 12 },
+		});
+
+		const settings = getConfiguredSettings(ctx.instantiationService).settings;
+
+		expect(settings.map(setting => setting.key)).toEqual([
+			'testSettings.fontSize',
+			'testSettings.legacyEnable',
+			'testSettings.applicationOnly',
+		]);
+	});
+
 	it('is registered as an agent-compatible command with a return contract', () => {
 		const command = CommandsRegistry.getCommand(SETTINGS_GET_CONFIGURED_SETTINGS_COMMAND_ID);
 
 		expect({
 			agentCompatible: command?.metadata?.agentCompatible,
 			hasReturns: (command?.metadata?.returns?.length ?? 0) > 0,
-		}).toEqual({ agentCompatible: true, hasReturns: true });
+			argNames: command?.metadata?.args?.map(arg => arg.name),
+		}).toEqual({
+			agentCompatible: true,
+			hasReturns: true,
+			argNames: ['filter', 'includeDescriptions'],
+		});
+	});
+});
+
+describe('findSettings', () => {
+	const ctx = createTestContainer().build();
+	const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+
+	beforeAll(() => {
+		registry.registerConfiguration(TEST_CONFIGURATION);
+	});
+
+	afterAll(() => {
+		registry.deregisterConfigurations([TEST_CONFIGURATION]);
+	});
+
+	/**
+	 * findSettings only reads IConfigurationService, but the query path scans
+	 * the whole global registry, so every query below is scoped to the
+	 * testSettings namespace to stay independent of what else the test
+	 * environment registered.
+	 */
+	function stubConfiguration(targets: ITargetValues = {}): void {
+		ctx.instantiationService.stub(IConfigurationService, createConfigurationService(targets));
+	}
+
+	it('reports registry facts for a key-substring query', () => {
+		stubConfiguration();
+
+		const result = findSettings(ctx.instantiationService, 'testSettings.previewFeature');
+
+		expect(result).toEqual({
+			total: 1,
+			settings: [{
+				key: 'testSettings.previewFeature',
+				description: 'Enable the preview canvas.',
+				type: 'boolean',
+				default: false,
+				scope: 'window',
+				tags: ['preview'],
+			}],
+		});
+	});
+
+	it('ranks an exact key match ahead of a description match', () => {
+		// 'testSettings.described' is markdownDescribed's description text, so
+		// the query hits both: the exact key must come first, ahead of key order.
+		stubConfiguration();
+
+		const result = findSettings(ctx.instantiationService, 'testSettings.described');
+
+		expect(result.settings.map(setting => setting.key)).toEqual([
+			'testSettings.described',
+			'testSettings.markdownDescribed',
+		]);
+	});
+
+	it('looks up explicit keys in the caller\'s order, marking unknown ones unregistered', () => {
+		stubConfiguration();
+
+		const result = findSettings(ctx.instantiationService, undefined, [
+			'testSettings.choice',
+			'testSettings.noSuchKey',
+			'testSettings.previewFeature',
+		]);
+
+		expect(result.total).toBe(3);
+		expect(result.settings.map(setting => ({ key: setting.key, registered: setting.registered }))).toEqual([
+			{ key: 'testSettings.choice', registered: undefined },
+			{ key: 'testSettings.noSuchKey', registered: false },
+			{ key: 'testSettings.previewFeature', registered: undefined },
+		]);
+	});
+
+	it('filters by tag, which is how preview features are enumerated', () => {
+		stubConfiguration();
+
+		const result = findSettings(ctx.instantiationService, 'testSettings.', undefined, 'preview');
+
+		expect(result.settings.map(setting => setting.key)).toEqual(['testSettings.previewFeature']);
+	});
+
+	it('finds a setting hidden from the Settings editor and says so', () => {
+		// Several real Positron preview settings are registered with
+		// included: false, so they exist only in the excluded map; missing them
+		// would make "which features are in preview" silently incomplete.
+		stubConfiguration();
+
+		const result = findSettings(ctx.instantiationService, 'testSettings.hiddenSetting');
+
+		expect(result.settings).toEqual([{
+			key: 'testSettings.hiddenSetting',
+			description: 'Not shown in the Settings editor.',
+			type: 'string',
+			default: 'plain',
+			scope: 'window',
+			tags: ['experimental'],
+			hidden: true,
+		}]);
+	});
+
+	it('carries the current value only when it differs from the default', () => {
+		stubConfiguration({ userLocal: { 'testSettings.previewFeature': true } });
+
+		const result = findSettings(ctx.instantiationService, undefined, [
+			'testSettings.previewFeature',
+			'testSettings.choice',
+		]);
+
+		expect(result.settings.map(setting => ({ key: setting.key, value: setting.value }))).toEqual([
+			// Configured away from its default, so the value is carried.
+			{ key: 'testSettings.previewFeature', value: true },
+			// At its default: absence of value means the default is in force.
+			{ key: 'testSettings.choice', value: undefined },
+		]);
+	});
+
+	it('carries enum values for enum-typed settings', () => {
+		stubConfiguration();
+
+		const [setting] = findSettings(ctx.instantiationService, undefined, ['testSettings.choice']).settings;
+
+		expect(setting.enum).toEqual(['auto', 'always', 'never']);
+	});
+
+	it('redacts a credential-shaped key\'s value, but never its shipped default', () => {
+		stubConfiguration({ userLocal: { 'testSettings.apiKey': 'sk-secret' } });
+
+		const [setting] = findSettings(ctx.instantiationService, undefined, ['testSettings.apiKey']).settings;
+
+		expect({ value: setting.value, default: setting.default }).toEqual({
+			value: '<redacted>',
+			// The registry fills in a type-derived default ('' for a string) when
+			// none is declared. Shipped configuration, not user data, so it is
+			// reported as-is rather than redacted.
+			default: '',
+		});
+	});
+
+	it('applies the limit while reporting the full match count', () => {
+		stubConfiguration();
+
+		const result = findSettings(ctx.instantiationService, 'testSettings.', undefined, undefined, 2);
+
+		expect(result.settings).toHaveLength(2);
+		expect(result.total).toBeGreaterThanOrEqual(9);
+	});
+
+	it('is registered as an agent-compatible command with a return contract', () => {
+		const command = CommandsRegistry.getCommand(SETTINGS_FIND_SETTINGS_COMMAND_ID);
+
+		expect({
+			agentCompatible: command?.metadata?.agentCompatible,
+			hasReturns: (command?.metadata?.returns?.length ?? 0) > 0,
+			argNames: command?.metadata?.args?.map(arg => arg.name),
+		}).toEqual({
+			agentCompatible: true,
+			hasReturns: true,
+			argNames: ['query', 'keys', 'tag', 'limit'],
+		});
+	});
+});
+
+describe('summarizeRegisteredText', () => {
+	it('returns undefined for missing or effectively empty text', () => {
+		expect(summarizeRegisteredText(undefined)).toBeUndefined();
+		expect(summarizeRegisteredText('')).toBeUndefined();
+		expect(summarizeRegisteredText('  ``  ')).toBeUndefined();
+	});
+
+	it('does not treat "e.g." as a sentence end', () => {
+		expect(summarizeRegisteredText('Pick a language, e.g. Python or R, for the session.'))
+			.toBe('Pick a language, e.g. Python or R, for the session.');
+	});
+
+	it('caps a run-on first sentence with an ellipsis', () => {
+		const longText = `${'word '.repeat(40)}end.`;
+
+		const summary = summarizeRegisteredText(longText)!;
+
+		expect(summary.length).toBeLessThanOrEqual(120);
+		expect(summary.endsWith('...')).toBe(true);
+	});
+
+	it('collapses newlines and runs of whitespace', () => {
+		expect(summarizeRegisteredText('Line one\ncontinues   here.')).toBe('Line one continues here.');
 	});
 });
