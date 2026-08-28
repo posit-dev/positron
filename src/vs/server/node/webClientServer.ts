@@ -638,7 +638,14 @@ export class WebClientServer {
 			isEnabledFileUploads: !this._environmentService.args['disable-file-uploads'],
 			// --- End PWB ---
 			// --- Start PWB: serve same origin ---
-			webviewEndpoint: vscodeBase + staticRoute + '/out/vs/workbench/contrib/webview/browser/pre',
+			// Use the session-less static route when under Workbench. The webview iframe registers
+			// `pre/service-worker.js`, and as of VS Code 1.130 that registration is a *module*
+			// service worker (`register(..., { type: 'module' })`). The browser fetches a module
+			// service worker script without the Workbench auth cookie, so a session-scoped URL is
+			// answered with a 302 to /auth-sign-in and no webview ever loads. The session-less route
+			// is served off disk by Workbench's nginx with no auth check, and as a bonus these
+			// assets become cacheable across sessions like the rest of the static bundle.
+			webviewEndpoint: effectiveVsBase + effectiveStaticRoute + '/out/vs/workbench/contrib/webview/browser/pre',
 			// --- End PWB: serve same origin ---
 			_wrapWebWorkerExtHostInIframe,
 			developmentOptions: { enableSmokeTestDriver: this._environmentService.args['enable-smoke-test-driver'] ? true : undefined, logLevel: this._logService.getLevel() },
