@@ -7,6 +7,53 @@
 
 import { appendPositronGalleryParams, formatPositronVersion, isP3MGalleryUrl } from '../../common/positronGalleryTelemetry.js';
 
+/** Path to the platform module as resolved from this test file. */
+const PLATFORM_MODULE = '../../../../base/common/platform.js';
+type PlatformModule = typeof import('../../../../base/common/platform.js');
+
+/**
+ * Resolves the session type under a given deployment shape. The platform flags and the SageMaker
+ * flag are all captured when their modules first load, so each case re-imports rather than
+ * mutating modules already in memory. `workbench` goes through the real `RS_SERVER_URL`
+ * derivation; `platform` overrides the flags Node cannot produce on its own.
+ */
+async function loadSessionType(options: {
+	workbench?: boolean;
+	sageMaker?: boolean;
+	platform?: Partial<PlatformModule>;
+} = {}): Promise<string> {
+	const previousServerUrl = process.env.RS_SERVER_URL;
+	if (options.workbench) {
+		process.env.RS_SERVER_URL = 'https://workbench.example.com';
+	} else {
+		delete process.env.RS_SERVER_URL;
+	}
+	try {
+		vi.resetModules();
+		vi.doUnmock(PLATFORM_MODULE);
+		const overrides = options.platform;
+		if (overrides) {
+			// Spread the real module so only the named flags change; a bare object would turn
+			// every other export into `undefined`.
+			vi.doMock(PLATFORM_MODULE, async importOriginal => ({
+				...await importOriginal<PlatformModule>(),
+				...overrides,
+			}));
+		}
+		if (options.sageMaker) {
+			const session = await import('../../../positronLicense/common/positronSageMakerSession.js');
+			session.markSageMakerSession();
+		}
+		const { getPositronSessionType } = await import('../../common/positronGalleryTelemetry.js');
+		return getPositronSessionType();
+	} finally {
+		if (previousServerUrl === undefined) {
+			delete process.env.RS_SERVER_URL;
+		} else {
+			process.env.RS_SERVER_URL = previousServerUrl;
+		}
+	}
+}
 describe('positronGalleryTelemetry', function () {
 	describe('formatPositronVersion', function () {
 		it('appends build number when greater than zero', () => {
@@ -42,7 +89,7 @@ describe('positronGalleryTelemetry', function () {
 		});
 
 		it('emits every session-type value without alteration', () => {
-			for (const sessionType of ['desktop', 'workbench', 'workbench-server', 'positron-server', 'remote-server'] as const) {
+			for (const sessionType of ['desktop', 'workbench', 'workbench-server', 'positron-server', 'positron-sagemaker', 'positron-sagemaker-server', 'remote-server'] as const) {
 				const result = appendPositronGalleryParams(baseUrl, undefined, sessionType, '2026.06.0', true, true);
 				expect(result).toContain(`positron-session-type=${sessionType}`);
 			}
@@ -110,6 +157,38 @@ describe('positronGalleryTelemetry', function () {
 		it('returns false for malformed URLs', () => {
 			expect(isP3MGalleryUrl('not a url')).toBe(false);
 			expect(isP3MGalleryUrl('')).toBe(false);
+		});
+	});
+
+	describe('getPositronSessionType', function () {
+		it('reports a desktop build as desktop', async () => {
+			expect(await loadSessionType({ platform: { isElectron: true } })).toBe('desktop');
+		});
+
+		it('reports an unmarked Node backend as remote-server', async () => {
+			expect(await loadSessionType()).toBe('remote-server');
+		});
+
+		it('reports an unmarked browser tab as positron-server', async () => {
+			expect(await loadSessionType({ platform: { isWeb: true } })).toBe('positron-server');
+		});
+
+		it('reports a SageMaker-licensed Node backend as positron-sagemaker-server', async () => {
+			expect(await loadSessionType({ sageMaker: true })).toBe('positron-sagemaker-server');
+		});
+
+		it('reports a SageMaker browser tab as positron-sagemaker', async () => {
+			const globals = globalThis as Record<string, unknown>;
+			globals['_POSITRON_IS_SAGEMAKER'] = true;
+			try {
+				expect(await loadSessionType({ platform: { isWeb: true } })).toBe('positron-sagemaker');
+			} finally {
+				delete globals['_POSITRON_IS_SAGEMAKER'];
+			}
+		});
+
+		it('prefers the Workbench label over SageMaker', async () => {
+			expect(await loadSessionType({ workbench: true, sageMaker: true })).toBe('workbench-server');
 		});
 	});
 });
