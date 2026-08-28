@@ -69,15 +69,6 @@ describe('showThreeButtonModalDialogPrompt', () => {
 		]);
 	});
 
-	it('resolves with the primary button title when Enter submits the form', async () => {
-		const choice = show();
-		expect(await screen.findByText(options.title)).toBeInTheDocument();
-
-		await userEvent.keyboard('{Enter}');
-
-		expect(await choice).toBe(options.primaryButtonTitle);
-	});
-
 	it('resolves with undefined when the close button dismisses the dialog', async () => {
 		const choice = show();
 		expect(await screen.findByText(options.title)).toBeInTheDocument();

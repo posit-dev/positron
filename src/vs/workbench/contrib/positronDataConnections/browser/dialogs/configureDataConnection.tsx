@@ -93,8 +93,8 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 	// Services.
 	const { fileDialogService, labelService, pathService, positronDataConnectionsService } = usePositronReactServicesContext();
 
-	// Ref to the Connection Name input so we can drive initial focus to it (overriding the
-	// primary button's autoFocus, which fires during React commit before this effect runs).
+	// Ref to the Connection Name input so we can drive initial focus to it rather than letting the
+	// dialog open with the focus on its box.
 	const connectionNameInputRef = useRef<HTMLInputElement>(null);
 
 	// Focus the Connection Name input when the dialog mounts.

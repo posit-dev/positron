@@ -7,6 +7,7 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 
 import { act, cleanup, render, screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { Emitter } from '../../../../../base/common/event.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
@@ -68,11 +69,27 @@ describe('PositronDynamicModalDialog', () => {
 	});
 
 	it('leaves focus where a control inside claimed it with autoFocus', () => {
-		// This is how a dialog chooses what Enter does on arrival: footers autoFocus the button that
-		// is safe to press.
+		// The component leaves an autoFocused control alone rather than moving focus to the box. A
+		// dialog whose content opens on a text input relies on this; no footer autoFocuses a button.
 		renderDialog({ footer: <button autoFocus>Cancel</button> });
 
 		expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+	});
+
+	it('lets Enter in a text input reach the form\'s submit button', async () => {
+		// The content and footer sit inside a <form>, so the browser answers Enter from a control
+		// inside it by clicking the first type='submit' button. This is the only way Enter acts on
+		// a dialog now that no footer takes the opening focus.
+		const onSubmit = vi.fn();
+		renderDialog({
+			content: <input aria-label='Name' type='text' />,
+			footer: <button type='submit' onClick={onSubmit}>OK</button>
+		});
+
+		await userEvent.click(screen.getByRole('textbox', { name: 'Name' }));
+		await userEvent.keyboard('{Enter}');
+
+		expect(onSubmit).toHaveBeenCalledOnce();
 	});
 
 	it('does not mark the only open dialog as nested', () => {

@@ -135,9 +135,9 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		});
 	}, [props.width]);
 
-	// Escape cancels and Tab stays inside the dialog. Enter belongs to the <form> below, whose
-	// submit button acts on it, so the hook leaves it alone. Letting both act would fire two
-	// different things for one keystroke.
+	// Escape cancels and Tab stays inside the dialog. Enter belongs to the <form> below: with the
+	// focus on a control inside it, the browser answers Enter by clicking the form's submit button.
+	// Letting the hook act on the key too would fire two different things for one keystroke.
 	useModalDialogKeyboard({
 		dialogBoxRef,
 		enterHandledByCaller: true,
@@ -152,8 +152,8 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		const dialogBox = dialogBoxRef.current;
 
 		// A control inside the dialog may have claimed focus already, through React's autoFocus.
-		// The native dialog honored that too, so leave it where it is: footers use autoFocus to put
-		// the opening focus on the button that is safe to press, rather than on the first one.
+		// The native dialog honored that too, so leave it where it is: a dialog whose content opens
+		// on a text input puts the focus there rather than on the box.
 		if (dialogBox.contains(DOM.getActiveElement())) {
 			return;
 		}
@@ -168,7 +168,8 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		// is the first one in the box. Enter and Space on a focused button activate it, so the
 		// dialog would open with Enter armed to close it, and with no ring to say so: a Positron
 		// Button only draws one for :focus-visible, which does not match focus moved after a click.
-		// A dialog that wants Enter to act on arrival names the control with autoFocus.
+		// A dialog that wants Enter to act on arrival has to name that control with autoFocus. No
+		// footer does, so Enter does nothing until the user Tabs to a button.
 		dialogBox.focus();
 	}, []);
 

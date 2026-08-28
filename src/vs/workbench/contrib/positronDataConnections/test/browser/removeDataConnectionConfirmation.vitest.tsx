@@ -48,15 +48,20 @@ describe('showRemoveDataConnectionConfirmation', () => {
 		expect(await confirmation).toBe(true);
 	});
 
-	it('opens with the focus on Cancel, not on the confirming button', async () => {
+	it('tabs to Cancel before Remove, so Enter backs out instead of removing', async () => {
 		const confirmation = showRemoveDataConnectionConfirmation('My Connection', 0);
+		expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
 
-		// Removing a connection cannot be undone, so the keystrokes that dismiss a dialog must not
-		// carry it out: Enter on the focused Cancel button backs out.
-		const cancelButton = await screen.findByRole('button', { name: 'Cancel' });
-		expect(cancelButton).toHaveFocus();
-		expect(screen.getByRole('button', { name: 'Remove' })).not.toHaveFocus();
+		// The dialog opens with the focus on the box, so the first Tab lands
+		// on the title bar's close button and the second on Cancel.
+		await userEvent.tab();
+		expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus();
 
+		// Second Tab lands on Cancel.
+		await userEvent.tab();
+		expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+
+		// Enter on the focused Cancel backs out rather than removing the connection.
 		await userEvent.keyboard('{Enter}');
 		expect(await confirmation).toBe(false);
 	});
