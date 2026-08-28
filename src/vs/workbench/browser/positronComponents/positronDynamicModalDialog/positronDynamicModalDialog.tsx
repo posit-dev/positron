@@ -103,9 +103,9 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		return () => { openDialogCount--; };
 	}, []);
 
-	// Center the dialog box on initial mount. On a later width change, keep the current position but
-	// clamp it to keep the dialog on screen. useLayoutEffect ensures the position is applied before
-	// the browser paints, avoiding a visible flash at 0,0.
+	// Center the dialog box on initial mount. On subsequent renders (e.g. content changes), keep
+	// the current position but clamp to ensure the dialog remains on screen. useLayoutEffect
+	// ensures the position is applied before the browser paints, avoiding a visible flash at 0,0.
 	useLayoutEffect(() => {
 		setDialogBoxState(prevDialogBoxState => {
 			const effectiveHeight = dialogBoxRef.current.offsetHeight;
@@ -153,22 +153,17 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 
 		// A control inside the dialog may have claimed focus already, through React's autoFocus.
 		// The native dialog honored that too, so leave it where it is: footers use autoFocus to put
-		// the opening focus on the button that is safe to press.
+		// the opening focus on the button that is safe to press, rather than on the first one.
 		if (dialogBox.contains(DOM.getActiveElement())) {
 			return;
 		}
 
-		// Otherwise focus the box, which carries role='dialog' with the title as its accessible
-		// name, so a screen reader announces the dialog rather than one control inside it. This is
-		// the placement the ARIA practices guide recommends for a dialog whose content is a list or
-		// a body of text, which is what a dialog without an autoFocus tends to hold.
-		//
-		// Focusing the first control instead would land on the title bar's close button, since that
-		// is the first one in the box. Enter and Space on a focused button activate it, so the
-		// dialog would open with Enter armed to close it, and with no ring to say so: a Positron
-		// Button only draws one for :focus-visible, which does not match focus moved after a click.
-		// A dialog that wants Enter to act on arrival names the control with autoFocus.
-		dialogBox.focus();
+		// eslint-disable-next-line no-restricted-syntax
+		const firstFocusable = dialogBox.querySelector<HTMLElement>(
+			'a[href]:not([disabled]),button:not([disabled]),textarea:not([disabled]),' +
+			'input:not([disabled]),select:not([disabled])'
+		);
+		(firstFocusable ?? dialogBox).focus();
 	}, []);
 
 	// Set up keyboard and resize event handlers.
