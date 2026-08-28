@@ -89,7 +89,7 @@ describe('positronGalleryTelemetry', function () {
 		});
 
 		it('emits every session-type value without alteration', () => {
-			for (const sessionType of ['desktop', 'workbench', 'workbench-server', 'positron-server', 'positron-sagemaker', 'remote-server'] as const) {
+			for (const sessionType of ['desktop', 'workbench', 'workbench-server', 'positron-server', 'positron-sagemaker', 'positron-sagemaker-server', 'remote-server'] as const) {
 				const result = appendPositronGalleryParams(baseUrl, undefined, sessionType, '2026.06.0', true, true);
 				expect(result).toContain(`positron-session-type=${sessionType}`);
 			}
@@ -173,11 +173,11 @@ describe('positronGalleryTelemetry', function () {
 			expect(await loadSessionType({ platform: { isWeb: true } })).toBe('positron-server');
 		});
 
-		it('reports a SageMaker-licensed Node backend as positron-sagemaker', async () => {
-			expect(await loadSessionType({ sageMaker: true })).toBe('positron-sagemaker');
+		it('reports a SageMaker-licensed Node backend as positron-sagemaker-server', async () => {
+			expect(await loadSessionType({ sageMaker: true })).toBe('positron-sagemaker-server');
 		});
 
-		it('reports a SageMaker browser tab as positron-sagemaker too', async () => {
+		it('reports a SageMaker browser tab as positron-sagemaker', async () => {
 			const globals = globalThis as Record<string, unknown>;
 			globals['_POSITRON_IS_SAGEMAKER'] = true;
 			try {
