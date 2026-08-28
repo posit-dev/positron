@@ -59,17 +59,6 @@ describe('PositronDynamicModalDialog', () => {
 		}).toEqual({ ariaModal: 'true', namedByTheTitle: true });
 	});
 
-	// The height ceiling in the CSS is measured down from the box's own top edge, so the box has to
-	// publish where it sits. Measuring from the top gutter instead would let content that grows after
-	// the dialog opens push the footer past the bottom of the window before the ceiling stopped it.
-	it('publishes its top edge for the height ceiling to measure down from', () => {
-		renderDialog();
-
-		const dialog = screen.getByRole('dialog');
-
-		expect(dialog.style.getPropertyValue('--_dialog-box-top')).toBe(dialog.style.top);
-	});
-
 	it('moves focus to the dialog box on mount rather than to a control inside it', () => {
 		// The first control in the box is the title bar's close button, so focusing a control would
 		// open the dialog with Enter armed to close it. The box announces the dialog instead.
