@@ -693,7 +693,6 @@ export class WebClientServer {
 		// slot so no template changes are needed.
 		const licenseMarker = licenseMarkerScript(this._academicLicenseService.isAcademic, this._academicLicenseService.licenseHash);
 		const sageMakerMarker = sageMakerMarkerScript(isSageMakerSession());
-		const licenseMarker = licenseMarkerScript(this._academicLicenseService.isAcademic, this._academicLicenseService.licenseHash);
 		// --- End Positron ---
 
 		const values: { [key: string]: string } = {
