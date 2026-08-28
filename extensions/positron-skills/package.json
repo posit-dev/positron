@@ -16,19 +16,6 @@
 		"onAiEnabled"
 	],
 	"main": "./out/extension.js",
-	"contributes": {
-		"configuration": {
-			"title": "Assistant",
-			"properties": {
-				"assistant.prefetchLocalDocs": {
-					"type": "boolean",
-					"default": true,
-					"description": "%configuration.prefetchLocalDocs.description%",
-					"scope": "window"
-				}
-			}
-		}
-	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",

@@ -13,12 +13,6 @@ import { generateSkills } from './skillGenerator';
 /** The single AI main switch. Every AI feature is gated on this key. */
 const AI_ENABLED_KEY = 'ai.enabled';
 
-/** Downloads local docs so the assistant can use them. Off means no download. Defaults to on. */
-const PREFETCH_DOCS_KEY = 'assistant.prefetchLocalDocs';
-
-/** Kept clear of the eager-activation burst; long enough that startup settles first. */
-const PREFETCH_DELAY_MS = 10_000;
-
 /**
  * Publishes the generated Positron command skills. Held in a mutable slot so it
  * can be torn down when AI is switched off and re-established when it returns.
@@ -84,50 +78,10 @@ function disposeRegistration(): void {
 	skillRootRegistration = undefined;
 }
 
-function prefetchEnabled(): boolean {
-	// Default is `true`; only an explicit `false` opts out.
-	return vscode.workspace.getConfiguration().get<boolean>(PREFETCH_DOCS_KEY) !== false;
-}
-
-/**
- * Warm the local docs cache so the first assistant docs need is served from
- * disk instead of paying for the download. Fire-and-forget: it runs only when
- * AI and the prefetch setting are enabled, never blocks activation, and swallows
- * its own failure since a missed prefetch just falls back to an on-demand fetch
- * later. A delay keeps the download clear of the eager-activation burst.
- *
- * Returns a disposable that cancels the pending timer if the extension is torn
- * down before it fires.
- */
-function prefetchDocs(log: vscode.LogOutputChannel): vscode.Disposable {
-	if (!aiEnabled() || !prefetchEnabled()) {
-		return new vscode.Disposable(() => { });
-	}
-	const timer = setTimeout(() => {
-		void (async () => {
-			try {
-				log.info(`Prefetching local docs in the background (delayed ${PREFETCH_DELAY_MS}ms after activation).`);
-				const docs = await positron.docs.getLocalDocs();
-				if (docs) {
-					log.info(`Local docs prefetched to ${docs.path} (version ${docs.version}, profile ${docs.profile}, exact match ${docs.isExactMatch}).`);
-				} else {
-					log.info('Local docs prefetch found no docs to cache; the assistant will fall back to the web.');
-				}
-			} catch (error) {
-				log.warn(`Local docs prefetch failed: ${error instanceof Error ? error.message : String(error)}`);
-			}
-		})();
-	}, PREFETCH_DELAY_MS);
-	return new vscode.Disposable(() => clearTimeout(timer));
-}
-
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	const log = vscode.window.createOutputChannel('Assistant Skills', { log: true });
 	context.subscriptions.push(log);
 	context.subscriptions.push(new vscode.Disposable(disposeRegistration));
-
-	// Warm the docs cache in the background; does not block activation.
-	context.subscriptions.push(prefetchDocs(log));
 
 	// Re-sync when the AI main switch flips (it toggles without a reload).
 	context.subscriptions.push(
