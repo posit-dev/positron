@@ -160,16 +160,6 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	private _helpEntryIndex = -1;
 
 	/**
-	 * Gets or sets a value which indicates whether the proxy server styles have been set.
-	 */
-	private _proxyServerStylesHaveBeenSet = false;
-
-	/**
-	 * Gets the proxy servers. Keyed by the target URL origin.
-	 */
-	private readonly _proxyServers = new Map<string, string>();
-
-	/**
 	 * Gets the help clients. Keyed by the runtime session ID.
 	 */
 	private readonly _helpClients = new Map<string, HelpClientInstance>();
@@ -453,26 +443,24 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 */
 	private async setProxyServerStyles() {
 		// Create a webview theme data provider. It's a convenient way to get the styles we need for
-		// the help proxy server. Get the webview styles.
+		// the help proxy server.
 		const webviewThemeDataProvider = this._instantiationService.createInstance(
 			WebviewThemeDataProvider
 		);
-		const { styles } = webviewThemeDataProvider.getWebviewThemeData();
-		webviewThemeDataProvider.dispose();
 
-		// Try to set the proxy server styles.
+		// Try to set the proxy server styles. Styling is not worth failing a
+		// help navigation over, so nothing here is allowed to escape.
 		try {
-			// Set the proxy server styles.
+			const { styles } = webviewThemeDataProvider.getWebviewThemeData();
 			await this._commandService.executeCommand(
 				'positronProxy.setHelpProxyServerStyles',
 				styles
 			);
-
-			// Note that the proxy server styles have been set.
-			this._proxyServerStylesHaveBeenSet = true;
 		} catch (error) {
 			this._logService.error('PositronHelpService could not set the proxy server styles');
 			this._logService.error(error);
+		} finally {
+			webviewThemeDataProvider.dispose();
 		}
 	}
 
@@ -696,37 +684,31 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			return;
 		}
 
-		// Get the proxy server origin for the help URL. If one isn't found, ask the
-		// PositronProxy to start one.
-		let proxyServerOrigin = this._proxyServers.get(targetUrl.origin);
+		// Ask the PositronProxy for the proxy server origin for the help URL. It
+		// returns an existing server for the target origin if there is one, so
+		// there is nothing to cache here: the servers live in the extension
+		// host, and anything remembered on this side outlives them when the
+		// extension host restarts.
+		await this.setProxyServerStyles();
+
+		let proxyServerOrigin: string | undefined;
+		try {
+			proxyServerOrigin = await this._commandService.executeCommand<string>(
+				'positronProxy.startHelpProxyServer',
+				targetUrl.origin
+			);
+		} catch (error) {
+			this._logService.error(`PositronHelpService could not start the proxy server for ${targetUrl.origin}.`);
+			this._logService.error(error);
+		}
+
+		// If the help proxy server could not be started, notify the user, and return.
 		if (!proxyServerOrigin) {
-			// Ensure that the proxy server styles have been set.
-			if (!this._proxyServerStylesHaveBeenSet) {
-				await this.setProxyServerStyles();
-			}
-
-			// Try to start a help proxy server.
-			try {
-				proxyServerOrigin = await this._commandService.executeCommand<string>(
-					'positronProxy.startHelpProxyServer',
-					targetUrl.origin
-				);
-			} catch (error) {
-				this._logService.error(`PositronHelpService could not start the proxy server for ${targetUrl.origin}.`);
-				this._logService.error(error);
-			}
-
-			// If the help proxy server could not be started, notify the user, and return.
-			if (!proxyServerOrigin) {
-				this._notificationService.error(localize(
-					'positronHelpServiceUnavailable',
-					"The Positron help service is unavailable."
-				));
-				return;
-			}
-
-			// Add the proxy server.
-			this._proxyServers.set(targetUrl.origin, proxyServerOrigin);
+			this._notificationService.error(localize(
+				'positronHelpServiceUnavailable',
+				"The Positron help service is unavailable."
+			));
+			return;
 		}
 
 		// Create the source URL.
