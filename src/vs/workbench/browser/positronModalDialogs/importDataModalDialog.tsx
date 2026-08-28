@@ -234,6 +234,11 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 				editedCode,
 				{ source: CodeAttributionSource.Interactive }, // attribution
 				true, // focus the console
+				// Skip the Console's completeness check and submit the code as-is. Import is a
+				// "run this now" action, so incomplete code (e.g. a variable name that is a
+				// reserved keyword) should come back as the runtime's syntax error rather than
+				// leaving the Console sitting at a continuation prompt.
+				true, // allowIncomplete
 			);
 		} catch (err) {
 			services.notificationService.error(localize(

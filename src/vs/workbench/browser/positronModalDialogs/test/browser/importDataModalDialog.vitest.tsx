@@ -135,6 +135,7 @@ describe('ImportDataModalDialog', () => {
 			undefined,
 			expect.stringContaining('2020 data = pd.read_csv'),
 			expect.objectContaining({ source: 'interactive' }),
+			true,
 			true
 		);
 	});
@@ -301,6 +302,7 @@ describe('ImportDataModalDialog', () => {
 			undefined,
 			expect.stringContaining('flights = pd.read_csv'),
 			expect.objectContaining({ source: 'interactive' }),
+			true,
 			true
 		);
 		expect(openEditor).not.toHaveBeenCalled();
@@ -323,6 +325,7 @@ describe('ImportDataModalDialog', () => {
 			undefined,
 			expect.stringContaining('flights = pd.read_csv'),
 			expect.objectContaining({ source: 'interactive' }),
+			true,
 			true
 		);
 	});
