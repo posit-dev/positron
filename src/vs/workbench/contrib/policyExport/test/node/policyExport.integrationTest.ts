@@ -15,9 +15,15 @@ suite('PolicyExport Integration Tests', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('exported policy data matches checked-in file', async function () {
-		if (process.env['TF_BUILD']) {
+		// --- Start Positron ---
+		// This test launches Electron twice to export policy data. Upstream skips
+		// it in CI via TF_BUILD (set by Azure DevOps); it is meant to run locally.
+		// Positron's CI is GitHub Actions, which doesn't set TF_BUILD, so skip there
+		// too - the headless export can't complete in the CI container.
+		if (process.env['TF_BUILD'] || process.env['GITHUB_ACTIONS']) {
 			this.skip();
 		}
+		// --- End Positron ---
 
 		// The canonical export launches both product entrypoints.
 		this.timeout(120000);
