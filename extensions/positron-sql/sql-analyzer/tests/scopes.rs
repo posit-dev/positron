@@ -155,6 +155,38 @@ fn a_column_sees_every_joined_table() {
 }
 
 #[test]
+fn a_column_in_a_clause_that_follows_the_select_still_sees_its_tables() {
+    // `ORDER BY`, `LIMIT` and `OFFSET` hang off the query rather than off the select inside it,
+    // and are reached after the select has closed. Without the select handing its tables up, a
+    // column in one of them would sit in a scope reading from nothing and look unknown.
+    assert_eq!(visible("SELECT total FROM orders ORDER BY placed", "placed"), ["orders"]);
+    assert_eq!(visible("SELECT total FROM orders LIMIT n", "n"), ["orders"]);
+    assert_eq!(visible("SELECT total FROM orders OFFSET n", "n"), ["orders"]);
+}
+
+#[test]
+fn a_name_the_select_list_made_up_is_not_a_column_of_anything() {
+    // `ORDER BY t` after `SELECT total AS t` names neither a column of `orders` nor a mistake, so
+    // it goes up as a name the statement defines for itself. Without this, lifting the tables into
+    // the query would have turned every `ORDER BY <alias>` -- ordinary SQL -- into an unknown
+    // column.
+    let response = analyze("SELECT total AS t FROM orders ORDER BY t");
+    let scope = &response["scopes"][response["columns"][1]["scope"].as_u64().unwrap() as usize];
+    assert_eq!(response["columns"][1]["name"], "t");
+    assert_eq!(scope["locals"].as_array().unwrap(), &[Value::from("t")]);
+}
+
+#[test]
+fn a_subquery_does_not_hand_its_tables_to_the_query_around_it() {
+    // Only the query's own body is lifted. A subquery in a `WHERE` closes into the select it sits
+    // in, not into the one above, or every scope would eventually see every table.
+    assert_eq!(
+        visible("SELECT total FROM orders WHERE id IN (SELECT id FROM customers)", "total"),
+        ["orders"]
+    );
+}
+
+#[test]
 fn star_is_not_a_column() {
     assert!(columns("SELECT * FROM orders").is_empty());
     assert!(columns("SELECT o.* FROM orders o").is_empty());

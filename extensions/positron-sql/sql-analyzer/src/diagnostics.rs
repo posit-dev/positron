@@ -24,7 +24,7 @@ use crate::text::TextIndex;
 /// through a C shim that has no wasm implementation. The limit is what keeps pathological input
 /// -- a thousand nested parentheses, which a generated query really can contain -- from
 /// overflowing the wasm stack and trapping the whole module.
-const RECURSION_LIMIT: usize = 50;
+pub(crate) const RECURSION_LIMIT: usize = 50;
 
 pub struct Diagnostic {
     pub start: u32,
@@ -43,36 +43,49 @@ pub fn parse(tokenized: &Tokenized, dialect: &dyn Dialect, index: &TextIndex) ->
     let mut diagnostics = Vec::new();
     let mut analysis = Analysis::default();
 
-    if let Some(error) = &tokenized.error {
-        // Tokenizing is all or nothing for the text after the failure -- an unterminated string
-        // literal or block comment swallows the rest of the file -- so this is the one error
-        // there is to report, and it runs to the end of the document.
-        let start = error.start.unwrap_or(0).min(index.end());
+    for error in &tokenized.errors {
+        let start = error.start.min(index.end());
         diagnostics.push(Diagnostic {
             start,
-            end: index.end(),
+            end: error.end.min(index.end()).max(start),
             message: sentence(&error.message),
         });
     }
 
-    // A tokenize failure truncates whatever statement it landed in, and since tokenizing stops
-    // at the first failure that can only be the last one collected. Parsing it would report that
-    // it ends unexpectedly, which is true and useless: it ends where the tokenizer gave up, and
-    // that is already the diagnostic above.
+    // A construct that could not be closed truncates whatever statement it landed in, and since
+    // tokenizing stops there that can only be the last statement collected. Parsing it would
+    // report that it ends unexpectedly, which is true and useless: it ends where the tokenizer
+    // gave up, and that is already the diagnostic above.
     let truncated = tokenized
-        .error
-        .as_ref()
-        .map(|_| tokenized.statements.len().saturating_sub(1));
+        .errors
+        .iter()
+        .any(|error| !error.repaired)
+        .then(|| tokenized.statements.len().saturating_sub(1));
 
     for (at, statement) in tokenized.statements.iter().enumerate() {
         if Some(at) == truncated {
             continue;
         }
         match parse_one(statement, dialect, index) {
+            // Kept for a repaired statement as well as an intact one. The invented text is a
+            // delimiter, so what it can add to the analysis is confined to the construct it
+            // closed -- a quoted identifier that reads to the end of its line, say -- and that
+            // construct already carries the diagnostic saying it never closed. The rest of the
+            // statement is what the author wrote, and dropping its tables to avoid the one
+            // artefact would cost the links and completions in every statement with a stray
+            // quote in it.
             Ok(parsed) => merge(&mut analysis, scopes::analyze(&parsed, index)),
+            // A statement the tokenizer had to close a construct for is being reported already,
+            // and the parser is now reading a delimiter the author never wrote, so whatever it
+            // objects to is an artefact of the repair rather than something to show anyone.
+            Err(_) if statement.repaired => {}
             Err(diagnostic) => diagnostics.push(diagnostic),
         }
     }
+
+    // Tokenize failures are found before any statement is parsed, so without this a stray quote
+    // on the last line would be reported above a syntax error on the first.
+    diagnostics.sort_by_key(|diagnostic| diagnostic.start);
 
     Parsed { diagnostics, analysis }
 }

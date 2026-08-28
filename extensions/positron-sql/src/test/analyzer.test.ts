@@ -44,12 +44,27 @@ suite('SqlAnalyzer', () => {
 	});
 
 	test('reads the tables of a statement that does not parse', () => {
-		// The state completion is always asked about: an empty select list is not valid SQL. A
-		// namespace level the statement did not name is absent rather than null, so that the
-		// optional fields on the TypeScript side really do read as undefined.
+		// The state completion is always asked about: an empty select list is not valid SQL, and
+		// is only parsed at all because an identifier is written into the hole first. A namespace
+		// level the statement did not name is absent rather than null, so that the optional fields
+		// on the TypeScript side really do read as undefined.
 		assert.deepStrictEqual(
 			testAnalyzer().sources('SELECT  FROM sales.orders o', '', 7),
-			[{ name: 'orders', schema: 'sales', alias: 'o' }],
+			{
+				sources: [{ name: 'orders', schema: 'sales', alias: 'o' }],
+				locals: [],
+				opaque: false,
+				origin: 'parsed',
+			},
+		);
+	});
+
+	test('scopes the tables to where the cursor is', () => {
+		// What reading the tokens flat could not do: the outer select reads from the CTE, so the
+		// table inside the CTE is not one of its columns' to be completed from.
+		assert.deepStrictEqual(
+			testAnalyzer().sources('WITH recent AS (SELECT id FROM orders) SELECT  FROM recent', '', 46),
+			{ sources: [], locals: ['recent'], opaque: true, origin: 'parsed' },
 		);
 	});
 

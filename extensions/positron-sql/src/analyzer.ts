@@ -115,13 +115,42 @@ export interface Analysis {
 	readonly unknownDialect: boolean;
 }
 
-/** A table named by the statement under the cursor, read off its tokens rather than a parse. */
+/** A table the statement under the cursor can see. */
 export interface SourceRef {
 	readonly name: string;
 	readonly schema?: string;
 	readonly catalog?: string;
 	readonly alias?: string;
 }
+
+/** What the statement under the cursor can see from there. */
+export interface Sources {
+	/** The real tables in scope, nearest first. */
+	readonly sources: readonly SourceRef[];
+
+	/**
+	 * The names the statement defines for itself that the cursor can refer to: CTEs, derived table
+	 * aliases, and the names those are read under. Always empty when {@link origin} is `tokens`,
+	 * which cannot tell one from a real table.
+	 */
+	readonly locals: readonly string[];
+
+	/**
+	 * Whether the cursor can see something whose columns cannot be known -- a CTE, a derived table,
+	 * a table function. A column completed here may be one of those, so it must not be judged.
+	 */
+	readonly opaque: boolean;
+
+	/**
+	 * How the answer was reached: `parsed` when the statement parsed with the cursor filled in, and
+	 * the tables are the ones it can actually see; `tokens` when it did not, and they are every
+	 * table the statement mentions. For the log, not for logic.
+	 */
+	readonly origin: string;
+}
+
+/** What a failed sources request answers: a statement that names nothing. */
+const EMPTY_SOURCES: Sources = { sources: [], locals: [], opaque: false, origin: 'unavailable' };
 
 /** The keywords that belong at one position, and which position that was. */
 export interface KeywordsAt {
@@ -200,16 +229,19 @@ export class SqlAnalyzer {
 	}
 
 	/**
-	 * The tables named by the statement at an offset.
+	 * What the statement at an offset can see from there: the tables in scope, the names it
+	 * defines for itself, and whether any of what it reads from is opaque.
 	 *
-	 * Read off the statement's tokens rather than a parse, so that it still answers for a
-	 * statement that is halfway through being typed -- which is the only state completion is ever
-	 * asked about.
+	 * Answers for a statement that is halfway through being typed, which is the only state
+	 * completion is ever asked about. An identifier is written into the hole the cursor is in
+	 * before the statement is parsed, so that it parses at all and so that the answer can be
+	 * scoped to where the cursor actually is: in
+	 * `WITH recent AS (SELECT id FROM orders) SELECT | FROM recent` the cursor sees `recent` and
+	 * not `orders`. When even that does not parse, the statement's tokens are read flat instead,
+	 * which {@link Sources.origin} reports.
 	 */
-	public sources(text: string, dialect: string, offset: number): readonly SourceRef[] {
-		return this._request<{ sources: SourceRef[] }>(
-			{ op: 'sources', text, dialect, offset },
-		)?.sources ?? [];
+	public sources(text: string, dialect: string, offset: number): Sources {
+		return this._request<Sources>({ op: 'sources', text, dialect, offset }) ?? EMPTY_SOURCES;
 	}
 
 	/**
@@ -275,6 +307,9 @@ export class SqlAnalyzer {
 			if (parsed.kind === 'error') {
 				throw new Error(parsed.message);
 			}
+			// The tag the module discriminates its responses with has done its job by here, and is
+			// not part of any of the shapes declared above.
+			delete parsed.kind;
 			return parsed as T;
 		} finally {
 			exports.sql_free(response);

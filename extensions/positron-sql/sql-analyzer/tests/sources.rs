@@ -3,19 +3,29 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-//! Reading a statement's tables off its tokens, which is what completion runs on.
+//! What the statement under the cursor can see from there, which is what completion runs on.
 //!
 //! Every case here is SQL that is halfway through being typed, because that is the state the
-//! document is in whenever completion is asked for. None of it parses.
+//! document is in whenever completion is asked for. Almost none of it parses as written -- an
+//! identifier is written into the hole the cursor is in first, which is what makes it parse and
+//! what says where in the resulting tree the cursor ended up.
 
 mod support;
 
-use serde_json::json;
+use serde_json::{json, Value};
 use support::{cursor, request};
 
-/// The tables the statement at `offset` names, as `name` or `name AS alias`.
+fn ask(text: &str, offset: usize) -> Value {
+    request(json!({ "op": "sources", "text": text, "offset": offset }))
+}
+
+/// The tables the statement at `offset` can see, as `name` or `name AS alias`.
 fn sources(text: &str, offset: usize) -> Vec<String> {
-    request(json!({ "op": "sources", "text": text, "offset": offset }))["sources"]
+    named(&ask(text, offset))
+}
+
+fn named(response: &Value) -> Vec<String> {
+    response["sources"]
         .as_array()
         .unwrap()
         .iter()
@@ -33,10 +43,28 @@ fn sources(text: &str, offset: usize) -> Vec<String> {
         .collect()
 }
 
-/// The tables named by the statement the cursor is in, with the cursor written as `|`.
+/// The tables the statement the cursor is in can see, with the cursor written as `|`.
 fn at_cursor(marked: &str) -> Vec<String> {
     let (text, offset) = cursor(marked);
     sources(&text, offset as usize)
+}
+
+/// The whole answer at a cursor: its tables, the names the statement defines, whether the scope
+/// can be judged, and which of the two ways of answering produced it.
+fn all_at_cursor(marked: &str) -> (Vec<String>, Vec<String>, bool, String) {
+    let (text, offset) = cursor(marked);
+    let response = ask(&text, offset as usize);
+    (
+        named(&response),
+        response["locals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|local| local.as_str().unwrap().to_string())
+            .collect(),
+        response["opaque"].as_bool().unwrap(),
+        response["origin"].as_str().unwrap().to_string(),
+    )
 }
 
 #[test]
@@ -93,10 +121,10 @@ fn a_statement_that_cannot_parse_still_gives_up_its_tables() {
 
 #[test]
 fn an_unclosed_quote_costs_the_statement_its_tables() {
-    // The one state the scan cannot see through, because the tokenizer cannot: an identifier
-    // whose opening quote is never closed swallows the rest of the document. The caller
-    // substitutes a plain identifier for the one being typed before asking, which is what makes
-    // `o."Order T` an ordinary statement again.
+    // The one state neither way of answering can see through, because the tokenizer cannot: an
+    // identifier whose opening quote is never closed swallows the rest of its line, `FROM orders
+    // o` included. The caller substitutes a plain identifier for the one being typed before
+    // asking, which is what makes `o."Order T` an ordinary statement again.
     assert!(at_cursor("SELECT o.\"Order T| FROM orders o").is_empty());
     assert_eq!(at_cursor("SELECT o.placeholder| FROM orders o"), ["orders AS o"]);
 }
@@ -138,7 +166,16 @@ fn a_cursor_directly_after_a_semicolon_names_nothing() {
     // The semicolon ended the statement, so what the user types next is a new one and must not be
     // scoped to the tables of the one above.
     assert!(at_cursor("SELECT a FROM orders;|").is_empty());
-    assert_eq!(at_cursor("SELECT a FROM orders|").as_slice(), ["orders"]);
+    assert_eq!(at_cursor("SELECT a FROM orders |").as_slice(), ["orders"]);
+}
+
+#[test]
+fn the_table_name_being_typed_is_not_read_as_one_the_statement_has() {
+    // The cursor is in the slot where a table name goes, so what is under it is a name being
+    // written rather than a table the statement reads from -- there is not one yet.
+    assert!(at_cursor("SELECT a FROM ord|").is_empty());
+    assert!(at_cursor("SELECT a FROM orders|").is_empty());
+    assert_eq!(at_cursor("SELECT a FROM orders, cust|").as_slice(), ["orders"]);
 }
 
 #[test]
@@ -153,11 +190,70 @@ fn an_offset_past_the_end_of_the_document_is_answered_rather_than_failing() {
 }
 
 #[test]
-fn a_subquery_in_a_where_clause_does_not_leak_its_tables_into_the_scan() {
-    // The scan is flat rather than scoped, which is what completion wants: everything the
-    // statement mentions is worth offering. It just must not lose the outer table.
+fn a_subquery_does_not_offer_its_tables_to_the_statement_around_it() {
+    // The outer select cannot see `customers` at all, so offering its columns there would be
+    // offering names that are errors. This is what the scan could not do and the parse can.
     assert_eq!(
         at_cursor("SELECT | FROM orders o WHERE cid IN (SELECT id FROM customers)"),
-        ["orders AS o", "customers"]
+        ["orders AS o"]
     );
+}
+
+#[test]
+fn a_cursor_inside_a_subquery_sees_out_of_it() {
+    // The other direction, and it has to stay open: a correlated subquery may refer to a table of
+    // the query around it, so the tables of both are in scope, nearest first.
+    assert_eq!(
+        at_cursor("SELECT * FROM orders o WHERE cid IN (SELECT | FROM customers c)"),
+        ["customers AS c", "orders AS o"]
+    );
+}
+
+#[test]
+fn a_cte_offers_its_own_name_rather_than_the_tables_inside_it() {
+    // The whole reason the answer is scoped. A flat read of the tokens finds `orders` and would
+    // offer its columns in the outer select, which cannot see them: what that select reads from
+    // is `recent`, whose columns are whatever the CTE chose to select.
+    let (sources, locals, opaque, origin) =
+        all_at_cursor("WITH recent AS (SELECT id FROM orders) SELECT | FROM recent");
+    assert!(sources.is_empty(), "got {sources:?}");
+    assert_eq!(locals, ["recent"]);
+    assert!(opaque, "a column here may be one of the CTE's, which cannot be known");
+    assert_eq!(origin, "parsed");
+}
+
+#[test]
+fn a_cursor_inside_a_cte_sees_the_tables_the_cte_reads() {
+    assert_eq!(
+        at_cursor("WITH recent AS (SELECT | FROM orders) SELECT id FROM recent"),
+        ["orders"]
+    );
+}
+
+#[test]
+fn a_cursor_inside_an_unclosed_subquery_still_reads_it() {
+    // The bracket the author has not reached yet is supplied, so a subquery being typed is a
+    // subquery rather than a statement that cannot be parsed at all.
+    assert_eq!(at_cursor("SELECT * FROM orders WHERE id IN (SELECT | FROM customers"), [
+        "customers",
+        "orders"
+    ]);
+}
+
+#[test]
+fn a_statement_the_parse_cannot_rescue_falls_back_to_its_tokens() {
+    // Filling the hole in is not error recovery, so there is still SQL it cannot make sense of.
+    // The token scan is what the answer was before any of this, and it is still there.
+    let (sources, locals, opaque, origin) = all_at_cursor("SELECT a,, b FROM orders o WHERE |");
+    assert_eq!(sources, ["orders AS o"]);
+    assert!(locals.is_empty());
+    assert!(!opaque);
+    assert_eq!(origin, "tokens");
+}
+
+#[test]
+fn the_answer_says_which_way_it_was_reached() {
+    // A scoped answer and a flat one are worth telling apart in the log, since a surprising list
+    // is otherwise indistinguishable from a broken one.
+    assert_eq!(all_at_cursor("SELECT | FROM orders").3, "parsed");
 }
