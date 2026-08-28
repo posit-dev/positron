@@ -8,7 +8,7 @@
 import { URI } from '../../../../../base/common/uri.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
-import { IStorageService } from '../../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ISecretStorageService } from '../../../../../platform/secrets/common/secrets.js';
 import { TestSecretStorageService } from '../../../../../platform/secrets/test/common/testSecretStorageService.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
@@ -174,6 +174,112 @@ describe('PositronDataConnectionsService', () => {
 		// The new value must still be routed to secret storage, not leaked as plaintext into the
 		// public profile returned by getProfile.
 		expect(service.getProfile('conn-1')?.parameterValues).toEqual({});
+	});
+
+	describe('DuckDB read-only correction', () => {
+		// A DuckDB profile with the given Read Only value.
+		const duckdbProfile = (id: string, readOnly: boolean): IDataConnectionProfile => ({
+			...createProfile(id),
+			driverMetadata: { ...createProfile(id).driverMetadata, id: 'positron-data-driver-duckdb' },
+			parameterValues: { databasePath: '/tmp/db.duckdb', readOnly },
+		});
+
+		// Writes a profile into storage the way an older Positron would have left it. Seeding
+		// directly rather than through a service matters: constructing a service is what marks the
+		// correction as applied, so a service built against this storage first would suppress it.
+		const persistProfile = (storage: TestStorageService, profile: IDataConnectionProfile) =>
+			storage.store(
+				`positron.dataConnections.profile.${profile.id}`,
+				JSON.stringify({ profile, secretParameterIds: [] }),
+				StorageScope.PROFILE,
+				StorageTarget.USER,
+			);
+
+		// A storage no service has been constructed against, so the correction has yet to run.
+		const unmigratedStorage = () => {
+			const storage = new TestStorageService();
+			ctx.disposables.add(storage);
+			ctx.instantiationService.stub(IStorageService, storage);
+			return storage;
+		};
+
+		// Starts a service against the current storage, as a window start would.
+		const startService = () => {
+			const started = ctx.instantiationService.createInstance(PositronDataConnectionsService);
+			ctx.disposables.add(started);
+			return started;
+		};
+
+		it('turns Read Only on for DuckDB profiles only', () => {
+			const storage = unmigratedStorage();
+			persistProfile(storage, duckdbProfile('duck-1', false));
+			persistProfile(storage, { ...createProfile('other-1'), parameterValues: { readOnly: false } });
+
+			const started = startService();
+
+			expect({
+				duckdb: started.getProfile('duck-1')?.parameterValues.readOnly,
+				other: started.getProfile('other-1')?.parameterValues.readOnly,
+			}).toEqual({ duckdb: true, other: false });
+		});
+
+		it('leaves Read Only off when the user turns it off after the correction', () => {
+			const storage = unmigratedStorage();
+			persistProfile(storage, duckdbProfile('duck-1', false));
+
+			// The correction runs on this start, and the user then turns Read Only back off.
+			startService().addUpdateProfile(duckdbProfile('duck-1', false));
+
+			// A later start must respect that choice rather than correcting it again.
+			expect(startService().getProfile('duck-1')?.parameterValues.readOnly).toBe(false);
+		});
+	});
+
+	describe('editing a connected profile', () => {
+		// Saves 'conn-1' with the given parameter values and connects it.
+		const connectProfile = (parameterValues: Record<string, boolean | number | string>) => {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: createDriverMetadata(),
+				connect: async () => stubInterface<IDataConnectionHandle>({
+					handle: 1,
+					disconnect: async () => { },
+					release: () => { },
+				}),
+			}));
+			service.addUpdateProfile({ ...createProfile('conn-1'), parameterValues });
+			return service.connect('conn-1');
+		};
+
+		it('closes the connection when a parameter value changes', async () => {
+			await connectProfile({ databasePath: '/tmp/db.duckdb', readOnly: false });
+
+			// The user turns Read Only on. The live connection still holds the exclusive file lock
+			// that the new value was chosen to release, so it must not survive the edit.
+			//
+			// The close is fire-and-forget, so this asserts on disconnect() dropping the instance
+			// before its first await -- which it must, since closing an editor lands back in
+			// disconnect() for the same profile and the drop is what makes that a no-op.
+			service.addUpdateProfile({
+				...createProfile('conn-1'),
+				parameterValues: { databasePath: '/tmp/db.duckdb', readOnly: true },
+			});
+
+			expect(service.getInstanceForProfile('conn-1')).toBeUndefined();
+		});
+
+		it('keeps the connection when the edit leaves parameter values alone', async () => {
+			await connectProfile({ databasePath: '/tmp/db.duckdb', readOnly: true });
+
+			// Renaming touches nothing the connection was opened with.
+			service.addUpdateProfile({
+				...createProfile('conn-1'),
+				connectionName: 'Renamed',
+				parameterValues: { databasePath: '/tmp/db.duckdb', readOnly: true },
+			});
+
+			expect(service.getInstanceForProfile('conn-1')).toBeDefined();
+		});
 	});
 
 	describe('open Data Explorers', () => {

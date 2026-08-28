@@ -96,10 +96,11 @@ suite('Data Connection Integration', () => {
 			assert.ok(pathParam);
 			assert.strictEqual(pathParam.type, 'file');
 
-			// Check the read only parameter.
+			// Check the read only parameter. It defaults to true so that a new connection can
+			// coexist with a Python or R session connected to the same database file.
 			const readOnlyParam = mechanism.parameters.find(p => p.id === 'readOnly');
-			assert.ok(readOnlyParam);
-			assert.strictEqual(readOnlyParam.type, 'boolean');
+			assert.ok(readOnlyParam && readOnlyParam.type === positron.DataConnectionParameterType.Boolean);
+			assert.strictEqual(readOnlyParam.defaultValue, true);
 		});
 	});
 
@@ -250,6 +251,60 @@ suite('Data Connection Integration', () => {
 
 			// Disconnect.
 			await conn.disconnect();
+		});
+	});
+
+	suite('Concurrent Access', () => {
+		// DuckDB locks a database file per process and allows it to be open in more than one process
+		// only when every one of them opens it read-only. The driver runs its database in a worker
+		// child process, so a DuckDBInstance opened here -- in the extension host -- is a second
+		// process from its point of view, standing in for the user's Python or R session.
+
+		test('read-only connection succeeds while another process holds the file read-only', async () => {
+			// Create a test DB and hold it open read-only, as a session connected with
+			// read_only=True would.
+			const dbPath = await createTestDb('shared.duckdb', 'CREATE TABLE t (x INTEGER);');
+			const holder = await DuckDBInstance.create(dbPath, { access_mode: 'READ_ONLY' });
+
+			// Both closes belong in the finally: a failed assertion would otherwise leave the
+			// driver's worker child process alive, holding a lock on a file teardown then deletes.
+			let conn: positron.DataConnection | undefined;
+			try {
+				// Connect read-only to the same file.
+				conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
+					databasePath: dbPath,
+					readOnly: true,
+				});
+
+				// Test that both connections coexist.
+				assert.strictEqual(await conn.isConnected(), true);
+			} finally {
+				await conn?.disconnect();
+				holder.closeSync();
+			}
+		});
+
+		test('read-write connection explains the lock conflict', async () => {
+			// Create a test DB and hold it open read-write, as a session connected without
+			// read_only=True would.
+			const dbPath = await createTestDb('locked.duckdb', 'CREATE TABLE t (x INTEGER);');
+			const holder = await DuckDBInstance.create(dbPath);
+
+			try {
+				// Test that connecting reports the conflict in terms of the rule that caused it,
+				// rather than passing DuckDB's raw lock error through on its own.
+				await assert.rejects(
+					async () => {
+						await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
+							databasePath: dbPath,
+							readOnly: false,
+						});
+					},
+					/another session has it locked/
+				);
+			} finally {
+				holder.closeSync();
+			}
 		});
 	});
 

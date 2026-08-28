@@ -331,4 +331,20 @@ describe('DataConnectionsTreeInstance', () => {
 		await tree.expand(ENTRY_ID);
 		expect(getChildren).toHaveBeenCalledTimes(2);
 	});
+
+	it('collapses an entry that was still expanded when its connection closed', async () => {
+		const { tree, setConnected } = createTree();
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		// The connection closes under an expanded entry: an edit to its parameters, or the driver
+		// dropping it. Dropping the subtree alone would leave the row expanded with no children,
+		// which the projection reads as a fetch in flight and renders as a twisty spinning forever.
+		setConnected(false);
+
+		expect({
+			expanded: tree.isExpanded(ENTRY_ID),
+			expandState: tree.visibleNodes[0].expandState,
+		}).toEqual({ expanded: false, expandState: 'collapsed' });
+	});
 });
