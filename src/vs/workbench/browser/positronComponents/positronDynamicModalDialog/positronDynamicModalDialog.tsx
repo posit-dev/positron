@@ -103,9 +103,9 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		return () => { openDialogCount--; };
 	}, []);
 
-	// Center the dialog box on initial mount. On subsequent renders (e.g. content changes), keep
-	// the current position but clamp to ensure the dialog remains on screen. useLayoutEffect
-	// ensures the position is applied before the browser paints, avoiding a visible flash at 0,0.
+	// Center the dialog box on initial mount. On a later width change, keep the current position but
+	// clamp it to keep the dialog on screen. useLayoutEffect ensures the position is applied before
+	// the browser paints, avoiding a visible flash at 0,0.
 	useLayoutEffect(() => {
 		setDialogBoxState(prevDialogBoxState => {
 			const effectiveHeight = dialogBoxRef.current.offsetHeight;
