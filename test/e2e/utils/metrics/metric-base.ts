@@ -10,6 +10,7 @@ import type { ConsoleShortcutOptions } from './metric-console.js';
 // The leaf module, not test-setup: that one reaches electron.ts and its `ncp`
 // dependency, which does not resolve in the root vitest lane.
 import { getPositronVersion } from '../../infra/test-runner/positron-version.js';
+import { readArkVersion } from '../ark-version.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
 export const PROD_API_URL = 'https://connect.posit.it/e2e-test-insights-api/metrics';
@@ -33,6 +34,16 @@ export const platformVersion = os.release();
 
 export const positronVersion = getPositronVersion();
 
+/**
+ * Which ark the build under test bundles, or undefined when it shipped no
+ * sidecar to read it from.
+ *
+ * Read once at module load, beside positronVersion and from the same BUILD
+ * root, so every metric row of a run reports the same value and the read is not
+ * repeated per metric.
+ */
+export const arkVersion = readArkVersion();
+
 //-----------------------
 // Base Metric Types
 //-----------------------
@@ -53,6 +64,13 @@ export type MetricContext = {
 	// e2e-test-insights dashboard groups the Duration Distribution box plot by
 	// it. Keep values short, stable, snake_case, low-cardinality.
 	variant?: string;
+
+	// Which ark the build under test bundles, e.g. `0.1.252+209.885fac4`. Set
+	// centrally in api.ts for every feature area, so a call site does not have to
+	// remember it; the e2e-test-insights dashboard promotes it out of context_json
+	// and marks the date it changes on Performance Trends. A call site may still
+	// set it explicitly, and an explicit value wins.
+	ark_version?: string;
 
 	// Language runtime session fields
 	runtime_version?: string;

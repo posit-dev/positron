@@ -34,14 +34,22 @@ import * as positron from 'positron';
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
 import { Conda } from '../common/environmentManagers/conda';
-import { getUvPythonVersions } from './provider/uvUtils';
-import { isUvInstalled } from '../common/environmentManagers/uv';
-import { UvCreationProvider } from './provider/uvCreationProvider';
+import { getUvPythonVersions, pickPythonVersion } from './provider/uvUtils';
+import { getAvailablePythonVersions, isUvInstalled } from '../common/environmentManagers/uv';
+import { UV_PROVIDER_ID, UvCreationProvider } from './provider/uvCreationProvider';
 import {
+    ensureUvInstalled,
     installPythonViaUv,
     InstallPythonResult,
     showUvInstallError,
 } from '../common/environmentManagers/uvPythonInstaller';
+import {
+    createGlobalEnvironment,
+    getGlobalEnvironmentDir,
+    globalEnvironmentErrorMessage,
+    promptForGlobalEnvironment,
+} from '../common/environmentManagers/globalEnvironment';
+import { MultiStepAction } from '../../common/vscodeApis/windowApis';
 import {
     createEnvironmentAndRegister,
     CreateEnvironmentAndRegisterOptions,
@@ -50,7 +58,7 @@ import {
     isGlobalPython,
 } from '../../positron/createEnvApi';
 import { traceError, traceLog } from '../../logging';
-import { getConfiguration } from '../../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolders } from '../../common/vscodeApis/workspaceApis';
 import { InterpreterQuickPickList } from '../../common/utils/localize';
 // --- End Positron ---
 
@@ -135,6 +143,87 @@ async function handleInstallPythonResult(
     return undefined;
 }
 
+/**
+ * Runs Create Environment with no folder open.
+ *
+ * The provider ladder dead-ends at `pickWorkspaceFolder()` here, so offer the global
+ * environment instead of the "open a folder" error. No provider is selected on this
+ * path: outside a workspace the global environment is uv-backed by definition, and
+ * conda users already have a global named-env model through conda itself, whose
+ * environments are discovered independently. The caller only runs this for a request
+ * that asked for uv or did not name a provider, so being uv-backed is never a surprise.
+ *
+ * The command handler's `showBackButton` option is ignored here: the version picker
+ * runs on its own rather than as a step in the provider flow's `MultiStepNode` chain,
+ * so there is no earlier step for Back to return to. `selectEnvironment` is honored by
+ * the caller, since it says what to do with whatever environment came back rather than
+ * how to build one.
+ *
+ * @param uvPythonVersion A `major.minor` version to build from, or `'auto'` to take
+ *   uv's newest available version, matching `uvCreationProvider`. When undefined the
+ *   user picks a version.
+ * @returns The new environment's Python path, or undefined if nothing was created.
+ */
+async function createGlobalEnvironmentFromCommand(uvPythonVersion?: string): Promise<string | undefined> {
+    // The version picker always shows a Back button, and the modal is the step behind
+    // it, so Back reopens the modal instead of ending the command.
+    let version: string | undefined;
+    for (;;) {
+        if ((await promptForGlobalEnvironment()) !== 'create') {
+            // 'openFolder' reloads the extension host if a folder is opened, ending this
+            // command with it.
+            return undefined;
+        }
+
+        const uvReady = await ensureUvInstalled();
+        if (!uvReady.ok) {
+            if (uvReady.error) {
+                await showUvInstallError(uvReady.error);
+            }
+            return undefined;
+        }
+
+        if (uvPythonVersion) {
+            if (uvPythonVersion === 'auto') {
+                const versions = await getAvailablePythonVersions();
+                if (versions.length === 0) {
+                    traceError('No Python versions available from uv for auto-selection.');
+                    return undefined;
+                }
+                version = versions[0].version;
+                traceLog(`Auto-selected Python version ${version} for the global environment.`);
+            } else {
+                version = uvPythonVersion;
+            }
+            break;
+        }
+
+        try {
+            version = await pickPythonVersion();
+            break;
+        } catch (ex) {
+            if (ex === MultiStepAction.Back) {
+                continue;
+            }
+            if (ex === MultiStepAction.Cancel) {
+                return undefined;
+            }
+            throw ex;
+        }
+    }
+    if (!version) {
+        return undefined;
+    }
+
+    const result = await createGlobalEnvironment(version);
+    if (result.outcome !== 'created') {
+        await showUvInstallError(globalEnvironmentErrorMessage(result));
+        return undefined;
+    }
+
+    return result.pythonPath;
+}
+
 // Changed this function to be async
 export async function registerCreateEnvironmentFeatures(
     // --- End Positron ---
@@ -152,6 +241,41 @@ export async function registerCreateEnvironmentFeatures(
             async (
                 options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
             ): Promise<CreateEnvironmentResult | undefined> => {
+                // --- Start Positron ---
+                // With no folder open every provider dead-ends at pickWorkspaceFolder(),
+                // so offer the global environment before provider selection runs. The
+                // global environment is uv-backed, so a user who turned the uv provider
+                // off through python.environmentProviders.enable does not get it, and
+                // neither does a caller that explicitly asked for another provider: both
+                // fall through to the provider ladder's own open-a-folder error rather
+                // than being handed a uv environment they did not ask for. So does a user
+                // with nowhere to put the global environment (no WORKON_HOME, no home dir).
+                //
+                // This path deliberately skips the started/exited creation events: the
+                // folder-scoped exit handler below cannot apply without a folder, so the
+                // notification is shown here instead.
+                const requestedProviderId = options?.providerId;
+                if (
+                    !getWorkspaceFolders()?.length &&
+                    getGlobalEnvironmentDir() &&
+                    isEnvProviderEnabled(UV_PROVIDER_ID) &&
+                    (requestedProviderId === undefined || requestedProviderId === UV_PROVIDER_ID)
+                ) {
+                    const path = await createGlobalEnvironmentFromCommand(options?.uvPythonVersion);
+                    if (!path) {
+                        return undefined;
+                    }
+                    showInformationMessage(`${CreateEnv.informEnvCreation} ${pathUtils.getDisplayName(path)}`);
+                    // Registers the runtime and retries behind an interpreter refresh, which
+                    // a freshly created environment needs. Selecting is the default here as
+                    // it is on the workspace path below, but a caller that explicitly opts
+                    // out gets the path back without a runtime being started.
+                    if (options?.selectEnvironment !== false) {
+                        await pythonRuntimeManager.selectLanguageRuntimeFromPath(path, true);
+                    }
+                    return { path };
+                }
+                // --- End Positron ---
                 if (useEnvExtension()) {
                     try {
                         sendTelemetryEvent(EventName.ENVIRONMENT_CREATING, undefined, {

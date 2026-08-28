@@ -305,7 +305,7 @@ describe('QuartoVirtualNotebookService', () => {
 		return model;
 	}
 
-	it('creates a hidden notebook whose URI keeps the source path', async () => {
+	it('creates a hidden notebook whose URI keeps the source path, under an .ipynb suffix', async () => {
 		const service = createService();
 		const source = createSourceModel(R_AND_PYTHON);
 		await service.whenReady(source.uri);
@@ -321,38 +321,41 @@ describe('QuartoVirtualNotebookService', () => {
 			cellCount: notebook?.cells.length,
 		}).toEqual({
 			scheme: QUARTO_CELLS_SCHEME,
-			path: source.uri.path,
+			// The suffix is what makes a server willing to index the notebook at
+			// all: ruff refuses any notebook whose path ends in anything else,
+			// which would leave Python cells with no formatter and no linter.
+			path: `${source.uri.path}.ipynb`,
 			viewType: QUARTO_CELLS_VIEW_TYPE,
 			cellCount: 2,
 		});
 	});
 
-	it('gives an untitled document a Quarto path, so the LSP clients match its cells', async () => {
+	it('gives an untitled document a Quarto path, so the URI says where its cells came from', async () => {
 		const service = createService();
 		const source = createUntitledSourceModel(R_AND_PYTHON);
 		await service.whenReady(source.uri);
 
-		// A cell URI carries the path of the notebook it belongs to, and both LSP
-		// clients gate on that path ending in `.qmd` or `.rmd`, which is what
-		// keeps the cells of real notebooks out. A bare untitled path would match
-		// nothing, so the cells would reach no language server.
+		// A cell URI carries the path of the notebook it belongs to. Nothing gates
+		// on that path any more, since a document selector matches these cells by
+		// the notebook's type, but keeping the source extension is what makes a
+		// cell URI in a log or a server trace say which document it belongs to.
 		expect({
 			sourcePath: source.uri.path,
 			notebookPath: service.getNotebookUri(source.uri)?.path,
 			cellPaths: service.getCells(source.uri).map(cell => cell.cellUri.path),
 		}).toEqual({
 			sourcePath: 'Untitled-1',
-			notebookPath: 'Untitled-1.qmd',
-			cellPaths: ['Untitled-1.qmd', 'Untitled-1.qmd'],
+			notebookPath: 'Untitled-1.qmd.ipynb',
+			cellPaths: ['Untitled-1.qmd.ipynb', 'Untitled-1.qmd.ipynb'],
 		});
 	});
 
-	it('leaves an untitled document that already has a Quarto path alone', async () => {
+	it('does not add a second Quarto extension to an untitled document that has one', async () => {
 		const service = createService();
 		const source = createUntitledSourceModel(R_AND_PYTHON, 'Untitled-1.qmd');
 		await service.whenReady(source.uri);
 
-		expect(service.getNotebookUri(source.uri)?.path).toBe('Untitled-1.qmd');
+		expect(service.getNotebookUri(source.uri)?.path).toBe('Untitled-1.qmd.ipynb');
 	});
 
 	it('creates one bound cell text model per code cell, holding only the code', async () => {
@@ -370,7 +373,7 @@ describe('QuartoVirtualNotebookService', () => {
 		}))).toEqual([
 			{
 				scheme: Schemas.vscodeNotebookCell,
-				path: source.uri.path,
+				path: `${source.uri.path}.ipynb`,
 				language: 'r',
 				text: 'x <- 1',
 				codeStartLine: 4,
@@ -378,7 +381,7 @@ describe('QuartoVirtualNotebookService', () => {
 			},
 			{
 				scheme: Schemas.vscodeNotebookCell,
-				path: source.uri.path,
+				path: `${source.uri.path}.ipynb`,
 				language: 'python',
 				text: 'import os',
 				codeStartLine: 8,

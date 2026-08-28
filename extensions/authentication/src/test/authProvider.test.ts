@@ -265,6 +265,30 @@ suite('AuthProvider (credential chain)', () => {
 		assert.strictEqual(session.accessToken, resolveResult);
 	});
 
+	test('createSession chains the chain failure beneath its own message', async () => {
+		resolveShouldFail = true;
+
+		const err = await chainProvider.createSession([], {})
+			.then(() => undefined, (e: unknown) => e);
+
+		// The actionable message is what the user sees; the real cause rides
+		// underneath so a caller that can recover from a specific failure -- an
+		// expired AWS SSO session, say -- can still find it.
+		assert.deepStrictEqual(
+			[
+				/^No credentials found for Test Chain\./.test((err as Error).message),
+				((err as { cause?: Error }).cause)?.message,
+			],
+			[true, 'chain failed']
+		);
+	});
+
+	test('resolveChainCredentials still reports a failure as no session', async () => {
+		resolveShouldFail = true;
+
+		assert.strictEqual(await chainProvider.resolveChainCredentials(), undefined);
+	});
+
 	test('resolveChainCredentials invalidates cached session on failure', async () => {
 		await chainProvider.resolveChainCredentials();
 		let sessions = await chainProvider.getSessions();

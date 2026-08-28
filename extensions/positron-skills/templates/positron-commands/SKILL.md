@@ -2,25 +2,25 @@
 name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes
-  (Console, Variables, Plots, Help, Packages), clearing the console, listing or
-  discovering registered interpreters, restarting or interrupting a stuck
-  session, setting up Python, reading, installing or updating the packages in a
-  session, and reading the connections configured in Positron's Data
-  Connections pane -- which code in the session cannot see -- including a live
-  connection's tables and columns. Use when the user wants Positron itself to do
-  something, or wants to know what is installed, rather than to run R or Python
-  code. Load this skill, then read the reference file for the area in question.
-  Triggers: "show the variables pane", "what interpreters are available", "my R
-  interpreter isn't showing up", "my session is stuck", "is pandas installed?",
-  "update all my packages", "set up a Python environment", "what databases am I
-  connected to", "what tables are in my warehouse".
+  (Console, Variables, Plots, Help, Packages), clearing the console, opening a
+  file or data file in the right editor, listing or discovering registered
+  interpreters, restarting or interrupting a stuck session, setting up Python,
+  reading, installing or updating a session's packages, and reading the
+  connections configured in the Data Connections pane -- which code in the
+  session cannot see -- including a live connection's tables and columns. Use
+  when the user wants Positron itself to do something, or wants to know what is
+  installed, rather than to run R or Python code. Load this skill, then read the
+  reference file for the area in question. Triggers: "show the variables pane",
+  "open data.csv", "what interpreters are available", "my session is stuck", "is
+  pandas installed?", "update all my packages", "set up a Python environment",
+  "what databases am I connected to", "what tables are in my warehouse".
 ---
 
 # Positron IDE commands
 
-These commands act on the Positron workbench itself -- layout, panes, interpreter
-sessions, and packages. They do not run interpreter code; use `executeCode` for
-that.
+These commands act on the Positron workbench itself -- layout, panes, editors,
+interpreter sessions, and packages. They do not run interpreter code; use
+`executeCode` for that.
 
 ## Calling these commands
 
@@ -31,6 +31,16 @@ given under that command's "Arguments" entry. Omit `args` entirely for commands
 that take none -- do not pass an empty object or array. Never invent an argument
 value the user hasn't given you or that isn't documented; if a required value is
 unknown, ask the user first.
+
+**Find the id here before you run it.** Positron is built on VS Code, so a
+plausible-sounding VS Code command id usually does exist and will usually run --
+which makes recalling one from memory the most expensive mistake available. Some
+ids that read like they do the thing directly instead open a dialog or a
+quick-pick and wait for the user to choose, so the command "succeeds" while
+handing the task straight back to them. Read the relevant reference file first
+and use the id and arguments it gives you. If what the user wants is not covered
+by any file below, say so rather than reaching for an id from general VS Code
+knowledge.
 
 ## When a command doesn't work
 
@@ -53,6 +63,13 @@ Read when the user asks about: switching the workbench layout (four-pane,
 notebook, two-pane), bringing a pane into focus (Console, Variables, Help,
 Plots, Packages), clearing console output, or expanding/collapsing the Data
 Explorer's column summary panel.
+
+**Opening files** -- [references/files.md]({{skill_dir}}/references/files.md)
+Read when the user wants a file open in Positron: "open data.csv", "show me
+that file", "let's look at this CSV/Parquet/Excel file", or anything that should
+land in the Data Explorer. Read it **before** opening anything -- it documents
+the one command that opens a known path, and names the similar-looking ids that
+open a file picker instead and hand the task back to the user.
 
 **Registered interpreters** -- [references/interpreters.md]({{skill_dir}}/references/interpreters.md)
 Read when the user asks what interpreters are available, wants the registered
