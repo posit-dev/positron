@@ -386,6 +386,7 @@ const VisualizeModalDialog = (props: Props) => {
 			renderer={props.renderer}
 			title={localize('positron.notebook.visualize.title', 'Visualize dataframe')}
 			width={900}
+			onCancel={props.onCancel}
 		/>
 	);
 };
