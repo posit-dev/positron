@@ -10,8 +10,9 @@ import * as os from 'os';
 import * as path from '../../../base/common/path.js';
 import { hashLicenseContents, licenseFileHash } from '../../node/localLicense.js';
 
-const license = '-----BEGIN RSTUDIO LICENSE-----\nabc123\n-----END RSTUDIO LICENSE-----';
-const renewedLicense = license.replace('abc123', 'def456');
+const licenseText = '-----BEGIN RSTUDIO LICENSE-----\nabc123\n-----END RSTUDIO LICENSE-----';
+const license = Buffer.from(licenseText);
+const renewedLicense = Buffer.from(licenseText.replace('abc123', 'def456'));
 
 describe('hashLicenseContents', () => {
 
@@ -27,9 +28,19 @@ describe('hashLicenseContents', () => {
 		// A license file can gain or lose a trailing newline in transit; a deployment must
 		// not look like a different license because of it.
 		expect([
-			hashLicenseContents(`${license}\n`),
-			hashLicenseContents(`\n\n${license}\n  \n`),
+			hashLicenseContents(Buffer.concat([license, Buffer.from('\n')])),
+			hashLicenseContents(Buffer.concat([Buffer.from('\t\r\n '), license, Buffer.from(' \v\f\r\n')])),
 		]).toEqual(['c12b6949758226a4', 'c12b6949758226a4']);
+	});
+
+	it('keeps a UTF-8 BOM as part of the license', () => {
+		const byteOrderMark = Buffer.from([0xef, 0xbb, 0xbf]);
+		expect(hashLicenseContents(Buffer.concat([byteOrderMark, license]))).toBe('74a890b11e2de8e5');
+	});
+
+	it('keeps interior CRLF bytes as part of the license', () => {
+		const crlfLicense = Buffer.from(licenseText.replaceAll('\n', '\r\n'));
+		expect(hashLicenseContents(crlfLicense)).toBe('0498f64a7fcce766');
 	});
 
 	it('gives different licenses different hashes', () => {
@@ -49,7 +60,7 @@ describe('licenseFileHash', () => {
 	});
 
 	/** Writes a file into the license-manager directory and returns its path. */
-	function writeInDir(name: string, contents: string): string {
+	function writeInDir(name: string, contents: string | Buffer): string {
 		const filePath = path.join(dir, name);
 		fs.writeFileSync(filePath, contents);
 		return filePath;
@@ -61,6 +72,11 @@ describe('licenseFileHash', () => {
 		writeInDir('stale.lic', license);
 		const reported = writeInDir('verified.txt', renewedLicense);
 		expect(licenseFileHash(dir, reported)).toBe(hashLicenseContents(renewedLicense));
+	});
+
+	it('hashes the reported license file when the manager directory is unreadable', () => {
+		const reported = writeInDir('verified.lic', license);
+		expect(licenseFileHash(path.join(dir, 'no-such-dir'), reported)).toBe('c12b6949758226a4');
 	});
 
 	it('falls back to the .lic in the directory when the binary reports no path', () => {
