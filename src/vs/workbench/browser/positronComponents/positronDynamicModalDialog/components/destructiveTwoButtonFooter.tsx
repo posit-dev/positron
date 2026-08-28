@@ -44,7 +44,7 @@ export const DestructiveTwoButtonFooter = (props: DestructiveTwoButtonFooterProp
 	// the primary action here cannot be taken back, so Enter and Escape should both back out of the
 	// dialog and taking the action should cost a deliberate click or Tab.
 	const secondaryButton = (
-		<FooterButton autoFocus onPressed={props.onSecondaryButton}>
+		<FooterButton onPressed={props.onSecondaryButton}>
 			{props.secondaryButtonTitle}
 		</FooterButton>
 	);
