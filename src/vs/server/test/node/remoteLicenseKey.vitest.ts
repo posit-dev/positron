@@ -126,8 +126,8 @@ describe('validateLicense', () => {
 
 		const result = await validateLicense(token, license, [testPubKeyPem]);
 
-		expect({ valid: result.valid, academic: result.academic, licenseHash: result.licenseHash })
-			.toEqual({ valid: true, academic: false, licenseHash: undefined });
+		expect({ valid: result.valid, kind: result.kind, licenseHash: result.licenseHash })
+			.toEqual({ valid: true, kind: undefined, licenseHash: undefined });
 	});
 
 	it('rejects malformed JSON', async () => {
@@ -181,7 +181,7 @@ describe('validateLicenseFile', () => {
 			const licPath = writeTempLicense('-----BEGIN RSTUDIO LICENSE-----\nabc123\n-----END RSTUDIO LICENSE-----\n');
 			try {
 				const result = await validateLicenseFile('any-token', licPath, async () => ({ valid: true, licensee: 'Acme University', licenseHash }));
-				expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true, licenseHash });
+				expect(result).toEqual({ valid: true, licensee: 'Acme University', kind: 'academic', licenseHash });
 			} finally {
 				fs.unlinkSync(licPath);
 			}
@@ -270,7 +270,7 @@ describe('validateLicenseKey', () => {
 		async licenseHash => {
 			await withCleanLicenseEnv(async () => {
 				const result = await validateLicenseKey('some-token', createServerArgs(), async () => ({ valid: true, licensee: 'Acme University', licenseHash }));
-				expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true, licenseHash });
+				expect(result).toEqual({ valid: true, licensee: 'Acme University', kind: 'academic', licenseHash });
 			});
 		});
 
@@ -287,7 +287,7 @@ describe('validateLicenseKey', () => {
 				signature: 'bm90LWEtcmVhbC1zaWduYXR1cmU=',
 			});
 			const result = await validateLicenseKey('some-token', createServerArgs(), async () => ({ valid: true, licensee: 'Acme University' }));
-			expect(result).toEqual({ valid: true, licensee: 'Acme University', academic: true });
+			expect(result).toEqual({ valid: true, licensee: 'Acme University', kind: 'academic' });
 		});
 	});
 

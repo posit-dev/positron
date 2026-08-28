@@ -79,6 +79,16 @@ export type MemoryPayload = {
 	platform_os: string;
 	platform_version: string;
 	container_image: string;
+	/**
+	 * Which ark the build bundles, e.g. `0.1.252+209.885fac4`. Run-level, so it
+	 * sits here rather than on a launch or a process: it is sent once, and the
+	 * three launches of a POST are the same scenario against the same build.
+	 *
+	 * Optional, and omitted rather than sent as 'unknown', when the build shipped
+	 * no sidecar. The dashboard draws a marker where this value changes, so a
+	 * placeholder would draw an ark release that never happened.
+	 */
+	ark_version?: string;
 	scenario: MemoryScenario;
 	lane: MemoryLane;
 	launches: {
@@ -97,6 +107,8 @@ export type MemoryPayload = {
 			rss_bytes: number;
 			pss_min: number;
 			pss_max: number;
+			/** Whether this process was sampled after a forced GC. See gc.ts. */
+			forced_gc: boolean;
 		}[];
 		extensions: {
 			extension_id: string;
@@ -161,6 +173,12 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 	if (first === undefined) {
 		throw new Error('cannot build a memory payload from no snapshots');
 	}
+	// Run-level, so it is reduced here rather than sent per launch. The report
+	// test already asserts a single positronVersion across the three launches, so
+	// they are one build; the first launch that read a sidecar speaks for the run.
+	// Undefined stays undefined: JSON.stringify drops the key and the API reads a
+	// missing one as NA.
+	const arkVersion = snapshots.find(snapshot => snapshot.arkVersion !== undefined)?.arkVersion;
 	return {
 		payload_version: 1,
 		timestamp: new Date().toISOString(),
@@ -172,6 +190,7 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 		platform_os: platformOs,
 		platform_version: platformVersion,
 		container_image: meta.containerImage,
+		ark_version: arkVersion,
 		scenario: first.scenario,
 		lane: first.lane,
 		launches: snapshots.map(snapshot => ({
@@ -183,7 +202,8 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 				process_name: redactProcessName(p.processName), process_role: p.processRole,
 				labeled: p.labeled, cmd_basename: p.cmdBasename,
 				pss_bytes: p.pssBytes, rss_bytes: p.rssBytes,
-				pss_min: p.pssMin, pss_max: p.pssMax
+				pss_min: p.pssMin, pss_max: p.pssMax,
+				forced_gc: p.forcedGc
 			})),
 			extensions: snapshot.extensions.map(e => ({
 				extension_id: e.extensionId,
@@ -322,6 +342,10 @@ export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScena
 			// fall through every switch downstream.
 			processRole: isProcessRole(p.process_role) ? p.process_role : 'unlabeled',
 			labeled: true, cmdBasename: '',
+			// The response carries no such field and the report reads it for neither
+			// side of the delta, so this is neutral rather than a claim -- the same
+			// reasoning as `labeled: true` above.
+			forcedGc: false,
 			pssBytes: p.pss_bytes, rssBytes: 0, pssMin: p.pss_bytes, pssMax: p.pss_bytes,
 			// One sample, because the response carries one figure per process. That
 			// also keeps a baseline out of the unstable-process report: a single

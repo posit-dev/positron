@@ -2,7 +2,8 @@
 
 Layout, pane focus, and view state in the running Positron workbench. See
 [SKILL.md]({{skill_dir}}/SKILL.md) for how to call these commands and how to handle
-failures.
+failures. To open a file in an editor, see
+[files.md]({{skill_dir}}/references/files.md).
 
 The **Arguments** and **Returns** entries below are generated from the running
 build's command metadata, so they always match this Positron. The surrounding
@@ -97,6 +98,10 @@ was just generated, or asks to switch to the plots view.
 {{command:workbench.panel.positronPlots.focus}}
 
 ## Console and Data Explorer view state
+
+The two Data Explorer commands here need a Data Explorer editor already active.
+Opening a tabular file is how one gets there -- see
+[files.md]({{skill_dir}}/references/files.md).
 
 ### `workbench.action.positronConsole.clearConsole`
 

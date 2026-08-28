@@ -10,20 +10,54 @@
 
 set -euo pipefail
 
+# --resolve-only prints the tag and stops. The memory-metrics workflow resolves
+# once in a prep job and hands the literal tag to all seven matrix jobs, so a
+# prerelease published mid-run cannot split the matrix across two builds; that
+# prep job must not pay to download a build it will never use.
+RESOLVE_ONLY=0
+if [[ "${1:-}" == "--resolve-only" ]]; then
+	RESOLVE_ONLY=1
+	shift
+fi
+
 VERSION_INPUT="${1:-}"
 if [[ -z "$VERSION_INPUT" ]]; then
-	echo "usage: download-build.sh <version|latest-prerelease|latest-release>" >&2
+	echo "usage: download-build.sh [--resolve-only] <version|latest-prerelease|latest-release>" >&2
 	exit 2
 fi
 
 REPO="posit-dev/positron-builds"
 
+# Requires ASSET_PREFIX/ASSET_SUFFIX to be set, which is why resolve_os and
+# resolve_arch run before this does.
 resolve_version() {
 	local input="$1"
 	case "$input" in
 		latest-prerelease)
-			gh api "repos/$REPO/releases?per_page=100" \
-				--jq '[.[] | select(.prerelease == true)] | .[0].tag_name'
+			# Newest prerelease whose build asset has FINISHED UPLOADING, not
+			# simply the newest that exists. A release is visible to this API
+			# the moment it is created, but its ~1 GiB asset can land minutes
+			# later: on 2026-08-27 release -177 published at 12:09:48 and its
+			# linux x64 tarball completed at 12:15:34, and six of the seven
+			# memory-matrix jobs resolved inside that window and died with "no
+			# assets match the file pattern". The seventh had resolved 27
+			# seconds earlier, got -166, and passed -- so the run both failed
+			# and split across two builds.
+			#
+			# Falling back to the previous complete release is deliberate. A
+			# night measured against a slightly older build is a real
+			# measurement; a failed job is not one, and every row records its
+			# own app_version either way.
+			# $rel binds the release before descending into .assets[],
+			# where "." is an asset and .tag_name would be null.
+			gh api "repos/$REPO/releases?per_page=100" --jq \
+				"[ .[]
+				   | select(.prerelease == true)
+				   | . as \$rel
+				   | select([ \$rel.assets[]
+				              | select(.name == (\"$ASSET_PREFIX\" + \$rel.tag_name + \"$ASSET_SUFFIX\")
+				                       and .state == \"uploaded\") ] | length > 0)
+				 ] | .[0].tag_name"
 			;;
 		latest-release)
 			# Stable releases are flagged on posit-dev/positron; $REPO (positron-builds)
@@ -54,19 +88,34 @@ resolve_os() {
 	esac
 }
 
+# Before resolve_version, which needs the asset name to tell a complete release
+# from one still uploading. The name is platform-specific, so the check is too.
+ARCH=$(resolve_arch)
+OS=$(resolve_os)
+if [[ "$OS" == "darwin" ]]; then
+	ASSET_PREFIX="Positron-darwin-"
+	ASSET_SUFFIX="-${ARCH}.zip"
+else
+	ASSET_PREFIX="Positron-linux-"
+	ASSET_SUFFIX="-${ARCH}.tar.gz"
+fi
+
 VERSION=$(resolve_version "$VERSION_INPUT")
 if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
 	echo "Could not resolve version from input '$VERSION_INPUT'" >&2
+	echo "For latest-prerelease this also means no prerelease has a completed" >&2
+	echo "${ASSET_PREFIX}<tag>${ASSET_SUFFIX} asset yet." >&2
 	exit 1
 fi
-ARCH=$(resolve_arch)
-OS=$(resolve_os)
 
-if [[ "$OS" == "darwin" ]]; then
-	ASSET="Positron-darwin-${VERSION}-${ARCH}.zip"
-else
-	ASSET="Positron-linux-${VERSION}-${ARCH}.tar.gz"
+# Printed in the same KEY=value shape as BUILD= below, so a caller appends it
+# to $GITHUB_OUTPUT the same way.
+if [[ "$RESOLVE_ONLY" == "1" ]]; then
+	echo "VERSION=$VERSION"
+	exit 0
 fi
+
+ASSET="${ASSET_PREFIX}${VERSION}${ASSET_SUFFIX}"
 
 WORKDIR="${RUNNER_TEMP:-/tmp}/positron-build"
 rm -rf "$WORKDIR"

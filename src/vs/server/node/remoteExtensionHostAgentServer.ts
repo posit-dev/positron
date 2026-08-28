@@ -44,6 +44,7 @@ const require = createRequire(import.meta.url);
 
 // --- Start Positron ---
 import { validateLicenseKey, ILicenseValidationResult, isRemoteLicenseManagerMode } from './remoteLicenseKey.js';
+import { markSageMakerSession } from '../../platform/positronLicense/common/positronSageMakerSession.js';
 import { createUnlicensedServer } from './positronUnlicensedServer.js';
 // eslint-disable-next-line no-duplicate-imports
 import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
@@ -751,8 +752,13 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	const positronLicenseeInfo = licenseValidationResult?.valid ? {
 		licensee: licenseValidationResult.licensee,
 		issuer: licenseValidationResult.issuer,
-		academic: licenseValidationResult.academic === true,
+		academic: licenseValidationResult.kind === 'academic',
 	} : undefined;
+	// The gallery session type is read from module scope rather than injected, so the
+	// SageMaker kind is recorded here, before any service can serve a request.
+	if (licenseValidationResult?.kind === 'sagemaker') {
+		markSageMakerSession();
+	}
 	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronLicenseeInfo, licenseValidationResult?.licenseHash);
 	// --- End Positron ---
 
