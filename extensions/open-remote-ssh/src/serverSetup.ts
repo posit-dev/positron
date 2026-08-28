@@ -47,6 +47,11 @@ export class ServerInstallError extends Error {
 
 const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz';
 
+/** Display names for the environments a remote host can be identified as. */
+const SSH_ENVIRONMENT_LABELS: Record<SshEnvironment, string> = {
+	databricks: 'Databricks',
+};
+
 /**
  * Asks the remote host which of the probed environment variables it has set, to
  * identify the kind of compute environment the server is about to be installed
@@ -64,6 +69,11 @@ async function probeSshEnvironment(conn: SSHConnection, logger: Log): Promise<Ss
 		logger.trace(`Probed remote environment variables: ${setVariables.join(', ') || '(none)'}`);
 		if (environment) {
 			logger.info(`Detected remote compute environment: ${environment}`);
+			// Let the user know which managed platform they landed on; the connection
+			// otherwise gives no sign of it.
+			vscode.window.showInformationMessage(
+				vscode.l10n.t('Connected to a {0} environment.', SSH_ENVIRONMENT_LABELS[environment])
+			);
 		}
 		return environment;
 	} catch (e) {
