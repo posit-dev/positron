@@ -93,11 +93,14 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	const [errorMessage, setErrorMessage] = useState<string>();
 	const [apiKey, setApiKey] = useState<string>(() => props.source.defaults.apiKey ?? '');
 	const [baseUrl, setBaseUrl] = useState<string>(() => props.source.defaults.baseUrl ?? '');
+	const [awsProfile, setAwsProfile] = useState<string>(() => props.source.defaults.aws?.profile ?? '');
+	const [awsRegion, setAwsRegion] = useState<string>(() => props.source.defaults.aws?.region ?? '');
 	const [protocol, setProtocol] = useState<string>(() => props.source.defaults.protocol ?? API_TYPE_CHAT);
 	const [modelIds, setModelIds] = useState<string[]>(() => props.source.defaults.customModels?.map(m => m.id) ?? ['']);
 	const supportsBaseUrl = props.source.supportedOptions.includes('baseUrl');
 	const supportsProtocol = props.source.supportedOptions.includes('protocol');
 	const supportsCustomModels = props.source.supportedOptions.includes('customModels');
+	const supportsAws = props.source.supportedOptions.includes('aws');
 
 	// Build schema-valid custom model entries from the entered ids, defaulting
 	// the capability fields the user didn't specify.
@@ -134,6 +137,11 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 				...(supportsBaseUrl ? { baseUrl } : {}),
 				...(supportsProtocol ? { protocol } : {}),
 				...(supportsCustomModels ? { customModels } : {}),
+				// Both fields are always submitted, empty included: an empty box
+				// means "remove this saved value". Safe because the boxes are
+				// pre-filled from providers.json alone, so submitting them back
+				// can only ever write what the user set or cleared here.
+				...(supportsAws ? { aws: { profile: awsProfile.trim(), region: awsRegion.trim() } } : {}),
 			};
 			await props.onAction(props.source, dispatchConfig, deriveConnectAction(props.source, selectedMethod));
 		} catch (e) {
@@ -252,6 +260,37 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 							</>
 						}
 					</ProviderConnectionFields>
+					{supportsAws &&
+						<div className='connect-provider-aws'>
+							<label className='connect-provider-apikey-label' htmlFor='connect-provider-aws-profile-input'>
+								{localize('positron.connectProvider.awsProfileLabel', "AWS Profile")}
+							</label>
+							<input
+								autoComplete='off'
+								className='connect-provider-apikey-input'
+								id='connect-provider-aws-profile-input'
+								spellCheck={false}
+								type='text'
+								value={awsProfile}
+								onChange={e => setAwsProfile(e.target.value)}
+							/>
+							<label className='connect-provider-apikey-label' htmlFor='connect-provider-aws-region-input'>
+								{localize('positron.connectProvider.awsRegionLabel', "AWS Region")}
+							</label>
+							<input
+								autoComplete='off'
+								className='connect-provider-apikey-input'
+								id='connect-provider-aws-region-input'
+								spellCheck={false}
+								type='text'
+								value={awsRegion}
+								onChange={e => setAwsRegion(e.target.value)}
+							/>
+							<p className='connect-provider-aws-hint'>
+								{localize('positron.connectProvider.awsHint', "Leave blank to use the AWS_PROFILE and AWS_REGION environment variables, or your AWS defaults. When set, environment variables take precedence over the values here.")}
+							</p>
+						</div>
+					}
 					{supportsCustomModels &&
 						<ProviderModelsSection
 							modelIds={modelIds}

@@ -207,4 +207,52 @@ describe('ConnectedProviderView', () => {
 		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
 	});
+
+	// A connected Bedrock provider is where most users land, since the AWS chain
+	// usually resolves at activation -- so the values the connect form collects
+	// have to be visible here rather than only behind Remove.
+	const bedrock: IPositronLanguageModelSource = {
+		type: PositronLanguageModelType.Chat,
+		provider: { id: 'amazon-bedrock', displayName: 'Amazon Bedrock' },
+		supportedOptions: ['toolCalls', 'aws'],
+		signedIn: true,
+		defaults: { aws: { profile: 'data-team', region: 'eu-west-1' } },
+	};
+
+	it('shows the saved AWS profile and region for a connected Bedrock provider', () => {
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={bedrock} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.getByText('data-team')).toBeInTheDocument();
+		expect(screen.getByText('eu-west-1')).toBeInTheDocument();
+	});
+
+	it('omits an AWS row that has no saved value', () => {
+		// Nothing in providers.json for either field -- an ambient AWS_REGION is
+		// deliberately not surfaced here, matching the connect form.
+		const noneSaved = { ...bedrock, defaults: { aws: {} } };
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={noneSaved} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.queryByText(/AWS Profile/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/AWS Region/)).not.toBeInTheDocument();
+	});
+
+	it('omits the AWS rows for a provider that does not support them', () => {
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.queryByText(/AWS Profile/)).not.toBeInTheDocument();
+	});
+
+	it('omits the detail group entirely when a provider has no details to show', () => {
+		// The group is a flex child of a container with a 16px gap, so rendering
+		// it empty would add that gap between the header and the notice for every
+		// provider without details -- Posit AI here has neither baseUrl nor aws.
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.queryByTestId('provider-details')).not.toBeInTheDocument();
+	});
+
+	it('groups the rows together when a provider has more than one detail', () => {
+		const withBoth = { ...bedrock, supportedOptions: ['toolCalls', 'aws', 'baseUrl'] as typeof bedrock.supportedOptions, defaults: { baseUrl: 'https://bedrock.example.com', aws: { profile: 'data-team', region: 'eu-west-1' } } };
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={withBoth} onAction={async () => { }} onBack={vi.fn()} />);
+		const group = screen.getByTestId('provider-details');
+		expect(group).toContainElement(screen.getByTestId('provider-base-url'));
+		expect(group).toContainElement(screen.getByTestId('provider-aws-profile'));
+		expect(group).toContainElement(screen.getByTestId('provider-aws-region'));
+	});
 });

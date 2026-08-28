@@ -95,6 +95,16 @@
 	color: var(--vscode-charts-red);
 }
 
+/*
+ * The read-only detail rows, grouped so the whole set can be omitted when a
+ * provider has none.
+ */
+.connect-provider-details {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
 .connect-provider-detail {
 	display: flex;
 	flex-direction: column;
@@ -158,6 +168,18 @@
 }
 
 .connect-provider-notice {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-aws {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.connect-provider-aws-hint {
+	margin: 0;
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
 }

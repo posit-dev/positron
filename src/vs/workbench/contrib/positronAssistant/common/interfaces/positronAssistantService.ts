@@ -178,6 +178,13 @@ export interface IPositronLanguageModelConfig {
 	 */
 	customModels?: IPositronCustomModel[];
 	autoconfigure?: IPositronLanguageModelAutoconfigure;
+	/**
+	 * AWS profile and region for a provider authenticating through the AWS
+	 * credential chain. Both optional: an omitted field falls back to the
+	 * ambient AWS configuration, and an empty string means the user cleared the
+	 * box and any saved value should be removed.
+	 */
+	aws?: { profile?: string; region?: string };
 }
 
 // Equivalent in positron.d.ts API: ShowLanguageModelConfigOptions

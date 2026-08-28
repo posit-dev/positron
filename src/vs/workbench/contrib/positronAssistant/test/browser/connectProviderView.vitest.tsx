@@ -63,6 +63,16 @@ const databricksOAuth: IPositronLanguageModelSource = {
 };
 
 
+// Bedrock authenticates through the AWS credential chain -- no API key, no base
+// URL -- so the only inputs are the optional profile and region.
+const bedrock: IPositronLanguageModelSource = {
+	type: PositronLanguageModelType.Chat,
+	provider: { id: 'amazon-bedrock', displayName: 'Amazon Bedrock' },
+	supportedOptions: ['toolCalls', 'aws'],
+	signedIn: false,
+	defaults: { aws: { profile: 'data-team', region: 'eu-west-1' } },
+};
+
 const custom: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
 	provider: { id: 'openai-compatible', displayName: 'OpenAI Compatible', settingName: 'openai-compatible' },
@@ -399,6 +409,57 @@ describe('ConnectProviderView', () => {
 			expect(screen.getByRole('radio', { name: 'OAuth' })).toBeDisabled();
 			expect(screen.getByRole('radio', { name: 'API Key' })).toBeDisabled();
 			await act(async () => { resolveSignIn(); });
+		});
+	});
+
+	describe('AWS profile and region', () => {
+		it('renders both inputs prefilled from the saved values, with the precedence hint', () => {
+			rtl.render(<ConnectProviderView {...dialogProps()} source={bedrock} onAction={async () => { }} onBack={vi.fn()} />);
+			expect(screen.getByLabelText(/aws profile/i)).toHaveValue('data-team');
+			expect(screen.getByLabelText(/aws region/i)).toHaveValue('eu-west-1');
+			expect(screen.getByText(/take precedence over the values here/)).toBeInTheDocument();
+		});
+
+		it('renders neither input for a provider that does not support them', () => {
+			rtl.render(<ConnectProviderView {...dialogProps()} source={anthropic} onAction={async () => { }} onBack={vi.fn()} />);
+			expect(screen.queryByLabelText(/aws profile/i)).not.toBeInTheDocument();
+			expect(screen.queryByLabelText(/aws region/i)).not.toBeInTheDocument();
+		});
+
+		it('leaves Connect enabled with both boxes empty, since both fields are optional', async () => {
+			const user = userEvent.setup();
+			rtl.render(<ConnectProviderView {...dialogProps()} source={bedrock} onAction={async () => { }} onBack={vi.fn()} />);
+			await user.clear(screen.getByLabelText(/aws profile/i));
+			await user.clear(screen.getByLabelText(/aws region/i));
+			expect(screen.getByRole('button', { name: 'Connect' })).toBeEnabled();
+		});
+
+		it('dispatches edited values, trimmed', async () => {
+			const onAction = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			rtl.render(<ConnectProviderView {...dialogProps()} source={bedrock} onAction={onAction} onBack={vi.fn()} />);
+			const region = screen.getByLabelText(/aws region/i);
+			await user.clear(region);
+			await user.type(region, '  us-west-2  ');
+			await user.click(screen.getByRole('button', { name: 'Connect' }));
+			expect(onAction).toHaveBeenCalledWith(
+				bedrock,
+				expect.objectContaining({ aws: { profile: 'data-team', region: 'us-west-2' } }),
+				'save',
+			);
+		});
+
+		it('dispatches an emptied box as an empty string, the signal to remove the saved value', async () => {
+			const onAction = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			rtl.render(<ConnectProviderView {...dialogProps()} source={bedrock} onAction={onAction} onBack={vi.fn()} />);
+			await user.clear(screen.getByLabelText(/aws profile/i));
+			await user.click(screen.getByRole('button', { name: 'Connect' }));
+			expect(onAction).toHaveBeenCalledWith(
+				bedrock,
+				expect.objectContaining({ aws: { profile: '', region: 'eu-west-1' } }),
+				'save',
+			);
 		});
 	});
 });

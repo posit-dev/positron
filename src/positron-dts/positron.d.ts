@@ -4051,6 +4051,13 @@ declare module 'positron' {
 			 */
 			customModels?: LanguageModelCustomModel[];
 			autoconfigure?: LanguageModelAutoconfigure;
+			/**
+			 * AWS profile and region for a provider authenticating through the
+			 * AWS credential chain. Both are optional; an omitted field falls
+			 * back to the ambient AWS configuration. An empty string means the
+			 * user cleared the field and any saved value should be removed.
+			 */
+			aws?: { profile?: string; region?: string };
 		}
 
 		/**

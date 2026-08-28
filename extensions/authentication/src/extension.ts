@@ -24,7 +24,7 @@ import {
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
 import { CustomProviderRegistry, isAddCustomProviderRequest, isRemoveCustomProviderRequest } from './customProviderRegistry';
-import { getRegistrableProviderSources, PROVIDER_METADATA } from './providerSources';
+import { getRegistrableProviderSources, getUserAwsSettings, PROVIDER_METADATA } from './providerSources';
 import {
 	normalizeToV1Url,
 	validateAnthropicApiKey,
@@ -65,6 +65,7 @@ import {
 	ProviderCatalogOptions,
 	removeProviderBlock,
 	saveCustomProviderModels,
+	saveAwsSettings,
 	saveDatabricksHost,
 	saveProviderBaseUrl,
 	saveSnowflakeAccount,
@@ -271,6 +272,25 @@ export async function activate(context: vscode.ExtensionContext) {
 					await authProviders.get(id)?.resolveChainCredentials();
 				}
 			}
+
+			// Refresh the profile/region the Bedrock dialog shows the next time
+			// it opens. `registerProvider` sent a one-time snapshot of
+			// `defaults` at startup and nothing updates it afterwards, so
+			// without this the dialog would still show startup values after a
+			// save. A stale box is worse than it looks: an empty one means
+			// "delete this setting" on Connect, so it would wipe the value that
+			// was just saved.
+			//
+			// Covers in-app writes, which reach here through
+			// refreshProviderCatalog. It does NOT cover every hand edit of
+			// providers.json: ai-config's watch only fires when the *resolved*
+			// catalog changed, so a file edit that AWS_PROFILE / AWS_REGION
+			// shadows is invisible to it and the dialog keeps the older value.
+			if (e.changedUserProviderIds.includes(PROVIDER_METADATA.amazonBedrock.catalogId!)) {
+				positron.ai.updateProvider(AWS_AUTH_PROVIDER_ID, {
+					defaults: { aws: getUserAwsSettings() },
+				});
+			}
 		})
 	);
 
@@ -414,6 +434,12 @@ async function registerAwsProvider(
 		provider
 	);
 	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider, {
+		onSave: async (config) => {
+			if (!config.aws) {
+				return;
+			}
+			await saveAwsSettings(config.aws);
+		},
 		recover: createAwsSsoRecovery({
 			getProfile: () => getCachedProvider(
 				PROVIDER_METADATA.amazonBedrock.catalogId!

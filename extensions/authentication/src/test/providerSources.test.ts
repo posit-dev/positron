@@ -105,6 +105,33 @@ suite('getProviderSources baseUrl defaults from the catalog', () => {
 		);
 		assert.strictEqual(databricks?.defaults.baseUrl, 'https://adb-123.4.azuredatabricks.net');
 	});
+
+	test('the Bedrock AWS defaults come from providers.json', async () => {
+		writeConfig(configPath, { bedrock: { aws: { profile: 'data-team', region: 'eu-west-1' } } });
+		await initProviderCatalog(context, { configPath });
+
+		const bedrock = getProviderSources().find(
+			s => s.provider.id === PROVIDER_METADATA.amazonBedrock.id
+		);
+		assert.deepStrictEqual(bedrock?.defaults.aws, { profile: 'data-team', region: 'eu-west-1' });
+	});
+
+	test('an environment-supplied AWS region stays out of the Bedrock defaults', async () => {
+		// The form shows what the user durably controls. AWS_REGION outranks the
+		// file when credentials resolve, but whether it reaches the extension
+		// host at all depends on how Positron was launched -- so pre-filling it
+		// would present an ambient value as a saved setting.
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, {
+			configPath,
+			envVars: { AWS_REGION: 'us-east-2' },
+		});
+
+		const bedrock = getProviderSources().find(
+			s => s.provider.id === PROVIDER_METADATA.amazonBedrock.id
+		);
+		assert.deepStrictEqual(bedrock?.defaults.aws, {});
+	});
 });
 
 suite('the legacy openai-compatible provider', () => {
