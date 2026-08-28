@@ -59,24 +59,20 @@ describe('PositronDynamicModalDialog', () => {
 		}).toEqual({ ariaModal: 'true', namedByTheTitle: true });
 	});
 
-	it('moves focus to the first focusable element inside the dialog on mount', () => {
-		renderDialog();
+	it('moves focus to the dialog box on mount rather than to a control inside it', () => {
+		// The dialog opens with no control armed; the first Tab or Shift-Tab picks one. Focusing a
+		// control would land on the title bar's close button, arming Enter to close the dialog.
+		renderDialog({ onCancel: () => { } });
 
-		expect(screen.getByRole('button', { name: 'Inside' })).toHaveFocus();
+		expect(screen.getByRole('dialog')).toHaveFocus();
 	});
 
 	it('leaves focus where a control inside claimed it with autoFocus', () => {
-		// Footers use autoFocus to open with the focus on the button that is safe to press. A dialog
-		// that always grabbed the first focusable would land on the title bar close button instead.
+		// This is how a dialog chooses what Enter does on arrival: footers autoFocus the button that
+		// is safe to press.
 		renderDialog({ footer: <button autoFocus>Cancel</button> });
 
 		expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
-	});
-
-	it('focuses the dialog box itself when it has nothing focusable inside', () => {
-		renderDialog({ content: <span>nothing focusable</span> });
-
-		expect(screen.getByRole('dialog')).toHaveFocus();
 	});
 
 	it('does not mark the only open dialog as nested', () => {

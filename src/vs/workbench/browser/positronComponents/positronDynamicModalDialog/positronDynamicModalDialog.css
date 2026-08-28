@@ -29,9 +29,12 @@
  * the workbench draws a focus ring on any [tabindex] element that has focus (style.css, the
  * keyboard focus indication block). A ring around the whole dialog is not what that rule is for.
  * Controls inside keep their own rings.
+ *
+ * !important because that rule is `.monaco-workbench [tabindex="-1"]:focus`, which outranks a
+ * single class on specificity, so it wins no matter where this file lands in the cascade.
  */
 .positron-dynamic-modal-dialog-box:focus {
-	outline: none;
+	outline: none !important;
 }
 
 /*

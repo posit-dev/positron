@@ -158,12 +158,18 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 			return;
 		}
 
-		// eslint-disable-next-line no-restricted-syntax
-		const firstFocusable = dialogBox.querySelector<HTMLElement>(
-			'a[href]:not([disabled]),button:not([disabled]),textarea:not([disabled]),' +
-			'input:not([disabled]),select:not([disabled])'
-		);
-		(firstFocusable ?? dialogBox).focus();
+		// Otherwise focus the box itself, so the dialog opens with no control armed and the first
+		// Tab or Shift-Tab is what picks one. The box carries role='dialog' with the title as its
+		// accessible name, so a screen reader announces the dialog rather than one control inside
+		// it, which is the placement the ARIA practices guide recommends for a dialog whose content
+		// is a list or a body of text.
+		//
+		// Focusing the first control instead would land on the title bar's close button, since that
+		// is the first one in the box. Enter and Space on a focused button activate it, so the
+		// dialog would open with Enter armed to close it, and with no ring to say so: a Positron
+		// Button only draws one for :focus-visible, which does not match focus moved after a click.
+		// A dialog that wants Enter to act on arrival names the control with autoFocus.
+		dialogBox.focus();
 	}, []);
 
 	// Set up keyboard and resize event handlers.
