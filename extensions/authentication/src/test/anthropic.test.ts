@@ -6,6 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import { validateAnthropicApiKey } from '../validation/anthropic';
+import { stubValidationCatalog } from './validationTestUtils';
 
 suite('validateAnthropicApiKey', () => {
 	let originalFetch: typeof globalThis.fetch;
@@ -61,6 +62,35 @@ suite('validateAnthropicApiKey', () => {
 		assert.strictEqual(requestedUrls.length, 2);
 		assert.strictEqual(requestedUrls[0], 'https://api.anthropic.com/models');
 		assert.strictEqual(requestedUrls[1], 'https://api.anthropic.com/v1/models');
+	});
+
+	test('sends configured headers on the initial request and retry', async () => {
+		const catalog = stubValidationCatalog({
+			anthropic: {
+				customHeaders: { 'X-Gateway-Token': 'gateway-key' },
+			},
+		});
+		const requestedHeaders: Record<string, string>[] = [];
+		let callCount = 0;
+		globalThis.fetch = async (_url, init) => {
+			requestedHeaders.push(init?.headers as Record<string, string>);
+			callCount++;
+			return { ok: callCount > 1, status: callCount === 1 ? 404 : 200 } as Response;
+		};
+
+		try {
+			await validateAnthropicApiKey(
+				'sk-ant-valid',
+				makeConfig('https://api.anthropic.com')
+			);
+		} finally {
+			catalog.restore();
+		}
+
+		assert.deepStrictEqual(
+			requestedHeaders.map(headers => headers['X-Gateway-Token']),
+			['gateway-key', 'gateway-key']
+		);
 	});
 
 	test('does not fall back on 401 auth error', async () => {

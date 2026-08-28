@@ -257,6 +257,13 @@ export function defineMemoryScenario(options: {
 			const versions = [...new Set(snapshots.map(s => s.positronVersion))];
 			expect(versions, 'launches measured different builds; the median would be meaningless').toHaveLength(1);
 
+			// Absent is legitimate (a build with no ark sidecar) and filtered out
+			// first, so only an actual mismatch across launches trips this. Without
+			// it, a mid-run ark reinstall would publish one launch's value for all
+			// three with nothing to say the run wasn't self-consistent.
+			const arkVersions = [...new Set(snapshots.map(s => s.arkVersion).filter((v): v is string => v !== undefined))];
+			expect(arkVersions.length, 'launches measured different ark versions; the run is not self-consistent').toBeLessThanOrEqual(1);
+
 			// A mixed set would render one heading over two app states.
 			const scenarios = [...new Set(snapshots.map(s => s.scenario))];
 			expect(scenarios, `snapshots span more than one scenario: ${scenarios.join(', ')}`).toEqual([scenario]);

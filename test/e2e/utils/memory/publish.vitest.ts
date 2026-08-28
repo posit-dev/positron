@@ -25,7 +25,9 @@ const process1: LabeledProcess = {
 	pid: 100, ppid: 1, depth: 0,
 	processName: 'window [1] (secret-client-project)',
 	processRole: 'renderer', labeled: true, cmdBasename: 'positron',
-	pssBytes: 300, rssBytes: 600, pssMin: 290, pssMax: 310
+	pssBytes: 300, rssBytes: 600, pssMin: 290, pssMax: 310,
+	pssSamples: [290, 300, 310], rssSamples: [580, 600, 620],
+	forcedGc: false
 };
 
 const snapshot: MemorySnapshot = {
@@ -102,8 +104,54 @@ describe('buildPayload', () => {
 			pid: 100, ppid: 1, depth: 0,
 			process_name: 'window [1]', process_role: 'renderer',
 			labeled: true, cmd_basename: 'positron',
-			pss_bytes: 300, rss_bytes: 600, pss_min: 290, pss_max: 310
+			pss_bytes: 300, rss_bytes: 600, pss_min: 290, pss_max: 310,
+			forced_gc: false
 		});
+	});
+
+	// Two of fifteen bands on the dashboard's Memory by Process Role chart are
+	// post-GC figures and thirteen are live, and until now nothing on the wire
+	// distinguished them. Per process, so a band is self-describing.
+	test('carries the forced-GC state of each process', () => {
+		const collected: LabeledProcess = { ...process1, pid: 101, processRole: 'shared', forcedGc: true };
+		const [launch] = buildPayload([{ ...snapshot, processes: [process1, collected] }], meta).launches;
+		expect(launch.processes.map(p => [p.process_role, p.forced_gc])).toEqual([
+			['renderer', false], ['shared', true]
+		]);
+	});
+
+	// Run-level, at the payload root: it is one value per run, not per launch and
+	// not per process. The API reads it from the root and copies it onto the trend
+	// row without reducing it.
+	test('sends the ark version once, at the payload root', () => {
+		const payload = buildPayload([{ ...snapshot, arkVersion: '0.1.252+209.885fac4' }], meta);
+		expect(payload.ark_version).toBe('0.1.252+209.885fac4');
+	});
+
+	test('takes the ark version from the launches rather than re-reading it', () => {
+		const payload = buildPayload([
+			{ ...snapshot, launchIndex: 0, arkVersion: undefined },
+			{ ...snapshot, launchIndex: 1, arkVersion: '0.1.252+209.885fac4' }
+		], meta);
+		expect(payload.ark_version).toBe('0.1.252+209.885fac4');
+	});
+
+	// Absent rather than 'unknown'. JSON.stringify drops an undefined value, the
+	// API reads a missing key as NA, and the dashboard renders no marker -- which
+	// is the pre-deploy history case and the reason the two repos can merge in
+	// either order.
+	test('omits the ark version entirely when the build reported none', () => {
+		const payload = buildPayload([snapshot], meta);
+		expect(payload.ark_version).toBeUndefined();
+		expect(JSON.parse(JSON.stringify(payload))).not.toHaveProperty('ark_version');
+	});
+
+	test('still pins payload_version at 1 with both fields present', () => {
+		// A bump would 400 every POST against an API that has not been updated in
+		// lockstep, because validate_memory_payload compares with !=. Additive
+		// optional fields at v1 are compatible in both directions.
+		const payload = buildPayload([{ ...snapshot, arkVersion: '0.1.252+209.885fac4' }], meta);
+		expect(payload.payload_version).toBe(1);
 	});
 
 	test('redacts window titles on the way out', () => {

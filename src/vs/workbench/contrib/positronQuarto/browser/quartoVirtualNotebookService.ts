@@ -147,17 +147,24 @@ class QuartoCellsSerializer implements INotebookSerializer {
  * own scheme, since the extension host cannot hold a text document and a notebook
  * document at the same URI.
  *
- * The path is kept because a cell URI carries the path of the notebook it belongs
- * to, and that path is how a language client tells our cells from the cells of a
- * real notebook: both clients select on `**\/*.{qmd,rmd}`. An untitled document
- * has no extension to select on ("Untitled-1", from _Quarto: New Document_), so
- * it gets a Quarto one. Otherwise its cells reach no language server and the
- * document silently has no language features.
+ * The path ends in `.ipynb` because a server that is told about a notebook over
+ * the notebook channel may still decide from the URI whether to index it at all.
+ *
+ * The source document's own extension is kept in front of it so the URI still says
+ * where it came from, and an untitled document, which has none to keep
+ * ("Untitled-1", from _Quarto: New Document_), is given a Quarto one.
+ *
+ * The path is not how anything tells our cells from a real notebook's. That is the
+ * notebook's type, `quarto-cells`, which no other notebook has and which a document
+ * selector matches directly through `notebookType`.
  */
 function quartoNotebookUri(sourceUri: URI): URI {
+	const quartoPath = isQuartoOrRmdFile(sourceUri.path)
+		? sourceUri.path
+		: `${sourceUri.path}.qmd`;
 	return sourceUri.with({
 		scheme: QUARTO_CELLS_SCHEME,
-		path: isQuartoOrRmdFile(sourceUri.path) ? sourceUri.path : `${sourceUri.path}.qmd`,
+		path: `${quartoPath}.ipynb`,
 	});
 }
 
