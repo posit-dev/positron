@@ -28,9 +28,15 @@ const nativelyTabbableSelector = 'summary,iframe,area[href],audio[controls],vide
  * @param element The element to test.
  */
 function isTabbable(element: HTMLElement): boolean {
-	// An open quick pick marks the dialog's own children inert, where focusing is a silent no-op.
-	// inert is inherited, so test ancestry rather than the attribute.
-	if (element.closest('[inert]')) {
+	// Whether the element is in the tab order at all. This is a property read, so it is the cheap
+	// check to run over every element in the dialog; the ones below resolve style or walk ancestors,
+	// so they only run for the few elements that get this far. An explicit tabindex is the author
+	// overriding the default, either way.
+	const tabIndexAttribute = element.getAttribute('tabindex');
+	const inTabOrder = tabIndexAttribute !== null
+		? Number(tabIndexAttribute) >= 0
+		: element.tabIndex >= 0 || element.matches(nativelyTabbableSelector);
+	if (!inTabOrder) {
 		return false;
 	}
 
@@ -39,21 +45,17 @@ function isTabbable(element: HTMLElement): boolean {
 		return false;
 	}
 
-	// So does a hidden one, and counting it puts the boundary in the wrong place: Tab from the real
-	// last control is not consumed and focus leaves the dialog, or the wrap focuses something that
-	// cannot take it and Tab appears dead. checkVisibility answers for ancestors too, so a control
-	// inside a hidden container is caught.
-	if (!element.checkVisibility({ checkVisibilityCSS: true })) {
+	// An open quick pick marks the dialog's own children inert, where focusing is a silent no-op.
+	// inert is inherited, so test ancestry rather than the attribute.
+	if (element.closest('[inert]')) {
 		return false;
 	}
 
-	// An explicit tabindex is the author overriding the default, either way.
-	const tabIndexAttribute = element.getAttribute('tabindex');
-	if (tabIndexAttribute !== null) {
-		return Number(tabIndexAttribute) >= 0;
-	}
-
-	return element.tabIndex >= 0 || element.matches(nativelyTabbableSelector);
+	// A hidden control reports a tabIndex too, and counting it puts the boundary in the wrong place:
+	// Tab from the real last control is not consumed and focus leaves the dialog, or the wrap
+	// focuses something that cannot take it and Tab appears dead. checkVisibility answers for
+	// ancestors too, so a control inside a hidden container is caught.
+	return element.checkVisibility({ checkVisibilityCSS: true });
 }
 
 /**
