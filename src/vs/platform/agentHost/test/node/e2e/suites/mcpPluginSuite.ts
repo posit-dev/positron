@@ -76,9 +76,15 @@ export function defineMcpPluginTests(context: IAgentHostE2ETestContext): void {
 				'  process.exit(Number(exitCode));',
 				'});',
 			].join('\n'));
-			const command = [process.execPath, hookScript, hookLog, options.hookType, String(options.hookExitCode ?? 0), options.hookStdout ?? '']
+			// --- Start Positron ---
+			// `process.execPath` is the Electron binary in the integration-test host.
+			// Run it as Node (like the MCP server config below) so the hook does not
+			// boot Electron's sandbox, which fatals when CI runs as root. Without this,
+			// the hook never executes and every hook assertion fails on Linux CI.
+			const command = `ELECTRON_RUN_AS_NODE=1 ${[process.execPath, hookScript, hookLog, options.hookType, String(options.hookExitCode ?? 0), options.hookStdout ?? '']
 				.map(value => JSON.stringify(value))
-				.join(' ');
+				.join(' ')}`;
+			// --- End Positron ---
 			writeFileSync(join(hooksDirectory, 'hooks.json'), JSON.stringify({
 				hooks: {
 					[options.hookType]: [{ hooks: [{ type: 'command', command }] }],
