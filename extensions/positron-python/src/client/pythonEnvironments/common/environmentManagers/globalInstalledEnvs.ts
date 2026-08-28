@@ -63,6 +63,12 @@ export function isAdditionalGlobalBinPath(executablePath: string): boolean {
     if (getOSType() === OSType.Windows) {
         return false;
     }
+
+    // Explicitly catch /opt/python standalone interpreters to ensure they are labeled as Global
+    if (executablePath.startsWith('/opt/python/')) {
+        return true;
+    }
+
     const searchPathEntries = ADDITIONAL_POSIX_BIN_PATHS;
     for (const searchPath of searchPathEntries) {
         if (isParentPath(executablePath, searchPath)) {
