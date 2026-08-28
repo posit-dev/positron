@@ -13,7 +13,7 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IPositronAssistantConfigurationService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
-import { ConfigureLLMProviders, PendingSignIn } from '../../browser/configureLLMProvidersModal.js';
+import { ConfigureLLMProviders } from '../../browser/configureLLMProvidersModal.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { makeDialogRenderer } from './providerModalTestUtils.js';
 
@@ -51,12 +51,10 @@ describe('ConfigureLLMProviders', () => {
 		sources: IPositronLanguageModelSource[],
 		preselectedProviderId?: string,
 		onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void> = async () => { },
-		pendingSignIn: PendingSignIn = {},
 		renderer: PositronModalReactRenderer = makeDialogRenderer(),
 	) {
 		return rtl.render(
 			<ConfigureLLMProviders
-				pendingSignIn={pendingSignIn}
 				preselectedProviderId={preselectedProviderId}
 				renderer={renderer}
 				sources={sources}
@@ -168,33 +166,34 @@ describe('ConfigureLLMProviders', () => {
 		expect(screen.getByRole('button', { name: 'Close' })).toHaveClass('title-bar-close-button');
 	});
 
-	// The renderer unmounts the React tree before it runs the teardown that cancels
-	// an in-flight sign-in, so the handler has to outlive this component.
-	it('leaves the pending sign-in handler in place when the modal unmounts', async () => {
-		const pendingSignIn: PendingSignIn = {};
+	// Closing the modal unmounts the React tree, which is what the connect view
+	// hangs its cancel off, so dismissal aborts the device flow rather than
+	// orphaning it.
+	it('cancels an in-flight OAuth sign-in when the modal unmounts', async () => {
 		let resolveSignIn = () => { };
 		const onAction = vi.fn().mockImplementation((_source, _config, action) =>
 			action === 'oauth-signin' ? new Promise<void>(resolve => { resolveSignIn = resolve; }) : Promise.resolve());
 		const user = userEvent.setup();
-		const { unmount } = renderModal([positAi], undefined, onAction, pendingSignIn);
+		const { unmount } = renderModal([positAi], undefined, onAction);
 
 		// The list row opens the connect view; its footer button starts the sign-in.
 		await user.click(screen.getByRole('button', { name: /connect/i }));
 		await user.click(screen.getByRole('button', { name: 'Connect' }));
-		expect(pendingSignIn.cancel).toBeTypeOf('function');
+		expect(onAction.mock.calls.map(([, , action]) => action)).toStrictEqual(['oauth-signin']);
 
 		unmount();
 
-		expect(pendingSignIn.cancel).toBeTypeOf('function');
-		pendingSignIn.cancel!();
+		expect(onAction.mock.calls.map(([, , action]) => action)).toStrictEqual(['oauth-signin', 'cancel']);
 		expect(onAction).toHaveBeenCalledWith(positAi, expect.anything(), 'cancel');
 		await act(async () => { resolveSignIn(); });
 	});
 
-	it('cancels an in-flight OAuth sign-in when Back returns to the list', async () => {
+	// Back unmounts the connect view, so it cancels through the same path a close
+	// does. The count matters: cancelling twice sends a second cancel to the provider.
+	it('cancels an in-flight OAuth sign-in exactly once when Back returns to the list', async () => {
 		const user = userEvent.setup();
 		const actions: string[] = [];
-		// Leave the sign-in pending so the connect view keeps reporting its cancel handler.
+		// Leave the sign-in pending so it is still in flight when Back is clicked.
 		const onAction = (_s: IPositronLanguageModelSource, _c: IPositronLanguageModelConfig, action: string) => {
 			actions.push(action);
 			return action === 'oauth-signin' ? new Promise<void>(() => { }) : Promise.resolve();

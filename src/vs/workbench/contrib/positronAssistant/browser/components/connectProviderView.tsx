@@ -151,14 +151,13 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 	const cancelSignInRef = useRef(cancelSignIn);
 	cancelSignInRef.current = cancelSignIn;
 
-	// Keep track of whether an OAuth sign-in is currently in progress so the
-	// unmount cleanup can cancel it using the latest state.
+	// Whether an OAuth sign-in is running, read by the unmount cleanup below.
 	const oauthSignInInProgressRef = useRef(false);
 	oauthSignInInProgressRef.current = authMethod === AuthMethod.OAUTH && inFlight;
 
-	// Cancel an OAuth sign-in if this view is unmounted while the sign-in is still
-	// in progress. This handles the modal being dismissed via Escape or its close
-	// button, as well as any other way this view might be unmounted.
+	// Every way out of this view unmounts it: Back, the title bar close button, and
+	// Escape, which the browser handles itself without going through React. Hanging
+	// the cancel off the unmount covers all of them once.
 	useEffect(() => {
 		return () => {
 			if (oauthSignInInProgressRef.current) {
@@ -166,14 +165,6 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 			}
 		};
 	}, []);
-
-	// When the user navigates back from the connect view, cancel any in-flight OAuth sign-in.
-	const handleBack = () => {
-		if (oauthSignInInProgressRef.current) {
-			cancelSignInRef.current();
-		}
-		props.onBack();
-	};
 
 	const removeButton = props.source.status === 'error' ? {
 		title: pending === 'remove'
@@ -332,7 +323,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 						onClick: onConnect,
 					}}
 					secondaryButton={removeButton}
-					onBack={handleBack}
+					onBack={props.onBack}
 				/>
 			}
 			renderer={props.renderer}

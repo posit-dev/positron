@@ -108,19 +108,31 @@ describe('ConnectProviderView', () => {
 		expect(onAction).toHaveBeenCalledWith(anthropic, expect.objectContaining({ apiKey: 'sk-test' }), expect.anything());
 	});
 
-	it('reports a cancel handler while an OAuth sign-in is in progress that dispatches cancel', async () => {
+	it('cancels an in-flight OAuth sign-in when the view unmounts', async () => {
 		let resolveSignIn = () => { };
 		const onAction = vi.fn().mockImplementation((_source, _config, action) =>
 			action === 'oauth-signin' ? new Promise<void>(resolve => { resolveSignIn = resolve; }) : Promise.resolve());
-		let reportedCancel: (() => void) | undefined;
 		const user = userEvent.setup();
-		rtl.render(<ConnectProviderView {...dialogProps()} source={positAi} onAction={onAction} onBack={vi.fn()} onPendingSignInChange={cancel => { reportedCancel = cancel; }} />);
-		expect(reportedCancel).toBeUndefined();
+		const { unmount } = rtl.render(<ConnectProviderView {...dialogProps()} source={positAi} onAction={onAction} onBack={vi.fn()} />);
 		await user.click(screen.getByRole('button', { name: 'Connect' }));
-		expect(reportedCancel).toBeTypeOf('function');
-		reportedCancel!();
+		expect(onAction.mock.calls.map(([, , action]) => action)).toStrictEqual(['oauth-signin']);
+
+		unmount();
+
+		expect(onAction.mock.calls.map(([, , action]) => action)).toStrictEqual(['oauth-signin', 'cancel']);
 		expect(onAction).toHaveBeenCalledWith(positAi, expect.anything(), 'cancel');
 		await act(async () => { resolveSignIn(); });
+	});
+
+	it('leaves a finished OAuth sign-in alone when the view unmounts', async () => {
+		const onAction = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		const { unmount } = rtl.render(<ConnectProviderView {...dialogProps()} source={positAi} onAction={onAction} onBack={vi.fn()} />);
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+
+		unmount();
+
+		expect(onAction.mock.calls.map(([, , action]) => action)).toStrictEqual(['oauth-signin']);
 	});
 
 	it('shows a failed sign-in in the error banner', async () => {

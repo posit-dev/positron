@@ -41,15 +41,6 @@ const LIST_CONTENT_MAX_HEIGHT = 412;
 
 type OnAction = (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 
-/**
- * Where the connect view leaves a way to cancel an OAuth sign-in that is still
- * running. This is a plain object rather than React state because the renderer's
- * teardown has to read it after the component has unmounted.
- */
-export interface PendingSignIn {
-	cancel?: () => void;
-}
-
 export const showConfigureLLMProvidersModal = (
 	sources: IPositronLanguageModelSource[],
 	onAction: OnAction,
@@ -130,8 +121,7 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	const selectedSource = sources.find(s => s.provider.id === selectedProviderId);
 	const activeView = (view === 'connect' || view === 'connected') && !selectedSource ? 'list' : view;
 
-	// Disposing runs the teardown the show function installed, which cancels an
-	// in-flight sign-in and reports the modal closed.
+	// Disposing unmounts the React tree and reports the modal closed.
 	const close = () => {
 		props.renderer.dispose();
 	};
