@@ -22,6 +22,7 @@ const LOCALHOST_HELP_URL = 'http://localhost/help/library/graphics/html/plot.htm
 
 describe('HelpEntry', () => {
 	let messages: HelpMessage[];
+	let navigated: string[];
 	let helpEntry: HelpEntry;
 
 	// Emitter used to simulate messages posted from the help webview (e.g. a
@@ -66,8 +67,9 @@ describe('HelpEntry', () => {
 		.stub(IOpenerService, { open })
 		.build();
 
-	function createHelpEntry(sourceUrl: string = LOCALHOST_HELP_URL): void {
+	async function createHelpEntry(sourceUrl: string = LOCALHOST_HELP_URL): Promise<void> {
 		messages = [];
+		navigated = [];
 
 		helpEntry = ctx.disposables.add(ctx.instantiationService.createInstance(
 			HelpEntry,
@@ -75,9 +77,13 @@ describe('HelpEntry', () => {
 			'r',
 			'test-session',
 			'R',
-			sourceUrl,
 			URI.parse(LOCALHOST_HELP_URL).toString(),
+			async () => sourceUrl,
 		));
+
+		// The help service listens for navigation and opens the next help
+		// entry; stand in for it here.
+		ctx.disposables.add(helpEntry.onDidNavigate(toTargetUrl => navigated.push(toTargetUrl)));
 
 		const anchor = document.createElement('div');
 		Object.defineProperty(anchor, 'getBoundingClientRect', {
@@ -85,6 +91,10 @@ describe('HelpEntry', () => {
 		});
 		document.body.appendChild(anchor);
 		helpEntry.showHelpOverlayWebview(anchor);
+
+		// The help entry resolves its source URL as it loads, so let the load
+		// settle before the test posts messages from the webview.
+		await vi.runAllTimersAsync();
 	}
 
 	afterEach(() => {
@@ -95,7 +105,7 @@ describe('HelpEntry', () => {
 	describe('Find navigation', () => {
 		it('advances without moving focus into the Help webview', async () => {
 			vi.useFakeTimers();
-			createHelpEntry();
+			await createHelpEntry();
 
 			helpEntry.find('title', false);
 			await vi.runAllTimersAsync();
@@ -109,7 +119,7 @@ describe('HelpEntry', () => {
 			vi.useFakeTimers();
 			// The welcome page uses a relative source URL ('welcome.html'), which
 			// is not a valid absolute URL. See issue #14810.
-			createHelpEntry('welcome.html');
+			await createHelpEntry('welcome.html');
 
 			onMessageEmitter.fire({
 				message: {
@@ -127,9 +137,7 @@ describe('HelpEntry', () => {
 
 		it('navigates internally for same-origin help links', async () => {
 			vi.useFakeTimers();
-			createHelpEntry();
-			const navigated: string[] = [];
-			ctx.disposables.add(helpEntry.onDidNavigate(url => navigated.push(url.toString())));
+			await createHelpEntry();
 
 			const sameOriginUrl = 'http://localhost/help/library/graphics/html/hist.html';
 			onMessageEmitter.fire({
