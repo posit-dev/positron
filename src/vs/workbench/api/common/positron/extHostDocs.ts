@@ -16,6 +16,12 @@ export interface IExtHostDocs {
 	 * and the caller should use the web.
 	 */
 	getLocalDocs(): Promise<positron.docs.LocalDocs | undefined>;
+
+	/**
+	 * Resolve the locally cached docs bundle without downloading, or undefined
+	 * when there are none on disk.
+	 */
+	getLocalDocsCache(): Promise<positron.docs.LocalDocs | undefined>;
 }
 
 /**
@@ -31,6 +37,10 @@ export class WorkerExtHostDocs implements IExtHostDocs {
 	readonly _serviceBrand: undefined;
 
 	async getLocalDocs(): Promise<positron.docs.LocalDocs | undefined> {
+		return undefined;
+	}
+
+	async getLocalDocsCache(): Promise<positron.docs.LocalDocs | undefined> {
 		return undefined;
 	}
 }

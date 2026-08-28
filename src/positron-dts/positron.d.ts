@@ -3848,6 +3848,22 @@ declare module 'positron' {
 		 * @returns A Thenable resolving to the local docs, or undefined.
 		 */
 		export function getLocalDocs(): Thenable<LocalDocs | undefined>;
+
+		/**
+		 * Get the locally cached Positron documentation if it is already present,
+		 * without ever downloading it.
+		 *
+		 * Unlike {@link getLocalDocs}, this never touches the network: it returns
+		 * whatever a prior prefetch or fetch has already placed on disk. Use it
+		 * when a download would be too costly to trigger on demand.
+		 *
+		 * Resolves to `undefined` when there are no local docs on disk, which
+		 * means the caller should fall back to fetching documentation from the
+		 * web. That is the only meaning of `undefined`.
+		 *
+		 * @returns A Thenable resolving to the local docs, or undefined.
+		 */
+		export function getLocalDocsCache(): Thenable<LocalDocs | undefined>;
 	}
 
 	/**
