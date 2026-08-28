@@ -136,7 +136,7 @@ export interface IPositronHelpService {
 /**
  * PositronHelpService class.
  */
-class PositronHelpService extends Disposable implements IPositronHelpService {
+export class PositronHelpService extends Disposable implements IPositronHelpService {
 	//#region Private Properties
 
 	/**
