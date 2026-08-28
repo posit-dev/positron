@@ -45,22 +45,21 @@ const detailIndexes = ['idx_customers_country'];
 // The slice of the positronDataConnections.getConnections payload these tests validate. Mirrors
 // IDataConnectionsGetConnectionsResult (positronDataConnectionsCommands.ts).
 interface ConnectionsPayloadEntry {
-	connectionName: string;
-	driverName: string;
+	profileId: string;
 	connected: boolean;
-	parameterValues: Record<string, unknown>;
+	summary: string;
+}
+
+// The slice of the positronDataConnections.getConnectionCode payload these tests validate. Mirrors
+// IDataConnectionCodeResult (positronDataConnectionsCommands.ts).
+interface ConnectionCodePayload {
 	languages: Record<string, { code: string }>;
 }
 
 // The slice of the positronDataConnections.getSchema payload these tests validate. Mirrors
 // IDataConnectionSchemaSummary (dataConnectionSchemaSummary.ts).
-interface SchemaSummaryNode {
-	name: string;
-	dataType?: string;
-	children?: SchemaSummaryNode[];
-}
 interface SchemaSummaryPayload {
-	nodes: SchemaSummaryNode[];
+	lines: string[];
 	truncated: boolean;
 }
 
@@ -184,7 +183,7 @@ test.describe('Data Connections - SQLite', {
 		});
 	});
 
-	// The next two tests validate the JSON payloads Assistant consumes, via the Command Palette
+	// The next three tests validate the JSON payloads Assistant consumes, via the Command Palette
 	// commands that open them in an editor (positronDataConnectionsInspectActions.ts).
 
 	test('Shows the connections payload as valid JSON', async function ({ app }) {
@@ -194,15 +193,28 @@ test.describe('Data Connections - SQLite', {
 
 		expect(payload).toHaveLength(1);
 		const [profile] = payload;
-		expect(profile.connectionName).toBe(connectionName);
-		expect(profile.driverName).toBe('SQLite');
+		expect(profile.profileId).toBeTruthy();
 		expect(profile.connected).toBe(true);
-		expect(profile.parameterValues.databasePath).toContain('order_tracking.db');
+		// Everything descriptive is one line rather than a field per fact; see
+		// formatConnectionSummary (positronDataConnectionsCommands.ts) for the grammar. The
+		// driver's id is reported, not its display name.
+		expect(profile.summary).toContain(
+			`name=${connectionName} | driver=positron-data-driver-sqlite | mechanism=file | languages=python, r | parameters=`);
+		// The driver's parameters nest inside the single parameters= field. Matched rather than
+		// compared whole: the path is absolute, so it differs per machine and per platform.
+		expect(profile.summary).toMatch(/databasePath=[^,|]*order_tracking\.db/);
+	});
+
+	test('Shows the connection code as valid JSON', async function ({ app }) {
+		await app.workbench.quickaccess.runCommand('positronDataConnections.showConnectionCode');
+
+		const payload = await readActiveUntitledJson(app) as ConnectionCodePayload;
+
 		// One code snippet per supported language, each referencing the database file. The variant
 		// is not asserted: another test changes the preferred Python variant, and the payload
 		// reflects that preference.
-		expect(profile.languages.python.code).toContain('order_tracking.db');
-		expect(profile.languages.r.code).toContain('order_tracking.db');
+		expect(payload.languages.python.code).toContain('order_tracking.db');
+		expect(payload.languages.r.code).toContain('order_tracking.db');
 	});
 
 	test('Shows the schema summary as valid JSON', async function ({ app }) {
@@ -210,21 +222,23 @@ test.describe('Data Connections - SQLite', {
 
 		const summary = await readActiveUntitledJson(app) as SchemaSummaryPayload;
 
-		// Group nodes ("Tables", "Views") are flattened out of the summary, so tables and views
-		// all appear at the root. The database is small enough that nothing should be truncated.
+		// The summary is one line per object -- `<path> [<kind>][ (<column>:<type>[ PK], ...)]`,
+		// see renderSchemaLines (dataConnectionSchemaSummary.ts). Group nodes ("Tables", "Views",
+		// "Columns", "Indexes") are flattened out, so tables and views are named at the root and a
+		// table's indexes get lines of their own beneath it. The database is small enough that
+		// nothing should be truncated.
 		expect(summary.truncated).toBe(false);
-		const rootNames = summary.nodes.map(node => node.name);
-		expect(rootNames).toEqual(expect.arrayContaining([...tables, ...views]));
-
-		const detailNode = summary.nodes.find(node => node.name === detailTable);
-		const childNames = detailNode?.children?.map(child => child.name) ?? [];
-		expect(childNames).toEqual(expect.arrayContaining([
-			...detailColumns.map(({ name }) => name),
-			...detailIndexes,
+		expect(summary.lines).toEqual(expect.arrayContaining([
+			...tables.map(table => expect.stringMatching(new RegExp(`^${table} \\[table\\]`))),
+			...views.map(view => expect.stringMatching(new RegExp(`^${view} \\[view\\]`))),
+			...detailIndexes.map(index =>
+				expect.stringMatching(new RegExp(`^${detailTable}\\.${index} \\[index\\]`))),
 		]));
 
-		// Column nodes carry their data type through to the payload.
-		const columnNode = detailNode?.children?.find(child => child.name === detailColumns[0].name);
-		expect(columnNode?.dataType).toBe(detailColumns[0].dataType);
+		// Columns are folded onto their table's line, each carrying its data type through.
+		const detailLine = summary.lines.find(line => line.startsWith(`${detailTable} [`));
+		for (const { name, dataType } of detailColumns) {
+			expect(detailLine).toContain(`${name}:${dataType}`);
+		}
 	});
 });
