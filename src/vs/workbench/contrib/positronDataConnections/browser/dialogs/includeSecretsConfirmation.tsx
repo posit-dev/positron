@@ -5,7 +5,7 @@
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 
@@ -19,7 +19,7 @@ const INCLUDE_SECRETS_CONFIRMATION_WIDTH = 460;
  */
 export const showIncludeSecretsConfirmation = (): Promise<boolean> => {
 	// Create the renderer.
-	const renderer = new PositronModalDialogReactRenderer();
+	const renderer = new PositronModalReactRenderer();
 
 	return new Promise<boolean>(resolve => {
 		// Settle once: dispose the renderer and resolve with the user's choice. Guards against the
@@ -49,7 +49,7 @@ export const showIncludeSecretsConfirmation = (): Promise<boolean> => {
  * IncludeSecretsConfirmationProps interface.
  */
 interface IncludeSecretsConfirmationProps {
-	readonly renderer: PositronModalDialogReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly onConfirm: () => void;
 	readonly onCancel: () => void;
 }
