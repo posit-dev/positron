@@ -236,11 +236,16 @@ describe('PositronDataConnectionsService', () => {
 	});
 
 	describe('editing a connected profile', () => {
-		// Saves 'conn-1' with the given parameter values and connects it.
-		const connectProfile = (parameterValues: Record<string, boolean | number | string>) => {
+		// Saves 'conn-1' with the given parameter values and connects it. `parameters` declares the
+		// mechanism's schema, which is what tells the service which values are secret.
+		const connectProfile = (
+			parameterValues: Record<string, boolean | number | string>,
+			parameters: IDataConnectionDriverMetadata['mechanisms'][number]['parameters'] = []
+		) => {
+			const metadata = createDriverMetadata();
 			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
 				id: 'test-driver',
-				metadata: createDriverMetadata(),
+				metadata: { ...metadata, mechanisms: [{ ...metadata.mechanisms[0], parameters }] },
 				connect: async () => stubInterface<IDataConnectionHandle>({
 					handle: 1,
 					disconnect: async () => { },
@@ -266,6 +271,36 @@ describe('PositronDataConnectionsService', () => {
 			});
 
 			expect(service.getInstanceForProfile('conn-1')).toBeUndefined();
+		});
+
+		it('closes the connection when a secret is retyped', async () => {
+			await connectProfile({ host: 'db.example.com', apiKey: 'sekret' }, [
+				{ id: 'apiKey', label: 'API Key', type: 'password', secret: true },
+			]);
+
+			// A secret is stripped from the sanitized values on both sides of the comparison, so it
+			// cannot be caught by comparing them -- and a connection left running on rotated
+			// credentials is exactly the case that must not be missed.
+			service.addUpdateProfile({
+				...createProfile('conn-1'),
+				parameterValues: { host: 'db.example.com', apiKey: 'new-sekret' },
+			});
+
+			expect(service.getInstanceForProfile('conn-1')).toBeUndefined();
+		});
+
+		it('reports in advance whether a save would close the connection', async () => {
+			await connectProfile({ databasePath: '/tmp/db.duckdb', readOnly: false });
+
+			// What the edit dialog asks before warning the user that their Data Explorers will close.
+			const edited = (readOnly: boolean) => ({
+				...createProfile('conn-1'),
+				parameterValues: { databasePath: '/tmp/db.duckdb', readOnly },
+			});
+			expect({
+				changed: service.wouldCloseConnection(edited(true)),
+				unchanged: service.wouldCloseConnection(edited(false)),
+			}).toEqual({ changed: true, unchanged: false });
 		});
 
 		it('keeps the connection when the edit leaves parameter values alone', async () => {

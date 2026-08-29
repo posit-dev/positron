@@ -290,12 +290,15 @@ suite('Data Connection Integration', () => {
 			const dbPath = await createTestDb('locked.duckdb', 'CREATE TABLE t (x INTEGER);');
 			const holder = await DuckDBInstance.create(dbPath);
 
+			// Should the connect unexpectedly succeed, the connection is closed here rather than
+			// left to hold a lock on a file teardown then deletes.
+			let conn: positron.DataConnection | undefined;
 			try {
 				// Test that connecting reports the conflict in terms of the rule that caused it,
 				// rather than passing DuckDB's raw lock error through on its own.
 				await assert.rejects(
 					async () => {
-						await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
+						conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 							databasePath: dbPath,
 							readOnly: false,
 						});
@@ -303,6 +306,7 @@ suite('Data Connection Integration', () => {
 					/another session has it locked/
 				);
 			} finally {
+				await conn?.disconnect();
 				holder.closeSync();
 			}
 		});

@@ -194,17 +194,18 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param profile The data connection profile to add or update.
 	 */
 	addUpdateProfile(profile: IDataConnectionProfile): void {
+		// Whether the edit changes the values a live connection was opened with. Read before
+		// sanitizing, because sanitizing writes any submitted secret to secret storage and so erases
+		// the difference between an unchanged secret and a freshly typed one.
+		const index = this._profiles.findIndex(_ => _.id === profile.id);
+		const parameterValuesChanged = index >= 0 && this._parameterValuesChanged(this._profiles[index], profile);
+
 		// Sanitize the data connection profile by splitting out secret parameter values into
 		// secret storage.
 		const sanitizedProfile = this._splitAndPersistSecrets(profile);
 
-		// Replace or add the sanitized data connection profile in memory, noting whether the edit
-		// changed the values the live connection was opened with. Both sides of the comparison are
-		// sanitized, so a secret value cannot read as a change just because it was stripped.
-		const index = this._profiles.findIndex(_ => _.id === profile.id);
-		let parameterValuesChanged = false;
+		// Replace or add the sanitized data connection profile in memory.
 		if (index >= 0) {
-			parameterValuesChanged = !equals(this._profiles[index].parameterValues, sanitizedProfile.profile.parameterValues);
 			this._profiles[index] = sanitizedProfile.profile;
 		} else {
 			this._profiles.push(sanitizedProfile.profile);
@@ -232,6 +233,21 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 		// Raise the onDidChangeProfiles event.
 		this._onDidChangeProfilesEmitter.fire([...this._profiles]);
+	}
+
+	/**
+	 * Whether saving the given profile would close its live connection: true when a connection is
+	 * open and the edit changes a value it was opened with. {@link addUpdateProfile} applies the same
+	 * test, so a caller can use this to warn the user before a save takes their Data Explorers down
+	 * with the connection.
+	 * @param profile The edited data connection profile, as it would be passed to addUpdateProfile.
+	 */
+	wouldCloseConnection(profile: IDataConnectionProfile): boolean {
+		if (this.getInstanceForProfile(profile.id) === undefined) {
+			return false;
+		}
+		const existing = this._profiles.find(_ => _.id === profile.id);
+		return existing !== undefined && this._parameterValuesChanged(existing, profile);
 	}
 
 	/**
@@ -820,6 +836,58 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * Empty secret values are treated as "no change" so the edit dialog can show an asterisk
 	 * placeholder without the user being forced to retype the secret each save.
 	 */
+	/**
+	 * Whether an edit changes any parameter value the existing profile's connection was opened with.
+	 *
+	 * Secrets need their own test rather than a value comparison: `existing` is sanitized, so its
+	 * secret values are not there to compare against. The form carries a secret value only when the
+	 * user typed one -- an untouched secret field submits nothing and the stored value is preserved
+	 * -- so a submitted secret is by definition a new one, and a connection opened with the old
+	 * credentials no longer matches the profile.
+	 * @param existing The in-memory (sanitized) profile.
+	 * @param incoming The edited profile, before sanitizing.
+	 */
+	private _parameterValuesChanged(existing: IDataConnectionProfile, incoming: IDataConnectionProfile): boolean {
+		const previousSecretParameterIds = new Set(this._readPersistedProfile(incoming.id)?.secretParameterIds ?? []);
+		const secretParameterIds = this._secretParameterIds(incoming, previousSecretParameterIds);
+
+		// A submitted secret value is a new one.
+		for (const secretParameterId of secretParameterIds) {
+			const submittedValue = incoming.parameterValues[secretParameterId];
+			if (typeof submittedValue === 'string' && submittedValue.length > 0) {
+				return true;
+			}
+		}
+
+		// Compare what is left against the sanitized profile, like for like.
+		const incomingPublicParameterValues: typeof incoming.parameterValues = {};
+		for (const [key, value] of Object.entries(incoming.parameterValues)) {
+			if (!secretParameterIds.has(key)) {
+				incomingPublicParameterValues[key] = value;
+			}
+		}
+		return !equals(existing.parameterValues, incomingPublicParameterValues);
+	}
+
+	/**
+	 * The ids of the profile's secret parameters, per its mechanism's current schema.
+	 *
+	 * If the mechanism can't be resolved (the driver's extension isn't registered/activated at save
+	 * time), falls back to the previously known secret schema instead of treating "unknown" as "no
+	 * secrets" -- otherwise already-secret parameter values would be treated as public.
+	 * @param profile The data connection profile whose schema to read.
+	 * @param previousSecretParameterIds The secret ids recorded the last time the profile was saved.
+	 */
+	private _secretParameterIds(profile: IDataConnectionProfile, previousSecretParameterIds: Set<string>): Set<string> {
+		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
+		const mechanism = driver ? resolveDataConnectionMechanism(driver.metadata, profile.mechanismId) : undefined;
+		return mechanism
+			? new Set(mechanism.parameters
+				.filter(_ => (_.type === 'password' || _.type === 'string') && _.secret === true)
+				.map(_ => _.id))
+			: previousSecretParameterIds;
+	}
+
 	private _splitAndPersistSecrets(profile: IDataConnectionProfile): IPersistedDataConnectionProfile {
 		// Read the previously-persisted data connection profile so we can preserve any stored
 		// secrets the form didn't touch, and clean up orphans when the driver schema changes.
@@ -828,18 +896,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 		// Identify the current secret parameter ids from the profile's mechanism. A profile is tied to
 		// a single mechanism, so only that mechanism's parameters define its secret schema.
-		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
-		const mechanism = driver ? resolveDataConnectionMechanism(driver.metadata, profile.mechanismId) : undefined;
-
-		// If the mechanism can't be resolved (the driver's extension isn't registered/activated at
-		// save time), fall back to the previously known secret schema instead of treating "unknown"
-		// as "no secrets" -- otherwise already-secret parameter values would be persisted in
-		// plaintext below.
-		const secretParamIdSet = mechanism
-			? new Set(mechanism.parameters
-				.filter(_ => (_.type === 'password' || _.type === 'string') && _.secret === true)
-				.map(_ => _.id))
-			: previousSecretParameterIds;
+		const secretParamIdSet = this._secretParameterIds(profile, previousSecretParameterIds);
 
 		// Build the public parameter values and the new list of secret parameter ids.
 		// Iterate the driver's current secret schema (not the form's parameterValues) so an absent
