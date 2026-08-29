@@ -344,6 +344,21 @@ describe('ConnectProviderView', () => {
 			expect(screen.getByLabelText(/api key/i, { selector: 'input[type="password"]' })).toBeInTheDocument();
 		});
 
+		it('clears a failed sign-in message when the method changes, keeping what was typed', async () => {
+			const onAction = vi.fn().mockRejectedValue(new Error('Bad workspace URL'));
+			const user = userEvent.setup();
+			rtl.render(<ConnectProviderView {...dialogProps()} source={databricksOAuth} onAction={onAction} onBack={vi.fn()} />);
+			await user.type(screen.getByLabelText('Workspace URL'), '/typed');
+			await user.click(screen.getByRole('button', { name: 'Connect' }));
+			expect(await screen.findByText('Bad workspace URL')).toBeInTheDocument();
+
+			// The failure belonged to the method the user just left, so it goes; the
+			// workspace URL is still theirs.
+			await user.click(screen.getByRole('radio', { name: 'API Key' }));
+			expect(screen.queryByText('Bad workspace URL')).not.toBeInTheDocument();
+			expect(screen.getByLabelText('Workspace URL')).toHaveValue('https://workspace.example.com/typed');
+		});
+
 		it('keeps the workspace URL field visible under both methods', async () => {
 			const user = userEvent.setup();
 			rtl.render(<ConnectProviderView {...dialogProps()} source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} />);
