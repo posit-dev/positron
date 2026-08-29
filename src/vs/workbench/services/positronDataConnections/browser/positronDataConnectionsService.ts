@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { equals } from '../../../../base/common/objects.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -32,6 +33,15 @@ const profileStorageKey = (profileId: string) =>
 // Builds the secret storage key for a given data connection secret profile/parameter pair.
 const secretKey = (profileId: string, parameterId: string) =>
 	`positron.dataConnections.secret.${profileId}.${parameterId}`;
+
+// Marks the one-time read-only correction applied to DuckDB profiles saved before the driver's
+// Read Only parameter defaulted to true. See _migrateDuckDBProfilesToReadOnly.
+const DUCKDB_READ_ONLY_MIGRATION_KEY = 'positron.dataConnections.duckdbReadOnlyMigration';
+
+// The DuckDB driver and its Read Only parameter, named here only for that one-time correction.
+// Nothing else in this service is driver-specific; keep it that way.
+const DUCKDB_DRIVER_ID = 'positron-data-driver-duckdb';
+const READ_ONLY_PARAMETER_ID = 'readOnly';
 
 // Persisted form of a data connection profile, with secrets split out to secret storage and the
 // list of secret parameter ids for lookup and cleanup purposes. This is the shape stored in
@@ -184,12 +194,17 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param profile The data connection profile to add or update.
 	 */
 	addUpdateProfile(profile: IDataConnectionProfile): void {
+		// Whether the edit changes the values a live connection was opened with. Read before
+		// sanitizing, because sanitizing writes any submitted secret to secret storage and so erases
+		// the difference between an unchanged secret and a freshly typed one.
+		const index = this._profiles.findIndex(_ => _.id === profile.id);
+		const parameterValuesChanged = index >= 0 && this._parameterValuesChanged(this._profiles[index], profile);
+
 		// Sanitize the data connection profile by splitting out secret parameter values into
 		// secret storage.
 		const sanitizedProfile = this._splitAndPersistSecrets(profile);
 
 		// Replace or add the sanitized data connection profile in memory.
-		const index = this._profiles.findIndex(_ => _.id === profile.id);
 		if (index >= 0) {
 			this._profiles[index] = sanitizedProfile.profile;
 		} else {
@@ -207,8 +222,32 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// Log the addition or update.
 		this._logService.trace(`[DataConnections] Added or updated profile: ${sanitizedProfile.profile.id}`);
 
+		// A live connection was opened from the old parameter values, so it no longer represents the
+		// profile: it is still pointed at the old database file, or -- for a DuckDB connection whose
+		// Read Only value changed -- still holds the file lock the new values were chosen to avoid.
+		// Close it and let the user reconnect. Fire-and-forget, as elsewhere: callers of
+		// addUpdateProfile shouldn't block on the round trip that closes the channel.
+		if (parameterValuesChanged) {
+			void this.disconnect(sanitizedProfile.profile.id);
+		}
+
 		// Raise the onDidChangeProfiles event.
 		this._onDidChangeProfilesEmitter.fire([...this._profiles]);
+	}
+
+	/**
+	 * Whether saving the given profile would close its live connection: true when a connection is
+	 * open and the edit changes a value it was opened with. {@link addUpdateProfile} applies the same
+	 * test, so a caller can use this to warn the user before a save takes their Data Explorers down
+	 * with the connection.
+	 * @param profile The edited data connection profile, as it would be passed to addUpdateProfile.
+	 */
+	wouldCloseConnection(profile: IDataConnectionProfile): boolean {
+		if (this.getInstanceForProfile(profile.id) === undefined) {
+			return false;
+		}
+		const existing = this._profiles.find(_ => _.id === profile.id);
+		return existing !== undefined && this._parameterValuesChanged(existing, profile);
 	}
 
 	/**
@@ -692,6 +731,45 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 				this._logService.error(`[DataConnections] Failed to parse persisted profile at ${profileKey}: ${error}`);
 			}
 		}
+
+		// Correct the loaded profiles that predate the DuckDB driver's read-only default.
+		this._migrateDuckDBProfilesToReadOnly();
+	}
+
+	/**
+	 * Turns Read Only on for DuckDB profiles saved while the driver's Read Only parameter defaulted
+	 * to false.
+	 *
+	 * DuckDB takes an OS-level lock on a database file and allows it to be open in more than one
+	 * process only when every one of them opens it read-only. A read-write profile therefore cannot
+	 * be browsed here while the user's Python or R session is connected to the same file, and the
+	 * connection code such a profile generates is read-write to match, so neither side works
+	 * (posit-dev/positron#15795). The driver now defaults the parameter to true; this brings the
+	 * profiles saved before that change to the same place.
+	 *
+	 * Runs once ever, so a user who deliberately turns Read Only back off keeps that choice. Runs
+	 * during load, before anything can be listening, so it does not fire onDidChangeProfiles.
+	 */
+	private _migrateDuckDBProfilesToReadOnly(): void {
+		// Nothing to do if the correction has already been applied.
+		if (this._storageService.getBoolean(DUCKDB_READ_ONLY_MIGRATION_KEY, StorageScope.PROFILE, false)) {
+			return;
+		}
+
+		// Record it up front so a failure partway through cannot re-run against profiles the user
+		// has since changed.
+		this._storageService.store(DUCKDB_READ_ONLY_MIGRATION_KEY, true, StorageScope.PROFILE, StorageTarget.USER);
+
+		// Turn Read Only on for every read-write DuckDB profile.
+		for (const profile of this._profiles) {
+			if (profile.driverMetadata.id !== DUCKDB_DRIVER_ID ||
+				profile.parameterValues[READ_ONLY_PARAMETER_ID] !== false) {
+				continue;
+			}
+			profile.parameterValues[READ_ONLY_PARAMETER_ID] = true;
+			this._persistProfileMetadata(profile);
+			this._logService.trace(`[DataConnections] Turned Read Only on for DuckDB profile ${profile.id}`);
+		}
 	}
 
 	/**
@@ -714,9 +792,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	/**
 	 * Persists an in-memory profile's current fields to storage, preserving its existing secret
-	 * parameter id list. Used for metadata-only updates (preferred code variant, mechanism id
-	 * backfill) that don't go through {@link addUpdateProfile}'s secret-splitting logic because
-	 * they never touch parameterValues.
+	 * parameter id list. Used for updates (preferred code variant, mechanism id backfill, the
+	 * DuckDB read-only correction) that don't go through {@link addUpdateProfile}'s secret-splitting
+	 * logic because they never touch a secret parameter value.
 	 * @param profile The in-memory data connection profile to persist.
 	 */
 	private _persistProfileMetadata(profile: IDataConnectionProfile): void {
@@ -758,6 +836,58 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * Empty secret values are treated as "no change" so the edit dialog can show an asterisk
 	 * placeholder without the user being forced to retype the secret each save.
 	 */
+	/**
+	 * Whether an edit changes any parameter value the existing profile's connection was opened with.
+	 *
+	 * Secrets need their own test rather than a value comparison: `existing` is sanitized, so its
+	 * secret values are not there to compare against. The form carries a secret value only when the
+	 * user typed one -- an untouched secret field submits nothing and the stored value is preserved
+	 * -- so a submitted secret is by definition a new one, and a connection opened with the old
+	 * credentials no longer matches the profile.
+	 * @param existing The in-memory (sanitized) profile.
+	 * @param incoming The edited profile, before sanitizing.
+	 */
+	private _parameterValuesChanged(existing: IDataConnectionProfile, incoming: IDataConnectionProfile): boolean {
+		const previousSecretParameterIds = new Set(this._readPersistedProfile(incoming.id)?.secretParameterIds ?? []);
+		const secretParameterIds = this._secretParameterIds(incoming, previousSecretParameterIds);
+
+		// A submitted secret value is a new one.
+		for (const secretParameterId of secretParameterIds) {
+			const submittedValue = incoming.parameterValues[secretParameterId];
+			if (typeof submittedValue === 'string' && submittedValue.length > 0) {
+				return true;
+			}
+		}
+
+		// Compare what is left against the sanitized profile, like for like.
+		const incomingPublicParameterValues: typeof incoming.parameterValues = {};
+		for (const [key, value] of Object.entries(incoming.parameterValues)) {
+			if (!secretParameterIds.has(key)) {
+				incomingPublicParameterValues[key] = value;
+			}
+		}
+		return !equals(existing.parameterValues, incomingPublicParameterValues);
+	}
+
+	/**
+	 * The ids of the profile's secret parameters, per its mechanism's current schema.
+	 *
+	 * If the mechanism can't be resolved (the driver's extension isn't registered/activated at save
+	 * time), falls back to the previously known secret schema instead of treating "unknown" as "no
+	 * secrets" -- otherwise already-secret parameter values would be treated as public.
+	 * @param profile The data connection profile whose schema to read.
+	 * @param previousSecretParameterIds The secret ids recorded the last time the profile was saved.
+	 */
+	private _secretParameterIds(profile: IDataConnectionProfile, previousSecretParameterIds: Set<string>): Set<string> {
+		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
+		const mechanism = driver ? resolveDataConnectionMechanism(driver.metadata, profile.mechanismId) : undefined;
+		return mechanism
+			? new Set(mechanism.parameters
+				.filter(_ => (_.type === 'password' || _.type === 'string') && _.secret === true)
+				.map(_ => _.id))
+			: previousSecretParameterIds;
+	}
+
 	private _splitAndPersistSecrets(profile: IDataConnectionProfile): IPersistedDataConnectionProfile {
 		// Read the previously-persisted data connection profile so we can preserve any stored
 		// secrets the form didn't touch, and clean up orphans when the driver schema changes.
@@ -766,18 +896,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 		// Identify the current secret parameter ids from the profile's mechanism. A profile is tied to
 		// a single mechanism, so only that mechanism's parameters define its secret schema.
-		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
-		const mechanism = driver ? resolveDataConnectionMechanism(driver.metadata, profile.mechanismId) : undefined;
-
-		// If the mechanism can't be resolved (the driver's extension isn't registered/activated at
-		// save time), fall back to the previously known secret schema instead of treating "unknown"
-		// as "no secrets" -- otherwise already-secret parameter values would be persisted in
-		// plaintext below.
-		const secretParamIdSet = mechanism
-			? new Set(mechanism.parameters
-				.filter(_ => (_.type === 'password' || _.type === 'string') && _.secret === true)
-				.map(_ => _.id))
-			: previousSecretParameterIds;
+		const secretParamIdSet = this._secretParameterIds(profile, previousSecretParameterIds);
 
 		// Build the public parameter values and the new list of secret parameter ids.
 		// Iterate the driver's current secret schema (not the form's parameterValues) so an absent

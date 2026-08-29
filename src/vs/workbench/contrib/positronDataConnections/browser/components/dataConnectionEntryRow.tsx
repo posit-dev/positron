@@ -15,6 +15,7 @@ import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionWith.js';
 import { showRemoveDataConnectionConfirmation } from '../dialogs/removeDataConnectionConfirmation.js';
+import { showSaveDataConnectionConfirmation } from '../dialogs/saveDataConnectionConfirmation.js';
 import { DataConnectionEntry } from '../classes/dataConnectionsTreeInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -130,7 +131,19 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 				mechanism={mechanism}
 				profile={target}
 				renderer={renderer}
-				onSave={updatedProfile => {
+				onSave={async updatedProfile => {
+					// Saving a value the connection was opened with closes it, and the Data Explorers
+					// previewed from it with it. Confirm before taking the user's grids down; with
+					// none open there is nothing to warn about. Leaving the edit dialog up on a
+					// cancel keeps the user's unsaved changes.
+					if (positronDataConnectionsService.wouldCloseConnection(updatedProfile)) {
+						const openDataExplorerCount = positronDataConnectionsService.countOpenDataExplorers(target.id);
+						if (openDataExplorerCount > 0 &&
+							!await showSaveDataConnectionConfirmation(target.connectionName, openDataExplorerCount)) {
+							return;
+						}
+					}
+
 					positronDataConnectionsService.addUpdateProfile(updatedProfile);
 					renderer.dispose();
 				}}
