@@ -354,17 +354,17 @@ enum ExistingEnvAction {
 
 type ExistingEnvResult =
     | {
-          reason: ExistingEnvAction.KeepExistingEnv;
-          existingEnv: PythonEnvInfo;
-      }
+        reason: ExistingEnvAction.KeepExistingEnv;
+        existingEnv: PythonEnvInfo;
+    }
     | {
-          reason: ExistingEnvAction.AddNewEnv;
-          existingEnv: undefined;
-      }
+        reason: ExistingEnvAction.AddNewEnv;
+        existingEnv: undefined;
+    }
     | {
-          reason: ExistingEnvAction.ReplaceExistingEnv;
-          existingEnv: PythonEnvInfo;
-      };
+        reason: ExistingEnvAction.ReplaceExistingEnv;
+        existingEnv: PythonEnvInfo;
+    };
 // --- End Positron ---
 
 class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
@@ -519,6 +519,11 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         if (!validEnv(native)) {
             return undefined;
         }
+
+        // --- Start Positron ---
+        // Ensure Positron-specific paths (like /opt/python) are correctly categorized during processing
+        await this.enhanceNativeEnvInfo(native);
+        // --- End Positron ---
 
         try {
             const version = native.version ? parseVersion(native.version) : undefined;
@@ -762,23 +767,27 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     }
 
     // --- Start Positron ---
+    private async enhanceNativeEnvInfo(native: NativeEnvInfo): Promise<void> {
+        if (native.executable && (await isUvEnvironment(native.executable))) {
+            traceInfo(`Found uv environment: ${native.executable}`);
+            native.kind = NativePythonEnvironmentKind.Uv;
+        }
+        if (!native.kind && native.executable && (await isCustomEnvironment(native.executable))) {
+            native.kind = NativePythonEnvironmentKind.Custom;
+            native.source = [PythonEnvSource.UserSettings];
+        }
+        if (!native.kind && native.executable && isAdditionalGlobalBinPath(native.executable)) {
+            native.kind = NativePythonEnvironmentKind.GlobalPaths;
+        }
+    }
+
     private async _doResolveEnv(envPath: string): Promise<PythonEnvInfo | undefined> {
         // --- End Positron ---
         try {
             const native = await this.finder.resolve(envPath);
             if (native) {
                 // --- Start Positron ---
-                if (native.executable && (await isUvEnvironment(native.executable))) {
-                    traceInfo(`Found uv environment: ${native.executable}`);
-                    native.kind = NativePythonEnvironmentKind.Uv;
-                }
-                if (!native.kind && native.executable && (await isCustomEnvironment(native.executable))) {
-                    native.kind = NativePythonEnvironmentKind.Custom;
-                    native.source = [PythonEnvSource.UserSettings];
-                }
-                if (!native.kind && native.executable && isAdditionalGlobalBinPath(native.executable)) {
-                    native.kind = NativePythonEnvironmentKind.GlobalPaths;
-                }
+                await this.enhanceNativeEnvInfo(native);
                 // --- End Positron ---
                 if (native.kind === NativePythonEnvironmentKind.Conda && this._condaEnvDirs.length === 0) {
                     this._condaEnvDirs = (await getCondaEnvDirs()) ?? [];
