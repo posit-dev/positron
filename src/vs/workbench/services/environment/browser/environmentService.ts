@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start PWB ---
+import { mainWindow } from '../../../../base/browser/window.js';
+// --- End PWB ---
 import { Schemas } from '../../../../base/common/network.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -317,7 +320,7 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	@memoize
 	get webviewExternalEndpoint(): string {
 		// --- Start PWB: serve same origin ---
-		const endpoint = (this.options.webviewEndpoint && new URL(this.options.webviewEndpoint, window.location.toString()).toString())
+		const endpoint = (this.options.webviewEndpoint && new URL(this.options.webviewEndpoint, mainWindow.location.toString()).toString())
 			|| this.productService.webviewContentExternalBaseUrlTemplate
 			|| 'https://{{uuid}}.vscode-cdn.net/{{quality}}/{{commit}}/out/vs/workbench/contrib/webview/browser/pre/';
 		// --- End PWB: serve same origin ---

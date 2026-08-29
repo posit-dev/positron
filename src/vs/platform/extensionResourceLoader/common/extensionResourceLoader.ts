@@ -124,7 +124,9 @@ export abstract class AbstractExtensionResourceLoaderService extends Disposable 
 				path: 'extension'
 			}));
 			// --- Start PWB ---
-			return this._isWebExtensionResourceEndPoint(uri) ? URI.joinPath(URI.parse(window.location.href), uri.path) : uri;
+			// This module is also type-checked against Node/Worker layers where `window` isn't declared;
+			// `globalThis` resolves to the same object as `window` at runtime in a browser.
+			return this._isWebExtensionResourceEndPoint(uri) ? URI.joinPath(URI.parse((globalThis as unknown as { location: { href: string } }).location.href), uri.path) : uri;
 			// --- End PWB ---
 		}
 		return undefined;
