@@ -1187,6 +1187,10 @@ export class ImportDataModal {
 		await this.workbench.dynamicModals.clickButton('Import');
 	}
 
+	async clickCancel() {
+		await this.workbench.dynamicModals.clickButton('Cancel');
+	}
+
 	// --- Verifications ---
 
 	async expectToBeVisible() {

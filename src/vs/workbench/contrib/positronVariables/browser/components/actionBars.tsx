@@ -11,6 +11,7 @@ import { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
@@ -28,6 +29,7 @@ import { DisposableStore, toDisposable } from '../../../../../base/common/lifecy
 import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronDynamicActionBar, DynamicActionBarAction, DEFAULT_ACTION_BAR_BUTTON_WIDTH, DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH, DEFAULT_ACTION_BAR_SEPARATOR_WIDTH } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
+import { PositronDataExplorerCommandId } from '../../../positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -40,6 +42,7 @@ const kFilterTimeout = 800;
  */
 const positronRefreshObjects = localize('positronRefreshObjects', "Refresh Objects");
 const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete All Objects");
+const positronImportData = localize('positronImportDataFromFile', "Import Data");
 
 /**
  * ActionBars component.
@@ -160,6 +163,14 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		positronVariablesContext.activePositronVariablesInstance?.requestRefresh();
 	};
 
+	/**
+	 * Import data event handler. Runs the global Import Data command, which opens a file picker
+	 * and then the Import Data dialog over the file in the Data Explorer.
+	 */
+	const importDataHandler = () => {
+		services.commandService.executeCommand(PositronDataExplorerCommandId.ImportDataFromFileAction);
+	};
+
 	// If there are no instances, return null.
 	// TODO@softwarenerd - Render something specific for this case. TBD.
 	if (positronVariablesContext.positronVariablesInstances.length === 0) {
@@ -175,8 +186,29 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		},
 		{
 			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
-			separator: false,
+			separator: true,
 			component: <SortingMenuButton />
+		},
+		{
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			separator: false,
+			component: (
+				<ActionBarButton
+					ariaLabel={positronImportData}
+					icon={Codicon.positronImportData}
+					tooltip={positronImportData}
+					onPressed={importDataHandler}
+				/>
+			),
+			overflowContextMenuItem: {
+				commandId: PositronDataExplorerCommandId.ImportDataFromFileAction,
+				icon: 'positron-import-data',
+				label: positronImportData,
+				// The commandId above already runs the import; onSelected is called
+				// AFTER the command executes, so it must be a no-op to avoid a
+				// second invocation (and a second stacked file picker).
+				onSelected: () => { }
+			}
 		},
 	];
 
@@ -188,8 +220,8 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 	// left actions + right actions + separators + overflow button + padding.
 	const baseWidth =
 		(DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH * 2) + // grouping + sorting
-		(DEFAULT_ACTION_BAR_BUTTON_WIDTH * 2) +          // refresh + delete
-		(DEFAULT_ACTION_BAR_SEPARATOR_WIDTH * 1) +        // separator between refresh and delete
+		(DEFAULT_ACTION_BAR_BUTTON_WIDTH * 3) +          // import + refresh + delete
+		(DEFAULT_ACTION_BAR_SEPARATOR_WIDTH * 2) +        // sorting/import divider + refresh/delete separator
 		DEFAULT_ACTION_BAR_BUTTON_WIDTH +                 // overflow button reserved by DynamicActionBar
 		kPaddingLeft + kPaddingRight;
 
