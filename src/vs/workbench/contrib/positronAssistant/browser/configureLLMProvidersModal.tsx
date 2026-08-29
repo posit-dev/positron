@@ -7,24 +7,37 @@
 import './configureLLMProvidersModal.css';
 
 // React.
-import { useCallback, useRef, useState } from 'react';
+import { useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
-import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { ContentArea } from '../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronDynamicModalDialog } from '../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { ProviderList } from './components/providerList.js';
 import { ConnectProviderView } from './components/connectProviderView.js';
 import { ConnectedProviderView } from './components/connectedProviderView.js';
-import { ProviderModalFooter } from './components/providerModalFooter.js';
 import { selectProviderView } from './providerConnection.js';
 import { useProviderUpdates } from './useProviderUpdates.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /** Command that opens providers.json in an editor (registered in the contribution). */
 const OPEN_PROVIDERS_JSON_COMMAND = 'workbench.action.positronAssistant.openAiProviderSettingsJson';
+
+/** The width every view's dialog box is drawn at. */
+const MODAL_WIDTH = 600;
+
+/**
+ * How tall the provider list grows before it scrolls: a section heading plus
+ * seven rows, at 52px a row with a 4px gap (20 + 4 + 7 * 52 + 6 * 4). Adding the
+ * title bar, the footer and the content padding puts the dialog a little over
+ * 500px, which clears the gutters on a 640px-tall window. The box already stops
+ * at the window height less its gutters, so this is not what keeps it on screen;
+ * it stops a long list from stretching the box to fill a tall one. There is no
+ * minimum: a short list shrinks the box, as it does on the connect and connected
+ * views.
+ */
+const LIST_CONTENT_MAX_HEIGHT = 412;
 
 type OnAction = (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 
@@ -34,7 +47,11 @@ export const showConfigureLLMProvidersModal = (
 	onClose: () => void,
 	options?: IShowLanguageModelConfigOptions,
 ) => {
-	const renderer = new PositronModalReactRenderer();
+	const renderer = new PositronModalReactRenderer({
+		onDisposed: () => {
+			onClose();
+		},
+	});
 	renderer.render(
 		<div className='configure-llm-providers-modal' data-testid='configure-llm-providers-modal'>
 			<ConfigureLLMProviders
@@ -42,7 +59,6 @@ export const showConfigureLLMProvidersModal = (
 				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
-				onClose={onClose}
 			/>
 		</div>
 	);
@@ -54,7 +70,6 @@ export interface ConfigureLLMProvidersProps {
 	/** Provider to open on, skipping the list. Ignored if it is not in `sources`. */
 	preselectedProviderId?: string;
 	onAction: OnAction;
-	onClose: () => void;
 }
 
 export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
@@ -106,23 +121,8 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	const selectedSource = sources.find(s => s.provider.id === selectedProviderId);
 	const activeView = (view === 'connect' || view === 'connected') && !selectedSource ? 'list' : view;
 
-	// A cancel handler reported by the connect view while an OAuth sign-in is in
-	// flight. Held in a ref (read only at close time) so it does not re-render the
-	// modal as the sign-in progresses.
-	const pendingCancelRef = useRef<(() => void) | undefined>(undefined);
-	const setPendingCancel = useCallback((cancel: (() => void) | undefined) => {
-		pendingCancelRef.current = cancel;
-	}, []);
-
-	// Unmounting the connect view drops its cancel handler, so Back and Close
-	// both cancel an in-flight sign-in before leaving.
-	const cancelPendingSignIn = () => {
-		pendingCancelRef.current?.();
-	};
-
+	// Disposing unmounts the React tree and reports the modal closed.
 	const close = () => {
-		cancelPendingSignIn();
-		props.onClose();
 		props.renderer.dispose();
 	};
 
@@ -134,7 +134,6 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 	};
 
 	const backToList = () => {
-		cancelPendingSignIn();
 		setView('list');
 	};
 
@@ -145,42 +144,43 @@ export const ConfigureLLMProviders = (props: ConfigureLLMProvidersProps) => {
 			: selectedSource.provider.displayName;
 
 	return (
-		<PositronModalDialog
-			height={500}
-			renderer={props.renderer}
-			title={title}
-			width={600}
-			onCancel={close}
-		>
+		<>
 			{activeView === 'list' &&
-				<>
-					<ContentArea>
+				<PositronDynamicModalDialog
+					content={
 						<ProviderList
 							sources={sources}
 							onSelectProvider={source => { setSelectedProviderId(source.provider.id); setView(selectProviderView(source)); }}
 						/>
-					</ContentArea>
-					<ProviderModalFooter onClose={close} />
-				</>
+					}
+					contentMaxHeight={LIST_CONTENT_MAX_HEIGHT}
+					renderer={props.renderer}
+					title={title}
+					width={MODAL_WIDTH}
+					onCancel={close}
+				/>
 			}
 			{activeView === 'connect' && selectedSource &&
 				<ConnectProviderView
+					renderer={props.renderer}
 					source={selectedSource}
+					title={title}
+					width={MODAL_WIDTH}
 					onAction={props.onAction}
 					onBack={backToList}
-					onClose={close}
 					onEditRawConfig={editRawConfig}
-					onPendingSignInChange={setPendingCancel}
 				/>
 			}
 			{activeView === 'connected' && selectedSource &&
 				<ConnectedProviderView
+					renderer={props.renderer}
 					source={selectedSource}
+					title={title}
+					width={MODAL_WIDTH}
 					onAction={props.onAction}
 					onBack={backToList}
-					onClose={close}
 				/>
 			}
-		</PositronModalDialog>
+		</>
 	);
 };
