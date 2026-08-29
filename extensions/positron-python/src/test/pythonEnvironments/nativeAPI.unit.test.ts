@@ -503,6 +503,65 @@ suite('Native Python API', () => {
         assert.equal(addedEnv.version.release?.serial, 5);
     });
 
+    // --- Start Positron ---
+    test('Additional global path (/opt/python) is classified as global during addEnv via triggerRefresh', async () => {
+        const optPythonEnv: NativeEnvInfo = {
+            displayName: 'Opt Python',
+            name: 'python',
+            executable: '/opt/python/3.12.0/bin/python',
+            kind: NativePythonEnvironmentKind.Unknown, // Initially unknown, should be upgraded to GlobalPaths
+            version: '3.12.0',
+            prefix: '/opt/python/3.12.0',
+        };
+
+        sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves(['/opt/python']);
+
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [optPythonEnv];
+                }
+                return generator();
+            })
+            .verifiable(typemoq.Times.once());
+
+        await api.triggerRefresh();
+
+        const envs = api.getEnvs();
+        assert.equal(envs.length, 1);
+
+        const addedEnv = envs[0];
+        assert.isDefined(addedEnv);
+        assert.equal(addedEnv.executable.filename, '/opt/python/3.12.0/bin/python');
+        assert.equal(addedEnv.kind, PythonEnvKind.OtherGlobal);
+    });
+
+    test('Additional global path (/opt/python) is classified as global during resolveEnv', async () => {
+        const optPythonEnv: NativeEnvInfo = {
+            displayName: 'Opt Python',
+            name: 'python',
+            executable: '/opt/python/3.12.0/bin/python',
+            kind: NativePythonEnvironmentKind.Unknown, // Initially unknown, should be upgraded to GlobalPaths
+            version: '3.12.0',
+            prefix: '/opt/python/3.12.0',
+        };
+
+        sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves(['/opt/python']);
+
+        mockFinder
+            .setup((f) => f.resolve('/opt/python/3.12.0/bin/python'))
+            .returns(() => Promise.resolve(optPythonEnv))
+            .verifiable(typemoq.Times.once());
+
+        const resolved = await api.resolveEnv('/opt/python/3.12.0/bin/python');
+
+        assert.isDefined(resolved);
+        assert.equal(resolved?.executable.filename, '/opt/python/3.12.0/bin/python');
+        assert.equal(resolved?.kind, PythonEnvKind.OtherGlobal);
+    });
+    // --- End Positron ---
+
     test('ReplaceExistingEnv: shorter-path equivalent env replaces the longer one', async () => {
         // Two interpreters in an additional env dir that symlink to the same target.
         // The shorter path should replace the longer one (not be added alongside it).
