@@ -8,7 +8,7 @@ import './saveDataConnectionConfirmation.css';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 
@@ -30,7 +30,7 @@ export const showSaveDataConnectionConfirmation = (
 	openDataExplorerCount: number
 ): Promise<boolean> => {
 	// Create the renderer.
-	const renderer = new PositronModalDialogReactRenderer();
+	const renderer = new PositronModalReactRenderer();
 
 	return new Promise<boolean>(resolve => {
 		// Settle once: dispose the renderer and resolve with the user's choice. Guards against the
@@ -64,7 +64,7 @@ export const showSaveDataConnectionConfirmation = (
 interface SaveDataConnectionConfirmationProps {
 	readonly connectionName: string;
 	readonly openDataExplorerCount: number;
-	readonly renderer: PositronModalDialogReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly onConfirm: () => void;
 	readonly onCancel: () => void;
 }
