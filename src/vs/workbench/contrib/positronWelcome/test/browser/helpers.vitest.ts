@@ -6,19 +6,47 @@
 /// <reference types="vitest/globals" />
 
 import { IPathService } from '../../../../services/path/common/pathService.js';
-import { getCodeSettingsPathNative } from "../../browser/helpers.js";
+import { getCodeSettingsPathNative } from '../../browser/helpers.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { TestPathService } from '../../../../test/browser/workbenchTestServices.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { isLinux, isMacintosh, isWindows, OperatingSystem } from '../../../../../base/common/platform.js';
 import { env } from '../../../../../base/common/process.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { getImportSettingsEnabled } from '../../browser/positronWelcome.contribution.js';
 
 describe('Positron - PositronWelcome Contribution Helpers', () => {
 	const testPosix = isMacintosh || isLinux ? it : it.skip;
 	const testWindows = isWindows ? it : it.skip;
 	// const testWeb = isWeb ? it : it.skip;
 
-	createTestContainer().build();
+	const ctx = createTestContainer().build();
+
+	it.each([
+		{ name: 'uses the canonical default', configuration: {}, expected: true },
+		{ name: 'falls back to the deprecated setting', configuration: { 'positron.importSettings.enable': false }, expected: false },
+		{
+			name: 'prefers the canonical setting when enabled',
+			configuration: {
+				'workbench.settings.importFromVSCode.enabled': true,
+				'positron.importSettings.enable': false
+			},
+			expected: true
+		},
+		{
+			name: 'prefers the canonical setting when disabled',
+			configuration: {
+				'workbench.settings.importFromVSCode.enabled': false,
+				'positron.importSettings.enable': true
+			},
+			expected: false
+		},
+	])('$name', ({ configuration, expected }) => {
+		const configurationService = new TestConfigurationService(configuration);
+		ctx.disposables.add(configurationService.onDidChangeConfigurationEmitter);
+
+		expect(getImportSettingsEnabled(configurationService)).toBe(expected);
+	});
 
 	testPosix('VSCode settings path: ensure correct Linux', async () => {
 		const oldXdgConfig = process.env.XDG_CONFIG_HOME;
