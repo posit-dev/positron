@@ -75,7 +75,7 @@ function setupConfigurationListener(context: vscode.ExtensionContext): void {
 
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration('dev.containers.enable')) {
+			if (e.affectsConfiguration('dev.containers.enabled') || e.affectsConfiguration('dev.containers.enable')) {
 				// Reload configuration to get the new value
 				config.reload();
 				const isEnabled = config.getEnable();
