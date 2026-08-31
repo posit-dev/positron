@@ -7,16 +7,18 @@ description: >
   skill's commands can. Use for: what the user has configured, what a setting
   is set to and where, why a setting they set is not taking effect, which
   features are in preview or experimental and what enables each, whether a
-  setting exists, its default and allowed values. Triggers: "what settings do
-  I have enabled", "which features are in preview", "why isn't this setting
-  working", "what is X set to", "is there a setting for X".
+  setting exists, its default and allowed values, and which AI model
+  providers are enabled, signed in, or failing to authenticate. Triggers:
+  "what settings do I have enabled", "which features are in preview", "why
+  isn't this setting working", "what is X set to", "is there a setting for
+  X", "which providers do I have enabled".
 ---
 
 # Positron settings
 
 These commands read the running Positron's configuration -- what the user has
-set, and what this build's settings registry knows. Two rules frame everything
-in this skill:
+set, what this build's settings registry knows, and which AI model providers
+are set up. Two rules frame everything in this skill:
 
 1. **This is state, not documentation.** The user's configuration is live
    state in this running Positron. Do not fetch a documentation page, do not
@@ -43,9 +45,9 @@ user hasn't given you or that isn't documented.
 - **`not-found`**: the command id isn't present in this Positron build, meaning
   the build is older or newer than this skill expects. Report this plainly; do
   not substitute a similarly named id you're unsure about.
-- Neither command here has a precondition: there is always a configuration,
-  even when the user has set nothing, so a `disabled` failure is unexpected.
-  Report it plainly if it ever appears.
+- No command here has a precondition: there is always an answer, even when the
+  user has set nothing and no provider is configured, so a `disabled` failure
+  is unexpected. Report it plainly if it ever appears.
 
 ## When a result is truncated
 
@@ -67,3 +69,8 @@ set to, why a setting they set is not taking effect, which features are in
 preview or experimental, whether a setting exists, or what a setting's default
 or allowed values are. Also carries the known settings-that-gate-other-settings
 relationships (the AI feature switches), which no single payload can reveal.
+
+**Providers** -- [references/providers.md]({{skill_dir}}/references/providers.md)
+Read when the user asks which AI model providers they have set up, enabled, or
+signed in to, whether a provider is usable, why a provider stopped working, or
+where provider configuration lives.
