@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { promises as fs } from 'fs';
+import { Dirent, promises as fs } from 'fs';
 import { join } from 'path';
 import { ActivatedExtension } from './types.js';
 
@@ -85,6 +85,44 @@ export async function readUserInstalledIds(extensionsDir: string): Promise<Set<s
 	} catch {
 		return new Set();
 	}
+}
+
+/** Version suffix on user-installed extension directories: `posit.air-vscode-0.4.1`. */
+const DIRECTORY_VERSION = /-\d+\.\d+\.\d+.*$/;
+
+/**
+ * Real extension id per extension directory name, e.g. `copilot` ->
+ * `GitHub.copilot-chat`.
+ *
+ * Read while the app's directories are still on disk, because the heap parse
+ * runs in a later step by which point a temp extensions dir may be gone. A
+ * directory whose manifest cannot be read is omitted rather than guessed at:
+ * the caller falls back to the directory name, which is still a usable label.
+ */
+export async function readExtensionIdsByDirectory(roots: string[]): Promise<Record<string, string>> {
+	const ids: Record<string, string> = {};
+	for (const root of roots) {
+		let entries: Dirent[];
+		try {
+			entries = await fs.readdir(root, { withFileTypes: true });
+		} catch {
+			continue;
+		}
+		for (const entry of entries) {
+			if (!entry.isDirectory() || entry.name.startsWith('.')) {
+				continue;
+			}
+			try {
+				const manifest = JSON.parse(await fs.readFile(join(root, entry.name, 'package.json'), 'utf8'));
+				if (typeof manifest.publisher === 'string' && typeof manifest.name === 'string') {
+					ids[entry.name.replace(DIRECTORY_VERSION, '')] = `${manifest.publisher}.${manifest.name}`;
+				}
+			} catch {
+				continue;
+			}
+		}
+	}
+	return ids;
 }
 
 /** Log session dirs are named `<YYYYMMDD>T<HHMMSS>`. */
