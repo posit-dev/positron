@@ -25,7 +25,7 @@ import {
 	UnavailableReason,
 } from '../common/headlessLanguageModelService.js';
 import { byPriority, IModelCandidate, ResolvedModelSelection, selectModelCandidates } from '../common/headlessLanguageModelSelection.js';
-import { type CredentialConfig, shapeCredentials } from 'ai-provider-bridge/credential-shaping';
+import { type CredentialConfig, type CredentialConfigTarget, shapeCredentials } from 'ai-provider-bridge/credential-shaping';
 
 interface IResolvedState {
 	readonly models: readonly IModelDescriptor[];
@@ -416,11 +416,12 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		if (!accessToken) {
 			return undefined;
 		}
-		const shaped = shapeCredentials(mapping, accessToken, this.credentialConfig());
-		// The bridge also models local providers (Ollama, LM Studio); the headless
-		// service never resolves one (no mapped provider is local-typed), so they
+		const shaped = shapeCredentials(mapping.providerId, mapping, accessToken, this.credentialConfig());
+		// The bridge also models local providers (Ollama, LM Studio) and Foundry's
+		// Entra credentials; the headless service never resolves either (no mapped
+		// provider is local-typed, and shaping never emits azure-entra), so both
 		// fall outside ICredentials and are dropped here.
-		return shaped && shaped.type !== 'local' ? shaped : undefined;
+		return shaped && shaped.type !== 'local' && shaped.type !== 'azure-entra' ? shaped : undefined;
 	}
 
 	/** Silent session lookup with scope fallback, matching the bridge's resolver. */
@@ -455,18 +456,18 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	 * The connection-reading half supplied to the bridge's `shapeCredentials`,
 	 * backed by the resolved provider catalog. `shapeCredentials` owns which
 	 * value each provider needs (including the AWS `us-east-1` default); this
-	 * only resolves a `configKey` to its provider's `connection`. `bedrock` /
+	 * only resolves a target to its provider's `connection`. `bedrock` /
 	 * `snowflake-cortex` are bridge-vocabulary catalog ids for the two providers
-	 * whose connection details are keyed by provider rather than `configKey`.
+	 * whose connection details are keyed by provider rather than `configKey`;
+	 * they stay hardcoded because these mappings only ever cover built-ins
+	 * (`MAPPED_PROVIDER_IDS`), never a `providers.custom` entry.
 	 */
 	private credentialConfig(): CredentialConfig {
-		const connectionFor = (configKey: string) => {
-			const providerId = this._loadedMappings?.find(m => m.configKey === configKey)?.providerId;
-			return providerId ? this._aiProviderService.getProvider(providerId)?.connection : undefined;
-		};
+		const connectionFor = (target: CredentialConfigTarget) =>
+			this._aiProviderService.getProvider(target.providerId)?.connection;
 		return {
-			getBaseUrl: configKey => connectionFor(configKey)?.baseUrl || undefined,
-			getCustomHeaders: configKey => connectionFor(configKey)?.customHeaders,
+			getBaseUrl: target => connectionFor(target)?.baseUrl || undefined,
+			getCustomHeaders: target => connectionFor(target)?.customHeaders,
 			getAws: () => this._aiProviderService.getProvider('bedrock')?.connection.aws,
 			getSnowflake: () => {
 				const snowflake = this._aiProviderService.getProvider('snowflake-cortex')?.connection.snowflake;

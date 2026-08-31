@@ -5,6 +5,8 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import type { SupportedCustomClientKind } from 'ai-config';
+import { isOfferedCustomKind } from './customProviderAuth';
 import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	ANTHROPIC_DEFAULT_BASE_URL,
@@ -23,7 +25,7 @@ import {
 	VERTEX_DEFAULT_BASE_URL,
 } from './constants';
 import { getConfiguredSnowflakeAccount } from './credentials/snowflake';
-import { getCachedProvider } from './providerCatalog';
+import { getCachedCustomProviders, getCachedProvider, type ResolvedProviderLike } from './providerCatalog';
 
 function getSavedBaseUrl(catalogId: string | undefined, fallback?: string): string | undefined {
 	return (catalogId && getCachedProvider(catalogId)?.connection.baseUrl) || fallback;
@@ -93,9 +95,11 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		status: 'preview',
 		catalogId: 'copilot',
 	},
+	// This single-slot provider predates providers.custom and is superseded
+	// by it (see isLegacyCustomProviderConfigured below).
 	customProvider: {
 		id: CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
-		displayName: 'Custom Provider',
+		displayName: 'OpenAI Compatible',
 		status: 'experimental',
 		catalogId: 'openai-compatible',
 	},
@@ -112,6 +116,15 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		catalogId: 'databricks',
 	},
 };
+
+/**
+ * Whether someone has connected the legacy "OpenAI Compatible" provider
+ * before. A saved base URL is a reliable stand-in for that: the only way to
+ * sign in is through the modal's connect form, which always saves one.
+ */
+export function isLegacyCustomProviderConfigured(): boolean {
+	return getSavedBaseUrl(PROVIDER_METADATA.customProvider.catalogId) !== undefined;
+}
 
 export function getProviderSources(): positron.ai.LanguageModelSource[] {
 	// GEAP shows an autoconfigure label only when project + location come from
@@ -309,4 +322,103 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			},
 		},
 	];
+}
+
+/**
+ * {@link getProviderSources} minus the legacy "OpenAI Compatible" provider
+ * when nobody has configured it (providers.custom supersedes it). Use this,
+ * not getProviderSources, anywhere that registers a provider or updates its
+ * session, so those places can't disagree on what's actually registered.
+ *
+ * Kept separate from getProviderSources itself because
+ * customSupportedOptions still needs to find the legacy entry by id (to copy
+ * its supportedOptions for openai-compatible-kind custom entries) whether or
+ * not it's configured.
+ */
+export function getRegistrableProviderSources(): positron.ai.LanguageModelSource[] {
+	return getProviderSources().filter(source =>
+		source.provider.id !== PROVIDER_METADATA.customProvider.id || isLegacyCustomProviderConfigured()
+	);
+}
+
+/** One entry in a source's `supportedOptions` list. */
+type SupportedOption = positron.ai.LanguageModelSource['supportedOptions'][number];
+
+/**
+ * Which built-in provider a custom entry's kind takes its form from, for the
+ * kinds Positron offers (see `isOfferedCustomKind`). The field list is read from
+ * that built-in's own source rather than restated, so the two can't drift.
+ */
+const BUILTIN_FORM_BY_KIND: Partial<Record<SupportedCustomClientKind, keyof typeof PROVIDER_METADATA>> = {
+	'openai-compatible': 'customProvider',
+	anthropic: 'anthropic',
+	openai: 'openai',
+};
+
+/**
+ * Options a custom entry never shows, whatever its built-in offers. `autoconfigure`
+ * and `oauth` belong to the one built-in instance of a provider; `protocol` is the
+ * API type field this work removes; `customModels` has no write path for a custom
+ * entry yet, so the input would discard what the user types (#12747).
+ */
+const OPTIONS_NOT_FOR_CUSTOM: ReadonlySet<SupportedOption> = new Set<SupportedOption>([
+	'autoconfigure', 'oauth', 'protocol', 'customModels',
+]);
+
+/** What every offered kind needs at minimum: somewhere to call, and a key. */
+const BASE_OPTIONS: SupportedOption[] = ['apiKey', 'baseUrl'];
+
+/**
+ * The fields a custom entry of this kind collects: its built-in's own list,
+ * minus what only the built-in can use.
+ */
+function customSupportedOptions(kind: string): SupportedOption[] {
+	const builtinKey = BUILTIN_FORM_BY_KIND[kind as SupportedCustomClientKind];
+	const builtinId = builtinKey && PROVIDER_METADATA[builtinKey].id;
+	const builtin = builtinId
+		? getProviderSources().find(source => source.provider.id === builtinId)
+		: undefined;
+
+	const inherited = (builtin?.supportedOptions ?? BASE_OPTIONS)
+		.filter(option => !OPTIONS_NOT_FOR_CUSTOM.has(option));
+	return inherited.length > 0 ? inherited : BASE_OPTIONS;
+}
+
+/**
+ * Builds the model source for one `providers.custom` entry. The entry name is
+ * the provider id, display name, and catalog id at once, and the scope its
+ * credential is filed under in `POSITRON_CUSTOM_AUTH_PROVIDER_ID`, so the
+ * credential stays derivable from the id alone.
+ */
+export function customProviderSource(
+	provider: ResolvedProviderLike
+): positron.ai.LanguageModelSource {
+	return {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: provider.id,
+			displayName: provider.id,
+			// Lets the modal show the entry under its vendor's icon and mark it
+			// custom. No maturity status: an entry is as mature as its endpoint.
+			customKind: provider.clientKind,
+			catalogId: provider.id,
+		},
+		supportedOptions: customSupportedOptions(provider.clientKind),
+		defaults: {
+			model: provider.id,
+			baseUrl: provider.connection.baseUrl ?? provider.connection.endpoint,
+			toolCalls: true,
+		},
+	};
+}
+
+/**
+ * Enabled custom entries whose kind this host can present. Apart from
+ * {@link getProviderSources} because these come and go as the config file
+ * changes, while the built-in list is fixed at activation. An entry of a kind
+ * Positron doesn't offer is skipped rather than shown half-configured.
+ */
+export function getRegistrableCustomProviders(): ResolvedProviderLike[] {
+	return getCachedCustomProviders()
+		.filter(provider => provider.enabled && isOfferedCustomKind(provider.clientKind));
 }

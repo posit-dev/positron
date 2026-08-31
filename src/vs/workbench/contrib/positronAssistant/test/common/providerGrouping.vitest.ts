@@ -20,13 +20,14 @@ function source(overrides: Partial<IPositronLanguageModelSource> & { id: string 
 }
 
 describe('groupProviders', () => {
-	it('orders sections connected, needs-attention, model-providers', () => {
+	it('orders sections connected, needs-attention, model-providers, custom', () => {
 		const sections = groupProviders([
 			source({ id: 'avail', signedIn: false }),
 			source({ id: 'err', signedIn: true, status: 'error' }),
 			source({ id: 'conn', signedIn: true, status: 'ok' }),
+			source({ id: 'mine', provider: { id: 'mine', displayName: 'mine', customKind: 'anthropic' }, signedIn: false }),
 		]);
-		expect(sections.map(s => s.id)).toEqual(['connected', 'needs-attention', 'model-providers']);
+		expect(sections.map(s => s.id)).toEqual(['connected', 'needs-attention', 'model-providers', 'custom']);
 	});
 
 	it('buckets a signed-in error source into needs-attention', () => {
@@ -73,6 +74,21 @@ describe('groupProviders', () => {
 
 		const errored = groupProviders([source({ id: 'openai-compatible', signedIn: false, status: 'error' })]);
 		expect(errored[0].id).toBe('needs-attention');
+	});
+
+	it('buckets a disconnected providers.custom entry into custom, not model-providers', () => {
+		const custom = (overrides: Partial<IPositronLanguageModelSource> = {}) => source({
+			id: 'My Gateway',
+			provider: { id: 'My Gateway', displayName: 'My Gateway', customKind: 'anthropic' },
+			...overrides,
+		});
+
+		expect(groupProviders([custom({ signedIn: false })])[0].id).toBe('custom');
+		// Connected and errored entries stay where they were: an entry with a bad
+		// credential still floats to Needs Attention rather than sinking to the
+		// bottom of the list.
+		expect(groupProviders([custom({ signedIn: true, status: 'ok' })])[0].id).toBe('connected');
+		expect(groupProviders([custom({ signedIn: false, status: 'error' })])[0].id).toBe('needs-attention');
 	});
 
 	it('sorts alphabetically by display name within a section', () => {

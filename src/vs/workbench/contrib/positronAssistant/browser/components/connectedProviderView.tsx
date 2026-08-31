@@ -16,6 +16,7 @@ import { getBaseUrlLabel } from '../providerFieldLabels.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ConnectProviderHeader, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
+import { EditRawConfigLink } from './editRawConfigLink.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
 
 export interface ConnectedProviderViewProps {
@@ -29,6 +30,8 @@ export interface ConnectedProviderViewProps {
 	onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	/** Invoked by the footer Back button. */
 	onBack: () => void;
+	/** Open providers.json for advanced editing. */
+	onEditRawConfig: () => void;
 }
 
 export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
@@ -84,10 +87,13 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 		?? localize('positron.connectedProvider.error', "This provider reported a problem with its configuration or credentials.");
 
 
-	const actionTitle = authMethod === AuthMethod.OAUTH ? localize('positron.connectedProvider.signOut', "Sign Out") : localize('positron.connectedProvider.remove', "Remove");
+	// "Disconnect", not "Remove": it clears the stored credential and leaves the
+	// provider in the list with its settings intact. Deleting a custom entry is a
+	// different action, and the two must not read the same.
+	const actionTitle = authMethod === AuthMethod.OAUTH ? localize('positron.connectedProvider.signOut', "Sign Out") : localize('positron.connectedProvider.disconnect', "Disconnect");
 	const actionLoadingTitle = authMethod === AuthMethod.OAUTH
 		? localize('positron.connectedProvider.signingOut', "Signing Out...")
-		: localize('positron.connectedProvider.removing', "Removing...");
+		: localize('positron.connectedProvider.disconnecting', "Disconnecting...");
 
 	return (
 		<PositronDynamicModalDialog
@@ -108,6 +114,7 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 							<span className='connect-provider-detail-value'>{current.defaults.baseUrl}</span>
 						</p>
 					}
+					<EditRawConfigLink onClick={props.onEditRawConfig} />
 					<ProviderNotice source={current} />
 					{errorMessage && <div className='connect-provider-error'>{errorMessage}</div>}
 				</div>

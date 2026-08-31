@@ -7,11 +7,18 @@ import { localize } from '../../../../../nls.js';
 import { IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
 import { groupProviders, ProviderSectionId } from '../../common/providerGrouping.js';
 import { ProviderListItem } from './providerListItem.js';
+import { getStatusLabel } from './languageModelButton.js';
+import { customProviderDescription, isOfferedCustomProviderKind } from '../customProviderKinds.js';
 
 interface ProviderListProps {
 	sources: IPositronLanguageModelSource[];
 	/** Invoked when a provider row's action fires; the modal routes to connect / connected / not-supported. */
 	onSelectProvider: (source: IPositronLanguageModelSource) => void;
+	/**
+	 * Starts the Add Custom Provider flow. Omitted when the installed Posit
+	 * Assistant can't serve models for a custom entry yet.
+	 */
+	onAddCustomProvider?: () => void;
 }
 
 /**
@@ -29,10 +36,23 @@ const PROVIDER_DESCRIPTIONS: Record<string, string> = {
 	'google-cloud': localize('positron.configureLLMProvidersModal.desc.googleCloud', "Gemini via Google Cloud with enterprise features"),
 	'ms-foundry': localize('positron.configureLLMProvidersModal.desc.msFoundry', "Access Azure OpenAI and AI Studio models"),
 	'openai-api': localize('positron.configureLLMProvidersModal.desc.openai', "GPT-4o, o1, and OpenAI-compatible endpoints"),
-	'openai-compatible': localize('positron.configureLLMProvidersModal.desc.custom', "Connect any OpenAI-compatible API endpoint"),
+	'openai-compatible': localize('positron.configureLLMProvidersModal.desc.custom', "Access models via the OpenAI Chat Completions API"),
 	'posit-ai': localize('positron.configureLLMProvidersModal.desc.positAI', "Managed model service for Positron Desktop"),
 	'snowflake-cortex': localize('positron.configureLLMProvidersModal.desc.snowflake', "Access LLMs via Snowflake data platform"),
 };
+
+/**
+ * The one-line description for a row: a built-in's blurb from the map above, or
+ * a custom entry's type, so two entries of different types are told apart. A
+ * kind Positron doesn't offer has nothing useful to say, so it gets no line.
+ */
+function descriptionFor(source: IPositronLanguageModelSource): string | undefined {
+	const kind = source.provider.customKind;
+	if (kind) {
+		return isOfferedCustomProviderKind(kind) ? customProviderDescription(kind) : undefined;
+	}
+	return PROVIDER_DESCRIPTIONS[source.provider.id];
+}
 
 /** Localized heading per section id. */
 function sectionTitle(id: ProviderSectionId): string {
@@ -43,22 +63,33 @@ function sectionTitle(id: ProviderSectionId): string {
 			return localize('positron.configureLLMProvidersModal.section.needsAttention', "Needs Attention");
 		case 'model-providers':
 			return localize('positron.configureLLMProvidersModal.section.modelProviders', "Model Providers");
+		case 'custom':
+			return localize('positron.configureLLMProvidersModal.section.custom', "Custom Providers");
 	}
 }
 
 /** The grouped, sectioned provider list shown in the Configure LLM Providers modal. */
 export const ProviderList = (props: ProviderListProps) => {
 	const sections = groupProviders(props.sources);
+	// groupProviders() omits a section with no items, but the Custom Providers
+	// section also hosts the Add Custom Provider button. Render it here instead
+	// of in the sections.map below, so the heading and button show up together
+	// even before any custom provider has been added ('custom' is always last
+	// in SECTION_ORDER, so pulling it out of the loop doesn't change ordering).
+	const otherSections = sections.filter(section => section.id !== 'custom');
+	const customSection = sections.find(section => section.id === 'custom');
 
 	return (
 		<div className='provider-list'>
-			{sections.map(section => (
+			{otherSections.map(section => (
 				<div key={section.id} className='provider-list-section'>
-					<label className='provider-list-section-heading'>{sectionTitle(section.id)}</label>
+					<div className='provider-list-section-heading'>
+						<label className='provider-list-section-title'>{sectionTitle(section.id)}</label>
+					</div>
 					{section.items.map(item => (
 						<ProviderListItem
 							key={item.provider.id}
-							description={PROVIDER_DESCRIPTIONS[item.provider.id]}
+							description={descriptionFor(item)}
 							section={section.id}
 							source={item}
 							onAction={() => props.onSelectProvider(item)}
@@ -66,6 +97,34 @@ export const ProviderList = (props: ProviderListProps) => {
 					))}
 				</div>
 			))}
+			{(customSection || props.onAddCustomProvider) &&
+				<div className='provider-list-section'>
+					<div className='provider-list-section-heading'>
+						<label className='provider-list-section-title'>{sectionTitle('custom')}</label>
+						<span className='provider-list-item-badge'>{getStatusLabel('experimental')}</span>
+					</div>
+					{customSection?.items.map(item => (
+						<ProviderListItem
+							key={item.provider.id}
+							description={descriptionFor(item)}
+							section='custom'
+							source={item}
+							onAction={() => props.onSelectProvider(item)}
+						/>
+					))}
+					{props.onAddCustomProvider &&
+						<button
+							className='provider-list-add-custom'
+							data-testid='provider-add-custom-button'
+							type='button'
+							onClick={props.onAddCustomProvider}
+						>
+							<span aria-hidden='true' className='codicon codicon-add' />
+							{localize('positron.configureLLMProvidersModal.addCustom', "Add Custom Provider")}
+						</button>
+					}
+				</div>
+			}
 		</div>
 	);
 };

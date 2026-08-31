@@ -14,7 +14,14 @@ import { getProviderSources } from './providerSources';
 
 export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModelConfig) => Promise<void>;
 
-export type OnSaveCallback = (config: positron.ai.LanguageModelConfig) => Promise<void>;
+/**
+ * Persists a config change (e.g. base URL) for a provider. Return `false` if
+ * nothing was actually written (e.g. a custom entry with no user-owned
+ * providers.json record), so the caller doesn't reflect an unpersisted value
+ * into the provider's in-memory defaults. Anything else, including no return
+ * value, means it persisted.
+ */
+export type OnSaveCallback = (config: positron.ai.LanguageModelConfig) => Promise<void | boolean>;
 
 export type OnDeleteCallback = () => Promise<void>;
 
@@ -67,6 +74,18 @@ export function registerAuthProvider(
 	} else {
 		recoverCallbacks.delete(providerId);
 	}
+}
+
+/**
+ * Forget an auth provider and its callbacks. Custom providers come and go with
+ * their `providers.custom` entry, so their registration can't just live for the
+ * lifetime of the extension.
+ */
+export function unregisterAuthProvider(providerId: string): void {
+	authProviders.delete(providerId);
+	apiKeyValidators.delete(providerId);
+	onSaveCallbacks.delete(providerId);
+	onDeleteCallbacks.delete(providerId);
 }
 
 /**
@@ -185,12 +204,13 @@ export async function providerAction(
 					break;
 				}
 			} else {
-				await handleSave(source, config);
+				const { baseUrlPersisted } = await handleSave(source, config);
 				// Reflect saved connection settings back to the registered source
 				// so the dialog updates them like it does signedIn/status (via
 				// updateProvider, which merges defaults). Guarded to match the
-				// providers' onSave behavior, which only persists a non-empty URL.
-				if (config.baseUrl) {
+				// providers' onSave behavior, which only persists a non-empty URL,
+				// and to skip a value onSave reported it never actually wrote.
+				if (config.baseUrl && baseUrlPersisted) {
 					positron.ai.updateProvider(providerId, { defaults: { baseUrl: config.baseUrl } });
 				}
 			}
@@ -245,6 +265,12 @@ async function handleCopilotSignIn(): Promise<boolean> {
 	return !!session;
 }
 
+/** What a save produced: the account id, and whether onSave actually persisted the config. */
+interface SaveResult {
+	readonly accountId: string;
+	readonly baseUrlPersisted: boolean;
+}
+
 /**
  * Store or resolve credentials. For providers with an API key in the
  * config, validates and stores it. Otherwise resolves via createSession.
@@ -252,7 +278,7 @@ async function handleCopilotSignIn(): Promise<boolean> {
 async function handleSave(
 	source: positron.ai.LanguageModelSource,
 	config: positron.ai.LanguageModelConfig
-): Promise<string> {
+): Promise<SaveResult> {
 	const providerId = source.provider.id;
 	const provider = authProviders.get(providerId);
 	if (!provider) {
@@ -268,12 +294,10 @@ async function handleSave(
 	// Persist settings (e.g. base URL) before resolving the chain
 	// so the chain validator uses the value the user just entered.
 	const onSave = onSaveCallbacks.get(providerId);
-	if (onSave) {
-		await onSave(config);
-	}
+	const baseUrlPersisted = onSave ? (await onSave(config)) !== false : true;
 
 	const session = await createSessionWithRecovery(providerId, provider);
-	return session.account.id;
+	return { accountId: session.account.id, baseUrlPersisted };
 }
 
 /**
@@ -303,7 +327,7 @@ async function handleApiKeySave(
 	source: positron.ai.LanguageModelSource,
 	config: positron.ai.LanguageModelConfig,
 	provider: AuthProvider
-): Promise<string> {
+): Promise<SaveResult> {
 	const providerId = source.provider.id;
 	const apiKey = config.apiKey?.trim() ?? '';
 	const validateApiKey = apiKeyValidators.get(providerId);
@@ -312,9 +336,7 @@ async function handleApiKeySave(
 	}
 
 	const onSave = onSaveCallbacks.get(providerId);
-	if (onSave) {
-		await onSave(config);
-	}
+	const baseUrlPersisted = onSave ? (await onSave(config)) !== false : true;
 
 	// Remove existing sessions so we don't accumulate stale credentials.
 	const existing = await provider.getSessions();
@@ -325,7 +347,7 @@ async function handleApiKeySave(
 	const accountId = randomUUID();
 	log.info(`Saving credential for provider "${providerId}" (${accountId})`);
 	await provider.storeKey(accountId, source.provider.displayName, apiKey);
-	return accountId;
+	return { accountId, baseUrlPersisted };
 }
 
 async function handleDelete(

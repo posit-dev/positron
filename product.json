@@ -755,6 +755,10 @@
 		"databricks": [
 			"positron.authentication",
 			"posit.assistant"
+		],
+		"positron-custom-provider": [
+			"positron.authentication",
+			"posit.assistant"
 		]
 	},
 	"onboardingKeymaps": [
