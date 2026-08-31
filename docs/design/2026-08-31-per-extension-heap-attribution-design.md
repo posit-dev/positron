@@ -49,7 +49,8 @@ host on port 5870.
 
 **1. Resolve script ids to URLs.** `Debugger.enable` replays a
 `Debugger.scriptParsed` event for every already-loaded script, giving
-`scriptId -> url`.
+`scriptId -> url`. The replay completes before `enable` resolves (measured, see
+Failure handling), so the map is ready with no wait.
 
 **2. Map heap nodes to scripts.** The snapshot's `locations` array carries
 `(object_index, script_id, line, column)` per located node. A node therefore
@@ -186,16 +187,24 @@ idle datapoint because an inspector was unreachable or a parse ran out of memory
 would be a bad trade. The report says the breakdown was unavailable and why,
 rather than showing an empty table that reads as "no extensions".
 
-One failure is silent and needs an explicit guard: `Debugger.enable` resolves
-before the `scriptParsed` replay finishes. The spike saw 609 scripts on one run
-and 518 on the next, which under-attributes without any error. Capture waits for
-250 ms with no new `scriptParsed` event (up to a 10 s cap) and records the count,
-and the parse rejects a run reporting fewer than 400 scripts.
+One failure would be silent, so the parse checks for it directly: an incomplete
+`scriptId -> url` map under-attributes without raising anything. The check is the
+share of `locations` entries whose script id did not resolve. The parse skips the
+breakdown above 1%.
 
-Both numbers are first guesses from a single macOS spike (609 and 518 scripts on
-two runs) and are named constants to be recalibrated once a week of CI counts
-exists. 400 sits below the lower spike observation on purpose: the guard is there
-to catch a gross truncation, not to police normal variance.
+That is a ratio rather than an absolute script count on purpose. It is
+self-normalizing across scenarios and platforms, it measures the thing that
+actually matters, and it fails on any cause: a truncated map, a format change, an
+inspector that dropped events. Two measurements put the healthy value at 0.013%
+and 0.019%, so 1% is two orders of magnitude of headroom and fires only on gross
+breakage.
+
+An earlier draft also waited for a quiet period on `scriptParsed`, on the theory
+that `Debugger.enable` resolves before the replay drains. An experiment
+(2026-08-31, three CDP sessions against one extension host) refuted it: all 609
+scripts were present when `enable` resolved, and none arrived in the following 10
+seconds. The 609-vs-518 counts that suggested a race came from two different
+launches, which legitimately had different code loaded. No wait is needed.
 
 ## Testing
 
@@ -209,7 +218,8 @@ Vitest, following the existing files in `test/e2e/utils/memory/`:
 - Extension identity: `package.json` present, absent, and malformed.
 - Report rendering: the new table with a baseline, without one, and in the
   unavailable case.
-- Failure handling: each failure mode leaves the rest of the payload intact.
+- Failure handling: each failure mode leaves the rest of the payload intact, and
+  a fixture with over 1% unresolved script ids skips the breakdown.
 
 The end-to-end path cannot be unit tested. It is verified by the first CI run,
 which is also the first time the capture runs on Linux under Playwright.
