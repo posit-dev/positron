@@ -683,6 +683,18 @@ jobs:
           path: test-logs
           if-no-files-found: ignore
 
+      # A native crash leaves a minidump in `.build/crashes` (electron.ts's
+      # `--crash-reporter-directory`); the job used to discard it. `always()`,
+      # not `failure()`: the Playwright step ends in `|| true`.
+      - name: Upload Crash Dumps
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-win-crash-dumps-${{ inputs.project }}-${{ matrix.shard }}
+          path: .build/crashes
+          retention-days: 7
+          if-no-files-found: ignore
+
   merge-reports:
     name: ${{ inputs.display_name }}
     timeout-minutes: 10

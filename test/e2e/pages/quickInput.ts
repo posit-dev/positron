@@ -115,10 +115,16 @@ export class QuickInput {
 	 * languageRuntimeActions.ts) and lists only the interpreters found so far.
 	 * Selecting during this window races discovery: a version-string match can
 	 * land on a fast-discovered source (e.g. a uv base install) instead of the
-	 * intended interpreter. The placeholder is set synchronously before the
-	 * picker is shown, so this assertion cannot pass vacuously mid-discovery.
+	 * intended interpreter.
+	 *
+	 * Wait for this picker to be on screen before reading the placeholder: the
+	 * quick input widget is a singleton that an earlier picker (e.g. the reuse
+	 * scan's session quick pick) leaves hidden in the DOM carrying no
+	 * placeholder, so asserting the negative straight away passes against that
+	 * stale element while discovery is still running.
 	 */
 	async waitForInterpreterDiscoveryToComplete({ timeout = 30000 }: { timeout?: number } = {}): Promise<void> {
+		await this.waitForQuickInputOpened({ timeout });
 		await expect(
 			this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT),
 		).not.toHaveAttribute('placeholder', /Discovering interpreters/i, { timeout });
