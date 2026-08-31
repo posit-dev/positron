@@ -1,0 +1,245 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import { IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { AiProviderServiceStatus, IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
+import { getProviderStatus } from '../../browser/providerStatusCommand.js';
+import { IPositronAssistantConfigurationService, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
+
+/** A provider registration, as the authentication extension would push it. */
+interface IRegistrationSpec {
+	id: string;
+	catalogId?: string;
+	displayName?: string;
+	signedIn?: boolean;
+	status?: 'ok' | 'error' | null;
+	statusMessage?: string;
+	maturity?: 'preview' | 'experimental';
+	customKind?: string;
+	type?: PositronLanguageModelType;
+}
+
+function registration(spec: IRegistrationSpec): IPositronLanguageModelSource {
+	return {
+		type: spec.type ?? PositronLanguageModelType.Chat,
+		provider: {
+			id: spec.id,
+			displayName: spec.displayName ?? spec.id,
+			catalogId: spec.catalogId,
+			status: spec.maturity,
+			customKind: spec.customKind,
+		},
+		supportedOptions: [],
+		defaults: {},
+		signedIn: spec.signedIn,
+		status: spec.status,
+		statusMessage: spec.statusMessage,
+	};
+}
+
+describe('getProviderStatus', () => {
+	const ctx = createTestContainer().build();
+
+	/** Wires the two services the command reads. */
+	function stubServices(options: {
+		registrations?: IPositronLanguageModelSource[];
+		catalog?: IResolvedProviderData[];
+		catalogStatus?: AiProviderServiceStatus;
+		/** Registration ids considered enabled; every id is enabled when omitted. */
+		enabledIds?: string[];
+	} = {}): void {
+		const { registrations = [], catalog = [], catalogStatus = 'ready', enabledIds } = options;
+		ctx.instantiationService.stub(IAiProviderService, stubInterface<IAiProviderService>({
+			whenInitialized: Promise.resolve(),
+			status: catalogStatus,
+			getProviders: () => catalog,
+			getProvider: (id: string) => catalog.find(provider => provider.id === id),
+		}));
+		ctx.instantiationService.stub(IPositronAssistantConfigurationService, stubInterface<IPositronAssistantConfigurationService>({
+			getProviderRegistrations: () => registrations,
+			isProviderEnabled: (providerId: string) => enabledIds === undefined || enabledIds.includes(providerId),
+		}));
+	}
+
+	it('reports a signed-in enabled provider under its catalog id, with the boring fields omitted', async () => {
+		stubServices({
+			registrations: [registration({ id: 'anthropic-api', catalogId: 'anthropic', displayName: 'Anthropic', signedIn: true, status: 'ok' })],
+			catalog: [{ id: 'anthropic', enabled: true, connection: {} }],
+		});
+
+		expect(await getProviderStatus(ctx.instantiationService)).toEqual({
+			catalogStatus: 'ready',
+			// No registration-less providers and at least one registration, so
+			// authStateUnavailable is omitted rather than false.
+			authStateUnavailable: undefined,
+			providers: [{
+				id: 'anthropic',
+				displayName: 'Anthropic',
+				enabled: true,
+				auth: 'signed-in',
+			}],
+		});
+	});
+
+	it('reports a configured-but-broken credential as auth error with the message, never as not-signed-in', async () => {
+		// The authentication extension reports an expired credential with
+		// signedIn false and status 'error'; without the status check this would
+		// read as a fresh, never-configured provider.
+		stubServices({
+			registrations: [registration({ id: 'openai-api', catalogId: 'openai', signedIn: false, status: 'error', statusMessage: 'Authentication expired' })],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.providers).toEqual([{
+			id: 'openai',
+			displayName: 'openai-api',
+			enabled: true,
+			auth: 'error',
+			authMessage: 'Authentication expired',
+		}]);
+	});
+
+	it('reports an offered, never-configured provider as not-signed-in', async () => {
+		stubServices({
+			registrations: [registration({ id: 'gemini-api', catalogId: 'gemini', signedIn: false, status: null })],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.providers[0].auth).toBe('not-signed-in');
+	});
+
+	it('omits auth entirely for a disabled provider, even when a session lingers', async () => {
+		stubServices({
+			registrations: [registration({ id: 'copilot-auth', catalogId: 'copilot', signedIn: true, status: 'ok', type: PositronLanguageModelType.Completion })],
+			enabledIds: [],
+		});
+
+		expect((await getProviderStatus(ctx.instantiationService)).providers).toEqual([{
+			id: 'copilot',
+			displayName: 'copilot-auth',
+			enabled: false,
+			completionsOnly: true,
+		}]);
+	});
+
+	it('carries maturity and custom through from the registration metadata', async () => {
+		stubServices({
+			registrations: [
+				registration({ id: 'snowflake-cortex', maturity: 'preview' }),
+				registration({ id: 'My Gateway', customKind: 'anthropic' }),
+			],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.providers.map(({ id, maturity, custom }) => ({ id, maturity, custom }))).toEqual([
+			{ id: 'My Gateway', custom: true },
+			{ id: 'snowflake-cortex', maturity: 'preview' },
+		]);
+	});
+
+	it('reports a catalog entry nothing registered, without inventing sign-in state', async () => {
+		stubServices({
+			registrations: [registration({ id: 'anthropic-api', catalogId: 'anthropic', signedIn: true, status: 'ok' })],
+			catalog: [
+				{ id: 'anthropic', enabled: true, connection: {} },
+				{ id: 'positai', enabled: false, connection: {} },
+			],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.providers.find(provider => provider.id === 'positai')).toEqual({
+			id: 'positai',
+			enabled: false,
+		});
+		// Sign-in state exists for other providers, so the whole-payload flag stays off.
+		expect(result.authStateUnavailable).toBeUndefined();
+	});
+
+	it('sets authStateUnavailable only when no provider registered sign-in state at all', async () => {
+		stubServices({
+			catalog: [{ id: 'anthropic', enabled: true, connection: {} }],
+		});
+
+		expect(await getProviderStatus(ctx.instantiationService)).toEqual({
+			catalogStatus: 'ready',
+			authStateUnavailable: true,
+			providers: [{ id: 'anthropic', enabled: true }],
+		});
+	});
+
+	it('names customized connection fields without ever carrying their values', async () => {
+		stubServices({
+			registrations: [registration({ id: 'bedrock-auth', catalogId: 'bedrock', signedIn: true, status: 'ok' })],
+			catalog: [{
+				id: 'bedrock',
+				enabled: true,
+				connection: {
+					baseUrl: 'https://internal-gateway.example.corp',
+					customHeaders: { 'X-Corp-Auth': 'a-secret-token' },
+					aws: { profile: 'work', region: undefined },
+				},
+			}],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.providers[0].customizedConnection).toEqual(['baseUrl', 'customHeaders', 'aws.profile']);
+		// Redaction by construction: no connection value may reach the payload,
+		// under any key. The whole serialized result is the honest check.
+		const serialized = JSON.stringify(result);
+		expect(serialized).not.toContain('internal-gateway');
+		expect(serialized).not.toContain('a-secret-token');
+		expect(serialized).not.toContain('X-Corp-Auth');
+		expect(serialized).not.toContain('work');
+	});
+
+	it('omits customizedConnection for an empty customHeaders map and an untouched connection', async () => {
+		stubServices({
+			registrations: [registration({ id: 'anthropic-api', catalogId: 'anthropic', signedIn: true, status: 'ok' })],
+			catalog: [{ id: 'anthropic', enabled: true, connection: { customHeaders: {} } }],
+		});
+
+		expect((await getProviderStatus(ctx.instantiationService)).providers[0].customizedConnection).toBeUndefined();
+	});
+
+	it('joins a registration without a declared catalogId to the catalog by its own id', async () => {
+		stubServices({
+			registrations: [registration({ id: 'databricks', signedIn: true, status: 'ok' })],
+			catalog: [{ id: 'databricks', enabled: true, connection: { databricks: { host: 'corp.cloud.databricks.com' } } }],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		// One entry, not a registration entry plus a catalog-only duplicate.
+		expect(result.providers.map(provider => provider.id)).toEqual(['databricks']);
+		expect(result.providers[0].customizedConnection).toEqual(['databricks.host']);
+	});
+
+	it('orders entries auth failures first, then signed-in, then enabled, then disabled, alphabetically within each band', async () => {
+		stubServices({
+			registrations: [
+				registration({ id: 'zeta', signedIn: true, status: 'ok' }),
+				registration({ id: 'alpha', signedIn: false, status: null }),
+				registration({ id: 'broken', signedIn: false, status: 'error', statusMessage: 'Authentication expired' }),
+				registration({ id: 'beta', signedIn: true, status: 'ok' }),
+				registration({ id: 'off', signedIn: false, status: null }),
+			],
+			enabledIds: ['zeta', 'alpha', 'broken', 'beta'],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.providers.map(provider => provider.id)).toEqual(['broken', 'beta', 'zeta', 'alpha', 'off']);
+	});
+
+	it('passes a catalog fetch failure through as catalogStatus error', async () => {
+		stubServices({ catalogStatus: 'error' });
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.catalogStatus).toBe('error');
+		expect(result.providers).toEqual([]);
+	});
+});

@@ -174,6 +174,10 @@ export class PositronAssistantConfigurationService extends Disposable implements
 		return sources;
 	}
 
+	getProviderRegistrations(): IPositronLanguageModelSource[] {
+		return [...this._providerRegistrations.values()];
+	}
+
 	get copilotEnabled(): boolean {
 		return this._copilotEnabled;
 	}
