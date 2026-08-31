@@ -12,6 +12,11 @@ import type { IProviderCatalogChangeData, IResolvedConnectionData, IResolvedMode
 // ai-config types they mirror at the pinned commit. One-directional: the mirror
 // is a deliberate reduced view, so a rename/retype of a mirrored field fails the
 // typecheck rather than drifting silently.
+//
+// Drift in an all-optional field (ModelOverride) is not detectable this way:
+// optional-only types stay mutually assignable whatever their field names, and
+// excess-property checking applies only to fresh literals. Required fields are
+// what this guard actually pins, which covers CustomModel and the change flags.
 
 const _connection = (c: ResolvedConnection): IResolvedConnectionData => ({
 	baseUrl: c.baseUrl,
