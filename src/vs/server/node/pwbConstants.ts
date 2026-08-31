@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { existsSync, readFileSync } from 'fs';
+import { dirname, join, posix } from '../../base/common/path.js';
 import { fileURLToPath } from 'url';
-import { dirname, join } from '../../base/common/path.js';
 
 export const kProxyRegex = new RegExp('\/proxy\/[0-9]+[^a-zA-Z](\/)?');
 
@@ -88,6 +88,18 @@ export function computeDeploymentPrefix(sessionUrl: string | undefined): string 
 }
 
 export const WORKBENCH_DEPLOYMENT_PREFIX = computeDeploymentPrefix(process.env['RS_SESSION_URL']);
+
+const OAUTH_CALLBACK_STATIC_SEGMENT = 'callback-0';
+
+export function resolveSessionlessStaticCallbackRoute(): string {
+	return posix.join(
+		WORKBENCH_DEPLOYMENT_PREFIX,
+		VSCODE_STATIC_PREFIX,
+		OAUTH_CALLBACK_STATIC_SEGMENT,
+		'static',
+		'out/vs/code/browser/workbench/callback.html'
+	);
+}
 // --- End PWB ---
 
 // --- Start PWB: Workbench 2026.05+ ships the nginx route for /<product-label>-static/...; ---

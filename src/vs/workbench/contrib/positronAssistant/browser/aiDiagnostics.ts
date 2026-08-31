@@ -28,6 +28,7 @@ import { IHeadlessLanguageModelService, IModelListingDiagnostics } from '../../.
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IUntitledTextResourceEditorInput } from '../../../common/editor.js';
+import { hasExplicitValue, matchesSensitiveKey, REDACTED_VALUE, REPORT_SENSITIVE_KEYS } from '../common/settingsInspection.js';
 import { IOutputService, isMultiSourceOutputChannelDescriptor, isSingleSourceOutputChannelDescriptor } from '../../../services/output/common/output.js';
 import { ILanguageModelsService } from '../../chat/common/languageModels.js';
 import { ChatConfiguration } from '../../chat/common/constants.js';
@@ -354,29 +355,16 @@ const AI_SETTING_PREFIXES = [
 /** AI-related settings that don't share one of the AI prefixes. */
 const AI_SETTING_EXACT_KEYS: string[] = [ChatConfiguration.AIDisabled];
 
-/**
- * Setting-key final segments whose value may hold a secret (custom request
- * headers carrying auth tokens, API keys, etc.). Their values are redacted in
- * the report so it never leaks keys or tokens the user stored in settings.json.
- * Matched case-insensitively against the key's last segment.
- *
- * Note `credentials` is deliberately NOT here: the `authentication.*.credentials`
- * settings hold non-secret config vars (AWS_PROFILE/AWS_REGION, SNOWFLAKE_ACCOUNT,
- * GOOGLE_VERTEX_PROJECT, etc.), not the actual secrets, which resolve from the
- * environment or credential chain. Those values are useful in a report.
- */
-const SENSITIVE_KEY_SEGMENTS = ['customheaders', 'apikey', 'token', 'secret', 'password'];
-
-/** Placeholder shown in place of a redacted setting value. */
-export const REDACTED_VALUE = '<redacted>';
+export { hasExplicitValue, REDACTED_VALUE };
 
 /**
  * Whether a setting's value should be redacted from the report because the key
- * suggests it holds a credential or auth token.
+ * suggests it holds a credential or auth token. The report's list is narrower
+ * than the getConfiguredSettings payload's; see settingsInspection.ts for why.
+ * @param key The full setting key.
  */
 export function isSensitiveSettingKey(key: string): boolean {
-	const segment = key.split('.').pop()?.toLowerCase() ?? '';
-	return SENSITIVE_KEY_SEGMENTS.some(sensitive => segment.includes(sensitive));
+	return matchesSensitiveKey(key, REPORT_SENSITIVE_KEYS);
 }
 
 /**
@@ -488,26 +476,6 @@ const MODEL_LISTING_TIMEOUT_MS = 10000;
 export function capLogLines(content: string): string {
 	const lines = content.split('\n');
 	return lines.length > MAX_LOG_LINES ? lines.slice(-MAX_LOG_LINES).join('\n') : content;
-}
-
-/** The scopes at which a configuration value can be explicitly set. */
-interface IExplicitScopes {
-	readonly userValue?: unknown;
-	readonly userLocalValue?: unknown;
-	readonly userRemoteValue?: unknown;
-	readonly workspaceValue?: unknown;
-	readonly workspaceFolderValue?: unknown;
-	readonly policyValue?: unknown;
-}
-
-/**
- * Whether a setting has an explicit value at any scope (user, workspace, folder,
- * or policy). Policy covers Posit Workbench's enforced settings. A setting left
- * at its registered default reads `undefined` at every scope.
- */
-export function hasExplicitValue(inspected: IExplicitScopes): boolean {
-	return (inspected.userValue ?? inspected.userLocalValue ?? inspected.userRemoteValue
-		?? inspected.workspaceValue ?? inspected.workspaceFolderValue ?? inspected.policyValue) !== undefined;
 }
 
 /**

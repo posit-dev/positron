@@ -300,7 +300,7 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 					// forward to hosts outside its allowlist).
 					// const registration = await fetchDynamicRegistration(serverMetadata, this._initData.environment.appName, resourceMetadata?.scopes_supported);
 					const registrationRedirectUri = await getRegistrationRedirectUri(this._extHostUrls, this._initData.environment.appUriScheme, this._logService);
-					const registration = await fetchDynamicRegistration(serverMetadata, this._initData.environment.appName, resourceMetadata?.scopes_supported, registrationRedirectUri ? [registrationRedirectUri] : undefined);
+					const registration = await fetchDynamicRegistration(serverMetadata, this._initData.environment.appName, resourceMetadata?.scopes_supported, registrationRedirectUri);
 					// --- End Positron ---
 					clientId = registration.client_id;
 					clientSecret = registration.client_secret;
@@ -899,7 +899,7 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 			// $registerDynamicAuthProvider.
 			// const registration = await fetchDynamicRegistration(this._serverMetadata, this._initData.environment.appName, this._resourceMetadata?.scopes_supported);
 			const registrationRedirectUri = await getRegistrationRedirectUri(this._extHostUrls, this._initData.environment.appUriScheme, this._logger);
-			const registration = await fetchDynamicRegistration(this._serverMetadata, this._initData.environment.appName, this._resourceMetadata?.scopes_supported, registrationRedirectUri ? [registrationRedirectUri] : undefined);
+			const registration = await fetchDynamicRegistration(this._serverMetadata, this._initData.environment.appName, this._resourceMetadata?.scopes_supported, registrationRedirectUri);
 			// --- End Positron ---
 			this._clientId = registration.client_id;
 			this._clientSecret = registration.client_secret;

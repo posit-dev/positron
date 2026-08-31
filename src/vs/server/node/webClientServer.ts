@@ -33,13 +33,12 @@ import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService
 import httpProxy from 'http-proxy';
 // eslint-disable-next-line no-duplicate-imports
 import { existsSync } from 'fs';
-import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
+import { HAS_STATIC_ROUTE, kProxyRegex, resolveSessionlessStaticCallbackRoute, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
 import { getListeningPortUid, isProxyPortOwnershipEnforced, ISocketOwnershipCheck } from './socketOwnership.js';
 import type * as net from 'net';
 // --- End PWB ---
 // --- Start Positron ---
-import { HAS_STATIC_ROUTE } from './pwbConstants.js';
-import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
+import { shouldUseSessionLessStaticCallbackRoute, shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
 import { IPositronAcademicLicenseService, licenseMarkerScript } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
 import { isSageMakerSession, sageMakerMarkerScript } from '../../platform/positronLicense/common/positronSageMakerSession.js';
 // --- End Positron ---
@@ -219,6 +218,10 @@ export class WebClientServer {
 	private get _useSessionLessStaticRoute(): boolean {
 		return shouldUseSessionLessStaticRoute(isWorkbench, HAS_STATIC_ROUTE, this._productService.quality);
 	}
+
+	private get _useSessionLessStaticCallbackRoute(): boolean {
+		return shouldUseSessionLessStaticCallbackRoute(isWorkbench, HAS_STATIC_ROUTE);
+	}
 	// --- End Positron ---
 
 	/**
@@ -230,19 +233,21 @@ export class WebClientServer {
 	 */
 	async handle(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: URL, pathname: string): Promise<void> {
 		try {
+			// --- Start PWB ---
+			const sessionlessStaticCallbackRoute = resolveSessionlessStaticCallbackRoute();
+			const sessionlessStaticCallbackPath = sessionlessStaticCallbackRoute.substring(WORKBENCH_DEPLOYMENT_PREFIX.length);
+			if (this._useSessionLessStaticCallbackRoute && (pathname === sessionlessStaticCallbackRoute || pathname === sessionlessStaticCallbackPath)) {
+				return this._handleCallback(res);
+			}
+			// --- End PWB ---
 			// --- Start PWB: session-less static path (nginx serves these in prod; this is the dev fallback) ---
-			// URL shape: /<product-label>-static/<quality>-<commit>/static/<path>  →  serve APP_ROOT/<path>
-			// Only active when running under Workbench; standalone/dev code-server keeps the
-			// session-scoped /static/ route below.
 			if (this._useSessionLessStaticRoute && pathname.startsWith(VSCODE_STATIC_PREFIX) && pathname.charCodeAt(VSCODE_STATIC_PREFIX.length) === CharCode.Slash) {
-				const afterPrefix = pathname.substring(VSCODE_STATIC_PREFIX.length + 1); // strip "/<product-label>-static/"
+				const afterPrefix = pathname.substring(VSCODE_STATIC_PREFIX.length + 1);
 				const versionSlash = afterPrefix.indexOf('/');
 				if (versionSlash === -1) {
 					return serveError(req, res, 404, 'Not found.');
 				}
-				const afterVersion = afterPrefix.substring(versionSlash); // strip "<quality>-<commit>" → "/static/<path>"
-				// Mirror the validation the `/static/` route below uses: the remainder must start
-				// with `/static/` before we hand off to _handleStatic, which resolves relative to APP_ROOT.
+				const afterVersion = afterPrefix.substring(versionSlash);
 				if (afterVersion.startsWith(STATIC_PATH) && afterVersion.charCodeAt(STATIC_PATH.length) === CharCode.Slash) {
 					return this._handleStatic(req, res, afterVersion.substring(STATIC_PATH.length));
 				}
@@ -544,7 +549,11 @@ export class WebClientServer {
 		}
 
 		const staticRoute = posix.join(basePath, this._productPath, STATIC_PATH);
-		const callbackRoute = posix.join(basePath, this._productPath, CALLBACK_PATH);
+		// --- Start PWB ---
+		const callbackRoute = this._useSessionLessStaticCallbackRoute
+			? resolveSessionlessStaticCallbackRoute()
+			: posix.join(basePath, this._productPath, CALLBACK_PATH);
+		// --- End PWB ---
 		// --- Start PWB ---
 		// const webExtensionRoute = posix.join(basePath, this._productPath, WEB_EXTENSION_PATH);
 		// --- End PWB ---
@@ -826,6 +835,7 @@ export class WebClientServer {
 
 		res.writeHead(200, {
 			'Content-Type': 'text/html',
+			'Cache-Control': 'no-store',
 			'Content-Security-Policy': cspDirectives
 		});
 		return void res.end(data);
