@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { computeDeploymentPrefix } from '../../node/pwbConstants.js';
+import { shouldUseSessionLessStaticCallbackRoute, shouldUseSessionLessStaticRoute } from '../../node/positronStaticRoute.js';
 
 describe('PWB computeDeploymentPrefix', () => {
 
@@ -41,5 +42,71 @@ describe('PWB computeDeploymentPrefix', () => {
 		expect(computeDeploymentPrefix('helio.local/s/a0b7e3c9ab5a7e6d5aeef/')).toBe('');
 		expect(computeDeploymentPrefix('https://helio.local')).toBe('');
 		expect(computeDeploymentPrefix('not-a-session-url')).toBe('');
+	});
+});
+
+type PwbConstantsModule = typeof import('../../node/pwbConstants.js');
+
+async function withSessionUrl<T>(sessionUrl: string | undefined, fn: (constants: PwbConstantsModule) => T | Promise<T>): Promise<T> {
+	const original = process.env['RS_SESSION_URL'];
+	if (sessionUrl === undefined) {
+		delete process.env['RS_SESSION_URL'];
+	} else {
+		process.env['RS_SESSION_URL'] = sessionUrl;
+	}
+	vi.resetModules();
+	try {
+		return await fn(await import('../../node/pwbConstants.js'));
+	} finally {
+		if (original === undefined) {
+			delete process.env['RS_SESSION_URL'];
+		} else {
+			process.env['RS_SESSION_URL'] = original;
+		}
+		vi.resetModules();
+	}
+}
+
+describe('resolveSessionlessStaticCallbackRoute', () => {
+	it('uses the existing sessionless static route with a stable callback segment', async () => {
+		await withSessionUrl(undefined, constants => {
+			expect(constants.resolveSessionlessStaticCallbackRoute())
+				.toBe('/positron-static/callback-0/static/out/vs/code/browser/workbench/callback.html');
+		});
+	});
+
+	it('keeps the Workbench deployment prefix', async () => {
+		await withSessionUrl('/rstudio/s/8791a6ae9dc1b037e055c/', constants => {
+			expect(constants.resolveSessionlessStaticCallbackRoute())
+				.toBe('/rstudio/positron-static/callback-0/static/out/vs/code/browser/workbench/callback.html');
+		});
+	});
+
+	it('does not include the Workbench session id', async () => {
+		const first = await withSessionUrl('/s/aaaaaaaaaaaaaaaaaaaaa/', constants => constants.resolveSessionlessStaticCallbackRoute());
+		const second = await withSessionUrl('/s/bbbbbbbbbbbbbbbbbbbbb/', constants => constants.resolveSessionlessStaticCallbackRoute());
+
+		expect({ first, second }).toEqual({
+			first: '/positron-static/callback-0/static/out/vs/code/browser/workbench/callback.html',
+			second: '/positron-static/callback-0/static/out/vs/code/browser/workbench/callback.html'
+		});
+	});
+});
+
+describe('sessionless static route gates', () => {
+	it('uses the static callback route for Workbench when the route is available', () => {
+		expect(shouldUseSessionLessStaticCallbackRoute(true, true)).toBe(true);
+		expect(shouldUseSessionLessStaticCallbackRoute(true, false)).toBe(false);
+		expect(shouldUseSessionLessStaticCallbackRoute(false, true)).toBe(false);
+	});
+
+	it('keeps the daily-build exception scoped to cacheable assets', () => {
+		expect({
+			callback: shouldUseSessionLessStaticCallbackRoute(true, true),
+			asset: shouldUseSessionLessStaticRoute(true, true, 'dailies')
+		}).toEqual({
+			callback: true,
+			asset: false
+		});
 	});
 });
