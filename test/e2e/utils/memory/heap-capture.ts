@@ -54,8 +54,10 @@ const EXTENSION_HOST_PORT = GC_TARGETS.find(target => target.role === 'extension
 export const HEAP_CAPTURE_TIMEOUT_MS = 120_000;
 
 /**
- * Worst case for the whole capture: the snapshot, plus the target lookup and
- * the four other round trips, each bounded by the shared message timeout.
+ * Worst case for the whole capture: the snapshot, plus the target lookup, the
+ * WebSocket handshake and the three other round trips (`Runtime.evaluate`,
+ * `Debugger.enable`, `HeapProfiler.enable`), each bounded by the shared
+ * message timeout.
  *
  * The measure test's own setTimeout must exceed this, or Playwright times out
  * the test before the capture can fail cleanly on its own and leave the PSS

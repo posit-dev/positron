@@ -23,11 +23,25 @@ export interface WebSocketLike {
 
 export type WsConnect = (url: string) => Promise<WebSocketLike>;
 
-/** Opens a real WebSocket, resolving once it has connected. */
+/**
+ * Opens a real WebSocket, resolving once it has connected.
+ *
+ * Bounded: a port that accepts the TCP connection but never completes the
+ * handshake fires neither callback, and this is awaited before the caller's own
+ * try/catch exists, so an unbounded wait here reaches the Playwright timeout and
+ * costs the launch its PSS datapoint.
+ */
 export const defaultConnect: WsConnect = (url: string) => new Promise((resolve, reject) => {
 	const ws = new WebSocket(url);
-	ws.onopen = () => resolve(ws as unknown as WebSocketLike);
-	ws.onerror = (event) => reject(new Error(`WebSocket connection to ${url} failed: ${String(event)}`));
+	const timeout = setTimeout(() => {
+		ws.close();
+		reject(new Error(`WebSocket connection to ${url} did not open within ${MESSAGE_TIMEOUT_MS}ms`));
+	}, MESSAGE_TIMEOUT_MS);
+	ws.onopen = () => { clearTimeout(timeout); resolve(ws as unknown as WebSocketLike); };
+	ws.onerror = (event) => {
+		clearTimeout(timeout);
+		reject(new Error(`WebSocket connection to ${url} failed: ${String(event)}`));
+	};
 });
 
 /** How long any single CDP round trip may take before the caller gives up. */
