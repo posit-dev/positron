@@ -24,7 +24,7 @@ import {
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
 import { CustomProviderRegistry, isAddCustomProviderRequest, isRemoveCustomProviderRequest } from './customProviderRegistry';
-import { getProviderSources, PROVIDER_METADATA } from './providerSources';
+import { getRegistrableProviderSources, PROVIDER_METADATA } from './providerSources';
 import {
 	normalizeToV1Url,
 	validateAnthropicApiKey,
@@ -189,7 +189,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register providers so the assistant knows about them; enablement is
 	// read from the provider catalog (providers.json), not a settings toggle.
-	for (const source of getProviderSources()) {
+	// This list is computed once here and reused below, so a change made
+	// after activation (deleting the legacy provider, or configuring it for
+	// the first time) needs a window reload to show up in the modal.
+	const registrableSources = getRegistrableProviderSources();
+	for (const source of registrableSources) {
 		const disposable = positron.ai.registerProvider(source, providerAction);
 		context.subscriptions.push(disposable);
 	}
@@ -232,7 +236,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Push initial state: credentials resolved during activation (env-var or
 	// chain credentials) fire their session-change event before the listener
 	// above is registered, so sweep current sessions once to reflect them.
-	for (const source of getProviderSources()) {
+	// Reuses the same list as the registration loop above: a provider that
+	// wasn't registered has nothing to update, and trying anyway just logs
+	// a "Cannot update unknown provider" warning.
+	for (const source of registrableSources) {
 		const provider = authProviders.get(source.provider.id);
 		if (provider) {
 			const sessions = await provider.getSessions();

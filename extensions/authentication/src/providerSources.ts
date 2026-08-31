@@ -95,6 +95,8 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		status: 'preview',
 		catalogId: 'copilot',
 	},
+	// This single-slot provider predates providers.custom and is superseded
+	// by it (see isLegacyCustomProviderConfigured below).
 	customProvider: {
 		id: CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
 		displayName: 'OpenAI Compatible',
@@ -114,6 +116,15 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		catalogId: 'databricks',
 	},
 };
+
+/**
+ * Whether someone has connected the legacy "OpenAI Compatible" provider
+ * before. A saved base URL is a reliable stand-in for that: the only way to
+ * sign in is through the modal's connect form, which always saves one.
+ */
+export function isLegacyCustomProviderConfigured(): boolean {
+	return getSavedBaseUrl(PROVIDER_METADATA.customProvider.catalogId) !== undefined;
+}
 
 export function getProviderSources(): positron.ai.LanguageModelSource[] {
 	// GEAP shows an autoconfigure label only when project + location come from
@@ -311,6 +322,23 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			},
 		},
 	];
+}
+
+/**
+ * {@link getProviderSources} minus the legacy "OpenAI Compatible" provider
+ * when nobody has configured it (providers.custom supersedes it). Use this,
+ * not getProviderSources, anywhere that registers a provider or updates its
+ * session, so those places can't disagree on what's actually registered.
+ *
+ * Kept separate from getProviderSources itself because
+ * customSupportedOptions still needs to find the legacy entry by id (to copy
+ * its supportedOptions for openai-compatible-kind custom entries) whether or
+ * not it's configured.
+ */
+export function getRegistrableProviderSources(): positron.ai.LanguageModelSource[] {
+	return getProviderSources().filter(source =>
+		source.provider.id !== PROVIDER_METADATA.customProvider.id || isLegacyCustomProviderConfigured()
+	);
 }
 
 /** One entry in a source's `supportedOptions` list. */

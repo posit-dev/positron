@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getProviderSources, PROVIDER_METADATA } from '../providerSources';
+import { getProviderSources, getRegistrableProviderSources, PROVIDER_METADATA } from '../providerSources';
 import { POSITRON_CUSTOM_AUTH_PROVIDER_ID } from '../constants';
 import { initProviderCatalog } from '../providerCatalog';
 
@@ -104,5 +104,48 @@ suite('getProviderSources baseUrl defaults from the catalog', () => {
 			s => s.provider.id === PROVIDER_METADATA.databricks.id
 		);
 		assert.strictEqual(databricks?.defaults.baseUrl, 'https://adb-123.4.azuredatabricks.net');
+	});
+});
+
+suite('the legacy openai-compatible provider', () => {
+	let dir: string;
+	let configPath: string;
+	let context: vscode.ExtensionContext;
+
+	setup(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'legacy-custom-provider-'));
+		configPath = path.join(dir, 'providers.json');
+		context = fakeContext();
+	});
+
+	teardown(() => {
+		for (const d of context.subscriptions) {
+			d.dispose();
+		}
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	test('getRegistrableProviderSources leaves it out when providers.json has no openai-compatible block', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, { configPath });
+
+		const ids = getRegistrableProviderSources().map(s => s.provider.id);
+		assert.ok(!ids.includes(PROVIDER_METADATA.customProvider.id));
+	});
+
+	test('getRegistrableProviderSources includes it once a baseUrl is saved under openai-compatible', async () => {
+		writeConfig(configPath, { 'openai-compatible': { baseUrl: 'https://localhost:1337/v1' } });
+		await initProviderCatalog(context, { configPath });
+
+		const ids = getRegistrableProviderSources().map(s => s.provider.id);
+		assert.ok(ids.includes(PROVIDER_METADATA.customProvider.id));
+	});
+
+	test('getProviderSources always includes it, so custom openai-compatible-kind entries still inherit its supportedOptions', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, { configPath });
+
+		const ids = getProviderSources().map(s => s.provider.id);
+		assert.ok(ids.includes(PROVIDER_METADATA.customProvider.id));
 	});
 });
