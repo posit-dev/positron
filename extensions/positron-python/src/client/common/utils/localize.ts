@@ -371,7 +371,7 @@ export namespace GlobalEnvironment {
     export const sessionPromptTitle = l10n.t('Create a global Python environment?');
     export const sessionPromptMessage = (interpreterLabel: string, venvPath: string) =>
         l10n.t(
-            '{0} is managed by your operating system or a package manager. Installing Python packages into it can break other software, so Positron can create a shared environment at {1} for use outside of projects.',
+            '{0} is managed by your operating system or a package manager. Installing Python packages into it can break other software. Positron can create a shared environment at {1} for use outside of projects.',
             interpreterLabel,
             venvPath,
         );
