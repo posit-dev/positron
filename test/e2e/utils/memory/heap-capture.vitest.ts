@@ -16,13 +16,16 @@ import { captureExtensionHostHeap, heapSidecarPath, heapSnapshotPath } from './h
  */
 class InspectorSocket implements WebSocketLike {
 	sent: string[] = [];
+	closed = false;
 	onmessage: ((event: { data: string }) => void) | null = null;
 	onerror: ((event: unknown) => void) | null = null;
 
 	constructor(
 		private readonly scripts: Record<string, string>,
 		private readonly chunks: string[],
-		private readonly failOn?: string
+		private readonly failOn?: string,
+		/** Undefined leaves `Runtime.evaluate` answering `{}`, as an old host without `process` would. */
+		private readonly pid?: number
 	) { }
 
 	send(data: string): void {
@@ -31,6 +34,10 @@ class InspectorSocket implements WebSocketLike {
 		queueMicrotask(() => {
 			if (method === this.failOn) {
 				this.emit({ id, error: { message: 'refused' } });
+				return;
+			}
+			if (method === 'Runtime.evaluate' && this.pid !== undefined) {
+				this.emit({ id, result: { result: { value: JSON.stringify({ pid: this.pid }) } } });
 				return;
 			}
 			if (method === 'Debugger.enable') {
@@ -51,7 +58,9 @@ class InspectorSocket implements WebSocketLike {
 		this.onmessage?.({ data: JSON.stringify(message) });
 	}
 
-	close(): void { }
+	close(): void {
+		this.closed = true;
+	}
 }
 
 const fakeFetch = () => vi.fn(async () => ({
@@ -85,6 +94,30 @@ describe('captureExtensionHostHeap', () => {
 			scriptUrls: { '1': 'file:///ext/copilot/main.js' },
 			extensionIds: {}
 		});
+	});
+
+	test('carries the self-reported extension host pid into the result and the sidecar', async () => {
+		const socket = new InspectorSocket({ '1': 'file:///a.js' }, ['{}'], undefined, 4242);
+
+		const captured = await captureExtensionHostHeap({
+			dir, launchIndex: 0, extensionRoots: [],
+			connect: async () => socket, fetchImpl: fakeFetch()
+		});
+
+		expect(captured.pid).toBe(4242);
+		expect(JSON.parse(readFileSync(heapSidecarPath(dir, 0), 'utf8')).pid).toBe(4242);
+	});
+
+	test('leaves the pid out when the inspector does not report one', async () => {
+		const socket = new InspectorSocket({ '1': 'file:///a.js' }, ['{}']);
+
+		const captured = await captureExtensionHostHeap({
+			dir, launchIndex: 0, extensionRoots: [],
+			connect: async () => socket, fetchImpl: fakeFetch()
+		});
+
+		expect(captured.pid).toBeUndefined();
+		expect(Object.keys(JSON.parse(readFileSync(heapSidecarPath(dir, 0), 'utf8')))).not.toContain('pid');
 	});
 
 	test('enables the debugger before taking the snapshot, so the script map is complete', async () => {
@@ -131,5 +164,29 @@ describe('captureExtensionHostHeap', () => {
 
 		expect(captured.captured).toBe(false);
 		expect(existsSync(heapSnapshotPath(dir, 0))).toBe(false);
+	});
+
+	// The inspector holds the connection open, so a leaked client would keep the
+	// extension host attached for the rest of the run.
+	test('closes the client after a successful capture', async () => {
+		const socket = new InspectorSocket({ '1': 'file:///a.js' }, ['{}']);
+
+		await captureExtensionHostHeap({
+			dir, launchIndex: 0, extensionRoots: [],
+			connect: async () => socket, fetchImpl: fakeFetch()
+		});
+
+		expect(socket.closed).toBe(true);
+	});
+
+	test('closes the client when the capture fails', async () => {
+		const socket = new InspectorSocket({}, [], 'HeapProfiler.takeHeapSnapshot');
+
+		await captureExtensionHostHeap({
+			dir, launchIndex: 0, extensionRoots: [],
+			connect: async () => socket, fetchImpl: fakeFetch()
+		});
+
+		expect(socket.closed).toBe(true);
 	});
 });
