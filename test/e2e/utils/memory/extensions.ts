@@ -5,6 +5,7 @@
 
 import { Dirent, promises as fs } from 'fs';
 import { join } from 'path';
+import { VERSION_SUFFIX } from './label.js';
 import { ActivatedExtension } from './types.js';
 
 /**
@@ -80,15 +81,14 @@ export async function readUserInstalledIds(extensionsDir: string): Promise<Set<s
 		return new Set(
 			entries
 				.filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
-				.map(entry => entry.name.replace(/-\d+\.\d+\.\d+.*$/, '').toLowerCase())
+				.map(entry => entry.name.replace(VERSION_SUFFIX, '').toLowerCase())
 		);
 	} catch {
 		return new Set();
 	}
 }
 
-/** Version suffix on user-installed extension directories: `posit.air-vscode-0.4.1`. */
-const DIRECTORY_VERSION = /-\d+\.\d+\.\d+.*$/;
+
 
 /**
  * Real extension id per extension directory name, e.g. `copilot` ->
@@ -115,7 +115,7 @@ export async function readExtensionIdsByDirectory(roots: string[]): Promise<Reco
 			try {
 				const manifest = JSON.parse(await fs.readFile(join(root, entry.name, 'package.json'), 'utf8'));
 				if (typeof manifest.publisher === 'string' && typeof manifest.name === 'string') {
-					ids[entry.name.replace(DIRECTORY_VERSION, '')] = `${manifest.publisher}.${manifest.name}`;
+					ids[entry.name.replace(VERSION_SUFFIX, '')] = `${manifest.publisher}.${manifest.name}`;
 				}
 			} catch {
 				continue;

@@ -43,8 +43,14 @@ export function normalizeProcessName(name: string): string {
 	return [...words, ...flags].join(' ');
 }
 
-/** Version suffixes an extension dir and an executable both carry. */
-const VERSION_SUFFIX = /-\d+(\.\d+)+.*$/;
+/**
+ * Version suffixes an extension dir and an executable both carry.
+ *
+ * Exported because heap attribution strips it from a directory name on one side
+ * of a lookup whose other side is built in extensions.ts; a second copy that
+ * drifted would silently miss and degrade real extension ids to directory names.
+ */
+export const VERSION_SUFFIX = /-\d+(\.\d+)+.*$/;
 
 /**
  * The token of a command line that sits inside some extension's directory.
