@@ -413,6 +413,9 @@ function ownersFromLocations(
 			unresolved++;
 			continue;
 		}
+		// deriveExtensionName appends the executable when it is not redundant
+		// with the directory ("copilot (main)"), so the split is required, not
+		// defensive: extension directory names contain no spaces.
 		const directory = deriveExtensionName(url)?.split(' ')[0];
 		if (directory === undefined) {
 			continue;
@@ -989,7 +992,17 @@ The script path yields a directory name (`copilot`, `positron-python`). The repo
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `test/e2e/utils/memory/extensions.vitest.ts`. Add `mkdtempSync`, `mkdirSync`, `writeFileSync`, `rmSync` from `fs`, `join` from `path`, and `tmpdir` from `os` to the imports, plus `readExtensionIdsByDirectory` to the `./extensions.js` import:
+Append to `test/e2e/utils/memory/extensions.vitest.ts`. It already imports
+`mkdirSync`, `mkdtempSync`, `writeFileSync`, `join`, and `tmpdir`. Extend three
+existing import lines:
+
+```ts
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { findExtHostLog, parseActivationLog, readExtensionIdsByDirectory } from './extensions.js';
+```
+
+Then append:
 
 ```ts
 describe('readExtensionIdsByDirectory', () => {
@@ -1301,7 +1314,7 @@ Create `test/e2e/utils/memory/heap-capture.ts`:
  * file is written here and read back in the render step.
  */
 
-import { mkdirSync, writeFileSync } from 'fs';
+import { appendFileSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { CdpClient, connectToInspector, defaultConnect, WsConnect } from './cdp.js';
 import { readExtensionIdsByDirectory } from './extensions.js';
@@ -1359,9 +1372,16 @@ export async function captureExtensionHostHeap(input: {
 		client.on('Debugger.scriptParsed', (params: { scriptId: string; url: string }) => {
 			scriptUrls[params.scriptId] = params.url;
 		});
-		const chunks: string[] = [];
+		// Appended as they arrive rather than joined at the end: a 354 MB
+		// snapshot as one string sits within striking distance of V8's max
+		// string length, and this runs while Positron is still live.
+		mkdirSync(input.dir, { recursive: true });
+		const snapshotPath = heapSnapshotPath(input.dir, input.launchIndex);
+		writeFileSync(snapshotPath, '');
+		let bytesWritten = 0;
 		client.on('HeapProfiler.addHeapSnapshotChunk', (params: { chunk: string }) => {
-			chunks.push(params.chunk);
+			appendFileSync(snapshotPath, params.chunk);
+			bytesWritten += params.chunk.length;
 		});
 
 		// Replays a scriptParsed for every already-loaded script. The replay
@@ -1374,7 +1394,8 @@ export async function captureExtensionHostHeap(input: {
 		await client.send('HeapProfiler.takeHeapSnapshot',
 			{ reportProgress: false, captureNumericValue: false }, SNAPSHOT_TIMEOUT_MS);
 
-		if (chunks.length === 0) {
+		if (bytesWritten === 0) {
+			rmSync(snapshotPath, { force: true });
 			console.log('[memory] extension host streamed no heap snapshot chunks; skipping the per-extension breakdown');
 			return false;
 		}
@@ -1384,12 +1405,12 @@ export async function captureExtensionHostHeap(input: {
 			extensionIds: await readExtensionIdsByDirectory(input.extensionRoots)
 		};
 
-		mkdirSync(input.dir, { recursive: true });
-		writeFileSync(heapSnapshotPath(input.dir, input.launchIndex), chunks.join(''));
 		writeFileSync(heapSidecarPath(input.dir, input.launchIndex), JSON.stringify(sidecar));
 		console.log(`[memory] captured extension host heap for launch ${input.launchIndex}: ${Object.keys(scriptUrls).length} scripts`);
 		return true;
 	} catch (error) {
+		// A partial snapshot would parse as garbage, so it goes with the failure.
+		rmSync(heapSnapshotPath(input.dir, input.launchIndex), { force: true });
 		console.log(`[memory] could not capture the extension host heap: ${error}`);
 		return false;
 	} finally {
@@ -1428,7 +1449,19 @@ A second summary table below the existing role table, in both the markdown and t
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `test/e2e/utils/memory/render.vitest.ts`. Reuse whatever snapshot factory that file already defines; the block below assumes a helper `snapshot(overrides)` returning a valid `MemorySnapshot`. If the existing file names it differently, use that name.
+Append to `test/e2e/utils/memory/render.vitest.ts`. That file's existing factory
+is positional -- `snapshot(procs, launchIndex, extensions)` -- and has no
+overrides parameter, so the tests below spread it rather than passing an object.
+Add `extensionHeapRows` to the `./render.js` import.
+
+```ts
+/** The existing factory takes no overrides, so the new field is spread on. */
+const withHeap = (extensionHeap?: ExtensionHeapBreakdown): MemorySnapshot =>
+	({ ...snapshot([proc()]), extensionHeap });
+```
+
+Add `ExtensionHeapBreakdown` to the `./types.js` import for that helper's
+signature.
 
 ```ts
 describe('extension host heap breakdown', () => {
@@ -1445,7 +1478,7 @@ describe('extension host heap breakdown', () => {
 	};
 
 	test('lists extensions above the floor, collapses the rest, and puts unattributed last', () => {
-		const rows = extensionHeapRows([snapshot({ extensionHeap: breakdown })]);
+		const rows = extensionHeapRows([withHeap(breakdown)]);
 
 		expect(rows.map(r => r.extensionId)).toEqual([
 			'GitHub.copilot-chat',
@@ -1458,15 +1491,13 @@ describe('extension host heap breakdown', () => {
 	});
 
 	test('reports change against the baseline, and "new" for an extension the baseline lacked', () => {
-		const baseline = snapshot({
-			extensionHeap: {
-				extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_200_000 }],
-				unattributedBytes: 189_200_000,
-				reachableBytes: 309_400_000
-			}
+		const baseline = withHeap({
+			extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_200_000 }],
+			unattributedBytes: 189_200_000,
+			reachableBytes: 309_400_000
 		});
 
-		const rows = extensionHeapRows([snapshot({ extensionHeap: breakdown })], baseline);
+		const rows = extensionHeapRows([withHeap(breakdown)], baseline);
 
 		expect(rows.find(r => r.extensionId === 'GitHub.copilot-chat')?.change).toBe('+300.0 KB');
 		expect(rows.find(r => r.extensionId === 'positron.positron-python')?.change).toBe('new');
@@ -1479,7 +1510,7 @@ describe('extension host heap breakdown', () => {
 	});
 
 	test('leaves change blank when the baseline predates the breakdown', () => {
-		const rows = extensionHeapRows([snapshot({ extensionHeap: breakdown })], snapshot({}));
+		const rows = extensionHeapRows([withHeap(breakdown)], withHeap());
 
 		expect(rows.every(r => r.change === '')).toBe(true);
 	});
@@ -1491,9 +1522,9 @@ describe('extension host heap breakdown', () => {
 			reachableBytes: 313_300_000
 		};
 		const rows = extensionHeapRows([
-			snapshot({ extensionHeap: breakdown }),
-			snapshot({ extensionHeap: withOnlyCopilot }),
-			snapshot({ extensionHeap: withOnlyCopilot })
+			withHeap(breakdown),
+			withHeap(withOnlyCopilot),
+			withHeap(withOnlyCopilot)
 		]);
 
 		expect(rows.find(r => r.extensionId === 'GitHub.copilot-chat')?.bytes).toBe(120_500_000);
@@ -1503,14 +1534,14 @@ describe('extension host heap breakdown', () => {
 	});
 
 	test('renders no table and says why when no launch produced a breakdown', () => {
-		const markdown = renderMarkdown([snapshot({})]);
+		const markdown = renderMarkdown([withHeap()]);
 
 		expect(markdown).not.toContain('Extension host heap');
 		expect(markdown).toContain('Per-extension breakdown unavailable');
 	});
 
 	test('renders the table in markdown when a breakdown is present', () => {
-		const markdown = renderMarkdown([snapshot({ extensionHeap: breakdown })]);
+		const markdown = renderMarkdown([withHeap(breakdown)]);
 
 		expect(markdown).toContain('### Extension host heap');
 		expect(markdown).toContain('`GitHub.copilot-chat`');
@@ -1518,7 +1549,7 @@ describe('extension host heap breakdown', () => {
 	});
 
 	test('renders the table in html when a breakdown is present', () => {
-		const html = renderHtml([snapshot({ extensionHeap: breakdown })]);
+		const html = renderHtml([withHeap(breakdown)]);
 
 		expect(html).toContain('Extension host heap');
 		expect(html).toContain('GitHub.copilot-chat');
@@ -1689,17 +1720,21 @@ Add the breakdown to the wire format, so the dashboard PR in the e2e-test-insigh
 
 - [ ] **Step 1: Write the failing test**
 
-Append to the `buildPayload` describe block in `test/e2e/utils/memory/publish.vitest.ts`, using that file's existing snapshot factory and `RunMeta` fixture:
+Append to the `buildPayload` describe block in
+`test/e2e/utils/memory/publish.vitest.ts`. That file's `snapshot` is a const
+object, not a factory, so the tests below spread it. `meta` is the existing
+`RunMeta` fixture.
 
 ```ts
 	test('carries the per-extension heap breakdown when a launch has one', () => {
-		const payload = buildPayload([snapshot({
+		const payload = buildPayload([{
+			...snapshot,
 			extensionHeap: {
 				extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_500_000 }],
 				unattributedBytes: 192_800_000,
 				reachableBytes: 313_300_000
 			}
-		})], meta);
+		}], meta);
 
 		expect(payload.launches[0].extension_heap).toEqual({
 			reachable_bytes: 313_300_000,
@@ -1709,16 +1744,17 @@ Append to the `buildPayload` describe block in `test/e2e/utils/memory/publish.vi
 	});
 
 	test('omits the key entirely when a launch has no breakdown, so an older endpoint is unaffected', () => {
-		const payload = buildPayload([snapshot({})], meta);
+		const payload = buildPayload([snapshot], meta);
 
 		expect('extension_heap' in payload.launches[0]).toBe(false);
 	});
 
 	test('publishes every extension rather than a top N, so the consumer picks the cutoff', () => {
 		const extensions = [...Array(40).keys()].map(i => ({ extensionId: `pub.ext-${i}`, retainedBytes: 1000 - i }));
-		const payload = buildPayload([snapshot({
+		const payload = buildPayload([{
+			...snapshot,
 			extensionHeap: { extensions, unattributedBytes: 1, reachableBytes: 2 }
-		})], meta);
+		}], meta);
 
 		expect(payload.launches[0].extension_heap?.extensions).toHaveLength(40);
 	});
