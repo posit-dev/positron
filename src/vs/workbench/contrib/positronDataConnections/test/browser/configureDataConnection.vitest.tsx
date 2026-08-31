@@ -16,7 +16,7 @@ import { IPathService } from '../../../../services/path/common/pathService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IDataConnectionDriver, IDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { ConfigureDataConnection } from '../../browser/dialogs/configureDataConnection.js';
 
@@ -38,7 +38,7 @@ describe('ConfigureDataConnection', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	// The dialog only subscribes to the renderer's resize event during render.
-	const renderer = stubInterface<PositronModalDialogReactRenderer>({ onResize: Event.None });
+	const renderer = stubInterface<PositronModalReactRenderer>({ onKeyDown: Event.None, onResize: Event.None });
 
 	const driver = stubInterface<IDataConnectionDriver>({
 		id: 'duckdb',

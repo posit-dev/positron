@@ -12,7 +12,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -75,6 +75,60 @@ describe('summarizeRegisteredRuntime', () => {
 	test('falls back to the raw path when there is no display path', () => {
 		const summary = summarizeRegisteredRuntime(makeRuntime({ runtimePath: '/usr/bin/python3' }));
 		expect(summary.runtimePath).toBe('/usr/bin/python3');
+	});
+});
+
+describe('summarizeActiveSession', () => {
+	function makeSession(sessionId: string, sessionName: string, runtimeId: string): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			sessionId,
+			runtimeMetadata: makeRuntime({ runtimeId }),
+			dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName }),
+			metadata: {
+				sessionId,
+				sessionMode: LanguageRuntimeSessionMode.Console,
+				notebookUri: undefined,
+				createdTimestamp: 0,
+				startReason: 'test',
+			},
+			getRuntimeState: () => RuntimeState.Idle,
+		});
+	}
+
+	test('projects the fields an agent needs and flags only the foreground session', () => {
+		const sessions = [
+			makeSession('py-session-1', 'Python 3.12', 'py-abc'),
+			makeSession('py-session-2', 'Python 3.12 (2)', 'py-abc'),
+		];
+
+		const summaries = sessions.map(session => summarizeActiveSession(session, 'py-session-1'));
+
+		expect(summaries).toMatchInlineSnapshot(`
+			[
+			  {
+			    "foreground": true,
+			    "languageId": "python",
+			    "languageName": "Python",
+			    "runtimeId": "py-abc",
+			    "runtimeName": "Python 3.12 (System)",
+			    "sessionId": "py-session-1",
+			    "sessionMode": "console",
+			    "sessionName": "Python 3.12",
+			    "state": "idle",
+			  },
+			  {
+			    "foreground": false,
+			    "languageId": "python",
+			    "languageName": "Python",
+			    "runtimeId": "py-abc",
+			    "runtimeName": "Python 3.12 (System)",
+			    "sessionId": "py-session-2",
+			    "sessionMode": "console",
+			    "sessionName": "Python 3.12 (2)",
+			    "state": "idle",
+			  },
+			]
+		`);
 	});
 });
 

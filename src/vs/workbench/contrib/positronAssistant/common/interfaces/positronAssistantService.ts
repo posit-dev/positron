@@ -86,7 +86,12 @@ export interface IPositronProviderMetadata {
 	 * 'preview', then 'experimental'.
 	 */
 	status?: 'preview' | 'experimental';
-	/** Optional data URL for the provider icon (e.g., data:image/svg+xml;base64,...) */
+	/**
+	 * Optional URL for the provider icon (e.g., data:image/svg+xml;base64,...).
+	 * It must be an icon with a transparent background (like a codicon): the new
+	 * provider modal recolors it to the theme foreground by using it as a CSS
+	 * mask, so an opaque image would mask to a solid theme-colored square.
+	 */
 	logoUrl?: string;
 }
 

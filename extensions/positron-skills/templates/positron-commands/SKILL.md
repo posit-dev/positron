@@ -3,17 +3,18 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes
   (Console, Variables, Plots, Help, Packages), clearing the console, opening a
-  file or data file in the right editor, listing or discovering registered
-  interpreters, restarting or interrupting a stuck session, setting up Python,
-  reading, installing or updating a session's packages, and reading the
-  connections configured in the Data Connections pane -- which code in the
-  session cannot see -- including a live connection's tables and columns. Use
-  when the user wants Positron itself to do something, or wants to know what is
-  installed, rather than to run R or Python code. Load this skill, then read the
-  reference file for the area in question. Triggers: "show the variables pane",
-  "open data.csv", "what interpreters are available", "my session is stuck", "is
-  pandas installed?", "update all my packages", "set up a Python environment",
-  "what databases am I connected to", "what tables are in my warehouse".
+  file or data file in the right editor, listing or discovering interpreters,
+  listing running sessions, switching or starting a session, restarting or
+  interrupting a stuck one, setting up Python, reading, installing or updating a
+  session's packages, and reading the connections configured in the Data
+  Connections pane -- which code in the session cannot see -- including a live
+  connection's tables and columns. Use when the user wants Positron itself to
+  act, or to know what is installed, rather than to run R or Python code. Then
+  read the reference file for the area in question. Triggers: "show the
+  variables pane", "open data.csv", "what interpreters are available", "switch
+  to my R session", "my session is stuck", "is pandas installed?", "update all
+  my packages", "set up a Python environment", "what databases am I connected
+  to", "what tables are in my warehouse".
 ---
 
 # Positron IDE commands
@@ -41,6 +42,12 @@ handing the task straight back to them. Read the relevant reference file first
 and use the id and arguments it gives you. If what the user wants is not covered
 by any file below, say so rather than reaching for an id from general VS Code
 knowledge.
+
+Some commands take or return an internal id -- a runtime id or a session id.
+These are opaque handles you pass back into another command; they are not shown
+anywhere in the Positron UI, so a user won't recognize one and it would only
+confuse them. Use ids to make the call, but never repeat one to the user. Refer
+to a session or interpreter by its name instead.
 
 ## When a command doesn't work
 
@@ -77,7 +84,13 @@ interpreters listed (Python, R, or another language), or needs Positron to
 rescan for newly installed environments. Also the place to find a base
 interpreter before creating an environment.
 
-**Sessions** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
+**Sessions** -- [references/sessions.md]({{skill_dir}}/references/sessions.md)
+Read when the user asks about: which sessions are running, switching to a
+different session, or starting a new one. Also explains the difference between
+console sessions and notebook sessions, which decides whether a session can be
+selected.
+
+**Stuck sessions and help** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
 Read when the user asks about a session that is stuck, needs interrupting, or
 needs restarting. Also covers looking up a help topic for a function or symbol.
 

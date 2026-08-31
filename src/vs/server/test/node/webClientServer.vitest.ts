@@ -10,15 +10,24 @@
 // agentHostServerMain.ts), which this plain Vitest run doesn't go through -- set it ourselves,
 // hoisted above the import so it's in place before webClientServer.ts's top-level code runs.
 // Avoids importing the `url` module here since vi.hoisted runs before this file's own imports.
-vi.hoisted(() => {
+const originalEnv = vi.hoisted(() => {
+	const env = {
+		RS_SERVER_URL: process.env['RS_SERVER_URL'],
+		RSTUDIO_VERSION: process.env['RSTUDIO_VERSION'],
+	};
 	globalThis._VSCODE_FILE_ROOT = new URL('../../../../..', import.meta.url).pathname;
+	process.env['RS_SERVER_URL'] = 'http://workbench.example.com';
+	process.env['RSTUDIO_VERSION'] = '2026.08.0';
+	return env;
 });
 
 // eslint-disable-next-line local/code-no-http-import
 import * as http from 'http';
 import * as net from 'net';
 import * as url from 'url';
+import { FileAccess } from '../../../base/common/network.js';
 import { mock, mockObject, upcastPartial } from '../../../base/test/common/mock.js';
+import { URI } from '../../../base/common/uri.js';
 import { ILogService, NullLogService } from '../../../platform/log/common/log.js';
 import { IServerEnvironmentService, ServerParsedArgs } from '../../node/serverEnvironmentService.js';
 import { IRequestService } from '../../../platform/request/common/request.js';
@@ -28,6 +37,19 @@ import { NoneServerConnectionToken } from '../../node/serverConnectionToken.js';
 import { WebClientServer } from '../../node/webClientServer.js';
 import { ISocketOwnershipCheck } from '../../node/socketOwnership.js';
 import { IPositronAcademicLicenseService } from '../../../platform/positronLicense/common/positronAcademicLicenseService.js';
+
+afterAll(() => {
+	if (originalEnv.RS_SERVER_URL === undefined) {
+		delete process.env['RS_SERVER_URL'];
+	} else {
+		process.env['RS_SERVER_URL'] = originalEnv.RS_SERVER_URL;
+	}
+	if (originalEnv.RSTUDIO_VERSION === undefined) {
+		delete process.env['RSTUDIO_VERSION'];
+	} else {
+		process.env['RSTUDIO_VERSION'] = originalEnv.RSTUDIO_VERSION;
+	}
+});
 
 // None of the tests below exercise real /proc reads -- getListeningPortUid/isProxyPortOwnershipEnforced
 // are stubbed via WebClientServer#setSocketOwnershipCheckForTesting -- so, unlike socketOwnership.vitest.ts,
@@ -65,13 +87,59 @@ function listen(server: http.Server | net.Server, port: number, host: string): P
 	});
 }
 
-describe('WebClientServer /proxy/ port ownership gate', () => {
+async function requestPath(webClientServer: WebClientServer, pathname: string): Promise<{ status: number | undefined; headers: http.IncomingHttpHeaders; body: string }> {
+	const frontServer = http.createServer((req, res) => {
+		const parsedUrl = url.parse(req.url!, true);
+		webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname!);
+	});
+	try {
+		await listen(frontServer, 0, '127.0.0.1');
+		const { port } = frontServer.address() as net.AddressInfo;
+		return await new Promise((resolve, reject) => {
+			http.get(`http://127.0.0.1:${port}${pathname}`, res => {
+				let body = '';
+				res.on('data', chunk => body += chunk);
+				res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body }));
+			}).on('error', reject);
+		});
+	} finally {
+		frontServer.close();
+	}
+}
 
+describe('WebClientServer /proxy/ port ownership gate', () => {
 	beforeEach(() => {
 		vi.spyOn(process, 'getuid').mockReturnValue(ourUid);
 	});
 
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	describe('handle()', () => {
+
+		it('serves the sessionless static callback through the callback handler', async () => {
+			const webClientServer = createWebClientServer({
+				getListeningPortUid: vi.fn(),
+				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(false),
+			});
+			const callbackFile = URI.file(`${process.cwd()}/src/vs/code/browser/workbench/callback.html`);
+			vi.spyOn(FileAccess, 'asFileUri').mockReturnValue(callbackFile);
+
+			const response = await requestPath(webClientServer, '/positron-static/callback-0/static/out/vs/code/browser/workbench/callback.html');
+
+			expect({
+				status: response.status,
+				cacheControl: response.headers['cache-control'],
+				hasCallbackCsp: typeof response.headers['content-security-policy'] === 'string',
+				hasCallbackBody: response.body.includes('vscode-web.url-callbacks'),
+			}).toEqual({
+				status: 200,
+				cacheControl: 'no-store',
+				hasCallbackCsp: true,
+				hasCallbackBody: true,
+			});
+		});
 
 		it('rejects with 403 when the port is owned by another uid, and logs a warning', async () => {
 			const ownershipCheck: ISocketOwnershipCheck = {

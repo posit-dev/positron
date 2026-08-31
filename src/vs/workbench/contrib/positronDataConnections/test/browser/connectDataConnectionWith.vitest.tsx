@@ -13,7 +13,7 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IUserInteractionService } from '../../../../../platform/userInteraction/browser/userInteractionService.js';
 import { UserInteractionService } from '../../../../../platform/userInteraction/browser/userInteractionServiceImpl.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { ConnectDataConnectionWith } from '../../browser/dialogs/connectDataConnectionWith.js';
@@ -28,7 +28,7 @@ describe('ConnectDataConnectionWith', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	const renderer = stubInterface<PositronModalDialogReactRenderer>({ onResize: Event.None });
+	const renderer = stubInterface<PositronModalReactRenderer>({ onKeyDown: Event.None, onResize: Event.None });
 
 	const driver = stubInterface<IDataConnectionDriver>({
 		id: 'test-driver',

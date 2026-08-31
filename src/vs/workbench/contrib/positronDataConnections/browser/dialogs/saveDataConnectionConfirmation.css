@@ -1,0 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Separates the consequences of saving into paragraphs, matching the Remove Connection confirmation
+ * so the two read alike when a user meets them in the same session.
+ */
+.save-data-connection-confirmation {
+	display: flex;
+	gap: 12px;
+	flex-direction: column;
+}

@@ -11,10 +11,11 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IPositronAssistantConfigurationService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
 import { ConfigureLLMProviders } from '../../browser/configureLLMProvidersModal.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { makeDialogRenderer } from './providerModalTestUtils.js';
 
 const positAi: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
@@ -46,27 +47,18 @@ describe('ConfigureLLMProviders', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	// PositronModalDialog only uses onKeyDown/onResize from the renderer; close() calls dispose().
-	function makeRenderer(): PositronModalReactRenderer {
-		return stubInterface<PositronModalReactRenderer>({
-			onKeyDown: new Emitter<KeyboardEvent>().event,
-			onResize: new Emitter<UIEvent>().event,
-			dispose: () => { },
-		});
-	}
-
 	function renderModal(
 		sources: IPositronLanguageModelSource[],
 		preselectedProviderId?: string,
 		onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void> = async () => { },
+		renderer: PositronModalReactRenderer = makeDialogRenderer(),
 	) {
 		return rtl.render(
 			<ConfigureLLMProviders
 				preselectedProviderId={preselectedProviderId}
-				renderer={makeRenderer()}
+				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
-				onClose={() => { }}
 			/>
 		);
 	}
@@ -161,19 +153,47 @@ describe('ConfigureLLMProviders', () => {
 		expect(screen.queryByText(/connected via/i)).not.toBeInTheDocument();
 	});
 
-	it('shows Close without Back on the list view, and Back on the connect view', async () => {
+	it('shows no Back on the list view, and Back on the connect view', async () => {
 		const user = userEvent.setup();
 		renderModal([anthropic]);
-		expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: /connect/i }));
 		expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
 	});
 
-	it('cancels an in-flight OAuth sign-in when Back returns to the list', async () => {
+	it('gives the list view no footer, so dismissal is the title bar close button', () => {
+		renderModal([anthropic]);
+		expect(screen.getByRole('button', { name: 'Close' })).toHaveClass('title-bar-close-button');
+	});
+
+	// Closing the modal unmounts the React tree, which is what the connect view
+	// hangs its cancel off, so dismissal aborts the device flow rather than
+	// orphaning it.
+	it('cancels an in-flight OAuth sign-in when the modal unmounts', async () => {
+		let resolveSignIn = () => { };
+		const onAction = vi.fn().mockImplementation((_source, _config, action) =>
+			action === 'oauth-signin' ? new Promise<void>(resolve => { resolveSignIn = resolve; }) : Promise.resolve());
+		const user = userEvent.setup();
+		const { unmount } = renderModal([positAi], undefined, onAction);
+
+		// The list row opens the connect view; its footer button starts the sign-in.
+		await user.click(screen.getByRole('button', { name: /connect/i }));
+		await user.click(screen.getByRole('button', { name: 'Connect' }));
+		expect(onAction.mock.calls.map(([, , action]) => action)).toStrictEqual(['oauth-signin']);
+
+		unmount();
+
+		expect(onAction.mock.calls.map(([, , action]) => action)).toStrictEqual(['oauth-signin', 'cancel']);
+		expect(onAction).toHaveBeenCalledWith(positAi, expect.anything(), 'cancel');
+		await act(async () => { resolveSignIn(); });
+	});
+
+	// Back unmounts the connect view, so it cancels through the same path a close
+	// does. The count matters: cancelling twice sends a second cancel to the provider.
+	it('cancels an in-flight OAuth sign-in exactly once when Back returns to the list', async () => {
 		const user = userEvent.setup();
 		const actions: string[] = [];
-		// Leave the sign-in pending so the connect view keeps reporting its cancel handler.
+		// Leave the sign-in pending so it is still in flight when Back is clicked.
 		const onAction = (_s: IPositronLanguageModelSource, _c: IPositronLanguageModelConfig, action: string) => {
 			actions.push(action);
 			return action === 'oauth-signin' ? new Promise<void>(() => { }) : Promise.resolve();
