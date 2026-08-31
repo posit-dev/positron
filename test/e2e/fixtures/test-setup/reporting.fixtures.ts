@@ -25,6 +25,11 @@ export interface TracingOptions {
 	testInfo: playwright.TestInfo;
 }
 
+export interface AttachCrashDumpsToReportOptions {
+	crashesPath: string;
+	testInfo: playwright.TestInfo;
+}
+
 export function AttachScreenshotsToReportFixture() {
 	return async (options: AttachScreenshotsToReportOptions, use: (arg0: void) => Promise<void>) => {
 		const { app, testInfo } = options;
@@ -87,6 +92,52 @@ export function AttachLogsToReportFixture() {
 			await attachDockerLogsToReport(logsPath, testInfo);
 		} else {
 			await attachLocalLogsToReport(logsPath, testInfo);
+		}
+	};
+}
+
+/**
+ * Dumps already attached by this worker. `crashesPath` is per worker, so without
+ * this every test after a crash re-attaches the same minidump.
+ */
+const attachedCrashDumps = new Set<string>();
+
+/**
+ * Attach any Electron minidump written during this test to the report, so a
+ * native crash arrives with the failure instead of only in the job's artifacts.
+ *
+ * Deliberately does not wait for a dump: crashpad writes asynchronously, and
+ * polling on every test to catch the rare late write would cost more than it
+ * saves. A dump that lands after teardown is still picked up by the workflow's
+ * `.build/crashes` upload.
+ */
+export function AttachCrashDumpsToReportFixture() {
+	return async (options: AttachCrashDumpsToReportOptions, use: (arg0: void) => Promise<void>) => {
+		const { crashesPath, testInfo } = options;
+
+		await use();
+
+		let dumps: string[];
+		try {
+			dumps = (await fs.promises.readdir(crashesPath, { recursive: true, withFileTypes: true }))
+				.filter(entry => entry.isFile())
+				.map(entry => path.join(entry.parentPath, entry.name))
+				.filter(file => !attachedCrashDumps.has(file));
+		} catch {
+			// No crashes directory means no crash: the common case.
+			return;
+		}
+
+		for (const dump of dumps) {
+			attachedCrashDumps.add(dump);
+			try {
+				await testInfo.attach(`crash-dump-${path.basename(dump)}`, {
+					path: dump,
+					contentType: 'application/octet-stream',
+				});
+			} catch (err) {
+				console.error(`Failed to attach crash dump ${dump}:`, err);
+			}
 		}
 	};
 }
