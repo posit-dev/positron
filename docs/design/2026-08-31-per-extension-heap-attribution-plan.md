@@ -1504,7 +1504,7 @@ describe('extension host heap breakdown', () => {
 	});
 
 	test('leaves change blank when there is no baseline at all', () => {
-		const rows = extensionHeapRows([snapshot({ extensionHeap: breakdown })]);
+		const rows = extensionHeapRows([withHeap(breakdown)]);
 
 		expect(rows.every(r => r.change === '')).toBe(true);
 	});
