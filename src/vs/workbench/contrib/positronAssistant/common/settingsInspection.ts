@@ -81,9 +81,31 @@ export function matchesSensitiveKey(key: string, matcher: ISensitiveKeyMatcher):
 	if (matcher.exactKeys?.includes(key.toLowerCase())) {
 		return true;
 	}
-	const segment = key.split('.').pop()?.toLowerCase() ?? '';
-	return matcher.segments.some(sensitive => segment.includes(sensitive))
-		|| (matcher.exactSegments?.includes(segment) ?? false);
+	const segment = key.split('.').pop() ?? '';
+
+	// Names arrive in many casings, especially the property names inside object
+	// values: apiKey, API_KEY, OPENAI_API_KEY, accessKeyId. Substring tokens
+	// match with separators stripped, so api_key reads as apikey.
+	const compact = segment.toLowerCase().replace(/[^a-z0-9]/g, '');
+	if (matcher.segments.some(sensitive => compact.includes(sensitive))) {
+		return true;
+	}
+
+	// Exact tokens match any whole word after splitting on separators and
+	// camelCase boundaries, so aws_access_key_id and accessKeyId both expose a
+	// 'key' word -- while defaultInterpreterPath stays clear ('path' is not
+	// 'pat') and sendKeybindingsToShell stays clear ('keybindings' is not
+	// 'key'). Whole words on purpose: these tokens are too short to be safe as
+	// substrings.
+	if (!matcher.exactSegments) {
+		return false;
+	}
+	const words = segment
+		.replace(/(?<=[a-z0-9])(?=[A-Z])/g, ' ')
+		.toLowerCase()
+		.split(/[^a-z0-9]+/)
+		.filter(word => word.length > 0);
+	return words.some(word => matcher.exactSegments!.includes(word));
 }
 
 /**

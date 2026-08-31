@@ -58,6 +58,35 @@ describe('matchesSensitiveKey', () => {
 			sshAuthority: false,
 		});
 	});
+	it('matches credential names across snake_case, SCREAMING_SNAKE, and camelCase', () => {
+		// Property names inside object values arrive in every casing convention.
+		// Substring tokens match with separators stripped (api_key reads as
+		// apikey); the short exact tokens match whole words after splitting on
+		// separators and camelCase boundaries (aws_access_key_id and accessKeyId
+		// both expose a 'key' word). PATH proves 'pat' still needs a whole word,
+		// and the two guards from the tests above keep holding under the same
+		// splitting.
+		const matches = (key: string) => matchesSensitiveKey(key, PAYLOAD_SENSITIVE_KEYS);
+
+		expect({
+			apiKeySnake: matches('API_KEY'),
+			apiKeyPrefixed: matches('OPENAI_API_KEY'),
+			accessKeySnake: matches('AWS_ACCESS_KEY_ID'),
+			accessKeyCamel: matches('accessKeyId'),
+			path: matches('PATH'),
+			interpreterPath: matches('python.defaultInterpreterPath'),
+			keybindings: matches('terminal.integrated.sendKeybindingsToShell'),
+		}).toEqual({
+			apiKeySnake: true,
+			apiKeyPrefixed: true,
+			accessKeySnake: true,
+			accessKeyCamel: true,
+			path: false,
+			interpreterPath: false,
+			keybindings: false,
+		});
+	});
+
 	it('redacts known credential-bearing keys whole, without touching their neighbors', () => {
 		// http.proxy is a URL that may embed user:password@host inline, and the
 		// terminal env maps hold environment variables that are frequently
