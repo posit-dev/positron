@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { IDataConnectionDriver, IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
@@ -23,7 +23,7 @@ import { IDataConnectionDriver, IDataConnectionDriverMetadata } from '../../../.
  */
 interface SelectDataConnectionProviderProps {
 	// The renderer.
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 
 	// Called when the user selects a driver and clicks Next.
 	onNext: (selectedDriver: IDataConnectionDriver) => void;
@@ -257,7 +257,6 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 			)}
 			width={492}
 			onCancel={cancelHandler}
-			onSubmit={nextHandler}
 		/>
 	);
 };

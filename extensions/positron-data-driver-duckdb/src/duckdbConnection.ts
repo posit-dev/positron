@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { duckDBWorkerPool, IDuckDBWorkerLease, IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
 import { createSchemasGroupNode, IDuckDBPreviewHost } from './duckdbNodes.js';
 
@@ -12,6 +13,23 @@ export const DUCKDB_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-duckdb';
 
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
 let nextConnectionId = 1;
+
+/** Matches the native error DuckDB raises when another process already holds the file's lock. */
+const LOCK_CONFLICT_PATTERN = /could not set lock|conflicting lock/i;
+
+/**
+ * Formats an open failure for display. DuckDB takes an OS-level lock on a database file and allows
+ * it to be open in more than one process only when every one of them opens it read-only, so a lock
+ * conflict -- the Data Connections panel and a Python or R session both wanting the same file --
+ * gets an explanation of that rule rather than just the native error, whose text describes the
+ * holding process as a Positron helper or a bare interpreter path.
+ */
+function openFailureMessage(databasePath: string, detail: string): string {
+	if (LOCK_CONFLICT_PATTERN.test(detail)) {
+		return vscode.l10n.t('Could not open the DuckDB database "{0}" because another session has it locked. DuckDB allows a database file to be open in more than one session only when every one of them opens it read-only, so either close the other connection or open the database read-only in both places. {1}', databasePath, detail);
+	}
+	return vscode.l10n.t('Failed to open DuckDB database: {0}. {1}', databasePath, detail);
+}
 
 /**
  * Connection configuration passed from the driver.
@@ -83,8 +101,9 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 		} catch (err: any) {
 			// Release the lease so the worker is torn down if we were the only one holding it.
 			lease.release();
-			this._logger?.error(`Failed to open ${databasePath}: ${err?.message ?? err}`);
-			throw new Error(`Failed to open DuckDB database: ${databasePath}. ${err?.message ?? err}`);
+			const detail = err?.message ?? String(err);
+			this._logger?.error(`Failed to open ${databasePath}: ${detail}`);
+			throw new Error(openFailureMessage(databasePath, detail));
 		}
 
 		this._logger?.info(`Opened ${databasePath}`);
@@ -171,7 +190,7 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	// Throws if the database has been disconnected.
 	private _ensureConnected(): void {
 		if (!this._lease) {
-			throw new Error('Database connection is closed');
+			throw new Error(vscode.l10n.t('Database connection is closed'));
 		}
 	}
 }

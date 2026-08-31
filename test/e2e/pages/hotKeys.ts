@@ -256,13 +256,31 @@ export class HotKeys {
 	}
 
 	public async reloadWindow(waitForReady = false) {
-		await this.pressHotKeys('Cmd+B R', 'Reload window');
+		const page = this.code.driver.currentPage;
 
-		// wait for workbench to disappear, reappear and be ready
-		await this.code.driver.currentPage.waitForTimeout(3000);
-		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		// Arm the navigation listener before triggering the reload: the old DOM stays
+		// visible (with no startup messaging) for a beat after the keypress, so any
+		// readiness gate that polls immediately would pass against the pre-reload page.
+		// The main frame navigating is the deterministic signal that the reload
+		// actually happened. (Filter to the main frame: webview iframes navigate too.)
+		const navigated = page.waitForEvent('framenavigated', frame => frame === page.mainFrame());
+		await this.pressHotKeys('Cmd+B R', 'Reload window');
+		await navigated;
+
+		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+
+		// Wait for the workbench lifecycle to reach Restored (the same positive signal
+		// Application#checkPositronReady gates launch on). External browsers (Posit
+		// Workbench, Jupyter) don't run with --enable-smoke-test-driver, so window.driver
+		// is unavailable there.
+		if (!this.isExternalBrowser()) {
+			await this.code.whenWorkbenchRestored();
+		}
+
 		if (waitForReady) {
-			await expect(this.code.driver.currentPage.locator(STARTUP_MESSAGING_SELECTOR)).toHaveCount(0, { timeout: STARTUP_MESSAGING_TIMEOUT });
+			// Only after the restored gate above is this asserting "startup messaging has
+			// cleared" rather than trivially passing before it has rendered at all.
+			await expect(page.locator(STARTUP_MESSAGING_SELECTOR)).toHaveCount(0, { timeout: STARTUP_MESSAGING_TIMEOUT });
 		}
 	}
 

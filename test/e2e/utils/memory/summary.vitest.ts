@@ -20,6 +20,7 @@ const proc = (overrides: Partial<LabeledProcess> = {}): LabeledProcess => ({
 	labeled: true, cmdBasename: 'positron', pssBytes: 100 * MB, rssBytes: 200 * MB,
 	pssMin: 100 * MB, pssMax: 100 * MB,
 	pssSamples: [100 * MB, 100 * MB, 100 * MB], rssSamples: [200 * MB, 200 * MB, 200 * MB],
+	forcedGc: false,
 	...overrides
 });
 
@@ -341,6 +342,33 @@ describe('renderSummaryHtml', () => {
 		]));
 		expect(extHostOnly).toContain('<code>extension_host</code><span class="fn-marker">*</span>');
 		expect(extHostOnly).toContain('<code>shared</code></td>');
+	});
+
+	test('daggers a row absent from idle, and only that row', () => {
+		const entries: ScenarioSnapshots[] = [
+			scenarioEntry('idle', [proc({ processRole: 'main', pssBytes: 100 * MB })]),
+			scenarioEntry('session-python', [
+				proc({ processRole: 'main', pssBytes: 100 * MB }),
+				proc({ pid: 2, processRole: 'kernel', pssBytes: 50 * MB }),
+			]),
+		];
+		const html = renderSummaryHtml(buildSummaryMatrix(entries));
+		expect(html).toContain('<span class="value">50.0 MB</span><span class="baseline-marker">&dagger;</span>');
+		// main has an idle reading, so its value never carries the dagger.
+		expect(html).toContain('<span class="value">100.0 MB</span></span>');
+		expect(html).not.toContain('<span class="value">100.0 MB</span><span class="baseline-marker">');
+		// Under the table it qualifies, not in the copy above it.
+		expect(html.indexOf('Process not present in the idle baseline')).toBeGreaterThan(html.indexOf('</table>'));
+	});
+
+	test('omits the dagger and its footnote when every role has an idle reading', () => {
+		const entries: ScenarioSnapshots[] = [
+			scenarioEntry('idle', [proc({ processRole: 'main', pssBytes: 100 * MB })]),
+			scenarioEntry('session-python', [proc({ processRole: 'main', pssBytes: 105 * MB })]),
+		];
+		const html = renderSummaryHtml(buildSummaryMatrix(entries));
+		expect(html).not.toContain('<span class="baseline-marker">');
+		expect(html).not.toContain('Process not present in the idle baseline');
 	});
 
 	test('shows the GC note when a snapshot carries a forced-GC reading, not otherwise', () => {

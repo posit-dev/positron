@@ -9,29 +9,18 @@ import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
 import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execUv } from './uv';
 import { Commands } from '../../../common/constants';
-import { Common, GlobalEnvironment, InterpreterQuickPickList } from '../../../common/utils/localize';
+import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
 import { ExistingVenvAction, deleteEnvironment, pickExistingVenvAction } from '../../creation/provider/venvUtils';
 import { getVenvExecutable, hasVenv } from '../../creation/common/commonUtils';
 import { MultiStepAction } from '../../../common/vscodeApis/windowApis';
 import { refreshEnvironments } from '../../../envExt/api.internal';
-import { createGlobalEnvironment, GlobalEnvironmentResult } from './globalEnvironment';
-
-/**
- * Message to show when the global environment could not be created.
- * @param result A non-`created` outcome from `createGlobalEnvironment()`.
- */
-function globalEnvironmentErrorMessage(result: Exclude<GlobalEnvironmentResult, { outcome: 'created' }>): string {
-    switch (result.outcome) {
-        case 'occupied':
-            return GlobalEnvironment.occupied(result.venvDir);
-        case 'unsupported':
-            return GlobalEnvironment.unsupported();
-        default:
-            return GlobalEnvironment.creationFailed(result.venvDir);
-    }
-}
+import {
+    createGlobalEnvironment,
+    globalEnvironmentErrorMessage,
+    promptForGlobalEnvironment,
+} from './globalEnvironment';
 
 /**
  * Shows an error notification for the uv Python install flow with a button that
@@ -104,6 +93,47 @@ async function installUv(): Promise<boolean> {
         traceError(`Failed to install uv: ${error}`);
         return false;
     }
+}
+
+/**
+ * Outcome of making sure uv is available.
+ *
+ * `error` is a message the caller should surface; it is absent when the user simply
+ * declined the install, which is not a failure worth a notification. Callers differ
+ * in how they show it -- `installPythonViaUv()` returns it upward for
+ * `handleInstallPythonResult` to display -- so this deliberately shows nothing itself.
+ */
+export type EnsureUvResult = { ok: true } | { ok: false; error?: string };
+
+/**
+ * Makes sure uv is available, prompting for consent and installing it if it is not.
+ *
+ * @param onInstalling Called only when uv is actually missing and about to be
+ *   installed, so callers can report progress without claiming to install uv that
+ *   is already there.
+ */
+export async function ensureUvInstalled(onInstalling?: () => void): Promise<EnsureUvResult> {
+    if (await isUvInstalled()) {
+        return { ok: true };
+    }
+
+    onInstalling?.();
+
+    if (!(await installUv())) {
+        // User declined or installation failed - exit silently
+        return { ok: false };
+    }
+
+    // Verify uv is now reachable. The installer drops the binary at a known
+    // location and updates shell rc files, but those PATH changes don't reach
+    // the running extension host. isUvInstalled() also probes uv's known
+    // install locations; if it still can't be found, surface an actionable
+    // message instead of the misleading "no versions available" error later.
+    if (!(await isUvInstalled())) {
+        return { ok: false, error: InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall };
+    }
+
+    return { ok: true };
 }
 
 /**
@@ -277,20 +307,11 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
         async (progress) => {
             try {
                 // Install uv if needed
-                if (!(await isUvInstalled())) {
-                    progress.report({ message: InterpreterQuickPickList.UvInstall.installingUv });
-                    if (!(await installUv())) {
-                        // User declined or installation failed - exit silently
-                        return { success: false };
-                    }
-                    // Verify uv is now reachable. The installer drops the binary at a known
-                    // location and updates shell rc files, but those PATH changes don't reach
-                    // the running extension host. isUvInstalled() also probes uv's known
-                    // install locations; if it still can't be found, surface an actionable
-                    // message instead of the misleading "no versions available" error later.
-                    if (!(await isUvInstalled())) {
-                        return { success: false, error: InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall };
-                    }
+                const uvReady = await ensureUvInstalled(() =>
+                    progress.report({ message: InterpreterQuickPickList.UvInstall.installingUv }),
+                );
+                if (!uvReady.ok) {
+                    return { success: false, error: uvReady.error };
                 }
 
                 // Select and install Python version
@@ -352,17 +373,35 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                         }
                     }
                 } else {
-                    // No workspace - create the global environment at $WORKON_HOME/positron
-                    // (default ~/.virtualenvs/positron), a directory every locator already scans.
-                    // Nothing already at that path is reused, upgraded, or deleted.
-                    progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
-                    const globalResult = await createGlobalEnvironment(selected.version);
-                    if (globalResult.outcome === 'created') {
-                        resolvedPath = globalResult.pythonPath;
-                        venvWasCreated = true;
-                    } else {
-                        await showUvInstallError(globalEnvironmentErrorMessage(globalResult));
+                    // No folder open. The question this flow is really asking is where the
+                    // environment should live, so lead with "Open Folder..." and only create
+                    // the global environment at $WORKON_HOME/positron (default
+                    // ~/.virtualenvs/positron) when the user asks for it. Nothing already at
+                    // that path is reused, upgraded, or deleted.
+                    const choice = await promptForGlobalEnvironment();
+
+                    if (choice === 'openFolder') {
+                        // The user asked to open a folder, so this window is done: if they
+                        // pick one, the window reloads. Registering the interpreter here
+                        // would start a session in a window they are leaving. The Python
+                        // just installed persists on disk, so the folder's window picks it
+                        // up. 'Cancelled' suppresses the error toast.
+                        return { success: false, error: 'Cancelled' };
                     }
+
+                    if (choice === 'create') {
+                        progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
+                        const globalResult = await createGlobalEnvironment(selected.version);
+                        if (globalResult.outcome === 'created') {
+                            resolvedPath = globalResult.pythonPath;
+                            venvWasCreated = true;
+                        } else {
+                            await showUvInstallError(globalEnvironmentErrorMessage(globalResult));
+                        }
+                    }
+
+                    // 'dismiss' leaves resolvedPath on the base uv interpreter, which is the
+                    // same fallback a failed creation takes.
                 }
 
                 // Trigger a refresh of Python environments so the new interpreter is discovered

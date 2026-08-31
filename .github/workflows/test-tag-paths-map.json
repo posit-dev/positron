@@ -135,6 +135,7 @@
   "src/vs/platform/extensions/common/positronExtensionValidator.ts": ["@:extensions"],
   "src/vs/platform/markers/": ["@:problems"],
   "src/vs/platform/policy/": [],
+  "src/vs/platform/policy/common/adminPolicyService.ts": ["@:workbench"],
   "src/vs/platform/positronActionBar/": [],
   "src/vs/platform/positronAiProvider/": ["@:assistant"],
   "src/vs/platform/positronDocs/": [],
@@ -173,6 +174,8 @@
   "src/vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomePage/": ["@:welcome"],
   "src/vs/workbench/contrib/welcomeGettingStarted/common/gettingStartedPositronNotebookContent.ts": ["@:welcome"],
   "src/vs/workbench/services/actions/": ["@:assistant"],
+  "src/vs/workbench/services/encryption/": [],
+  "src/vs/workbench/services/encryption/browser/browserEncryptionService.ts": ["@:web"],
   "src/vs/workbench/services/notification/": [],
   "src/vs/workbench/services/themes/": [],
   "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": []

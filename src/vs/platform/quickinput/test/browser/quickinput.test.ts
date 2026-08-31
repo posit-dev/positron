@@ -144,21 +144,20 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 		assert.strictEqual(modalContent.inert, false);
 	});
 
-	test('quick input reparents into a native <dialog> modal so it renders above the top layer', () => {
-		// The native <dialog> renderer uses showModal(), placing the dialog in the browser top layer;
-		// the quick input must become a descendant of it to appear above and be focusable.
-		const dialog = document.createElement('dialog');
-		dialog.className = 'positron-modal-dialog';
-		dialog.setAttribute('open', '');
+	test('quick input reparents into the newer dynamic modal dialog', () => {
+		// The newer dialog component renders a .positron-dynamic-modal-dialog-box; the quick input has
+		// to be a descendant of it to be inside its focus scope.
+		const dialogBox = document.createElement('div');
+		dialogBox.className = 'positron-dynamic-modal-dialog-box';
 		const modalContent = document.createElement('button');
-		dialog.appendChild(modalContent);
-		controller.container.appendChild(dialog);
-		store.add(toDisposable(() => dialog.remove()));
+		dialogBox.appendChild(modalContent);
+		controller.container.appendChild(dialogBox);
+		store.add(toDisposable(() => dialogBox.remove()));
 
 		const quickpick = store.add(controller.createQuickPick());
 
 		quickpick.show();
-		assert.ok(dialog.querySelector('.quick-input-widget'), 'quick input should be reparented into the dialog');
+		assert.ok(dialogBox.querySelector('.quick-input-widget'), 'quick input should be reparented into the dialog');
 		assert.strictEqual(modalContent.inert, true);
 
 		quickpick.hide();

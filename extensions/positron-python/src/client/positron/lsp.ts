@@ -37,19 +37,13 @@ const QUARTO_CELLS_NOTEBOOK_TYPE = 'quarto-cells';
 // Matches the path of a Quarto or R Markdown document.
 const QUARTO_PATH_PATTERN = /\.(qmd|rmd)$/i;
 
-// Selector for the cells of Quarto virtual notebooks. A cell URI keeps the path
-// of the Quarto document the notebook was built from, so restricting the pattern
-// to Quarto extensions keeps the cells of real notebooks (.ipynb) out.
-//
-// `.Rmd` belongs here as much as `.qmd` does. R Markdown runs more than one
-// engine, so a Python chunk in an `.Rmd` is ordinary (see
-// test/e2e/test-files/workspaces/visual-mode/visual-mode.rmd). This never claims
-// the `.Rmd` document itself: that is `file` scheme with the `quarto` language,
-// and all three filters here have to match.
+// Selector for the cells of Quarto virtual notebooks. Matching the notebook's
+// type keeps the cells of real notebooks (.ipynb) out, since no other notebook
+// carries this type. This covers `.Rmd` documents as well as `.qmd` ones: core
+// builds a hidden notebook for both, so both arrive here.
 const QUARTO_CELL_SELECTOR = {
+    notebook: { notebookType: QUARTO_CELLS_NOTEBOOK_TYPE },
     language: 'python',
-    scheme: 'vscode-notebook-cell',
-    pattern: '**/*.{qmd,QMD,rmd,Rmd,RMD}',
 };
 
 /**
@@ -60,7 +54,9 @@ function isQuartoVirtualCell(document: vscode.TextDocument): boolean {
         return false;
     }
     return vscode.workspace.notebookDocuments.some(
-        (notebook) => notebook.notebookType === QUARTO_CELLS_NOTEBOOK_TYPE && notebook.uri.path === document.uri.path,
+        (notebook) =>
+            notebook.notebookType === QUARTO_CELLS_NOTEBOOK_TYPE &&
+            notebook.getCells().some((cell) => cell.document.uri.toString() === document.uri.toString()),
     );
 }
 
@@ -156,8 +152,8 @@ export class PythonLsp implements vscode.Disposable {
 
         // Matches the cells of this client's own notebook.
         //
-        // Skipped for Quarto sessions, whose notebook URI is the path of the .qmd
-        // document. The only Python documents with that path are the cells of the
+        // Skipped for Quarto sessions, whose session URI is the .qmd document.
+        // The only Python documents under that path are the cells of the
         // document's virtual notebook, and the console client serves those, so
         // matching them here would only duplicate it. For a real notebook (.ipynb)
         // this is what matches the notebook's own cells.

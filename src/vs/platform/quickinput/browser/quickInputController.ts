@@ -163,8 +163,8 @@ export class QuickInputController extends Disposable {
 	private positronModalInertElements: HTMLElement[] = [];
 
 	/**
-	 * Special handling for Positron modals. Reparents the quick input into the modal so it
-	 * renders above the dialog, and marks the modal's other children `inert` so the dialog
+	 * Special handling for Positron modals. Reparents the quick input into the modal so it is
+	 * inside the dialog's focus scope, and marks the modal's other children `inert` so the dialog
 	 * can't be interacted with while the quick pick is open (matching the desktop modality
 	 * users get from a native OS file picker). Unnecessarily reparenting causes focus problems
 	 * with the quick input, so the reparent itself is gated on the parent already being correct.
@@ -176,7 +176,7 @@ export class QuickInputController extends Disposable {
 				// a Positron modal is open, the quick pick will need to set its parent to it
 				dom.append(modalContainer, this.ui.container);
 				this.ui.container.style.position = 'fixed'; // modal hides overflow so this positions it so that nothing is hidden
-				this.ui.container.style.zIndex = 'auto'; // sets it above the modal since it is a child
+				this.ui.container.style.zIndex = 'auto'; // paint in DOM order inside the dialog rather than at 2550 outside it
 				// close the quick pick if the modal closed
 				new MutationObserver((_mutations, observer) => {
 					if (this.ui && !modalContainer.contains(this.ui.container)) {
@@ -201,31 +201,27 @@ export class QuickInputController extends Disposable {
 	}
 
 	/**
-	 * Finds the open Positron modal (if any) that the quick input should render inside so it paints
-	 * above the dialog and participates in its focus scope. Two modal renderers exist:
+	 * Finds the open Positron modal dialog (if any) that the quick input should render inside.
 	 *
-	 * - The native <dialog> renderer calls showModal(), which places the dialog in the browser top
-	 *   layer. A top-layer element beats any z-index, so the quick input can only appear above it (and
-	 *   be focusable past the dialog's focus trap) by being a DOM descendant of the <dialog>. Preferred
-	 *   when present; the <dialog> is styled with overflow: visible so the quick input is not clipped.
-	 * - The older div-overlay renderer (.positron-modal-dialog-box) is an ordinary z-indexed element;
-	 *   reparenting into it works the same way and is kept as a fallback.
+	 * Positron modal dialogs are ordinary z-indexed elements, so the quick input at z-index 2550
+	 * already paints above them. Reparenting is about focus, not painting: the dialog traps Tab
+	 * inside itself, and its renderer drives focus into its own overlay, so a quick input left
+	 * outside the dialog cannot be reached or typed into. Being a descendant puts it inside the
+	 * dialog's focus scope.
+	 *
+	 * Two dialog components exist and both are handled: the newer
+	 * `.positron-dynamic-modal-dialog-box` and the older `.positron-modal-dialog-box`. When dialogs
+	 * are stacked the last one in DOM order is the top-most, which is the one to host.
 	 *
 	 * @returns The element to host the quick input, or undefined when no Positron modal is open.
 	 */
 	private getPositronModalContainer(): HTMLElement | undefined {
-		// Prefer the top-most native <dialog>. showModal() sets the `open` attribute; when dialogs are
-		// nested the last one in DOM order is the top-most in the browser top layer.
 		// eslint-disable-next-line no-restricted-syntax -- the modal DOM is built by a separate renderer, so it must be located by selector rather than dom.ts h()
-		const dialogs = this.layoutService.activeContainer.querySelectorAll('dialog.positron-modal-dialog[open]');
+		const dialogs = this.layoutService.activeContainer.querySelectorAll(
+			'.positron-dynamic-modal-dialog-box, .positron-modal-dialog-box'
+		);
 		const topDialog = dialogs.length ? dialogs[dialogs.length - 1] : undefined;
-		if (dom.isHTMLElement(topDialog)) {
-			return topDialog;
-		}
-		// Fall back to the older div-overlay modal.
-		// eslint-disable-next-line no-restricted-syntax -- the modal DOM is built by a separate renderer, so it must be located by selector rather than dom.ts h()
-		const overlayModal = this.layoutService.activeContainer.getElementsByClassName('positron-modal-dialog-box').item(0);
-		return dom.isHTMLElement(overlayModal) ? overlayModal : undefined;
+		return dom.isHTMLElement(topDialog) ? topDialog : undefined;
 	}
 
 	private applyPositronModalInert(modalContainer: HTMLElement) {

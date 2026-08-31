@@ -210,15 +210,39 @@ export class AuthProvider
 		_options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession> {
 		if (this.credentialChain) {
-			const session = await this.resolveChainCredentials();
+			let session: vscode.AuthenticationSession | undefined;
+			// Stays undefined when the chain produced nothing without failing,
+			// which is why the chaining below is conditional.
+			let cause: unknown;
+			try {
+				session = await this.resolveChainCredentialsOrThrow();
+			} catch (err) {
+				cause = err;
+			}
 			if (!session) {
-				throw new Error(
+				// Keep the actionable message the user sees, but chain the real
+				// failure beneath it so a caller that can recover from a specific
+				// cause -- an expired AWS SSO session, say -- can still find it.
+				const error = new Error(
 					vscode.l10n.t(
 						'No credentials found for {0}. Configure credentials ' +
 						'using the provider CLI or environment variables.',
 						this.displayName
 					)
 				);
+				if (cause !== undefined) {
+					// `lib: es2020` has no `new Error(msg, { cause })`, so define
+					// the property by hand. Not a plain assignment: the native
+					// `cause` is non-enumerable, and matching that keeps the chain
+					// failure out of anything that walks own enumerable keys --
+					// `JSON.stringify`, a spread, `assert.deepStrictEqual`. It
+					// would otherwise be the only visible key on the error, since
+					// `message` and `stack` are non-enumerable themselves.
+					Object.defineProperty(error, 'cause', {
+						value: cause, writable: true, configurable: true,
+					});
+				}
+				throw error;
 			}
 			return session;
 		}
@@ -370,18 +394,38 @@ export class AuthProvider
 	 * Resolve credentials from the chain, update cache, and start the
 	 * background refresh timer. Fires `added`, `changed`, or `removed`
 	 * depending on how the resolved token compares to the cached one.
+	 *
+	 * Never rejects: a chain failure is logged where it happens and reported
+	 * here as an absent session, so callers need no rejection handler. Use
+	 * `resolveChainCredentialsOrThrow` when the reason a credential did not
+	 * resolve is something the caller can act on.
 	 */
 	async resolveChainCredentials(
+	): Promise<vscode.AuthenticationSession | undefined> {
+		return this.resolveChainCredentialsOrThrow().catch(() => undefined);
+	}
+
+	/**
+	 * As `resolveChainCredentials`, but surfaces the chain's own failure instead
+	 * of reporting it as an absent session. Callers that can act on the reason a
+	 * credential did not resolve -- `createSession`, which chains it beneath its
+	 * own message -- use this; callers that only care whether a session exists
+	 * use the swallowing form above.
+	 */
+	private async resolveChainCredentialsOrThrow(
 	): Promise<vscode.AuthenticationSession | undefined> {
 		if (!this.credentialChain) {
 			return undefined;
 		}
 		const resolution = this.doResolveChainCredentials();
-		this._chainResolution = resolution;
+		// `getSessions` and the refresh timer await this without a rejection
+		// handler, so publish the swallowing form of the same resolution.
+		const swallowed = resolution.catch(() => undefined);
+		this._chainResolution = swallowed;
 		try {
 			return await resolution;
 		} finally {
-			if (this._chainResolution === resolution) {
+			if (this._chainResolution === swallowed) {
 				this._chainResolution = undefined;
 			}
 		}
@@ -449,7 +493,7 @@ export class AuthProvider
 				});
 				this.logger.logCredentialResolution('invalidated', 'Cached session invalidated');
 			}
-			return undefined;
+			throw err;
 		}
 	}
 

@@ -18,8 +18,55 @@ env:
   MEMORY_CONTAINER_IMAGE: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
 
 jobs:
+  # Resolves the build ONCE for the whole matrix. Without this each of the seven
+  # jobs resolved latest-prerelease independently, seconds apart, so a
+  # prerelease published mid-run split the matrix across two builds: in run
+  # 33070335039 the editors job measured -166 while the other six asked for
+  # -177. Had -177's asset been ready that run would have gone green with one
+  # scenario measured against a different build than the rest, all filed under
+  # one night, and nothing in the dashboard compares app_version across
+  # scenarios.
+  #
+  # Deliberately NOT downloading here and sharing an artifact: that puts a 1 GiB
+  # upload on the critical path before any measurement starts and makes one
+  # download a single point of failure for all seven jobs. Resolving alone gets
+  # the consistency guarantee; each job still fetches the build itself and a
+  # transient download failure still costs one scenario rather than the night.
+  #
+  # Runs on a plain runner rather than the private container image because gh is
+  # preinstalled there.
+  resolve-build:
+    name: resolve-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.resolve.outputs.VERSION }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # positron-builds is a separate private repo, so the job's default
+      # GITHUB_TOKEN cannot see it and every gh call there 404s.
+      - name: Generate POSITRON_BOT token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Resolve the build version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+        run: |
+          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh \
+            --resolve-only "${{ inputs.version || 'latest-prerelease' }}")
+          echo "$OUTPUT" >> "$GITHUB_OUTPUT"
+          echo "resolved: $OUTPUT"
+
   memory:
     name: measure-${{ matrix.lane }}-${{ matrix.scenario }}-memory
+    needs: resolve-build
     runs-on: ubuntu-latest-8x
     timeout-minutes: 45
     strategy:
@@ -35,6 +82,8 @@ jobs:
           - { lane: desktop, scenario: notebook }
           - { lane: desktop, scenario: editors }
           - { lane: desktop, scenario: console-output }
+          - { lane: desktop, scenario: quarto-render }
+          - { lane: desktop, scenario: quarto-inline }
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # The image is private, so the pull needs credentials. Copied from
@@ -109,7 +158,10 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
-          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ inputs.version || 'latest-prerelease' }}")
+          # The literal tag from resolve-build, never the alias: re-resolving
+          # here is exactly the split-build bug that job exists to prevent.
+          OUTPUT=$(.github/scripts/release-screenshots/download-build.sh \
+            "${{ needs.resolve-build.outputs.version }}")
           echo "$OUTPUT" >> "$GITHUB_OUTPUT"
 
       # Installs the Playwright and e2e dependencies and compiles test/e2e,

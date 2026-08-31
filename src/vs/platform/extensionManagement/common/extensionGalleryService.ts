@@ -802,6 +802,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
 			this.academicLicenseService.isAcademic,
+			this.academicLicenseService.licenseHash,
 			sendUsageData,
 		);
 		resourceApi = {
@@ -1482,6 +1483,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			getPositronSessionType(),
 			formatPositronVersion(this.productService.positronVersion, this.productService.positronBuildNumber),
 			this.academicLicenseService.isAcademic,
+			this.academicLicenseService.licenseHash,
 			sendUsageData,
 		);
 		// --- End Positron ---

@@ -23,3 +23,11 @@ export const DAP_CONFIGURATION_TIMEOUT = 10_000;
 
 /** Time between creating a terminal and receiving its onDidChangeTerminalShellIntegration event. */
 export const SHELL_INTEGRATION_TIMEOUT = 5_000;
+
+/**
+ * Time to keep watching a console session for an app's URL after URL detection
+ * has already timed out. The real bound is the execution ending; this cap only
+ * stops a long-lived session whose URL we will never match from leaving a
+ * preview armed indefinitely.
+ */
+export const LATE_URL_DETECTION_TIMEOUT = 5 * 60_000;

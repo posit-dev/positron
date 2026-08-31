@@ -52,14 +52,13 @@ describe('ProviderListItem', () => {
 		expect(screen.getByText('PWB Managed')).toBeInTheDocument();
 	});
 
-	it('shows an OAuth badge, not PWB Managed, for a connected copilot-auth provider', () => {
+	it('does not show PWB Managed for a connected copilot-auth provider', () => {
 		render(<ProviderListItem section='connected' source={source({
 			id: 'copilot-auth',
 			signedIn: true,
 			supportedOptions: [AuthMethod.OAUTH],
 			defaults: { autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'the Accounts menu.', signedIn: true } },
 		})} />);
-		expect(screen.getByText('OAuth')).toBeInTheDocument();
 		expect(screen.queryByText('PWB Managed')).not.toBeInTheDocument();
 	});
 
@@ -88,29 +87,14 @@ describe('ProviderListItem', () => {
 		expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
 	});
 
-	it('shows an OAuth badge for an oauth connected provider', () => {
-		render(<ProviderListItem section='connected' source={source({ id: 'a', signedIn: true, supportedOptions: [AuthMethod.OAUTH] })} />);
-		expect(screen.getByText('OAuth')).toBeInTheDocument();
-	});
-
-	it('shows no OAuth badge when a dual-method provider connected with an API key', () => {
-		render(<ProviderListItem section='connected' source={source({
-			id: 'databricks',
-			signedIn: true,
-			authMethods: [AuthMethod.API_KEY],
-			supportedOptions: [AuthMethod.OAUTH, AuthMethod.API_KEY],
-		})} />);
-		expect(screen.queryByText('OAuth')).not.toBeInTheDocument();
-	});
-
-	it('shows an OAuth badge when a dual-method provider connected with OAuth', () => {
+	it('badges nothing for an oauth connected provider, whose credentials the user entered here', () => {
 		render(<ProviderListItem section='connected' source={source({
 			id: 'databricks',
 			signedIn: true,
 			authMethods: [AuthMethod.OAUTH],
 			supportedOptions: [AuthMethod.OAUTH, AuthMethod.API_KEY],
 		})} />);
-		expect(screen.getByText('OAuth')).toBeInTheDocument();
+		expect(screen.queryByText('OAuth')).not.toBeInTheDocument();
 	});
 
 	it('shows an Error badge, the error message, and a Fix Connection action in needs-attention', () => {

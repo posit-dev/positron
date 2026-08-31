@@ -268,7 +268,7 @@ class RemoteAuthoritiesImpl {
 		return URI.from({
 			scheme: platform.isWeb ? this._preferredWebSchema : Schemas.vscodeRemoteResource,
 			authority: `${host}:${port}`,
-			// --- Start PWB
+			// --- Start PWB ---
 			path: platform.isWeb
 				// This module is also type-checked against Node/Worker layers where `window` isn't declared;
 				// `globalThis` resolves to the same object as `window` at runtime in a browser.

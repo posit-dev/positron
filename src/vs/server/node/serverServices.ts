@@ -134,7 +134,7 @@ import { AiProviderCatalogChannel } from '../../platform/positronAiProvider/node
 const eventPrefix = 'monacoworkbench';
 
 // --- Start Positron ---
-export async function setupServerServices(connectionToken: ServerConnectionToken, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, disposables: DisposableStore, positronLicenseeInfo?: IPositronLicenseeInfo) {
+export async function setupServerServices(connectionToken: ServerConnectionToken, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, disposables: DisposableStore, positronLicenseeInfo?: IPositronLicenseeInfo, licenseHash?: string) {
 	// --- End Positron ---
 	const services = new ServiceCollection();
 	const socketServer = new SocketServer<RemoteAgentConnectionContext>();
@@ -418,7 +418,10 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	services.set(IEphemeralStateService, ephemeralStateService);
 	const idleTrackingService = new PositronIdleTrackingService();
 	services.set(IPositronIdleTrackingService, idleTrackingService);
-	services.set(IPositronAcademicLicenseService, new PositronAcademicLicenseService(positronLicenseeInfo?.academic === true));
+	// The hash is a separate argument rather than a field on the licensee info because that
+	// object goes out to clients over the remote agent channel and the hash has no business
+	// there; it is only ever read back out by the gallery telemetry in this process.
+	services.set(IPositronAcademicLicenseService, new PositronAcademicLicenseService(positronLicenseeInfo?.academic === true, licenseHash));
 	// --- End Positron ---
 
 	instantiationService.invokeFunction(accessor => {
