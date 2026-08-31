@@ -190,7 +190,9 @@ rather than showing an empty table that reads as "no extensions".
 One failure would be silent, so the parse checks for it directly: an incomplete
 `scriptId -> url` map under-attributes without raising anything. The check is the
 share of `locations` entries whose script id did not resolve. The parse skips the
-breakdown above 1%.
+breakdown above 1%, and skips it outright when `locations` is empty rather than
+dividing by zero: an all-unattributed breakdown is indistinguishable from a
+healthy run, so it is reported as unavailable like any other capture failure.
 
 That is a ratio rather than an absolute script count on purpose. It is
 self-normalizing across scenarios and platforms, it measures the thing that
@@ -219,7 +221,8 @@ Vitest, following the existing files in `test/e2e/utils/memory/`:
 - Report rendering: the new table with a baseline, without one, and in the
   unavailable case.
 - Failure handling: each failure mode leaves the rest of the payload intact, and
-  a fixture with over 1% unresolved script ids skips the breakdown.
+  a fixture with over 1% unresolved script ids skips the breakdown, as does one
+  with an empty `locations` array.
 
 The end-to-end path cannot be unit tested. It is verified by the first CI run,
 which is also the first time the capture runs on Linux under Playwright.
