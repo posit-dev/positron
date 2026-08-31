@@ -509,7 +509,7 @@ suite('Native Python API', () => {
             displayName: 'Opt Python',
             name: 'python',
             executable: '/opt/python/3.12.0/bin/python',
-            kind: NativePythonEnvironmentKind.Unknown, // Initially unknown, should be upgraded to GlobalPaths
+            kind: undefined, // Initially unknown, should be upgraded to GlobalPaths
             version: '3.12.0',
             prefix: '/opt/python/3.12.0',
         };
@@ -542,7 +542,7 @@ suite('Native Python API', () => {
             displayName: 'Opt Python',
             name: 'python',
             executable: '/opt/python/3.12.0/bin/python',
-            kind: NativePythonEnvironmentKind.Unknown, // Initially unknown, should be upgraded to GlobalPaths
+            kind: undefined, // Initially unknown, should be upgraded to GlobalPaths
             version: '3.12.0',
             prefix: '/opt/python/3.12.0',
         };
