@@ -130,7 +130,10 @@
 	width: 100%;
 	max-height: 100%;
 	aspect-ratio: 1/1;
-	background-image: url('./letterpress-light.svg');
+	/* --- Start Positron --- */
+	/* Positron mark instead of the Code OSS letterpress logo. */
+	background-image: url('./positron-letterpress-light.svg');
+	/* --- End Positron --- */
 	background-size: contain;
 	background-position-x: center;
 	background-repeat: no-repeat;
@@ -138,15 +141,21 @@
 }
 
 .monaco-workbench.vs-dark .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-dark.svg');
+	/* --- Start Positron --- */
+	background-image: url('./positron-letterpress-dark.svg');
+	/* --- End Positron --- */
 }
 
 .monaco-workbench.hc-light .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-hcLight.svg');
+	/* --- Start Positron --- */
+	background-image: url('./positron-letterpress-hcLight.svg');
+	/* --- End Positron --- */
 }
 
 .monaco-workbench.hc-black .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-hcDark.svg');
+	/* --- Start Positron --- */
+	background-image: url('./positron-letterpress-hcDark.svg');
+	/* --- End Positron --- */
 }
 
 .monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .shortcuts {
