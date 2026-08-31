@@ -56,7 +56,7 @@ export function getProviderGettingStartedText(provider: IProvider): string | und
 			);
 			return localize(
 				'positron.languageModelConfig.positAI.gettingStartedNote',
-				'Get started with Posit Assistant instantly via a free trial of {0}, a managed service that provides access to frontier LLMs through a single account. Posit AI provides access to both Posit Assistant and Next Edit Suggestions.',
+				'{0} is a managed service that provides access to leading AI models through a single account, with a free trial available. You can use it with both Posit Assistant and Next Edit Suggestions.',
 				positAiHomeLink,
 			);
 		}
