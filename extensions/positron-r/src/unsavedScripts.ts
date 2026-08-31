@@ -98,7 +98,8 @@ export class UnsavedScriptFiles implements vscode.Disposable {
 
 /**
  * Resolves the directory scratch files are written to: the configured directory
- * if set, else the workspace root, else the system temporary directory.
+ * if set and writable, else the workspace root, else the system temporary
+ * directory.
  */
 async function resolveScratchDirectory(): Promise<string> {
 	const configured = vscode.workspace
@@ -106,17 +107,30 @@ async function resolveScratchDirectory(): Promise<string> {
 		.get<string>('unsavedScriptsDirectory')
 		?.trim();
 	if (configured) {
-		const directory = normalizeUserPath(configured);
+		// Resolve relative paths against the workspace root (or home when no
+		// workspace is open) so they don't depend on the extension host's
+		// working directory.
+		const normalized = normalizeUserPath(configured);
+		const directory = path.isAbsolute(normalized)
+			? normalized
+			: path.resolve(workspaceRoot() ?? os.homedir(), normalized);
 		try {
 			await fs.promises.mkdir(directory, { recursive: true });
+			// mkdir succeeds silently on an existing directory without checking
+			// writability, so probe it explicitly before committing.
+			await fs.promises.access(directory, fs.constants.W_OK);
 			return canonicalize(directory);
 		} catch (error) {
 			LOGGER.warn(`Cannot use configured unsaved scripts directory '${directory}': ${error}. Falling back to the system temporary directory.`);
 			return canonicalize(os.tmpdir());
 		}
 	}
-	const folder = vscode.workspace.workspaceFolders?.find((f) => f.uri.scheme === 'file');
-	return canonicalize(folder ? folder.uri.fsPath : os.tmpdir());
+	return canonicalize(workspaceRoot() ?? os.tmpdir());
+}
+
+/** The first file-scheme workspace folder path, if any. */
+function workspaceRoot(): string | undefined {
+	return vscode.workspace.workspaceFolders?.find((f) => f.uri.scheme === 'file')?.uri.fsPath;
 }
 
 /**

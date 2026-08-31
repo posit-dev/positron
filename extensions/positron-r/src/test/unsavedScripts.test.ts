@@ -64,6 +64,22 @@ suite('UnsavedScriptFiles', () => {
 		assert.ok(!fs.existsSync(first));
 	});
 
+	test('falls back to the system temp dir when the configured directory cannot be used', async () => {
+		// Point the setting at a regular file so the directory can't be created.
+		const filePath = path.join(tmpDir, 'not-a-dir');
+		await fs.promises.writeFile(filePath, '');
+		await vscode.workspace.getConfiguration('interpreters')
+			.update('unsavedScriptsDirectory', filePath, vscode.ConfigurationTarget.Global);
+		try {
+			const written = await manager.write(fakeUntitled('Untitled-9', 'z'));
+			assert.strictEqual(path.dirname(written), fs.realpathSync(os.tmpdir()));
+			await manager.finished(written);
+		} finally {
+			await vscode.workspace.getConfiguration('interpreters')
+				.update('unsavedScriptsDirectory', tmpDir, vscode.ConfigurationTarget.Global);
+		}
+	});
+
 	test('dispose removes any scratch files still on disk', async () => {
 		const filePath = await manager.write(fakeUntitled('Untitled-2', 'y'));
 		assert.ok(fs.existsSync(filePath));

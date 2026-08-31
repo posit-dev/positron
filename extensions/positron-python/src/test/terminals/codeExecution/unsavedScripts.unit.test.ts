@@ -63,4 +63,15 @@ suite('UnsavedScriptFiles', () => {
         await manager.finished(second);
         assert.ok(!fs.existsSync(first));
     });
+
+    test('falls back to the system temp dir when the configured directory cannot be used', async () => {
+        // Point the setting at a regular file so the directory can't be created.
+        const filePath = path.join(tmpDir, 'not-a-dir');
+        fs.writeFileSync(filePath, '');
+        ws.getConfiguration = () => ({ get: () => filePath });
+
+        const written = await manager.write(fakeUntitled('Untitled-9', 'z'));
+        assert.strictEqual(path.dirname(written), fs.realpathSync(os.tmpdir()));
+        await manager.finished(written);
+    });
 });
