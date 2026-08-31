@@ -5,7 +5,7 @@
 
 import { deltaHtml, escapeHtml, formatBytes, GC_NOTE, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
 import { unstableProcesses } from './snapshot.js';
-import { ActivatedExtension, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
+import { ActivatedExtension, ExtensionHeapBreakdown, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
 
 export { formatBytes } from './report-shell.js';
 
@@ -172,6 +172,96 @@ function samplingSummary(snapshots: MemorySnapshot[]): string {
 	return `${parts.join(', ')}.`;
 }
 
+/**
+ * Retained bytes below which an extension collapses into a single "others" row.
+ *
+ * A fixed byte floor rather than a top N or a percentage: it keeps a newly
+ * appearing extension visible the moment it matters, and the long tail is real
+ * (14 extensions under 0.2 MB in a measured heap).
+ */
+const EXTENSION_HEAP_FLOOR_BYTES = 1_048_576;
+
+/** The unattributed remainder's row label, in both report formats. */
+const UNATTRIBUTED_ROW = 'unattributed';
+
+/**
+ * Signed delta for an extension row. `signed` alone rounds to one MB decimal,
+ * which flattens a real sub-MB extension change to "+0.0 MB" -- extensions sit
+ * an order of magnitude below the role table's figures, so deltas below 1 MB
+ * are shown in KB instead.
+ */
+function signedExtensionChange(bytes: number): string {
+	if (Math.abs(bytes) >= EXTENSION_HEAP_FLOOR_BYTES) {
+		return signed(bytes);
+	}
+	const sign = bytes >= 0 ? '+' : '-';
+	const kb = Math.abs(bytes) / 1000;
+	return `${sign}${kb.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} KB`;
+}
+
+/**
+ * Median retained bytes per extension across launches, zero-filling a launch
+ * that did not have one, for the same reason `byRole` does.
+ */
+function extensionHeapMedians(breakdowns: ExtensionHeapBreakdown[]): Map<string, number> {
+	const ids = new Set(breakdowns.flatMap(b => b.extensions.map(e => e.extensionId)));
+	return new Map([...ids].map(id => [
+		id,
+		median(breakdowns.map(b => b.extensions.find(e => e.extensionId === id)?.retainedBytes ?? 0))
+	]));
+}
+
+/**
+ * The per-extension rows, largest first, with everything under the floor
+ * collapsed and `unattributed` always last.
+ *
+ * `unattributed` is always shown: it is most of the heap, and hiding it would
+ * imply the extensions sum to the extension host row.
+ */
+export function extensionHeapRows(
+	snapshots: MemorySnapshot[],
+	baseline?: MemorySnapshot
+): { extensionId: string; bytes: number; change: string }[] {
+	const breakdowns = snapshots.map(s => s.extensionHeap).filter((b): b is ExtensionHeapBreakdown => b !== undefined);
+	if (breakdowns.length === 0) {
+		return [];
+	}
+	const medians = extensionHeapMedians(breakdowns);
+	const baselineBreakdown = baseline?.extensionHeap;
+	const baselineBytes = new Map(baselineBreakdown?.extensions.map(e => [e.extensionId, e.retainedBytes]) ?? []);
+
+	// Blank rather than "new" everywhere when there is no extension-level
+	// baseline at all, which is the first night and any run against a baseline
+	// captured before this shipped.
+	const changeFor = (id: string, bytes: number): string => {
+		if (!baselineBreakdown) {
+			return '';
+		}
+		const before = baselineBytes.get(id);
+		return before === undefined ? 'new' : signedExtensionChange(bytes - before);
+	};
+
+	const ranked = [...medians].sort((a, b) => b[1] - a[1]);
+	const shown = ranked.filter(([, bytes]) => bytes >= EXTENSION_HEAP_FLOOR_BYTES);
+	const collapsed = ranked.filter(([, bytes]) => bytes > 0 && bytes < EXTENSION_HEAP_FLOOR_BYTES);
+
+	const rows = shown.map(([extensionId, bytes]) => ({ extensionId, bytes, change: changeFor(extensionId, bytes) }));
+	if (collapsed.length > 0) {
+		rows.push({
+			extensionId: `(${collapsed.length} others)`,
+			bytes: collapsed.reduce((sum, [, bytes]) => sum + bytes, 0),
+			change: ''
+		});
+	}
+	const unattributed = median(breakdowns.map(b => b.unattributedBytes));
+	rows.push({
+		extensionId: UNATTRIBUTED_ROW,
+		bytes: unattributed,
+		change: baselineBreakdown ? signed(unattributed - baselineBreakdown.unattributedBytes) : ''
+	});
+	return rows;
+}
+
 export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
 	const total = totalAcrossLaunches(snapshots);
 	const lines: string[] = [`## Memory: ${snapshots[0]?.scenario}`, ''];
@@ -211,6 +301,19 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 		lines.push(`| \`${role}\` | ${formatBytes(bytes)} | ${change} |`);
 	}
 	lines.push('');
+
+	const heapRows = extensionHeapRows(snapshots, baseline);
+	if (heapRows.length === 0) {
+		lines.push('_Per-extension breakdown unavailable for this run._', '');
+	} else {
+		lines.push(`### Extension host heap: ${snapshots[0]?.scenario}`, '');
+		lines.push('| Extension | Retained | Change |', '| --- | --- | --- |');
+		for (const row of heapRows) {
+			const label = row.extensionId === UNATTRIBUTED_ROW ? `_${UNATTRIBUTED_ROW}_` : `\`${row.extensionId}\``;
+			lines.push(`| ${label} | ${formatBytes(row.bytes)} | ${row.change} |`);
+		}
+		lines.push('');
+	}
 
 	return lines.join('\n');
 }
@@ -559,6 +662,24 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	const unlabeledNote = unlabeledNoteHtml(snapshots, roleTotals);
 	const instabilityCard = instabilityHtml(snapshots);
 
+	const heapRows = extensionHeapRows(snapshots, baseline);
+	const maxHeapBytes = Math.max(0, ...heapRows.map(row => row.bytes));
+	const extensionHeapCard = heapRows.length === 0
+		? ''
+		: `<div class="card">
+		<h2>Extension host heap</h2>
+		<table>
+			<tr><th>Extension</th><th align="right">Retained</th><th></th><th align="right">Change</th></tr>
+			${heapRows.map(row => `<tr>
+				<td>${row.extensionId === UNATTRIBUTED_ROW ? `<em>${UNATTRIBUTED_ROW}</em>` : `<code>${escapeHtml(row.extensionId)}</code>`}</td>
+				<td align="right">${formatBytes(row.bytes)}</td>
+				<td>${magnitudeBar(row.bytes, maxHeapBytes)}</td>
+				<td align="right">${escapeHtml(row.change)}</td>
+			</tr>`).join('\n')}
+		</table>
+		<p class="muted">A dominator-tree partition of the reachable extension host heap: every byte is credited to the nearest owning extension, so the rows sum to the total and nothing is counted twice. <em>unattributed</em> is the extension host runtime and node internals.</p>
+	</div>`;
+
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -588,6 +709,8 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 		</table>
 		${unlabeledNote}
 	</div>
+
+	${extensionHeapCard}
 
 	<div class="card">
 		<h2>Process tree</h2>

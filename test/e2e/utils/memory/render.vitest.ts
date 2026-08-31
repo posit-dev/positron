@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { formatBytes, renderHtml, renderMarkdown } from './render.js';
+import { extensionHeapRows, formatBytes, renderHtml, renderMarkdown } from './render.js';
 import { REPORT_CSS } from './report-shell.js';
-import { ActivatedExtension, LabeledProcess, MemorySnapshot } from './types.js';
+import { ActivatedExtension, ExtensionHeapBreakdown, LabeledProcess, MemorySnapshot } from './types.js';
 
 const MB = 1024 * 1024;
 
@@ -36,6 +36,10 @@ const snapshot = (procs: LabeledProcess[], launchIndex = 0, extensions: Activate
 	treeTotalPssBytes: procs.reduce((sum, p) => sum + p.pssBytes, 0),
 	processes: procs, extensions
 });
+
+/** The existing factory takes no overrides, so the new field is spread on. */
+const withHeap = (extensionHeap?: ExtensionHeapBreakdown): MemorySnapshot =>
+	({ ...snapshot([proc()]), extensionHeap });
 
 describe('formatBytes', () => {
 	test('renders megabytes with one decimal', () => {
@@ -595,5 +599,97 @@ describe('renderHtml', () => {
 		];
 		const output = renderHtml([snapshot([proc()], 0, mixed)]);
 		expect(output.indexOf('<code>*</code>')).toBeLessThan(output.indexOf('onStartupFinished'));
+	});
+});
+
+describe('extension host heap breakdown', () => {
+	const breakdown = {
+		extensions: [
+			{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_500_000 },
+			{ extensionId: 'positron.positron-python', retainedBytes: 37_600_000 },
+			{ extensionId: 'vscode.authentication', retainedBytes: 2_800_000 },
+			{ extensionId: 'vscode.tiny-one', retainedBytes: 400_000 },
+			{ extensionId: 'vscode.tiny-two', retainedBytes: 300_000 }
+		],
+		unattributedBytes: 192_800_000,
+		reachableBytes: 354_400_000
+	};
+
+	test('lists extensions above the floor, collapses the rest, and puts unattributed last', () => {
+		const rows = extensionHeapRows([withHeap(breakdown)]);
+
+		expect(rows.map(r => r.extensionId)).toEqual([
+			'GitHub.copilot-chat',
+			'positron.positron-python',
+			'vscode.authentication',
+			'(2 others)',
+			'unattributed'
+		]);
+		expect(rows.find(r => r.extensionId === '(2 others)')?.bytes).toBe(700_000);
+	});
+
+	test('reports change against the baseline, and "new" for an extension the baseline lacked', () => {
+		const baseline = withHeap({
+			extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_200_000 }],
+			unattributedBytes: 189_200_000,
+			reachableBytes: 309_400_000
+		});
+
+		const rows = extensionHeapRows([withHeap(breakdown)], baseline);
+
+		expect(rows.find(r => r.extensionId === 'GitHub.copilot-chat')?.change).toBe('+300.0 KB');
+		expect(rows.find(r => r.extensionId === 'positron.positron-python')?.change).toBe('new');
+	});
+
+	test('leaves change blank when there is no baseline at all', () => {
+		const rows = extensionHeapRows([withHeap(breakdown)]);
+
+		expect(rows.every(r => r.change === '')).toBe(true);
+	});
+
+	test('leaves change blank when the baseline predates the breakdown', () => {
+		const rows = extensionHeapRows([withHeap(breakdown)], withHeap());
+
+		expect(rows.every(r => r.change === '')).toBe(true);
+	});
+
+	test('takes the median across launches, zero-filling a launch that lacked an extension', () => {
+		const withOnlyCopilot = {
+			extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_500_000 }],
+			unattributedBytes: 192_800_000,
+			reachableBytes: 313_300_000
+		};
+		const rows = extensionHeapRows([
+			withHeap(breakdown),
+			withHeap(withOnlyCopilot),
+			withHeap(withOnlyCopilot)
+		]);
+
+		expect(rows.find(r => r.extensionId === 'GitHub.copilot-chat')?.bytes).toBe(120_500_000);
+		// Present in one launch of three, so its median is zero and it falls below
+		// the floor rather than reading as heavy as something present in all three.
+		expect(rows.map(r => r.extensionId)).not.toContain('positron.positron-python');
+	});
+
+	test('renders no table and says why when no launch produced a breakdown', () => {
+		const markdown = renderMarkdown([withHeap()]);
+
+		expect(markdown).not.toContain('Extension host heap');
+		expect(markdown).toContain('Per-extension breakdown unavailable');
+	});
+
+	test('renders the table in markdown when a breakdown is present', () => {
+		const markdown = renderMarkdown([withHeap(breakdown)]);
+
+		expect(markdown).toContain('### Extension host heap');
+		expect(markdown).toContain('`GitHub.copilot-chat`');
+		expect(markdown).toContain('_unattributed_');
+	});
+
+	test('renders the table in html when a breakdown is present', () => {
+		const html = renderHtml([withHeap(breakdown)]);
+
+		expect(html).toContain('Extension host heap');
+		expect(html).toContain('GitHub.copilot-chat');
 	});
 });
