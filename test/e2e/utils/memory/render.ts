@@ -184,18 +184,20 @@ const EXTENSION_HEAP_FLOOR_BYTES = 1_048_576;
 /** The unattributed remainder's row label, in both report formats. */
 const UNATTRIBUTED_ROW = 'unattributed';
 
+const KB = 1024;
+
 /**
  * Signed delta for an extension row. `signed` alone rounds to one MB decimal,
  * which flattens a real sub-MB extension change to "+0.0 MB" -- extensions sit
  * an order of magnitude below the role table's figures, so deltas below 1 MB
- * are shown in KB instead.
+ * are shown in KB instead. Binary units throughout, matching `formatBytes`.
  */
 function signedExtensionChange(bytes: number): string {
-	if (Math.abs(bytes) >= EXTENSION_HEAP_FLOOR_BYTES) {
+	if (Math.abs(bytes) >= 1024 * KB) {
 		return signed(bytes);
 	}
 	const sign = bytes >= 0 ? '+' : '-';
-	const kb = Math.abs(bytes) / 1000;
+	const kb = Math.abs(bytes) / KB;
 	return `${sign}${kb.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} KB`;
 }
 

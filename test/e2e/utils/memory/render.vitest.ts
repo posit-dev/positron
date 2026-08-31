@@ -630,7 +630,7 @@ describe('extension host heap breakdown', () => {
 
 	test('reports change against the baseline, and "new" for an extension the baseline lacked', () => {
 		const baseline = withHeap({
-			extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_200_000 }],
+			extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_192_800 }],
 			unattributedBytes: 189_200_000,
 			reachableBytes: 309_400_000
 		});
