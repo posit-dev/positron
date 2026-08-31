@@ -1,19 +1,15 @@
 ---
 name: positron-settings
 description: >
-  Inspecting the user's own CURRENT Positron configuration: live state read
-  from this running Positron, not documentation about what a setting does in
-  general. Use for: which settings the user has configured, what a setting is
-  currently set to and where, why a setting they set is not taking effect,
-  which features are in preview or experimental and which setting enables
-  each, whether a setting exists, and a setting's default or allowed values.
-  These are state questions -- a docs page, release notes, or a settings.json
-  file read cannot answer them for THIS install; the commands in this skill
-  can. Load this skill, then read references/configuration.md. Triggers:
-  "what settings do I have enabled", "what settings do I have set", "which
-  features are in preview", "what are their settings to enable", "why isn't
-  this setting working", "what is X set to", "is there a setting for X",
-  "what's the default for X".
+  Inspecting the user's current Positron configuration, read live from this
+  running Positron -- state, not documentation: docs pages, release notes,
+  and settings.json file reads cannot answer these for this install; this
+  skill's commands can. Use for: what the user has configured, what a setting
+  is set to and where, why a setting they set is not taking effect, which
+  features are in preview or experimental and what enables each, whether a
+  setting exists, its default and allowed values. Triggers: "what settings do
+  I have enabled", "which features are in preview", "why isn't this setting
+  working", "what is X set to", "is there a setting for X".
 ---
 
 # Positron settings
