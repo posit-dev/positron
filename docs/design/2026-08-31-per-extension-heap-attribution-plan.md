@@ -1523,7 +1523,7 @@ describe('extension host heap breakdown', () => {
 
 	test('reports change against the baseline, and "new" for an extension the baseline lacked', () => {
 		const baseline = withHeap({
-			extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_200_000 }],
+			extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_192_800 }],
 			unattributedBytes: 189_200_000,
 			reachableBytes: 309_400_000
 		});
@@ -1610,6 +1610,23 @@ const EXTENSION_HEAP_FLOOR_BYTES = 1_048_576;
 /** The unattributed remainder's row label, in both report formats. */
 const UNATTRIBUTED_ROW = 'unattributed';
 
+const KB = 1024;
+
+/**
+ * Signed delta for an extension row. `signed` alone rounds to one MB decimal,
+ * which flattens a real sub-MB extension change to "+0.0 MB" -- extensions sit
+ * an order of magnitude below the role table's figures, so deltas below 1 MB
+ * are shown in KB instead. Binary units throughout, matching `formatBytes`.
+ */
+function signedExtensionChange(bytes: number): string {
+	if (Math.abs(bytes) >= 1024 * KB) {
+		return signed(bytes);
+	}
+	const sign = bytes >= 0 ? '+' : '-';
+	const kb = Math.abs(bytes) / KB;
+	return `${sign}${kb.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} KB`;
+}
+
 /**
  * Median retained bytes per extension across launches, zero-filling a launch
  * that did not have one, for the same reason `byRole` does.
@@ -1649,7 +1666,7 @@ export function extensionHeapRows(
 			return '';
 		}
 		const before = baselineBytes.get(id);
-		return before === undefined ? 'new' : signed(bytes - before);
+		return before === undefined ? 'new' : signedExtensionChange(bytes - before);
 	};
 
 	const ranked = [...medians].sort((a, b) => b[1] - a[1]);
