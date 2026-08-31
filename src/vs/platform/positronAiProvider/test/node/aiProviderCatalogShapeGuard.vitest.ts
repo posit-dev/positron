@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import type { ProviderCatalogChange, ResolvedConnection, ResolvedProvider } from 'ai-config/node';
-import type { IProviderCatalogChangeData, IResolvedConnectionData, IResolvedProviderData } from '../../common/aiProviderCatalog.js';
+import type { IProviderCatalogChangeData, IResolvedConnectionData, IResolvedModelsData, IResolvedProviderData } from '../../common/aiProviderCatalog.js';
 
 // Compile-time guard that the hand-mirrored IPC types stay assignable from the
 // ai-config types they mirror at the pinned commit. One-directional: the mirror
@@ -26,6 +26,15 @@ const _provider = (p: ResolvedProvider): IResolvedProviderData => ({
 	id: p.id,
 	enabled: p.enabled,
 	connection: _connection(p.connection),
+	models: p.models && _models(p.models),
+});
+
+const _models = (m: NonNullable<ResolvedProvider['models']>): IResolvedModelsData => ({
+	discovery: m.discovery,
+	allow: m.allow,
+	deny: m.deny,
+	overrides: m.overrides,
+	custom: m.custom,
 });
 
 const _change = (change: ProviderCatalogChange): Omit<IProviderCatalogChangeData, 'catalog'> => ({
@@ -36,6 +45,6 @@ const _change = (change: ProviderCatalogChange): Omit<IProviderCatalogChangeData
 
 describe('aiProviderCatalog shape guard', () => {
 	it('mirrors ai-config types (compile-time assertion)', () => {
-		expect([_connection, _provider, _change]).toHaveLength(3);
+		expect([_connection, _provider, _models, _change]).toHaveLength(4);
 	});
 });

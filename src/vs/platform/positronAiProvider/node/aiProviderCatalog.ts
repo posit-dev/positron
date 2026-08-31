@@ -96,5 +96,6 @@ function toProviderData(provider: ResolvedProvider): IResolvedProviderData {
 			snowflake: connection.snowflake,
 			databricks: connection.databricks,
 		},
+		models: provider.models,
 	};
 }

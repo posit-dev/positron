@@ -410,16 +410,18 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		const idleTrackingChannel = new PositronIdleTrackingChannel(accessor.get(IPositronIdleTrackingService));
 		socketServer.registerChannel(POSITRON_IDLE_TRACKING_CHANNEL_NAME, idleTrackingChannel);
 
-		// Headless Language Model engine: in Remote SSH / web, model API calls
-		// originate from this remote host; the workbench reaches it here.
-		const headlessLmEngine = new HeadlessLanguageModelEngine(logService);
-		socketServer.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
-
 		// AI provider catalog: resolves providers.json + enforced/default env
 		// fragments where they live (this remote host's HOME/env); the
 		// workbench reaches it over this channel.
 		const aiProviderCatalog = disposables.add(new AiProviderCatalog(logService));
 		socketServer.registerChannel(POSITRON_AI_PROVIDER_CHANNEL, new AiProviderCatalogChannel(aiProviderCatalog));
+
+		// Headless Language Model engine: in Remote SSH / web, model API calls
+		// originate from this remote host; the workbench reaches it here. The
+		// engine applies the catalog's model policy so a listing never offers a
+		// model providers.json excludes.
+		const headlessLmEngine = new HeadlessLanguageModelEngine(logService, aiProviderCatalog);
+		socketServer.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
 		// --- End Positron ---
 		// clean up extensions folder
 		remoteExtensionsScanner.whenExtensionsReady().then(() => extensionManagementService.cleanUp());
