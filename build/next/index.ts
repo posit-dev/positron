@@ -596,7 +596,7 @@ async function copyESMPackageDependencies(outDir: string): Promise<void> {
 	const destRoot = path.join(REPO_ROOT, outDir, 'esm-package-dependencies');
 	const files = await globAsync('**/*', { cwd: srcRoot, nodir: true });
 	// Bounded concurrency to avoid EMFILE on Windows.
-	await mapWithConcurrency(files, file => {
+	await mapWithConcurrency(files, MAX_CONCURRENT_FILE_OPERATIONS, file => {
 		const srcPath = path.join(srcRoot, file);
 		const destPath = path.join(destRoot, file);
 		return copyFile(srcPath, destPath);
