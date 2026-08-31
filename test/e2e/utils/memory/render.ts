@@ -5,7 +5,7 @@
 
 import { deltaHtml, escapeHtml, formatBytes, GC_NOTE, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
 import { unstableProcesses } from './snapshot.js';
-import { ActivatedExtension, ExtensionHeapBreakdown, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
+import { ActivatedExtension, ExtensionHeapBreakdown, ExtensionHeapStatus, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
 
 export { formatBytes } from './report-shell.js';
 
@@ -213,6 +213,33 @@ function extensionHeapMedians(breakdowns: ExtensionHeapBreakdown[]): Map<string,
 	]));
 }
 
+/** Said in both formats when no launch produced a breakdown. */
+const EXTENSION_HEAP_UNAVAILABLE = 'Per-extension breakdown unavailable for this run.';
+
+/**
+ * One sentence per wire status, so the reader learns why instead of reading an
+ * absent table as "no extensions". `ok` is deliberately absent: it has no
+ * failure to explain, so it falls back to the bare sentence like an
+ * unrecognized status does.
+ */
+const EXTENSION_HEAP_REASONS: Partial<Record<ExtensionHeapStatus, string>> = {
+	capture_failed: 'The extension host inspector did not produce a heap snapshot.',
+	parse_failed: 'The heap snapshot was captured but could not be read back.',
+	unsupported_format: 'The heap snapshot was not in the format this parser understands.',
+	untrusted: 'Too many nodes had an unresolved script id, so the partition was discarded as incomplete.'
+};
+
+/**
+ * The unavailable sentence plus the reason, for the run's first status: every
+ * launch of a scenario runs the same build the same way, so they fail alike.
+ * Runs predating the feature carry no status and get the bare sentence.
+ */
+export function extensionHeapUnavailableText(snapshots: MemorySnapshot[]): string {
+	const status = snapshots.map(s => s.extensionHeapStatus).find(s => s !== undefined);
+	const reason = status === undefined ? undefined : EXTENSION_HEAP_REASONS[status];
+	return reason ? `${EXTENSION_HEAP_UNAVAILABLE} ${reason}` : EXTENSION_HEAP_UNAVAILABLE;
+}
+
 /**
  * The per-extension rows, largest first, with everything under the floor
  * collapsed and `unattributed` always last.
@@ -306,7 +333,7 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 
 	const heapRows = extensionHeapRows(snapshots, baseline);
 	if (heapRows.length === 0) {
-		lines.push('_Per-extension breakdown unavailable for this run._', '');
+		lines.push(`_${extensionHeapUnavailableText(snapshots)}_`, '');
 	} else {
 		lines.push(`### Extension host heap: ${snapshots[0]?.scenario}`, '');
 		lines.push('| Extension | Retained | Change |', '| --- | --- | --- |');
@@ -669,7 +696,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	const extensionHeapCard = heapRows.length === 0
 		? `<div class="card">
 		<h2>Extension host heap</h2>
-		<p class="muted">Per-extension breakdown unavailable for this run.</p>
+		<p class="muted">${escapeHtml(extensionHeapUnavailableText(snapshots))}</p>
 	</div>`
 		: `<div class="card">
 		<h2>Extension host heap</h2>

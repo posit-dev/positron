@@ -6,7 +6,7 @@
 import { describe, expect, test } from 'vitest';
 import { extensionHeapRows, formatBytes, renderHtml, renderMarkdown } from './render.js';
 import { REPORT_CSS } from './report-shell.js';
-import { ActivatedExtension, ExtensionHeapBreakdown, LabeledProcess, MemorySnapshot } from './types.js';
+import { ActivatedExtension, ExtensionHeapBreakdown, ExtensionHeapStatus, LabeledProcess, MemorySnapshot } from './types.js';
 
 const MB = 1024 * 1024;
 
@@ -38,8 +38,8 @@ const snapshot = (procs: LabeledProcess[], launchIndex = 0, extensions: Activate
 });
 
 /** The existing factory takes no overrides, so the new field is spread on. */
-const withHeap = (extensionHeap?: ExtensionHeapBreakdown): MemorySnapshot =>
-	({ ...snapshot([proc()]), extensionHeap });
+const withHeap = (extensionHeap?: ExtensionHeapBreakdown, extensionHeapStatus?: ExtensionHeapStatus): MemorySnapshot =>
+	({ ...snapshot([proc()]), extensionHeap, extensionHeapStatus });
 
 describe('formatBytes', () => {
 	test('renders megabytes with one decimal', () => {
@@ -671,18 +671,32 @@ describe('extension host heap breakdown', () => {
 		expect(rows.map(r => r.extensionId)).not.toContain('positron.positron-python');
 	});
 
-	test('renders no table and says why when no launch produced a breakdown', () => {
+	test('renders no table, and falls back to the bare sentence for a run carrying no status', () => {
 		const markdown = renderMarkdown([withHeap()]);
 
 		expect(markdown).not.toContain('Extension host heap');
-		expect(markdown).toContain('Per-extension breakdown unavailable');
+		expect(markdown).toContain('Per-extension breakdown unavailable for this run._');
 	});
 
-	test('says why in html too, rather than dropping the card silently', () => {
+	test('falls back to the bare sentence in html too, rather than dropping the card silently', () => {
 		const html = renderHtml([withHeap()]);
 
-		expect(html).toContain('Per-extension breakdown unavailable');
+		expect(html).toContain('Per-extension breakdown unavailable for this run.</p>');
 		expect(html).not.toContain('<th>Extension</th>');
+	});
+
+	test('markdown names the failure that cost the breakdown', () => {
+		expect(renderMarkdown([withHeap(undefined, 'capture_failed')]))
+			.toContain('The extension host inspector did not produce a heap snapshot.');
+		expect(renderMarkdown([withHeap(undefined, 'untrusted')]))
+			.toContain('unresolved script id');
+	});
+
+	test('html names the failure that cost the breakdown', () => {
+		expect(renderHtml([withHeap(undefined, 'parse_failed')]))
+			.toContain('The heap snapshot was captured but could not be read back.');
+		expect(renderHtml([withHeap(undefined, 'unsupported_format')]))
+			.toContain('not in the format this parser understands');
 	});
 
 	test('renders the table in markdown when a breakdown is present', () => {
