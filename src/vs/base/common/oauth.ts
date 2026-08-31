@@ -943,7 +943,7 @@ const grantTypesSupported = ['authorization_code', 'refresh_token', 'urn:ietf:pa
 export const DEFAULT_AUTH_FLOW_PORT = 33418;
 // --- Start Positron ---
 export async function fetchDynamicRegistration(serverMetadata: IAuthorizationServerMetadata, clientName: string, scopes?: string[],
-	additionalRedirectUris?: string[]
+	redirectUriOverride?: string
 ): Promise<IAuthorizationDynamicClientRegistrationResponse> {
 	// --- End Positron ---
 	if (!serverMetadata.registration_endpoint) {
@@ -960,7 +960,7 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 			: grantTypesSupported,
 		response_types: ['code'],
 		// --- Start Positron ---
-		redirect_uris: additionalRedirectUris?.length ? additionalRedirectUris : [
+		redirect_uris: redirectUriOverride ? [redirectUriOverride] : [
 			'https://insiders.vscode.dev/redirect',
 			'https://vscode.dev/redirect',
 			'http://127.0.0.1/',

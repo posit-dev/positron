@@ -483,7 +483,9 @@ suite('OAuth', () => {
 			// Verify request body
 			const requestBody = JSON.parse(options.body as string);
 			assert.strictEqual(requestBody.client_name, 'Test Client');
+			// --- Start Positron ---
 			assert.strictEqual(requestBody.client_uri, 'https://positron.posit.co');
+			// --- End Positron ---
 			assert.deepStrictEqual(requestBody.grant_types, ['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:device_code']);
 			assert.deepStrictEqual(requestBody.response_types, ['code']);
 			assert.deepStrictEqual(requestBody.redirect_uris, [
@@ -517,7 +519,7 @@ suite('OAuth', () => {
 				serverMetadata,
 				'Test Client',
 				undefined,
-				['https://workbench.example.com/positron-static/callback-0/static/out/vs/code/browser/workbench/callback.html']
+				'https://workbench.example.com/positron-static/callback-0/static/out/vs/code/browser/workbench/callback.html'
 			);
 
 			const [, options] = fetchStub.firstCall.args;
