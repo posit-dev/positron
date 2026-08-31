@@ -678,6 +678,13 @@ describe('extension host heap breakdown', () => {
 		expect(markdown).toContain('Per-extension breakdown unavailable');
 	});
 
+	test('says why in html too, rather than dropping the card silently', () => {
+		const html = renderHtml([withHeap()]);
+
+		expect(html).toContain('Per-extension breakdown unavailable');
+		expect(html).not.toContain('<th>Extension</th>');
+	});
+
 	test('renders the table in markdown when a breakdown is present', () => {
 		const markdown = renderMarkdown([withHeap(breakdown)]);
 

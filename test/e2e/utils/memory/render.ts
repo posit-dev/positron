@@ -667,7 +667,10 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	const heapRows = extensionHeapRows(snapshots, baseline);
 	const maxHeapBytes = Math.max(0, ...heapRows.map(row => row.bytes));
 	const extensionHeapCard = heapRows.length === 0
-		? ''
+		? `<div class="card">
+		<h2>Extension host heap</h2>
+		<p class="muted">Per-extension breakdown unavailable for this run.</p>
+	</div>`
 		: `<div class="card">
 		<h2>Extension host heap</h2>
 		<table>
