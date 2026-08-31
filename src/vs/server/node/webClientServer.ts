@@ -313,7 +313,16 @@ export class WebClientServer {
 			return;
 		}
 
-		const path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
+		let path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
+
+		// Append query string if it exists. The caller passes only the pathname, so the query
+		// string must be recovered from req.url; websocket apps like marimo require it
+		// (e.g. /ws?session_id=...).
+		const search = url.parse(req.url ?? '').search;
+		if (search) {
+			path = path.concat(search);
+		}
+
 		return this._proxyServer.ws(req, socket, upgradeHead, {
 			ignorePath: true,
 			target: path
