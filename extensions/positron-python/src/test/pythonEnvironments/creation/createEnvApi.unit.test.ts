@@ -403,7 +403,10 @@ suite('Create Environment APIs', () => {
         test('With the uv provider disabled the interception does not fire', async () => {
             workspaceConfig
                 .setup((c) => c.inspect<Record<string, boolean>>('environmentProviders.enabled'))
-                .returns(() => ({ key: 'environmentProviders.enabled', workspaceValue: { venv: true, conda: true, uv: false } }));
+                .returns(() => ({
+                    key: 'environmentProviders.enabled',
+                    workspaceValue: { venv: true, conda: true, uv: false },
+                }));
             workspaceConfig
                 .setup((c) => c.get<Record<string, boolean>>('environmentProviders.enabled'))
                 .returns(() => ({ venv: true, conda: true, uv: false }));
@@ -421,7 +424,10 @@ suite('Create Environment APIs', () => {
                 .returns(() => undefined);
             workspaceConfig
                 .setup((c) => c.inspect<Record<string, boolean>>('environmentProviders.enable'))
-                .returns(() => ({ key: 'environmentProviders.enable', workspaceValue: { venv: true, conda: true, uv: false } }));
+                .returns(() => ({
+                    key: 'environmentProviders.enable',
+                    workspaceValue: { venv: true, conda: true, uv: false },
+                }));
             workspaceConfig
                 .setup((c) => c.get<Record<string, boolean>>('environmentProviders.enable'))
                 .returns(() => ({ venv: true, conda: true, uv: false }));
