@@ -267,7 +267,11 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+B R', 'Reload window');
 		await navigated;
 
-		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		// Use a polling assertion, not a single locator.waitFor task: this gate arms at
+		// the instant the navigation commits, and a waitFor task installed then can bind
+		// to the dying document and never observe the new one (seen on Windows CI). Each
+		// expect poll is an independent call that re-resolves the frame.
+		await expect(page.locator('.monaco-workbench')).toBeVisible({ timeout: 30000 });
 
 		// Wait for the workbench lifecycle to reach Restored (the same positive signal
 		// Application#checkPositronReady gates launch on). External browsers (Posit
