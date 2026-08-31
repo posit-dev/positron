@@ -91,6 +91,19 @@ export class PositronDocsTriggers {
 		return await cache.peek(request);
 	}
 
+	/**
+	 * Cache-only variant of {@link getLocalDocs}. Returns whatever is already on
+	 * disk and never starts a download, so a caller that only wants pre-fetched
+	 * docs pays nothing when there are none.
+	 */
+	async getLocalDocsCache(): Promise<ILocalDocs | undefined> {
+		if (!await this._options.isAiEnabled()) {
+			this._options.logger.info(`${LOG_PREFIX} ai.enabled is off; not serving local docs`);
+			return undefined;
+		}
+		return await this._options.cache.peek(this._options.request);
+	}
+
 	/** Fetch branch of the race. Absorbs its own failure so the race never rejects. */
 	private async _fetchDocs(): Promise<RaceOutcome> {
 		try {

@@ -685,6 +685,13 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			async getLocalDocs(): Promise<positron.docs.LocalDocs | undefined> {
 				return await extHostDocs.getLocalDocs();
 			},
+			/**
+			 * Get the locally cached Positron documentation without
+			 * downloading, or undefined when none is present yet.
+			 */
+			async getLocalDocsCache(): Promise<positron.docs.LocalDocs | undefined> {
+				return await extHostDocs.getLocalDocsCache();
+			},
 		};
 
 		const workspace: typeof positron.workspace = {
