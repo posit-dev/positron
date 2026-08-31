@@ -8,7 +8,13 @@ import { test } from '../_test.setup';
 import { defineMemoryScenario } from './memory-scenario';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// Same setting the stable quarto/_test.setup.ts fixtures apply for every
+	// functional inline-output test: quarto.inlineOutput.enabled defaults to
+	// false, so without this the kernel-status badge never mounts and
+	// expectKernelStatusVisible() times out waiting on a DOM node that will
+	// never exist.
+	extraSettings: { 'quarto.inlineOutput.enabled': true }
 });
 
 const FILE = join('workspaces', 'quarto_inline_output', 'r_data_frame.qmd');
