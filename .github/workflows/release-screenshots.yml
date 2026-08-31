@@ -166,6 +166,10 @@ jobs:
           npm_config_arch: arm64  # macos-latest-xlarge is Apple silicon
           POSITRON_BUILD_NUMBER: 0
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          # postinstall downloads PET and ripgrep from the GitHub API; authenticate so we
+          # get the per-repo rate limit instead of the anonymous per-IP one (which the
+          # shared runner IPs routinely exhaust -> HTTP 403).
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         run: |
           npm ci --fetch-timeout 120000
           npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron arm64"
