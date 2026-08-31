@@ -57,7 +57,7 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 	return (
 		<div className='provider-list-item' data-provider-section={section} data-testid={`provider-row-${source.provider.id}`}>
 			<div className='provider-list-item-icon'>
-				<LanguageModelIcon logoUrl={source.provider.logoUrl} provider={source.provider.id} />
+				<LanguageModelIcon monochrome logoUrl={source.provider.logoUrl} provider={source.provider.id} />
 			</div>
 			<div className='provider-list-item-text'>
 				<div className='provider-list-item-name'>
