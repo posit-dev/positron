@@ -5,8 +5,8 @@
 
 import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
-import { Modals } from './dialog-modals.js';
 import { Toasts } from './dialog-toasts.js';
+import { DynamicModals } from './dialog-dynamic-modals.js';
 import { HotKeys } from './hotKeys.js';
 import {
 	ModelProvider,
@@ -23,14 +23,11 @@ import {
 } from './modelProviderShared.js';
 
 // The "Configure LLM Providers" modal, which the Configure Providers command
-// opens by default (`assistant.newProviderModal`).
-// The testid sits on a zero-size layout wrapper (its child dialog container is
-// position:absolute, so the wrapper collapses and Playwright reports it hidden).
-// Scope to the actual visible dialog box inside it, so visibility gates and
-// footer-button lookups target a real bounding box. The testid prefix keeps this
-// distinct from the OAuth device-code dialog, which is also a
-// .positron-modal-dialog-box.
-const MODAL = '[data-testid="configure-llm-providers-modal"] .positron-modal-dialog-box';
+// opens by default (`assistant.newProviderModal`). The testid sits on a zero-size
+// layout wrapper -- its child dialog container is position:absolute, so the wrapper
+// collapses and Playwright reports it hidden -- so DynamicModals is scoped to the
+// wrapper and finds the visible dialog box inside it.
+const MODAL_SCOPE = '[data-testid="configure-llm-providers-modal"]';
 const CONNECT_VIEW = '[data-testid="provider-connect-view"]';
 const CONNECTED_VIEW = '[data-testid="provider-connected-view"]';
 const APIKEY_INPUT = '#connect-provider-apikey-input';
@@ -41,15 +38,6 @@ const BASEURL_INPUT = '#connect-provider-baseurl-input';
 const AUTH_METHOD_RADIO = (method: 'oauth' | 'apiKey') =>
 	`input[name="connect-provider-auth-method"][value="${method}"]`;
 
-// Footer buttons are rendered by the shared action bar; scope by text within the modal.
-// Substring match, so the in-flight labels ("Connecting...", "Disconnecting...")
-// match the same button. Connect excludes Disconnect explicitly: the two sit
-// together on the Fix Connection screen, and "Disconnect" contains "Connect".
-const CONNECT_BUTTON = `${MODAL} button.positron-button:has-text("Connect"):not(:has-text("Disconnect"))`;
-const SIGN_OUT_BUTTON = `${MODAL} button.positron-button:has-text("Sign out")`;
-const DISCONNECT_BUTTON = `${MODAL} button.positron-button:has-text("Disconnect")`;
-const CLOSE_BUTTON = `${MODAL} button.positron-button:has-text("Close")`;
-
 /**
  * Page object for the "Configure LLM Providers" modal. This is what the
  * Configure Providers command opens unless a suite pins
@@ -59,9 +47,21 @@ const CLOSE_BUTTON = `${MODAL} button.positron-button:has-text("Close")`;
  */
 export class ModelProviderModal {
 	private hotKeys: HotKeys;
+	private modal: DynamicModals;
 
-	constructor(private code: Code, private modals: Modals, private toasts: Toasts) {
+	constructor(private code: Code, private toasts: Toasts) {
 		this.hotKeys = new HotKeys(code);
+		this.modal = new DynamicModals(code, MODAL_SCOPE);
+	}
+
+	/**
+	 * A footer button by its label, matched as a substring. That also matches the
+	 * in-flight "Connecting..." label, which is harmless here: the click lands while
+	 * the button still reads "Connect", and there is only one primary button so there
+	 * is no strict-mode collision.
+	 */
+	private footerButton(label: string) {
+		return this.modal.dialogBox.locator(`button.positron-button:has-text("${label}")`);
 	}
 
 	async runConfigureProviders() {
@@ -91,13 +91,13 @@ export class ModelProviderModal {
 	 * in the file, not just this one: the app is shared across a suite, and the
 	 * Configure Providers command renders a fresh dialog every time it runs without
 	 * checking for one that is already open. A second dialog carries the same
-	 * testid, so MODAL then matches two elements and Playwright fails on strict
-	 * mode instead of on whatever the test was actually doing.
+	 * testid, so the modal locator then matches two elements and Playwright fails on
+	 * strict mode instead of on whatever the test was actually doing.
 	 */
 	private async withModal(timeout: number, body: () => Promise<void>) {
 		try {
 			await this.runConfigureProviders();
-			await expect(this.code.driver.currentPage.locator(MODAL)).toBeVisible({ timeout });
+			await this.modal.expectToBeVisible(undefined, { timeout });
 			await body();
 		} catch (e) {
 			await this.closeQuietly();
@@ -231,9 +231,9 @@ export class ModelProviderModal {
 
 				// Env / credential-chain authenticated providers cannot be signed out from
 				// the modal (no Sign out / Disconnect button); treat that as a no-op close.
-				const signOut = this.code.driver.currentPage.locator(SIGN_OUT_BUTTON);
-				const clearKey = this.code.driver.currentPage.locator(DISCONNECT_BUTTON);
-				const disconnect = (await signOut.isVisible()) ? signOut : (await clearKey.isVisible()) ? clearKey : undefined;
+				const signOut = this.footerButton('Sign out');
+				const disconnectButton = this.footerButton('Disconnect');
+				const disconnect = (await signOut.isVisible()) ? signOut : (await disconnectButton.isVisible()) ? disconnectButton : undefined;
 				if (!disconnect) {
 					await this.clickCloseButton();
 					return;
@@ -248,13 +248,14 @@ export class ModelProviderModal {
 	}
 
 	async clickConnectButton() {
-		await this.code.driver.currentPage.locator(CONNECT_BUTTON).click();
+		await this.footerButton('Connect').click();
 	}
 
+	/** Dismisses the modal through the title bar's X; the footer has no Close button. */
 	async clickCloseButton() {
-		// Sign-in/out can surface toasts overlapping the footer; dismiss them first.
+		// Sign-in/out can surface toasts overlapping the title bar; dismiss them first.
 		await this.toasts.closeAll();
-		await this.code.driver.currentPage.locator(CLOSE_BUTTON).click();
-		await this.modals.expectToBeVisible(undefined, { visible: false });
+		await this.modal.clickCloseButton();
+		await this.modal.expectNotToBeVisible({ timeout: 15000 });
 	}
 }

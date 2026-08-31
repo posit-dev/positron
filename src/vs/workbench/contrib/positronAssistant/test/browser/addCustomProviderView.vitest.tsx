@@ -11,6 +11,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 import { AddCustomProviderView } from '../../browser/components/addCustomProviderView.js';
+import { dialogProps } from './providerModalTestUtils.js';
 
 function source(id: string, displayName: string, overrides: Partial<IPositronLanguageModelSource> = {}): IPositronLanguageModelSource {
 	return {
@@ -40,9 +41,9 @@ describe('AddCustomProviderView', () => {
 	function renderView(onCreate = vi.fn().mockResolvedValue(undefined), onBack = vi.fn()) {
 		rtl.render(
 			<AddCustomProviderView
+				{...dialogProps()}
 				sources={sources}
 				onBack={onBack}
-				onClose={vi.fn()}
 				onCreate={onCreate}
 			/>
 		);

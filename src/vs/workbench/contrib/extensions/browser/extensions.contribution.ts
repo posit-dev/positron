@@ -206,7 +206,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 			// --- Start Positron ---
 			'extensions.gallery.sendUsageData': {
 				type: 'boolean',
-				description: localize('positron.extensions.gallery.sendUsageData', "When enabled, sends Positron distribution type, version, and update-check trigger as query parameters on extension gallery requests. No user-identifying data is sent. Disable this to stop sending these parameters."),
+				description: localize('positron.extensions.gallery.sendUsageData', "When enabled, sends the Positron distribution type, version, update-check trigger, and whether the session runs under an academic license as query parameters on extension gallery requests. Sessions licensed with a license file also send a hash that identifies that license. No user-identifying data is sent. Disable this to stop sending these parameters."),
 				default: true,
 				scope: ConfigurationScope.APPLICATION,
 				tags: ['usesOnlineServices']

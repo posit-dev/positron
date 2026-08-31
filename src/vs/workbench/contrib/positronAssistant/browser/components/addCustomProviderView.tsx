@@ -10,7 +10,8 @@ import { useState } from 'react';
 
 import { localize } from '../../../../../nls.js';
 import { IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
-import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { DropDownListBox, DropDownListBoxEntry } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { DropDownListBoxSeparator } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxSeparator.js';
@@ -52,6 +53,12 @@ interface KindEntryValue {
 }
 
 export interface AddCustomProviderViewProps {
+	/** The renderer this view draws its dialog box into. */
+	renderer: PositronModalReactRenderer;
+	/** The dialog title, computed by the modal so every view titles itself the same way. */
+	title: string;
+	/** The dialog width, set by the modal so every view is the same size. */
+	width: number;
 	/**
 	 * The registered provider sources: the connection fields, labels and terms
 	 * notice of the built-in the chosen type borrows from, and the existing names
@@ -65,8 +72,6 @@ export interface AddCustomProviderViewProps {
 	onCreate: (request: IAddCustomProviderRequest) => Promise<void>;
 	/** Invoked by the footer Back button, and after a successful create. */
 	onBack: () => void;
-	/** Invoked by the footer Close button. */
-	onClose: () => void;
 }
 
 export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
@@ -117,8 +122,8 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 	};
 
 	return (
-		<>
-			<ContentArea>
+		<PositronDynamicModalDialog
+			content={
 				<div className='connect-provider-view add-custom-provider-view' data-testid='provider-add-custom-view'>
 					{/* Headed by the vendor it borrows from, so it reads as "another
 					Anthropic connection" rather than a form set to Anthropic. */}
@@ -209,22 +214,27 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 					{/* The terms belong to the provider the entry connects to. */}
 					{basedOn && <ProviderNotice source={basedOn} />}
 				</div>
-			</ContentArea>
-			<ProviderModalFooter
-				primaryButton={{
-					title: saving
-						? localize('positron.addCustomProvider.adding', "Adding...")
-						: localize('positron.addCustomProvider.add', "Add Provider"),
-					// Never gated on completeness: submitting is how the user finds
-					// out what's missing.
-					disable: saving,
-					loading: saving,
-					onClick: onSubmit,
-				}}
-				onBack={props.onBack}
-				onClose={props.onClose}
-			/>
-		</>
+			}
+			footer={
+				<ProviderModalFooter
+					primaryButton={{
+						title: saving
+							? localize('positron.addCustomProvider.adding', "Adding...")
+							: localize('positron.addCustomProvider.add', "Add Provider"),
+						// Never gated on completeness: submitting is how the user finds
+						// out what's missing.
+						disable: saving,
+						loading: saving,
+						onClick: onSubmit,
+					}}
+					onBack={props.onBack}
+				/>
+			}
+			renderer={props.renderer}
+			title={props.title}
+			width={props.width}
+			onCancel={() => props.renderer.dispose()}
+		/>
 	);
 };
 

@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { isSettled, joinProcesses, tailIsFlat, treeHasSettled, unstableProcesses, waitForSettle } from './snapshot.js';
-import { LabeledProcess, RawProcess } from './types.js';
+import { ForcedGcStats } from './gc.js';
+import { isSettled, joinProcesses, tailIsFlat, treeHasSettled, unstableProcesses, waitForSettle, withForcedGc } from './snapshot.js';
+import { LabeledProcess, ProcessRole, RawProcess } from './types.js';
 
 const proc = (pid: number, ppid: number, cmd: string, pss: number): RawProcess =>
 	({ pid, ppid, cmd, pssBytes: pss, rssBytes: pss * 2 });
@@ -96,7 +97,7 @@ describe('unstableProcesses', () => {
 		labeled: true, cmdBasename: 'positron',
 		pssBytes: pss[Math.floor(pss.length / 2)], rssBytes: 0,
 		pssMin: Math.min(...pss), pssMax: Math.max(...pss),
-		pssSamples: pss, rssSamples: pss.map(v => v * 2)
+		pssSamples: pss, rssSamples: pss.map(v => v * 2), forcedGc: false
 	});
 
 	test('flags a process whose samples span more than the tolerance', () => {
@@ -331,5 +332,98 @@ describe('the 50 MB floor on flatness', () => {
 
 	test('counts the same fractional drop as moving once it clears 50 MB', () => {
 		expect(tailIsFlat([740 * MB, 740 * MB, 740 * MB, 660 * MB])).toBe(false);
+	});
+});
+
+describe('withForcedGc', () => {
+	// Shadows the module-scope `proc`, which is a RawProcess factory. Deliberate:
+	// this block only ever wants the labeled kind.
+	const proc = (pid: number, processRole: ProcessRole): LabeledProcess => ({
+		pid, ppid: 1, depth: 0, processName: `p${pid}`, processRole,
+		labeled: true, cmdBasename: 'positron',
+		pssBytes: 100, rssBytes: 200, pssMin: 100, pssMax: 100,
+		pssSamples: [100], rssSamples: [200], forcedGc: false
+	});
+
+	const stats = (role: 'shared' | 'extension_host', pid: number): ForcedGcStats => ({
+		role, pid,
+		preRssBytes: 200, postRssBytes: 100,
+		preHeapTotalBytes: 150, postHeapTotalBytes: 80
+	});
+
+	test('flags the collected roles and leaves the live ones alone', () => {
+		const flagged = withForcedGc(
+			[proc(1, 'shared'), proc(2, 'extension_host'), proc(3, 'renderer')],
+			[stats('shared', 1), stats('extension_host', 2)]);
+		expect(flagged.map(p => [p.processRole, p.forcedGc])).toEqual([
+			['shared', true], ['extension_host', true], ['renderer', false]
+		]);
+	});
+
+	// By role, not by pid, even though ForcedGcStats carries one. The GC reaches a
+	// role through its inspector port, so every process of a collected role is in
+	// the collected state -- and the API's trend row aggregates the flag per role
+	// with any(), which its own comment justifies by "every process of a collected
+	// role carries the flag, so any() and all() agree". Matching on pid would make
+	// that false the moment a role has two processes.
+	test('flags every process of a collected role, not only the pid that was read', () => {
+		const flagged = withForcedGc(
+			[proc(1, 'extension_host'), proc(2, 'extension_host')],
+			[stats('extension_host', 1)]);
+		expect(flagged.map(p => p.forcedGc)).toEqual([true, true]);
+	});
+
+	// The server lane collects only the extension host (gcTargetsFor). Nothing
+	// downstream needs a rule for that, because the flag says so per process.
+	test('follows the lane through the stats it was given', () => {
+		const flagged = withForcedGc(
+			[proc(1, 'shared'), proc(2, 'extension_host')],
+			[stats('extension_host', 2)]);
+		expect(flagged.map(p => p.forcedGc)).toEqual([false, true]);
+	});
+
+	test('leaves everything live when no GC pass ran', () => {
+		expect(withForcedGc([proc(1, 'shared')], undefined).map(p => p.forcedGc)).toEqual([false]);
+		expect(withForcedGc([proc(1, 'shared')], []).map(p => p.forcedGc)).toEqual([false]);
+	});
+
+	test('does not mutate its input', () => {
+		const input = [proc(1, 'shared')];
+		withForcedGc(input, [stats('shared', 1)]);
+		expect(input[0].forcedGc).toBe(false);
+	});
+
+	// The server lane cannot answer `--status` at all (label.ts), so `shared`
+	// and `extension_host` never resolve there and the collected extension host
+	// reads as `unlabeled`. Matching by pid as well identifies exactly the
+	// process the GC pass actually reached, which is strictly more truthful
+	// than leaving an unlabeled-but-collected process reading as live.
+	test('flags an unlabeled process whose pid matches, as on the server lane', () => {
+		const flagged = withForcedGc(
+			[proc(2, 'unlabeled')],
+			[stats('extension_host', 2)]);
+		expect(flagged.map(p => p.forcedGc)).toEqual([true]);
+	});
+
+	// Confirms pid matching is additive, not a replacement for role matching: a
+	// process whose pid does not match any stats entry still falls through to
+	// the role check rather than defaulting to false.
+	test('still flags by role when pids do not match', () => {
+		const flagged = withForcedGc(
+			[proc(1, 'extension_host')],
+			[stats('extension_host', 999)]);
+		expect(flagged.map(p => p.forcedGc)).toEqual([true]);
+	});
+});
+
+describe('joinProcesses forcedGc default', () => {
+	// joinProcesses has no view of the GC pass, so it reports every process live
+	// and withForcedGc flips the collected roles afterwards. The default is false
+	// rather than undefined so the field is required on the type and a process
+	// that never reached withForcedGc cannot compile.
+	test('reports every process as live, for withForcedGc to correct', () => {
+		const raw = [{ pid: 100, ppid: 1, cmd: '/opt/positron/positron', pssBytes: 10, rssBytes: 20 }];
+		const joined = joinProcesses(raw, new Map([[100, 'main']]), 100, [raw]);
+		expect(joined.map(p => p.forcedGc)).toEqual([false]);
 	});
 });

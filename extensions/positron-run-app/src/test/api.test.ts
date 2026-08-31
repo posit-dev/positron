@@ -7,7 +7,7 @@ import assert = require('assert');
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { DebugAppOptions, RunAppOptions } from '../positron-run-app';
+import { DebugAppOptions, RunAppOptions, RunConsoleAppOptions } from '../positron-run-app';
 import { raceTimeout } from '../utils';
 import { PositronRunAppApiImpl } from '../api';
 import { log } from '../extension.js';
@@ -98,6 +98,17 @@ suite('PositronRunApp', () => {
 		disposables.splice(0, disposables.length);
 	});
 
+	/** Poll until `condition` holds, or fail the test after `timeout` ms. */
+	async function waitFor(condition: () => boolean, message: string, timeout = 5_000): Promise<void> {
+		const deadline = Date.now() + timeout;
+		while (!condition()) {
+			if (Date.now() > deadline) {
+				assert.fail(message);
+			}
+			await new Promise(resolve => setTimeout(resolve, 10));
+		}
+	}
+
 	async function getRunAppApi(): Promise<PositronRunAppApiImpl> {
 		const extension = vscode.extensions.getExtension<PositronRunAppApiImpl>('positron.positron-run-app');
 		if (!extension) {
@@ -164,6 +175,153 @@ suite('PositronRunApp', () => {
 			vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').get('enabled'),
 			'Shell integration not enabled',
 		);
+	});
+
+	suite('runApplicationInConsole', () => {
+		const consoleAppOptions: RunConsoleAppOptions = {
+			name: 'Test Console App',
+			getConsoleCode() {
+				return { code: 'run_the_app()' };
+			},
+			appUrlStrings: ['Listening on {{APP_URL}}'],
+			// Generous by default: the success test has to wait for `executeCode`
+			// before it can emit output, and a loaded CI machine must not race the
+			// detection clock. The timeout test overrides this with a short value.
+			urlDetectionTimeout: 30_000,
+		};
+
+		let observer: positron.runtime.ExecutionObserver | undefined;
+		let finishExecution: (() => void) | undefined;
+		let showWarningMessageStub: sinon.SinonStub;
+
+		setup(() => {
+			observer = undefined;
+			finishExecution = undefined;
+
+			// Always start a fresh console session rather than reusing a
+			// persisted one from an earlier test.
+			sinon.stub(positron.runtime, 'getSession').resolves(undefined);
+			sinon.stub(positron.runtime, 'startLanguageRuntime')
+				.resolves({ metadata: { sessionId: 'test-session' } } as positron.LanguageRuntimeSession);
+			sinon.stub(positron.runtime, 'focusSession');
+
+			// Capture the observer so the test can drive console output, and
+			// capture a resolver so a test can end the execution: the real
+			// Thenable only resolves once the app stops.
+			sinon.stub(positron.runtime, 'executeCode')
+				.callsFake((..._args) => {
+					observer = _args[6] as positron.runtime.ExecutionObserver;
+					return new Promise<Record<string, any>>(resolve => {
+						finishExecution = () => resolve({});
+					});
+				});
+
+			showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+		});
+
+		test('previews the app URL found in console output', async () => {
+			const runPromise = runAppApi.runApplicationInConsole(consoleAppOptions);
+
+			// Wait for the execution to start, then emit the app's URL.
+			await waitFor(() => observer !== undefined, 'Timed out waiting for code execution');
+			observer!.onOutput!('Listening on http://localhost:1234\n');
+
+			await runPromise;
+
+			sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+		});
+
+		test('leaves the app running when URL detection times out', async () => {
+			// Regression test for #15601: the URL detection timeout used to
+			// cancel the execution observer's token. Cancelling that token
+			// interrupts the session, which killed apps that were merely slower
+			// to start than the timeout allowed, so the app's port was never
+			// forwarded.
+			let didCancelExecution = false;
+
+			// Short timeout so this test doesn't slow the suite down.
+			const runPromise = runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				urlDetectionTimeout: 500,
+			});
+
+			await waitFor(() => observer !== undefined, 'Timed out waiting for code execution');
+			observer!.token?.onCancellationRequested(() => {
+				didCancelExecution = true;
+			});
+
+			// Never emit a URL, so detection times out.
+			await runPromise;
+
+			// Stated directly rather than relying on the listener above: with no
+			// token there is nothing to cancel, so an optional-chained listener
+			// alone would pass no matter what the code did.
+			assert.strictEqual(
+				observer!.token,
+				undefined,
+				'The execution observer must not carry a cancellation token: cancelling it ' +
+				'interrupts the session and kills the app',
+			);
+			assert.ok(
+				!didCancelExecution,
+				'URL detection timing out must not cancel the execution, which would interrupt the ' +
+				'session and kill the app',
+			);
+			sinon.assert.notCalled(previewUrlStub);
+
+			// These options set `urlDetectionTimeout`, which overrides
+			// `positron.runApp.urlDetectionTimeout`, so the warning must not offer
+			// to change that setting: changing it would have no effect.
+			sinon.assert.calledOnceWithExactly(
+				showWarningMessageStub,
+				sinon.match.string,
+				'Show Console',
+				'Show Log',
+			);
+		});
+
+		test('previews the app URL that appears after the detection timeout', async () => {
+			// A slow app prints its URL after we have given up waiting. Detection
+			// keeps listening, so the app is still previewed without the user
+			// having to do anything.
+			const runPromise = runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				urlDetectionTimeout: 500,
+			});
+
+			await waitFor(() => observer !== undefined, 'Timed out waiting for code execution');
+
+			// The run task ends at the timeout so that a re-run is never blocked.
+			// The watch for the app's URL outlives it.
+			await runPromise;
+
+			observer!.onOutput!('Listening on http://localhost:1234\n');
+
+			await waitFor(() => previewUrlStub.called, 'Timed out waiting for the app to be previewed');
+			sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+		});
+
+		test('stops watching when the console execution finishes without a URL', async () => {
+			// An app that stopped without ever printing a URL is never going to
+			// print one, so the watch must end with the execution rather than
+			// previewing whatever a later session happens to print.
+			const runPromise = runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				urlDetectionTimeout: 500,
+			});
+
+			await waitFor(() => observer !== undefined, 'Timed out waiting for code execution');
+			await runPromise;
+
+			// End the execution, as if the app stopped, then print a URL anyway.
+			assert.ok(finishExecution, 'The execution resolver should have been captured');
+			finishExecution();
+			await new Promise(resolve => setTimeout(resolve, 100));
+			observer!.onOutput!('Listening on http://localhost:1234\n');
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			sinon.assert.notCalled(previewUrlStub);
+		});
 	});
 
 	test('debugApplication: shell integration supported', async () => {

@@ -115,18 +115,9 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			const entries = buildEntries(this._service);
 			this.setRoots(entries.map(wrapEntry));
 
-			// A loaded DTO subtree is only valid while its connection is open -- its node handles live
-			// in the ext host and die with the connection -- so drop the subtree of any entry that no
-			// longer has a live instance, and the next expand re-fetches against a fresh handle. Doing
-			// it here covers every route a connection can close by, not just the ones the tree starts:
-			// a collapse, a deferred close once the last Data Explorer closed, or the driver dropping
-			// the connection on its own.
-			for (const entry of entries) {
-				const id = entryNodeId(entry.profile);
-				if (entry.instance === undefined && this.hasLoadedChildren(id)) {
-					this.dropLoadedChildren(id);
-				}
-			}
+			// A loaded DTO subtree is only valid while its connection is open, so drop the subtree of
+			// any entry that no longer has a live instance.
+			this._dropClosedEntrySubtrees(entries);
 		};
 		this._register(this._service.onDidChangeProfiles(refreshRoots));
 		this._register(this._service.onDidChangeInstances(refreshRoots));
@@ -183,6 +174,32 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		}
 		super.collapse(id);
 		await this._service.disconnect(node.entry.profile.id);
+	}
+
+	/**
+	 * Collapses and unloads every entry that no longer has a live connection. A loaded DTO subtree is
+	 * only valid while its connection is open -- its node handles live in the ext host and die with
+	 * the connection -- so the subtree is dropped and the next expand re-fetches against a fresh
+	 * handle.
+	 *
+	 * Collapsing matters as much as dropping: an entry left expanded with no children renders as a
+	 * twisty that spins forever, because the projection reads "expanded but not loaded" as a fetch in
+	 * flight and nothing is fetching. It goes through the base implementation rather than this class's
+	 * collapse, which means "the user gave up the connection" and would ask to close one that is
+	 * already gone.
+	 *
+	 * Called on every roots refresh, so it covers every route a connection can close by, not just the
+	 * ones the tree starts: a collapse, a deferred close once the last Data Explorer closed, an edit
+	 * to the profile's parameters, or the driver dropping the connection on its own.
+	 */
+	private _dropClosedEntrySubtrees(entries: readonly DataConnectionEntry[]): void {
+		for (const entry of entries) {
+			const id = entryNodeId(entry.profile);
+			if (entry.instance === undefined && this.hasLoadedChildren(id)) {
+				super.collapse(id);
+				this.dropLoadedChildren(id);
+			}
+		}
 	}
 
 	/**

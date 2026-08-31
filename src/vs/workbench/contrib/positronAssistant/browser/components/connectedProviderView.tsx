@@ -13,18 +13,23 @@ import { IPositronLanguageModelConfig, IPositronLanguageModelSource, LanguageMod
 import { AuthMethod } from '../types.js';
 import { deriveAuthMethod, deriveDisconnectAction } from '../providerConnection.js';
 import { getBaseUrlLabel } from '../providerFieldLabels.js';
-import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ConnectProviderHeader, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
 import { EditRawConfigLink } from './editRawConfigLink.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
 
 export interface ConnectedProviderViewProps {
+	/** The renderer this view draws its dialog box into. */
+	renderer: PositronModalReactRenderer;
+	/** The dialog title, computed by the modal so every view titles itself the same way. */
+	title: string;
+	/** The dialog width, set by the modal so every view is the same size. */
+	width: number;
 	source: IPositronLanguageModelSource;
 	onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	/** Invoked by the footer Back button. */
 	onBack: () => void;
-	/** Invoked by the footer Close button. */
-	onClose: () => void;
 	/** Open providers.json for advanced editing. */
 	onEditRawConfig: () => void;
 }
@@ -85,50 +90,50 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 	// "Disconnect", not "Remove": it clears the stored credential and leaves the
 	// provider in the list with its settings intact. Deleting a custom entry is a
 	// different action, and the two must not read the same.
-	const title = authMethod === AuthMethod.OAUTH ? localize('positron.connectedProvider.signOut', "Sign Out") : localize('positron.connectedProvider.disconnect', "Disconnect");
-	const loadingTitle = authMethod === AuthMethod.OAUTH
+	const actionTitle = authMethod === AuthMethod.OAUTH ? localize('positron.connectedProvider.signOut', "Sign Out") : localize('positron.connectedProvider.disconnect', "Disconnect");
+	const actionLoadingTitle = authMethod === AuthMethod.OAUTH
 		? localize('positron.connectedProvider.signingOut', "Signing Out...")
 		: localize('positron.connectedProvider.disconnecting', "Disconnecting...");
 
 	return (
-		<>
-			<ContentArea>
+		<PositronDynamicModalDialog
+			content={
 				<div className='connect-provider-view' data-testid='provider-connected-view'>
 					<ConnectProviderHeader source={current} subtitle={subtitle} />
-					<div className='connect-provider-divider' />
 					{hasError && <ProviderErrorBanner message={errorBannerMessage} />}
 					{isCopilot && isAutoAuth &&
 						<EmbeddedLink>
 							{localize('positron.connectedProvider.copilotSignOut', "To sign out of GitHub, use the [Accounts: Manage Accounts]({0}) command. This signs you out of GitHub for every extension in Positron.", 'command:workbench.action.manageAccounts')}
 						</EmbeddedLink>
-
 					}
-					<p className='connect-provider-detail'>
-						{current.supportedOptions.includes('baseUrl') && current.defaults.baseUrl &&
-							<>
-								<span className='connect-provider-detail-label'>
-									{getBaseUrlLabel(current.provider.id)}
-								</span>
-								<span className='connect-provider-detail-value'>{current.defaults.baseUrl}</span>
-							</>
-						}
-					</p>
-
+					{current.supportedOptions.includes('baseUrl') && current.defaults.baseUrl &&
+						<p className='connect-provider-detail' data-testid='provider-base-url'>
+							<span className='connect-provider-detail-label'>
+								{getBaseUrlLabel(current.provider.id)}
+							</span>
+							<span className='connect-provider-detail-value'>{current.defaults.baseUrl}</span>
+						</p>
+					}
 					<EditRawConfigLink onClick={props.onEditRawConfig} />
 					<ProviderNotice source={current} />
 					{errorMessage && <div className='connect-provider-error'>{errorMessage}</div>}
 				</div>
-			</ContentArea>
-			<ProviderModalFooter
-				primaryButton={isAutoAuth ? undefined : {
-					title: pending ? loadingTitle : title,
-					disable: pending,
-					loading: pending,
-					onClick: onSignOut,
-				}}
-				onBack={props.onBack}
-				onClose={props.onClose}
-			/>
-		</>
+			}
+			footer={
+				<ProviderModalFooter
+					primaryButton={isAutoAuth ? undefined : {
+						title: pending ? actionLoadingTitle : actionTitle,
+						disable: pending,
+						loading: pending,
+						onClick: onSignOut,
+					}}
+					onBack={props.onBack}
+				/>
+			}
+			renderer={props.renderer}
+			title={props.title}
+			width={props.width}
+			onCancel={() => props.renderer.dispose()}
+		/>
 	);
 };
