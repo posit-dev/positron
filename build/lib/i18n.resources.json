@@ -287,6 +287,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronSettings",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/repl",
 			"project": "vscode-workbench"
 		},

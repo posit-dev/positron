@@ -21,6 +21,7 @@
   "src/vs/workbench/services/positronModalDialogs/": ["@:modal"],
   "src/vs/workbench/contrib/positronAssistant/": ["@:assistant"],
   "src/vs/workbench/contrib/positronAiFeatures/": ["@:assistant"],
+  "src/vs/workbench/contrib/positronSettings/": ["@:assistant"],
   "src/vs/workbench/contrib/positronRuntimeSessions/": ["@:sessions"],
   "src/vs/workbench/contrib/positronSession/": ["@:sessions"],
 
