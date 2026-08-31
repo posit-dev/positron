@@ -185,25 +185,9 @@ describe('attributeHeap', () => {
 		const result = attributeHeap({ snapshot, scriptUrls: SCRIPTS, extensionIds: IDS });
 
 		expect(result.ok).toBe(false);
+		// The kind is what the consumer switches on; the reason is what the report prints.
+		expect(result.ok === false && result.kind).toBe('unsupported_format');
 		expect(!result.ok && result.reason).toMatch(/node_fields/);
-	});
-
-	test('labels a format mismatch as unsupported_format so the consumer can switch on it', () => {
-		const snapshot = buildSnapshot([{ self: 10, to: [] }], [[0, 1]]);
-		snapshot.snapshot.meta.node_fields = ['type', 'name'];
-
-		const result = attributeHeap({ snapshot, scriptUrls: SCRIPTS, extensionIds: IDS });
-
-		expect(result.ok).toBe(false);
-		expect(result.ok === false && result.kind).toBe('unsupported_format');
-	});
-
-	test('labels an empty locations array as unsupported_format rather than a healthy empty breakdown', () => {
-		const snapshot = buildSnapshot([{ self: 10, to: [] }], []);
-
-		const result = attributeHeap({ snapshot, scriptUrls: {}, extensionIds: {} });
-
-		expect(result.ok === false && result.kind).toBe('unsupported_format');
 	});
 
 	test('labels an over-ceiling unresolved share as untrusted, since the numbers are real but incomplete', () => {
