@@ -173,6 +173,41 @@ describe('getProviderStatus', () => {
 		});
 	});
 
+	it('omits auth for a registration the session sweep has not reached, instead of calling it not-signed-in', async () => {
+		// During activation, providers are registered before the initial session
+		// sweep sets signedIn/status. That window must read as unknown.
+		stubServices({
+			registrations: [registration({ id: 'anthropic-api', catalogId: 'anthropic' })],
+		});
+
+		expect(await getProviderStatus(ctx.instantiationService)).toEqual({
+			catalogStatus: 'ready',
+			// Registrations exist, but none carries a verdict yet.
+			authStateUnavailable: true,
+			providers: [{
+				id: 'anthropic',
+				displayName: 'anthropic-api',
+				enabled: true,
+			}],
+		});
+	});
+
+	it('keeps authStateUnavailable off when any registration has been swept, while unswept entries still omit auth', async () => {
+		stubServices({
+			registrations: [
+				registration({ id: 'anthropic-api', catalogId: 'anthropic', signedIn: true, status: 'ok' }),
+				registration({ id: 'gemini-api', catalogId: 'gemini' }),
+			],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.authStateUnavailable).toBeUndefined();
+		expect(result.providers.map(({ id, auth }) => ({ id, auth }))).toEqual([
+			{ id: 'anthropic', auth: 'signed-in' },
+			{ id: 'gemini', auth: undefined },
+		]);
+	});
+
 	it('names customized connection fields without ever carrying their values', async () => {
 		stubServices({
 			registrations: [registration({ id: 'bedrock-auth', catalogId: 'bedrock', signedIn: true, status: 'ok' })],

@@ -34,10 +34,12 @@ export interface IProviderStatusEntry {
 	enabled: boolean;
 
 	/**
-	 * Present only for an enabled provider that has registered its sign-in
-	 * state with this window. Absent means unknown, never "signed out": a
-	 * disabled provider's sign-in state is moot (the authentication extension
-	 * drops its sessions), and a catalog-only entry has nothing to report.
+	 * Present only for an enabled provider whose sign-in state has actually
+	 * been reported to this window. Absent means unknown, never "signed out":
+	 * a disabled provider's sign-in state is moot (the authentication
+	 * extension drops its sessions), a catalog-only entry has nothing to
+	 * report, and a registration the initial session sweep has not reached
+	 * yet carries no verdict.
 	 */
 	auth?: ProviderAuthState;
 
@@ -127,13 +129,32 @@ function customizedConnectionFields(connection: IResolvedConnectionData): string
  * authentication extension's verdict: 'error' means configured but the
  * credential no longer resolves (e.g. expired), which must not read as a
  * fresh, never-configured provider.
+ *
+ * Returns undefined when the registration carries no verdict yet: the
+ * authentication extension registers providers first and sweeps sessions
+ * afterward, so during activation `signedIn` is still unset. Unknown must not
+ * read as 'not-signed-in' -- that is this payload's own absence-is-not-signed-
+ * out rule, applied to its input.
  * @param source The provider's registered source.
  */
-function authState(source: IPositronLanguageModelSource): ProviderAuthState {
+function authState(source: IPositronLanguageModelSource): ProviderAuthState | undefined {
 	if (source.status === 'error') {
 		return 'error';
 	}
+	if (source.signedIn === undefined) {
+		return undefined;
+	}
 	return source.signedIn ? 'signed-in' : 'not-signed-in';
+}
+
+/**
+ * Whether a registration carries any sign-in verdict at all. The initial
+ * session sweep sets `signedIn` (and `status`) on every registered provider,
+ * so a registration with neither has not been swept yet.
+ * @param source The provider's registered source.
+ */
+function hasAuthState(source: IPositronLanguageModelSource): boolean {
+	return source.signedIn !== undefined || source.status !== undefined;
 }
 
 /**
@@ -209,10 +230,16 @@ export async function getProviderStatus(accessor: ServicesAccessor): Promise<IPr
 				: entry.enabled ? 2 : 3;
 	providers.sort((a, b) => interest(a) - interest(b) || a.id.localeCompare(b.id));
 
+	// Sign-in state is unavailable both when nothing has registered at all
+	// (authentication extension missing) and when registrations exist but none
+	// has been swept yet (extension still activating): in either case no entry
+	// carries an auth verdict, and the caller must not read that as signed out.
+	const authStateUnavailable = !registrations.some(hasAuthState);
+
 	return {
 		catalogStatus: aiProviderService.status,
 		providers,
-		authStateUnavailable: registrations.length === 0 ? true : undefined,
+		authStateUnavailable: authStateUnavailable ? true : undefined,
 	};
 }
 
