@@ -171,6 +171,17 @@ jobs:
           npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron arm64"
           npm run prelaunch
 
+      # A packaged release build bundles its own Quarto CLI (see build/lib/quarto.ts);
+      # a from-source build has no equivalent packaging step, so the Quarto extension
+      # finds no CLI at all and quarto-hello-python.screenshot.ts times out waiting
+      # for the preview to render. Put one on PATH so the extension's own PATH check
+      # picks it up.
+      - name: Set up Quarto (build_from_source only)
+        if: env.BUILD_FROM_SOURCE == 'true'
+        uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Pre-warm matplotlib font cache
         run: python -c "import matplotlib.pyplot as plt; plt.figure()"
 
