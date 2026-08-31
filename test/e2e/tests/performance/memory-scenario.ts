@@ -10,7 +10,7 @@ import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
 import { collectAllGarbage, gcTargetsFor, malformedForcedGc } from '../../utils/memory/gc.js';
 import { attributeHeap, HeapSnapshotJson } from '../../utils/memory/heap-attribute.js';
-import { captureExtensionHostHeap, HEAP_CAPTURE_TIMEOUT_MS, HeapCaptureSidecar, heapSidecarPath, heapSnapshotPath } from '../../utils/memory/heap-capture.js';
+import { captureExtensionHostHeap, HEAP_CAPTURE_BUDGET_MS, HeapCaptureSidecar, heapSidecarPath, heapSnapshotPath } from '../../utils/memory/heap-capture.js';
 import { namedShareGateApplies } from '../../utils/memory/label.js';
 import { MemoryLane } from '../../utils/memory/lanes.js';
 import { containerImageFromEnv, fetchBaseline, publishingEnabled, publishSnapshots, publishTargetIsProduction } from '../../utils/memory/publish.js';
@@ -94,10 +94,10 @@ export function defineMemoryScenario(options: {
 			// Derived rather than a round number, because the default 2 minutes is
 			// now too short: a run that waits out both caps would time out before it
 			// could report which one it hit, turning a diagnosable result into a
-			// bare timeout. HEAP_CAPTURE_TIMEOUT_MS must be in this sum too, or
-			// Playwright would time out the test 30s before the CDP heap capture
+			// bare timeout. HEAP_CAPTURE_BUDGET_MS must be in this sum too, or
+			// Playwright would time out the test before the CDP heap capture
 			// timeout could fire and fail that step alone.
-			test.setTimeout(SETTLE_CAP_MS + SAMPLING_CAP_MS + HEAP_CAPTURE_TIMEOUT_MS + MEASURE_OVERHEAD_MS);
+			test.setTimeout(SETTLE_CAP_MS + SAMPLING_CAP_MS + HEAP_CAPTURE_BUDGET_MS + MEASURE_OVERHEAD_MS);
 
 			// Only test-memory-metrics.yml collects these specs, and it always sets
 			// BUILD. A missing one means the workflow is broken, not that the spec

@@ -226,6 +226,10 @@ jobs:
       # measures and renders but writes nothing to the trend.
       - name: Render report
         env:
+          # Parsing a 354 MB heap snapshot needs several GB. Deliberate headroom
+          # rather than the runner default: a V8 OOM aborts the process, so the
+          # parse's own try/catch cannot turn it back into a skipped breakdown.
+          NODE_OPTIONS: '--max-old-space-size=8192'
           BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_PUBLISH: 'true'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
@@ -239,7 +243,12 @@ jobs:
           # Matches snapshotDir() in the spec, which is per lane and scenario.
           # Deliberately not test-results/, which Playwright wipes at the
           # start of every invocation.
-          path: ${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/
+          # Excludes the heap snapshots: this step is if: always(), so a failed
+          # measure or render step would otherwise upload 3 x 354 MB of them.
+          path: |
+            ${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/
+            !${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/*.heapsnapshot
+            !${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/*.meta.json
           if-no-files-found: warn
 
       # Only on failure, and deliberately including test-results/: when the app

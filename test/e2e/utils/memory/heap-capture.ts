@@ -14,7 +14,7 @@
 
 import { appendFileSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { CdpClient, connectToInspector, defaultConnect, WsConnect } from './cdp.js';
+import { CdpClient, connectToInspector, defaultConnect, MESSAGE_TIMEOUT_MS, WsConnect } from './cdp.js';
 import { readExtensionIdsByDirectory } from './extensions.js';
 import { GC_TARGETS } from './gc.js';
 
@@ -48,11 +48,20 @@ const EXTENSION_HOST_PORT = GC_TARGETS.find(target => target.role === 'extension
  * shared 10s round-trip default but still short enough to fail rather than eat
  * the job's timeout.
  *
- * Exported so the measure test's own setTimeout budgets for it: it must exceed
- * this value, or Playwright times out the test before this can fire and fail
- * cleanly instead.
+ * Applies to the snapshot step alone; `HEAP_CAPTURE_BUDGET_MS` is what a
+ * caller sizing a timeout around the whole capture wants.
  */
 export const HEAP_CAPTURE_TIMEOUT_MS = 120_000;
+
+/**
+ * Worst case for the whole capture: the snapshot, plus the target lookup and
+ * the four other round trips, each bounded by the shared message timeout.
+ *
+ * The measure test's own setTimeout must exceed this, or Playwright times out
+ * the test before the capture can fail cleanly on its own and leave the PSS
+ * datapoint intact.
+ */
+export const HEAP_CAPTURE_BUDGET_MS = HEAP_CAPTURE_TIMEOUT_MS + 5 * MESSAGE_TIMEOUT_MS;
 
 export function heapSnapshotPath(dir: string, launchIndex: number): string {
 	return join(dir, `heap-${launchIndex}.heapsnapshot`);

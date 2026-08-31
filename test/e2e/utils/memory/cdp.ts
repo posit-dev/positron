@@ -111,7 +111,9 @@ export async function connectToInspector(
 	fetchImpl: typeof fetch = fetch
 ): Promise<CdpClient> {
 	const context = `${label} inspector on port ${port}`;
-	const response = await fetchImpl(`http://127.0.0.1:${port}/json`);
+	// Bounded like every other step: an inspector port that accepts the
+	// connection but never answers would otherwise hang with no timeout at all.
+	const response = await fetchImpl(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(MESSAGE_TIMEOUT_MS) });
 	const targets = await response.json() as { webSocketDebuggerUrl?: string }[];
 	const target = targets[0];
 	if (!target?.webSocketDebuggerUrl) {
