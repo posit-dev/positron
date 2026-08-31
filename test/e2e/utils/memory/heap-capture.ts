@@ -91,10 +91,10 @@ export async function captureExtensionHostHeap(input: {
 		mkdirSync(input.dir, { recursive: true });
 		const snapshotPath = heapSnapshotPath(input.dir, input.launchIndex);
 		writeFileSync(snapshotPath, '');
-		let bytesWritten = 0;
+		let chunkedChars = 0;
 		client.on('HeapProfiler.addHeapSnapshotChunk', (params: { chunk: string }) => {
 			appendFileSync(snapshotPath, params.chunk);
-			bytesWritten += params.chunk.length;
+			chunkedChars += params.chunk.length;
 		});
 
 		// Same call gc.ts already makes against this inspector every night, so
@@ -121,7 +121,7 @@ export async function captureExtensionHostHeap(input: {
 		await client.send('HeapProfiler.takeHeapSnapshot',
 			{ reportProgress: false, captureNumericValue: false }, SNAPSHOT_TIMEOUT_MS);
 
-		if (bytesWritten === 0) {
+		if (chunkedChars === 0) {
 			rmSync(snapshotPath, { force: true });
 			console.log('[memory] extension host streamed no heap snapshot chunks; skipping the per-extension breakdown');
 			return { captured: false, pid };
