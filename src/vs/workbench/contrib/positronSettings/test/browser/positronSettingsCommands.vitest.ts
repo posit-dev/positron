@@ -342,6 +342,34 @@ describe('getConfiguredSettings', () => {
 		});
 	});
 
+	it('merges object-valued override properties recursively, without mutating sources', () => {
+		// Core's merge recurses into object values, so a user-level
+		// codeActionsOnSave.source.organizeImports and a workspace-level
+		// ...source.fixAll are both in effect -- a shallow per-property merge
+		// would report only the workspace object. The sources assertion guards
+		// the reference trap: merging must not splice the user's nested object
+		// in by reference and then grow it with the workspace's keys.
+		stubServices({
+			userLocal: { '[python]': { 'editor.codeActionsOnSave': { 'source.organizeImports': 'explicit' } } },
+			workspace: { '[python]': { 'editor.codeActionsOnSave': { 'source.fixAll': 'explicit' } } },
+		});
+
+		const [setting] = getConfiguredSettings(ctx.instantiationService).settings;
+
+		expect({ value: setting.value, sources: setting.sources }).toEqual({
+			value: {
+				'editor.codeActionsOnSave': {
+					'source.organizeImports': 'explicit',
+					'source.fixAll': 'explicit',
+				},
+			},
+			sources: {
+				userLocal: { 'editor.codeActionsOnSave': { 'source.organizeImports': 'explicit' } },
+				workspace: { 'editor.codeActionsOnSave': { 'source.fixAll': 'explicit' } },
+			},
+		});
+	});
+
 	it('reports a policy-enforced key the user also set as overridden, keeping both values', () => {
 		// The Posit Workbench case. Without `ignored` the model reports the
 		// enforced value as the product default while the user stares at their

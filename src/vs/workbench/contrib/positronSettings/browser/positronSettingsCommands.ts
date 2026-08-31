@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { equals } from '../../../../base/common/objects.js';
+import { deepClone, equals, mixin } from '../../../../base/common/objects.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
@@ -382,19 +382,23 @@ export function getConfiguredSettings(accessor: ServicesAccessor, filter?: strin
 		// "[r]": {...}) with whatever the user set, so it can carry keys that are in
 		// NO source at all. Reporting that merged object tells the model the user
 		// configured settings they never touched. Build `value` from the explicit
-		// source blocks instead -- but from ALL of them, not just the winner: core
-		// resolves an override block per property across targets, so a user-level
-		// [r] tab size and a workspace-level [r] format-on-save are both in
-		// effect. Per-property assignment lowest-to-highest precedence mirrors
-		// that: each property is itself a setting whose value the higher target
-		// replaces whole.
+		// source blocks instead -- but from ALL of them, not just the winner,
+		// merged lowest-to-highest precedence with core's own semantics
+		// (ConfigurationModel's mergeContents, which mixin mirrors): objects
+		// merge recursively, arrays and scalars are replaced whole. Recursion
+		// matters even inside one property: a user-level
+		// [python].editor.codeActionsOnSave.source.organizeImports and a
+		// workspace-level ...source.fixAll are both in effect. Each block is
+		// cloned before merging, because mixin splices nested source objects
+		// into the destination by reference, and a later pass would otherwise
+		// mutate the lower target's own `sources` entry in this same payload.
 		const mergedOverrideValue = (): unknown => {
 			const merged: Record<string, unknown> = {};
 			let sawBlock = false;
 			for (let i = SOURCE_PRECEDENCE.length - 1; i >= 0; i--) {
 				const block = sources[SOURCE_PRECEDENCE[i]];
 				if (block !== null && typeof block === 'object' && !Array.isArray(block)) {
-					Object.assign(merged, block);
+					mixin(merged, deepClone(block), true);
 					sawBlock = true;
 				}
 			}
