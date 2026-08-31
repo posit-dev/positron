@@ -155,7 +155,7 @@ suite('Extension Gallery Service', () => {
 
 	function createExtensionGalleryService(requestService: IRequestService, logService = new NullLogService()): ExtensionGalleryServiceWithNoStorageService {
 		const allowedExtensionsService = disposables.add(new AllowedExtensionsService(productService, configurationService));
-		return new ExtensionGalleryServiceWithNoStorageService(requestService, logService, environmentService, NullTelemetryService, fileService, productService, configurationService, allowedExtensionsService, createExtensionGalleryManifestService(), { _serviceBrand: undefined, isAcademic: false });
+		return new ExtensionGalleryServiceWithNoStorageService(requestService, logService, environmentService, NullTelemetryService, fileService, productService, configurationService, allowedExtensionsService, createExtensionGalleryManifestService(), { _serviceBrand: undefined, isAcademic: false, licenseHash: undefined });
 	}
 
 	test('marketplace machine id', async () => {
