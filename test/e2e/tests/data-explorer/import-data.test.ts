@@ -63,6 +63,35 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('small_file', /10 rows x 10 columns/);
 	});
 
+	test('Variables pane button - Verify Import Data picks a file then opens the dialog', async function ({ app, python }) {
+		const { dataExplorer, quickInput, variables } = app.workbench;
+
+		await variables.clickImportData();
+
+		// files.simpleDialog.enable is on in the e2e fixture settings, so the file picker is the
+		// quick-input simple dialog rather than the OS-native one.
+		await quickInput.waitForQuickInputOpened();
+		await quickInput.type(join(app.workspacePathOrFolder, 'data-files', 'small_file.csv'));
+		await quickInput.clickOkButton('Import');
+
+		await dataExplorer.importDataModal.expectToBeVisible();
+		await dataExplorer.importDataModal.expectCodeToContain('small_file');
+		await dataExplorer.importDataModal.clickCancel();
+	});
+});
+
+// Electron only, with no WEB tag: right-clicking a file row in the Explorer tree opens no
+// context menu at all in Positron Web, while other web surfaces (the Explorer title, the
+// activity bar, the status bar) open one normally. That is a pre-existing web bug unrelated
+// to Import Data, so the entry point is covered on Electron (Linux and Windows) instead.
+test.describe('Data Explorer - Import Data from the Explorer context menu', {
+	tag: [tags.WIN, tags.DATA_EXPLORER, tags.DUCK_DB]
+}, () => {
+
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
+	});
+
 	test('Explorer context menu - Verify Import Data opens the dialog over the file', async function ({ app, python }) {
 		const { contextMenu, dataExplorer, quickaccess } = app.workbench;
 		const page = app.code.driver.currentPage;
@@ -86,22 +115,6 @@ test.describe('Data Explorer - Import Data', {
 		await dataExplorer.importDataModal.expectCodeToContain('small_file');
 
 		// The Python/R tests above already prove the import chain; stop at the dialog.
-		await dataExplorer.importDataModal.clickCancel();
-	});
-
-	test('Variables pane button - Verify Import Data picks a file then opens the dialog', async function ({ app, python }) {
-		const { dataExplorer, quickInput, variables } = app.workbench;
-
-		await variables.clickImportData();
-
-		// files.simpleDialog.enable is on in the e2e fixture settings, so the file picker is the
-		// quick-input simple dialog rather than the OS-native one.
-		await quickInput.waitForQuickInputOpened();
-		await quickInput.type(join(app.workspacePathOrFolder, 'data-files', 'small_file.csv'));
-		await quickInput.clickOkButton('Import');
-
-		await dataExplorer.importDataModal.expectToBeVisible();
-		await dataExplorer.importDataModal.expectCodeToContain('small_file');
 		await dataExplorer.importDataModal.clickCancel();
 	});
 });
