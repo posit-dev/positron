@@ -1401,12 +1401,18 @@ export async function captureExtensionHostHeap(input: {
 		});
 
 		// Same call gc.ts already makes against this inspector every night, so
-		// the pid is proven to be readable here rather than assumed.
-		const usage = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
-			expression: 'JSON.stringify({ pid: process.pid })',
-			returnByValue: true
-		});
-		pid = JSON.parse(usage.result.value).pid;
+		// the pid is proven readable here rather than assumed. Best effort: the
+		// snapshot is the point, and aborting it over a missing pid is the worse
+		// trade. The caller falls back to the labeled process tree.
+		try {
+			const usage = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
+				expression: 'JSON.stringify({ pid: process.pid })',
+				returnByValue: true
+			});
+			pid = JSON.parse(usage.result.value).pid;
+		} catch {
+			// pid stays undefined.
+		}
 
 		// Replays a scriptParsed for every already-loaded script. The replay
 		// completes before this resolves: measured 2026-08-31 across three
