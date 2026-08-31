@@ -174,17 +174,23 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                         }
 
                         const observer = onFinished ? { onFinished } : undefined;
-                        positron.runtime.executeCode(
-                            'python',
-                            command,
-                            false,
-                            true,
-                            undefined,
-                            undefined,
-                            observer,
-                            undefined,
-                            fileUri,
-                        );
+                        // Not awaited: the run proceeds asynchronously and the
+                        // observer reports completion. If the call itself rejects
+                        // (e.g. no session can be started), the observer's
+                        // onFinished never fires, so clean up the scratch file here.
+                        Promise.resolve(
+                            positron.runtime.executeCode(
+                                'python',
+                                command,
+                                false,
+                                true,
+                                undefined,
+                                undefined,
+                                observer,
+                                undefined,
+                                fileUri,
+                            ),
+                        ).catch(() => onFinished?.());
                     } else {
                         onFinished?.();
                     }
