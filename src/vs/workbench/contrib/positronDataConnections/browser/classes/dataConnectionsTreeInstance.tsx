@@ -10,8 +10,10 @@ import { ReactNode } from 'react';
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
 import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
-import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from '../positronDataConnectionsConfiguration.js';
+import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
@@ -81,6 +83,34 @@ const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => 
 	hasChildren: true,
 });
 
+/**
+ * The workbench-wide per-level tree indent setting, in pixels, which this view's own indent falls
+ * back to. listService.ts registers the key and reads it for VS Code's own trees but keeps the
+ * constant private, so it is repeated here rather than making an upstream file export it.
+ */
+const TREE_INDENT_KEY = 'workbench.tree.indent';
+
+/**
+ * Resolves the tree's per-level indent width: this view's own setting when set, and the
+ * workbench-wide tree indent when it is left at the inheriting default of 0. Both keys register
+ * numeric defaults, so both reads are trusted to be numbers -- the same trust explorerViewer.ts
+ * places in the workbench key.
+ *
+ * The view has a knob of its own because it nests far deeper than the trees workbench.tree.indent
+ * was tuned for -- see POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY -- but it inherits by default so
+ * that a user who turns the workbench setting down doesn't have to discover a second one.
+ *
+ * @param configurationService The configuration service.
+ * @returns The indent width in pixels.
+ */
+const resolveIndentWidth = (configurationService: IConfigurationService): number => {
+	// Zero is this view's "inherit the workbench setting" sentinel rather than a width.
+	const viewIndentWidth = configurationService.getValue<number>(POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY);
+	return viewIndentWidth > 0
+		? viewIndentWidth
+		: configurationService.getValue<number>(TREE_INDENT_KEY);
+};
+
 const wrapDto = (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle): TreeNode<DataConnectionNode> => ({
 	id: dtoNodeId(handle, dto),
 	data: { kind: 'dto', dto, handle },
@@ -97,10 +127,13 @@ const wrapDto = (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle): Tr
  * handle.
  */
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> {
-	constructor(private readonly _service: IPositronDataConnectionsService) {
+	constructor(
+		private readonly _service: IPositronDataConnectionsService,
+		private readonly _configurationService: IConfigurationService,
+	) {
 		super({
 			rowHeight: ROW_HEIGHT,
-			indentWidth: 16,
+			indentWidth: resolveIndentWidth(_configurationService),
 			getRoots: async () => buildEntries(_service).map(wrapEntry),
 			// Bound to `this` so the closure can reach _service for the connect-on-expand path.
 			getChildren: node => this._fetchChildrenForNode(node),
@@ -122,6 +155,17 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		this._register(this._service.onDidChangeProfiles(refreshRoots));
 		this._register(this._service.onDidChangeInstances(refreshRoots));
 		this._register(this._service.onDidChangeDiscoveredProfiles(refreshRoots));
+
+		// Track both indent settings live -- the workbench one matters even while this view's own is
+		// set, since clearing the latter back to 0 has to fall through to it. Indent takes effect
+		// without a reload everywhere else in the workbench, and a user dialing it in wants the tree
+		// to answer as they drag.
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY) ||
+				e.affectsConfiguration(TREE_INDENT_KEY)) {
+				this.setIndentWidth(resolveIndentWidth(this._configurationService));
+			}
+		}));
 	}
 
 	/**

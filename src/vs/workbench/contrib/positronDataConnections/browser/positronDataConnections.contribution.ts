@@ -13,7 +13,7 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnectionsConfiguration.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from './positronDataConnectionsConfiguration.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -34,6 +34,24 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			markdownDescription: localize(
 				'positron.dataConnections.enabled',
 				'Enable the Data Connections panel. Requires a reload to take effect. Can be set per workspace.'
+			),
+			tags: ['preview'],
+			scope: ConfigurationScope.WINDOW,
+			included: true,
+		},
+		[POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY]: {
+			type: 'number',
+			// Zero inherits workbench.tree.indent, following editor.suggestFontSize, which uses the
+			// same sentinel to fall back to editor.fontSize. Inheriting by default matters here:
+			// someone who finds this tree too wide reaches for the workbench setting first, because
+			// that is the one the Settings editor surfaces for "tree indent", and a view that
+			// quietly ignored it would read as a bug.
+			default: 0,
+			minimum: 0,
+			maximum: 40,
+			markdownDescription: localize(
+				'positron.dataConnections.tree.indent',
+				"Controls tree indentation in the Data Connections view, in pixels. When set to `0`, the value of `#workbench.tree.indent#` is used."
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,

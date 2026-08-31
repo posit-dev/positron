@@ -8,6 +8,8 @@
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
@@ -170,7 +172,16 @@ describe('DataConnectionsTreeInstance', () => {
 	 * flips the profile's live state and notifies the tree, standing in for the service connecting or
 	 * disconnecting it.
 	 */
-	function createTree(connected = true, discoveredProfiles: IDataConnectionProfile[] = []) {
+	function createTree(
+		connected = true,
+		discoveredProfiles: IDataConnectionProfile[] = [],
+		// Seeded with the indent keys the tree reads, since the real configuration service always
+		// has them: both are registered with numeric defaults.
+		configurationService = new TestConfigurationService({
+			'workbench.tree.indent': 16,
+			'dataConnections.tree.indent': 0,
+		})
+	) {
 		// One leaf under the connection, so a test has a real non-entry node to act on. Its node id is
 		// DTO_ID below.
 		const getChildren = vi.fn(async () => [{
@@ -205,7 +216,7 @@ describe('DataConnectionsTreeInstance', () => {
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
-		const tree = new DataConnectionsTreeInstance(service);
+		const tree = new DataConnectionsTreeInstance(service, configurationService);
 		ctx.disposables.add(tree);
 
 		const setConnected = (nowConnected: boolean) => {
@@ -215,6 +226,45 @@ describe('DataConnectionsTreeInstance', () => {
 
 		return { tree, service, getChildren, setConnected, disconnect, disconnectWhenUnused };
 	}
+
+	it('inherits the workbench tree indent until its own setting overrides it, and follows both live', async () => {
+		// The view's own indent at its inheriting default of 0.
+		const configurationService = new TestConfigurationService({
+			'workbench.tree.indent': 16,
+			'dataConnections.tree.indent': 0,
+		});
+		const { tree } = createTree(true, [], configurationService);
+
+		// Changes reach the tree without a window reload: a user dialing either setting in wants the
+		// tree to answer as they drag it.
+		const change = async (key: string, value: number) => {
+			await configurationService.setUserConfiguration(key, value);
+			configurationService.onDidChangeConfigurationEmitter.fire(
+				stubInterface<IConfigurationChangeEvent>({
+					affectsConfiguration: (affected: string) => affected === key,
+				})
+			);
+			return tree.indentWidth;
+		};
+
+		expect({
+			inherited: tree.indentWidth,
+			// The workbench setting still drives the tree while this view's own is unset.
+			workbenchChanged: await change('workbench.tree.indent', 8),
+			// Setting the view's own indent takes over from it.
+			overridden: await change('dataConnections.tree.indent', 12),
+			// The workbench setting no longer reaches the tree while the override stands.
+			workbenchIgnored: await change('workbench.tree.indent', 16),
+			// Clearing the override back to 0 falls through to the workbench setting again.
+			clearedBackToInherit: await change('dataConnections.tree.indent', 0),
+		}).toEqual({
+			inherited: 16,
+			workbenchChanged: 8,
+			overridden: 12,
+			workbenchIgnored: 12,
+			clearedBackToInherit: 16,
+		});
+	});
 
 	it('lists discovered connections after the saved ones', async () => {
 		const discovered = createProfile({
