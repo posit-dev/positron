@@ -273,17 +273,48 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
 const ABSENT_MARKER = '<span class="muted">&mdash;</span>';
 
+/**
+ * Shown once, below the table, whenever a row carries the dagger marker.
+ * Kept next to {@link GC_FOOTNOTE}'s summary counterpart so a reader sees why a
+ * `kernel`-like row has no delta: not because nothing changed, but because idle
+ * never had this process to compare against.
+ */
+const NO_IDLE_BASELINE_FOOTNOTE = 'Process not present in the idle baseline.';
+
 /** Marks the column every delta is measured from, so the table reads baseline -> comparisons. */
 function baselineClass(scenario: MemoryScenario): string {
 	return scenario === 'idle' ? ' class="baseline"' : '';
 }
 
+/**
+ * One-line reminder of what each scenario measures, shown as a hover tooltip on
+ * the column header. Kept brief on purpose -- the full rationale for a scenario
+ * lives as a comment beside its `defineMemoryScenario` call, not here.
+ */
+const SCENARIO_DESCRIPTIONS: Record<MemoryScenario, string> = {
+	'idle': 'Freshly launched app, nothing opened (baseline).',
+	'session-python': 'A Python interpreter session, idle after startup.',
+	'session-r': 'An R interpreter session, idle after startup.',
+	'data-explorer': 'A small CSV opened in the Data Explorer.',
+	'notebook': 'A 30-cell notebook opened with stored outputs.',
+	'editors': 'Ten files of mixed languages open in editors.',
+	'console-output': 'A Python session with 10k lines of console output.',
+	'quarto-render': 'A Quarto document rendered to HTML.',
+	'quarto-inline': 'A Quarto cell run inline, with a live kernel.'
+};
+
 function scenarioHeaderHtml(scenarios: MemoryScenario[]): string {
-	return scenarios.map(s => `<th align="right"${baselineClass(s)}>${escapeHtml(s)}</th>`).join('');
+	return scenarios.map(s => `<th align="right"${baselineClass(s)} title="${escapeHtml(SCENARIO_DESCRIPTIONS[s])}">${escapeHtml(s)}</th>`).join('');
 }
 
-/** One scenario's cell: the PSS value, plus (for a non-idle scenario) its delta against idle underneath. */
-function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: number | undefined, threshold: number | undefined): string {
+/**
+ * One scenario's cell: the PSS value, plus (for a non-idle scenario) its delta against idle underneath.
+ *
+ * `flagNoBaseline` adds a dagger after the value when the row it belongs to has
+ * no idle reading at all (`kernel`, typically): without it, a role that simply
+ * cannot be delta'd against idle looks identical to one that held flat.
+ */
+function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: number | undefined, threshold: number | undefined, flagNoBaseline: boolean): string {
 	if (value === undefined) {
 		return `<td align="right"${baselineClass(scenario)}>${ABSENT_MARKER}</td>`;
 	}
@@ -297,11 +328,18 @@ function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: nu
 	// The delta is the point of the table, so the value it is measured from steps back
 	// a little rather than competing with it at equal weight.
 	const deltaLine = emphasized === '' ? '' : `<span class="delta-line">${emphasized}</span>`;
-	return `<td align="right"${baselineClass(scenario)}><span class="value">${formatBytes(value)}</span>${deltaLine}</td>`;
+	// flagNoBaseline is only true for rows whose idle cell is absent, so this branch
+	// (value !== undefined) never runs for scenario === 'idle' on such a row.
+	// Positioned absolutely off `.value-wrap` rather than appended inline: an inline
+	// dagger widens this cell's content, which widens the whole column and shifts
+	// every other row's value left to share it, breaking the alignment down the column.
+	const marker = flagNoBaseline ? '<span class="baseline-marker">&dagger;</span>' : '';
+	return `<td align="right"${baselineClass(scenario)}><span class="value-wrap"><span class="value">${formatBytes(value)}</span>${marker}</span>${deltaLine}</td>`;
 }
 
 function rowHtml(row: SummaryRow, scenarios: MemoryScenario[], forcedGcRoles: ProcessRole[]): string {
-	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario], row.emphasisThreshold[scenario])).join('');
+	const flagNoBaseline = scenarios.includes('idle') && row.values['idle'] === undefined;
+	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario], row.emphasisThreshold[scenario], flagNoBaseline)).join('');
 	// Outside the <code>, so the marker cannot be misread as part of the role name.
 	const marker = forcedGcRoles.includes(row.role) ? '<span class="fn-marker">*</span>' : '';
 	return `<tr>
@@ -317,12 +355,19 @@ function totalRowHtml(matrix: SummaryMatrix): string {
 		const delta = scenario !== 'idle' && value !== undefined && idleValue !== undefined
 			? value - idleValue
 			: undefined;
-		return cellHtml(scenario, value, delta, matrix.totalEmphasisThreshold[scenario]);
+		// TOTAL is the tree sum, not a single process, so the missing-idle-baseline
+		// dagger (which flags one absent role) never applies to it.
+		return cellHtml(scenario, value, delta, matrix.totalEmphasisThreshold[scenario], false);
 	}).join('');
 	return `<tr class="total-row">
 		<td><strong>TOTAL</strong></td>
 		${cells}
 	</tr>`;
+}
+
+/** True when at least one row will render the dagger marker, which gates the footnote explaining it. */
+function hasNoBaselineRows(matrix: SummaryMatrix): boolean {
+	return matrix.scenarios.includes('idle') && matrix.rows.some(row => row.values['idle'] === undefined);
 }
 
 /**
@@ -367,6 +412,9 @@ const DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to-launch va
  * different table from the per-lane one.
  */
 export const SUMMARY_CSS = `
+		/* A smidge wider than the shared 960px shell: the matrix has more columns to
+		fit than the per-scenario report, so it benefits most from the extra room. */
+		.container { max-width: 1200px; }
 		/* Secondary to the title rather than a second headline: smaller and dimmer, with
 		enough air under the h1 that the two still read as one block. */
 		.header { padding: 13px 20px; }
@@ -391,13 +439,20 @@ export const SUMMARY_CSS = `
 		.footnote { color: #6b7280; font-size: 0.78rem; line-height: 1.35; margin-top: 10px; }
 		/* Enough to see, not enough to break the role column's left edge. */
 		.fn-marker { color: #9ca3af; }
+		/* Sized to the value text alone (position: relative does not add to that), so the
+		absolutely positioned dagger inside it cannot widen this cell and shift every
+		other row's value in the column to share the extra space. */
+		.value-wrap { position: relative; }
+		.baseline-marker { position: absolute; left: 100%; top: 0; margin-left: 1px; font-size: 0.7em; line-height: 1; color: #9ca3af; }
 		/* Reads as a summary rather than one more row: a darker rule than the hairlines
 		between roles, and air above it that the hairlines do not get. */
 		.total-row td { border-top: 2px solid #d1d5db; font-weight: 600; padding-top: 10px; }
 		/* Only some cells carry a delta on a second line. Centering would then drop a bare
 		value half a line below its emphasized neighbour, so the row no longer reads
 		across. Top-aligned, every PSS figure shares a baseline and the deltas hang below. */
-		.matrix td { vertical-align: top; }
+		/* Scoped to td, not th: scenario-name headers may wrap, but a PSS value or its
+		delta must not break across lines. */
+		.matrix td { vertical-align: top; white-space: nowrap; }
 		/* The delta is what the table is for, so the figure it is measured from gives up a
 		little size and contrast instead of competing with it. */
 		.matrix .value { font-size: 0.95em; color: #6b7280; }
@@ -410,12 +465,28 @@ export const SUMMARY_CSS = `
 		cell keeps its own tint: the two values are close enough that the hovered row still
 		reads as one band. */
 		.matrix tr:hover td:not(.baseline) { background: #f8f9fa; }
+		/* The header text alone doesn't look interactive, so a small marker plus the
+		help cursor signals that hovering a scenario name reveals a description. */
+		.matrix th[title] { cursor: help; }
+		/* Role and idle (what every delta is measured from) stay in view while the rest
+		of the matrix scrolls horizontally; .card supplies the overflow-x. Widths are
+		fixed so the second sticky column's left offset lines up with the first. */
+		.matrix th:first-child, .matrix td:first-child {
+			position: sticky; left: 0; z-index: 2;
+			box-sizing: border-box; width: 150px;
+			background: white;
+		}
+		.matrix th.baseline, .matrix td.baseline {
+			position: sticky; left: 150px; z-index: 1;
+			box-sizing: border-box; width: 130px;
+		}
 		@media (prefers-color-scheme: dark) {
 			.total-row td { border-top-color: #4b5563; }
 			.matrix .value { color: #9ca3af; }
 			.matrix .baseline { background: #201f1e; border-right-color: #3a3a38; }
 			.matrix tr:hover td:not(.baseline) { background: rgba(255, 255, 255, 0.04); }
 			.footnote { color: #9ca3af; }
+			.matrix th:first-child, .matrix td:first-child { background: #262624; }
 		}`;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -504,6 +575,7 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 			${total}
 		</table>
 		${matrix.forcedGcRoles.length > 0 ? `<div class="footnote">* ${GC_FOOTNOTE}</div>` : ''}
+		${hasNoBaselineRows(matrix) ? `<div class="footnote">&dagger; ${NO_IDLE_BASELINE_FOOTNOTE}</div>` : ''}
 	</div>
 </div>
 </body>

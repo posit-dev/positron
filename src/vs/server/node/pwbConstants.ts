@@ -5,7 +5,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from '../../base/common/path.js';
 import { fileURLToPath } from 'url';
-
 export const kProxyRegex = new RegExp('\/proxy\/[0-9]+[^a-zA-Z](\/)?');
 
 // --- Start PWB: session-less static URL prefix for cacheable assets ---
@@ -53,16 +52,41 @@ export const VSCODE_STATIC_PREFIX = `/${resolveProductLabel()}-static`;
 // the part before "/s/" is the deployment prefix, and we prepend it to the absolute-from-root
 // URLs we emit so the front proxy will actually route them to Workbench. Empty string when
 // Workbench is mounted at the origin root or when running outside Workbench.
-function resolveDeploymentPrefix(): string {
-	const sessionUrl = process.env['RS_SESSION_URL'];
+//
+// RS_SESSION_URL is usually just a path, but rserver derives it from the `session_url` the
+// homepage passes at launch, and some deployments hand us a fully qualified URL
+// ("https://host/s/<session-id>/"). The scheme and host must never survive into the prefix:
+// `posix.join('https://host', '/vscode-static', ...)` collapses the "//" and yields
+// "https:/host/vscode-static/...", which a browser resolves against the page origin as a *path*
+// (per the WHATWG URL relative-slash rules), producing https://host/host/vscode-static/... So
+// reduce the value to its path component first, and refuse anything that still isn't a plain
+// rooted path.
+export function computeDeploymentPrefix(sessionUrl: string | undefined): string {
 	if (!sessionUrl) {
 		return '';
 	}
-	const idx = sessionUrl.indexOf('/s/');
-	return idx > 0 ? sessionUrl.substring(0, idx) : '';
+
+	let path = sessionUrl;
+	const schemeEnd = path.indexOf('://');
+	if (schemeEnd !== -1) {
+		path = path.substring(schemeEnd + 3); // strip "<scheme>://"
+		const hostEnd = path.indexOf('/');
+		path = hostEnd === -1 ? '' : path.substring(hostEnd); // strip "<host>[:<port>]"
+	} else if (path.startsWith('//')) {
+		const hostEnd = path.indexOf('/', 2); // protocol-relative "//host/..."
+		path = hostEnd === -1 ? '' : path.substring(hostEnd);
+	}
+
+	const idx = path.indexOf('/s/');
+	if (idx <= 0) {
+		return '';
+	}
+
+	const prefix = path.substring(0, idx);
+	return prefix.startsWith('/') && !prefix.startsWith('//') ? prefix : '';
 }
 
-export const WORKBENCH_DEPLOYMENT_PREFIX = resolveDeploymentPrefix();
+export const WORKBENCH_DEPLOYMENT_PREFIX = computeDeploymentPrefix(process.env['RS_SESSION_URL']);
 // --- End PWB ---
 
 // --- Start PWB: Workbench 2026.05+ ships the nginx route for /<product-label>-static/...; ---

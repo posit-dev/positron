@@ -115,6 +115,57 @@ const skills: SkillFrontmatter[] = fs.existsSync(SKILLS_ROOT)
 		}))
 	: [];
 
+/** Matches the target of a `{{skill_dir}}/...` link, capturing the path after the slash. */
+const SKILL_DIR_LINK = /\{\{skill_dir\}\}\/([^)\s]+)/g;
+
+interface SkillLinks {
+	readonly directoryName: string;
+	/** Every markdown file in the skill, relative to its directory, POSIX-separated. */
+	readonly presentPaths: readonly string[];
+	/** Every `{{skill_dir}}` target named anywhere in the skill, with the file that named it. */
+	readonly links: readonly { readonly target: string; readonly from: string }[];
+	/** The `{{skill_dir}}` targets named by `SKILL.md` itself -- the router. */
+	readonly routedPaths: readonly string[];
+}
+
+/** Recursively collects markdown paths under `dir`, relative to it, POSIX-separated. */
+function collectMarkdownPaths(dir: string, prefix = ''): string[] {
+	const result: string[] = [];
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+		if (entry.isDirectory()) {
+			result.push(...collectMarkdownPaths(path.join(dir, entry.name), relative));
+		} else if (entry.name.endsWith('.md')) {
+			result.push(relative);
+		}
+	}
+	return result;
+}
+
+function readLinks(target: string): string[] {
+	const found: string[] = [];
+	let match: RegExpExecArray | null;
+	SKILL_DIR_LINK.lastIndex = 0;
+	while ((match = SKILL_DIR_LINK.exec(target))) {
+		found.push(match[1]);
+	}
+	return found;
+}
+
+const skillLinks: SkillLinks[] = skills.map(skill => {
+	const skillDir = path.join(SKILLS_ROOT, skill.directoryName);
+	const presentPaths = collectMarkdownPaths(skillDir);
+	const links = presentPaths.flatMap(from =>
+		readLinks(fs.readFileSync(path.join(skillDir, from), 'utf8')).map(target => ({ target, from })),
+	);
+	return {
+		directoryName: skill.directoryName,
+		presentPaths,
+		links,
+		routedPaths: links.filter(link => link.from === 'SKILL.md').map(link => link.target),
+	};
+});
+
 describe('agent skill templates', () => {
 	// Guards against a broken path calculation making every test below pass
 	// vacuously, the same way the drift test guards its own corpus.
@@ -153,5 +204,32 @@ describe('agent skill templates', () => {
 			`${skill.relativePath}: frontmatter contains a {{...}} directive. The length ` +
 			`check above measures the template, so it no longer bounds the generated output.`,
 		).not.toMatch(/\{\{/);
+	});
+
+	it.each(skillLinks)('$directoryName links only to files that exist', skill => {
+		// A `{{skill_dir}}` link expands to a real path on disk that the model is
+		// told to read. If the file isn't there the read simply returns nothing,
+		// so a typo or a rename costs the model a whole reference file with no
+		// error anywhere.
+		const present = new Set(skill.presentPaths);
+		const broken = skill.links.filter(link => !present.has(link.target));
+		expect(
+			broken.map(link => `${link.target} (linked from ${link.from})`),
+			`${skill.directoryName}: link target(s) missing from the skill directory`,
+		).toEqual([]);
+	});
+
+	it.each(skillLinks)('$directoryName routes to every one of its reference files', skill => {
+		// SKILL.md is the only file the model reads before choosing where to go
+		// next, so a reference file it does not name is a file the model never
+		// learns exists.
+		const routed = new Set(skill.routedPaths);
+		const unrouted = skill.presentPaths.filter(
+			file => file !== 'SKILL.md' && !routed.has(file),
+		);
+		expect(
+			unrouted,
+			`${skill.directoryName}: reference file(s) present but not linked from SKILL.md`,
+		).toEqual([]);
 	});
 });

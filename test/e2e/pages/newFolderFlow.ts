@@ -8,7 +8,13 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
 export class NewFolderFlow {
-	private get modalOverlay(): Locator { return this.code.driver.currentPage.getByTestId('positron-modal-overlay'); }
+	// Dynamic modal dialogs render into an overlay with this same testid, so two on screen at once
+	// would fail Playwright's strict mode. Pin it to the overlay holding the older dialog box, which
+	// is the one this flow uses.
+	private get modalOverlay(): Locator {
+		return this.code.driver.currentPage.getByTestId('positron-modal-overlay')
+			.filter({ has: this.code.driver.currentPage.locator('.positron-modal-dialog-box') });
+	}
 	private get backButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Back', exact: true }); }
 	private get cancelButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Cancel' }); }
 	private get nextButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Next', exact: true }); }

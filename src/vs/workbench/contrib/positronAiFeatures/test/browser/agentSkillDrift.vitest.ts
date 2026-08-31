@@ -51,9 +51,11 @@ const CANDIDATE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/
  * may just as well be a setting key or a file name; `{{command:}}` directives
  * are unambiguous and are checked unconditionally, so a command whose prefix
  * is missing here is still covered as long as its directive exists somewhere
- * in the templates.
+ * in the templates. `vscode.` is here because the skill documents
+ * `vscode.open`: not every command the skill names is Positron's own, and an
+ * upstream rename would break the skill just as surely as a Positron one.
  */
-const ALLOWED_PREFIXES = ['positron.', 'positronPackages.', 'positronSettings.', 'positronVariables.', 'workbench.'];
+const ALLOWED_PREFIXES = ['positron.', 'positronPackages.', 'positronSettings.', 'positronVariables.', 'vscode.', 'workbench.'];
 
 /**
  * Command ids referenced by the templates that are registered from extension

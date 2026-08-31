@@ -251,9 +251,20 @@ describe('Positron Notebook keyboard shortcuts', () => {
 	describe('Escape (Exit Edit Mode)', () => {
 		it('declares Escape scoped to cell editor focused', () => {
 			const action = new ExitEditModeAction();
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.Escape);
-			// `when` is a composite ContextKeyExpr.and(...), so check it includes the cell-editor key.
-			expect(action.desc.keybinding?.when?.keys()).toContain(NotebookContextKeys.cellEditorFocused.key);
+			// The action declares multiple Escape rules: the base rule plus
+			// vim-extension overrides (VSCodeVim and vscode-neovim).
+			const keybindings = action.desc.keybinding;
+			expect(Array.isArray(keybindings)).toBe(true);
+			if (!Array.isArray(keybindings)) { return; }
+			for (const keybinding of keybindings) {
+				expect(keybinding.primary).toBe(KeyCode.Escape);
+				// `when` is a composite ContextKeyExpr.and(...), so check it includes the cell-editor key.
+				expect(keybinding.when?.keys()).toContain(NotebookContextKeys.cellEditorFocused.key);
+			}
+			// The vim overrides only apply when the vim extensions' mode context keys match.
+			const allKeys = keybindings.flatMap(kb => kb.when?.keys() ?? []);
+			expect(allKeys).toContain('vim.mode');
+			expect(allKeys).toContain('neovim.mode');
 		});
 
 		it('calls exitEditor when in editing state for code cell', () => {

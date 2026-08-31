@@ -14,7 +14,7 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IUserInteractionService } from '../../../../../platform/userInteraction/browser/userInteractionService.js';
 import { UserInteractionService } from '../../../../../platform/userInteraction/browser/userInteractionServiceImpl.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -42,7 +42,7 @@ describe('ImportDataModalDialog', () => {
 		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(260);
 	});
 
-	const renderer = stubInterface<PositronModalDialogReactRenderer>({ onResize: Event.None, dispose: vi.fn() });
+	const renderer = stubInterface<PositronModalReactRenderer>({ onKeyDown: Event.None, onResize: Event.None, dispose: vi.fn() });
 
 	const fileUri = URI.file('/Users/austin/data/flights.csv');
 
