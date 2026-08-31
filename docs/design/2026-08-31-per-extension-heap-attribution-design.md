@@ -32,9 +32,10 @@ existing measurement.
 
 - **Alerting or thresholds.** #15496 owns that, and it should not consume these
   numbers until their launch-to-launch spread is known.
-- **A dashboard card.** Deferred until a few nights of data show whether the
-  series is stable enough to plot. The payload is designed so this needs no
-  further Positron-side work.
+- **A dashboard card.** Planned, but it lives in the e2e-test-insights repo and
+  ships as its own PR there. This spec covers only the Positron side: the payload
+  is shaped so the card needs no further Positron-side change. Build it after the
+  first few nights, so the plotted series can be scaled to the real spread.
 - **A standalone CLI or a manual runbook.** Considered and dropped: the nightly
   table answers the question, and Chrome DevTools remains available for anyone
   who needs a retainer chain rather than a ranking.
@@ -230,10 +231,10 @@ which is also the first time the capture runs on Linux under Playwright.
 ## Risks
 
 **Launch-to-launch spread is unknown.** The spike is one measurement on macOS.
-If `copilot` swings tens of MB between launches the series is diagnostic only,
-not trendable, and the dashboard card should not be built. The three existing
-launches per scenario answer this on the first night; read that before doing
-anything further.
+If `copilot` swings tens of MB between launches, the series is diagnostic rather
+than trendable, which changes what the dashboard card should plot and is the
+reason to read a few nights before building it. The three existing launches per
+scenario answer this on the first night.
 
 **Attribution coverage is 41%.** Correct rather than incomplete, since the
 remainder is genuinely not any extension's, but it means this cannot explain
