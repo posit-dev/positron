@@ -230,7 +230,7 @@ describe('buildPayload', () => {
 
 	test('omits the key entirely when the capture was never attempted, so an older endpoint is unaffected', () => {
 		const payload = buildPayload([snapshot], meta);
-		expect('extension_heap' in payload.launches[0]).toBe(false);
+		expect(Object.keys(payload.launches[0])).not.toContain('extension_heap');
 	});
 
 	test('keeps payload_version at 1, since the consumer rejects any other value', () => {
