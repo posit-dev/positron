@@ -329,6 +329,13 @@ export function defineMemoryScenario(options: {
 				}
 			}
 
+			// The enrichment above is otherwise in-memory only, and these files are
+			// both the uploaded artifact and summarize-cli's input: without this the
+			// summary job cannot see the breakdown at all, and a downloaded artifact
+			// reads as though attribution never ran while the HTML beside it shows
+			// the table.
+			snapshots.forEach((snapshot, i) => writeFileSync(paths[i], JSON.stringify(snapshot)));
+
 			const baseline = await fetchBaseline(scenario, lane);
 			const markdown = renderMarkdown(snapshots, baseline);
 			const html = renderHtml(snapshots, baseline);
