@@ -298,6 +298,10 @@ export function defineMemoryScenario(options: {
 				const heapPath = heapSnapshotPath(SNAPSHOT_DIR, snapshot.launchIndex);
 				const sidecarPath = heapSidecarPath(SNAPSHOT_DIR, snapshot.launchIndex);
 				if (!existsSync(heapPath) || !existsSync(sidecarPath)) {
+					// A kill between the snapshot and its sidecar leaves a 354 MB orphan
+					// that nothing else deletes. No-op in the ordinary never-captured case.
+					rmSync(heapPath, { force: true });
+					rmSync(sidecarPath, { force: true });
 					// The measure step already recorded why; leave its status alone.
 					continue;
 				}
