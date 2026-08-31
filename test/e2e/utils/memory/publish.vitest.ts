@@ -182,6 +182,71 @@ describe('buildPayload', () => {
 		const payload = buildPayload([{ ...snapshot, scenario: 'session-r' }], meta);
 		expect(payload.scenario).toBe('session-r');
 	});
+
+	test('carries the per-extension heap breakdown when a launch has one', () => {
+		const payload = buildPayload([{
+			...snapshot,
+			extensionHeapStatus: 'ok' as const,
+			extensionHeapPid: 4242,
+			extensionHeap: {
+				extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_500_000 }],
+				unattributedBytes: 192_800_000,
+				reachableBytes: 313_300_000
+			}
+		}], meta);
+
+		expect(payload.launches[0].extension_heap).toEqual({
+			status: 'ok',
+			pid: 4242,
+			process_role: 'extension_host',
+			reachable_bytes: 313_300_000,
+			unattributed_bytes: 192_800_000,
+			extensions: [{ extension_id: 'GitHub.copilot-chat', retained_bytes: 120_500_000 }]
+		});
+	});
+
+	test('sends status and pid alone on a failure, with no zero-valued byte counts to misread', () => {
+		const payload = buildPayload([{
+			...snapshot,
+			extensionHeapStatus: 'untrusted' as const,
+			extensionHeapPid: 4242
+		}], meta);
+
+		expect(payload.launches[0].extension_heap).toEqual({
+			status: 'untrusted',
+			pid: 4242,
+			process_role: 'extension_host'
+		});
+	});
+
+	test('omits pid when the inspector was never reached, rather than sending a placeholder', () => {
+		const payload = buildPayload([{ ...snapshot, extensionHeapStatus: 'capture_failed' as const }], meta);
+
+		expect(payload.launches[0].extension_heap).toEqual({
+			status: 'capture_failed',
+			process_role: 'extension_host'
+		});
+	});
+
+	test('omits the key entirely when the capture was never attempted, so an older endpoint is unaffected', () => {
+		const payload = buildPayload([snapshot], meta);
+		expect('extension_heap' in payload.launches[0]).toBe(false);
+	});
+
+	test('keeps payload_version at 1, since the consumer rejects any other value', () => {
+		expect(buildPayload([snapshot], meta).payload_version).toBe(1);
+	});
+
+	test('publishes every extension rather than a top N, so the consumer picks the cutoff', () => {
+		const extensions = [...Array(40).keys()].map(i => ({ extensionId: `pub.ext-${i}`, retainedBytes: 1000 - i }));
+		const payload = buildPayload([{
+			...snapshot,
+			extensionHeapStatus: 'ok' as const,
+			extensionHeap: { extensions, unattributedBytes: 1, reachableBytes: 2 }
+		}], meta);
+
+		expect(payload.launches[0].extension_heap?.extensions).toHaveLength(40);
+	});
 });
 
 // Common provenance fields every found:true BaselineResponse now requires.

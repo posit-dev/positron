@@ -35,7 +35,8 @@ export type HeapSnapshotJson = {
 
 export type HeapAttributionResult =
 	| { ok: true; breakdown: ExtensionHeapBreakdown }
-	| { ok: false; reason: string };
+	// `kind` is the wire status; `reason` is the human sentence for the report.
+	| { ok: false; kind: 'unsupported_format' | 'untrusted'; reason: string };
 
 /**
  * Share of located nodes whose script id may go unresolved before the
@@ -140,10 +141,10 @@ export function attributeHeap(input: {
 
 	const formatProblem = checkFormat(snapshot);
 	if (formatProblem) {
-		return { ok: false, reason: formatProblem };
+		return { ok: false, kind: 'unsupported_format', reason: formatProblem };
 	}
 	if (!Array.isArray(snapshot.locations) || snapshot.locations.length === 0) {
-		return { ok: false, reason: 'the snapshot carried no location data' };
+		return { ok: false, kind: 'unsupported_format', reason: 'the snapshot carried no location data' };
 	}
 
 	const meta = snapshot.snapshot.meta;
@@ -162,6 +163,7 @@ export function attributeHeap(input: {
 	if (unresolvedShare > MAX_UNRESOLVED_SHARE) {
 		return {
 			ok: false,
+			kind: 'untrusted',
 			reason: `${(unresolvedShare * 100).toFixed(2)}% of located nodes had an unresolved script id, above the ${MAX_UNRESOLVED_SHARE * 100}% ceiling`
 		};
 	}

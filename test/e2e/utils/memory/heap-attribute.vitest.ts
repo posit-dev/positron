@@ -149,7 +149,7 @@ describe('attributeHeap', () => {
 		const snapshot = buildSnapshot([{ self: 10, to: [] }], []);
 
 		expect(attributeHeap({ snapshot, scriptUrls: {}, extensionIds: {} }))
-			.toEqual({ ok: false, reason: 'the snapshot carried no location data' });
+			.toEqual({ ok: false, kind: 'unsupported_format', reason: 'the snapshot carried no location data' });
 	});
 
 	test('skips the breakdown when too many script ids are unresolvable', () => {
@@ -186,5 +186,36 @@ describe('attributeHeap', () => {
 
 		expect(result.ok).toBe(false);
 		expect(!result.ok && result.reason).toMatch(/node_fields/);
+	});
+
+	test('labels a format mismatch as unsupported_format so the consumer can switch on it', () => {
+		const snapshot = buildSnapshot([{ self: 10, to: [] }], [[0, 1]]);
+		snapshot.snapshot.meta.node_fields = ['type', 'name'];
+
+		const result = attributeHeap({ snapshot, scriptUrls: SCRIPTS, extensionIds: IDS });
+
+		expect(result.ok).toBe(false);
+		expect(result.ok === false && result.kind).toBe('unsupported_format');
+	});
+
+	test('labels an empty locations array as unsupported_format rather than a healthy empty breakdown', () => {
+		const snapshot = buildSnapshot([{ self: 10, to: [] }], []);
+
+		const result = attributeHeap({ snapshot, scriptUrls: {}, extensionIds: {} });
+
+		expect(result.ok === false && result.kind).toBe('unsupported_format');
+	});
+
+	test('labels an over-ceiling unresolved share as untrusted, since the numbers are real but incomplete', () => {
+		// Same snapshot as the "credits a subtree" case, but an empty scriptUrls
+		// resolves nothing, pushing the unresolved share over the ceiling.
+		const snapshot = buildSnapshot(
+			[{ self: 10, to: [1] }, { self: 100, to: [2] }, { self: 1000, to: [] }],
+			[[1, 1]]
+		);
+
+		const result = attributeHeap({ snapshot, scriptUrls: {}, extensionIds: {} });
+
+		expect(result.ok === false && result.kind).toBe('untrusted');
 	});
 });

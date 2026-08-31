@@ -114,6 +114,20 @@ export type ExtensionHeapBreakdown = {
 	reachableBytes: number;
 };
 
+/**
+ * Why a launch has no heap breakdown, or `ok` when it does.
+ *
+ * A closed set: the dashboard switches on these, so a new value is a contract
+ * change. Distinguishing them from a missing key matters -- an omitted
+ * `extension_heap` means the run predates the feature, not that it failed.
+ */
+export type ExtensionHeapStatus =
+	| 'ok'
+	| 'capture_failed'
+	| 'parse_failed'
+	| 'unsupported_format'
+	| 'untrusted';
+
 /** Everything one app launch produced. */
 export type MemorySnapshot = {
 	scenario: MemoryScenario;
@@ -172,4 +186,8 @@ export type MemorySnapshot = {
 	 * which never fails the scenario.
 	 */
 	extensionHeap?: ExtensionHeapBreakdown;
+	/** Set whenever the capture was attempted; absent on runs predating the feature. */
+	extensionHeapStatus?: ExtensionHeapStatus;
+	/** The extension host pid the capture targeted, even when the capture failed. */
+	extensionHeapPid?: number;
 };
