@@ -528,7 +528,13 @@ async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 				command = `source(${formattedPath}, echo = TRUE)`;
 			}
 			const observer = onFinished ? { onFinished } : undefined;
-			positron.runtime.executeCode('r', command, false, undefined, undefined, undefined, observer, undefined, uri);
+			// Not awaited: the run proceeds asynchronously and the observer
+			// reports completion. If the call itself rejects (e.g. no session
+			// can be started), the observer's onFinished never fires, so clean
+			// up the scratch file here.
+			Promise.resolve(
+				positron.runtime.executeCode('r', command, false, undefined, undefined, undefined, observer, undefined, uri),
+			).catch(() => onFinished?.());
 		}
 	} catch (e) {
 		// Clean up the scratch file if we wrote one but never launched the run.

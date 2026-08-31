@@ -61,7 +61,17 @@ export class UnsavedScriptFiles implements vscode.Disposable {
 			return;
 		}
 		this._inFlight.delete(filePath);
+		this.forgetFile(filePath);
 		await deleteQuietly(filePath);
+	}
+
+	/** Drops any untitled-URI mappings that point at the given scratch file. */
+	private forgetFile(filePath: string): void {
+		for (const [uri, mapped] of this._files) {
+			if (mapped === filePath) {
+				this._files.delete(uri);
+			}
+		}
 	}
 
 	private onDocumentClosed(uri: vscode.Uri): void {
