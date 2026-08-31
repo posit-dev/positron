@@ -444,6 +444,44 @@ describe('getConfiguredSettings', () => {
 		});
 	});
 
+	it('flags a key that multi-root folders set to different values, without naming them', () => {
+		// The payload has one workspaceFolder slot per key, carrying the first
+		// folder's value. When another folder disagrees, an agent reading only
+		// that slot would present one folder's value as the answer;
+		// differingFolders is the non-path-leaking signal to hedge instead.
+		stubServices({
+			folders: [
+				[URI.file('/workspace/analysis'), { 'testSettings.folderSetting': 'first' }],
+				[URI.file('/workspace/reports'), { 'testSettings.folderSetting': 'second' }],
+			],
+		});
+
+		const [setting] = getConfiguredSettings(ctx.instantiationService).settings;
+
+		expect({ value: setting.value, differingFolders: setting.differingFolders }).toEqual({
+			value: 'first',
+			differingFolders: 2,
+		});
+	});
+
+	it('collapses folders that agree on a value, with nothing flagged', () => {
+		// Identical values across folders lose nothing by being reported once,
+		// so the flag stays out of the payload.
+		stubServices({
+			folders: [
+				[URI.file('/workspace/analysis'), { 'testSettings.folderSetting': 'same' }],
+				[URI.file('/workspace/reports'), { 'testSettings.folderSetting': 'same' }],
+			],
+		});
+
+		const [setting] = getConfiguredSettings(ctx.instantiationService).settings;
+
+		expect({ value: setting.value, differingFolders: setting.differingFolders }).toEqual({
+			value: 'same',
+			differingFolders: undefined,
+		});
+	});
+
 	it('redacts a known credential-bearing key whole, and counts it', () => {
 		// http.proxy's last segment is not credential-shaped, but its value is a
 		// URL that may embed user:password@host inline -- the whole-key entry on

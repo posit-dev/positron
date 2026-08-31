@@ -162,6 +162,11 @@ as unknown:
   only present when more than one target carries a value, so you can see all
   of them and which one won.
 - No `redactedCount` field means nothing was redacted.
+- No `differingFolders` field means the reported value is not being contradicted
+  by another workspace folder. When it is present, more than one folder in a
+  multi-root workspace sets this key and they disagree: the entry carries one
+  folder's value, and the effective value depends on which folder a file
+  belongs to, so say that rather than presenting the one value as the answer.
 
 ## Searching the settings registry
 
