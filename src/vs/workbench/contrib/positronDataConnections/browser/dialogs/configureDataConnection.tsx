@@ -294,6 +294,9 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				mechanismId: props.mechanism.id,
 				parameterValues,
 				preferredCodeVariants: props.profile?.preferredCodeVariants,
+				// Carried through the rebuild: this is what keeps the discovery this profile was
+				// saved from from reappearing in the pane alongside it.
+				discoveredFromId: props.profile?.discoveredFromId,
 			});
 		}
 	}, [connectionName, parameterFieldStates, props, storedSecretIds]);

@@ -44,7 +44,7 @@ const CANDIDATE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/
 // `vscode.` is here because the skill documents `vscode.open`: not every command
 // the skill names is Positron's own, and an upstream rename would break the
 // skill just as surely as a Positron one.
-const ALLOWED_PREFIXES = ['positron.', 'positronVariables.', 'vscode.', 'workbench.'];
+const ALLOWED_PREFIXES = ['positron.', 'positronDataConnections.', 'positronVariables.', 'vscode.', 'workbench.'];
 
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

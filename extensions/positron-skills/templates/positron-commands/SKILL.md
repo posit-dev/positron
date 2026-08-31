@@ -5,16 +5,16 @@ description: >
   (Console, Variables, Plots, Help, Packages), clearing the console, opening a
   file or data file in the right editor, listing or discovering interpreters,
   listing running sessions, switching or starting a session, restarting or
-  interrupting a stuck one, setting up Python, and reading, installing or
-  updating the packages in a session. Use when the user wants Positron itself
-  to act, or to know what is installed, rather than to run R or Python code.
-  Triggers: "switch to the data science layout", "show the variables pane",
-  "clear the console", "open data.csv", "what interpreters are available",
-  "switch to my R session", "start a new Python session", "my R interpreter
-  isn't showing up", "my session is stuck", "is pandas installed?", "install
-  dplyr", "update all my packages", "do I have any vulnerable packages?", "I
-  don't have Python installed", "set up a Python environment", "which Python am
-  I using".
+  interrupting a stuck one, setting up Python, reading, installing or updating a
+  session's packages, and reading the connections configured in the Data
+  Connections pane -- which code in the session cannot see -- including a live
+  connection's tables and columns. Use when the user wants Positron itself to
+  act, or to know what is installed, rather than to run R or Python code. Then
+  read the reference file for the area in question. Triggers: "show the
+  variables pane", "open data.csv", "what interpreters are available", "switch
+  to my R session", "my session is stuck", "is pandas installed?", "update all
+  my packages", "set up a Python environment", "what databases am I connected
+  to", "what tables are in my warehouse".
 ---
 
 # Positron IDE commands
@@ -106,3 +106,8 @@ rather than running code to check.
 Read when the user is getting Python set up: installing a Python interpreter when
 they have none, creating a project environment (venv, Conda, or uv), or finding
 out which interpreter is currently active.
+
+**Data connections and schemas** -- [references/data-connections.md]({{skill_dir}}/references/data-connections.md)
+Read when the user asks about: the database or warehouse connections they have
+configured, which of them are connected, the tables and columns a live
+connection exposes, or writing a query against one of their connections.
