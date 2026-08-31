@@ -47,8 +47,12 @@ const EXTENSION_HOST_PORT = GC_TARGETS.find(target => target.role === 'extension
  * Streaming a 354 MB snapshot takes about 5 seconds, so this is well above the
  * shared 10s round-trip default but still short enough to fail rather than eat
  * the job's timeout.
+ *
+ * Exported so the measure test's own setTimeout budgets for it: it must exceed
+ * this value, or Playwright times out the test before this can fire and fail
+ * cleanly instead.
  */
-const SNAPSHOT_TIMEOUT_MS = 120_000;
+export const HEAP_CAPTURE_TIMEOUT_MS = 120_000;
 
 export function heapSnapshotPath(dir: string, launchIndex: number): string {
 	return join(dir, `heap-${launchIndex}.heapsnapshot`);
@@ -119,7 +123,7 @@ export async function captureExtensionHostHeap(input: {
 
 		await client.send('HeapProfiler.enable');
 		await client.send('HeapProfiler.takeHeapSnapshot',
-			{ reportProgress: false, captureNumericValue: false }, SNAPSHOT_TIMEOUT_MS);
+			{ reportProgress: false, captureNumericValue: false }, HEAP_CAPTURE_TIMEOUT_MS);
 
 		if (chunkedChars === 0) {
 			rmSync(snapshotPath, { force: true });

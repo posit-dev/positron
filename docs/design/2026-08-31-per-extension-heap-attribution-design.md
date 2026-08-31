@@ -108,6 +108,10 @@ report and payload use the real extension id (`GitHub.copilot-chat`,
 `positron.positron-python`), resolved by reading `publisher` and `name` from each
 extension directory's `package.json`.
 
+Resolved at capture time, while the app's extension directories are still on
+disk, and carried to the parse in the snapshot's sidecar: the render step runs
+after the app is gone and a temp extensions dir with it.
+
 Real ids are what people search for, and they join to the activated-extension
 inventory `extensions.ts` already collects. A directory whose `package.json`
 cannot be read falls back to the directory name rather than being dropped.
