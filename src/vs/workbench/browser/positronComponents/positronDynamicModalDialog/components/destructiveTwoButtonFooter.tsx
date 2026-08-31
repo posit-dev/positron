@@ -25,26 +25,22 @@ interface DestructiveTwoButtonFooterProps {
 /**
  * DestructiveTwoButtonFooter component. A two button footer whose primary button performs a
  * destructive action -- removing a saved connection, discarding work -- and so is filled with the
- * destructive red rather than the accent color a default button gets, and does not take the opening
- * focus the way a plain two button footer's primary does.
+ * destructive red rather than the accent color a default button gets.
  * @param props A DestructiveTwoButtonFooterProps that contains the component properties.
  * @returns The rendered component.
  */
 export const DestructiveTwoButtonFooter = (props: DestructiveTwoButtonFooterProps) => {
 	// Primary button. Destructive rather than default: the two treatments are alternatives, and the
-	// red fill is what marks the action as one the user cannot take back. Deliberately not focused --
-	// see the secondary button below.
+	// red fill is what marks the action as one the user cannot take back.
 	const primaryButton = (
 		<FooterButton destructive type='submit' onPressed={props.onPrimaryButton}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);
 
-	// Secondary button. It takes the focus rather than the primary, unlike a plain two button footer:
-	// the primary action here cannot be taken back, so Enter and Escape should both back out of the
-	// dialog and taking the action should cost a deliberate click or Tab.
+	// Secondary button.
 	const secondaryButton = (
-		<FooterButton autoFocus onPressed={props.onSecondaryButton}>
+		<FooterButton onPressed={props.onSecondaryButton}>
 			{props.secondaryButtonTitle}
 		</FooterButton>
 	);

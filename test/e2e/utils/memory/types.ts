@@ -69,6 +69,19 @@ export type LabeledProcess = {
 	pssSamples: number[];
 	/** Index-aligned with `pssSamples`, so `pssSamples[i] <= rssSamples[i]` per instant. */
 	rssSamples: number[];
+	/**
+	 * Whether this process was sampled after a forced garbage collection (`gc.ts`).
+	 *
+	 * Per process rather than a role list on the snapshot, so every band on the
+	 * dashboard's Memory by Process Role chart is self-describing: the lane
+	 * difference -- the server lane collects only the extension host -- needs no
+	 * rule anywhere downstream, and the CSV export and any ad-hoc query get the
+	 * column for free. Matches how `labeled` already works on this type.
+	 *
+	 * Required rather than optional, so a process that never passed through
+	 * `withForcedGc` is a compile error rather than a silently un-flagged band.
+	 */
+	forcedGc: boolean;
 };
 
 export type ActivatedExtension = {
@@ -112,6 +125,15 @@ export type MemorySnapshot = {
 	 * un-collected state.
 	 */
 	forcedGc?: ForcedGcStats[];
+	/**
+	 * Which ark the build bundles, e.g. `0.1.252+209.885fac4`. Undefined when the
+	 * build shipped no sidecar to read it from.
+	 *
+	 * On the snapshot rather than read at publish time because the report and
+	 * publish step is a separate `npx playwright test` invocation that reads these
+	 * files back off disk -- the app and its build are long gone by then.
+	 */
+	arkVersion?: string;
 	/**
 	 * Samples taken before the tail and thrown away: the startup plateau, before
 	 * Chromium reclaimed its startup memory. Non-zero is normal and healthy.

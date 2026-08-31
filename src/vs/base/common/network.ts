@@ -262,11 +262,13 @@ class RemoteAuthoritiesImpl {
 		return URI.from({
 			scheme: platform.isWeb ? this._preferredWebSchema : Schemas.vscodeRemoteResource,
 			authority: `${host}:${port}`,
-			// --- Start Positron ---
+			// --- Start PWB ---
 			path: platform.isWeb
-				? (window.location.pathname + '/' + this._remoteResourcesPath).replace(/\/\/+/g, '/')
+				// This module is also type-checked against Node/Worker layers where `window` isn't declared;
+				// `globalThis` resolves to the same object as `window` at runtime in a browser.
+				? ((globalThis as unknown as { location: { pathname: string } }).location.pathname + '/' + this._remoteResourcesPath).replace(/\/\/+/g, '/')
 				: this._remoteResourcesPath,
-			// --- End Positron ---
+			// --- End PWB ---
 			query
 		});
 	}

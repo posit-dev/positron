@@ -49,13 +49,12 @@ const QUARTO_PATH_PATTERN = /\.(qmd|rmd)$/i;
 //
 // Ark declares no `notebookDocumentSync` capability, so the language client
 // syncs these cells as ordinary text documents and the document selector is the
-// only gate. A cell URI keeps the path of the Quarto document the notebook was
-// built from, so restricting the pattern to Quarto extensions keeps the cells of
-// real notebooks (.ipynb) out.
+// only gate. Matching the notebook's type keeps the cells of real notebooks
+// (.ipynb) out, since no other notebook carries this type, and it cannot be
+// fooled by a document whose name resembles a Quarto one.
 const QUARTO_CELL_SELECTOR = {
+	notebook: { notebookType: QUARTO_CELLS_NOTEBOOK_TYPE },
 	language: 'r',
-	scheme: 'vscode-notebook-cell',
-	pattern: '**/*.{qmd,QMD,rmd,Rmd,RMD}',
 };
 
 /**
@@ -67,7 +66,8 @@ function isQuartoVirtualCell(document: vscode.TextDocument): boolean {
 	}
 	return vscode.workspace.notebookDocuments.some(
 		notebook => notebook.notebookType === QUARTO_CELLS_NOTEBOOK_TYPE &&
-			notebook.uri.path === document.uri.path
+			notebook.getCells().some(
+				cell => cell.document.uri.toString() === document.uri.toString())
 	);
 }
 
@@ -175,11 +175,11 @@ export class ArkLsp implements vscode.Disposable {
 
 		// Matches the cells of this client's own notebook.
 		//
-		// Skipped for Quarto sessions, whose notebook URI is the path of the
-		// .qmd document. The only R documents with that path are the cells of
-		// the document's virtual notebook, and the console client serves those,
-		// so matching them here would only duplicate it. For a real notebook
-		// (.ipynb) this is what matches the notebook's own cells.
+		// Skipped for Quarto sessions, whose session URI is the .qmd document.
+		// The only R documents under that path are the cells of the document's
+		// virtual notebook, and the console client serves those, so matching
+		// them here would only duplicate it. For a real notebook (.ipynb) this
+		// is what matches the notebook's own cells.
 		const ownNotebookCellSelectors = notebookUri && !QUARTO_PATH_PATTERN.test(notebookUri.path)
 			? [{ language: 'r', pattern: notebookUri.fsPath }]
 			: [];

@@ -72,6 +72,7 @@ export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.run
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
 export const LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID = 'workbench.action.language.runtime.discoverAllRuntimes';
 export const LANGUAGE_RUNTIME_GET_REGISTERED_RUNTIMES_ID = 'workbench.action.language.runtime.getRegisteredRuntimes';
+export const LANGUAGE_RUNTIME_GET_ACTIVE_SESSIONS_ID = 'workbench.action.language.runtime.getActiveSessions';
 export const LANGUAGE_RUNTIME_CLEAR_INTERPRETER_CACHE_ID = 'workbench.action.language.runtime.clearInterpreterCache';
 
 // Console Session Specific Action IDs
@@ -124,6 +125,45 @@ export function summarizeRegisteredRuntime(metadata: ILanguageRuntimeMetadata): 
 		runtimePath: getRuntimeDisplayPath(metadata),
 		startupBehavior: metadata.startupBehavior,
 		extensionId: metadata.extensionId.value,
+	};
+}
+
+/**
+ * A live interpreter session as reported to AI agents by the
+ * {@link LANGUAGE_RUNTIME_GET_ACTIVE_SESSIONS_ID} command. Carries the sessionId
+ * an agent needs to pass to `selectSession`, alongside the human-readable name
+ * and state it needs to describe the session to the user.
+ */
+export interface IActiveSessionSummary {
+	readonly sessionId: string;
+	readonly sessionName: string;
+	readonly runtimeId: string;
+	readonly languageId: string;
+	readonly languageName: string;
+	readonly runtimeName: string;
+	readonly sessionMode: string;
+	readonly state: string;
+	readonly foreground: boolean;
+}
+
+/**
+ * Projects a live session down to the fields useful to an AI agent.
+ *
+ * @param session The active session.
+ * @param foregroundSessionId The id of the current foreground session, if any.
+ * @returns A slim summary of the session.
+ */
+export function summarizeActiveSession(session: ILanguageRuntimeSession, foregroundSessionId: string | undefined): IActiveSessionSummary {
+	return {
+		sessionId: session.sessionId,
+		sessionName: session.dynState.sessionName,
+		runtimeId: session.runtimeMetadata.runtimeId,
+		languageId: session.runtimeMetadata.languageId,
+		languageName: session.runtimeMetadata.languageName,
+		runtimeName: session.runtimeMetadata.runtimeName,
+		sessionMode: session.metadata.sessionMode,
+		state: session.getRuntimeState(),
+		foreground: session.sessionId === foregroundSessionId,
 	};
 }
 
@@ -1573,6 +1613,42 @@ export function registerLanguageRuntimeActions() {
 			return languageRuntimeService.registeredRuntimes
 				.filter(runtime => !filter || runtime.languageId === filter)
 				.map(summarizeRegisteredRuntime);
+		}
+	});
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: LANGUAGE_RUNTIME_GET_ACTIVE_SESSIONS_ID,
+				title: localize2('workbench.action.language.runtime.getActiveSessions', "Get Active Sessions"),
+				category,
+				metadata: {
+					description: localize('positron.languageRuntime.getActiveSessions.description', "List the interpreter sessions currently running in Positron. Use before selecting a session to see which sessions exist and which one is active."),
+					agentCompatible: true,
+					args: [
+						{
+							name: 'languageId',
+							isOptional: true,
+							description: 'Restrict the results to a single language, e.g. "python" or "r". Omit to return sessions for every language.',
+							schema: { type: 'string' },
+						},
+					],
+					returns: 'An array of running sessions. Each entry has sessionId, sessionName, runtimeId, languageId, languageName, runtimeName, sessionMode (console or notebook), state, and foreground (true for the currently active session). An empty array means no session is running.',
+				},
+			});
+		}
+
+		async run(accessor: ServicesAccessor, languageId?: string): Promise<IActiveSessionSummary[]> {
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
+			const filter = typeof languageId === 'string' && languageId.length > 0 ? languageId : undefined;
+			const foregroundSessionId = runtimeSessionService.foregroundSession?.sessionId;
+			return runtimeSessionService.activeSessions
+				.filter(isActiveSessionState)
+				// Background sessions have no console or notebook behind them, so
+				// they can't be selected or shown to the user; leave them out.
+				.filter(session => session.metadata.sessionMode !== LanguageRuntimeSessionMode.Background)
+				.filter(session => !filter || session.runtimeMetadata.languageId === filter)
+				.map(session => summarizeActiveSession(session, foregroundSessionId));
 		}
 	});
 

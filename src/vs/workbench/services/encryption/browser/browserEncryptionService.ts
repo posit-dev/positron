@@ -194,7 +194,7 @@ export class BrowserEncryptionService implements IEncryptionService {
 			);
 
 			// Define PBKDF2 parameters
-			let params: Pbkdf2Params = {
+			const params: Pbkdf2Params = {
 				name: 'PBKDF2',
 				salt: salt as BufferSource,
 				iterations: 100000,

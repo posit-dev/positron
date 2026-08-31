@@ -18,7 +18,7 @@ import { toErrorMessage } from '../../../base/common/errorMessage.js';
 import { positronClassNames } from '../../../base/common/positronUtilities.js';
 import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
-import { PositronModalDialogReactRenderer } from '../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 import { deriveVariableName } from './importDataVariableName.js';
 import { LabeledTextInput } from '../positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { TwoButtonFooter } from '../positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
@@ -60,7 +60,7 @@ export interface ImportDataModalDialogOptions {
  */
 export const showImportDataModalDialog = (options: ImportDataModalDialogOptions) => {
 	// Create the renderer.
-	const renderer = new PositronModalDialogReactRenderer();
+	const renderer = new PositronModalReactRenderer();
 
 	// Render the dialog.
 	renderer.render(
@@ -78,7 +78,7 @@ export const showImportDataModalDialog = (options: ImportDataModalDialogOptions)
  * ImportDataModalDialogProps interface.
  */
 interface ImportDataModalDialogProps extends ImportDataModalDialogOptions {
-	readonly renderer: PositronModalDialogReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 }
 
 /**

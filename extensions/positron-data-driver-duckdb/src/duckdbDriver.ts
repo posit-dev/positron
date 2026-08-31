@@ -54,6 +54,18 @@ function escapeDoubleQuoted(value: string): string {
 const FILE_MECHANISM_ID = 'file';
 
 /**
+ * Reads the `readOnly` parameter, defaulting to true to match the parameter's declared
+ * `defaultValue` so that a profile which omits the value behaves like one created today. Read-only
+ * is the default because DuckDB locks a database file per process and permits concurrent opens only
+ * when every process opens it read-only: it is what lets the Data Connections panel browse a
+ * database while a Python or R session is connected to the same file. Both the live connection and
+ * the generated connection code read the parameter through here so the two cannot disagree.
+ */
+function isReadOnly(params: positron.DataConnectionParameterValues): boolean {
+	return params.readOnly !== false;
+}
+
+/**
  * Creates the DuckDB DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  * @param dataExplorerHandler Hosts table views for previewing tables/views in the Data Explorer.
@@ -97,8 +109,9 @@ export function createDuckDBDriver(
 					{
 						id: 'readOnly',
 						label: vscode.l10n.t('Read Only'),
+						description: vscode.l10n.t('Allows other sessions to open the same database file while this connection is open.'),
 						type: positron.DataConnectionParameterType.Boolean,
-						defaultValue: false,
+						defaultValue: true,
 					},
 				],
 			},
@@ -109,7 +122,7 @@ export function createDuckDBDriver(
 				case FILE_MECHANISM_ID: {
 					// Extract parameters.
 					const rawDatabasePath = params.databasePath;
-					const readOnly = params.readOnly as boolean ?? false;
+					const readOnly = isReadOnly(params);
 
 					// Validate parameters.
 					if (!isNonEmptyString(rawDatabasePath)) {
@@ -138,7 +151,7 @@ export function createDuckDBDriver(
 		async generateConnectionCode(_mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
 			// Extract parameters.
 			const databasePath = params.databasePath;
-			const readOnly = params.readOnly === true;
+			const readOnly = isReadOnly(params);
 
 			// A file path is required to generate valid connection code.
 			if (!isNonEmptyString(databasePath)) {

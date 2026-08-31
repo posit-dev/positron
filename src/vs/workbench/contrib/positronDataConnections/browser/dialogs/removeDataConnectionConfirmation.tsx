@@ -8,7 +8,7 @@ import './removeDataConnectionConfirmation.css';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { DestructiveTwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/destructiveTwoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 
@@ -29,7 +29,7 @@ export const showRemoveDataConnectionConfirmation = (
 	openDataExplorerCount: number
 ): Promise<boolean> => {
 	// Create the renderer.
-	const renderer = new PositronModalDialogReactRenderer();
+	const renderer = new PositronModalReactRenderer();
 
 	return new Promise<boolean>(resolve => {
 		// Settle once: dispose the renderer and resolve with the user's choice. Guards against the
@@ -63,7 +63,7 @@ export const showRemoveDataConnectionConfirmation = (
 interface RemoveDataConnectionConfirmationProps {
 	readonly connectionName: string;
 	readonly openDataExplorerCount: number;
-	readonly renderer: PositronModalDialogReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly onConfirm: () => void;
 	readonly onCancel: () => void;
 }

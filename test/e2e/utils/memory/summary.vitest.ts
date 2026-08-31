@@ -20,6 +20,7 @@ const proc = (overrides: Partial<LabeledProcess> = {}): LabeledProcess => ({
 	labeled: true, cmdBasename: 'positron', pssBytes: 100 * MB, rssBytes: 200 * MB,
 	pssMin: 100 * MB, pssMax: 100 * MB,
 	pssSamples: [100 * MB, 100 * MB, 100 * MB], rssSamples: [200 * MB, 200 * MB, 200 * MB],
+	forcedGc: false,
 	...overrides
 });
 
