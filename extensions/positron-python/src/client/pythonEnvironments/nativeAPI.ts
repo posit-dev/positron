@@ -274,7 +274,7 @@ async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[])
     // --- End Positron ---
     const displayName = nativeEnv.version
         ? getDisplayName(version, kind, arch, name)
-        : nativeEnv.displayName ?? 'Python';
+        : (nativeEnv.displayName ?? 'Python');
 
     const executable = nativeEnv.executable ?? makeExecutablePath(nativeEnv.prefix);
     return {
@@ -354,17 +354,17 @@ enum ExistingEnvAction {
 
 type ExistingEnvResult =
     | {
-        reason: ExistingEnvAction.KeepExistingEnv;
-        existingEnv: PythonEnvInfo;
-    }
+          reason: ExistingEnvAction.KeepExistingEnv;
+          existingEnv: PythonEnvInfo;
+      }
     | {
-        reason: ExistingEnvAction.AddNewEnv;
-        existingEnv: undefined;
-    }
+          reason: ExistingEnvAction.AddNewEnv;
+          existingEnv: undefined;
+      }
     | {
-        reason: ExistingEnvAction.ReplaceExistingEnv;
-        existingEnv: PythonEnvInfo;
-    };
+          reason: ExistingEnvAction.ReplaceExistingEnv;
+          existingEnv: PythonEnvInfo;
+      };
 // --- End Positron ---
 
 class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
