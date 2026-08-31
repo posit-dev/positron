@@ -641,6 +641,37 @@ describe('extension host heap breakdown', () => {
 		expect(rows.find(r => r.extensionId === 'positron.positron-python')?.change).toBe('new');
 	});
 
+	/** Same three extensions as `breakdown`: one up 300 KB, one down 300.4 KB, one unmoved. */
+	const movedBaseline = withHeap({
+		extensions: [
+			{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_192_800 },
+			{ extensionId: 'positron.positron-python', retainedBytes: 37_907_600 },
+			{ extensionId: 'vscode.authentication', retainedBytes: 2_800_000 }
+		],
+		unattributedBytes: 192_800_000,
+		reachableBytes: 353_701_200
+	});
+
+	test('renders an unchanged extension as flat rather than as a rise', () => {
+		const row = extensionHeapRows([withHeap(breakdown)], movedBaseline)
+			.find(r => r.extensionId === 'vscode.authentication');
+
+		expect(row?.change).toBe('+0.0 KB');
+		expect(row?.changeBytes).toBe(0);
+		expect(renderHtml([withHeap(breakdown)], movedBaseline)).toContain('<span class="delta-flat">+0.0 KB</span>');
+	});
+
+	test('gives the html change cell the same glyph and classes as the role table', () => {
+		const html = renderHtml([withHeap(breakdown)], movedBaseline);
+
+		expect(html).toContain('<span class="delta-up">&#9650; 300.0 KB</span>');
+		expect(html).toContain('<span class="delta-down">&#9660; 300.4 KB</span>');
+		// The role table marks an unmatched row this way too.
+		expect(renderHtml([withHeap(breakdown)], withHeap({
+			extensions: [], unattributedBytes: 192_800_000, reachableBytes: 192_800_000
+		}))).toContain('<span class="delta-flat">new</span>');
+	});
+
 	test('leaves change blank when there is no baseline at all', () => {
 		const rows = extensionHeapRows([withHeap(breakdown)]);
 

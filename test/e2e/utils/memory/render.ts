@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { deltaHtml, escapeHtml, formatBytes, GC_NOTE, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
+import { deltaHtml, escapeHtml, formatBytes, GC_NOTE, KB, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
 import { unstableProcesses } from './snapshot.js';
 import { ActivatedExtension, ExtensionHeapBreakdown, ExtensionHeapStatus, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
 
@@ -184,21 +184,44 @@ const EXTENSION_HEAP_FLOOR_BYTES = 1_048_576;
 /** The unattributed remainder's row label, in both report formats. */
 const UNATTRIBUTED_ROW = 'unattributed';
 
-const KB = 1024;
+/**
+ * Magnitude of an extension-row figure. `formatBytes` alone rounds to one MB
+ * decimal, which flattens a real sub-MB extension change to "0.0 MB" --
+ * extensions sit an order of magnitude below the role table's figures, so
+ * anything below 1 MB is shown in KB instead. Binary units throughout.
+ */
+function extensionMagnitude(bytes: number): string {
+	const abs = Math.abs(bytes);
+	if (abs >= 1024 * KB) {
+		return formatBytes(abs);
+	}
+	return `${(abs / KB).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} KB`;
+}
+
+/** Signed delta for an extension row, in the markdown table. */
+function signedExtensionChange(bytes: number): string {
+	return `${bytes >= 0 ? '+' : '-'}${extensionMagnitude(bytes)}`;
+}
 
 /**
- * Signed delta for an extension row. `signed` alone rounds to one MB decimal,
- * which flattens a real sub-MB extension change to "+0.0 MB" -- extensions sit
- * an order of magnitude below the role table's figures, so deltas below 1 MB
- * are shown in KB instead. Binary units throughout, matching `formatBytes`.
+ * The extension-row counterpart of `deltaHtmlFromDiff`: same glyph, same
+ * classes, one scale down. Flat is under a KB rather than under an MB, since
+ * the shared MB band would swallow every extension delta there is and no row
+ * would ever get an arrow.
  */
-function signedExtensionChange(bytes: number): string {
-	if (Math.abs(bytes) >= 1024 * KB) {
-		return signed(bytes);
+function extensionDeltaHtml(diff: number): string {
+	const flat = Math.abs(diff) < KB;
+	const cls = flat ? 'delta-flat' : diff > 0 ? 'delta-up' : 'delta-down';
+	const glyph = flat ? '' : diff > 0 ? '&#9650; ' : '&#9660; ';
+	return `<span class="${cls}">${glyph}${flat ? signedExtensionChange(diff) : extensionMagnitude(diff)}</span>`;
+}
+
+/** The change cell for one extension row, matching how the role table renders a delta and a new row. */
+function extensionChangeHtml(row: ExtensionHeapRow): string {
+	if (row.changeBytes !== undefined) {
+		return extensionDeltaHtml(row.changeBytes);
 	}
-	const sign = bytes >= 0 ? '+' : '-';
-	const kb = Math.abs(bytes) / KB;
-	return `${sign}${kb.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} KB`;
+	return row.change === '' ? '' : `<span class="delta-flat">${escapeHtml(row.change)}</span>`;
 }
 
 /**
@@ -247,10 +270,19 @@ export function extensionHeapUnavailableText(snapshots: MemorySnapshot[]): strin
  * `unattributed` is always shown: it is most of the heap, and hiding it would
  * imply the extensions sum to the extension host row.
  */
+export type ExtensionHeapRow = {
+	extensionId: string;
+	bytes: number;
+	/** The rendered change for the markdown table: blank, "new", or a signed figure. */
+	change: string;
+	/** The same change unrendered, so the HTML card can put a glyph and a class on it. Undefined when there is nothing to compare against. */
+	changeBytes?: number;
+};
+
 export function extensionHeapRows(
 	snapshots: MemorySnapshot[],
 	baseline?: MemorySnapshot
-): { extensionId: string; bytes: number; change: string }[] {
+): ExtensionHeapRow[] {
 	const breakdowns = snapshots.map(s => s.extensionHeap).filter((b): b is ExtensionHeapBreakdown => b !== undefined);
 	if (breakdowns.length === 0) {
 		return [];
@@ -262,19 +294,22 @@ export function extensionHeapRows(
 	// Blank rather than "new" everywhere when there is no extension-level
 	// baseline at all, which is the first night and any run against a baseline
 	// captured before this shipped.
-	const changeFor = (id: string, bytes: number): string => {
+	const changeFor = (id: string, bytes: number): Pick<ExtensionHeapRow, 'change' | 'changeBytes'> => {
 		if (!baselineBreakdown) {
-			return '';
+			return { change: '' };
 		}
 		const before = baselineBytes.get(id);
-		return before === undefined ? 'new' : signedExtensionChange(bytes - before);
+		if (before === undefined) {
+			return { change: 'new' };
+		}
+		return { change: signedExtensionChange(bytes - before), changeBytes: bytes - before };
 	};
 
 	const ranked = [...medians].sort((a, b) => b[1] - a[1]);
 	const shown = ranked.filter(([, bytes]) => bytes >= EXTENSION_HEAP_FLOOR_BYTES);
 	const collapsed = ranked.filter(([, bytes]) => bytes > 0 && bytes < EXTENSION_HEAP_FLOOR_BYTES);
 
-	const rows = shown.map(([extensionId, bytes]) => ({ extensionId, bytes, change: changeFor(extensionId, bytes) }));
+	const rows: ExtensionHeapRow[] = shown.map(([extensionId, bytes]) => ({ extensionId, bytes, ...changeFor(extensionId, bytes) }));
 	if (collapsed.length > 0) {
 		rows.push({
 			extensionId: `(${collapsed.length} others)`,
@@ -283,10 +318,12 @@ export function extensionHeapRows(
 		});
 	}
 	const unattributed = median(breakdowns.map(b => b.unattributedBytes));
+	const unattributedDiff = baselineBreakdown ? unattributed - baselineBreakdown.unattributedBytes : undefined;
 	rows.push({
 		extensionId: UNATTRIBUTED_ROW,
 		bytes: unattributed,
-		change: baselineBreakdown ? signed(unattributed - baselineBreakdown.unattributedBytes) : ''
+		change: unattributedDiff === undefined ? '' : signedExtensionChange(unattributedDiff),
+		changeBytes: unattributedDiff
 	});
 	return rows;
 }
@@ -706,7 +743,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 				<td>${row.extensionId === UNATTRIBUTED_ROW ? `<em>${UNATTRIBUTED_ROW}</em>` : `<code>${escapeHtml(row.extensionId)}</code>`}</td>
 				<td align="right">${formatBytes(row.bytes)}</td>
 				<td>${magnitudeBar(row.bytes, maxHeapBytes)}</td>
-				<td align="right">${escapeHtml(row.change)}</td>
+				<td align="right">${extensionChangeHtml(row)}</td>
 			</tr>`).join('\n')}
 		</table>
 		<p class="muted">A dominator-tree partition of the reachable extension host heap: every byte is credited to the nearest owning extension, so the rows sum to the total and nothing is counted twice. <em>unattributed</em> is the extension host runtime and node internals.</p>

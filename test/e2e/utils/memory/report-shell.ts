@@ -13,7 +13,8 @@
  * alongside.
  */
 
-const MB = 1024 * 1024;
+export const KB = 1024;
+const MB = 1024 * KB;
 
 /** Shown by the per-scenario report whenever a snapshot carries a forced-GC reading, so live usage is not mistaken for it. */
 export const GC_NOTE = 'Shared process and extension host values are measured after forced garbage collection; live usage may be higher.';
