@@ -320,6 +320,28 @@ describe('getConfiguredSettings', () => {
 		}]);
 	});
 
+	it('merges a language-override block\'s explicit sources per property, higher target winning', () => {
+		// Core resolves an override block per property across targets: a
+		// user-level [r] tab size and a workspace-level [r] format-on-save are
+		// both in effect. Reporting only the winning source's block would drop
+		// the user's tab size from the effective value; reporting core's own
+		// resolution would drag shipped defaults back in. The merge covers both:
+		// every explicit property appears, the workspace wins the conflict, and
+		// nothing the user never touched shows up.
+		stubServices({
+			userLocal: { '[r]': { 'editor.tabSize': 4, 'editor.formatOnSave': false } },
+			workspace: { '[r]': { 'editor.formatOnSave': true } },
+			overrideDefaults: { '[r]': { 'editor.formatOnType': true } },
+		});
+
+		const [setting] = getConfiguredSettings(ctx.instantiationService).settings;
+
+		expect({ value: setting.value, effectiveSource: setting.effectiveSource }).toEqual({
+			value: { 'editor.tabSize': 4, 'editor.formatOnSave': true },
+			effectiveSource: 'workspace',
+		});
+	});
+
 	it('reports a policy-enforced key the user also set as overridden, keeping both values', () => {
 		// The Posit Workbench case. Without `ignored` the model reports the
 		// enforced value as the product default while the user stares at their
@@ -446,9 +468,9 @@ describe('getConfiguredSettings', () => {
 
 	it('flags a key that multi-root folders set to different values, without naming them', () => {
 		// The payload has one workspaceFolder slot per key, carrying the first
-		// folder's value. When another folder disagrees, an agent reading only
-		// that slot would present one folder's value as the answer;
-		// differingFolders is the non-path-leaking signal to hedge instead.
+		// folder's value. When another folder resolves differently, an agent
+		// reading only that slot would present one folder's value as the answer;
+		// distinctFolderValues is the non-path-leaking signal to hedge instead.
 		stubServices({
 			folders: [
 				[URI.file('/workspace/analysis'), { 'testSettings.folderSetting': 'first' }],
@@ -458,15 +480,32 @@ describe('getConfiguredSettings', () => {
 
 		const [setting] = getConfiguredSettings(ctx.instantiationService).settings;
 
-		expect({ value: setting.value, differingFolders: setting.differingFolders }).toEqual({
+		expect({ value: setting.value, distinctFolderValues: setting.distinctFolderValues }).toEqual({
 			value: 'first',
-			differingFolders: 2,
+			distinctFolderValues: 2,
 		});
 	});
 
+	it('flags a key one folder overrides while the others inherit a different value', () => {
+		// Variance is about effective resolution, not explicit setters: folder
+		// B never sets the key, but files in it resolve to the user value while
+		// files in folder A resolve to A's override.
+		stubServices({
+			userLocal: { 'testSettings.folderSetting': 'base' },
+			folders: [
+				[URI.file('/workspace/analysis'), { 'testSettings.folderSetting': 'override' }],
+				[URI.file('/workspace/reports'), {}],
+			],
+		});
+
+		const [setting] = getConfiguredSettings(ctx.instantiationService).settings;
+
+		expect(setting.distinctFolderValues).toBe(2);
+	});
+
 	it('collapses folders that agree on a value, with nothing flagged', () => {
-		// Identical values across folders lose nothing by being reported once,
-		// so the flag stays out of the payload.
+		// Identical resolution across folders loses nothing by being reported
+		// once, so the flag stays out of the payload.
 		stubServices({
 			folders: [
 				[URI.file('/workspace/analysis'), { 'testSettings.folderSetting': 'same' }],
@@ -476,9 +515,9 @@ describe('getConfiguredSettings', () => {
 
 		const [setting] = getConfiguredSettings(ctx.instantiationService).settings;
 
-		expect({ value: setting.value, differingFolders: setting.differingFolders }).toEqual({
+		expect({ value: setting.value, distinctFolderValues: setting.distinctFolderValues }).toEqual({
 			value: 'same',
-			differingFolders: undefined,
+			distinctFolderValues: undefined,
 		});
 	});
 

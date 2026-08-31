@@ -81,14 +81,15 @@ export interface IConfiguredSetting {
 	ignored?: { reason: ConfiguredSettingIgnoredReason };
 
 	/**
-	 * Present only when more than one workspace folder sets this key and their
-	 * values disagree; carries how many folders set it. The entry's
-	 * workspaceFolder value is then just one folder's, and the effective value
-	 * depends on which folder a file belongs to. A count rather than per-folder
-	 * entries, because naming the folders would mean reporting filesystem
-	 * paths, which this command exists to avoid.
+	 * Present only in a multi-root workspace, when this key resolves to
+	 * different effective values depending on the workspace folder -- whether
+	 * because folders set it differently, or because one folder overrides a
+	 * value the others inherit. Carries how many distinct values are in play;
+	 * the entry's own value reflects just one folder's resolution. A count
+	 * rather than per-folder entries, because naming the folders would mean
+	 * reporting filesystem paths, which this command exists to avoid.
 	 */
-	differingFolders?: number;
+	distinctFolderValues?: number;
 }
 
 /** What the getConfiguredSettings command returns. */
@@ -251,20 +252,23 @@ export function getConfiguredSettings(accessor: ServicesAccessor, filter?: strin
 	// inspect() hits the same guard and needs that resource to report a
 	// workspaceFolderValue at all.
 	const folderResources = new Map<string, URI>();
-	const allFolderResources = new Map<string, URI[]>();
+	const folderConfiguredKeys = new Set<string>();
+	const workspaceFolderUris: URI[] = [];
 	for (const [folder, folderModel] of data?.folders ?? []) {
 		const resource = URI.revive(folder);
+		workspaceFolderUris.push(resource);
 		for (const key of folderModel.keys) {
 			// First folder to set a key wins the entry. The payload reports one
 			// setting per key, not one per folder: naming which folder a value
 			// came from would mean reporting a filesystem path, which this
-			// command exists to avoid. Every folder is still remembered, so a
-			// key whose folders disagree can carry `differingFolders` instead of
-			// silently presenting one folder's value as the answer.
+			// command exists to avoid. Folder-configured keys are still
+			// remembered, so a key whose resolution varies by folder can carry
+			// `distinctFolderValues` instead of silently presenting one folder's
+			// value as the answer.
 			if (!folderResources.has(key)) {
 				folderResources.set(key, resource);
 			}
-			allFolderResources.set(key, [...(allFolderResources.get(key) ?? []), resource]);
+			folderConfiguredKeys.add(key);
 		}
 	}
 
@@ -318,18 +322,27 @@ export function getConfiguredSettings(accessor: ServicesAccessor, filter?: strin
 		const effective = new Set<ConfiguredSettingSource>(Object.keys(sources) as ConfiguredSettingSource[]);
 		const effectiveSource = SOURCE_PRECEDENCE.find(source => effective.has(source));
 
-		// In a multi-root workspace, folders can set the same key to different
-		// values, and this payload's single workspaceFolder slot carries only
-		// the first folder's. When they actually disagree, say so with a count,
-		// so a caller hedges instead of presenting one folder's value as the
-		// answer. Identical values across folders collapse silently: nothing is
-		// lost by reporting one of them.
-		const keyFolders = allFolderResources.get(key);
-		let differingFolders: number | undefined;
-		if (keyFolders !== undefined && keyFolders.length > 1) {
-			const folderValues = keyFolders.map(uri => configurationService.inspect(key, { resource: uri }).workspaceFolderValue);
-			if (folderValues.some(folderValue => !equals(folderValue, folderValues[0]))) {
-				differingFolders = keyFolders.length;
+		// In a multi-root workspace, this payload's single value/workspaceFolder
+		// slot carries one folder's resolution, but the key can resolve
+		// differently per folder -- including when only ONE folder sets it and
+		// the others inherit a different workspace/user/default value. Compare
+		// the effective resolved value against EVERY workspace folder (folder
+		// config is the only per-folder input, so a key no folder sets cannot
+		// vary) and report how many distinct values are in play, so a caller
+		// hedges instead of presenting one folder's value as the answer. Folders
+		// that all resolve identically collapse silently: nothing is lost by
+		// reporting one of them.
+		let distinctFolderValues: number | undefined;
+		if (workspaceFolderUris.length > 1 && folderConfiguredKeys.has(key)) {
+			const distinct: unknown[] = [];
+			for (const uri of workspaceFolderUris) {
+				const folderValue = configurationService.inspect(key, { resource: uri }).value;
+				if (!distinct.some(existing => equals(existing, folderValue))) {
+					distinct.push(folderValue);
+				}
+			}
+			if (distinct.length > 1) {
+				distinctFolderValues = distinct.length;
 			}
 		}
 
@@ -368,11 +381,28 @@ export function getConfiguredSettings(accessor: ServicesAccessor, filter?: strin
 		// configurationDefaults for the block (extensions/positron-r/package.json's
 		// "[r]": {...}) with whatever the user set, so it can carry keys that are in
 		// NO source at all. Reporting that merged object tells the model the user
-		// configured settings they never touched. Build `value` from the winning
-		// source instead, so it carries only the user's own contribution.
-		const resolvedValue = isLanguageOverride
-			? (effectiveSource !== undefined ? sources[effectiveSource] : undefined)
-			: inspected.value;
+		// configured settings they never touched. Build `value` from the explicit
+		// source blocks instead -- but from ALL of them, not just the winner: core
+		// resolves an override block per property across targets, so a user-level
+		// [r] tab size and a workspace-level [r] format-on-save are both in
+		// effect. Per-property assignment lowest-to-highest precedence mirrors
+		// that: each property is itself a setting whose value the higher target
+		// replaces whole.
+		const mergedOverrideValue = (): unknown => {
+			const merged: Record<string, unknown> = {};
+			let sawBlock = false;
+			for (let i = SOURCE_PRECEDENCE.length - 1; i >= 0; i--) {
+				const block = sources[SOURCE_PRECEDENCE[i]];
+				if (block !== null && typeof block === 'object' && !Array.isArray(block)) {
+					Object.assign(merged, block);
+					sawBlock = true;
+				}
+			}
+			// A malformed, non-object override block: fall back to the winner
+			// rather than reporting an empty object as the user's configuration.
+			return sawBlock ? merged : (effectiveSource !== undefined ? sources[effectiveSource] : undefined);
+		};
+		const resolvedValue = isLanguageOverride ? mergedOverrideValue() : inspected.value;
 
 		// Two redaction layers. A credential-shaped (or known credential-bearing)
 		// key withholds the whole value. Everything else still gets its object
@@ -418,7 +448,7 @@ export function getConfiguredSettings(accessor: ServicesAccessor, filter?: strin
 			sources: Object.keys(sources).length > 1 ? sources : undefined,
 			effectiveSource,
 			ignored,
-			differingFolders,
+			distinctFolderValues,
 		});
 	}
 
@@ -479,7 +509,7 @@ CommandsRegistry.registerCommand({
 				schema: { type: 'boolean' },
 			},
 		],
-		returns: 'An object describing the settings the user has explicitly set, and only those: defaults the user never touched are not included, and neither is a setting that carries only a policy value the user never set themselves. deployment says whether this window is connected to a remote (SSH, a container, or Posit Workbench) and whether the current profile is the default one; these do not describe a setting directly, but they say what this payload cannot show, since a deployment can filter a setting the user genuinely wrote out of every configuration model before it ever reaches this command. settings is one entry per configured key, ordered most-noteworthy first (entries with ignored, then deprecated ones, then the rest, each sorted by key), with: key; value, the effective value after every target resolves; scope, the setting\'s registry scope when registered; description, the first sentence of the setting\'s registered description, so a caller glosses keys from the registry rather than from memory; and effectiveSource, naming which target won, absent when none of them did and the registered default is in force. deprecated is present only when the registry marks the key deprecated, and carries the deprecation message, which usually names the replacement setting. registered is present, and false, only when the key is not a setting this Positron knows about, which usually means a typo or a setting from an extension that is not installed; its absence means the key is registered. sources, the value in each target that carries one (application, userLocal, userRemote, workspace, workspaceFolder, policy), is present only when more than one target carries a value; with a single source, sources is left out, and effectiveSource alone names the target that holds value. An entry also carries differingFolders, in a multi-root workspace only, when more than one workspace folder sets the key to a different value: the reported workspaceFolder value is then just one folder\'s, the effective value depends on which folder a file belongs to, and differingFolders says how many folders set it -- hedge accordingly rather than presenting one value as the answer. An entry also carries ignored when the user set the key somewhere it has no effect, in which case value is NOT what the user wrote and what they wrote is in sources. The only reason is \'overridden-by-policy\': an administrator, or an account entitlement tied to sign-in state, enforces this setting, and sources.policy holds the value it is pinned to, so the user\'s own entry does nothing. Values that may hold a credential are replaced with \'<redacted>\': the whole value when the key itself is credential-shaped or a known credential-bearing setting (with every entry in that key\'s sources replaced the same way, so a redacted sources entry is never real data), and otherwise the individual properties inside an object value whose names are credential-shaped, e.g. a token in an environment-variable map. redactedCount, present only when at least one entry had something withheld, says how many.',
+		returns: 'An object describing the settings the user has explicitly set, and only those: defaults the user never touched are not included, and neither is a setting that carries only a policy value the user never set themselves. deployment says whether this window is connected to a remote (SSH, a container, or Posit Workbench) and whether the current profile is the default one; these do not describe a setting directly, but they say what this payload cannot show, since a deployment can filter a setting the user genuinely wrote out of every configuration model before it ever reaches this command. settings is one entry per configured key, ordered most-noteworthy first (entries with ignored, then deprecated ones, then the rest, each sorted by key), with: key; value, the effective value after every target resolves; scope, the setting\'s registry scope when registered; description, the first sentence of the setting\'s registered description, so a caller glosses keys from the registry rather than from memory; and effectiveSource, naming which target won, absent when none of them did and the registered default is in force. deprecated is present only when the registry marks the key deprecated, and carries the deprecation message, which usually names the replacement setting. registered is present, and false, only when the key is not a setting this Positron knows about, which usually means a typo or a setting from an extension that is not installed; its absence means the key is registered. sources, the value in each target that carries one (application, userLocal, userRemote, workspace, workspaceFolder, policy), is present only when more than one target carries a value; with a single source, sources is left out, and effectiveSource alone names the target that holds value. An entry also carries distinctFolderValues, in a multi-root workspace only, when the key resolves to different effective values depending on the workspace folder (folders setting it differently, or one folder overriding a value the others inherit): the reported value is then just one folder\'s resolution, and distinctFolderValues says how many distinct values are in play -- hedge accordingly rather than presenting one value as the answer. An entry also carries ignored when the user set the key somewhere it has no effect, in which case value is NOT what the user wrote and what they wrote is in sources. The only reason is \'overridden-by-policy\': an administrator, or an account entitlement tied to sign-in state, enforces this setting, and sources.policy holds the value it is pinned to, so the user\'s own entry does nothing. Values that may hold a credential are replaced with \'<redacted>\': the whole value when the key itself is credential-shaped or a known credential-bearing setting (with every entry in that key\'s sources replaced the same way, so a redacted sources entry is never real data), and otherwise the individual properties inside an object value whose names are credential-shaped, e.g. a token in an environment-variable map. redactedCount, present only when at least one entry had something withheld, says how many.',
 	},
 });
 
@@ -575,6 +605,10 @@ export function findSettings(accessor: ServicesAccessor, query?: string, keys?: 
 
 	const buildEntry = (key: string, schema: IConfigurationPropertySchema): IFoundSetting => {
 		const redact = matchesSensitiveKey(key, PAYLOAD_SENSITIVE_KEYS);
+		// Resolved without a file context on purpose: this command has no
+		// resource to resolve against, and picking one (say, the active editor)
+		// would make the payload depend on hidden UI state. The return contract
+		// says so and routes per-folder questions to getConfiguredSettings.
 		const currentValue = configurationService.getValue(key);
 		// `default` is shipped product configuration, never user data, so it is
 		// not redacted; only the resolved value can carry something the user put
@@ -689,6 +723,6 @@ CommandsRegistry.registerCommand({
 				schema: { type: 'number' },
 			},
 		],
-		returns: 'An object with settings, the matching registry entries best-match first (key equality, then key substring, then description matches), and total, how many settings matched before the limit was applied: when total exceeds the number of entries returned, say the listing is partial rather than presenting it as complete. Each entry carries: key; description, the first sentence of the registered description; type; default, the registered default value; value, the current effective value, present only when it differs from default, so its absence means the default is in force; scope; tags, e.g. \'preview\' or \'experimental\', which mark preview features; hidden, present and true only when the setting is excluded from the Settings editor UI, so the user cannot find it by browsing there and must edit settings.json directly; deprecated, present only when the registry marks the key deprecated, carrying the deprecation message, which usually names the replacement; and enum, the allowed values for enum-typed settings. For an explicitly requested key the registry does not know, the entry is just key plus registered: false. A value that may hold a credential is replaced with \'<redacted>\', in whole for a credential-shaped or known credential-bearing key, or for the credential-shaped properties inside an object value.',
+		returns: 'An object with settings, the matching registry entries best-match first (key equality, then key substring, then description matches), and total, how many settings matched before the limit was applied: when total exceeds the number of entries returned, say the listing is partial rather than presenting it as complete. Each entry carries: key; description, the first sentence of the registered description; type; default, the registered default value; value, the current effective value, present only when it differs from default, so its absence means the default is in force -- resolved without a file context, so for a resource-scoped setting a per-folder override is not reflected and positronSettings.getConfiguredSettings is the command that reports the per-target and per-folder picture; scope; tags, e.g. \'preview\' or \'experimental\', which mark preview features; hidden, present and true only when the setting is excluded from the Settings editor UI, so the user cannot find it by browsing there and must edit settings.json directly; deprecated, present only when the registry marks the key deprecated, carrying the deprecation message, which usually names the replacement; and enum, the allowed values for enum-typed settings. For an explicitly requested key the registry does not know, the entry is just key plus registered: false. A value that may hold a credential is replaced with \'<redacted>\', in whole for a credential-shaped or known credential-bearing key, or for the credential-shaped properties inside an object value.',
 	},
 });

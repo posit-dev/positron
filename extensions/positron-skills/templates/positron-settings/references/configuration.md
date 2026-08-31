@@ -162,11 +162,13 @@ as unknown:
   only present when more than one target carries a value, so you can see all
   of them and which one won.
 - No `redactedCount` field means nothing was redacted.
-- No `differingFolders` field means the reported value is not being contradicted
-  by another workspace folder. When it is present, more than one folder in a
-  multi-root workspace sets this key and they disagree: the entry carries one
-  folder's value, and the effective value depends on which folder a file
-  belongs to, so say that rather than presenting the one value as the answer.
+- No `distinctFolderValues` field means the reported value is not being
+  contradicted by another workspace folder. When it is present, this key
+  resolves to that many different values across a multi-root workspace's
+  folders (folders setting it differently, or one folder overriding a value
+  the others inherit): the entry carries one folder's resolution, and the
+  effective value depends on which folder a file belongs to, so say that
+  rather than presenting the one value as the answer.
 
 ## Searching the settings registry
 
@@ -215,8 +217,11 @@ standing in for any key the registry does not know.
   rather than presenting a slice as everything.
 - `value` is present only when the current effective value differs from
   `default`; its absence means the default is in force. That does not say who
-  set a differing value -- for provenance (user vs workspace vs policy), look
-  the key up in `getConfiguredSettings`.
+  set a differing value, and it is resolved without a file context, so a
+  resource-scoped setting overridden in a workspace folder can resolve
+  differently for files in that folder than `value` shows. For provenance
+  (user vs workspace vs policy) and the per-folder picture, look the key up
+  in `getConfiguredSettings`.
 - The two commands' vocabularies match where they overlap (`key`,
   `description`, `deprecated`, `registered`, `<redacted>`), so entries can be
   merged key-by-key without translation.
