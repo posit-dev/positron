@@ -1143,10 +1143,11 @@ Streams a snapshot out of the extension host and writes it next to the launch JS
 **Interfaces:**
 - Consumes: `CdpClient`, `connectToInspector`, `defaultConnect`, `WsConnect` (Task 2); `readExtensionIdsByDirectory` (Task 3).
 - Produces:
-  - `type HeapCaptureSidecar = { scriptUrls: Record<string, string>; extensionIds: Record<string, string> }`
+  - `type HeapCaptureSidecar = { scriptUrls: Record<string, string>; extensionIds: Record<string, string>; pid?: number }`
+  - `type HeapCaptureResult = { captured: boolean; pid?: number }`
   - `function heapSnapshotPath(dir: string, launchIndex: number): string` -> `<dir>/heap-<launchIndex>.heapsnapshot`
   - `function heapSidecarPath(dir: string, launchIndex: number): string` -> `<dir>/heap-<launchIndex>.meta.json`
-  - `async function captureExtensionHostHeap(input: { dir: string; launchIndex: number; extensionRoots: string[]; port?: number; connect?: WsConnect; fetchImpl?: typeof fetch }): Promise<boolean>` -- returns whether it captured, never throws.
+  - `async function captureExtensionHostHeap(input: { dir: string; launchIndex: number; extensionRoots: string[]; port?: number; connect?: WsConnect; fetchImpl?: typeof fetch }): Promise<HeapCaptureResult>` -- never throws. `pid` is absent when the inspector was never reached.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1326,6 +1327,20 @@ export type HeapCaptureSidecar = {
 	scriptUrls: Record<string, string>;
 	/** Extension directory name -> real extension id. */
 	extensionIds: Record<string, string>;
+	/**
+	 * The extension host's own pid, self-reported over CDP.
+	 *
+	 * Exact rather than inferred: it is the process the snapshot was taken
+	 * from, so it stays correct even if a scenario ever runs a second
+	 * extension host that a name or role match would confuse it with.
+	 */
+	pid?: number;
+};
+
+export type HeapCaptureResult = {
+	captured: boolean;
+	/** Absent when the inspector was never reached; the caller then falls back. */
+	pid?: number;
 };
 
 /** The extension host inspector port, taken from `GC_TARGETS` so the two cannot drift. */
@@ -1362,9 +1377,10 @@ export async function captureExtensionHostHeap(input: {
 	port?: number;
 	connect?: WsConnect;
 	fetchImpl?: typeof fetch;
-}): Promise<boolean> {
+}): Promise<HeapCaptureResult> {
 	const port = input.port ?? EXTENSION_HOST_PORT;
 	let client: CdpClient | undefined;
+	let pid: number | undefined;
 	try {
 		client = await connectToInspector(port, 'extension host', input.connect ?? defaultConnect, input.fetchImpl ?? fetch);
 
@@ -1384,6 +1400,14 @@ export async function captureExtensionHostHeap(input: {
 			bytesWritten += params.chunk.length;
 		});
 
+		// Same call gc.ts already makes against this inspector every night, so
+		// the pid is proven to be readable here rather than assumed.
+		const usage = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
+			expression: 'JSON.stringify({ pid: process.pid })',
+			returnByValue: true
+		});
+		pid = JSON.parse(usage.result.value).pid;
+
 		// Replays a scriptParsed for every already-loaded script. The replay
 		// completes before this resolves: measured 2026-08-31 across three
 		// sessions against one extension host, all 609 scripts present at the
@@ -1397,22 +1421,23 @@ export async function captureExtensionHostHeap(input: {
 		if (bytesWritten === 0) {
 			rmSync(snapshotPath, { force: true });
 			console.log('[memory] extension host streamed no heap snapshot chunks; skipping the per-extension breakdown');
-			return false;
+			return { captured: false, pid };
 		}
 
 		const sidecar: HeapCaptureSidecar = {
 			scriptUrls,
-			extensionIds: await readExtensionIdsByDirectory(input.extensionRoots)
+			extensionIds: await readExtensionIdsByDirectory(input.extensionRoots),
+			pid
 		};
 
 		writeFileSync(heapSidecarPath(input.dir, input.launchIndex), JSON.stringify(sidecar));
 		console.log(`[memory] captured extension host heap for launch ${input.launchIndex}: ${Object.keys(scriptUrls).length} scripts`);
-		return true;
+		return { captured: true, pid };
 	} catch (error) {
 		// A partial snapshot would parse as garbage, so it goes with the failure.
 		rmSync(heapSnapshotPath(input.dir, input.launchIndex), { force: true });
 		console.log(`[memory] could not capture the extension host heap: ${error}`);
-		return false;
+		return { captured: false, pid };
 	} finally {
 		client?.close();
 	}
@@ -1703,22 +1728,130 @@ git commit -m "e2e(memory): report the ext host heap broken down by extension"
 
 Add the breakdown to the wire format, so the dashboard PR in the e2e-test-insights repo needs no further Positron-side change.
 
+The wire shape is a negotiated contract with that repo. Three things in it are
+not free choices: `payload_version` stays `1` (their validator hard-rejects any
+other value, so a bump would 400 every nightly POST until their API deploys), the
+`status` values are a closed set they switch on, and `pid`/`process_role` are
+present on every status so a failed capture is still attributable to a process.
+
 **Files:**
+- Modify: `test/e2e/utils/memory/types.ts`
+- Modify: `test/e2e/utils/memory/heap-attribute.ts` (add a `kind` discriminator to the failure result)
 - Modify: `test/e2e/utils/memory/publish.ts`
+- Test: `test/e2e/utils/memory/heap-attribute.vitest.ts` (append)
 - Test: `test/e2e/utils/memory/publish.vitest.ts` (append to the existing `buildPayload` describe block)
 
 **Interfaces:**
-- Consumes: `ExtensionHeapBreakdown` (Task 1).
-- Produces: an optional `extension_heap` object on each entry of `MemoryPayload.launches`:
-  ```ts
-  extension_heap?: {
-      reachable_bytes: number;
-      unattributed_bytes: number;
-      extensions: { extension_id: string; retained_bytes: number }[];
-  };
-  ```
+- Consumes: `ExtensionHeapBreakdown`, `HeapAttributionResult` (Task 1).
+- Produces:
+  - `ExtensionHeapStatus` in `types.ts`, and `extensionHeapStatus?` / `extensionHeapPid?` on `MemorySnapshot`.
+  - a `kind: 'unsupported_format' | 'untrusted'` field on the failure arm of `HeapAttributionResult`.
+  - an optional `extension_heap` object on each entry of `MemoryPayload.launches`:
+    ```ts
+    extension_heap?: {
+        status: 'ok' | 'capture_failed' | 'parse_failed' | 'unsupported_format' | 'untrusted';
+        pid?: number;
+        process_role: 'extension_host';
+        // present only when status is 'ok':
+        reachable_bytes?: number;
+        unattributed_bytes?: number;
+        extensions?: { extension_id: string; retained_bytes: number }[];
+    };
+    ```
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing test for the `kind` discriminator**
+
+Append to `test/e2e/utils/memory/heap-attribute.vitest.ts`. Reuse whatever
+fixture helper the existing tests in that file already use to build a snapshot;
+do not introduce a second one.
+
+```ts
+	test('labels a format mismatch as unsupported_format so the consumer can switch on it', () => {
+		const snapshot = validSnapshot();
+		snapshot.snapshot.meta.node_fields = ['type', 'name'];
+
+		const result = attributeHeap({ snapshot, scriptUrls: {}, extensionIds: {} });
+
+		expect(result.ok).toBe(false);
+		expect(result.ok === false && result.kind).toBe('unsupported_format');
+	});
+
+	test('labels an empty locations array as unsupported_format rather than a healthy empty breakdown', () => {
+		const snapshot = validSnapshot();
+		snapshot.locations = [];
+
+		const result = attributeHeap({ snapshot, scriptUrls: {}, extensionIds: {} });
+
+		expect(result.ok === false && result.kind).toBe('unsupported_format');
+	});
+
+	test('labels an over-ceiling unresolved share as untrusted, since the numbers are real but incomplete', () => {
+		const result = attributeHeap({ snapshot: validSnapshot(), scriptUrls: {}, extensionIds: {} });
+
+		expect(result.ok === false && result.kind).toBe('untrusted');
+	});
+```
+
+`validSnapshot()` stands for the existing fixture builder in that file -- read it
+and call it by its real name. The third test relies on an empty `scriptUrls`
+resolving nothing, which is the same setup the existing over-ceiling test uses.
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `npx vitest run test/e2e/utils/memory/heap-attribute.vitest.ts`
+Expected: FAIL, `expected undefined to be 'unsupported_format'`.
+
+- [ ] **Step 3: Add the discriminator**
+
+In `test/e2e/utils/memory/heap-attribute.ts`, change the failure arm:
+
+```ts
+export type HeapAttributionResult =
+	| { ok: true; breakdown: ExtensionHeapBreakdown }
+	// `kind` is the wire status; `reason` is the human sentence for the report.
+	| { ok: false; kind: 'unsupported_format' | 'untrusted'; reason: string };
+```
+
+Then add `kind` at each of the three existing `return { ok: false, ... }` sites:
+the format check and the empty-`locations` check get `kind: 'unsupported_format'`,
+and the unresolved-share ceiling gets `kind: 'untrusted'`. Change nothing else --
+the `reason` strings stay exactly as they are.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `npx vitest run test/e2e/utils/memory/heap-attribute.vitest.ts`
+Expected: PASS, including the pre-existing cases.
+
+- [ ] **Step 5: Add the status types**
+
+In `test/e2e/utils/memory/types.ts`, after `ExtensionHeapBreakdown`:
+
+```ts
+/**
+ * Why a launch has no heap breakdown, or `ok` when it does.
+ *
+ * A closed set: the dashboard switches on these, so a new value is a contract
+ * change. Distinguishing them from a missing key matters -- an omitted
+ * `extension_heap` means the run predates the feature, not that it failed.
+ */
+export type ExtensionHeapStatus =
+	| 'ok'
+	| 'capture_failed'
+	| 'parse_failed'
+	| 'unsupported_format'
+	| 'untrusted';
+```
+
+And on `MemorySnapshot`, immediately after the existing `extensionHeap?` field:
+
+```ts
+	/** Set whenever the capture was attempted; absent on runs predating the feature. */
+	extensionHeapStatus?: ExtensionHeapStatus;
+	/** The extension host pid the capture targeted, even when the capture failed. */
+	extensionHeapPid?: number;
+```
+
+- [ ] **Step 6: Write the failing payload test**
 
 Append to the `buildPayload` describe block in
 `test/e2e/utils/memory/publish.vitest.ts`. That file's `snapshot` is a const
@@ -1729,6 +1862,8 @@ object, not a factory, so the tests below spread it. `meta` is the existing
 	test('carries the per-extension heap breakdown when a launch has one', () => {
 		const payload = buildPayload([{
 			...snapshot,
+			extensionHeapStatus: 'ok' as const,
+			extensionHeapPid: 4242,
 			extensionHeap: {
 				extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_500_000 }],
 				unattributedBytes: 192_800_000,
@@ -1737,22 +1872,53 @@ object, not a factory, so the tests below spread it. `meta` is the existing
 		}], meta);
 
 		expect(payload.launches[0].extension_heap).toEqual({
+			status: 'ok',
+			pid: 4242,
+			process_role: 'extension_host',
 			reachable_bytes: 313_300_000,
 			unattributed_bytes: 192_800_000,
 			extensions: [{ extension_id: 'GitHub.copilot-chat', retained_bytes: 120_500_000 }]
 		});
 	});
 
-	test('omits the key entirely when a launch has no breakdown, so an older endpoint is unaffected', () => {
+	test('sends status and pid alone on a failure, with no zero-valued byte counts to misread', () => {
+		const payload = buildPayload([{
+			...snapshot,
+			extensionHeapStatus: 'untrusted' as const,
+			extensionHeapPid: 4242
+		}], meta);
+
+		expect(payload.launches[0].extension_heap).toEqual({
+			status: 'untrusted',
+			pid: 4242,
+			process_role: 'extension_host'
+		});
+	});
+
+	test('omits pid when the inspector was never reached, rather than sending a placeholder', () => {
+		const payload = buildPayload([{ ...snapshot, extensionHeapStatus: 'capture_failed' as const }], meta);
+
+		expect(payload.launches[0].extension_heap).toEqual({
+			status: 'capture_failed',
+			process_role: 'extension_host'
+		});
+	});
+
+	test('omits the key entirely when the capture was never attempted, so an older endpoint is unaffected', () => {
 		const payload = buildPayload([snapshot], meta);
 
 		expect('extension_heap' in payload.launches[0]).toBe(false);
+	});
+
+	test('keeps payload_version at 1, since the consumer rejects any other value', () => {
+		expect(buildPayload([snapshot], meta).payload_version).toBe(1);
 	});
 
 	test('publishes every extension rather than a top N, so the consumer picks the cutoff', () => {
 		const extensions = [...Array(40).keys()].map(i => ({ extensionId: `pub.ext-${i}`, retainedBytes: 1000 - i }));
 		const payload = buildPayload([{
 			...snapshot,
+			extensionHeapStatus: 'ok' as const,
 			extensionHeap: { extensions, unattributedBytes: 1, reachableBytes: 2 }
 		}], meta);
 
@@ -1760,65 +1926,96 @@ object, not a factory, so the tests below spread it. `meta` is the existing
 	});
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **Step 7: Run the test to verify it fails**
 
 Run: `npx vitest run test/e2e/utils/memory/publish.vitest.ts`
-Expected: FAIL, `expected undefined to equal Object`.
+Expected: FAIL, `expected undefined to deeply equal Object`.
 
-- [ ] **Step 3: Write the implementation**
+- [ ] **Step 8: Write the payload implementation**
 
-In `test/e2e/utils/memory/publish.ts`, add to the `launches` element type in `MemoryPayload`, after `extensions`:
+In `test/e2e/utils/memory/publish.ts`, import `ExtensionHeapStatus` alongside the
+existing type imports from `./types.js`, and add to the `launches` element type in
+`MemoryPayload`, after `extensions`:
 
 ```ts
 		/**
-		 * Per-extension partition of the extension host heap. Optional and
-		 * omitted rather than sent empty, so an endpoint that predates it ignores
-		 * the field rather than rejecting the run. Every extension is sent, not a
-		 * top N: the array is small and letting the consumer choose a cutoff
+		 * Per-extension partition of the extension host heap.
+		 *
+		 * Omitted rather than sent empty when the capture was never attempted, so
+		 * an endpoint that predates the field ignores it rather than rejecting the
+		 * run, and so a missing key stays distinguishable from a failed capture.
+		 * The byte counts appear only on `ok`: sending them as zero on a failure
+		 * would plot as a real collapse to zero. Every extension is sent, not a
+		 * top N -- the array is small, and letting the consumer choose a cutoff
 		 * avoids a second Positron-side change when the dashboard lands.
 		 */
 		extension_heap?: {
-			reachable_bytes: number;
-			unattributed_bytes: number;
-			extensions: { extension_id: string; retained_bytes: number }[];
+			status: ExtensionHeapStatus;
+			pid?: number;
+			process_role: 'extension_host';
+			reachable_bytes?: number;
+			unattributed_bytes?: number;
+			extensions?: { extension_id: string; retained_bytes: number }[];
 		};
 ```
 
-In `buildPayload`, add to the object returned per snapshot, after `extensions:`:
+Add this helper next to `buildPayload`:
 
 ```ts
-			extension_heap: snapshot.extensionHeap && {
-				reachable_bytes: snapshot.extensionHeap.reachableBytes,
-				unattributed_bytes: snapshot.extensionHeap.unattributedBytes,
-				extensions: snapshot.extensionHeap.extensions.map(e => ({
-					extension_id: e.extensionId,
-					retained_bytes: e.retainedBytes
-				}))
-			}
+function buildExtensionHeap(snapshot: MemorySnapshot): MemoryPayload['launches'][number]['extension_heap'] {
+	if (!snapshot.extensionHeapStatus) {
+		return undefined;
+	}
+	const base = {
+		status: snapshot.extensionHeapStatus,
+		process_role: 'extension_host' as const,
+		...(snapshot.extensionHeapPid === undefined ? {} : { pid: snapshot.extensionHeapPid })
+	};
+	// A breakdown without an `ok` status, or the reverse, is a wiring bug; trust
+	// the status and drop the numbers rather than publishing a contradiction.
+	if (snapshot.extensionHeapStatus !== 'ok' || !snapshot.extensionHeap) {
+		return base;
+	}
+	return {
+		...base,
+		reachable_bytes: snapshot.extensionHeap.reachableBytes,
+		unattributed_bytes: snapshot.extensionHeap.unattributedBytes,
+		extensions: snapshot.extensionHeap.extensions.map(e => ({
+			extension_id: e.extensionId,
+			retained_bytes: e.retainedBytes
+		}))
+	};
+}
 ```
 
-`JSON.stringify` drops an `undefined` value, so an absent breakdown sends no key. The `'extension_heap' in payload` test asserts on the built object rather than the serialized one, so set the property conditionally instead if that test fails:
+In `buildPayload`, in the object returned per snapshot, after `extensions:`, spread
+the result so the key stays genuinely absent rather than present-and-undefined
+(the `'extension_heap' in payload` test asserts on the built object, not the
+serialized one):
 
 ```ts
-			...(snapshot.extensionHeap ? { extension_heap: { /* as above */ } } : {})
+			...(buildExtensionHeap(snapshot) ? { extension_heap: buildExtensionHeap(snapshot) } : {})
 ```
 
-Use whichever form makes the test pass; prefer the spread, since it keeps the key genuinely absent.
+Call it once into a local and spread that instead, rather than calling it twice.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+Leave `payload_version` at `1`.
 
-Run: `npx vitest run test/e2e/utils/memory/publish.vitest.ts`
+- [ ] **Step 9: Run the tests to verify they pass**
+
+Run: `npx vitest run test/e2e/utils/memory/publish.vitest.ts test/e2e/utils/memory/heap-attribute.vitest.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-npm run precommit -- test/e2e/utils/memory/publish.ts test/e2e/utils/memory/publish.vitest.ts
-git add test/e2e/utils/memory/publish.ts test/e2e/utils/memory/publish.vitest.ts
+npm run precommit -- test/e2e/utils/memory/types.ts test/e2e/utils/memory/heap-attribute.ts test/e2e/utils/memory/heap-attribute.vitest.ts test/e2e/utils/memory/publish.ts test/e2e/utils/memory/publish.vitest.ts
+git add test/e2e/utils/memory/types.ts test/e2e/utils/memory/heap-attribute.ts test/e2e/utils/memory/heap-attribute.vitest.ts test/e2e/utils/memory/publish.ts test/e2e/utils/memory/publish.vitest.ts
 git commit -m "e2e(memory): publish the per-extension heap breakdown"
 ```
 
 ---
+
 
 ### Task 7: Wire capture and parsing into the scenario
 
@@ -1829,7 +2026,7 @@ Capture after PSS sampling in the measure test, parse in the render test, delete
 - Modify: `docs/design/2026-08-31-per-extension-heap-attribution-design.md` (one clarifying sentence)
 
 **Interfaces:**
-- Consumes: `captureExtensionHostHeap`, `heapSnapshotPath`, `heapSidecarPath`, `HeapCaptureSidecar` (Task 4); `attributeHeap`, `HeapSnapshotJson` (Task 1).
+- Consumes: `captureExtensionHostHeap`, `heapSnapshotPath`, `heapSidecarPath`, `HeapCaptureSidecar` (Task 4); `attributeHeap`, `HeapSnapshotJson` (Task 1); `MemorySnapshot.extensionHeapStatus` / `.extensionHeapPid` (Task 6).
 - Produces: nothing further; this is the last task.
 
 - [ ] **Step 1: Add the capture call to the measure test**
@@ -1848,14 +2045,29 @@ Immediately after the `const snapshot = await captureSnapshot({ ... });` call an
 			// then, so this is the post-collection heap rather than one carrying the
 			// startup garbage that made pre-GC figures swing. Capture only, about 5
 			// seconds; the parse needs several GB and happens in the render step.
-			await captureExtensionHostHeap({
+			const capture = await captureExtensionHostHeap({
 				dir: SNAPSHOT_DIR,
 				launchIndex: snapshot.launchIndex,
 				extensionRoots: [join(buildRoot!, 'resources', 'app', 'extensions'), app.extensionsPath]
 			});
+			// Prefer the pid the inspector reported about itself; fall back to the
+			// labeled tree when it was never reachable, so a failed capture is still
+			// attributable to a process.
+			snapshot.extensionHeapPid = capture.pid
+				?? snapshot.processes.find(p => p.processRole === 'extension_host')?.pid;
+			if (!capture.captured) {
+				snapshot.extensionHeapStatus = 'capture_failed';
+			}
 ```
 
 `SNAPSHOT_DIR` is already in scope. `mkdirSync(SNAPSHOT_DIR, ...)` runs later in the test, but `captureExtensionHostHeap` creates the directory itself.
+
+This must stay above the `writeFileSync(join(SNAPSHOT_DIR, \`memory-snapshot-${snapshot.launchIndex}.json\`), ...)` line: the render step reads these snapshots back off disk, so a status set after the write would be lost.
+
+Leaving the status unset on the success path is deliberate. The measure step cannot
+know whether the parse will succeed, and the render step sets `ok` only after it
+actually has a breakdown -- so a launch whose render step never ran keeps a status
+that says so rather than one that claims success.
 
 - [ ] **Step 2: Add the parse to the render test**
 
@@ -1870,6 +2082,7 @@ In the `Render and publish` test, after the `scenarios` assertion and before `co
 				const heapPath = heapSnapshotPath(SNAPSHOT_DIR, snapshot.launchIndex);
 				const sidecarPath = heapSidecarPath(SNAPSHOT_DIR, snapshot.launchIndex);
 				if (!existsSync(heapPath) || !existsSync(sidecarPath)) {
+					// The measure step already recorded why; leave its status alone.
 					continue;
 				}
 				try {
@@ -1878,10 +2091,15 @@ In the `Render and publish` test, after the `scenarios` assertion and before `co
 					const result = attributeHeap({ snapshot: heap, scriptUrls: sidecar.scriptUrls, extensionIds: sidecar.extensionIds });
 					if (result.ok) {
 						snapshot.extensionHeap = result.breakdown;
+						snapshot.extensionHeapStatus = 'ok';
 					} else {
+						snapshot.extensionHeapStatus = result.kind;
 						console.log(`[memory] launch ${snapshot.launchIndex}: no per-extension breakdown, ${result.reason}`);
 					}
 				} catch (error) {
+					// Covers both a truncated snapshot file and a JSON parse that ran
+					// out of heap, which are indistinguishable from here.
+					snapshot.extensionHeapStatus = 'parse_failed';
 					console.log(`[memory] launch ${snapshot.launchIndex}: could not parse the heap snapshot: ${error}`);
 				} finally {
 					// Never uploaded: 354 MB per launch is not worth retaining when the
@@ -1893,6 +2111,10 @@ In the `Render and publish` test, after the `scenarios` assertion and before `co
 ```
 
 Add `rmSync` to the `fs` import at the top of the file.
+
+Every exit path through this loop leaves `extensionHeapStatus` set to something,
+and the snapshots the loop mutates are the same objects `buildPayload` is handed
+later in the test, so no second write to disk is needed.
 
 - [ ] **Step 3: Verify the specs still type-check**
 
@@ -1958,6 +2180,9 @@ After Task 7, confirm each of these before opening the PR:
 - [ ] `npm run build-check` reports no errors in `memory-scenario.ts`.
 - [ ] One scenario ran end to end locally and produced a non-empty table.
 - [ ] No `heap-*.heapsnapshot` file survives the render step.
+- [ ] Every published launch carries an `extension_heap.status`, and byte counts
+      appear only where that status is `ok`.
+- [ ] `payload_version` is still `1`.
 - [ ] Nothing new was added to the workflow's `upload-artifact` steps.
 - [ ] The e2e-test-insights `/memory` endpoint accepts the new optional
       `extension_heap` field. It is additive and optional, so an older endpoint
