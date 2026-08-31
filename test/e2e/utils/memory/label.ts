@@ -43,14 +43,21 @@ export function normalizeProcessName(name: string): string {
 	return [...words, ...flags].join(' ');
 }
 
+/** Version suffixes an extension dir and an executable both carry. */
+const VERSION_SUFFIX = /-\d+(\.\d+)+.*$/;
+
 /**
- * Version suffixes an extension dir and an executable both carry.
+ * Strips the version from an extension directory name: `air-vscode-0.4.1` ->
+ * `air-vscode`.
  *
- * Exported because heap attribution strips it from a directory name on one side
- * of a lookup whose other side is built in extensions.ts; a second copy that
- * drifted would silently miss and degrade real extension ids to directory names.
+ * Shared rather than reimplemented because heap attribution strips a directory
+ * name on one side of a lookup whose other side is built in extensions.ts. A
+ * second copy that drifted would miss silently and degrade real extension ids
+ * back to directory names.
  */
-export const VERSION_SUFFIX = /-\d+(\.\d+)+.*$/;
+export function stripVersionSuffix(directory: string): string {
+	return directory.replace(VERSION_SUFFIX, '');
+}
 
 /**
  * The token of a command line that sits inside some extension's directory.

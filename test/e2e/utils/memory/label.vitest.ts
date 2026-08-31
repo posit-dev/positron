@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { deriveExtensionName, namedShareGateApplies, normalizeProcessName, resolveRole } from './label.js';
+import { deriveExtensionName, namedShareGateApplies, normalizeProcessName, resolveRole, stripVersionSuffix } from './label.js';
 
 /**
  * Command lines for the child processes the memory-hog deck named as Culprit 1.
@@ -267,5 +267,33 @@ describe('namedShareGateApplies', () => {
 
 	test('does not apply on server, where --status has no running instance to ask', () => {
 		expect(namedShareGateApplies('server')).toBe(false);
+	});
+});
+
+describe('stripVersionSuffix', () => {
+	test('strips a three-component version, the shape the marketplace publishes', () => {
+		expect(stripVersionSuffix('posit.air-vscode-0.4.1')).toBe('posit.air-vscode');
+	});
+
+	test('strips a two-component version, which sideloaded vsixes can carry', () => {
+		expect(stripVersionSuffix('posit.air-vscode-0.4')).toBe('posit.air-vscode');
+	});
+
+	test('strips a prerelease suffix along with the version', () => {
+		expect(stripVersionSuffix('ms-python.python-2024.1.0-rc1')).toBe('ms-python.python');
+	});
+
+	test('leaves an unversioned directory alone, so bundled extensions key on their own name', () => {
+		expect(stripVersionSuffix('copilot')).toBe('copilot');
+	});
+
+	test('keeps a hyphen that is not a version boundary', () => {
+		expect(stripVersionSuffix('positron-python')).toBe('positron-python');
+	});
+
+	test('agrees with the key deriveExtensionName produces, since the two meet across one lookup', () => {
+		const url = '/build/resources/app/extensions/air-vscode-0.4/dist/main.js';
+
+		expect(deriveExtensionName(url)!.split(' ')[0]).toBe(stripVersionSuffix('air-vscode-0.4'));
 	});
 });
