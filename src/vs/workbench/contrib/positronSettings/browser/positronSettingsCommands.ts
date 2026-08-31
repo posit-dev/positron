@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationPropertySchema, IConfigurationRegistry, OVERRIDE_PROPERTY_REGEX } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { hasExplicitValue, matchesSensitiveKey, PAYLOAD_SENSITIVE_KEYS, REDACTED_VALUE } from '../../positronAssistant/common/settingsInspection.js';
+import { hasExplicitValue, matchesSensitiveKey, PAYLOAD_SENSITIVE_KEYS, REDACTED_VALUE, redactSensitiveProperties } from '../../positronAssistant/common/settingsInspection.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
 
@@ -96,13 +96,15 @@ export interface IConfiguredSettingsResult {
 	settings: IConfiguredSetting[];
 
 	/**
-	 * How many entries carry the redaction placeholder instead of a value.
-	 * Present only when at least one does. A count rather than a key list on
-	 * purpose: the keys are enumerable off the entries themselves (`value ===
-	 * '<redacted>'`), and a sibling key list would go silently inconsistent if a
-	 * caller's transport ever truncated `settings` while preserving siblings.
-	 * Keeping `settings` the only top-level array also makes it, by
-	 * construction, the field a structure-aware truncation will shed from.
+	 * How many entries had something withheld: the whole value replaced by the
+	 * redaction placeholder, or credential-shaped properties inside an object
+	 * value. Present only when at least one was. A count rather than a key list
+	 * on purpose: the keys are enumerable off the entries themselves (the
+	 * placeholder appears as, or inside, `value`), and a sibling key list would
+	 * go silently inconsistent if a caller's transport ever truncated
+	 * `settings` while preserving siblings. Keeping `settings` the only
+	 * top-level array also makes it, by construction, the field a
+	 * structure-aware truncation will shed from.
 	 */
 	redactedCount?: number;
 }
@@ -342,16 +344,35 @@ export function getConfiguredSettings(accessor: ServicesAccessor, filter?: strin
 			? (effectiveSource !== undefined ? sources[effectiveSource] : undefined)
 			: inspected.value;
 
+		// Two redaction layers. A credential-shaped (or known credential-bearing)
+		// key withholds the whole value. Everything else still gets its object
+		// values walked, because the setting's own key can be innocuous while a
+		// property inside holds the credential (a token in an env map).
+		let entryValue = resolvedValue;
 		if (redact) {
 			redactedCount++;
+			entryValue = REDACTED_VALUE;
 			for (const source of Object.keys(sources) as ConfiguredSettingSource[]) {
 				sources[source] = REDACTED_VALUE;
+			}
+		} else {
+			let partiallyRedacted = false;
+			const walked = redactSensitiveProperties(resolvedValue, PAYLOAD_SENSITIVE_KEYS);
+			entryValue = walked.value;
+			partiallyRedacted = walked.redacted;
+			for (const source of Object.keys(sources) as ConfiguredSettingSource[]) {
+				const walkedSource = redactSensitiveProperties(sources[source], PAYLOAD_SENSITIVE_KEYS);
+				sources[source] = walkedSource.value;
+				partiallyRedacted ||= walkedSource.redacted;
+			}
+			if (partiallyRedacted) {
+				redactedCount++;
 			}
 		}
 
 		settings.push({
 			key,
-			value: redact ? REDACTED_VALUE : resolvedValue,
+			value: entryValue,
 			// Only carried when false: absence means registered, the common case.
 			registered: registered ? undefined : false,
 			scope: scope === undefined ? undefined : scopeName(scope),
@@ -427,7 +448,7 @@ CommandsRegistry.registerCommand({
 				schema: { type: 'boolean' },
 			},
 		],
-		returns: 'An object describing the settings the user has explicitly set, and only those: defaults the user never touched are not included, and neither is a setting that carries only a policy value the user never set themselves. deployment says whether this window is connected to a remote (SSH, a container, or Posit Workbench) and whether the current profile is the default one; these do not describe a setting directly, but they say what this payload cannot show, since a deployment can filter a setting the user genuinely wrote out of every configuration model before it ever reaches this command. settings is one entry per configured key, ordered most-noteworthy first (entries with ignored, then deprecated ones, then the rest, each sorted by key), with: key; value, the effective value after every target resolves; scope, the setting\'s registry scope when registered; description, the first sentence of the setting\'s registered description, so a caller glosses keys from the registry rather than from memory; and effectiveSource, naming which target won, absent when none of them did and the registered default is in force. deprecated is present only when the registry marks the key deprecated, and carries the deprecation message, which usually names the replacement setting. registered is present, and false, only when the key is not a setting this Positron knows about, which usually means a typo or a setting from an extension that is not installed; its absence means the key is registered. sources, the value in each target that carries one (application, userLocal, userRemote, workspace, workspaceFolder, policy), is present only when more than one target carries a value; with a single source, sources is left out, and effectiveSource alone names the target that holds value. An entry also carries ignored when the user set the key somewhere it has no effect, in which case value is NOT what the user wrote and what they wrote is in sources. The only reason is \'overridden-by-policy\': an administrator, or an account entitlement tied to sign-in state, enforces this setting, and sources.policy holds the value it is pinned to, so the user\'s own entry does nothing. Values that may hold a credential are replaced with \'<redacted>\', and every entry in that key\'s sources is replaced the same way, so a redacted sources entry is never real data; redactedCount, present only when at least one entry was redacted, says how many.',
+		returns: 'An object describing the settings the user has explicitly set, and only those: defaults the user never touched are not included, and neither is a setting that carries only a policy value the user never set themselves. deployment says whether this window is connected to a remote (SSH, a container, or Posit Workbench) and whether the current profile is the default one; these do not describe a setting directly, but they say what this payload cannot show, since a deployment can filter a setting the user genuinely wrote out of every configuration model before it ever reaches this command. settings is one entry per configured key, ordered most-noteworthy first (entries with ignored, then deprecated ones, then the rest, each sorted by key), with: key; value, the effective value after every target resolves; scope, the setting\'s registry scope when registered; description, the first sentence of the setting\'s registered description, so a caller glosses keys from the registry rather than from memory; and effectiveSource, naming which target won, absent when none of them did and the registered default is in force. deprecated is present only when the registry marks the key deprecated, and carries the deprecation message, which usually names the replacement setting. registered is present, and false, only when the key is not a setting this Positron knows about, which usually means a typo or a setting from an extension that is not installed; its absence means the key is registered. sources, the value in each target that carries one (application, userLocal, userRemote, workspace, workspaceFolder, policy), is present only when more than one target carries a value; with a single source, sources is left out, and effectiveSource alone names the target that holds value. An entry also carries ignored when the user set the key somewhere it has no effect, in which case value is NOT what the user wrote and what they wrote is in sources. The only reason is \'overridden-by-policy\': an administrator, or an account entitlement tied to sign-in state, enforces this setting, and sources.policy holds the value it is pinned to, so the user\'s own entry does nothing. Values that may hold a credential are replaced with \'<redacted>\': the whole value when the key itself is credential-shaped or a known credential-bearing setting (with every entry in that key\'s sources replaced the same way, so a redacted sources entry is never real data), and otherwise the individual properties inside an object value whose names are credential-shaped, e.g. a token in an environment-variable map. redactedCount, present only when at least one entry had something withheld, says how many.',
 	},
 });
 
@@ -526,14 +547,17 @@ export function findSettings(accessor: ServicesAccessor, query?: string, keys?: 
 		const currentValue = configurationService.getValue(key);
 		// `default` is shipped product configuration, never user data, so it is
 		// not redacted; only the resolved value can carry something the user put
-		// in a settings file.
+		// in a settings file. Object values additionally get their properties
+		// walked, since an innocuous key can hold a credential-bearing property.
 		const differs = !equals(currentValue, schema.default);
 		return {
 			key,
 			description: summarizeRegisteredText(schema.description ?? schema.markdownDescription),
 			type: schema.type,
 			default: schema.default,
-			value: differs ? (redact ? REDACTED_VALUE : currentValue) : undefined,
+			value: differs
+				? (redact ? REDACTED_VALUE : redactSensitiveProperties(currentValue, PAYLOAD_SENSITIVE_KEYS).value)
+				: undefined,
 			scope: scopeName(schema.scope ?? ConfigurationScope.WINDOW),
 			tags: schema.tags?.length ? schema.tags : undefined,
 			hidden: properties[key] === undefined && excluded[key] !== undefined ? true : undefined,
@@ -634,6 +658,6 @@ CommandsRegistry.registerCommand({
 				schema: { type: 'number' },
 			},
 		],
-		returns: 'An object with settings, the matching registry entries best-match first (key equality, then key substring, then description matches), and total, how many settings matched before the limit was applied: when total exceeds the number of entries returned, say the listing is partial rather than presenting it as complete. Each entry carries: key; description, the first sentence of the registered description; type; default, the registered default value; value, the current effective value, present only when it differs from default, so its absence means the default is in force; scope; tags, e.g. \'preview\' or \'experimental\', which mark preview features; hidden, present and true only when the setting is excluded from the Settings editor UI, so the user cannot find it by browsing there and must edit settings.json directly; deprecated, present only when the registry marks the key deprecated, carrying the deprecation message, which usually names the replacement; and enum, the allowed values for enum-typed settings. For an explicitly requested key the registry does not know, the entry is just key plus registered: false. A value that may hold a credential is replaced with \'<redacted>\'.',
+		returns: 'An object with settings, the matching registry entries best-match first (key equality, then key substring, then description matches), and total, how many settings matched before the limit was applied: when total exceeds the number of entries returned, say the listing is partial rather than presenting it as complete. Each entry carries: key; description, the first sentence of the registered description; type; default, the registered default value; value, the current effective value, present only when it differs from default, so its absence means the default is in force; scope; tags, e.g. \'preview\' or \'experimental\', which mark preview features; hidden, present and true only when the setting is excluded from the Settings editor UI, so the user cannot find it by browsing there and must edit settings.json directly; deprecated, present only when the registry marks the key deprecated, carrying the deprecation message, which usually names the replacement; and enum, the allowed values for enum-typed settings. For an explicitly requested key the registry does not know, the entry is just key plus registered: false. A value that may hold a credential is replaced with \'<redacted>\', in whole for a credential-shaped or known credential-bearing key, or for the credential-shaped properties inside an object value.',
 	},
 });

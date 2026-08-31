@@ -17,6 +17,12 @@ export interface ISensitiveKeyMatcher {
 	readonly segments: readonly string[];
 	/** Matched against the whole last segment, case-insensitively. */
 	readonly exactSegments?: readonly string[];
+	/**
+	 * Matched against the whole key, case-insensitively (list entries must be
+	 * lowercase). For settings whose values carry credentials even though no
+	 * segment of the key is credential-shaped.
+	 */
+	readonly exactKeys?: readonly string[];
 }
 
 /**
@@ -51,6 +57,18 @@ export const REPORT_SENSITIVE_KEYS: ISensitiveKeyMatcher = {
 export const PAYLOAD_SENSITIVE_KEYS: ISensitiveKeyMatcher = {
 	segments: [...REPORT_SENSITIVE_KEYS.segments, 'credentials', 'cookie', 'authorization'],
 	exactSegments: ['key', 'auth', 'pat'],
+	// Settings whose values carry credentials without a credential-shaped key:
+	// http.proxy is a URL that may embed user:password@host inline, and the
+	// terminal env maps hold environment variables, which are frequently
+	// tokens. Whole-key matches on purpose: 'proxy' or 'env' as segment
+	// tokens would also redact http.proxySupport, http.proxyStrictSSL, and
+	// every *.env.* toggle that carries no secret.
+	exactKeys: [
+		'http.proxy',
+		'terminal.integrated.env.linux',
+		'terminal.integrated.env.osx',
+		'terminal.integrated.env.windows',
+	],
 };
 
 /**
@@ -60,9 +78,54 @@ export const PAYLOAD_SENSITIVE_KEYS: ISensitiveKeyMatcher = {
  * @param matcher The caller's list of sensitive tokens.
  */
 export function matchesSensitiveKey(key: string, matcher: ISensitiveKeyMatcher): boolean {
+	if (matcher.exactKeys?.includes(key.toLowerCase())) {
+		return true;
+	}
 	const segment = key.split('.').pop()?.toLowerCase() ?? '';
 	return matcher.segments.some(sensitive => segment.includes(sensitive))
 		|| (matcher.exactSegments?.includes(segment) ?? false);
+}
+
+/**
+ * Defense in depth for object-valued settings: the setting's own key can be
+ * innocuous while a property inside the value holds the credential, e.g. a
+ * GITHUB_TOKEN entry in an env map, or an apiKey property in an options
+ * object. Walks the value and replaces every property whose *name* matches
+ * the sensitive matcher with the redaction placeholder; property names with
+ * no dots are matched whole, so env-var names like AWS_SECRET_ACCESS_KEY hit
+ * the same tokens setting keys do. Arrays are walked, primitives pass
+ * through. Values come from settings JSON, so there are no cycles to guard.
+ * @param value The setting value to walk.
+ * @param matcher The caller's list of sensitive tokens.
+ * @returns The (possibly rebuilt) value, and whether anything was redacted;
+ * when nothing was, `value` is returned as-is.
+ */
+export function redactSensitiveProperties(value: unknown, matcher: ISensitiveKeyMatcher): { value: unknown; redacted: boolean } {
+	if (Array.isArray(value)) {
+		let redacted = false;
+		const items = value.map(item => {
+			const result = redactSensitiveProperties(item, matcher);
+			redacted ||= result.redacted;
+			return result.value;
+		});
+		return { value: redacted ? items : value, redacted };
+	}
+	if (value === null || typeof value !== 'object') {
+		return { value, redacted: false };
+	}
+	let redacted = false;
+	const rebuilt: Record<string, unknown> = {};
+	for (const [name, propertyValue] of Object.entries(value)) {
+		if (matchesSensitiveKey(name, matcher)) {
+			rebuilt[name] = REDACTED_VALUE;
+			redacted = true;
+		} else {
+			const result = redactSensitiveProperties(propertyValue, matcher);
+			rebuilt[name] = result.value;
+			redacted ||= result.redacted;
+		}
+	}
+	return { value: redacted ? rebuilt : value, redacted };
 }
 
 /** The scopes at which a configuration value can be explicitly set. */

@@ -73,6 +73,11 @@ const TEST_CONFIGURATION: IConfigurationNode = {
 			default: 'auto',
 			enum: ['auto', 'always', 'never'],
 		},
+		'testSettings.envMap': {
+			type: 'object',
+			scope: ConfigurationScope.WINDOW,
+			default: {},
+		},
 	},
 };
 
@@ -439,6 +444,45 @@ describe('getConfiguredSettings', () => {
 		});
 	});
 
+	it('redacts a known credential-bearing key whole, and counts it', () => {
+		// http.proxy's last segment is not credential-shaped, but its value is a
+		// URL that may embed user:password@host inline -- the whole-key entry on
+		// the payload list must catch it end to end.
+		stubServices({ userLocal: { 'http.proxy': 'http://user:hunter2@proxy.example.com:8080' } });
+
+		const result = getConfiguredSettings(ctx.instantiationService);
+
+		expect({ value: result.settings[0].value, redactedCount: result.redactedCount }).toEqual({
+			value: '<redacted>',
+			redactedCount: 1,
+		});
+	});
+
+	it('redacts credential-shaped properties inside an object value, keeping the rest', () => {
+		// An env map's own key is innocuous; the credential is a property inside
+		// the value. The walk must catch it in `value` and in every `sources`
+		// entry, and the entry counts toward redactedCount.
+		stubServices({
+			userLocal: { 'testSettings.credentialFreeMap': { PATH: '/usr/local/bin', GITHUB_TOKEN: 'ghp-secret' } },
+			workspace: { 'testSettings.credentialFreeMap': { GITHUB_TOKEN: 'ghp-other' } },
+		});
+
+		const result = getConfiguredSettings(ctx.instantiationService);
+
+		expect({
+			value: result.settings[0].value,
+			sources: result.settings[0].sources,
+			redactedCount: result.redactedCount,
+		}).toEqual({
+			value: { GITHUB_TOKEN: '<redacted>' },
+			sources: {
+				userLocal: { PATH: '/usr/local/bin', GITHUB_TOKEN: '<redacted>' },
+				workspace: { GITHUB_TOKEN: '<redacted>' },
+			},
+			redactedCount: 1,
+		});
+	});
+
 	it('reports the deployment facts a caller needs for the honest-limits caveat', () => {
 		// This command cannot enumerate a setting the deployment filtered out of
 		// every configuration model, so it reports these two facts instead: a
@@ -733,6 +777,16 @@ describe('findSettings', () => {
 		const [setting] = findSettings(ctx.instantiationService, undefined, ['testSettings.choice']).settings;
 
 		expect(setting.enum).toEqual(['auto', 'always', 'never']);
+	});
+
+	it('redacts credential-shaped properties inside an object value', () => {
+		// The registered key is innocuous; the credential is a property inside
+		// the configured value.
+		stubConfiguration({ userLocal: { 'testSettings.envMap': { PATH: '/usr/local/bin', GITHUB_TOKEN: 'ghp-secret' } } });
+
+		const [setting] = findSettings(ctx.instantiationService, undefined, ['testSettings.envMap']).settings;
+
+		expect(setting.value).toEqual({ PATH: '/usr/local/bin', GITHUB_TOKEN: '<redacted>' });
 	});
 
 	it('redacts a credential-shaped key\'s value, but never its shipped default', () => {

@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { hasExplicitValue, matchesSensitiveKey, PAYLOAD_SENSITIVE_KEYS, REPORT_SENSITIVE_KEYS } from '../../common/settingsInspection.js';
+import { hasExplicitValue, matchesSensitiveKey, PAYLOAD_SENSITIVE_KEYS, redactSensitiveProperties, REPORT_SENSITIVE_KEYS } from '../../common/settingsInspection.js';
 
 describe('matchesSensitiveKey', () => {
 	it('separates the report list from the payload list on credentials', () => {
@@ -56,6 +56,75 @@ describe('matchesSensitiveKey', () => {
 		}).toEqual({
 			proxyAuthorization: true,
 			sshAuthority: false,
+		});
+	});
+	it('redacts known credential-bearing keys whole, without touching their neighbors', () => {
+		// http.proxy is a URL that may embed user:password@host inline, and the
+		// terminal env maps hold environment variables that are frequently
+		// tokens; no segment of either key is credential-shaped, so they need
+		// whole-key entries. http.proxySupport and http.proxyStrictSSL prove the
+		// match is the whole key, not a 'proxy' or 'env' token that would drag
+		// in every configuration toggle nearby.
+		const matches = (key: string) => matchesSensitiveKey(key, PAYLOAD_SENSITIVE_KEYS);
+
+		expect({
+			proxy: matches('http.proxy'),
+			envWindows: matches('terminal.integrated.env.windows'),
+			envLinux: matches('terminal.integrated.env.linux'),
+			envOsx: matches('terminal.integrated.env.osx'),
+			proxySupport: matches('http.proxySupport'),
+			proxyStrictSSL: matches('http.proxyStrictSSL'),
+		}).toEqual({
+			proxy: true,
+			envWindows: true,
+			envLinux: true,
+			envOsx: true,
+			proxySupport: false,
+			proxyStrictSSL: false,
+		});
+	});
+});
+
+describe('redactSensitiveProperties', () => {
+	it('redacts credential-shaped property names inside an object value, keeping the rest', () => {
+		// The setting's own key can be innocuous while a property inside holds
+		// the credential. Env-var names have no dots, so the whole name is the
+		// matched segment: GITHUB_TOKEN hits 'token', AWS_SECRET_ACCESS_KEY hits
+		// 'secret', and PATH survives.
+		const result = redactSensitiveProperties({
+			PATH: '/usr/local/bin',
+			GITHUB_TOKEN: 'ghp-secret',
+			nested: { options: [{ apiKey: 'sk-secret' }] },
+		}, PAYLOAD_SENSITIVE_KEYS);
+
+		expect(result).toEqual({
+			redacted: true,
+			value: {
+				PATH: '/usr/local/bin',
+				GITHUB_TOKEN: '<redacted>',
+				nested: { options: [{ apiKey: '<redacted>' }] },
+			},
+		});
+	});
+
+	it('returns a clean value as-is and says nothing was redacted', () => {
+		const value = { PATH: '/usr/local/bin', flags: [1, 2, 3] };
+
+		const result = redactSensitiveProperties(value, PAYLOAD_SENSITIVE_KEYS);
+
+		expect(result.redacted).toBe(false);
+		// Same reference, not a rebuilt copy: nothing changed, so nothing was
+		// reallocated.
+		expect(result.value).toBe(value);
+	});
+
+	it('passes primitives and null through untouched', () => {
+		expect({
+			string: redactSensitiveProperties('plain', PAYLOAD_SENSITIVE_KEYS),
+			nullValue: redactSensitiveProperties(null, PAYLOAD_SENSITIVE_KEYS),
+		}).toEqual({
+			string: { value: 'plain', redacted: false },
+			nullValue: { value: null, redacted: false },
 		});
 	});
 });
