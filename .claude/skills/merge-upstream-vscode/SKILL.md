@@ -205,6 +205,50 @@ Once installation is complete, compile the code to check for compile errors:
 Once the basic compilation test is passing, verify that you can run a release
 build. If you're on macOS: `npm run gulp vscode-darwin-arm64`
 
+#### Typecheck the build tooling
+
+`npm run compile` and the release build both run the **gulp** pipeline. They do
+NOT exercise `build/next/` (the transpile-based build the dev daemons and
+`launch.json` use), and they do not typecheck anything under `build/`. Those
+files run via `--experimental-strip-types`, so a type error there -- for example
+a call site not updated after the merge changed a function's signature -- has no
+static check and fails only at runtime. Run the build folder's own typecheck to
+cover them:
+
+```bash
+cd build && npm run typecheck && cd ..
+```
+
+This catches the whole class of "the merge added a required parameter and one
+Positron call site wasn't updated" semantic conflicts (e.g. a 2-vs-3 argument
+mismatch reported as `error TS2554: Expected 3 arguments, but got 2`).
+
+This suite is not fully green at baseline -- `main` carries a few pre-existing
+errors (e.g. unused-var warnings in the platform `gulpfile.vscode.*.ts` files).
+The goal is **no new errors in files the merge touched**: scan the output for
+anything under `build/next/` or any build file that appears in your merge diff,
+and ignore the known pre-existing noise elsewhere.
+
+#### Smoke-launch a dev build
+
+The release build passing does NOT mean a dev build works -- they are different
+build systems, and Positron code that only the dev path touches (anything in
+`build/next/`) can be broken while the release build is green. This is the most
+common way engineers actually run Positron, so verify it explicitly:
+
+```bash
+npm run build-stop && npm run build-start && npm run build-check
+```
+
+`build-check` must report **0 errors from every daemon**, including
+`watch-client-transpile`. Do not accept a "Finished transpilation with N errors"
+line: `build-check` only prints the summary count, not the underlying error. To
+see what actually failed, attach to the offending daemon directly, e.g.
+`npx deemon --attach -- npm run watch-client-transpile`. A transpile error there
+means a file didn't emit its `.js`, so the workbench fails to load at runtime
+with `ERR_FILE_NOT_FOUND` / "Failed to fetch dynamically imported module" even
+though every gulp-based check passed.
+
 ### Step 5: Test
 
 Run the unit tests and the extension host tests. Investigate and fix any
