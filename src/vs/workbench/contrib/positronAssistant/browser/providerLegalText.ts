@@ -20,14 +20,25 @@ export function linkFragment(label: string, href: string | undefined): string {
 	return href ? `[${label}](${href})` : label;
 }
 
+/**
+ * Whether the legal text should talk about an endpoint the user configured rather
+ * than a vendor: a `providers.custom` entry, or the built-in OpenAI-compatible
+ * tile. A custom entry's display name is whatever the user typed, so naming it
+ * as the party behind the terms ("your use of my anthropic") is wrong, and the
+ * vendor its type borrows from needn't be who operates the endpoint.
+ */
+function isCustomProvider(provider: IProvider): boolean {
+	return provider.id === 'openai-compatible' || provider.customKind !== undefined;
+}
+
 export function getProviderTermsOfServiceText(provider: IProvider) {
 	const tos = linkFragment(providerTermsOfServiceLabel, getProviderTermsOfServiceLink(provider.id));
 	const privacy = linkFragment(providerPrivacyPolicyLabel, getProviderPrivacyPolicyLink(provider.id));
 	const eula = linkFragment(positEulaLabel, 'https://posit.co/about/eula/');
-	if (provider.id === 'openai-compatible') {
+	if (isCustomProvider(provider)) {
 		return localize(
-			'positron.languageModelConfig.openAiCompatible.tos',
-			"The custom provider connects to any OpenAI-compatible endpoint you configure, so its data handling and terms depend entirely on the provider you choose. Review that provider's own privacy policy and terms of service directly.",
+			'positron.languageModelConfig.custom.tos',
+			"A custom provider connects to an endpoint you configure, so its data handling and terms depend entirely on the provider you choose. Review that provider's own privacy policy and terms of service directly.",
 		);
 	}
 	if (provider.id === 'posit-ai') {
@@ -66,10 +77,10 @@ export function getProviderGettingStartedText(provider: IProvider): string | und
 }
 
 export function getProviderUsageDisclaimerText(provider: IProvider) {
-	if (provider.id === 'openai-compatible') {
+	if (isCustomProvider(provider)) {
 		return localize(
-			'positron.languageModelConfig.openAiCompatible.tos2',
-			'Your use of the custom provider is optional and at your sole risk.',
+			'positron.languageModelConfig.custom.tos2',
+			'Your use of this provider is optional and at your sole risk.',
 		);
 	}
 	return localize(

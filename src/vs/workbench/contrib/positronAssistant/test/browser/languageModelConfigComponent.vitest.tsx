@@ -54,7 +54,7 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 	it.each([
 		{ id: 'posit-ai', displayName: 'Posit AI' },
 		{ id: 'anthropic-api', displayName: 'Anthropic' },
-		{ id: 'openai-compatible', displayName: 'Custom Provider' },
+		{ id: 'openai-compatible', displayName: 'OpenAI Compatible' },
 		{ id: 'unknown-provider', displayName: 'Some Provider' },
 	])('renders a non-empty provider notice without placeholders for $id', (provider) => {
 		const notice = renderNotice(provider);

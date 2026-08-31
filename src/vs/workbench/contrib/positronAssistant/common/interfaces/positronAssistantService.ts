@@ -87,6 +87,12 @@ export interface IPositronProviderMetadata {
 	 */
 	status?: 'preview' | 'experimental';
 	/**
+	 * For a provider from a `providers.custom` entry, its type (client kind, e.g.
+	 * 'anthropic'); undefined for a built-in. The modal shows the entry under
+	 * that vendor's icon and marks the row as custom.
+	 */
+	customKind?: string;
+	/**
 	 * Optional URL for the provider icon (e.g., data:image/svg+xml;base64,...).
 	 * It must be an icon with a transparent background (like a codicon): the new
 	 * provider modal recolors it to the theme foreground by using it as a CSS
@@ -247,6 +253,15 @@ export interface IPositronAssistantConfigurationService {
 	 * registerProvider, unregisterProvider, or updateProvider.
 	 */
 	readonly onChangeProviderConfig: Event<IPositronLanguageModelSource>;
+
+	/**
+	 * Fires when the set of registered providers changes, i.e. on registerProvider
+	 * and unregisterProvider but not on updateProvider. Separate from
+	 * onChangeProviderConfig, where a listener can't tell an update from an
+	 * arrival by looking at the source alone. The set is no longer fixed after
+	 * activation: a custom provider can appear or disappear at any point.
+	 */
+	readonly onChangeProviderRegistrations: Event<void>;
 
 	/**
 	 * Gets the list of enabled provider IDs from configuration.

@@ -230,10 +230,10 @@ export class ModelProviderModal {
 				await expect(this.code.driver.currentPage.locator(CONNECTED_VIEW)).toBeVisible({ timeout });
 
 				// Env / credential-chain authenticated providers cannot be signed out from
-				// the modal (no Sign out / Remove button); treat that as a no-op close.
+				// the modal (no Sign out / Disconnect button); treat that as a no-op close.
 				const signOut = this.footerButton('Sign out');
-				const remove = this.footerButton('Remove');
-				const disconnect = (await signOut.isVisible()) ? signOut : (await remove.isVisible()) ? remove : undefined;
+				const disconnectButton = this.footerButton('Disconnect');
+				const disconnect = (await signOut.isVisible()) ? signOut : (await disconnectButton.isVisible()) ? disconnectButton : undefined;
 				if (!disconnect) {
 					await this.clickCloseButton();
 					return;

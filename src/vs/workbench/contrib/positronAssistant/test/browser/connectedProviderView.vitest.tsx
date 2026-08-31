@@ -28,7 +28,7 @@ describe('ConnectedProviderView', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	it('shows how the provider is connected and reports a Sign Out footer action', () => {
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
 	});
@@ -36,7 +36,7 @@ describe('ConnectedProviderView', () => {
 	it('dispatches oauth-signout when the footer action runs', async () => {
 		const onAction = vi.fn().mockResolvedValue(undefined);
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={onAction} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={onAction} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
 		expect(onAction).toHaveBeenCalledWith(positAi, expect.anything(), 'oauth-signout');
 	});
@@ -49,7 +49,7 @@ describe('ConnectedProviderView', () => {
 			signedIn: true,
 			defaults: { baseUrl: 'https://proxy.example/v1' },
 		};
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={anthropic} onAction={async () => { }} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={anthropic} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText('https://proxy.example/v1')).toBeInTheDocument();
 	});
 
@@ -61,13 +61,13 @@ describe('ConnectedProviderView', () => {
 			signedIn: true,
 			defaults: { baseUrl: 'https://workspace.example.com' },
 		};
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={databricks} onAction={async () => { }} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={databricks} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText('Workspace URL')).toBeInTheDocument();
 		expect(screen.queryByText('Base URL')).not.toBeInTheDocument();
 	});
 
 	it('omits the base URL row when the provider does not support it', () => {
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.queryByText(/base url/i)).not.toBeInTheDocument();
 		// The row's element goes too, not just its text. It used to render empty
 		// and grow to fill the body, pushing the notice down against the footer.
@@ -84,7 +84,7 @@ describe('ConnectedProviderView', () => {
 			statusMessage: 'Bad base URL',
 			defaults: {},
 		};
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={broken} onAction={async () => { }} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={broken} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText('Bad base URL')).toBeInTheDocument();
 		expect(screen.queryByText(/connected to anthropic/i)).not.toBeInTheDocument();
 	});
@@ -99,9 +99,9 @@ describe('ConnectedProviderView', () => {
 				autoconfigure: { type: LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: true },
 			},
 		};
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={envAnthropic} onAction={async () => { }} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={envAnthropic} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via ANTHROPIC_API_KEY/i)).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument();
 	});
 
 	it('shows the managed-credentials message and no Disconnect button for PWB-managed Databricks', () => {
@@ -114,10 +114,10 @@ describe('ConnectedProviderView', () => {
 				autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'OAuth (Workbench Managed Credentials)', signedIn: true },
 			},
 		};
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={managedDatabricks} onAction={async () => { }} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={managedDatabricks} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via oauth \(workbench managed credentials\)/i)).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Sign Out' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument();
 	});
 
 	it('shows Accounts-menu sign-out guidance and no Disconnect for GitHub Copilot', () => {
@@ -130,7 +130,7 @@ describe('ConnectedProviderView', () => {
 				autoconfigure: { type: LanguageModelAutoconfigureType.Custom, message: 'the Accounts menu.', signedIn: true },
 			},
 		};
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={copilot} onAction={async () => { }} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={copilot} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByRole('link', { name: /manage accounts/i })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Sign Out' })).not.toBeInTheDocument();
 	});
@@ -139,7 +139,7 @@ describe('ConnectedProviderView', () => {
 		let resolveSignOut = () => { };
 		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveSignOut = resolve; }));
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={onAction} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={onAction} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
 		const signingOut = screen.getByRole('button', { name: 'Signing Out...' });
 		expect(signingOut).toBeDisabled();
@@ -148,7 +148,7 @@ describe('ConnectedProviderView', () => {
 		await act(async () => { resolveSignOut(); });
 	});
 
-	it('shows "Removing..." while removing an API-key provider', async () => {
+	it('shows "Disconnecting..." while clearing an API-key provider', async () => {
 		const anthropic: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
 			provider: { id: 'anthropic-api', displayName: 'Anthropic' },
@@ -156,26 +156,26 @@ describe('ConnectedProviderView', () => {
 			signedIn: true,
 			defaults: {},
 		};
-		let resolveRemove = () => { };
-		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveRemove = resolve; }));
+		let resolveDisconnect = () => { };
+		const onAction = vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveDisconnect = resolve; }));
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={anthropic} onAction={onAction} onBack={vi.fn()} />);
-		await user.click(screen.getByRole('button', { name: 'Remove' }));
-		expect(screen.getByRole('button', { name: 'Removing...' })).toBeDisabled();
-		await act(async () => { resolveRemove(); });
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={anthropic} onAction={onAction} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
+		await user.click(screen.getByRole('button', { name: 'Disconnect' }));
+		expect(screen.getByRole('button', { name: 'Disconnecting...' })).toBeDisabled();
+		await act(async () => { resolveDisconnect(); });
 	});
 
 	it('shows no separate progress bar while an action is in flight', async () => {
 		let resolve = () => { };
 		const onAction = vi.fn().mockImplementation(() => new Promise<void>(r => { resolve = r; }));
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={onAction} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={onAction} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		await user.click(screen.getByRole('button', { name: 'Sign Out' }));
 		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 		await act(async () => { resolve(); });
 	});
 
-	it('shows "Connected via API key" and a Remove action for a Databricks connection made with an API key, even though the provider also supports OAuth', async () => {
+	it('shows "Connected via API key" and a Disconnect action for a Databricks connection made with an API key, even though the provider also supports OAuth', async () => {
 		const databricksApiKey: IPositronLanguageModelSource = {
 			type: PositronLanguageModelType.Chat,
 			provider: { id: 'databricks', displayName: 'Databricks' },
@@ -186,11 +186,11 @@ describe('ConnectedProviderView', () => {
 		};
 		const onAction = vi.fn().mockResolvedValue(undefined);
 		const user = userEvent.setup();
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={databricksApiKey} onAction={onAction} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={databricksApiKey} onAction={onAction} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via api key/i)).toBeInTheDocument();
-		const removeButton = screen.getByRole('button', { name: 'Remove' });
-		expect(removeButton).toBeInTheDocument();
-		await user.click(removeButton);
+		const disconnectButton = screen.getByRole('button', { name: 'Disconnect' });
+		expect(disconnectButton).toBeInTheDocument();
+		await user.click(disconnectButton);
 		expect(onAction).toHaveBeenCalledWith(databricksApiKey, expect.anything(), 'delete');
 	});
 
@@ -203,7 +203,7 @@ describe('ConnectedProviderView', () => {
 			authMethods: ['oauth'],
 			defaults: { baseUrl: 'https://workspace.example.com' },
 		};
-		rtl.render(<ConnectedProviderView {...dialogProps()} source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} />);
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={databricksOAuth} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
 	});

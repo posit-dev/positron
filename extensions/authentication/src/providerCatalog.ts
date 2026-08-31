@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import type { BuiltinProviderBlock, LegacySettingsReader, Protocol, ProvidersConfig, ResolvedConnection, ResolvedProvider } from 'ai-config';
+import { isBuiltinProviderId, mintCustomProviderId, type BuiltinProviderBlock, type ClientKind, type CustomProviderEntry, type LegacySettingsReader, type Protocol, type ProvidersConfig, type ResolvedConnection, type ResolvedProvider, type SupportedCustomClientKind } from 'ai-config';
 import type { ProviderCatalogChange } from 'ai-config/node';
 import { ANTHROPIC_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, OPENAI_DEFAULT_BASE_URL } from './constants';
 import { log } from './log';
@@ -15,6 +15,12 @@ import { log } from './log';
  */
 export interface ResolvedProviderLike {
 	readonly id: string;
+	/**
+	 * Which client the provider instantiates: a built-in's comes from ai-config's
+	 * registry, a custom entry's from its authored `type`. Carried here so an
+	 * entry can be presented by its kind without re-reading the file.
+	 */
+	readonly clientKind: ClientKind;
 	readonly enabled: boolean;
 	readonly connection: ResolvedConnection;
 }
@@ -23,7 +29,8 @@ export interface ResolvedProviderLike {
  * Payload of {@link onDidChangeProviderCatalog}, carrying the per-provider
  * granularity the credential chain needs: `changedConnectionIds` (ids whose
  * connection JSON differs) and `disabledIds` (ids whose `enabled` flipped to
- * false).
+ * false). An id that has just appeared counts as a connection change, from
+ * nothing to something, which is how a new custom provider surfaces.
  */
 export interface ProviderCatalogChangeEvent {
 	readonly changedConnectionIds: string[];
@@ -51,7 +58,12 @@ export const onDidChangeProviderCatalog: vscode.Event<ProviderCatalogChangeEvent
 function toMap(catalog: readonly ResolvedProvider[]): Map<string, ResolvedProviderLike> {
 	const map = new Map<string, ResolvedProviderLike>();
 	for (const provider of catalog) {
-		map.set(provider.id, { id: provider.id, enabled: provider.enabled, connection: provider.connection });
+		map.set(provider.id, {
+			id: provider.id,
+			clientKind: provider.clientKind,
+			enabled: provider.enabled,
+			connection: provider.connection,
+		});
 	}
 	return map;
 }
@@ -78,10 +90,13 @@ function applyCatalog(next: readonly ResolvedProvider[]): void {
 			disabledIds.push(id);
 		}
 	}
+	// A removal changes nothing about the providers that remain, so it needs its
+	// own reason to fire, or listeners keep a deleted entry registered.
+	const removed = [...previous.keys()].some(id => !nextMap.has(id));
 
 	cache = nextMap;
 
-	if (changedConnectionIds.length === 0 && disabledIds.length === 0) {
+	if (changedConnectionIds.length === 0 && disabledIds.length === 0 && !removed) {
 		return;
 	}
 	changeEmitter.fire({ changedConnectionIds, disabledIds });
@@ -161,6 +176,9 @@ function effectiveOptions(override?: ProviderCatalogOptions): ProviderCatalogOpt
 /** All providers these helpers write are built-ins, so their blocks are `BuiltinProviderBlock`. */
 type BuiltinBlockMap = Record<string, BuiltinProviderBlock>;
 
+/** What ai-config's writer logs through. */
+const writeLogger = { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) };
+
 async function mutate(
 	mutator: (providers: BuiltinBlockMap) => void,
 	options: ProviderCatalogOptions
@@ -172,10 +190,7 @@ async function mutate(
 			mutator(providers);
 			return { ...current, providers };
 		},
-		{
-			configPath: options.configPath,
-			logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
-		}
+		{ configPath: options.configPath, logger: writeLogger }
 	);
 	await refreshProviderCatalog(options);
 }
@@ -317,4 +332,180 @@ export async function saveProviderEnabled(
 		}
 		providers[catalogId] = { ...block, enabled };
 	}, opts);
+}
+
+// ---------------------------------------------------------------------------
+// Custom provider entries (providers.custom.<name>)
+// ---------------------------------------------------------------------------
+
+/**
+ * The cached custom providers, i.e. everything in the catalog that isn't a
+ * built-in key. Their id is the name the user gave the entry.
+ */
+export function getCachedCustomProviders(): ResolvedProviderLike[] {
+	return [...cache.values()].filter(provider => !isBuiltinProviderId(provider.id));
+}
+
+/**
+ * Reads one custom entry as authored in the user's providers.json, with no
+ * enforced, default, or environment overlay. Edits read through here, not the
+ * resolved catalog, or they would bake an admin's enforced base URL into the
+ * user's file and stop tracking policy. Undefined means no user-layer record:
+ * the entry is either absent or externally managed.
+ */
+export async function readCustomProviderEntry(
+	name: string,
+	options?: ProviderCatalogOptions
+): Promise<CustomProviderEntry | undefined> {
+	const { readUserCustomProviderEntry } = await import('ai-config/node');
+	return readUserCustomProviderEntry(name, { configPath: effectiveOptions(options).configPath });
+}
+
+/** What a new custom entry carries besides its type. */
+export interface NewCustomProviderConnection {
+	/** Where to call. Omitted when the kind's own default is wanted. */
+	readonly baseUrl?: string;
+	/** Model ids the user declared, for an endpoint with no `/models` listing. */
+	readonly modelIds?: readonly string[];
+}
+
+/**
+ * Capability defaults for a model the user declared by id alone, mirroring the
+ * bridge's OpenAI-compatible defaults. Here because the writer owns the schema;
+ * the form asks for an id and nothing else.
+ */
+const DECLARED_MODEL_DEFAULTS = {
+	maxContextLength: 128_000,
+	supportsTools: true,
+	supportsImages: false,
+	supportsToolResultImages: false,
+	supportsWebSearch: false,
+} satisfies Omit<CustomModelEntry, 'id' | 'name'>;
+
+/**
+ * Creates `providers.custom.<name>` under the config lock, then refreshes the
+ * cache so the entry's provider registers.
+ *
+ * `mintCustomProviderId` is called for its throw, not its value: it rejects a
+ * built-in provider id, a reserved key, and `__proto__`. Inside the lock, so a
+ * name can't be taken between the check and the write.
+ *
+ * `enabled: true` is explicit so a just-added provider is on even under a
+ * `providers.default` block that turns everything else off. A name already taken
+ * throws rather than merging, which would attach the new key to someone else's
+ * endpoint.
+ */
+export async function createCustomProviderEntry(
+	name: string,
+	kind: SupportedCustomClientKind,
+	connection: NewCustomProviderConnection = {},
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	const { mutateProvidersConfig } = await import('ai-config/node');
+	await mutateProvidersConfig(
+		(current: ProvidersConfig): ProvidersConfig => {
+			mintCustomProviderId(name);
+			const custom = current.providers?.custom;
+			if (custom?.[name]) {
+				throw new Error(`A custom provider named "${name}" already exists in providers.json.`);
+			}
+			const declared = (connection.modelIds ?? [])
+				.map(id => id.trim())
+				.filter(id => id.length > 0)
+				.map(id => ({ id, name: id, ...DECLARED_MODEL_DEFAULTS }));
+			const entry = {
+				type: kind,
+				enabled: true,
+				...(connection.baseUrl ? { baseUrl: normalizeSavedBaseUrl(kind, connection.baseUrl) } : {}),
+				// Declared ids replace discovery, rather than being merged with a
+				// listing the endpoint may also publish.
+				...(declared.length > 0 ? { models: { discovery: 'off' as const, custom: declared } } : {}),
+			} satisfies CustomProviderEntry;
+			return {
+				...current,
+				providers: { ...current.providers, custom: { ...custom, [name]: entry } },
+			};
+		},
+		{ configPath: opts.configPath, logger: writeLogger }
+	);
+	await refreshProviderCatalog(opts);
+}
+
+/**
+ * Removes `providers.custom.<name>` under the config lock, then refreshes the
+ * cache so the entry's provider unregisters. Drops the whole `custom` block with
+ * the last entry, and throws when there is no user-layer record to remove.
+ *
+ * Clearing the credential is the Delete action's job, so a stray file edit
+ * reaching here can't wipe a key.
+ */
+export async function deleteCustomProviderEntry(
+	name: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	const { mutateProvidersConfig } = await import('ai-config/node');
+	await mutateProvidersConfig(
+		(current: ProvidersConfig): ProvidersConfig => {
+			const custom = current.providers?.custom;
+			if (!custom?.[name]) {
+				throw new Error(`No custom provider named "${name}" in providers.json.`);
+			}
+			const { [name]: _deleted, ...remaining } = custom;
+			const providers = { ...current.providers };
+			if (Object.keys(remaining).length > 0) {
+				providers.custom = remaining;
+			} else {
+				delete providers.custom;
+			}
+			return { ...current, providers };
+		},
+		{ configPath: opts.configPath, logger: writeLogger }
+	);
+	await refreshProviderCatalog(opts);
+}
+
+/**
+ * Writes the URL onto an existing `providers.custom.<name>` entry under the
+ * config lock, then refreshes the cache, leaving everything else the user
+ * authored alone. `type` is not writable: changing the kind re-keys the
+ * credential with it, so that stays delete-and-re-add.
+ *
+ * Writes `baseUrl`, the key every offered kind is read from. The local kinds are
+ * read from `endpoint`, so this grows a field argument when they are offered
+ * (#12747); writing the wrong key looks saved and changes nothing.
+ *
+ * Throws when there is no user-layer record, the externally-managed case:
+ * copying an enforced connection into the user's file would detach it from
+ * policy.
+ */
+export async function saveCustomProviderUrl(
+	name: string,
+	url: string,
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	const { mutateProvidersConfig } = await import('ai-config/node');
+	await mutateProvidersConfig(
+		(current: ProvidersConfig): ProvidersConfig => {
+			const custom = current.providers?.custom;
+			const existing = custom?.[name];
+			if (!existing) {
+				throw new Error(`No custom provider named "${name}" in providers.json.`);
+			}
+			return {
+				...current,
+				providers: {
+					...current.providers,
+					custom: {
+						...custom,
+						[name]: { ...existing, baseUrl: normalizeSavedBaseUrl(getCachedProvider(name)?.clientKind ?? name, url) },
+					},
+				},
+			};
+		},
+		{ configPath: opts.configPath, logger: writeLogger }
+	);
+	await refreshProviderCatalog(opts);
 }

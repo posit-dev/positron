@@ -168,7 +168,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		const authService = props.renderer.services.get(IAuthenticationService);
 		const disposable = syncAuthSessions(
 			authService,
-			providers.map(source => source.provider.id),
+			// A custom entry's sessions come from the shared provider, under the
+			// entry name as a scope, not from a provider of its own.
+			providers.map(source => ({
+				id: source.provider.id,
+				custom: !!source.provider.customKind,
+			})),
 			(providerId, signedIn) => {
 				trace(`auth session sync: provider=${providerId} signedIn=${signedIn}`);
 				setProviderSources(prevSources => {
