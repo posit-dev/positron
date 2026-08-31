@@ -296,7 +296,7 @@ const SCENARIO_DESCRIPTIONS: Record<MemoryScenario, string> = {
 };
 
 function scenarioHeaderHtml(scenarios: MemoryScenario[]): string {
-	return scenarios.map(s => `<th align="right"${baselineClass(s)} title="${escapeHtml(SCENARIO_DESCRIPTIONS[s])}">${escapeHtml(s)}<span class="info-icon" aria-hidden="true">ⓘ</span></th>`).join('');
+	return scenarios.map(s => `<th align="right"${baselineClass(s)} title="${escapeHtml(SCENARIO_DESCRIPTIONS[s])}">${escapeHtml(s)}</th>`).join('');
 }
 
 /** One scenario's cell: the PSS value, plus (for a non-idle scenario) its delta against idle underneath. */
@@ -384,6 +384,9 @@ const DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to-launch va
  * different table from the per-lane one.
  */
 export const SUMMARY_CSS = `
+		/* A smidge wider than the shared 960px shell: the matrix has more columns to
+		fit than the per-scenario report, so it benefits most from the extra room. */
+		.container { max-width: 1200px; }
 		/* Secondary to the title rather than a second headline: smaller and dimmer, with
 		enough air under the h1 that the two still read as one block. */
 		.header { padding: 13px 20px; }
@@ -432,7 +435,6 @@ export const SUMMARY_CSS = `
 		/* The header text alone doesn't look interactive, so a small marker plus the
 		help cursor signals that hovering a scenario name reveals a description. */
 		.matrix th[title] { cursor: help; }
-		.matrix .info-icon { margin-left: 3px; font-size: 0.75em; color: #9ca3af; }
 		/* Role and idle (what every delta is measured from) stay in view while the rest
 		of the matrix scrolls horizontally; .card supplies the overflow-x. Widths are
 		fixed so the second sticky column's left offset lines up with the first. */
