@@ -6,7 +6,7 @@
 	"python.languageServerLogLevel": "debug",
 	"remote.autoForwardPortsFallback": 0,
 	"files.simpleDialog.enable": true,
-	"positron.importSettings.enable": false,
+	"workbench.settings.importFromVSCode.enabled": false,
 	"positron.assistant.enable": true,
 	"positron.assistant.provider.positAI.enable": true,
 	"positron.assistant.provider.anthropic.enable": true,
