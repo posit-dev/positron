@@ -56,10 +56,12 @@ host on port 5870.
 resolves to a script URL, and the URL's extension directory segment gives the
 owner. In the spike, 304k of 607k located nodes resolved to an extension.
 
-Extension directory extraction reuses `EXTENSION_PATH` in `label.ts` rather than
-a second copy of that regex. It already handles the three directory layouts the
-harness produces (`bundled/extensions/`, `~/.positron-server/extensions/`, and
-the throwaway `extensions-dir-memory/`).
+Extension directory extraction calls `deriveExtensionName()` in `label.ts`
+rather than a second copy of its regex. It already handles the three directory
+layouts the harness produces (`bundled/extensions/`,
+`~/.positron-server/extensions/`, and the throwaway `extensions-dir-memory/`),
+and strips the version suffix. It takes a command line today but matches on a
+whitespace-delimited token, so a bare script URL works unchanged.
 
 **3. Partition by dominator tree.** Function objects are tiny; the memory is in
 what they retain, so self size alone accounts for only 2.7% of the heap. Building
@@ -75,10 +77,20 @@ and converged in 8 rounds on 3.7M nodes and 16M edges.
 `RUNNER_TEMP` immediately after PSS sampling completes, alongside the existing
 snapshot JSON. Capture is about 5 seconds and 354 MB.
 
-Parsing is deferred to the aggregation run that already renders the report. This
-matters for two reasons: the parse needs several GB of heap and must not run
-while Positron is being sampled, and deferring it means parsing once per scenario
-instead of three times.
+Parsing is deferred to the `Render report` step, which already reads the three
+launch JSONs back off disk. This matters for two reasons: the parse needs several
+GB of heap and must not run while Positron is being sampled, and deferring it
+means parsing once per scenario instead of three times.
+
+No artifact boundary is crossed. `Render report` is a step in the same `memory`
+job as the launches, so `RUNNER_TEMP` still holds the files. (The separate
+`summarize` job downloads only the rendered reports.) Nothing new is uploaded.
+
+Peak disk is three snapshots for one scenario, about 1.1 GB: the matrix gives
+each scenario its own runner, and each file is deleted as soon as it is parsed.
+The parse also checks `snapshot.meta.node_fields` and `location_fields` against
+what it expects before reading, so a V8 format change from a Node bump surfaces
+as a skipped breakdown rather than silently wrong numbers.
 
 Capture must come after `captureSnapshot`, never before. The forced GC in `gc.ts`
 already ran by then, so the heap is post-collection and free of the startup
@@ -119,6 +131,12 @@ export type ExtensionHeapBreakdown = {
 };
 ```
 
+`ExtensionHeapBreakdown` attaches to the per-launch snapshot as an optional
+`extensionHeap`, written by the render step rather than at capture time. It is
+not the existing per-launch `extensions: ActivatedExtension[]`, which is the
+activation-log inventory of what loaded; this is a heap partition of what those
+extensions retain. An extension can appear in one and not the other.
+
 Every extension is published, not a top N. The array is small and letting the
 consumer choose a cutoff avoids a second Positron-side change when the dashboard
 lands.
@@ -148,8 +166,15 @@ The markdown and HTML reports gain a second summary table below the existing
 `fetchBaseline` path. `unattributed` is always shown: it is 59% of the heap, and
 hiding it would imply the extensions sum to the extension host row.
 
-Rows below a small floor collapse into an "others" line, matching how the role
-table already keeps itself readable.
+Rows below 1 MB retained collapse into an "others" line, matching how the role
+table already keeps itself readable. A fixed byte floor rather than a top N or a
+percentage: it keeps a newly appearing extension visible the moment it matters,
+and the spike's tail was 14 extensions under 0.2 MB.
+
+`Change` reads `-` when there is no prior extension-level baseline, which is the
+case on the first night and whenever an extension appears for the first time.
+That is the same treatment the role table already gives a missing baseline, not a
+failure.
 
 ## Failure handling
 
@@ -164,8 +189,13 @@ rather than showing an empty table that reads as "no extensions".
 One failure is silent and needs an explicit guard: `Debugger.enable` resolves
 before the `scriptParsed` replay finishes. The spike saw 609 scripts on one run
 and 518 on the next, which under-attributes without any error. Capture waits for
-a quiet period with no new `scriptParsed` events and records the count, and the
-parse rejects a run whose script count is implausibly low.
+250 ms with no new `scriptParsed` event (up to a 10 s cap) and records the count,
+and the parse rejects a run reporting fewer than 400 scripts.
+
+Both numbers are first guesses from a single macOS spike (609 and 518 scripts on
+two runs) and are named constants to be recalibrated once a week of CI counts
+exists. 400 sits below the lower spike observation on purpose: the guard is there
+to catch a gross truncation, not to police normal variance.
 
 ## Testing
 
