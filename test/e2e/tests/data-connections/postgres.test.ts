@@ -74,9 +74,6 @@ test.describe('Data Connections - Postgres', {
 
 		await test.step('Expand the tree down to tables and views', async () => {
 			await dataConnections.expandConnection(connectionName);
-			// pagila has a single schema, so the 'Schemas' group is breadcrumbed into it: 'public'
-			// takes the group's place already expanded, and there is no 'Schemas' row of its own
-			// left to expand.
 			await dataConnections.expectNodeVisible('public', 'schema');
 			await dataConnections.expandNode('Tables');
 			await dataConnections.expandNode('Views');

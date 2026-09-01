@@ -13,7 +13,7 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from './positronDataConnectionsConfiguration.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY, POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from './positronDataConnectionsConfiguration.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -52,6 +52,21 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			markdownDescription: localize(
 				'positron.dataConnections.tree.indent',
 				"Controls tree indentation in the Data Connections view, in pixels. When set to `0`, the value of `#workbench.tree.indent#` is used."
+			),
+			tags: ['preview'],
+			scope: ConfigurationScope.WINDOW,
+			included: true,
+		},
+		[POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY]: {
+			type: 'boolean',
+			// Off by default, because it trades information for space: a connection with one schema
+			// stops saying it has schemas at all, and the schema's name goes with it. Worth having
+			// for someone whose databases always have exactly one, where the tier is noise every
+			// time; not worth imposing on someone who would then wonder where `public` went.
+			default: false,
+			markdownDescription: localize(
+				'positron.dataConnections.tree.hideSingleSchema',
+				"Hide the schema level entirely when a connection has only one schema, showing its tables and views directly under the connection. When disabled, a lone schema is shown folded together with its group on a single row (for example `Schemas · public`)."
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,

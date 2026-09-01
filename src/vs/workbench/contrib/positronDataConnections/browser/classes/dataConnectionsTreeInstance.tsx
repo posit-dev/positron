@@ -12,7 +12,7 @@ import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from '../positronDataConnectionsConfiguration.js';
+import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from '../positronDataConnectionsConfiguration.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -58,6 +58,13 @@ export type DataConnectionNode =
 	};
 
 /**
+ * The schemas group kind. Called out on its own because it is the one namespace tier a user can ask
+ * to have hidden outright when it holds a single schema -- see
+ * POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY.
+ */
+const SCHEMAS_GROUP_KIND = 'group-schemas';
+
+/**
  * Group kinds that name a namespace tier -- the levels a connection is organized by, above the
  * objects themselves. A group of these kinds holding exactly one child is breadcrumbed into that
  * child, because it is pure ceremony: "Schemas" over a lone "public" costs a level and a click to
@@ -69,7 +76,7 @@ export type DataConnectionNode =
 const BREADCRUMB_GROUP_KINDS = new Set([
 	'group-databases',
 	'group-catalogs',
-	'group-schemas',
+	SCHEMAS_GROUP_KIND,
 ]);
 
 const entryNodeId = (profile: IDataConnectionProfile): string => `entry:${profile.id}`;
@@ -207,6 +214,17 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			if (e.affectsConfiguration(POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY) ||
 				e.affectsConfiguration(TREE_INDENT_KEY)) {
 				this.setIndentWidth(resolveIndentWidth(this._configurationService));
+			}
+
+			// Whether the schema tier is hidden is decided by the fetch, so the rows already on
+			// screen were built under the old answer and a reload is what re-decides them -- the
+			// same re-decision a schema gaining or losing a sibling gets. Without it the setting
+			// would appear to do nothing until the user reloaded the window, which for a display
+			// toggle reads as a bug.
+			if (e.affectsConfiguration(POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY)) {
+				// Fire and forget, as the panel's own Refresh button does: nothing here can act on
+				// the result, and a failed reload surfaces through the tree's per-node error state.
+				void this.reloadAll();
 			}
 		}));
 	}
@@ -351,17 +369,22 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * Deciding this needs the group's children, so a namespace group costs one extra round trip on
 	 * the level above it, paid whether or not the user goes on to open it.
 	 *
+	 * A lone schema is the one case that can go further than breadcrumbing and disappear altogether,
+	 * when the user asks for that -- see _elideSingleSchema. That is why this returns a level rather
+	 * than a node per DTO: one group can expand into the several rows that stood beneath it.
+	 *
 	 * @param dtos The level's DTOs.
 	 * @param handle The connection handle the DTOs came from.
-	 * @returns The level's tree nodes, with qualifying groups replaced by their only child.
+	 * @returns The level's tree nodes, with qualifying groups replaced by their only child, or by
+	 * that child's own children when the schema tier is being hidden.
 	 */
 	private async _breadcrumbNamespaceGroups(
 		dtos: readonly IDataConnectionNodeDTO[],
 		handle: IDataConnectionHandle
 	): Promise<readonly TreeNode<DataConnectionNode>[]> {
-		return Promise.all(dtos.map(async dto => {
+		const level = await Promise.all(dtos.map(async dto => {
 			if (!BREADCRUMB_GROUP_KINDS.has(dto.kind) || !dto.hasGetChildren) {
-				return wrapDto(dto, handle);
+				return [wrapDto(dto, handle)];
 			}
 
 			let children: readonly IDataConnectionNodeDTO[];
@@ -371,11 +394,17 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				// The look-ahead is an optimization, so a failure just leaves the group as an
 				// ordinary row. Expanding it will run the same call again and surface the error
 				// through the tree's own error state, where the user can retry it.
-				return wrapDto(dto, handle);
+				return [wrapDto(dto, handle)];
 			}
 
 			if (children.length === 1) {
-				return wrapDto(children[0], handle, dto.name);
+				if (dto.kind === SCHEMAS_GROUP_KIND && this._hideSingleSchema()) {
+					const contents = await this._elideSingleSchema(children[0], handle);
+					if (contents !== undefined) {
+						return contents;
+					}
+				}
+				return [wrapDto(children[0], handle, dto.name)];
 			}
 
 			// The children are deliberately dropped when the group keeps its row. Handing them to
@@ -383,8 +412,64 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			// a reload's staged fetch as well, and a reload whose result is discarded (its node
 			// collapsed while it was in flight) would leave those children behind in the live map,
 			// keyed by a node that never arrived and holding ext-host handles nothing can release.
-			return wrapDto(dto, handle);
+			return [wrapDto(dto, handle)];
 		}));
+
+		return level.flat();
+	}
+
+	/**
+	 * Whether the user has asked for a connection's only schema to be hidden rather than
+	 * breadcrumbed. Read live rather than cached in the constructor, so a toggle takes effect on the
+	 * next fetch; the constructor's change handler reloads to make that immediate. Compared against
+	 * true so that an unset value -- and a configuration service that does not know the key -- reads
+	 * as the registered default of off.
+	 */
+	private _hideSingleSchema(): boolean {
+		return this._configurationService.getValue<boolean>(
+			POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY) === true;
+	}
+
+	/**
+	 * Drops a lone schema out of the tree, returning the rows that stand in its place: its own
+	 * children, spliced into the level where its "Schemas" group would have been. Two tiers vanish
+	 * at once, so a connection to a single-schema database reads straight from the connection to
+	 * Tables and Views.
+	 *
+	 * This costs a second look-ahead -- the group's children found the schema, and this fetches the
+	 * schema's -- which is why it is behind a setting that is off by default rather than the
+	 * standing behavior. The result is not wasted: these are the rows the level now holds.
+	 *
+	 * Returns undefined when the schema cannot stand aside, leaving the caller to breadcrumb it as
+	 * usual. A schema with no children is one of those cases: eliding it would leave the connection
+	 * looking like it holds nothing, which reads as a failed connection rather than an empty schema.
+	 *
+	 * @param schema The lone schema DTO.
+	 * @param handle The connection handle the DTO came from.
+	 * @returns The schema's children as this level's rows, or undefined to fall back.
+	 */
+	private async _elideSingleSchema(
+		schema: IDataConnectionNodeDTO,
+		handle: IDataConnectionHandle
+	): Promise<readonly TreeNode<DataConnectionNode>[] | undefined> {
+		if (!schema.hasGetChildren) {
+			return undefined;
+		}
+
+		let contents: readonly IDataConnectionNodeDTO[];
+		try {
+			contents = await handle.nodeGetChildren(schema.nodeHandle);
+		} catch {
+			// Same reasoning as the group look-ahead above: a failed optimization falls back to the
+			// visible row, where expanding it runs the call again and surfaces the error.
+			return undefined;
+		}
+
+		if (contents.length === 0) {
+			return undefined;
+		}
+
+		return contents.map(dto => wrapDto(dto, handle));
 	}
 
 	/**
