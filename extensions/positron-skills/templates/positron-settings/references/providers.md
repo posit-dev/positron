@@ -65,8 +65,10 @@ provider) and needs no filtering.
    - `authStateUnavailable: true` means no sign-in state exists in this window
      at all. Report which providers are enabled and say sign-in state is
      unavailable; do not call anything signed out.
-   - `catalogStatus: 'error'` means the catalog could not be read and
-     enablement verdicts are best-effort; say so.
+   - A `catalogStatus` other than `'ready'` means the provider catalog could
+     not be read (or had not loaded yet). Entries then omit `enabled`
+     entirely: report sign-in state, say enablement is unknown, and never
+     read a missing `enabled` as disabled.
 6. `maturity` ('preview' or 'experimental') and `custom` (a provider the user
    defined themselves) are worth a parenthetical when present, not a section.
 
@@ -79,9 +81,10 @@ provider) and needs no filtering.
    [configuration.md]({{skill_dir}}/references/configuration.md) (`ai.enabled`
    and `assistant.enabled` both gate Posit Assistant).
 3. `customizedConnection` naming `baseUrl` or an `aws.*`/`snowflake.*` field
-   is a lead worth mentioning: a customized endpoint that stopped resolving
-   looks like an auth failure. The payload never carries the value; have the
-   user check providers.json.
+   is a lead worth mentioning: it means the user or an administrator changed
+   that field from this build's default (a stock install reports none), and a
+   customized endpoint that stopped resolving looks like an auth failure. The
+   payload never carries the value; have the user check providers.json.
 
 ## When this payload disagrees with another view
 

@@ -69,12 +69,32 @@ export interface IResolvedModelsData {
 	readonly custom?: IResolvedCustomModelData[];
 }
 
-/** Mirrors ai-config's ResolvedProvider (id, enabled, connection, model policy). */
+/**
+ * Mirrors ai-config's ResolvedProvider (id, enabled, connection, model
+ * policy), plus two fields computed node-side rather than mirrored: `custom`
+ * and `customizedConnection` need ai-config's provider registry and built-in
+ * connection defaults, which only the node host can import, while their
+ * consumers live in the renderer.
+ */
 export interface IResolvedProviderData {
 	readonly id: string;
 	readonly enabled: boolean;
 	readonly connection: IResolvedConnectionData;
 	readonly models?: IResolvedModelsData;
+
+	/** Present, and true, only for a provider from a custom providers.json entry. */
+	readonly custom?: boolean;
+
+	/**
+	 * Dotted names of the connection fields whose resolved value differs from
+	 * ai-config's built-in default for this provider, e.g. 'baseUrl' or
+	 * 'aws.profile'. The resolved connection alone cannot answer "did the user
+	 * customize this": ai-config layers built-in defaults (a stock positai
+	 * entry resolves a baseUrl the user never wrote) under the user/enforced
+	 * config, and only the node side can import those defaults to diff
+	 * against. Omitted when nothing differs, so a stock install reports none.
+	 */
+	readonly customizedConnection?: readonly string[];
 }
 
 /** Mirrors ai-config's ProviderCatalogChange. */

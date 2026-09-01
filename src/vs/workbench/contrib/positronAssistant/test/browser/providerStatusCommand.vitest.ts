@@ -208,7 +208,10 @@ describe('getProviderStatus', () => {
 		]);
 	});
 
-	it('names customized connection fields without ever carrying their values', async () => {
+	it('passes through the catalog\'s customized-field names without ever carrying connection values', async () => {
+		// customizedConnection is computed node-side (diffed against ai-config's
+		// built-in defaults); this command must relay the names and never the
+		// raw connection the catalog entry still carries.
 		stubServices({
 			registrations: [registration({ id: 'bedrock-auth', catalogId: 'bedrock', signedIn: true, status: 'ok' })],
 			catalog: [{
@@ -217,8 +220,9 @@ describe('getProviderStatus', () => {
 				connection: {
 					baseUrl: 'https://internal-gateway.example.corp',
 					customHeaders: { 'X-Corp-Auth': 'a-secret-token' },
-					aws: { profile: 'work', region: undefined },
+					aws: { profile: 'work' },
 				},
+				customizedConnection: ['baseUrl', 'customHeaders', 'aws.profile'],
 			}],
 		});
 
@@ -233,25 +237,48 @@ describe('getProviderStatus', () => {
 		expect(serialized).not.toContain('work');
 	});
 
-	it('omits customizedConnection for an empty customHeaders map and an untouched connection', async () => {
+	it('caps the pass-through auth failure text to its first line', async () => {
 		stubServices({
-			registrations: [registration({ id: 'anthropic-api', catalogId: 'anthropic', signedIn: true, status: 'ok' })],
-			catalog: [{ id: 'anthropic', enabled: true, connection: { customHeaders: {} } }],
+			registrations: [registration({
+				id: 'bedrock-auth', catalogId: 'bedrock', signedIn: false, status: 'error',
+				statusMessage: `The security token included in the request is expired (role arn:aws:iam::123456789012:role/x)${'!'.repeat(300)}\n  at SdkError.stack (bundle.js:1:1)`,
+			})],
 		});
 
-		expect((await getProviderStatus(ctx.instantiationService)).providers[0].customizedConnection).toBeUndefined();
+		const message = (await getProviderStatus(ctx.instantiationService)).providers[0].authMessage!;
+		expect(message.endsWith('...')).toBe(true);
+		expect(message.length).toBeLessThanOrEqual(200);
+		expect(message).not.toContain('SdkError');
 	});
 
 	it('joins a registration without a declared catalogId to the catalog by its own id', async () => {
 		stubServices({
 			registrations: [registration({ id: 'databricks', signedIn: true, status: 'ok' })],
-			catalog: [{ id: 'databricks', enabled: true, connection: { databricks: { host: 'corp.cloud.databricks.com' } } }],
+			catalog: [{ id: 'databricks', enabled: true, connection: {}, customizedConnection: ['databricks.host'] }],
 		});
 
 		const result = await getProviderStatus(ctx.instantiationService);
 		// One entry, not a registration entry plus a catalog-only duplicate.
 		expect(result.providers.map(provider => provider.id)).toEqual(['databricks']);
 		expect(result.providers[0].customizedConnection).toEqual(['databricks.host']);
+	});
+
+	it('marks a catalog-only custom entry as custom', async () => {
+		// Reachable when a providers.custom entry exists but nothing registered
+		// a source for it (e.g. an Assistant build without custom-provider
+		// support). The node side computes `custom`, so the entry is not
+		// mistakable for a built-in.
+		stubServices({
+			registrations: [registration({ id: 'anthropic-api', catalogId: 'anthropic', signedIn: true, status: 'ok' })],
+			catalog: [{ id: 'My Gateway', enabled: true, connection: {}, custom: true }],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.providers.find(provider => provider.id === 'My Gateway')).toEqual({
+			id: 'My Gateway',
+			enabled: true,
+			custom: true,
+		});
 	});
 
 	it('orders entries auth failures first, then signed-in, then enabled, then disabled, alphabetically within each band', async () => {
@@ -276,5 +303,40 @@ describe('getProviderStatus', () => {
 		const result = await getProviderStatus(ctx.instantiationService);
 		expect(result.catalogStatus).toBe('error');
 		expect(result.providers).toEqual([]);
+	});
+
+	it('reports enablement as unknown, not disabled, when the catalog could not be read', async () => {
+		// With an unreadable catalog the enablement snapshot is empty, and
+		// isProviderEnabled would answer false for every catalogId-declaring
+		// provider. The payload must not launder that into "all providers are
+		// disabled": enabled is omitted, and the live sign-in state still shows.
+		stubServices({
+			registrations: [registration({ id: 'anthropic-api', catalogId: 'anthropic', signedIn: true, status: 'ok' })],
+			catalogStatus: 'error',
+			enabledIds: [],
+		});
+
+		expect(await getProviderStatus(ctx.instantiationService)).toEqual({
+			catalogStatus: 'error',
+			authStateUnavailable: undefined,
+			providers: [{
+				id: 'anthropic',
+				displayName: 'anthropic-api',
+				enabled: undefined,
+				auth: 'signed-in',
+			}],
+		});
+	});
+
+	it('treats a catalog still initializing after the bounded wait the same as unreadable', async () => {
+		stubServices({
+			registrations: [registration({ id: 'anthropic-api', catalogId: 'anthropic', signedIn: false, status: null })],
+			catalogStatus: 'initializing',
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.catalogStatus).toBe('initializing');
+		expect(result.providers[0].enabled).toBeUndefined();
+		expect(result.providers[0].auth).toBe('not-signed-in');
 	});
 });
