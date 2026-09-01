@@ -504,9 +504,10 @@ suite('Native Python API', () => {
     });
 
     // --- Start Positron ---
-    test('Additional global path (/opt/python) is classified as global during addEnv via triggerRefresh', async () => {
-        if (process.platform === 'win32') {
-            return;
+    test('Additional global path (/opt/python) is classified as global during addEnv via triggerRefresh', async function () {
+        // isAdditionalGlobalBinPath() only matches POSIX paths, so there is nothing to test on Windows.
+        if (isWindows()) {
+            return this.skip();
         }
 
         const optPythonEnv: NativeEnvInfo = {
@@ -541,9 +542,10 @@ suite('Native Python API', () => {
         assert.equal(addedEnv.kind, PythonEnvKind.OtherGlobal);
     });
 
-    test('Additional global path (/opt/python) is classified as global during resolveEnv', async () => {
-        if (process.platform === 'win32') {
-            return;
+    test('Additional global path (/opt/python) is classified as global during resolveEnv', async function () {
+        // isAdditionalGlobalBinPath() only matches POSIX paths, so there is nothing to test on Windows.
+        if (isWindows()) {
+            return this.skip();
         }
 
         const optPythonEnv: NativeEnvInfo = {
