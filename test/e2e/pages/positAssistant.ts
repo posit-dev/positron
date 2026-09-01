@@ -62,7 +62,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	'databricks': 'Databricks',
 	'openai-api': 'OpenAI',
 	'ms-foundry': 'Microsoft Foundry',
-	'posit-ai': 'Posit AI',
+	'posit-ai': 'Posit AI Pass',
 	'snowflake-cortex': 'Snowflake Cortex',
 };
 
@@ -439,11 +439,11 @@ export class PositAssistant {
 	 * menu and its "Model" submenu, then click the first model in the provider's
 	 * group container.
 	 *
-	 * The open->select->close cycle is retried because a model list populated by a
-	 * live fetch (Posit AI, or any provider in a remote session) can re-render the
-	 * group mid-click. Every click inside the loop carries a short timeout: an
-	 * unbounded one inherits the default, and a single stalled click eats the whole
-	 * retry budget.
+	 * The open->select->close cycle is retried because a model list populated by
+	 * a live fetch (Posit AI Pass, or any provider in a remote session) can
+	 * re-render the group mid-click. Every click inside the loop carries a short
+	 * timeout: an unbounded one inherits the default, and a single stalled click
+	 * eats the whole retry budget.
 	 */
 	private async selectProviderModelMenuMode(overflow: Locator, providerName: string): Promise<void> {
 		const modelSubmenu = this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))');
