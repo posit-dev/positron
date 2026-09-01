@@ -8,6 +8,14 @@ import { Code } from '../infra/code.js';
 import { STARTUP_MESSAGING_SELECTOR, STARTUP_MESSAGING_TIMEOUT } from './utils/startupMessaging.js';
 
 /**
+ * How long a single post-reload probe may wait before it is abandoned and retried.
+ */
+const RELOAD_PROBE_TIMEOUT = 2000;
+
+/** Overall budget for the post-reload workbench gate. */
+const RELOAD_READY_TIMEOUT = 30000;
+
+/**
  * Provides hotkey shortcuts for common operations. References the keybindings defined in `test/e2e/fixtures/keybindings.json`.
  */
 export class HotKeys {
@@ -267,11 +275,19 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+B R', 'Reload window');
 		await navigated;
 
-		// Use a polling assertion, not a single locator.waitFor task: this gate arms at
-		// the instant the navigation commits, and a waitFor task installed then can bind
-		// to the dying document and never observe the new one (seen on Windows CI). Each
-		// expect poll is an independent call that re-resolves the frame.
-		await expect(page.locator('.monaco-workbench')).toBeVisible({ timeout: 30000 });
+		// Bound each probe and retry, rather than spending the whole budget on one
+		// assertion. Playwright parks a query on the execution-context promise that
+		// existed when the query started, and an Electron reload clears the context
+		// more than once as the renderer is swapped -- each clear installs a fresh
+		// promise and orphans the old one, so a probe that started before the last
+		// clear waits forever on a promise nothing will resolve. That is the Windows
+		// CI failure where the workbench is fully rendered but the assertion reports
+		// "element(s) not found". Abandoning the attempt lets the next one pick up
+		// the current promise. The overall budget is unchanged.
+		await expect(async () => {
+			await expect(page.locator('.monaco-workbench'))
+				.toBeVisible({ timeout: RELOAD_PROBE_TIMEOUT });
+		}).toPass({ timeout: RELOAD_READY_TIMEOUT, intervals: [250] });
 
 		// Wait for the workbench lifecycle to reach Restored (the same positive signal
 		// Application#checkPositronReady gates launch on). External browsers (Posit
