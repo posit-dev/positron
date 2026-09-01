@@ -12,6 +12,8 @@ import { MouseEvent as ReactMouseEvent, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
@@ -131,6 +133,11 @@ interface DataConnectionNodeRowProps {
 export const DataConnectionNodeRow = ({ dto, handle, onMenuOpening, onRefresh, stale }: DataConnectionNodeRowProps) => {
 	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
+	// A group row labels the rows beneath it rather than naming a thing of its own, and it holds them
+	// at its own indent (see wrapDto). Its plural glyph and the indent guide are what tell it apart
+	// from the entities below it; the class carries no styling of its own yet, and is here as the
+	// seam for a treatment if one is wanted.
+	const isGroup = CONTAINER_ONLY_KINDS.has(dto.kind);
 	// Opening a preview can take a moment (a driver may download data first). Track it so the row can
 	// show a spinner for the duration, matching the tree's busy treatment on expansion.
 	const [opening, setOpening] = useState(false);
@@ -229,7 +236,7 @@ export const DataConnectionNodeRow = ({ dto, handle, onMenuOpening, onRefresh, s
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 		<div
 			ref={rowRef}
-			className='data-connection-node-row'
+			className={positronClassNames('data-connection-node-row', { 'group': isGroup })}
 			onContextMenu={onContextMenu}
 			onDoubleClick={onDoubleClick}
 		>

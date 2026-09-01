@@ -21,6 +21,12 @@ export interface TreeNode<T> {
 	// row is expandable; if getChildren later returns [], the node falls back to a leaf after
 	// expansion. If false, no twisty and expansion is disallowed.
 	readonly hasChildren: boolean;
+
+	// Whether this node's children render at its own indent rather than one step further in. For a
+	// node that names a category rather than a thing -- "Tables", "Columns" -- the extra step buys
+	// nothing: the row above already says what the rows below are. The node keeps its twisty and
+	// its place in the structure; only the indent of what it holds changes. Defaults to false.
+	readonly flattensChildren?: boolean;
 }
 
 /**
@@ -42,7 +48,27 @@ export type TreeExpandState = 'leaf' | 'collapsed' | 'expanded' | 'loading' | 'e
  */
 export interface VisibleNode<T> {
 	readonly node: TreeNode<T>;
+
+	// Structural depth: how many ancestors the node has. Drives navigation (which row is a given
+	// row's parent, which row is its first child) and is what any hierarchy an assistive technology
+	// is told about must be derived from.
 	readonly depth: number;
+
+	// Visual indent step. Equal to depth until some ancestor sets flattensChildren, after which it
+	// trails depth by one step per such ancestor. Only the rendered indent uses this -- keeping it
+	// apart from depth is what lets a category row hold its children at its own indent without the
+	// tree losing track of who is whose parent.
+	readonly indentLevel: number;
+
+	// Whether this row draws an extra indent guide for the parent it shares a step with. A node that
+	// sets flattensChildren gives up the step a guide would normally be drawn in, so without this
+	// there is no line marking what its children belong to.
+	//
+	// Set only when every one of those children is a leaf. A child with a twisty of its own has it at
+	// the same x as the line -- they share an indent step -- and the line would run through the
+	// chevrons instead of beside them.
+	readonly flattenedParentGuide: boolean;
+
 	readonly expandState: TreeExpandState;
 
 	// Whether a reload of this node's subtree is in flight. Deliberately separate from

@@ -13,6 +13,7 @@ import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/posi
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from '../positronDataConnectionsConfiguration.js';
+import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
@@ -115,6 +116,11 @@ const wrapDto = (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle): Tr
 	id: dtoNodeId(handle, dto),
 	data: { kind: 'dto', dto, handle },
 	hasChildren: dto.hasGetChildren,
+	// A group node names a category rather than a thing it holds, so it keeps its children at its
+	// own indent: "Tables" above a list of tables already says what they are, and spending a level
+	// to repeat it is what makes a column sit eight steps in. The same set decides which nodes the
+	// schema summarizer flattens, for the same reason.
+	flattensChildren: CONTAINER_ONLY_KINDS.has(dto.kind),
 });
 
 /**

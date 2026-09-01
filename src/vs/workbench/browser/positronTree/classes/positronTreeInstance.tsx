@@ -7,7 +7,7 @@
 import './positronTreeInstance.css';
 
 // React.
-import { JSX, ReactNode, MouseEvent as ReactMouseEvent } from 'react';
+import { CSSProperties, JSX, ReactNode, MouseEvent as ReactMouseEvent } from 'react';
 
 // Other dependencies.
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -17,6 +17,14 @@ import { positronClassNames } from '../../../../base/common/positronUtilities.js
 import { DataGridInstance, MouseSelectionType, RowSelectionState, SelectionCursorOptions, selectionCursorOptions } from '../../positronDataGrid/classes/dataGridInstance.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from './treeNode.js';
 import { buildVisibleNodes, findParentIndex } from './treeProjection.js';
+
+/**
+ * Inline-style shape for a row's indent spacer. Extends CSSProperties with the custom property that
+ * carries the indent width to the stylesheet, so TypeScript accepts the literal without a cast.
+ */
+interface PositronTreeIndentCSSProperties extends CSSProperties {
+	'--positron-tree-indent-width': string;
+}
 
 /**
  * PositronTreeRenderNode type. The consumer-provided function that renders the content area of
@@ -1024,6 +1032,14 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 			? (visible.refreshGeneration % 2 === 0 ? 'recently-refreshed-even' : 'recently-refreshed-odd')
 			: undefined;
 
+		// The spacer's width, plus the indent width the stylesheet tiles the indent guides at. The
+		// guides are drawn on a pseudo-element, which an inline background-size can't reach, so the
+		// width crosses over as a custom property.
+		const indentStyle: PositronTreeIndentCSSProperties = {
+			width: visible.indentLevel * this._indentWidth,
+			'--positron-tree-indent-width': `${this._indentWidth}px`,
+		};
+
 		return (
 			<div
 				className={positronClassNames(
@@ -1034,9 +1050,12 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 				)}
 			>
 				<div
-					className='positron-tree-indent'
+					className={positronClassNames(
+						'positron-tree-indent',
+						{ 'flattened-parent-guide': visible.flattenedParentGuide }
+					)}
 					data-testid='positron-tree-indent'
-					style={{ width: visible.depth * this._indentWidth }}
+					style={indentStyle}
 				/>
 				<button
 					aria-label={twistyDisabled ? undefined : (visible.expandState === 'expanded' ? 'Collapse' : 'Expand')}
