@@ -139,6 +139,7 @@
 	aspect-ratio: 1/1;
 	/* --- Start Positron --- */
 	/* Positron mark instead of the Code OSS letterpress logo. */
+	/* background-image: url('./letterpress-light.svg'); */
 	background-image: url('./positron-letterpress-light.svg');
 	/* --- End Positron --- */
 	background-size: contain;
@@ -149,18 +150,21 @@
 
 .monaco-workbench.vs-dark .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
 	/* --- Start Positron --- */
+	/* background-image: url('./letterpress-dark.svg'); */
 	background-image: url('./positron-letterpress-dark.svg');
 	/* --- End Positron --- */
 }
 
 .monaco-workbench.hc-light .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
 	/* --- Start Positron --- */
+	/* background-image: url('./letterpress-hcLight.svg'); */
 	background-image: url('./positron-letterpress-hcLight.svg');
 	/* --- End Positron --- */
 }
 
 .monaco-workbench.hc-black .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
 	/* --- Start Positron --- */
+	/* background-image: url('./letterpress-hcDark.svg'); */
 	background-image: url('./positron-letterpress-hcDark.svg');
 	/* --- End Positron --- */
 }

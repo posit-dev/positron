@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { $, addDisposableListener, append, clearNode, h } from '../../../../base/browser/dom.js';
+import { $, append, clearNode, h } from '../../../../base/browser/dom.js';
 import { KeybindingLabel } from '../../../../base/browser/ui/keybindingLabel/keybindingLabel.js';
 import { coalesce, shuffle } from '../../../../base/common/arrays.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -11,10 +11,7 @@ import { isMacintosh, isWeb, OS } from '../../../../base/common/platform.js';
 import { localize } from '../../../../nls.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { HiddenItemStrategy, MenuWorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';
-// --- Start Positron ---
-// import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
-import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
-// --- End Positron ---
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr, ContextKeyExpression, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -23,6 +20,10 @@ import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } fro
 import { defaultKeybindingLabelStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 // --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { addDisposableListener } from '../../../../base/browser/dom.js';
+// eslint-disable-next-line no-duplicate-imports
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
@@ -84,6 +85,7 @@ const otherEntries: WatermarkEntry[] = [
 	findInFiles,
 	startDebugging,
 	// --- Start Positron ---
+	// toggleTerminal,
 	focusConsole,
 	// --- End Positron ---
 	openSettings,
