@@ -4,17 +4,16 @@ description: >
   Running Positron IDE commands: changing the window layout, focusing panes
   (Console, Variables, Plots, Help, Packages), clearing the console, opening a
   file or data file in the right editor, listing or discovering interpreters,
-  listing running sessions, switching or starting a session, restarting or
-  interrupting a stuck one, setting up Python, reading, installing or updating a
-  session's packages, and reading the connections configured in the Data
-  Connections pane -- which code in the session cannot see -- including a live
-  connection's tables and columns. Use when the user wants Positron itself to
-  act, or to know what is installed, rather than to run R or Python code. Then
-  read the reference file for the area in question. Triggers: "show the
-  variables pane", "open data.csv", "what interpreters are available", "switch
-  to my R session", "my session is stuck", "is pandas installed?", "update all
-  my packages", "set up a Python environment", "what databases am I connected
-  to", "what tables are in my warehouse".
+  listing, switching or starting sessions, restarting or interrupting a stuck
+  one, setting up Python, reading, installing or updating a session's packages,
+  and reading the connections configured in the Data Connections pane -- which
+  code in the session cannot see -- including a live connection's tables and
+  columns. Use when the user wants Positron itself to act, or to know what is
+  installed, rather than to run R or Python code. Then read the reference file
+  for the area in question. Triggers: "show the variables pane", "open
+  data.csv", "what interpreters are available", "switch to my R session", "my
+  session is stuck", "is pandas installed?", "set up a Python environment",
+  "what databases am I connected to", "what tables are in my warehouse".
 ---
 
 # Positron IDE commands
