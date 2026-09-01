@@ -23,12 +23,13 @@ suite('UnsavedScriptFiles', () => {
     const fakeUntitled = (name: string, text: string) =>
         ({ uri: { toString: () => `untitled:${name}`, path: name }, isUntitled: true, getText: () => text } as any);
 
+    // Canonicalize a directory the same way the manager does: resolve symlinks
+    // on POSIX, leave the path untouched on Windows.
+    const canonicalize = async (dir: string) =>
+        process.platform === 'win32' ? dir : fs.promises.realpath(dir);
+
     setup(async () => {
-        // Canonicalize the same way the manager does (async realpath). This
-        // resolves symlinks (e.g. macOS /var -> /private/var) and, on Windows,
-        // expands 8.3 short names (RUNNER~1 -> runneradmin) so paths compare
-        // equal; sync and async realpath differ on that expansion.
-        tmpDir = await fs.promises.realpath(fs.mkdtempSync(path.join(os.tmpdir(), 'positron-unsaved-test-')));
+        tmpDir = await canonicalize(fs.mkdtempSync(path.join(os.tmpdir(), 'positron-unsaved-test-')));
         originalGetConfiguration = ws.getConfiguration;
         originalOnDidClose = ws.onDidCloseTextDocument;
         ws.getConfiguration = () => ({ get: () => tmpDir });
@@ -74,7 +75,7 @@ suite('UnsavedScriptFiles', () => {
         ws.getConfiguration = () => ({ get: () => filePath });
 
         const written = await manager.write(fakeUntitled('Untitled-9', 'z'));
-        assert.strictEqual(path.dirname(written), await fs.promises.realpath(os.tmpdir()));
+        assert.strictEqual(path.dirname(written), await canonicalize(os.tmpdir()));
         await manager.finished(written);
     });
 });

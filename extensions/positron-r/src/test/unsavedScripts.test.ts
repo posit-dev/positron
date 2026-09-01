@@ -20,13 +20,18 @@ function fakeUntitled(name: string, text: string): vscode.TextDocument {
 	} as unknown as vscode.TextDocument;
 }
 
+// Canonicalize a directory the same way the manager does: resolve symlinks on
+// POSIX, leave the path untouched on Windows.
+async function canonicalize(dir: string): Promise<string> {
+	return process.platform === 'win32' ? dir : fs.promises.realpath(dir);
+}
+
 suite('UnsavedScriptFiles', () => {
 	let tmpDir: string;
 	let manager: UnsavedScriptFiles;
 
 	suiteSetup(async () => {
-		// Canonicalize: the manager resolves symlinks (e.g. macOS /var -> /private/var).
-		tmpDir = fs.realpathSync(await fs.promises.mkdtemp(path.join(os.tmpdir(), 'positron-unsaved-test-')));
+		tmpDir = await canonicalize(await fs.promises.mkdtemp(path.join(os.tmpdir(), 'positron-unsaved-test-')));
 		await vscode.workspace.getConfiguration('interpreters')
 			.update('unsavedScriptsDirectory', tmpDir, vscode.ConfigurationTarget.Global);
 	});
@@ -72,7 +77,7 @@ suite('UnsavedScriptFiles', () => {
 			.update('unsavedScriptsDirectory', filePath, vscode.ConfigurationTarget.Global);
 		try {
 			const written = await manager.write(fakeUntitled('Untitled-9', 'z'));
-			assert.strictEqual(path.dirname(written), fs.realpathSync(os.tmpdir()));
+			assert.strictEqual(path.dirname(written), await canonicalize(os.tmpdir()));
 			await manager.finished(written);
 		} finally {
 			await vscode.workspace.getConfiguration('interpreters')

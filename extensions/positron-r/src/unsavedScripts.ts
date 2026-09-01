@@ -134,12 +134,18 @@ function workspaceRoot(): string | undefined {
 }
 
 /**
- * Resolves symlinks in a directory so scratch file paths match the canonical
- * form the session reports as its working directory (macOS temp dirs and
- * workspace roots are often symlinked, e.g. /var -> /private/var). Without this,
- * the path can't be made relative to the working directory.
+ * Puts a directory into the same form the session reports as its working
+ * directory, so scratch file paths can be made relative to it.
+ *
+ * On POSIX, `getcwd()` resolves symlinks (e.g. macOS /var -> /private/var), so
+ * we resolve them too. On Windows, `GetCurrentDirectory` echoes the launch path
+ * verbatim; realpath would instead expand 8.3 short names (RUNNER~1 ->
+ * runneradmin) and make the paths diverge, so leave the path as-is.
  */
 async function canonicalize(directory: string): Promise<string> {
+	if (process.platform === 'win32') {
+		return directory;
+	}
 	try {
 		return await fs.promises.realpath(directory);
 	} catch {
