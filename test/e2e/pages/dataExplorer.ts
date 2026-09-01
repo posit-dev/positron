@@ -1165,7 +1165,23 @@ export class ImportDataModal {
 		return this.workbench.dynamicModals.dialogBox.locator('.import-data .code');
 	}
 
+	packageOption(displayName: string | RegExp): Locator {
+		return this.workbench.dynamicModals.dialogBox.getByRole('option', { name: displayName });
+	}
+
 	// --- Actions ---
+
+	/**
+	 * Selects a package in the importer list, e.g. 'Python (pandas)' or 'R (readr)'. The dialog
+	 * preselects the foreground session's language, so a test that needs a specific package must
+	 * select it rather than rely on which session happens to be running.
+	 */
+	async selectPackage(displayName: string) {
+		await test.step(`Select import package: ${displayName}`, async () => {
+			await this.packageOption(displayName).click();
+			await expect(this.packageOption(displayName)).toHaveAttribute('aria-selected', 'true');
+		});
+	}
 
 	async clickImport() {
 		await this.workbench.dynamicModals.clickButton('Import');

@@ -19,6 +19,7 @@ function makeImporter(overrides: Partial<IDataImporter> = {}): IDataImporter {
 		languageId: 'python',
 		displayName: 'Python (pandas)',
 		fileExtensions: ['csv', 'tsv'],
+		reservedNames: ['class', 'import'],
 		generateCode: async (request: IDataImportRequest): Promise<IDataImportResult | undefined> =>
 			({ code: `${request.variableName} = load(${request.fileUri.fsPath})` }),
 		...overrides
@@ -64,15 +65,15 @@ describe('PositronDataImporterRegistry', () => {
 		expect(await registry.getImporters('xlsx')).toEqual([]);
 	});
 
-	it('returns every matching importer in registration order', async () => {
+	it('returns every matching importer sorted by display name', async () => {
 		const registry = createRegistry();
-		const first = makeImporter({ displayName: 'Python (pandas)' });
-		const second = makeImporter({ displayName: 'Python (polars)' });
-		ctx.disposables.add(registry.registerImporter(first));
-		ctx.disposables.add(registry.registerImporter(second));
+		// Registered in reverse alphabetical order, so registration order cannot pass this by chance.
+		for (const displayName of ['R (readr)', 'Python (polars)', 'Python (pandas)']) {
+			ctx.disposables.add(registry.registerImporter(makeImporter({ displayName })));
+		}
 
 		expect((await registry.getImporters('csv')).map(i => i.displayName))
-			.toEqual(['Python (pandas)', 'Python (polars)']);
+			.toEqual(['Python (pandas)', 'Python (polars)', 'R (readr)']);
 	});
 
 	it('drops an importer once its registration is disposed', async () => {
@@ -103,5 +104,21 @@ describe('PositronDataImporterRegistry', () => {
 		});
 
 		expect(result?.code).toBe('flights = load(/data/flights.csv)');
+	});
+
+	it('exposes the importer reserved names to callers, so the dialog can derive a default', async () => {
+		const registry = createRegistry();
+		ctx.disposables.add(registry.registerImporter(makeImporter()));
+
+		const [importer] = await registry.getImporters('csv');
+		expect(importer.reservedNames).toEqual(['class', 'import']);
+	});
+
+	it('accepts an importer that declares no reserved names', async () => {
+		const registry = createRegistry();
+		ctx.disposables.add(registry.registerImporter(makeImporter({ reservedNames: undefined })));
+
+		const [importer] = await registry.getImporters('csv');
+		expect(importer.reservedNames).toBeUndefined();
 	});
 });

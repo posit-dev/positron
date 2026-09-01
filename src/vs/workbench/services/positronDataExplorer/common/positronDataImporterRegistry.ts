@@ -27,6 +27,13 @@ export interface IDataImporterMetadata {
 
 	/** File extensions this importer can read, without a leading dot, e.g. ['csv', 'tsv']. */
 	readonly fileExtensions: readonly string[];
+
+	/**
+	 * Words this importer's language will not let you assign to, e.g. 'class' for Python or 'if'
+	 * for R. Positron suffixes a derived default that collides with one, so an importer that omits
+	 * the list gets 'class = ...' offered for a file named class.csv.
+	 */
+	readonly reservedNames?: readonly string[];
 }
 
 /**
@@ -48,7 +55,11 @@ export interface IDataImportRequest {
 	/** The original file, not the positron-data-explorer URI. */
 	readonly fileUri: URI;
 
-	/** The target variable name, already valid in the importer's language. */
+	/**
+	 * The target variable name. Positron's derived default is always assignable, but the user is
+	 * free to replace it with anything, so an importer should embed this as given rather than
+	 * assume it parses.
+	 */
 	readonly variableName: string;
 
 	/** Format and parsing options. */
@@ -104,7 +115,7 @@ export interface IPositronDataImporterRegistry {
 	registerImporter(importer: IDataImporter): IDisposable;
 
 	/**
-	 * Returns the importers that can read a file extension, in registration order. Activates
+	 * Returns the importers that can read a file extension, sorted by display name. Activates
 	 * contributing extensions first, so a dormant extension's importer is not missed.
 	 * @param fileExtension The extension to match, with or without a leading dot; case-insensitive.
 	 */
