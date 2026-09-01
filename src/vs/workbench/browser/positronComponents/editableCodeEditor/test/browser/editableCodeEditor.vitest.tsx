@@ -13,6 +13,8 @@ import { IUserInteractionService } from '../../../../../../platform/userInteract
 import { UserInteractionService } from '../../../../../../platform/userInteraction/browser/userInteractionServiceImpl.js';
 import { ICodeEditorService } from '../../../../../../editor/browser/services/codeEditorService.js';
 import { EditorOption } from '../../../../../../editor/common/config/editorOptions.js';
+import { ILanguageService } from '../../../../../../editor/common/languages/language.js';
+import { IRuntimeSessionService } from '../../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { EditableCodeEditor, EditableCodeEditorWidget } from '../../editableCodeEditor.js';
 
 describe('EditableCodeEditor', () => {
@@ -34,13 +36,13 @@ describe('EditableCodeEditor', () => {
 		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(260);
 	});
 
-	function renderEditor(ariaLabel?: string) {
+	function renderEditor(ariaLabel?: string, languageId = 'python') {
 		rtl.render(
 			<EditableCodeEditor
 				ref={createRef<EditableCodeEditorWidget>()}
 				ariaLabel={ariaLabel}
 				code='import pandas as pd'
-				languageId='python'
+				languageId={languageId}
 			/>
 		);
 	}
@@ -59,5 +61,33 @@ describe('EditableCodeEditor', () => {
 		// and the browser moves focus to the next control.
 		const editor = ctx.get(ICodeEditorService).listCodeEditors()[0];
 		expect(editor.getOption(EditorOption.tabFocusMode)).toBe(true);
+	});
+
+	it('does not let a preview of a language implicitly start a session for it', () => {
+		// Encountering a language is what Positron reads as a document in that language being
+		// opened, which implicitly starts a session. Record whether implicit startup was suppressed
+		// at the moment the preview's language was encountered, which is the state the startup
+		// heuristic reads.
+		const runtimeSessionService = ctx.get(IRuntimeSessionService);
+		const suppressedWhenEncountered: boolean[] = [];
+		ctx.disposables.add(ctx.get(ILanguageService).onDidRequestRichLanguageFeatures(
+			() => suppressedWhenEncountered.push(runtimeSessionService.implicitStartupSuppressed)
+		));
+
+		renderEditor(undefined, 'r');
+
+		// The language is encountered under suppression, and the suppression does not outlive the
+		// model's creation: leaving it on would silently disable auto-start for the whole window.
+		expect({
+			suppressedWhenEncountered,
+			suppressedAfterwards: runtimeSessionService.implicitStartupSuppressed,
+		}).toMatchInlineSnapshot(`
+			{
+			  "suppressedAfterwards": false,
+			  "suppressedWhenEncountered": [
+			    true,
+			  ],
+			}
+		`);
 	});
 });
