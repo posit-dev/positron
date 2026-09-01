@@ -88,7 +88,7 @@ export interface IRuntimePickerItem {
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
 	$selectLanguageRuntime(runtimeId: string): Promise<void>;
-	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
+	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined, workingDirectory?: string): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
 	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>): Promise<string>;
@@ -109,6 +109,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, executionMetadata?: Record<string, unknown>): Promise<void>;
 	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
 	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined>;
+	$setSessionWorkingDirectory(sessionId: string, directory: string): Promise<void>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
 	$getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<ISerializedConsoleHistoryEntry[]>;

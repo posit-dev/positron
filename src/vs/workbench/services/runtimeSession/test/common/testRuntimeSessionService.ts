@@ -112,6 +112,7 @@ export interface IStartTestLanguageRuntimeSessionOptions {
 	sessionMode?: LanguageRuntimeSessionMode;
 	notebookUri?: URI;
 	startReason?: string;
+	workingDirectory?: string;
 }
 
 export async function startTestLanguageRuntimeSession(
@@ -131,7 +132,8 @@ export async function startTestLanguageRuntimeSession(
 		options?.notebookUri,
 		options?.startReason ?? 'Test requested to start a runtime session',
 		RuntimeStartMode.Starting,
-		true
+		true,
+		{ workingDirectory: options?.workingDirectory },
 	);
 
 	// Get the session.

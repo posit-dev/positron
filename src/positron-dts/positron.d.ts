@@ -1614,6 +1614,14 @@ declare module 'positron' {
 		): Thenable<void> | void;
 
 		/**
+		 * Set the current working directory of the session. Changes the
+		 * directory of the live process without restarting it.
+		 *
+		 * @param dir An absolute path on the machine where the runtime runs
+		 */
+		setWorkingDirectory(dir: string): Thenable<void>;
+
+		/**
 		 * Shut down the runtime; returns a Thenable that resolves when the
 		 * runtime shutdown sequence has been successfully started (not
 		 * necessarily when it has completed).
@@ -1694,11 +1702,6 @@ declare module 'positron' {
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;
-
-		/**
-		 * Set the current working directory of the session.
-		 */
-		setWorkingDirectory(dir: string): Thenable<void>;
 
 		/**
 		 * Start the session; returns a Thenable that resolves with information about the runtime.
@@ -3216,12 +3219,24 @@ declare module 'positron' {
 		 * @param sessionName A human-readable name for the new session.
 		 * @param notebookUri If the session is associated with a notebook,
 		 *   the notebook URI.
+		 * @param workingDirectory An absolute path on the machine where the
+		 *   runtime runs. When omitted, notebooks use the notebook working
+		 *   directory setting and consoles use the runtime's default.
 		 *
 		 * Returns a Thenable that resolves with the newly created session.
 		 */
 		export function startLanguageRuntime(runtimeId: string,
 			sessionName: string,
-			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
+			notebookUri?: vscode.Uri,
+			workingDirectory?: string): Thenable<LanguageRuntimeSession>;
+
+		/**
+		 * Get the current working directory of a session.
+		 *
+		 * @param sessionId The session ID, or undefined for the foreground session
+		 * @returns The working directory, or undefined if not available
+		 */
+		export function getSessionWorkingDirectory(sessionId?: string): Thenable<string | undefined>;
 
 		/**
 		 * Interrupt a running session.

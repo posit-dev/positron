@@ -80,6 +80,7 @@ describe('Positron - RuntimeSessionService', () => {
 		runtime: ILanguageRuntimeMetadata,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri?: URI,
+		workingDirectory?: string,
 	) {
 		return startTestLanguageRuntimeSession(
 			ctx.instantiationService,
@@ -90,6 +91,7 @@ describe('Positron - RuntimeSessionService', () => {
 				startReason,
 				sessionMode,
 				notebookUri,
+				workingDirectory,
 			},
 		);
 	}
@@ -1225,6 +1227,23 @@ describe('Positron - RuntimeSessionService', () => {
 			const session = await startConsole(runtime);
 
 			expect(session.metadata.workingDirectory, 'Working directory should be undefined for console sessions').toBe(undefined);
+		});
+
+		it('an explicitly requested working directory is applied to console sessions', async () => {
+			const workingDir = '/requested/console/directory';
+
+			const session = await startSession(runtime, LanguageRuntimeSessionMode.Console, undefined, workingDir);
+
+			expect(session.metadata.workingDirectory, 'Working directory should be the requested one').toBe(workingDir);
+		});
+
+		it('an explicitly requested working directory takes precedence over the notebook configuration', async () => {
+			configService.setUserConfiguration(NotebookSetting.workingDirectory, '/configured/directory');
+			const workingDir = '/requested/notebook/directory';
+
+			const session = await startSession(runtime, LanguageRuntimeSessionMode.Notebook, notebookUri, workingDir);
+
+			expect(session.metadata.workingDirectory, 'Working directory should be the requested one').toBe(workingDir);
 		});
 
 		it('working directory is default when configuration is empty string', async () => {
