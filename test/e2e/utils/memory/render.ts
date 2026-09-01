@@ -179,10 +179,10 @@ function samplingSummary(snapshots: MemorySnapshot[]): string {
  * appearing extension visible the moment it matters, and the long tail is real
  * (14 extensions under 0.2 MB in a measured heap).
  */
-const EXTENSION_HEAP_FLOOR_BYTES = 1_048_576;
+export const EXTENSION_HEAP_FLOOR_BYTES = 1_048_576;
 
 /** The unattributed remainder's row label, in both report formats. */
-const UNATTRIBUTED_ROW = 'unattributed';
+export const UNATTRIBUTED_ROW = 'unattributed';
 
 /**
  * Magnitude of an extension-row figure. `formatBytes` alone rounds to one MB
