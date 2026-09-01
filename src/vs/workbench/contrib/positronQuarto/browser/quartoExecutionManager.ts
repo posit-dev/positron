@@ -708,24 +708,6 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					throw new Error('Could not get code in range');
 				}
 
-				// Set up timeout
-				const timeoutMs = DEFAULT_EXECUTION_CONFIG.executionTimeout;
-				let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-
-				if (timeoutMs > 0) {
-					timeoutHandle = setTimeout(() => {
-						this._logService.warn(`[QuartoExecutionManager] Execution timeout for cell ${cell.id}`);
-						cts.cancel();
-						deferred.error(new Error('Execution timeout'));
-					}, timeoutMs);
-
-					disposables.add(toDisposable(() => {
-						if (timeoutHandle) {
-							clearTimeout(timeoutHandle);
-						}
-					}));
-				}
-
 				const cancellationPromise = new Promise<void>((_, reject) => {
 					const cancellationListener = cts.token.onCancellationRequested(() => {
 						reject(new Error('Execution cancelled'));
