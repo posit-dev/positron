@@ -249,6 +249,15 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 
 	services.set(IExtensionGalleryManifestService, new ExtensionGalleryManifestIPCService(socketServer, logService, productService));
 	services.set(IMcpGalleryManifestService, new McpGalleryManifestIPCService(socketServer));
+	// --- Start Positron ---
+	// Registered ahead of the gallery service, which depends on it and is instantiated
+	// eagerly below via NativeLanguagePackService.
+	//
+	// The hash is a separate argument rather than a field on the licensee info because that
+	// object goes out to clients over the remote agent channel and the hash has no business
+	// there; it is only ever read back out by the gallery telemetry in this process.
+	services.set(IPositronAcademicLicenseService, new PositronAcademicLicenseService(positronLicenseeInfo?.academic === true, licenseHash));
+	// --- End Positron ---
 	services.set(IExtensionGalleryService, new SyncDescriptor(ExtensionGalleryServiceWithNoStorageService));
 
 	const downloadChannel = socketServer.getChannel('download', router);
@@ -358,10 +367,6 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	services.set(IEphemeralStateService, ephemeralStateService);
 	const idleTrackingService = new PositronIdleTrackingService();
 	services.set(IPositronIdleTrackingService, idleTrackingService);
-	// The hash is a separate argument rather than a field on the licensee info because that
-	// object goes out to clients over the remote agent channel and the hash has no business
-	// there; it is only ever read back out by the gallery telemetry in this process.
-	services.set(IPositronAcademicLicenseService, new PositronAcademicLicenseService(positronLicenseeInfo?.academic === true, licenseHash));
 	// --- End Positron ---
 
 	instantiationService.invokeFunction(accessor => {
