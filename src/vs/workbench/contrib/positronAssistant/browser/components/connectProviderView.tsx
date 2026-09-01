@@ -385,21 +385,6 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 								value={awsRegion}
 								onChange={setAwsRegion}
 							/>
-							{/* Only describes the boxes the user can still fill in. With
-								both editable neither variable is set, so naming them is
-								both accurate and the only place they're discoverable;
-								with one overridden its own note already names it, and
-								repeating the pair here would imply the set one is still
-								a fallback. With neither editable there is nothing to
-								leave blank, so the hint goes away entirely -- the
-								per-field notes carry the whole story. */}
-							{/* {(!awsProfileOverride || !awsRegionOverride) &&
-								<p className='connect-provider-aws-hint'>
-									{!awsProfileOverride && !awsRegionOverride
-										? localize('positron.connectProvider.awsHint', "Leave blank to use the AWS_PROFILE and AWS_REGION environment variables, or your AWS defaults.")
-										: localize('positron.connectProvider.awsHintDefaults', "Leave blank to use your AWS defaults.")}
-								</p>
-							} */}
 						</div>
 					}
 					{supportsCustomModels &&
