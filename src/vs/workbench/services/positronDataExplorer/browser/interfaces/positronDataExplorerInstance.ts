@@ -10,6 +10,7 @@ import { DataExplorerClientInstance } from '../../../languageRuntime/common/lang
 import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
 import { PositronDataExplorerLayout } from './positronDataExplorerService.js';
 import { CodeSyntaxName } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import { IDataImportView } from '../../common/positronDataImporterRegistry.js';
 
 /**
  * IPositronDataExplorerInstance interface.
@@ -146,6 +147,20 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * currently selected worksheet. Only applicable for files opened with DuckDB.
 	 */
 	toggleFileHasHeaderRow(): Promise<void>;
+
+	/**
+	 * Whether this Data Explorer is backed by a file on disk (the DuckDB extension backend)
+	 * rather than a kernel object. File-backed explorers offer Import Data; kernel-backed
+	 * explorers offer Convert to Code.
+	 */
+	readonly isFileBacked: boolean;
+
+	/**
+	 * Builds the Import Data view of this explorer's current filters and sorts, with sort-key
+	 * column indexes resolved to names. Undefined when the view is empty (nothing beyond the raw
+	 * file) or the backend state has not arrived yet.
+	 */
+	getImportView(): Promise<IDataImportView | undefined>;
 
 	/**
 	 * Gets whether file options are supported (i.e., this is a DuckDB-backed file).

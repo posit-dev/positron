@@ -24,7 +24,7 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 
@@ -133,6 +133,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the file has header row context key.
 	 */
 	private readonly _fileHasHeaderRowContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the is file backed context key.
+	 */
+	private readonly _isFileBackedContextKey: IContextKey<boolean>;
 
 	/**
 	 * The onSizeChanged event emitter.
@@ -289,6 +294,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._fileHasHeaderRowContextKey = POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW.bindTo(
 			this._group.scopedContextKeyService
 		);
+		this._isFileBackedContextKey = POSITRON_DATA_EXPLORER_IS_FILE_BACKED.bindTo(
+			this._group.scopedContextKeyService
+		);
 
 		// Create a focus tracker that updates the positronDataExplorerFocused context key.
 		const focusTracker = this._register(DOM.trackFocus(this._positronDataExplorerContainer));
@@ -380,6 +388,8 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 						!!(convertToCode.code_syntaxes && convertToCode.code_syntaxes.length > 0)
 					);
 				});
+
+				this._isFileBackedContextKey.set(positronDataExplorerInstance.isFileBacked);
 
 				// Set the context keys.
 				this._layoutContextKey.set(

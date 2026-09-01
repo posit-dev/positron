@@ -78,6 +78,50 @@ test.describe('Data Explorer - Import Data', {
 		await dataExplorer.importDataModal.expectCodeToContain('small_file');
 		await dataExplorer.importDataModal.clickCancel();
 	});
+
+	test('Python Pandas - Verify filters and sorts carry into the imported dataframe', async function ({ app, openDataFile, python }) {
+		const { dataExplorer, editorActionBar, variables } = app.workbench;
+
+		await openDataFile(join('data-files', 'small_file.csv'));
+		await dataExplorer.waitForIdle();
+
+		// The view to reproduce: column0 > 40 keeps 5 of the 10 rows, plus a descending sort.
+		await dataExplorer.filters.add({ columnName: 'column0', condition: 'is greater than', value: '40' });
+		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
+
+		// With a filter and sort applied, the retired Convert to Code button must not return.
+		await editorActionBar.verifyButtonVisible('Convert to Code', false);
+
+		await dataExplorer.editorActionBar.clickButton('Import Data');
+		await dataExplorer.importDataModal.expectToBeVisible();
+		await dataExplorer.importDataModal.setIncludeFiltersAndSorts(true);
+
+		// The sort line proves the view reached the generator, and ascending=False proves the
+		// descending direction survived; the row count below proves the filter executed. (Code
+		// assertions avoid spaces: Monaco renders them as NBSP.)
+		await dataExplorer.importDataModal.expectCodeToContain('sort_values');
+		await dataExplorer.importDataModal.expectCodeToContain('ascending=False');
+
+		await dataExplorer.importDataModal.clickImport();
+
+		// 5 of the 10 data rows survive the column0 > 40 filter.
+		await variables.expectVariableToBe('small_file', /5 rows/);
+	});
+
+	test('Kernel-backed explorer - Verify Convert to Code shows and Import Data does not', async function ({ app, executeCode, python }) {
+		const { dataExplorer, editorActionBar, variables } = app.workbench;
+
+		await executeCode('Python', 'import pandas as pd\ndf = pd.DataFrame({"a": [3, 1, 2]})');
+		await variables.doubleClickVariableRow('df');
+		await dataExplorer.waitForIdle();
+
+		// Convert to Code requires a sort or filter; sorting also proves the button's own
+		// precondition is met, so its visibility isolates the file-backed gating.
+		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
+
+		await editorActionBar.verifyButtonVisible('Convert to Code', true);
+		await editorActionBar.verifyButtonVisible('Import Data', false);
+	});
 });
 
 // Electron only, with no WEB tag: right-clicking a file row in the Explorer tree opens no

@@ -17,6 +17,8 @@ import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerSer
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
+import { buildDataImportView } from '../common/positronDataImportView.js';
+import { IDataImportView } from '../common/positronDataImporterRegistry.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
 import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardRowIndexes } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
@@ -470,6 +472,21 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Builds the Import Data view of the current filters and sorts. See the interface JSDoc.
+	 */
+	async getImportView(): Promise<IDataImportView | undefined> {
+		// Waits for tasks already in flight, so a filter or sort the user applied a moment before
+		// opening the dialog is in the view rather than one state behind it. This is a cache read
+		// unless there is a pending task, and it answers with the disconnected state (no filters,
+		// no sorts, so no checkbox) rather than throwing if the backend is gone.
+		const state = await this._dataExplorerClientInstance.getBackendState(true);
+		return buildDataImportView(
+			state,
+			columnIndices => this._dataExplorerClientInstance.getSchema(columnIndices)
+		);
+	}
+
+	/**
 	 * Applies file import options (header row and, for Excel workbooks, the
 	 * worksheet to read) and reloads the data. Only applicable for files opened
 	 * with the DuckDB backend. Options are sent together because the backend
@@ -480,7 +497,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		const backendClient = this._dataExplorerClientInstance.backendClient;
 
 		// Check if this is a DuckDB backend
-		if (!backendClient.clientId.startsWith('duckdb:')) {
+		if (!this.isFileBacked) {
 			this._services.notificationService.warn(
 				localize(
 					'positron.dataExplorer.fileOptions.notDuckDB',
@@ -613,10 +630,18 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	readonly onDidChangeColumnSorting = this._onDidChangeColumnSortingEmitter.event;
 
 	/**
+	 * Gets whether this Data Explorer is backed by a file on disk (the DuckDB extension
+	 * backend) rather than a kernel object.
+	 */
+	get isFileBacked() {
+		return this._dataExplorerClientInstance.backendClient.clientId.startsWith('duckdb:');
+	}
+
+	/**
 	 * Gets whether file options are supported (i.e., this is a DuckDB-backed CSV/TSV file).
 	 */
 	get supportsFileOptions() {
-		return this._dataExplorerClientInstance.backendClient.clientId.startsWith('duckdb:');
+		return this.isFileBacked;
 	}
 
 	/**

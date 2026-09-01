@@ -3635,6 +3635,89 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A column sort from the Data Explorer view. The column is named rather than indexed, because
+	 * the generated code operates on the loaded dataframe, where names are the only stable handle.
+	 */
+	export interface DataImportSortKey {
+		/** The name of the column to sort by. */
+		columnName: string;
+
+		/** Sort order: ascending (true) or descending (false). */
+		ascending: boolean;
+	}
+
+	/** The fields every row filter carries, whatever its type. */
+	export interface DataImportRowFilterBase {
+		/** The name of the column the filter applies to. */
+		columnName: string;
+
+		/** The column's canonical Positron display type, e.g. 'integer', 'string', 'boolean'. */
+		columnType: string;
+
+		/** How this filter combines with the one before it. Ignored on the first filter. */
+		condition: 'and' | 'or';
+	}
+
+	/** Keeps rows where the column's value falls inside (or, for not_between, outside) a range. */
+	export interface DataImportBetweenFilter extends DataImportRowFilterBase {
+		filterType: 'between' | 'not_between';
+		/** The lower limit, as a stringified column value. */
+		leftValue: string;
+		/** The upper limit, as a stringified column value. */
+		rightValue: string;
+	}
+
+	/** Keeps rows satisfying a binary comparison against one value. */
+	export interface DataImportCompareFilter extends DataImportRowFilterBase {
+		filterType: 'compare';
+		op: '=' | '!=' | '<' | '<=' | '>' | '>=';
+		/** The comparison value, as a stringified column value. */
+		value: string;
+	}
+
+	/** Keeps rows whose text matches a search term. */
+	export interface DataImportSearchFilter extends DataImportRowFilterBase {
+		filterType: 'search';
+		searchType: 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'regex_match';
+		term: string;
+		caseSensitive: boolean;
+	}
+
+	/** Keeps rows whose value is in (or, when not inclusive, not in) a set. */
+	export interface DataImportSetMembershipFilter extends DataImportRowFilterBase {
+		filterType: 'set_membership';
+		/** The set members, as stringified column values. */
+		values: string[];
+		inclusive: boolean;
+	}
+
+	/** A row filter that needs no parameters beyond its type. */
+	export interface DataImportUnaryFilter extends DataImportRowFilterBase {
+		filterType: 'is_null' | 'not_null' | 'is_empty' | 'not_empty' | 'is_true' | 'is_false';
+	}
+
+	/**
+	 * One row filter from the Data Explorer view, discriminated on filterType so a generator can
+	 * switch over it exhaustively and route any type it cannot translate to `unsupported`.
+	 */
+	export type DataImportRowFilter =
+		| DataImportBetweenFilter
+		| DataImportCompareFilter
+		| DataImportSearchFilter
+		| DataImportSetMembershipFilter
+		| DataImportUnaryFilter;
+
+	/**
+	 * The Data Explorer view at the moment the dialog opened: what the user is looking at beyond
+	 * the raw file. Row filters marked invalid by the backend are excluded, because they are not
+	 * applied to the on-screen data either.
+	 */
+	export interface DataImportView {
+		rowFilters: DataImportRowFilter[];
+		sortKeys: DataImportSortKey[];
+	}
+
+	/**
 	 * A request to generate the code that loads one file into one variable.
 	 */
 	export interface DataImportRequest {
@@ -3652,6 +3735,13 @@ declare module 'positron' {
 
 		/** Format and parsing options. */
 		options: DataImportOptions;
+
+		/**
+		 * The Data Explorer view to reproduce (row filters and sorts), present
+		 * only when the user asked to include the current filters and sorts. Anything the importer
+		 * cannot translate belongs in the result's `unsupported` list, never dropped silently.
+		 */
+		view?: DataImportView;
 	}
 
 	/**

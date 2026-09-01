@@ -18,7 +18,7 @@ import { PositronModalReactRenderer } from '../../../../../base/browser/positron
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
-import { IDataImporter, IDataImportRequest, IDataImportResult } from '../../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
+import { IDataImporter, IDataImportRequest, IDataImportResult, IDataImportView } from '../../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { ImportDataModalDialog } from '../../importDataModalDialog.js';
 
 describe('ImportDataModalDialog', () => {
@@ -73,7 +73,17 @@ describe('ImportDataModalDialog', () => {
 			&& pattern.test((element?.textContent ?? '').replace(/\u00A0/g, ' '));
 	}
 
-	function renderDialog(importers: readonly IDataImporter[], preferredLanguageId?: string, uri: URI = fileUri) {
+	const sortOnlyView: IDataImportView = {
+		rowFilters: [],
+		sortKeys: [{ columnName: 'dep_delay', ascending: false }],
+	};
+
+	function renderDialog(
+		importers: readonly IDataImporter[],
+		preferredLanguageId?: string,
+		uri: URI = fileUri,
+		view?: IDataImportView
+	) {
 		rtl.render(
 			<ImportDataModalDialog
 				fileUri={uri}
@@ -81,6 +91,7 @@ describe('ImportDataModalDialog', () => {
 				options={{ hasHeaderRow: true }}
 				preferredLanguageId={preferredLanguageId}
 				renderer={renderer}
+				view={view}
 			/>
 		);
 	}
@@ -245,6 +256,66 @@ describe('ImportDataModalDialog', () => {
 
 		expect(await screen.findByRole('alert')).toHaveTextContent('Python (pandas) did not generate import code for this file.');
 		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
+	});
+
+	it('shows no filters-and-sorts checkbox when the view is empty', async () => {
+		renderDialog([createImporter()]);
+
+		expect(await screen.findByText(codeTextMatching(/pd\.read_csv/))).toBeInTheDocument();
+		expect(screen.queryByRole('checkbox', { name: 'Include current filters and sorts (experimental)' })).not.toBeInTheDocument();
+	});
+
+	it('offers the checkbox unchecked and generates without the view by default', async () => {
+		const requests: IDataImportRequest[] = [];
+		const importer = createImporter({
+			generateCode: async (request: IDataImportRequest) => {
+				requests.push(request);
+				return { code: `${request.variableName} = pd.read_csv(...)\n` };
+			},
+		});
+		renderDialog([importer], undefined, fileUri, sortOnlyView);
+
+		expect(await screen.findByRole('checkbox', { name: 'Include current filters and sorts (experimental)' })).not.toBeChecked();
+		expect(await screen.findByText(codeTextMatching(/pd\.read_csv/))).toBeInTheDocument();
+		expect(requests.at(-1)?.view).toBeUndefined();
+	});
+
+	it('includes the view in generation while checked and drops it when unchecked again', async () => {
+		const user = userEvent.setup();
+		const requests: IDataImportRequest[] = [];
+		const importer = createImporter({
+			generateCode: async (request: IDataImportRequest) => {
+				requests.push(request);
+				return { code: `x = ${requests.length}\n` };
+			},
+		});
+		renderDialog([importer], undefined, fileUri, sortOnlyView);
+		const checkbox = await screen.findByRole('checkbox', { name: 'Include current filters and sorts (experimental)' });
+
+		await user.click(checkbox);
+		expect(await screen.findByText(codeTextMatching(/x = 2/))).toBeInTheDocument();
+		expect(requests.at(-1)?.view).toEqual(sortOnlyView);
+
+		await user.click(checkbox);
+		expect(await screen.findByText(codeTextMatching(/x = 3/))).toBeInTheDocument();
+		expect(requests.at(-1)?.view).toBeUndefined();
+	});
+
+	it('warns about anything the importer reported as unsupported', async () => {
+		const user = userEvent.setup();
+		const importer = createImporter({
+			generateCode: async () => ({
+				code: 'x = 1\n',
+				unsupported: ['filter on "carrier" (regex_match)'],
+			}),
+		});
+		renderDialog([importer], undefined, fileUri, sortOnlyView);
+
+		await user.click(await screen.findByRole('checkbox', { name: 'Include current filters and sorts (experimental)' }));
+
+		expect(await screen.findByRole('alert')).toHaveTextContent(
+			'Not included in the generated code: filter on "carrier" (regex_match)'
+		);
 	});
 
 	it('shows an empty state when no importer can read the file', () => {

@@ -15,7 +15,7 @@ suite('generateReadrImportCode', () => {
 				filePath: '/Users/austin/data/flights.csv',
 				variableName: 'flights',
 				hasHeaderRow: true,
-			}),
+			}).code,
 			[
 				'library(readr)',
 				'',
@@ -27,24 +27,194 @@ suite('generateReadrImportCode', () => {
 	});
 
 	test('uses read_tsv for a tab-separated file', () => {
-		const code = generateReadrImportCode({ filePath: '/data/flights.tsv', variableName: 'flights' });
+		const code = generateReadrImportCode({ filePath: '/data/flights.tsv', variableName: 'flights' }).code;
 		assert.ok(code.includes('flights <- read_tsv("/data/flights.tsv")'));
 		assert.ok(!code.includes('read_csv'));
 	});
 
 	test('adds col_names = FALSE when the header row is off', () => {
-		const code = generateReadrImportCode({ filePath: '/data/flights.csv', variableName: 'flights', hasHeaderRow: false });
+		const code = generateReadrImportCode({ filePath: '/data/flights.csv', variableName: 'flights', hasHeaderRow: false }).code;
 		assert.ok(code.includes('read_csv("/data/flights.csv", col_names = FALSE)'));
 	});
 
 	test('treats an absent hasHeaderRow as a header row', () => {
-		const code = generateReadrImportCode({ filePath: '/data/flights.csv', variableName: 'flights' });
+		const code = generateReadrImportCode({ filePath: '/data/flights.csv', variableName: 'flights' }).code;
 		assert.ok(!code.includes('col_names'));
 	});
 
 	test('escapes Windows backslashes and quotes in the path', () => {
-		const code = generateReadrImportCode({ filePath: 'C:\\data\\a"b.csv', variableName: 'x' });
+		const code = generateReadrImportCode({ filePath: 'C:\\data\\a"b.csv', variableName: 'x' }).code;
 		assert.ok(code.includes('read_csv("C:\\\\data\\\\a\\"b.csv")'));
+	});
+});
+
+suite('generateReadrImportCode view translation', () => {
+	const base = {
+		filePath: '/data/flights.csv',
+		variableName: 'flights',
+		hasHeaderRow: true,
+	};
+	const emptyView = { rowFilters: [], sortKeys: [] };
+
+	test('translates a compare filter and a descending sort with dplyr', () => {
+		const result = generateReadrImportCode({
+			...base,
+			view: {
+				...emptyView,
+				rowFilters: [{
+					columnName: 'carrier', columnType: 'string', condition: 'and' as const,
+					filterType: 'compare' as const, op: '=' as const, value: 'UA',
+				}],
+				sortKeys: [{ columnName: 'dep_delay', ascending: false }],
+			},
+		});
+
+		assert.deepStrictEqual(result.unsupported, []);
+		assert.strictEqual(
+			result.code,
+			[
+				'library(readr)',
+				'library(dplyr)',
+				'',
+				'# Load flights data',
+				'flights <- read_csv("/data/flights.csv")',
+				'',
+				'# Filter and sort as shown in the Data Explorer',
+				'flights <- flights |>',
+				'  filter(carrier == "UA") |>',
+				'  arrange(desc(dep_delay))',
+				'',
+			].join('\n')
+		);
+	});
+
+	test('joins filters with & and | per each filter\'s condition and translates the type variants', () => {
+		const result = generateReadrImportCode({
+			...base,
+			view: {
+				...emptyView,
+				rowFilters: [
+					{
+						columnName: 'dep_delay', columnType: 'integer', condition: 'and' as const,
+						filterType: 'between' as const, leftValue: '10', rightValue: '60',
+					},
+					{
+						columnName: 'carrier', columnType: 'string', condition: 'or' as const,
+						filterType: 'set_membership' as const, values: ['UA', 'AA'], inclusive: false,
+					},
+					{
+						columnName: 'name', columnType: 'string', condition: 'and' as const,
+						filterType: 'search' as const, searchType: 'contains' as const,
+						term: 'Mc', caseSensitive: false,
+					},
+					{
+						columnName: 'note', columnType: 'string', condition: 'and' as const,
+						filterType: 'not_null' as const,
+					},
+				],
+			},
+		});
+
+		assert.deepStrictEqual(result.unsupported, []);
+		assert.ok(result.code.includes(
+			'filter(between(dep_delay, 10, 60)'
+			+ ' | (!is.na(carrier) & !(carrier %in% c("UA", "AA")))'
+			+ ' & grepl("mc", tolower(name), fixed = TRUE)'
+			+ ' & !is.na(note))'
+		));
+	});
+
+	test('excludes NA rows from a negated text search, as the backend does', () => {
+		const result = generateReadrImportCode({
+			...base,
+			view: {
+				...emptyView,
+				rowFilters: [{
+					columnName: 'note', columnType: 'string', condition: 'and' as const,
+					filterType: 'search' as const, searchType: 'not_contains' as const,
+					term: 'delay', caseSensitive: true,
+				}],
+			},
+		});
+
+		assert.deepStrictEqual(result.unsupported, []);
+		assert.ok(result.code.includes(
+			'filter((!is.na(note) & !grepl("delay", note, fixed = TRUE)))'
+		));
+	});
+
+	test('backticks a non-syntactic column name', () => {
+		const result = generateReadrImportCode({
+			...base,
+			view: {
+				...emptyView,
+				sortKeys: [{ columnName: 'dep delay', ascending: true }],
+			},
+		});
+
+		assert.ok(result.code.includes('arrange(`dep delay`)'));
+	});
+
+	test('backticks a dotted name followed by a digit, which R does not accept bare', () => {
+		const result = generateReadrImportCode({
+			...base,
+			view: {
+				...emptyView,
+				sortKeys: [
+					{ columnName: '.2foo', ascending: true },
+					{ columnName: '.foo', ascending: true },
+				],
+			},
+		});
+
+		assert.ok(result.code.includes('arrange(`.2foo`, .foo)'));
+	});
+
+	test('reports an untypeable value as unsupported', () => {
+		const result = generateReadrImportCode({
+			...base,
+			view: {
+				...emptyView,
+				rowFilters: [{
+					columnName: 'dep_delay', columnType: 'integer', condition: 'and' as const,
+					filterType: 'compare' as const, op: '>' as const, value: 'thirty',
+				}],
+			},
+		});
+
+		assert.deepStrictEqual(result.unsupported, ['filter on "dep_delay" (compare)']);
+		assert.ok(!result.code.includes('filter('));
+	});
+
+	test('reports a compare filter on a non-string, non-numeric, non-boolean column type as unsupported', () => {
+		const result = generateReadrImportCode({
+			...base,
+			view: {
+				...emptyView,
+				rowFilters: [{
+					columnName: 'flight_date', columnType: 'date', condition: 'and' as const,
+					filterType: 'compare' as const, op: '>' as const, value: '2024-01-01',
+				}],
+			},
+		});
+
+		assert.deepStrictEqual(result.unsupported, ['filter on "flight_date" (compare)']);
+		assert.ok(!result.code.includes('2024-01-01'));
+	});
+
+	test('reports the whole view as unsupported when the file has no header row', () => {
+		const result = generateReadrImportCode({
+			...base,
+			hasHeaderRow: false,
+			view: {
+				...emptyView,
+				sortKeys: [{ columnName: 'column0', ascending: true }],
+			},
+		});
+
+		assert.strictEqual(result.unsupported.length, 1);
+		assert.ok(result.unsupported[0].includes('header'));
+		assert.ok(!result.code.includes('arrange'));
 	});
 });
 
