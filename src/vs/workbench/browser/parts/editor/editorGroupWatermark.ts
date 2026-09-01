@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { $, append, clearNode, h } from '../../../../base/browser/dom.js';
+import { $, addDisposableListener, append, clearNode, h } from '../../../../base/browser/dom.js';
 import { KeybindingLabel } from '../../../../base/browser/ui/keybindingLabel/keybindingLabel.js';
 import { coalesce, shuffle } from '../../../../base/common/arrays.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -11,7 +11,10 @@ import { isMacintosh, isWeb, OS } from '../../../../base/common/platform.js';
 import { localize } from '../../../../nls.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { HiddenItemStrategy, MenuWorkbenchToolBar } from '../../../../platform/actions/browser/toolbar.js';
-import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+// --- Start Positron ---
+// import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+// --- End Positron ---
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr, ContextKeyExpression, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -19,6 +22,13 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from '../../../../platform/storage/common/storage.js';
 import { defaultKeybindingLabelStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
+// --- Start Positron ---
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+// --- End Positron ---
 
 interface WatermarkEntry {
 	readonly id: string;
@@ -89,6 +99,9 @@ export class EditorGroupWatermark extends Disposable {
 
 	private readonly shortcuts: HTMLElement;
 	private readonly toolbarContainer: HTMLElement;
+	// --- Start Positron ---
+	private readonly watermarkActions: HTMLElement;
+	// --- End Positron ---
 	private readonly transientDisposables = this._register(new DisposableStore());
 	private readonly keybindingLabels = this._register(new DisposableStore());
 
@@ -102,7 +115,12 @@ export class EditorGroupWatermark extends Disposable {
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IStorageService private readonly storageService: IStorageService,
-		@IInstantiationService private readonly instantiationService: IInstantiationService
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		// --- Start Positron ---
+		@ICommandService private readonly commandService: ICommandService,
+		@IOpenerService private readonly openerService: IOpenerService,
+		@IPositronDocsService private readonly docsService: IPositronDocsService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -114,6 +132,9 @@ export class EditorGroupWatermark extends Disposable {
 			h('.editor-group-watermark', [
 				h('.watermark-container', [
 					h('.letterpress'),
+					// --- Start Positron ---
+					h('.watermark-actions@watermarkActions'),
+					// --- End Positron ---
 					h('.shortcuts@shortcuts'),
 				])
 			])
@@ -122,6 +143,9 @@ export class EditorGroupWatermark extends Disposable {
 		append(container, elements.root);
 		this.shortcuts = elements.shortcuts;
 		this.toolbarContainer = elements.toolbarContainer;
+		// --- Start Positron ---
+		this.watermarkActions = elements.watermarkActions;
+		// --- End Positron ---
 
 		this._register(this.instantiationService.createInstance(MenuWorkbenchToolBar, this.toolbarContainer, MenuId.EditorGroupWatermarkToolbar, {
 			hiddenItemStrategy: HiddenItemStrategy.NoHide,
@@ -166,15 +190,57 @@ export class EditorGroupWatermark extends Disposable {
 		}));
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Renders the Positron action buttons shown above the keyboard shortcuts.
+	 */
+	private renderPositronActions(): void {
+		const viewDocsButton = this.createActionButton(Codicon.linkExternal, localize('positron.watermark.viewDocumentation', "View Documentation"));
+		this.transientDisposables.add(addDisposableListener(viewDocsButton, 'click', async () => {
+			await this.openerService.open(URI.parse(this.docsService.baseUrl));
+		}));
+
+		const releaseNotesButton = this.createActionButton(Codicon.megaphone, localize('positron.watermark.releaseNotes', "Release Notes"));
+		this.transientDisposables.add(addDisposableListener(releaseNotesButton, 'click', async () => {
+			try {
+				// Command id kept as a literal because workbench/browser code cannot
+				// import from workbench/contrib; matches ShowCurrentReleaseNotesActionId
+				// in vs/workbench/contrib/update/common/update.ts.
+				await this.commandService.executeCommand('update.showCurrentReleaseNotes');
+			} catch {
+				// The command fetches the notes for this version and throws if
+				// that fails, and it is not registered at all on builds without
+				// a releaseNotesUrl. Open the hosted page instead.
+				await this.openerService.open(URI.parse(this.docsService.getUrl('release-notes.html')));
+			}
+		}));
+	}
+
+	private createActionButton(icon: ThemeIcon, label: string): HTMLElement {
+		const button = append(this.watermarkActions, $('button.watermark-action'));
+		append(button, $(`span.watermark-action-icon${ThemeIcon.asCSSSelector(icon)}`));
+		const labelElement = append(button, $('span.watermark-action-label'));
+		labelElement.textContent = label;
+		return button;
+	}
+	// --- End Positron ---
+
 	private render(): void {
 		this.enabled = this.configurationService.getValue<boolean>(EditorGroupWatermark.SETTINGS_KEY);
 
 		clearNode(this.shortcuts);
+		// --- Start Positron ---
+		clearNode(this.watermarkActions);
+		// --- End Positron ---
 		this.transientDisposables.clear();
 
 		if (!this.enabled) {
 			return;
 		}
+
+		// --- Start Positron ---
+		this.renderPositronActions();
+		// --- End Positron ---
 
 		const entries = this.filterEntries(this.workbenchState !== WorkbenchState.EMPTY ? workspaceEntries : emptyWindowEntries);
 		if (entries.length < EditorGroupWatermark.MINIMUM_ENTRIES) {
