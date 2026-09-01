@@ -274,6 +274,19 @@ function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemorySce
 		return undefined;
 	}
 
+	// Kept per launch, not just as medians: a summed row's run-to-run spread has to
+	// be measured on the sums, and the parts peak in different launches.
+	const launchTotals = new Map<MemoryScenario, Map<string, number>[]>();
+	for (const { scenario, snapshots } of entries) {
+		launchTotals.set(scenario, snapshots.map(extensionTotals).filter(totals => totals.size > 0));
+	}
+	/** Run-to-run spread of `extensionIds` summed together, which is not the sum of their spreads. */
+	const spreadOfSum = (scenario: MemoryScenario, extensionIds: string[]): number => {
+		const sums = (launchTotals.get(scenario) ?? [])
+			.map(totals => extensionIds.reduce((sum, id) => sum + (totals.get(id) ?? 0), 0));
+		return sums.length > 0 ? Math.max(...sums) - Math.min(...sums) : 0;
+	};
+
 	const idle = statsByScenario.get('idle');
 	// An extension missing from idle retained nothing there rather than having no
 	// baseline to measure from, so its delta is the whole value: that is the number
@@ -314,13 +327,19 @@ function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemorySce
 		const values: Partial<Record<MemoryScenario, number>> = {};
 		const deltaVsIdle: Partial<Record<MemoryScenario, number>> = {};
 		const sumFor = (scenario: MemoryScenario) => collapsed.reduce((sum, e) => sum + (statsByScenario.get(scenario)!.medians.get(e) ?? 0), 0);
+		// Left without a threshold this row could never render a delta at all, so a
+		// tail that grew past the floor stayed silent while the legend promised
+		// otherwise. It is a real aggregate and is judged like any other row.
+		const threshold: Partial<Record<MemoryScenario, number>> = {};
 		for (const scenario of scenarios) {
 			values[scenario] = sumFor(scenario);
+			threshold[scenario] = Math.max(
+				MIN_EXTENSION_EMPHASIS_BYTES, spreadOfSum('idle', collapsed), spreadOfSum(scenario, collapsed));
 			if (scenario !== 'idle' && idleAttributed) {
 				deltaVsIdle[scenario] = sumFor(scenario) - sumFor('idle');
 			}
 		}
-		rows.push({ extensionId: `(${collapsed.length} others)`, values, deltaVsIdle, emphasisThreshold: {} });
+		rows.push({ extensionId: `(${collapsed.length} others)`, values, deltaVsIdle, emphasisThreshold: threshold });
 	}
 	if (extensions.has(UNATTRIBUTED_ROW)) {
 		rows.push(buildRow(UNATTRIBUTED_ROW));
@@ -333,14 +352,7 @@ function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemorySce
 	const totals: Partial<Record<MemoryScenario, number>> = {};
 	const totalDeltaVsIdle: Partial<Record<MemoryScenario, number>> = {};
 	const totalEmphasisThreshold: Partial<Record<MemoryScenario, number>> = {};
-	// Judged against the spread of the whole heap, not the sum of the per-extension
-	// spreads: those peak in different launches, so adding them overstates the noise.
-	const totalSpread = new Map<MemoryScenario, number>();
-	for (const { scenario, snapshots } of entries) {
-		const perLaunch = snapshots.map(extensionTotals).filter(t => t.size > 0)
-			.map(t => [...t.values()].reduce((sum, bytes) => sum + bytes, 0));
-		totalSpread.set(scenario, perLaunch.length > 0 ? Math.max(...perLaunch) - Math.min(...perLaunch) : 0);
-	}
+	const everyExtension = [...extensions];
 	const sumOfRows = (scenario: MemoryScenario) => rows.reduce((sum, row) => sum + (row.values[scenario] ?? 0), 0);
 	for (const scenario of scenarios) {
 		if (statsByScenario.get(scenario)!.medians.size === 0) {
@@ -348,7 +360,7 @@ function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemorySce
 		}
 		totals[scenario] = sumOfRows(scenario);
 		totalEmphasisThreshold[scenario] = Math.max(
-			MIN_EXTENSION_EMPHASIS_BYTES, totalSpread.get('idle') ?? 0, totalSpread.get(scenario) ?? 0);
+			MIN_EXTENSION_EMPHASIS_BYTES, spreadOfSum('idle', everyExtension), spreadOfSum(scenario, everyExtension));
 		if (scenario !== 'idle' && idleAttributed) {
 			totalDeltaVsIdle[scenario] = totals[scenario]! - sumOfRows('idle');
 		}

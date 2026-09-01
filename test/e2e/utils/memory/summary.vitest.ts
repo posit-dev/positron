@@ -15,6 +15,9 @@ import { MemoryLane } from './lanes.js';
 
 const MB = 1024 * 1024;
 
+/** The extension table's emphasis floor, mirrored from `summary.ts`. */
+const MIN_EXTENSION_EMPHASIS_MB = 1;
+
 const proc = (overrides: Partial<LabeledProcess> = {}): LabeledProcess => ({
 	pid: 100, ppid: 1, depth: 0, processName: 'positron', processRole: 'main',
 	labeled: true, cmdBasename: 'positron', pssBytes: 100 * MB, rssBytes: 200 * MB,
@@ -154,6 +157,20 @@ describe('extension matrix', () => {
 		expect(matrix.extensions?.collapsed).toBe(2);
 		const others = matrix.extensions!.rows.find(r => r.extensionId.startsWith('('))!;
 		expect(others.values.idle).toBeCloseTo(0.3 * MB, 0);
+	});
+
+	test('the collapsed tail can carry a delta like any other row', () => {
+		const tiny = (mb: number): [string, number][] => [['t.one', mb], ['t.two', mb], ['t.three', mb]];
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40], ...tiny(0.2)], 100)),
+			heapEntry('editors', heap([['a.big', 40], ...tiny(0.7)], 100))
+		]);
+
+		// Built with no threshold at all, this row could never render a delta, so a
+		// tail that grew past the floor stayed blank while every other row moved.
+		const others = matrix.extensions!.rows.find(r => r.extensionId.startsWith('('))!;
+		expect(others.deltaVsIdle.editors).toBeCloseTo(1.5 * MB, 0);
+		expect(others.emphasisThreshold.editors).toBe(MIN_EXTENSION_EMPHASIS_MB * MB);
 	});
 
 	test('an extension over the floor in one scenario stays its own row in all of them', () => {
