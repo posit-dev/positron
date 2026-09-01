@@ -21,8 +21,15 @@ import { onDidDiscoverTestFiles } from './testing/testing';
 import { getEnvironmentHealth, logErrorTo } from './environmentHealth';
 import { LOGGER } from './extension.js';
 import { printInterpreterSettingsInfo } from './interpreter-settings.js';
+import { UnsavedScriptFiles } from './unsavedScripts';
+
+/** Backs the "run file" gesture for unsaved (untitled) R scripts. */
+let unsavedScripts: UnsavedScriptFiles;
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
+
+	unsavedScripts = new UnsavedScriptFiles();
+	context.subscriptions.push(unsavedScripts);
 
 	context.subscriptions.push(
 
@@ -471,31 +478,77 @@ export async function getEditorFilePathForCommand(resource?: vscode.Uri) {
 	return;
 }
 
+/** Resolves the document targeted by a run command, from a URI or the active editor. */
+function targetDocument(resource?: vscode.Uri): vscode.TextDocument | undefined {
+	if (resource) {
+		return vscode.workspace.textDocuments.find(d => d.uri.toString() === resource.toString());
+	}
+	return vscode.window.activeTextEditor?.document;
+}
+
 async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
+	let onFinished: (() => void) | undefined;
 	try {
-		const filePath = await getEditorFilePathForCommand(resource);
-		// In the future, we may want to shorten the path by making it
-		// relative to the current working directory.
+		const document = targetDocument(resource);
+
+		// Unsaved (untitled) buffers are written to a scratch file so they can
+		// be sourced without prompting the user to save first. The scratch file
+		// is cleaned up once the run finishes.
+		let filePath: string | undefined;
+		if (document?.isUntitled) {
+			filePath = await unsavedScripts.write(document);
+			// Guard so the scratch file's in-flight count is decremented
+			// once, whether cleanup is driven by the observer or the catch
+			// below.
+			let finished = false;
+			onFinished = () => {
+				if (finished) {
+					return;
+				}
+				finished = true;
+				void unsavedScripts.finished(filePath!);
+			};
+		} else {
+			filePath = await getEditorFilePathForCommand(resource);
+		}
+
 		if (filePath) {
+			const uri = vscode.Uri.file(filePath);
+
 			// Offer to install missing packages before sourcing the file. The
 			// preflight runs in the Positron frontend and returns whether to
 			// proceed (false only if the user cancels).
-			const uri = resource ?? vscode.window.activeTextEditor?.document.uri;
-			if (uri) {
-				const shouldRun = await vscode.commands.executeCommand<boolean>(
-					'positron.missingPackages.preflight', uri);
-				if (shouldRun === false) {
-					return;
-				}
+			const shouldRun = await vscode.commands.executeCommand<boolean>(
+				'positron.missingPackages.preflight', uri);
+			if (shouldRun === false) {
+				onFinished?.();
+				return;
 			}
 
-			let command = `source(${JSON.stringify(filePath)})`;
+			// Format the path relative to the session's working directory when
+			// possible, falling back to home-relative or absolute. On Windows,
+			// omit homeUri: R's ~ expands to the Documents folder, so a
+			// home-relative path would resolve incorrectly.
+			const formattedPath = await positron.paths.formatPathForCode(filePath, {
+				relativeTo: ['session', 'home'],
+				homeUri: process.platform !== 'win32' ? vscode.Uri.file(os.homedir()) : undefined,
+			});
+			let command = `source(${formattedPath})`;
 			if (echo) {
-				command = `source(${JSON.stringify(filePath)}, echo = TRUE)`;
+				command = `source(${formattedPath}, echo = TRUE)`;
 			}
-			positron.runtime.executeCode('r', command, false);
+			const observer = onFinished ? { onFinished } : undefined;
+			// Not awaited: the run proceeds asynchronously and the observer
+			// reports completion. If the call rejects (e.g. no session can be
+			// started), clean up here; onFinished is idempotent, so a
+			// redundant call after the observer already fired is a no-op.
+			Promise.resolve(
+				positron.runtime.executeCode('r', command, false, undefined, undefined, undefined, observer, undefined, uri),
+			).catch(() => onFinished?.());
 		}
 	} catch (e) {
+		// Clean up the scratch file if we wrote one but never launched the run.
+		onFinished?.();
 		// This is not a valid file path, which isn't an error; it just
 		// means the active editor has something loaded into it that
 		// isn't a file on disk.  In Positron, there is currently a bug
