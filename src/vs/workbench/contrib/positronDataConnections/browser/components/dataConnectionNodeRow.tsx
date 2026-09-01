@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
+import { useBusyIndicator } from '../../../../../base/browser/positronReactHooks.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
@@ -144,8 +145,11 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 	// seam for a treatment if one is wanted.
 	const isGroup = CONTAINER_ONLY_KINDS.has(dto.kind);
 	// Opening a preview can take a moment (a driver may download data first). Track it so the row can
-	// show a spinner for the duration, matching the tree's busy treatment on expansion.
+	// show a spinner for the duration, matching the tree's busy treatment on expansion. The spinner
+	// is gated so a fast source -- a local PostgreSQL answers in a few milliseconds -- doesn't swap
+	// the row's icon for a spinner and back again faster than the eye can resolve it.
 	const [opening, setOpening] = useState(false);
+	const showOpeningSpinner = useBusyIndicator(opening);
 
 	const openInDataExplorer = async () => {
 		// Ignore a repeat trigger (double-click or context menu) while a preview is already opening.
@@ -245,7 +249,7 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 			onContextMenu={onContextMenu}
 			onDoubleClick={onDoubleClick}
 		>
-			<div className={`codicon ${opening ? 'codicon-loading codicon-modifier-spin' : `codicon-${kindIcon(dto)}`} data-connection-node-icon`} />
+			<div className={`codicon ${showOpeningSpinner ? 'codicon-loading codicon-modifier-spin' : `codicon-${kindIcon(dto)}`} data-connection-node-icon`} />
 			<div className='data-connection-node-text'>
 				{labelPrefix !== undefined && `${labelPrefix} · `}
 				{dto.name}
