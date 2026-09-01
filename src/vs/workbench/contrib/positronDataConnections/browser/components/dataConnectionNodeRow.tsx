@@ -251,8 +251,10 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 		>
 			<div className={`codicon ${showOpeningSpinner ? 'codicon-loading codicon-modifier-spin' : `codicon-${kindIcon(dto)}`} data-connection-node-icon`} />
 			<div className='data-connection-node-text'>
-				{labelPrefix !== undefined && `${labelPrefix} · `}
-				{dto.name}
+				{labelPrefix !== undefined && (
+					<span className='data-connection-node-prefix'>{labelPrefix}{' · '}</span>
+				)}
+				<span className='data-connection-node-name'>{dto.name}</span>
 			</div>
 			{dto.dataType && (
 				<div className='data-connection-node-type'>{dto.dataType}</div>

@@ -65,8 +65,10 @@ test.describe('Data Connections - DuckDB', {
 
 		await test.step('Expand the tree down to tables and views', async () => {
 			await dataConnections.expandConnection(connectionName);
-			await dataConnections.expandNode('Schemas');
-			await dataConnections.expandNode('main');
+			// The database has a single schema, so the 'Schemas' group is breadcrumbed into it:
+			// 'main' takes the group's place already expanded, and there is no 'Schemas' row of
+			// its own left to expand.
+			await dataConnections.expectNodeVisible('main', 'schema');
 			await dataConnections.expandNode('Tables');
 			await dataConnections.expandNode('Views');
 		});
