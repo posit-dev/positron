@@ -99,6 +99,37 @@ describe('extension matrix', () => {
 		expect(big.deltaVsIdle.notebook).toBeUndefined();
 	});
 
+	test('every row, including the collapsed tail and unattributed, sums to TOTAL', () => {
+		const tiny: [string, number][] = [['t.one', 0.1], ['t.two', 0.2]];
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40], ['b.mid', 10], ...tiny], 100)),
+			heapEntry('notebook', heap([['a.big', 45], ['b.mid', 10], ...tiny], 100))
+		]);
+
+		// The point of the row: a reader adding the printed column reaches the
+		// printed TOTAL. Summed from the rows for that reason, not from
+		// reachableBytes, which need not equal them.
+		const extensions = matrix.extensions!;
+		for (const scenario of ['idle', 'notebook'] as const) {
+			const sum = extensions.rows.reduce((total, row) => total + (row.values[scenario] ?? 0), 0);
+			expect(extensions.totals[scenario]).toBeCloseTo(sum, 0);
+		}
+		expect(extensions.totals.idle).toBeCloseTo(150.3 * MB, 0);
+		expect(extensions.totalDeltaVsIdle.notebook).toBeCloseTo(5 * MB, 0);
+		expect(extensions.totalDeltaVsIdle.idle).toBeUndefined();
+	});
+
+	test('a scenario that attributed no heap gets no TOTAL rather than a zero', () => {
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40]], 100)),
+			{ scenario: 'notebook' as const, snapshots: [{ ...snapshot('notebook', [proc()], 0), extensionHeapStatus: 'parse_failed' as const }] }
+		]);
+
+		// A zero would read as the whole extension host heap vanishing.
+		expect(matrix.extensions!.totals.notebook).toBeUndefined();
+		expect(matrix.extensions!.totalDeltaVsIdle.notebook).toBeUndefined();
+	});
+
 	test('extensions under the floor in every scenario collapse into one row', () => {
 		const tiny: [string, number][] = [['t.one', 0.1], ['t.two', 0.2]];
 		const matrix = buildSummaryMatrix([

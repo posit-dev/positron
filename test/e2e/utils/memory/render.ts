@@ -184,6 +184,9 @@ export const EXTENSION_HEAP_FLOOR_BYTES = 1_048_576;
 /** The unattributed remainder's row label, in both report formats. */
 export const UNATTRIBUTED_ROW = 'unattributed';
 
+/** The whole reachable heap's row label, in both report formats. */
+export const EXTENSION_TOTAL_ROW = 'TOTAL';
+
 /**
  * Magnitude of an extension-row figure. `formatBytes` alone rounds to one MB
  * decimal, which flattens a real sub-MB extension change to "0.0 MB" --
@@ -279,6 +282,17 @@ export type ExtensionHeapRow = {
 	changeBytes?: number;
 };
 
+/** An extension id, the italic remainder, or the bold TOTAL. */
+function extensionRowLabelHtml(extensionId: string): string {
+	if (extensionId === UNATTRIBUTED_ROW) {
+		return `<em>${UNATTRIBUTED_ROW}</em>`;
+	}
+	if (extensionId === EXTENSION_TOTAL_ROW) {
+		return `<strong>${EXTENSION_TOTAL_ROW}</strong>`;
+	}
+	return `<code>${escapeHtml(extensionId)}</code>`;
+}
+
 export function extensionHeapRows(
 	snapshots: MemorySnapshot[],
 	baseline?: MemorySnapshot
@@ -324,6 +338,20 @@ export function extensionHeapRows(
 		bytes: unattributed,
 		change: unattributedDiff === undefined ? '' : signedExtensionChange(unattributedDiff),
 		changeBytes: unattributedDiff
+	});
+
+	// Summed from the rows rather than taken from `reachableBytes`, so the column
+	// a reader adds up is the column that is printed: these are per-extension
+	// medians across launches, whose sum need not equal any one launch's total.
+	const total = rows.reduce((sum, row) => sum + row.bytes, 0);
+	const baselineTotal = baselineBreakdown
+		? baselineBreakdown.extensions.reduce((sum, e) => sum + e.retainedBytes, 0) + baselineBreakdown.unattributedBytes
+		: undefined;
+	rows.push({
+		extensionId: EXTENSION_TOTAL_ROW,
+		bytes: total,
+		change: baselineTotal === undefined ? '' : signedExtensionChange(total - baselineTotal),
+		changeBytes: baselineTotal === undefined ? undefined : total - baselineTotal
 	});
 	return rows;
 }
@@ -375,7 +403,9 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 		lines.push(`### Extension host heap: ${snapshots[0]?.scenario}`, '');
 		lines.push('| Extension | Retained | Change |', '| --- | --- | --- |');
 		for (const row of heapRows) {
-			const label = row.extensionId === UNATTRIBUTED_ROW ? `_${UNATTRIBUTED_ROW}_` : `\`${row.extensionId}\``;
+			const label = row.extensionId === UNATTRIBUTED_ROW
+				? `_${UNATTRIBUTED_ROW}_`
+				: row.extensionId === EXTENSION_TOTAL_ROW ? `**${EXTENSION_TOTAL_ROW}**` : `\`${row.extensionId}\``;
 			lines.push(`| ${label} | ${formatBytes(row.bytes)} | ${row.change} |`);
 		}
 		lines.push('');
@@ -729,7 +759,9 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	const instabilityCard = instabilityHtml(snapshots);
 
 	const heapRows = extensionHeapRows(snapshots, baseline);
-	const maxHeapBytes = Math.max(0, ...heapRows.map(row => row.bytes));
+	// TOTAL is every other row added up, so including it would make it the longest
+	// bar by construction and squash the extensions it is meant to compare.
+	const maxHeapBytes = Math.max(0, ...heapRows.filter(row => row.extensionId !== EXTENSION_TOTAL_ROW).map(row => row.bytes));
 	const extensionHeapCard = heapRows.length === 0
 		? `<div class="card">
 		<h2>Extension host heap</h2>
@@ -739,14 +771,14 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 		<h2>Extension host heap</h2>
 		<table>
 			<tr><th>Extension</th><th align="right">Retained</th><th></th><th align="right">Change</th></tr>
-			${heapRows.map(row => `<tr>
-				<td>${row.extensionId === UNATTRIBUTED_ROW ? `<em>${UNATTRIBUTED_ROW}</em>` : `<code>${escapeHtml(row.extensionId)}</code>`}</td>
+			${heapRows.map(row => `<tr${row.extensionId === EXTENSION_TOTAL_ROW ? ' class="total-row"' : ''}>
+				<td>${extensionRowLabelHtml(row.extensionId)}</td>
 				<td align="right">${formatBytes(row.bytes)}</td>
-				<td>${magnitudeBar(row.bytes, maxHeapBytes)}</td>
+				<td>${row.extensionId === EXTENSION_TOTAL_ROW ? '' : magnitudeBar(row.bytes, maxHeapBytes)}</td>
 				<td align="right">${extensionChangeHtml(row)}</td>
 			</tr>`).join('\n')}
 		</table>
-		<p class="muted">Every byte of the reachable extension host heap is credited to the extension that owns it, so the rows sum to the total. <em>unattributed</em> is the host runtime plus the loaded source and compiled code of the extensions themselves, which V8 holds outside any extension object, so activating an extension grows it more than that extension's own row.</p>
+		<p class="muted">Every byte of the reachable extension host heap is credited to the extension that owns it, so the rows sum to TOTAL. <em>unattributed</em> is the host runtime plus the loaded source and compiled code of the extensions themselves, which V8 holds outside any extension object, so activating an extension grows it more than that extension's own row.</p>
 	</div>`;
 
 	return `<!DOCTYPE html>

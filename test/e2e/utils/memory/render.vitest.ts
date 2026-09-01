@@ -615,7 +615,7 @@ describe('extension host heap breakdown', () => {
 		reachableBytes: 354_400_000
 	};
 
-	test('lists extensions above the floor, collapses the rest, and puts unattributed last', () => {
+	test('lists extensions above the floor, collapses the rest, and ends with unattributed then TOTAL', () => {
 		const rows = extensionHeapRows([withHeap(breakdown)]);
 
 		expect(rows.map(r => r.extensionId)).toEqual([
@@ -623,9 +623,20 @@ describe('extension host heap breakdown', () => {
 			'positron.positron-python',
 			'vscode.authentication',
 			'(2 others)',
-			'unattributed'
+			'unattributed',
+			'TOTAL'
 		]);
 		expect(rows.find(r => r.extensionId === '(2 others)')?.bytes).toBe(700_000);
+	});
+
+	test('TOTAL is the rows above it added up, so the printed column adds up', () => {
+		const rows = extensionHeapRows([withHeap(breakdown)]);
+
+		// unattributed is a slice of the partition like any other row, not the
+		// summary line its position and old styling made it look like.
+		const total = rows.find(r => r.extensionId === 'TOTAL')!;
+		const parts = rows.filter(r => r.extensionId !== 'TOTAL');
+		expect(total.bytes).toBe(parts.reduce((sum, row) => sum + row.bytes, 0));
 	});
 
 	test('reports change against the baseline, and "new" for an extension the baseline lacked', () => {

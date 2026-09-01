@@ -69,6 +69,10 @@ export type ExtensionMatrix = {
 	rows: ExtensionSummaryRow[];
 	/** How many extensions the "(N others)" row folds up. Zero when none were. */
 	collapsed: number;
+	/** The whole attributed heap: the sum of every row above, per scenario. */
+	totals: Partial<Record<MemoryScenario, number>>;
+	totalDeltaVsIdle: Partial<Record<MemoryScenario, number>>;
+	totalEmphasisThreshold: Partial<Record<MemoryScenario, number>>;
 };
 
 /** One process that was still moving when it was sampled, named for the warning banner. */
@@ -322,7 +326,35 @@ function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemorySce
 		rows.push(buildRow(UNATTRIBUTED_ROW));
 	}
 
-	return { rows, collapsed: collapsed.length };
+	// Summed from the rendered rows rather than taken from `reachableBytes`, so
+	// the column a reader adds up is the column that is printed. A median of the
+	// per-launch totals would be the better statistic but need not equal the sum
+	// of the per-extension medians, which is the whole point of showing it.
+	const totals: Partial<Record<MemoryScenario, number>> = {};
+	const totalDeltaVsIdle: Partial<Record<MemoryScenario, number>> = {};
+	const totalEmphasisThreshold: Partial<Record<MemoryScenario, number>> = {};
+	// Judged against the spread of the whole heap, not the sum of the per-extension
+	// spreads: those peak in different launches, so adding them overstates the noise.
+	const totalSpread = new Map<MemoryScenario, number>();
+	for (const { scenario, snapshots } of entries) {
+		const perLaunch = snapshots.map(extensionTotals).filter(t => t.size > 0)
+			.map(t => [...t.values()].reduce((sum, bytes) => sum + bytes, 0));
+		totalSpread.set(scenario, perLaunch.length > 0 ? Math.max(...perLaunch) - Math.min(...perLaunch) : 0);
+	}
+	const sumOfRows = (scenario: MemoryScenario) => rows.reduce((sum, row) => sum + (row.values[scenario] ?? 0), 0);
+	for (const scenario of scenarios) {
+		if (statsByScenario.get(scenario)!.medians.size === 0) {
+			continue;
+		}
+		totals[scenario] = sumOfRows(scenario);
+		totalEmphasisThreshold[scenario] = Math.max(
+			MIN_EXTENSION_EMPHASIS_BYTES, totalSpread.get('idle') ?? 0, totalSpread.get(scenario) ?? 0);
+		if (scenario !== 'idle' && idleAttributed) {
+			totalDeltaVsIdle[scenario] = totals[scenario]! - sumOfRows('idle');
+		}
+	}
+
+	return { rows, collapsed: collapsed.length, totals, totalDeltaVsIdle, totalEmphasisThreshold };
 }
 
 /**
@@ -535,8 +567,29 @@ function extensionRowHtml(row: ExtensionSummaryRow, scenarios: MemoryScenario[])
 		: row.extensionId.startsWith('(')
 			? `<span class="muted">${escapeHtml(row.extensionId)}</span>`
 			: `<code>${escapeHtml(row.extensionId)}</code>`;
-	return `<tr${row.extensionId === UNATTRIBUTED_ROW ? ' class="total-row"' : ''}>
+	return `<tr>
 		<td>${label}</td>
+		${cells}
+	</tr>`;
+}
+
+/**
+ * The extension table's TOTAL: the whole reachable extension host heap.
+ *
+ * Without it `unattributed` sat last in the bold, ruled treatment the role
+ * table gives its TOTAL, so it read as the sum of the rows above rather than as
+ * one more slice of the partition.
+ */
+function extensionTotalRowHtml(extensions: ExtensionMatrix, scenarios: MemoryScenario[]): string {
+	const cells = scenarios.map(scenario => cellHtml(
+		scenario,
+		extensions.totals[scenario],
+		extensions.totalDeltaVsIdle[scenario],
+		extensions.totalEmphasisThreshold[scenario],
+		false
+	)).join('');
+	return `<tr class="total-row">
+		<td><strong>TOTAL</strong></td>
 		${cells}
 	</tr>`;
 }
@@ -562,6 +615,7 @@ function extensionCardHtml(matrix: SummaryMatrix): string {
 		<table class="matrix">
 			<tr><th>Extension</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>
 			${rows}
+			${extensionTotalRowHtml(matrix.extensions, matrix.scenarios)}
 		</table>
 		${matrix.extensions.collapsed > 0 ? `<div class="footnote">${matrix.extensions.collapsed} extension${matrix.extensions.collapsed === 1 ? '' : 's'} under ${formatBytes(EXTENSION_HEAP_FLOOR_BYTES)} in every scenario are folded into the "others" row.</div>` : ''}
 	</div>`;
@@ -576,12 +630,13 @@ const EXTENSION_DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to
 	and are at least ${formatBytes(MIN_EXTENSION_EMPHASIS_BYTES)}.`;
 
 /**
- * Says what the rows do and do not add up to. Without it the table invites the
- * reading that the extensions sum to the `extension_host` PSS row above, which
- * they do not: this is a partition of the reachable V8 heap, and `unattributed`
- * is the host runtime rather than any extension's.
+ * Says what the rows add up to and what they do not. Without it the table
+ * invites the reading that the extensions sum to the `extension_host` PSS row
+ * above, which they do not: they sum to this table's own TOTAL, a partition of
+ * the reachable V8 heap in which `unattributed` is a slice like any other.
  */
-const EXTENSION_COVERAGE_NOTE = `Splits the extension host's reachable V8 heap, not its PSS.
+const EXTENSION_COVERAGE_NOTE = `Every row is a slice of one heap, so the rows sum to TOTAL:
+	the extension host's reachable V8 heap, not its PSS.
 	<em>unattributed</em> is the host runtime plus the loaded source and compiled code of
 	the extensions themselves, which V8 holds outside any extension object, so a scenario
 	that activates more extensions grows it more than their own rows.`;
@@ -665,9 +720,6 @@ export const SUMMARY_CSS = `
 		other row's value in the column to share the extra space. */
 		.value-wrap { position: relative; }
 		.baseline-marker { position: absolute; left: 100%; top: 0; margin-left: 1px; font-size: 0.7em; line-height: 1; color: #9ca3af; }
-		/* Reads as a summary rather than one more row: a darker rule than the hairlines
-		between roles, and air above it that the hairlines do not get. */
-		.total-row td { border-top: 2px solid #d1d5db; font-weight: 600; padding-top: 10px; }
 		/* Only some cells carry a delta on a second line. Centering would then drop a bare
 		value half a line below its emphasized neighbour, so the row no longer reads
 		across. Top-aligned, every PSS figure shares a baseline and the deltas hang below. */
@@ -702,7 +754,6 @@ export const SUMMARY_CSS = `
 			box-sizing: border-box; width: 130px;
 		}
 		@media (prefers-color-scheme: dark) {
-			.total-row td { border-top-color: #4b5563; }
 			.matrix .value { color: #9ca3af; }
 			.matrix .baseline { background: #201f1e; border-right-color: #3a3a38; }
 			.matrix tr:hover td:not(.baseline) { background: rgba(255, 255, 255, 0.04); }

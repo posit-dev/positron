@@ -138,6 +138,9 @@ export const REPORT_CSS = `
 		/* Fills its column instead of a fixed 100px, which the rule above would clip by the padding, shortening the longest bar most. */
 		.tree-table .bar-track { width: 100%; }
 		.bar-fill { background: #86b6ef; border-radius: 0 4px 4px 0; height: 8px; }
+		/* Reads as a summary rather than one more row: a darker rule than the hairlines
+		between rows, and air above it that the hairlines do not get. */
+		.total-row td { border-top: 2px solid #d1d5db; font-weight: 600; padding-top: 10px; }
 		.delta-up { color: #d03b3b; }
 		.delta-down { color: #2a78d6; }
 		.delta-flat { color: #6b7280; }
@@ -153,6 +156,7 @@ export const REPORT_CSS = `
 			.card .meta { color: #9ca3af; }
 			th { color: #d1d5db; border-bottom-color: #3a3a38; }
 			tr:not(:last-child) td { border-bottom-color: #2e2e2c; }
+			.total-row td { border-top-color: #4b5563; }
 			.bar-track { background: #3a3a38; }
 			.bar-fill { background: #3987e5; }
 			.delta-up { color: #d03b3b; }
