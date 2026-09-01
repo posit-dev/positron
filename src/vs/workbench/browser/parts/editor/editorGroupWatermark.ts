@@ -43,8 +43,9 @@ const openRecent: WatermarkEntry = { text: localize('watermark.openRecent', "Ope
 const newUntitledFile: WatermarkEntry = { text: localize('watermark.newUntitledFile', "New Untitled Text File"), id: 'workbench.action.files.newUntitledFile' };
 const findInFiles: WatermarkEntry = { text: localize('watermark.findInFiles', "Find in Files"), id: 'workbench.action.findInFiles' };
 // --- Start Positron ---
-// Positron's primary REPL surface is the Console, not the terminal.
+// Show the "Focus Console" entry instead of the upstream "Toggle Terminal" entry, since that is more relevant to Positron users.
 // const toggleTerminal: WatermarkEntry = { text: localize({ key: 'watermark.toggleTerminal', comment: ['toggle is a verb here'] }, "Toggle Terminal"), id: 'workbench.action.terminal.toggleTerminal', when: { web: ContextKeyExpr.equals('terminalProcessSupported', true) } };
+const focusConsole: WatermarkEntry = { text: localize('positron.watermark.focusConsole', "Focus Console"), id: 'workbench.action.positronConsole.focusConsole' };
 // --- End Positron ---
 const startDebugging: WatermarkEntry = { text: localize('watermark.startDebugging', "Start Debugging"), id: 'workbench.action.debug.start', when: { web: ContextKeyExpr.equals('terminalProcessSupported', true) } };
 const openSettings: WatermarkEntry = { text: localize('watermark.openSettings', "Open Settings"), id: 'workbench.action.openSettings' };
@@ -72,6 +73,9 @@ const otherEntries: WatermarkEntry[] = [
 	gotoFile,
 	findInFiles,
 	startDebugging,
+	// --- Start Positron ---
+	focusConsole,
+	// --- End Positron ---
 	openSettings,
 ];
 
