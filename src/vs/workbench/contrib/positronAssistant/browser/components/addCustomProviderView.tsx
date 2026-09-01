@@ -84,9 +84,9 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 	const [errorMessage, setErrorMessage] = useState<string>();
 
 	// The built-in whose fields this type reuses, read from its own source.
-	const basedOn = props.sources.find(s => s.provider.id === CUSTOM_PROVIDER_KINDS[kind].fieldsFrom);
-	const fields = basedOn
-		? { showApiKey: usesApiKey(basedOn.supportedOptions), showBaseUrl: basedOn.supportedOptions.includes('baseUrl') }
+	const builtInSource = props.sources.find(s => s.provider.id === CUSTOM_PROVIDER_KINDS[kind].fieldsFrom);
+	const fields = builtInSource
+		? { showApiKey: usesApiKey(builtInSource.supportedOptions), showBaseUrl: builtInSource.supportedOptions.includes('baseUrl') }
 		: FALLBACK_OPTIONS;
 
 	// Only the stale error goes; it was reported against the old type.
@@ -130,7 +130,7 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 					<div className='connect-provider-header'>
 						<div className='connect-provider-icon'>
 							<LanguageModelIcon
-								logoUrl={basedOn?.provider.logoUrl}
+								logoUrl={builtInSource?.provider.logoUrl}
 								provider={CUSTOM_PROVIDER_KINDS[kind].fieldsFrom}
 							/>
 						</div>
@@ -144,7 +144,7 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 							</span>
 							<span className='connect-provider-subtitle'>
 								{localize(
-									'positron.addCustomProvider.basedOn',
+									'positron.addCustomProvider.builtInSource',
 									"Same connection settings as the built-in {0} provider",
 									CUSTOM_PROVIDER_KINDS[kind].label
 								)}
@@ -211,8 +211,7 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
 					<div style={{ flexGrow: 1 }}>&nbsp;</div>
-					{/* The terms belong to the provider the entry connects to. */}
-					{basedOn && <ProviderNotice source={basedOn} />}
+					{builtInSource && <ProviderNotice source={builtInSource} />}
 				</div>
 			}
 			footer={
