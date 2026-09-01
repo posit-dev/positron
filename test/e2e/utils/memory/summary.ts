@@ -662,18 +662,15 @@ const EXTENSION_DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to
 	and are at least ${formatBytes(MIN_EXTENSION_EMPHASIS_BYTES)}.`;
 
 /**
- * Says what the rows add up to and what they do not. Without it the table
- * invites the reading that the extensions sum to the `extension_host` PSS row
- * above, which they do not: they sum to this table's own TOTAL, a partition of
- * the reachable V8 heap in which `unattributed` is a slice like any other.
+ * Says what the figures are and what `unattributed` holds, in one line.
+ *
+ * Deliberately short: this is the dashboard surface, and the row order already
+ * shows that the extensions and `unattributed` make up TOTAL. How the partition
+ * is built, and why it sits under the `extension_host` PSS row, belong in the
+ * module docs rather than above the table.
  */
-const EXTENSION_COVERAGE_NOTE = `Every row is a slice of one heap, so the rows sum to TOTAL:
-	the extension host's reachable V8 heap. TOTAL runs well under the <code>extension_host</code>
-	PSS above, which also counts native memory no heap snapshot sees: binary pages, V8's own
-	bookkeeping, uncollected garbage, external buffers.
-	<em>unattributed</em> is the host runtime plus the loaded source and compiled code of
-	the extensions themselves, which V8 holds outside any extension object, so a scenario
-	that activates more extensions grows it more than their own rows.`;
+const EXTENSION_COVERAGE_NOTE = `Rows show each extension's reachable V8 heap;
+	<em>unattributed</em> includes host runtime and extension code not owned by an extension object.`;
 
 /** True when at least one row will render the dagger marker, which gates the footnote explaining it. */
 function hasNoBaselineRows(matrix: SummaryMatrix): boolean {
