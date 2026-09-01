@@ -8,6 +8,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { untildify } from '../../common/helpers';
+import { dispose } from '../../common/utils/resourceLifecycle';
 import { traceWarn } from '../../logging';
 
 /**
@@ -89,7 +90,7 @@ export class UnsavedScriptFiles implements vscode.Disposable {
     }
 
     public dispose(): void {
-        this._disposables.forEach((d) => d.dispose());
+        dispose(this._disposables);
         for (const filePath of this._files.values()) {
             void deleteQuietly(filePath);
         }
