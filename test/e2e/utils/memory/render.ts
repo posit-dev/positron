@@ -746,7 +746,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 				<td align="right">${extensionChangeHtml(row)}</td>
 			</tr>`).join('\n')}
 		</table>
-		<p class="muted">Every byte of the reachable extension host heap is credited to the extension that owns it, so the rows sum to the total. <em>unattributed</em> is host runtime and node internals.</p>
+		<p class="muted">Every byte of the reachable extension host heap is credited to the extension that owns it, so the rows sum to the total. <em>unattributed</em> is the host runtime plus the loaded source and compiled code of the extensions themselves, which V8 holds outside any extension object, so activating an extension grows it more than that extension's own row.</p>
 	</div>`;
 
 	return `<!DOCTYPE html>

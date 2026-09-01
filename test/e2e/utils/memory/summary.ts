@@ -582,7 +582,9 @@ const EXTENSION_DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to
  * is the host runtime rather than any extension's.
  */
 const EXTENSION_COVERAGE_NOTE = `Splits the extension host's reachable V8 heap, not its PSS.
-	<em>unattributed</em> is host runtime and node internals.`;
+	<em>unattributed</em> is the host runtime plus the loaded source and compiled code of
+	the extensions themselves, which V8 holds outside any extension object, so a scenario
+	that activates more extensions grows it more than their own rows.`;
 
 /** True when at least one row will render the dagger marker, which gates the footnote explaining it. */
 function hasNoBaselineRows(matrix: SummaryMatrix): boolean {
