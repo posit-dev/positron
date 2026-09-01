@@ -334,7 +334,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	}
 
 	async executeCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean): Promise<Record<string, any>> {
-		return this.runtime.executeCode(languageId, code, extensionId, focus, allowIncomplete);
+		// This is the frontend method behind `sendToConsole`. Queue the code and
+		// return once it has been accepted; don't wait for it to finish running,
+		// since it runs in the same session that requested it and that session
+		// stays busy until this call returns. Errors from queuing (e.g. the
+		// interpreter failed to start) still propagate back to the caller.
+		await this.runtime.queueCode(languageId, code, extensionId, focus, allowIncomplete);
+		return {};
 	}
 
 	async evaluateWhenClause(whenClause: string): Promise<boolean> {
