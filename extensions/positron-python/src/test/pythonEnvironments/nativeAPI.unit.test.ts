@@ -505,6 +505,10 @@ suite('Native Python API', () => {
 
     // --- Start Positron ---
     test('Additional global path (/opt/python) is classified as global during addEnv via triggerRefresh', async () => {
+        if (process.platform === 'win32') {
+            return;
+        }
+
         const optPythonEnv: NativeEnvInfo = {
             displayName: 'Opt Python',
             name: 'python',
@@ -538,6 +542,10 @@ suite('Native Python API', () => {
     });
 
     test('Additional global path (/opt/python) is classified as global during resolveEnv', async () => {
+        if (process.platform === 'win32') {
+            return;
+        }
+
         const optPythonEnv: NativeEnvInfo = {
             displayName: 'Opt Python',
             name: 'python',

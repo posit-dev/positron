@@ -274,7 +274,7 @@ async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[])
     // --- End Positron ---
     const displayName = nativeEnv.version
         ? getDisplayName(version, kind, arch, name)
-        : (nativeEnv.displayName ?? 'Python');
+        : nativeEnv.displayName ?? 'Python';
 
     const executable = nativeEnv.executable ?? makeExecutablePath(nativeEnv.prefix);
     return {
