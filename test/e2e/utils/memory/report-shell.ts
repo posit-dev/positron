@@ -5,7 +5,7 @@
 
 /**
  * Pieces shared by every memory HTML report -- the per-scenario report in
- * `render.ts` and the cross-scenario summary in `summary.ts`.
+ * `render.ts` and the scenario memory report in `summary.ts`.
  *
  * Pulled out on purpose so the two reports cannot drift apart visually: a
  * color or a delta rule changed in one place and not the other would make the

@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Cross-scenario memory summary: one matrix comparing every scenario's
- * per-role median PSS side by side, plus a delta against `idle`.
+ * The scenario memory report: one matrix comparing every scenario's per-role
+ * median PSS side by side, plus a delta against `idle`.
  *
  * The tree TOTAL swings tens of MB launch to launch for reasons unrelated to
  * any code change (the renderer alone), which swamps the regressions this
@@ -767,14 +767,14 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Positron memory: cross-scenario summary</title>
+	<title>Scenario Memory Report</title>
 	<style>${REPORT_CSS}${SUMMARY_CSS}
 	</style>
 </head>
 <body>
 <div class="container">
 	<div class="header">
-		<h1>Cross-scenario memory summary</h1>
+		<h1>Scenario Memory Report</h1>
 		<div class="meta">${metaLineHtml(matrix.meta)}</div>
 	</div>
 

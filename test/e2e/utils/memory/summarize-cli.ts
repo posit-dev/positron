@@ -5,7 +5,7 @@
 
 /**
  * Plain node CLI that turns the three memory-metrics matrix jobs' downloaded
- * artifacts into one cross-scenario summary.
+ * artifacts into one scenario memory report.
  *
  * Deliberately not a Playwright test: it never launches Positron, never
  * imports the e2e harness, and only reads JSON off disk and writes files. The
@@ -325,7 +325,7 @@ export function renderLaneSectionsHtml(sections: LaneSection[]): string {
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Positron memory: cross-scenario summary</title>
+	<title>Scenario Memory Report</title>
 	<style>${REPORT_CSS}${SUMMARY_CSS}</style>
 </head>
 <body>

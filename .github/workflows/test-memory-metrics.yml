@@ -274,7 +274,7 @@ jobs:
       # printed by summarize-memory instead, and appear on the run's Summary page.
 
   # Combines the matrix jobs' per-lane-and-scenario reports into one
-  # cross-scenario view: the per-role numbers are 20-50x quieter than the
+  # scenario memory report: the per-role numbers are 20-50x quieter than the
   # tree TOTAL and are the useful signal, but nothing compared them side by
   # side before this job existed.
   #
@@ -320,7 +320,7 @@ jobs:
       # The per-lane-and-scenario reports are published alongside the summary,
       # not replaced by it: only they carry the delta against the previous
       # nightly, the process tree, and the activated-extension cards.
-      - name: Render cross-scenario summary
+      - name: Render the scenario memory report
         run: |
           STAGE="${{ runner.temp }}/playwright-report"
           mkdir -p "$STAGE"
@@ -390,7 +390,9 @@ jobs:
           {
             echo "## Memory"
             echo ""
-            echo "[Cross-scenario summary]($REPORT_URL)"
+            echo "**[Scenario Memory Report]($REPORT_URL)**"
+            echo ""
+            echo "Per-scenario detail:"
             echo ""
             for FILE in "${{ runner.temp }}"/playwright-report/*.html; do
               # An unmatched glob expands to the literal pattern, which would
