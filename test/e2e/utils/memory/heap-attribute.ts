@@ -28,9 +28,10 @@ export type HeapSnapshotJson = {
 		node_count: number;
 		edge_count: number;
 	};
-	nodes: number[];
-	edges: number[];
-	locations?: number[];
+	/** Read as typed arrays by `heap-read.ts`; a real snapshot outgrows `number[]`. */
+	nodes: ArrayLike<number>;
+	edges: ArrayLike<number>;
+	locations?: ArrayLike<number>;
 };
 
 export type HeapAttributionResult =
@@ -143,7 +144,7 @@ export function attributeHeap(input: {
 	if (formatProblem) {
 		return { ok: false, kind: 'unsupported_format', reason: formatProblem };
 	}
-	if (!Array.isArray(snapshot.locations) || snapshot.locations.length === 0) {
+	if (snapshot.locations === undefined || snapshot.locations.length === 0) {
 		return { ok: false, kind: 'unsupported_format', reason: 'the snapshot carried no location data' };
 	}
 

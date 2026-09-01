@@ -9,7 +9,8 @@ import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
 import { collectAllGarbage, gcTargetsFor, malformedForcedGc } from '../../utils/memory/gc.js';
-import { attributeHeap, HeapSnapshotJson } from '../../utils/memory/heap-attribute.js';
+import { attributeHeap } from '../../utils/memory/heap-attribute.js';
+import { readHeapSnapshot } from '../../utils/memory/heap-read.js';
 import { captureExtensionHostHeap, HEAP_CAPTURE_BUDGET_MS, HeapCaptureSidecar, heapSidecarPath, heapSnapshotPath } from '../../utils/memory/heap-capture.js';
 import { namedShareGateApplies } from '../../utils/memory/label.js';
 import { MemoryLane } from '../../utils/memory/lanes.js';
@@ -307,7 +308,7 @@ export function defineMemoryScenario(options: {
 				}
 				try {
 					const sidecar: HeapCaptureSidecar = JSON.parse(readFileSync(sidecarPath, 'utf8'));
-					const heap: HeapSnapshotJson = JSON.parse(readFileSync(heapPath, 'utf8'));
+					const heap = readHeapSnapshot(heapPath);
 					const result = attributeHeap({ snapshot: heap, scriptUrls: sidecar.scriptUrls, extensionIds: sidecar.extensionIds });
 					if (result.ok) {
 						snapshot.extensionHeap = result.breakdown;
