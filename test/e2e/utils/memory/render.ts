@@ -778,7 +778,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 				<td align="right">${extensionChangeHtml(row)}</td>
 			</tr>`).join('\n')}
 		</table>
-		<p class="muted">Every byte of the reachable extension host heap is credited to the extension that owns it, so the rows sum to TOTAL: the reachable V8 heap, which runs well under the <code>extension_host</code> PSS in the tree above, since PSS also counts native memory no heap snapshot sees (binary pages, V8's own bookkeeping, uncollected garbage, external buffers). <em>unattributed</em> is the host runtime plus the loaded source and compiled code of the extensions themselves, which V8 holds outside any extension object, so activating an extension grows it more than that extension's own row.</p>
+		<p class="muted">Rows show each extension's reachable V8 heap; <em>unattributed</em> includes host runtime and extension code not owned by an extension object.</p>
 	</div>`;
 
 	return `<!DOCTYPE html>
