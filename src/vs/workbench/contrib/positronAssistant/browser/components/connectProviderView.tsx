@@ -12,7 +12,7 @@ import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/
 import { IPositronCustomModel, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js';
 import { AuthMethod, AuthStatus } from '../types.js';
 import { availableAuthMethods, deriveAuthMethod, deriveAuthStatus, deriveConnectAction } from '../providerConnection.js';
-import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../providerLegalText.js';
+import { getProviderGettingStartedText } from '../providerLegalText.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
@@ -316,11 +316,10 @@ export const ProviderErrorBanner = (props: { message: string }) => (
 );
 
 export const ProviderNotice = (props: { source: IPositronLanguageModelSource }) => {
-	const text = [
-		getProviderGettingStartedText(props.source.provider),
-		getProviderTermsOfServiceText(props.source.provider),
-		getProviderUsageDisclaimerText(props.source.provider),
-	].filter(Boolean).join('\n\n');
+	const text = getProviderGettingStartedText(props.source.provider);
+	if (!text) {
+		return null;
+	}
 	return (
 		<div className='connect-provider-notice' data-testid='provider-notice'>
 			<EmbeddedLink>{text}</EmbeddedLink>
