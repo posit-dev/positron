@@ -164,7 +164,11 @@ runs:
           # close awk's stdin mid-pipeline, SIGPIPE upstream printf, and under
           # `set -e -o pipefail` kill the step (manifests as "printf: write error:
           # Broken pipe" on large log payloads).
-          LOGS=$(gh api "repos/$REPO/actions/jobs/$JOB_ID/logs" 2>/dev/null || true)
+          # Job logs contain ANSI color escapes (the step's own colorized echo
+          # output), which gh's terminal-safety check refuses to print by
+          # default -- it exits 1 with "the response contains terminal escape
+          # sequences" and no stdout, silently emptying $LOGS.
+          LOGS=$(gh api --allow-escape-sequences "repos/$REPO/actions/jobs/$JOB_ID/logs" 2>/dev/null || true)
           REPORT_DIR=$(printf '%s' "$LOGS" | awk '
             !/\${/ && !found && match($0, /playwright-report-[A-Za-z0-9_-]+/) {
               found = substr($0, RSTART, RLENGTH)
