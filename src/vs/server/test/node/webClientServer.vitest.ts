@@ -328,6 +328,44 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 			}
 		});
 
+		it('preserves the query string when proxying a websocket upgrade', async () => {
+			const ownershipCheck: ISocketOwnershipCheck = {
+				getListeningPortUid: vi.fn().mockReturnValue(ourUid),
+				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(true),
+			};
+			const webClientServer = createWebClientServer(ownershipCheck);
+
+			const backendServer = http.createServer();
+			const upgradeUrl = new Promise<string>(resolve => {
+				backendServer.on('upgrade', (req, backendSocket) => {
+					resolve(req.url!);
+					backendSocket.destroy();
+				});
+			});
+			const { server, socket } = await connectedSocketPair();
+
+			try {
+				await listen(backendServer, 0, '127.0.0.1');
+				const { port: backendPort } = backendServer.address() as net.AddressInfo;
+
+				// The production caller (remoteExtensionHostAgentServer#handleUpgrade) passes only the
+				// pathname as the parsed URL; the query string survives only on req.url. Websocket apps
+				// like marimo cannot connect without it (e.g. /ws?session_id=...).
+				await webClientServer.handleUpgrade(
+					fakeUpgradeRequest(`/proxy/${backendPort}/ws?session_id=abc123`),
+					socket,
+					Buffer.alloc(0),
+					`/proxy/${backendPort}/ws`
+				);
+
+				expect(await upgradeUrl).toBe('/ws?session_id=abc123');
+			} finally {
+				socket.destroy();
+				server.close();
+				backendServer.close();
+			}
+		});
+
 		it('does not destroy the socket when the port is owned by our uid', async () => {
 			const ownershipCheck: ISocketOwnershipCheck = {
 				getListeningPortUid: vi.fn().mockReturnValue(ourUid),
