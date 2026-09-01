@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,6 +9,7 @@
 import * as vscode from 'vscode';
 import Log from './common/logger';
 import { installCodeServer, ServerInstallError } from './serverSetup';
+import { pickConfiguredDownloadUrlTemplate, UNIFIED_DOWNLOAD_URL_KEY, UNIFIED_DOWNLOAD_URL_SECTION } from './serverDownloadUrl';
 import { WSLManager } from './wsl/wslManager';
 
 export const REMOTE_WSL_AUTHORITY = 'wsl';
@@ -57,8 +58,11 @@ export class RemoteWSLResolver implements vscode.RemoteAuthorityResolver, vscode
 
 		// It looks like default values are not loaded yet when resolving a remote,
 		// so let's hardcode the default values here
-		const remoteSSHconfig = vscode.workspace.getConfiguration('remote.WSL');
-		const serverDownloadUrlTemplate = remoteSSHconfig.get<string>('serverDownloadUrlTemplate');
+		const remoteWSLconfig = vscode.workspace.getConfiguration('remote.WSL');
+		const serverDownloadUrlTemplate = pickConfiguredDownloadUrlTemplate(
+			remoteWSLconfig.inspect<string>('serverDownloadUrlTemplate'),
+			vscode.workspace.getConfiguration(UNIFIED_DOWNLOAD_URL_SECTION).inspect<string>(UNIFIED_DOWNLOAD_URL_KEY)
+		);
 
 		return vscode.window.withProgress({
 			title: `Setting up WSL Distro: ${distroName}`,
