@@ -497,7 +497,17 @@ async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 		let filePath: string | undefined;
 		if (document?.isUntitled) {
 			filePath = await unsavedScripts.write(document);
-			onFinished = () => { void unsavedScripts.finished(filePath!); };
+			// Guard so the scratch file's in-flight count is decremented
+			// once, whether cleanup is driven by the observer or the catch
+			// below.
+			let finished = false;
+			onFinished = () => {
+				if (finished) {
+					return;
+				}
+				finished = true;
+				void unsavedScripts.finished(filePath!);
+			};
 		} else {
 			filePath = await getEditorFilePathForCommand(resource);
 		}
@@ -529,9 +539,9 @@ async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 			}
 			const observer = onFinished ? { onFinished } : undefined;
 			// Not awaited: the run proceeds asynchronously and the observer
-			// reports completion. If the call itself rejects (e.g. no session
-			// can be started), the observer's onFinished never fires, so clean
-			// up the scratch file here.
+			// reports completion. If the call rejects (e.g. no session can be
+			// started), clean up here; onFinished is idempotent, so a
+			// redundant call after the observer already fired is a no-op.
 			Promise.resolve(
 				positron.runtime.executeCode('r', command, false, undefined, undefined, undefined, observer, undefined, uri),
 			).catch(() => onFinished?.());

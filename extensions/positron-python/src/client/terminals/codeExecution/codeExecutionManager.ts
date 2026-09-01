@@ -124,7 +124,15 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                 let onFinished: (() => void) | undefined;
                 if (document.isUntitled) {
                     filePath = await this.unsavedScripts.write(document);
+                    // Guard so the scratch file's in-flight count is
+                    // decremented once, whether cleanup is driven by the
+                    // observer or the catch below.
+                    let finished = false;
                     onFinished = () => {
+                        if (finished) {
+                            return;
+                        }
+                        finished = true;
                         void this.unsavedScripts.finished(filePath!);
                     };
                 } else {
@@ -175,9 +183,10 @@ export class CodeExecutionManager implements ICodeExecutionManager {
 
                         const observer = onFinished ? { onFinished } : undefined;
                         // Not awaited: the run proceeds asynchronously and the
-                        // observer reports completion. If the call itself rejects
-                        // (e.g. no session can be started), the observer's
-                        // onFinished never fires, so clean up the scratch file here.
+                        // observer reports completion. If the call rejects (e.g.
+                        // no session can be started), clean up here; onFinished
+                        // is idempotent, so a redundant call after the observer
+                        // already fired is a no-op.
                         Promise.resolve(
                             positron.runtime.executeCode(
                                 'python',
