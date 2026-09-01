@@ -73,6 +73,23 @@ const bedrock: IPositronLanguageModelSource = {
 	defaults: { aws: { profile: 'data-team', region: 'eu-west-1' } },
 };
 
+// AWS_REGION set in the extension host's environment, which outranks
+// providers.json -- so the region box is not something this form can set.
+const bedrockRegionFromEnv: IPositronLanguageModelSource = {
+	...bedrock,
+	overrides: { aws: { region: { value: 'us-east-2', name: 'AWS_REGION' } } },
+};
+
+const bedrockBothFromEnv: IPositronLanguageModelSource = {
+	...bedrock,
+	overrides: {
+		aws: {
+			profile: { value: 'ci-runner', name: 'AWS_PROFILE' },
+			region: { value: 'us-east-2', name: 'AWS_REGION' },
+		},
+	},
+};
+
 const custom: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
 	provider: { id: 'openai-compatible', displayName: 'OpenAI Compatible', settingName: 'openai-compatible' },
@@ -413,11 +430,19 @@ describe('ConnectProviderView', () => {
 	});
 
 	describe('AWS profile and region', () => {
-		it('renders both inputs prefilled from the saved values, with the precedence hint', () => {
+		it('renders both inputs prefilled from the saved values', () => {
 			rtl.render(<ConnectProviderView {...dialogProps()} source={bedrock} onAction={async () => { }} onBack={vi.fn()} />);
 			expect(screen.getByLabelText(/aws profile/i)).toHaveValue('data-team');
 			expect(screen.getByLabelText(/aws region/i)).toHaveValue('eu-west-1');
-			expect(screen.getByText(/take precedence over the values here/)).toBeInTheDocument();
+		});
+
+		// Profile only: `default` is what AWS looks for when none is given, a fixed
+		// convention. The region has no equivalent worth promising, so its box
+		// stays bare rather than suggesting a value that may not apply.
+		it('hints the profile AWS falls back to, and hints nothing for the region', () => {
+			rtl.render(<ConnectProviderView {...dialogProps()} source={bedrock} onAction={async () => { }} onBack={vi.fn()} />);
+			expect(screen.getByLabelText(/aws profile/i)).toHaveAttribute('placeholder', 'default');
+			expect(screen.getByLabelText(/aws region/i)).not.toHaveAttribute('placeholder');
 		});
 
 		it('renders neither input for a provider that does not support them', () => {
@@ -460,6 +485,94 @@ describe('ConnectProviderView', () => {
 				expect.objectContaining({ aws: { profile: '', region: 'eu-west-1' } }),
 				'save',
 			);
+		});
+
+		describe('a field the environment overrides', () => {
+			it('shows the value in effect read-only, naming the variable and the value it shadows', () => {
+				rtl.render(<ConnectProviderView {...dialogProps()} source={bedrockRegionFromEnv} onAction={async () => { }} onBack={vi.fn()} />);
+				const region = screen.getByLabelText(/aws region/i);
+				expect(region).toHaveValue('us-east-2');
+				expect(region).toHaveAttribute('readonly');
+				expect(screen.getByTestId('aws-region-override')).toHaveTextContent(
+					'Using AWS_REGION. Unset it to use your saved value: eu-west-1'
+				);
+				// The shadowed value carries its own monospace element rather than
+				// being interpolated into the sentence, so it can't be mistaken for
+				// prose. `eu-west-1` is text only here -- the inputs hold it as a
+				// value, which getByText does not match.
+				expect(screen.getByText('eu-west-1')).toHaveClass('connect-provider-override-value');
+			});
+
+			it('omits the shadowed-value clause when the user has nothing saved underneath', () => {
+				const source: IPositronLanguageModelSource = {
+					...bedrockRegionFromEnv,
+					defaults: { aws: { profile: 'data-team' } },
+				};
+				rtl.render(<ConnectProviderView {...dialogProps()} source={source} onAction={async () => { }} onBack={vi.fn()} />);
+				expect(screen.getByTestId('aws-region-override')).toHaveTextContent(/^Using AWS_REGION\.$/);
+			});
+
+			it('names the layer generically when the override carries no variable name', () => {
+				const source: IPositronLanguageModelSource = {
+					...bedrock,
+					defaults: { aws: {} },
+					overrides: { aws: { region: { value: 'us-east-2' } } },
+				};
+				rtl.render(<ConnectProviderView {...dialogProps()} source={source} onAction={async () => { }} onBack={vi.fn()} />);
+				expect(screen.getByTestId('aws-region-override')).toHaveTextContent(/^Using an environment variable\.$/);
+			});
+
+			it('leaves the sibling field editable and unannotated', () => {
+				rtl.render(<ConnectProviderView {...dialogProps()} source={bedrockRegionFromEnv} onAction={async () => { }} onBack={vi.fn()} />);
+				expect(screen.getByLabelText(/aws profile/i)).not.toHaveAttribute('readonly');
+				expect(screen.queryByTestId('aws-profile-override')).not.toBeInTheDocument();
+			});
+
+			// Submitting the displayed value would persist a variable that may not
+			// be set next launch; submitting an empty string would delete what the
+			// user saved under it. Omitting the key leaves the saved value alone.
+			it('is left out of the dispatch while the editable sibling is submitted', async () => {
+				const onAction = vi.fn().mockResolvedValue(undefined);
+				const user = userEvent.setup();
+				rtl.render(<ConnectProviderView {...dialogProps()} source={bedrockRegionFromEnv} onAction={onAction} onBack={vi.fn()} />);
+				await user.click(screen.getByRole('button', { name: 'Connect' }));
+				expect(onAction).toHaveBeenCalledWith(
+					bedrockRegionFromEnv,
+					expect.objectContaining({ aws: { profile: 'data-team' } }),
+					'save',
+				);
+			});
+
+			// Empty rather than the saved values inherited from `defaults`, so the
+			// save handler can tell "nothing editable was submitted" from "the
+			// user cleared these boxes" and skip the write entirely.
+			it('submits an empty aws block when neither field is editable', async () => {
+				const onAction = vi.fn().mockResolvedValue(undefined);
+				const user = userEvent.setup();
+				rtl.render(<ConnectProviderView {...dialogProps()} source={bedrockBothFromEnv} onAction={onAction} onBack={vi.fn()} />);
+				await user.click(screen.getByRole('button', { name: 'Connect' }));
+				expect(onAction).toHaveBeenCalledWith(
+					bedrockBothFromEnv,
+					expect.objectContaining({ aws: {} }),
+					'save',
+				);
+			});
+
+			// Parked: the hint paragraph these cover is commented out in
+			// connectProviderView.tsx pending a decision on whether to keep it.
+			// Re-enable both alongside uncommenting it -- the first is vacuous
+			// while nothing renders, and the second asserts the reduced wording.
+			it.skip('drops the hint when neither field is editable, since there is nothing to leave blank', () => {
+				rtl.render(<ConnectProviderView {...dialogProps()} source={bedrockBothFromEnv} onAction={async () => { }} onBack={vi.fn()} />);
+				expect(screen.queryByText(/Leave blank/)).not.toBeInTheDocument();
+			});
+
+			// With one variable set, naming the pair would imply the set one is
+			// still a fallback; its own note already names it.
+			it.skip('reduces the hint to the AWS defaults when one field is still editable', () => {
+				rtl.render(<ConnectProviderView {...dialogProps()} source={bedrockRegionFromEnv} onAction={async () => { }} onBack={vi.fn()} />);
+				expect(screen.getByText('Leave blank to use your AWS defaults.')).toBeInTheDocument();
+			});
 		});
 	});
 });

@@ -13,6 +13,7 @@ import {
 	getUserProviderBlock,
 	initProviderCatalog,
 	onDidChangeProviderCatalog,
+	readConnectionEnv,
 	refreshProviderCatalog,
 	removeProviderBlock,
 	saveAwsSettings,
@@ -397,6 +398,27 @@ suite('providerCatalog', () => {
 			written.providers.bedrock,
 			{ enabled: true },
 			'an emptied block must go away, not linger as {}, and must not disturb sibling keys'
+		);
+	});
+
+	test('readConnectionEnv consults names in order and treats empty as unset', async () => {
+		// Aliased variables are how ai-config handles a provider with a legacy
+		// name (google-vertex has two per field), so the primary name has to win
+		// when both are set, and an empty value has to fall through rather than
+		// count as present.
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, {
+			configPath,
+			envVars: { PRIMARY: 'first', LEGACY: 'second', BLANK: '' },
+		});
+
+		assert.deepStrictEqual(
+			[
+				readConnectionEnv(['PRIMARY', 'LEGACY']),
+				readConnectionEnv(['BLANK', 'LEGACY']),
+				readConnectionEnv(['MISSING']),
+			],
+			['first', 'second', undefined]
 		);
 	});
 });

@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { getProviderSources, getRegistrableProviderSources, PROVIDER_METADATA } from '../providerSources';
 import { POSITRON_CUSTOM_AUTH_PROVIDER_ID } from '../constants';
-import { initProviderCatalog } from '../providerCatalog';
+import { getCachedProvider, initProviderCatalog } from '../providerCatalog';
 
 /**
  * Guards against drift between PROVIDER_METADATA in providerSources.ts and the
@@ -120,7 +120,8 @@ suite('getProviderSources baseUrl defaults from the catalog', () => {
 		// The form shows what the user durably controls. AWS_REGION outranks the
 		// file when credentials resolve, but whether it reaches the extension
 		// host at all depends on how Positron was launched -- so pre-filling it
-		// would present an ambient value as a saved setting.
+		// would present an ambient value as a saved setting. It arrives as an
+		// override instead, which the form renders read-only.
 		writeConfig(configPath, {});
 		await initProviderCatalog(context, {
 			configPath,
@@ -174,5 +175,114 @@ suite('the legacy openai-compatible provider', () => {
 
 		const ids = getProviderSources().map(s => s.provider.id);
 		assert.ok(ids.includes(PROVIDER_METADATA.customProvider.id));
+	});
+});
+
+// Exercises getConnectionProvenance (providerCatalog.ts) through the seam its
+// consumer uses, so these cover both the table and the source it lands on.
+suite('getProviderSources connection provenance', () => {
+	let dir: string;
+	let configPath: string;
+	let context: vscode.ExtensionContext;
+
+	setup(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'provider-overrides-'));
+		configPath = path.join(dir, 'providers.json');
+		context = fakeContext();
+	});
+
+	teardown(() => {
+		for (const d of context.subscriptions) {
+			d.dispose();
+		}
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	function bedrockSource() {
+		return getProviderSources().find(
+			s => s.provider.id === PROVIDER_METADATA.amazonBedrock.id
+		);
+	}
+
+	test('each set variable becomes an override naming itself', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, {
+			configPath,
+			envVars: { AWS_PROFILE: 'ci-runner', AWS_REGION: 'us-east-2' },
+		});
+
+		assert.deepStrictEqual(bedrockSource()?.overrides, {
+			aws: {
+				profile: { value: 'ci-runner', name: 'AWS_PROFILE' },
+				region: { value: 'us-east-2', name: 'AWS_REGION' },
+			},
+		});
+	});
+
+	test('only the set variable is reported, leaving its sibling editable', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, { configPath, envVars: { AWS_REGION: 'us-east-2' } });
+
+		assert.deepStrictEqual(bedrockSource()?.overrides, {
+			aws: { region: { value: 'us-east-2', name: 'AWS_REGION' } },
+		});
+	});
+
+	test('overrides are absent when no variable is set', async () => {
+		writeConfig(configPath, { bedrock: { aws: { region: 'eu-west-1' } } });
+		await initProviderCatalog(context, { configPath, envVars: {} });
+
+		assert.strictEqual(bedrockSource()?.overrides, undefined);
+	});
+
+	test('a variable matching the saved value is still reported as an override', async () => {
+		// The case a resolved-vs-user value diff cannot see. The variable
+		// outranks the file whether or not the two agree, so the field is not
+		// editable here -- detecting by presence rather than by difference is
+		// what keeps the next save from being silently discarded.
+		writeConfig(configPath, { bedrock: { aws: { region: 'us-east-2' } } });
+		await initProviderCatalog(context, { configPath, envVars: { AWS_REGION: 'us-east-2' } });
+
+		assert.deepStrictEqual(bedrockSource()?.overrides, {
+			aws: { region: { value: 'us-east-2', name: 'AWS_REGION' } },
+		});
+	});
+
+	test('an empty variable is treated as unset, matching ai-config', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, { configPath, envVars: { AWS_REGION: '' } });
+
+		assert.strictEqual(bedrockSource()?.overrides, undefined);
+	});
+
+	test('a provider with no overridable fields reports none', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, { configPath, envVars: { AWS_REGION: 'us-east-2' } });
+
+		const anthropic = getProviderSources().find(
+			s => s.provider.id === PROVIDER_METADATA.anthropic.id
+		);
+		assert.strictEqual(anthropic?.overrides, undefined);
+	});
+
+	// Drift guard for OVERRIDING_ENV_VARS, which mirrors the subset of
+	// ai-config's private CONNECTION_ENV_MAPPINGS whose fields the modal
+	// renders. A type can't catch a rename or an added alias upstream, so this
+	// asserts behaviorally that each variable we name really does reach the
+	// resolved catalog. If ai-config renames AWS_REGION, this fails rather than
+	// the form quietly showing an editable box for a shadowed field.
+	test('every variable named as an override really does reach the resolved catalog', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, {
+			configPath,
+			envVars: { AWS_PROFILE: 'ci-runner', AWS_REGION: 'us-east-2' },
+		});
+
+		const overrides = bedrockSource()?.overrides ?? {};
+		const resolved = getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws;
+		assert.deepStrictEqual(
+			{ profile: overrides.aws?.profile?.value, region: overrides.aws?.region?.value },
+			{ profile: resolved?.profile, region: resolved?.region },
+		);
 	});
 });

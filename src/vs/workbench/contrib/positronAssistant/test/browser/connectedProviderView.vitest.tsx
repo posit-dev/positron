@@ -225,13 +225,45 @@ describe('ConnectedProviderView', () => {
 		expect(screen.getByText('eu-west-1')).toBeInTheDocument();
 	});
 
-	it('omits an AWS row that has no saved value', () => {
-		// Nothing in providers.json for either field -- an ambient AWS_REGION is
-		// deliberately not surfaced here, matching the connect form.
+	it('omits an AWS row that has no value from any layer', () => {
 		const noneSaved = { ...bedrock, defaults: { aws: {} } };
 		rtl.render(<ConnectedProviderView {...dialogProps()} source={noneSaved} onAction={async () => { }} onBack={vi.fn()} />);
 		expect(screen.queryByText(/AWS Profile/)).not.toBeInTheDocument();
 		expect(screen.queryByText(/AWS Region/)).not.toBeInTheDocument();
+	});
+
+	// `defaults` carries the user layer alone, so reading it by itself showed
+	// nothing for a value the environment supplies -- while the connect form for
+	// the same provider named it. These two views have to agree on what the
+	// connection is actually using.
+	it('shows an environment-supplied value the user never saved, naming the variable', () => {
+		const fromEnv = {
+			...bedrock,
+			defaults: { aws: {} },
+			overrides: { aws: { region: { value: 'us-east-2', name: 'AWS_REGION' } } },
+		};
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={fromEnv} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.getByTestId('provider-aws-region')).toHaveTextContent('AWS Region (from AWS_REGION)');
+		expect(screen.getByText('us-east-2')).toBeInTheDocument();
+	});
+
+	it('prefers the environment value over the saved one, since that is what the connection uses', () => {
+		const shadowed = {
+			...bedrock,
+			overrides: { aws: { region: { value: 'us-east-2', name: 'AWS_REGION' } } },
+		};
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={shadowed} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.getByTestId('provider-aws-region')).toHaveTextContent('us-east-2');
+		expect(screen.queryByText('eu-west-1')).not.toBeInTheDocument();
+	});
+
+	it('leaves a row the user owns unannotated', () => {
+		const shadowed = {
+			...bedrock,
+			overrides: { aws: { region: { value: 'us-east-2', name: 'AWS_REGION' } } },
+		};
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={shadowed} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.getByTestId('provider-aws-profile')).toHaveTextContent(/^AWS Profiledata-team$/);
 	});
 
 	it('omits the AWS rows for a provider that does not support them', () => {

@@ -435,7 +435,11 @@ async function registerAwsProvider(
 	);
 	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider, {
 		onSave: async (config) => {
-			if (!config.aws) {
+			// An empty block means the form had nothing editable to submit --
+			// every field it offers is supplied by the environment, which
+			// outranks providers.json. Returning early keeps Connect from
+			// rewriting the config file with identical content.
+			if (!config.aws || Object.keys(config.aws).length === 0) {
 				return;
 			}
 			await saveAwsSettings(config.aws);

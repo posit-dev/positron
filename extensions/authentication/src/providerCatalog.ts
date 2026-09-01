@@ -253,6 +253,147 @@ export function getUserProviderBlock(catalogId: string): BuiltinProviderBlock | 
 }
 
 /**
+ * Reads connection environment variables through the same seam the catalog
+ * uses, so a test that passes `envVars` to {@link initProviderCatalog} sees
+ * those values here too and never the real shell.
+ *
+ * Env vars are how a *shadowed* form field is detected. ai-config ranks its
+ * internal `env` layer above `user`, so a variable that is set makes the
+ * corresponding providers.json value inert -- and detection has to be by
+ * *presence*, not by diffing resolved against user: when both layers hold the
+ * same value a diff is empty, the input would stay editable, and the next save
+ * would be silently discarded.
+ *
+ * `names` is consulted in order, first set wins, matching ai-config's
+ * `readEnv`.
+ */
+export function readConnectionEnv(names: readonly string[]): string | undefined {
+	const env = currentOptions?.envVars ?? process.env;
+	for (const name of names) {
+		const value = env[name];
+		if (value) {
+			return value;
+		}
+	}
+	return undefined;
+}
+
+/** An env var name, or names consulted in order so the first set one wins. */
+type EnvNames = readonly string[];
+
+/**
+ * Where one connection value came from, when it did not come from the layer the
+ * user controls.
+ *
+ * Named after ai-config's `ResolvedConnectionValueProvenance`, but carrying the
+ * value and the variable that supplied it rather than a bare
+ * `'configuration' | 'environment'` kind: a form has to be able to say which
+ * variable to change, which a kind alone cannot express.
+ */
+export interface ConnectionValueProvenance {
+	/** The value in effect. */
+	readonly value: string;
+	/** Name of the environment variable that supplied it. */
+	readonly name?: string;
+}
+
+/**
+ * Provenance for the connection values a form renders, held as a tree parallel
+ * to the connection rather than as wrapped values.
+ *
+ * Mirrors ai-config's `ResolvedConnectionProvenance`, including its reason for
+ * staying a separate tree: a `ResolvedConnection` is spread into a provider
+ * client's runtime options, so metadata must never live inside it. Only fields
+ * something can actually take over appear.
+ */
+export interface ConnectionProvenance {
+	baseUrl?: ConnectionValueProvenance;
+	apiKey?: ConnectionValueProvenance;
+	aws?: {
+		profile?: ConnectionValueProvenance;
+		region?: ConnectionValueProvenance;
+	};
+}
+
+/**
+ * Environment variables that take a connection value over, shaped like the
+ * provenance they produce: one entry per catalog id, then the field names a
+ * form renders, then the variables that supply them.
+ *
+ * This is the only faithful view of ai-config's `env` layer. That layer is
+ * synthesized privately inside `resolveProviderCatalogReport` and is absent
+ * from `loadConfigSources`, which returns only `user`, `enforced`, and
+ * `default` -- so the table is not enumeration overhead, it is the reader.
+ * Mirrors the subset of ai-config's private `CONNECTION_ENV_MAPPINGS` whose
+ * fields the modal renders as inputs, keeping that table's nesting so the two
+ * can be compared by eye.
+ *
+ * Only Bedrock is populated today; the other providers' variables
+ * (`ANTHROPIC_BASE_URL`, `DATABRICKS_HOST`, `SNOWFLAKE_ACCOUNT`, ...) shadow
+ * their inputs the same way, and enabling one is a line of data. Note the keys
+ * name the *form field*, not the config path: Databricks and Snowflake carry
+ * their value through the base URL input while persisting elsewhere, so
+ * `DATABRICKS_HOST` belongs under `baseUrl`.
+ *
+ * Duplicating a private table risks drift, so `providerSources.test.ts` asserts
+ * behaviorally that each variable named here really does reach the resolved
+ * catalog, which fails loudly if ai-config renames one or adds an alias.
+ */
+const OVERRIDING_ENV_VARS: Record<string, {
+	baseUrl?: EnvNames;
+	apiKey?: EnvNames;
+	aws?: { profile?: EnvNames; region?: EnvNames };
+}> = {
+	bedrock: {
+		aws: { profile: ['AWS_PROFILE'], region: ['AWS_REGION'] },
+	},
+};
+
+/**
+ * Resolves one field's variables to its provenance, or undefined when none is
+ * set. The reported name is the one that actually supplied the value, so a
+ * provider with alias variables names the one the user set.
+ */
+function readProvenance(names: EnvNames | undefined): ConnectionValueProvenance | undefined {
+	for (const name of names ?? []) {
+		const value = readConnectionEnv([name]);
+		if (value !== undefined) {
+			return { value, name };
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Connection values of `catalogId` that the environment supplies, so a form can
+ * show what is in effect and name what set it instead of offering an input
+ * whose value would be ignored. Undefined when the user controls every field.
+ */
+export function getConnectionProvenance(catalogId: string | undefined): ConnectionProvenance | undefined {
+	const mapping = catalogId ? OVERRIDING_ENV_VARS[catalogId] : undefined;
+	if (!mapping) {
+		return undefined;
+	}
+
+	const baseUrl = readProvenance(mapping.baseUrl);
+	const apiKey = readProvenance(mapping.apiKey);
+	const profile = readProvenance(mapping.aws?.profile);
+	const region = readProvenance(mapping.aws?.region);
+
+	// Spread so a field with nothing set leaves no key behind: a consumer reads
+	// presence as "not editable", so a shell of undefined keys would be
+	// indistinguishable from real provenance at the type level.
+	const provenance: ConnectionProvenance = {
+		...(baseUrl ? { baseUrl } : {}),
+		...(apiKey ? { apiKey } : {}),
+		...(profile || region
+			? { aws: { ...(profile ? { profile } : {}), ...(region ? { region } : {}) } }
+			: {}),
+	};
+	return Object.keys(provenance).length > 0 ? provenance : undefined;
+}
+
+/**
  * Reloads the catalog now and fires {@link onDidChangeProviderCatalog} when the
  * reload differs from the cache. `options` overrides the remembered options so a
  * write helper called with `{ configPath }` in a test never reads the real file;

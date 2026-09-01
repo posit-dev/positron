@@ -25,7 +25,7 @@ import {
 	VERTEX_DEFAULT_BASE_URL,
 } from './constants';
 import { getConfiguredSnowflakeAccount } from './credentials/snowflake';
-import { getCachedCustomProviders, getCachedProvider, getUserProviderBlock, type ResolvedProviderLike } from './providerCatalog';
+import { getCachedCustomProviders, getCachedProvider, getConnectionProvenance, getUserProviderBlock, type ResolvedProviderLike } from './providerCatalog';
 
 function getSavedBaseUrl(catalogId: string | undefined, fallback?: string): string | undefined {
 	return (catalogId && getCachedProvider(catalogId)?.connection.baseUrl) || fallback;
@@ -193,6 +193,10 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 				toolCalls: true,
 				aws: getUserAwsSettings(),
 			},
+			// Structurally identical to the catalog's ConnectionProvenance, so the
+			// tree passes straight through -- the catalog owns the environment seam
+			// and needs no dependency on the positron API types to do it.
+			overrides: getConnectionProvenance(PROVIDER_METADATA.amazonBedrock.catalogId),
 		},
 		{
 			type: positron.PositronLanguageModelType.Chat,
