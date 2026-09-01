@@ -746,7 +746,7 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 				<td align="right">${extensionChangeHtml(row)}</td>
 			</tr>`).join('\n')}
 		</table>
-		<p class="muted">A dominator-tree partition of the reachable extension host heap: every byte is credited to the nearest owning extension, so the rows sum to the total and nothing is counted twice. <em>unattributed</em> is the extension host runtime and node internals.</p>
+		<p class="muted">Every byte of the reachable extension host heap is credited to the extension that owns it, so the rows sum to the total. <em>unattributed</em> is host runtime and node internals.</p>
 	</div>`;
 
 	return `<!DOCTYPE html>

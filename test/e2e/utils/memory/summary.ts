@@ -576,8 +576,8 @@ const EXTENSION_DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to
  * they do not: this is a partition of the reachable V8 heap, and `unattributed`
  * is the host runtime rather than any extension's.
  */
-const EXTENSION_COVERAGE_NOTE = `A dominator partition of the extension host\'s reachable V8 heap, not of its PSS.
-	<em>unattributed</em> is the host runtime and node internals, not any extension\'s.`;
+const EXTENSION_COVERAGE_NOTE = `Splits the extension host's reachable V8 heap, not its PSS.
+	<em>unattributed</em> is host runtime and node internals.`;
 
 /** True when at least one row will render the dagger marker, which gates the footnote explaining it. */
 function hasNoBaselineRows(matrix: SummaryMatrix): boolean {
