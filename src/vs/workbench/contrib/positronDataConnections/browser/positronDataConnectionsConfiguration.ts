@@ -19,3 +19,8 @@ export const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'dataConnections.enabled';
 // schema > Tables > table > Columns > column), so every pixel of the per-level step costs eight
 // pixels of the panel's width before the name is reached.
 export const POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY = 'dataConnections.tree.indent';
+
+// The narrowest indent this view will render, matching the floor workbench.tree.indent declares for
+// itself. The setting's own minimum has to be 0 to leave room for the inherit sentinel, so this is
+// what keeps 1, 2, and 3 out: at those widths the indent guides tile into a solid bar.
+export const POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH = 4;

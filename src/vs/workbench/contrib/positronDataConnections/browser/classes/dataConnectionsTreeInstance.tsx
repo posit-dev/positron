@@ -12,7 +12,7 @@ import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from '../positronDataConnectionsConfiguration.js';
+import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from '../positronDataConnectionsConfiguration.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -128,9 +128,11 @@ const TREE_INDENT_KEY = 'workbench.tree.indent';
  * @returns The indent width in pixels.
  */
 const resolveIndentWidth = (configurationService: IConfigurationService): number => {
-	// Zero is this view's "inherit the workbench setting" sentinel rather than a width.
+	// Zero is this view's "inherit the workbench setting" sentinel rather than a width, and anything
+	// under the workbench key's own floor of 4 is treated the same way: a JSON schema can't express
+	// "0, or 4 through 40", and at an indent of 1 or 2 the guides tile into a solid bar.
 	const viewIndentWidth = configurationService.getValue<number>(POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY);
-	return viewIndentWidth > 0
+	return viewIndentWidth >= POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH
 		? viewIndentWidth
 		: configurationService.getValue<number>(TREE_INDENT_KEY);
 };
@@ -164,10 +166,9 @@ const wrapDto = (
  * handle.
  */
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> {
-	// Ids of rows the last fetch breadcrumbed, waiting to be expanded. Held here rather than
-	// expanded inline because the base has not inserted them into the tree yet when the fetch that
-	// produced them returns. See _expandBreadcrumbed.
-	private readonly _pendingBreadcrumbExpansions = new Set<string>();
+	// Ids of breadcrumbed rows this tree has already opened once, so a row the user then closed is
+	// left closed rather than reopened by the next fetch. See _expandBreadcrumbed.
+	private readonly _autoExpandedBreadcrumbs = new Set<string>();
 
 	constructor(
 		private readonly _service: IPositronDataConnectionsService,
@@ -238,6 +239,15 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 */
 	override async reloadAll(): Promise<void> {
 		await super.reloadAll();
+		await this._expandBreadcrumbed();
+	}
+
+	/**
+	 * Re-fetches a subtree in place. Reaches the same fetch as expand and reload, so it can
+	 * breadcrumb too, and opens whatever it produced.
+	 */
+	override async invalidate(id?: string): Promise<void> {
+		await super.invalidate(id);
 		await this._expandBreadcrumbed();
 	}
 
@@ -335,14 +345,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	/**
 	 * Wraps a level's DTOs, breadcrumbing any namespace group that turned out to hold exactly one
 	 * child: the group is dropped and its child takes its place, labeled with the group's name
-	 * ("Schemas" over a lone "public" becomes "Schemas / public"). The replacement is recorded for
-	 * expansion, so the row opens with its contents showing rather than moving the user's click one
-	 * row down. See BREADCRUMB_GROUP_KINDS for which groups qualify and why.
+	 * ("Schemas" over a lone "public" becomes "Schemas / public"). See BREADCRUMB_GROUP_KINDS for
+	 * which groups qualify and why, and _expandBreadcrumbed for how the replacement comes to be open.
 	 *
 	 * Deciding this needs the group's children, so a namespace group costs one extra round trip on
-	 * the level above it. The result is never wasted: a group that turns out to hold several
-	 * children keeps its row and is handed the children that were just fetched, so the user's own
-	 * expand of it is free rather than a repeat of the same query.
+	 * the level above it, paid whether or not the user goes on to open it.
 	 *
 	 * @param dtos The level's DTOs.
 	 * @param handle The connection handle the DTOs came from.
@@ -368,32 +375,47 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			}
 
 			if (children.length === 1) {
-				const node = wrapDto(children[0], handle, dto.name);
-				this._pendingBreadcrumbExpansions.add(node.id);
-				return node;
+				return wrapDto(children[0], handle, dto.name);
 			}
 
-			const group = wrapDto(dto, handle);
-			this.setChildren(group.id, children.map(child => wrapDto(child, handle)));
-			return group;
+			// The children are deliberately dropped when the group keeps its row. Handing them to
+			// the tree would save the user's own expand a repeat of this query, but this runs inside
+			// a reload's staged fetch as well, and a reload whose result is discarded (its node
+			// collapsed while it was in flight) would leave those children behind in the live map,
+			// keyed by a node that never arrived and holding ext-host handles nothing can release.
+			return wrapDto(dto, handle);
 		}));
 	}
 
 	/**
-	 * Expands the rows the last fetch breadcrumbed. Their children are already loaded (the fetch
-	 * that found the single child left them in hand), so this costs no round trip. Ids that no
-	 * longer exist -- a subtree dropped between the fetch and here -- are no-ops in the base.
+	 * Opens the breadcrumbed rows that are on screen and still closed. A breadcrumbed row stands in
+	 * for a group the user would have had to expand anyway, so leaving it shut would just move the
+	 * click down a row. Its children were not part of the look-ahead -- that fetched the group's
+	 * children, which is the row itself -- so each one costs a round trip of its own.
+	 *
+	 * Read from the projection rather than from a list built during the fetch. Reloads run
+	 * concurrently (reloadAll fans out across roots) and invalidate reaches the same fetch, so a list
+	 * handed between the two is drained by whichever operation finishes first, against rows another
+	 * one has not inserted yet. The projection is the same answer whoever asks and whenever.
+	 *
+	 * Rows already opened once are recorded, so a row the user then closed stays closed. Node ids
+	 * carry the fetch that minted them, so a reload's replacement rows are new ids and open again.
 	 */
 	private async _expandBreadcrumbed(): Promise<void> {
-		if (this._pendingBreadcrumbExpansions.size === 0) {
+		const toExpand = this.visibleNodes
+			.filter(visible =>
+				visible.node.data.kind === 'dto' &&
+				visible.node.data.labelPrefix !== undefined &&
+				!this._autoExpandedBreadcrumbs.has(visible.node.id))
+			.map(visible => visible.node.id);
+		if (toExpand.length === 0) {
 			return;
 		}
 
-		// Taken and cleared up front: expanding these fetches their own children, which can
-		// breadcrumb again and add to the set, and those are drained by that nested call.
-		const pending = [...this._pendingBreadcrumbExpansions];
-		this._pendingBreadcrumbExpansions.clear();
-		await Promise.all(pending.map(id => this.expand(id)));
+		for (const id of toExpand) {
+			this._autoExpandedBreadcrumbs.add(id);
+		}
+		await Promise.all(toExpand.map(id => this.expand(id)));
 	}
 
 	/**

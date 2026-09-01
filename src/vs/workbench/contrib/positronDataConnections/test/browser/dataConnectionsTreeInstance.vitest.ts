@@ -234,26 +234,33 @@ describe('DataConnectionsTreeInstance', () => {
 	 */
 	function createTreeOverNodes(
 		rootDtos: IDataConnectionNodeDTO[],
-		childrenOf: (nodeHandle: number) => IDataConnectionNodeDTO[]
+		childrenOf: (nodeHandle: number) => IDataConnectionNodeDTO[],
+		profiles: IDataConnectionProfile[] = [profile]
 	) {
 		const nodeGetChildren = vi.fn(async (nodeHandle: number) => childrenOf(nodeHandle));
-		const instance = stubInterface<IDataConnectionInstance>({
-			id: 'instance-1',
-			profileId: profile.id,
-			connectionHandle: stubInterface<IDataConnectionHandle>({
-				handle: 1,
-				getChildren: async () => rootDtos,
-				nodeGetChildren,
+
+		// One instance per profile, each with its own connection handle, so node ids stay distinct
+		// across connections the way they do in the real service.
+		const instances = new Map(profiles.map((forProfile, index) => [
+			forProfile.id,
+			stubInterface<IDataConnectionInstance>({
+				id: `instance-${index + 1}`,
+				profileId: forProfile.id,
+				connectionHandle: stubInterface<IDataConnectionHandle>({
+					handle: index + 1,
+					getChildren: async () => rootDtos,
+					nodeGetChildren,
+				}),
 			}),
-		});
+		]));
 		const service = stubInterface<IPositronDataConnectionsService>({
 			onDidChangeProfiles: Event.None,
 			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeDiscoveredProfiles: Event.None,
-			getProfiles: () => [profile],
+			getProfiles: () => profiles,
 			getDiscoveredProfiles: () => [],
-			getInstanceForProfile: () => instance,
-			connect: async () => instance,
+			getInstanceForProfile: (profileId: string) => instances.get(profileId),
+			connect: async (profileId: string) => instances.get(profileId)!,
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
@@ -301,7 +308,7 @@ describe('DataConnectionsTreeInstance', () => {
 		]);
 	});
 
-	it('leaves a namespace group with several children alone, and hands it the children it already fetched', async () => {
+	it('leaves a namespace group with several children alone, and re-fetches them when it is expanded', async () => {
 		const { tree, nodeGetChildren } = createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 			nodeHandle => nodeHandle === 1
@@ -314,8 +321,9 @@ describe('DataConnectionsTreeInstance', () => {
 		await tree.refresh();
 		await tree.expand(ENTRY_ID);
 
-		// The look-ahead that counted the schemas already has them, so expanding the group costs
-		// nothing further -- the count of nodeGetChildren calls doesn't move.
+		// The look-ahead that counted the schemas discards them rather than handing them to the tree,
+		// so expanding the group queries again. The alternative leaves children behind in the live
+		// map when a reload's staged fetch is discarded -- see _breadcrumbNamespaceGroups.
 		const callsBeforeExpanding = nodeGetChildren.mock.calls.length;
 		await tree.expand('dto:1:1');
 
@@ -331,8 +339,50 @@ describe('DataConnectionsTreeInstance', () => {
 				{ name: 'staging', prefix: undefined, expanded: false },
 			],
 			callsBeforeExpanding: 1,
-			callsAfterExpanding: 1,
+			callsAfterExpanding: 2,
 		});
+	});
+
+	it('opens breadcrumbed rows under every connection when several reload at once', async () => {
+		// Two profiles, so Refresh All fans reload out across both roots concurrently. Breadcrumbed
+		// rows used to be collected into one instance-wide list, which whichever reload finished
+		// first drained -- against rows the other had not inserted yet, leaving them shut.
+		const second = createProfile({ id: 'conn-2', connectionName: 'Second Connection' });
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => nodeHandle === 1
+				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
+				: [],
+			[profile, second]
+		);
+		await tree.refresh();
+		await Promise.all([tree.expand(ENTRY_ID), tree.expand('entry:conn-2')]);
+		await tree.reloadAll();
+
+		expect(rows(tree)).toEqual([
+			{ name: 'connection', prefix: undefined, expanded: true },
+			{ name: 'public', prefix: 'Schemas', expanded: true },
+			{ name: 'connection', prefix: undefined, expanded: true },
+			{ name: 'public', prefix: 'Schemas', expanded: true },
+		]);
+	});
+
+	it('leaves a breadcrumbed row the user closed closed, rather than reopening it on the next fetch', async () => {
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => nodeHandle === 1
+				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
+				: []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+		tree.collapse('dto:1:2');
+
+		// Any later fetch runs the auto-expand again. It opens a breadcrumbed row once and records
+		// that it did, so a row the user closed since is left alone.
+		await tree.invalidate(ENTRY_ID);
+
+		expect(tree.isExpanded('dto:1:2')).toBe(false);
 	});
 
 	it('does not breadcrumb an object group, however few children it has', async () => {
