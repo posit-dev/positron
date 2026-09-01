@@ -14,8 +14,9 @@ export class QuickInput {
 	private static QUICK_INPUT_RESULT = `${QuickInput.QUICK_INPUT} .quick-input-list .monaco-list-row`;
 	// Note: this only grabs the label and not the description or detail
 	static readonly QUICK_INPUT_ENTRY_LABEL = `${this.QUICK_INPUT_RESULT} .quick-input-list-row > .monaco-icon-label .label-name`;
-	private static QUICKINPUT_OK_BUTTON =
-		'.quick-input-widget .quick-input-action a:has-text(\'OK\')';
+	private static quickInputActionButton(label: string): string {
+		return `.quick-input-widget .quick-input-action a:has-text('${label}')`;
+	}
 	quickInputList: Locator;
 	quickInput: Locator;
 	quickInputTitleBar: Locator;
@@ -257,9 +258,9 @@ export class QuickInput {
 		await this.code.driver.currentPage.mouse.move(0, 0);
 	}
 
-	async clickOkButton(): Promise<void> {
+	async clickOkButton(label: string = 'OK'): Promise<void> {
 		await this.code.driver.currentPage
-			.locator(QuickInput.QUICKINPUT_OK_BUTTON)
+			.locator(QuickInput.quickInputActionButton(label))
 			.click();
 	}
 
