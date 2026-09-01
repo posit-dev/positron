@@ -7,7 +7,7 @@
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -22,7 +22,7 @@ import { IQuartoExecutionManager } from '../../../../contrib/positronQuarto/comm
 import { IRuntimeNotebookKernelService } from '../../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { IPositronConnectionsService } from '../../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -33,7 +33,7 @@ import { IPositronIPyWidgetsService } from '../../../../services/positronIPyWidg
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { ExtHostLanguageRuntimeShape, RuntimeSessionCapabilities } from '../../../common/positron/extHost.positron.protocol.js';
@@ -175,6 +175,48 @@ describe('ExtHostLanguageRuntimeSessionAdapter - missing-package capabilities', 
 	});
 });
 
+/** Builds a MainThreadLanguageRuntime over stubbed services, overriding only what a test cares about. */
+function createMainThread(disposables: Pick<DisposableStore, 'add'>, overrides: {
+	proxy?: Partial<ExtHostLanguageRuntimeShape>;
+	runtimeSessionService?: Partial<IRuntimeSessionService>;
+	onDidExecuteConsoleCode?: Event<ILanguageRuntimeCodeExecutedEvent>;
+	onDidExecuteNotebookCode?: Event<ILanguageRuntimeCodeExecutedEvent>;
+	onDidExecuteQuartoCode?: Event<ILanguageRuntimeCodeExecutedEvent>;
+} = {}): MainThreadLanguageRuntime {
+	const proxy = stubInterface<ExtHostLanguageRuntimeShape>(overrides.proxy ?? {});
+	const extHostContext = stubInterface<IExtHostContext>({
+		getProxy: (() => proxy) as unknown as IExtHostContext['getProxy'],
+	});
+
+	const mainThread = new MainThreadLanguageRuntime(
+		extHostContext,
+		stubInterface<ILanguageRuntimeService>({ onDidRegisterRuntime: Event.None }),
+		stubInterface<IRuntimeSessionService>({ registerSessionManager: () => Disposable.None, ...overrides.runtimeSessionService }),
+		stubInterface<IRuntimeStartupService>({ registerRuntimeManager: () => Disposable.None }),
+		stubInterface<IRuntimeNotebookKernelService>({ initialize: vi.fn(), onDidExecuteCode: overrides.onDidExecuteNotebookCode ?? Event.None }),
+		stubInterface<IPositronConsoleService>({ initialize: vi.fn(), onDidExecuteCode: overrides.onDidExecuteConsoleCode ?? Event.None }),
+		stubInterface<IPositronDataExplorerService>({ initialize: vi.fn() }),
+		stubInterface<IPositronVariablesService>({ initialize: vi.fn() }),
+		stubInterface<IPositronHelpService>({ initialize: vi.fn() }),
+		stubInterface<IPositronPlotsService>({ initialize: vi.fn() }),
+		stubInterface<IPositronIPyWidgetsService>({ initialize: vi.fn() }),
+		stubInterface<IPositronWebviewPreloadService>({ initialize: vi.fn() }),
+		stubInterface<IPositronConnectionsService>({ initialize: vi.fn() }),
+		stubInterface<INotificationService>({}),
+		stubInterface<IQuartoExecutionManager>({ onDidExecuteCode: overrides.onDidExecuteQuartoCode ?? Event.None }),
+		stubInterface<IPathService>({}),
+		new NullLogService(),
+		stubInterface<ICommandService>({}),
+		stubInterface<INotebookService>({}),
+		stubInterface<IEditorService>({}),
+		stubInterface<IOpenerService>({}),
+		stubInterface<IWorkbenchEnvironmentService>({}),
+		stubInterface<IExecutionHistoryService>({}),
+		stubInterface<IConfigurationService>({}),
+	);
+	return disposables.add(mainThread);
+}
+
 describe('MainThreadLanguageRuntime - code execution event forwarding', () => {
 	const disposables = ensureNoLeakedDisposables();
 
@@ -192,49 +234,17 @@ describe('MainThreadLanguageRuntime - code execution event forwarding', () => {
 		};
 	}
 
-	function createMainThread() {
+	it('forwards code execution events from the console, notebook, and Quarto sources to the extension host', () => {
 		const consoleEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 		const notebookEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 		const quartoEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
-
 		const $notifyCodeExecuted = vi.fn();
-		const proxy = stubInterface<ExtHostLanguageRuntimeShape>({ $notifyCodeExecuted });
-		const extHostContext = stubInterface<IExtHostContext>({
-			getProxy: (() => proxy) as unknown as IExtHostContext['getProxy'],
+		createMainThread(disposables, {
+			proxy: { $notifyCodeExecuted },
+			onDidExecuteConsoleCode: consoleEmitter.event,
+			onDidExecuteNotebookCode: notebookEmitter.event,
+			onDidExecuteQuartoCode: quartoEmitter.event,
 		});
-
-		const mainThread = new MainThreadLanguageRuntime(
-			extHostContext,
-			stubInterface<ILanguageRuntimeService>({ onDidRegisterRuntime: Event.None }),
-			stubInterface<IRuntimeSessionService>({ registerSessionManager: () => Disposable.None }),
-			stubInterface<IRuntimeStartupService>({ registerRuntimeManager: () => Disposable.None }),
-			stubInterface<IRuntimeNotebookKernelService>({ initialize: vi.fn(), onDidExecuteCode: notebookEmitter.event }),
-			stubInterface<IPositronConsoleService>({ initialize: vi.fn(), onDidExecuteCode: consoleEmitter.event }),
-			stubInterface<IPositronDataExplorerService>({ initialize: vi.fn() }),
-			stubInterface<IPositronVariablesService>({ initialize: vi.fn() }),
-			stubInterface<IPositronHelpService>({ initialize: vi.fn() }),
-			stubInterface<IPositronPlotsService>({ initialize: vi.fn() }),
-			stubInterface<IPositronIPyWidgetsService>({ initialize: vi.fn() }),
-			stubInterface<IPositronWebviewPreloadService>({ initialize: vi.fn() }),
-			stubInterface<IPositronConnectionsService>({ initialize: vi.fn() }),
-			stubInterface<INotificationService>({}),
-			stubInterface<IQuartoExecutionManager>({ onDidExecuteCode: quartoEmitter.event }),
-			stubInterface<IPathService>({}),
-			new NullLogService(),
-			stubInterface<ICommandService>({}),
-			stubInterface<INotebookService>({}),
-			stubInterface<IEditorService>({}),
-			stubInterface<IOpenerService>({}),
-			stubInterface<IWorkbenchEnvironmentService>({}),
-			stubInterface<IExecutionHistoryService>({}),
-			stubInterface<IConfigurationService>({}),
-		);
-		disposables.add(mainThread);
-		return { consoleEmitter, notebookEmitter, quartoEmitter, $notifyCodeExecuted };
-	}
-
-	it('forwards code execution events from the console, notebook, and Quarto sources to the extension host', () => {
-		const { consoleEmitter, notebookEmitter, quartoEmitter, $notifyCodeExecuted } = createMainThread();
 
 		const consoleEvent = codeExecutedEvent({ executionId: 'console' });
 		const notebookEvent = codeExecutedEvent({ executionId: 'notebook' });
@@ -249,5 +259,61 @@ describe('MainThreadLanguageRuntime - code execution event forwarding', () => {
 			notebookEvent,
 			quartoEvent,
 		]);
+	});
+});
+
+describe('MainThreadLanguageRuntime - session working directory', () => {
+	const disposables = ensureNoLeakedDisposables();
+
+	function sessionWithWorkingDirectory(currentWorkingDirectory: string): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			dynState: { busy: false, sessionName: 'test', inputPrompt: '>', continuationPrompt: '+', currentWorkingDirectory },
+		});
+	}
+
+	it('$startLanguageRuntime passes the requested working directory to the session service', async () => {
+		const startNewRuntimeSession = vi.fn().mockResolvedValue('session-1');
+		const mainThread = createMainThread(disposables, { runtimeSessionService: { startNewRuntimeSession } });
+
+		const sessionId = await mainThread.$startLanguageRuntime(
+			'r-1', 'R', LanguageRuntimeSessionMode.Console, undefined, '/work/dir');
+
+		const [runtimeId, , sessionMode, notebookUri, , , , options] = startNewRuntimeSession.mock.calls[0];
+		expect({ sessionId, runtimeId, sessionMode, notebookUri, options }).toEqual({
+			sessionId: 'session-1',
+			runtimeId: 'r-1',
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			notebookUri: undefined,
+			options: { workingDirectory: '/work/dir' },
+		});
+	});
+
+	it('$getSessionWorkingDirectory reads the named session, falling back to the foreground session', async () => {
+		const mainThread = createMainThread(disposables, {
+			runtimeSessionService: {
+				getSession: (sessionId: string) => sessionId === 'session-1' ? sessionWithWorkingDirectory('/named') : undefined,
+				foregroundSession: sessionWithWorkingDirectory('/foreground'),
+			},
+		});
+
+		expect(await Promise.all([
+			mainThread.$getSessionWorkingDirectory('session-1'),
+			mainThread.$getSessionWorkingDirectory(undefined),
+			mainThread.$getSessionWorkingDirectory('missing'),
+		])).toEqual(['/named', '/foreground', undefined]);
+	});
+
+	it('$setSessionWorkingDirectory forwards to the named session and rejects an unknown one', async () => {
+		const setWorkingDirectory = vi.fn().mockResolvedValue(undefined);
+		const session = stubInterface<ILanguageRuntimeSession>({ setWorkingDirectory });
+		const mainThread = createMainThread(disposables, {
+			runtimeSessionService: { getSession: (sessionId: string) => sessionId === 'session-1' ? session : undefined },
+		});
+
+		await mainThread.$setSessionWorkingDirectory('session-1', '/work/dir');
+		expect(setWorkingDirectory).toHaveBeenCalledWith('/work/dir');
+
+		await expect(mainThread.$setSessionWorkingDirectory('missing', '/work/dir'))
+			.rejects.toThrow('No such session: missing');
 	});
 });

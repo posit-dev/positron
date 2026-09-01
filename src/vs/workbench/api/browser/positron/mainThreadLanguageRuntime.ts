@@ -1986,16 +1986,18 @@ export class MainThreadLanguageRuntime
 	}
 
 	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined> {
-		let session;
-		if (sessionId) {
-			session = this.findSession(sessionId);
-		} else {
-			session = this._runtimeSessionService.foregroundSession;
+		const session = sessionId ?
+			this._runtimeSessionService.getSession(sessionId) :
+			this._runtimeSessionService.foregroundSession;
+		return Promise.resolve(session?.dynState.currentWorkingDirectory || undefined);
+	}
+
+	$setSessionWorkingDirectory(sessionId: string, directory: string): Promise<void> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			return Promise.reject(new Error(`No such session: ${sessionId}`));
 		}
-		if (session) {
-			return Promise.resolve(session.dynState.currentWorkingDirectory || undefined);
-		}
-		return Promise.resolve(undefined);
+		return Promise.resolve(session.setWorkingDirectory(directory));
 	}
 
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown> {
@@ -2026,7 +2028,8 @@ export class MainThreadLanguageRuntime
 		runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
-		notebookUri: URI | undefined): Promise<string> {
+		notebookUri: URI | undefined,
+		workingDirectory?: string): Promise<string> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
@@ -2038,7 +2041,8 @@ export class MainThreadLanguageRuntime
 			uri,
 			'Extension-requested runtime selection via Positron API',
 			RuntimeStartMode.Starting,
-			true);
+			true,
+			{ workingDirectory });
 
 		return sessionId;
 	}
