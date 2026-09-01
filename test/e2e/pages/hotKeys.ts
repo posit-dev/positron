@@ -309,6 +309,27 @@ export class HotKeys {
 		await navigated;
 		log('navigated (main frame) observed; starting gate');
 
+		// Iteration 2: ping the renderer over OUR CDP session, sequentially, to tell
+		// "renderer answers nobody" from "renderer answers everyone but Playwright".
+		let pinging = true;
+		const pingLoop = (async () => {
+			let n = 0;
+			while (pinging && cdp) {
+				n++;
+				const started = Date.now();
+				try {
+					const r = await cdp.send('Runtime.evaluate', {
+						expression: 'JSON.stringify([document.readyState, !!document.querySelector(".monaco-workbench"), Math.round(document.querySelector(".monaco-workbench")?.getBoundingClientRect().width ?? -1)])',
+						returnByValue: true,
+					});
+					log(`ping ${n} latency=${Date.now() - started}ms result=${r.result?.value ?? JSON.stringify(r.exceptionDetails?.text ?? r.result)}`);
+				} catch (e) {
+					log(`ping ${n} latency=${Date.now() - started}ms error=${firstLine(e)}`);
+				}
+				await new Promise(r => setTimeout(r, 500));
+			}
+		})();
+
 		try {
 			// Bound each probe and retry, rather than spending the whole budget on one
 			// assertion. Playwright parks a query on the execution-context promise that
@@ -350,6 +371,8 @@ export class HotKeys {
 				throw e;
 			}
 		} finally {
+			pinging = false;
+			await pingLoop.catch(() => undefined);
 			page.off('framenavigated', onFrameNavigated);
 			page.off('domcontentloaded', onDomContentLoaded);
 			page.off('load', onLoad);
