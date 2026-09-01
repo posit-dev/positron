@@ -7,9 +7,14 @@
 
 // The service resolves its bundled HTML with FileAccess.asFileUri, which needs
 // globalThis._VSCODE_FILE_ROOT. A bootstrap entry point normally sets that; a
-// plain Vitest run doesn't go through one, so set it here.
+// plain Vitest run doesn't go through one, so set it here. Assigning through
+// Object.assign rather than naming the property keeps this free of editor
+// diagnostics: the declaration lives in src/typings, which the fallback project
+// the editor uses for .vitest.ts files doesn't load.
 vi.hoisted(() => {
-	globalThis._VSCODE_FILE_ROOT = new URL('../../../../../../..', import.meta.url).pathname;
+	Object.assign(globalThis, {
+		_VSCODE_FILE_ROOT: new URL('../../../../../../..', import.meta.url).pathname
+	});
 });
 
 import { Event } from '../../../../../base/common/event.js';

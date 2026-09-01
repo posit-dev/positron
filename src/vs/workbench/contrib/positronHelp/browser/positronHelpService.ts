@@ -366,8 +366,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 	/**
 	 * Navigates the help service.
-	 * @param fromUrl The from URL.
-	 * @param toUrl The to URL.
+	 * @param fromHelpEntry The help entry the navigation came from.
+	 * @param toTargetUrl The target URL to navigate to.
 	 */
 	navigate(fromHelpEntry: IHelpEntry, toTargetUrl: string) {
 		// Ignore navigations from anything but the current help entry. A hidden

@@ -388,8 +388,12 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 
 		// Register onDidColorThemeChange handler.
 		this._register(this._themeService.onDidColorThemeChange(_colorTheme => {
-			// Reload the help overlay webview.
-			this._helpOverlayWebview?.reload();
+			// Load the help overlay webview again rather than reloading it. A
+			// reload re-renders the HTML as it stands, source URL and all, which
+			// names a proxy server that is gone if the extension host restarted.
+			if (this._helpOverlayWebview) {
+				this.loadHelpOverlayWebview(this._helpOverlayWebview);
+			}
 		}));
 
 		this.helpFocusedContextKey = PositronHelpFocused.bindTo(this._contextKeyService);
