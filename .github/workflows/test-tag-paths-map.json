@@ -148,6 +148,7 @@
   "src/vs/platform/update/": [],
   "src/vs/workbench/browser/actions/": [],
   "src/vs/workbench/browser/actions/positronActions.ts": ["@:new-folder-flow"],
+  "src/vs/workbench/browser/parts/": [],
   "src/vs/workbench/browser/parts/editor/editorActionBar": ["@:editor-action-bar"],
   "src/vs/workbench/browser/parts/positronTopActionBar/": ["@:top-action-bar"],
   "src/vs/workbench/browser/positronAnsiRenderer/": ["@:console"],
