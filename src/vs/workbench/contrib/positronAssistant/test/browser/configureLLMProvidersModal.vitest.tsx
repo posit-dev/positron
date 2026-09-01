@@ -20,7 +20,7 @@ import { makeDialogRenderer } from './providerModalTestUtils.js';
 
 const positAi: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'posit-ai', displayName: 'Posit AI', settingName: 'posit-ai' },
+	provider: { id: 'posit-ai', displayName: 'Posit AI Pass', settingName: 'posit-ai' },
 	supportedOptions: ['oauth'],
 	signedIn: false,
 	defaults: {},
@@ -145,7 +145,7 @@ describe('ConfigureLLMProviders', () => {
 		await user.click(screen.getByRole('button', { name: /connect/i }));
 		sessions = [stubInterface<AuthenticationSession>()];
 		await act(async () => {
-			sessionsChange.fire({ providerId: 'posit-ai', label: 'Posit AI', event: { added: undefined, removed: undefined, changed: undefined } });
+			sessionsChange.fire({ providerId: 'posit-ai', label: 'Posit AI Pass', event: { added: undefined, removed: undefined, changed: undefined } });
 		});
 		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
 	});

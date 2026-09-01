@@ -6,11 +6,7 @@
 'use strict';
 
 import { expect } from 'chai';
-import {
-    deriveVariableName,
-    escapePythonString,
-    generatePandasImportCode,
-} from '../../client/positron/dataImport/pandasCodeGenerator';
+import { escapePythonString, generatePandasImportCode } from '../../client/positron/dataImport/pandasCodeGenerator';
 
 suite('pandasCodeGenerator Tests', () => {
     suite('escapePythonString', () => {
@@ -29,34 +25,6 @@ suite('pandasCodeGenerator Tests', () => {
             expect(escapePythonString('/data/tab\tbed.csv')).to.equal('/data/tab\\tbed.csv');
             expect(escapePythonString('/data/bell\u0007.csv')).to.equal('/data/bell\\x07.csv');
             expect(escapePythonString('/data/delete\u007f.csv')).to.equal('/data/delete\\x7f.csv');
-        });
-    });
-
-    suite('deriveVariableName', () => {
-        test('strips the extension', () => {
-            expect(deriveVariableName('flights.csv')).to.equal('flights');
-        });
-
-        test('replaces characters that are invalid in an identifier', () => {
-            expect(deriveVariableName('my data-2020.tsv')).to.equal('my_data_2020');
-        });
-
-        test('prefixes a leading digit, which cannot start a Python identifier', () => {
-            expect(deriveVariableName('2020 data.csv')).to.equal('_2020_data');
-        });
-
-        test('suffixes a Python keyword, which cannot be assigned to', () => {
-            expect(deriveVariableName('class.csv')).to.equal('class_');
-            expect(deriveVariableName('import.tsv')).to.equal('import_');
-        });
-
-        test('leaves a soft keyword alone, because it is a valid identifier', () => {
-            expect(deriveVariableName('match.csv')).to.equal('match');
-        });
-
-        test('falls back to a usable name when nothing survives sanitization', () => {
-            expect(deriveVariableName('.csv')).to.equal('data');
-            expect(deriveVariableName('---.csv')).to.equal('data');
         });
     });
 

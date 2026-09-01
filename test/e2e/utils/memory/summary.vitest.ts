@@ -9,11 +9,14 @@ import { join } from 'path';
 import { describe, expect, test } from 'vitest';
 import { buildSummaryMatrix, renderSummaryHtml, ScenarioSnapshots } from './summary.js';
 import { buildLaneSections, collectScenarios, containerHtmlFrom, renderLaneSectionsHtml } from './summarize-cli.js';
-import { ActivatedExtension, LabeledProcess, MemorySnapshot } from './types.js';
+import { ActivatedExtension, ExtensionHeapBreakdown, LabeledProcess, MemorySnapshot } from './types.js';
 import { MemoryScenario } from './scenarios.js';
 import { MemoryLane } from './lanes.js';
 
 const MB = 1024 * 1024;
+
+/** The extension table's emphasis floor, mirrored from `summary.ts`. */
+const MIN_EXTENSION_EMPHASIS_MB = 1;
 
 const proc = (overrides: Partial<LabeledProcess> = {}): LabeledProcess => ({
 	pid: 100, ppid: 1, depth: 0, processName: 'positron', processRole: 'main',
@@ -36,6 +39,176 @@ const snapshot = (scenario: MemoryScenario, procs: LabeledProcess[], launchIndex
 const scenarioEntry = (scenario: MemoryScenario, procs: LabeledProcess[]): ScenarioSnapshots => ({
 	scenario,
 	snapshots: [snapshot(scenario, procs, 0), snapshot(scenario, procs, 1), snapshot(scenario, procs, 2)]
+});
+
+/** One launch's heap partition, from `[extensionId, MB]` pairs plus the unattributed remainder. */
+const heap = (extensions: [string, number][], unattributedMb: number): ExtensionHeapBreakdown => ({
+	extensions: extensions.map(([extensionId, mb]) => ({ extensionId, retainedBytes: mb * MB })),
+	unattributedBytes: unattributedMb * MB,
+	reachableBytes: (unattributedMb + extensions.reduce((sum, [, mb]) => sum + mb, 0)) * MB
+});
+
+/** A scenario whose three launches all carry the same heap partition. */
+const heapEntry = (scenario: MemoryScenario, breakdown: ExtensionHeapBreakdown): ScenarioSnapshots => ({
+	scenario,
+	snapshots: [0, 1, 2].map(i => ({
+		...snapshot(scenario, [proc()], i),
+		extensionHeap: breakdown,
+		extensionHeapStatus: 'ok' as const
+	}))
+});
+
+describe('extension matrix', () => {
+	test('one row per extension, largest first, with unattributed last', () => {
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40], ['b.mid', 10]], 100)),
+			heapEntry('notebook', heap([['a.big', 45], ['b.mid', 10]], 100))
+		]);
+
+		expect(matrix.extensions?.rows.map(r => r.extensionId)).toEqual(['a.big', 'b.mid', 'unattributed']);
+		expect(matrix.extensionsUnavailable).toBeUndefined();
+	});
+
+	test('deltas are against idle, and an extension absent from idle counts from zero', () => {
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40]], 100)),
+			heapEntry('notebook', heap([['a.big', 45], ['c.new', 20]], 100))
+		]);
+
+		const big = matrix.extensions!.rows.find(r => r.extensionId === 'a.big')!;
+		expect(big.deltaVsIdle.notebook).toBe(5 * MB);
+		expect(big.deltaVsIdle.idle).toBeUndefined();
+
+		// Absent from idle means it retained nothing there, so the whole 20 MB is
+		// what the scenario added. Reading it as "no baseline" hid that.
+		const fresh = matrix.extensions!.rows.find(r => r.extensionId === 'c.new')!;
+		expect(fresh.values.idle).toBeUndefined();
+		expect(fresh.deltaVsIdle.notebook).toBe(20 * MB);
+	});
+
+	test('no extension is delta\'d from zero when idle attributed no heap at all', () => {
+		const failedIdle = {
+			scenario: 'idle' as const,
+			snapshots: [{ ...snapshot('idle', [proc()], 0), extensionHeapStatus: 'parse_failed' as const }]
+		};
+		const matrix = buildSummaryMatrix([
+			failedIdle,
+			heapEntry('notebook', heap([['a.big', 45]], 100))
+		]);
+
+		// Otherwise every extension in every scenario reads as brand new, and a
+		// broken idle run publishes a table of fabricated regressions.
+		const big = matrix.extensions!.rows.find(r => r.extensionId === 'a.big')!;
+		expect(big.deltaVsIdle.notebook).toBeUndefined();
+	});
+
+	test('every row, including the collapsed tail and unattributed, sums to TOTAL', () => {
+		const tiny: [string, number][] = [['t.one', 0.1], ['t.two', 0.2]];
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40], ['b.mid', 10], ...tiny], 100)),
+			heapEntry('notebook', heap([['a.big', 45], ['b.mid', 10], ...tiny], 100))
+		]);
+
+		// The point of the row: a reader adding the printed column reaches the
+		// printed TOTAL. Summed from the rows for that reason, not from
+		// reachableBytes, which need not equal them.
+		const extensions = matrix.extensions!;
+		for (const scenario of ['idle', 'notebook'] as const) {
+			const sum = extensions.rows.reduce((total, row) => total + (row.values[scenario] ?? 0), 0);
+			expect(extensions.totals[scenario]).toBeCloseTo(sum, 0);
+		}
+		expect(extensions.totals.idle).toBeCloseTo(150.3 * MB, 0);
+		expect(extensions.totalDeltaVsIdle.notebook).toBeCloseTo(5 * MB, 0);
+		expect(extensions.totalDeltaVsIdle.idle).toBeUndefined();
+	});
+
+	test('a scenario that attributed no heap gets no TOTAL rather than a zero', () => {
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40]], 100)),
+			{ scenario: 'notebook' as const, snapshots: [{ ...snapshot('notebook', [proc()], 0), extensionHeapStatus: 'parse_failed' as const }] }
+		]);
+
+		// A zero would read as the whole extension host heap vanishing.
+		expect(matrix.extensions!.totals.notebook).toBeUndefined();
+		expect(matrix.extensions!.totalDeltaVsIdle.notebook).toBeUndefined();
+	});
+
+	test('an extension idle never loaded reads as new, not as a red regression', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40]], 100)),
+			heapEntry('notebook', heap([['a.big', 40], ['c.new', 20]], 100))
+		]));
+
+		// The scenario activating an extension idle does not is what the scenario
+		// is for, so it gets the neutral label, not the red "grew by 20 MB" that
+		// means an already-loaded extension moved.
+		const cell = html.split('c.new')[1].split('</tr>')[0];
+		expect(cell).toContain('>new<');
+		expect(cell).not.toContain('delta-up');
+	});
+
+	test('extensions under the floor in every scenario collapse into one row', () => {
+		const tiny: [string, number][] = [['t.one', 0.1], ['t.two', 0.2]];
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40], ...tiny], 100)),
+			heapEntry('notebook', heap([['a.big', 40], ...tiny], 100))
+		]);
+
+		expect(matrix.extensions?.collapsed).toBe(2);
+		const others = matrix.extensions!.rows.find(r => r.extensionId.startsWith('('))!;
+		expect(others.values.idle).toBeCloseTo(0.3 * MB, 0);
+	});
+
+	test('the collapsed tail can carry a delta like any other row', () => {
+		const tiny = (mb: number): [string, number][] => [['t.one', mb], ['t.two', mb], ['t.three', mb]];
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40], ...tiny(0.2)], 100)),
+			heapEntry('editors', heap([['a.big', 40], ...tiny(0.7)], 100))
+		]);
+
+		// Built with no threshold at all, this row could never render a delta, so a
+		// tail that grew past the floor stayed blank while every other row moved.
+		const others = matrix.extensions!.rows.find(r => r.extensionId.startsWith('('))!;
+		expect(others.deltaVsIdle.editors).toBeCloseTo(1.5 * MB, 0);
+		expect(others.emphasisThreshold.editors).toBe(MIN_EXTENSION_EMPHASIS_MB * MB);
+	});
+
+	test('an extension over the floor in one scenario stays its own row in all of them', () => {
+		const matrix = buildSummaryMatrix([
+			heapEntry('idle', heap([['a.spiky', 0.2]], 100)),
+			heapEntry('notebook', heap([['a.spiky', 30]], 100))
+		]);
+
+		const row = matrix.extensions!.rows.find(r => r.extensionId === 'a.spiky')!;
+		expect(row.values.idle).toBeCloseTo(0.2 * MB, 0);
+		expect(matrix.extensions?.collapsed).toBe(0);
+	});
+
+	test('no attributed heap yields no table and a reason instead', () => {
+		const entries: ScenarioSnapshots[] = [{
+			scenario: 'idle',
+			snapshots: [{ ...snapshot('idle', [proc()], 0), extensionHeapStatus: 'parse_failed' as const }]
+		}];
+
+		const matrix = buildSummaryMatrix(entries);
+
+		expect(matrix.extensions).toBeUndefined();
+		expect(matrix.extensionsUnavailable).toMatch(/could not be read back/);
+	});
+
+	test('the rendered card shows the extensions, or the reason when there are none', () => {
+		const withHeap = renderSummaryHtml(buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40]], 100)),
+			heapEntry('notebook', heap([['a.big', 45]], 100))
+		]));
+		expect(withHeap).toContain('Extension host heap by extension');
+		expect(withHeap).toContain('<code>a.big</code>');
+		expect(withHeap).toContain('<em>unattributed</em>');
+
+		const without = renderSummaryHtml(buildSummaryMatrix([scenarioEntry('idle', [proc()])]));
+		expect(without).toContain('Extension host heap by extension');
+		expect(without).not.toContain('<em>unattributed</em>');
+	});
 });
 
 describe('buildSummaryMatrix', () => {

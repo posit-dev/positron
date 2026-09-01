@@ -12,7 +12,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { isLocalhost } from './utils.js';
+import { isLocalhost, tryParseUrl } from './utils.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IOpenerService, OpenExternalOptions } from '../../../../platform/opener/common/opener.js';
@@ -107,10 +107,10 @@ export interface IPositronHelpService {
 
 	/**
 	 * Navigates the help service.
-	 * @param fromUrl The from URL.
-	 * @param toUrl The to URL.
+	 * @param fromHelpEntry The help entry the navigation came from.
+	 * @param toTargetUrl The target URL to navigate to.
 	 */
-	navigate(fromUrl: string, toUrl: string): void;
+	navigate(fromHelpEntry: IHelpEntry, toTargetUrl: string): void;
 
 	/**
 	 * Navigates backward.
@@ -136,7 +136,7 @@ export interface IPositronHelpService {
 /**
  * PositronHelpService class.
  */
-class PositronHelpService extends Disposable implements IPositronHelpService {
+export class PositronHelpService extends Disposable implements IPositronHelpService {
 	//#region Private Properties
 
 	/**
@@ -158,16 +158,6 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * Gets or sets the help entry index.
 	 */
 	private _helpEntryIndex = -1;
-
-	/**
-	 * Gets or sets a value which indicates whether the proxy server styles have been set.
-	 */
-	private _proxyServerStylesHaveBeenSet = false;
-
-	/**
-	 * Gets the proxy servers. Keyed by the target URL origin.
-	 */
-	private readonly _proxyServers = new Map<string, string>();
 
 	/**
 	 * Gets the help clients. Keyed by the runtime session ID.
@@ -376,47 +366,25 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 	/**
 	 * Navigates the help service.
-	 * @param fromUrl The from URL.
-	 * @param toUrl The to URL.
+	 * @param fromHelpEntry The help entry the navigation came from.
+	 * @param toTargetUrl The target URL to navigate to.
 	 */
-	navigate(fromUrl: string, toUrl: string) {
+	navigate(fromHelpEntry: IHelpEntry, toTargetUrl: string) {
+		// Ignore navigations from anything but the current help entry. A hidden
+		// help entry's webview can still be alive and posting messages.
 		const currentHelpEntry = this._helpEntries[this._helpEntryIndex];
-		if (currentHelpEntry && currentHelpEntry.sourceUrl === fromUrl) {
-			// Create the target URL.
-			const currentTargetUrl = new URL(currentHelpEntry.targetUrl);
-			const targetUrl = new URL(toUrl);
-			targetUrl.protocol = currentTargetUrl.protocol;
-			targetUrl.hostname = currentTargetUrl.hostname;
-			targetUrl.port = currentTargetUrl.port;
-
-			// Create the help entry.
-			const helpEntry = this._instantiationService.createInstance(HelpEntry,
-				this._helpHTML,
-				currentHelpEntry.languageId,
-				currentHelpEntry.sessionId,
-				currentHelpEntry.languageName,
-				toUrl,
-				targetUrl.toString()
-			);
-
-			// Add the onDidNavigate event handler.
-			helpEntry.onDidNavigate(url => {
-				this.navigate(helpEntry.sourceUrl, url);
-			});
-
-			// Add the onDidNavigateBackward event handler.
-			helpEntry.onDidNavigateBackward(() => {
-				this.navigateBackward();
-			});
-
-			// Add the onDidNavigateForward event handler.
-			helpEntry.onDidNavigateForward(() => {
-				this.navigateForward();
-			});
-
-			// Add the help entry.
-			this.addHelpEntry(helpEntry);
+		if (currentHelpEntry !== fromHelpEntry) {
+			return;
 		}
+
+		// Create and add the help entry.
+		this.addHelpEntry(this.createHelpEntry(
+			this._helpHTML,
+			currentHelpEntry.languageId,
+			currentHelpEntry.sessionId,
+			currentHelpEntry.languageName,
+			toTargetUrl
+		));
 	}
 
 	/**
@@ -453,27 +421,122 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 */
 	private async setProxyServerStyles() {
 		// Create a webview theme data provider. It's a convenient way to get the styles we need for
-		// the help proxy server. Get the webview styles.
+		// the help proxy server.
 		const webviewThemeDataProvider = this._instantiationService.createInstance(
 			WebviewThemeDataProvider
 		);
-		const { styles } = webviewThemeDataProvider.getWebviewThemeData();
-		webviewThemeDataProvider.dispose();
 
-		// Try to set the proxy server styles.
+		// Push the styles to the proxy server. A failure here leaves the help
+		// topic unthemed, which isn't reason enough to fail the navigation, so
+		// the error is logged and swallowed rather than propagated.
 		try {
-			// Set the proxy server styles.
+			const { styles } = webviewThemeDataProvider.getWebviewThemeData();
 			await this._commandService.executeCommand(
 				'positronProxy.setHelpProxyServerStyles',
 				styles
 			);
-
-			// Note that the proxy server styles have been set.
-			this._proxyServerStylesHaveBeenSet = true;
 		} catch (error) {
 			this._logService.error('PositronHelpService could not set the proxy server styles');
 			this._logService.error(error);
+		} finally {
+			webviewThemeDataProvider.dispose();
 		}
+	}
+
+	/**
+	 * Resolves a help entry's target URL to the source URL its webview loads.
+	 *
+	 * Help topics reach the webview through a help proxy server that runs in
+	 * the extension host. Those servers don't survive an extension host
+	 * restart, so nothing is remembered here: a help entry calls this every
+	 * time it loads and gets back an origin that is live right now. Asking
+	 * every time is no more expensive than caching would be, because the
+	 * PositronProxy hands back the existing proxy server for a target origin
+	 * when there is one.
+	 *
+	 * @param targetUrl The target URL.
+	 * @returns The source URL to load, or undefined if it could not be resolved.
+	 */
+	async resolveSourceUrl(targetUrl: string): Promise<string | undefined> {
+		// Help entries that a runtime's help server doesn't serve - the welcome
+		// page, for one - are loaded as they are.
+		const targetUrlObject = tryParseUrl(targetUrl);
+		if (!targetUrlObject || !isLocalhost(targetUrlObject.hostname)) {
+			return targetUrl;
+		}
+
+		// Push the current styles to the proxy. A proxy server started after an
+		// extension host restart has never been styled, so this can't be done
+		// once per window.
+		await this.setProxyServerStyles();
+
+		// Ask the PositronProxy for the proxy server origin serving the target
+		// origin, starting a server if one isn't running yet.
+		let proxyServerOrigin: string | undefined;
+		try {
+			proxyServerOrigin = await this._commandService.executeCommand<string>(
+				'positronProxy.startHelpProxyServer',
+				targetUrlObject.origin
+			);
+		} catch (error) {
+			this._logService.error(`PositronHelpService could not start the proxy server for ${targetUrlObject.origin}.`);
+			this._logService.error(error);
+		}
+
+		// If the help proxy server could not be started, notify the user.
+		if (!proxyServerOrigin) {
+			this._notificationService.error(localize(
+				'positronHelpServiceUnavailable',
+				"The Positron help service is unavailable."
+			));
+			return undefined;
+		}
+
+		// Create the source URL.
+		const sourceUrl = new URL(targetUrlObject);
+		const proxyServerOriginUrl = new URL(proxyServerOrigin);
+		sourceUrl.protocol = proxyServerOriginUrl.protocol;
+		sourceUrl.hostname = proxyServerOriginUrl.hostname;
+		sourceUrl.port = proxyServerOriginUrl.port;
+		sourceUrl.pathname = join(proxyServerOriginUrl.pathname, targetUrlObject.pathname);
+
+		return sourceUrl.toString();
+	}
+
+	/**
+	 * Creates a help entry.
+	 * @param helpHTML The help HTML.
+	 * @param languageId The language ID.
+	 * @param sessionId The runtime session ID.
+	 * @param languageName The language name.
+	 * @param targetUrl The target URL.
+	 * @returns The help entry.
+	 */
+	private createHelpEntry(
+		helpHTML: string,
+		languageId: string,
+		sessionId: string,
+		languageName: string,
+		targetUrl: string
+	) {
+		// Create the help entry. The entry resolves the source URL it loads
+		// through the service, every time it loads; see resolveSourceUrl.
+		const helpEntry = this._instantiationService.createInstance(HelpEntry,
+			helpHTML,
+			languageId,
+			sessionId,
+			languageName,
+			targetUrl,
+			target => this.resolveSourceUrl(target)
+		);
+
+		// Add the navigation event handlers. The emitters behind these events
+		// belong to the help entry, so the listeners go away when it does.
+		helpEntry.onDidNavigate(toTargetUrl => this.navigate(helpEntry, toTargetUrl));
+		helpEntry.onDidNavigateBackward(() => this.navigateBackward());
+		helpEntry.onDidNavigateForward(() => this.navigateForward());
+
+		return helpEntry;
 	}
 
 	/**
@@ -482,7 +545,10 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 */
 	private addHelpEntry(helpEntry: HelpEntry) {
 		// If the help entry being added matches the current help entry, don't open it again.
-		if (this._helpEntries[this._helpEntryIndex]?.sourceUrl === helpEntry.sourceUrl) {
+		// Help entries are identified by their target URL: the source URL they
+		// load from isn't resolved until the entry loads, and it changes when
+		// the extension host restarts.
+		if (this._helpEntries[this._helpEntryIndex]?.targetUrl === helpEntry.targetUrl) {
 			return;
 		}
 
@@ -646,21 +712,9 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	}
 
 	showWelcomePage() {
-		// Add the help entry.
-		const helpEntry = this._instantiationService.createInstance(HelpEntry,
-			this._welcomeHTML,
-			'',
-			'',
-			'',
-			'welcome.html',
-			'welcome.html'
-		);
-
-		// Add the onDidNavigate event handler.
-		helpEntry.onDidNavigate(url => {
-			this.navigate(helpEntry.sourceUrl, url);
-		});
-		this.addHelpEntry(helpEntry);
+		// Add the help entry. The welcome page is bundled rather than served by
+		// a runtime's help server, so its target URL is loaded as-is.
+		this.addHelpEntry(this.createHelpEntry(this._welcomeHTML, '', '', '', 'welcome.html'));
 	}
 
 	private async handleShowHelpEvent(
@@ -696,47 +750,6 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			return;
 		}
 
-		// Get the proxy server origin for the help URL. If one isn't found, ask the
-		// PositronProxy to start one.
-		let proxyServerOrigin = this._proxyServers.get(targetUrl.origin);
-		if (!proxyServerOrigin) {
-			// Ensure that the proxy server styles have been set.
-			if (!this._proxyServerStylesHaveBeenSet) {
-				await this.setProxyServerStyles();
-			}
-
-			// Try to start a help proxy server.
-			try {
-				proxyServerOrigin = await this._commandService.executeCommand<string>(
-					'positronProxy.startHelpProxyServer',
-					targetUrl.origin
-				);
-			} catch (error) {
-				this._logService.error(`PositronHelpService could not start the proxy server for ${targetUrl.origin}.`);
-				this._logService.error(error);
-			}
-
-			// If the help proxy server could not be started, notify the user, and return.
-			if (!proxyServerOrigin) {
-				this._notificationService.error(localize(
-					'positronHelpServiceUnavailable',
-					"The Positron help service is unavailable."
-				));
-				return;
-			}
-
-			// Add the proxy server.
-			this._proxyServers.set(targetUrl.origin, proxyServerOrigin);
-		}
-
-		// Create the source URL.
-		const sourceUrl = new URL(targetUrl);
-		const proxyServerOriginUrl = new URL(proxyServerOrigin);
-		sourceUrl.protocol = proxyServerOriginUrl.protocol;
-		sourceUrl.hostname = proxyServerOriginUrl.hostname;
-		sourceUrl.port = proxyServerOriginUrl.port;
-		sourceUrl.pathname = join(proxyServerOriginUrl.pathname, targetUrl.pathname);
-
 		// Basically this can't happen.
 		if (!session) {
 			this._notificationService.error(localize(
@@ -749,20 +762,15 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// Open the help view.
 		await this._viewsService.openView(POSITRON_HELP_VIEW_ID, false);
 
-		// Create the help entry.
-		const helpEntry = this._instantiationService.createInstance(HelpEntry,
+		// Create the help entry. The help entry resolves the proxied source URL
+		// it loads from on its own, when it loads; see resolveSourceUrl.
+		const helpEntry = this.createHelpEntry(
 			this._helpHTML,
 			session.runtimeMetadata.languageId,
 			session.runtimeMetadata.runtimeId,
 			session.runtimeMetadata.languageName,
-			sourceUrl.toString(),
 			targetUrl.toString()
 		);
-
-		// Add the onDidNavigate event handler.
-		this._register(helpEntry.onDidNavigate(url => {
-			this.navigate(helpEntry.sourceUrl, url);
-		}));
 
 		// Add the help entry.
 		this.addHelpEntry(helpEntry);

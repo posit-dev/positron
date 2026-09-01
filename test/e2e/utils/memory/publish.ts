@@ -14,7 +14,7 @@ import {
 } from '../metrics/metric-base.js';
 import { isMemoryLane, MemoryLane } from './lanes.js';
 import { MemoryScenario } from './scenarios.js';
-import { MemorySnapshot, ProcessRole } from './types.js';
+import { ExtensionHeapStatus, MemorySnapshot, ProcessRole } from './types.js';
 
 /**
  * The roles the client knows about. Kept beside the guard below so a role added
@@ -116,6 +116,25 @@ export type MemoryPayload = {
 			activation_time_ms: number | null;
 			activation_event: string | null;
 		}[];
+		/**
+		 * Per-extension partition of the extension host heap.
+		 *
+		 * Omitted rather than sent empty when the capture was never attempted, so
+		 * an endpoint that predates the field ignores it rather than rejecting the
+		 * run, and so a missing key stays distinguishable from a failed capture.
+		 * The byte counts appear only on `ok`: sending them as zero on a failure
+		 * would plot as a real collapse to zero. Every extension is sent, not a
+		 * top N -- the array is small, and letting the consumer choose a cutoff
+		 * avoids a second Positron-side change when the dashboard lands.
+		 */
+		extension_heap?: {
+			status: ExtensionHeapStatus;
+			pid?: number;
+			process_role: 'extension_host';
+			reachable_bytes?: number;
+			unattributed_bytes?: number;
+			extensions?: { extension_id: string; retained_bytes: number }[];
+		};
 	}[];
 };
 
@@ -164,6 +183,31 @@ export function redactProcessName(name: string): string {
 	return name.replace(/^(window \[\d+\]).*$/, '$1');
 }
 
+function buildExtensionHeap(snapshot: MemorySnapshot): MemoryPayload['launches'][number]['extension_heap'] {
+	if (!snapshot.extensionHeapStatus) {
+		return undefined;
+	}
+	const base = {
+		status: snapshot.extensionHeapStatus,
+		process_role: 'extension_host' as const,
+		...(snapshot.extensionHeapPid === undefined ? {} : { pid: snapshot.extensionHeapPid })
+	};
+	// A breakdown without an `ok` status, or the reverse, is a wiring bug; trust
+	// the status and drop the numbers rather than publishing a contradiction.
+	if (snapshot.extensionHeapStatus !== 'ok' || !snapshot.extensionHeap) {
+		return base;
+	}
+	return {
+		...base,
+		reachable_bytes: snapshot.extensionHeap.reachableBytes,
+		unattributed_bytes: snapshot.extensionHeap.unattributedBytes,
+		extensions: snapshot.extensionHeap.extensions.map(e => ({
+			extension_id: e.extensionId,
+			retained_bytes: e.retainedBytes
+		}))
+	};
+}
+
 export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): MemoryPayload {
 	// Thrown rather than defaulted. Every other field can degrade to 'unknown' and
 	// still leave a usable row, but a payload whose scenario is undefined cannot be
@@ -193,25 +237,29 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 		ark_version: arkVersion,
 		scenario: first.scenario,
 		lane: first.lane,
-		launches: snapshots.map(snapshot => ({
-			launch_index: snapshot.launchIndex,
-			settle_ms: snapshot.settleMs,
-			tree_total_pss_bytes: snapshot.treeTotalPssBytes,
-			processes: snapshot.processes.map(p => ({
-				pid: p.pid, ppid: p.ppid, depth: p.depth,
-				process_name: redactProcessName(p.processName), process_role: p.processRole,
-				labeled: p.labeled, cmd_basename: p.cmdBasename,
-				pss_bytes: p.pssBytes, rss_bytes: p.rssBytes,
-				pss_min: p.pssMin, pss_max: p.pssMax,
-				forced_gc: p.forcedGc
-			})),
-			extensions: snapshot.extensions.map(e => ({
-				extension_id: e.extensionId,
-				is_builtin: e.isBuiltin,
-				activation_time_ms: e.activationTimeMs,
-				activation_event: e.activationEvent
-			}))
-		}))
+		launches: snapshots.map(snapshot => {
+			const extensionHeap = buildExtensionHeap(snapshot);
+			return {
+				launch_index: snapshot.launchIndex,
+				settle_ms: snapshot.settleMs,
+				tree_total_pss_bytes: snapshot.treeTotalPssBytes,
+				processes: snapshot.processes.map(p => ({
+					pid: p.pid, ppid: p.ppid, depth: p.depth,
+					process_name: redactProcessName(p.processName), process_role: p.processRole,
+					labeled: p.labeled, cmd_basename: p.cmdBasename,
+					pss_bytes: p.pssBytes, rss_bytes: p.rssBytes,
+					pss_min: p.pssMin, pss_max: p.pssMax,
+					forced_gc: p.forcedGc
+				})),
+				extensions: snapshot.extensions.map(e => ({
+					extension_id: e.extensionId,
+					is_builtin: e.isBuiltin,
+					activation_time_ms: e.activationTimeMs,
+					activation_event: e.activationEvent
+				})),
+				...(extensionHeap ? { extension_heap: extensionHeap } : {})
+			};
+		})
 	};
 }
 

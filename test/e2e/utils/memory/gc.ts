@@ -16,6 +16,9 @@
  */
 
 import { MemoryLane } from './lanes.js';
+import { CdpClient, connectToInspector, defaultConnect, WsConnect } from './cdp.js';
+
+export { WebSocketLike, WsConnect } from './cdp.js';
 
 export interface GcTarget {
 	role: 'shared' | 'extension_host';
@@ -79,89 +82,11 @@ export function malformedForcedGc(stats: ForcedGcStats[]): ForcedGcStats[] {
 		entry.pid <= 0 || entry.preRssBytes <= 0 || entry.preHeapTotalBytes <= 0);
 }
 
-/** Minimal structural slice of the DOM/Node WebSocket this module actually uses. */
-export interface WebSocketLike {
-	send(data: string): void;
-	close(): void;
-	onmessage: ((event: { data: string }) => void) | null;
-	onerror: ((event: unknown) => void) | null;
-}
-
-export type WsConnect = (url: string) => Promise<WebSocketLike>;
-
-/** Opens a real WebSocket, resolving once it has connected. */
-const defaultConnect: WsConnect = (url: string) => new Promise((resolve, reject) => {
-	const ws = new WebSocket(url);
-	ws.onopen = () => resolve(ws as unknown as WebSocketLike);
-	ws.onerror = (event) => reject(new Error(`WebSocket connection to ${url} failed: ${String(event)}`));
-});
-
-/** How long any single CDP round trip may take before this module gives up on the whole GC pass. */
-const MESSAGE_TIMEOUT_MS = 10_000;
-
 /** The two collectGarbage passes are spaced out so the second can catch what the first's finalizers freed. */
 const FIRST_PASS_SETTLE_MS = 3_000;
 const SECOND_PASS_SETTLE_MS = 2_000;
 
 type MemoryUsagePayload = { pid: number; mem: { rss: number; heapTotal: number } };
-
-class CdpClient {
-	private nextId = 1;
-	private readonly pending = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void }>();
-
-	constructor(private readonly ws: WebSocketLike, private readonly target: GcTarget) {
-		this.ws.onmessage = (event) => this.handleMessage(event.data);
-		this.ws.onerror = (event) => this.rejectAllPending(new Error(
-			`${this.target.label} inspector on port ${this.target.port} errored while forcing a GC: ${String(event)}`));
-	}
-
-	private handleMessage(raw: string): void {
-		let message: any;
-		try {
-			message = JSON.parse(raw);
-		} catch {
-			return;
-		}
-		const pending = this.pending.get(message.id);
-		if (!pending) {
-			return;
-		}
-		this.pending.delete(message.id);
-		if (message.error) {
-			pending.reject(new Error(
-				`${this.target.label} inspector on port ${this.target.port} rejected a GC request: ${message.error.message ?? JSON.stringify(message.error)}`));
-		} else {
-			pending.resolve(message.result);
-		}
-	}
-
-	private rejectAllPending(error: Error): void {
-		for (const { reject } of this.pending.values()) {
-			reject(error);
-		}
-		this.pending.clear();
-	}
-
-	send<T = any>(method: string, params?: object): Promise<T> {
-		const id = this.nextId++;
-		return new Promise<T>((resolve, reject) => {
-			const timeout = setTimeout(() => {
-				this.pending.delete(id);
-				reject(new Error(
-					`${this.target.label} inspector on port ${this.target.port} did not reply to ${method} within ${MESSAGE_TIMEOUT_MS}ms`));
-			}, MESSAGE_TIMEOUT_MS);
-			this.pending.set(id, {
-				resolve: (value) => { clearTimeout(timeout); resolve(value); },
-				reject: (error) => { clearTimeout(timeout); reject(error); }
-			});
-			this.ws.send(JSON.stringify({ id, method, params }));
-		});
-	}
-
-	close(): void {
-		this.ws.close();
-	}
-}
 
 async function readMemoryUsage(client: CdpClient, target: GcTarget): Promise<MemoryUsagePayload> {
 	const result = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
@@ -195,15 +120,7 @@ export async function collectGarbageIn(
 ): Promise<ForcedGcStats> {
 	const { port } = target;
 	try {
-		const targetsResponse = await fetchImpl(`http://127.0.0.1:${port}/json`);
-		const targets = await targetsResponse.json() as { webSocketDebuggerUrl?: string }[];
-		const debugTarget = targets[0];
-		if (!debugTarget?.webSocketDebuggerUrl) {
-			throw new Error(`${target.label} inspector on port ${port} listed no debuggable target`);
-		}
-
-		const ws = await connect(debugTarget.webSocketDebuggerUrl);
-		const client = new CdpClient(ws, target);
+		const client = await connectToInspector(port, target.label, connect, fetchImpl);
 		try {
 			const pre = await readMemoryUsage(client, target);
 

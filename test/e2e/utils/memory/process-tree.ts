@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { promises as fs } from 'fs';
+import { KB } from './report-shell.js';
 import { RawProcess } from './types.js';
-
-const KB = 1024;
 
 /**
  * Read Pss and Rss out of /proc/<pid>/smaps_rollup. We use Pss as the primary

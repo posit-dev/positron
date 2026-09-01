@@ -95,6 +95,16 @@
 	color: var(--vscode-charts-red);
 }
 
+/*
+ * The read-only detail rows, grouped so the whole set can be omitted when a
+ * provider has none.
+ */
+.connect-provider-details {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
 .connect-provider-detail {
 	display: flex;
 	flex-direction: column;
@@ -160,6 +170,61 @@
 .connect-provider-notice {
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * More than one field, so this needs a tier above a single-field group: the
+ * looser gap separates one field from the next, while each field closes up
+ * around its own label and override note.
+ */
+.connect-provider-aws {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+/* Matches .connect-provider-apikey, the single-field group elsewhere in the form. */
+.connect-provider-aws-field {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.connect-provider-aws-hint {
+	margin: 0;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * A field the environment supplies. Dimmed to read as not-editable while
+ * staying legible, and selectable: the input is `readOnly`, not `disabled`, so
+ * the value in effect can be focused, announced, and copied.
+ */
+.connect-provider-apikey-input[readonly] {
+	color: var(--vscode-descriptionForeground);
+	background-color: var(--vscode-editorWidget-background);
+}
+
+.connect-provider-apikey-input[readonly]:focus {
+	outline-color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-field-override {
+	margin: 0;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * The shadowed value inside that note. Monospace so an arbitrary string reads
+ * as a value rather than running into the prose around it; sized down from the
+ * inherited 12px, since monospace runs visually larger at the same point size.
+ */
+.connect-provider-override-value {
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+	word-break: break-all;
 }
 
 .connect-provider-models {

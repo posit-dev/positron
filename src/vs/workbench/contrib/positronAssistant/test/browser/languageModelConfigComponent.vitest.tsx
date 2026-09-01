@@ -52,7 +52,7 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 	}
 
 	it.each([
-		{ id: 'posit-ai', displayName: 'Posit AI' },
+		{ id: 'posit-ai', displayName: 'Posit AI Pass' },
 		{ id: 'anthropic-api', displayName: 'Anthropic' },
 		{ id: 'openai-compatible', displayName: 'OpenAI Compatible' },
 		{ id: 'unknown-provider', displayName: 'Some Provider' },
@@ -63,15 +63,15 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 		expect(notice).not.toHaveTextContent(/\{\d+\}/);
 	});
 
-	it('renders the terms, privacy, and Posit AI home links for posit-ai', () => {
-		const notice = renderNotice({ id: 'posit-ai', displayName: 'Posit AI' });
+	it('renders the terms, privacy, and Posit AI Pass home links for posit-ai', () => {
+		const notice = renderNotice({ id: 'posit-ai', displayName: 'Posit AI Pass' });
 
-		// Posit AI's Terms of Service link points to the Posit AI Agreement.
+		// Posit AI Pass's Terms of Service link points to the Posit AI Pass Agreement.
 		expect(linkHrefs(notice)).toEqual({
 			'Posit EULA': 'https://posit.co/about/eula/',
 			'Terms of Service': 'https://posit.co/about/posit-ai-agreement',
 			'Privacy Policy': 'https://posit.co/about/privacy-policy/',
-			'Posit AI': 'https://posit.ai/',
+			'Posit AI Pass': 'https://posit.ai/',
 		});
 	});
 

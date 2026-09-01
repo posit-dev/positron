@@ -26,7 +26,7 @@ function source(overrides: Partial<IPositronLanguageModelSource> & { id: string;
 // Only source in the model-providers section, so there is exactly one
 // "Connect" button and getByRole('button', { name: /connect/i }) is unambiguous.
 const sourcesWithPositAi: IPositronLanguageModelSource[] = [
-	source({ id: 'posit-ai', displayName: 'Posit AI', supportedOptions: ['oauth'], signedIn: false }),
+	source({ id: 'posit-ai', displayName: 'Posit AI Pass', supportedOptions: ['oauth'], signedIn: false }),
 ];
 
 const availableAnthropic: IPositronLanguageModelSource[] = [
@@ -91,7 +91,7 @@ describe('ProviderList', () => {
 		expect(screen.getByText('Custom Anthropic provider')).toBeInTheDocument();
 	});
 
-	it('reports the source when Connect is clicked on Posit AI', async () => {
+	it('reports the source when Connect is clicked on Posit AI Pass', async () => {
 		const onSelectProvider = vi.fn();
 		const user = userEvent.setup();
 		rtl.render(<ProviderList sources={sourcesWithPositAi} onSelectProvider={onSelectProvider} />);

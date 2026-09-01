@@ -186,13 +186,25 @@ type PositronHelpMessage =
 	| PositronHelpMessageExecuteCommand;
 
 /**
+ * SourceUrlResolver type.
+ *
+ * Resolves a help entry's target URL to the source URL its overlay webview
+ * loads. A help entry can't do this itself: the source URL points at a help
+ * proxy server owned by the extension host. The help service supplies this.
+ */
+export type SourceUrlResolver = (targetUrl: string) => Promise<string | undefined>;
+
+/**
  * IHelpEntry interface.
  */
 export interface IHelpEntry {
 	/**
-	 * Gets the source URL.
+	 * Gets the target URL. This is the help topic's URL on the runtime's own
+	 * help server, and it is the stable identity of a help entry: the proxy
+	 * server that serves the topic to the webview is owned by the extension
+	 * host and is replaced whenever the extension host restarts.
 	 */
-	readonly sourceUrl: string;
+	readonly targetUrl: string;
 
 	/**
 	 * Gets the title.
@@ -274,6 +286,14 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	private _helpOverlayWebview?: IOverlayWebview;
 
 	/**
+	 * The source URL the help overlay webview was last loaded from. This is the
+	 * target URL as served by a help proxy server, and it is resolved each time
+	 * the webview is loaded rather than being remembered across loads. See
+	 * loadHelpOverlayWebview.
+	 */
+	private _sourceUrl?: string;
+
+	/**
 	 * Gets or sets the set title timeout. This timeout is used to default the title in case the
 	 * MessageHelpLoaded message is not received.
 	 */
@@ -336,8 +356,8 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * @param languageId The language ID.
 	 * @param sessionId The runtime session ID.
 	 * @param languageName The language name.
-	 * @param sourceUrl The source URL.
 	 * @param targetUrl The target URL.
+	 * @param _resolveSourceUrl Resolves the target URL to the source URL to load.
 	 * @param _clipboardService The IClipboardService.
 	 * @param _contextKeyService The IContextKeyService.
 	 * @param _contextMenuService The IContextMenuService.
@@ -351,8 +371,8 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		public readonly languageId: string,
 		public readonly sessionId: string,
 		public readonly languageName: string,
-		public readonly sourceUrl: string,
 		public readonly targetUrl: string,
+		private readonly _resolveSourceUrl: SourceUrlResolver,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
@@ -368,8 +388,12 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 
 		// Register onDidColorThemeChange handler.
 		this._register(this._themeService.onDidColorThemeChange(_colorTheme => {
-			// Reload the help overlay webview.
-			this._helpOverlayWebview?.reload();
+			// Load the help overlay webview again rather than reloading it. A
+			// reload re-renders the HTML as it stands, source URL and all, which
+			// names a proxy server that is gone if the extension host restarted.
+			if (this._helpOverlayWebview) {
+				this.loadHelpOverlayWebview(this._helpOverlayWebview);
+			}
 		}));
 
 		this.helpFocusedContextKey = PositronHelpFocused.bindTo(this._contextKeyService);
@@ -531,7 +555,9 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 						// The source URL isn't always an absolute URL (e.g. the welcome page's
 						// 'welcome.html'), so parse it defensively. When it has no origin,
 						// treat the target as cross-origin so external links open externally.
-						const sourceOrigin = tryParseUrl(this.sourceUrl)?.origin;
+						const sourceOrigin = this._sourceUrl ?
+							tryParseUrl(this._sourceUrl)?.origin :
+							undefined;
 						if (url.pathname.toLowerCase().endsWith('.pdf') ||
 							(!isLocalhost(url.hostname) && url.origin !== sourceOrigin)) {
 							try {
@@ -545,7 +571,11 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 								));
 							}
 						} else {
-							this._onDidNavigateEmitter.fire(message.url);
+							// Navigate to the target URL rather than the URL the
+							// webview reported. That one is served by a help proxy
+							// server, which won't exist after the extension host
+							// restarts; the target URL keeps working.
+							this._onDidNavigateEmitter.fire(this.toTargetUrl(url) ?? message.url);
 						}
 						break;
 					}
@@ -618,21 +648,17 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 				}
 			}));
 
-			// Set the HTML of the help overlay webview.
-			this._helpOverlayWebview.setHtml(
-				this.helpHTML
-					.replaceAll('__nonce__', generateNonce())
-					.replaceAll('__sourceURL__', this.sourceUrl)
-					.replaceAll('__scrollX__', `${this._scrollX}`)
-					.replaceAll('__scrollY__', `${this._scrollY}`)
-			);
+			// Load the help overlay webview. This resolves the source URL, so it
+			// completes asynchronously; the claim and layout below don't depend
+			// on the content and run right away.
+			this.loadHelpOverlayWebview(this._helpOverlayWebview);
 
 			// Start the set title timeout. This timeout sets the title of the help entry to a
-			// shortened version of the source URL. We do this because there's no guarantee that the
+			// shortened version of the target URL. We do this because there's no guarantee that the
 			// document will load and send its title.
 			this._setTitleTimeout = setTimeout(() => {
 				this._setTitleTimeout = undefined;
-				this._title = shortenUrl(this.sourceUrl);
+				this._title = shortenUrl(this.targetUrl);
 				this._onDidChangeTitleEmitter.fire(this._title);
 			}, TITLE_TIMEOUT);
 		}
@@ -698,6 +724,83 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 
 		// Run logic for animating cases.
 		ensureWebviewSizeCorrectWhenAnimating();
+	}
+
+	/**
+	 * Loads the help overlay webview with the help entry's content.
+	 *
+	 * The source URL is resolved here, at the moment the content is loaded,
+	 * rather than when the help entry was created. The source URL points at a
+	 * help proxy server that lives in the extension host, so an extension host
+	 * restart replaces it; a help entry, meanwhile, outlives that restart, and
+	 * its webview is rebuilt from scratch every time it is shown after being
+	 * hidden long enough to be disposed. Resolving here is what keeps a help
+	 * entry in the back/forward history from reloading a dead proxy server.
+	 *
+	 * @param helpOverlayWebview The help overlay webview to load.
+	 */
+	private async loadHelpOverlayWebview(helpOverlayWebview: IOverlayWebview) {
+		// Resolve the source URL to load.
+		const sourceUrl = await this._resolveSourceUrl(this.targetUrl);
+
+		// The help overlay webview can be disposed and replaced while the source
+		// URL is being resolved, so only load the webview we were asked to load.
+		if (this._helpOverlayWebview !== helpOverlayWebview) {
+			return;
+		}
+
+		// If the source URL could not be resolved, there's nothing to load. The
+		// resolver is responsible for telling the user why.
+		if (!sourceUrl) {
+			this._logService.error(`Positron Help could not resolve a source URL for ${this.targetUrl}.`);
+			return;
+		}
+
+		// Set the HTML of the help overlay webview.
+		this._sourceUrl = sourceUrl;
+		helpOverlayWebview.setHtml(
+			this.helpHTML
+				.replaceAll('__nonce__', generateNonce())
+				.replaceAll('__sourceURL__', sourceUrl)
+				.replaceAll('__scrollX__', `${this._scrollX}`)
+				.replaceAll('__scrollY__', `${this._scrollY}`)
+		);
+	}
+
+	/**
+	 * Converts a URL the help overlay webview navigated to into the equivalent
+	 * URL on the runtime's own help server.
+	 *
+	 * The webview loads from a help proxy server, so the URLs it navigates to
+	 * carry that server's origin, and on Positron Server its base path as well.
+	 * Both have to come back off, or the result can't be proxied again the next
+	 * time it is shown.
+	 *
+	 * @param navigatedUrl The URL the help overlay webview navigated to.
+	 * @returns The equivalent target URL, or undefined if it can't be converted.
+	 */
+	private toTargetUrl(navigatedUrl: URL): string | undefined {
+		const sourceUrl = this._sourceUrl ? tryParseUrl(this._sourceUrl) : undefined;
+		const targetUrl = tryParseUrl(this.targetUrl);
+		if (!sourceUrl || !targetUrl) {
+			return undefined;
+		}
+
+		// The source URL is this entry's target path served under the proxy's
+		// base path, so whatever precedes the target path is the base path.
+		const basePath = sourceUrl.pathname.endsWith(targetUrl.pathname) ?
+			sourceUrl.pathname.slice(0, sourceUrl.pathname.length - targetUrl.pathname.length) :
+			'';
+
+		const result = new URL(navigatedUrl);
+		result.protocol = targetUrl.protocol;
+		result.hostname = targetUrl.hostname;
+		result.port = targetUrl.port;
+		if (basePath && navigatedUrl.pathname.startsWith(basePath)) {
+			result.pathname = navigatedUrl.pathname.slice(basePath.length);
+		}
+
+		return result.toString();
 	}
 
 	/**

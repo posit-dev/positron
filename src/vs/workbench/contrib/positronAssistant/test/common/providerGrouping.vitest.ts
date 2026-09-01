@@ -100,12 +100,12 @@ describe('groupProviders', () => {
 		expect(sections[0].items.map(i => i.provider.displayName)).toEqual(['Alpha', 'Nova', 'Zebra']);
 	});
 
-	it('pins Posit AI first within its section, ahead of an alphabetically-earlier stable provider', () => {
+	it('pins Posit AI Pass first within its section, ahead of an alphabetically-earlier stable provider', () => {
 		const sections = groupProviders([
 			source({ id: 'aardvark', provider: { id: 'aardvark', displayName: 'Aardvark', settingName: 'aardvark' }, signedIn: false }),
-			source({ id: 'posit-ai', provider: { id: 'posit-ai', displayName: 'Posit AI', settingName: 'positAI' }, signedIn: false }),
+			source({ id: 'posit-ai', provider: { id: 'posit-ai', displayName: 'Posit AI Pass', settingName: 'positAI' }, signedIn: false }),
 		]);
-		expect(sections[0].items.map(i => i.provider.displayName)).toEqual(['Posit AI', 'Aardvark']);
+		expect(sections[0].items.map(i => i.provider.displayName)).toEqual(['Posit AI Pass', 'Aardvark']);
 	});
 
 	it('orders by maturity (stable, then preview, then experimental) before display name within a section', () => {

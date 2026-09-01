@@ -91,6 +91,43 @@ export type ActivatedExtension = {
 	activationEvent: string | null;
 };
 
+/** One extension's share of the extension host heap. */
+export type ExtensionHeap = {
+	/** Real extension id, or the directory name if package.json was unreadable. */
+	extensionId: string;
+	/** Retained bytes, as a dominator-tree partition of the reachable heap. */
+	retainedBytes: number;
+};
+
+/**
+ * A partition of the extension host's reachable heap by owning extension.
+ *
+ * Not the same thing as `MemorySnapshot.extensions`, which is the activation-log
+ * inventory of what loaded. This is how much of the heap each one retains, so an
+ * extension can appear in one and not the other.
+ */
+export type ExtensionHeapBreakdown = {
+	extensions: ExtensionHeap[];
+	/** Extension host runtime and node internals. Not any extension's. */
+	unattributedBytes: number;
+	/** Reachable heap total; extensions + unattributed must equal this. */
+	reachableBytes: number;
+};
+
+/**
+ * Why a launch has no heap breakdown, or `ok` when it does.
+ *
+ * A closed set: the dashboard switches on these, so a new value is a contract
+ * change. Distinguishing them from a missing key matters -- an omitted
+ * `extension_heap` means the run predates the feature, not that it failed.
+ */
+export type ExtensionHeapStatus =
+	| 'ok'
+	| 'capture_failed'
+	| 'parse_failed'
+	| 'unsupported_format'
+	| 'untrusted';
+
 /** Everything one app launch produced. */
 export type MemorySnapshot = {
 	scenario: MemoryScenario;
@@ -142,4 +179,15 @@ export type MemorySnapshot = {
 	treeTotalPssBytes: number;
 	processes: LabeledProcess[];
 	extensions: ActivatedExtension[];
+	/**
+	 * Per-extension partition of the extension host heap. Written by the render
+	 * step, not at capture time: the parse needs several GB and must not run
+	 * while Positron is being sampled. Absent when capture or parsing failed,
+	 * which never fails the scenario.
+	 */
+	extensionHeap?: ExtensionHeapBreakdown;
+	/** Set whenever the capture was attempted; absent on runs predating the feature. */
+	extensionHeapStatus?: ExtensionHeapStatus;
+	/** The extension host pid the capture targeted, even when the capture failed. */
+	extensionHeapPid?: number;
 };

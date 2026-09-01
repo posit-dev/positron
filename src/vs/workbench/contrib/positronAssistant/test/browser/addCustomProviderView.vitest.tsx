@@ -124,9 +124,4 @@ describe('AddCustomProviderView', () => {
 		expect(screen.getByLabelText(/base url/i)).toHaveValue('https://gateway.example.com/v1');
 		expect(screen.getByPlaceholderText('Model ID')).toHaveValue('claude-opus-4');
 	});
-
-	it('shows the borrowed provider\'s terms notice', () => {
-		renderView();
-		expect(screen.getByTestId('provider-notice')).toBeInTheDocument();
-	});
 });

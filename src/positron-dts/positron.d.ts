@@ -3641,7 +3641,13 @@ declare module 'positron' {
 		/** The original file, not the positron-data-explorer URI. */
 		fileUri: vscode.Uri;
 
-		/** The target variable name, already valid in the importer's language. */
+		/**
+		 * The target variable name, as entered by the user. This is arbitrary text, not
+		 * validated or sanitized for the importer's language: Positron does not check that it is
+		 * assignable, and importers are not expected to either. A name that is not a valid
+		 * identifier in the importer's language produces code that fails to run, which the code
+		 * preview already shows the user before they run it.
+		 */
 		variableName: string;
 
 		/** Format and parsing options. */
@@ -3676,6 +3682,17 @@ declare module 'positron' {
 
 		/** File extensions this importer can read, without a leading dot, e.g. ['csv', 'tsv']. */
 		fileExtensions: string[];
+
+		/**
+		 * Words this language will not let you assign to, e.g. 'class' for Python or 'if' for R.
+		 *
+		 * Positron derives the default variable name from the file name, restricted to an ASCII
+		 * letter followed by letters, digits and underscores, which is assignable in any language
+		 * an importer is likely to target. A reserved word is the one case that rule cannot catch,
+		 * so supply the language's list and Positron suffixes any collision: a file named class.csv
+		 * is offered as 'class_'. Omitting the list means such a file is offered as 'class'.
+		 */
+		reservedNames?: string[];
 
 		/**
 		 * Generates the code that loads the requested file.
@@ -3980,6 +3997,43 @@ declare module 'positron' {
 		}
 
 		/**
+		 * Why a field cannot be set in the configuration form, and what value
+		 * applies instead. Today this is always an environment variable, which
+		 * ai-config ranks above the user's configuration file.
+		 *
+		 * Deliberately not part of `LanguageModelConfig`: that type is
+		 * bidirectional (it arrives as `defaults` and is submitted back on
+		 * save), and this is an inbound-only fact about the environment.
+		 */
+		export interface LanguageModelFieldOverride {
+			/** The value in effect, shown in place of the user's saved value. */
+			readonly value: string;
+			/**
+			 * Name of the environment variable supplying the value, e.g.
+			 * `AWS_REGION`, so the form can say what to change instead. Omit when
+			 * there is no single name to give.
+			 */
+			readonly name?: string;
+		}
+
+		/**
+		 * Which of a provider's form fields are supplied by a higher-precedence
+		 * layer, shaped to mirror `LanguageModelConfig` with each value replaced
+		 * by the reason it cannot be set.
+		 *
+		 * Only the fields something can actually take over appear, rather than
+		 * every config key.
+		 */
+		export interface LanguageModelFieldOverrides {
+			baseUrl?: LanguageModelFieldOverride;
+			apiKey?: LanguageModelFieldOverride;
+			aws?: {
+				profile?: LanguageModelFieldOverride;
+				region?: LanguageModelFieldOverride;
+			};
+		}
+
+		/**
 		 * Positron Language Model source, used for user configuration of language models.
 		 */
 		export interface LanguageModelSource {
@@ -3989,6 +4043,11 @@ declare module 'positron' {
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
 			defaults: LanguageModelConfig;
+			/**
+			 * Fields the user cannot set here because a higher-precedence config
+			 * layer supplies them. Absent when every supported field is editable.
+			 */
+			overrides?: LanguageModelFieldOverrides;
 			signedIn?: boolean;
 			authMethods?: string[];
 			/**
@@ -4034,6 +4093,13 @@ declare module 'positron' {
 			 */
 			customModels?: LanguageModelCustomModel[];
 			autoconfigure?: LanguageModelAutoconfigure;
+			/**
+			 * AWS profile and region for a provider authenticating through the
+			 * AWS credential chain. Both are optional; an omitted field falls
+			 * back to the ambient AWS configuration. An empty string means the
+			 * user cleared the field and any saved value should be removed.
+			 */
+			aws?: { profile?: string; region?: string };
 		}
 
 		/**

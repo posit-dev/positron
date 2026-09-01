@@ -12,7 +12,8 @@ test.use({
 
 // Import Data turns a file the Data Explorer is viewing into a dataframe in a session. This
 // exercises the whole chain: the action, the importer registry, the extension activation, the
-// ext-host bridge, the pandas generator, and console execution, which no unit test can reach.
+// ext-host bridge, the language's generator, and console execution, which no unit test can reach.
+// One case per language, because each language registers its importer from its own extension.
 test.describe('Data Explorer - Import Data', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER, tags.DUCK_DB]
 }, () => {
@@ -38,5 +39,82 @@ test.describe('Data Explorer - Import Data', {
 
 		// The file has a header row and 10 data rows, so pandas reports 10 rows.
 		await variables.expectVariableToBe('small_file', /10 rows/);
+	});
+
+	test('R readr - Verify importing a CSV creates a dataframe in the session', async function ({ app, openDataFile, r }) {
+		const { dataExplorer, variables } = app.workbench;
+
+		await openDataFile(join('data-files', 'small_file.csv'));
+		await dataExplorer.waitForIdle();
+
+		await dataExplorer.editorActionBar.clickButton('Import Data');
+		await dataExplorer.importDataModal.expectToBeVisible();
+
+		await dataExplorer.importDataModal.selectPackage('R (readr)');
+
+		// The generated code loads this file into a variable named after it.
+		await dataExplorer.importDataModal.expectCodeToContain('library(readr)');
+		await dataExplorer.importDataModal.expectCodeToContain('read_csv');
+		await dataExplorer.importDataModal.expectCodeToContain('small_file');
+
+		await dataExplorer.importDataModal.clickImport();
+
+		// The file has a header row, 10 data rows, and 10 columns, which is how readr reads it.
+		await variables.expectVariableToBe('small_file', /10 rows x 10 columns/);
+	});
+
+	test('Variables pane button - Verify Import Data picks a file then opens the dialog', async function ({ app, python }) {
+		const { dataExplorer, quickInput, variables } = app.workbench;
+
+		await variables.clickImportData();
+
+		// files.simpleDialog.enable is on in the e2e fixture settings, so the file picker is the
+		// quick-input simple dialog rather than the OS-native one.
+		await quickInput.waitForQuickInputOpened();
+		await quickInput.type(join(app.workspacePathOrFolder, 'data-files', 'small_file.csv'));
+		await quickInput.clickOkButton('Import');
+
+		await dataExplorer.importDataModal.expectToBeVisible();
+		await dataExplorer.importDataModal.expectCodeToContain('small_file');
+		await dataExplorer.importDataModal.clickCancel();
+	});
+});
+
+// Electron only, with no WEB tag: right-clicking a file row in the Explorer tree opens no
+// context menu at all in Positron Web, while other web surfaces (the Explorer title, the
+// activity bar, the status bar) open one normally. That is a pre-existing web bug unrelated
+// to Import Data, so the entry point is covered on Electron (Linux and Windows) instead.
+test.describe('Data Explorer - Import Data from the Explorer context menu', {
+	tag: [tags.WIN, tags.DATA_EXPLORER, tags.DUCK_DB]
+}, () => {
+
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
+	});
+
+	test('Explorer context menu - Verify Import Data opens the dialog over the file', async function ({ app, python }) {
+		const { contextMenu, dataExplorer, quickaccess } = app.workbench;
+		const page = app.code.driver.currentPage;
+
+		// Reveal data-files/small_file.csv in the Explorer.
+		await quickaccess.runCommand('workbench.view.explorer');
+		const folderRow = page.locator('.explorer-folders-view .monaco-list-row[aria-label="data-files"]');
+		if (await folderRow.getAttribute('aria-expanded') === 'false') {
+			await folderRow.locator('.monaco-tl-twistie').click();
+		}
+		const fileRow = page.locator('.explorer-folders-view .monaco-list-row[aria-label="small_file.csv"]');
+
+		await contextMenu.triggerAndClick({
+			menuTrigger: fileRow,
+			menuItemLabel: 'Import Data...',
+			menuTriggerButton: 'right'
+		});
+
+		// The command opens the file in the Data Explorer with the dialog over it.
+		await dataExplorer.importDataModal.expectToBeVisible();
+		await dataExplorer.importDataModal.expectCodeToContain('small_file');
+
+		// The Python/R tests above already prove the import chain; stop at the dialog.
+		await dataExplorer.importDataModal.clickCancel();
 	});
 });

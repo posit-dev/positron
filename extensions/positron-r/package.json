@@ -27,7 +27,8 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:rdata",
-    "onLanguage:rds"
+    "onLanguage:rds",
+    "onPositronDataExplorerImport"
   ],
   "contributes": {
     "commands": [
