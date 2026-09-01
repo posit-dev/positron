@@ -271,6 +271,12 @@ function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemorySce
 	}
 
 	const idle = statsByScenario.get('idle');
+	// An extension missing from idle retained nothing there rather than having no
+	// baseline to measure from, so its delta is the whole value: that is the number
+	// the scenario added. Only true when idle itself attributed a heap -- without
+	// this guard a failed idle run reads as every extension appearing from zero.
+	const idleAttributed = (idle?.medians.size ?? 0) > 0;
+	const idleMedian = (extensionId: string) => idle?.medians.get(extensionId) ?? 0;
 	const extensions = new Set([...statsByScenario.values()].flatMap(stats => [...stats.medians.keys()]));
 
 	const buildRow = (extensionId: string): ExtensionSummaryRow => {
@@ -285,9 +291,8 @@ function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemorySce
 				values[scenario] = value;
 			}
 			threshold[scenario] = Math.max(MIN_EXTENSION_EMPHASIS_BYTES, idleSpread, stats.spreads.get(extensionId) ?? 0);
-			const idleValue = idle?.medians.get(extensionId);
-			if (scenario !== 'idle' && value !== undefined && idleValue !== undefined) {
-				deltaVsIdle[scenario] = value - idleValue;
+			if (scenario !== 'idle' && value !== undefined && idleAttributed) {
+				deltaVsIdle[scenario] = value - idleMedian(extensionId);
 			}
 		}
 		return { extensionId, values, deltaVsIdle, emphasisThreshold: threshold };
@@ -307,7 +312,7 @@ function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemorySce
 		const sumFor = (scenario: MemoryScenario) => collapsed.reduce((sum, e) => sum + (statsByScenario.get(scenario)!.medians.get(e) ?? 0), 0);
 		for (const scenario of scenarios) {
 			values[scenario] = sumFor(scenario);
-			if (scenario !== 'idle' && idle !== undefined) {
+			if (scenario !== 'idle' && idleAttributed) {
 				deltaVsIdle[scenario] = sumFor(scenario) - sumFor('idle');
 			}
 		}

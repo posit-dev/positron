@@ -66,7 +66,7 @@ describe('extension matrix', () => {
 		expect(matrix.extensionsUnavailable).toBeUndefined();
 	});
 
-	test('deltas are against idle, and a scenario-only extension has none', () => {
+	test('deltas are against idle, and an extension absent from idle counts from zero', () => {
 		const matrix = buildSummaryMatrix([
 			heapEntry('idle', heap([['a.big', 40]], 100)),
 			heapEntry('notebook', heap([['a.big', 45], ['c.new', 20]], 100))
@@ -76,9 +76,27 @@ describe('extension matrix', () => {
 		expect(big.deltaVsIdle.notebook).toBe(5 * MB);
 		expect(big.deltaVsIdle.idle).toBeUndefined();
 
+		// Absent from idle means it retained nothing there, so the whole 20 MB is
+		// what the scenario added. Reading it as "no baseline" hid that.
 		const fresh = matrix.extensions!.rows.find(r => r.extensionId === 'c.new')!;
 		expect(fresh.values.idle).toBeUndefined();
-		expect(fresh.deltaVsIdle.notebook).toBeUndefined();
+		expect(fresh.deltaVsIdle.notebook).toBe(20 * MB);
+	});
+
+	test('no extension is delta\'d from zero when idle attributed no heap at all', () => {
+		const failedIdle = {
+			scenario: 'idle' as const,
+			snapshots: [{ ...snapshot('idle', [proc()], 0), extensionHeapStatus: 'parse_failed' as const }]
+		};
+		const matrix = buildSummaryMatrix([
+			failedIdle,
+			heapEntry('notebook', heap([['a.big', 45]], 100))
+		]);
+
+		// Otherwise every extension in every scenario reads as brand new, and a
+		// broken idle run publishes a table of fabricated regressions.
+		const big = matrix.extensions!.rows.find(r => r.extensionId === 'a.big')!;
+		expect(big.deltaVsIdle.notebook).toBeUndefined();
 	});
 
 	test('extensions under the floor in every scenario collapse into one row', () => {
