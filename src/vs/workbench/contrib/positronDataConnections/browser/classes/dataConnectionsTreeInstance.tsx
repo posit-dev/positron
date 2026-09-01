@@ -47,7 +47,30 @@ export interface DataConnectionEntry {
  */
 export type DataConnectionNode =
 	| { readonly kind: 'entry'; readonly entry: DataConnectionEntry }
-	| { readonly kind: 'dto'; readonly dto: IDataConnectionNodeDTO; readonly handle: IDataConnectionHandle };
+	| {
+		readonly kind: 'dto';
+		readonly dto: IDataConnectionNodeDTO;
+		readonly handle: IDataConnectionHandle;
+
+		// The name of the namespace group this node was breadcrumbed into, set when the node was
+		// that group's only child. Rendered ahead of the node's own name, as "Schemas / public".
+		readonly labelPrefix?: string;
+	};
+
+/**
+ * Group kinds that name a namespace tier -- the levels a connection is organized by, above the
+ * objects themselves. A group of these kinds holding exactly one child is breadcrumbed into that
+ * child, because it is pure ceremony: "Schemas" over a lone "public" costs a level and a click to
+ * say something the row beneath it already says.
+ *
+ * Deliberately not every container kind. A lone "Tables" or "Columns" group still tells the user
+ * what the single row beneath it is, which the row itself does not.
+ */
+const BREADCRUMB_GROUP_KINDS = new Set([
+	'group-databases',
+	'group-catalogs',
+	'group-schemas',
+]);
 
 const entryNodeId = (profile: IDataConnectionProfile): string => `entry:${profile.id}`;
 
@@ -112,9 +135,13 @@ const resolveIndentWidth = (configurationService: IConfigurationService): number
 		: configurationService.getValue<number>(TREE_INDENT_KEY);
 };
 
-const wrapDto = (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle): TreeNode<DataConnectionNode> => ({
+const wrapDto = (
+	dto: IDataConnectionNodeDTO,
+	handle: IDataConnectionHandle,
+	labelPrefix?: string
+): TreeNode<DataConnectionNode> => ({
 	id: dtoNodeId(handle, dto),
-	data: { kind: 'dto', dto, handle },
+	data: { kind: 'dto', dto, handle, labelPrefix },
 	hasChildren: dto.hasGetChildren,
 	// A group node names a category rather than a thing it holds, so it keeps its children at its
 	// own indent: "Tables" above a list of tables already says what they are, and spending a level
@@ -133,6 +160,11 @@ const wrapDto = (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle): Tr
  * handle.
  */
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> {
+	// Ids of rows the last fetch breadcrumbed, waiting to be expanded. Held here rather than
+	// expanded inline because the base has not inserted them into the tree yet when the fetch that
+	// produced them returns. See _expandBreadcrumbed.
+	private readonly _pendingBreadcrumbExpansions = new Set<string>();
+
 	constructor(
 		private readonly _service: IPositronDataConnectionsService,
 		private readonly _configurationService: IConfigurationService,
@@ -184,6 +216,25 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			this._service.cancelDisconnectWhenUnused(node.entry.profile.id);
 		}
 		await super.expand(id);
+		await this._expandBreadcrumbed();
+	}
+
+	/**
+	 * Reloads a subtree. Breadcrumbing is decided by the fetch, so a reload re-decides it: a schema
+	 * that has gained a sibling comes back as an ordinary "Schemas" group, and one that has lost its
+	 * siblings comes back breadcrumbed.
+	 */
+	override async reload(id: string): Promise<void> {
+		await super.reload(id);
+		await this._expandBreadcrumbed();
+	}
+
+	/**
+	 * Reloads every connection. Same breadcrumb re-decision as reload.
+	 */
+	override async reloadAll(): Promise<void> {
+		await super.reloadAll();
+		await this._expandBreadcrumbed();
 	}
 
 	/**
@@ -268,13 +319,77 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				const instance = data.entry.instance
 					?? await this._service.connect(data.entry.profile.id);
 				const dtos = await instance.connectionHandle.getChildren();
-				return dtos.map(dto => wrapDto(dto, instance.connectionHandle));
+				return this._breadcrumbNamespaceGroups(dtos, instance.connectionHandle);
 			}
 			case 'dto': {
 				const dtos = await data.handle.nodeGetChildren(data.dto.nodeHandle);
-				return dtos.map(dto => wrapDto(dto, data.handle));
+				return this._breadcrumbNamespaceGroups(dtos, data.handle);
 			}
 		}
+	}
+
+	/**
+	 * Wraps a level's DTOs, breadcrumbing any namespace group that turned out to hold exactly one
+	 * child: the group is dropped and its child takes its place, labeled with the group's name
+	 * ("Schemas" over a lone "public" becomes "Schemas / public"). The replacement is recorded for
+	 * expansion, so the row opens with its contents showing rather than moving the user's click one
+	 * row down. See BREADCRUMB_GROUP_KINDS for which groups qualify and why.
+	 *
+	 * Deciding this needs the group's children, so a namespace group costs one extra round trip on
+	 * the level above it. The result is never wasted: a group that turns out to hold several
+	 * children keeps its row and is handed the children that were just fetched, so the user's own
+	 * expand of it is free rather than a repeat of the same query.
+	 *
+	 * @param dtos The level's DTOs.
+	 * @param handle The connection handle the DTOs came from.
+	 * @returns The level's tree nodes, with qualifying groups replaced by their only child.
+	 */
+	private async _breadcrumbNamespaceGroups(
+		dtos: readonly IDataConnectionNodeDTO[],
+		handle: IDataConnectionHandle
+	): Promise<readonly TreeNode<DataConnectionNode>[]> {
+		return Promise.all(dtos.map(async dto => {
+			if (!BREADCRUMB_GROUP_KINDS.has(dto.kind) || !dto.hasGetChildren) {
+				return wrapDto(dto, handle);
+			}
+
+			let children: readonly IDataConnectionNodeDTO[];
+			try {
+				children = await handle.nodeGetChildren(dto.nodeHandle);
+			} catch {
+				// The look-ahead is an optimization, so a failure just leaves the group as an
+				// ordinary row. Expanding it will run the same call again and surface the error
+				// through the tree's own error state, where the user can retry it.
+				return wrapDto(dto, handle);
+			}
+
+			if (children.length === 1) {
+				const node = wrapDto(children[0], handle, dto.name);
+				this._pendingBreadcrumbExpansions.add(node.id);
+				return node;
+			}
+
+			const group = wrapDto(dto, handle);
+			this.setChildren(group.id, children.map(child => wrapDto(child, handle)));
+			return group;
+		}));
+	}
+
+	/**
+	 * Expands the rows the last fetch breadcrumbed. Their children are already loaded (the fetch
+	 * that found the single child left them in hand), so this costs no round trip. Ids that no
+	 * longer exist -- a subtree dropped between the fetch and here -- are no-ops in the base.
+	 */
+	private async _expandBreadcrumbed(): Promise<void> {
+		if (this._pendingBreadcrumbExpansions.size === 0) {
+			return;
+		}
+
+		// Taken and cleared up front: expanding these fetches their own children, which can
+		// breadcrumb again and add to the set, and those are drained by that nested call.
+		const pending = [...this._pendingBreadcrumbExpansions];
+		this._pendingBreadcrumbExpansions.clear();
+		await Promise.all(pending.map(id => this.expand(id)));
 	}
 
 	/**
@@ -317,7 +432,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				// Entries are roots, so no ancestor can be refreshing them out from under the row.
 				return <DataConnectionEntryRow entry={data.entry} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 			case 'dto':
-				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} stale={visible.stale} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
+				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 		}
 	}
 

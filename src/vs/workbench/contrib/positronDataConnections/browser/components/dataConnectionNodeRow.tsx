@@ -111,6 +111,11 @@ interface DataConnectionNodeRowProps {
 	dto: IDataConnectionNodeDTO;
 	handle: IDataConnectionHandle;
 
+	// The name of the namespace group this node was breadcrumbed into, when it was that group's
+	// only child. Shown ahead of the node's own name, matching how a connection row reads its
+	// profile and driver as "Bike Share / PostgreSQL".
+	labelPrefix?: string;
+
 	// Reloads this node's subtree. Supplied by the tree, which binds it to this row's node id.
 	onRefresh: () => void;
 
@@ -130,7 +135,7 @@ interface DataConnectionNodeRowProps {
  * Explorer on double-click or via the "Open in Data Explorer" context-menu action; nodes that
  * can have children offer a "Refresh" action that re-fetches the subtree.
  */
-export const DataConnectionNodeRow = ({ dto, handle, onMenuOpening, onRefresh, stale }: DataConnectionNodeRowProps) => {
+export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onRefresh, stale }: DataConnectionNodeRowProps) => {
 	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
 	// A group row labels the rows beneath it rather than naming a thing of its own, and it holds them
@@ -241,7 +246,10 @@ export const DataConnectionNodeRow = ({ dto, handle, onMenuOpening, onRefresh, s
 			onDoubleClick={onDoubleClick}
 		>
 			<div className={`codicon ${opening ? 'codicon-loading codicon-modifier-spin' : `codicon-${kindIcon(dto)}`} data-connection-node-icon`} />
-			<div className='data-connection-node-text'>{dto.name}</div>
+			<div className='data-connection-node-text'>
+				{labelPrefix !== undefined && `${labelPrefix} · `}
+				{dto.name}
+			</div>
 			{dto.dataType && (
 				<div className='data-connection-node-type'>{dto.dataType}</div>
 			)}

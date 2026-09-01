@@ -227,6 +227,131 @@ describe('DataConnectionsTreeInstance', () => {
 		return { tree, service, getChildren, setConnected, disconnect, disconnectWhenUnused };
 	}
 
+	/**
+	 * Builds a tree whose connection returns `rootDtos`, with `nodeGetChildren` answering for the
+	 * levels below. Separate from createTree, which pins one flat table: breadcrumbing is decided by
+	 * what a level's children turn out to be, so these tests need to shape the whole subtree.
+	 */
+	function createTreeOverNodes(
+		rootDtos: IDataConnectionNodeDTO[],
+		childrenOf: (nodeHandle: number) => IDataConnectionNodeDTO[]
+	) {
+		const nodeGetChildren = vi.fn(async (nodeHandle: number) => childrenOf(nodeHandle));
+		const instance = stubInterface<IDataConnectionInstance>({
+			id: 'instance-1',
+			profileId: profile.id,
+			connectionHandle: stubInterface<IDataConnectionHandle>({
+				handle: 1,
+				getChildren: async () => rootDtos,
+				nodeGetChildren,
+			}),
+		});
+		const service = stubInterface<IPositronDataConnectionsService>({
+			onDidChangeProfiles: Event.None,
+			onDidChangeInstances: onDidChangeInstances.event,
+			onDidChangeDiscoveredProfiles: Event.None,
+			getProfiles: () => [profile],
+			getDiscoveredProfiles: () => [],
+			getInstanceForProfile: () => instance,
+			connect: async () => instance,
+			cancelDisconnectWhenUnused: vi.fn(),
+		});
+
+		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
+			'workbench.tree.indent': 16,
+			'dataConnections.tree.indent': 0,
+		}));
+		ctx.disposables.add(tree);
+		return { tree, nodeGetChildren };
+	}
+
+	/** A node DTO, defaulting to an expandable, non-previewable one. */
+	function nodeDto(overrides: Partial<IDataConnectionNodeDTO> & Pick<IDataConnectionNodeDTO, 'nodeHandle' | 'name' | 'kind'>): IDataConnectionNodeDTO {
+		return { hasGetChildren: true, hasPreview: false, ...overrides };
+	}
+
+	/** The visible rows as name / breadcrumb prefix / expanded triples. */
+	function rows(tree: DataConnectionsTreeInstance) {
+		return tree.visibleNodes.map(visible => ({
+			name: visible.node.data.kind === 'dto' ? visible.node.data.dto.name : 'connection',
+			prefix: visible.node.data.kind === 'dto' ? visible.node.data.labelPrefix : undefined,
+			expanded: tree.isExpanded(visible.node.id),
+		}));
+	}
+
+	it('breadcrumbs a namespace group holding one child into that child, and opens it', async () => {
+		// connection > Schemas > public > Tables. Only one schema, so "Schemas" is ceremony.
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => nodeHandle === 1
+				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
+				: nodeHandle === 2
+					? [nodeDto({ nodeHandle: 3, name: 'Tables', kind: 'group-tables' })]
+					: []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		// The Schemas row is gone; public wears its name and is already open, so the Tables group the
+		// user was heading for is on screen without the two clicks that used to stand in front of it.
+		expect(rows(tree)).toEqual([
+			{ name: 'connection', prefix: undefined, expanded: true },
+			{ name: 'public', prefix: 'Schemas', expanded: true },
+			{ name: 'Tables', prefix: undefined, expanded: false },
+		]);
+	});
+
+	it('leaves a namespace group with several children alone, and hands it the children it already fetched', async () => {
+		const { tree, nodeGetChildren } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => nodeHandle === 1
+				? [
+					nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' }),
+					nodeDto({ nodeHandle: 3, name: 'staging', kind: 'schema' }),
+				]
+				: []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		// The look-ahead that counted the schemas already has them, so expanding the group costs
+		// nothing further -- the count of nodeGetChildren calls doesn't move.
+		const callsBeforeExpanding = nodeGetChildren.mock.calls.length;
+		await tree.expand('dto:1:1');
+
+		expect({
+			rows: rows(tree),
+			callsBeforeExpanding,
+			callsAfterExpanding: nodeGetChildren.mock.calls.length,
+		}).toEqual({
+			rows: [
+				{ name: 'connection', prefix: undefined, expanded: true },
+				{ name: 'Schemas', prefix: undefined, expanded: true },
+				{ name: 'public', prefix: undefined, expanded: false },
+				{ name: 'staging', prefix: undefined, expanded: false },
+			],
+			callsBeforeExpanding: 1,
+			callsAfterExpanding: 1,
+		});
+	});
+
+	it('does not breadcrumb an object group, however few children it has', async () => {
+		// "Tables" over a lone table still says what that row is, so it keeps its own row.
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+			nodeHandle => nodeHandle === 1
+				? [nodeDto({ nodeHandle: 2, name: 'flights', kind: 'table', hasGetChildren: false, hasPreview: true })]
+				: []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		expect(rows(tree)).toEqual([
+			{ name: 'connection', prefix: undefined, expanded: true },
+			{ name: 'Tables', prefix: undefined, expanded: false },
+		]);
+	});
+
 	it('inherits the workbench tree indent until its own setting overrides it, and follows both live', async () => {
 		// The view's own indent at its inheriting default of 0.
 		const configurationService = new TestConfigurationService({
