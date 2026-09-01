@@ -668,7 +668,9 @@ const EXTENSION_DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to
  * the reachable V8 heap in which `unattributed` is a slice like any other.
  */
 const EXTENSION_COVERAGE_NOTE = `Every row is a slice of one heap, so the rows sum to TOTAL:
-	the extension host's reachable V8 heap, not its PSS.
+	the extension host's reachable V8 heap. TOTAL runs well under the <code>extension_host</code>
+	PSS above, which also counts native memory no heap snapshot sees: binary pages, V8's own
+	bookkeeping, uncollected garbage, external buffers.
 	<em>unattributed</em> is the host runtime plus the loaded source and compiled code of
 	the extensions themselves, which V8 holds outside any extension object, so a scenario
 	that activates more extensions grows it more than their own rows.`;
