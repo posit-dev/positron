@@ -130,6 +130,20 @@ describe('extension matrix', () => {
 		expect(matrix.extensions!.totalDeltaVsIdle.notebook).toBeUndefined();
 	});
 
+	test('an extension idle never loaded reads as new, not as a red regression', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix([
+			heapEntry('idle', heap([['a.big', 40]], 100)),
+			heapEntry('notebook', heap([['a.big', 40], ['c.new', 20]], 100))
+		]));
+
+		// The scenario activating an extension idle does not is what the scenario
+		// is for, so it gets the neutral label, not the red "grew by 20 MB" that
+		// means an already-loaded extension moved.
+		const cell = html.split('c.new')[1].split('</tr>')[0];
+		expect(cell).toContain('>new<');
+		expect(cell).not.toContain('delta-up');
+	});
+
 	test('extensions under the floor in every scenario collapse into one row', () => {
 		const tiny: [string, number][] = [['t.one', 0.1], ['t.two', 0.2]];
 		const matrix = buildSummaryMatrix([

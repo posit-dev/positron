@@ -494,16 +494,34 @@ function scenarioHeaderHtml(scenarios: MemoryScenario[]): string {
 	return scenarios.map(s => `<th align="right"${baselineClass(s)} title="${escapeHtml(SCENARIO_DESCRIPTIONS[s])}">${escapeHtml(s)}</th>`).join('');
 }
 
-/**
- * One scenario's cell: the PSS value, plus (for a non-idle scenario) its delta against idle underneath.
- *
- * `flagNoBaseline` adds a dagger after the value when the row it belongs to has
- * no idle reading at all (`kernel`, typically): without it, a role that simply
- * cannot be delta'd against idle looks identical to one that held flat.
- */
-function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: number | undefined, threshold: number | undefined, flagNoBaseline: boolean): string {
+/** What one cell needs beyond its own number, all of it row-level. */
+type CellOptions = {
+	delta?: number;
+	threshold?: number;
+	/**
+	 * Adds a dagger after the value when the row has no idle reading at all
+	 * (`kernel`, typically): without it, a role that simply cannot be delta'd
+	 * against idle looks identical to one that held flat.
+	 */
+	flagNoBaseline?: boolean;
+	/**
+	 * Renders `new` in place of the delta for a row idle never had.
+	 *
+	 * The delta there is the whole value, which the cell already prints, and a
+	 * red "grew by 2.1 MB" reads as a regression when it only means the scenario
+	 * activated an extension idle does not -- which is what the scenario is for.
+	 */
+	newInScenario?: boolean;
+};
+
+/** One scenario's cell: the value, plus (for a non-idle scenario) its delta against idle underneath. */
+function cellHtml(scenario: MemoryScenario, value: number | undefined, options: CellOptions = {}): string {
+	const { delta, threshold, flagNoBaseline, newInScenario } = options;
 	if (value === undefined) {
 		return `<td align="right"${baselineClass(scenario)}>${ABSENT_MARKER}</td>`;
+	}
+	if (newInScenario && scenario !== 'idle') {
+		return `<td align="right"${baselineClass(scenario)}><span class="value-wrap"><span class="value">${formatBytes(value)}</span></span><span class="delta-line"><span class="delta-flat">new</span></span></td>`;
 	}
 	// Below the threshold nothing renders: a column of muted `-0.0 MB` spends a line
 	// per row saying nothing happened, crowding the figures that did move.
@@ -526,7 +544,9 @@ function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: nu
 
 function rowHtml(row: SummaryRow, scenarios: MemoryScenario[], forcedGcRoles: ProcessRole[]): string {
 	const flagNoBaseline = scenarios.includes('idle') && row.values['idle'] === undefined;
-	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario], row.emphasisThreshold[scenario], flagNoBaseline)).join('');
+	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], {
+		delta: row.deltaVsIdle[scenario], threshold: row.emphasisThreshold[scenario], flagNoBaseline
+	})).join('');
 	// Outside the <code>, so the marker cannot be misread as part of the role name.
 	const marker = forcedGcRoles.includes(row.role) ? '<span class="fn-marker">*</span>' : '';
 	return `<tr>
@@ -544,7 +564,7 @@ function totalRowHtml(matrix: SummaryMatrix): string {
 			: undefined;
 		// TOTAL is the tree sum, not a single process, so the missing-idle-baseline
 		// dagger (which flags one absent role) never applies to it.
-		return cellHtml(scenario, value, delta, matrix.totalEmphasisThreshold[scenario], false);
+		return cellHtml(scenario, value, { delta, threshold: matrix.totalEmphasisThreshold[scenario] });
 	}).join('');
 	return `<tr class="total-row">
 		<td><strong>TOTAL</strong></td>
@@ -560,8 +580,12 @@ function totalRowHtml(matrix: SummaryMatrix): string {
  * extension id, and setting it in the same face as one implies it is.
  */
 function extensionRowHtml(row: ExtensionSummaryRow, scenarios: MemoryScenario[]): string {
-	const cells = scenarios.map(scenario =>
-		cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario], row.emphasisThreshold[scenario], false)).join('');
+	// Absent from idle and present here: the scenario loaded it, which is a
+	// different fact from an extension that was already loaded and grew.
+	const newInScenario = scenarios.includes('idle') && row.values['idle'] === undefined;
+	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], {
+		delta: row.deltaVsIdle[scenario], threshold: row.emphasisThreshold[scenario], newInScenario
+	})).join('');
 	const label = row.extensionId === UNATTRIBUTED_ROW
 		? `<em>${UNATTRIBUTED_ROW}</em>`
 		: row.extensionId.startsWith('(')
@@ -581,13 +605,9 @@ function extensionRowHtml(row: ExtensionSummaryRow, scenarios: MemoryScenario[])
  * one more slice of the partition.
  */
 function extensionTotalRowHtml(extensions: ExtensionMatrix, scenarios: MemoryScenario[]): string {
-	const cells = scenarios.map(scenario => cellHtml(
-		scenario,
-		extensions.totals[scenario],
-		extensions.totalDeltaVsIdle[scenario],
-		extensions.totalEmphasisThreshold[scenario],
-		false
-	)).join('');
+	const cells = scenarios.map(scenario => cellHtml(scenario, extensions.totals[scenario], {
+		delta: extensions.totalDeltaVsIdle[scenario], threshold: extensions.totalEmphasisThreshold[scenario]
+	})).join('');
 	return `<tr class="total-row">
 		<td><strong>TOTAL</strong></td>
 		${cells}
