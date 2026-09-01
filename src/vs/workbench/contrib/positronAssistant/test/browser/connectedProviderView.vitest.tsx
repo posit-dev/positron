@@ -207,4 +207,84 @@ describe('ConnectedProviderView', () => {
 		expect(screen.getByText(/connected via oauth/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
 	});
+
+	// A connected Bedrock provider is where most users land, since the AWS chain
+	// usually resolves at activation -- so the values the connect form collects
+	// have to be visible here rather than only behind Remove.
+	const bedrock: IPositronLanguageModelSource = {
+		type: PositronLanguageModelType.Chat,
+		provider: { id: 'amazon-bedrock', displayName: 'Amazon Bedrock' },
+		supportedOptions: ['toolCalls', 'aws'],
+		signedIn: true,
+		defaults: { aws: { profile: 'data-team', region: 'eu-west-1' } },
+	};
+
+	it('shows the saved AWS profile and region for a connected Bedrock provider', () => {
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={bedrock} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.getByText('data-team')).toBeInTheDocument();
+		expect(screen.getByText('eu-west-1')).toBeInTheDocument();
+	});
+
+	it('omits an AWS row that has no value from any layer', () => {
+		const noneSaved = { ...bedrock, defaults: { aws: {} } };
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={noneSaved} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.queryByText(/AWS Profile/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/AWS Region/)).not.toBeInTheDocument();
+	});
+
+	// `defaults` carries the user layer alone, so reading it by itself showed
+	// nothing for a value the environment supplies -- while the connect form for
+	// the same provider named it. These two views have to agree on what the
+	// connection is actually using.
+	it('shows an environment-supplied value the user never saved, naming the variable', () => {
+		const fromEnv = {
+			...bedrock,
+			defaults: { aws: {} },
+			overrides: { aws: { region: { value: 'us-east-2', name: 'AWS_REGION' } } },
+		};
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={fromEnv} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.getByTestId('provider-aws-region')).toHaveTextContent('AWS Region (from AWS_REGION)');
+		expect(screen.getByText('us-east-2')).toBeInTheDocument();
+	});
+
+	it('prefers the environment value over the saved one, since that is what the connection uses', () => {
+		const shadowed = {
+			...bedrock,
+			overrides: { aws: { region: { value: 'us-east-2', name: 'AWS_REGION' } } },
+		};
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={shadowed} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.getByTestId('provider-aws-region')).toHaveTextContent('us-east-2');
+		expect(screen.queryByText('eu-west-1')).not.toBeInTheDocument();
+	});
+
+	it('leaves a row the user owns unannotated', () => {
+		const shadowed = {
+			...bedrock,
+			overrides: { aws: { region: { value: 'us-east-2', name: 'AWS_REGION' } } },
+		};
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={shadowed} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.getByTestId('provider-aws-profile')).toHaveTextContent(/^AWS Profiledata-team$/);
+	});
+
+	it('omits the AWS rows for a provider that does not support them', () => {
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.queryByText(/AWS Profile/)).not.toBeInTheDocument();
+	});
+
+	it('omits the detail group entirely when a provider has no details to show', () => {
+		// The group is a flex child of a container with a 16px gap, so rendering
+		// it empty would add that gap between the header and the notice for every
+		// provider without details -- Posit AI here has neither baseUrl nor aws.
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} />);
+		expect(screen.queryByTestId('provider-details')).not.toBeInTheDocument();
+	});
+
+	it('groups the rows together when a provider has more than one detail', () => {
+		const withBoth = { ...bedrock, supportedOptions: ['toolCalls', 'aws', 'baseUrl'] as typeof bedrock.supportedOptions, defaults: { baseUrl: 'https://bedrock.example.com', aws: { profile: 'data-team', region: 'eu-west-1' } } };
+		rtl.render(<ConnectedProviderView {...dialogProps()} source={withBoth} onAction={async () => { }} onBack={vi.fn()} />);
+		const group = screen.getByTestId('provider-details');
+		expect(group).toContainElement(screen.getByTestId('provider-base-url'));
+		expect(group).toContainElement(screen.getByTestId('provider-aws-profile'));
+		expect(group).toContainElement(screen.getByTestId('provider-aws-region'));
+	});
 });

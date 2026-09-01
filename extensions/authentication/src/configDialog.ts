@@ -291,8 +291,10 @@ async function handleSave(
 		return handleApiKeySave(source, config, provider);
 	}
 
-	// Persist settings (e.g. base URL) before resolving the chain
-	// so the chain validator uses the value the user just entered.
+	// Persist settings (e.g. base URL) before resolving the chain so the chain
+	// validator uses the value the user just entered -- the chain resolvers read
+	// their connection from the provider catalog, not from `config`, so an
+	// unsaved value would be validated against the previous one.
 	const onSave = onSaveCallbacks.get(providerId);
 	const baseUrlPersisted = onSave ? (await onSave(config)) !== false : true;
 

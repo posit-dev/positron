@@ -3997,6 +3997,43 @@ declare module 'positron' {
 		}
 
 		/**
+		 * Why a field cannot be set in the configuration form, and what value
+		 * applies instead. Today this is always an environment variable, which
+		 * ai-config ranks above the user's configuration file.
+		 *
+		 * Deliberately not part of `LanguageModelConfig`: that type is
+		 * bidirectional (it arrives as `defaults` and is submitted back on
+		 * save), and this is an inbound-only fact about the environment.
+		 */
+		export interface LanguageModelFieldOverride {
+			/** The value in effect, shown in place of the user's saved value. */
+			readonly value: string;
+			/**
+			 * Name of the environment variable supplying the value, e.g.
+			 * `AWS_REGION`, so the form can say what to change instead. Omit when
+			 * there is no single name to give.
+			 */
+			readonly name?: string;
+		}
+
+		/**
+		 * Which of a provider's form fields are supplied by a higher-precedence
+		 * layer, shaped to mirror `LanguageModelConfig` with each value replaced
+		 * by the reason it cannot be set.
+		 *
+		 * Only the fields something can actually take over appear, rather than
+		 * every config key.
+		 */
+		export interface LanguageModelFieldOverrides {
+			baseUrl?: LanguageModelFieldOverride;
+			apiKey?: LanguageModelFieldOverride;
+			aws?: {
+				profile?: LanguageModelFieldOverride;
+				region?: LanguageModelFieldOverride;
+			};
+		}
+
+		/**
 		 * Positron Language Model source, used for user configuration of language models.
 		 */
 		export interface LanguageModelSource {
@@ -4006,6 +4043,11 @@ declare module 'positron' {
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
 			defaults: LanguageModelConfig;
+			/**
+			 * Fields the user cannot set here because a higher-precedence config
+			 * layer supplies them. Absent when every supported field is editable.
+			 */
+			overrides?: LanguageModelFieldOverrides;
 			signedIn?: boolean;
 			authMethods?: string[];
 			/**
@@ -4051,6 +4093,13 @@ declare module 'positron' {
 			 */
 			customModels?: LanguageModelCustomModel[];
 			autoconfigure?: LanguageModelAutoconfigure;
+			/**
+			 * AWS profile and region for a provider authenticating through the
+			 * AWS credential chain. Both are optional; an omitted field falls
+			 * back to the ambient AWS configuration. An empty string means the
+			 * user cleared the field and any saved value should be removed.
+			 */
+			aws?: { profile?: string; region?: string };
 		}
 
 		/**

@@ -25,10 +25,29 @@ import {
 	VERTEX_DEFAULT_BASE_URL,
 } from './constants';
 import { getConfiguredSnowflakeAccount } from './credentials/snowflake';
-import { getCachedCustomProviders, getCachedProvider, type ResolvedProviderLike } from './providerCatalog';
+import { getCachedCustomProviders, getCachedProvider, getConnectionProvenance, getUserProviderBlock, type ResolvedProviderLike } from './providerCatalog';
 
 function getSavedBaseUrl(catalogId: string | undefined, fallback?: string): string | undefined {
 	return (catalogId && getCachedProvider(catalogId)?.connection.baseUrl) || fallback;
+}
+
+/**
+ * AWS profile/region to pre-fill the connect dialog with, read from
+ * providers.json alone rather than the resolved catalog.
+ *
+ * Deliberately excludes `AWS_PROFILE` / `AWS_REGION`. Whether those reach the
+ * extension host depends on how Positron was launched and on a shell profile
+ * nobody versions, so showing one as a saved setting would promise persistence
+ * it doesn't have -- the next launch may resolve a different region with
+ * nothing in the UI having changed. The form therefore shows only what the
+ * user controls, and the hint beneath it names the variables as the fallback.
+ */
+export function getUserAwsSettings(): { profile?: string; region?: string } {
+	const aws = getUserProviderBlock(PROVIDER_METADATA.amazonBedrock.catalogId!)?.aws;
+	return {
+		...(aws?.profile ? { profile: aws.profile } : {}),
+		...(aws?.region ? { region: aws.region } : {}),
+	};
 }
 
 export interface ProviderMetadata {
@@ -168,11 +187,16 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 		{
 			type: positron.PositronLanguageModelType.Chat,
 			provider: PROVIDER_METADATA.amazonBedrock,
-			supportedOptions: ['toolCalls'],
+			supportedOptions: ['toolCalls', 'aws'],
 			defaults: {
 				model: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 				toolCalls: true,
+				aws: getUserAwsSettings(),
 			},
+			// Structurally identical to the catalog's ConnectionProvenance, so the
+			// tree passes straight through -- the catalog owns the environment seam
+			// and needs no dependency on the positron API types to do it.
+			overrides: getConnectionProvenance(PROVIDER_METADATA.amazonBedrock.catalogId),
 		},
 		{
 			type: positron.PositronLanguageModelType.Chat,
