@@ -13,6 +13,26 @@
 	user-select: none;
 }
 
+/*
+ * The connector joining a folded row to its parent's guide: a short horizontal stub from the last
+ * guide across to the row, the elbow a tree connector would draw. It marks the rows that fold a
+ * level, and attaches them to what they belong to, without the full-height line that would run
+ * through the chevrons of everything beneath.
+ *
+ * It reaches from the parent's guide to the spacer's right edge, so it is only as long as the indent
+ * width leaves room for. Below an indent of 11px there is no room at all and the stub collapses to
+ * nothing, which is the right degradation: at that density the guides are already nearly touching.
+ */
+.positron-tree-fold-connector {
+	position: absolute;
+	top: 50%;
+	left: calc(100% - var(--positron-tree-indent-width) + 11px);
+	right: 0;
+	height: 1px;
+	background-color: var(--vscode-tree-indentGuidesStroke);
+	pointer-events: none;
+}
+
 .positron-tree-row.focused {
 	outline: 1px solid var(--vscode-list-focusOutline);
 	outline-offset: -1px;

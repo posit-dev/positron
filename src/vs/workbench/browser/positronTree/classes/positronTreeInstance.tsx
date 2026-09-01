@@ -1056,7 +1056,15 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 					)}
 					data-testid='positron-tree-indent'
 					style={indentStyle}
-				/>
+				>
+					{/*
+					  * The connector joining a folded row to its parent's guide. A root row has no
+					  * parent guide to join, so it gets none.
+					  */}
+					{visible.node.foldsLevel === true && visible.indentLevel > 0 &&
+						<div className='positron-tree-fold-connector' />
+					}
+				</div>
 				<button
 					aria-label={twistyDisabled ? undefined : (visible.expandState === 'expanded' ? 'Collapse' : 'Expand')}
 					className={positronClassNames(

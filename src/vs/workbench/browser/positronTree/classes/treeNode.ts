@@ -27,6 +27,13 @@ export interface TreeNode<T> {
 	// nothing: the row above already says what the rows below are. The node keeps its twisty and
 	// its place in the structure; only the indent of what it holds changes. Defaults to false.
 	readonly flattensChildren?: boolean;
+
+	// Whether this row stands in for a level the tree isn't showing, and so is marked with a
+	// connector joining it to its parent's guide. Two different collapses want this -- a node that
+	// holds its children at its own indent, and one the consumer merged with an ancestor into a
+	// single row -- and only the consumer knows about the second, so it is asked rather than derived
+	// from flattensChildren. Defaults to false.
+	readonly foldsLevel?: boolean;
 }
 
 /**

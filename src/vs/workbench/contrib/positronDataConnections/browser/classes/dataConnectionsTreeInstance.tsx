@@ -148,6 +148,10 @@ const wrapDto = (
 	// to repeat it is what makes a column sit eight steps in. The same set decides which nodes the
 	// schema summarizer flattens, for the same reason.
 	flattensChildren: CONTAINER_ONLY_KINDS.has(dto.kind),
+	// Both ways this tree drops a level get marked: a group holding its children at its own indent,
+	// and a row breadcrumbed together with the group above it. They read as one thing to the user --
+	// a row standing where two levels used to be -- however differently they got there.
+	foldsLevel: CONTAINER_ONLY_KINDS.has(dto.kind) || labelPrefix !== undefined,
 });
 
 /**
