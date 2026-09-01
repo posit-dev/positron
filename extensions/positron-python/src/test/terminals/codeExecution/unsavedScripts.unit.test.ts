@@ -23,9 +23,12 @@ suite('UnsavedScriptFiles', () => {
     const fakeUntitled = (name: string, text: string) =>
         ({ uri: { toString: () => `untitled:${name}`, path: name }, isUntitled: true, getText: () => text } as any);
 
-    setup(() => {
-        // Canonicalize: the manager resolves symlinks (e.g. macOS /var -> /private/var).
-        tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'positron-unsaved-test-')));
+    setup(async () => {
+        // Canonicalize the same way the manager does (async realpath). This
+        // resolves symlinks (e.g. macOS /var -> /private/var) and, on Windows,
+        // expands 8.3 short names (RUNNER~1 -> runneradmin) so paths compare
+        // equal; sync and async realpath differ on that expansion.
+        tmpDir = await fs.promises.realpath(fs.mkdtempSync(path.join(os.tmpdir(), 'positron-unsaved-test-')));
         originalGetConfiguration = ws.getConfiguration;
         originalOnDidClose = ws.onDidCloseTextDocument;
         ws.getConfiguration = () => ({ get: () => tmpDir });
@@ -71,7 +74,7 @@ suite('UnsavedScriptFiles', () => {
         ws.getConfiguration = () => ({ get: () => filePath });
 
         const written = await manager.write(fakeUntitled('Untitled-9', 'z'));
-        assert.strictEqual(path.dirname(written), fs.realpathSync(os.tmpdir()));
+        assert.strictEqual(path.dirname(written), await fs.promises.realpath(os.tmpdir()));
         await manager.finished(written);
     });
 });
