@@ -12,7 +12,7 @@ import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from '../positronDataConnectionsConfiguration.js';
+import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY } from '../positronDataConnectionsConfiguration.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -58,9 +58,9 @@ export type DataConnectionNode =
 	};
 
 /**
- * The schemas group kind. Called out on its own because it is the one namespace tier a user can ask
- * to have hidden outright when it holds a single schema -- see
- * POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY.
+ * The schemas group kind. Called out on its own because it is the one namespace tier that is hidden
+ * outright when it holds a single schema, rather than breadcrumbed like the rest -- see
+ * POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY, the opt-in that brings it back.
  */
 const SCHEMAS_GROUP_KIND = 'group-schemas';
 
@@ -173,9 +173,11 @@ const wrapDto = (
  * handle.
  */
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> {
-	// Ids of breadcrumbed rows this tree has already opened once, so a row the user then closed is
-	// left closed rather than reopened by the next fetch. See _expandBreadcrumbed.
-	private readonly _autoExpandedBreadcrumbs = new Set<string>();
+	// Children the breadcrumb look-ahead fetched for a namespace group that went on to keep its row,
+	// held until that group is expanded so the user's own expand doesn't repeat the query. Keyed by
+	// the group's node id, which carries the node handle the fetch minted, so an entry can only ever
+	// be read by the row it was fetched for. See _breadcrumbNamespaceGroups and _takeLookAhead.
+	private readonly _lookAheadChildren = new Map<string, readonly IDataConnectionNodeDTO[]>();
 
 	constructor(
 		private readonly _service: IPositronDataConnectionsService,
@@ -216,12 +218,12 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				this.setIndentWidth(resolveIndentWidth(this._configurationService));
 			}
 
-			// Whether the schema tier is hidden is decided by the fetch, so the rows already on
-			// screen were built under the old answer and a reload is what re-decides them -- the
-			// same re-decision a schema gaining or losing a sibling gets. Without it the setting
-			// would appear to do nothing until the user reloaded the window, which for a display
-			// toggle reads as a bug.
-			if (e.affectsConfiguration(POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY)) {
+			// Whether a lone schema is shown is decided by the fetch, so the rows already on screen
+			// were built under the old answer and a reload is what re-decides them -- the same
+			// re-decision a schema gaining or losing a sibling gets. Without it the setting would
+			// appear to do nothing until the user reloaded the window, which for a display toggle
+			// reads as a bug.
+			if (e.affectsConfiguration(POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY)) {
 				// Fire and forget, as the panel's own Refresh button does: nothing here can act on
 				// the result, and a failed reload surfaces through the tree's per-node error state.
 				void this.reloadAll();
@@ -246,18 +248,25 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * Reloads a subtree. Breadcrumbing is decided by the fetch, so a reload re-decides it: a schema
 	 * that has gained a sibling comes back as an ordinary "Schemas" group, and one that has lost its
 	 * siblings comes back breadcrumbed.
+	 *
+	 * Deliberately does not auto-open breadcrumbed rows the way a first expand does. The base
+	 * restores the expansion the user had, matching rows to their counterparts by reload key rather
+	 * than by id, so a reload already reopens the breadcrumbed rows that were open and leaves the
+	 * ones the user had closed alone. Running the auto-open on top of that would reopen the closed
+	 * ones, since after a reload they are indistinguishable from rows appearing for the first time.
 	 */
 	override async reload(id: string): Promise<void> {
+		this._lookAheadChildren.clear();
 		await super.reload(id);
-		await this._expandBreadcrumbed();
 	}
 
 	/**
-	 * Reloads every connection. Same breadcrumb re-decision as reload.
+	 * Reloads every connection. Same breadcrumb re-decision, and the same deference to the base's
+	 * expansion restoration, as reload.
 	 */
 	override async reloadAll(): Promise<void> {
+		this._lookAheadChildren.clear();
 		await super.reloadAll();
-		await this._expandBreadcrumbed();
 	}
 
 	/**
@@ -331,6 +340,13 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			if (entry.instance === undefined && this.hasLoadedChildren(id)) {
 				super.collapse(id);
 				this.dropLoadedChildren(id);
+
+				// The dropped subtree's node handles die with the connection, so anything the
+				// look-ahead is still holding for it is unusable. Cleared wholesale rather than per
+				// connection: the entries are keyed by node id, which cannot be mapped back to a
+				// connection that is already gone, and the cost of clearing is one repeated query
+				// on some other connection's next expand.
+				this._lookAheadChildren.clear();
 			}
 		}
 	}
@@ -341,6 +357,9 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * inside the base class's _fetchChildren means the loading state (twisty spinner) covers
 	 * the connect + getChildren as one continuous operation, and a connect failure surfaces
 	 * through the tree's existing error state.
+	 *
+	 * A namespace group that kept its row is answered from what the look-ahead already fetched for
+	 * it, so opening it costs nothing rather than repeating that query.
 	 */
 	private async _fetchChildrenForNode(
 		node: TreeNode<DataConnectionNode>
@@ -354,10 +373,25 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				return this._breadcrumbNamespaceGroups(dtos, instance.connectionHandle);
 			}
 			case 'dto': {
-				const dtos = await data.handle.nodeGetChildren(data.dto.nodeHandle);
+				const dtos = this._takeLookAhead(node.id)
+					?? await data.handle.nodeGetChildren(data.dto.nodeHandle);
 				return this._breadcrumbNamespaceGroups(dtos, data.handle);
 			}
 		}
+	}
+
+	/**
+	 * Returns the children the look-ahead fetched for a node, if it has any waiting, and forgets
+	 * them. Taken rather than read: the entry answers exactly one fetch, so a later re-fetch of the
+	 * same node goes to the source and sees anything that has changed since.
+	 *
+	 * @param id The node id to take the look-ahead result for.
+	 * @returns The children, or undefined when the look-ahead has nothing for this node.
+	 */
+	private _takeLookAhead(id: string): readonly IDataConnectionNodeDTO[] | undefined {
+		const children = this._lookAheadChildren.get(id);
+		this._lookAheadChildren.delete(id);
+		return children;
 	}
 
 	/**
@@ -369,9 +403,9 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * Deciding this needs the group's children, so a namespace group costs one extra round trip on
 	 * the level above it, paid whether or not the user goes on to open it.
 	 *
-	 * A lone schema is the one case that can go further than breadcrumbing and disappear altogether,
-	 * when the user asks for that -- see _elideSingleSchema. That is why this returns a level rather
-	 * than a node per DTO: one group can expand into the several rows that stood beneath it.
+	 * A lone schema goes further than breadcrumbing and disappears altogether, unless the user has
+	 * opted to keep it -- see _elideSingleSchema. That is why this returns a level rather than a
+	 * node per DTO: one group can expand into the several rows that stood beneath it.
 	 *
 	 * @param dtos The level's DTOs.
 	 * @param handle The connection handle the DTOs came from.
@@ -398,7 +432,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			}
 
 			if (children.length === 1) {
-				if (dto.kind === SCHEMAS_GROUP_KIND && this._hideSingleSchema()) {
+				if (dto.kind === SCHEMAS_GROUP_KIND && !this._showSingleSchema()) {
 					const contents = await this._elideSingleSchema(children[0], handle);
 					if (contents !== undefined) {
 						return contents;
@@ -407,27 +441,33 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				return [wrapDto(children[0], handle, dto.name)];
 			}
 
-			// The children are deliberately dropped when the group keeps its row. Handing them to
-			// the tree would save the user's own expand a repeat of this query, but this runs inside
-			// a reload's staged fetch as well, and a reload whose result is discarded (its node
-			// collapsed while it was in flight) would leave those children behind in the live map,
-			// keyed by a node that never arrived and holding ext-host handles nothing can release.
-			return [wrapDto(dto, handle)];
+			// The group keeps its row, and the children the look-ahead just fetched are the ones its
+			// expand would ask for, so they are held for that expand to consume rather than queried
+			// twice. On a warehouse connection that second query is seconds, at every namespace
+			// level, on every reload.
+			//
+			// Held to the side rather than handed straight to the tree with setChildren: that writes
+			// into the live children map, and this also runs inside a reload's staged fetch, whose
+			// result is discarded if its node was collapsed while the fetch was in flight. The
+			// entries would outlive the rows they belong to.
+			const group = wrapDto(dto, handle);
+			this._lookAheadChildren.set(group.id, children);
+			return [group];
 		}));
 
 		return level.flat();
 	}
 
 	/**
-	 * Whether the user has asked for a connection's only schema to be hidden rather than
-	 * breadcrumbed. Read live rather than cached in the constructor, so a toggle takes effect on the
-	 * next fetch; the constructor's change handler reloads to make that immediate. Compared against
-	 * true so that an unset value -- and a configuration service that does not know the key -- reads
-	 * as the registered default of off.
+	 * Whether the user has asked to keep a connection's only schema in the tree, breadcrumbed into
+	 * its group, rather than have it dropped. Read live rather than cached in the constructor, so a
+	 * toggle takes effect on the next fetch; the constructor's change handler reloads to make that
+	 * immediate. Compared against true so that an unset value -- and a configuration service that
+	 * does not know the key -- reads as the registered default of off.
 	 */
-	private _hideSingleSchema(): boolean {
+	private _showSingleSchema(): boolean {
 		return this._configurationService.getValue<boolean>(
-			POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY) === true;
+			POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY) === true;
 	}
 
 	/**
@@ -437,8 +477,9 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * Tables and Views.
 	 *
 	 * This costs a second look-ahead -- the group's children found the schema, and this fetches the
-	 * schema's -- which is why it is behind a setting that is off by default rather than the
-	 * standing behavior. The result is not wasted: these are the rows the level now holds.
+	 * schema's -- so opening a single-schema connection is three sequential round trips rather than
+	 * two. That is the price of the default; the result is not wasted, since these are the rows the
+	 * level goes on to hold. Turning the setting on takes the second one back off.
 	 *
 	 * Returns undefined when the schema cannot stand aside, leaving the caller to breadcrumb it as
 	 * usual. A schema with no children is one of those cases: eliding it would leave the connection
@@ -483,23 +524,23 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * handed between the two is drained by whichever operation finishes first, against rows another
 	 * one has not inserted yet. The projection is the same answer whoever asks and whenever.
 	 *
-	 * Rows already opened once are recorded, so a row the user then closed stays closed. Node ids
-	 * carry the fetch that minted them, so a reload's replacement rows are new ids and open again.
+	 * A row the user has closed is left closed, and having loaded children is what tells the two
+	 * apart: a row that has never been opened has none, and one the user opened and then closed
+	 * keeps them (a collapse does not drop them). Deliberately not a set of ids the tree has already
+	 * opened -- the extension host mints a fresh node handle every time it serializes a node, so a
+	 * row's id changes on every fetch and such a set would treat every replacement row as unseen.
+	 * The reload path avoids the question entirely by leaving expansion to the base, which matches
+	 * rows by reload key; see reload.
 	 */
 	private async _expandBreadcrumbed(): Promise<void> {
 		const toExpand = this.visibleNodes
 			.filter(visible =>
 				visible.node.data.kind === 'dto' &&
 				visible.node.data.labelPrefix !== undefined &&
-				!this._autoExpandedBreadcrumbs.has(visible.node.id))
+				!this.isExpanded(visible.node.id) &&
+				!this.hasLoadedChildren(visible.node.id))
 			.map(visible => visible.node.id);
-		if (toExpand.length === 0) {
-			return;
-		}
 
-		for (const id of toExpand) {
-			this._autoExpandedBreadcrumbs.add(id);
-		}
 		await Promise.all(toExpand.map(id => this.expand(id)));
 	}
 

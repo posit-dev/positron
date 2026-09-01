@@ -235,7 +235,10 @@ describe('DataConnectionsTreeInstance', () => {
 	function createTreeOverNodes(
 		rootDtos: IDataConnectionNodeDTO[],
 		childrenOf: (nodeHandle: number) => IDataConnectionNodeDTO[],
-		profiles: IDataConnectionProfile[] = [profile]
+		profiles: IDataConnectionProfile[] = [profile],
+		// Defaulted to the setting's own default, so a test that says nothing gets what a user gets:
+		// a lone schema dropped from the tree. The breadcrumb tests below opt in explicitly.
+		showSingleSchema = false
 	) {
 		const nodeGetChildren = vi.fn(async (nodeHandle: number) => childrenOf(nodeHandle));
 
@@ -267,6 +270,7 @@ describe('DataConnectionsTreeInstance', () => {
 		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
+			'dataConnections.tree.showSingleSchema': showSingleSchema,
 		}));
 		ctx.disposables.add(tree);
 		return { tree, nodeGetChildren };
@@ -287,14 +291,18 @@ describe('DataConnectionsTreeInstance', () => {
 	}
 
 	it('breadcrumbs a namespace group holding one child into that child, and opens it', async () => {
-		// connection > Schemas > public > Tables. Only one schema, so "Schemas" is ceremony.
+		// connection > Schemas > public > Tables. Only one schema, so "Schemas" is ceremony. Opted
+		// into showing that schema, since the tree drops it entirely by default -- see the elide
+		// test below.
 		const { tree } = createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 			nodeHandle => nodeHandle === 1
 				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
 				: nodeHandle === 2
 					? [nodeDto({ nodeHandle: 3, name: 'Tables', kind: 'group-tables' })]
-					: []
+					: [],
+			[profile],
+			true
 		);
 		await tree.refresh();
 		await tree.expand(ENTRY_ID);
@@ -308,7 +316,52 @@ describe('DataConnectionsTreeInstance', () => {
 		]);
 	});
 
-	it('leaves a namespace group with several children alone, and re-fetches them when it is expanded', async () => {
+	it('drops a lone schema out of the tree by default, standing its contents where it stood', async () => {
+		// connection > Schemas > public > Tables, Views. With one schema there is nothing to choose
+		// between, so both tiers go and the objects they held move up to the connection.
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => nodeHandle === 1
+				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
+				: nodeHandle === 2
+					? [
+						nodeDto({ nodeHandle: 3, name: 'Tables', kind: 'group-tables' }),
+						nodeDto({ nodeHandle: 4, name: 'Views', kind: 'group-views' }),
+					]
+					: []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		// Neither tier left a row behind, and nothing wears a breadcrumb: the schema is not folded
+		// into anything here, it is simply gone.
+		expect(rows(tree)).toEqual([
+			{ name: 'connection', prefix: undefined, expanded: true },
+			{ name: 'Tables', prefix: undefined, expanded: false },
+			{ name: 'Views', prefix: undefined, expanded: false },
+		]);
+	});
+
+	it('keeps a lone schema that holds nothing, rather than leaving the connection looking empty', async () => {
+		// Same single schema, but with no tables or views under it. Eliding it would leave the
+		// connection with no rows at all, which reads as a connection that failed rather than as a
+		// schema with nothing in it, so it falls back to the breadcrumbed row.
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+			nodeHandle => nodeHandle === 1
+				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
+				: []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		expect(rows(tree)).toEqual([
+			{ name: 'connection', prefix: undefined, expanded: true },
+			{ name: 'public', prefix: 'Schemas', expanded: true },
+		]);
+	});
+
+	it('leaves a namespace group with several children alone, and opens it without querying again', async () => {
 		const { tree, nodeGetChildren } = createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 			nodeHandle => nodeHandle === 1
@@ -321,9 +374,9 @@ describe('DataConnectionsTreeInstance', () => {
 		await tree.refresh();
 		await tree.expand(ENTRY_ID);
 
-		// The look-ahead that counted the schemas discards them rather than handing them to the tree,
-		// so expanding the group queries again. The alternative leaves children behind in the live
-		// map when a reload's staged fetch is discarded -- see _breadcrumbNamespaceGroups.
+		// The look-ahead that counted the schemas holds them for the expand rather than throwing them
+		// away, so opening the group adds no query of its own. On a warehouse connection that saved
+		// query is seconds, at every namespace level, on every reload.
 		const callsBeforeExpanding = nodeGetChildren.mock.calls.length;
 		await tree.expand('dto:1:1');
 
@@ -339,21 +392,23 @@ describe('DataConnectionsTreeInstance', () => {
 				{ name: 'staging', prefix: undefined, expanded: false },
 			],
 			callsBeforeExpanding: 1,
-			callsAfterExpanding: 2,
+			callsAfterExpanding: 1,
 		});
 	});
 
-	it('opens breadcrumbed rows under every connection when several reload at once', async () => {
-		// Two profiles, so Refresh All fans reload out across both roots concurrently. Breadcrumbed
-		// rows used to be collected into one instance-wide list, which whichever reload finished
-		// first drained -- against rows the other had not inserted yet, leaving them shut.
+	it('keeps breadcrumbed rows open under every connection when several reload at once', async () => {
+		// Two profiles, so Refresh All fans reload out across both roots concurrently. A breadcrumbed
+		// row that was open has to come back open on both, which the base does by matching rows to
+		// their counterparts by reload key -- the auto-open deliberately sits out the reload path, so
+		// nothing else is holding these open. See reload in DataConnectionsTreeInstance.
 		const second = createProfile({ id: 'conn-2', connectionName: 'Second Connection' });
 		const { tree } = createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 			nodeHandle => nodeHandle === 1
 				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
 				: [],
-			[profile, second]
+			[profile, second],
+			true
 		);
 		await tree.refresh();
 		await Promise.all([tree.expand(ENTRY_ID), tree.expand('entry:conn-2')]);
@@ -367,22 +422,32 @@ describe('DataConnectionsTreeInstance', () => {
 		]);
 	});
 
-	it('leaves a breadcrumbed row the user closed closed, rather than reopening it on the next fetch', async () => {
+	it('leaves a breadcrumbed row the user closed closed when the tree is refreshed', async () => {
+		// The extension host mints a fresh node handle every time it serializes a node, so the rows a
+		// refresh brings back carry different ids from the ones they replace. Modelled here: with a
+		// stub that returned fixed handles, an "already opened these ids" set would look like it
+		// worked, and the row would reopen in the product.
+		let nextSchemaHandle = 10;
 		const { tree } = createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
 			nodeHandle => nodeHandle === 1
-				? [nodeDto({ nodeHandle: 2, name: 'public', kind: 'schema' })]
-				: []
+				? [nodeDto({ nodeHandle: nextSchemaHandle++, name: 'public', kind: 'schema' })]
+				: [],
+			[profile],
+			true
 		);
 		await tree.refresh();
 		await tree.expand(ENTRY_ID);
-		tree.collapse('dto:1:2');
 
-		// Any later fetch runs the auto-expand again. It opens a breadcrumbed row once and records
-		// that it did, so a row the user closed since is left alone.
-		await tree.invalidate(ENTRY_ID);
+		// Closed by the user, then refreshed the way the row's own Refresh action does it. The base
+		// restores expansion by reload key, so the replacement row comes back closed too.
+		tree.collapse(tree.visibleNodes.find(visible => visible.node.data.kind === 'dto')!.node.id);
+		await tree.reload(ENTRY_ID);
 
-		expect(tree.isExpanded('dto:1:2')).toBe(false);
+		expect(rows(tree)).toEqual([
+			{ name: 'connection', prefix: undefined, expanded: true },
+			{ name: 'public', prefix: 'Schemas', expanded: false },
+		]);
 	});
 
 	it('does not breadcrumb an object group, however few children it has', async () => {

@@ -74,7 +74,8 @@ test.describe('Data Connections - Postgres', {
 
 		await test.step('Expand the tree down to tables and views', async () => {
 			await dataConnections.expandConnection(connectionName);
-			await dataConnections.expectNodeVisible('public', 'schema');
+			// dvdrental has a single schema, which the tree hides by default, so Tables and Views sit
+			// directly under the connection and there is no 'Schemas' or 'public' row to expand.
 			await dataConnections.expandNode('Tables');
 			await dataConnections.expandNode('Views');
 		});

@@ -13,7 +13,7 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY, POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY } from './positronDataConnectionsConfiguration.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY } from './positronDataConnectionsConfiguration.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -57,16 +57,17 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.WINDOW,
 			included: true,
 		},
-		[POSITRON_DATA_CONNECTIONS_TREE_HIDE_SINGLE_SCHEMA_KEY]: {
+		[POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY]: {
 			type: 'boolean',
-			// Off by default, because it trades information for space: a connection with one schema
-			// stops saying it has schemas at all, and the schema's name goes with it. Worth having
-			// for someone whose databases always have exactly one, where the tier is noise every
-			// time; not worth imposing on someone who would then wonder where `public` went.
+			// Off by default: for the many databases that have exactly one schema, the tier is a
+			// level and a click that tell the user nothing they could have chosen differently. The
+			// setting is here for people who want it named anyway -- someone who works across
+			// databases where the schema is sometimes `public` and sometimes not wants to see which
+			// one they are in, even when there is only the one.
 			default: false,
 			markdownDescription: localize(
-				'positron.dataConnections.tree.hideSingleSchema',
-				"Hide the schema level entirely when a connection has only one schema, showing its tables and views directly under the connection. When disabled, a lone schema is shown folded together with its group on a single row (for example `Schemas · public`)."
+				'positron.dataConnections.tree.showSingleSchema',
+				"Show a connection's schema even when it is the only one, folded together with its group on a single row (for example `Schemas · public`). When disabled, a lone schema is hidden and its tables and views are shown directly under the connection."
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,
