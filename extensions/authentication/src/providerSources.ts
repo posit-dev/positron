@@ -54,7 +54,7 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	},
 	positAI: {
 		id: POSIT_AUTH_PROVIDER_ID,
-		displayName: 'Posit AI',
+		displayName: 'Posit AI Pass',
 		catalogId: 'positai',
 	},
 	amazonBedrock: {

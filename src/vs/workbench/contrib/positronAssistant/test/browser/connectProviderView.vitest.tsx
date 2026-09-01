@@ -15,7 +15,7 @@ import { dialogProps } from './providerModalTestUtils.js';
 
 const positAi: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'posit-ai', displayName: 'Posit AI' },
+	provider: { id: 'posit-ai', displayName: 'Posit AI Pass' },
 	supportedOptions: ['oauth'],
 	signedIn: false,
 	defaults: {},
@@ -77,7 +77,7 @@ describe('ConnectProviderView', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('renders a Connect footer button and legal text for Posit AI', () => {
+	it('renders a Connect footer button and legal text for Posit AI Pass', () => {
 		rtl.render(<ConnectProviderView {...dialogProps()} source={positAi} onAction={async () => { }} onBack={vi.fn()} onEditRawConfig={vi.fn()} />);
 		expect(screen.getByRole('button', { name: 'Connect' })).toBeEnabled();
 		expect(screen.getByTestId('provider-notice')).toBeInTheDocument();

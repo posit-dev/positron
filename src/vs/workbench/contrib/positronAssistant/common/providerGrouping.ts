@@ -42,7 +42,7 @@ function sectionFor(source: IPositronLanguageModelSource): ProviderSectionId {
 }
 
 /**
- * Sort rank within a section: Posit AI first, then stable providers (no
+ * Sort rank within a section: Posit AI Pass first, then stable providers (no
  * status), then preview, then experimental. Mirrors the legacy modal's
  * providerSortRank (languageModelModalDialog.tsx) so both dialogs order
  * providers identically.
@@ -73,7 +73,7 @@ function compareSources(a: IPositronLanguageModelSource, b: IPositronLanguageMod
  * Groups language model sources into ordered, non-empty sections for the
  * Configure LLM Providers modal: Connected, then Needs Attention, then Model
  * Providers, then Custom Providers. Within a section, providers are ordered
- * Posit AI first, then by maturity (stable, then preview, then experimental),
+ * Posit AI Pass first, then by maturity (stable, then preview, then experimental),
  * and alphabetically by display name within the same rank.
  */
 export function groupProviders(sources: IPositronLanguageModelSource[]): ProviderSection[] {

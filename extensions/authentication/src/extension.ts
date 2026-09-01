@@ -362,22 +362,22 @@ async function registerAnthropicProvider(
 }
 
 function registerPositAIProvider(context: vscode.ExtensionContext): void {
-	const logger = new AuthProviderLogger('Posit AI');
+	const logger = new AuthProviderLogger('Posit AI Pass');
 	const provider = new PositOAuthProvider(context);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			POSIT_AUTH_PROVIDER_ID, 'Posit AI', provider
+			POSIT_AUTH_PROVIDER_ID, 'Posit AI Pass', provider
 		),
 		provider
 	);
 	registerAuthProvider(POSIT_AUTH_PROVIDER_ID, provider);
 	logger.info('Registered auth provider');
 
-	// On PWB, Posit AI defaults to disabled so admins control AI access.
+	// On PWB, Posit AI Pass defaults to disabled so admins control AI access.
 	// We apply this once on first activation and skip it afterwards so user
 	// or admin choices are never overwritten.
 	applyPwbPositAIDefault(context).catch(err =>
-		logger.logOperationError('apply PWB Posit AI default', err)
+		logger.logOperationError('apply PWB Posit AI Pass default', err)
 	);
 }
 

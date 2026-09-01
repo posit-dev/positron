@@ -15,7 +15,7 @@ import { dialogProps } from './providerModalTestUtils.js';
 
 const positAi: IPositronLanguageModelSource = {
 	type: PositronLanguageModelType.Chat,
-	provider: { id: 'posit-ai', displayName: 'Posit AI' },
+	provider: { id: 'posit-ai', displayName: 'Posit AI Pass' },
 	supportedOptions: ['oauth'],
 	signedIn: true,
 	defaults: {},

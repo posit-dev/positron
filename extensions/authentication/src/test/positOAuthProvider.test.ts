@@ -74,7 +74,7 @@ suite('PositOAuthProvider', () => {
 		test('throws when no tokens stored', async () => {
 			await assert.rejects(
 				() => provider.getAccessToken(),
-				(err: Error) => err.message.includes('No Posit AI access token found')
+				(err: Error) => err.message.includes('No Posit AI Pass access token found')
 			);
 		});
 
