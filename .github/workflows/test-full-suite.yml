@@ -210,10 +210,11 @@ jobs:
       project: "e2e-windows"
       display_name: "electron-win"
       allow_soft_fail: false
-      upload_logs: false
+      upload_logs: true
+      repeat_each: 12
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
-      max_failures: 6  # 20 max failures / 4 shards = 5, rounded to 6 to avoid premature failure of the entire suite
+      max_failures: 40
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-macos-arm64:

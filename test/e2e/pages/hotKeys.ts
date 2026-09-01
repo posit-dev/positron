@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect } from '@playwright/test';
+import test, { expect, type CDPSession, type Frame } from '@playwright/test';
 import { Code } from '../infra/code.js';
 import { STARTUP_MESSAGING_SELECTOR, STARTUP_MESSAGING_TIMEOUT } from './utils/startupMessaging.js';
 
@@ -266,6 +266,39 @@ export class HotKeys {
 	public async reloadWindow(waitForReady = false) {
 		const page = this.code.driver.currentPage;
 
+		// --- Start temporary diagnostic instrumentation (reload gate triage) ---
+		// Observe-only: records what Playwright and the renderer report around the
+		// reload without changing the gate's behavior, so the failure rate stays
+		// representative. Everything lands in e2e-test-runner.log under [reload-gate].
+		const t0 = Date.now();
+		const since = () => `+${Date.now() - t0}ms`;
+		const log = (msg: string) => this.code.logger.log(`[reload-gate] ${new Date().toISOString()} ${since()} ${msg}`);
+		const firstLine = (e: unknown) => String(e).split('\n')[0];
+		const onFrameNavigated = (frame: Frame) => log(`pw framenavigated main=${frame === page.mainFrame()} url=${frame.url()}`);
+		const onDomContentLoaded = () => log('pw domcontentloaded');
+		const onLoad = () => log('pw load');
+		page.on('framenavigated', onFrameNavigated);
+		page.on('domcontentloaded', onDomContentLoaded);
+		page.on('load', onLoad);
+		let cdp: CDPSession | undefined;
+		try {
+			cdp = await page.context().newCDPSession(page);
+			cdp.on('Runtime.executionContextCreated', e => log(`cdp executionContextCreated id=${e.context.id} name=${JSON.stringify(e.context.name)} origin=${e.context.origin} aux=${JSON.stringify(e.context.auxData)}`));
+			cdp.on('Runtime.executionContextDestroyed', e => log(`cdp executionContextDestroyed id=${e.executionContextId}`));
+			cdp.on('Runtime.executionContextsCleared', () => log('cdp executionContextsCleared'));
+			cdp.on('Page.frameNavigated', e => log(`cdp frameNavigated id=${e.frame.id} parent=${e.frame.parentId ?? '-'} url=${e.frame.url}`));
+			cdp.on('Page.frameStartedLoading', e => log(`cdp frameStartedLoading id=${e.frameId}`));
+			cdp.on('Page.frameStoppedLoading', e => log(`cdp frameStoppedLoading id=${e.frameId}`));
+			cdp.on('Page.lifecycleEvent', e => log(`cdp lifecycle ${e.name} frame=${e.frameId}`));
+			await cdp.send('Page.enable');
+			await cdp.send('Page.setLifecycleEventsEnabled', { enabled: true });
+			await cdp.send('Runtime.enable');
+			log(`cdp session attached; url=${page.url()}`);
+		} catch (e) {
+			log(`cdp setup failed: ${firstLine(e)}`);
+		}
+		// --- End temporary diagnostic instrumentation ---
+
 		// Arm the navigation listener before triggering the reload: the old DOM stays
 		// visible (with no startup messaging) for a beat after the keypress, so any
 		// readiness gate that polls immediately would pass against the pre-reload page.
@@ -274,20 +307,56 @@ export class HotKeys {
 		const navigated = page.waitForEvent('framenavigated', frame => frame === page.mainFrame());
 		await this.pressHotKeys('Cmd+B R', 'Reload window');
 		await navigated;
+		log('navigated (main frame) observed; starting gate');
 
-		// Bound each probe and retry, rather than spending the whole budget on one
-		// assertion. Playwright parks a query on the execution-context promise that
-		// existed when the query started, and an Electron reload clears the context
-		// more than once as the renderer is swapped -- each clear installs a fresh
-		// promise and orphans the old one, so a probe that started before the last
-		// clear waits forever on a promise nothing will resolve. That is the Windows
-		// CI failure where the workbench is fully rendered but the assertion reports
-		// "element(s) not found". Abandoning the attempt lets the next one pick up
-		// the current promise. The overall budget is unchanged.
-		await expect(async () => {
-			await expect(page.locator('.monaco-workbench'))
-				.toBeVisible({ timeout: RELOAD_PROBE_TIMEOUT });
-		}).toPass({ timeout: RELOAD_READY_TIMEOUT, intervals: [250] });
+		try {
+			// Bound each probe and retry, rather than spending the whole budget on one
+			// assertion. Playwright parks a query on the execution-context promise that
+			// existed when the query started, and an Electron reload clears the context
+			// more than once as the renderer is swapped -- each clear installs a fresh
+			// promise and orphans the old one, so a probe that started before the last
+			// clear waits forever on a promise nothing will resolve. That is the Windows
+			// CI failure where the workbench is fully rendered but the assertion reports
+			// "element(s) not found". Abandoning the attempt lets the next one pick up
+			// the current promise. The overall budget is unchanged.
+			let attempt = 0;
+			try {
+				await expect(async () => {
+					attempt++;
+					const started = Date.now();
+					try {
+						await expect(page.locator('.monaco-workbench'))
+							.toBeVisible({ timeout: RELOAD_PROBE_TIMEOUT });
+						log(`probe ${attempt} ok after ${Date.now() - started}ms`);
+					} catch (e) {
+						log(`probe ${attempt} failed after ${Date.now() - started}ms: ${firstLine(e)}`);
+						throw e;
+					}
+				}).toPass({ timeout: RELOAD_READY_TIMEOUT, intervals: [250] });
+			} catch (e) {
+				// Gate failed. Answer the open question: does a FRESH query succeed now?
+				log(`gate failed after ${attempt} attempt(s): ${firstLine(e)}`);
+				const clientTimer = (label: string) => new Promise<string>(r => setTimeout(() => r(`${label}: client timeout 2000ms`), 2000));
+				const fresh = await Promise.race([
+					page.evaluate(() => !!document.querySelector('.monaco-workbench')).then(v => `evaluate ok: found=${v}`, err => `evaluate error: ${firstLine(err)}`),
+					clientTimer('evaluate'),
+				]);
+				log(`fresh query after failure: ${fresh}`);
+				const freshCount = await Promise.race([
+					page.locator('.monaco-workbench').count().then(c => `count ok: ${c}`, err => `count error: ${firstLine(err)}`),
+					clientTimer('count'),
+				]);
+				log(`fresh locator count after failure: ${freshCount}`);
+				throw e;
+			}
+		} finally {
+			page.off('framenavigated', onFrameNavigated);
+			page.off('domcontentloaded', onDomContentLoaded);
+			page.off('load', onLoad);
+			if (cdp) {
+				await cdp.detach().catch(e => log(`cdp detach failed: ${firstLine(e)}`));
+			}
+		}
 
 		// Wait for the workbench lifecycle to reach Restored (the same positive signal
 		// Application#checkPositronReady gates launch on). External browsers (Posit
