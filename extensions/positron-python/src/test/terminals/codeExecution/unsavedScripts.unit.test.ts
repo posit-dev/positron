@@ -25,8 +25,7 @@ suite('UnsavedScriptFiles', () => {
 
     // Canonicalize a directory the same way the manager does: resolve symlinks
     // on POSIX, leave the path untouched on Windows.
-    const canonicalize = async (dir: string) =>
-        process.platform === 'win32' ? dir : fs.promises.realpath(dir);
+    const canonicalize = async (dir: string) => (process.platform === 'win32' ? dir : fs.promises.realpath(dir));
 
     setup(async () => {
         tmpDir = await canonicalize(fs.mkdtempSync(path.join(os.tmpdir(), 'positron-unsaved-test-')));
