@@ -638,13 +638,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
-	 * Gets whether file options are supported (i.e., this is a DuckDB-backed CSV/TSV file).
-	 */
-	get supportsFileOptions() {
-		return this.isFileBacked;
-	}
-
-	/**
 	 * Gets the current "has header row" state for delimited text files and Excel
 	 * workbooks.
 	 */

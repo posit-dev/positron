@@ -27,7 +27,7 @@ import { IDataFrameResolutionServices, resolveDataFrameAtPosition } from './posi
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
@@ -825,13 +825,14 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
-		// Gated on the explorer not being file-backed: the DuckDB backend advertises SQL syntaxes,
-		// so POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE alone would keep the action alive there;
-		// the negated file-backed key is what retires it in favor of Import Data.
+		// File-backed explorers offer Import Data instead, and their backend reports Convert to Code
+		// as unsupported. The negated file-backed key is kept because it is set as soon as the
+		// editor opens, while the convert-to-code key waits for the backend state to arrive; it is
+		// what keeps the button from appearing for a moment on a file.
 		const when = ContextKeyExpr.and(
 			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 			POSITRON_DATA_EXPLORER_IS_FILE_BACKED.toNegated(),
-			POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE,
+			POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED,
 			ContextKeyExpr.or(
 				POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
 				POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)

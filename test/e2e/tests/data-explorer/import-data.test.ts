@@ -108,6 +108,35 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('small_file', /5 rows/);
 	});
 
+	// The R generator emits a dplyr pipeline the unit tests only compare as a string. This is the
+	// only place that pipeline is executed, so it is what catches code dplyr cannot run.
+	test('R readr - Verify filters and sorts carry into the imported dataframe', async function ({ app, openDataFile, r }) {
+		const { dataExplorer, variables } = app.workbench;
+
+		await openDataFile(join('data-files', 'small_file.csv'));
+		await dataExplorer.waitForIdle();
+
+		// The view to reproduce: column0 > 40 keeps 5 of the 10 rows, plus a descending sort.
+		await dataExplorer.filters.add({ columnName: 'column0', condition: 'is greater than', value: '40' });
+		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
+
+		await dataExplorer.editorActionBar.clickButton('Import Data');
+		await dataExplorer.importDataModal.expectToBeVisible();
+		await dataExplorer.importDataModal.selectPackage('R (readr)');
+		await dataExplorer.importDataModal.setIncludeFiltersAndSorts(true);
+
+		// dplyr is only imported once the view contributes verbs, and desc() proves the descending
+		// direction survived. (Code assertions avoid spaces: Monaco renders them as NBSP.)
+		await dataExplorer.importDataModal.expectCodeToContain('library(dplyr)');
+		await dataExplorer.importDataModal.expectCodeToContain('arrange(desc(');
+
+		await dataExplorer.importDataModal.clickImport();
+
+		// 5 of the 10 data rows survive the column0 > 40 filter. A pipeline dplyr rejects leaves
+		// the variable at 10 rows or absent entirely.
+		await variables.expectVariableToBe('small_file', /5 rows x 10 columns/);
+	});
+
 	test('Kernel-backed explorer - Verify Convert to Code shows and Import Data does not', async function ({ app, executeCode, python }) {
 		const { dataExplorer, editorActionBar, variables } = app.workbench;
 

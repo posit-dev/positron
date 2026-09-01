@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -161,11 +161,6 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * file) or the backend state has not arrived yet.
 	 */
 	getImportView(): Promise<IDataImportView | undefined>;
-
-	/**
-	 * Gets whether file options are supported (i.e., this is a DuckDB-backed file).
-	 */
-	readonly supportsFileOptions: boolean;
 
 	/**
 	 * Gets the current "has header row" state for delimited text files and Excel

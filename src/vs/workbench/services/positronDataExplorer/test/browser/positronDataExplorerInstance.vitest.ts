@@ -182,9 +182,8 @@ describe('PositronDataExplorerInstance file options', () => {
 		expect(mockClient.getBackendState).toHaveBeenCalledWith(true);
 	});
 
-	it('isFileBacked is true for a duckdb-backed instance and drives supportsFileOptions', () => {
+	it('isFileBacked is true for a duckdb-backed instance', () => {
 		expect(instance.isFileBacked).toBe(true);
-		expect(instance.supportsFileOptions).toBe(true);
 	});
 
 	it('isFileBacked is false for a kernel-backed instance', () => {
@@ -201,7 +200,6 @@ describe('PositronDataExplorerInstance file options', () => {
 		};
 		const kernelInstance = new PositronDataExplorerInstance('Python', kernelClient as DataExplorerClientInstance);
 		expect(kernelInstance.isFileBacked).toBe(false);
-		expect(kernelInstance.supportsFileOptions).toBe(false);
 		kernelInstance.dispose();
 	});
 });
