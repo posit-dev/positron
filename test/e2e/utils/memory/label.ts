@@ -47,6 +47,19 @@ export function normalizeProcessName(name: string): string {
 const VERSION_SUFFIX = /-\d+(\.\d+)+.*$/;
 
 /**
+ * Strips the version from an extension directory name: `air-vscode-0.4.1` ->
+ * `air-vscode`.
+ *
+ * Shared rather than reimplemented because heap attribution strips a directory
+ * name on one side of a lookup whose other side is built in extensions.ts. A
+ * second copy that drifted would miss silently and degrade real extension ids
+ * back to directory names.
+ */
+export function stripVersionSuffix(directory: string): string {
+	return directory.replace(VERSION_SUFFIX, '');
+}
+
+/**
  * The token of a command line that sits inside some extension's directory.
  *
  * Any segment beginning `extensions`, rather than a list of known names. The

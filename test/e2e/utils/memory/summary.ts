@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Cross-scenario memory summary: one matrix comparing every scenario's
- * per-role median PSS side by side, plus a delta against `idle`.
+ * The scenario memory report: one matrix comparing every scenario's per-role
+ * median PSS side by side, plus a delta against `idle`.
  *
  * The tree TOTAL swings tens of MB launch to launch for reasons unrelated to
  * any code change (the renderer alone), which swamps the regressions this
@@ -16,7 +16,7 @@
  */
 
 import { deltaHtmlFromDiff, escapeHtml, formatBytes, GC_FOOTNOTE, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
-import { byRole } from './render.js';
+import { byRole, EXTENSION_HEAP_FLOOR_BYTES, extensionHeapUnavailableText, UNATTRIBUTED_ROW } from './render.js';
 import { unstableProcesses } from './snapshot.js';
 import { MemoryLane } from './lanes.js';
 import { MemoryScenario } from './scenarios.js';
@@ -48,6 +48,31 @@ export type SummaryRow = {
 	 * emphasis. See {@link emphasisThreshold}.
 	 */
 	emphasisThreshold: Partial<Record<MemoryScenario, number>>;
+};
+
+/**
+ * One extension's median retained heap across every scenario that attributed one.
+ *
+ * Deliberately the same shape as {@link SummaryRow}: the two tables share their
+ * cell renderer, so a change to how a delta is emphasized cannot apply to one
+ * table and not the other.
+ */
+export type ExtensionSummaryRow = {
+	extensionId: string;
+	values: Partial<Record<MemoryScenario, number>>;
+	deltaVsIdle: Partial<Record<MemoryScenario, number>>;
+	emphasisThreshold: Partial<Record<MemoryScenario, number>>;
+};
+
+export type ExtensionMatrix = {
+	/** Largest first, with the sub-floor tail collapsed and `unattributed` last. */
+	rows: ExtensionSummaryRow[];
+	/** How many extensions the "(N others)" row folds up. Zero when none were. */
+	collapsed: number;
+	/** The whole attributed heap: the sum of every row above, per scenario. */
+	totals: Partial<Record<MemoryScenario, number>>;
+	totalDeltaVsIdle: Partial<Record<MemoryScenario, number>>;
+	totalEmphasisThreshold: Partial<Record<MemoryScenario, number>>;
 };
 
 /** One process that was still moving when it was sampled, named for the warning banner. */
@@ -101,6 +126,14 @@ export type SummaryMatrix = {
 	 * which is what gates the footnote.
 	 */
 	forcedGcRoles: ProcessRole[];
+	/**
+	 * Decomposition of the `extension_host` row, one extension per row and the
+	 * same scenario columns. Undefined when no scenario attributed a heap, which
+	 * the section reports as unavailable rather than as an empty table.
+	 */
+	extensions?: ExtensionMatrix;
+	/** Why there is no `extensions` table, when there is none. */
+	extensionsUnavailable?: string;
 	/** What run this matrix describes, for the header. */
 	meta: SummaryMeta;
 };
@@ -173,6 +206,167 @@ function buildSummaryMeta(entries: ScenarioSnapshots[]): SummaryMeta {
 		launches: counts.length === 0 ? { min: 0, max: 0 } : { min: Math.min(...counts), max: Math.max(...counts) },
 		capturedAt: snapshots.map(s => s.capturedAt).sort().at(-1)
 	};
+}
+
+/**
+ * Smallest extension delta that can ever be emphasized.
+ *
+ * An order of magnitude below {@link MIN_EMPHASIS_BYTES} because extensions sit
+ * an order of magnitude below roles: applying the role floor here would clear no
+ * extension in the table, since the largest is 19.5 MB and most are under 3 MB.
+ *
+ * Calibrated against four CI runs (2026-09-01, 108 launches). Between-run spread
+ * per extension topped out at 197 KB and within-run spread at 1.07 MB, the latter
+ * concentrated in `console-output` and `editors`. The per-scenario spread term
+ * already covers that 1.07 MB case; this floor is what guards the far commoner
+ * case of an extension that simply did not move across three launches.
+ */
+const MIN_EXTENSION_EMPHASIS_BYTES = EXTENSION_HEAP_FLOOR_BYTES;
+
+/**
+ * One launch's retained bytes per extension, plus the unattributed remainder.
+ * Empty for a launch whose attribution failed, which is what keeps a failed
+ * launch out of the medians rather than in them as a fabricated zero.
+ */
+function extensionTotals(snapshot: MemorySnapshot): Map<string, number> {
+	const totals = new Map<string, number>();
+	if (snapshot.extensionHeapStatus !== 'ok' || snapshot.extensionHeap === undefined) {
+		return totals;
+	}
+	for (const extension of snapshot.extensionHeap.extensions) {
+		totals.set(extension.extensionId, extension.retainedBytes);
+	}
+	totals.set(UNATTRIBUTED_ROW, snapshot.extensionHeap.unattributedBytes);
+	return totals;
+}
+
+/** Median and spread per extension, over only the launches that attributed a heap. */
+function extensionStats(snapshots: MemorySnapshot[]): { medians: Map<string, number>; spreads: Map<string, number> } {
+	const perLaunch = snapshots.map(extensionTotals).filter(totals => totals.size > 0);
+	const medians = new Map<string, number>();
+	const spreads = new Map<string, number>();
+	const extensions = new Set(perLaunch.flatMap(totals => [...totals.keys()]));
+	for (const extension of extensions) {
+		// Zero-filled across the attributed launches only: an extension that loaded
+		// in one launch and not another really did retain nothing in the other.
+		const values = perLaunch.map(totals => totals.get(extension) ?? 0);
+		medians.set(extension, median(values));
+		spreads.set(extension, Math.max(...values) - Math.min(...values));
+	}
+	return { medians, spreads };
+}
+
+/**
+ * Builds the per-extension matrix, mirroring the role matrix column for column.
+ *
+ * The floor is applied to a row's largest cell across all scenarios, not per
+ * cell: judging each cell on its own would blank an extension in the scenarios
+ * where it sits just under the floor and show it in the one where it does not,
+ * so a row would read as intermittent when it is merely small.
+ */
+function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemoryScenario[]): ExtensionMatrix | undefined {
+	const statsByScenario = new Map<MemoryScenario, ReturnType<typeof extensionStats>>();
+	for (const { scenario, snapshots } of entries) {
+		statsByScenario.set(scenario, extensionStats(snapshots));
+	}
+	const attributed = [...statsByScenario.values()].some(stats => stats.medians.size > 0);
+	if (!attributed) {
+		return undefined;
+	}
+
+	// Kept per launch, not just as medians: a summed row's run-to-run spread has to
+	// be measured on the sums, and the parts peak in different launches.
+	const launchTotals = new Map<MemoryScenario, Map<string, number>[]>();
+	for (const { scenario, snapshots } of entries) {
+		launchTotals.set(scenario, snapshots.map(extensionTotals).filter(totals => totals.size > 0));
+	}
+	/** Run-to-run spread of `extensionIds` summed together, which is not the sum of their spreads. */
+	const spreadOfSum = (scenario: MemoryScenario, extensionIds: string[]): number => {
+		const sums = (launchTotals.get(scenario) ?? [])
+			.map(totals => extensionIds.reduce((sum, id) => sum + (totals.get(id) ?? 0), 0));
+		return sums.length > 0 ? Math.max(...sums) - Math.min(...sums) : 0;
+	};
+
+	const idle = statsByScenario.get('idle');
+	// An extension missing from idle retained nothing there rather than having no
+	// baseline to measure from, so its delta is the whole value: that is the number
+	// the scenario added. Only true when idle itself attributed a heap -- without
+	// this guard a failed idle run reads as every extension appearing from zero.
+	const idleAttributed = (idle?.medians.size ?? 0) > 0;
+	const idleMedian = (extensionId: string) => idle?.medians.get(extensionId) ?? 0;
+	const extensions = new Set([...statsByScenario.values()].flatMap(stats => [...stats.medians.keys()]));
+
+	const buildRow = (extensionId: string): ExtensionSummaryRow => {
+		const values: Partial<Record<MemoryScenario, number>> = {};
+		const deltaVsIdle: Partial<Record<MemoryScenario, number>> = {};
+		const threshold: Partial<Record<MemoryScenario, number>> = {};
+		const idleSpread = idle?.spreads.get(extensionId) ?? 0;
+		for (const scenario of scenarios) {
+			const stats = statsByScenario.get(scenario)!;
+			const value = stats.medians.get(extensionId);
+			if (value !== undefined) {
+				values[scenario] = value;
+			}
+			threshold[scenario] = Math.max(MIN_EXTENSION_EMPHASIS_BYTES, idleSpread, stats.spreads.get(extensionId) ?? 0);
+			if (scenario !== 'idle' && value !== undefined && idleAttributed) {
+				deltaVsIdle[scenario] = value - idleMedian(extensionId);
+			}
+		}
+		return { extensionId, values, deltaVsIdle, emphasisThreshold: threshold };
+	};
+
+	const peak = (extensionId: string) => Math.max(0, ...[...statsByScenario.values()].map(s => s.medians.get(extensionId) ?? 0));
+	const named = [...extensions].filter(e => e !== UNATTRIBUTED_ROW).sort((a, b) => peak(b) - peak(a));
+	const shown = named.filter(e => peak(e) >= EXTENSION_HEAP_FLOOR_BYTES);
+	const collapsed = named.filter(e => peak(e) > 0 && peak(e) < EXTENSION_HEAP_FLOOR_BYTES);
+
+	const rows = shown.map(buildRow);
+	if (collapsed.length > 0) {
+		// Summed per scenario rather than per row, so the collapsed line still
+		// compares like for like down its column.
+		const values: Partial<Record<MemoryScenario, number>> = {};
+		const deltaVsIdle: Partial<Record<MemoryScenario, number>> = {};
+		const sumFor = (scenario: MemoryScenario) => collapsed.reduce((sum, e) => sum + (statsByScenario.get(scenario)!.medians.get(e) ?? 0), 0);
+		// Left without a threshold this row could never render a delta at all, so a
+		// tail that grew past the floor stayed silent while the legend promised
+		// otherwise. It is a real aggregate and is judged like any other row.
+		const threshold: Partial<Record<MemoryScenario, number>> = {};
+		for (const scenario of scenarios) {
+			values[scenario] = sumFor(scenario);
+			threshold[scenario] = Math.max(
+				MIN_EXTENSION_EMPHASIS_BYTES, spreadOfSum('idle', collapsed), spreadOfSum(scenario, collapsed));
+			if (scenario !== 'idle' && idleAttributed) {
+				deltaVsIdle[scenario] = sumFor(scenario) - sumFor('idle');
+			}
+		}
+		rows.push({ extensionId: `(${collapsed.length} others)`, values, deltaVsIdle, emphasisThreshold: threshold });
+	}
+	if (extensions.has(UNATTRIBUTED_ROW)) {
+		rows.push(buildRow(UNATTRIBUTED_ROW));
+	}
+
+	// Summed from the rendered rows rather than taken from `reachableBytes`, so
+	// the column a reader adds up is the column that is printed. A median of the
+	// per-launch totals would be the better statistic but need not equal the sum
+	// of the per-extension medians, which is the whole point of showing it.
+	const totals: Partial<Record<MemoryScenario, number>> = {};
+	const totalDeltaVsIdle: Partial<Record<MemoryScenario, number>> = {};
+	const totalEmphasisThreshold: Partial<Record<MemoryScenario, number>> = {};
+	const everyExtension = [...extensions];
+	const sumOfRows = (scenario: MemoryScenario) => rows.reduce((sum, row) => sum + (row.values[scenario] ?? 0), 0);
+	for (const scenario of scenarios) {
+		if (statsByScenario.get(scenario)!.medians.size === 0) {
+			continue;
+		}
+		totals[scenario] = sumOfRows(scenario);
+		totalEmphasisThreshold[scenario] = Math.max(
+			MIN_EXTENSION_EMPHASIS_BYTES, spreadOfSum('idle', everyExtension), spreadOfSum(scenario, everyExtension));
+		if (scenario !== 'idle' && idleAttributed) {
+			totalDeltaVsIdle[scenario] = totals[scenario]! - sumOfRows('idle');
+		}
+	}
+
+	return { rows, collapsed: collapsed.length, totals, totalDeltaVsIdle, totalEmphasisThreshold };
 }
 
 /**
@@ -267,7 +461,12 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 
 	const forcedGcRoles = [...new Set(entries.flatMap(({ snapshots }) => snapshots.flatMap(s => (s.forcedGc ?? []).map(gc => gc.role))))];
 
-	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable, forcedGcRoles, meta: buildSummaryMeta(entries) };
+	const extensions = buildExtensionMatrix(entries, sortedScenarios);
+	// Resolved here rather than at render time: the reason lives in the raw
+	// snapshots, which the matrix does not carry.
+	const extensionsUnavailable = extensions ? undefined : extensionHeapUnavailableText(entries.flatMap(e => e.snapshots));
+
+	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable, forcedGcRoles, extensions, extensionsUnavailable, meta: buildSummaryMeta(entries) };
 }
 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
@@ -307,16 +506,34 @@ function scenarioHeaderHtml(scenarios: MemoryScenario[]): string {
 	return scenarios.map(s => `<th align="right"${baselineClass(s)} title="${escapeHtml(SCENARIO_DESCRIPTIONS[s])}">${escapeHtml(s)}</th>`).join('');
 }
 
-/**
- * One scenario's cell: the PSS value, plus (for a non-idle scenario) its delta against idle underneath.
- *
- * `flagNoBaseline` adds a dagger after the value when the row it belongs to has
- * no idle reading at all (`kernel`, typically): without it, a role that simply
- * cannot be delta'd against idle looks identical to one that held flat.
- */
-function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: number | undefined, threshold: number | undefined, flagNoBaseline: boolean): string {
+/** What one cell needs beyond its own number, all of it row-level. */
+type CellOptions = {
+	delta?: number;
+	threshold?: number;
+	/**
+	 * Adds a dagger after the value when the row has no idle reading at all
+	 * (`kernel`, typically): without it, a role that simply cannot be delta'd
+	 * against idle looks identical to one that held flat.
+	 */
+	flagNoBaseline?: boolean;
+	/**
+	 * Renders `new` in place of the delta for a row idle never had.
+	 *
+	 * The delta there is the whole value, which the cell already prints, and a
+	 * red "grew by 2.1 MB" reads as a regression when it only means the scenario
+	 * activated an extension idle does not -- which is what the scenario is for.
+	 */
+	newInScenario?: boolean;
+};
+
+/** One scenario's cell: the value, plus (for a non-idle scenario) its delta against idle underneath. */
+function cellHtml(scenario: MemoryScenario, value: number | undefined, options: CellOptions = {}): string {
+	const { delta, threshold, flagNoBaseline, newInScenario } = options;
 	if (value === undefined) {
 		return `<td align="right"${baselineClass(scenario)}>${ABSENT_MARKER}</td>`;
+	}
+	if (newInScenario && scenario !== 'idle') {
+		return `<td align="right"${baselineClass(scenario)}><span class="value-wrap"><span class="value">${formatBytes(value)}</span></span><span class="delta-line"><span class="delta-flat">new</span></span></td>`;
 	}
 	// Below the threshold nothing renders: a column of muted `-0.0 MB` spends a line
 	// per row saying nothing happened, crowding the figures that did move.
@@ -339,7 +556,9 @@ function cellHtml(scenario: MemoryScenario, value: number | undefined, delta: nu
 
 function rowHtml(row: SummaryRow, scenarios: MemoryScenario[], forcedGcRoles: ProcessRole[]): string {
 	const flagNoBaseline = scenarios.includes('idle') && row.values['idle'] === undefined;
-	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], row.deltaVsIdle[scenario], row.emphasisThreshold[scenario], flagNoBaseline)).join('');
+	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], {
+		delta: row.deltaVsIdle[scenario], threshold: row.emphasisThreshold[scenario], flagNoBaseline
+	})).join('');
 	// Outside the <code>, so the marker cannot be misread as part of the role name.
 	const marker = forcedGcRoles.includes(row.role) ? '<span class="fn-marker">*</span>' : '';
 	return `<tr>
@@ -357,13 +576,101 @@ function totalRowHtml(matrix: SummaryMatrix): string {
 			: undefined;
 		// TOTAL is the tree sum, not a single process, so the missing-idle-baseline
 		// dagger (which flags one absent role) never applies to it.
-		return cellHtml(scenario, value, delta, matrix.totalEmphasisThreshold[scenario], false);
+		return cellHtml(scenario, value, { delta, threshold: matrix.totalEmphasisThreshold[scenario] });
 	}).join('');
 	return `<tr class="total-row">
 		<td><strong>TOTAL</strong></td>
 		${cells}
 	</tr>`;
 }
+
+/**
+ * One extension row, reusing the role table's cell renderer so the two tables
+ * emphasize, mute and align deltas identically.
+ *
+ * `unattributed` is italicised rather than code-formatted: it is not an
+ * extension id, and setting it in the same face as one implies it is.
+ */
+function extensionRowHtml(row: ExtensionSummaryRow, scenarios: MemoryScenario[]): string {
+	// Absent from idle and present here: the scenario loaded it, which is a
+	// different fact from an extension that was already loaded and grew.
+	const newInScenario = scenarios.includes('idle') && row.values['idle'] === undefined;
+	const cells = scenarios.map(scenario => cellHtml(scenario, row.values[scenario], {
+		delta: row.deltaVsIdle[scenario], threshold: row.emphasisThreshold[scenario], newInScenario
+	})).join('');
+	const label = row.extensionId === UNATTRIBUTED_ROW
+		? `<em>${UNATTRIBUTED_ROW}</em>`
+		: row.extensionId.startsWith('(')
+			? `<span class="muted">${escapeHtml(row.extensionId)}</span>`
+			: `<code>${escapeHtml(row.extensionId)}</code>`;
+	return `<tr>
+		<td>${label}</td>
+		${cells}
+	</tr>`;
+}
+
+/**
+ * The extension table's TOTAL: the whole reachable extension host heap.
+ *
+ * Without it `unattributed` sat last in the bold, ruled treatment the role
+ * table gives its TOTAL, so it read as the sum of the rows above rather than as
+ * one more slice of the partition.
+ */
+function extensionTotalRowHtml(extensions: ExtensionMatrix, scenarios: MemoryScenario[]): string {
+	const cells = scenarios.map(scenario => cellHtml(scenario, extensions.totals[scenario], {
+		delta: extensions.totalDeltaVsIdle[scenario], threshold: extensions.totalEmphasisThreshold[scenario]
+	})).join('');
+	return `<tr class="total-row">
+		<td><strong>TOTAL</strong></td>
+		${cells}
+	</tr>`;
+}
+
+/**
+ * The extension section, or the sentence saying why there is none.
+ *
+ * Placed below the role table because it decomposes one of its rows: a reader
+ * needs the `extension_host` figure before a breakdown of it means anything.
+ */
+function extensionCardHtml(matrix: SummaryMatrix): string {
+	if (matrix.extensions === undefined) {
+		return `<div class="card">
+		<h2>Extension host heap by extension</h2>
+		<p class="muted">${escapeHtml(matrix.extensionsUnavailable ?? '')}</p>
+	</div>`;
+	}
+	const rows = matrix.extensions.rows.map(row => extensionRowHtml(row, matrix.scenarios)).join('\n');
+	return `<div class="card">
+		<h2>Extension host heap by extension</h2>
+		<div class="meta">${EXTENSION_DELTA_LEGEND}</div>
+		<div class="meta">${EXTENSION_COVERAGE_NOTE}</div>
+		<table class="matrix">
+			<tr><th>Extension</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>
+			${rows}
+			${extensionTotalRowHtml(matrix.extensions, matrix.scenarios)}
+		</table>
+		${matrix.extensions.collapsed > 0 ? `<div class="footnote">${matrix.extensions.collapsed} extension${matrix.extensions.collapsed === 1 ? '' : 's'} under ${formatBytes(EXTENSION_HEAP_FLOOR_BYTES)} in every scenario are folded into the "others" row.</div>` : ''}
+	</div>`;
+}
+
+/**
+ * The extension table's own legend. Separate from {@link DELTA_LEGEND} because
+ * its floor is a different number, and one legend quoting the role floor over an
+ * extension table would misstate the bar by a factor of five.
+ */
+const EXTENSION_DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to-launch variation
+	and are at least ${formatBytes(MIN_EXTENSION_EMPHASIS_BYTES)}.`;
+
+/**
+ * Says what the figures are and what `unattributed` holds, in one line.
+ *
+ * Deliberately short: this is the dashboard surface, and the row order already
+ * shows that the extensions and `unattributed` make up TOTAL. How the partition
+ * is built, and why it sits under the `extension_host` PSS row, belong in the
+ * module docs rather than above the table.
+ */
+const EXTENSION_COVERAGE_NOTE = `Rows show each extension's reachable V8 heap;
+	<em>unattributed</em> includes host runtime and extension code not owned by an extension object.`;
 
 /** True when at least one row will render the dagger marker, which gates the footnote explaining it. */
 function hasNoBaselineRows(matrix: SummaryMatrix): boolean {
@@ -444,9 +751,6 @@ export const SUMMARY_CSS = `
 		other row's value in the column to share the extra space. */
 		.value-wrap { position: relative; }
 		.baseline-marker { position: absolute; left: 100%; top: 0; margin-left: 1px; font-size: 0.7em; line-height: 1; color: #9ca3af; }
-		/* Reads as a summary rather than one more row: a darker rule than the hairlines
-		between roles, and air above it that the hairlines do not get. */
-		.total-row td { border-top: 2px solid #d1d5db; font-weight: 600; padding-top: 10px; }
 		/* Only some cells carry a delta on a second line. Centering would then drop a bare
 		value half a line below its emphasized neighbour, so the row no longer reads
 		across. Top-aligned, every PSS figure shares a baseline and the deltas hang below. */
@@ -481,7 +785,6 @@ export const SUMMARY_CSS = `
 			box-sizing: border-box; width: 130px;
 		}
 		@media (prefers-color-scheme: dark) {
-			.total-row td { border-top-color: #4b5563; }
 			.matrix .value { color: #9ca3af; }
 			.matrix .baseline { background: #201f1e; border-right-color: #3a3a38; }
 			.matrix tr:hover td:not(.baseline) { background: rgba(255, 255, 255, 0.04); }
@@ -553,14 +856,14 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Positron memory: cross-scenario summary</title>
+	<title>Scenario Memory Report</title>
 	<style>${REPORT_CSS}${SUMMARY_CSS}
 	</style>
 </head>
 <body>
 <div class="container">
 	<div class="header">
-		<h1>Cross-scenario memory summary</h1>
+		<h1>Scenario Memory Report</h1>
 		<div class="meta">${metaLineHtml(matrix.meta)}</div>
 	</div>
 
@@ -577,6 +880,8 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 		${matrix.forcedGcRoles.length > 0 ? `<div class="footnote">* ${GC_FOOTNOTE}</div>` : ''}
 		${hasNoBaselineRows(matrix) ? `<div class="footnote">&dagger; ${NO_IDLE_BASELINE_FOOTNOTE}</div>` : ''}
 	</div>
+
+	${extensionCardHtml(matrix)}
 </div>
 </body>
 </html>`;
