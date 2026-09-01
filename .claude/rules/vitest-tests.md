@@ -1,13 +1,17 @@
 ---
 paths:
   - src/**/*.vitest.{ts,tsx}
+  - extensions/**/*.vitest.{ts,tsx}
   - vitest.config.ts
+  - vitest.tsconfig.json
   - src/vs/test/vitest/**
 ---
 
 # Positron Vitest Tests
 
-Vitest tests for Positron code (`*.vitest.ts` / `*.vitest.tsx` in `src/vs/`) run directly on your source files -- no build daemons, no compilation step, no waiting. Run `npx vitest <file>` for watch mode (re-runs on save) or `npx vitest run <file>` for a single pass.
+Vitest tests for Positron code (`*.vitest.ts` / `*.vitest.tsx`) run directly on your source files -- no build daemons, no compilation step, no waiting. Run `npx vitest <file>` for watch mode (re-runs on save) or `npx vitest run <file>` for a single pass.
+
+Most live in `src/vs/`. Tests under `extensions/` are also collected, with extra setup -- see [Tests inside `extensions/`](#tests-inside-extensions).
 
 ## Quick Start
 
@@ -48,6 +52,50 @@ Read [`vitest-rtl.md`](vitest-rtl.md) for query priority, jest-dom matcher selec
 - File extension: `.vitest.ts` (or `.vitest.tsx` for React components)
 - `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense)
 - Tabs for indentation
+
+### Tests inside `extensions/`
+
+Vitest collects `extensions/**/*.vitest.{ts,tsx}` too. Four things differ from `src/vs/`.
+
+**1. Exclude the tests from that extension's build, in the same change that adds the first one.** Add this to `extensions/<name>/tsconfig.json`:
+
+```json
+"exclude": [
+	"src/**/*.vitest.ts",
+	"src/**/*.vitest.tsx"
+]
+```
+
+Without it, the test is compiled into `out/` and ships inside the extension, where its `vitest` import cannot resolve at runtime. Nothing else catches this: `compile-extension` runs tsgo straight off the extension's tsconfig and bypasses the gulp pipeline, `.vscodeignore` excludes `src/**` but not `out/**`, and the `.vitest.` filter in `build/lib/compilation.ts` applies only to the core `src` build. Each extension has to opt out for itself.
+
+Confirm with a command, not by eye -- this fails silently:
+
+```bash
+npx tsc -p extensions/<name> --listFilesOnly | grep vitest   # expect no output
+ls extensions/<name>/out | grep vitest                       # expect no output
+```
+
+Don't rely on a comment in `tsconfig.json` to explain the exclude. Those files get reformatted and the comments can be dropped; this section is the durable home for the reason.
+
+**2. `vscode` is not a real package.** The extension host injects it at runtime, so nothing resolves it under Vitest. Importing it anywhere in the module graph fails the whole file before any test runs:
+
+```
+Failed to resolve import "vscode" from "<your test>". Does the file exist?
+```
+
+`vi.mock('vscode', () => ({ ... }))` does **not** fix this on its own -- resolution happens before mocking, so you get the identical error. Making it importable needs a `resolve.alias` in `vitest.config.ts` pointing `vscode` at a stub module. **No such alias exists today**, so as things stand a module that imports `vscode` cannot be unit tested here at all.
+
+Prefer not to need one. Keep the logic worth testing in a plain module that imports nothing from `vscode`, and leave the configuration reads and API calls to its caller. `extensions/open-remote-ssh/src/serverDownloadUrl.ts` is the pattern: it declares a local interface for the one shape it needs instead of importing the `vscode` type, and its callers pass in the `inspect()` results. That seam is usually the better design anyway -- if a module can't be reached without `vscode`, the logic and the API access generally want separating.
+
+Adding the alias is a shared-config change affecting every extension test, so agree on the stub's shape first rather than growing it ad hoc per test.
+
+**3. To read files from the test, use `__dirname`.** `import.meta.url` reads better but does not survive the CommonJS type check in `vitest.tsconfig.json` (`TS1470`). `process.cwd()` is not the repo root: Vitest resolves `root` for module resolution but never changes the working directory, so a test using it passes from the repo root and fails from anywhere else.
+
+**4. Type checking covers these files, but with core's compiler options.** `npm run test:positron:check-ts` picks them up through the `extensions/**/*.vitest.{ts,tsx}` entries in `vitest.tsconfig.json` -- both the test and any source it imports. Confirm with `npx tsc -p vitest.tsconfig.json --listFilesOnly | grep /extensions/`.
+
+Those options come from `src/tsconfig.json`, not from the extension's own. The program checks at `strict: true, target: es2024`, while, for example, `positron-dev-containers` builds at `strict: false, target: es2018`. A green `check-ts` therefore does not prove the file would compile under the extension's tsconfig -- which is fine, because step 1 excludes it from that build on purpose. Just don't read it as coverage of the extension's real build settings.
+
+Sharing code across extensions isn't possible (each compiles under its own tsconfig), so a helper needed by several is copied per extension. When that happens, add a guard that the copies stay identical -- see `extensions/serverDownloadUrl-copies.vitest.ts`.
 
 ## The Builder
 
