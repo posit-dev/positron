@@ -12,15 +12,19 @@
 	align-items: center;
 }
 
+/* Same column as the node rows' icons, so a connection's label and the labels beneath it align. */
 .data-connection-entry-icon {
-	font-size: 14px;
-	margin: 0 3px 0 2px;
+	flex: 0 0 auto;
+	width: 16px;
+	margin-left: 3px;
 	color: var(--vscode-icon-foreground);
 }
 
+/* Gap before the label sits on the label, matching the node rows -- see dataConnectionNodeRow.css. */
 .data-connection-entry-text {
 	flex: 1;
 	min-width: 0;
+	padding-left: 4px;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;

@@ -62,7 +62,7 @@ export function getProviderGettingStartedText(provider: IProvider): string | und
 	switch (provider.id) {
 		case 'posit-ai': {
 			const positAiHomeLink = linkFragment(
-				localize('positron.languageModelConfig.positAiHome', 'Posit AI'),
+				localize('positron.languageModelConfig.positAiHome', 'Posit AI Pass'),
 				'https://posit.ai/',
 			);
 			return localize(

@@ -65,6 +65,49 @@ export type PositronLanguageModelOptions = Exclude<{
 }[keyof IPositronLanguageModelConfig], undefined>;
 
 /**
+ * Why a field cannot be set in the configuration form, and what value applies
+ * instead. Today this is always an environment variable, which ai-config ranks
+ * above the user's configuration file.
+ *
+ * Deliberately not part of {@link IPositronLanguageModelConfig}: that type is
+ * bidirectional (it arrives as `defaults` and is submitted back on save), and
+ * this is an inbound-only fact about the environment the UI does not own.
+ */
+export interface IPositronLanguageModelFieldOverride {
+	/** The value in effect, shown in place of the user's saved value. */
+	readonly value: string;
+	/**
+	 * Name of the environment variable supplying the value, e.g. `AWS_REGION`,
+	 * so the form can say what to change instead. Omit when there is no single
+	 * name to give.
+	 */
+	readonly name?: string;
+}
+
+/**
+ * Which of a provider's form fields are supplied by a higher-precedence layer,
+ * shaped to mirror {@link IPositronLanguageModelConfig} with each value
+ * replaced by the reason it cannot be set.
+ *
+ * Only the fields that something can actually take over appear -- a mechanical
+ * mirror of the whole config would advertise override slots for `model`,
+ * `toolCalls` and the rest, which nothing supplies.
+ *
+ * Mirroring the *form's* config type rather than the on-disk one is deliberate:
+ * Databricks and Snowflake carry their value through the base URL input while
+ * persisting elsewhere, so an override for either belongs on `baseUrl` -- the
+ * input the user is actually looking at.
+ */
+export interface IPositronLanguageModelFieldOverrides {
+	baseUrl?: IPositronLanguageModelFieldOverride;
+	apiKey?: IPositronLanguageModelFieldOverride;
+	aws?: {
+		profile?: IPositronLanguageModelFieldOverride;
+		region?: IPositronLanguageModelFieldOverride;
+	};
+}
+
+/**
  * Metadata about a language model provider used for configuration.
  * Registered during extension activation, independent of sign-in state.
  */
@@ -107,6 +150,11 @@ export interface IPositronLanguageModelSource {
 	provider: IPositronProviderMetadata;
 	supportedOptions: PositronLanguageModelOptions[];
 	defaults: IPositronLanguageModelConfig;
+	/**
+	 * Fields the user cannot set here because a higher-precedence config layer
+	 * supplies them. Absent when every supported field is editable.
+	 */
+	overrides?: IPositronLanguageModelFieldOverrides;
 	signedIn?: boolean;
 	authMethods?: string[];
 	status?: 'ok' | 'error' | null;
@@ -178,6 +226,13 @@ export interface IPositronLanguageModelConfig {
 	 */
 	customModels?: IPositronCustomModel[];
 	autoconfigure?: IPositronLanguageModelAutoconfigure;
+	/**
+	 * AWS profile and region for a provider authenticating through the AWS
+	 * credential chain. Both optional: an omitted field falls back to the
+	 * ambient AWS configuration, and an empty string means the user cleared the
+	 * box and any saved value should be removed.
+	 */
+	aws?: { profile?: string; region?: string };
 }
 
 // Equivalent in positron.d.ts API: ShowLanguageModelConfigOptions
@@ -247,6 +302,15 @@ export interface IPositronAssistantConfigurationService {
 	 * Returns sources for all registered, enabled providers.
 	 */
 	getRegisteredSources(): IPositronLanguageModelSource[];
+
+	/**
+	 * Returns every registered provider source, including those whose catalog
+	 * entry is disabled. getRegisteredSources filters to enabled providers,
+	 * which is what the configuration modal wants; a caller reporting provider
+	 * status needs the disabled registrations too, so it can say "configured
+	 * but disabled" instead of omitting the provider entirely.
+	 */
+	getProviderRegistrations(): IPositronLanguageModelSource[];
 
 	/**
 	 * Event that fires when a provider's configuration changes via

@@ -4,10 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Generates the pandas code that loads a data file into a dataframe. Pure functions with no
- * imports: no Python runtime is involved in generation, and no VS Code or Positron API is needed,
- * which keeps the whole module unit-testable.
+ * Generates the pandas code that loads a data file into a dataframe. Pure module: the `positron`
+ * import below is type-only and erased at compile, so no Python runtime and no VS Code or Positron
+ * API is involved in generation, which keeps the whole module unit-testable.
  */
+
+// eslint-disable-next-line import/no-unresolved
+import type { DataImportRowFilter, DataImportSearchFilter, DataImportView } from 'positron';
 
 /** A request to generate a pandas load statement. */
 export interface PandasImportRequest {
@@ -19,6 +22,15 @@ export interface PandasImportRequest {
 
     /** Whether the first row holds column names. Treated as true when absent. */
     hasHeaderRow?: boolean;
+
+    /** The Data Explorer view (filters and sorts) to reproduce after the load, if requested. */
+    view?: DataImportView;
+}
+
+/** The generated code plus anything in the view it does not reproduce. */
+export interface PandasImportResult {
+    code: string;
+    unsupported: string[];
 }
 
 /**
@@ -96,13 +108,193 @@ function isTabSeparated(filePath: string): boolean {
     return filePath.toLowerCase().endsWith('.tsv');
 }
 
+/** Display types whose stringified values are emitted as bare numeric literals. */
+const NUMERIC_COLUMN_TYPES = new Set(['integer', 'floating', 'decimal']);
+
+const NUMERIC_LITERAL = /^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+/**
+ * Drops leading zeros from the integer part. DuckDB accepts '01', but Python reads a leading zero
+ * on an integer literal as the start of a base prefix and rejects it, so the value has to be
+ * canonicalized before it is emitted. The digit the pattern keeps preserves a bare '0'.
+ */
+function canonicalNumber(value: string): string {
+    return value.replace(/^(-?)0+(\d)/, '$1$2');
+}
+
+/**
+ * Renders a stringified Data Explorer value as a Python literal matching the column's type, or
+ * undefined when it cannot be one (which routes the whole filter to `unsupported`).
+ */
+function pythonLiteral(value: string, columnType: string): string | undefined {
+    const trimmed = value.trim();
+    if (NUMERIC_COLUMN_TYPES.has(columnType)) {
+        return NUMERIC_LITERAL.test(trimmed) ? canonicalNumber(trimmed) : undefined;
+    }
+    if (columnType === 'boolean') {
+        if (/^true$/i.test(trimmed)) {
+            return 'True';
+        }
+        if (/^false$/i.test(trimmed)) {
+            return 'False';
+        }
+        return undefined;
+    }
+    if (columnType === 'string') {
+        return `"${escapePythonString(value)}"`;
+    }
+    return undefined;
+}
+
+function pandasColumn(dataFrame: string, columnName: string): string {
+    return `${dataFrame}["${escapePythonString(columnName)}"]`;
+}
+
+function pandasSearchTerm(column: string, filter: DataImportSearchFilter): string {
+    switch (filter.searchType) {
+        case 'contains':
+        case 'not_contains': {
+            // A null never matches on either side: the backend's `NOT LIKE` yields NULL for a null
+            // column value, dropping the row, so `na` flips with the negation to drop it too.
+            const na = filter.searchType === 'contains' ? 'False' : 'True';
+            const match = `${column}.str.contains("${escapePythonString(filter.term)}", case=${
+                filter.caseSensitive ? 'True' : 'False'
+            }, regex=False, na=${na})`;
+            return filter.searchType === 'contains' ? match : `~${match}`;
+        }
+        case 'starts_with':
+        case 'ends_with': {
+            // str.startswith has no case argument, so a case-insensitive match lowers both sides.
+            const method = filter.searchType === 'starts_with' ? 'startswith' : 'endswith';
+            const target = filter.caseSensitive ? column : `${column}.str.lower()`;
+            const term = filter.caseSensitive ? filter.term : filter.term.toLowerCase();
+            return `${target}.str.${method}("${escapePythonString(term)}", na=False)`;
+        }
+        case 'regex_match':
+            return `${column}.str.contains("${escapePythonString(filter.term)}", case=${
+                filter.caseSensitive ? 'True' : 'False'
+            }, regex=True, na=False)`;
+    }
+}
+
+/**
+ * Translates one row filter into a boolean mask term, parenthesized wherever `&`/`|` precedence
+ * could otherwise capture an operand. Undefined means the filter cannot be reproduced.
+ */
+function pandasFilterTerm(dataFrame: string, filter: DataImportRowFilter): string | undefined {
+    const column = pandasColumn(dataFrame, filter.columnName);
+    switch (filter.filterType) {
+        case 'is_null':
+            return `${column}.isna()`;
+        case 'not_null':
+            return `${column}.notna()`;
+        case 'is_empty':
+            return `(${column} == "")`;
+        case 'not_empty':
+            // `NaN != ""` is true in pandas, but the backend's `<> ''` yields NULL for a null and
+            // drops the row, so the null check keeps the two in step. Same for the negations below.
+            return `(${column}.notna() & (${column} != ""))`;
+        case 'is_true':
+            // A boolean column with missing values loads as an object or nullable series, where the
+            // bare column is not a usable mask and `~` raises. Comparing elementwise and filling the
+            // result drops the nulls, which is what the backend's `WHERE col` does too.
+            return `${column}.eq(True).fillna(False)`;
+        case 'is_false':
+            return `${column}.eq(False).fillna(False)`;
+        case 'compare': {
+            const literal = pythonLiteral(filter.value, filter.columnType);
+            if (literal === undefined) {
+                return undefined;
+            }
+            if (filter.op === '!=') {
+                // `NaN != value` is true in pandas, but the backend's `<>` yields NULL and drops
+                // the row. Every other operator is already false for a null on both sides.
+                return `(${column}.notna() & (${column} != ${literal}))`;
+            }
+            const op = filter.op === '=' ? '==' : filter.op;
+            return `(${column} ${op} ${literal})`;
+        }
+        case 'between':
+        case 'not_between': {
+            const left = pythonLiteral(filter.leftValue, filter.columnType);
+            const right = pythonLiteral(filter.rightValue, filter.columnType);
+            if (left === undefined || right === undefined) {
+                return undefined;
+            }
+            const term = `${column}.between(${left}, ${right})`;
+            return filter.filterType === 'between' ? term : `(~${term} & ${column}.notna())`;
+        }
+        case 'set_membership': {
+            const literals = filter.values.map((value) => pythonLiteral(value, filter.columnType));
+            if (literals.some((literal) => literal === undefined)) {
+                return undefined;
+            }
+            const term = `${column}.isin([${literals.join(', ')}])`;
+            return filter.inclusive ? term : `(~${term} & ${column}.notna())`;
+        }
+        case 'search':
+            return pandasSearchTerm(column, filter);
+    }
+}
+
+/**
+ * Translates the view into statements applied to the loaded dataframe. `&` binds tighter than `|`
+ * in Python, matching the AND/OR precedence the backend uses to evaluate the filter chain, so the
+ * terms join in order without extra grouping.
+ *
+ * `condition` is always 'and' today, and the DuckDB backend ANDs its row filters unconditionally
+ * regardless of `condition`. If the UI ever emits 'or', the '|' join below needs to be re-validated
+ * against the backend's actual filtering behavior, or the generated code could silently diverge
+ * from the on-screen filtered rows.
+ */
+function translateView(
+    dataFrame: string,
+    view: DataImportView,
+    hasHeaderRow: boolean | undefined,
+    unsupported: string[],
+): string[] {
+    if (hasHeaderRow === false) {
+        // A headerless load names columns 0..n, so the Data Explorer's column names would not
+        // exist in the dataframe the generated code operates on.
+        unsupported.push('filters and sorts (the file has no header row, so the loaded columns are not named)');
+        return [];
+    }
+
+    const statements: string[] = [];
+
+    let mask = '';
+    for (const filter of view.rowFilters) {
+        const term = pandasFilterTerm(dataFrame, filter);
+        if (term === undefined) {
+            unsupported.push(`filter on "${filter.columnName}" (${filter.filterType})`);
+            continue;
+        }
+        mask = mask.length === 0 ? term : `${mask} ${filter.condition === 'or' ? '|' : '&'} ${term}`;
+    }
+    if (mask.length > 0) {
+        statements.push(`${dataFrame} = ${dataFrame}[${mask}]`);
+    }
+
+    if (view.sortKeys.length === 1) {
+        const key = view.sortKeys[0];
+        const ascending = key.ascending ? '' : ', ascending=False';
+        statements.push(`${dataFrame} = ${dataFrame}.sort_values("${escapePythonString(key.columnName)}"${ascending})`);
+    } else if (view.sortKeys.length > 1) {
+        const names = view.sortKeys.map((key) => `"${escapePythonString(key.columnName)}"`).join(', ');
+        const ascending = view.sortKeys.map((key) => (key.ascending ? 'True' : 'False')).join(', ');
+        statements.push(`${dataFrame} = ${dataFrame}.sort_values([${names}], ascending=[${ascending}])`);
+    }
+
+    return statements;
+}
+
 /**
  * Generates the pandas code that loads a file into a dataframe.
  *
  * The comment sits directly above the call rather than above the import, so it labels the thing it
  * describes, and it names the variable so a script that accumulates several imports stays readable.
  */
-export function generatePandasImportCode(request: PandasImportRequest): string {
+export function generatePandasImportCode(request: PandasImportRequest): PandasImportResult {
     const args = [`"${escapePythonString(request.filePath)}"`];
     if (isTabSeparated(request.filePath)) {
         args.push('sep="\\t"');
@@ -111,11 +303,21 @@ export function generatePandasImportCode(request: PandasImportRequest): string {
         args.push('header=None');
     }
 
-    return [
+    const lines = [
         'import pandas as pd',
         '',
         `# Load ${request.variableName} data`,
         `${request.variableName} = pd.read_csv(${args.join(', ')})`,
-        '',
-    ].join('\n');
+    ];
+
+    const unsupported: string[] = [];
+    if (request.view) {
+        const statements = translateView(request.variableName, request.view, request.hasHeaderRow, unsupported);
+        if (statements.length > 0) {
+            lines.push('', '# Filter and sort as shown in the Data Explorer', ...statements);
+        }
+    }
+    lines.push('');
+
+    return { code: lines.join('\n'), unsupported };
 }

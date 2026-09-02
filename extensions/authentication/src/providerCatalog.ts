@@ -26,15 +26,27 @@ export interface ResolvedProviderLike {
 }
 
 /**
- * Payload of {@link onDidChangeProviderCatalog}, carrying the per-provider
- * granularity the credential chain needs: `changedConnectionIds` (ids whose
- * connection JSON differs) and `disabledIds` (ids whose `enabled` flipped to
- * false). An id that has just appeared counts as a connection change, from
- * nothing to something, which is how a new custom provider surfaces.
+ * Payload of {@link onDidChangeProviderCatalog}. The first two fields name the
+ * part of a provider that changed in the *resolved* catalog, which is what the
+ * credential chain acts on; the third reports the same providers as the *user
+ * file* declares them, for UI that mirrors the file.
+ *
+ * An id that has just appeared counts as a connection change, from nothing to
+ * something, which is how a new custom provider surfaces.
  */
 export interface ProviderCatalogChangeEvent {
+	/** Ids whose resolved `connection` JSON differs. */
 	readonly changedConnectionIds: string[];
+	/** Ids whose resolved `enabled` flipped to false. */
 	readonly disabledIds: string[];
+	/**
+	 * Ids whose providers.json block differs. Reported separately because the
+	 * resolved and file views move independently: with an environment variable
+	 * outranking the file, saving a change leaves `changedConnectionIds` empty
+	 * while this is non-empty. Covers the whole block, not just connection
+	 * fields, so an `enabled` edit in the file lands here too.
+	 */
+	readonly changedUserProviderIds: string[];
 }
 
 /**
@@ -47,8 +59,11 @@ export interface ProviderCatalogOptions {
 }
 
 let cache = new Map<string, ResolvedProviderLike>();
+let userConfig = new Map<string, BuiltinProviderBlock>();
 let watcher: { dispose(): void } | undefined;
 let currentOptions: ProviderCatalogOptions | undefined;
+/** Serializes the watch handler's async applies so they land in arrival order. */
+let applyQueue: Promise<void> = Promise.resolve();
 
 const changeEmitter = new vscode.EventEmitter<ProviderCatalogChangeEvent>();
 
@@ -75,7 +90,7 @@ function toMap(catalog: readonly ResolvedProvider[]): Map<string, ResolvedProvid
  * helper's refresh produces the same per-provider diff an external file edit
  * would.
  */
-function applyCatalog(next: readonly ResolvedProvider[]): void {
+function applyCatalog(next: readonly ResolvedProvider[], changedUserProviderIds: string[] = []): void {
 	const previous = cache;
 	const nextMap = toMap(next);
 
@@ -96,10 +111,33 @@ function applyCatalog(next: readonly ResolvedProvider[]): void {
 
 	cache = nextMap;
 
-	if (changedConnectionIds.length === 0 && disabledIds.length === 0 && !removed) {
+	if (
+		changedConnectionIds.length === 0
+		&& disabledIds.length === 0
+		&& changedUserProviderIds.length === 0
+		&& !removed
+	) {
 		return;
 	}
-	changeEmitter.fire({ changedConnectionIds, disabledIds });
+	changeEmitter.fire({ changedConnectionIds, disabledIds, changedUserProviderIds });
+}
+
+/**
+ * Replaces the user-layer cache, returning the ids whose block changed. Kept
+ * separate from {@link applyCatalog} so the file view is already current when
+ * the event fires and a listener reads it back.
+ */
+function applyUserConfig(next: Map<string, BuiltinProviderBlock>): string[] {
+	const previous = userConfig;
+	userConfig = next;
+
+	const changed: string[] = [];
+	for (const id of new Set([...previous.keys(), ...next.keys()])) {
+		if (JSON.stringify(previous.get(id)) !== JSON.stringify(next.get(id))) {
+			changed.push(id);
+		}
+	}
+	return changed;
 }
 
 async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly ResolvedProvider[]> {
@@ -119,6 +157,45 @@ async function loadCatalog(options: ProviderCatalogOptions): Promise<readonly Re
 }
 
 /**
+ * Loads the `user` layer -- providers.json alone, with no environment,
+ * enforced, or default layer merged in -- into {@link userConfig}.
+ *
+ * A configuration form has to show what the user durably controls, not the
+ * collated result: an `AWS_REGION` picked up from a shell profile is not
+ * something the next launch is guaranteed to see, so presenting it as a saved
+ * setting would promise persistence the value doesn't have.
+ *
+ * `loadConfigSources` is ai-config's "source-assembly compatibility seam" and
+ * the only public read that returns layers separately -- `loadProviderCatalog-
+ * Report`, the canonical read, returns just the resolved catalog and its
+ * issues. The seam flattens per-layer issues into logger warnings, so an
+ * unreadable file arrives here as an absent user source, indistinguishable
+ * from an empty one. If that distinction ever matters, the supported fix is an
+ * ai-config change exposing `loadConfigSourceReports`.
+ */
+async function loadUserConfig(options: ProviderCatalogOptions): Promise<Map<string, BuiltinProviderBlock>> {
+	const { loadConfigSources } = await import('ai-config/node');
+	const sources = await loadConfigSources({
+		configPath: options.configPath,
+		env: options.envVars,
+		logger: { debug: (m: string) => log.debug(m), warn: (m: string) => log.warn(m) },
+	});
+	const user = sources.find(source => source.kind === 'user');
+	const providers = new Map<string, BuiltinProviderBlock>();
+	for (const [id, block] of Object.entries(user?.config.providers ?? {})) {
+		// `default` (the baseline block) and `custom` (a nested map of custom
+		// entries) are siblings of the built-in ids in this map, not ids
+		// themselves -- see ai-config's providersMapSchema. Skipped so they
+		// can't be mistaken for providers; a custom provider's own block lives
+		// under `custom` and is not exposed here.
+		if (block && id !== 'default' && id !== 'custom') {
+			providers.set(id, block as BuiltinProviderBlock);
+		}
+	}
+	return providers;
+}
+
+/**
  * Loads the resolved provider catalog into the cache and starts watching for
  * external changes. Idempotent: a re-init disposes the previous watcher and
  * replaces the cache, so tests can re-init against fresh directories without a
@@ -134,9 +211,19 @@ export async function initProviderCatalog(
 
 	const { watchResolvedProviderCatalog } = await import('ai-config/node');
 	cache = toMap(await loadCatalog(options));
+	userConfig = await loadUserConfig(options);
 
 	watcher = watchResolvedProviderCatalog(
-		(change: ProviderCatalogChange) => applyCatalog(change.catalog),
+		// Serialized: the handler has to read the user layer before applying,
+		// and watchResolvedProviderCatalog invokes it fire-and-forget, so two
+		// rebuilds in quick succession could otherwise have their reads resolve
+		// out of order and apply the older catalog last -- leaving both caches
+		// stale until the next file change.
+		(change: ProviderCatalogChange) => {
+			applyQueue = applyQueue
+				.then(async () => applyCatalog(change.catalog, applyUserConfig(await loadUserConfig(options))))
+				.catch(err => log.warn(`Could not apply a provider catalog change: ${err}`));
+		},
 		{
 			configPath: options.configPath,
 			envVars: options.envVars,
@@ -155,6 +242,158 @@ export function getCachedProvider(catalogId: string): ResolvedProviderLike | und
 }
 
 /**
+ * Synchronous read of a *built-in* provider's block as providers.json alone
+ * declares it, for UI that must show only what the user set. Use
+ * {@link getCachedProvider} for anything that needs the value in effect.
+ * Custom providers are not covered: their entries live under
+ * `providers.custom`, which this view deliberately omits.
+ */
+export function getUserProviderBlock(catalogId: string): BuiltinProviderBlock | undefined {
+	return userConfig.get(catalogId);
+}
+
+/**
+ * Reads connection environment variables through the same seam the catalog
+ * uses, so a test that passes `envVars` to {@link initProviderCatalog} sees
+ * those values here too and never the real shell.
+ *
+ * Env vars are how a *shadowed* form field is detected. ai-config ranks its
+ * internal `env` layer above `user`, so a variable that is set makes the
+ * corresponding providers.json value inert -- and detection has to be by
+ * *presence*, not by diffing resolved against user: when both layers hold the
+ * same value a diff is empty, the input would stay editable, and the next save
+ * would be silently discarded.
+ *
+ * `names` is consulted in order, first set wins, matching ai-config's
+ * `readEnv`.
+ */
+export function readConnectionEnv(names: readonly string[]): string | undefined {
+	const env = currentOptions?.envVars ?? process.env;
+	for (const name of names) {
+		const value = env[name];
+		if (value) {
+			return value;
+		}
+	}
+	return undefined;
+}
+
+/** An env var name, or names consulted in order so the first set one wins. */
+type EnvNames = readonly string[];
+
+/**
+ * Where one connection value came from, when it did not come from the layer the
+ * user controls.
+ *
+ * Named after ai-config's `ResolvedConnectionValueProvenance`, but carrying the
+ * value and the variable that supplied it rather than a bare
+ * `'configuration' | 'environment'` kind: a form has to be able to say which
+ * variable to change, which a kind alone cannot express.
+ */
+export interface ConnectionValueProvenance {
+	/** The value in effect. */
+	readonly value: string;
+	/** Name of the environment variable that supplied it. */
+	readonly name?: string;
+}
+
+/**
+ * Provenance for the connection values a form renders, held as a tree parallel
+ * to the connection rather than as wrapped values.
+ *
+ * Mirrors ai-config's `ResolvedConnectionProvenance`, including its reason for
+ * staying a separate tree: a `ResolvedConnection` is spread into a provider
+ * client's runtime options, so metadata must never live inside it. Only fields
+ * something can actually take over appear.
+ */
+export interface ConnectionProvenance {
+	baseUrl?: ConnectionValueProvenance;
+	apiKey?: ConnectionValueProvenance;
+	aws?: {
+		profile?: ConnectionValueProvenance;
+		region?: ConnectionValueProvenance;
+	};
+}
+
+/**
+ * Environment variables that take a connection value over, shaped like the
+ * provenance they produce: one entry per catalog id, then the field names a
+ * form renders, then the variables that supply them.
+ *
+ * This is the only faithful view of ai-config's `env` layer. That layer is
+ * synthesized privately inside `resolveProviderCatalogReport` and is absent
+ * from `loadConfigSources`, which returns only `user`, `enforced`, and
+ * `default` -- so the table is not enumeration overhead, it is the reader.
+ * Mirrors the subset of ai-config's private `CONNECTION_ENV_MAPPINGS` whose
+ * fields the modal renders as inputs, keeping that table's nesting so the two
+ * can be compared by eye.
+ *
+ * Only Bedrock is populated today; the other providers' variables
+ * (`ANTHROPIC_BASE_URL`, `DATABRICKS_HOST`, `SNOWFLAKE_ACCOUNT`, ...) shadow
+ * their inputs the same way, and enabling one is a line of data. Note the keys
+ * name the *form field*, not the config path: Databricks and Snowflake carry
+ * their value through the base URL input while persisting elsewhere, so
+ * `DATABRICKS_HOST` belongs under `baseUrl`.
+ *
+ * Duplicating a private table risks drift, so `providerSources.test.ts` asserts
+ * behaviorally that each variable named here really does reach the resolved
+ * catalog, which fails loudly if ai-config renames one or adds an alias.
+ */
+const OVERRIDING_ENV_VARS: Record<string, {
+	baseUrl?: EnvNames;
+	apiKey?: EnvNames;
+	aws?: { profile?: EnvNames; region?: EnvNames };
+}> = {
+	bedrock: {
+		aws: { profile: ['AWS_PROFILE'], region: ['AWS_REGION'] },
+	},
+};
+
+/**
+ * Resolves one field's variables to its provenance, or undefined when none is
+ * set. The reported name is the one that actually supplied the value, so a
+ * provider with alias variables names the one the user set.
+ */
+function readProvenance(names: EnvNames | undefined): ConnectionValueProvenance | undefined {
+	for (const name of names ?? []) {
+		const value = readConnectionEnv([name]);
+		if (value !== undefined) {
+			return { value, name };
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Connection values of `catalogId` that the environment supplies, so a form can
+ * show what is in effect and name what set it instead of offering an input
+ * whose value would be ignored. Undefined when the user controls every field.
+ */
+export function getConnectionProvenance(catalogId: string | undefined): ConnectionProvenance | undefined {
+	const mapping = catalogId ? OVERRIDING_ENV_VARS[catalogId] : undefined;
+	if (!mapping) {
+		return undefined;
+	}
+
+	const baseUrl = readProvenance(mapping.baseUrl);
+	const apiKey = readProvenance(mapping.apiKey);
+	const profile = readProvenance(mapping.aws?.profile);
+	const region = readProvenance(mapping.aws?.region);
+
+	// Spread so a field with nothing set leaves no key behind: a consumer reads
+	// presence as "not editable", so a shell of undefined keys would be
+	// indistinguishable from real provenance at the type level.
+	const provenance: ConnectionProvenance = {
+		...(baseUrl ? { baseUrl } : {}),
+		...(apiKey ? { apiKey } : {}),
+		...(profile || region
+			? { aws: { ...(profile ? { profile } : {}), ...(region ? { region } : {}) } }
+			: {}),
+	};
+	return Object.keys(provenance).length > 0 ? provenance : undefined;
+}
+
+/**
  * Reloads the catalog now and fires {@link onDidChangeProviderCatalog} when the
  * reload differs from the cache. `options` overrides the remembered options so a
  * write helper called with `{ configPath }` in a test never reads the real file;
@@ -166,7 +405,12 @@ export async function refreshProviderCatalog(options?: ProviderCatalogOptions): 
 	if (!opts) {
 		return;
 	}
-	applyCatalog(await loadCatalog(opts));
+	// Both loads complete before either cache is touched: applyUserConfig
+	// consumes its diff, so a loadCatalog rejection after that point would
+	// discard the change ids for good and leave listeners on stale defaults.
+	const nextCatalog = await loadCatalog(opts);
+	const nextUserConfig = await loadUserConfig(opts);
+	applyCatalog(nextCatalog, applyUserConfig(nextUserConfig));
 }
 
 function effectiveOptions(override?: ProviderCatalogOptions): ProviderCatalogOptions {
@@ -276,6 +520,76 @@ export async function saveCustomProviderModels(
 			block.models = { discovery: 'off', custom: [...customModels] };
 		}
 		providers[catalogId] = block;
+	}, opts);
+}
+
+/**
+ * Assigns a provider's block, or drops the entry when the block has no keys
+ * left. An empty block contributes nothing to resolution, so `"bedrock": {}` is
+ * just residue -- and it reads as configuration the user didn't write.
+ */
+function setOrPruneBlock(
+	providers: BuiltinBlockMap,
+	catalogId: string,
+	block: BuiltinProviderBlock
+): void {
+	if (Object.keys(block).length === 0) {
+		delete providers[catalogId];
+	} else {
+		providers[catalogId] = block;
+	}
+}
+
+/**
+ * Writes providers.bedrock.aws from the profile/region the connect dialog
+ * submitted. Both fields are optional, so each one carries three states and
+ * they are not interchangeable:
+ *
+ * - `undefined` -- the field was not submitted, so the saved value is left
+ *   alone. The connect dialog always submits both, so this is for callers that
+ *   set one field without disturbing the other.
+ * - `''` -- the user emptied the box, so the key is removed and the value
+ *   falls back to `AWS_PROFILE` / `AWS_REGION` or the ambient AWS defaults.
+ * - a value -- written, trimmed.
+ *
+ * An `aws` block left with no keys is removed rather than written as `{}`, and
+ * a `bedrock` entry with nothing left in it is removed too, so clearing both
+ * boxes returns providers.json to the state it had before Bedrock was ever
+ * configured.
+ *
+ * The write is unconditional: settings are saved before the credential chain is
+ * resolved with them (the chain reads its connection from the catalog, not from
+ * the submitted config), and a failed connect leaves them in place. That matches
+ * every other connection setting -- base URL, Snowflake account, Databricks host
+ * -- so a value that doesn't work is corrected by reopening the dialog.
+ */
+export async function saveAwsSettings(
+	aws: { profile?: string; region?: string },
+	options?: ProviderCatalogOptions
+): Promise<void> {
+	const opts = effectiveOptions(options);
+	await mutate(providers => {
+		const block = providers['bedrock'] ?? {};
+		const next = { ...block.aws };
+		for (const field of ['profile', 'region'] as const) {
+			const submitted = aws[field];
+			if (submitted === undefined) {
+				continue;
+			}
+			const trimmed = submitted.trim();
+			if (trimmed) {
+				next[field] = trimmed;
+			} else {
+				delete next[field];
+			}
+		}
+		const updated: BuiltinProviderBlock = { ...block, aws: next };
+		if (Object.keys(next).length === 0) {
+			// Removed rather than set to undefined: the config is written
+			// through a JSONC editor, so the key has to actually go away.
+			delete updated.aws;
+		}
+		setOrPruneBlock(providers, 'bedrock', updated);
 	}, opts);
 }
 

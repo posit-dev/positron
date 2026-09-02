@@ -27,7 +27,7 @@ import { IDataFrameResolutionServices, resolveDataFrameAtPosition } from './posi
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
@@ -825,6 +825,18 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
+		// File-backed explorers offer Import Data instead, and their backend reports Convert to Code
+		// as unsupported. The negated file-backed key is kept because it is set as soon as the
+		// editor opens, while the convert-to-code key waits for the backend state to arrive; it is
+		// what keeps the button from appearing for a moment on a file.
+		const when = ContextKeyExpr.and(
+			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			POSITRON_DATA_EXPLORER_IS_FILE_BACKED.toNegated(),
+			POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED,
+			ContextKeyExpr.or(
+				POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
+				POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
+		);
 		super({
 			id: PositronDataExplorerCommandId.ConvertToCodeModalAction,
 			title: {
@@ -837,21 +849,9 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 				displayTitle: true,
 			},
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE,
-				ContextKeyExpr.or(
-					POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
-					POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
-			),
+			precondition: when,
 			keybinding: {
-				when: ContextKeyExpr.and(
-					POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-					POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE,
-					ContextKeyExpr.or(
-						POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
-						POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
-				),
+				when,
 				weight: KeybindingWeight.WorkbenchContrib + 1,
 				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyC),
 			},
@@ -861,6 +861,7 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 					id: MenuId.EditorActionsLeft,
 					when: ContextKeyExpr.and(
 						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_FILE_BACKED.toNegated(),
 						POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED
 					),
 					order: 3
@@ -870,6 +871,7 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 					group: 'navigation',
 					when: ContextKeyExpr.and(
 						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_FILE_BACKED.toNegated(),
 						POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED
 					),
 				}
@@ -1130,14 +1132,12 @@ class PositronDataExplorerImportDataAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
-		// Gated on plaintext (CSV/TSV/XLSX) rather than "file-backed" because no context key
-		// distinguishes a file-backed Data Explorer from a kernel-backed one yet. A future PR adds
-		// POSITRON_DATA_EXPLORER_IS_FILE_BACKED and this switches to it, which also picks up
-		// Parquet. Deliberately not gated on a sort or filter existing: loading an unfiltered file
-		// is the main case.
+		// Gated on the explorer being file-backed, which is the real test (the duckdb: client-id
+		// prefix) rather than the filename proxy, so Parquet is picked up too. Deliberately not
+		// gated on a sort or filter existing: loading an unfiltered file is the main case.
 		const when = ContextKeyExpr.and(
 			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-			POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+			POSITRON_DATA_EXPLORER_IS_FILE_BACKED
 		);
 		super({
 			id: PositronDataExplorerCommandId.ImportDataAction,

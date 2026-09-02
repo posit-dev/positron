@@ -15,7 +15,7 @@ import { IWorkbenchEnvironmentService } from '../../../../services/environment/c
 import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ImportDataModalDialogOptions } from '../../../../browser/positronModalDialogs/importDataModalDialog.js';
-import { IDataImporter, IPositronDataImporterRegistry } from '../../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
+import { IDataImporter, IDataImportView, IPositronDataImporterRegistry } from '../../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IPositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { PositronDataExplorerUri } from '../../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
@@ -40,6 +40,7 @@ function makeInstance(overrides?: Partial<IPositronDataExplorerInstance>): IPosi
 	return stubInterface<IPositronDataExplorerInstance>({
 		fileHasHeaderRow: true,
 		fileSelectedSheet: undefined,
+		getImportView: async () => undefined,
 		...overrides,
 	});
 }
@@ -150,6 +151,7 @@ describe('showImportDataDialogForInstance', () => {
 			importers: [pandasImporter],
 			options: { hasHeaderRow: true, sheetName: undefined },
 			preferredLanguageId: 'python',
+			view: undefined,
 		}]);
 	});
 
@@ -162,6 +164,29 @@ describe('showImportDataDialogForInstance', () => {
 		);
 		expect(harness.calls.importerLookups).toStrictEqual([]);
 		expect(harness.shownDialogs[0].importers).toStrictEqual([]);
+	});
+
+	it('passes the instance import view to the dialog', async () => {
+		const view: IDataImportView = {
+			rowFilters: [],
+			sortKeys: [{ columnName: 'dep_delay', ascending: false }],
+		};
+		const instance = makeInstance({ getImportView: async () => view });
+		const harness = makeHarness({ importers: [pandasImporter] });
+
+		await showImportDataDialogForInstance(harness.services, csvUri, instance, harness.showDialog);
+
+		expect(harness.shownDialogs[0].view).toEqual(view);
+	});
+
+	it('still shows the dialog with no view when getImportView rejects', async () => {
+		const instance = makeInstance({ getImportView: async () => { throw new Error('backend busy'); } });
+		const harness = makeHarness({ importers: [pandasImporter] });
+
+		await showImportDataDialogForInstance(harness.services, csvUri, instance, harness.showDialog);
+
+		expect(harness.shownDialogs).toHaveLength(1);
+		expect(harness.shownDialogs[0].view).toBeUndefined();
 	});
 });
 

@@ -10,7 +10,7 @@ import { ContextKeyService } from '../../../platform/contextkey/browser/contextK
 import { IContextKeyService, RawContextKey } from '../../../platform/contextkey/common/contextkey.js';
 import { TestConfigurationService } from '../../../platform/configuration/test/common/testConfigurationService.js';
 import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
-import { useScopedContextKey } from '../positronReactHooks.js';
+import { useBusyIndicator, useScopedContextKey } from '../positronReactHooks.js';
 
 // These tests cover useScopedContextKey, the core shared by useContextKey and
 // useContextKeyFromString. Passing the service explicitly means no React
@@ -71,5 +71,52 @@ describe('useScopedContextKey', () => {
 
 		fromScoped.unmount();
 		fromRoot.unmount();
+	});
+});
+
+// Fake timers throughout: the hook's whole behavior is what happens at the delay and minimum
+// boundaries, so the tests step time rather than wait for it.
+describe('useBusyIndicator', () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
+
+	it('shows nothing at all for an operation that finishes inside the delay', () => {
+		const { result, rerender, unmount } = renderHook(
+			({ busy }: { busy: boolean }) => useBusyIndicator(busy, 250, 400),
+			{ initialProps: { busy: true } }
+		);
+		expect(result.current).toBe(false);
+
+		// Finished at 100ms, well inside the delay. The pending timeout is torn down with the effect,
+		// so the indicator is never raised and the icon never swaps.
+		act(() => { vi.advanceTimersByTime(100); });
+		rerender({ busy: false });
+		act(() => { vi.advanceTimersByTime(1000); });
+		expect(result.current).toBe(false);
+
+		unmount();
+	});
+
+	it('holds the indicator for its minimum once an operation runs past the delay', () => {
+		const { result, rerender, unmount } = renderHook(
+			({ busy }: { busy: boolean }) => useBusyIndicator(busy, 250, 400),
+			{ initialProps: { busy: true } }
+		);
+
+		// Past the delay, so the indicator goes up.
+		act(() => { vi.advanceTimersByTime(250); });
+		const shownAfterDelay = result.current;
+
+		// Finishing 10ms later would blink it straight back out, so it stays for the rest of its
+		// minimum and no longer.
+		rerender({ busy: false });
+		act(() => { vi.advanceTimersByTime(10); });
+		const shownJustAfterFinishing = result.current;
+		act(() => { vi.advanceTimersByTime(400); });
+
+		expect({ shownAfterDelay, shownJustAfterFinishing, shownAfterMinimum: result.current })
+			.toEqual({ shownAfterDelay: true, shownJustAfterFinishing: true, shownAfterMinimum: false });
+
+		unmount();
 	});
 });

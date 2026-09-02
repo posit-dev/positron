@@ -1183,6 +1183,23 @@ export class ImportDataModal {
 		});
 	}
 
+	get includeFiltersAndSortsCheckbox(): Locator {
+		return this.workbench.dynamicModals.dialogBox.getByRole('checkbox', { name: 'Include current filters and sorts (experimental)' });
+	}
+
+	/**
+	 * Checks or unchecks "Include current filters and sorts". The checkbox only exists when the
+	 * Data Explorer has filters or sorts applied, and it starts unchecked.
+	 */
+	async setIncludeFiltersAndSorts(checked: boolean) {
+		await test.step(`Set include filters and sorts: ${checked}`, async () => {
+			if (await this.includeFiltersAndSortsCheckbox.getAttribute('aria-checked') !== String(checked)) {
+				await this.includeFiltersAndSortsCheckbox.click();
+			}
+			await expect(this.includeFiltersAndSortsCheckbox).toHaveAttribute('aria-checked', String(checked));
+		});
+	}
+
 	async clickImport() {
 		await this.workbench.dynamicModals.clickButton('Import');
 	}

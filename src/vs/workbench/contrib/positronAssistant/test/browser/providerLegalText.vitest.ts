@@ -7,13 +7,13 @@
 
 import { getProviderGettingStartedText, getProviderTermsOfServiceText, getProviderUsageDisclaimerText } from '../../browser/providerLegalText.js';
 
-const positAi = { id: 'posit-ai', displayName: 'Posit AI', settingName: 'posit-ai' };
+const positAi = { id: 'posit-ai', displayName: 'Posit AI Pass', settingName: 'posit-ai' };
 const custom = { id: 'openai-compatible', displayName: 'OpenAI Compatible', settingName: 'openai-compatible' };
 const customAnthropic = { id: 'my anthropic', displayName: 'my anthropic', customKind: 'anthropic' };
 
 describe('providerLegalText', () => {
-	it('builds a getting-started note for Posit AI', () => {
-		expect(getProviderGettingStartedText(positAi)).toContain('Posit AI');
+	it('builds a getting-started note for Posit AI Pass', () => {
+		expect(getProviderGettingStartedText(positAi)).toContain('Posit AI Pass');
 	});
 
 	it('points the custom provider terms at the chosen endpoint provider, not Posit', () => {
@@ -22,12 +22,12 @@ describe('providerLegalText', () => {
 		expect(text).not.toContain('EULA');
 	});
 
-	it('builds Posit AI terms-of-service text referencing the EULA', () => {
+	it('builds Posit AI Pass terms-of-service text referencing the EULA', () => {
 		expect(getProviderTermsOfServiceText(positAi)).toContain('EULA');
 	});
 
 	it('builds a usage disclaimer naming the provider', () => {
-		expect(getProviderUsageDisclaimerText(positAi)).toContain('Posit AI');
+		expect(getProviderUsageDisclaimerText(positAi)).toContain('Posit AI Pass');
 	});
 
 	it('gives a custom entry the custom text rather than treating its name as a vendor', () => {

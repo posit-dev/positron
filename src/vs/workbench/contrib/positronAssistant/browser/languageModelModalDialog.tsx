@@ -49,7 +49,7 @@ export const showLanguageModelModalDialog = (
 };
 
 /**
- * Sort rank for grouping providers in the modal: Posit AI first, then stable
+ * Sort rank for grouping providers in the modal: Posit AI Pass first, then stable
  * providers (no status), then preview, then experimental. Within a group,
  * callers fall back to an alphabetical comparison.
  */
@@ -82,7 +82,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const providers = props.sources
 		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot-auth'))
 		.sort((a, b) => {
-			// Posit AI is always first, then stable providers, then preview,
+			// Posit AI Pass is always first, then stable providers, then preview,
 			// then experimental. Within each group, sort alphabetically.
 			const rankDiff = providerSortRank(a.provider) - providerSortRank(b.provider);
 			if (rankDiff !== 0) {

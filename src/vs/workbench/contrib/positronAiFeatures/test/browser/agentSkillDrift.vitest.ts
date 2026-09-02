@@ -55,7 +55,7 @@ const CANDIDATE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/
  * `vscode.open`: not every command the skill names is Positron's own, and an
  * upstream rename would break the skill just as surely as a Positron one.
  */
-const ALLOWED_PREFIXES = ['positron.', 'positronPackages.', 'positronSettings.', 'positronVariables.', 'vscode.', 'workbench.'];
+const ALLOWED_PREFIXES = ['positron.', 'positronAssistant.', 'positronPackages.', 'positronSettings.', 'positronVariables.', 'vscode.', 'workbench.'];
 
 /**
  * Command ids referenced by the templates that are registered from extension
