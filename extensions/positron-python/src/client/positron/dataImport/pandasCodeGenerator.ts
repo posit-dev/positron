@@ -27,6 +27,9 @@ export interface PandasImportRequest {
     /** Whether the first row holds column names. Treated as true when absent. */
     hasHeaderRow?: boolean;
 
+    /** The worksheet to read, for formats that have sheets. Omitted means the first sheet. */
+    sheetName?: string;
+
     /** The Data Explorer view (filters and sorts) to reproduce after the load, if requested. */
     view?: DataImportView;
 }
@@ -107,13 +110,27 @@ export const PYTHON_KEYWORDS = new Set([
     'yield',
 ]);
 
+/** The file formats the generator can write a load call for, keyed off the path's extension. */
+type FileFormat = 'csv' | 'tsv' | 'xlsx' | 'parquet';
+
 /**
- * Whether a quoted path literal names a tab-separated file, which pandas needs told explicitly.
- * The literal's closing quote is part of the match, so the check cannot be fooled by a directory
- * named `x.tsv` in the middle of the path.
+ * Detects the format from the extension of a quoted path literal. The literal's closing quote is
+ * part of each match, so the check cannot be fooled by a directory named `x.tsv` in the middle of
+ * the path. An unrecognized extension falls back to CSV, preserving the generator's existing
+ * behavior for paths the registry should not have sent it.
  */
-function isTabSeparated(pathLiteral: string): boolean {
-    return /\.tsv"$/i.test(pathLiteral);
+function detectFileFormat(pathLiteral: string): FileFormat {
+    const lower = pathLiteral.toLowerCase();
+    if (lower.endsWith('.tsv"')) {
+        return 'tsv';
+    }
+    if (lower.endsWith('.xlsx"')) {
+        return 'xlsx';
+    }
+    if (lower.endsWith('.parquet"') || lower.endsWith('.parq"')) {
+        return 'parquet';
+    }
+    return 'csv';
 }
 
 /** Display types whose stringified values are emitted as bare numeric literals. */
@@ -303,24 +320,49 @@ function translateView(
  * describes, and it names the variable so a script that accumulates several imports stays readable.
  */
 export function generatePandasImportCode(request: PandasImportRequest): PandasImportResult {
+    const format = detectFileFormat(request.pathLiteral);
     const args = [request.pathLiteral];
-    if (isTabSeparated(request.pathLiteral)) {
-        args.push('sep="\\t"');
-    }
-    if (request.hasHeaderRow === false) {
-        args.push('header=None');
+
+    let readFunction: string;
+    switch (format) {
+        case 'parquet':
+            // Parquet always carries column names and has no sheets, so the header and
+            // sheet options do not apply, whatever the options bag says.
+            readFunction = 'read_parquet';
+            break;
+        case 'xlsx':
+            readFunction = 'read_excel';
+            if (request.sheetName !== undefined) {
+                args.push(`sheet_name="${escapePythonString(request.sheetName)}"`);
+            }
+            if (request.hasHeaderRow === false) {
+                args.push('header=None');
+            }
+            break;
+        case 'tsv':
+        case 'csv':
+            readFunction = 'read_csv';
+            if (format === 'tsv') {
+                args.push('sep="\\t"');
+            }
+            if (request.hasHeaderRow === false) {
+                args.push('header=None');
+            }
+            break;
     }
 
     const lines = [
         'import pandas as pd',
         '',
         `# Load ${request.variableName} data`,
-        `${request.variableName} = pd.read_csv(${args.join(', ')})`,
+        `${request.variableName} = pd.${readFunction}(${args.join(', ')})`,
     ];
 
     const unsupported: string[] = [];
     if (request.view) {
-        const statements = translateView(request.variableName, request.view, request.hasHeaderRow, unsupported);
+        // Parquet columns are always named, so the headerless-columns guard never applies.
+        const headerForView = format === 'parquet' ? undefined : request.hasHeaderRow;
+        const statements = translateView(request.variableName, request.view, headerForView, unsupported);
         if (statements.length > 0) {
             lines.push('', '# Filter and sort as shown in the Data Explorer', ...statements);
         }

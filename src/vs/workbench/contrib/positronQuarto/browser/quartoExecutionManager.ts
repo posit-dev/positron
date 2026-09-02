@@ -41,7 +41,7 @@ import {
 	WillExecuteEvent,
 } from '../common/quartoExecutionTypes.js';
 import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQuartoConfig.js';
-import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOnlineState, RuntimeState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -117,6 +117,14 @@ interface SerializedQueueState {
 	queuedCells: string[];
 	runningCell: string | undefined;
 }
+
+/**
+ * Thrown when the session backing an inline execution ends or exits mid-run.
+ * A dead kernel never sends the idle message that completes the execution, so
+ * the cell is failed and the remaining run is aborted rather than continued on
+ * a session that no longer holds the document's state.
+ */
+class QuartoSessionEndedError extends Error { }
 
 /**
  * Returns true when runCommand is about to send Ctrl+C before the actual
@@ -338,6 +346,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				} catch (error) {
 					this._logService.error(`[QuartoExecutionManager] Execution error for cell ${cell.id}:`, error);
 					this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+
+					// A dead kernel means later cells would run on a session that
+					// no longer holds the document's state; stop the run.
+					if (error instanceof QuartoSessionEndedError) {
+						for (let j = i + 1; j < filteredCells.length; j++) {
+							this._setCellState(filteredCells[j].id, CellExecutionState.Idle, documentUri);
+							this._removeFromQueue(documentUri, filteredCells[j].id);
+						}
+						break;
+					}
 				}
 			}
 		}).finally(() => {
@@ -616,8 +634,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					this._logService.error(`[QuartoExecutionManager] Inline execution error for cell ${execution.cell.id}:`, error);
 					this._setCellState(execution.cell.id, CellExecutionState.Error, documentUri);
 
-					// If error option is true (stop on error), break out of the loop
-					if (execution.options.error) {
+					// Stop on a configured stop-on-error, and always stop when the
+					// kernel is gone: continuing would run later cells on a session
+					// that no longer holds the document's state.
+					if (execution.options.error || error instanceof QuartoSessionEndedError) {
 						this._logService.debug(
 							`[QuartoExecutionManager] Stopping execution queue due to exception (error: true)`
 						);
@@ -708,23 +728,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					throw new Error('Could not get code in range');
 				}
 
-				// Set up timeout
-				const timeoutMs = DEFAULT_EXECUTION_CONFIG.executionTimeout;
-				let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-
-				if (timeoutMs > 0) {
-					timeoutHandle = setTimeout(() => {
-						this._logService.warn(`[QuartoExecutionManager] Execution timeout for cell ${cell.id}`);
-						cts.cancel();
-						deferred.error(new Error('Execution timeout'));
-					}, timeoutMs);
-
-					disposables.add(toDisposable(() => {
-						if (timeoutHandle) {
-							clearTimeout(timeoutHandle);
-						}
-					}));
-				}
+				// Completion depends on an idle message from this session. If the
+				// session ends or the kernel exits mid-execution, that message
+				// will never arrive, so fail the execution instead of waiting
+				// forever. Errored (not cancelled) so the run stops and the cell
+				// is marked failed rather than silently skipped.
+				const failOnSessionEnd = (reason: string) =>
+					deferred.error(new QuartoSessionEndedError(reason));
+				disposables.add(session.onDidEndSession(() =>
+					failOnSessionEnd('Session ended during execution')));
+				disposables.add(session.onDidChangeRuntimeState(state => {
+					if (state === RuntimeState.Exited) {
+						failOnSessionEnd('Kernel exited during execution');
+					}
+				}));
 
 				const cancellationPromise = new Promise<void>((_, reject) => {
 					const cancellationListener = cts.token.onCancellationRequested(() => {
@@ -1650,6 +1667,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			} else {
 				this._logService.error(`[QuartoExecutionManager] Execution failed for cell ${cell.id}:`, error);
 				this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+				if (error instanceof QuartoSessionEndedError) {
+					throw error; // Kernel is gone; let the queue abort the run.
+				}
 			}
 		} finally {
 			// Clean up

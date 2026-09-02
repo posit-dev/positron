@@ -33,6 +33,7 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ITerminalService } from '../../../terminal/browser/terminal.js';
+import { IMissingPackagesPreflightService } from '../../../positronMissingPackages/browser/missingPackagesPreflightService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { Event } from '../../../../../base/common/event.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -134,6 +135,9 @@ describe('QuartoExecutionManager', () => {
 			modelService,
 			languageService,
 			languageFeaturesService,
+			stubInterface<IMissingPackagesPreflightService>({
+				confirmBeforeRun: () => Promise.resolve(true),
+			}),
 		);
 		ctx.disposables.add(executionManager);
 	});
@@ -204,6 +208,55 @@ describe('QuartoExecutionManager', () => {
 				state: RuntimeOnlineState.Idle,
 			});
 			await executionPromise;
+		});
+	});
+
+	describe('Session lifecycle', () => {
+		function inlineCell(id: string): QuartoCodeCell {
+			return {
+				id,
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 3,
+				codeStartLine: 2,
+				codeEndLine: 2,
+				label: undefined,
+				options: '',
+				contentHash: id,
+			};
+		}
+
+		it('fails the running cell instead of hanging when its kernel exits', async () => {
+			const documentUri = URI.file('/test-kernel-exit.qmd');
+			const cell = inlineCell('kernel-exit');
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			await mockKernelManager.waitForExecution();
+
+			// Kernel dies mid-execution: the idle that would complete the cell
+			// never arrives, so the cell must fail rather than wait forever.
+			mockSession.setRuntimeState(RuntimeState.Exited);
+
+			await executionPromise;
+			expect(executionManager.getExecutionState(cell.id)).toBe(CellExecutionState.Error);
+		});
+
+		it('stops a run-all when the session ends mid-run', async () => {
+			const documentUri = URI.file('/test-session-ended.qmd');
+			const first = inlineCell('session-ended-1');
+			const second = { ...inlineCell('session-ended-2'), index: 1 };
+
+			const executionPromise = executionManager.executeCells(documentUri, [first, second]);
+			await mockKernelManager.waitForExecution();
+
+			// End the session while the first cell is running. The second cell
+			// must not run on a session that no longer holds the state.
+			mockSession.endSession();
+
+			await executionPromise;
+			expect(executionManager.getExecutionState(first.id)).toBe(CellExecutionState.Error);
+			expect(executionManager.getExecutionState(second.id)).toBe(CellExecutionState.Idle);
 		});
 	});
 
@@ -1249,6 +1302,9 @@ describe('QuartoExecutionManager', () => {
 				modelService,
 				languageService,
 				languageFeaturesService,
+				stubInterface<IMissingPackagesPreflightService>({
+					confirmBeforeRun: () => Promise.resolve(true),
+				}),
 			);
 			ctx.disposables.add(executionManagerWithMock);
 
@@ -1349,6 +1405,9 @@ describe('QuartoExecutionManager', () => {
 				modelService,
 				languageService,
 				languageFeaturesService,
+				stubInterface<IMissingPackagesPreflightService>({
+					confirmBeforeRun: () => Promise.resolve(true),
+				}),
 			);
 			ctx.disposables.add(localExecutionManager);
 

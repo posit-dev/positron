@@ -93,6 +93,120 @@ suite('pandasCodeGenerator Tests', () => {
 
             expect(code.code).to.contain('pd.read_csv("C:/Users/austin/data/a\\"b.csv")');
         });
+
+        test('generates a read_excel call for an xlsx file', () => {
+            const code = generatePandasImportCode({
+                pathLiteral: '"/data/flights.xlsx"',
+                variableName: 'flights',
+                hasHeaderRow: true,
+            });
+
+            expect(code.code).to.equal(
+                'import pandas as pd\n' +
+                    '\n' +
+                    '# Load flights data\n' +
+                    'flights = pd.read_excel("/data/flights.xlsx")\n',
+            );
+        });
+
+        test('emits sheet_name when a sheet is selected', () => {
+            const code = generatePandasImportCode({
+                pathLiteral: '"/data/flights.xlsx"',
+                variableName: 'flights',
+                sheetName: 'Sheet 2',
+            });
+
+            expect(code.code).to.contain('pd.read_excel("/data/flights.xlsx", sheet_name="Sheet 2")');
+        });
+
+        test('escapes the sheet name like any other string literal', () => {
+            const code = generatePandasImportCode({
+                pathLiteral: '"/data/flights.xlsx"',
+                variableName: 'flights',
+                sheetName: 'say "hi"',
+            });
+
+            expect(code.code).to.contain('sheet_name="say \\"hi\\""');
+        });
+
+        test('adds header=None to read_excel when the header row is off', () => {
+            const code = generatePandasImportCode({
+                pathLiteral: '"/data/flights.xlsx"',
+                variableName: 'flights',
+                hasHeaderRow: false,
+                sheetName: 'Sheet 2',
+            });
+
+            expect(code.code).to.contain('pd.read_excel("/data/flights.xlsx", sheet_name="Sheet 2", header=None)');
+        });
+
+        test('generates a read_parquet call for a parquet file', () => {
+            const code = generatePandasImportCode({
+                pathLiteral: '"/data/flights.parquet"',
+                variableName: 'flights',
+            });
+
+            expect(code.code).to.equal(
+                'import pandas as pd\n' +
+                    '\n' +
+                    '# Load flights data\n' +
+                    'flights = pd.read_parquet("/data/flights.parquet")\n',
+            );
+        });
+
+        test('treats .parq as parquet', () => {
+            const code = generatePandasImportCode({
+                pathLiteral: '"/data/flights.parq"',
+                variableName: 'flights',
+            });
+
+            expect(code.code).to.contain('pd.read_parquet("/data/flights.parq")');
+        });
+
+        test('parquet ignores header row and sheet options', () => {
+            const code = generatePandasImportCode({
+                pathLiteral: '"/data/flights.parquet"',
+                variableName: 'flights',
+                hasHeaderRow: false,
+                sheetName: 'Sheet 1',
+            });
+
+            expect(code.code).to.contain('pd.read_parquet("/data/flights.parquet")');
+            expect(code.code).to.not.contain('header');
+            expect(code.code).to.not.contain('sheet_name');
+        });
+
+        test('parquet with header row off still translates the view', () => {
+            // Parquet always has column names, so the "no header row" unsupported
+            // branch must not fire even when the options bag says the header is off.
+            const code = generatePandasImportCode({
+                pathLiteral: '"/data/flights.parquet"',
+                variableName: 'flights',
+                hasHeaderRow: false,
+                view: {
+                    rowFilters: [],
+                    sortKeys: [{ columnName: 'delay', ascending: false }],
+                },
+            });
+
+            expect(code.code).to.contain('flights.sort_values("delay", ascending=False)');
+            expect(code.unsupported).to.deep.equal([]);
+        });
+
+        test('xlsx with header row off reports filters and sorts as unsupported', () => {
+            const code = generatePandasImportCode({
+                pathLiteral: '"/data/flights.xlsx"',
+                variableName: 'flights',
+                hasHeaderRow: false,
+                view: {
+                    rowFilters: [],
+                    sortKeys: [{ columnName: 'delay', ascending: true }],
+                },
+            });
+
+            expect(code.code).to.not.contain('sort_values');
+            expect(code.unsupported).to.have.lengthOf(1);
+        });
     });
 
     suite('view translation', () => {

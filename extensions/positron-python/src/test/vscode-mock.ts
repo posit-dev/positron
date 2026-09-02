@@ -80,6 +80,7 @@ export function initialize() {
     // --- Start Positron ---
     generatePositronMock('languages');
     generatePositronMock('methods');
+    generatePositronMock('paths');
     generatePositronMock('runtime');
     generatePositronMock('window');
 

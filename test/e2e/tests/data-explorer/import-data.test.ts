@@ -63,6 +63,80 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('small_file', /10 rows x 10 columns/);
 	});
 
+	test('Python Pandas - Verify importing an XLSX honors the selected sheet', async function ({ app, openDataFile, python }) {
+		const { dataExplorer, variables } = app.workbench;
+
+		await openDataFile(join('data-files', 'ap-math-enrollment', 'ap-math-enrollment.xlsx'));
+		await dataExplorer.waitForIdle();
+
+		// Import must load the sheet the Data Explorer is showing, not the workbook's first.
+		await dataExplorer.editorActionBar.selectWorksheet('Male');
+		await dataExplorer.waitForIdle();
+
+		await dataExplorer.editorActionBar.clickButton('Import Data');
+		await dataExplorer.importDataModal.expectToBeVisible();
+
+		// The sheet argument proves the backend's sheet state reached the generator; the variable
+		// below proves real pandas accepted it. (Code assertions avoid spaces: Monaco renders
+		// them as NBSP.)
+		await dataExplorer.importDataModal.expectCodeToContain('pd.read_excel');
+		await dataExplorer.importDataModal.expectCodeToContain('sheet_name="Male"');
+
+		await dataExplorer.importDataModal.clickImport();
+
+		// A dataframe named after the workbook appears, so real pandas accepted the generated
+		// call. Which sheet it read is pinned by the sheet_name assertion above, not here: all
+		// three sheets have the same shape, so the row count cannot tell them apart.
+		await variables.expectVariableToBe('ap_math_enrollment', /\d+ rows/);
+	});
+
+	test('R readxl - Verify importing an XLSX honors the selected sheet', async function ({ app, openDataFile, r }) {
+		const { dataExplorer, variables } = app.workbench;
+
+		await openDataFile(join('data-files', 'ap-math-enrollment', 'ap-math-enrollment.xlsx'));
+		await dataExplorer.waitForIdle();
+
+		// Import must load the sheet the Data Explorer is showing, not the workbook's first.
+		await dataExplorer.editorActionBar.selectWorksheet('Male');
+		await dataExplorer.waitForIdle();
+
+		await dataExplorer.editorActionBar.clickButton('Import Data');
+		await dataExplorer.importDataModal.expectToBeVisible();
+		await dataExplorer.importDataModal.selectPackage('R (readxl)');
+
+		// The sheet argument proves the backend's sheet state reached the generator; the variable
+		// below proves real readxl accepted it. (The regex spans the spaces around '=' because
+		// Monaco renders them as NBSP.)
+		await dataExplorer.importDataModal.expectCodeToContain('library(readxl)');
+		await dataExplorer.importDataModal.expectCodeToContain(/read_excel\(.*sheet\s*=\s*"Male"\)/);
+
+		await dataExplorer.importDataModal.clickImport();
+
+		// readxl reads the sheet as 61 rows and 23 columns. Which sheet it read is pinned by the
+		// sheet assertion above, not here: all three sheets have the same shape.
+		await variables.expectVariableToBe('ap_math_enrollment', /61 rows x 23 columns/);
+	});
+
+	// need to merge this PR and rebuild the CI images first
+	test.skip('R nanoparquet - Verify importing a Parquet file creates a dataframe in the session', async function ({ app, openDataFile, r }) {
+		const { dataExplorer, variables } = app.workbench;
+
+		await openDataFile(join('data-files', 'misc-parquet', 'decimal_types.parquet'));
+		await dataExplorer.waitForIdle();
+
+		await dataExplorer.editorActionBar.clickButton('Import Data');
+		await dataExplorer.importDataModal.expectToBeVisible();
+		await dataExplorer.importDataModal.selectPackage('R (nanoparquet)');
+
+		await dataExplorer.importDataModal.expectCodeToContain('library(nanoparquet)');
+		await dataExplorer.importDataModal.expectCodeToContain('read_parquet');
+
+		await dataExplorer.importDataModal.clickImport();
+
+		// The file holds 4 rows and 4 decimal columns, which nanoparquet reads as doubles.
+		await variables.expectVariableToBe('decimal_types', /4 rows x 4 columns/);
+	});
+
 	test('Variables pane button - Verify Import Data picks a file then opens the dialog', async function ({ app, python }) {
 		const { dataExplorer, quickInput, variables } = app.workbench;
 
