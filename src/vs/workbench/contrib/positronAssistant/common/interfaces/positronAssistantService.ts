@@ -304,6 +304,15 @@ export interface IPositronAssistantConfigurationService {
 	getRegisteredSources(): IPositronLanguageModelSource[];
 
 	/**
+	 * Returns every registered provider source, including those whose catalog
+	 * entry is disabled. getRegisteredSources filters to enabled providers,
+	 * which is what the configuration modal wants; a caller reporting provider
+	 * status needs the disabled registrations too, so it can say "configured
+	 * but disabled" instead of omitting the provider entirely.
+	 */
+	getProviderRegistrations(): IPositronLanguageModelSource[];
+
+	/**
 	 * Event that fires when a provider's configuration changes via
 	 * registerProvider, unregisterProvider, or updateProvider.
 	 */

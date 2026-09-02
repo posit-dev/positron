@@ -308,6 +308,7 @@ export class TestPositronAssistantConfigurationService implements IPositronAssis
 	unregisterProvider(): void { }
 	updateProvider(): void { }
 	getRegisteredSources() { return []; }
+	getProviderRegistrations() { return []; }
 
 	getEnabledProviders(): string[] {
 		return [];
