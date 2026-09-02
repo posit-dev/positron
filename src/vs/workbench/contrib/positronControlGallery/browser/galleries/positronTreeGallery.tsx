@@ -18,6 +18,10 @@ import { controlGalleryRegistry } from '../controlGalleryRegistry.js';
 
 const ROW_HEIGHT = 22;
 
+// A fixed indent for the harness, so the gallery shows the same tree on every machine rather than
+// one whose density depends on the reader's settings.
+const INDENT_WIDTH = 16;
+
 /**
  * Synthetic node payload for the harness. The id is encoded in TreeNode.id; the data field
  * just carries a display label.
@@ -92,6 +96,7 @@ const PositronTreeHarness = () => {
 
 		const tree = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => {
 				await delay(knobsRef.current.fetchDelayMs);
 				return buildChildrenForPath([], knobsRef.current.fanOut, knobsRef.current.maxDepth);
