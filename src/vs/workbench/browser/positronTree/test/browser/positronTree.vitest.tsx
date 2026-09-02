@@ -15,6 +15,7 @@ import { isMacintosh } from '../../../../../base/common/platform.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubGridLayout, stubGridLayoutWithSize } from '../../../../../test/vitest/stubGridLayout.js';
 import { PositronTree } from '../../positronTree.js';
 import { TreeNode } from '../../classes/treeNode.js';
 import { PositronTreeInstance } from '../../classes/positronTreeInstance.js';
@@ -48,51 +49,6 @@ function branch(id: string): TreeNode<DemoNode> {
  */
 function jumpChord(key: 'Home' | 'End'): string {
 	return isMacintosh ? `{Meta>}{${key}}{/Meta}` : `{Control>}{${key}}{/Control}`;
-}
-
-/**
- * Neutralizes the data grid's DOM-driven sizing for tests that assert on instance state (not
- * rendered rows): happy-dom produces no real layout, so the size is driven explicitly with
- * instance.setSize instead. Pair with vi.unstubAllGlobals() in afterEach.
- */
-function stubGridLayout() {
-	vi.stubGlobal('requestAnimationFrame', () => 0);
-	vi.stubGlobal('ResizeObserver', class {
-		observe() { }
-		unobserve() { }
-		disconnect() { }
-	});
-}
-
-/**
- * Like stubGridLayout, but for tests that assert on rendered rows: the data grid only paints the
- * rows that fit its *local* height, which it learns from the DOM. This gives elements a real
- * offset size and hands it to the grid synchronously via a ResizeObserver that fires on observe().
- * Returns a restore function for the offset overrides; callers must also call vi.unstubAllGlobals().
- */
-function stubGridLayoutWithSize(width: number, height: number): () => void {
-	const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
-	const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
-	Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => width });
-	Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => height });
-
-	vi.stubGlobal('requestAnimationFrame', () => 0);
-	vi.stubGlobal('ResizeObserver', class {
-		private readonly _callback: ResizeObserverCallback;
-		constructor(callback: ResizeObserverCallback) { this._callback = callback; }
-		observe() {
-			// Minimal entry: the grid only reads contentRect's width/height.
-			const entry = { contentRect: { width, height } };
-			this._callback([entry] as unknown as ResizeObserverEntry[], this as unknown as ResizeObserver);
-		}
-		unobserve() { }
-		disconnect() { }
-	});
-
-	return () => {
-		Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidthDescriptor!);
-		Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeightDescriptor!);
-	};
 }
 
 // A viewport tall enough to render a handful of rows at once, for the rendering assertions.
