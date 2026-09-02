@@ -17,10 +17,12 @@ separate, and so should the answer:
 - **Enabled**: the provider catalog allows this provider (`enabled: true`).
   Administrator enforcement is already folded in.
 - **Signed in** (`auth: 'signed-in'`): a credential resolves right now.
-- **Usable**: both of the above. This is usually what the user is really
-  asking. A provider that is enabled but `not-signed-in` is offered, not set
-  up; one whose `auth` is `'error'` was set up and is now broken, which is
-  worth calling out even when the user did not ask.
+- **Healthy**: no `problem` field. `problem` means the provider itself
+  reported an issue with its configuration or credentials, whatever its
+  sign-in state, and is worth calling out even when the user did not ask.
+- **Usable**: all three. This is usually what the user is really asking. A
+  provider that is enabled but `not-signed-in` with no `problem` is offered,
+  not set up.
 
 ## Anti-patterns
 
@@ -50,17 +52,23 @@ provider) and needs no filtering.
 **Worked flow -- "which providers do I have enabled / set up?":**
 
 1. Call `positronAssistant.getProviderStatus`.
-2. Lead with the usable providers: `enabled: true` and `auth: 'signed-in'`,
-   named by `displayName` (fall back to `id`). Note `completionsOnly`
-   providers separately -- GitHub Copilot serves inline completions, not chat,
-   so it does not answer "which providers can I chat with".
-3. Call out any `auth: 'error'` entry even when the user did not ask: the
-   provider is configured but not working, `authMessage` says why, and
-   re-authenticating (via the Configure Language Model Providers UI) is the
-   fix. The list is already ordered so these come first.
-4. Distinguish the rest honestly: enabled but `not-signed-in` means offered
-   and never set up; `enabled: false` means turned off in the catalog, by the
-   user or by an administrator -- the payload cannot say which.
+2. Lead with the usable providers: `enabled: true`, `auth: 'signed-in'`, and
+   no `problem`, named by `displayName` (fall back to `id`). An entry with
+   `completionsOnly: true` serves inline completions, not chat, so note it
+   separately from the chat answer -- but decide that from the flag only.
+   Treat every other entry as chat-capable; never demote a provider by name.
+3. Call out any entry carrying `problem` even when the user did not ask: the
+   provider reported an issue with its configuration or credentials, and
+   `problem` is its own words. Read it together with `auth`: `not-signed-in`
+   with a problem like "Authentication expired" means re-authenticating (via
+   the Configure Language Model Providers UI) is the likely fix; `signed-in`
+   with a problem means the credential works and the issue is configuration,
+   so do not send the user to re-authenticate. The list is already ordered so
+   problem entries come first.
+4. Distinguish the rest honestly: enabled but `not-signed-in` means no
+   credential resolves (never set up, or signed out); `enabled: false` means
+   turned off in the catalog, by the user or by an administrator -- the
+   payload cannot say which.
 5. Check the honesty fields before asserting anything:
    - `authStateUnavailable: true` means no sign-in state exists in this window
      at all. Report which providers are enabled and say sign-in state is
@@ -74,10 +82,11 @@ provider) and needs no filtering.
 
 **Worked flow -- "why isn't provider X working?":**
 
-1. Find X's entry. `enabled: false` or `auth: 'error'` (with `authMessage`) is
-   usually the whole answer.
-2. If X is enabled and signed in but chat still fails, the problem is not
-   provider status; check the AI feature switches in
+1. Find X's entry. `enabled: false` or a `problem` field is usually the whole
+   answer -- and `problem` with `not-signed-in` points at credentials, while
+   `problem` with `signed-in` points at configuration.
+2. If X is enabled, signed in, and healthy but chat still fails, the cause is
+   not provider status; check the AI feature switches in
    [configuration.md]({{skill_dir}}/references/configuration.md) (`ai.enabled`
    and `assistant.enabled` both gate Posit Assistant).
 3. `customizedConnection` naming `baseUrl` or an `aws.*`/`snowflake.*` field

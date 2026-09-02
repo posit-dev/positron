@@ -10,8 +10,14 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { AiProviderServiceStatus, IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 import { IPositronAssistantConfigurationService, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 
-/** How far a provider's sign-in has gotten, as this payload reports it. */
-export type ProviderAuthState = 'signed-in' | 'not-signed-in' | 'error';
+/**
+ * A provider's sign-in state, as this payload reports it. Sign-in only, on
+ * purpose: provider health is broader than credentials (an unreachable custom
+ * endpoint is a problem for a provider that is signed in), so it travels in
+ * the separate `problem` field rather than being collapsed into a third auth
+ * value that would misread every configuration issue as a credential one.
+ */
+export type ProviderAuthState = 'signed-in' | 'not-signed-in';
 
 /** One AI provider, as the getProviderStatus command reports it. */
 export interface IProviderStatusEntry {
@@ -48,13 +54,18 @@ export interface IProviderStatusEntry {
 	auth?: ProviderAuthState;
 
 	/**
-	 * The auth failure, e.g. 'Authentication expired'. Present only when auth
-	 * is 'error'. Unlike every other field, this is provider-supplied prose
-	 * passed through (first line only, length-capped), not text this command
-	 * constructs -- a credential error can name the endpoint or account it
-	 * failed against, the same text the user's own auth error shows.
+	 * Present when the provider reports a problem with its configuration or
+	 * credentials (its registered status is 'error'), whatever its sign-in
+	 * state: an expired credential reports this alongside 'not-signed-in',
+	 * while a signed-in provider with an unreachable custom endpoint reports
+	 * it alongside 'signed-in'. Carries the provider's own status text (first
+	 * line only, length-capped), or 'unspecified' when it gave none. Unlike
+	 * every other field, the text is provider-supplied prose passed through,
+	 * not constructed by this command -- an error can name the endpoint or
+	 * account it failed against, the same text the user's own error UI shows.
+	 * Omitted for known-disabled providers, whose health is moot.
 	 */
-	authMessage?: string;
+	problem?: string;
 
 	/** Present only for a provider not yet stable: 'preview' or 'experimental'. */
 	maturity?: 'preview' | 'experimental';
@@ -63,8 +74,9 @@ export interface IProviderStatusEntry {
 	custom?: boolean;
 
 	/**
-	 * Present, and true, only when the provider serves inline completions
-	 * rather than chat (GitHub Copilot).
+	 * Present, and true, only when the provider registered as serving inline
+	 * completions rather than chat. Mechanical, from the registration's own
+	 * type: no provider is assumed completion-only by name.
 	 */
 	completionsOnly?: boolean;
 
@@ -113,31 +125,31 @@ export interface IProviderStatusResult {
  */
 const CATALOG_INIT_TIMEOUT_MS = 5000;
 
-/** Cap on the pass-through auth failure text, in characters. */
-const AUTH_MESSAGE_CHAR_CAP = 200;
+/** Cap on the pass-through provider status text, in characters. */
+const PROBLEM_MESSAGE_CHAR_CAP = 200;
 
 /**
- * The auth extension's status text, bounded for a payload: first line only,
+ * The provider's own status text, bounded for a payload: first line only,
  * hard character cap. The text is provider-supplied prose (this command
  * constructs every other field itself), so the bound keeps a chatty SDK error
  * from dumping a stack of detail into the transcript.
  * @param message The registration's statusMessage.
  */
-function summarizeAuthMessage(message: string | undefined): string | undefined {
+function summarizeStatusMessage(message: string | undefined): string | undefined {
 	const firstLine = message?.split('\n', 1)[0].trim();
 	if (!firstLine) {
 		return undefined;
 	}
-	return firstLine.length <= AUTH_MESSAGE_CHAR_CAP
+	return firstLine.length <= PROBLEM_MESSAGE_CHAR_CAP
 		? firstLine
-		: `${firstLine.slice(0, AUTH_MESSAGE_CHAR_CAP - 3).trimEnd()}...`;
+		: `${firstLine.slice(0, PROBLEM_MESSAGE_CHAR_CAP - 3).trimEnd()}...`;
 }
 
 /**
- * A registration's sign-in state as the payload's vocabulary. `status` is the
- * authentication extension's verdict: 'error' means configured but the
- * credential no longer resolves (e.g. expired), which must not read as a
- * fresh, never-configured provider.
+ * A registration's sign-in state as the payload's vocabulary: `signedIn` and
+ * nothing else. The registration's `status` is provider *health* (an expired
+ * credential and an unreachable endpoint both report 'error'), so it feeds
+ * the separate `problem` field rather than this one.
  *
  * Returns undefined when the registration carries no verdict yet: the
  * authentication extension registers providers first and sweeps sessions
@@ -147,9 +159,6 @@ function summarizeAuthMessage(message: string | undefined): string | undefined {
  * @param source The provider's registered source.
  */
 function authState(source: IPositronLanguageModelSource): ProviderAuthState | undefined {
-	if (source.status === 'error') {
-		return 'error';
-	}
 	if (source.signedIn === undefined) {
 		return undefined;
 	}
@@ -210,15 +219,17 @@ export async function getProviderStatus(accessor: ServicesAccessor): Promise<IPr
 		const enabled = catalogKnown
 			? assistantConfigurationService.isProviderEnabled(source.provider.id)
 			: undefined;
-		// Sign-in state is withheld only when the provider is KNOWN disabled;
-		// unknown enablement does not invalidate a live sign-in verdict.
-		const auth = enabled === false ? undefined : authState(source);
+		// Sign-in state and health are withheld only when the provider is
+		// KNOWN disabled; unknown enablement does not invalidate live data.
+		const relevant = enabled !== false;
 		providers.push({
 			id: catalogId,
 			displayName: source.provider.displayName,
 			enabled,
-			auth,
-			authMessage: auth === 'error' ? summarizeAuthMessage(source.statusMessage) : undefined,
+			auth: relevant ? authState(source) : undefined,
+			problem: relevant && source.status === 'error'
+				? (summarizeStatusMessage(source.statusMessage) ?? 'unspecified')
+				: undefined,
 			maturity: source.provider.status,
 			custom: source.provider.customKind !== undefined ? true : undefined,
 			completionsOnly: source.type === PositronLanguageModelType.Completion ? true : undefined,
@@ -246,11 +257,13 @@ export async function getProviderStatus(accessor: ServicesAccessor): Promise<IPr
 
 	// Most interesting entries first, so a transport that truncates a large
 	// payload by keeping an array's leading elements sheds the boring tail:
-	// auth failures (worth a warning), then the signed-in providers (the
-	// answer to "which providers do I have"), then the rest, with
-	// known-disabled ones last. Alphabetical within each band.
+	// providers reporting a problem (worth a warning, whatever their sign-in
+	// state -- the Configure Providers modal groups these as needs-attention
+	// the same way), then the signed-in providers (the answer to "which
+	// providers do I have"), then the rest, with known-disabled ones last.
+	// Alphabetical within each band.
 	const interest = (entry: IProviderStatusEntry): number =>
-		entry.auth === 'error' ? 0
+		entry.problem !== undefined ? 0
 			: entry.auth === 'signed-in' ? 1
 				: entry.enabled !== false ? 2 : 3;
 	providers.sort((a, b) => interest(a) - interest(b) || a.id.localeCompare(b.id));
@@ -294,6 +307,6 @@ CommandsRegistry.registerCommand({
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
-		returns: 'An object with catalogStatus, providers, and sometimes authStateUnavailable. catalogStatus is the provider catalog\'s lifecycle: \'ready\' when the resolved catalog (providers.json plus any administrator-enforced layers) has been read; \'error\' when it could not be; \'initializing\' when the first load had not completed within this command\'s short wait. When catalogStatus is not \'ready\', enablement is unknown: every entry omits enabled rather than guessing, sign-in state is still reported (it comes from live registrations, not the catalog), and the honest phrasing is which providers are signed in, with enablement unknown. providers is one entry per known provider, ordered most-noteworthy first: providers whose auth is \'error\', then signed-in providers, then the rest, with known-disabled ones last. Each entry carries: id, the provider\'s name in the provider catalog, which for a custom provider is the entry name the user chose; displayName, the name the UI shows, when the provider registered one; enabled, the catalog\'s verdict, with administrator-enforced layers already folded in -- false means turned off in providers.json or by an administrator, and sign-in state is then not reported, since a disabled provider is unusable regardless; absent means the catalog could not be read and enablement is unknown, not false. auth is present only for a provider that has registered its sign-in state with this window and is not known-disabled: \'signed-in\' means a credential resolves right now; \'error\' means the provider was configured but its credential no longer resolves, so it is NOT usable until the user re-authenticates, with authMessage carrying the reason (e.g. \'Authentication expired\') -- authMessage is the authentication extension\'s own status text passed through (first line, length-capped), the one field whose wording this command does not construct; \'not-signed-in\' means offered but never set up. An entry with no auth field has UNKNOWN sign-in state -- absence is not \'signed out\'. maturity is present only for a provider that is not yet stable (\'preview\' or \'experimental\'); custom is present and true only for a provider defined by a custom providers.json entry; completionsOnly is present and true only when the provider serves inline completions rather than chat (GitHub Copilot). customizedConnection lists the names of connection fields whose value differs from this build\'s built-in defaults (e.g. \'baseUrl\', \'aws.profile\', \'customHeaders\'), meaning the user or an administrator set them; a stock install reports none, and a provider\'s default endpoint never appears here. Names only, never values, deliberately: if the user needs the actual URL or value, direct them to open providers.json rather than guessing at it. authStateUnavailable is present and true only when NO provider has registered sign-in state in this window (the authentication extension is missing or has not finished activating): every entry then lacks auth, and the safe statement is which providers are enabled, not which are signed in. A provider is usable for chat exactly when enabled is true and auth is \'signed-in\'.',
+		returns: 'An object with catalogStatus, providers, and sometimes authStateUnavailable. catalogStatus is the provider catalog\'s lifecycle: \'ready\' when the resolved catalog (providers.json plus any administrator-enforced layers) has been read; \'error\' when it could not be; \'initializing\' when the first load had not completed within this command\'s short wait. When catalogStatus is not \'ready\', enablement is unknown: every entry omits enabled rather than guessing, sign-in state is still reported (it comes from live registrations, not the catalog), and the honest phrasing is which providers are signed in, with enablement unknown. providers is one entry per known provider, ordered most-noteworthy first: providers reporting a problem, then signed-in providers, then the rest, with known-disabled ones last. Each entry carries: id, the provider\'s name in the provider catalog, which for a custom provider is the entry name the user chose; displayName, the name the UI shows, when the provider registered one; enabled, the catalog\'s verdict, with administrator-enforced layers already folded in -- false means turned off in providers.json or by an administrator, and sign-in state is then not reported, since a disabled provider is unusable regardless; absent means the catalog could not be read and enablement is unknown, not false. auth is present only for a provider that has registered its sign-in state with this window and is not known-disabled: \'signed-in\' means a credential resolves right now; \'not-signed-in\' means no credential resolves (never set up, or signed out). An entry with no auth field has UNKNOWN sign-in state -- absence is not \'signed out\'. problem is present when the provider reports a problem with its configuration or credentials, whatever its sign-in state, carrying the provider\'s own status text (first line, length-capped; \'unspecified\' when it gave none) -- the one field whose wording this command does not construct. Read auth and problem together: \'not-signed-in\' with a problem like \'Authentication expired\' means re-authenticating is the likely fix, while \'signed-in\' with a problem means the credential works and the issue is configuration (e.g. an unreachable custom endpoint), which re-authenticating will not fix -- report the problem text rather than prescribing a remedy the payload does not name. maturity is present only for a provider that is not yet stable (\'preview\' or \'experimental\'); custom is present and true only for a provider defined by a custom providers.json entry; completionsOnly is present and true only when the provider registered as serving inline completions rather than chat -- rely on this flag, never on a provider\'s name, to decide whether it answers a chat question. customizedConnection lists the names of connection fields whose value differs from this build\'s built-in defaults (e.g. \'baseUrl\', \'aws.profile\', \'customHeaders\'), meaning the user or an administrator set them; a stock install reports none, and a provider\'s default endpoint never appears here. Names only, never values, deliberately: if the user needs the actual URL or value, direct them to open providers.json rather than guessing at it. authStateUnavailable is present and true only when NO provider has registered sign-in state in this window (the authentication extension is missing or has not finished activating): every entry then lacks auth, and the safe statement is which providers are enabled, not which are signed in. A provider is usable for chat exactly when enabled is true, auth is \'signed-in\', and no problem is reported.',
 	},
 });

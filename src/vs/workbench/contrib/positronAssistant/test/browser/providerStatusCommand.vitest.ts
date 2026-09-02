@@ -87,10 +87,11 @@ describe('getProviderStatus', () => {
 		});
 	});
 
-	it('reports a configured-but-broken credential as auth error with the message, never as not-signed-in', async () => {
+	it('pairs an expired credential with its problem text, so it cannot read as a fresh provider', async () => {
 		// The authentication extension reports an expired credential with
-		// signedIn false and status 'error'; without the status check this would
-		// read as a fresh, never-configured provider.
+		// signedIn false and status 'error'. Sign-in state and health are
+		// separate fields: without `problem`, this would read as a
+		// never-configured provider.
 		stubServices({
 			registrations: [registration({ id: 'openai-api', catalogId: 'openai', signedIn: false, status: 'error', statusMessage: 'Authentication expired' })],
 		});
@@ -100,9 +101,38 @@ describe('getProviderStatus', () => {
 			id: 'openai',
 			displayName: 'openai-api',
 			enabled: true,
-			auth: 'error',
-			authMessage: 'Authentication expired',
+			auth: 'not-signed-in',
+			problem: 'Authentication expired',
 		}]);
+	});
+
+	it('keeps a signed-in provider signed in when it reports a configuration problem', async () => {
+		// status is provider health, not auth: a working credential against an
+		// unreachable custom endpoint reports status 'error' while signedIn is
+		// still true. Collapsing that into an auth failure would send the user
+		// to re-authenticate, which fixes nothing.
+		stubServices({
+			registrations: [
+				registration({ id: 'custom-gw', signedIn: true, status: 'error', statusMessage: 'Could not reach the configured endpoint' }),
+				registration({ id: 'anthropic-api', catalogId: 'anthropic', signedIn: true, status: 'ok' }),
+			],
+		});
+
+		const result = await getProviderStatus(ctx.instantiationService);
+		expect(result.providers.map(({ id, auth, problem }) => ({ id, auth, problem }))).toEqual([
+			// The problem entry still leads the ordering, matching the modal's
+			// needs-attention grouping.
+			{ id: 'custom-gw', auth: 'signed-in', problem: 'Could not reach the configured endpoint' },
+			{ id: 'anthropic', auth: 'signed-in', problem: undefined },
+		]);
+	});
+
+	it('reports a problem with no status text as unspecified rather than dropping it', async () => {
+		stubServices({
+			registrations: [registration({ id: 'openai-api', catalogId: 'openai', signedIn: false, status: 'error' })],
+		});
+
+		expect((await getProviderStatus(ctx.instantiationService)).providers[0].problem).toBe('unspecified');
 	});
 
 	it('reports an offered, never-configured provider as not-signed-in', async () => {
@@ -237,7 +267,7 @@ describe('getProviderStatus', () => {
 		expect(serialized).not.toContain('work');
 	});
 
-	it('caps the pass-through auth failure text to its first line', async () => {
+	it('caps the pass-through problem text to its first line', async () => {
 		stubServices({
 			registrations: [registration({
 				id: 'bedrock-auth', catalogId: 'bedrock', signedIn: false, status: 'error',
@@ -245,7 +275,7 @@ describe('getProviderStatus', () => {
 			})],
 		});
 
-		const message = (await getProviderStatus(ctx.instantiationService)).providers[0].authMessage!;
+		const message = (await getProviderStatus(ctx.instantiationService)).providers[0].problem!;
 		expect(message.endsWith('...')).toBe(true);
 		expect(message.length).toBeLessThanOrEqual(200);
 		expect(message).not.toContain('SdkError');
@@ -281,7 +311,7 @@ describe('getProviderStatus', () => {
 		});
 	});
 
-	it('orders entries auth failures first, then signed-in, then enabled, then disabled, alphabetically within each band', async () => {
+	it('orders entries problem reports first, then signed-in, then enabled, then disabled, alphabetically within each band', async () => {
 		stubServices({
 			registrations: [
 				registration({ id: 'zeta', signedIn: true, status: 'ok' }),
