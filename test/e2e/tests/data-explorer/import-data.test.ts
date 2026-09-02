@@ -31,9 +31,9 @@ test.describe('Data Explorer - Import Data', {
 		await dataExplorer.editorActionBar.clickButton('Import Data');
 		await dataExplorer.importDataModal.expectToBeVisible();
 
-		// The generated code loads this file into a variable named after it.
-		await dataExplorer.importDataModal.expectCodeToContain('pd.read_csv');
-		await dataExplorer.importDataModal.expectCodeToContain('small_file');
+		// The generated code loads this file into a variable named after it, by a path relative
+		// to the workspace folder (the quote pins the path's start, ruling out an absolute path).
+		await dataExplorer.importDataModal.expectCodeToContain('pd.read_csv("data-files/small_file.csv")');
 
 		await dataExplorer.importDataModal.clickImport();
 
@@ -52,10 +52,10 @@ test.describe('Data Explorer - Import Data', {
 
 		await dataExplorer.importDataModal.selectPackage('R (readr)');
 
-		// The generated code loads this file into a variable named after it.
+		// The generated code loads this file into a variable named after it, by a path relative
+		// to the workspace folder (the quote pins the path's start, ruling out an absolute path).
 		await dataExplorer.importDataModal.expectCodeToContain('library(readr)');
-		await dataExplorer.importDataModal.expectCodeToContain('read_csv');
-		await dataExplorer.importDataModal.expectCodeToContain('small_file');
+		await dataExplorer.importDataModal.expectCodeToContain('read_csv("data-files/small_file.csv")');
 
 		await dataExplorer.importDataModal.clickImport();
 

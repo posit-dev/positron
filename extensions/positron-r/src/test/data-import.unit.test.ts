@@ -12,7 +12,7 @@ suite('generateReadrImportCode', () => {
 	test('generates a read_csv call with the comment directly above it', () => {
 		assert.strictEqual(
 			generateReadrImportCode({
-				filePath: '/Users/austin/data/flights.csv',
+				pathLiteral: '"data/flights.csv"',
 				variableName: 'flights',
 				hasHeaderRow: true,
 			}).code,
@@ -20,37 +20,38 @@ suite('generateReadrImportCode', () => {
 				'library(readr)',
 				'',
 				'# Load flights data',
-				'flights <- read_csv("/Users/austin/data/flights.csv")',
+				'flights <- read_csv("data/flights.csv")',
 				'',
 			].join('\n')
 		);
 	});
 
 	test('uses read_tsv for a tab-separated file', () => {
-		const code = generateReadrImportCode({ filePath: '/data/flights.tsv', variableName: 'flights' }).code;
-		assert.ok(code.includes('flights <- read_tsv("/data/flights.tsv")'));
+		const code = generateReadrImportCode({ pathLiteral: '"data/flights.tsv"', variableName: 'flights' }).code;
+		assert.ok(code.includes('flights <- read_tsv("data/flights.tsv")'));
 		assert.ok(!code.includes('read_csv'));
 	});
 
 	test('adds col_names = FALSE when the header row is off', () => {
-		const code = generateReadrImportCode({ filePath: '/data/flights.csv', variableName: 'flights', hasHeaderRow: false }).code;
-		assert.ok(code.includes('read_csv("/data/flights.csv", col_names = FALSE)'));
+		const code = generateReadrImportCode({ pathLiteral: '"data/flights.csv"', variableName: 'flights', hasHeaderRow: false }).code;
+		assert.ok(code.includes('read_csv("data/flights.csv", col_names = FALSE)'));
 	});
 
 	test('treats an absent hasHeaderRow as a header row', () => {
-		const code = generateReadrImportCode({ filePath: '/data/flights.csv', variableName: 'flights' }).code;
+		const code = generateReadrImportCode({ pathLiteral: '"data/flights.csv"', variableName: 'flights' }).code;
 		assert.ok(!code.includes('col_names'));
 	});
 
-	test('escapes Windows backslashes and quotes in the path', () => {
-		const code = generateReadrImportCode({ filePath: 'C:\\data\\a"b.csv', variableName: 'x' }).code;
-		assert.ok(code.includes('read_csv("C:\\\\data\\\\a\\"b.csv")'));
+	test('embeds the pre-formatted path literal verbatim, without re-escaping it', () => {
+		// The literal comes from positron.paths.formatPathForCode, already quoted and escaped.
+		const code = generateReadrImportCode({ pathLiteral: '"C:/data/a\\"b.csv"', variableName: 'x' }).code;
+		assert.ok(code.includes('read_csv("C:/data/a\\"b.csv")'));
 	});
 });
 
 suite('generateReadrImportCode view translation', () => {
 	const base = {
-		filePath: '/data/flights.csv',
+		pathLiteral: '"data/flights.csv"',
 		variableName: 'flights',
 		hasHeaderRow: true,
 	};
@@ -77,7 +78,7 @@ suite('generateReadrImportCode view translation', () => {
 				'library(dplyr)',
 				'',
 				'# Load flights data',
-				'flights <- read_csv("/data/flights.csv")',
+				'flights <- read_csv("data/flights.csv")',
 				'',
 				'# Filter and sort as shown in the Data Explorer',
 				'flights <- flights |>',

@@ -8,8 +8,12 @@ import * as positron from 'positron';
 
 /** A request to generate a readr load statement. */
 export interface ReadrImportRequest {
-	/** The absolute path of the file to load. */
-	filePath: string;
+	/**
+	 * The path of the file to load as a ready-to-embed string literal, already quoted and escaped
+	 * (the output of positron.paths.formatPathForCode): workspace-relative when the file is inside
+	 * the workspace, absolute otherwise.
+	 */
+	pathLiteral: string;
 
 	/** The target variable name. */
 	variableName: string;
@@ -28,10 +32,10 @@ export interface ReadrImportResult {
 }
 
 /**
- * Escapes a string so it can be embedded in a double-quoted, single-line R literal. Windows paths
- * are the reason this exists: an unescaped backslash before an 'n' or a 't' silently changes the
- * path. Control characters are escaped too, because a POSIX file name may legally contain a
- * newline, which would otherwise terminate the generated literal.
+ * Escapes a string so it can be embedded in a double-quoted, single-line R literal. Filter terms
+ * and column values are arbitrary text: an unescaped backslash before an 'n' or a 't' silently
+ * changes the value, and an unescaped control character would terminate or corrupt the generated
+ * literal.
  */
 export function escapeRString(value: string): string {
 	return value.replace(/[\\"\u0000-\u001f\u007f]/g, (character) => {
@@ -70,9 +74,13 @@ export const R_RESERVED_NAMES = [
 	'...',
 ];
 
-/** Whether a path names a tab-separated file, which readr has a dedicated reader for. */
-function isTabSeparated(filePath: string): boolean {
-	return filePath.toLowerCase().endsWith('.tsv');
+/**
+ * Whether a quoted path literal names a tab-separated file, which readr has a dedicated reader
+ * for. The literal's closing quote is part of the match, so the check cannot be fooled by a
+ * directory named `x.tsv` in the middle of the path.
+ */
+function isTabSeparated(pathLiteral: string): boolean {
+	return /\.tsv"$/i.test(pathLiteral);
 }
 
 /**
@@ -252,11 +260,11 @@ function translateView(
  * readable.
  */
 export function generateReadrImportCode(request: ReadrImportRequest): ReadrImportResult {
-	const args = [`"${escapeRString(request.filePath)}"`];
+	const args = [request.pathLiteral];
 	if (request.hasHeaderRow === false) {
 		args.push('col_names = FALSE');
 	}
-	const readFunction = isTabSeparated(request.filePath) ? 'read_tsv' : 'read_csv';
+	const readFunction = isTabSeparated(request.pathLiteral) ? 'read_tsv' : 'read_csv';
 
 	const unsupported: string[] = [];
 	const verbs = request.view ? translateView(request.view, request.hasHeaderRow, unsupported) : [];
@@ -293,9 +301,13 @@ export function registerRDataImporter(context: vscode.ExtensionContext): void {
 		displayName: 'R (readr)',
 		fileExtensions: ['csv', 'tsv'],
 		reservedNames: R_RESERVED_NAMES,
-		generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+		generateCode: async (request: positron.DataImportRequest): Promise<positron.DataImportResult> =>
 			generateReadrImportCode({
-				filePath: request.fileUri.fsPath,
+				// Workspace-relative when the file is inside the workspace, so the generated
+				// code survives version control and other machines; absolute otherwise.
+				pathLiteral: await positron.paths.formatPathForCode(request.fileUri.fsPath, {
+					relativeTo: 'workspace',
+				}),
 				variableName: request.variableName,
 				hasHeaderRow: request.options.hasHeaderRow,
 				view: request.view,

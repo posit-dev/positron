@@ -14,8 +14,12 @@ import type { DataImportRowFilter, DataImportSearchFilter, DataImportView } from
 
 /** A request to generate a pandas load statement. */
 export interface PandasImportRequest {
-    /** The absolute path of the file to load. */
-    filePath: string;
+    /**
+     * The path of the file to load as a ready-to-embed string literal, already quoted and escaped
+     * (the output of positron.paths.formatPathForCode): workspace-relative when the file is inside
+     * the workspace, absolute otherwise.
+     */
+    pathLiteral: string;
 
     /** The target dataframe variable name. */
     variableName: string;
@@ -34,10 +38,10 @@ export interface PandasImportResult {
 }
 
 /**
- * Escapes a string so it can be embedded in a double-quoted, single-line Python literal. Windows
- * paths are the reason this exists: an unescaped backslash before a 'n' or a 't' silently changes
- * the path. POSIX paths are the reason control characters are handled too: a file name may legally
- * contain a newline, which would otherwise terminate the generated literal.
+ * Escapes a string so it can be embedded in a double-quoted, single-line Python literal. Filter
+ * terms and column values are arbitrary text: an unescaped backslash before a 'n' or a 't'
+ * silently changes the value, and an unescaped control character would terminate or corrupt the
+ * generated literal.
  */
 export function escapePythonString(value: string): string {
     return value.replace(/[\\"\u0000-\u001f\u007f]/g, (character) => {
@@ -103,9 +107,13 @@ export const PYTHON_KEYWORDS = new Set([
     'yield',
 ]);
 
-/** Whether a path names a tab-separated file, which pandas needs told explicitly. */
-function isTabSeparated(filePath: string): boolean {
-    return filePath.toLowerCase().endsWith('.tsv');
+/**
+ * Whether a quoted path literal names a tab-separated file, which pandas needs told explicitly.
+ * The literal's closing quote is part of the match, so the check cannot be fooled by a directory
+ * named `x.tsv` in the middle of the path.
+ */
+function isTabSeparated(pathLiteral: string): boolean {
+    return /\.tsv"$/i.test(pathLiteral);
 }
 
 /** Display types whose stringified values are emitted as bare numeric literals. */
@@ -295,8 +303,8 @@ function translateView(
  * describes, and it names the variable so a script that accumulates several imports stays readable.
  */
 export function generatePandasImportCode(request: PandasImportRequest): PandasImportResult {
-    const args = [`"${escapePythonString(request.filePath)}"`];
-    if (isTabSeparated(request.filePath)) {
+    const args = [request.pathLiteral];
+    if (isTabSeparated(request.pathLiteral)) {
         args.push('sep="\\t"');
     }
     if (request.hasHeaderRow === false) {
