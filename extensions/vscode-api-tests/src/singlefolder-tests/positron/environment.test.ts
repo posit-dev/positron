@@ -69,14 +69,19 @@ suite('positron API - environment', () => {
 
 		// Without a filter, terminal-like consumers see it.
 		const all = await positron.environment.getEnvironmentContributions();
-		assert.ok(
-			all['vscode.vscode-api-tests'].some(a => a.name === 'shellOnly'),
-			'Shell-integration-only contribution should be returned without a filter'
-		);
 
 		// With the process-creation filter, spawned-process consumers do not.
 		const processOnly = await positron.environment.getEnvironmentContributions(
 			positron.EnvironmentContributionFilter.ProcessCreation);
+
+		// Remove the entry so it doesn't leak into other tests sharing the
+		// collection, then assert on the captured results.
+		collection.delete('shellOnly');
+
+		assert.ok(
+			all['vscode.vscode-api-tests'].some(a => a.name === 'shellOnly'),
+			'Shell-integration-only contribution should be returned without a filter'
+		);
 		assert.ok(
 			!processOnly['vscode.vscode-api-tests'].some(a => a.name === 'shellOnly'),
 			'Shell-integration-only contribution should be excluded by the process-creation filter'
