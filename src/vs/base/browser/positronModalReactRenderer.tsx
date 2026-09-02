@@ -175,18 +175,20 @@ export class PositronModalReactRenderer extends Disposable {
 		// Call the base class's constructor.
 		super();
 
-		// If the container is not provided, use the active container.
+		// If the container is not provided, resolve one.
 		if (_options.container === undefined) {
-			_options.container = PositronReactServices.services.workbenchLayoutService.activeContainer;
+			_options.container = PositronModalReactRenderer.resolveContainer();
 		}
 
-		// Get the active element.
+		// Get the active element. It is read from the window the modal opens in, so that focus
+		// returns there on dispose rather than to whichever window the active document resolves
+		// to, which can be a hidden IDE window while Canvas mode presents an auxiliary window.
 		let activeElement: Element | null = null;
 		if (_options.parent !== undefined) {
 			activeElement = DOM.getWindow(_options.parent).document.activeElement;
 		}
 		if (activeElement === null) {
-			activeElement = DOM.getActiveWindow().document.activeElement;
+			activeElement = DOM.getDocument(_options.container).activeElement;
 		}
 
 		// If the active element is an HTML element, set it as the last focused element.
@@ -417,6 +419,27 @@ export class PositronModalReactRenderer extends Disposable {
 	//#region Private Methods
 
 	/**
+	 * Resolves the container for a renderer that was given none. This is the active container,
+	 * unless its window is hidden and another workbench window is visible. Canvas mode hides the
+	 * IDE window, and the active document can still resolve to it (nothing has focus, or its focus
+	 * state is stale), which would open the modal where the user cannot see or dismiss it. Among
+	 * visible windows, one that has focus wins.
+	 * @returns The container to render into.
+	 */
+	private static resolveContainer(): HTMLElement {
+		const layoutService = PositronReactServices.services.workbenchLayoutService;
+		const activeContainer = layoutService.activeContainer;
+		if (DOM.getDocument(activeContainer).visibilityState !== 'hidden') {
+			return activeContainer;
+		}
+
+		const visibleWindows = Array.from(DOM.getWindows(), ({ window }) => window)
+			.filter(window => window.document.visibilityState !== 'hidden');
+		const targetWindow = visibleWindows.find(window => window.document.hasFocus()) ?? visibleWindows[0];
+		return targetWindow !== undefined ? layoutService.getContainer(targetWindow) : activeContainer;
+	}
+
+	/**
 	 * Binds event listeners.
 	 */
 	private static bindEventListeners() {
@@ -444,10 +467,11 @@ export class PositronModalReactRenderer extends Disposable {
 			const event = new StandardKeyboardEvent(e);
 
 			// Soft dispatch the keyboard event so we can determine whether it is bound to a
-			// command.
+			// command. The renderer's container is the target: it is in the window the listener
+			// is bound to, where the active container can be another window's.
 			const resolutionResult = PositronReactServices.services.keybindingService.softDispatch(
 				event,
-				PositronReactServices.services.workbenchLayoutService.activeContainer
+				renderer._options.container!
 			);
 
 			// If a keybinding to a command was found, stop it from being processed if it is not one
