@@ -312,8 +312,11 @@ test.describe('Workbench: Posit Pro Drivers', {
 
 		await test.step('Expand the tree down to tables', async () => {
 			await dataConnections.expandConnection(PERIODIC_DSN);
-			await dataConnections.expandNode('Schemas');
-			await dataConnections.expandNode('public');
+			// No 'Schemas' or 'public' row to expand: #15859 made the tree hide a connection's
+			// schema level when there is only one schema, and the `periodic` database has exactly
+			// one once the driver filters out pg_catalog, information_schema and pg_toast. So
+			// Tables sits directly under the connection. Same fix as #15873 made for the Redshift
+			// suite; this spec landed alongside that change and missed it.
 			await dataConnections.expandNode('Tables');
 		});
 
