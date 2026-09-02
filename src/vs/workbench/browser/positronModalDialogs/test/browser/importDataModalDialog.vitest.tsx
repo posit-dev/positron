@@ -325,6 +325,18 @@ describe('ImportDataModalDialog', () => {
 		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
 	});
 
+	it('narrows the dialog for the empty state', () => {
+		renderDialog([]);
+
+		expect(screen.getByRole('dialog')).toHaveStyle({ width: '450px' });
+	});
+
+	it('keeps the dialog wide when an importer can read the file', () => {
+		renderDialog([createImporter()]);
+
+		expect(screen.getByRole('dialog')).toHaveStyle({ width: '800px' });
+	});
+
 	it('warns about anything the importer could not translate', async () => {
 		renderDialog([createImporter({
 			generateCode: async () => ({ code: 'x = 1\n', unsupported: ['Filter on column "dep_delay"'] }),

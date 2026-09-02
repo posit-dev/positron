@@ -32,6 +32,10 @@ import { IDataImporter, IDataImportOptions, IDataImportResult, IDataImportView }
 // package sidebar plus code preview layout.
 const IMPORT_DATA_DIALOG_WIDTH = 800;
 
+// The width of the Import Data dialog in the empty state, which holds a single line of text instead
+// of the sidebar and code preview.
+const IMPORT_DATA_DIALOG_EMPTY_WIDTH = 450;
+
 /**
  * Options for showing the Import Data dialog.
  */
@@ -267,6 +271,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 	// state, a generation still in flight, and an importer that declined or threw.
 	const code = result?.code ?? '';
 	const canRun = code.length > 0;
+	const isEmpty = props.importers.length === 0;
 
 	// The importers are packages (the install unit in both R and Python) so "Package" is
 	// correct for every language.
@@ -276,7 +281,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 		<PositronDynamicModalDialog
 			content={
 				<div className='import-data'>
-					{props.importers.length === 0
+					{isEmpty
 						? <div className='empty-state'>
 							{localize(
 								'positron.importData.noImporters',
@@ -368,7 +373,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 			}
 			renderer={props.renderer}
 			title={localize('positron.importData.title', "Import {0}", fileName)}
-			width={IMPORT_DATA_DIALOG_WIDTH}
+			width={isEmpty ? IMPORT_DATA_DIALOG_EMPTY_WIDTH : IMPORT_DATA_DIALOG_WIDTH}
 			onCancel={cancelHandler}
 		/>
 	);
