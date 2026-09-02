@@ -317,7 +317,7 @@ export class WebClientServer {
 		// Append query string if it exists. The caller passes only the pathname, so the query
 		// string must be recovered from req.url; websocket apps like marimo require it
 		// (e.g. /ws?session_id=...).
-		const search = url.parse(req.url ?? '').search;
+		const search = new URL(req.url ?? '', 'http://localhost').search;
 		if (search) {
 			path = path.concat(search);
 		}
