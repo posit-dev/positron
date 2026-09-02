@@ -120,11 +120,19 @@ The stack runs on Ubuntu 24 by default. Pass `--os=` (or set `WB_OS` in `.env`)
 to run the same Workbench + Positron install on one of the other OSes the e2e
 lanes cover:
 
-| `--os=` | OS | e2e lane |
-| --- | --- | --- |
-| `ubuntu24` | Ubuntu 24.04 | `workbench` (default), `workbench-stable` |
-| `rocky9` | Rocky Linux 9 | `workbench-rocky` |
-| `opensuse15` | openSUSE Leap 15.6 | `workbench-suse` |
+| `--os=` | OS | e2e lane | PR tag |
+| --- | --- | --- | --- |
+| `ubuntu24` | Ubuntu 24.04 | `workbench` (default) | `@:workbench` |
+| `ubuntu24` | Ubuntu 24.04, last stable Workbench | `workbench-stable` | `@:workbench-stable` |
+| `rocky9` | Rocky Linux 9 | `workbench-rocky` | `@:workbench-rocky` |
+| `opensuse15` | openSUSE Leap 15.6 | `workbench-suse` | `@:workbench-suse` |
+
+`@:workbench-all` is shorthand for the three OS lanes at once (Ubuntu + Rocky +
+openSUSE) when a change warrants full platform coverage. It supersedes those
+three tags rather than adding to them, so a PR carrying both `@:workbench-all`
+and, say, `@:workbench-rocky` reports just `@:workbench-all`. It does **not**
+imply `@:workbench-stable`, which varies the Workbench version rather than the
+OS.
 
 ```bash
 npm run pwb -- --os=rocky9     --workbench=daily --positron=daily

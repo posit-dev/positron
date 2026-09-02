@@ -113,13 +113,26 @@ export enum PlatformTags {
 	WEB = '@:web',
 	WEB_ONLY = '@:web-only',
 	WIN = '@:win',
+	// The Workbench suite. This one IS applied to individual tests -- it is what
+	// the e2e-workbench project greps for -- and it doubles as the trigger for the
+	// Ubuntu 24 lane, which is the default OS. The tags below select a different
+	// lane for this same set of tests; none of them go on a test.
 	WORKBENCH = '@:workbench',
+	// Ubuntu 24 as well, but against the last STABLE Workbench release instead of
+	// the daily. A Workbench-version axis, not an OS one -- which is why
+	// @:workbench-all does not imply it. Lane trigger only.
 	WORKBENCH_STABLE = '@:workbench-stable',
 	// Lane trigger only: runs the same @:workbench test set on Rocky Linux 9.
 	// Never applied to an individual test.
 	WORKBENCH_ROCKY = '@:workbench-rocky',
 	// Same idea on openSUSE Leap 15.6. Also a lane trigger only.
 	WORKBENCH_SUSE = '@:workbench-suse',
+	// Shorthand for all three OS lanes at once (Ubuntu + Rocky + openSUSE), for a
+	// change that warrants full platform coverage. Supersedes @:workbench,
+	// @:workbench-rocky and @:workbench-suse rather than adding to them -- see
+	// collapse_workbench_all_tags in scripts/lib/pr-tags-lib.sh. Not
+	// @:workbench-stable, per the note above. Lane trigger only.
+	WORKBENCH_ALL = '@:workbench-all',
 	WORKBENCH_SNOWFLAKE = '@:workbench-snowflake',
 	WORKBENCH_DATABRICKS = '@:workbench-databricks',
 	WORKBENCH_AZURE = '@:workbench-azure',

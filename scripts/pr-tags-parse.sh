@@ -104,6 +104,21 @@ if echo "$PR_BODY" | grep -q "@:workbench-suse"; then
 	echo "Found workbench-suse tag in PR body. Setting to run workbench tests on openSUSE."
 	echo "workbench_suse_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+# One tag for full platform coverage. Sets the three OS lane flags directly
+# rather than being a fourth flag the workflows have to know about, so every
+# existing `if:` keeps working and there is one less place for the lane list to
+# go stale.
+#
+# Note the bare-@:workbench matcher above does NOT fire on "@:workbench-all"
+# (the boundary class excludes '-'), which is why the Ubuntu flag is set here
+# explicitly. Deliberately not workbench_stable: that lane is a different axis
+# (the last stable Workbench release, still Ubuntu), not an OS.
+if echo "$PR_BODY" | grep -q "@:workbench-all"; then
+	echo "Found workbench-all tag in PR body. Setting to run workbench tests on Ubuntu, Rocky Linux and openSUSE."
+	echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
+	echo "workbench_rocky_tag_found=true" >> "$GITHUB_OUTPUT"
+	echo "workbench_suse_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 if echo "$PR_BODY" | grep -q "@:jupyter"; then
 	echo "Found jupyter tag in PR body. Setting to run jupyter tests."
 	echo "jupyter_tag_found=true" >> "$GITHUB_OUTPUT"
@@ -139,6 +154,14 @@ else
 	# @:no-auto-tags is an opt-out signal (detected separately below), not a real
 	# tag -- strip it so it never pollutes the grep string or the log line.
 	TAGS=$(printf '%s' "$TAGS" | tr ',' '\n' | grep -v '^@:no-auto-tags$' | paste -sd, -)
+
+	# Drop the per-OS lane tags @:workbench-all already stands for, so the PR
+	# comment reports "@:workbench-all" once instead of it plus the three tags
+	# that mean the same thing. Runs before the AUTHOR_TAGS snapshot below, so the
+	# superseded tags are gone from the comment entirely rather than showing up
+	# attributed to the PR description. Lane selection is unaffected -- the flags
+	# above are already set.
+	TAGS="$(collapse_workbench_all_tags "$TAGS")"
 
 	# Validate author-typed tags against the real TestTags enum. A typo (e.g.
 	# @:consle) would otherwise silently become a dead --grep alternative that

@@ -347,6 +347,54 @@ assert_eq "union with empty b" "@:critical" "$(union_csv_tags "@:critical" "")"
 assert_eq "union collapses internal dup" "@:critical,@:ark,@:debug" \
 	"$(union_csv_tags "@:critical,@:ark,@:debug,@:ark" "")"
 
+# --- collapse_workbench_all_tags ---
+# @:workbench-all triggers the three OS lanes on its own (pr-tags-parse.sh sets
+# the flags), so listing them alongside it in the PR comment says the same thing
+# four times. These pin WHICH tags it absorbs -- the interesting part is what it
+# leaves alone.
+assert_eq "collapse absorbs the per-OS lane tags" "@:critical,@:workbench-all" \
+	"$(collapse_workbench_all_tags "@:critical,@:workbench,@:workbench-all,@:workbench-rocky,@:workbench-suse")"
+assert_eq "collapse keeps order and unrelated tags" "@:workbench-all,@:console" \
+	"$(collapse_workbench_all_tags "@:workbench-all,@:workbench-rocky,@:console")"
+# A different axis (Workbench version, still Ubuntu), so @:workbench-all does not
+# imply it and must not hide it -- doing so would silently drop a lane the author
+# asked for from the comment.
+assert_eq "collapse keeps @:workbench-stable" "@:workbench-all,@:workbench-stable" \
+	"$(collapse_workbench_all_tags "@:workbench-all,@:workbench,@:workbench-stable")"
+# Credential tags are real test tags consumed by the Ubuntu lane's shard matrix,
+# not lane selectors, so they are not @:workbench-all's to absorb either.
+assert_eq "collapse keeps the credential tags" "@:workbench-all,@:workbench-snowflake,@:workbench-azure" \
+	"$(collapse_workbench_all_tags "@:workbench-all,@:workbench-snowflake,@:workbench-azure")"
+# No-op unless @:workbench-all is actually present: the three OS tags on their
+# own each select exactly one lane and all belong in the comment.
+assert_eq "collapse is a no-op without @:workbench-all" "@:critical,@:workbench,@:workbench-rocky" \
+	"$(collapse_workbench_all_tags "@:critical,@:workbench,@:workbench-rocky")"
+# Substring safety: the check is on whole comma-delimited fields, so neither of
+# these contains the tag.
+assert_eq "collapse ignores a lookalike tag" "@:workbench,@:workbench-allowlist" \
+	"$(collapse_workbench_all_tags "@:workbench,@:workbench-allowlist")"
+assert_eq "collapse of an empty list is empty" "" "$(collapse_workbench_all_tags "")"
+# @:workbench-all alone must survive its own collapse.
+assert_eq "collapse leaves @:workbench-all itself" "@:workbench-all" \
+	"$(collapse_workbench_all_tags "@:workbench-all")"
+
+# @:workbench-all has to be a real enum tag, or pr-tags-parse.sh's validation
+# drops it as a typo and the comment never mentions it. It also has to sit
+# OUTSIDE FeatureTags: a lane selector in that block would become eligible for
+# auto test-change derivation, which is how you end up spending three OS lanes on
+# an unrelated PR.
+REAL_ENUM_WBALL="$HERE/../../test/e2e/infra/test-runner/test-tags.ts"
+if printf '%s\n' "$(valid_enum_tags "$REAL_ENUM_WBALL")" | grep -qxF "@:workbench-all"; then
+	echo "PASS: real TestTags includes @:workbench-all"
+else
+	echo "FAIL: real TestTags should include @:workbench-all"; fail=1
+fi
+if printf '%s\n' "$(feature_enum_tags "$REAL_ENUM_WBALL")" | grep -qxF "@:workbench-all"; then
+	echo "FAIL: @:workbench-all must not be in FeatureTags (it is a lane selector)"; fail=1
+else
+	echo "PASS: real FeatureTags excludes @:workbench-all"
+fi
+
 # --- valid_enum_tags / split_valid_invalid_tags ---
 ENUM="$(mktemp)"
 cat > "$ENUM" <<'TS'

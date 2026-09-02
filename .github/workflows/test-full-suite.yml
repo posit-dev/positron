@@ -406,6 +406,8 @@ jobs:
   # Same test set again, on an openSUSE Leap 15.6 container. `grep` is pinned to
   # "@:workbench" for the same reason as the Rocky lane above: @:workbench-suse
   # selects the lane, never individual tests, so no test carries it.
+  # @:workbench-all sets this lane's flag too (see scripts/pr-tags-parse.sh),
+  # which is why there is no separate condition for it here.
   e2e-workbench-suse:
     name: e2e
     needs: [build-workbench]
