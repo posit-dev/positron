@@ -5,12 +5,22 @@
 
 /// <reference types="vitest/globals" />
 
+import * as DOM from '../../browser/dom.js';
+import { CodeWindow, ensureCodeWindow, mainWindow } from '../../browser/window.js';
+import { PositronReactServices } from '../../browser/positronReactServices.js';
 import { PositronModalReactRenderer } from '../../browser/positronModalReactRenderer.js';
-import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
+import { createTestContainer } from '../../../test/vitest/positronTestContainer.js';
 
 describe('PositronModalReactRenderer', () => {
-	// Disposables.
-	const disposables = ensureNoLeakedDisposables();
+	// The test container, which tracks leaked disposables. Its React services back the renderers
+	// that resolve their own container and the keydown handling.
+	const ctx = createTestContainer().withReactServices().build();
+	const disposables = ctx.disposables;
+
+	beforeEach(() => {
+		// The renderer reads the services singleton; bridge it to the test container's.
+		PositronReactServices.services = ctx.reactServices;
+	});
 
 	/**
 	 * Creates a mock container element for testing.
@@ -503,6 +513,233 @@ describe('PositronModalReactRenderer', () => {
 			renderer.dispose();
 
 			expect(callbackCalled).toBe(false);
+		});
+	});
+
+	/**
+	 * Auxiliary window test suite. An auxiliary window is an iframe here: its document has its own
+	 * window, as a workbench auxiliary window does.
+	 */
+	describe('auxiliary windows', () => {
+		// Window ids for auxiliary windows; the main window is 1.
+		let nextWindowId = 1000;
+
+		/**
+		 * Opens an auxiliary window and registers it with the DOM utilities, as the auxiliary window
+		 * service does.
+		 * @returns The auxiliary window and a container inside it.
+		 */
+		function createAuxiliaryWindow(): { auxWindow: CodeWindow; container: HTMLElement } {
+			const iframe = document.createElement('iframe');
+			iframe.src = 'about:blank';
+			document.body.appendChild(iframe);
+			disposables.add({ dispose: () => iframe.remove() });
+
+			const auxWindow = iframe.contentWindow!;
+			ensureCodeWindow(auxWindow, nextWindowId++);
+			disposables.add(DOM.registerWindow(auxWindow));
+
+			const container = auxWindow.document.createElement('div');
+			auxWindow.document.body.appendChild(container);
+			return { auxWindow, container };
+		}
+
+		/**
+		 * Sets a document's visibility state.
+		 * @param doc The document.
+		 * @param visibilityState The visibility state to report.
+		 */
+		function setVisibilityState(doc: Document, visibilityState: DocumentVisibilityState): void {
+			Object.defineProperty(doc, 'visibilityState', { value: visibilityState, configurable: true });
+			disposables.add({ dispose: () => { delete (doc as { visibilityState?: unknown }).visibilityState; } });
+		}
+
+		/**
+		 * Sets whether a document reports having focus.
+		 * @param doc The document.
+		 * @param hasFocus Whether the document has focus.
+		 */
+		function setHasFocus(doc: Document, hasFocus: boolean): void {
+			Object.defineProperty(doc, 'hasFocus', { value: () => hasFocus, configurable: true });
+			disposables.add({ dispose: () => { delete (doc as { hasFocus?: unknown }).hasFocus; } });
+		}
+
+		/**
+		 * Dispatches a keydown and a mousedown to a window.
+		 * @param targetWindow The window.
+		 */
+		function dispatchInput(targetWindow: CodeWindow): void {
+			targetWindow.dispatchEvent(new targetWindow.KeyboardEvent('keydown', { key: 'Escape' }));
+			targetWindow.dispatchEvent(new targetWindow.MouseEvent('mousedown'));
+		}
+
+		describe('event listeners', () => {
+			it('binds keydown and mousedown to the container\'s window, not the main window', () => {
+				const { auxWindow, container } = createAuxiliaryWindow();
+				const renderer = disposables.add(new PositronModalReactRenderer({ container }));
+				const onKeyDown = vi.fn();
+				const onMouseDown = vi.fn();
+				disposables.add(renderer.onKeyDown(onKeyDown));
+				disposables.add(renderer.onMouseDown(onMouseDown));
+				renderer.render(createMockReactElement());
+
+				dispatchInput(mainWindow);
+				expect(onKeyDown).not.toHaveBeenCalled();
+				expect(onMouseDown).not.toHaveBeenCalled();
+
+				dispatchInput(auxWindow);
+				expect(onKeyDown).toHaveBeenCalledTimes(1);
+				expect(onMouseDown).toHaveBeenCalledTimes(1);
+
+				renderer.dispose();
+			});
+
+			it('removes the listeners it added from the container\'s window on dispose', () => {
+				const { auxWindow, container } = createAuxiliaryWindow();
+				const addEventListener = vi.spyOn(auxWindow, 'addEventListener');
+				const removeEventListener = vi.spyOn(auxWindow, 'removeEventListener');
+				const renderer = disposables.add(new PositronModalReactRenderer({ container }));
+				renderer.render(createMockReactElement());
+
+				const added = addEventListener.mock.calls.filter(([type]) => ['keydown', 'mousedown', 'resize'].includes(type));
+				expect(added.map(([type]) => type).sort()).toEqual(['keydown', 'mousedown', 'resize']);
+
+				renderer.dispose();
+
+				for (const [type, listener, options] of added) {
+					expect(removeEventListener).toHaveBeenCalledWith(type, listener, options);
+				}
+			});
+
+			it('follows the top renderer across windows', () => {
+				const { auxWindow, container: auxContainer } = createAuxiliaryWindow();
+				const mainRenderer = disposables.add(new PositronModalReactRenderer({ container: createMockContainer() }));
+				const auxRenderer = disposables.add(new PositronModalReactRenderer({ container: auxContainer }));
+				const onMainKeyDown = vi.fn();
+				const onAuxKeyDown = vi.fn();
+				disposables.add(mainRenderer.onKeyDown(onMainKeyDown));
+				disposables.add(auxRenderer.onKeyDown(onAuxKeyDown));
+
+				// With the auxiliary window's renderer on top, only its window is listened to.
+				mainRenderer.render(createMockReactElement());
+				auxRenderer.render(createMockReactElement());
+				dispatchInput(mainWindow);
+				dispatchInput(auxWindow);
+				expect(onMainKeyDown).not.toHaveBeenCalled();
+				expect(onAuxKeyDown).toHaveBeenCalledTimes(1);
+
+				// Once it is disposed, the main window's renderer is on top and its window is listened
+				// to; the auxiliary window no longer is.
+				auxRenderer.dispose();
+				dispatchInput(auxWindow);
+				dispatchInput(mainWindow);
+				expect(onAuxKeyDown).toHaveBeenCalledTimes(1);
+				expect(onMainKeyDown).toHaveBeenCalledTimes(1);
+
+				mainRenderer.dispose();
+			});
+		});
+
+		describe('default container', () => {
+			/**
+			 * Points the layout service at containers per window. The active container is the
+			 * main window's.
+			 * @param containers The container of each window.
+			 */
+			function stubContainers(containers: Map<Window, HTMLElement>): void {
+				const layoutService = PositronReactServices.services.workbenchLayoutService;
+
+				// The test layout service holds activeContainer as a mutable field; the interface
+				// it implements declares it readonly.
+				(layoutService as { activeContainer: HTMLElement }).activeContainer = containers.get(mainWindow)!;
+				vi.spyOn(layoutService, 'getContainer').mockImplementation(
+					(targetWindow: Window) => containers.get(targetWindow)!
+				);
+			}
+
+			it('uses the active container while its window is visible', () => {
+				const mainContainer = createMockContainer();
+				const { auxWindow, container: auxContainer } = createAuxiliaryWindow();
+				stubContainers(new Map([[mainWindow, mainContainer], [auxWindow, auxContainer]]));
+
+				const renderer = disposables.add(new PositronModalReactRenderer());
+				renderer.render(createMockReactElement());
+
+				expect(mainContainer.children.length).toBe(1);
+				expect(auxContainer.children.length).toBe(0);
+
+				renderer.dispose();
+			});
+
+			it('opens in a visible window when the active container\'s window is hidden', () => {
+				const mainContainer = createMockContainer();
+				const { auxWindow, container: auxContainer } = createAuxiliaryWindow();
+				stubContainers(new Map([[mainWindow, mainContainer], [auxWindow, auxContainer]]));
+				setVisibilityState(document, 'hidden');
+
+				const renderer = disposables.add(new PositronModalReactRenderer());
+				renderer.render(createMockReactElement());
+
+				expect(mainContainer.children.length).toBe(0);
+				expect(auxContainer.children.length).toBe(1);
+
+				renderer.dispose();
+			});
+
+			it('prefers the visible window that has focus', () => {
+				const mainContainer = createMockContainer();
+				const first = createAuxiliaryWindow();
+				const second = createAuxiliaryWindow();
+				stubContainers(new Map([
+					[mainWindow, mainContainer],
+					[first.auxWindow, first.container],
+					[second.auxWindow, second.container]
+				]));
+				setVisibilityState(document, 'hidden');
+				setHasFocus(first.auxWindow.document, false);
+				setHasFocus(second.auxWindow.document, true);
+
+				const renderer = disposables.add(new PositronModalReactRenderer());
+				renderer.render(createMockReactElement());
+
+				expect(first.container.children.length).toBe(0);
+				expect(second.container.children.length).toBe(1);
+
+				renderer.dispose();
+			});
+
+			it('keeps the active container when no window is visible', () => {
+				const mainContainer = createMockContainer();
+				const { auxWindow, container: auxContainer } = createAuxiliaryWindow();
+				stubContainers(new Map([[mainWindow, mainContainer], [auxWindow, auxContainer]]));
+				setVisibilityState(document, 'hidden');
+				setVisibilityState(auxWindow.document, 'hidden');
+
+				const renderer = disposables.add(new PositronModalReactRenderer());
+				renderer.render(createMockReactElement());
+
+				expect(mainContainer.children.length).toBe(1);
+				expect(auxContainer.children.length).toBe(0);
+
+				renderer.dispose();
+			});
+		});
+
+		describe('focus restore', () => {
+			it('returns focus to the element focused in the modal\'s window', () => {
+				const { auxWindow, container } = createAuxiliaryWindow();
+				const button = auxWindow.document.createElement('button');
+				auxWindow.document.body.appendChild(button);
+				button.focus();
+				expect(auxWindow.document.activeElement).toBe(button);
+
+				const renderer = disposables.add(new PositronModalReactRenderer({ container }));
+				renderer.render(createMockReactElement());
+				expect(auxWindow.document.activeElement).not.toBe(button);
+
+				renderer.dispose();
+				expect(auxWindow.document.activeElement).toBe(button);
+			});
 		});
 	});
 });
