@@ -56,4 +56,30 @@ suite('positron API - environment', () => {
 		assert.strictEqual(contributedActions[2].name, 'test3', 'Third action name should be "test3"');
 		assert.strictEqual(contributedActions[2].value, 'value3', 'Third action value should be "value3"');
 	});
+
+	test('process creation filter excludes shell-integration-only contributions', async () => {
+		const collection = extensionContext.environmentVariableCollection;
+
+		// A contribution applied only via shell integration, e.g. a bundled
+		// binary an extension puts on PATH (as the Air extension does).
+		collection.prepend('shellOnly', '/bundled/bin:', {
+			applyAtProcessCreation: false,
+			applyAtShellIntegration: true,
+		});
+
+		// Without a filter, terminal-like consumers see it.
+		const all = await positron.environment.getEnvironmentContributions();
+		assert.ok(
+			all['vscode.vscode-api-tests'].some(a => a.name === 'shellOnly'),
+			'Shell-integration-only contribution should be returned without a filter'
+		);
+
+		// With the process-creation filter, spawned-process consumers do not.
+		const processOnly = await positron.environment.getEnvironmentContributions(
+			positron.EnvironmentContributionFilter.ProcessCreation);
+		assert.ok(
+			!processOnly['vscode.vscode-api-tests'].some(a => a.name === 'shellOnly'),
+			'Shell-integration-only contribution should be excluded by the process-creation filter'
+		);
+	});
 });
