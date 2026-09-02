@@ -66,6 +66,33 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	'snowflake-cortex': 'Snowflake Cortex',
 };
 
+/**
+ * Older display names a provider's group header may still carry, matched in
+ * addition to the canonical name above.
+ *
+ * A rename lands in the assistant's provider registry well before it ships in a
+ * published release. Most suites run the bootstrapped release pinned in
+ * `product.json`, while `posit-assistant.test.ts` and `posit-assistant-mcp.test.ts`
+ * float their machine to the latest dev build, so which name a suite sees depends
+ * on which specs shared its runner. Both have to match until the rename ships.
+ *
+ * Drop an entry once `product.json` pins an assistant release that carries the
+ * new name.
+ */
+const PROVIDER_DISPLAY_NAME_ALIASES: Record<string, string[]> = {
+	// Renamed to "Posit AI Pass" in the assistant's provider registry after the
+	// bootstrapped 1.2.0 release; mirrored here in #15858.
+	'posit-ai': ['Posit AI'],
+};
+
+/**
+ * Builds a selector list matching `template` for every display name a provider
+ * may render, so a single locator covers the canonical name and its aliases.
+ */
+function providerNameSelector(providerNames: string[], template: (name: string) => string): string {
+	return providerNames.map(template).join(', ');
+}
+
 // Chat message elements
 const CHAT_MESSAGE_USER = '.chat-message-user';
 const CHAT_MESSAGE_ASSISTANT = '.chat-message-assistant';
@@ -425,12 +452,14 @@ export class PositAssistant {
 			throw new Error(`No model-picker display name mapped for provider "${provider}"`);
 		}
 
+		const providerNames = [providerName, ...(PROVIDER_DISPLAY_NAME_ALIASES[provider] ?? [])];
+
 		const overflow = this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON);
 		const menuMode = await overflow.isVisible().catch(() => false);
 		if (menuMode) {
-			await this.selectProviderModelMenuMode(overflow, providerName);
+			await this.selectProviderModelMenuMode(overflow, providerNames);
 		} else {
-			await this.selectProviderModelInlineMode(providerName);
+			await this.selectProviderModelInlineMode(providerNames);
 		}
 	}
 
@@ -445,13 +474,13 @@ export class PositAssistant {
 	 * timeout: an unbounded one inherits the default, and a single stalled click
 	 * eats the whole retry budget.
 	 */
-	private async selectProviderModelMenuMode(overflow: Locator, providerName: string): Promise<void> {
+	private async selectProviderModelMenuMode(overflow: Locator, providerNames: string[]): Promise<void> {
 		const modelSubmenu = this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))');
 		// Scope to the provider's group (label + its model items live in one
 		// container).
-		const group = this.frame.locator(
-			`${MODEL_MENU_GROUP}:has([data-slot="dropdown-menu-label"] span:text-is("${providerName}"))`,
-		);
+		const group = this.frame.locator(providerNameSelector(providerNames,
+			name => `${MODEL_MENU_GROUP}:has([data-slot="dropdown-menu-label"] span:text-is("${name}"))`,
+		));
 		const models = group.locator('[role="menuitem"]');
 
 		await expect(async () => {
@@ -521,16 +550,21 @@ export class PositAssistant {
 	 *    regular menu items used in menu mode), so the menu must be dismissed
 	 *    explicitly with Escape afterwards, or the overlay blocks the chat input.
 	 */
-	private async selectProviderModelInlineMode(providerName: string): Promise<void> {
+	private async selectProviderModelInlineMode(providerNames: string[]): Promise<void> {
 		const trigger = this.frame.locator(INLINE_MODEL_TRIGGER).last();
 		const radioGroup = this.frame.locator(MODEL_RADIO_GROUP);
-		const headerSelector = `div:has(> span:text-is("${providerName}"))`;
-		const header = radioGroup.locator(headerSelector);
+		// Each alias needs its own full selector: a trailing combinator binds to the
+		// last item of a selector list, so it cannot be appended to the list as a
+		// whole.
+		const headerSelector = (suffix = '') => providerNameSelector(providerNames,
+			name => `div:has(> span:text-is("${name}"))${suffix}`,
+		);
+		const header = radioGroup.locator(headerSelector());
 		// A model shown directly under the provider header (adjacent sibling).
-		const directTopModel = radioGroup.locator(`${headerSelector} + [role="menuitemradio"]`);
+		const directTopModel = radioGroup.locator(headerSelector(' + [role="menuitemradio"]'));
 		// The provider's "More models" disclosure, present as the header's adjacent
 		// sibling only when the provider has no model shown directly.
-		const moreModels = radioGroup.locator(`${headerSelector} + button:has-text("More models")`);
+		const moreModels = radioGroup.locator(headerSelector(' + button:has-text("More models")'));
 		// The provider's top model, whether shown directly or revealed by expanding
 		// "More models": the first radio item following this provider's header.
 		const topModel = header.locator('xpath=./following-sibling::*[@role="menuitemradio"][1]');

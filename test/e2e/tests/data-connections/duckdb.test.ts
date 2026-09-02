@@ -65,8 +65,8 @@ test.describe('Data Connections - DuckDB', {
 
 		await test.step('Expand the tree down to tables and views', async () => {
 			await dataConnections.expandConnection(connectionName);
-			await dataConnections.expandNode('Schemas');
-			await dataConnections.expandNode('main');
+			// The database has a single schema, which the tree hides by default, so Tables and Views
+			// sit directly under the connection and there is no 'Schemas' or 'main' row to expand.
 			await dataConnections.expandNode('Tables');
 			await dataConnections.expandNode('Views');
 		});

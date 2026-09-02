@@ -49,6 +49,89 @@ export interface IDataImportOptions {
 }
 
 /**
+ * A column sort from the Data Explorer view. The column is named rather than indexed, because the
+ * generated code operates on the loaded dataframe, where names are the only stable handle.
+ */
+export interface IDataImportSortKey {
+	/** The name of the column to sort by. */
+	readonly columnName: string;
+
+	/** Sort order: ascending (true) or descending (false). */
+	readonly ascending: boolean;
+}
+
+/** The fields every row filter carries, whatever its type. */
+export interface IDataImportRowFilterBase {
+	/** The name of the column the filter applies to. */
+	readonly columnName: string;
+
+	/** The column's canonical Positron display type, e.g. 'integer', 'string', 'boolean'. */
+	readonly columnType: string;
+
+	/** How this filter combines with the one before it. Ignored on the first filter. */
+	readonly condition: 'and' | 'or';
+}
+
+/** Keeps rows where the column's value falls inside (or, for not_between, outside) a range. */
+export interface IDataImportBetweenFilter extends IDataImportRowFilterBase {
+	readonly filterType: 'between' | 'not_between';
+	/** The lower limit, as a stringified column value. */
+	readonly leftValue: string;
+	/** The upper limit, as a stringified column value. */
+	readonly rightValue: string;
+}
+
+/** Keeps rows satisfying a binary comparison against one value. */
+export interface IDataImportCompareFilter extends IDataImportRowFilterBase {
+	readonly filterType: 'compare';
+	readonly op: '=' | '!=' | '<' | '<=' | '>' | '>=';
+	/** The comparison value, as a stringified column value. */
+	readonly value: string;
+}
+
+/** Keeps rows whose text matches a search term. */
+export interface IDataImportSearchFilter extends IDataImportRowFilterBase {
+	readonly filterType: 'search';
+	readonly searchType: 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'regex_match';
+	readonly term: string;
+	readonly caseSensitive: boolean;
+}
+
+/** Keeps rows whose value is in (or, when not inclusive, not in) a set. */
+export interface IDataImportSetMembershipFilter extends IDataImportRowFilterBase {
+	readonly filterType: 'set_membership';
+	/** The set members, as stringified column values. */
+	readonly values: string[];
+	readonly inclusive: boolean;
+}
+
+/** A row filter that needs no parameters beyond its type. */
+export interface IDataImportUnaryFilter extends IDataImportRowFilterBase {
+	readonly filterType: 'is_null' | 'not_null' | 'is_empty' | 'not_empty' | 'is_true' | 'is_false';
+}
+
+/**
+ * One row filter from the Data Explorer view, discriminated on filterType so a generator can
+ * switch over it exhaustively and route any type it cannot translate to `unsupported`.
+ */
+export type IDataImportRowFilter =
+	| IDataImportBetweenFilter
+	| IDataImportCompareFilter
+	| IDataImportSearchFilter
+	| IDataImportSetMembershipFilter
+	| IDataImportUnaryFilter;
+
+/**
+ * The Data Explorer view at the moment the dialog opened: what the user is looking at beyond the
+ * raw file. Row filters marked invalid by the backend are excluded, because they are not applied
+ * to the on-screen data either.
+ */
+export interface IDataImportView {
+	readonly rowFilters: IDataImportRowFilter[];
+	readonly sortKeys: IDataImportSortKey[];
+}
+
+/**
  * A request to generate the code that loads one file into one variable.
  */
 export interface IDataImportRequest {
@@ -64,6 +147,13 @@ export interface IDataImportRequest {
 
 	/** Format and parsing options. */
 	readonly options: IDataImportOptions;
+
+	/**
+	 * The Data Explorer view to reproduce, present only when the user asked to include the
+	 * current filters and sorts. A generator that cannot translate part of it reports that part
+	 * in `unsupported` rather than dropping it silently.
+	 */
+	readonly view?: IDataImportView;
 }
 
 /**
@@ -73,6 +163,13 @@ export interface IDataImportRequestDto {
 	readonly fileUri: UriComponents;
 	readonly variableName: string;
 	readonly options: IDataImportOptions;
+
+	/**
+	 * The Data Explorer view to reproduce, present only when the user asked to include the
+	 * current filters and sorts. A generator that cannot translate part of it reports that part
+	 * in `unsupported` rather than dropping it silently.
+	 */
+	readonly view?: IDataImportView;
 }
 
 /**

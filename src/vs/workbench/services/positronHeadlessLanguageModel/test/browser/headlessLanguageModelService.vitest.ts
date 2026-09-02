@@ -55,19 +55,25 @@ function fakeEngine(options: {
 	models?: Record<string, IModelDescriptor[]>;
 	mappings?: IProviderMapping[];
 	getProviderMappings?: () => Promise<IProviderMapping[]>;
+	listModels?: (providerId: string) => Promise<IModelDescriptor[]>;
 	stream?: (request: IEngineChatRequest) => AsyncIterable<string>;
 } = {}): IHeadlessLanguageModelEngine {
 	return {
 		getProviderMappings: options.getProviderMappings ?? (async () => options.mappings ?? TEST_MAPPINGS),
-		listModels: async (providerId: string) => options.models?.[providerId] ?? [],
+		listModels: options.listModels ?? (async (providerId: string) => options.models?.[providerId] ?? []),
 		streamChat: (request: IEngineChatRequest) =>
 			options.stream ? options.stream(request) : AsyncIterableObject.fromArray(['ok']),
 	};
 }
 
-/** A resolved-catalog provider entry with an optional connection (enabled by default). */
-function provider(id: string, connection: IResolvedProviderData['connection'] = {}, enabled = true): IResolvedProviderData {
-	return { id, enabled, connection };
+/** A resolved-catalog provider entry with optional connection/model policy (enabled by default). */
+function provider(
+	id: string,
+	connection: IResolvedProviderData['connection'] = {},
+	enabled = true,
+	models?: IResolvedProviderData['models'],
+): IResolvedProviderData {
+	return { id, enabled, connection, models };
 }
 
 /** A catalog change event carrying the given flags; the catalog field is unused by the facade. */
@@ -520,15 +526,33 @@ describe('HeadlessLanguageModelService', () => {
 			expect(getSessions.mock.calls.length).toBeGreaterThan(before);
 		});
 
-		it('a catalog change that touches neither enablement nor connections does not invalidate', async () => {
+		it('a catalog change that touches neither enablement, connections, nor model policy does not invalidate', async () => {
 			signedInAuthProviders.add('anthropic-api');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			await service.getAvailableModels();
 			const fired = vi.fn();
 			ctx.disposables.add(service.onDidChangeAvailableModels(fired));
 
-			catalogChangeEmitter.fire(catalogChange({ modelsChanged: true }));
+			catalogChangeEmitter.fire(catalogChange({}));
 			expect(fired).not.toHaveBeenCalled();
+		});
+
+		// The engine applies the policy (see applyModelPolicy); the service's job is
+		// to drop its cache so the next listing re-queries.
+		it('a catalog model policy change invalidates the cached model list', async () => {
+			signedInAuthProviders.add('anthropic-api');
+			const listModels = vi.fn().mockResolvedValue([model('claude-opus-5', 'Claude Opus 5', 'anthropic')]);
+			const service = createService(fakeEngine({ listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledTimes(1);
+			const fired = vi.fn();
+			ctx.disposables.add(service.onDidChangeAvailableModels(fired));
+
+			catalogSnapshot.set('anthropic', provider('anthropic', {}, true, { allow: ['claude-opus-5'] }));
+			catalogChangeEmitter.fire(catalogChange({ modelsChanged: true }));
+			expect(fired).toHaveBeenCalledTimes(1);
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledTimes(2);
 		});
 
 		it('registering a mapped auth provider invalidates the cache and recomputes', async () => {

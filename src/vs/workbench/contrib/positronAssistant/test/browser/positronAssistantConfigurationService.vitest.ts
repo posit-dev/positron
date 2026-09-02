@@ -227,6 +227,14 @@ describe('PositronAssistantConfigurationService', () => {
 			expect(service.isProviderEnabled('anthropic')).toBe(false);
 		});
 
+		it('getProviderRegistrations keeps disabled registrations that getRegisteredSources filters out', () => {
+			registerProvider('openAI', true, 'openai');
+			registerProvider('anthropic-api', false, 'anthropic');
+
+			expect(service.getRegisteredSources().map(s => s.provider.id)).toEqual(['openAI']);
+			expect(service.getProviderRegistrations().map(s => s.provider.id)).toEqual(['openAI', 'anthropic-api']);
+		});
+
 		it('onChangeEnabledProviders fires on a catalog enabledChanged event', () => {
 			const listener = vi.fn();
 			ctx.disposables.add(service.onChangeEnabledProviders(listener));

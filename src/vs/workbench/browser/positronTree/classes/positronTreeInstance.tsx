@@ -7,7 +7,7 @@
 import './positronTreeInstance.css';
 
 // React.
-import { JSX, ReactNode, MouseEvent as ReactMouseEvent } from 'react';
+import { CSSProperties, JSX, ReactNode, MouseEvent as ReactMouseEvent } from 'react';
 
 // Other dependencies.
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -17,6 +17,14 @@ import { positronClassNames } from '../../../../base/common/positronUtilities.js
 import { DataGridInstance, MouseSelectionType, RowSelectionState, SelectionCursorOptions, selectionCursorOptions } from '../../positronDataGrid/classes/dataGridInstance.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from './treeNode.js';
 import { buildVisibleNodes, findParentIndex } from './treeProjection.js';
+
+/**
+ * Inline-style shape for a row's indent spacer. Extends CSSProperties with the custom property that
+ * carries the indent width to the stylesheet, so TypeScript accepts the literal without a cast.
+ */
+interface PositronTreeIndentCSSProperties extends CSSProperties {
+	'--positron-tree-indent-width': string;
+}
 
 /**
  * PositronTreeRenderNode type. The consumer-provided function that renders the content area of
@@ -65,8 +73,8 @@ interface PositronTreeBaseOptions<T> {
 	// Row height in pixels.
 	readonly rowHeight: number;
 
-	// Per-level indent width in pixels. Defaults to 12.
-	readonly indentWidth?: number;
+	// Per-level indent width in pixels.
+	readonly indentWidth: number;
 
 	// Whether to apply default focused/selected styling on the row wrapper. Defaults to true.
 	readonly useDefaultStyling?: boolean;
@@ -79,9 +87,6 @@ interface PositronTreeBaseOptions<T> {
  * Enter/Space-to-select are redundant and disallowed.
  */
 export type PositronTreeInstanceOptions<T> = PositronTreeBaseOptions<T> & SelectionCursorOptions;
-
-// Per-level indent width in pixels, used when options.indentWidth is not supplied.
-const DEFAULT_INDENT_WIDTH = 12;
 
 /**
  * How long, in milliseconds, the rows a reload brought in stay marked as recently refreshed. Set
@@ -144,7 +149,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	private readonly _getReloadKey: PositronTreeGetReloadKey<T>;
 
 	// Per-level indent width in pixels and whether to apply default focus/selection styling.
-	private readonly _indentWidth: number;
+	private _indentWidth: number;
 	private readonly _useDefaultStyling: boolean;
 
 	// Structural tree state.
@@ -231,7 +236,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		this._getChildren = options.getChildren;
 		this._renderNode = options.renderNode;
 		this._getReloadKey = options.getReloadKey ?? (node => node.id);
-		this._indentWidth = options.indentWidth ?? DEFAULT_INDENT_WIDTH;
+		this._indentWidth = options.indentWidth;
 		this._useDefaultStyling = options.useDefaultStyling ?? true;
 
 		// Lock the column count to one.
@@ -245,6 +250,13 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	//#endregion Constructor
 
 	//#region Public Properties
+
+	/**
+	 * The per-level indent width, in pixels. A row at depth n is inset by n times this.
+	 */
+	get indentWidth(): number {
+		return this._indentWidth;
+	}
 
 	get initialLoadCompleted(): boolean {
 		return this._initialLoadCompleted;
@@ -577,6 +589,22 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	//#endregion Public Methods - Selection / Focus / Activation
 
 	//#region Public Methods - Renderer Update
+
+	/**
+	 * Sets the per-level indent width. Consumers that resolve their indent from a user setting call
+	 * this when it changes. Indent width is presentation only: every row keeps its height and its
+	 * place, so the projection is left alone and the rows are simply repainted at the new width.
+	 *
+	 * @param indentWidth The per-level indent width in pixels.
+	 */
+	setIndentWidth(indentWidth: number): void {
+		if (indentWidth === this._indentWidth) {
+			return;
+		}
+
+		this._indentWidth = indentWidth;
+		this.fireOnDidUpdateEvent();
+	}
 
 	setRenderNode(renderNode: PositronTreeRenderNode<T>): void {
 		this._renderNode = renderNode;
@@ -1004,6 +1032,14 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 			? (visible.refreshGeneration % 2 === 0 ? 'recently-refreshed-even' : 'recently-refreshed-odd')
 			: undefined;
 
+		// The spacer's width, plus the indent width the stylesheet tiles the indent guides at. The
+		// guides are drawn on a pseudo-element, which an inline background-size can't reach, so the
+		// width crosses over as a custom property.
+		const indentStyle: PositronTreeIndentCSSProperties = {
+			width: visible.indentLevel * this._indentWidth,
+			'--positron-tree-indent-width': `${this._indentWidth}px`,
+		};
+
 		return (
 			<div
 				className={positronClassNames(
@@ -1014,9 +1050,21 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 				)}
 			>
 				<div
-					className='positron-tree-indent'
-					style={{ width: visible.depth * this._indentWidth }}
-				/>
+					className={positronClassNames(
+						'positron-tree-indent',
+						{ 'flattened-parent-guide': visible.flattenedParentGuide }
+					)}
+					data-testid='positron-tree-indent'
+					style={indentStyle}
+				>
+					{/*
+					  * The connector joining a folded row to its parent's guide. A root row has no
+					  * parent guide to join, so it gets none.
+					  */}
+					{visible.node.foldsLevel === true && visible.indentLevel > 0 &&
+						<div className='positron-tree-fold-connector' />
+					}
+				</div>
 				<button
 					aria-label={twistyDisabled ? undefined : (visible.expandState === 'expanded' ? 'Collapse' : 'Expand')}
 					className={positronClassNames(

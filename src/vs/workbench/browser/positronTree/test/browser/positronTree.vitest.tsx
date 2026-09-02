@@ -19,8 +19,9 @@ import { PositronTree } from '../../positronTree.js';
 import { TreeNode } from '../../classes/treeNode.js';
 import { PositronTreeInstance } from '../../classes/positronTreeInstance.js';
 
-// Mirror the gallery harness's row height so virtualization math is concrete.
+// Mirror the gallery harness's row height and indent so virtualization math is concrete.
 const ROW_HEIGHT = 22;
+const INDENT_WIDTH = 16;
 
 // A layout size that produces a scrollable viewport: short enough that 10 rows overflow it.
 const VIEWPORT_WIDTH = 300;
@@ -122,6 +123,7 @@ describe('PositronTreeInstance', () => {
 	async function newTree(rootCount: number, childrenPerNode: number) {
 		const instance = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => Array.from({ length: rootCount }, (_, i) => branch(`r${i}`)),
 			getChildren: async node => Array.from(
 				{ length: childrenPerNode },
@@ -180,11 +182,84 @@ describe('PositronTreeInstance', () => {
 		expect(tree.rows).toBe(3);
 	});
 
+	it('a node that flattens its children holds them at its own indent without moving them in the structure', async () => {
+		// r0 > category > leaf, where the category flattens: its child renders at the category's own
+		// indent, the way a "Tables" row sits directly over its tables rather than a step out from
+		// them.
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => node.id === 'r0'
+				? [{ id: 'category', data: { label: 'category' }, hasChildren: true, flattensChildren: true }]
+				: [leaf('category.0')],
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+		await instance.expand('r0');
+		await instance.expand('category');
+
+		// Right-arrow steps into each node's first child, then left-arrow comes back out. Both walk
+		// by depth, so they still see the category as the leaf's parent even though the two rows
+		// render at the same indent -- the compaction is presentation, not structure.
+		instance.moveCursorRight();
+		instance.moveCursorRight();
+		const cursorAfterDescending = instance.focusedId;
+		instance.moveCursorLeft();
+
+		expect({
+			rows: instance.visibleNodes.map(visible => ({
+				id: visible.node.id,
+				depth: visible.depth,
+				indentLevel: visible.indentLevel,
+				// The flattened category's leaf child carries the guide standing in for the step the
+				// category gave up; nothing else needs one.
+				guide: visible.flattenedParentGuide,
+			})),
+			cursorAfterDescending,
+			cursorAfterAscending: instance.focusedId,
+		}).toEqual({
+			rows: [
+				{ id: 'r0', depth: 0, indentLevel: 0, guide: false },
+				{ id: 'category', depth: 1, indentLevel: 1, guide: false },
+				{ id: 'category.0', depth: 2, indentLevel: 1, guide: true },
+			],
+			cursorAfterDescending: 'category.0',
+			cursorAfterAscending: 'category',
+		});
+	});
+
+	it('a flattening node whose children are expandable gets no guide, since the line would cross their twisties', async () => {
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
+			getRoots: async () => [{ id: 'category', data: { label: 'category' }, hasChildren: true, flattensChildren: true }],
+			getChildren: async () => [branch('child')],
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+		await instance.expand('category');
+
+		// The child still gives up its indent step -- flattening is unconditional -- but a child with
+		// a twisty of its own has it at the same x the guide would occupy, so the guide is withheld.
+		expect(instance.visibleNodes.map(visible => ({
+			id: visible.node.id,
+			indentLevel: visible.indentLevel,
+			guide: visible.flattenedParentGuide,
+		}))).toEqual([
+			{ id: 'category', indentLevel: 0, guide: false },
+			{ id: 'child', indentLevel: 0, guide: false },
+		]);
+	});
+
 	it('reload re-fetches an expanded node and restores the expansion beneath it', async () => {
 		// Every branch yields one branch child, so the tree can be opened to any depth.
 		const getChildren = vi.fn(async (node: TreeNode<DemoNode>) => [branch(`${node.id}.0`)]);
 		const instance = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => [branch('r0')],
 			getChildren,
 			renderNode: visible => <span>{visible.node.data.label}</span>,
@@ -229,6 +304,7 @@ describe('PositronTreeInstance', () => {
 		let firstFetch = true;
 		const instance = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => [branch('r0')],
 			getChildren: async node => {
 				if (node.id !== 'r0') {
@@ -268,6 +344,7 @@ describe('PositronTreeInstance', () => {
 		let fetchSequence = 0;
 		const instance = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => [branch('r0')],
 			getChildren: async node => {
 				const id = `child@${fetchSequence++}`;
@@ -312,6 +389,7 @@ describe('PositronTreeInstance', () => {
 		let reloading = false;
 		const instance = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => [branch('r0')],
 			getChildren: async node => reloading ? pending.promise : [leaf(`${node.id}.0`), leaf(`${node.id}.1`)],
 			renderNode: visible => <span>{visible.node.data.label}</span>,
@@ -365,6 +443,7 @@ describe('PositronTreeInstance', () => {
 		let reloading = false;
 		const tree = new DropOnCollapseTree({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => [branch('r0')],
 			getChildren: async () => reloading ? pending.promise : [leaf('before')],
 			renderNode: visible => <span>{visible.node.data.label}</span>,
@@ -394,6 +473,7 @@ describe('PositronTreeInstance', () => {
 		let peakInFlight = 0;
 		const tree = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => [branch('r0')],
 			getChildren: async node => {
 				if (node.id === 'r0') {
@@ -431,6 +511,7 @@ describe('PositronTreeInstance', () => {
 		let reloading = false;
 		const tree = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => [branch('r0'), branch('r1')],
 			getChildren: async node => {
 				if (reloading && node.id === 'r0') {
@@ -478,6 +559,7 @@ describe('PositronTreeInstance', () => {
 		let shouldFail = false;
 		const instance = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => [branch('r0')],
 			getChildren: async node => {
 				if (shouldFail) {
@@ -556,6 +638,7 @@ describe('PositronTreeInstance', () => {
 		const getChildren = vi.fn(async (node: TreeNode<DemoNode>) => [leaf(`${node.id}.0`)]);
 		const tree = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots,
 			getChildren,
 			renderNode: visible => <span>{visible.node.data.label}</span>,
@@ -588,6 +671,7 @@ describe('PositronTreeInstance', () => {
 			let handle = 0;
 			const tree = new PositronTreeInstance<DemoNode>({
 				rowHeight: ROW_HEIGHT,
+				indentWidth: INDENT_WIDTH,
 				getRoots: async () => [{ id: 'root', data: { label: 'root' }, hasChildren: true }],
 				getChildren: async () => [{ id: `child@${handle++}`, data: { label: 'child' }, hasChildren: false }],
 				getReloadKey: node => node.data.label,
@@ -646,6 +730,7 @@ describe('PositronTreeInstance', () => {
 		});
 		const tree = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots,
 			getChildren,
 			renderNode: visible => <span>{visible.node.data.label}</span>,
@@ -729,6 +814,7 @@ describe('PositronTree keyboard navigation', () => {
 	async function renderFlatTree(leafCount: number, selectionFollowsCursor = false) {
 		const common = {
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots: async () => Array.from({ length: leafCount }, (_, i) => leaf(`n${i}`)),
 			getChildren: async () => [],
 			renderNode: (visible: { node: TreeNode<DemoNode> }) => <span>{visible.node.data.label}</span>,
@@ -849,6 +935,7 @@ describe('PositronTree rendering and loading states', () => {
 	): PositronTreeInstance<DemoNode> {
 		const instance = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
 			getRoots,
 			getChildren,
 			renderNode: visible => <span>{visible.node.data.label}</span>,
@@ -870,6 +957,31 @@ describe('PositronTree rendering and loading states', () => {
 		await instance.expand('r0');
 		expect(await screen.findByRole('button', { name: 'Collapse' })).toBeInTheDocument();
 		expect(await screen.findByText('r0.0')).toBeInTheDocument();
+	});
+
+	it('insets each row by its depth and repaints when the indent width changes', async () => {
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			indentWidth: 20,
+			getRoots: async () => [branch('r0')],
+			getChildren: async () => [leaf('r0.0')],
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+		await instance.expand('r0');
+		rtl.render(<PositronTree instance={instance} />);
+
+		// One spacer per row, in visible order: the root sits at depth 0 and its child at depth 1,
+		// so only the child is inset.
+		const indents = async () =>
+			(await screen.findAllByTestId('positron-tree-indent')).map(el => el.style.width);
+		expect(await indents()).toEqual(['0px', '20px']);
+
+		// Narrowing the indent repaints the existing rows in place -- nothing is re-fetched and the
+		// expansion is untouched, so the child is still on screen at its new inset.
+		instance.setIndentWidth(8);
+		await waitFor(async () => expect(await indents()).toEqual(['0px', '8px']));
 	});
 
 	it('marks the focused cursor row when the tree has focus', async () => {

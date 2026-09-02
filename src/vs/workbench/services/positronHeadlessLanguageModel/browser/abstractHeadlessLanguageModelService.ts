@@ -30,10 +30,10 @@ import { type CredentialConfig, type CredentialConfigTarget, shapeCredentials } 
 interface IResolvedState {
 	readonly models: readonly IModelDescriptor[];
 	/**
-	 * Every model each provider returned, before the cross-provider de-duplication
-	 * that produces {@link models}. Kept for diagnostics: a provider whose models
-	 * all lost the dedupe contributes nothing to `models`, which otherwise looks
-	 * identical to the provider having returned nothing at all.
+	 * Every policy-enabled model each provider returned, before the cross-provider
+	 * de-duplication that produces {@link models}. Kept for diagnostics: a
+	 * provider whose models all lost the dedupe contributes nothing to `models`,
+	 * which otherwise looks identical to the provider having returned nothing at all.
 	 */
 	readonly allModels: readonly IModelDescriptor[];
 	/** Providers actually queried this listing, whether or not they returned models. */
@@ -121,11 +121,9 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 
 		// Availability also depends on the resolved provider catalog the credential
 		// shaping reads (base URLs, custom headers, AWS region/profile, Snowflake
-		// host/account) and on each provider's enabled state. A change to either
-		// can flip a provider's availability or the listed models, so drop the
-		// cached state.
+		// host/account), on each provider's enabled state, and on model policy.
 		this._register(this._aiProviderService.onDidChangeProviders(e => {
-			if (e.enabledChanged || e.connectionChanged) {
+			if (e.enabledChanged || e.connectionChanged || e.modelsChanged) {
 				this._invalidate();
 			}
 		}));

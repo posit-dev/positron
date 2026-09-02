@@ -122,7 +122,8 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 		const result = await importer.generateCode({
 			fileUri: URI.revive(request.fileUri),
 			variableName: request.variableName,
-			options: request.options
+			options: request.options,
+			view: request.view
 		});
 		return result ?? undefined;
 	}

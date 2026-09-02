@@ -44,6 +44,37 @@ describe('AiProviderCatalog', () => {
 			.toEqual({ enabled: false, baseUrl: 'https://proxy.example/v1' });
 	});
 
+	it('reads model policy from the file and emits model-policy change events', async () => {
+		const configPath = join(dir, 'providers.json');
+		fs.writeFileSync(configPath, JSON.stringify({
+			version: 1,
+			providers: { anthropic: { models: { allow: ['claude-opus-5'] } } },
+		}));
+		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
+		const initialAnthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
+		expect(initialAnthropic.models).toEqual({ allow: ['claude-opus-5'] });
+
+		const changed = new Promise<void>(resolve => {
+			const d = catalog.onDidChangeCatalog(e => {
+				const anthropic = e.catalog.find(p => p.id === 'anthropic')!;
+				expect({
+					modelsChanged: e.modelsChanged,
+					models: anthropic.models,
+				}).toEqual({
+					modelsChanged: true,
+					models: { deny: ['claude-sonnet-5'] },
+				});
+				d.dispose();
+				resolve();
+			});
+		});
+		fs.writeFileSync(configPath, JSON.stringify({
+			version: 1,
+			providers: { anthropic: { models: { deny: ['claude-sonnet-5'] } } },
+		}));
+		await changed;
+	}, 10_000);
+
 	it('emits a change event when the file changes', async () => {
 		const configPath = join(dir, 'providers.json');
 		fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers: {} }));

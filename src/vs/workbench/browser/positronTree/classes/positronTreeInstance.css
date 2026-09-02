@@ -13,6 +13,26 @@
 	user-select: none;
 }
 
+/*
+ * The connector joining a folded row to its parent's guide: a short horizontal stub from the last
+ * guide across to the row, the elbow a tree connector would draw. It marks the rows that fold a
+ * level, and attaches them to what they belong to, without the full-height line that would run
+ * through the chevrons of everything beneath.
+ *
+ * It reaches from the parent's guide to the spacer's right edge, so it is only as long as the indent
+ * width leaves room for. Below an indent of 11px there is no room at all and the stub collapses to
+ * nothing, which is the right degradation: at that density the guides are already nearly touching.
+ */
+.positron-tree-fold-connector {
+	position: absolute;
+	top: 50%;
+	left: calc(100% - var(--positron-tree-indent-width) + 11px);
+	right: 0;
+	height: 1px;
+	background-color: var(--vscode-tree-indentGuidesStroke);
+	pointer-events: none;
+}
+
 .positron-tree-row.focused {
 	outline: 1px solid var(--vscode-list-focusOutline);
 	outline-offset: -1px;
@@ -73,8 +93,66 @@
 }
 
 .positron-tree-indent {
+	position: relative;
 	flex: 0 0 auto;
 	height: 100%;
+}
+
+/*
+ * The indent guides: one 1px rule per level the row sits under, painted as a repeating background so
+ * a deep row costs no extra DOM. The instance supplies the tile width, since only it knows the
+ * indent width.
+ *
+ * Drawn on a pseudo-element inset by 11px -- the twisty's 3px gutter plus half its 16px box -- so the
+ * first tile lands on the outermost ancestor's twisty center and the repeat runs rightwards only.
+ * Anchoring the background on the spacer itself with background-position instead would tile in both
+ * directions from that offset, which is correct only while the indent width exceeds the offset: at
+ * an indent of 8 the tiles wrap to 3, 11, 19 and every row grows a spurious rule near its left edge.
+ *
+ * The 11px overhang on the right keeps the last tile -- the one for the row's immediate parent --
+ * from being clipped at narrow indent widths.
+ *
+ * Guides matter more here than in an ordinary tree: a row that holds its children at its own indent
+ * (see TreeNode.flattensChildren) gives up the step that would otherwise show what belongs to what,
+ * and the guide is what carries it instead.
+ */
+.positron-tree-indent::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 11px;
+	right: -11px;
+	/*
+	 * The overhang reaches across the twisty beside it, and an absolutely positioned element paints
+	 * over in-flow siblings, so without this the guides would take half of every twisty's clicks.
+	 */
+	pointer-events: none;
+	background-image: linear-gradient(
+		to right,
+		var(--vscode-tree-indentGuidesStroke) 1px,
+		transparent 1px
+	);
+	background-size: var(--positron-tree-indent-width) 100%;
+	background-repeat: repeat-x;
+}
+
+/*
+ * The guide for a parent that gave up its indent step (see VisibleNode.flattenedParentGuide). It has
+ * no step of its own to be drawn in, so it is painted past the spacer's right edge, landing on that
+ * parent's twisty center -- 3px gutter plus half the 16px twisty -- which is where every other guide
+ * sits relative to what it marks.
+ */
+.positron-tree-indent.flattened-parent-guide::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: calc(100% + 11px);
+	width: 1px;
+	background-color: var(--vscode-tree-indentGuidesStroke);
+	/* Sits over the twisty column, same as the guides above. Decoration only. */
+	pointer-events: none;
 }
 
 .positron-tree-twisty {
@@ -87,7 +165,8 @@
 	background: transparent;
 	border: 0;
 	padding: 0;
-	margin: 0 0 0 4px;
+	/* Gutter matches the icon column's, so the twisty and the icon are two identical 19px columns. */
+	margin: 0 0 0 3px;
 	color: inherit;
 	font: inherit;
 }
