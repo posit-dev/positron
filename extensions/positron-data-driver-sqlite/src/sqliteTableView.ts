@@ -59,6 +59,15 @@ import {
 	TableSelectionKind,
 	TextSearchType,
 } from 'positron-data-explorer-protocol';
+import {
+	formatDecimal,
+	formatFloat,
+	formatInteger,
+	formatNumericStat,
+	isDecimalLiteral,
+	isIntegerLiteral,
+	truncate,
+} from 'positron-data-explorer-formatting';
 
 /** Sentinel codes for special cell values, matching the Data Explorer wire protocol. */
 const SENTINEL_NULL = 0;
@@ -394,6 +403,14 @@ export class SqliteTableView {
 		switch (displayType) {
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Decimal: {
+				// A DECIMAL column has NUMERIC affinity, which converts an inserted literal to REAL or
+				// INTEGER at write time, so the exact digits of a wide value never reach the file and
+				// this guard does not fire for them. It is still worth having: a value stored in a column
+				// SQLite could not convert arrives as text, and formatting that textually avoids a
+				// round-trip through a double.
+				if (displayType === ColumnDisplayType.Decimal && isDecimalLiteral(value)) {
+					return formatDecimal(value, opts);
+				}
 				const num = typeof value === 'number' ? value : Number(value);
 				if (Number.isNaN(num)) { return SENTINEL_NAN; }
 				if (num === Infinity) { return SENTINEL_INF; }
@@ -401,7 +418,11 @@ export class SqliteTableView {
 				return formatFloat(num, opts);
 			}
 			case ColumnDisplayType.Integer: {
-				const num = typeof value === 'bigint' ? value : Number(value);
+				// Both wide integer shapes reach the formatter without passing through a JS number, which
+				// would round anything beyond 2^53: a 64-bit integer arrives as a bigint, and a
+				// DECIMAL(n,0) as an exact digit string. Anything else -- a plain number, or a string that
+				// isn't a clean integer literal -- is coerced as before.
+				const num = typeof value === 'bigint' || isIntegerLiteral(value) ? value : Number(value);
 				return formatInteger(num, opts);
 			}
 			case ColumnDisplayType.Boolean:
@@ -731,7 +752,7 @@ export class SqliteTableView {
 					min_value: rows[0]?.lo === null || rows[0]?.lo === undefined ? undefined : String(rows[0].lo),
 					max_value: rows[0]?.hi === null || rows[0]?.hi === undefined ? undefined : String(rows[0].hi),
 					mean: n > 0 ? fmt(mean) : undefined,
-					median: median === undefined ? undefined : fmt(median),
+					median: formatNumericStat(median, formatOptions),
 					stdev: n > 1 ? fmt(Math.sqrt(variance)) : undefined,
 				},
 			};
@@ -796,8 +817,14 @@ export class SqliteTableView {
 	/**
 	 * Computes a quantile (0..1) by ordering the non-null values and reading the value at the
 	 * corresponding offset. `n` is the count of non-null values.
+	 *
+	 * Returns the raw cell value rather than a JS number, because its callers want different things
+	 * from it. The median is reported to the user, and a DECIMAL/NUMERIC median arrives as an exact
+	 * digit string that a double cannot hold, so `formatNumericStat` formats it textually. The
+	 * histogram's interquartile range is arithmetic on a bin width, which is approximate either way,
+	 * so those callers coerce.
 	 */
-	private async _quantile(quotedName: string, q: number, n: number): Promise<number | undefined> {
+	private async _quantile(quotedName: string, q: number, n: number): Promise<unknown> {
 		if (n === 0) {
 			return undefined;
 		}
@@ -806,7 +833,7 @@ export class SqliteTableView {
 			`SELECT ${quotedName} AS v FROM ${await this._relation()}${this._wherePlus(`${quotedName} IS NOT NULL`)} ` +
 			`ORDER BY ${quotedName} LIMIT 1 OFFSET ${offset}`);
 		const value = rows[0]?.v;
-		return value === null || value === undefined ? undefined : Number(value);
+		return value === null ? undefined : value;
 	}
 
 	private async _frequencyTable(quotedName: string, limit: number, filteredRows: number): Promise<ColumnFrequencyTable> {
@@ -856,9 +883,9 @@ export class SqliteTableView {
 				binWidth = peakToPeak / params.num_bins;
 				break;
 			case ColumnHistogramParamsMethod.FreedmanDiaconis: {
-				const q1 = await this._quantile(quotedName, 0.25, nonNull);
-				const q3 = await this._quantile(quotedName, 0.75, nonNull);
-				const iqr = (q3 ?? 0) - (q1 ?? 0);
+				const q1 = Number(await this._quantile(quotedName, 0.25, nonNull) ?? 0);
+				const q3 = Number(await this._quantile(quotedName, 0.75, nonNull) ?? 0);
+				const iqr = q3 - q1;
 				if (iqr > 0) {
 					binWidth = 2 * iqr * Math.pow(nonNull, -1 / 3);
 				}
@@ -906,42 +933,6 @@ export class SqliteTableView {
 /** Type guard distinguishing a contiguous index range from an explicit index set. */
 function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
 	return (spec as DataSelectionRange).first_index !== undefined;
-}
-
-/** Applies a thousands separator to the integer part of an already-formatted number string. */
-function applyThousandsSep(formatted: string, sep: string): string {
-	const negative = formatted.startsWith('-');
-	const body = negative ? formatted.slice(1) : formatted;
-	const [intPart, fracPart] = body.split('.');
-	const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-	const result = fracPart === undefined ? grouped : `${grouped}.${fracPart}`;
-	return negative ? `-${result}` : result;
-}
-
-/** Formats a floating-point value following the Data Explorer FormatOptions. */
-function formatFloat(value: number, opts: FormatOptions): string {
-	const sciLimit = Math.pow(10, opts.max_integral_digits);
-	let formatted: string;
-	const abs = Math.abs(value);
-	if (abs !== 0 && abs >= sciLimit) {
-		return value.toExponential(opts.large_num_digits);
-	} else if (abs !== 0 && abs < 1) {
-		formatted = value.toFixed(opts.small_num_digits);
-	} else {
-		formatted = value.toFixed(opts.large_num_digits);
-	}
-	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
-}
-
-/** Formats an integer value (number or bigint), optionally with a thousands separator. */
-function formatInteger(value: number | bigint, opts: FormatOptions): string {
-	const formatted = value.toString();
-	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
-}
-
-/** Truncates a string to the configured maximum formatted length. */
-function truncate(value: string, opts: FormatOptions): string {
-	return value.length > opts.max_value_length ? value.slice(0, opts.max_value_length) : value;
 }
 
 /** Stringifies a raw SQLite value for export, rendering null as 'NULL' and BLOBs compactly. */

@@ -69,6 +69,15 @@ import {
 	TableSelectionKind,
 	TextSearchType,
 } from 'positron-data-explorer-protocol';
+import {
+	formatDecimal,
+	formatFloat,
+	formatInteger,
+	formatNumericStat,
+	isDecimalLiteral,
+	isIntegerLiteral,
+	truncate,
+} from 'positron-data-explorer-formatting';
 
 /** The query surface the table view needs. Implemented by the connection over its sdk client. */
 export interface ISnowflakeQueryClient {
@@ -505,6 +514,14 @@ export class SnowflakeTableView {
 		switch (displayType) {
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Decimal: {
+				// `snowflake-sdk` yields a JS number for NUMBER columns, so a wide DECIMAL has already
+				// lost its precision by the time it reaches here and this guard does not fire. Recovering
+				// it means changing how the SDK's results are parsed, which is separable work (see
+				// #15366); the exact-string path is shared with the other drivers so it will simply start
+				// working once the values arrive intact.
+				if (displayType === ColumnDisplayType.Decimal && isDecimalLiteral(value)) {
+					return formatDecimal(value, opts);
+				}
 				const num = typeof value === 'number' ? value : Number(value);
 				if (Number.isNaN(num)) { return SENTINEL_NAN; }
 				if (num === Infinity) { return SENTINEL_INF; }
@@ -512,7 +529,11 @@ export class SnowflakeTableView {
 				return formatFloat(num, opts);
 			}
 			case ColumnDisplayType.Integer: {
-				const num = typeof value === 'bigint' ? value : Number(value);
+				// Both wide integer shapes reach the formatter without passing through a JS number, which
+				// would round anything beyond 2^53: a 64-bit integer arrives as a bigint, and a
+				// DECIMAL(n,0) as an exact digit string. Anything else -- a plain number, or a string that
+				// isn't a clean integer literal -- is coerced as before.
+				const num = typeof value === 'bigint' || isIntegerLiteral(value) ? value : Number(value);
 				return formatInteger(num, opts);
 			}
 			case ColumnDisplayType.Boolean:
@@ -1000,7 +1021,7 @@ export class SnowflakeTableView {
 					min_value: lo === null || lo === undefined ? undefined : String(lo),
 					max_value: hi === null || hi === undefined ? undefined : String(hi),
 					mean: n > 0 ? fmt(mean) : undefined,
-					median: medianRaw === null || medianRaw === undefined ? undefined : fmt(Number(medianRaw)),
+					median: formatNumericStat(medianRaw, formatOptions),
 					stdev: n > 1 ? fmt(Math.sqrt(variance)) : undefined,
 				},
 			};
@@ -1264,42 +1285,6 @@ export class SnowflakeTableView {
 /** Type guard distinguishing a contiguous index range from an explicit index set. */
 function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
 	return (spec as DataSelectionRange).first_index !== undefined;
-}
-
-/** Applies a thousands separator to the integer part of an already-formatted number string. */
-function applyThousandsSep(formatted: string, sep: string): string {
-	const negative = formatted.startsWith('-');
-	const body = negative ? formatted.slice(1) : formatted;
-	const [intPart, fracPart] = body.split('.');
-	const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-	const result = fracPart === undefined ? grouped : `${grouped}.${fracPart}`;
-	return negative ? `-${result}` : result;
-}
-
-/** Formats a floating-point value following the Data Explorer FormatOptions. */
-function formatFloat(value: number, opts: FormatOptions): string {
-	const sciLimit = Math.pow(10, opts.max_integral_digits);
-	let formatted: string;
-	const abs = Math.abs(value);
-	if (abs !== 0 && abs >= sciLimit) {
-		return value.toExponential(opts.large_num_digits);
-	} else if (abs !== 0 && abs < 1) {
-		formatted = value.toFixed(opts.small_num_digits);
-	} else {
-		formatted = value.toFixed(opts.large_num_digits);
-	}
-	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
-}
-
-/** Formats an integer value (number or bigint), optionally with a thousands separator. */
-function formatInteger(value: number | bigint, opts: FormatOptions): string {
-	const formatted = value.toString();
-	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
-}
-
-/** Truncates a string to the configured maximum formatted length. */
-function truncate(value: string, opts: FormatOptions): string {
-	return value.length > opts.max_value_length ? value.slice(0, opts.max_value_length) : value;
 }
 
 /**
