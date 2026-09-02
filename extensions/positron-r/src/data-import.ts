@@ -22,7 +22,7 @@ export interface ReadrImportRequest {
 }
 
 /** The generated code plus anything in the view it does not reproduce. */
-export interface ReadrImportResult {
+export interface RImportResult {
 	code: string;
 	unsupported: string[];
 }
@@ -245,36 +245,34 @@ function translateView(
 }
 
 /**
- * Generates the readr code that loads a file into a data frame.
- *
- * The comment sits directly above the call rather than above library(), so it labels the thing it
- * describes, and it names the variable so a script that accumulates several imports stays
- * readable.
+ * Assembles the generated R code: the library() line(s), the labelled load call, and the piped
+ * dplyr verbs reproducing the view, if any. Shared by every R generator, because only the load
+ * call differs between packages.
  */
-export function generateReadrImportCode(request: ReadrImportRequest): ReadrImportResult {
-	const args = [`"${escapeRString(request.filePath)}"`];
-	if (request.hasHeaderRow === false) {
-		args.push('col_names = FALSE');
-	}
-	const readFunction = isTabSeparated(request.filePath) ? 'read_tsv' : 'read_csv';
-
+function assembleRImportCode(
+	libraryName: string,
+	loadCall: string,
+	variableName: string,
+	view: positron.DataImportView | undefined,
+	hasHeaderRowForView: boolean | undefined,
+): RImportResult {
 	const unsupported: string[] = [];
-	const verbs = request.view ? translateView(request.view, request.hasHeaderRow, unsupported) : [];
+	const verbs = view ? translateView(view, hasHeaderRowForView, unsupported) : [];
 
-	const lines = ['library(readr)'];
+	const lines = [`library(${libraryName})`];
 	if (verbs.length > 0) {
 		lines.push('library(dplyr)');
 	}
 	lines.push(
 		'',
-		`# Load ${request.variableName} data`,
-		`${request.variableName} <- ${readFunction}(${args.join(', ')})`,
+		`# Load ${variableName} data`,
+		`${variableName} <- ${loadCall}`,
 	);
 	if (verbs.length > 0) {
 		lines.push(
 			'',
 			'# Filter and sort as shown in the Data Explorer',
-			`${request.variableName} <- ${request.variableName} |>`,
+			`${variableName} <- ${variableName} |>`,
 			...verbs.map((verb, index) => `  ${verb}${index < verbs.length - 1 ? ' |>' : ''}`),
 		);
 	}
@@ -284,21 +282,143 @@ export function generateReadrImportCode(request: ReadrImportRequest): ReadrImpor
 }
 
 /**
- * Registers the readr data importer, which generates the code that loads a delimited file into a
- * data frame. Generation is pure TypeScript; no R runtime is involved.
+ * Generates the readr code that loads a file into a data frame.
+ *
+ * The comment sits directly above the call rather than above library(), so it labels the thing it
+ * describes, and it names the variable so a script that accumulates several imports stays
+ * readable.
  */
+export function generateReadrImportCode(request: ReadrImportRequest): RImportResult {
+	const args = [`"${escapeRString(request.filePath)}"`];
+	if (request.hasHeaderRow === false) {
+		args.push('col_names = FALSE');
+	}
+	const readFunction = isTabSeparated(request.filePath) ? 'read_tsv' : 'read_csv';
+	return assembleRImportCode(
+		'readr',
+		`${readFunction}(${args.join(', ')})`,
+		request.variableName,
+		request.view,
+		request.hasHeaderRow,
+	);
+}
+
+/** A request to generate a readxl load statement. */
+export interface ReadxlImportRequest {
+	/** The absolute path of the workbook to load. */
+	filePath: string;
+
+	/** The target variable name. */
+	variableName: string;
+
+	/** Whether the first row holds column names. Treated as true when absent. */
+	hasHeaderRow?: boolean;
+
+	/** The worksheet to read. Omitted means the first sheet. */
+	sheetName?: string;
+
+	/** The Data Explorer view (filters and sorts) to reproduce after the load, if requested. */
+	view?: positron.DataImportView;
+}
+
+/** Generates the readxl code that loads an Excel workbook into a data frame. */
+export function generateReadxlImportCode(request: ReadxlImportRequest): RImportResult {
+	const args = [`"${escapeRString(request.filePath)}"`];
+	if (request.sheetName !== undefined) {
+		args.push(`sheet = "${escapeRString(request.sheetName)}"`);
+	}
+	if (request.hasHeaderRow === false) {
+		args.push('col_names = FALSE');
+	}
+	return assembleRImportCode(
+		'readxl',
+		`read_excel(${args.join(', ')})`,
+		request.variableName,
+		request.view,
+		request.hasHeaderRow,
+	);
+}
+
+/** A request to generate a nanoparquet load statement. */
+export interface NanoparquetImportRequest {
+	/** The absolute path of the file to load. */
+	filePath: string;
+
+	/** The target variable name. */
+	variableName: string;
+
+	/** The Data Explorer view (filters and sorts) to reproduce after the load, if requested. */
+	view?: positron.DataImportView;
+}
+
+/**
+ * Generates the nanoparquet code that loads a Parquet file into a data frame. Parquet has no
+ * header-row or sheet concept, so the request carries neither; the view translation always runs
+ * with named columns, because Parquet files always carry column names.
+ */
+export function generateNanoparquetImportCode(request: NanoparquetImportRequest): RImportResult {
+	return assembleRImportCode(
+		'nanoparquet',
+		`read_parquet("${escapeRString(request.filePath)}")`,
+		request.variableName,
+		request.view,
+		undefined,
+	);
+}
+
+/**
+ * Builds the readr, readxl, and nanoparquet data importers, which generate the code that loads
+ * a delimited file, Excel workbook, or Parquet file into a data frame. Generation is pure
+ * TypeScript; no R runtime is involved, so the importers can be built and exercised without
+ * registering them.
+ */
+export function createRDataImporters(): positron.DataImporter[] {
+	return [
+		{
+			languageId: 'r',
+			displayName: 'R (readr)',
+			fileExtensions: ['csv', 'tsv'],
+			reservedNames: R_RESERVED_NAMES,
+			generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+				generateReadrImportCode({
+					filePath: request.fileUri.fsPath,
+					variableName: request.variableName,
+					hasHeaderRow: request.options.hasHeaderRow,
+					view: request.view,
+				}),
+		},
+		{
+			languageId: 'r',
+			displayName: 'R (readxl)',
+			fileExtensions: ['xlsx'],
+			reservedNames: R_RESERVED_NAMES,
+			generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+				generateReadxlImportCode({
+					filePath: request.fileUri.fsPath,
+					variableName: request.variableName,
+					hasHeaderRow: request.options.hasHeaderRow,
+					sheetName: request.options.sheetName,
+					view: request.view,
+				}),
+		},
+		{
+			languageId: 'r',
+			displayName: 'R (nanoparquet)',
+			fileExtensions: ['parquet', 'parq'],
+			reservedNames: R_RESERVED_NAMES,
+			generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+				generateNanoparquetImportCode({
+					filePath: request.fileUri.fsPath,
+					variableName: request.variableName,
+					view: request.view,
+				}),
+		},
+	];
+}
+
+/** Registers the readr, readxl, and nanoparquet data importers with the Data Explorer. */
 export function registerRDataImporter(context: vscode.ExtensionContext): void {
-	context.subscriptions.push(positron.dataExplorer.registerDataImporter({
-		languageId: 'r',
-		displayName: 'R (readr)',
-		fileExtensions: ['csv', 'tsv'],
-		reservedNames: R_RESERVED_NAMES,
-		generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
-			generateReadrImportCode({
-				filePath: request.fileUri.fsPath,
-				variableName: request.variableName,
-				hasHeaderRow: request.options.hasHeaderRow,
-				view: request.view,
-			}),
-	}));
+	for (const importer of createRDataImporters()) {
+		context.subscriptions.push(positron.dataExplorer.registerDataImporter(importer));
+	}
 }
