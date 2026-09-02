@@ -18,6 +18,7 @@ import { DebugAppOptions, PositronRunApp, RunAppOptions, RunAppTerminalOptions }
 import { Commands } from '../../client/common/constants';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
+import { MockDocument } from '../mocks/mockDocument';
 
 suite('Web app commands', () => {
     const runtimePath = path.join('path', 'to', 'python');
@@ -25,11 +26,24 @@ suite('Web app commands', () => {
     const documentPath = path.join(workspacePath, 'file.py');
     const urlPrefix = 'http://new-url-prefix';
 
+    /** Create a mock text document with the given content. */
+    function createDocument(text: string): vscode.TextDocument {
+        return new MockDocument(text, documentPath, async () => true);
+    }
+
     const disposables: IDisposableRegistry = [];
     let runAppOptions: RunAppOptions | undefined;
     let debugAppOptions: DebugAppOptions | undefined;
-    const commands = new Map<string, () => Promise<void>>();
+    const commands = new Map<string, (uri?: vscode.Uri | string) => Promise<void>>();
     let isFastAPICliInstalled: boolean;
+
+    const originalOpenTextDocument = vscode.workspace.openTextDocument;
+
+    /** URIs passed to `vscode.workspace.openTextDocument`, in call order. */
+    let openedUris: vscode.Uri[];
+
+    /** What the stubbed `vscode.workspace.openTextDocument` resolves or rejects with. */
+    let openTextDocumentResult: () => Promise<vscode.TextDocument>;
 
     setup(() => {
         // Stub `vscode.extensions.getExtension('positron.positron-run-app')` to return an extension
@@ -75,6 +89,15 @@ suite('Web app commands', () => {
             return { dispose: () => undefined };
         };
 
+        // Stub `vscode.workspace.openTextDocument` so the URI tests can see the
+        // URI the command resolved without touching the filesystem.
+        openedUris = [];
+        openTextDocumentResult = () => Promise.reject(new Error('cannot open file'));
+        vscode.workspace.openTextDocument = ((uri: vscode.Uri) => {
+            openedUris.push(uri);
+            return openTextDocumentResult();
+        }) as unknown as typeof vscode.workspace.openTextDocument;
+
         // Stub `vscode.workspace.asRelativePath`.
         vscode.workspace.asRelativePath = (pathOrUri: string | vscode.Uri) => {
             const fsPath = typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.fsPath;
@@ -117,6 +140,9 @@ suite('Web app commands', () => {
     });
 
     teardown(() => {
+        // `vscode` is mocked once per process and shared with every other unit
+        // test suite, so put the real function back rather than leaking a stub.
+        vscode.workspace.openTextDocument = originalOpenTextDocument;
         commands.clear();
         disposables.forEach((d) => d.dispose());
         disposables.splice(0, disposables.length);
@@ -345,6 +371,82 @@ suite('Web app commands', () => {
             },
             { urlPrefix },
         );
+    });
+
+    test('URI argument - opens the given file and runs it', async () => {
+        // The command should open the passed URI rather than relying on the
+        // active editor, so the editor title button runs its own group's file
+        // rather than the active group's.
+        const fileUri = vscode.Uri.file(path.resolve(workspacePath, 'app.py'));
+        const document = createDocument('import flask');
+        openTextDocumentResult = () => Promise.resolve(document);
+
+        const callback = commands.get(Commands.Exec_Flask_In_Terminal);
+        assert.ok(callback, 'Command not registered');
+        await callback(fileUri);
+
+        assert.deepStrictEqual(openedUris, [fileUri]);
+        assert.ok(runAppOptions, 'runAppOptions not set');
+        // The document is passed to the Run App API, which runs it.
+        assert.strictEqual(runAppOptions.document, document);
+    });
+
+    test('URI argument - accepts the string form of a URI', async () => {
+        // A command argument that crosses a process boundary (a keybinding's
+        // `args`, an agent's tool call) is JSON, so the URI arrives as a
+        // string. The string is parsed, so a scheme without slashes
+        // (untitled:, vscode-notebook-cell:) survives too.
+        const fileUri = vscode.Uri.parse('untitled:Untitled-1');
+        const document = createDocument('import flask');
+        openTextDocumentResult = () => Promise.resolve(document);
+
+        const callback = commands.get(Commands.Exec_Flask_In_Terminal);
+        assert.ok(callback, 'Command not registered');
+        await callback(fileUri.toString());
+
+        assert.deepStrictEqual(
+            openedUris.map((uri) => uri.toString()),
+            [fileUri.toString()],
+        );
+        assert.ok(runAppOptions, 'runAppOptions not set');
+        assert.strictEqual(runAppOptions.document, document);
+    });
+
+    test('URI argument - the debug commands take it too', async () => {
+        const fileUri = vscode.Uri.file(path.resolve(workspacePath, 'app.py'));
+        const document = createDocument('import flask');
+        openTextDocumentResult = () => Promise.resolve(document);
+
+        const callback = commands.get(Commands.Debug_Flask_In_Terminal);
+        assert.ok(callback, 'Command not registered');
+        await callback(fileUri);
+
+        assert.deepStrictEqual(openedUris, [fileUri]);
+        assert.ok(debugAppOptions, 'debugAppOptions not set');
+        assert.strictEqual(debugAppOptions.document, document);
+    });
+
+    test('URI argument - an empty string is a bad argument, not an omitted one', async () => {
+        // Falling back to the active editor here would silently run whatever
+        // is focused instead of the file the caller meant.
+        const callback = commands.get(Commands.Exec_Flask_In_Terminal);
+        assert.ok(callback, 'Command not registered');
+        await assert.rejects(callback(''), /cannot open file/);
+
+        assert.strictEqual(openedUris.length, 1, 'the empty string should be opened as a URI');
+        assert.strictEqual(runAppOptions, undefined, 'runApplication should not be called');
+    });
+
+    test('No URI argument - leaves the document to the Run App API', async () => {
+        // The API falls back to the active editor's document, so the command
+        // passes no document rather than resolving one itself.
+        const callback = commands.get(Commands.Exec_Flask_In_Terminal);
+        assert.ok(callback, 'Command not registered');
+        await callback();
+
+        assert.deepStrictEqual(openedUris, []);
+        assert.ok(runAppOptions, 'runAppOptions not set');
+        assert.strictEqual(runAppOptions.document, undefined);
     });
 
     test('Debug Streamlit in terminal - with urlPrefix', async () => {
