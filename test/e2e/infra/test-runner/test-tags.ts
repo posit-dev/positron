@@ -118,6 +118,8 @@ export enum PlatformTags {
 	// Lane trigger only: runs the same @:workbench test set on Rocky Linux 9.
 	// Never applied to an individual test.
 	WORKBENCH_ROCKY = '@:workbench-rocky',
+	// Same idea on openSUSE Leap 15.6. Also a lane trigger only.
+	WORKBENCH_SUSE = '@:workbench-suse',
 	WORKBENCH_SNOWFLAKE = '@:workbench-snowflake',
 	WORKBENCH_DATABRICKS = '@:workbench-databricks',
 	WORKBENCH_AZURE = '@:workbench-azure',

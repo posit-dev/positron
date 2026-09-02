@@ -12,9 +12,9 @@ WB_SCRIPTS_DIR="${SCRIPT_DIR}"
 # container rather than duplicating the URL-resolution rules.
 WB_SCRIPTS=(install-workbench.sh ensure-connect-token.sh positronDownload.sh get-latest-wb-url.sh workbench-local-lib.sh configure-datasources.sh)
 
-# Host OS of the test container: ubuntu24 or rocky9. Set by --os= (or WB_OS in
-# .env) and threaded into the compose image, the installer, and the service
-# restart below. See wb_os_* in workbench-local-lib.sh.
+# Host OS of the test container: ubuntu24, rocky9 or opensuse15. Set by --os=
+# (or WB_OS in .env) and threaded into the compose image, the installer, and the
+# service restart below. See wb_os_* in workbench-local-lib.sh.
 WB_OS="${WB_OS:-ubuntu24}"
 
 wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
@@ -190,7 +190,11 @@ wb_ensure_workbench() {
 		sudo pkill -KILL -x rserver 2>/dev/null || true
 	' >/dev/null 2>&1 || true
 	local i
-	if [ "${WB_OS}" = "rocky9" ]; then
+	# Branch on the family, exactly as install-workbench.sh does. These two must
+	# agree: the installer's first start and this restart-after-container-stop
+	# path have to bring the launcher up the same way, or a stack that installed
+	# fine comes back broken after `npm run pwb -- stop && npm run pwb`.
+	if [ "$(wb_os_family "${WB_OS}")" != "debian" ]; then
 		# The rpm's rstudio-launcher init script is broken on EL9 (see
 		# install-workbench.sh), so start the binary directly and wait for its
 		# socket -- rserver shuts itself down if the socket is missing.
@@ -495,6 +499,25 @@ cmd_up() {
 	# the test container, which wipes the in-container install, so switching OS
 	# always costs a reinstall (reported below rather than left to look spurious).
 	WB_TEST_IMAGE="$(wb_os_image "${WB_OS}")"; export WB_TEST_IMAGE
+	# Force the container's platform when this machine's architecture has no
+	# Workbench package for the chosen OS -- openSUSE 15 is x86_64-only, so on
+	# Apple Silicon the only way to run it at all is an emulated amd64 container.
+	# Empty for every supported pair, which Compose drops so multi-arch
+	# resolution still applies.
+	#
+	# Re-detecting the arch from the forced platform is the point of doing this
+	# here rather than in the compose file: ARCH_SUFFIX drives the in-container
+	# Positron download and the Workbench URL resolution, and both must follow
+	# the container, not the host. Leaving it at arm64 would download an arm64
+	# Positron tarball into an amd64 container -- an install that "succeeds" and
+	# then serves nothing.
+	WB_TEST_PLATFORM="$(wb_os_platform "${WB_OS}" "${WB_ARCH}")"; export WB_TEST_PLATFORM
+	if [ -n "${WB_TEST_PLATFORM}" ]; then
+		echo "Note: no ${WB_ARCH} Workbench package exists for ${WB_OS}, so the test container"
+		echo "      runs emulated ${WB_TEST_PLATFORM}. Everything works; expect it to be slow."
+		wb_detect_arch "${WB_TEST_PLATFORM#linux/}"
+		export ARCH_SUFFIX="${WB_ARCH}"
+	fi
 	# Sources .env first (may set GITHUB_TOKEN), then fills auth gaps from gh and
 	# logs into ghcr.io -- must run before the image pull below.
 	wb_ensure_auth
@@ -717,10 +740,12 @@ USAGE
                              Already installed: (re)start the stack and show status.
                              Auto-stops after 60 min; resets each time you run it.
   npm run pwb -- --reinstall  Re-run the version pickers and reinstall (switch versions).
-  npm run pwb -- --os=<os>    Host OS for the test container: ubuntu24 (default) or
-                             rocky9. Switching recreates the container, so it always
-                             reinstalls. WB_OS in .env does the same. Once a stack
-                             exists, a bare 'npm run pwb' stays on its OS.
+  npm run pwb -- --os=<os>    Host OS for the test container: ubuntu24 (default),
+                             rocky9 or opensuse15. Switching recreates the container,
+                             so it always reinstalls. WB_OS in .env does the same. Once
+                             a stack exists, a bare 'npm run pwb' stays on its OS.
+                             opensuse15 is x86_64-only upstream, so on Apple Silicon it
+                             runs as an emulated amd64 container (slow, but correct).
   npm run pwb -- --credentials=<type>
                              Install with a managed data source: databricks, snowflake,
                              or azure (set the provider's vars in .env first).
@@ -735,7 +760,7 @@ USAGE
 VERSION PICKERS
   Positron:  Release / Daily channel, then choose a version.
   Workbench: Release / Daily (current build each), or a Custom URL to pin a
-             specific n-1/n-2 build (.deb on ubuntu24, .rpm on rocky9).
+             specific n-1/n-2 build (.deb on ubuntu24, .rpm on rocky9/opensuse15).
 
 NON-INTERACTIVE (no TTY: agents, CI, piped runs)
   Skip both pickers by naming the builds up front:

@@ -68,7 +68,7 @@ Two things behave differently than on macOS or Linux:
 | `npm run pwb -- status` | Containers, installed versions, and URLs. |
 | `npm run pwb -- logs [svc]` | Tail logs: `rserver` (default), `connect`, or a container name. |
 | `npm run pwb -- shell [svc]` | Open a shell in a container: `test` (default), `postgres`, or `connect`. |
-| `npm run pwb -- --os=<os>` | Host OS for the test container: `ubuntu24` (default) or `rocky9`. |
+| `npm run pwb -- --os=<os>` | Host OS for the test container: `ubuntu24` (default), `rocky9` or `opensuse15`. |
 | `npm run pwb -- stop` | Pause the stack (containers stopped, volumes kept). |
 | `npm run pwb -- down` | Tear the stack down (removes containers and volumes). |
 
@@ -116,20 +116,40 @@ test fails on a missing UI element rather than anything real.
 
 ## Choosing the OS
 
-The stack runs on Ubuntu 24 by default. Pass `--os=rocky9` (or set `WB_OS` in
-`.env`) to run the same Workbench + Positron install on Rocky Linux 9 instead --
-the OS used by the Rocky e2e lane:
+The stack runs on Ubuntu 24 by default. Pass `--os=` (or set `WB_OS` in `.env`)
+to run the same Workbench + Positron install on one of the other OSes the e2e
+lanes cover:
+
+| `--os=` | OS | e2e lane |
+| --- | --- | --- |
+| `ubuntu24` | Ubuntu 24.04 | `workbench` (default), `workbench-stable` |
+| `rocky9` | Rocky Linux 9 | `workbench-rocky` |
+| `opensuse15` | openSUSE Leap 15.6 | `workbench-suse` |
 
 ```bash
-npm run pwb -- --os=rocky9 --workbench=daily --positron=daily
+npm run pwb -- --os=rocky9     --workbench=daily --positron=daily
+npm run pwb -- --os=opensuse15 --workbench=daily --positron=daily
 ```
 
-The two OSes differ in more than the base image, and all of it is handled for
-you: Rocky installs an `.rpm` (from the feed's `rhel9` entries) with `dnf`
-instead of a `.deb` with `apt`. The Workbench rpm's postinst installs systemd
-units, and this container has no systemd, so the installer copies the SysV init
-scripts it ships into `/etc/init.d/` and starts the session launcher directly --
-the launcher script Posit ships is unusable on EL9.
+The OSes differ in more than the base image, and all of it is handled for you.
+Both rpm OSes install a `.rpm` instead of a `.deb` with `apt` -- Rocky from the
+feed's `rhel9` entries with `dnf`, openSUSE from its `opensuse15` entries with
+`zypper`. Each rpm's postinst installs systemd units, and these containers have
+no systemd, so the installer copies the SysV init scripts the package ships (from
+`extras/init.d/<family>/`) into `/etc/init.d/` and starts the session launcher
+directly -- the launcher script Posit ships is unusable on EL9.
+
+### openSUSE runs emulated on Apple Silicon
+
+Posit publishes the openSUSE 15 Workbench package for **x86_64 only** (both the
+daily and stable feeds), unlike `rhel9` and `noble`, which have arm64 builds. So
+on an Apple Silicon Mac `--os=opensuse15` forces the `test` container to
+`linux/amd64` and runs it under emulation. The run says so up front. It works,
+and it is what CI runs natively, but expect the install and the tests to be
+noticeably slower than the other two OSes. Asking for an arm64 openSUSE build
+fails fast with an explicit message rather than silently downloading the x86 rpm.
+
+### Switching OS reinstalls
 
 `--os` changes the compose `image:`, which makes Compose recreate the `test`
 container. That wipes the in-container install, so **switching OS always

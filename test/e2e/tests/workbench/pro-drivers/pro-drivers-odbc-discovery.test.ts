@@ -81,30 +81,64 @@ const ELEMENTS_COLUMNS = ['atomic_number', 'symbol', 'name'];
 const ELEMENTS_FIRST_ROW = ['1', 'H', 'Hydrogen'];
 
 /**
- * The two host families the Workbench lane runs on: Ubuntu 24 by default, Rocky 9 when the
- * `@:workbench-rocky` job selects it (both run the same `@:workbench` test set, so this suite has to
- * work on either).
+ * The three host OSes the Workbench lane runs on: Ubuntu 24 by default, Rocky 9 when the
+ * `@:workbench-rocky` job selects it, and openSUSE Leap 15.6 for `@:workbench-suse`. All three run
+ * the same `@:workbench` test set, so this suite has to work on any of them.
+ *
+ * Keyed by package manager rather than package format, because the two rpm hosts share a format and
+ * a setup script but not a manager: Rocky installs with `dnf`, openSUSE with `zypper`.
  */
-type PackageFormat = 'deb' | 'rpm';
+type PackageManager = 'apt' | 'dnf' | 'zypper';
+
+/**
+ * zypper has to run with the system bin directories ahead of `/opt/conda/bin`, which the openSUSE
+ * image puts first on PATH. zypper shells out to `repo2solv` by name, and conda ships its own
+ * libsolv whose `repo2solv` lacks rpm-md support, so conda's shadows the system one and every
+ * refresh fails with "rpmmd repo type is not supported" -- leaving zypper with no package names and
+ * an install that reports `rstudio-drivers` "not found in package names". Same fix and same reason
+ * as `wb_zypper` in docker/environments/wb-local/install-workbench.sh.
+ */
+const ZYPPER = `sudo env PATH=/usr/sbin:/usr/bin:/sbin:/bin zypper --non-interactive`;
 
 /** The commands that add the Posit Pro repository, install the package, and remove it again. */
-function packageCommands(format: PackageFormat): { addRepo: string; install: string; remove: string; repoFiles: string[] } {
-	return format === 'deb'
-		? {
-			addRepo: `curl -1sLf 'https://dl.posit.co/public/pro/setup.deb.sh' | sudo -E bash`,
-			install: 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y rstudio-drivers',
-			remove: 'sudo apt-get purge -y rstudio-drivers',
-			// The keyring is removed alongside the source list; leaving it would be harmless but
-			// makes "are the drivers gone?" ambiguous for the next run.
-			repoFiles: ['/etc/apt/sources.list.d/posit-pro.list', '/usr/share/keyrings/posit-pro-archive-keyring.gpg'],
-		}
-		: {
-			addRepo: `curl -1sLf 'https://dl.posit.co/public/pro/setup.rpm.sh' | sudo -E bash`,
-			install: 'sudo dnf install -y rstudio-drivers',
-			remove: 'sudo dnf remove -y rstudio-drivers',
-			repoFiles: ['/etc/yum.repos.d/posit-pro.repo'],
-		};
+function packageCommands(manager: PackageManager): { addRepo: string; install: string; remove: string; repoFiles: string[] } {
+	const rpmSetup = `curl -1sLf 'https://dl.posit.co/public/pro/setup.rpm.sh' | sudo -E bash`;
+	switch (manager) {
+		case 'apt':
+			return {
+				addRepo: `curl -1sLf 'https://dl.posit.co/public/pro/setup.deb.sh' | sudo -E bash`,
+				install: 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y rstudio-drivers',
+				remove: 'sudo apt-get purge -y rstudio-drivers',
+				// The keyring is removed alongside the source list; leaving it would be harmless but
+				// makes "are the drivers gone?" ambiguous for the next run.
+				repoFiles: ['/etc/apt/sources.list.d/posit-pro.list', '/usr/share/keyrings/posit-pro-archive-keyring.gpg'],
+			};
+		case 'dnf':
+			return {
+				addRepo: rpmSetup,
+				install: 'sudo dnf install -y rstudio-drivers',
+				remove: 'sudo dnf remove -y rstudio-drivers',
+				repoFiles: ['/etc/yum.repos.d/posit-pro.repo'],
+			};
+		case 'zypper':
+			return {
+				addRepo: rpmSetup,
+				// --no-gpg-checks because the Posit repo's key is imported by the setup script into
+				// rpm's keyring, not zypper's, so a fresh repo would otherwise stop for a prompt
+				// that --non-interactive answers with "no".
+				install: `${ZYPPER} --no-gpg-checks install rstudio-drivers`,
+				remove: `${ZYPPER} remove rstudio-drivers`,
+				repoFiles: ['/etc/zypp/repos.d/posit-pro.repo'],
+			};
+	}
 }
+
+/**
+ * Shell snippet that prints the host's package manager. Ordered apt -> dnf -> zypper: openSUSE has
+ * neither of the first two, so it falls through, and checking for `zypper` by name would be the one
+ * probe that conda's PATH could not confuse anyway.
+ */
+const DETECT_MANAGER = `if command -v apt-get > /dev/null; then echo apt; elif command -v dnf > /dev/null; then echo dnf; else echo zypper; fi`;
 
 /**
  * The DSN definitions the pane should discover. Written as a file and copied in rather than
@@ -141,19 +175,21 @@ test.describe('Workbench: Posit Pro Drivers', {
 		test.setTimeout(300_000);
 
 		const probe = await runDockerCommand(
-			`docker exec ${CONTAINER} bash -lc 'if command -v apt-get > /dev/null; then echo deb; else echo rpm; fi; uname -m'`,
-			'Detect the host package format and architecture'
+			`docker exec ${CONTAINER} bash -lc '${DETECT_MANAGER}; uname -m'`,
+			'Detect the host package manager and architecture'
 		);
-		const [format, arch] = probe.stdout.trim().split('\n').map(line => line.trim());
+		const [manager, arch] = probe.stdout.trim().split('\n').map(line => line.trim());
 
 		// Posit publishes `rstudio-drivers` for el9 x86_64 but not el9 aarch64 (the aarch64 repo
 		// carries only posit-chronicle). CI's Rocky lane is x86_64 so it runs there; this only bites
 		// a local `npm run pwb -- --os=rocky9` on Apple Silicon, where it would otherwise fail with a
-		// bare "Unable to find a match" from dnf.
-		test.skip(format === 'rpm' && arch === 'aarch64',
-			'Posit Pro Drivers are not published for el9 aarch64');
+		// bare "Unable to find a match" from dnf. The sles build is x86_64-only too, but the openSUSE
+		// container is always amd64 (Workbench has no arm64 openSUSE package at all), so it cannot
+		// reach this.
+		test.skip(manager !== 'apt' && arch === 'aarch64',
+			'Posit Pro Drivers are not published for this OS on aarch64');
 
-		const pkg = packageCommands(format as PackageFormat);
+		const pkg = packageCommands(manager as PackageManager);
 
 		await test.step('Install the Pro Drivers', async () => {
 			await runDockerCommand(
@@ -231,25 +267,26 @@ test.describe('Workbench: Posit Pro Drivers', {
 		test.setTimeout(120_000);
 
 		const probe = await runDockerCommand(
-			`docker exec ${CONTAINER} bash -lc 'if command -v apt-get > /dev/null; then echo deb; else echo rpm; fi'`,
-			'Detect the host package format'
+			`docker exec ${CONTAINER} bash -lc '${DETECT_MANAGER}'`,
+			'Detect the host package manager'
 		);
-		const pkg = packageCommands(probe.stdout.trim() as PackageFormat);
+		const pkg = packageCommands(probe.stdout.trim() as PackageManager);
 
 		// Tolerant of a partial install: this has to undo whatever beforeAll got through before
 		// failing (or before skipping), so removing an absent package must not abort the rest.
 		//
-		// Only `rstudio-drivers` is removed, not the dependencies it pulled in. On Rocky, unixODBC
-		// ships in the base image and removing it would damage the container for every later suite;
-		// on Ubuntu it arrives as a dependency, and leaving the driver-manager binaries behind is
-		// harmless once the configuration below is restored. `apt-get autoremove` is deliberately
-		// not used -- it would also collect anything else in the image that happens to be orphaned.
+		// Only `rstudio-drivers` is removed, not the dependencies it pulled in. On the rpm hosts
+		// unixODBC ships in the base image and removing it would damage the container for every
+		// later suite; on Ubuntu it arrives as a dependency, and leaving the driver-manager binaries
+		// behind is harmless once the configuration below is restored. `apt-get autoremove` is
+		// deliberately not used -- it would also collect anything else in the image that happens to
+		// be orphaned.
 		await runDockerCommand(
 			`docker exec ${CONTAINER} bash -lc '` + [
 				`${pkg.remove} || true`,
 				`sudo rm -f ${pkg.repoFiles.join(' ')}`,
 				// Restore rather than truncate: the original is empty on Ubuntu but carries the
-				// distro's driver templates on Rocky.
+				// distro's driver templates on the rpm hosts.
 				`for f in ${ODBCINST_PATH} ${ODBCINI_PATH}; do`,
 				`  if [ -f "$f${BACKUP_SUFFIX}" ]; then sudo mv "$f${BACKUP_SUFFIX}" "$f"; fi`,
 				`done`,

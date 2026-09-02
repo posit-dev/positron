@@ -100,6 +100,10 @@ if echo "$PR_BODY" | grep -q "@:workbench-rocky"; then
 	echo "Found workbench-rocky tag in PR body. Setting to run workbench tests on Rocky Linux."
 	echo "workbench_rocky_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+if echo "$PR_BODY" | grep -q "@:workbench-suse"; then
+	echo "Found workbench-suse tag in PR body. Setting to run workbench tests on openSUSE."
+	echo "workbench_suse_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 if echo "$PR_BODY" | grep -q "@:jupyter"; then
 	echo "Found jupyter tag in PR body. Setting to run jupyter tests."
 	echo "jupyter_tag_found=true" >> "$GITHUB_OUTPUT"
