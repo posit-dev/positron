@@ -8,8 +8,12 @@ import * as positron from 'positron';
 
 /** A request to generate a readr load statement. */
 export interface ReadrImportRequest {
-	/** The absolute path of the file to load. */
-	filePath: string;
+	/**
+	 * The path of the file to load as a ready-to-embed string literal, already quoted and escaped
+	 * (the output of positron.paths.formatPathForCode): workspace-relative when the file is inside
+	 * the workspace, absolute otherwise.
+	 */
+	pathLiteral: string;
 
 	/** The target variable name. */
 	variableName: string;
@@ -28,10 +32,10 @@ export interface RImportResult {
 }
 
 /**
- * Escapes a string so it can be embedded in a double-quoted, single-line R literal. Windows paths
- * are the reason this exists: an unescaped backslash before an 'n' or a 't' silently changes the
- * path. Control characters are escaped too, because a POSIX file name may legally contain a
- * newline, which would otherwise terminate the generated literal.
+ * Escapes a string so it can be embedded in a double-quoted, single-line R literal. Filter terms
+ * and column values are arbitrary text: an unescaped backslash before an 'n' or a 't' silently
+ * changes the value, and an unescaped control character would terminate or corrupt the generated
+ * literal.
  */
 export function escapeRString(value: string): string {
 	return value.replace(/[\\"\u0000-\u001f\u007f]/g, (character) => {
@@ -70,9 +74,13 @@ export const R_RESERVED_NAMES = [
 	'...',
 ];
 
-/** Whether a path names a tab-separated file, which readr has a dedicated reader for. */
-function isTabSeparated(filePath: string): boolean {
-	return filePath.toLowerCase().endsWith('.tsv');
+/**
+ * Whether a quoted path literal names a tab-separated file, which readr has a dedicated reader
+ * for. The literal's closing quote is part of the match, so the check cannot be fooled by a
+ * directory named `x.tsv` in the middle of the path.
+ */
+function isTabSeparated(pathLiteral: string): boolean {
+	return /\.tsv"$/i.test(pathLiteral);
 }
 
 /**
@@ -289,11 +297,11 @@ function assembleRImportCode(
  * readable.
  */
 export function generateReadrImportCode(request: ReadrImportRequest): RImportResult {
-	const args = [`"${escapeRString(request.filePath)}"`];
+	const args = [request.pathLiteral];
 	if (request.hasHeaderRow === false) {
 		args.push('col_names = FALSE');
 	}
-	const readFunction = isTabSeparated(request.filePath) ? 'read_tsv' : 'read_csv';
+	const readFunction = isTabSeparated(request.pathLiteral) ? 'read_tsv' : 'read_csv';
 	return assembleRImportCode(
 		'readr',
 		`${readFunction}(${args.join(', ')})`,
@@ -305,8 +313,12 @@ export function generateReadrImportCode(request: ReadrImportRequest): RImportRes
 
 /** A request to generate a readxl load statement. */
 export interface ReadxlImportRequest {
-	/** The absolute path of the workbook to load. */
-	filePath: string;
+	/**
+	 * The path of the workbook to load as a ready-to-embed string literal, already quoted and
+	 * escaped (the output of positron.paths.formatPathForCode): workspace-relative when the file
+	 * is inside the workspace, absolute otherwise.
+	 */
+	pathLiteral: string;
 
 	/** The target variable name. */
 	variableName: string;
@@ -323,7 +335,7 @@ export interface ReadxlImportRequest {
 
 /** Generates the readxl code that loads an Excel workbook into a data frame. */
 export function generateReadxlImportCode(request: ReadxlImportRequest): RImportResult {
-	const args = [`"${escapeRString(request.filePath)}"`];
+	const args = [request.pathLiteral];
 	if (request.sheetName !== undefined) {
 		args.push(`sheet = "${escapeRString(request.sheetName)}"`);
 	}
@@ -341,8 +353,12 @@ export function generateReadxlImportCode(request: ReadxlImportRequest): RImportR
 
 /** A request to generate a nanoparquet load statement. */
 export interface NanoparquetImportRequest {
-	/** The absolute path of the file to load. */
-	filePath: string;
+	/**
+	 * The path of the file to load as a ready-to-embed string literal, already quoted and escaped
+	 * (the output of positron.paths.formatPathForCode): workspace-relative when the file is inside
+	 * the workspace, absolute otherwise.
+	 */
+	pathLiteral: string;
 
 	/** The target variable name. */
 	variableName: string;
@@ -359,7 +375,7 @@ export interface NanoparquetImportRequest {
 export function generateNanoparquetImportCode(request: NanoparquetImportRequest): RImportResult {
 	return assembleRImportCode(
 		'nanoparquet',
-		`read_parquet("${escapeRString(request.filePath)}")`,
+		`read_parquet(${request.pathLiteral})`,
 		request.variableName,
 		request.view,
 		undefined,
@@ -379,9 +395,9 @@ export function createRDataImporters(): positron.DataImporter[] {
 			displayName: 'R (readr)',
 			fileExtensions: ['csv', 'tsv'],
 			reservedNames: R_RESERVED_NAMES,
-			generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+			generateCode: async (request: positron.DataImportRequest): Promise<positron.DataImportResult> =>
 				generateReadrImportCode({
-					filePath: request.fileUri.fsPath,
+					pathLiteral: await pathLiteralFor(request),
 					variableName: request.variableName,
 					hasHeaderRow: request.options.hasHeaderRow,
 					view: request.view,
@@ -392,9 +408,9 @@ export function createRDataImporters(): positron.DataImporter[] {
 			displayName: 'R (readxl)',
 			fileExtensions: ['xlsx'],
 			reservedNames: R_RESERVED_NAMES,
-			generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+			generateCode: async (request: positron.DataImportRequest): Promise<positron.DataImportResult> =>
 				generateReadxlImportCode({
-					filePath: request.fileUri.fsPath,
+					pathLiteral: await pathLiteralFor(request),
 					variableName: request.variableName,
 					hasHeaderRow: request.options.hasHeaderRow,
 					sheetName: request.options.sheetName,
@@ -406,14 +422,23 @@ export function createRDataImporters(): positron.DataImporter[] {
 			displayName: 'R (nanoparquet)',
 			fileExtensions: ['parquet', 'parq'],
 			reservedNames: R_RESERVED_NAMES,
-			generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+			generateCode: async (request: positron.DataImportRequest): Promise<positron.DataImportResult> =>
 				generateNanoparquetImportCode({
-					filePath: request.fileUri.fsPath,
+					pathLiteral: await pathLiteralFor(request),
 					variableName: request.variableName,
 					view: request.view,
 				}),
 		},
 	];
+}
+
+/**
+ * Renders the requested file as an R string literal: workspace-relative when the file is inside
+ * the workspace, so the generated code survives version control and other machines; absolute
+ * otherwise.
+ */
+function pathLiteralFor(request: positron.DataImportRequest): Thenable<string> {
+	return positron.paths.formatPathForCode(request.fileUri.fsPath, { relativeTo: 'workspace' });
 }
 
 /** Registers the readr, readxl, and nanoparquet data importers with the Data Explorer. */

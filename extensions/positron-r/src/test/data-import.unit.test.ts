@@ -21,7 +21,7 @@ suite('generateReadrImportCode', () => {
 	test('generates a read_csv call with the comment directly above it', () => {
 		assert.strictEqual(
 			generateReadrImportCode({
-				filePath: '/Users/austin/data/flights.csv',
+				pathLiteral: '"data/flights.csv"',
 				variableName: 'flights',
 				hasHeaderRow: true,
 			}).code,
@@ -29,37 +29,38 @@ suite('generateReadrImportCode', () => {
 				'library(readr)',
 				'',
 				'# Load flights data',
-				'flights <- read_csv("/Users/austin/data/flights.csv")',
+				'flights <- read_csv("data/flights.csv")',
 				'',
 			].join('\n')
 		);
 	});
 
 	test('uses read_tsv for a tab-separated file', () => {
-		const code = generateReadrImportCode({ filePath: '/data/flights.tsv', variableName: 'flights' }).code;
-		assert.ok(code.includes('flights <- read_tsv("/data/flights.tsv")'));
+		const code = generateReadrImportCode({ pathLiteral: '"data/flights.tsv"', variableName: 'flights' }).code;
+		assert.ok(code.includes('flights <- read_tsv("data/flights.tsv")'));
 		assert.ok(!code.includes('read_csv'));
 	});
 
 	test('adds col_names = FALSE when the header row is off', () => {
-		const code = generateReadrImportCode({ filePath: '/data/flights.csv', variableName: 'flights', hasHeaderRow: false }).code;
-		assert.ok(code.includes('read_csv("/data/flights.csv", col_names = FALSE)'));
+		const code = generateReadrImportCode({ pathLiteral: '"data/flights.csv"', variableName: 'flights', hasHeaderRow: false }).code;
+		assert.ok(code.includes('read_csv("data/flights.csv", col_names = FALSE)'));
 	});
 
 	test('treats an absent hasHeaderRow as a header row', () => {
-		const code = generateReadrImportCode({ filePath: '/data/flights.csv', variableName: 'flights' }).code;
+		const code = generateReadrImportCode({ pathLiteral: '"data/flights.csv"', variableName: 'flights' }).code;
 		assert.ok(!code.includes('col_names'));
 	});
 
-	test('escapes Windows backslashes and quotes in the path', () => {
-		const code = generateReadrImportCode({ filePath: 'C:\\data\\a"b.csv', variableName: 'x' }).code;
-		assert.ok(code.includes('read_csv("C:\\\\data\\\\a\\"b.csv")'));
+	test('embeds the pre-formatted path literal verbatim, without re-escaping it', () => {
+		// The literal comes from positron.paths.formatPathForCode, already quoted and escaped.
+		const code = generateReadrImportCode({ pathLiteral: '"C:/data/a\\"b.csv"', variableName: 'x' }).code;
+		assert.ok(code.includes('read_csv("C:/data/a\\"b.csv")'));
 	});
 });
 
 suite('generateReadrImportCode view translation', () => {
 	const base = {
-		filePath: '/data/flights.csv',
+		pathLiteral: '"data/flights.csv"',
 		variableName: 'flights',
 		hasHeaderRow: true,
 	};
@@ -86,7 +87,7 @@ suite('generateReadrImportCode view translation', () => {
 				'library(dplyr)',
 				'',
 				'# Load flights data',
-				'flights <- read_csv("/data/flights.csv")',
+				'flights <- read_csv("data/flights.csv")',
 				'',
 				'# Filter and sort as shown in the Data Explorer',
 				'flights <- flights |>',
@@ -254,7 +255,7 @@ suite('generateReadxlImportCode', () => {
 	test('generates a read_excel call with the comment directly above it', () => {
 		assert.strictEqual(
 			generateReadxlImportCode({
-				filePath: '/data/flights.xlsx',
+				pathLiteral: '"/data/flights.xlsx"',
 				variableName: 'flights',
 				hasHeaderRow: true,
 			}).code,
@@ -270,7 +271,7 @@ suite('generateReadxlImportCode', () => {
 
 	test('emits the sheet argument when a sheet is selected', () => {
 		const code = generateReadxlImportCode({
-			filePath: '/data/flights.xlsx',
+			pathLiteral: '"/data/flights.xlsx"',
 			variableName: 'flights',
 			sheetName: 'Sheet 2',
 		}).code;
@@ -279,7 +280,7 @@ suite('generateReadxlImportCode', () => {
 
 	test('escapes the sheet name like any other string literal', () => {
 		const code = generateReadxlImportCode({
-			filePath: '/data/flights.xlsx',
+			pathLiteral: '"/data/flights.xlsx"',
 			variableName: 'flights',
 			sheetName: 'say "hi"',
 		}).code;
@@ -288,7 +289,7 @@ suite('generateReadxlImportCode', () => {
 
 	test('adds col_names = FALSE when the header row is off', () => {
 		const code = generateReadxlImportCode({
-			filePath: '/data/flights.xlsx',
+			pathLiteral: '"/data/flights.xlsx"',
 			variableName: 'flights',
 			hasHeaderRow: false,
 			sheetName: 'Sheet 2',
@@ -298,7 +299,7 @@ suite('generateReadxlImportCode', () => {
 
 	test('translates the view into dplyr verbs after the load', () => {
 		const result = generateReadxlImportCode({
-			filePath: '/data/flights.xlsx',
+			pathLiteral: '"/data/flights.xlsx"',
 			variableName: 'flights',
 			view: {
 				rowFilters: [],
@@ -312,7 +313,7 @@ suite('generateReadxlImportCode', () => {
 
 	test('header row off reports filters and sorts as unsupported', () => {
 		const result = generateReadxlImportCode({
-			filePath: '/data/flights.xlsx',
+			pathLiteral: '"/data/flights.xlsx"',
 			variableName: 'flights',
 			hasHeaderRow: false,
 			view: {
@@ -329,7 +330,7 @@ suite('generateNanoparquetImportCode', () => {
 	test('generates a read_parquet call with the comment directly above it', () => {
 		assert.strictEqual(
 			generateNanoparquetImportCode({
-				filePath: '/data/flights.parquet',
+				pathLiteral: '"/data/flights.parquet"',
 				variableName: 'flights',
 			}).code,
 			[
@@ -345,7 +346,7 @@ suite('generateNanoparquetImportCode', () => {
 	test('translates the view even though the options bag may say no header row', () => {
 		// Parquet always has column names, so the headerless-columns guard never applies.
 		const result = generateNanoparquetImportCode({
-			filePath: '/data/flights.parquet',
+			pathLiteral: '"/data/flights.parquet"',
 			variableName: 'flights',
 			view: {
 				rowFilters: [],
@@ -356,19 +357,20 @@ suite('generateNanoparquetImportCode', () => {
 		assert.deepStrictEqual(result.unsupported, []);
 	});
 
-	test('escapes the path like any other string literal', () => {
-		const code = generateNanoparquetImportCode({ filePath: 'C:\\data\\a"b.parquet', variableName: 'x' }).code;
-		assert.ok(code.includes('read_parquet("C:\\\\data\\\\a\\"b.parquet")'));
+	test('embeds the pre-formatted path literal verbatim, without re-escaping it', () => {
+		// The literal comes from positron.paths.formatPathForCode, already quoted and escaped.
+		const code = generateNanoparquetImportCode({ pathLiteral: '"C:/data/a\\"b.parquet"', variableName: 'x' }).code;
+		assert.ok(code.includes('read_parquet("C:/data/a\\"b.parquet")'));
 	});
 });
 
 suite('createRDataImporters', () => {
 	/** Runs the importer registered for a file's extension over that file. */
-	function generate(
+	async function generate(
 		fileName: string,
 		options: positron.DataImportOptions = {},
 		view?: positron.DataImportView,
-	): positron.DataImportResult {
+	): Promise<positron.DataImportResult> {
 		const extension = fileName.split('.').pop()!;
 		const importer = createRDataImporters().find(candidate => candidate.fileExtensions.includes(extension));
 		assert.ok(importer, `no importer registered for .${extension}`);
@@ -378,7 +380,7 @@ suite('createRDataImporters', () => {
 			options,
 			view,
 		};
-		return importer.generateCode(request) as positron.DataImportResult;
+		return importer.generateCode(request);
 	}
 
 	test('registers one r importer per package, covering the offered extensions', () => {
@@ -402,21 +404,21 @@ suite('createRDataImporters', () => {
 		['parq', 'read_parquet('],
 	];
 	for (const [extension, readCall] of readCalls) {
-		test(`reads a .${extension} file with ${readCall})`, () => {
-			assert.ok(generate(`flights.${extension}`).code.includes(readCall));
+		test(`reads a .${extension} file with ${readCall})`, async () => {
+			assert.ok((await generate(`flights.${extension}`)).code.includes(readCall));
 		});
 	}
 
-	test('forwards the selected worksheet to read_excel', () => {
-		assert.ok(generate('flights.xlsx', { sheetName: 'Male' }).code.includes('sheet = "Male"'));
+	test('forwards the selected worksheet to read_excel', async () => {
+		assert.ok((await generate('flights.xlsx', { sheetName: 'Male' })).code.includes('sheet = "Male"'));
 	});
 
-	test('forwards a header row that is off', () => {
-		assert.ok(generate('flights.xlsx', { hasHeaderRow: false }).code.includes('col_names = FALSE'));
+	test('forwards a header row that is off', async () => {
+		assert.ok((await generate('flights.xlsx', { hasHeaderRow: false })).code.includes('col_names = FALSE'));
 	});
 
-	test('forwards the view so its sorts are translated', () => {
-		const result = generate('flights.parquet', {}, {
+	test('forwards the view so its sorts are translated', async () => {
+		const result = await generate('flights.parquet', {}, {
 			rowFilters: [],
 			sortKeys: [{ columnName: 'delay', ascending: false }],
 		});

@@ -31,7 +31,7 @@ suite('pandasCodeGenerator Tests', () => {
     suite('generatePandasImportCode', () => {
         test('generates a read_csv call with the import and a labelled comment', () => {
             const code = generatePandasImportCode({
-                filePath: '/Users/austin/data/flights.csv',
+                pathLiteral: '"data/flights.csv"',
                 variableName: 'flights',
                 hasHeaderRow: true,
             });
@@ -40,62 +40,63 @@ suite('pandasCodeGenerator Tests', () => {
                 'import pandas as pd\n' +
                     '\n' +
                     '# Load flights data\n' +
-                    'flights = pd.read_csv("/Users/austin/data/flights.csv")\n',
+                    'flights = pd.read_csv("data/flights.csv")\n',
             );
         });
 
         test('treats a missing hasHeaderRow as a header row', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.csv',
+                pathLiteral: '"data/flights.csv"',
                 variableName: 'flights',
             });
 
-            expect(code.code).to.contain('pd.read_csv("/data/flights.csv")');
+            expect(code.code).to.contain('pd.read_csv("data/flights.csv")');
         });
 
         test('adds header=None when the header row is off', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.csv',
+                pathLiteral: '"data/flights.csv"',
                 variableName: 'flights',
                 hasHeaderRow: false,
             });
 
-            expect(code.code).to.contain('flights = pd.read_csv("/data/flights.csv", header=None)');
+            expect(code.code).to.contain('flights = pd.read_csv("data/flights.csv", header=None)');
         });
 
         test('adds a tab separator for a tsv file', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.tsv',
+                pathLiteral: '"data/flights.tsv"',
                 variableName: 'flights',
                 hasHeaderRow: true,
             });
 
-            expect(code.code).to.contain('flights = pd.read_csv("/data/flights.tsv", sep="\\t")');
+            expect(code.code).to.contain('flights = pd.read_csv("data/flights.tsv", sep="\\t")');
         });
 
         test('orders the separator before the header argument', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.TSV',
+                pathLiteral: '"data/flights.TSV"',
                 variableName: 'flights',
                 hasHeaderRow: false,
             });
 
-            expect(code.code).to.contain('flights = pd.read_csv("/data/flights.TSV", sep="\\t", header=None)');
+            expect(code.code).to.contain('flights = pd.read_csv("data/flights.TSV", sep="\\t", header=None)');
         });
 
-        test('escapes a windows path in the generated literal', () => {
+        test('embeds the pre-formatted path literal verbatim, without re-escaping it', () => {
+            // The literal comes from positron.paths.formatPathForCode, already quoted and escaped.
             const code = generatePandasImportCode({
-                filePath: 'C:\\Users\\austin\\data\\flights.csv',
+                pathLiteral: '"C:/Users/austin/data/a\\"b.csv"',
                 variableName: 'flights',
                 hasHeaderRow: true,
             });
 
-            expect(code.code).to.contain('pd.read_csv("C:\\\\Users\\\\austin\\\\data\\\\flights.csv")');
+            expect(code.code).to.contain('pd.read_csv("C:/Users/austin/data/a\\"b.csv")');
         });
 
         test('generates a read_excel call for an xlsx file', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.xlsx',
+                pathLiteral: '"/data/flights.xlsx"',
                 variableName: 'flights',
                 hasHeaderRow: true,
             });
@@ -110,7 +111,7 @@ suite('pandasCodeGenerator Tests', () => {
 
         test('emits sheet_name when a sheet is selected', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.xlsx',
+                pathLiteral: '"/data/flights.xlsx"',
                 variableName: 'flights',
                 sheetName: 'Sheet 2',
             });
@@ -120,7 +121,7 @@ suite('pandasCodeGenerator Tests', () => {
 
         test('escapes the sheet name like any other string literal', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.xlsx',
+                pathLiteral: '"/data/flights.xlsx"',
                 variableName: 'flights',
                 sheetName: 'say "hi"',
             });
@@ -130,7 +131,7 @@ suite('pandasCodeGenerator Tests', () => {
 
         test('adds header=None to read_excel when the header row is off', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.xlsx',
+                pathLiteral: '"/data/flights.xlsx"',
                 variableName: 'flights',
                 hasHeaderRow: false,
                 sheetName: 'Sheet 2',
@@ -141,7 +142,7 @@ suite('pandasCodeGenerator Tests', () => {
 
         test('generates a read_parquet call for a parquet file', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.parquet',
+                pathLiteral: '"/data/flights.parquet"',
                 variableName: 'flights',
             });
 
@@ -155,7 +156,7 @@ suite('pandasCodeGenerator Tests', () => {
 
         test('treats .parq as parquet', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.parq',
+                pathLiteral: '"/data/flights.parq"',
                 variableName: 'flights',
             });
 
@@ -164,7 +165,7 @@ suite('pandasCodeGenerator Tests', () => {
 
         test('parquet ignores header row and sheet options', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.parquet',
+                pathLiteral: '"/data/flights.parquet"',
                 variableName: 'flights',
                 hasHeaderRow: false,
                 sheetName: 'Sheet 1',
@@ -179,7 +180,7 @@ suite('pandasCodeGenerator Tests', () => {
             // Parquet always has column names, so the "no header row" unsupported
             // branch must not fire even when the options bag says the header is off.
             const code = generatePandasImportCode({
-                filePath: '/data/flights.parquet',
+                pathLiteral: '"/data/flights.parquet"',
                 variableName: 'flights',
                 hasHeaderRow: false,
                 view: {
@@ -194,7 +195,7 @@ suite('pandasCodeGenerator Tests', () => {
 
         test('xlsx with header row off reports filters and sorts as unsupported', () => {
             const code = generatePandasImportCode({
-                filePath: '/data/flights.xlsx',
+                pathLiteral: '"/data/flights.xlsx"',
                 variableName: 'flights',
                 hasHeaderRow: false,
                 view: {
@@ -210,7 +211,7 @@ suite('pandasCodeGenerator Tests', () => {
 
     suite('view translation', () => {
         const base = {
-            filePath: '/data/flights.csv',
+            pathLiteral: '"data/flights.csv"',
             variableName: 'flights',
             hasHeaderRow: true,
         };
@@ -240,7 +241,7 @@ suite('pandasCodeGenerator Tests', () => {
                 'import pandas as pd\n' +
                     '\n' +
                     '# Load flights data\n' +
-                    'flights = pd.read_csv("/data/flights.csv")\n' +
+                    'flights = pd.read_csv("data/flights.csv")\n' +
                     '\n' +
                     '# Filter and sort as shown in the Data Explorer\n' +
                     'flights = flights[(flights["carrier"] == "UA")]\n' +

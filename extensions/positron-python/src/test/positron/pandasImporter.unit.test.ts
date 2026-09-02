@@ -6,17 +6,19 @@
 'use strict';
 
 import { expect } from 'chai';
+import { anything, when } from 'ts-mockito';
 import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import { createPandasDataImporter } from '../../client/positron/dataImport/pandasImporter';
+import { mockedPositronNamespaces } from '../vscode-mock';
 
 /** Runs the importer's generateCode over a file with the given name and options. */
-function generate(
+async function generate(
     fileName: string,
     options: positron.DataImportOptions = {},
     view?: positron.DataImportView,
-): positron.DataImportResult {
+): Promise<positron.DataImportResult> {
     const importer = createPandasDataImporter();
     const request: positron.DataImportRequest = {
         fileUri: vscode.Uri.file(`/data/${fileName}`),
@@ -24,10 +26,18 @@ function generate(
         options,
         view,
     };
-    return importer.generateCode(request) as positron.DataImportResult;
+    return (await importer.generateCode(request)) as positron.DataImportResult;
 }
 
 suite('pandasImporter Tests', () => {
+    setup(() => {
+        // Stand in for the real path formatter, which quotes the path and makes it relative to
+        // the workspace when it can. These files are outside any workspace, so it only quotes.
+        when(mockedPositronNamespaces.paths!.formatPathForCode(anything(), anything())).thenCall((filePath: string) =>
+            Promise.resolve(`"${filePath.replace(/\\/g, '/')}"`),
+        );
+    });
+
     test('registers python and the extensions the entry points offer', () => {
         const importer = createPandasDataImporter();
 
@@ -47,21 +57,29 @@ suite('pandasImporter Tests', () => {
         ['parq', 'pd.read_parquet'],
     ];
     readFunctions.forEach(([extension, readFunction]) => {
-        test(`reads a .${extension} file with ${readFunction}`, () => {
-            expect(generate(`flights.${extension}`).code).to.contain(readFunction);
+        test(`reads a .${extension} file with ${readFunction}`, async () => {
+            expect((await generate(`flights.${extension}`)).code).to.contain(readFunction);
         });
     });
 
-    test('forwards the selected worksheet to read_excel', () => {
-        expect(generate('flights.xlsx', { sheetName: 'Male' }).code).to.contain('sheet_name="Male"');
+    test('embeds the literal the path formatter returns', async () => {
+        when(mockedPositronNamespaces.paths!.formatPathForCode(anything(), anything())).thenReturn(
+            Promise.resolve('"data/flights.csv"'),
+        );
+
+        expect((await generate('flights.csv')).code).to.contain('pd.read_csv("data/flights.csv")');
     });
 
-    test('forwards a header row that is off', () => {
-        expect(generate('flights.xlsx', { hasHeaderRow: false }).code).to.contain('header=None');
+    test('forwards the selected worksheet to read_excel', async () => {
+        expect((await generate('flights.xlsx', { sheetName: 'Male' })).code).to.contain('sheet_name="Male"');
     });
 
-    test('forwards the view so its filters and sorts are translated', () => {
-        const result = generate(
+    test('forwards a header row that is off', async () => {
+        expect((await generate('flights.xlsx', { hasHeaderRow: false })).code).to.contain('header=None');
+    });
+
+    test('forwards the view so its filters and sorts are translated', async () => {
+        const result = await generate(
             'flights.csv',
             {},
             {

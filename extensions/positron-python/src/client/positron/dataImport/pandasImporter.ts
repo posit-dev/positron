@@ -19,9 +19,13 @@ export function createPandasDataImporter(): positron.DataImporter {
         displayName: 'Python (pandas)',
         fileExtensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq'],
         reservedNames: [...PYTHON_KEYWORDS],
-        generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+        generateCode: async (request: positron.DataImportRequest): Promise<positron.DataImportResult> =>
             generatePandasImportCode({
-                filePath: request.fileUri.fsPath,
+                // Workspace-relative when the file is inside the workspace, so the generated
+                // code survives version control and other machines; absolute otherwise.
+                pathLiteral: await positron.paths.formatPathForCode(request.fileUri.fsPath, {
+                    relativeTo: 'workspace',
+                }),
                 variableName: request.variableName,
                 hasHeaderRow: request.options.hasHeaderRow,
                 sheetName: request.options.sheetName,

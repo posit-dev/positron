@@ -14,8 +14,12 @@ import type { DataImportRowFilter, DataImportSearchFilter, DataImportView } from
 
 /** A request to generate a pandas load statement. */
 export interface PandasImportRequest {
-    /** The absolute path of the file to load. */
-    filePath: string;
+    /**
+     * The path of the file to load as a ready-to-embed string literal, already quoted and escaped
+     * (the output of positron.paths.formatPathForCode): workspace-relative when the file is inside
+     * the workspace, absolute otherwise.
+     */
+    pathLiteral: string;
 
     /** The target dataframe variable name. */
     variableName: string;
@@ -37,10 +41,10 @@ export interface PandasImportResult {
 }
 
 /**
- * Escapes a string so it can be embedded in a double-quoted, single-line Python literal. Windows
- * paths are the reason this exists: an unescaped backslash before a 'n' or a 't' silently changes
- * the path. POSIX paths are the reason control characters are handled too: a file name may legally
- * contain a newline, which would otherwise terminate the generated literal.
+ * Escapes a string so it can be embedded in a double-quoted, single-line Python literal. Filter
+ * terms and column values are arbitrary text: an unescaped backslash before a 'n' or a 't'
+ * silently changes the value, and an unescaped control character would terminate or corrupt the
+ * generated literal.
  */
 export function escapePythonString(value: string): string {
     return value.replace(/[\\"\u0000-\u001f\u007f]/g, (character) => {
@@ -110,18 +114,20 @@ export const PYTHON_KEYWORDS = new Set([
 type FileFormat = 'csv' | 'tsv' | 'xlsx' | 'parquet';
 
 /**
- * Detects the format from the path's extension. An unrecognized extension falls back to CSV,
- * preserving the generator's existing behavior for paths the registry should not have sent it.
+ * Detects the format from the extension of a quoted path literal. The literal's closing quote is
+ * part of each match, so the check cannot be fooled by a directory named `x.tsv` in the middle of
+ * the path. An unrecognized extension falls back to CSV, preserving the generator's existing
+ * behavior for paths the registry should not have sent it.
  */
-function detectFileFormat(filePath: string): FileFormat {
-    const lower = filePath.toLowerCase();
-    if (lower.endsWith('.tsv')) {
+function detectFileFormat(pathLiteral: string): FileFormat {
+    const lower = pathLiteral.toLowerCase();
+    if (lower.endsWith('.tsv"')) {
         return 'tsv';
     }
-    if (lower.endsWith('.xlsx')) {
+    if (lower.endsWith('.xlsx"')) {
         return 'xlsx';
     }
-    if (lower.endsWith('.parquet') || lower.endsWith('.parq')) {
+    if (lower.endsWith('.parquet"') || lower.endsWith('.parq"')) {
         return 'parquet';
     }
     return 'csv';
@@ -314,8 +320,8 @@ function translateView(
  * describes, and it names the variable so a script that accumulates several imports stays readable.
  */
 export function generatePandasImportCode(request: PandasImportRequest): PandasImportResult {
-    const format = detectFileFormat(request.filePath);
-    const args = [`"${escapePythonString(request.filePath)}"`];
+    const format = detectFileFormat(request.pathLiteral);
+    const args = [request.pathLiteral];
 
     let readFunction: string;
     switch (format) {
