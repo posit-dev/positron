@@ -181,35 +181,65 @@ LAUNCHER_PGREP='[/]usr/lib/rstudio-server/bin/rstudio-launcher'
 start_workbench() {
     local i
     if [ "${WB_FAMILY}" != "debian" ]; then
-        # The rstudio-launcher script the rpm ships is unusable on EL9: its
-        # install guard tests $rserver, which that script never defines (so start
-        # silently exits 0); it passes --name/--pidfiles/--stop to `daemon`, none
-        # of which EL9's initscripts supports; and the launcher does not
-        # self-daemonize the way rserver does, so a plain `daemon` call would
-        # block forever. Start it directly instead.
-        #
-        # The SUSE script is better written (startproc/killproc, both pidfile
-        # based) but is started the same way here on purpose: one code path means
-        # the installer's first start and wb_ensure_workbench's restart cannot
-        # diverge, and it costs nothing, because the wait below is on the socket
-        # actually appearing rather than on a fixed delay.
+        # How the launcher gets started depends on the family, because only one of
+        # the two rpm init scripts is usable in this container. Keep this in step
+        # with wb_ensure_workbench in workbench-local.sh, which has to make the
+        # same choice from the host side.
         if ! pgrep -f "${LAUNCHER_PGREP}" >/dev/null 2>&1; then
             echo "Starting rstudio-launcher..."
             sudo rm -f "${LAUNCHER_SOCKET}"
-            sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
-                >/var/log/rstudio-launcher.stdout.log 2>&1 &
+            if [ "${WB_FAMILY}" = "suse" ]; then
+                # SUSE's script works: `startproc -s -q` on the launcher binary,
+                # which brings the socket up in about a second. Use the packaged
+                # path rather than hand-detaching the binary -- an earlier
+                # revision of this ran the redhat branch below on SUSE too, "for
+                # one code path", and the socket never appeared at all on the CI
+                # runner while working locally. Whatever the direct start needs
+                # that it did not get there, the init script does not need it.
+                #
+                # `|| true` because startproc's exit status is as unreliable here
+                # as the rest: it reports failure whenever it cannot match the
+                # process through /proc/<pid>/exe (which is how it behaves under
+                # Rosetta) while having started the launcher perfectly well. The
+                # socket check below is the real verdict.
+                sudo /etc/init.d/rstudio-launcher start || true
+            else
+                # The rstudio-launcher script the rpm ships is unusable on EL9:
+                # its install guard tests $rserver, which that script never
+                # defines (so start silently exits 0); it passes
+                # --name/--pidfiles/--stop to `daemon`, none of which EL9's
+                # initscripts supports; and the launcher does not self-daemonize
+                # the way rserver does, so a plain `daemon` call would block
+                # forever. Start it directly instead.
+                sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
+                    >/var/log/rstudio-launcher.stdout.log 2>&1 &
+            fi
         fi
-        # Generous cap because this exits as soon as the socket shows up: on a
-        # native amd64 runner it is a second or two, but an emulated container
-        # (openSUSE on Apple Silicon, which has no arm64 Workbench package) has
-        # been measured taking over 30s, and timing out here made the install
-        # report a failure it had not actually had.
+        # Generous cap because this exits as soon as the socket shows up: a couple
+        # of seconds natively, longer in an emulated container (openSUSE on Apple
+        # Silicon, which has no arm64 Workbench package).
         for i in $(seq 1 90); do
             [ -S "${LAUNCHER_SOCKET}" ] && break
             sleep 1
         done
         if [ ! -S "${LAUNCHER_SOCKET}" ]; then
+            # Fatal, not accumulated: rserver calls LauncherClient::initialize()
+            # at startup and shuts itself down with ENOENT when this socket is
+            # missing, so everything after this point is guaranteed to fail. It
+            # used to be a log_error, and the install went on to "complete" with a
+            # warning -- then the real damage surfaced minutes later as a bare
+            # ":8787 never answered" from a different step, which is a much harder
+            # thing to read. Dump what we know before giving up.
             log_error "rstudio-launcher socket never appeared at ${LAUNCHER_SOCKET}"
+            echo "--- rstudio-launcher processes ---"
+            pgrep -af "${LAUNCHER_PGREP}" || echo "(none running)"
+            echo "--- /var/log/rstudio-launcher.stdout.log ---"
+            sudo tail -50 /var/log/rstudio-launcher.stdout.log 2>/dev/null || echo "(absent)"
+            echo "--- /var/log/rstudio/launcher ---"
+            sudo tail -n 50 /var/log/rstudio/launcher/* 2>/dev/null || echo "(absent)"
+            echo ""
+            echo "Aborting: rserver cannot start without the launcher socket."
+            exit 1
         fi
     fi
     # Judge the start by whether rserver is running, not by the init script's

@@ -189,28 +189,40 @@ wb_ensure_workbench() {
 		for _ in $(seq 1 15); do pgrep -x rserver >/dev/null 2>&1 || exit 0; sleep 1; done
 		sudo pkill -KILL -x rserver 2>/dev/null || true
 	' >/dev/null 2>&1 || true
-	local i
-	# Branch on the family, exactly as install-workbench.sh does. These two must
-	# agree: the installer's first start and this restart-after-container-stop
+	local i family
+	family="$(wb_os_family "${WB_OS}")"
+	# Branch exactly as install-workbench.sh's start_workbench does. These two
+	# must agree: the installer's first start and this restart-after-container-stop
 	# path have to bring the launcher up the same way, or a stack that installed
-	# fine comes back broken after `npm run pwb -- stop && npm run pwb`.
-	if [ "$(wb_os_family "${WB_OS}")" != "debian" ]; then
-		# The rpm's rstudio-launcher init script is broken on EL9 (see
-		# install-workbench.sh), so start the binary directly and wait for its
-		# socket -- rserver shuts itself down if the socket is missing.
-		# Reuse $launcher from above rather than re-checking here. This command
-		# string necessarily contains the launcher's real path (to start it), and
-		# a pgrep in the SAME string would match this very wrapper shell -- the
-		# bracket trick only hides the pattern's own text, not a second, literal
-		# copy of the path beside it. That mistake silently skipped the start and
-		# left the stale socket in place, which the wait below then accepted.
-		# Removing the socket first is what makes that wait mean something.
+	# fine comes back broken after `npm run pwb -- stop && npm run pwb`. They
+	# diverged once (this side used the init script on SUSE while the installer
+	# hand-detached the binary), and it cost a CI run to notice.
+	if [ "$family" != "debian" ]; then
+		# EL9's packaged rstudio-launcher script is broken (see
+		# install-workbench.sh), so there the binary is started directly. SUSE's
+		# works, so use it. Either way wait for the socket, not the process --
+		# rserver shuts itself down if the socket is missing.
+		#
+		# Reuse $launcher from above rather than re-checking here. The direct-start
+		# command string necessarily contains the launcher's real path, and a pgrep
+		# in the SAME string would match this very wrapper shell -- the bracket
+		# trick only hides the pattern's own text, not a second, literal copy of
+		# the path beside it. That mistake silently skipped the start and left the
+		# stale socket in place, which the wait below then accepted. Removing the
+		# socket first is what makes that wait mean something.
 		if [ "$launcher" != 1 ]; then
-			docker exec test bash -c "
-				sudo rm -f ${WB_LAUNCHER_SOCKET}
-				sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
-					>/var/log/rstudio-launcher.stdout.log 2>&1 &
-			" >/dev/null 2>&1 || true
+			if [ "$family" = "suse" ]; then
+				docker exec test bash -c "
+					sudo rm -f ${WB_LAUNCHER_SOCKET}
+					sudo /etc/init.d/rstudio-launcher start
+				" >/dev/null 2>&1 || true
+			else
+				docker exec test bash -c "
+					sudo rm -f ${WB_LAUNCHER_SOCKET}
+					sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
+						>/var/log/rstudio-launcher.stdout.log 2>&1 &
+				" >/dev/null 2>&1 || true
+			fi
 		fi
 		for i in $(seq 1 30); do
 			docker exec test bash -c "test -S ${WB_LAUNCHER_SOCKET}" >/dev/null 2>&1 && break

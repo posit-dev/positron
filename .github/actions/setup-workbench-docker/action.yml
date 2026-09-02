@@ -147,6 +147,13 @@ runs:
         # restart that worked can still print "failed", and on SUSE exit
         # non-zero, which would fail this step for no reason. Ask :8787 instead,
         # which is the thing the tests actually depend on.
+        #
+        # On failure, dump state rather than just the verdict. A bare ":8787 never
+        # answered" is close to undiagnosable after the fact, and the container is
+        # gone by the time anyone looks. The HTTP code is the discriminator worth
+        # having: 502 means an orphaned rserver-http is still holding the port with
+        # no rserver behind it, connection-refused means nothing is listening at
+        # all, and those point at different bugs.
         docker exec test /bin/bash -c '
           sudo rstudio-server restart || true
           for i in $(seq 1 60); do
@@ -154,5 +161,19 @@ runs:
             sleep 1
           done
           echo "Workbench is not serving on :8787 after the build swap" >&2
+          echo "--- curl (code 000 = nothing listening) ---"
+          curl -s -o /dev/null -w "http_code=%{http_code}\n" --max-time 5 http://localhost:8787 || true
+          echo "--- listeners on :8787 ---"
+          (ss -lntp 2>/dev/null || netstat -lntp 2>/dev/null) | grep 8787 || echo "(none)"
+          echo "--- rserver processes ---"
+          ps -eo pid,ppid,etime,comm | grep -E "rserver|rstudio" || echo "(none)"
+          echo "--- launcher socket ---"
+          ls -la /var/run/rstudio-server/rserver-launcher.socket 2>&1 || true
+          echo "--- rserver.log (tail) ---"
+          sudo tail -n 60 /var/log/rstudio/rstudio-server/rserver.log 2>/dev/null || echo "(absent)"
+          echo "--- rserver-http-error.log (tail) ---"
+          sudo tail -n 30 /var/log/rstudio/rstudio-server/rserver-http-error.log 2>/dev/null || echo "(absent)"
+          echo "--- launcher logs (tail) ---"
+          sudo tail -n 30 /var/log/rstudio/launcher/* 2>/dev/null || echo "(absent)"
           exit 1
         '
