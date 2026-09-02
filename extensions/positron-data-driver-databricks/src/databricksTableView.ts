@@ -1002,7 +1002,7 @@ export class DatabricksTableView {
 					min_value: lo === null || lo === undefined ? undefined : String(lo),
 					max_value: hi === null || hi === undefined ? undefined : String(hi),
 					mean: n > 0 ? fmt(mean) : undefined,
-					median: formatNumericStat(medianRaw, formatOptions),
+					median: formatNumericStat(medianRaw, display, formatOptions),
 					stdev: n > 1 ? fmt(Math.sqrt(variance)) : undefined,
 				},
 			};

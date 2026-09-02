@@ -8,7 +8,7 @@
 // already runs in CI (scripts/test-integration.sh).
 
 import * as assert from 'assert';
-import { FormatOptions } from 'positron-data-explorer-protocol';
+import { ColumnDisplayType, FormatOptions } from 'positron-data-explorer-protocol';
 import { formatDecimal, formatFloat, formatNumericStat, isDecimalLiteral, isIntegerLiteral } from 'positron-data-explorer-formatting';
 
 // The options the Data Explorer actually sends (see languageRuntimeDataExplorerClient.ts): two
@@ -128,12 +128,46 @@ suite('Shared Decimal Formatting', () => {
 
 	test('a summary statistic keeps an exact decimal exact and passes a missing one through', () => {
 		assert.deepStrictEqual([
-			formatNumericStat(undefined, DISPLAY),
-			formatNumericStat(null, DISPLAY),
-			formatNumericStat('9007199254740993.01', WIDE),
-			formatNumericStat('1.005', DISPLAY),
+			formatNumericStat(undefined, ColumnDisplayType.Decimal, DISPLAY),
+			formatNumericStat(null, ColumnDisplayType.Decimal, DISPLAY),
+			formatNumericStat('9007199254740993.01', ColumnDisplayType.Decimal, WIDE),
+			formatNumericStat('1.005', ColumnDisplayType.Decimal, DISPLAY),
 			// A computed statistic is a double by construction and takes the numeric path.
-			formatNumericStat(1.005, DISPLAY),
+			formatNumericStat(1.005, ColumnDisplayType.Decimal, DISPLAY),
 		], [undefined, undefined, '9007199254740993.01', '1.01', '1.00']);
+	});
+
+	test('an integer column\'s statistics format as integers, matching its own min and max', () => {
+		// `min_value`/`max_value` are stringified directly by every driver, so a median that went
+		// through the float path reported a third format for the same column: min '1', max '5',
+		// median '3.00'.
+		assert.deepStrictEqual([
+			// A bigint must never reach `Number`, which would round it past 2^53.
+			formatNumericStat(9007199254740993n, ColumnDisplayType.Integer, SEPARATED),
+			// PostgreSQL hands back int8 as an exact string.
+			formatNumericStat('9007199254740993', ColumnDisplayType.Integer, SEPARATED),
+			formatNumericStat(42n, ColumnDisplayType.Integer, DISPLAY),
+			formatNumericStat(3, ColumnDisplayType.Integer, DISPLAY),
+		], ['9,007,199,254,740,993', '9,007,199,254,740,993', '42', '3']);
+	});
+
+	test('a fractional median of an integer column still renders as a decimal', () => {
+		// Several drivers compute the median with `percentile_cont`, which returns a double and
+		// yields a half value on an even number of rows. That is not a whole number and must not be
+		// printed as one.
+		assert.deepStrictEqual([
+			formatNumericStat(1.5, ColumnDisplayType.Integer, DISPLAY),
+			formatNumericStat(2.5, ColumnDisplayType.Integer, DISPLAY),
+		], ['1.50', '2.50']);
+	});
+
+	test('a whole-numbered decimal column keeps its fractional digits', () => {
+		// A DECIMAL(n,0) median arrives as '42' and looks like an integer, but its column renders
+		// cells as '42.00'. Routing on the value's shape rather than the column's display type would
+		// disagree with those cells.
+		assert.deepStrictEqual([
+			formatNumericStat('42', ColumnDisplayType.Decimal, DISPLAY),
+			formatNumericStat(42, ColumnDisplayType.Floating, DISPLAY),
+		], ['42.00', '42.00']);
 	});
 });

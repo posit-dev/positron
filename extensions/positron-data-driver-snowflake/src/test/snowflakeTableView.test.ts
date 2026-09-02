@@ -88,11 +88,13 @@ suite('Snowflake Column Profiles', () => {
 		// Constructor count + one scalar query; the median no longer costs a separate round-trip.
 		assert.strictEqual(queries.length, 2);
 		assert.strictEqual(profiles[0].null_count, 0);
+		// The median of an integer column formats as an integer, matching min_value and max_value
+		// (which are stringified directly) and the column's own cells. It used to read '20.00'.
 		assert.deepStrictEqual(profiles[0].summary_stats?.number_stats, {
 			min_value: '10',
 			max_value: '40',
 			mean: '25.00',
-			median: '20.00',
+			median: '20',
 			stdev: '12.91',
 		});
 	});

@@ -90,11 +90,13 @@ suite('Databricks Column Profiles', () => {
 		// Constructor count + one scalar query; the median costs no separate round-trip.
 		assert.strictEqual(queries.length, 2);
 		assert.match(queries[1], /percentile_cont\(0\.5\) WITHIN GROUP \(ORDER BY `n`\)/);
+		// The median of an integer column formats as an integer, matching min_value and max_value
+		// (which are stringified directly) and the column's own cells. It used to read '20.00'.
 		assert.deepStrictEqual(profiles[0].summary_stats?.number_stats, {
 			min_value: '10',
 			max_value: '40',
 			mean: '25.00',
-			median: '20.00',
+			median: '20',
 			stdev: '12.91',
 		});
 	});

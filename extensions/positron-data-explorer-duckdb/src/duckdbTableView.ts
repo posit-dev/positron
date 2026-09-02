@@ -773,7 +773,7 @@ export class DuckDBTableView {
 					min_value: rows[0]?.lo === null || rows[0]?.lo === undefined ? undefined : String(rows[0].lo),
 					max_value: rows[0]?.hi === null || rows[0]?.hi === undefined ? undefined : String(rows[0].hi),
 					mean: n > 0 ? fmt(mean) : undefined,
-					median: formatNumericStat(median, formatOptions),
+					median: formatNumericStat(median, display, formatOptions),
 					stdev: n > 1 ? fmt(Math.sqrt(variance)) : undefined,
 				},
 			};

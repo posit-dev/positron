@@ -8,7 +8,7 @@
 // so these helpers live here rather than being copy-pasted into each driver's table view, which is
 // how they started out and how they drifted (see #15366).
 
-import { FormatOptions } from 'positron-data-explorer-protocol';
+import { ColumnDisplayType, FormatOptions } from 'positron-data-explorer-protocol';
 
 /** Applies a thousands separator to the integer part of an already-formatted number string. */
 export function applyThousandsSep(formatted: string, sep: string): string {
@@ -106,20 +106,44 @@ export function formatDecimal(value: string, opts: FormatOptions): string {
 }
 
 /**
- * Formats a raw numeric summary statistic, keeping an exact decimal exact. A statistic read straight
- * out of the data -- a median, a minimum -- is a DECIMAL/NUMERIC digit string when its column is one,
- * and formatting it textually is the difference between reporting the value that is in the table and
- * reporting the nearest double. A statistic that is computed instead (a mean, a standard deviation)
- * is a double by construction and takes the numeric path.
+ * Formats a raw numeric summary statistic, keeping an exact value exact. A statistic read straight
+ * out of the data -- a median, a minimum -- carries its column's own exactness, and formatting it
+ * textually is the difference between reporting the value that is in the table and reporting the
+ * nearest double. A statistic that is computed instead (a mean, a standard deviation) is a double by
+ * construction and takes the numeric path.
+ *
+ * `displayType` is the column's, not the value's, and it decides which exact path applies. The value
+ * alone cannot: a DECIMAL(n,0) median arrives as `'42'` and looks like an integer, but its column
+ * renders its cells as `42.00`, so formatting the statistic as `42` would disagree with them. The
+ * column is the only thing that knows which is right.
  *
  * A missing statistic passes through as undefined, which is how the protocol represents "there is no
  * value here" (an empty column has no median).
  */
-export function formatNumericStat(value: unknown, opts: FormatOptions): string | undefined {
+export function formatNumericStat(value: unknown, displayType: ColumnDisplayType, opts: FormatOptions): string | undefined {
 	if (value === null || value === undefined) {
 		return undefined;
 	}
+	// An integer column's statistics format as integers, matching both its cells and its own
+	// `min_value`/`max_value` (which are stringified directly). The whole-value guard matters because
+	// the median is not necessarily one: several drivers compute it with `percentile_cont`, which
+	// returns a double and yields something like 1.5 on an even number of rows.
+	if (displayType === ColumnDisplayType.Integer && isWholeValue(value)) {
+		return formatInteger(value, opts);
+	}
 	return isDecimalLiteral(value) ? formatDecimal(value, opts) : formatFloat(Number(value), opts);
+}
+
+/**
+ * Whether a value is a whole number that `formatInteger` can print without narrowing it: a bigint, a
+ * canonical digit string, or a number with no fractional part. A `bigint` and a digit string are
+ * exact by construction; a whole `number` is already as precise as it will ever be, so printing it
+ * as an integer loses nothing that `Number()` had not already lost.
+ */
+function isWholeValue(value: unknown): value is number | bigint | string {
+	return typeof value === 'bigint'
+		|| isIntegerLiteral(value)
+		|| (typeof value === 'number' && Number.isInteger(value));
 }
 
 /** Truncates a string to the configured maximum formatted length. */
