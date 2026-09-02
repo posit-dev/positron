@@ -458,7 +458,7 @@
               "posit-ppm",
               "none"
             ],
-            "enumDescriptions": [
+            "markdownEnumDescriptions": [
               "%r.configuration.defaultRepositories.auto.description%",
               "%r.configuration.defaultRepositories.rstudio.description%",
               "%r.configuration.defaultRepositories.posit-ppm.description%",
