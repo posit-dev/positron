@@ -113,7 +113,13 @@ fi
 # (the boundary class excludes '-'), which is why the Ubuntu flag is set here
 # explicitly. Deliberately not workbench_stable: that lane is a different axis
 # (the last stable Workbench release, still Ubuntu), not an OS.
-if echo "$PR_BODY" | grep -q "@:workbench-all"; then
+#
+# Boundary-matched, unlike the per-OS tags above, because "all" is a live prefix:
+# a plain substring match fires on "@:workbench-allowlist" or
+# "@:workbench-all-the-things" and starts three lanes. The enum validation later
+# would drop such a tag from the comment as a typo, but these flags are set
+# before it runs, so the lanes would go anyway.
+if echo "$PR_BODY" | grep -qE "@:workbench-all([^a-zA-Z0-9_-]|\$)"; then
 	echo "Found workbench-all tag in PR body. Setting to run workbench tests on Ubuntu, Rocky Linux and openSUSE."
 	echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
 	echo "workbench_rocky_tag_found=true" >> "$GITHUB_OUTPUT"
