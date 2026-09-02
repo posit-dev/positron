@@ -487,7 +487,7 @@ export const SETTINGS_GET_CONFIGURED_SETTINGS_COMMAND_ID = 'positronSettings.get
 // say, since there is always a configuration even when the user has set nothing.
 //
 // Deliberately not gated on the ai.enabled main switch, for the reasons already
-// written down at positronPackagesCommands.ts:17-28: it reports the user's own
+// written down on isPackagesCommandEnabled in positronPackagesCommands.ts: it reports the user's own
 // environment, it does not call a model or surface an AI action, and Assistant is
 // itself gated on ai.enabled. Gating here would only take the payload away from
 // non-AI callers.
