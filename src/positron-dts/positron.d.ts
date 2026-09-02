@@ -3493,13 +3493,30 @@ declare module 'positron' {
 		value: string;
 	}
 
+	/**
+	 * Selects which environment variable contributions
+	 * {@link environment.getEnvironmentContributions} returns.
+	 */
+	export enum EnvironmentContributionFilter {
+		/**
+		 * Only contributions that are applied at process creation. These are
+		 * inherited by spawned child processes such as language kernels;
+		 * contributions applied only via shell integration are excluded.
+		 */
+		ProcessCreation = 'processCreation',
+	}
+
 	namespace environment {
 		/**
 		 * Get the environment variable contributions for the current session.
 		 *
+		 * @param filter Optional filter selecting which contributions to
+		 *   return. When omitted, all contributions are returned, including
+		 *   those applied only via shell integration.
+		 *
 		 * @returns A map of extension IDs to arrays of environment variable actions.
 		 */
-		export function getEnvironmentContributions(): Thenable<Record<string, EnvironmentVariableAction[]>>;
+		export function getEnvironmentContributions(filter?: EnvironmentContributionFilter): Thenable<Record<string, EnvironmentVariableAction[]>>;
 	}
 
 	/**
