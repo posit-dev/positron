@@ -92,7 +92,7 @@
 	"r.configuration.defaultRepositories.rstudio.description": "Use the RStudio CRAN mirror at `cran.rstudio.com`",
 	"r.configuration.defaultRepositories.posit-ppm.description": "Use Posit Public Package Manager at `packagemanager.posit.co`, which serves precompiled binary packages that install faster than source packages",
 	"r.configuration.defaultRepositories.none.description": "Do not set a default repository or change the value of the `repos` option",
-	"r.configuration.packageManagerRepository.description": "The [Posit Package Manager](https://docs.posit.co/rspm/user/) repository URL to use for R package installation, rather than the default https://packagemanager.posit.co/cran/latest. Use a [frozen repository URL](https://docs.posit.co/rspm/user/get-repo-url.html) to pin package versions to a CRAN snapshot.\n\nOnly takes effect when `#positron.r.defaultRepositories#` is `auto` (restart Positron to apply).",
+	"r.configuration.packageManagerRepository.description": "The [Posit Package Manager](https://docs.posit.co/rspm/user/) repository URL to use for R package installation, rather than the default `https://packagemanager.posit.co/cran/latest`. Use a [frozen repository URL](https://docs.posit.co/rspm/user/get-repo-url.html) to pin package versions to a CRAN snapshot.\n\nOnly takes effect when `#positron.r.defaultRepositories#` is `auto` (restart Positron to apply).",
 	"r.walkthrough.migrateFromRStudio.title": "Migrating from RStudio to Positron",
 	"r.walkthrough.migrateFromRStudio.description": "Learn how to get started with R in Positron as an RStudio user!",
 	"r.walkthrough.migrateFromRStudio.panesAndUI.title": "Get to know the Positron UI",
