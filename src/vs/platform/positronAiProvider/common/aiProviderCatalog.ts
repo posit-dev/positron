@@ -23,11 +23,58 @@ export interface IResolvedConnectionData {
 	readonly databricks?: { readonly host?: string };
 }
 
-/** Mirrors ai-config's ResolvedProvider (id, enabled, connection). */
+/** Mirrors ai-config's Protocol union. */
+export type IResolvedProtocol =
+	| 'anthropic-messages'
+	| 'openai-chat'
+	| 'openai-responses'
+	| 'mlflow-responses'
+	| 'bedrock-converse'
+	| 'google-generative';
+
+/** Mirrors ai-config's ModelOverride as plain IPC-marshalable data. */
+export interface IResolvedModelOverrideData {
+	readonly name?: string;
+	readonly family?: string;
+	readonly maxContextLength?: number;
+	readonly maxInputTokens?: number;
+	readonly maxOutputTokens?: number;
+	readonly protocol?: IResolvedProtocol;
+	readonly baseUrl?: string;
+	readonly supportsTools?: boolean;
+	readonly supportsImages?: boolean;
+	readonly supportsToolResultImages?: boolean;
+	readonly supportedInputMediaTypes?: string[];
+	readonly supportsWebSearch?: boolean;
+	readonly thinkingEffortLevels?: string[];
+}
+
+/** Mirrors ai-config's CustomModel as plain IPC-marshalable data. */
+export interface IResolvedCustomModelData extends IResolvedModelOverrideData {
+	readonly id: string;
+	readonly name: string;
+	readonly maxContextLength: number;
+	readonly supportsTools: boolean;
+	readonly supportsImages: boolean;
+	readonly supportsToolResultImages: boolean;
+	readonly supportsWebSearch: boolean;
+}
+
+/** Mirrors ai-config's ModelsBlock as plain IPC-marshalable data. */
+export interface IResolvedModelsData {
+	readonly discovery?: 'auto' | 'off';
+	readonly allow?: string[];
+	readonly deny?: string[];
+	readonly overrides?: Record<string, IResolvedModelOverrideData>;
+	readonly custom?: IResolvedCustomModelData[];
+}
+
+/** Mirrors ai-config's ResolvedProvider (id, enabled, connection, model policy). */
 export interface IResolvedProviderData {
 	readonly id: string;
 	readonly enabled: boolean;
 	readonly connection: IResolvedConnectionData;
+	readonly models?: IResolvedModelsData;
 }
 
 /** Mirrors ai-config's ProviderCatalogChange. */
