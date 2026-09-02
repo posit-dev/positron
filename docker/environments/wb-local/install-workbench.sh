@@ -178,9 +178,40 @@ LAUNCHER_SOCKET=/var/run/rstudio-server/rserver-launcher.socket
 # it -- see the same note in workbench-local.sh.
 LAUNCHER_PGREP='[/]usr/lib/rstudio-server/bin/rstudio-launcher'
 
+# Create the runtime directory the launcher binds its socket in, owned by the
+# user the launcher runs as.
+#
+# rserver creates /var/run/rstudio-server itself at startup and gives it to the
+# server-user -- but we have to start the LAUNCHER first, because rserver shuts
+# itself down if the launcher socket is missing. The launcher drops privileges to
+# that same server-user before binding, so on a fresh container it finds a
+# root-owned (or absent) directory and dies immediately:
+#
+#   ERROR system error 13 (Permission denied)
+#     [stream: /var/run/rstudio-server/rserver-launcher.socket]
+#
+# and then rserver has no socket to connect to, so :8787 never comes up at all.
+# Nothing else creates this directory in a container: the rpm ships no
+# tmpfiles.d config, and neither the systemd units nor the SysV scripts make it
+# -- the same class of gap as the missing init scripts.
+#
+# Mode 1777 and the ownership are what a successful rserver start produces, so
+# this is not a loosening; it is doing early what rserver would have done later.
+# Reads server-user from launcher.conf rather than assuming, since it has to
+# match what rserver uses.
+prepare_runtime_dir() {
+    local server_user
+    server_user="$(awk -F= '/^server-user=/{print $2}' /etc/rstudio/launcher.conf 2>/dev/null | tr -d '[:space:]')"
+    server_user="${server_user:-rstudio-server}"
+    if ! sudo install -d -m 1777 -o "${server_user}" -g "${server_user}" /var/run/rstudio-server; then
+        log_error "Failed to prepare /var/run/rstudio-server for ${server_user}"
+    fi
+}
+
 start_workbench() {
     local i
     if [ "${WB_FAMILY}" != "debian" ]; then
+        prepare_runtime_dir
         # How the launcher gets started depends on the family, because only one of
         # the two rpm init scripts is usable in this container. Keep this in step
         # with wb_ensure_workbench in workbench-local.sh, which has to make the

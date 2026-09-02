@@ -210,6 +210,14 @@ wb_ensure_workbench() {
 		# the path beside it. That mistake silently skipped the start and left the
 		# stale socket in place, which the wait below then accepted. Removing the
 		# socket first is what makes that wait mean something.
+		# Same prerequisite the installer's prepare_runtime_dir handles: the
+		# launcher binds its socket as the server-user, and nothing in a
+		# container creates this directory with that ownership. Needed here too
+		# because a container restart can leave it reset.
+		docker exec test bash -c '
+			su="$(awk -F= "/^server-user=/{print \$2}" /etc/rstudio/launcher.conf 2>/dev/null | tr -d "[:space:]")"
+			sudo install -d -m 1777 -o "${su:-rstudio-server}" -g "${su:-rstudio-server}" /var/run/rstudio-server
+		' >/dev/null 2>&1 || true
 		if [ "$launcher" != 1 ]; then
 			if [ "$family" = "suse" ]; then
 				docker exec test bash -c "
