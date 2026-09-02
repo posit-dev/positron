@@ -18,13 +18,13 @@ export function registerPandasDataImporter(disposables: vscode.Disposable[]): vo
         displayName: 'Python (pandas)',
         fileExtensions: ['csv', 'tsv'],
         reservedNames: [...PYTHON_KEYWORDS],
-        generateCode: (request: positron.DataImportRequest): positron.DataImportResult => ({
-            code: generatePandasImportCode({
+        generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+            generatePandasImportCode({
                 filePath: request.fileUri.fsPath,
                 variableName: request.variableName,
                 hasHeaderRow: request.options.hasHeaderRow,
+                view: request.view,
             }),
-        }),
     };
 
     disposables.push(positron.dataExplorer.registerDataImporter(importer));

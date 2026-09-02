@@ -68,6 +68,10 @@ export async function showImportDataDialogForInstance(
 		? await services.importerRegistry.getImporters(extname(fileUri))
 		: [];
 
+	// The view (filters and sorts) the user is looking at, offered behind an opt-in checkbox.
+	// A freshly opened file has none, and the dialog shows no checkbox for an empty view.
+	const view = await instance.getImportView().catch(() => undefined);
+
 	showDialog({
 		fileUri,
 		importers,
@@ -77,6 +81,7 @@ export async function showImportDataDialogForInstance(
 			sheetName: instance.fileSelectedSheet,
 		},
 		preferredLanguageId: services.runtimeSessionService.foregroundSession?.runtimeMetadata.languageId,
+		view,
 	});
 }
 

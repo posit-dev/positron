@@ -20,12 +20,13 @@ import { Button } from '../../../base/browser/ui/positronComponents/button/butto
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 import { deriveVariableName } from './importDataVariableName.js';
+import { Checkbox } from '../positronComponents/positronModalDialog/components/checkbox.js';
 import { LabeledTextInput } from '../positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { TwoButtonFooter } from '../positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { CodeAttributionSource } from '../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditableCodeEditor, EditableCodeEditorWidget } from '../positronComponents/editableCodeEditor/editableCodeEditor.js';
-import { IDataImporter, IDataImportOptions, IDataImportResult } from '../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
+import { IDataImporter, IDataImportOptions, IDataImportResult, IDataImportView } from '../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 
 // The width of the Import Data dialog. Matches the data connections dialog, which carries the same
 // package sidebar plus code preview layout.
@@ -51,6 +52,12 @@ export interface ImportDataModalDialogOptions {
 
 	/** The language of the foreground session, preselected when an importer matches it. */
 	readonly preferredLanguageId?: string;
+
+	/**
+	 * The Data Explorer view (filters and sorts) at the moment the dialog opened, when it has
+	 * any. Its presence is what makes the "Include current filters and sorts" checkbox appear.
+	 */
+	readonly view?: IDataImportView;
 }
 
 /**
@@ -70,6 +77,7 @@ export const showImportDataModalDialog = (options: ImportDataModalDialogOptions)
 			options={options.options}
 			preferredLanguageId={options.preferredLanguageId}
 			renderer={renderer}
+			view={options.view}
 		/>
 	);
 };
@@ -117,6 +125,10 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 	// importer's language; an edited name is the user's and survives a package switch.
 	const [variableNameEdited, setVariableNameEdited] = useState(false);
 
+	// Whether to reproduce the Data Explorer's current filters and sorts in the generated code.
+	// Opt-in: the raw file is the main case, and the checkbox only exists when there is a view.
+	const [includeView, setIncludeView] = useState(false);
+
 	const selectImporter = (index: number) => {
 		setSelectedIndex(index);
 		if (!variableNameEdited) {
@@ -134,7 +146,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 	// Identifies the inputs a generation belongs to. Everything the dialog shows is compared against
 	// the current key, so a result or error left over from earlier inputs is never displayed, copied
 	// or run, including in the window where a newer generation is still in flight.
-	const inputKey = `${selectedIndex}:${effectiveVariableName}`;
+	const inputKey = `${selectedIndex}:${includeView}:${effectiveVariableName}`;
 
 	// The outcome of the last generation: the generated code and anything the importer could not
 	// express, or the reason nothing came back. The two are mutually exclusive, and `error` is kept
@@ -165,6 +177,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 					fileUri: props.fileUri,
 					variableName: effectiveVariableName,
 					options: props.options,
+					view: includeView ? props.view : undefined,
 				});
 				if (cancelled) {
 					return;
@@ -200,7 +213,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 		return () => {
 			cancelled = true;
 		};
-	}, [selectedImporter, effectiveVariableName, inputKey, props.fileUri, props.options]);
+	}, [selectedImporter, effectiveVariableName, inputKey, props.fileUri, props.options, includeView, props.view]);
 
 	const cancelHandler = () => {
 		props.renderer.dispose();
@@ -281,6 +294,17 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 									}}
 								/>
 							</div>
+							{props.view &&
+								<div className='include-view'>
+									<Checkbox
+										label={localize(
+											'positron.importData.includeFiltersAndSorts',
+											"Include current filters and sorts (experimental)"
+										)}
+										onChanged={checked => setIncludeView(checked)}
+									/>
+								</div>
+							}
 							<div className='body'>
 								<div className='package-header'>{packageLabel}</div>
 								<div className='code-header'>
