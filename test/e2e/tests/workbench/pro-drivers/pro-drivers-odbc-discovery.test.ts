@@ -1,0 +1,294 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/**
+ * Verifies that Posit Pro Drivers installed on the Workbench host surface in the Data Connections
+ * pane as detected connections, and that one can be browsed down to real rows.
+ *
+ * The suite installs the drivers itself and removes them again on teardown, rather than relying on
+ * the image or the wb-local install scripts to provide them. That keeps the feature isolated: every
+ * other suite in the Workbench lane shares this container, and a machine-wide ODBC configuration is
+ * exactly the kind of state that would otherwise leak into them (the pane lists discovered DSNs for
+ * any suite that opens it). The cost is the install itself, roughly 40s against the Posit repo.
+ *
+ * The install is the documented one:
+ *   https://docs.posit.co/data-sources/admin/pro-drivers/installation.html
+ *
+ * Three things about it are easy to get wrong, and all three are load-bearing here:
+ *
+ *   1. The `rstudio-drivers` package does NOT write `/etc/odbcinst.ini`. It ships a preconfigured
+ *      `odbcinst.ini.sample` and leaves installing it to the admin, so without that step the drivers
+ *      are on disk but no driver is registered and nothing is discovered.
+ *
+ *   2. That sample REPLACES `/etc/odbcinst.ini` rather than being appended to it. Appending happens
+ *      to work on Ubuntu, where the file is empty, but Rocky's unixODBC ships a file that already
+ *      defines `[PostgreSQL]` (pointing at the distro's `psqlodbcw.so`, which is not installed).
+ *      Appending there leaves two stanzas of that name; unixODBC takes the first, so the DSNs would
+ *      resolve to the distro driver and fail to connect. Hence back up, replace, and restore.
+ *
+ *   3. Removing the package does NOT restore `/etc/odbcinst.ini` -- no package owns that file, so a
+ *      purge leaves every stanza behind pointing at deleted `.so` files. Teardown restores the
+ *      backup explicitly.
+ */
+
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { test, tags, expect } from '../../_test.setup';
+
+test.use({
+	suiteId: __filename,
+	// The Data Connections panel is a preview feature gated behind `dataConnections.enabled`. This
+	// bakes the setting into the Workbench container at startup, which reads settings copied in at
+	// launch rather than the host settings file written at runtime.
+	enableDataConnections: true,
+});
+
+// The Workbench host container from docker/environments/wb-local.
+const CONTAINER = 'test';
+
+// Where the Pro Drivers land, and the unixODBC files that make them usable. `/etc` is the config
+// directory the ODBC driver extension reads and watches on Linux (see `SYSTEM_CONFIG_DIRS` in
+// extensions/positron-data-driver-odbc/src/odbcinst.ts).
+const DRIVERS_DIR = '/opt/rstudio-drivers';
+const POSTGRES_DRIVER_SO = `${DRIVERS_DIR}/postgresql/bin/lib/libpostgresqlodbc_sb64.so`;
+const ODBCINST_PATH = '/etc/odbcinst.ini';
+const ODBCINI_PATH = '/etc/odbc.ini';
+
+// Suffix for the backups of the two config files, restored on teardown. Named for the suite so a
+// stray backup is traceable to what left it behind.
+const BACKUP_SUFFIX = '.pro-drivers-test.bak';
+
+// The compose Postgres. The password comes from E2E_POSTGRES_PASSWORD (the project's .env file
+// locally, 1Password in CI), matching tests/data-connections/postgres.test.ts.
+const PG_HOST = 'postgres';
+const PG_PORT = '5432';
+const PG_USER = 'e2e';
+const PG_PASSWORD = process.env.E2E_POSTGRES_PASSWORD || 'testpassword';
+
+// DSN names are test-scoped rather than the bare database names. The Workbench lane also runs
+// tests/data-connections/postgres.test.ts, which saves a connection named `dvdrental`; a discovered
+// row sharing that name would make the connection-entry locators match two rows.
+const PERIODIC_DSN = 'e2e_periodic';
+const DVDRENTAL_DSN = 'e2e_dvdrental';
+
+// The `elements` table in the `periodic` sample database, loaded by the Postgres image's init
+// script (docker/images/postgres/init-scripts/10-init-databases.sh). Ten rows, ordered by
+// atomic_number, so the first row is stable to assert against.
+const ELEMENTS_COLUMNS = ['atomic_number', 'symbol', 'name'];
+const ELEMENTS_FIRST_ROW = ['1', 'H', 'Hydrogen'];
+
+/**
+ * The two host families the Workbench lane runs on: Ubuntu 24 by default, Rocky 9 when the
+ * `@:workbench-rocky` job selects it (both run the same `@:workbench` test set, so this suite has to
+ * work on either).
+ */
+type PackageFormat = 'deb' | 'rpm';
+
+/** The commands that add the Posit Pro repository, install the package, and remove it again. */
+function packageCommands(format: PackageFormat): { addRepo: string; install: string; remove: string; repoFiles: string[] } {
+	return format === 'deb'
+		? {
+			addRepo: `curl -1sLf 'https://dl.posit.co/public/pro/setup.deb.sh' | sudo -E bash`,
+			install: 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y rstudio-drivers',
+			remove: 'sudo apt-get purge -y rstudio-drivers',
+			// The keyring is removed alongside the source list; leaving it would be harmless but
+			// makes "are the drivers gone?" ambiguous for the next run.
+			repoFiles: ['/etc/apt/sources.list.d/posit-pro.list', '/usr/share/keyrings/posit-pro-archive-keyring.gpg'],
+		}
+		: {
+			addRepo: `curl -1sLf 'https://dl.posit.co/public/pro/setup.rpm.sh' | sudo -E bash`,
+			install: 'sudo dnf install -y rstudio-drivers',
+			remove: 'sudo dnf remove -y rstudio-drivers',
+			repoFiles: ['/etc/yum.repos.d/posit-pro.repo'],
+		};
+}
+
+/**
+ * The DSN definitions the pane should discover. Written as a file and copied in rather than
+ * heredoc'd through `docker exec`, so a password containing shell metacharacters can't break the
+ * command (the same reason the enforced-settings suite copies its JSON in).
+ */
+function odbcIniContents(): string {
+	const dsn = (name: string, database: string) => [
+		`[${name}]`,
+		`Driver   = PostgreSQL`,
+		`Server   = ${PG_HOST}`,
+		`Port     = ${PG_PORT}`,
+		`Database = ${database}`,
+		`UID      = ${PG_USER}`,
+		`PWD      = ${PG_PASSWORD}`,
+		'',
+	].join('\n');
+
+	return [
+		'# Written by the pro-drivers e2e suite; removed on teardown.',
+		'',
+		dsn(PERIODIC_DSN, 'periodic'),
+		dsn(DVDRENTAL_DSN, 'dvdrental'),
+	].join('\n');
+}
+
+test.describe('Workbench: Posit Pro Drivers', {
+	tag: [tags.WORKBENCH, tags.CONNECTIONS]
+}, () => {
+
+	test.beforeAll('Install the Pro Drivers and define the DSNs', async function ({ app, runDockerCommand }) {
+		// The install pulls ~55MB from dl.posit.co and unpacks every driver in the bundle, which
+		// takes appreciably longer than the default hook timeout.
+		test.setTimeout(300_000);
+
+		const probe = await runDockerCommand(
+			`docker exec ${CONTAINER} bash -lc 'if command -v apt-get > /dev/null; then echo deb; else echo rpm; fi; uname -m'`,
+			'Detect the host package format and architecture'
+		);
+		const [format, arch] = probe.stdout.trim().split('\n').map(line => line.trim());
+
+		// Posit publishes `rstudio-drivers` for el9 x86_64 but not el9 aarch64 (the aarch64 repo
+		// carries only posit-chronicle). CI's Rocky lane is x86_64 so it runs there; this only bites
+		// a local `npm run pwb -- --os=rocky9` on Apple Silicon, where it would otherwise fail with a
+		// bare "Unable to find a match" from dnf.
+		test.skip(format === 'rpm' && arch === 'aarch64',
+			'Posit Pro Drivers are not published for el9 aarch64');
+
+		const pkg = packageCommands(format as PackageFormat);
+
+		await test.step('Install the Pro Drivers', async () => {
+			await runDockerCommand(
+				`docker exec ${CONTAINER} bash -lc "${pkg.addRepo}"`,
+				'Add the Posit Pro repository'
+			);
+			await runDockerCommand(
+				`docker exec ${CONTAINER} bash -lc '${pkg.install}'`,
+				'Install the rstudio-drivers package'
+			);
+		});
+
+		await test.step('Register the drivers with unixODBC', async () => {
+			// Back up first, and only if no backup is already there: a leftover backup means an
+			// earlier teardown did not run, so it -- not the current file -- is the last copy of the
+			// host's original configuration. Overwriting it would lose that for good.
+			//
+			// Replacing rather than appending is what makes this correct on Rocky, whose stock file
+			// already defines [PostgreSQL] (see the file header).
+			await runDockerCommand(
+				`docker exec ${CONTAINER} bash -lc '` + [
+					`for f in ${ODBCINST_PATH} ${ODBCINI_PATH}; do`,
+					`  if [ -f "$f" ] && [ ! -f "$f${BACKUP_SUFFIX}" ]; then sudo cp "$f" "$f${BACKUP_SUFFIX}"; fi`,
+					`done`,
+					`sudo cp ${DRIVERS_DIR}/odbcinst.ini.sample ${ODBCINST_PATH}`,
+					`sudo chmod 0644 ${ODBCINST_PATH}`,
+				].join('\n') + `'`,
+				'Install odbcinst.ini from the drivers sample'
+			);
+		});
+
+		await test.step('Verify the PostgreSQL driver is installed and registered', async () => {
+			// Fail here rather than letting a bad install surface later as an empty pane. The two
+			// halves are checked separately because they fail independently: a stanza can name a
+			// `.so` that is not on disk (exactly what removing the package leaves behind), and a
+			// duplicate stanza would mean the DSNs resolve to some other driver.
+			const so = await runDockerCommand(
+				`docker exec ${CONTAINER} bash -lc 'test -f ${POSTGRES_DRIVER_SO} && echo found || echo missing'`,
+				'Check the PostgreSQL driver library exists'
+			);
+			expect(so.stdout.trim(), `expected ${POSTGRES_DRIVER_SO} on disk`).toBe('found');
+
+			const registered = await runDockerCommand(
+				`docker exec ${CONTAINER} bash -lc 'grep -c "^\\[PostgreSQL\\]" ${ODBCINST_PATH} || true'`,
+				'Check the PostgreSQL driver is registered exactly once in odbcinst.ini'
+			);
+			expect(registered.stdout.trim(), `expected exactly one [PostgreSQL] stanza in ${ODBCINST_PATH}`).toBe('1');
+		});
+
+		await test.step('Define the DSNs', async () => {
+			const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pro-drivers-'));
+			const tmpOdbcIni = path.join(tmpDir, 'odbc.ini');
+			await fs.promises.writeFile(tmpOdbcIni, odbcIniContents());
+			try {
+				await runDockerCommand(
+					`docker cp "${tmpOdbcIni}" ${CONTAINER}:/tmp/odbc.ini`,
+					'Copy odbc.ini into the container'
+				);
+				await runDockerCommand(
+					`docker exec ${CONTAINER} bash -lc 'sudo mv /tmp/odbc.ini ${ODBCINI_PATH} && sudo chmod 0644 ${ODBCINI_PATH}'`,
+					'Install odbc.ini'
+				);
+			} finally {
+				await fs.promises.rm(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		// Opened after the files are in place so the extension discovers them on activation. If a
+		// previous suite in this worker already activated it, its watchers on odbcinst.ini/odbc.ini
+		// pick the changes up instead -- either way the pane is current by the time it renders.
+		await app.workbench.dataConnections.openDataConnectionsView();
+	});
+
+	test.afterAll('Remove the Pro Drivers', async function ({ runDockerCommand }) {
+		test.setTimeout(120_000);
+
+		const probe = await runDockerCommand(
+			`docker exec ${CONTAINER} bash -lc 'if command -v apt-get > /dev/null; then echo deb; else echo rpm; fi'`,
+			'Detect the host package format'
+		);
+		const pkg = packageCommands(probe.stdout.trim() as PackageFormat);
+
+		// Tolerant of a partial install: this has to undo whatever beforeAll got through before
+		// failing (or before skipping), so removing an absent package must not abort the rest.
+		//
+		// Only `rstudio-drivers` is removed, not the dependencies it pulled in. On Rocky, unixODBC
+		// ships in the base image and removing it would damage the container for every later suite;
+		// on Ubuntu it arrives as a dependency, and leaving the driver-manager binaries behind is
+		// harmless once the configuration below is restored. `apt-get autoremove` is deliberately
+		// not used -- it would also collect anything else in the image that happens to be orphaned.
+		await runDockerCommand(
+			`docker exec ${CONTAINER} bash -lc '` + [
+				`${pkg.remove} || true`,
+				`sudo rm -f ${pkg.repoFiles.join(' ')}`,
+				// Restore rather than truncate: the original is empty on Ubuntu but carries the
+				// distro's driver templates on Rocky.
+				`for f in ${ODBCINST_PATH} ${ODBCINI_PATH}; do`,
+				`  if [ -f "$f${BACKUP_SUFFIX}" ]; then sudo mv "$f${BACKUP_SUFFIX}" "$f"; fi`,
+				`done`,
+				`exit 0`,
+			].join('\n') + `'`,
+			'Remove the Pro Drivers and restore the ODBC configuration'
+		);
+	});
+
+	test('Detects DSNs from the ODBC configuration', async function ({ app }) {
+		const { dataConnections } = app.workbench;
+
+		// The badge, not just the row: it is what distinguishes a connection the machine's ODBC
+		// configuration provides from one a user saved.
+		await dataConnections.expectConnectionDetected(PERIODIC_DSN);
+		await dataConnections.expectConnectionDetected(DVDRENTAL_DSN);
+	});
+
+	test('Browses a detected connection to data in the Data Explorer', {
+		tag: [tags.DATA_EXPLORER]
+	}, async function ({ app }) {
+		const { dataConnections, dataExplorer } = app.workbench;
+
+		await test.step('Expand the tree down to tables', async () => {
+			await dataConnections.expandConnection(PERIODIC_DSN);
+			await dataConnections.expandNode('Schemas');
+			await dataConnections.expandNode('public');
+			await dataConnections.expandNode('Tables');
+		});
+
+		await dataConnections.doubleClickNode('elements', 'table');
+
+		await dataExplorer.waitForIdle();
+		await dataExplorer.grid.expectColumnHeadersToBe(ELEMENTS_COLUMNS);
+
+		await test.step('Verify the first row of data', async () => {
+			for (const [colIndex, value] of ELEMENTS_FIRST_ROW.entries()) {
+				await dataExplorer.grid.expectCellContentToBe({ rowIndex: 0, colIndex, value });
+			}
+		});
+	});
+});
