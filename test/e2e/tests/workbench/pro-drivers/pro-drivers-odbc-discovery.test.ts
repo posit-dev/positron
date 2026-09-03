@@ -67,11 +67,27 @@ let odbcinstPath = '/etc/odbcinst.ini';
 let odbcIniPath = '/etc/odbc.ini';
 
 /**
- * Shell that prints unixODBC's system driver file and system DSN file, one per line, as
- * `odbcinst -j` reports them. Asking the driver manager is the only reliable way: the paths are
- * compile-time, not conventional.
+ * Shell that prints unixODBC's system driver file and system DSN file, one per line.
+ *
+ * Asks `odbcinst -j` when it is there, because that is authoritative -- the paths are unixODBC's
+ * compile-time SYSCONFDIR, not a convention. But it is not always there: on Debian/Ubuntu the
+ * `odbcinst` BINARY is packaged separately from the ODBC libraries, so installing rstudio-drivers
+ * pulls in the libraries and leaves no CLI to ask. Rocky and openSUSE both ship it.
+ *
+ * Hence the fallback, which only ever runs on Debian/Ubuntu: prefer /etc/unixODBC if that directory
+ * exists (the SUSE-family layout) and otherwise /etc. Note a bare pipeline would hide all of this
+ * -- its exit status is sed's, so a missing `odbcinst` exits 0 with empty output, which is exactly
+ * how this failed the first time.
  */
-const RESOLVE_ODBC_PATHS = `odbcinst -j | sed -n "s/^DRIVERS[^:]*: *//p; s/^SYSTEM DATA SOURCES[^:]*: *//p"`;
+const RESOLVE_ODBC_PATHS = [
+	'if command -v odbcinst > /dev/null 2>&1; then',
+	'  odbcinst -j | sed -n "s/^DRIVERS[^:]*: *//p; s/^SYSTEM DATA SOURCES[^:]*: *//p"',
+	'elif [ -d /etc/unixODBC ]; then',
+	'  printf "%s\\n" /etc/unixODBC/odbcinst.ini /etc/unixODBC/odbc.ini',
+	'else',
+	'  printf "%s\\n" /etc/odbcinst.ini /etc/odbc.ini',
+	'fi',
+].join('\n');
 
 // Suffix for the backups of the two config files, restored on teardown. Named for the suite so a
 // stray backup is traceable to what left it behind.
