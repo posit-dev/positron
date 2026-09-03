@@ -160,7 +160,14 @@ function packageCommands(manager: PackageManager): { addRepo: string; install: s
 				// that --non-interactive answers with "no".
 				install: `${ZYPPER} --no-gpg-checks install rstudio-drivers`,
 				remove: `${ZYPPER} remove rstudio-drivers`,
-				repoFiles: ['/etc/zypp/repos.d/posit-pro.repo'],
+				// Globbed because `zypper ar` writes one file per alias, and the setup script adds
+				// three (posit-pro, posit-pro-noarch, posit-pro-source). Removing only the first
+				// leaves the other two, and the next `addRepo` in that container then dies with
+				// "Repository named posit-pro-noarch already exists" -- surfaced by the setup
+				// script's catch-all as "Could not install the repository, do you have
+				// permissions?", which masks the real failure on a retry. Rocky needs no glob: dnf
+				// writes all three sections into a single posit-pro.repo.
+				repoFiles: ['/etc/zypp/repos.d/posit-pro*.repo'],
 			};
 	}
 }
