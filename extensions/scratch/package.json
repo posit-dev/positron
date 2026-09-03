@@ -19,6 +19,10 @@
 			{
 				"command": "scratch.helloWorld",
 				"title": "Hello World"
+			},
+			{
+				"command": "scratch.runLegacyProviderAction",
+				"title": "Scratch: Run Legacy Provider Action"
 			}
 		]
 	},

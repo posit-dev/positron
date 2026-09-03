@@ -185,6 +185,18 @@ describe('MainThreadAiFeatures', () => {
 			expect(responseProviderAction).not.toHaveBeenCalled();
 		});
 
+		// DEMO ONLY -- delete alongside the 'positron.scratch' entry in
+		// LEGACY_ACTION_CALLERS. Asserted rather than left implicit so removing the
+		// demo hole fails a test instead of going unnoticed.
+		it('allows extensions/scratch, the local demo caller', async () => {
+			const mainThread = await createMainThreadWithLegacyProvider('positron.authentication');
+
+			await mainThread.$runLegacyProviderAction('positron.scratch', 'amazon-bedrock', config, 'oauth-signout');
+
+			expect(responseProviderAction).toHaveBeenCalledExactlyOnceWith(
+				languageModelSource('amazon-bedrock'), config, 'oauth-signout');
+		});
+
 		it('rejects a provider the authentication extension does not own', async () => {
 			// The bridge exists only to reach providers Posit Assistant does not own.
 			// Once it registers its own, it holds their credentials itself.

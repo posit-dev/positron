@@ -246,6 +246,13 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		// entry in _providerOwners is owned by positron.authentication.
 		const LEGACY_ACTION_CALLERS = new Set([
 			'posit.assistant',
+			// DEMO ONLY -- remove before this ships. extensions/scratch is a local
+			// scratch pad, excluded from packaged builds (build/lib/extensions.ts),
+			// so this entry cannot widen a release. It can still hand a local
+			// scratch extension a write path into the authentication extension's
+			// secret storage, which is exactly what the predicate below exists to
+			// prevent.
+			'positron.scratch',
 		]);
 		const LEGACY_ACTION_OWNER = 'positron.authentication';
 
