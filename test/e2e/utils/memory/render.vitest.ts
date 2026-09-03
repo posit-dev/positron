@@ -843,6 +843,22 @@ describe('kernelRows', () => {
 		expect(rows[0].change).toBe('');
 	});
 
+	// The real shape of a fetched baseline: the dashboard API returns a role and a
+	// figure per process but no command name, so every baseline kernel reads as
+	// `unknown`. Reporting "new" against that would call every kernel new every
+	// night, so per-label changes stay blank while the TOTAL still diffs.
+	test('leaves per-label changes blank when the baseline carries no command names', () => {
+		const rows = kernelRows(
+			[snapshot([kernelProc('ark', 180 * MB, 200), kernelProc('python3', 90 * MB, 201)])],
+			snapshot([
+				proc({ pid: 200, processRole: 'kernel', processName: 'ark', cmdBasename: '', pssBytes: 160 * MB }),
+				proc({ pid: 201, processRole: 'kernel', processName: 'python3', cmdBasename: '', pssBytes: 90 * MB })
+			]));
+
+		expect(rows.filter(row => !row.isTotal).map(row => row.change)).toEqual(['', '']);
+		expect(rows.at(-1)).toMatchObject({ change: '+20.0 MB', changeBytes: 20 * MB });
+	});
+
 	// The alarm for our label mapping drifting from the dashboard's: it sums the
 	// kernel band the same way, so if a basename stops being counted here it has
 	// stopped being counted there too. Single launch, where a median is exact --

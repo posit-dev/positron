@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { kernelProcessCounts, kernelTotals } from './kernel.js';
+import { KERNEL_LABEL_UNKNOWN, kernelProcessCounts, kernelTotals } from './kernel.js';
 import { deltaHtml, deltaHtmlFromDiff, escapeHtml, formatBytes, GC_NOTE, KB, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
 import { unstableProcesses } from './snapshot.js';
 import { ActivatedExtension, ExtensionHeapBreakdown, ExtensionHeapStatus, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
@@ -400,11 +400,20 @@ export function kernelRows(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	const counts = kernelProcessCounts(snapshots);
 	const baselineTotals = baseline ? kernelTotals(baseline) : undefined;
 
+	// The baseline arrives from the dashboard API, which returns a role and a
+	// figure per process but no command name, so `baselineToSnapshot` leaves
+	// cmdBasename empty and every baseline kernel lands under `unknown`. That
+	// total is still the right thing to diff the TOTAL row against, but it can
+	// say nothing about any individual language, so per-label changes stay blank
+	// rather than reporting every kernel as "new" every night.
+	const baselineLabeled = baselineTotals !== undefined
+		&& [...baselineTotals.keys()].some(label => label !== KERNEL_LABEL_UNKNOWN);
+
 	// Blank rather than "new" everywhere when the baseline had no kernel at all:
 	// that is the first night, or a baseline captured from a scenario that starts
 	// no session, not a night the kernels appeared.
 	const changeFor = (label: string, bytes: number): Pick<KernelRow, 'change' | 'changeBytes'> => {
-		if (baselineTotals === undefined || baselineTotals.size === 0) {
+		if (baselineTotals === undefined || !baselineLabeled) {
 			return { change: '' };
 		}
 		const before = baselineTotals.get(label);
