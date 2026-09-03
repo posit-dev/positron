@@ -18,6 +18,25 @@ from typing import Any, List, Literal, Optional, Union
 from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 
+class HelpTopicSuggestion(BaseModel):
+    """
+    A help topic offered as an autocomplete suggestion.
+    """
+
+    label: StrictStr = Field(
+        description="The topic label shown to the user.",
+    )
+
+    topic: StrictStr = Field(
+        description="The exact topic value used to open help.",
+    )
+
+    detail: Optional[StrictStr] = Field(
+        default=None,
+        description="Optional context such as the package containing the topic.",
+    )
+
+
 @enum.unique
 class ShowHelpKind(str, enum.Enum):
     """
@@ -39,6 +58,12 @@ class HelpBackendRequest(str, enum.Enum):
 
     # Look for and, if found, show a help topic.
     ShowHelpTopic = "show_help_topic"
+
+    # Search the active interpreter's help system.
+    SearchHelp = "search_help"
+
+    # List help topics for autocomplete.
+    GetHelpTopics = "get_help_topics"
 
 
 class ShowHelpTopicParams(BaseModel):
@@ -76,9 +101,60 @@ class ShowHelpTopicRequest(BaseModel):
     )
 
 
+class SearchHelpParams(BaseModel):
+    """
+    Searches interpreter-wide help and displays the resulting page via a
+    Show Help notification.
+    """
+
+    query: StrictStr = Field(
+        description="The help query to search for",
+    )
+
+
+class SearchHelpRequest(BaseModel):
+    """
+    Searches interpreter-wide help and displays the resulting page via a
+    Show Help notification.
+    """
+
+    params: SearchHelpParams = Field(
+        description="Parameters to the SearchHelp method",
+    )
+
+    method: Literal[HelpBackendRequest.SearchHelp] = Field(
+        description="The JSON-RPC method name (search_help)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class GetHelpTopicsRequest(BaseModel):
+    """
+    Returns interpreter-wide help topics that can be offered as search
+    suggestions.
+    """
+
+    method: Literal[HelpBackendRequest.GetHelpTopics] = Field(
+        description="The JSON-RPC method name (get_help_topics)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class HelpBackendMessageContent(BaseModel):
     comm_id: str
-    data: ShowHelpTopicRequest
+    data: Union[
+        ShowHelpTopicRequest,
+        SearchHelpRequest,
+        GetHelpTopicsRequest,
+    ] = Field(..., discriminator="method")
 
 
 @enum.unique
@@ -109,8 +185,16 @@ class ShowHelpParams(BaseModel):
     )
 
 
+HelpTopicSuggestion.update_forward_refs()
+
 ShowHelpTopicParams.update_forward_refs()
 
 ShowHelpTopicRequest.update_forward_refs()
+
+SearchHelpParams.update_forward_refs()
+
+SearchHelpRequest.update_forward_refs()
+
+GetHelpTopicsRequest.update_forward_refs()
 
 ShowHelpParams.update_forward_refs()
