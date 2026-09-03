@@ -338,3 +338,43 @@ def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
         json_rpc_response(result=True),
         show_help_event(f"{mock_pydoc_thread.url}get?key=logging"),
     ]
+
+
+def test_handle_search_help(help_comm, mock_pydoc_thread) -> None:
+    msg = json_rpc_request(
+        HelpBackendRequest.SearchHelp,
+        {"query": "linear model"},
+        comm_id="dummy_comm_id",
+    )
+    help_comm.handle_msg(msg)
+
+    assert help_comm.messages == [
+        json_rpc_response(result=True),
+        show_help_event(f"{mock_pydoc_thread.url}search?key=linear+model"),
+    ]
+
+
+def test_handle_get_help_topics(help_comm, help_service, monkeypatch) -> None:
+    scanner = Mock()
+
+    def scan(callback, _key, *, onerror):
+        callback(None, "example.__init__", "Example package")
+        callback(None, "example.tools", "Example tools")
+
+    scanner.run.side_effect = scan
+    monkeypatch.setattr(pydoc, "ModuleScanner", lambda: scanner)
+    msg = json_rpc_request(
+        HelpBackendRequest.GetHelpTopics,
+        {},
+        comm_id="dummy_comm_id",
+    )
+    help_comm.handle_msg(msg)
+
+    assert help_comm.messages == [
+        json_rpc_response(
+            result=[
+                {"label": "example", "topic": "example", "detail": None},
+                {"label": "example.tools", "topic": "example.tools", "detail": None},
+            ]
+        )
+    ]
