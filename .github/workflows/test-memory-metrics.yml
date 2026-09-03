@@ -419,19 +419,14 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Non-fatal: a budget alert must not fail the memory run. That is also
-      # what makes this step harmless if it ships before the API route is
-      # deployed.
-      #
-      # Only main publishes to the production dataset (see api.ts: every other
-      # branch is routed at the local URL), so on a branch dispatch this run_id
-      # has no rows and the route correctly reports 0 scenarios.
+      # Non-fatal by design: a budget alert must never fail the memory run.
+      # Only main publishes to the production dataset, so a branch dispatch
+      # finds no rows for its run_id and the route reports 0 scenarios.
       - name: Memory budget alert
         continue-on-error: true
         env:
-          # Scheduled runs receive EMPTY inputs, not the declared defaults, so
-          # every one needs an explicit fallback here. Getting this wrong fails
-          # silently toward "never notify".
+          # Scheduled runs get EMPTY inputs, not the declared defaults, so each
+          # needs an explicit fallback here.
           NOTIFY_ON: ${{ inputs.notify_on || 'over_budget_only' }}
           CHANNEL: ${{ inputs.channel || '#positron-dev' }}
           CEILING_GIB: ${{ inputs.ceiling_gib || '2' }}
@@ -445,9 +440,8 @@ jobs:
             echo "[dryrun] notify_on=never; will compute but not post"
           fi
 
-          # The run_id this workflow published under, so the route evaluates
-          # THIS run. No date arithmetic, no timezone edges, no interaction
-          # with the dashboard's 00:00-00:30 UTC maintenance window.
+          # Query by run_id, so no date arithmetic and no interaction with the
+          # dashboard's 00:00-00:30 UTC maintenance window.
           url="https://connect.posit.it/e2e-test-insights-api/memory/budget-check"
           status=$(curl -sS -o response.json -w '%{http_code}' \
             -H "Authorization: Key ${CONNECT_API_KEY}" \
@@ -457,8 +451,8 @@ jobs:
             --data-urlencode "lane=desktop" \
             --data-urlencode "ceiling_gib=${CEILING_GIB}")
 
-          # Any non-200 means something is wrong with the request, not that
-          # there is nothing to report -- the route reserves non-2xx for that.
+          # The route reserves non-2xx for a bad request, never for "nothing
+          # to report".
           if [ "$status" != "200" ]; then
             echo "budget-check returned HTTP $status:"
             cat response.json
@@ -484,7 +478,9 @@ jobs:
             exit 0
           fi
 
-          text=$(jq -r '.slack_text' response.json)
+          # `// ""` because jq -r renders a null as the literal "null", which
+          # would sail past the -z check and get posted verbatim.
+          text=$(jq -r '.slack_text // ""' response.json)
           if [ -z "$text" ]; then
             reported=$(jq -r '.scenarios_reported' response.json)
             ceiling=$(jq -r '.ceiling_bytes' response.json)
@@ -500,9 +496,8 @@ jobs:
             --data @payload.json \
             https://slack.com/api/chat.postMessage
 
-          # Slack returns HTTP 200 with {"ok":false,"error":"channel_not_found"}
-          # for a bad channel, so an ignored response would make a typo'd
-          # channel look like success.
+          # A bad channel comes back as HTTP 200 with {"ok":false}, so an
+          # ignored response would make a typo look like success.
           if ! jq -e '.ok' slack.json >/dev/null; then
             echo "Slack rejected the message:"
             cat slack.json
