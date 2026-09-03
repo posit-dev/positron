@@ -68,7 +68,9 @@ Vitest collects `extensions/**/*.vitest.{ts,tsx}` too. Four things differ from `
 
 Without it, the test is compiled into `out/` and ships inside the extension, where its `vitest` import cannot resolve at runtime. Nothing else catches this: `compile-extension` runs tsgo straight off the extension's tsconfig and bypasses the gulp pipeline, `.vscodeignore` excludes `src/**` but not `out/**`, and the `.vitest.` filter in `build/lib/compilation.ts` applies only to the core `src` build. Each extension has to opt out for itself.
 
-Confirm with a command, not by eye -- this fails silently:
+`extensions/noVitestFilesInBuilds.vitest.ts` guards this for every extension automatically: it resolves each extension's tsconfig the same way its real build does and fails if a `.vitest.` file would be included. A forgotten exclude fails that test instead of shipping silently.
+
+To confirm by hand instead, use a command, not eye inspection -- this fails silently:
 
 ```bash
 npx tsc -p extensions/<name> --listFilesOnly | grep vitest   # expect no output
