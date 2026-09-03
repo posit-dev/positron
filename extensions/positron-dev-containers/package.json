@@ -37,12 +37,18 @@
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
+        "dev.containers.enabled": {
+          "scope": "application",
+          "type": "boolean",
+          "markdownDescription": "%configuration.enabled.markdownDescription%",
+          "default": false,
+          "tags": ["experimental"]
+        },
         "dev.containers.enable": {
           "scope": "application",
           "type": "boolean",
-          "markdownDescription": "%configuration.enable.markdownDescription%",
           "default": false,
-          "tags": ["experimental"]
+          "markdownDeprecationMessage": "%configuration.enable.deprecated%"
         },
         "dev.containers.defaultExtensions": {
           "scope": "application",

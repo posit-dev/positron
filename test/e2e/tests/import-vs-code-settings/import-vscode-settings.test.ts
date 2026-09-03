@@ -37,7 +37,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 			'workbench.colorTheme': 'Default Dark',
 		});
 		await positronUserSettings.set({
-			'positron.importSettings.enable': true,
+			'workbench.settings.importFromVSCode.enabled': true,
 			'test': 'positron-settings',
 			'editor.fontSize': 16,
 			'workbench.colorTheme': 'Default Light+',

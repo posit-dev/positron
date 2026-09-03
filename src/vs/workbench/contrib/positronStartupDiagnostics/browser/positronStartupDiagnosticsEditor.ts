@@ -35,7 +35,7 @@ import {
 	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING
 } from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
 import { getRuntimeDisplayPath, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IConfigurationService, isConfigured } from '../../../../platform/configuration/common/configuration.js';
 import { IOutputService } from '../../../services/output/common/output.js';
 import { IAdminPolicyService } from '../../../../platform/policy/common/adminPolicyService.js';
 import * as perf from '../../../../base/common/performance.js';
@@ -344,12 +344,18 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			['python.interpreters.include', 'Additional discovery paths'],
 			['python.interpreters.exclude', 'Excluded paths'],
 			['python.interpreters.override', 'Override list'],
-			['python.environmentProviders.enable', 'Environment providers'],
 			['python.locator', 'Locator implementation'],
 		];
 		for (const [key, _label] of pythonSettings) {
 			const value = this._configurationService.getValue(key);
 			md.li(`\`${key}\`: ${fmt(value)}`);
+		}
+		const environmentProvidersEnabledKey = 'python.environmentProviders.enabled';
+		md.li(`\`${environmentProvidersEnabledKey}\`: ${fmt(this._configurationService.getValue(environmentProvidersEnabledKey))}`);
+
+		const deprecatedEnvironmentProvidersEnableKey = 'python.environmentProviders.enable';
+		if (isConfigured(this._configurationService.inspect(deprecatedEnvironmentProvidersEnableKey))) {
+			md.li(`\`${deprecatedEnvironmentProvidersEnableKey}\` (deprecated): ${fmt(this._configurationService.getValue(deprecatedEnvironmentProvidersEnableKey))}`);
 		}
 
 		// R settings
