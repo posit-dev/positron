@@ -71,7 +71,7 @@ let odbcIniPath = '/etc/odbc.ini';
  * `odbcinst -j` reports them. Asking the driver manager is the only reliable way: the paths are
  * compile-time, not conventional.
  */
-const RESOLVE_ODBC_PATHS = `odbcinst -j | sed -n 's/^DRIVERS[^:]*: *//p; s/^SYSTEM DATA SOURCES[^:]*: *//p'`;
+const RESOLVE_ODBC_PATHS = `odbcinst -j | sed -n "s/^DRIVERS[^:]*: *//p; s/^SYSTEM DATA SOURCES[^:]*: *//p"`;
 
 // Suffix for the backups of the two config files, restored on teardown. Named for the suite so a
 // stray backup is traceable to what left it behind.
@@ -207,18 +207,6 @@ test.describe('Workbench: Posit Pro Drivers', {
 
 		const pkg = packageCommands(manager as PackageManager);
 
-		// Resolve where this distro's unixODBC actually reads its configuration, before writing any
-		// of it. On openSUSE these come back under /etc/unixODBC, not /etc.
-		const odbcPaths = await runDockerCommand(
-			`docker exec ${CONTAINER} bash -lc '${RESOLVE_ODBC_PATHS}'`,
-			'Resolve the unixODBC configuration paths'
-		);
-		const [resolvedInst, resolvedIni] = odbcPaths.stdout.trim().split('\n').map(line => line.trim());
-		expect(resolvedInst, 'odbcinst -j did not report a system driver file').toBeTruthy();
-		expect(resolvedIni, 'odbcinst -j did not report a system DSN file').toBeTruthy();
-		odbcinstPath = resolvedInst;
-		odbcIniPath = resolvedIni;
-
 		await test.step('Install the Pro Drivers', async () => {
 			await runDockerCommand(
 				`docker exec ${CONTAINER} bash -lc "${pkg.addRepo}"`,
@@ -228,6 +216,27 @@ test.describe('Workbench: Posit Pro Drivers', {
 				`docker exec ${CONTAINER} bash -lc '${pkg.install}'`,
 				'Install the rstudio-drivers package'
 			);
+		});
+
+		// Only now can unixODBC be asked where it reads its configuration -- `odbcinst` ships with
+		// unixODBC, and on Ubuntu and Rocky that arrives as a DEPENDENCY of rstudio-drivers, so
+		// before the install above there is no `odbcinst` to run. (openSUSE has it in the image,
+		// which is why doing this earlier passed there and broke the other two.) Must still come
+		// before anything is written, since it decides where.
+		await test.step('Resolve the unixODBC configuration paths', async () => {
+			const odbcPaths = await runDockerCommand(
+				`docker exec ${CONTAINER} bash -lc '${RESOLVE_ODBC_PATHS}'`,
+				'Ask unixODBC for its system driver and DSN files'
+			);
+			const [resolvedInst, resolvedIni] = odbcPaths.stdout.trim().split('\n').map(line => line.trim());
+			// Assert rather than fall back to /etc: a silent fallback is what makes the openSUSE
+			// failure mode so hard to read -- the config lands somewhere unixODBC ignores, the DSNs
+			// are still listed by the pane, and the only symptom is a connection that expands to
+			// nothing.
+			expect(resolvedInst, 'odbcinst -j did not report a system driver file').toBeTruthy();
+			expect(resolvedIni, 'odbcinst -j did not report a system DSN file').toBeTruthy();
+			odbcinstPath = resolvedInst;
+			odbcIniPath = resolvedIni;
 		});
 
 		await test.step('Register the drivers with unixODBC', async () => {
