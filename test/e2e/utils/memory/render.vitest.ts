@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { extensionHeapRows, formatBytes, renderHtml, renderMarkdown } from './render.js';
+import { byRole, extensionHeapRows, formatBytes, kernelRows, renderHtml, renderMarkdown } from './render.js';
 import { REPORT_CSS } from './report-shell.js';
 import { ActivatedExtension, ExtensionHeapBreakdown, ExtensionHeapStatus, LabeledProcess, MemorySnapshot } from './types.js';
 
@@ -754,5 +754,150 @@ describe('extension host heap breakdown', () => {
 
 		expect(html).toContain('Extension host heap');
 		expect(html).toContain('GitHub.copilot-chat');
+	});
+});
+
+describe('kernelRows', () => {
+	const kernelProc = (cmdBasename: string, pssBytes: number, pid: number): LabeledProcess =>
+		proc({ pid, processRole: 'kernel', processName: cmdBasename, cmdBasename, pssBytes });
+
+	test('ranks the labels largest first', () => {
+		const rows = kernelRows([snapshot([
+			proc(),
+			kernelProc('python3', 90 * MB, 200),
+			kernelProc('ark', 180 * MB, 201)
+		])]);
+
+		expect(rows.map(row => row.label)).toEqual(['R (ark)', 'Python', 'TOTAL']);
+		expect(rows[0].bytes).toBe(180 * MB);
+	});
+
+	// The same zero-filling byRole does, and for the same reason: a kernel that
+	// appeared in one launch of three must not read as heavy as one that ran in
+	// all three.
+	test('counts a label absent from a launch as zero in the median', () => {
+		const rows = kernelRows([
+			snapshot([kernelProc('ark', 90 * MB, 200)], 0),
+			snapshot([], 1),
+			snapshot([], 2)
+		]);
+
+		expect(rows.find(row => row.label === 'R (ark)')!.bytes).toBe(0);
+	});
+
+	test('says how many processes a label folds together', () => {
+		const rows = kernelRows([snapshot([
+			kernelProc('python3', 90 * MB, 200),
+			kernelProc('python3.11', 60 * MB, 201)
+		])]);
+
+		expect(rows[0]).toMatchObject({ label: 'Python', bytes: 150 * MB, processCount: 2 });
+	});
+
+	// With one label the TOTAL is that label's figure printed twice, which says
+	// nothing and invites the reader to look for the difference.
+	test('omits the TOTAL row for a single label', () => {
+		const rows = kernelRows([snapshot([kernelProc('ark', 90 * MB, 200)])]);
+
+		expect(rows.map(row => row.label)).toEqual(['R (ark)']);
+	});
+
+	test('sums the TOTAL from the printed rows', () => {
+		const rows = kernelRows([snapshot([
+			kernelProc('ark', 180 * MB, 200),
+			kernelProc('python3', 90 * MB, 201)
+		])]);
+
+		expect(rows.at(-1)).toMatchObject({ label: 'TOTAL', bytes: 270 * MB, isTotal: true });
+	});
+
+	test('is empty for a scenario that starts no kernel', () => {
+		expect(kernelRows([snapshot([proc()])])).toEqual([]);
+	});
+
+	test('reports a change against the previous nightly', () => {
+		const rows = kernelRows(
+			[snapshot([kernelProc('ark', 180 * MB, 200)])],
+			snapshot([kernelProc('ark', 160 * MB, 200)]));
+
+		expect(rows[0]).toMatchObject({ change: '+20.0 MB', changeBytes: 20 * MB });
+	});
+
+	// A kernel the previous nightly did not run is a different fact from one that
+	// held flat, so it says so rather than reporting its whole figure as growth.
+	test('calls a label the baseline never had new', () => {
+		const rows = kernelRows(
+			[snapshot([kernelProc('ark', 180 * MB, 200)])],
+			snapshot([kernelProc('python3', 90 * MB, 200)]));
+
+		const row = rows.find(entry => entry.label === 'R (ark)')!;
+		expect(row.change).toBe('new');
+		expect(row.changeBytes).toBeUndefined();
+	});
+
+	// Blank rather than "new" on every row: a baseline with no kernel at all is
+	// the first night, or an idle baseline, not a night the kernels appeared.
+	test('leaves the change blank when the baseline had no kernel', () => {
+		const rows = kernelRows([snapshot([kernelProc('ark', 180 * MB, 200)])], snapshot([proc()]));
+
+		expect(rows[0].change).toBe('');
+	});
+
+	// The alarm for our label mapping drifting from the dashboard's: it sums the
+	// kernel band the same way, so if a basename stops being counted here it has
+	// stopped being counted there too. Single launch, where a median is exact --
+	// across launches the per-label medians need not sum to the role's own median.
+	test('sums to the kernel row in the role table', () => {
+		const snapshots = [snapshot([
+			proc(),
+			kernelProc('ark', 180 * MB, 200),
+			kernelProc('python3.11', 90 * MB, 201),
+			kernelProc('julia', 40 * MB, 202)
+		])];
+
+		const total = kernelRows(snapshots).find(row => row.isTotal)!.bytes;
+		expect(total).toBe(byRole(snapshots).get('kernel'));
+	});
+});
+
+describe('kernel card', () => {
+	const sessionSnapshot = snapshot([
+		proc(),
+		proc({ pid: 200, processRole: 'kernel', processName: 'ark', cmdBasename: 'ark', pssBytes: 180 * MB })
+	]);
+
+	test('renders the labels in html', () => {
+		const html = renderHtml([sessionSnapshot]);
+
+		expect(html).toContain('Kernel memory');
+		expect(html).toContain('R (ark)');
+	});
+
+	// The count column warns that a label's figure is a sum; TOTAL says that
+	// about itself, and the suffix there only reads as a second figure.
+	test('leaves the process count off the TOTAL row', () => {
+		const html = renderHtml([snapshot([
+			proc({ pid: 200, processRole: 'kernel', processName: 'ark', cmdBasename: 'ark', pssBytes: 180 * MB }),
+			proc({ pid: 201, processRole: 'kernel', processName: 'python3', cmdBasename: 'python3', pssBytes: 90 * MB })
+		])]);
+
+		expect(html).not.toContain('<strong>TOTAL</strong> <span class="muted">(2 processes)');
+	});
+
+	// idle, editors and data-explorer start no session, and an empty table there
+	// reads as a failed measurement rather than as a scenario without a kernel.
+	test('omits the card entirely when no kernel ran', () => {
+		expect(renderHtml([snapshot([proc()])])).not.toContain('Kernel memory');
+	});
+
+	test('renders the labels in markdown', () => {
+		const markdown = renderMarkdown([sessionSnapshot]);
+
+		expect(markdown).toContain('### Kernel memory');
+		expect(markdown).toContain('R (ark)');
+	});
+
+	test('omits the markdown section when no kernel ran', () => {
+		expect(renderMarkdown([snapshot([proc()])])).not.toContain('### Kernel memory');
 	});
 });

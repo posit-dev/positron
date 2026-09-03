@@ -728,3 +728,72 @@ describe('containerHtmlFrom', () => {
 		expect(() => containerHtmlFrom(doc, 'server')).toThrow(/server/);
 	});
 });
+
+describe('kernel matrix', () => {
+	const kernelProc = (cmdBasename: string, mb: number, pid: number): LabeledProcess =>
+		proc({ pid, processRole: 'kernel', processName: cmdBasename, cmdBasename, pssBytes: mb * MB });
+
+	const entries: ScenarioSnapshots[] = [
+		scenarioEntry('idle', [proc()]),
+		scenarioEntry('session-r', [proc(), kernelProc('ark', 180, 200)]),
+		scenarioEntry('session-python', [proc(), kernelProc('python3', 90, 200)]),
+		scenarioEntry('notebook', [proc(), kernelProc('python3.11', 120, 200)])
+	];
+
+	test('decomposes the kernel role by language across scenarios', () => {
+		const kernels = buildSummaryMatrix(entries).kernels!;
+
+		expect(kernels.rows.map(row => row.label)).toEqual(['R (ark)', 'Python']);
+		expect(kernels.rows[0].values['session-r']).toBe(180 * MB);
+		expect(kernels.rows[1].values['session-python']).toBe(90 * MB);
+		expect(kernels.rows[1].values['notebook']).toBe(120 * MB);
+	});
+
+	// The em-dash the cell renderer prints for an absent value, not a fabricated
+	// zero: idle starts no session, so it has no R kernel rather than a 0 MB one.
+	test('leaves a scenario without that kernel absent', () => {
+		const kernels = buildSummaryMatrix(entries).kernels!;
+
+		expect(kernels.rows[0].values['idle']).toBeUndefined();
+		expect(kernels.rows[0].values['session-python']).toBeUndefined();
+	});
+
+	test('totals the kernels a scenario did run', () => {
+		const kernels = buildSummaryMatrix(entries).kernels!;
+
+		expect(kernels.totals['session-r']).toBe(180 * MB);
+		expect(kernels.totals['idle']).toBeUndefined();
+	});
+
+	// The invariant the dashboard's chart depends on, checked on our side of the
+	// same mapping: the labels have to add up to the band they decompose.
+	test('sums to the kernel row in the role matrix, per scenario', () => {
+		const matrix = buildSummaryMatrix(entries);
+		const kernelRole = matrix.rows.find(row => row.role === 'kernel')!;
+
+		for (const scenario of ['session-r', 'session-python', 'notebook'] as MemoryScenario[]) {
+			expect(matrix.kernels!.totals[scenario]).toBe(kernelRole.values[scenario]);
+		}
+	});
+
+	test('is undefined when no scenario ran a kernel', () => {
+		const matrix = buildSummaryMatrix([scenarioEntry('idle', [proc()])]);
+
+		expect(matrix.kernels).toBeUndefined();
+	});
+
+	test('renders the card in html', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix(entries));
+
+		expect(html).toContain('Kernel memory by language');
+		expect(html).toContain('R (ark)');
+	});
+
+	// Absent rather than an "unavailable" sentence: unlike a failed heap
+	// attribution, a run with no kernel is a legitimate result.
+	test('omits the card when no scenario ran a kernel', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix([scenarioEntry('idle', [proc()])]));
+
+		expect(html).not.toContain('Kernel memory by language');
+	});
+});

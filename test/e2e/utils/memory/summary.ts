@@ -16,6 +16,7 @@
  */
 
 import { deltaHtmlFromDiff, escapeHtml, formatBytes, GC_FOOTNOTE, notSteadyStateCardHtml, REPORT_CSS } from './report-shell.js';
+import { kernelProcessCounts, kernelTotals } from './kernel.js';
 import { byRole, EXTENSION_HEAP_FLOOR_BYTES, extensionHeapUnavailableText, UNATTRIBUTED_ROW } from './render.js';
 import { unstableProcesses } from './snapshot.js';
 import { MemoryLane } from './lanes.js';
@@ -73,6 +74,33 @@ export type ExtensionMatrix = {
 	totals: Partial<Record<MemoryScenario, number>>;
 	totalDeltaVsIdle: Partial<Record<MemoryScenario, number>>;
 	totalEmphasisThreshold: Partial<Record<MemoryScenario, number>>;
+};
+
+/**
+ * One kernel language's median PSS across every scenario that ran it.
+ *
+ * No `deltaVsIdle`, unlike {@link SummaryRow} and {@link ExtensionSummaryRow}:
+ * idle starts no session, so every kernel row's baseline cell is absent and a
+ * delta column would be empty down its whole length. The comparison a reader
+ * wants here is across the scenario columns, not against idle.
+ */
+export type KernelSummaryRow = {
+	/** A label from `kernelLabelFor`: `R (ark)`, `Python`, or an unmapped basename. */
+	label: string;
+	values: Partial<Record<MemoryScenario, number>>;
+	/**
+	 * The most processes this label covered in any scenario's any launch, for the
+	 * label suffix. Row-level rather than per cell: a suffix that changed down a
+	 * row would have to sit in the cells, competing with the figures.
+	 */
+	processCount: number;
+};
+
+export type KernelMatrix = {
+	/** Largest first, by the biggest cell in the row. No floor: there are only ever a handful of labels. */
+	rows: KernelSummaryRow[];
+	/** The whole `kernel` role per scenario: the sum of every row above. Absent for a scenario that ran none. */
+	totals: Partial<Record<MemoryScenario, number>>;
 };
 
 /** One process that was still moving when it was sampled, named for the warning banner. */
@@ -134,6 +162,13 @@ export type SummaryMatrix = {
 	extensions?: ExtensionMatrix;
 	/** Why there is no `extensions` table, when there is none. */
 	extensionsUnavailable?: string;
+	/**
+	 * Decomposition of the `kernel` row, one language per row and the same
+	 * scenario columns. Undefined when no scenario ran a kernel, which the
+	 * report omits rather than reporting as unavailable: unlike a failed heap
+	 * attribution, a run with no kernel is a legitimate result.
+	 */
+	kernels?: KernelMatrix;
 	/** What run this matrix describes, for the header. */
 	meta: SummaryMeta;
 };
@@ -370,6 +405,64 @@ function buildExtensionMatrix(entries: ScenarioSnapshots[], scenarios: MemorySce
 }
 
 /**
+ * Builds the per-kernel matrix, mirroring the role matrix column for column.
+ *
+ * No floor and no collapsed tail, unlike the extension matrix: a scenario runs
+ * one or two kernels, so every row is worth a line. A label absent from a
+ * launch counts as zero in that scenario's median, the same zero-filling
+ * `byRole` does; a label absent from the scenario entirely stays absent, so the
+ * cell renders an em-dash rather than a 0 MB kernel that never ran.
+ */
+function buildKernelMatrix(entries: ScenarioSnapshots[], scenarios: MemoryScenario[]): KernelMatrix | undefined {
+	const mediansByScenario = new Map<MemoryScenario, Map<string, number>>();
+	for (const { scenario, snapshots } of entries) {
+		const perLaunch = snapshots.map(kernelTotals);
+		const labels = new Set(perLaunch.flatMap(totals => [...totals.keys()]));
+		mediansByScenario.set(scenario, new Map([...labels].map(label => [
+			label, median(perLaunch.map(totals => totals.get(label) ?? 0))
+		])));
+	}
+	const labels = new Set([...mediansByScenario.values()].flatMap(medians => [...medians.keys()]));
+	if (labels.size === 0) {
+		return undefined;
+	}
+
+	const counts = new Map<string, number>();
+	for (const { snapshots } of entries) {
+		for (const [label, count] of kernelProcessCounts(snapshots)) {
+			counts.set(label, Math.max(counts.get(label) ?? 0, count));
+		}
+	}
+
+	const peak = (label: string) => Math.max(0, ...[...mediansByScenario.values()].map(m => m.get(label) ?? 0));
+	const rows: KernelSummaryRow[] = [...labels]
+		.sort((a, b) => peak(b) - peak(a))
+		.map(label => {
+			const values: Partial<Record<MemoryScenario, number>> = {};
+			for (const scenario of scenarios) {
+				const value = mediansByScenario.get(scenario)?.get(label);
+				if (value !== undefined) {
+					values[scenario] = value;
+				}
+			}
+			return { label, values, processCount: counts.get(label) ?? 0 };
+		});
+
+	// Summed from the rendered rows, so the column a reader adds up is the column
+	// that is printed. A scenario that ran no kernel is left absent rather than
+	// totalled to zero.
+	const totals: Partial<Record<MemoryScenario, number>> = {};
+	for (const scenario of scenarios) {
+		if ((mediansByScenario.get(scenario)?.size ?? 0) === 0) {
+			continue;
+		}
+		totals[scenario] = rows.reduce((sum, row) => sum + (row.values[scenario] ?? 0), 0);
+	}
+
+	return { rows, totals };
+}
+
+/**
  * Builds the per-role x per-scenario matrix.
  *
  * Columns are `idle` first (the baseline), then the rest ascending by TOTAL
@@ -466,7 +559,9 @@ export function buildSummaryMatrix(entries: ScenarioSnapshots[]): SummaryMatrix 
 	// snapshots, which the matrix does not carry.
 	const extensionsUnavailable = extensions ? undefined : extensionHeapUnavailableText(entries.flatMap(e => e.snapshots));
 
-	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable, forcedGcRoles, extensions, extensionsUnavailable, meta: buildSummaryMeta(entries) };
+	const kernels = buildKernelMatrix(entries, sortedScenarios);
+
+	return { scenarios: sortedScenarios, rows, totals, totalEmphasisThreshold, unstable, forcedGcRoles, extensions, extensionsUnavailable, kernels, meta: buildSummaryMeta(entries) };
 }
 
 /** Muted em-dash: a role that did not exist in this scenario, never a fabricated zero. */
@@ -671,6 +766,50 @@ const EXTENSION_DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to
  */
 const EXTENSION_COVERAGE_NOTE = `Rows show each extension's reachable V8 heap;
 	<em>unattributed</em> includes host runtime and extension code not owned by an extension object.`;
+
+/**
+ * The kernel section, or nothing at all.
+ *
+ * Below the role table because it decomposes one of its rows, and below the
+ * extension table so the two breakdowns sit together. Cells carry no delta: see
+ * {@link KernelSummaryRow}.
+ */
+function kernelCardHtml(matrix: SummaryMatrix): string {
+	const kernels = matrix.kernels;
+	if (kernels === undefined) {
+		return '';
+	}
+	const rows = kernels.rows.map(row => {
+		const count = row.processCount > 1 ? ` <span class="muted">(${row.processCount} processes)</span>` : '';
+		const cells = matrix.scenarios.map(scenario => cellHtml(scenario, row.values[scenario])).join('');
+		return `<tr>
+		<td>${escapeHtml(row.label)}${count}</td>
+		${cells}
+	</tr>`;
+	}).join('\n');
+	const totalCells = matrix.scenarios.map(scenario => cellHtml(scenario, kernels.totals[scenario])).join('');
+
+	return `<div class="card">
+		<h2>Kernel memory by language</h2>
+		<div class="meta">${KERNEL_COVERAGE_NOTE}</div>
+		<table class="matrix">
+			<tr><th>Kernel</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>
+			${rows}
+			<tr class="total-row">
+				<td><strong>TOTAL</strong></td>
+				${totalCells}
+			</tr>
+		</table>
+	</div>`;
+}
+
+/**
+ * Says what the rows are and, as importantly, why there are no deltas: idle
+ * runs no kernel, so there is no baseline column to measure one from.
+ */
+const KERNEL_COVERAGE_NOTE = `Rows decompose the <code>kernel</code> role by language runtime;
+	<code>kernel_supervisor</code> and <code>language_server</code> are separate roles and are not counted here.
+	No deltas: idle starts no session, so there is no baseline kernel to compare against.`;
 
 /** True when at least one row will render the dagger marker, which gates the footnote explaining it. */
 function hasNoBaselineRows(matrix: SummaryMatrix): boolean {
@@ -882,6 +1021,8 @@ export function renderSummaryHtml(matrix: SummaryMatrix): string {
 	</div>
 
 	${extensionCardHtml(matrix)}
+
+	${kernelCardHtml(matrix)}
 </div>
 </body>
 </html>`;
