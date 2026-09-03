@@ -320,7 +320,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							onPressed={() => props.onHome()}
 						/>
 					</ActionBarRegion>
-					<ActionBarRegion location='right'>
+					<ActionBarRegion location='right' minWidth={0}>
 						<HelpSearch />
 					</ActionBarRegion>
 
