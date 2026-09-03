@@ -82,6 +82,8 @@
   "src/vs/workbench/services/positronWebviewPreloads/": ["@:positron-notebooks"],
   "src/vs/workbench/services/positronLicense/": [],
 
+  "extensions/open-remote-ssh/": ["@:remote-ssh"],
+  "extensions/open-remote-wsl/": ["@:remote-wsl"],
   "extensions/positron-catalog-explorer/": ["@:catalog-explorer"],
   "extensions/positron-code-cells/": [],
   "extensions/positron-data-driver-databricks/": ["@:connections"],
@@ -170,6 +172,8 @@
   "src/vs/workbench/contrib/inlineChat/browser/positronNotebookUtils.ts": ["@:positron-notebooks", "@:assistant"],
   "src/vs/workbench/contrib/preferences/": [],
   "src/vs/workbench/contrib/preferences/common/positronSettingBadges.ts": ["@:vscode-settings"],
+  "src/vs/workbench/contrib/remote/": [],
+  "src/vs/workbench/contrib/remote/common/positronRemoteConfiguration.ts": ["@:remote-ssh", "@:remote-wsl"],
   "src/vs/workbench/contrib/update/": [],
   "src/vs/workbench/contrib/welcomeGettingStarted/": [],
   "src/vs/workbench/contrib/welcomeGettingStarted/browser/media/positronGettingStarted.css": ["@:welcome"],

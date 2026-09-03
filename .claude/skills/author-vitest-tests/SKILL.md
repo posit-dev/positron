@@ -1,6 +1,6 @@
 ---
 name: author-vitest-tests
-description: Use when writing or adding Vitest tests for Positron src/vs/ code, checking a branch/PR for test-coverage gaps, or testing React components with RTL.
+description: Use when writing or adding Vitest tests for Positron src/vs/ or extensions/ code, checking a branch/PR for test-coverage gaps, or testing React components with RTL.
 ---
 
 # Positron Vitest Test Authoring
@@ -146,15 +146,17 @@ For each approved item:
    - If setup exceeds ~20 lines of stubs, extract a helper function.
    - Minimize imports: if you're importing 5+ service identifiers just for `.stub()` calls, extract a helper.
 
-2. **Run the test:** `npx vitest run <path-to-test-file>`. Iterate on missing stubs per the "start low, let errors guide you up" pattern in the rules file's Builder section.
+2. **If the test lives under `extensions/`, exclude it from that extension's build** before moving on. Add `"src/**/*.vitest.ts"` and `"src/**/*.vitest.tsx"` to `exclude` in `extensions/<name>/tsconfig.json`, then confirm with `npx tsc -p extensions/<name> --listFilesOnly | grep vitest` (expect no output). Skipping this ships the test file inside the extension with an unresolvable `vitest` import, and no other check catches it. See "Tests inside `extensions/`" in [`vitest-tests.md`](../../rules/vitest-tests.md) for why, plus the `vscode`-import and `__dirname` constraints that apply there.
 
-3. **Type-check the file:** `npm run test:positron:check-ts 2>&1 | grep '<test-file-name>.vitest.ts'`. This surfaces strict TypeScript errors (overload compatibility, missing properties on stubs, etc.) that `npx vitest run` does NOT catch — the output matches what the VS Code Problems pane shows. The file must be clean before considering it done.
+3. **Run the test:** `npx vitest run <path-to-test-file>`. Iterate on missing stubs per the "start low, let errors guide you up" pattern in the rules file's Builder section.
 
-4. **Check coverage** for React component tests: `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
+4. **Type-check the file:** `npm run test:positron:check-ts 2>&1 | grep '<test-file-name>.vitest.ts'`. This surfaces strict TypeScript errors (overload compatibility, missing properties on stubs, etc.) that `npx vitest run` does NOT catch — the output matches what the VS Code Problems pane shows. The file must be clean before considering it done.
 
-5. **For React tests**, run `npx eslint <file>` before considering it done -- `eslint-plugin-testing-library` enforces most of the RTL conventions.
+5. **Check coverage** for React component tests: `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
 
-6. Move to the next file. Do NOT ask the dev after each file.
+6. **For React tests**, run `npx eslint <file>` before considering it done -- `eslint-plugin-testing-library` enforces most of the RTL conventions.
+
+7. Move to the next file. Do NOT ask the dev after each file.
 
 Don't run the full suite here -- it runs exactly once, after Phase 3 fixes land (see below). Running it now just duplicates that pass.
 

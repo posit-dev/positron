@@ -208,6 +208,8 @@ export default defineConfig(
 		files: [
 			'src/vs/**/*.vitest.ts',
 			'src/vs/**/*.vitest.tsx',
+			'extensions/**/*.vitest.ts',
+			'extensions/**/*.vitest.tsx',
 		],
 		plugins: {
 			'testing-library': pluginTestingLibrary,
@@ -3176,6 +3178,8 @@ export default defineConfig(
 		files: [
 			'src/vs/**/*.vitest.ts',
 			'src/vs/**/*.vitest.tsx',
+			'extensions/**/*.vitest.ts',
+			'extensions/**/*.vitest.tsx',
 		],
 		rules: {
 			// Manual type assertions (as any, as T) hide bugs in tests the same

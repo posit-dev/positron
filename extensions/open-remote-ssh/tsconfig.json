@@ -21,6 +21,10 @@
 			"node"
 		]
 	},
+	"exclude": [
+		"src/**/*.vitest.ts",
+		"src/**/*.vitest.tsx"
+	],
 	"include": [
 		"*.d.ts",
 		"src/**/*",
