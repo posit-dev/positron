@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { openProviderDemo } from './providerDemoPanel.js';
 
 /** Show a secret's shape without putting the secret itself on screen. */
 function redact(value: string | undefined): string {
@@ -160,6 +161,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			log.show(true);
 			vscode.window.showErrorMessage(`${provider.label}: ${message}`);
 		}
+	}));
+
+	// The same three capabilities the quick-pick commands above exercise, but
+	// driven from a React app the extension owns, rendered in a Positron modal.
+	disposables.push(vscode.commands.registerCommand('scratch.openProviderDemo', () => {
+		openProviderDemo(context, log);
 	}));
 
 	log.info(`Starting secrets...`);

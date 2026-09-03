@@ -23,6 +23,10 @@
 			{
 				"command": "scratch.runLegacyProviderAction",
 				"title": "Scratch: Run Legacy Provider Action"
+			},
+			{
+				"command": "scratch.openProviderDemo",
+				"title": "Scratch: Open Provider Demo"
 			}
 		]
 	},

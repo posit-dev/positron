@@ -1,0 +1,284 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Everything here reads from the webview theme variables Positron injects, which
+ * is the whole cost of the webview approach: a native panel would inherit this
+ * for free, and this file is what "reimplement the look" means in practice.
+ */
+
+body {
+	margin: 0;
+	padding: 0;
+	color: var(--vscode-foreground);
+	background-color: var(--vscode-editor-background);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+}
+
+.app {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 20px;
+	box-sizing: border-box;
+	min-height: 100vh;
+}
+
+h1 {
+	margin: 0;
+	font-size: 1.3em;
+	font-weight: 600;
+}
+
+h2 {
+	margin: 0 0 8px;
+	font-size: 0.85em;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.subtitle,
+.hint,
+.muted {
+	color: var(--vscode-descriptionForeground);
+}
+
+.subtitle {
+	margin: 6px 0 0;
+	max-width: 60ch;
+}
+
+.hint {
+	margin: 4px 0 12px;
+	font-size: 0.9em;
+	max-width: 50ch;
+}
+
+.columns {
+	display: grid;
+	grid-template-columns: minmax(200px, 1fr) 1.4fr;
+	gap: 16px;
+	align-items: start;
+}
+
+.pane {
+	border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
+	border-radius: 4px;
+	padding: 12px;
+}
+
+.providers {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+button.provider {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	grid-template-areas: "name badges" "id badges";
+	gap: 0 8px;
+	width: 100%;
+	text-align: left;
+	background: transparent;
+	color: inherit;
+	border: 1px solid transparent;
+	border-radius: 3px;
+	padding: 6px 8px;
+	cursor: pointer;
+	font-family: inherit;
+	font-size: inherit;
+}
+
+button.provider:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+button.provider.selected {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.provider-name {
+	grid-area: name;
+}
+
+.provider-id {
+	grid-area: id;
+	font-family: var(--vscode-editor-font-family);
+	font-size: 0.85em;
+	opacity: 0.7;
+}
+
+.badges {
+	grid-area: badges;
+	align-self: center;
+	display: flex;
+	gap: 4px;
+}
+
+.badge {
+	font-size: 0.75em;
+	padding: 1px 6px;
+	border-radius: 8px;
+	white-space: nowrap;
+}
+
+.badge.ok {
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+
+.badge.error {
+	background-color: var(--vscode-inputValidation-errorBackground);
+	color: var(--vscode-inputValidation-errorForeground, var(--vscode-foreground));
+}
+
+.details {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 2px 12px;
+	margin: 0 0 14px;
+	font-size: 0.9em;
+}
+
+.details dt {
+	font-family: var(--vscode-editor-font-family);
+	color: var(--vscode-descriptionForeground);
+}
+
+.details dd {
+	margin: 0;
+}
+
+.row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.fields {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.field span {
+	font-family: var(--vscode-editor-font-family);
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.field input {
+	font-family: inherit;
+	font-size: inherit;
+	padding: 4px 6px;
+	border-radius: 2px;
+	color: var(--vscode-input-foreground);
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, transparent);
+}
+
+.field input::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+.field input:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.fields .hint {
+	margin: 0;
+}
+
+button,
+select {
+	font-family: inherit;
+	font-size: inherit;
+	padding: 4px 10px;
+	border-radius: 2px;
+	cursor: pointer;
+}
+
+button {
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border: 1px solid var(--vscode-button-border, transparent);
+}
+
+button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+button.link {
+	background: transparent;
+	color: var(--vscode-textLink-foreground);
+	border: none;
+	padding: 6px 0 0;
+	text-decoration: underline;
+}
+
+select {
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	border: 1px solid var(--vscode-dropdown-border, transparent);
+}
+
+.results ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.results li {
+	border-left: 3px solid var(--vscode-descriptionForeground);
+	padding-left: 10px;
+}
+
+.results li.ok {
+	border-left-color: var(--vscode-charts-green, var(--vscode-badge-background));
+}
+
+.results li.error {
+	border-left-color: var(--vscode-errorForeground);
+}
+
+.results code {
+	font-family: var(--vscode-editor-font-family);
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.results pre {
+	margin: 2px 0 0;
+	font-family: var(--vscode-editor-font-family);
+	font-size: 0.9em;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+footer {
+	margin-top: auto;
+	display: flex;
+	gap: 12px;
+	align-items: center;
+}
