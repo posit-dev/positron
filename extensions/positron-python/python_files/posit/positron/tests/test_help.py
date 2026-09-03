@@ -354,10 +354,11 @@ def test_handle_search_help(help_comm, mock_pydoc_thread) -> None:
     ]
 
 
-def test_handle_get_help_topics(help_comm, help_service, monkeypatch) -> None:
+def test_handle_get_help_topics(help_comm, monkeypatch) -> None:
     scanner = Mock()
 
     def scan(callback, _key, *, onerror):
+        assert callable(onerror)
         callback(None, "example.__init__", "Example package")
         callback(None, "example.tools", "Example tools")
 
