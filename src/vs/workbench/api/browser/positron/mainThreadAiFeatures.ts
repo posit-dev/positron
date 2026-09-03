@@ -13,7 +13,7 @@ import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/
 import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/model/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService/chatService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
-import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
@@ -33,6 +33,16 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	private readonly _proxy: ExtHostAiFeaturesShape;
 	private readonly _registrations = this._register(new DisposableMap<string>());
 	private _promptRenderer: PromptRenderer | undefined;
+
+	/**
+	 * Which extension registered each provider, and the extension-host proxy it
+	 * registered through. The configuration service tracks provider sources but
+	 * not their owners, and an action has to be dispatched back to the host that
+	 * holds the `onAction` callback -- `_providerActionCallbacks` is keyed by
+	 * provider id inside a single `ExtHostAiFeatures`, so the wrong proxy finds
+	 * no callback and silently no-ops.
+	 */
+	private readonly _providerOwners = new Map<string, { ownerId: string; proxy: ExtHostAiFeaturesShape }>();
 
 	constructor(
 		extHostContext: IExtHostContext,
@@ -202,7 +212,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		return this._positronAssistantService.getChatExport();
 	}
 
-	$registerProvider(registration: IPositronLanguageModelSource): void {
+	$registerProvider(registration: IPositronLanguageModelSource, ownerId: string): void {
+		this._providerOwners.set(registration.provider.id, { ownerId, proxy: this._proxy });
 		this._positronAssistantConfigurationService.registerProvider(registration);
 	}
 
@@ -218,8 +229,51 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	$unregisterProvider(id: string): void {
+		this._providerOwners.delete(id);
 		this._positronAssistantConfigurationService.unregisterProvider(id);
 		this._languageModelsService.invalidateProvider(id);
+	}
+
+	async $runLegacyProviderAction(
+		callerId: string,
+		providerId: string,
+		config: IPositronLanguageModelConfig,
+		action: string,
+	): Promise<void> {
+		// Transitional bridge: lets Posit Assistant's provider UI drive the auth
+		// providers that still live in the built-in authentication extension. Delete
+		// this method, its protocol entry, and the positron.d.ts declaration once no
+		// entry in _providerOwners is owned by positron.authentication.
+		const LEGACY_ACTION_CALLERS = new Set([
+			'posit.assistant',
+		]);
+		const LEGACY_ACTION_OWNER = 'positron.authentication';
+
+		if (!LEGACY_ACTION_CALLERS.has(callerId)) {
+			throw new Error(`Extension ${callerId} may not run legacy provider actions.`);
+		}
+
+		const registration = this._providerOwners.get(providerId);
+		if (!registration) {
+			throw new Error(`No registered provider: ${providerId}`);
+		}
+		// Both halves of the pair are checked, which is what keeps this a bridge
+		// rather than a general capability: it cannot be used against a provider
+		// Posit Assistant registered itself, since it owns that secret storage
+		// already and can act on it directly.
+		if (registration.ownerId !== LEGACY_ACTION_OWNER) {
+			throw new Error(`Provider ${providerId} is not a legacy provider; call its owner directly.`);
+		}
+
+		// getProviderRegistrations rather than getRegisteredSources: a provider
+		// whose catalog entry is disabled is still one the UI can act on, and
+		// getRegisteredSources filters those out.
+		const source = this._positronAssistantConfigurationService.getProviderRegistrations()
+			.find(candidate => candidate.provider.id === providerId);
+		if (!source) {
+			throw new Error(`No source for provider: ${providerId}`);
+		}
+		return registration.proxy.$responseProviderAction(source, config, action);
 	}
 
 	async $getRegisteredProviders(): Promise<IPositronLanguageModelSource[]> {

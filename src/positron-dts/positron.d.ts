@@ -4358,6 +4358,24 @@ declare module 'positron' {
 		export function getRegisteredProviders(): Thenable<LanguageModelSource[]>;
 
 		/**
+		 * Runs a provider action against one of the legacy language model
+		 * providers that are still registered by Positron's built-in
+		 * authentication extension.
+		 *
+		 * TRANSITIONAL. This exists only so that provider-configuration UI
+		 * hosted in an extension can drive providers it does not own, during the
+		 * migration of those providers out of the built-in authentication
+		 * extension. It is restricted to a single caller and a single owner, and
+		 * is removed once no legacy provider remains. An extension that
+		 * registers its own providers must act on them directly instead.
+		 *
+		 * @param providerId Provider ID, from {@link getRegisteredProviders}
+		 * @param config The configuration the user entered
+		 * @param action The action to run, e.g. `save` or `oauth-signout`
+		 */
+		export function runLegacyProviderAction(providerId: string, config: LanguageModelConfig, action: string): Thenable<void>;
+
+		/**
 		 * Event that fires when a provider's configuration changes via
 		 * registerProvider, unregisterProvider, or updateProvider.
 		 */

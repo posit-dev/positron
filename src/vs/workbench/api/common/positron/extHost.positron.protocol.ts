@@ -439,10 +439,11 @@ export interface MainThreadAiFeaturesShape {
 	$responseProgress(sessionResource: URI, dto: IChatProgressDto): void;
 	$languageModelConfig(id: string, options?: IShowLanguageModelConfigOptions): Thenable<void>;
 	$getChatExport(): Thenable<object | undefined>;
-	$registerProvider(registration: IPositronLanguageModelSource): void;
+	$registerProvider(registration: IPositronLanguageModelSource, ownerId: string): void;
 	$unregisterProvider(id: string): void;
 	$updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void;
 	$getRegisteredProviders(): Promise<IPositronLanguageModelSource[]>;
+	$runLegacyProviderAction(callerId: string, providerId: string, config: IPositronLanguageModelConfig, action: string): Promise<void>;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
 	$getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
 	$getCurrentChatMode(): Thenable<string | undefined>;

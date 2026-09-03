@@ -534,6 +534,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getRegisteredProviders(): Thenable<positron.ai.LanguageModelSource[]> {
 				return extHostAiFeatures.getRegisteredProviders() as Thenable<positron.ai.LanguageModelSource[]>;
 			},
+			runLegacyProviderAction(providerId: string, config: positron.ai.LanguageModelConfig, action: string): Thenable<void> {
+				return extHostAiFeatures.runLegacyProviderAction(extension, providerId, config as IPositronLanguageModelConfig, action);
+			},
 			onDidChangeProviderConfig: (listener, thisArgs?, disposables?) => {
 				return extHostAiFeatures.onDidChangeProviderConfig(
 					source => listener.call(thisArgs, source as positron.ai.LanguageModelSource),

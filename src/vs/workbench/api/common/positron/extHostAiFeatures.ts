@@ -14,7 +14,7 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
 import { IChatRequestData, IChatRequestReferenceSession, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
@@ -74,7 +74,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		if (onAction) {
 			this._providerActionCallbacks.set(source.provider.id, onAction);
 		}
-		this._proxy.$registerProvider(source);
+		this._proxy.$registerProvider(source, ExtensionIdentifier.toKey(extension.identifier));
 
 		return new Disposable(() => {
 			this._providerActionCallbacks.delete(source.provider.id);
@@ -88,6 +88,16 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	async getRegisteredProviders(): Promise<IPositronLanguageModelSource[]> {
 		return this._proxy.$getRegisteredProviders();
+	}
+
+	async runLegacyProviderAction(
+		extension: IExtensionDescription,
+		providerId: string,
+		config: IPositronLanguageModelConfig,
+		action: string,
+	): Promise<void> {
+		return this._proxy.$runLegacyProviderAction(
+			ExtensionIdentifier.toKey(extension.identifier), providerId, config, action);
 	}
 
 	$onDidChangeProviderConfig(source: IPositronLanguageModelSource): void {
