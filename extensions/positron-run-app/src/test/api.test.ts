@@ -72,7 +72,12 @@ suite('PositronRunApp', () => {
 		sinon.stub(positron.runtime, 'getPreferredRuntime').callsFake(async (_languageId) => runtime);
 
 		// Stub the positron proxy API.
-		sinon.stub(vscode.commands, 'executeCommand')
+		// Call through for every other command: tests rely on real commands
+		// (e.g. workbench.action.closeAllEditors), which a bare stub would
+		// silently turn into no-ops.
+		const executeCommandStub = sinon.stub(vscode.commands, 'executeCommand');
+		executeCommandStub.callThrough();
+		executeCommandStub
 			.withArgs('positronProxy.startPendingProxyServer')
 			.resolves({
 				proxyPath: '/proxy/path',
@@ -124,6 +129,33 @@ suite('PositronRunApp', () => {
 		const terminal = vscode.window.terminals.find((t) => t.name === runAppOptions.name);
 		assert.ok(terminal, 'Terminal not found');
 	}
+
+	test('appLauncher: document option runs the given document without relying on the active editor', async () => {
+		// Close all editors so the active-editor fallback can't be what runs.
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		await waitFor(() => vscode.window.activeTextEditor === undefined, 'Editors did not close');
+		const document = await vscode.workspace.openTextDocument(uri);
+
+		await runAppApi.runApplication({ ...runAppOptions, document });
+
+		const terminal = vscode.window.terminals.find((t) => t.name === runAppOptions.name);
+		assert.ok(terminal, 'Terminal not found');
+		sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+	});
+
+	test('appLauncher: no document and no active editor runs nothing', async () => {
+		// With nothing to fall back to there is no app to run, so the run is a
+		// no-op rather than an error: only a programmatic caller can reach this.
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		await waitFor(() => vscode.window.activeTextEditor === undefined, 'Editors did not close');
+		// Earlier tests leave their terminals open, so count rather than look one up by name.
+		const terminalCount = vscode.window.terminals.length;
+
+		await runAppApi.runApplication(runAppOptions);
+
+		assert.strictEqual(vscode.window.terminals.length, terminalCount, 'No terminal should have been created');
+		sinon.assert.notCalled(previewUrlStub);
+	});
 
 	test('appLauncher: shell integration supported', async () => {
 		// Run the application.
