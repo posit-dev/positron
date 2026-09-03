@@ -20,10 +20,12 @@ import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorExtensions } from '../../../common/editor.js';
+import { IAuthenticationService } from '../../../services/authentication/common/authentication.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
@@ -944,6 +946,74 @@ CommandsRegistry.registerCommand(PACKAGES_OPEN_COMMAND_ID,
 		await editorService.openEditor(input, { pinned });
 	});
 
+/** Show a secret's shape without putting the secret itself on screen. */
+function redact(value: string | undefined): string {
+	if (!value) {
+		return '(absent)';
+	}
+	return `${value.slice(0, 4)}...${value.slice(-4)} (${value.length} chars)`;
+}
+
+// Core can ask an AuthenticationProvider for credentials directly. Unlike an
+// extension, it needs no entry in `trustedExtensionAuthAccess` and gets no
+// consent modal: the per-extension grant machinery in MainThreadAuthentication
+// keys off an extension id, and core has none.
+class DemoAuthenticationProviderAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronScratch.demo2',
+			title: nls.localize2('positronScratch.demo', 'Demo Authentication Provider Action'),
+			f1: true
+		});
+	}
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const authenticationService = accessor.get(IAuthenticationService);
+		const notificationService = accessor.get(INotificationService);
+		const logService = accessor.get(ILogService);
+
+		const providerId = 'amazon-bedrock';
+		try {
+			// activateImmediate so the extension owning the provider is activated
+			// via `onAuthenticationRequest:amazon-bedrock` before we ask.
+			const sessions = await authenticationService.getSessions(providerId, [], undefined, true);
+
+			// createSession is the `createIfNone` half of the extension API's
+			// getSession: it runs the provider's own interactive flow, so a
+			// missing credential surfaces the provider's error rather than
+			// collapsing into an indistinguishable undefined.
+			const session = sessions.at(0);
+			//?? await authenticationService.createSession(providerId, [], { activateImmediate: true });
+
+			if (!session) {
+				throw new Error(`[${providerId}] No session available`);
+			}
+
+			// The AWS provider serializes {accessKeyId, secretAccessKey,
+			// sessionToken} as JSON into accessToken -- it is not a bearer token.
+			const creds = JSON.parse(session.accessToken) as {
+				accessKeyId?: string;
+				secretAccessKey?: string;
+				sessionToken?: string;
+			};
+
+			logService.info(`[${providerId}] account: ${session.account.label} (${session.account.id})`);
+			logService.info(`[${providerId}] accessKeyId: ${creds.accessKeyId ?? '(absent)'}`);
+			logService.info(`[${providerId}] secretAccessKey: ${redact(creds.secretAccessKey)}`);
+			logService.info(`[${providerId}] sessionToken: ${redact(creds.sessionToken)}`);
+
+			notificationService.info(nls.localize(
+				'positron.packages.demoAuthenticationResolved',
+				"Resolved credentials for {0}. See the log for details.",
+				creds.accessKeyId ?? 'unknown key'
+			));
+		} catch (e) {
+			const message = e instanceof Error ? e.message : String(e);
+			logService.error(`[${providerId}] ${message}`);
+			notificationService.error(message);
+		}
+	}
+}
+
 registerAction2(InstallPackageAction);
 registerAction2(RefreshPackagesAction);
 registerAction2(UninstallPackageAction);
@@ -954,4 +1024,5 @@ registerAction2(UninstallSelectedPackageAction);
 registerAction2(SetPackagesCardViewAction);
 registerAction2(SetPackagesRowViewAction);
 registerAction2(TogglePackagesItemSizeAction);
+registerAction2(DemoAuthenticationProviderAction);
 registerSingleton(IPositronPackagesService, PositronPackagesService, InstantiationType.Delayed);

@@ -593,6 +593,9 @@ const excludedExtensions = [
 	// DuckDB (and later pins) data driver extensions bundle via esbuild. It is not
 	// an extension and must not be packaged or activated at runtime.
 	'positron-data-explorer-duckdb',
+	// Local scratch pad for trying things out in dev. Compiled by the extension
+	// build so it loads from source, but never packaged into a real build.
+	'scratch',
 	// --- End Positron ---
 ];
 

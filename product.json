@@ -726,7 +726,8 @@
 		],
 		"amazon-bedrock": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"snowflake-cortex": [
 			"positron.authentication",
