@@ -25,6 +25,7 @@ import { HelpClientInstance } from '../../../services/languageRuntime/common/lan
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
+import { HelpTopicSuggestion } from '../../../services/languageRuntime/common/positronHelpComm.js';
 
 /**
  * The help HTML file path.
@@ -104,6 +105,15 @@ export interface IPositronHelpService {
 	 * @returns A boolean indicating whether help was found for the requested topic.
 	 */
 	showHelpTopic(languageId: string, topic: string): Promise<boolean>;
+
+	/** Search help using the foreground interpreter session. */
+	searchHelp(query: string): Promise<boolean>;
+
+	/** List autocomplete topics from the foreground interpreter session. */
+	getHelpTopics(): Promise<HelpTopicSuggestion[]>;
+
+	/** Show an exact topic using the foreground interpreter session. */
+	showHelpTopicForForegroundSession(topic: string): Promise<boolean>;
 
 	/**
 	 * Navigates the help service.
@@ -282,6 +292,23 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		this._logService.warn(`Can't show help for ${topic}: ` +
 			`no runtime for language ${languageId} is active.`);
 		return Promise.resolve(false);
+	}
+
+	searchHelp(query: string): Promise<boolean> {
+		return this.foregroundHelpClient()?.searchHelp(query) ?? Promise.resolve(false);
+	}
+
+	getHelpTopics(): Promise<HelpTopicSuggestion[]> {
+		return this.foregroundHelpClient()?.getHelpTopics() ?? Promise.resolve([]);
+	}
+
+	showHelpTopicForForegroundSession(topic: string): Promise<boolean> {
+		return this.foregroundHelpClient()?.showHelpTopic(topic) ?? Promise.resolve(false);
+	}
+
+	private foregroundHelpClient(): HelpClientInstance | undefined {
+		const sessionId = this._runtimeSessionService.foregroundSession?.sessionId;
+		return sessionId ? this._helpClients.get(sessionId) : undefined;
 	}
 
 	/**
