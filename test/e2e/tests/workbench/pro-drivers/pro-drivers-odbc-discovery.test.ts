@@ -49,13 +49,45 @@ test.use({
 // The Workbench host container from docker/environments/wb-local.
 const CONTAINER = 'test';
 
-// Where the Pro Drivers land, and the unixODBC files that make them usable. `/etc` is the config
-// directory the ODBC driver extension reads and watches on Linux (see `SYSTEM_CONFIG_DIRS` in
-// extensions/positron-data-driver-odbc/src/odbcinst.ts).
+// Where the Pro Drivers land.
 const DRIVERS_DIR = '/opt/rstudio-drivers';
 const POSTGRES_DRIVER_SO = `${DRIVERS_DIR}/postgresql/bin/lib/libpostgresqlodbc_sb64.so`;
-const ODBCINST_PATH = '/etc/odbcinst.ini';
-const ODBCINI_PATH = '/etc/odbc.ini';
+
+// The unixODBC files that make the drivers usable. NOT constants, because unixODBC bakes its
+// SYSCONFDIR in at compile time and distros build it differently: `/etc` on Debian/Ubuntu and the
+// RHEL family, `/etc/unixODBC` on the SUSE family. `beforeAll` asks unixODBC itself via
+// `odbcinst -j`; these defaults only cover a teardown that runs before that resolution.
+//
+// Writing to the wrong pair is silent and confusing rather than loud: the driver never gets
+// registered, so the DSN cannot connect -- but the pane still *lists* it, because the ODBC driver
+// extension reads its own candidate directories (`SYSTEM_CONFIG_DIRS` in
+// extensions/positron-data-driver-odbc/src/odbcinst.ts). The connection then appears in the tree
+// and expands to nothing, which is what this suite hit on openSUSE.
+let odbcinstPath = '/etc/odbcinst.ini';
+let odbcIniPath = '/etc/odbc.ini';
+
+/**
+ * Shell that prints unixODBC's system driver file and system DSN file, one per line.
+ *
+ * Asks `odbcinst -j` when it is there, because that is authoritative -- the paths are unixODBC's
+ * compile-time SYSCONFDIR, not a convention. But it is not always there: on Debian/Ubuntu the
+ * `odbcinst` BINARY is packaged separately from the ODBC libraries, so installing rstudio-drivers
+ * pulls in the libraries and leaves no CLI to ask. Rocky and openSUSE both ship it.
+ *
+ * Hence the fallback, which only ever runs on Debian/Ubuntu: prefer /etc/unixODBC if that directory
+ * exists (the SUSE-family layout) and otherwise /etc. Note a bare pipeline would hide all of this
+ * -- its exit status is sed's, so a missing `odbcinst` exits 0 with empty output, which is exactly
+ * how this failed the first time.
+ */
+const RESOLVE_ODBC_PATHS = [
+	'if command -v odbcinst > /dev/null 2>&1; then',
+	'  odbcinst -j | sed -n "s/^DRIVERS[^:]*: *//p; s/^SYSTEM DATA SOURCES[^:]*: *//p"',
+	'elif [ -d /etc/unixODBC ]; then',
+	'  printf "%s\\n" /etc/unixODBC/odbcinst.ini /etc/unixODBC/odbc.ini',
+	'else',
+	'  printf "%s\\n" /etc/odbcinst.ini /etc/odbc.ini',
+	'fi',
+].join('\n');
 
 // Suffix for the backups of the two config files, restored on teardown. Named for the suite so a
 // stray backup is traceable to what left it behind.
@@ -81,30 +113,64 @@ const ELEMENTS_COLUMNS = ['atomic_number', 'symbol', 'name'];
 const ELEMENTS_FIRST_ROW = ['1', 'H', 'Hydrogen'];
 
 /**
- * The two host families the Workbench lane runs on: Ubuntu 24 by default, Rocky 9 when the
- * `@:workbench-rocky` job selects it (both run the same `@:workbench` test set, so this suite has to
- * work on either).
+ * The three host OSes the Workbench lane runs on: Ubuntu 24 by default, Rocky 9 when the
+ * `@:workbench-rocky` job selects it, and openSUSE Leap 15.6 for `@:workbench-suse`. All three run
+ * the same `@:workbench` test set, so this suite has to work on any of them.
+ *
+ * Keyed by package manager rather than package format, because the two rpm hosts share a format and
+ * a setup script but not a manager: Rocky installs with `dnf`, openSUSE with `zypper`.
  */
-type PackageFormat = 'deb' | 'rpm';
+type PackageManager = 'apt' | 'dnf' | 'zypper';
+
+/**
+ * zypper has to run with the system bin directories ahead of `/opt/conda/bin`, which the openSUSE
+ * image puts first on PATH. zypper shells out to `repo2solv` by name, and conda ships its own
+ * libsolv whose `repo2solv` lacks rpm-md support, so conda's shadows the system one and every
+ * refresh fails with "rpmmd repo type is not supported" -- leaving zypper with no package names and
+ * an install that reports `rstudio-drivers` "not found in package names". Same fix and same reason
+ * as `wb_zypper` in docker/environments/wb-local/install-workbench.sh.
+ */
+const ZYPPER = `sudo env PATH=/usr/sbin:/usr/bin:/sbin:/bin zypper --non-interactive`;
 
 /** The commands that add the Posit Pro repository, install the package, and remove it again. */
-function packageCommands(format: PackageFormat): { addRepo: string; install: string; remove: string; repoFiles: string[] } {
-	return format === 'deb'
-		? {
-			addRepo: `curl -1sLf 'https://dl.posit.co/public/pro/setup.deb.sh' | sudo -E bash`,
-			install: 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y rstudio-drivers',
-			remove: 'sudo apt-get purge -y rstudio-drivers',
-			// The keyring is removed alongside the source list; leaving it would be harmless but
-			// makes "are the drivers gone?" ambiguous for the next run.
-			repoFiles: ['/etc/apt/sources.list.d/posit-pro.list', '/usr/share/keyrings/posit-pro-archive-keyring.gpg'],
-		}
-		: {
-			addRepo: `curl -1sLf 'https://dl.posit.co/public/pro/setup.rpm.sh' | sudo -E bash`,
-			install: 'sudo dnf install -y rstudio-drivers',
-			remove: 'sudo dnf remove -y rstudio-drivers',
-			repoFiles: ['/etc/yum.repos.d/posit-pro.repo'],
-		};
+function packageCommands(manager: PackageManager): { addRepo: string; install: string; remove: string; repoFiles: string[] } {
+	const rpmSetup = `curl -1sLf 'https://dl.posit.co/public/pro/setup.rpm.sh' | sudo -E bash`;
+	switch (manager) {
+		case 'apt':
+			return {
+				addRepo: `curl -1sLf 'https://dl.posit.co/public/pro/setup.deb.sh' | sudo -E bash`,
+				install: 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y rstudio-drivers',
+				remove: 'sudo apt-get purge -y rstudio-drivers',
+				// The keyring is removed alongside the source list; leaving it would be harmless but
+				// makes "are the drivers gone?" ambiguous for the next run.
+				repoFiles: ['/etc/apt/sources.list.d/posit-pro.list', '/usr/share/keyrings/posit-pro-archive-keyring.gpg'],
+			};
+		case 'dnf':
+			return {
+				addRepo: rpmSetup,
+				install: 'sudo dnf install -y rstudio-drivers',
+				remove: 'sudo dnf remove -y rstudio-drivers',
+				repoFiles: ['/etc/yum.repos.d/posit-pro.repo'],
+			};
+		case 'zypper':
+			return {
+				addRepo: rpmSetup,
+				// --no-gpg-checks because the Posit repo's key is imported by the setup script into
+				// rpm's keyring, not zypper's, so a fresh repo would otherwise stop for a prompt
+				// that --non-interactive answers with "no".
+				install: `${ZYPPER} --no-gpg-checks install rstudio-drivers`,
+				remove: `${ZYPPER} remove rstudio-drivers`,
+				repoFiles: ['/etc/zypp/repos.d/posit-pro.repo'],
+			};
+	}
 }
+
+/**
+ * Shell snippet that prints the host's package manager. Ordered apt -> dnf -> zypper: openSUSE has
+ * neither of the first two, so it falls through, and checking for `zypper` by name would be the one
+ * probe that conda's PATH could not confuse anyway.
+ */
+const DETECT_MANAGER = `if command -v apt-get > /dev/null; then echo apt; elif command -v dnf > /dev/null; then echo dnf; else echo zypper; fi`;
 
 /**
  * The DSN definitions the pane should discover. Written as a file and copied in rather than
@@ -141,19 +207,21 @@ test.describe('Workbench: Posit Pro Drivers', {
 		test.setTimeout(300_000);
 
 		const probe = await runDockerCommand(
-			`docker exec ${CONTAINER} bash -lc 'if command -v apt-get > /dev/null; then echo deb; else echo rpm; fi; uname -m'`,
-			'Detect the host package format and architecture'
+			`docker exec ${CONTAINER} bash -lc '${DETECT_MANAGER}; uname -m'`,
+			'Detect the host package manager and architecture'
 		);
-		const [format, arch] = probe.stdout.trim().split('\n').map(line => line.trim());
+		const [manager, arch] = probe.stdout.trim().split('\n').map(line => line.trim());
 
 		// Posit publishes `rstudio-drivers` for el9 x86_64 but not el9 aarch64 (the aarch64 repo
 		// carries only posit-chronicle). CI's Rocky lane is x86_64 so it runs there; this only bites
 		// a local `npm run pwb -- --os=rocky9` on Apple Silicon, where it would otherwise fail with a
-		// bare "Unable to find a match" from dnf.
-		test.skip(format === 'rpm' && arch === 'aarch64',
-			'Posit Pro Drivers are not published for el9 aarch64');
+		// bare "Unable to find a match" from dnf. The sles build is x86_64-only too, but the openSUSE
+		// container is always amd64 (Workbench has no arm64 openSUSE package at all), so it cannot
+		// reach this.
+		test.skip(manager !== 'apt' && arch === 'aarch64',
+			'Posit Pro Drivers are not published for this OS on aarch64');
 
-		const pkg = packageCommands(format as PackageFormat);
+		const pkg = packageCommands(manager as PackageManager);
 
 		await test.step('Install the Pro Drivers', async () => {
 			await runDockerCommand(
@@ -166,6 +234,27 @@ test.describe('Workbench: Posit Pro Drivers', {
 			);
 		});
 
+		// Only now can unixODBC be asked where it reads its configuration -- `odbcinst` ships with
+		// unixODBC, and on Ubuntu and Rocky that arrives as a DEPENDENCY of rstudio-drivers, so
+		// before the install above there is no `odbcinst` to run. (openSUSE has it in the image,
+		// which is why doing this earlier passed there and broke the other two.) Must still come
+		// before anything is written, since it decides where.
+		await test.step('Resolve the unixODBC configuration paths', async () => {
+			const odbcPaths = await runDockerCommand(
+				`docker exec ${CONTAINER} bash -lc '${RESOLVE_ODBC_PATHS}'`,
+				'Ask unixODBC for its system driver and DSN files'
+			);
+			const [resolvedInst, resolvedIni] = odbcPaths.stdout.trim().split('\n').map(line => line.trim());
+			// Assert rather than fall back to /etc: a silent fallback is what makes the openSUSE
+			// failure mode so hard to read -- the config lands somewhere unixODBC ignores, the DSNs
+			// are still listed by the pane, and the only symptom is a connection that expands to
+			// nothing.
+			expect(resolvedInst, 'odbcinst -j did not report a system driver file').toBeTruthy();
+			expect(resolvedIni, 'odbcinst -j did not report a system DSN file').toBeTruthy();
+			odbcinstPath = resolvedInst;
+			odbcIniPath = resolvedIni;
+		});
+
 		await test.step('Register the drivers with unixODBC', async () => {
 			// Back up first, and only if no backup is already there: a leftover backup means an
 			// earlier teardown did not run, so it -- not the current file -- is the last copy of the
@@ -175,11 +264,11 @@ test.describe('Workbench: Posit Pro Drivers', {
 			// already defines [PostgreSQL] (see the file header).
 			await runDockerCommand(
 				`docker exec ${CONTAINER} bash -lc '` + [
-					`for f in ${ODBCINST_PATH} ${ODBCINI_PATH}; do`,
+					`for f in ${odbcinstPath} ${odbcIniPath}; do`,
 					`  if [ -f "$f" ] && [ ! -f "$f${BACKUP_SUFFIX}" ]; then sudo cp "$f" "$f${BACKUP_SUFFIX}"; fi`,
 					`done`,
-					`sudo cp ${DRIVERS_DIR}/odbcinst.ini.sample ${ODBCINST_PATH}`,
-					`sudo chmod 0644 ${ODBCINST_PATH}`,
+					`sudo cp ${DRIVERS_DIR}/odbcinst.ini.sample ${odbcinstPath}`,
+					`sudo chmod 0644 ${odbcinstPath}`,
 				].join('\n') + `'`,
 				'Install odbcinst.ini from the drivers sample'
 			);
@@ -197,10 +286,10 @@ test.describe('Workbench: Posit Pro Drivers', {
 			expect(so.stdout.trim(), `expected ${POSTGRES_DRIVER_SO} on disk`).toBe('found');
 
 			const registered = await runDockerCommand(
-				`docker exec ${CONTAINER} bash -lc 'grep -c "^\\[PostgreSQL\\]" ${ODBCINST_PATH} || true'`,
+				`docker exec ${CONTAINER} bash -lc 'grep -c "^\\[PostgreSQL\\]" ${odbcinstPath} || true'`,
 				'Check the PostgreSQL driver is registered exactly once in odbcinst.ini'
 			);
-			expect(registered.stdout.trim(), `expected exactly one [PostgreSQL] stanza in ${ODBCINST_PATH}`).toBe('1');
+			expect(registered.stdout.trim(), `expected exactly one [PostgreSQL] stanza in ${odbcinstPath}`).toBe('1');
 		});
 
 		await test.step('Define the DSNs', async () => {
@@ -213,7 +302,7 @@ test.describe('Workbench: Posit Pro Drivers', {
 					'Copy odbc.ini into the container'
 				);
 				await runDockerCommand(
-					`docker exec ${CONTAINER} bash -lc 'sudo mv /tmp/odbc.ini ${ODBCINI_PATH} && sudo chmod 0644 ${ODBCINI_PATH}'`,
+					`docker exec ${CONTAINER} bash -lc 'sudo mv /tmp/odbc.ini ${odbcIniPath} && sudo chmod 0644 ${odbcIniPath}'`,
 					'Install odbc.ini'
 				);
 			} finally {
@@ -231,26 +320,27 @@ test.describe('Workbench: Posit Pro Drivers', {
 		test.setTimeout(120_000);
 
 		const probe = await runDockerCommand(
-			`docker exec ${CONTAINER} bash -lc 'if command -v apt-get > /dev/null; then echo deb; else echo rpm; fi'`,
-			'Detect the host package format'
+			`docker exec ${CONTAINER} bash -lc '${DETECT_MANAGER}'`,
+			'Detect the host package manager'
 		);
-		const pkg = packageCommands(probe.stdout.trim() as PackageFormat);
+		const pkg = packageCommands(probe.stdout.trim() as PackageManager);
 
 		// Tolerant of a partial install: this has to undo whatever beforeAll got through before
 		// failing (or before skipping), so removing an absent package must not abort the rest.
 		//
-		// Only `rstudio-drivers` is removed, not the dependencies it pulled in. On Rocky, unixODBC
-		// ships in the base image and removing it would damage the container for every later suite;
-		// on Ubuntu it arrives as a dependency, and leaving the driver-manager binaries behind is
-		// harmless once the configuration below is restored. `apt-get autoremove` is deliberately
-		// not used -- it would also collect anything else in the image that happens to be orphaned.
+		// Only `rstudio-drivers` is removed, not the dependencies it pulled in. On the rpm hosts
+		// unixODBC ships in the base image and removing it would damage the container for every
+		// later suite; on Ubuntu it arrives as a dependency, and leaving the driver-manager binaries
+		// behind is harmless once the configuration below is restored. `apt-get autoremove` is
+		// deliberately not used -- it would also collect anything else in the image that happens to
+		// be orphaned.
 		await runDockerCommand(
 			`docker exec ${CONTAINER} bash -lc '` + [
 				`${pkg.remove} || true`,
 				`sudo rm -f ${pkg.repoFiles.join(' ')}`,
 				// Restore rather than truncate: the original is empty on Ubuntu but carries the
-				// distro's driver templates on Rocky.
-				`for f in ${ODBCINST_PATH} ${ODBCINI_PATH}; do`,
+				// distro's driver templates on the rpm hosts.
+				`for f in ${odbcinstPath} ${odbcIniPath}; do`,
 				`  if [ -f "$f${BACKUP_SUFFIX}" ]; then sudo mv "$f${BACKUP_SUFFIX}" "$f"; fi`,
 				`done`,
 				`exit 0`,
@@ -275,8 +365,11 @@ test.describe('Workbench: Posit Pro Drivers', {
 
 		await test.step('Expand the tree down to tables', async () => {
 			await dataConnections.expandConnection(PERIODIC_DSN);
-			await dataConnections.expandNode('Schemas');
-			await dataConnections.expandNode('public');
+			// No 'Schemas' or 'public' row to expand: #15859 made the tree hide a connection's
+			// schema level when there is only one schema, and the `periodic` database has exactly
+			// one once the driver filters out pg_catalog, information_schema and pg_toast. So
+			// Tables sits directly under the connection. Same fix as #15873 made for the Redshift
+			// suite; this spec landed alongside that change and missed it.
 			await dataConnections.expandNode('Tables');
 		});
 

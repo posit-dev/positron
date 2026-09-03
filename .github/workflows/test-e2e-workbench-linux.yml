@@ -5,7 +5,7 @@ on:
     inputs:
       os:
         required: false
-        description: "Host OS for the test container: 'ubuntu24' or 'rocky9'. Both run on the same Ubuntu runner -- the OS under test is the container's, not the runner's."
+        description: "Host OS for the test container: 'ubuntu24', 'rocky9' or 'opensuse15'. All run on the same Ubuntu runner -- the OS under test is the container's, not the runner's."
         default: "ubuntu24"
         type: string
       grep:
@@ -56,10 +56,11 @@ permissions:
 
 jobs:
   # Emit the shard matrix as JSON, because a matrix cannot be shrunk
-  # conditionally in place. The Rocky lane runs the `default` shard only: the
-  # managed-credential shards exercise OS-independent plumbing, so running them
-  # on a second OS would triple live cloud-auth usage for no new signal. Add them
-  # later only if a Rocky-specific credential bug shows up.
+  # conditionally in place. Only the Ubuntu lane runs the managed-credential
+  # shards; the second-OS lanes (Rocky, openSUSE) run the `default` shard only.
+  # Those shards exercise OS-independent plumbing, so running them per OS would
+  # multiply live cloud-auth usage for no new signal. Add them to an OS only if a
+  # credential bug specific to it shows up.
   shards:
     name: ${{ inputs.display_name || 'e2e-workbench' }} (shards)
     runs-on: ubuntu-latest
@@ -72,10 +73,13 @@ jobs:
         run: |
           DEFAULT='{"name":"default","credentials":"","grep":"@:workbench","grep_invert":"@:workbench-(snowflake|databricks|azure)"}'
           CREDS='{"name":"snowflake","credentials":"snowflake","grep":"@:workbench-snowflake","grep_invert":""},{"name":"databricks","credentials":"databricks","grep":"@:workbench-databricks","grep_invert":""},{"name":"azure","credentials":"azure","grep":"@:workbench-azure","grep_invert":""}'
-          if [ "${{ inputs.os }}" = "rocky9" ]; then
-            MATRIX="[${DEFAULT}]"
-          else
+          # Match on the Ubuntu default rather than listing the other OSes, so a
+          # future OS gets the conservative (default-shard-only) treatment
+          # automatically instead of silently opting into live cloud auth.
+          if [ "${{ inputs.os }}" = "ubuntu24" ]; then
             MATRIX="[${DEFAULT},${CREDS}]"
+          else
+            MATRIX="[${DEFAULT}]"
           fi
           # Fail loudly on malformed JSON rather than letting fromJSON blow up in
           # the consuming job, where the error points at the matrix, not at here.

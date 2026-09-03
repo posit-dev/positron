@@ -3,16 +3,19 @@
 # in the _wb_fetch_* seams (and wb_url_reachable) so tests can stub them with
 # fixtures -- see scripts/test/workbench-local-lib-test.sh.
 #
-# OS vocabulary: there is exactly one, "ubuntu24" | "rocky9", and it is the same
-# string the user types (--os=), the compose image is named after, and the
-# installer branches on. Posit's download feeds spell the same two OSes "noble"
-# and "rhel9"; that is confined to wb_os_feed below and must not leak out of it,
-# because a second vocabulary in the middle layers is exactly how the wrong
-# package gets resolved for the right container.
+# OS vocabulary: there is exactly one, "ubuntu24" | "rocky9" | "opensuse15", and
+# it is the same string the user types (--os=), the compose image is named after,
+# and the installer branches on. Posit's download feeds spell the first two
+# "noble" and "rhel9"; that is confined to wb_os_feed below and must not leak out
+# of it, because a second vocabulary in the middle layers is exactly how the
+# wrong package gets resolved for the right container. (opensuse15 happens to
+# spell the same in both vocabularies -- do not read that as permission to skip
+# wb_os_feed for it.)
 #
-# Everything else that differs between the two OSes (package format, filename
-# stem, the arch token in feed keys, the container image) is a wb_os_* helper, so
-# adding an OS means editing those helpers and nothing else.
+# Everything else that differs between the OSes (package format, filename stem,
+# the arch token in feed keys, the container image, which architectures exist at
+# all) is a wb_os_* helper, so adding an OS means editing those helpers and
+# nothing else.
 
 wb_detect_arch() {
 	local m="${1:-$(uname -m)}"
@@ -26,11 +29,11 @@ wb_detect_arch() {
 
 # --- OS facts -----------------------------------------------------------------
 
-WB_OS_CHOICES='ubuntu24 rocky9'
+WB_OS_CHOICES='ubuntu24 rocky9 opensuse15'
 
 wb_os_valid() {
 	case "${1:-}" in
-		ubuntu24|rocky9) return 0 ;;
+		ubuntu24|rocky9|opensuse15) return 0 ;;
 		*) echo "Unsupported OS: '${1:-}' (expected one of: ${WB_OS_CHOICES})" >&2; return 1 ;;
 	esac
 }
@@ -40,14 +43,16 @@ wb_os_valid() {
 # (platforms["<feed>-<arch>"]). The ONLY place the feed vocabulary is allowed.
 wb_os_feed() {
 	case "${1:-}" in
-		ubuntu24) printf noble ;;
-		rocky9)   printf rhel9 ;;
+		ubuntu24)   printf noble ;;
+		rocky9)     printf rhel9 ;;
+		opensuse15) printf opensuse15 ;;
 		*) return 1 ;;
 	esac
 }
 
-# Container image the test stack runs for this OS. Both are multi-arch manifest
-# lists, so Docker picks amd64/arm64 itself.
+# Container image the test stack runs for this OS. All three are multi-arch
+# manifest lists, so Docker picks amd64/arm64 itself -- except where
+# wb_os_platform overrides it because the OS has no arm64 Workbench package.
 #
 # Keep the ubuntu24 tag in step with the `image:` default in
 # docker-compose.workbench.yml. They are two independent copies of the same
@@ -58,27 +63,32 @@ wb_os_feed() {
 # failure disagree for no visible reason.
 wb_os_image() {
 	case "${1:-}" in
-		ubuntu24) printf 'ghcr.io/posit-dev/positron-ubuntu24:24.18.0' ;;
-		rocky9)   printf 'ghcr.io/posit-dev/positron-rocky9:24.18.0' ;;
+		ubuntu24)   printf 'ghcr.io/posit-dev/positron-ubuntu24:24.18.0' ;;
+		rocky9)     printf 'ghcr.io/posit-dev/positron-rocky9:24.18.0' ;;
+		# The same image test-e2e-suse.yml runs, so the Workbench lane and the
+		# electron SUSE lane share one openSUSE definition.
+		opensuse15) printf 'ghcr.io/posit-dev/positron-opensuse156:24.18.0' ;;
 		*) return 1 ;;
 	esac
 }
 
-# Package format: deb (Ubuntu) or rpm (RHEL family).
+# Package format: deb (Ubuntu) or rpm (RHEL family, SUSE).
 wb_os_pkg_ext() {
 	case "${1:-}" in
-		ubuntu24) printf deb ;;
-		rocky9)   printf rpm ;;
+		ubuntu24)          printf deb ;;
+		rocky9|opensuse15) printf rpm ;;
 		*) return 1 ;;
 	esac
 }
 
 # Package filename prefix, everything ahead of the version. The RHEL packages
-# carry an extra "-rhel" segment, so this is not derivable from the extension.
+# carry an extra "-rhel" segment and the openSUSE ones do not, so this is
+# derivable from neither the extension nor the package format.
 wb_os_pkg_stem() {
 	case "${1:-}" in
-		ubuntu24) printf 'rstudio-workbench-' ;;
-		rocky9)   printf 'rstudio-workbench-rhel-' ;;
+		ubuntu24)   printf 'rstudio-workbench-' ;;
+		rocky9)     printf 'rstudio-workbench-rhel-' ;;
+		opensuse15) printf 'rstudio-workbench-' ;;
 		*) return 1 ;;
 	esac
 }
@@ -91,12 +101,67 @@ wb_os_pkg_stem() {
 # wb_resolve_stable_url).
 wb_os_key_arch() {
 	case "${1:-}:${2:-}" in
-		ubuntu24:amd64) printf amd64 ;;
-		ubuntu24:arm64) printf arm64 ;;
-		rocky9:amd64)   printf x86_64 ;;
-		rocky9:arm64)   printf arm64 ;;
+		ubuntu24:amd64)   printf amd64 ;;
+		ubuntu24:arm64)   printf arm64 ;;
+		rocky9:amd64)     printf x86_64 ;;
+		rocky9:arm64)     printf arm64 ;;
+		opensuse15:amd64) printf x86_64 ;;
+		# No opensuse15:arm64 on purpose -- see wb_os_arches.
 		*) return 1 ;;
 	esac
+}
+
+# Init-script / package-manager family. Doubles as the name of the
+# extras/init.d/<family> directory the Workbench package ships (verified against
+# the real packages: debian, redhat and suse all exist), which is what the
+# installer copies into /etc/init.d on the two OSes whose package installs
+# systemd units instead. Branching the installer on the family rather than on the
+# OS is what keeps a third OS from adding a third arm to every case statement.
+wb_os_family() {
+	case "${1:-}" in
+		ubuntu24)   printf debian ;;
+		rocky9)     printf redhat ;;
+		opensuse15) printf suse ;;
+		*) return 1 ;;
+	esac
+}
+
+# Architectures Posit publishes a Workbench package for, per OS. Not cosmetic:
+# openSUSE 15 is x86_64-only on both channels -- the dailies feed has an
+# "opensuse15-x86_64" key and no arm64 one, and downloads.json publishes only the
+# x86_64 rpm -- so unlike rhel9 there is no arm64 artifact for an arm64 URL to be
+# rewritten to. Resolution has to refuse rather than hand an x86 package to an
+# arm64 container, which is a failure that would otherwise surface as an opaque
+# zypper error minutes into an install.
+wb_os_arches() {
+	case "${1:-}" in
+		ubuntu24|rocky9) printf 'amd64 arm64' ;;
+		opensuse15)      printf 'amd64' ;;
+		*) return 1 ;;
+	esac
+}
+
+# True if this OS has a Workbench package for this arch. Prints the reason when
+# it does not, so callers can `|| return 1` and say nothing themselves.
+wb_os_supports_arch() {
+	local os="${1:-}" arch="${2:-}" a
+	wb_os_valid "$os" || return 1
+	for a in $(wb_os_arches "$os"); do
+		[ "$a" = "$arch" ] && return 0
+	done
+	echo "No ${arch} Workbench package exists for ${os} (Posit publishes: $(wb_os_arches "$os"))." >&2
+	return 1
+}
+
+# Docker platform to force the test container to, or empty to let Docker pick
+# from the multi-arch manifest. Non-empty only when this machine's architecture
+# has no Workbench package for the chosen OS: on Apple Silicon, --os=opensuse15
+# runs an emulated amd64 container, because the alternative is no local loop at
+# all. Emulated is slow but correct; the CI runners are amd64 and never hit this.
+wb_os_platform() {
+	local os="${1:-}" arch="${2:-}"
+	wb_os_supports_arch "$os" "$arch" 2>/dev/null && return 0
+	printf 'linux/amd64'
 }
 
 # --- Package URL parsing ------------------------------------------------------
@@ -104,6 +169,7 @@ wb_os_key_arch() {
 # Extract the Workbench version (incl .proN) from a package URL/filename:
 #   .../rstudio-workbench-2026.05.1-225.pro10-amd64.deb      -> 2026.05.1-225.pro10
 #   .../rstudio-workbench-rhel-2026.08.0-187.pro5-x86_64.rpm -> 2026.08.0-187.pro5
+#   .../rstudio-workbench-2026.09.0-166.pro8-x86_64.rpm      -> 2026.09.0-166.pro8
 # Non-zero (and prints nothing) when the name isn't a Workbench package, so
 # callers' `|| echo unavailable` fallback fires.
 wb_pkg_version() {
@@ -111,10 +177,18 @@ wb_pkg_version() {
 	[ -n "$url" ] || return 1
 	base="$(basename "$url")"
 	case "$base" in
-		# The rpm stem is a superset of the deb stem, so strip by extension
-		# rather than trying both prefixes.
 		*.deb) base="${base#"$(wb_os_pkg_stem ubuntu24)"}"; base="${base%-*.deb}" ;;
-		*.rpm) base="${base#"$(wb_os_pkg_stem rocky9)"}";   base="${base%-*.rpm}" ;;
+		# Two stems share the .rpm extension: rhel9 carries the "-rhel" segment
+		# and opensuse15 does not. The rhel stem is a strict superset of the
+		# plain one, so strip the longer first and let the shorter fall through
+		# -- whichever matched, the other is then a no-op. Getting this wrong is
+		# silent: it leaves the stem on the front of the "version" and only ever
+		# shows up as a mangled label in the picker menu.
+		*.rpm)
+			base="${base#"$(wb_os_pkg_stem rocky9)"}"
+			base="${base#"$(wb_os_pkg_stem opensuse15)"}"
+			base="${base%-*.rpm}"
+			;;
 		*) return 1 ;;
 	esac
 	[ -n "$base" ] || return 1
@@ -154,12 +228,17 @@ wb_url_reachable() { curl -fsIL --max-time 15 "$1" >/dev/null 2>&1; }
 wb_resolve_stable_url() {
 	local os="${1:-}" wb_arch="${2:-}" feed url dir base
 	wb_os_valid "$os" || return 1
+	# Before touching the network: an OS/arch pair Posit does not build has no
+	# URL to resolve, and the arm64 rewrite below would otherwise pass the x86
+	# URL through untouched and look like a success.
+	wb_os_supports_arch "$os" "$wb_arch" || return 1
 	feed="$(wb_os_feed "$os")"
 	url="$(_wb_fetch_downloads_json | jq -r --arg os "$feed" '.rstudio.pro.stable.server.installer[$os].url // empty')"
 	[ -n "$url" ] && [ "$url" != "null" ] || { echo "Failed to resolve stable URL for ${os} (feed key '${feed}')" >&2; return 1; }
-	# The feed publishes only the x86 installer for both OSes. The arm64 build is
-	# released at the same path with the arch tokens swapped (both rewrites
-	# verified reachable against the live feed).
+	# The feed publishes only the x86 installer for every OS. Where an arm64 build
+	# exists it is released at the same path with the arch tokens swapped (both
+	# rewrites verified reachable against the live feed). opensuse15 never reaches
+	# here: it has no arm64 build, and wb_os_supports_arch above rejected it.
 	if [ "$wb_arch" = "arm64" ]; then
 		case "$os" in
 			ubuntu24) url="${url//amd64/arm64}" ;;
@@ -183,6 +262,7 @@ wb_resolve_stable_url() {
 wb_resolve_daily_url() {
 	local os="${1:-}" wb_arch="${2:-}" key url
 	wb_os_valid "$os" || return 1
+	wb_os_supports_arch "$os" "$wb_arch" || return 1
 	key="$(wb_os_key_arch "$os" "$wb_arch")" || { echo "Unsupported architecture: ${wb_arch}" >&2; return 1; }
 	key="$(wb_os_feed "$os")-${key}"
 	# Use the "workbench" product (Pro), not "server" (open-source RStudio Server).
