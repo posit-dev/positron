@@ -49,13 +49,29 @@ test.use({
 // The Workbench host container from docker/environments/wb-local.
 const CONTAINER = 'test';
 
-// Where the Pro Drivers land, and the unixODBC files that make them usable. `/etc` is the config
-// directory the ODBC driver extension reads and watches on Linux (see `SYSTEM_CONFIG_DIRS` in
-// extensions/positron-data-driver-odbc/src/odbcinst.ts).
+// Where the Pro Drivers land.
 const DRIVERS_DIR = '/opt/rstudio-drivers';
 const POSTGRES_DRIVER_SO = `${DRIVERS_DIR}/postgresql/bin/lib/libpostgresqlodbc_sb64.so`;
-const ODBCINST_PATH = '/etc/odbcinst.ini';
-const ODBCINI_PATH = '/etc/odbc.ini';
+
+// The unixODBC files that make the drivers usable. NOT constants, because unixODBC bakes its
+// SYSCONFDIR in at compile time and distros build it differently: `/etc` on Debian/Ubuntu and the
+// RHEL family, `/etc/unixODBC` on the SUSE family. `beforeAll` asks unixODBC itself via
+// `odbcinst -j`; these defaults only cover a teardown that runs before that resolution.
+//
+// Writing to the wrong pair is silent and confusing rather than loud: the driver never gets
+// registered, so the DSN cannot connect -- but the pane still *lists* it, because the ODBC driver
+// extension reads its own candidate directories (`SYSTEM_CONFIG_DIRS` in
+// extensions/positron-data-driver-odbc/src/odbcinst.ts). The connection then appears in the tree
+// and expands to nothing, which is what this suite hit on openSUSE.
+let odbcinstPath = '/etc/odbcinst.ini';
+let odbcIniPath = '/etc/odbc.ini';
+
+/**
+ * Shell that prints unixODBC's system driver file and system DSN file, one per line, as
+ * `odbcinst -j` reports them. Asking the driver manager is the only reliable way: the paths are
+ * compile-time, not conventional.
+ */
+const RESOLVE_ODBC_PATHS = `odbcinst -j | sed -n 's/^DRIVERS[^:]*: *//p; s/^SYSTEM DATA SOURCES[^:]*: *//p'`;
 
 // Suffix for the backups of the two config files, restored on teardown. Named for the suite so a
 // stray backup is traceable to what left it behind.
@@ -191,6 +207,18 @@ test.describe('Workbench: Posit Pro Drivers', {
 
 		const pkg = packageCommands(manager as PackageManager);
 
+		// Resolve where this distro's unixODBC actually reads its configuration, before writing any
+		// of it. On openSUSE these come back under /etc/unixODBC, not /etc.
+		const odbcPaths = await runDockerCommand(
+			`docker exec ${CONTAINER} bash -lc '${RESOLVE_ODBC_PATHS}'`,
+			'Resolve the unixODBC configuration paths'
+		);
+		const [resolvedInst, resolvedIni] = odbcPaths.stdout.trim().split('\n').map(line => line.trim());
+		expect(resolvedInst, 'odbcinst -j did not report a system driver file').toBeTruthy();
+		expect(resolvedIni, 'odbcinst -j did not report a system DSN file').toBeTruthy();
+		odbcinstPath = resolvedInst;
+		odbcIniPath = resolvedIni;
+
 		await test.step('Install the Pro Drivers', async () => {
 			await runDockerCommand(
 				`docker exec ${CONTAINER} bash -lc "${pkg.addRepo}"`,
@@ -211,11 +239,11 @@ test.describe('Workbench: Posit Pro Drivers', {
 			// already defines [PostgreSQL] (see the file header).
 			await runDockerCommand(
 				`docker exec ${CONTAINER} bash -lc '` + [
-					`for f in ${ODBCINST_PATH} ${ODBCINI_PATH}; do`,
+					`for f in ${odbcinstPath} ${odbcIniPath}; do`,
 					`  if [ -f "$f" ] && [ ! -f "$f${BACKUP_SUFFIX}" ]; then sudo cp "$f" "$f${BACKUP_SUFFIX}"; fi`,
 					`done`,
-					`sudo cp ${DRIVERS_DIR}/odbcinst.ini.sample ${ODBCINST_PATH}`,
-					`sudo chmod 0644 ${ODBCINST_PATH}`,
+					`sudo cp ${DRIVERS_DIR}/odbcinst.ini.sample ${odbcinstPath}`,
+					`sudo chmod 0644 ${odbcinstPath}`,
 				].join('\n') + `'`,
 				'Install odbcinst.ini from the drivers sample'
 			);
@@ -233,10 +261,10 @@ test.describe('Workbench: Posit Pro Drivers', {
 			expect(so.stdout.trim(), `expected ${POSTGRES_DRIVER_SO} on disk`).toBe('found');
 
 			const registered = await runDockerCommand(
-				`docker exec ${CONTAINER} bash -lc 'grep -c "^\\[PostgreSQL\\]" ${ODBCINST_PATH} || true'`,
+				`docker exec ${CONTAINER} bash -lc 'grep -c "^\\[PostgreSQL\\]" ${odbcinstPath} || true'`,
 				'Check the PostgreSQL driver is registered exactly once in odbcinst.ini'
 			);
-			expect(registered.stdout.trim(), `expected exactly one [PostgreSQL] stanza in ${ODBCINST_PATH}`).toBe('1');
+			expect(registered.stdout.trim(), `expected exactly one [PostgreSQL] stanza in ${odbcinstPath}`).toBe('1');
 		});
 
 		await test.step('Define the DSNs', async () => {
@@ -249,7 +277,7 @@ test.describe('Workbench: Posit Pro Drivers', {
 					'Copy odbc.ini into the container'
 				);
 				await runDockerCommand(
-					`docker exec ${CONTAINER} bash -lc 'sudo mv /tmp/odbc.ini ${ODBCINI_PATH} && sudo chmod 0644 ${ODBCINI_PATH}'`,
+					`docker exec ${CONTAINER} bash -lc 'sudo mv /tmp/odbc.ini ${odbcIniPath} && sudo chmod 0644 ${odbcIniPath}'`,
 					'Install odbc.ini'
 				);
 			} finally {
@@ -287,7 +315,7 @@ test.describe('Workbench: Posit Pro Drivers', {
 				`sudo rm -f ${pkg.repoFiles.join(' ')}`,
 				// Restore rather than truncate: the original is empty on Ubuntu but carries the
 				// distro's driver templates on the rpm hosts.
-				`for f in ${ODBCINST_PATH} ${ODBCINI_PATH}; do`,
+				`for f in ${odbcinstPath} ${odbcIniPath}; do`,
 				`  if [ -f "$f${BACKUP_SUFFIX}" ]; then sudo mv "$f${BACKUP_SUFFIX}" "$f"; fi`,
 				`done`,
 				`exit 0`,
