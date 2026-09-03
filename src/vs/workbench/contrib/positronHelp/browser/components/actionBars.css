@@ -7,7 +7,8 @@
 	position: relative;
 	display: flex;
 	align-items: center;
-	width: min(240px, 100%);
+	width: 100%;
+	max-width: 240px;
 	height: 24px;
 	box-sizing: border-box;
 	border: 1px solid var(--vscode-positronActionBar-textInputBorder);
