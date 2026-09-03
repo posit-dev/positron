@@ -24,9 +24,10 @@ import { fileURLToPath } from 'url';
  *
  * Instead, every candidate command id extracted from a skill file -- every
  * `{{command:}}` directive, plus prose mentions matching a known prefix (see
- * `extractCandidates`) -- must either be listed in `KNOWN_EXTENSION_COMMANDS`
- * (registered from extension source, which this test does not scan) or be
- * *derivable* from the `src/vs/workbench` source text, either because:
+ * `extractCandidates`) -- must either fall under an extension-owned prefix
+ * (`python.`, `shiny.`), each checked against its own ground truth in a
+ * dedicated test below, or be *derivable* from the `src/vs/workbench` source
+ * text, either because:
  *   (a) the id literally appears in the source, or
  *   (b) the id is assembled from a `${CONST}.suffix` template, where `CONST`
  *       is an exported constant whose value is the id's prefix. For example
@@ -46,30 +47,24 @@ const SKILLS_ROOT = path.join(REPO_ROOT, 'extensions', 'positron-skills', 'templ
 const CANDIDATE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/;
 
 /**
- * Prefixes that mark a backtick-delimited token as a command id worth
- * checking. This gate exists only for *prose* mentions, where a dotted token
- * may just as well be a setting key or a file name; `{{command:}}` directives
- * are unambiguous and are checked unconditionally, so a command whose prefix
- * is missing here is still covered as long as its directive exists somewhere
- * in the templates. `vscode.` is here because the skill documents
- * `vscode.open`: not every command the skill names is Positron's own, and an
- * upstream rename would break the skill just as surely as a Positron one.
+ * Prefixes routed to the workbench source scan. The gate is doing real work
+ * for *prose* mentions, where a dotted token may just as well be a setting
+ * key or a file name; for `{{command:}}` directives the directive-coverage
+ * test below keeps this list (plus `EXTENSION_PREFIXES`) exhaustive.
+ * `vscode.` is here because the skill documents `vscode.open`: not every
+ * command the skill names is Positron's own, and an upstream rename would
+ * break the skill just as surely as a Positron one.
  */
 const ALLOWED_PREFIXES = ['positron.', 'positronAssistant.', 'positronPackages.', 'positronSettings.', 'positronVariables.', 'vscode.', 'workbench.'];
 
 /**
- * Command ids referenced by the templates that are registered from extension
- * source (outside `src/vs/workbench`), which this test does not scan. Each
- * entry is deliberate: it trades drift coverage for not having to scan the
- * extensions tree. An entry whose directive disappears from every template is
- * itself flagged as stale by the test below.
+ * Id prefixes owned by extensions rather than `src/vs/workbench`. Each has
+ * its own ground-truth test below (extension manifest or pinned snapshot)
+ * instead of the workbench source scan. `positron.runApp.` overlaps the
+ * workbench-scanned `positron.` prefix, so the workbench test excludes these
+ * before scanning.
  */
-const KNOWN_EXTENSION_COMMANDS = new Set([
-	// All three declared in extensions/positron-python/src/client/common/constants.ts
-	'python.createEnvironmentAndRegister',
-	'python.installPythonViaUv',
-	'python.interpreterPath',
-]);
+const EXTENSION_PREFIXES = ['python.', 'shiny.', 'positron.runApp.'];
 
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -138,41 +133,67 @@ interface Candidate {
 	readonly skillName: string;
 }
 
-/**
- * Every command id a template references, from two sources:
- *
- * 1. `{{command:<id>}}` expansion directives. Unconditional: a directive is a
- *    command reference by definition, so gating these on a prefix allowlist
- *    would silently drop coverage for any new command family whose prefix
- *    nobody remembered to add (which is exactly what happened to
- *    `positronPackages.*`).
- * 2. Backtick-delimited, dotted-identifier-shaped tokens beginning with a
- *    known command prefix -- prose mentions, where the prefix gate is needed
- *    because a dotted token may be a setting key or file name instead.
- */
-function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
+/** Every `{{command:<id>}}` expansion directive across the templates, unfiltered. */
+function extractDirectives(skills: readonly SkillFile[]): Candidate[] {
 	const candidates: Candidate[] = [];
 	const directivePattern = /\{\{command:([^}]+)\}\}/g;
-	const backtickPattern = /`([^`]+)`/g;
 	for (const skill of skills) {
 		let match: RegExpExecArray | null;
 		directivePattern.lastIndex = 0;
 		while ((match = directivePattern.exec(skill.content))) {
 			candidates.push({ id: match[1].trim(), skillName: skill.name });
 		}
-		backtickPattern.lastIndex = 0;
-		while ((match = backtickPattern.exec(skill.content))) {
-			const token = match[1];
-			if (!CANDIDATE_ID_PATTERN.test(token)) {
-				continue;
-			}
-			if (!ALLOWED_PREFIXES.some(prefix => token.startsWith(prefix))) {
-				continue;
-			}
-			candidates.push({ id: token, skillName: skill.name });
-		}
 	}
 	return candidates;
+}
+
+/**
+ * Every command id a template references whose id begins with one of
+ * `prefixes`, from two sources:
+ *
+ * 1. `{{command:<id>}}` expansion directives -- unambiguous command
+ *    references. The directive-coverage test below asserts every directive
+ *    falls under *some* checked prefix, so the filter here cannot silently
+ *    drop coverage for a new command family whose prefix nobody remembered to
+ *    add (which is exactly what happened to `positronPackages.*`).
+ * 2. Backtick-delimited, dotted-identifier-shaped tokens -- prose mentions,
+ *    where the prefix gate is needed because a dotted token may be a setting
+ *    key or file name instead.
+ */
+function extractCandidates(skills: readonly SkillFile[], prefixes: readonly string[]): Candidate[] {
+	const candidates: Candidate[] = extractDirectives(skills);
+	const backtickPattern = /`([^`]+)`/g;
+	for (const skill of skills) {
+		// Drop fenced code blocks before the inline-backtick scan: a ``` fence
+		// is an odd number of backticks, so leaving it in shifts every
+		// subsequent pairing and silently unmatches the rest of the file.
+		const prose = stripFencedCodeBlocks(skill.content);
+		let match: RegExpExecArray | null;
+		backtickPattern.lastIndex = 0;
+		while ((match = backtickPattern.exec(prose))) {
+			const token = match[1];
+			if (CANDIDATE_ID_PATTERN.test(token)) {
+				candidates.push({ id: token, skillName: skill.name });
+			}
+		}
+	}
+	return candidates.filter(candidate => prefixes.some(prefix => candidate.id.startsWith(prefix)));
+}
+
+/** Remove ```-fenced code blocks, keeping every line outside them. */
+function stripFencedCodeBlocks(content: string): string {
+	const kept: string[] = [];
+	let inFence = false;
+	for (const line of content.split('\n')) {
+		if (line.trimStart().startsWith('```')) {
+			inFence = !inFence;
+			continue;
+		}
+		if (!inFence) {
+			kept.push(line);
+		}
+	}
+	return kept.join('\n');
 }
 
 /** Every `export const NAME = '...'` (or `"..."`) binding found in the corpus, name -> string value. */
@@ -218,33 +239,123 @@ function isResolvable(id: string): boolean {
 	return sourceCorpus.includes(id) || isTemplateComposed(id);
 }
 
+/**
+ * The `shiny.*` command and setting ids the skills rely on, verified by hand
+ * against the shiny-vscode release pinned as `posit.shiny` in product.json.
+ * The skills document these ids by hand (the extension lives out of repo, so
+ * nothing generates them), and this snapshot is the drift guard: when the pin
+ * is bumped, the version assertion below fails until someone confirms each id
+ * below still exists in the new release's `contributes.commands` /
+ * `contributes.configuration` (`package.json` at that tag of
+ * https://github.com/posit-dev/shiny-vscode) and updates `verifiedAgainst`.
+ * Only ids a skill template names belong here.
+ */
+const SHINY_COMMANDS_SNAPSHOT = {
+	verifiedAgainst: '1.4.2',
+	commandIds: [
+		'shiny.python.runApp',
+		'shiny.python.debugApp',
+		'shiny.r.runApp',
+		'shiny.stopApp',
+	],
+	settingIds: [
+		'shiny.previewType',
+	],
+};
+
+/** Every id in the shiny snapshot, command and setting alike. */
+const SHINY_SNAPSHOT_IDS = [...SHINY_COMMANDS_SNAPSHOT.commandIds, ...SHINY_COMMANDS_SNAPSHOT.settingIds];
+
+function reportDrift(unresolved: readonly Candidate[], where: string): void {
+	if (unresolved.length > 0) {
+		const lines = unresolved.map(c => `  - \`${c.id}\` (from ${c.skillName})`);
+		expect.fail(
+			`${unresolved.length} command id(s) named in a skill file have no match ` +
+			`in ${where}. This usually means a command was renamed or removed but the ` +
+			`skill documenting it was not updated:\n${lines.join('\n')}`
+		);
+	}
+}
+
 describe('agent skill / command drift', () => {
 	it('every command id named in a skill file is derivable from workbench source', () => {
-		const candidates = extractCandidates(skillFiles)
-			.filter(candidate => !KNOWN_EXTENSION_COMMANDS.has(candidate.id));
+		// Extension-owned prefixes overlap `positron.` (positron.runApp.*), so
+		// exclude them here; their manifest tests below are the ground truth.
+		const candidates = extractCandidates(skillFiles, ALLOWED_PREFIXES)
+			.filter(candidate => !EXTENSION_PREFIXES.some(prefix => candidate.id.startsWith(prefix)));
 		const unresolved = candidates.filter(candidate => !isResolvable(candidate.id));
+		reportDrift(unresolved, `src/vs/workbench (literal or ${'${CONST}'}.suffix template)`);
+	});
 
-		if (unresolved.length > 0) {
-			const lines = unresolved.map(c => `  - \`${c.id}\` (from ${c.skillName})`);
+	it('every positron.runApp.* id named in a skill file appears in the positron-run-app manifest', () => {
+		// These are setting keys (and any future commands) declared in the
+		// run-app extension's manifest; a literal search covers both.
+		const runAppManifest = fs.readFileSync(
+			path.join(REPO_ROOT, 'extensions', 'positron-run-app', 'package.json'), 'utf8');
+		const candidates = extractCandidates(skillFiles, ['positron.runApp.']);
+		const unresolved = candidates.filter(c => !runAppManifest.includes(`"${c.id}"`));
+		reportDrift(unresolved, 'extensions/positron-run-app/package.json');
+	});
+
+	it('every python.* command id named in a skill file is contributed by positron-python', () => {
+		// The Python extension declares its commands in contributes.commands, so a
+		// literal search of its manifest is the ground truth for these ids.
+		const pythonManifest = fs.readFileSync(
+			path.join(REPO_ROOT, 'extensions', 'positron-python', 'package.json'), 'utf8');
+		const candidates = extractCandidates(skillFiles, ['python.']);
+		const unresolved = candidates.filter(c => !pythonManifest.includes(`"command": "${c.id}"`));
+		reportDrift(unresolved, 'extensions/positron-python/package.json');
+	});
+
+	it('every shiny.* id named in a skill file exists in the pinned shiny-vscode version', () => {
+		const candidates = extractCandidates(skillFiles, ['shiny.']);
+		const known = new Set(SHINY_SNAPSHOT_IDS);
+		const unresolved = candidates.filter(c => !known.has(c.id));
+		reportDrift(unresolved, `the shiny-vscode ${SHINY_COMMANDS_SNAPSHOT.verifiedAgainst} snapshot in this test`);
+	});
+
+	// A snapshot entry is a hand-verification burden at every pin bump; one no
+	// template references anymore is pure staleness and should be deleted.
+	it('every shiny snapshot id is still referenced by some template', () => {
+		const referenced = new Set(extractCandidates(skillFiles, ['shiny.']).map(candidate => candidate.id));
+		const stale = SHINY_SNAPSHOT_IDS.filter(id => !referenced.has(id));
+		expect(stale).toEqual([]);
+	});
+
+	it('the shiny command snapshot has been verified against the posit.shiny version pinned in product.json', () => {
+		const product = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')) as {
+			bootstrapExtensions?: { name: string; version: string }[];
+		};
+		const shiny = product.bootstrapExtensions?.find(extension => extension.name === 'posit.shiny');
+		expect(shiny, 'posit.shiny bootstrap pin not found in product.json').toBeDefined();
+		if (shiny!.version !== SHINY_COMMANDS_SNAPSHOT.verifiedAgainst) {
 			expect.fail(
-				`${unresolved.length} command id(s) named in a skill file have no matching source ` +
-				`in src/vs/workbench (literal or ${'${CONST}'}.suffix template). This usually means a ` +
-				`command was renamed or removed but the skill documenting it was not updated:\n${lines.join('\n')}`
+				`product.json pins posit.shiny ${shiny!.version}, but the positron-commands skill's ` +
+				`shiny command ids were last verified against ${SHINY_COMMANDS_SNAPSHOT.verifiedAgainst}. ` +
+				`To fix (about a minute): open package.json at the v${shiny!.version} tag of ` +
+				`https://github.com/posit-dev/shiny-vscode, confirm each id in SHINY_COMMANDS_SNAPSHOT ` +
+				`(in this test file) still exists in contributes.commands, then set verifiedAgainst to ` +
+				`'${shiny!.version}'. If an id was renamed or removed, update the skill templates under ` +
+				`extensions/positron-skills/templates that document it.`
 			);
 		}
 	});
 
-	// Guards against a broken path/glob calculation making the test above pass vacuously.
+	// Guards against a broken path/glob calculation making the tests above pass vacuously.
 	it('found skill files and extracted a plausible number of candidate ids', () => {
 		expect(skillFiles.length).toBeGreaterThan(0);
-		expect(extractCandidates(skillFiles).length).toBeGreaterThanOrEqual(10);
+		expect(extractCandidates(skillFiles, ALLOWED_PREFIXES).length).toBeGreaterThanOrEqual(10);
+		expect(extractCandidates(skillFiles, ['python.']).length).toBeGreaterThanOrEqual(3);
+		expect(extractCandidates(skillFiles, ['shiny.']).length).toBeGreaterThanOrEqual(3);
 	});
 
-	// An exclusion is a deliberate coverage hole; one that no template
-	// references anymore is pure staleness and should be deleted.
-	it('every known-external exclusion is still referenced by some template', () => {
-		const referenced = new Set(extractCandidates(skillFiles).map(candidate => candidate.id));
-		const stale = [...KNOWN_EXTENSION_COMMANDS].filter(id => !referenced.has(id));
-		expect(stale).toEqual([]);
+	// A directive is a command reference by definition, so every one must fall
+	// under a prefix some test above checks -- otherwise a new command family
+	// would be silently uncovered.
+	it('every {{command:}} directive id falls under a checked prefix', () => {
+		const checked = [...ALLOWED_PREFIXES, ...EXTENSION_PREFIXES];
+		const uncovered = extractDirectives(skillFiles)
+			.filter(candidate => !checked.some(prefix => candidate.id.startsWith(prefix)));
+		expect(uncovered).toEqual([]);
 	});
 });

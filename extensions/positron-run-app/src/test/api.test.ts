@@ -122,25 +122,32 @@ suite('PositronRunApp', () => {
 		return extension.activate();
 	}
 
-	async function verifyRunTestApplication(): Promise<void> {
-		await runAppApi.runApplication(runAppOptions);
+	async function verifyRunTestApplication(): Promise<vscode.Uri | undefined> {
+		const url = await runAppApi.runApplication(runAppOptions);
 
 		// Check that a terminal was created for the application.
 		const terminal = vscode.window.terminals.find((t) => t.name === runAppOptions.name);
 		assert.ok(terminal, 'Terminal not found');
+
+		return url;
 	}
 
 	test('appLauncher: document option runs the given document without relying on the active editor', async () => {
 		// Close all editors so the active-editor fallback can't be what runs.
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-		await waitFor(() => vscode.window.activeTextEditor === undefined, 'Editors did not close');
 		const document = await vscode.workspace.openTextDocument(uri);
 
-		await runAppApi.runApplication({ ...runAppOptions, document });
+		const url = await runAppApi.runApplication({ ...runAppOptions, document });
 
+		// Running an app doesn't open the document; the editors stay as they were.
+		assert.ok(
+			!vscode.window.visibleTextEditors.some((e) => e.document === document),
+			'Document should not have been revealed in an editor',
+		);
 		const terminal = vscode.window.terminals.find((t) => t.name === runAppOptions.name);
 		assert.ok(terminal, 'Terminal not found');
 		sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+		assert.ok(url, 'runApplication should resolve with the previewed URL');
 	});
 
 	test('appLauncher: no document and no active editor runs nothing', async () => {
@@ -151,18 +158,19 @@ suite('PositronRunApp', () => {
 		// Earlier tests leave their terminals open, so count rather than look one up by name.
 		const terminalCount = vscode.window.terminals.length;
 
-		await runAppApi.runApplication(runAppOptions);
+		const url = await runAppApi.runApplication(runAppOptions);
 
+		assert.strictEqual(url, undefined, 'runApplication should not resolve with a URL');
 		assert.strictEqual(vscode.window.terminals.length, terminalCount, 'No terminal should have been created');
-		sinon.assert.notCalled(previewUrlStub);
 	});
 
 	test('appLauncher: shell integration supported', async () => {
 		// Run the application.
-		await verifyRunTestApplication();
+		const url = await verifyRunTestApplication();
 
-		// Check that the expected URL was previewed.
+		// Check that the expected URL was previewed and returned to the caller.
 		sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+		assert.ok(url, 'runApplication should resolve with the previewed URL');
 	});
 
 	test('applauncher: shell integration disabled', async () => {

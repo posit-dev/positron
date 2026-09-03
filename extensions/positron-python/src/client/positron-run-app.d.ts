@@ -257,10 +257,10 @@ export interface PositronRunApp {
      * Run an application in the terminal.
      *
      * @param options Options for running the application.
-     * @returns If terminal shell integration is supported, resolves when the
-     *  application server has started, otherwise resolves when the command has
-     *  been sent to the terminal. When `preview` is `'manual'`, resolves with
-     *  the detected URL (rejects if detection fails).
+     * @returns If terminal shell integration is supported, the app's external
+     *  URL once the application server has started, or `undefined` if no URL
+     *  was detected; otherwise `undefined` once the command has been sent to
+     *  the terminal. Never rejects; failures are reported to the user.
      */
     runApplication(options: RunAppOptions): Promise<vscode.Uri | undefined>;
 
@@ -268,10 +268,9 @@ export interface PositronRunApp {
      * Run an application in a new console session.
      *
      * @param options Options for running the application.
-     * @returns Resolves when the application server has started, or when the
-     *  code has been sent to the console if URL detection times out. When
-     *  `preview` is `'manual'`, resolves with the detected URL (rejects if
-     *  detection fails).
+     * @returns The app's external URL once the application server has started,
+     *  or `undefined` if URL detection timed out and the code was only sent
+     *  to the console. Never rejects; failures are reported to the user.
      */
     runApplicationInConsole(options: RunConsoleAppOptions): Promise<vscode.Uri | undefined>;
 
@@ -279,8 +278,10 @@ export interface PositronRunApp {
      * Debug an application.
      *
      * @param options Options for debugging the application.
-     * @returns If terminal shell integration is supported, resolves when the application server has
-     *  started, otherwise resolves when the debug session has started.
+     * @returns If terminal shell integration is supported, the app's external
+     *  URL once the application server has started, or `undefined` if no URL
+     *  was detected; otherwise `undefined` once the debug session has started.
+     *  Never rejects; failures are reported to the user.
      */
-    debugApplication(options: DebugAppOptions): Promise<void>;
+    debugApplication(options: DebugAppOptions): Promise<vscode.Uri | undefined>;
 }

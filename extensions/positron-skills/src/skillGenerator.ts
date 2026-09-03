@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 
-import { AgentCommand, expandTemplate } from './templateExpander';
+import { AgentCommand, expandTemplate, TemplateFlags, TemplateValues } from './templateExpander';
 
 /** Subdirectory of the extension holding the skill templates. */
 const TEMPLATES_DIR = 'templates';
@@ -74,18 +74,85 @@ async function loadCommands(): Promise<ReadonlyMap<string, AgentCommand>> {
 }
 
 /**
+ * The Shiny commands whose Arguments and Returns the interactive-apps template
+ * generates when the installed Shiny extension publishes agent metadata for
+ * them. The extension ships out of this repo and older releases declare no
+ * `agent` block at all, so the template keeps a hand-written fallback and the
+ * `shiny_agent_metadata` flag picks between them. All of these must be present:
+ * with metadata for only some of them the generated sections would be uneven,
+ * and the hand-written text covers the whole family.
+ */
+const SHINY_AGENT_COMMANDS = ['shiny.python.runApp', 'shiny.r.runApp', 'shiny.stopApp'];
+
+/**
+ * Facts the templates may condition on: the environment, and what the installed
+ * extensions publish. Stable for the life of the extension host, so they are
+ * resolved once at generation time and the emitted text can be assertive rather
+ * than hedging.
+ */
+function computeTemplateFlags(
+	remoteAuthority: string,
+	commandsById: ReadonlyMap<string, AgentCommand>,
+): TemplateFlags {
+	return {
+		// Running in Posit Workbench: the Workbench server sets RS_SERVER_URL in
+		// the session, and Workbench sessions are always the web UI. Matches
+		// IS_RUNNING_ON_PWB in the positron-run-app extension.
+		pwb: !!process.env.RS_SERVER_URL && vscode.env.uiKind === vscode.UIKind.Web,
+		// The workspace lives behind a remote authority (Positron Server, Posit
+		// Workbench, SSH, containers). The window then has no local `file`
+		// filesystem, so a bare path argument to a renderer-side command like
+		// `vscode.open` resolves to a `file://` URI nothing can read. Templates
+		// use this to direct agents to fully-qualified vscode-remote:// URIs
+		// (built with {{remote_authority}}) instead.
+		remote: remoteAuthority !== '',
+		// The window's files live on Windows, where a bare drive-letter path
+		// does not parse as a path at all (`C:` reads as a URI scheme). This
+		// extension runs in the workspace's extension host, so the platform
+		// here is the platform the paths in an argument have to suit, remote or
+		// not. Templates use this to keep the Windows-only URI advice out of a
+		// macOS or Linux user's generated skill.
+		windows: process.platform === 'win32',
+		// The installed Shiny extension publishes agent metadata for its run and
+		// stop commands, so their argument and return facts can be generated like
+		// the Python ones instead of hand-written. False against a Shiny release
+		// from before that metadata was added.
+		shiny_agent_metadata: SHINY_AGENT_COMMANDS.every(id => commandsById.has(id)),
+	};
+}
+
+/**
+ * The window's remote authority (e.g. `localhost:8787`), from the `resolvers`
+ * proposed API. Not derivable any other way in this (remote) extension host:
+ * the authority is a client-side handshake fact, and the URI transformer
+ * rewrites incoming vscode-remote URIs to `file`, so even workspace folder
+ * URIs carry no authority here.
+ * @returns The authority, or '' in a local window.
+ */
+function computeRemoteAuthority(): string {
+	return vscode.env.remoteAuthority ?? '';
+}
+
+/**
  * A digest of everything the output depends on: the Positron build, the
- * extension version, the templates, and the command metadata. When it is
- * unchanged the cached output is reused, so an ordinary launch does no writing.
+ * extension version, the environment flags, the templates, and the command
+ * metadata. When it is unchanged the cached output is reused, so an ordinary
+ * launch does no writing.
  */
 function computeStamp(
 	templates: readonly TemplateFile[],
 	commandsById: ReadonlyMap<string, AgentCommand>,
 	extensionVersion: string,
+	flags: TemplateFlags,
+	remoteAuthority: string,
 ): string {
 	const hash = crypto.createHash('sha256');
 	hash.update(`positron:${vscode.version}\n`);
 	hash.update(`extension:${extensionVersion}\n`);
+	// Stable key order so the same flags always hash the same.
+	const flagsJson = JSON.stringify(Object.entries(flags).sort(([a], [b]) => a.localeCompare(b)));
+	hash.update(`flags:${flagsJson}\n`);
+	hash.update(`remoteAuthority:${remoteAuthority}\n`);
 	for (const template of [...templates].sort((a, b) => a.relativePath.localeCompare(b.relativePath))) {
 		hash.update(`template:${template.relativePath}\n${template.content}\n`);
 	}
@@ -118,7 +185,12 @@ export async function generateSkills(
 	// load turns every directive into apparent drift, and this line tells them apart.
 	log.debug(`Loaded ${commandsById.size} agent command(s).`);
 	const extensionVersion = (context.extension.packageJSON as { version?: string }).version ?? '0.0.0';
-	const stamp = computeStamp(templates, commandsById, extensionVersion);
+	// Substituted for `{{remote_authority}}` so remote templates can spell out a
+	// fully-qualified vscode-remote:// URI with the real authority baked in.
+	// Empty on desktop, where no kept template branch references it.
+	const remoteAuthority = computeRemoteAuthority();
+	const flags = computeTemplateFlags(remoteAuthority, commandsById);
+	const stamp = computeStamp(templates, commandsById, extensionVersion, flags, remoteAuthority);
 
 	const existingStamp = await fs.readFile(stampPath, 'utf8').catch(() => undefined);
 	const outputExists = await fs.stat(skillRoot).then(() => true, () => false);
@@ -133,16 +205,31 @@ export async function generateSkills(
 	const backupDir = path.join(storageDir, `${SKILLS_DIR}.old-${runId}`);
 	try {
 		for (const template of templates) {
-			const result = expandTemplate(template.content, commandsById);
+			const values: TemplateValues = {
+				// The skill's final absolute directory, so reference links are
+				// absolute. The assistant reads a bare relative link relative to
+				// the user's workspace, where the skill does not live.
+				skill_dir: path.join(skillRoot, template.relativePath.split(path.sep)[0]),
+				remote_authority: remoteAuthority,
+			};
+			const result = expandTemplate(template.content, commandsById, flags, values);
 			result.unresolved.forEach(id => unresolved.add(id));
-			// Resolve `{{skill_dir}}` to the skill's final absolute directory so
-			// reference links are absolute. The assistant reads a bare relative link
-			// relative to the user's workspace, where the skill does not live.
-			const skillDir = path.join(skillRoot, template.relativePath.split(path.sep)[0]);
-			const text = result.text.split('{{skill_dir}}').join(skillDir);
+			// Authoring errors, not environment drift: surface them per template.
+			if (result.unknownFlags.length > 0) {
+				log.warn(`Template ${template.relativePath} names unknown flag(s): ${result.unknownFlags.join(', ')}`);
+			}
+			if (result.unbalanced.length > 0) {
+				log.warn(`Template ${template.relativePath} has unbalanced conditional marker(s): ${result.unbalanced.join(', ')}`);
+			}
+			if (result.sameFlagNesting.length > 0) {
+				log.warn(`Template ${template.relativePath} nests a flag inside itself: ${result.sameFlagNesting.join(', ')}`);
+			}
+			if (result.unknownValues.length > 0) {
+				log.warn(`Template ${template.relativePath} names unknown value(s): ${result.unknownValues.join(', ')}`);
+			}
 			const target = path.join(stageDir, template.relativePath);
 			await fs.mkdir(path.dirname(target), { recursive: true });
-			await fs.writeFile(target, text, 'utf8');
+			await fs.writeFile(target, result.text, 'utf8');
 		}
 		// Swap the staged output into place. Remove the stamp first so a crash
 		// mid-swap leaves no stamp claiming the (now stale) output is current.

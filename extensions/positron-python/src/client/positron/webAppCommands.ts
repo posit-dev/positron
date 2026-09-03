@@ -163,7 +163,7 @@ function registerExecCommand(
     return vscode.commands.registerCommand(command, async (uri?: vscode.Uri | string) => {
         const document = await openAppDocument(uri);
         const runAppApi = await getPositronRunAppApi();
-        await runAppApi.runApplication({
+        return runAppApi.runApplication({
             name,
             document,
             async getTerminalOptions(runtime, document, urlPrefix) {
@@ -220,7 +220,7 @@ function registerDebugCommand(
     return vscode.commands.registerCommand(command, async (uri?: vscode.Uri | string) => {
         const document = await openAppDocument(uri);
         const runAppApi = await getPositronRunAppApi();
-        await runAppApi.debugApplication({
+        return runAppApi.debugApplication({
             name,
             document,
             async getDebugConfiguration(runtime, document, urlPrefix) {

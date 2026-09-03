@@ -114,7 +114,6 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 	}
 
-	/** The document to run or debug: the caller's, else the active editor's. */
 	private getDocumentForRun(options: { document?: vscode.TextDocument }): vscode.TextDocument | undefined {
 		return options.document ?? vscode.window.activeTextEditor?.document;
 	}
@@ -282,12 +281,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				};
 
 				const previewUri = await this.previewUrlInExecutionOutput(execution, previewOptions);
-				if (preview === 'manual') {
-					if (!previewUri) {
-						throw new Error(vscode.l10n.t('Failed to detect {0} app URL in terminal output.', options.name));
-					}
-					return previewUri;
+				if (preview === 'manual' && !previewUri) {
+					throw new Error(vscode.l10n.t('Failed to detect {0} app URL in terminal output.', options.name));
 				}
+				return previewUri;
 			}
 		} else {
 			log.info('Shell integration not supported. Executing command without shell integration.');
@@ -493,10 +490,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 							id: sessionId,
 						},
 					});
-					if (preview === 'manual') {
-						return previewUri;
-					}
-					break;
+					return previewUri;
 				}
 				case 'none':
 					break;
@@ -506,27 +500,27 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 	}
 
-	public async debugApplication(options: DebugAppOptions): Promise<void> {
+	public async debugApplication(options: DebugAppOptions): Promise<vscode.Uri | undefined> {
 		try {
 			const document = this.getDocumentForRun(options);
 			if (!document) {
-				return;
+				return undefined;
 			}
 
 			// Keep this check adjacent to the queue call below: an await in
 			// between would let a concurrent invocation slip past it.
 			if (this._debugApplicationSequencerByName.has(options.name)) {
 				this.showAppAlreadyStartingError(options.name);
-				return;
+				return undefined;
 			}
-
-			await this.queueDebugApplication(document, options);
+			return await this.queueDebugApplication(document, options);
 		} catch (error) {
 			this.showRunError(options.name, error);
+			return undefined;
 		}
 	}
 
-	private queueDebugApplication(document: vscode.TextDocument, options: DebugAppOptions): Promise<void> {
+	private queueDebugApplication(document: vscode.TextDocument, options: DebugAppOptions): Promise<vscode.Uri | undefined> {
 		return this._debugApplicationSequencerByName.queue(
 			options.name,
 			() => Promise.resolve(vscode.window.withProgress({
@@ -538,7 +532,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		);
 	}
 
-	private async doDebugApplication(document: vscode.TextDocument, options: DebugAppOptions, progress: vscode.Progress<{ message?: string }>): Promise<void> {
+	private async doDebugApplication(document: vscode.TextDocument, options: DebugAppOptions, progress: vscode.Progress<{ message?: string }>): Promise<vscode.Uri | undefined> {
 		// Dispose existing disposables for the application, if any.
 		this._debugApplicationDisposableByName.get(options.name)?.dispose();
 		this._debugApplicationDisposableByName.delete(options.name);
@@ -593,14 +587,14 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		if (preview === 'none') {
 			progress.report({ message: vscode.l10n.t('Starting application...') });
 			await vscode.debug.startDebugging(undefined, debugConfig);
-			return;
+			return undefined;
 		}
 
-		// Create a promise that resolves when the server URL has been previewed,
-		// or an error has occurred, or it times out.
+		// Create a promise that resolves with the previewed URL, or never (the
+		// surrounding raceTimeout resolves undefined on timeout or error).
 		const debugPreviewTimeout = (options.urlDetectionTimeout ?? readUrlDetectionTimeout()) + 5_000;
 		const didPreviewUrl = raceTimeout(
-			new Promise<boolean>((resolve) => {
+			new Promise<vscode.Uri>((resolve) => {
 				let executionDisposable: vscode.Disposable | undefined;
 				const disposable = this._debugAdapterTrackerFactory.onDidRequestRunInTerminal(e => {
 					if (e.debugSession.configuration.debugAppRequestId === debugAppRequestId) {
@@ -622,8 +616,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 									appUrlStrings: options.appUrlStrings,
 									urlDetectionTimeout: options.urlDetectionTimeout,
 								};
-								if (await this.previewUrlInExecutionOutput(e.execution, previewOptions)) {
-									resolve(true);
+								const previewUri = await this.previewUrlInExecutionOutput(e.execution, previewOptions);
+								if (previewUri) {
+									resolve(previewUri);
 								}
 							}
 						});
@@ -641,9 +636,14 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		await vscode.debug.startDebugging(undefined, debugConfig);
 
 		// Wait for the server URL to be previewed, or a timeout.
-		if (isShellIntegrationEnabledAndSupported && !await didPreviewUrl) {
-			log.warn('Failed to preview URL using shell integration');
+		if (isShellIntegrationEnabledAndSupported) {
+			const previewUri = await didPreviewUrl;
+			if (!previewUri) {
+				log.warn('Failed to preview URL using shell integration');
+			}
+			return previewUri;
 		}
+		return undefined;
 	}
 
 	private async prepareRunApplication(

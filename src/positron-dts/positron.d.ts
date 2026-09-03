@@ -4483,7 +4483,9 @@ declare module 'positron' {
 		 * Result of {@link validateAndExecuteCommand}.
 		 *
 		 * On success, `ok` is `true` and `result` carries the handler's return
-		 * value. On failure, `ok` is `false` and `reason` explains what went
+		 * value, with any URI in it, at any depth, replaced by its string
+		 * form so the value is plain JSON. On failure, `ok` is
+		 * `false` and `reason` explains what went
 		 * wrong so the caller can respond intelligibly:
 		 * - `'not-found'`: no command is registered with this id in the current
 		 *   build.

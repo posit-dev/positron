@@ -32,9 +32,10 @@ suite('Web app commands', () => {
     }
 
     const disposables: IDisposableRegistry = [];
+    const runAppUrl = vscode.Uri.parse('http://localhost:8080/proxy/1234');
     let runAppOptions: RunAppOptions | undefined;
     let debugAppOptions: DebugAppOptions | undefined;
-    const commands = new Map<string, (uri?: vscode.Uri | string) => Promise<void>>();
+    const commands = new Map<string, (uri?: vscode.Uri | string) => Promise<vscode.Uri | undefined>>();
     let isFastAPICliInstalled: boolean;
 
     const originalOpenTextDocument = vscode.workspace.openTextDocument;
@@ -56,7 +57,7 @@ suite('Web app commands', () => {
             async runApplication(_options) {
                 assert.ok(!runAppOptions, 'runApplication called more than once');
                 runAppOptions = _options;
-                return undefined;
+                return runAppUrl;
             },
             async runApplicationInConsole() {
                 return undefined;
@@ -64,6 +65,7 @@ suite('Web app commands', () => {
             async debugApplication(_options) {
                 assert.ok(!debugAppOptions, 'debugApplication called more than once');
                 debugAppOptions = _options;
+                return runAppUrl;
             },
         };
         sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
@@ -157,8 +159,11 @@ suite('Web app commands', () => {
         // Call the command callback and ensure that it sets runAppOptions.
         const callback = commands.get(command);
         assert.ok(callback, `Command not registered for: ${command}`);
-        await callback();
+        const result = await callback();
         assert.ok(runAppOptions, `runAppOptions not set for command: ${command}`);
+
+        // The command resolves with the app's user-facing URL for programmatic callers.
+        assert.strictEqual(result, runAppUrl, `Command did not return the app URL: ${command}`);
 
         // Test `getTerminalOptions`.
         const runtime = {
@@ -291,8 +296,11 @@ suite('Web app commands', () => {
         // Call the command callback and ensure that it sets runAppOptions.
         const callback = commands.get(command);
         assert.ok(callback, `Command not registered for: ${command}`);
-        await callback!();
+        const result = await callback();
         assert.ok(debugAppOptions, `debugAppOptions not set for command: ${command}`);
+
+        // The command resolves with the app's user-facing URL for programmatic callers.
+        assert.strictEqual(result, runAppUrl, `Command did not return the app URL: ${command}`);
 
         // Test `getDebugConfiguration`.
         const runtime = {
@@ -375,55 +383,41 @@ suite('Web app commands', () => {
 
     test('URI argument - opens the given file and runs it', async () => {
         // The command should open the passed URI rather than relying on the
-        // active editor, so the editor title button runs its own group's file
-        // rather than the active group's.
+        // active editor, so agents can run an app without a separate open step,
+        // and the editor title button runs its own group's file rather than the
+        // active group's.
         const fileUri = vscode.Uri.file(path.resolve(workspacePath, 'app.py'));
         const document = createDocument('import flask');
         openTextDocumentResult = () => Promise.resolve(document);
 
         const callback = commands.get(Commands.Exec_Flask_In_Terminal);
         assert.ok(callback, 'Command not registered');
-        await callback(fileUri);
+        const result = await callback(fileUri);
 
         assert.deepStrictEqual(openedUris, [fileUri]);
         assert.ok(runAppOptions, 'runAppOptions not set');
         // The document is passed to the Run App API, which runs it.
         assert.strictEqual(runAppOptions.document, document);
+        assert.strictEqual(result, runAppUrl);
     });
 
     test('URI argument - accepts the string form of a URI', async () => {
-        // A command argument that crosses a process boundary (a keybinding's
-        // `args`, an agent's tool call) is JSON, so the URI arrives as a
-        // string. The string is parsed, so a scheme without slashes
-        // (untitled:, vscode-notebook-cell:) survives too.
+        // Agents pass URIs as strings, since a command argument crossing the
+        // agent boundary is JSON. The string is parsed, so a scheme without
+        // slashes (untitled:, vscode-notebook-cell:) survives too.
         const fileUri = vscode.Uri.parse('untitled:Untitled-1');
         const document = createDocument('import flask');
         openTextDocumentResult = () => Promise.resolve(document);
 
         const callback = commands.get(Commands.Exec_Flask_In_Terminal);
         assert.ok(callback, 'Command not registered');
-        await callback(fileUri.toString());
+        const result = await callback(fileUri.toString());
 
         assert.deepStrictEqual(
             openedUris.map((uri) => uri.toString()),
             [fileUri.toString()],
         );
-        assert.ok(runAppOptions, 'runAppOptions not set');
-        assert.strictEqual(runAppOptions.document, document);
-    });
-
-    test('URI argument - the debug commands take it too', async () => {
-        const fileUri = vscode.Uri.file(path.resolve(workspacePath, 'app.py'));
-        const document = createDocument('import flask');
-        openTextDocumentResult = () => Promise.resolve(document);
-
-        const callback = commands.get(Commands.Debug_Flask_In_Terminal);
-        assert.ok(callback, 'Command not registered');
-        await callback(fileUri);
-
-        assert.deepStrictEqual(openedUris, [fileUri]);
-        assert.ok(debugAppOptions, 'debugAppOptions not set');
-        assert.strictEqual(debugAppOptions.document, document);
+        assert.strictEqual(result, runAppUrl);
     });
 
     test('URI argument - an empty string is a bad argument, not an omitted one', async () => {
@@ -442,11 +436,12 @@ suite('Web app commands', () => {
         // passes no document rather than resolving one itself.
         const callback = commands.get(Commands.Exec_Flask_In_Terminal);
         assert.ok(callback, 'Command not registered');
-        await callback();
+        const result = await callback();
 
         assert.deepStrictEqual(openedUris, []);
         assert.ok(runAppOptions, 'runAppOptions not set');
         assert.strictEqual(runAppOptions.document, undefined);
+        assert.strictEqual(result, runAppUrl);
     });
 
     test('Debug Streamlit in terminal - with urlPrefix', async () => {

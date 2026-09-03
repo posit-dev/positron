@@ -9,6 +9,9 @@
 	"engines": {
 		"vscode": "^1.130.0"
 	},
+	"enabledApiProposals": [
+		"resolvers"
+	],
 	"categories": [
 		"Other"
 	],

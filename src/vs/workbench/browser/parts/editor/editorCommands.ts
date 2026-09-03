@@ -452,14 +452,16 @@ function registerOpenEditorAPICommands(): void {
 		metadata: {
 			description: 'Opens the provided resource in the editor.',
 			// --- Start Positron ---
-			// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands)
-			// and document the argument they should pass. A plain path string works:
-			// it is parsed into a file URI by the opener service.
+			// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
+			// Keep this terse: it is rendered into the positron-commands skill,
+			// whose files.md documents the URI shape, the editor each file type
+			// opens in, and the http/https behaviour in dedicated sections right
+			// below. Repeating any of it here only invites the two to drift.
 			agentCompatible: true,
 			// args: [{ name: 'Uri' }]
 			args: [{
 				name: 'Uri',
-				description: 'Absolute path or file URI of the file to open. Relative paths resolve against the filesystem root, not the workspace, so always pass an absolute path; on Windows pass a file:///C:/... URI rather than a bare drive-letter path. Tabular files (.csv, .tsv, .parquet, .parq, .xlsx, and .gz variants, lowercase extension) open in Data Explorer. http/https URLs open in an external browser, not an editor.',
+				description: 'URI or absolute path of the file to open.',
 				schema: { type: 'string' }
 			}]
 			// --- End Positron ---

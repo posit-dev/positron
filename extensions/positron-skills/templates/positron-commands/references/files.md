@@ -31,18 +31,41 @@ precondition -- always enabled.
 
 ### Building the argument
 
-The path must be absolute. A bare relative path is not resolved against the
-workspace: it is parsed as a URI and ends up rooted at the filesystem root, so
-`data.csv` becomes `/data.csv` and silently opens the wrong thing (or nothing).
-Resolve it against the workspace folder yourself and pass the absolute result.
+{{#if remote}}
+This workspace is remote: its files live behind the authority
+`{{remote_authority}}`, and the window has no local `file` filesystem. Build
+the argument as a fully-qualified remote URI:
 
-On Windows a bare drive-letter path is worse than wrong-looking -- it does not
-parse as a path at all. In `C:/Users/me/data.csv` the leading `C:` is read as a
-URI scheme, so pass `file:///C:/Users/me/data.csv` instead.
+    vscode-remote://{{remote_authority}}/absolute/path/to/file
+
+A bare absolute path or a `file://` URI points at the local `file` scheme this
+window cannot read: the command still reports success, the user sees an editor
+tab that "could not be opened", and the error lands only in a log you cannot
+see. Do not retry a failed open with a different path shape --
+`/home/me/app.py` and `file:///home/me/app.py` are the same wrong call; the
+`vscode-remote://` form above is the only right one.
+{{else}}
+The path must be absolute.
+{{#if windows}}
+
+This window's files are on Windows, where a bare drive-letter path is worse
+than wrong-looking -- it does not parse as a path at all. In
+`C:/Users/me/data.csv` the leading `C:` is read as a URI scheme, so pass
+`file:///C:/Users/me/data.csv` instead.
+{{/if}}
+{{/if}}
+
+A bare relative path is not resolved against the workspace: it is parsed as a
+URI and ends up rooted at the filesystem root, so `data.csv` becomes
+`/data.csv` and silently opens the wrong thing (or nothing). Resolve it
+against the workspace folder yourself and build the argument from the
+absolute result as described above.
 
 Never guess at a filename. If you are not sure the file exists, check first:
-the command reports success either way, and a path that does not exist opens an
-editor showing a file-not-found error rather than failing the call.
+the command reports success either way -- success means only that the command
+dispatched. A path that does not exist opens an editor showing a
+file-not-found error rather than failing the call, so tell the user what
+should have opened and let what they see confirm it.
 
 ### Which editor a file opens in
 

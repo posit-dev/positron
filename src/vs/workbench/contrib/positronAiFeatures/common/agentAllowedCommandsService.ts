@@ -9,6 +9,9 @@ import { ContextKeyExpression, IContextKeyService } from '../../../../platform/c
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
+import { URI } from '../../../../base/common/uri.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { externalUriToString } from '../../../../base/common/positronUtilities.js';
 import { ICommandActionSource, ILocalizedString } from '../../../../platform/action/common/action.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
@@ -108,8 +111,92 @@ export interface IAgentAllowedCommandsService {
 	 * Check that a command exists and that its precondition (if any) currently
 	 * holds, then execute it. Returns a structured result rather than throwing
 	 * so callers can distinguish "unknown", "disabled", and "error" outcomes.
+	 *
+	 * URIs in the result are replaced by their string form, at any depth, so
+	 * the value stays plain JSON across the extension host boundary.
 	 */
 	validateAndExecute(commandId: string, args?: unknown[]): Promise<IValidateAndExecuteResult>;
+}
+
+/**
+ * Depth cap for {@link withUrisAsStrings}. Matches the cap `revive` and
+ * `transformOutgoingURIs` use, and bounds the walk on a cyclic result rather
+ * than recursing until the stack gives out.
+ */
+const MAX_RESULT_WALK_DEPTH = 200;
+
+/** Signals that a subtree held no URI, so the caller should reuse the original value. */
+const UNCHANGED = Symbol('unchanged');
+
+/**
+ * Walk `value` replacing URIs with strings.
+ * @returns The rebuilt value, or {@link UNCHANGED} when this subtree held no URI.
+ */
+function convertUris(value: unknown, depth: number): unknown {
+	if (depth > MAX_RESULT_WALK_DEPTH || typeof value !== 'object' || value === null) {
+		return UNCHANGED;
+	}
+	if (URI.isUri(value)) {
+		return externalUriToString(value);
+	}
+	// Binary payloads are array-like, so walking them would expand them into
+	// index-keyed objects. `revive` guards the same two types for this reason.
+	if (value instanceof VSBuffer || value instanceof Uint8Array) {
+		return UNCHANGED;
+	}
+
+	// Copy on write: the result belongs to the command handler, which may still
+	// hold a reference to it, so a subtree is only rebuilt once it actually
+	// contains a URI. A result without any URI is returned untouched and
+	// allocates nothing, which is the overwhelmingly common case.
+	if (Array.isArray(value)) {
+		let copy: unknown[] | undefined;
+		for (let i = 0; i < value.length; i++) {
+			const converted = convertUris(value[i], depth + 1);
+			if (converted === UNCHANGED) {
+				continue;
+			}
+			copy ??= value.slice();
+			copy[i] = converted;
+		}
+		return copy ?? UNCHANGED;
+	}
+
+	let copy: Record<string, unknown> | undefined;
+	for (const key in value) {
+		if (!Object.hasOwnProperty.call(value, key)) {
+			continue;
+		}
+		const converted = convertUris((value as Record<string, unknown>)[key], depth + 1);
+		if (converted === UNCHANGED) {
+			continue;
+		}
+		copy ??= { ...value };
+		copy[key] = converted;
+	}
+	return copy ?? UNCHANGED;
+}
+
+/**
+ * Replace every URI in a command result, at any depth, with its string form.
+ *
+ * A URI that crosses the extension host boundary is serialized by
+ * `URI.toJSON()` into its marshalled form (`$mid`, `fsPath`, `external`, and
+ * friends), and nothing on the agent path revives it, so an agent would
+ * otherwise see internal marshalling detail and have to guess which field is
+ * the resource. A single string gives it one unambiguous value that can be
+ * passed straight back as an argument to another command.
+ *
+ * Uses {@link externalUriToString} rather than `URI.toString()` because the
+ * latter percent-encodes query delimiters (`?a=1&b=2` becomes
+ * `?a%3D1%26b%3D2`), which would corrupt the app URLs returned by the run and
+ * debug app commands.
+ *
+ * The input is never mutated.
+ */
+function withUrisAsStrings(value: unknown): unknown {
+	const converted = convertUris(value, 0);
+	return converted === UNCHANGED ? value : converted;
 }
 
 function toDescription(value: ILocalizedString | string | undefined): string | undefined {
@@ -264,7 +351,10 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		}
 		try {
 			const result = await this._commandService.executeCommand(commandId, ...(args ?? []));
-			return { ok: true, result };
+			// Inside the try so that a pathological result (one nested past the
+			// depth cap, say) is reported as a structured 'error' rather than
+			// escaping as a rejection.
+			return { ok: true, result: withUrisAsStrings(result) };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			return { ok: false, reason: 'error', message };

@@ -193,15 +193,19 @@ describe('agent skill templates', () => {
 		expect(skill.name).toMatch(SKILL_NAME_REGEX);
 	});
 
-	it.each(skills)('$directoryName expands no directives inside its frontmatter', skill => {
+	it.each(skills)('$directoryName expands no growing directives inside its frontmatter', skill => {
 		// The length check above measures the template, but Assistant measures
-		// the generated output. Those are the same only while no `{{...}}`
-		// directive appears in frontmatter -- one that expanded to command
-		// metadata could push a passing template over the limit at runtime.
+		// the generated output. Conditional markers ({{#if}}/{{else}}/{{/if}})
+		// only ever shrink the text, so the template length still bounds the
+		// output; any other {{...}} directive (command metadata, skill_dir)
+		// grows it and could push a passing template over the limit at
+		// runtime. positron-skills' skillMetadata test additionally checks the
+		// expanded description length under every flag combination.
 		const frontmatter = `${skill.name ?? ''}\n${skill.description ?? ''}`;
+		const withoutConditionals = frontmatter.replace(/\{\{#if [^}]+\}\}|\{\{else\}\}|\{\{\/if\}\}/g, '');
 		expect(
-			frontmatter,
-			`${skill.relativePath}: frontmatter contains a {{...}} directive. The length ` +
+			withoutConditionals,
+			`${skill.relativePath}: frontmatter contains an expanding {{...}} directive. The length ` +
 			`check above measures the template, so it no longer bounds the generated output.`,
 		).not.toMatch(/\{\{/);
 	});

@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { MenuId, MenuRegistry } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr, IContextKeyService, ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -52,8 +53,8 @@ describe('AgentAllowedCommandsService', () => {
 		description?: string;
 		precondition?: ContextKeyExpression;
 		metadataArgs?: Parameters<typeof CommandsRegistry.registerCommand>[0] extends { metadata?: infer M }
-			? M extends { args?: infer A } ? A : never
-			: never;
+		? M extends { args?: infer A } ? A : never
+		: never;
 		metadataReturns?: string;
 	} = {}) {
 		store.add(CommandsRegistry.registerCommand({
@@ -320,6 +321,66 @@ describe('AgentAllowedCommandsService', () => {
 
 			expect(result).toEqual({ ok: true, result: 42 });
 			expect(executeCommand).toHaveBeenCalledWith('test.agent.happy', 'a', 1);
+		});
+
+		it('returns a top-level URI result as a string, preserving query delimiters', async () => {
+			store.add(CommandsRegistry.registerCommand('test.agent.runApp', () => { }));
+			// Shaped like the app URL that the Python run/debug app commands return.
+			const executeCommand = vi.fn(
+				async () => URI.parse('http://localhost:8501/?token=abc&embed=true'),
+			) as unknown as ICommandService['executeCommand'];
+			const service = makeService({ executeCommand });
+
+			const result = await service.validateAndExecute('test.agent.runApp');
+
+			expect(result).toEqual({
+				ok: true,
+				result: 'http://localhost:8501/?token=abc&embed=true',
+			});
+		});
+
+		it('replaces URIs in the result with their string form, at any depth', async () => {
+			store.add(CommandsRegistry.registerCommand('test.agent.locations', () => { }));
+			// Shaped like the Location[] that the _execute* provider commands return.
+			const executeCommand = vi.fn(async () => [{
+				uri: URI.file('/tmp/a b.py'),
+				range: { startLineNumber: 1, startColumn: 2, endLineNumber: 1, endColumn: 6 },
+			}]) as unknown as ICommandService['executeCommand'];
+			const service = makeService({ executeCommand });
+
+			const result = await service.validateAndExecute('test.agent.locations');
+
+			expect(result).toEqual({
+				ok: true,
+				result: [{
+					uri: 'file:///tmp/a%20b.py',
+					range: { startLineNumber: 1, startColumn: 2, endLineNumber: 1, endColumn: 6 },
+				}],
+			});
+		});
+
+		it('leaves a result without URIs untouched, by identity', async () => {
+			store.add(CommandsRegistry.registerCommand('test.agent.plain', () => { }));
+			const original = { sessionId: 'abc', nested: { count: 1 } };
+			const executeCommand = vi.fn(async () => original) as unknown as ICommandService['executeCommand'];
+			const service = makeService({ executeCommand });
+
+			const result = await service.validateAndExecute('test.agent.plain');
+
+			expect(result).toEqual({ ok: true, result: original });
+			// Copy on write: nothing changed, so the handler's own object is passed through.
+			expect((result as { result: unknown }).result).toBe(original);
+		});
+
+		it('does not mutate the object the handler returned', async () => {
+			store.add(CommandsRegistry.registerCommand('test.agent.cached', () => { }));
+			const original = { uri: URI.file('/tmp/x.py') };
+			const executeCommand = vi.fn(async () => original) as unknown as ICommandService['executeCommand'];
+			const service = makeService({ executeCommand });
+
+			await service.validateAndExecute('test.agent.cached');
+
+			expect(URI.isUri(original.uri)).toBe(true);
 		});
 
 		it('returns { ok: false, reason: "not-found" } for an unregistered id', async () => {

@@ -471,42 +471,120 @@
                 "command": "python.execDashInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execDashInTerminal.title%",
-                "enablement": "pythonAppFramework == dash"
+                "agent": {
+                    "description": "Run a Dash app file in a dedicated terminal and open it in the Viewer. Positron manages the terminal, detects the app URL, and sets up any proxying the environment requires, so prefer this over starting the app from a shell.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.execFastAPIInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execFastAPIInTerminal.title%",
-                "enablement": "pythonAppFramework == fastapi"
+                "agent": {
+                    "description": "Run a FastAPI app file in a dedicated terminal and open its interactive API docs in the Viewer. Positron manages the terminal, detects the app URL, and sets up any proxying the environment requires, so prefer this over starting the app from a shell.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.execFlaskInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execFlaskInTerminal.title%",
-                "enablement": "pythonAppFramework == flask"
+                "agent": {
+                    "description": "Run a Flask app file in a dedicated terminal and open it in the Viewer. Positron manages the terminal, detects the app URL, and sets up any proxying the environment requires, so prefer this over starting the app from a shell.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.execGradioInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execGradioInTerminal.title%",
-                "enablement": "pythonAppFramework == gradio"
+                "agent": {
+                    "description": "Run a Gradio app file in a dedicated terminal and open it in the Viewer. Positron manages the terminal, detects the app URL, and sets up any proxying the environment requires, so prefer this over starting the app from a shell.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.execMarimoInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execMarimoInTerminal.title%",
-                "enablement": "pythonAppFramework == marimo"
+                "agent": {
+                    "description": "Run a marimo notebook file as an app in a dedicated terminal and open it in the Viewer. Positron manages the terminal, detects the app URL, and sets up any proxying the environment requires, so prefer this over starting the app from a shell.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.execStreamlitInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execStreamlitInTerminal.title%",
-                "enablement": "pythonAppFramework == streamlit"
+                "agent": {
+                    "description": "Run a Streamlit app file in a dedicated terminal and open it in the Viewer. Positron manages the terminal, detects the app URL, and sets up any proxying the environment requires, so prefer this over starting the app from a shell.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
@@ -519,42 +597,120 @@
                 "command": "python.debugDashInTerminal",
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugDashInTerminal.title%",
-                "enablement": "pythonAppFramework == dash"
+                "agent": {
+                    "description": "Run a Dash app file under the Python debugger, in a dedicated terminal, and open it in the Viewer. Use only when the user explicitly asks to debug their app. To simply run the app, use python.execDashInTerminal instead.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.debugFastAPIInTerminal",
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugFastAPIInTerminal.title%",
-                "enablement": "pythonAppFramework == fastapi"
+                "agent": {
+                    "description": "Run a FastAPI app file under the Python debugger, in a dedicated terminal, and open it in the Viewer. Use only when the user explicitly asks to debug their app. To simply run the app, use python.execFastAPIInTerminal instead.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.debugFlaskInTerminal",
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugFlaskInTerminal.title%",
-                "enablement": "pythonAppFramework == flask"
+                "agent": {
+                    "description": "Run a Flask app file under the Python debugger, in a dedicated terminal, and open it in the Viewer. Use only when the user explicitly asks to debug their app. To simply run the app, use python.execFlaskInTerminal instead.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.debugGradioInTerminal",
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugGradioInTerminal.title%",
-                "enablement": "pythonAppFramework == gradio"
+                "agent": {
+                    "description": "Run a Gradio app file under the Python debugger, in a dedicated terminal, and open it in the Viewer. Use only when the user explicitly asks to debug their app. To simply run the app, use python.execGradioInTerminal instead.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.debugMarimoInTerminal",
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugMarimoInTerminal.title%",
-                "enablement": "pythonAppFramework == marimo"
+                "agent": {
+                    "description": "Run a marimo notebook file as an app under the Python debugger, in a dedicated terminal, and open it in the Viewer. Use only when the user explicitly asks to debug their app. To simply run the app, use python.execMarimoInTerminal instead.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
                 "command": "python.debugStreamlitInTerminal",
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugStreamlitInTerminal.title%",
-                "enablement": "pythonAppFramework == streamlit"
+                "agent": {
+                    "description": "Run a Streamlit app file under the Python debugger, in a dedicated terminal, and open it in the Viewer. Use only when the user explicitly asks to debug their app. To simply run the app, use python.execStreamlitInTerminal instead.",
+                    "args": [
+                        {
+                            "name": "uri",
+                            "required": false,
+                            "description": "URI of the app file to run. Omit to run the active editor's file.",
+                            "schema": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": "The app's user-facing URL, or nothing if no URL was detected."
+                }
             },
             {
                 "category": "Python",
@@ -1653,6 +1809,78 @@
                 }
             ],
             "commandPalette": [
+                {
+                    "category": "Python",
+                    "command": "python.execDashInTerminal",
+                    "title": "%python.command.python.execDashInTerminal.title%",
+                    "when": "pythonAppFramework == dash"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.debugDashInTerminal",
+                    "title": "%python.command.python.debugDashInTerminal.title%",
+                    "when": "pythonAppFramework == dash"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.execFastAPIInTerminal",
+                    "title": "%python.command.python.execFastAPIInTerminal.title%",
+                    "when": "pythonAppFramework == fastapi"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.debugFastAPIInTerminal",
+                    "title": "%python.command.python.debugFastAPIInTerminal.title%",
+                    "when": "pythonAppFramework == fastapi"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.execFlaskInTerminal",
+                    "title": "%python.command.python.execFlaskInTerminal.title%",
+                    "when": "pythonAppFramework == flask"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.debugFlaskInTerminal",
+                    "title": "%python.command.python.debugFlaskInTerminal.title%",
+                    "when": "pythonAppFramework == flask"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.execGradioInTerminal",
+                    "title": "%python.command.python.execGradioInTerminal.title%",
+                    "when": "pythonAppFramework == gradio"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.debugGradioInTerminal",
+                    "title": "%python.command.python.debugGradioInTerminal.title%",
+                    "when": "pythonAppFramework == gradio"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.execMarimoInTerminal",
+                    "title": "%python.command.python.execMarimoInTerminal.title%",
+                    "when": "pythonAppFramework == marimo"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.debugMarimoInTerminal",
+                    "title": "%python.command.python.debugMarimoInTerminal.title%",
+                    "when": "pythonAppFramework == marimo"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.execStreamlitInTerminal",
+                    "title": "%python.command.python.execStreamlitInTerminal.title%",
+                    "when": "pythonAppFramework == streamlit"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.debugStreamlitInTerminal",
+                    "title": "%python.command.python.debugStreamlitInTerminal.title%",
+                    "when": "pythonAppFramework == streamlit"
+                },
                 {
                     "category": "Python",
                     "command": "python.analysis.restartLanguageServer",
