@@ -9,23 +9,32 @@ import * as positron from 'positron';
 import { generatePandasImportCode, PYTHON_KEYWORDS } from './pandasCodeGenerator';
 
 /**
- * Registers the pandas data importer, which generates the code that loads a delimited file into a
- * dataframe. Generation is pure TypeScript; no Python runtime is involved.
+ * Builds the pandas data importer, which generates the code that loads a delimited file, Excel
+ * workbook, or Parquet file into a dataframe. Generation is pure TypeScript; no Python runtime is
+ * involved, so the importer can be built and exercised without registering it.
  */
-export function registerPandasDataImporter(disposables: vscode.Disposable[]): void {
-    const importer: positron.DataImporter = {
+export function createPandasDataImporter(): positron.DataImporter {
+    return {
         languageId: 'python',
         displayName: 'Python (pandas)',
-        fileExtensions: ['csv', 'tsv'],
+        fileExtensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq'],
         reservedNames: [...PYTHON_KEYWORDS],
-        generateCode: (request: positron.DataImportRequest): positron.DataImportResult =>
+        generateCode: async (request: positron.DataImportRequest): Promise<positron.DataImportResult> =>
             generatePandasImportCode({
-                filePath: request.fileUri.fsPath,
+                // Workspace-relative when the file is inside the workspace, so the generated
+                // code survives version control and other machines; absolute otherwise.
+                pathLiteral: await positron.paths.formatPathForCode(request.fileUri.fsPath, {
+                    relativeTo: 'workspace',
+                }),
                 variableName: request.variableName,
                 hasHeaderRow: request.options.hasHeaderRow,
+                sheetName: request.options.sheetName,
                 view: request.view,
             }),
     };
+}
 
-    disposables.push(positron.dataExplorer.registerDataImporter(importer));
+/** Registers the pandas data importer with the Data Explorer. */
+export function registerPandasDataImporter(disposables: vscode.Disposable[]): void {
+    disposables.push(positron.dataExplorer.registerDataImporter(createPandasDataImporter()));
 }

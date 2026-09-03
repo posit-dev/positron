@@ -28,6 +28,9 @@ import { DownloadServiceChannel } from '../../../../platform/download/common/dow
 import { RemoteLoggerChannelClient } from '../../../../platform/log/common/logIpc.js';
 import { REMOTE_DEFAULT_IF_LOCAL_EXTENSIONS } from '../../../../platform/remote/common/remote.js';
 import product from '../../../../platform/product/common/product.js';
+// --- Start Positron ---
+import './positronRemoteConfiguration.js';
+// --- End Positron ---
 
 
 const EXTENSION_IDENTIFIER_PATTERN = '([a-z0-9A-Z][a-z0-9-A-Z]*)\\.([a-z0-9A-Z][a-z0-9-A-Z]*)$';

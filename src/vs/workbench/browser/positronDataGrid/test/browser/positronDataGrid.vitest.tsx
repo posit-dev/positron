@@ -9,9 +9,9 @@
 import { act, screen } from '@testing-library/react';
 
 // Other dependencies.
-import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubGridLayoutWithSize } from '../../../../../test/vitest/stubGridLayout.js';
 import { PositronDataGrid } from '../../positronDataGrid.js';
 import { DataGridInstance } from '../../classes/dataGridInstance.js';
 
@@ -32,42 +32,6 @@ const HORIZONTAL_SCROLL_OFFSET = 150;
 
 // Scrolls the unpinned rows so that row 2 lands at top: 10, 10px inside a one-row (20px) band.
 const VERTICAL_SCROLL_OFFSET = 30;
-
-/**
- * The data grid sizes itself from the DOM via requestAnimationFrame + ResizeObserver. Neither
- * produces a real layout in happy-dom, and the grid only paints the rows and columns that fit its
- * *local* size, so this gives elements a real offset size and hands that size to the grid
- * synchronously via a ResizeObserver that fires on observe(). Returns a restore function for the
- * offset overrides; callers must also call vi.unstubAllGlobals().
- */
-function stubGridLayoutWithSize(width: number, height: number): () => void {
-	const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
-	const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
-	Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => width });
-	Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => height });
-
-	// rAF stays a no-op; the size instead arrives from the ResizeObserver below.
-	vi.stubGlobal('requestAnimationFrame', () => 0);
-	vi.stubGlobal('ResizeObserver', class {
-		private readonly _callback: ResizeObserverCallback;
-		constructor(callback: ResizeObserverCallback) { this._callback = callback; }
-		observe() {
-			// Report the stubbed size immediately so the grid sizes itself during render. The grid
-			// only reads contentRect, so the rest of the entry throws if it is ever read.
-			const entry = stubInterface<ResizeObserverEntry>({
-				contentRect: stubInterface<DOMRectReadOnly>({ width, height }),
-			});
-			this._callback([entry], this);
-		}
-		unobserve() { }
-		disconnect() { }
-	});
-
-	return () => {
-		Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidthDescriptor!);
-		Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeightDescriptor!);
-	};
-}
 
 /**
  * A minimal concrete data grid instance. Column and row pinning are enabled, and headers are off so

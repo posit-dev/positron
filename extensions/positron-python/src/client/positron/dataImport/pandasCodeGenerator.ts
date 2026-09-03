@@ -14,14 +14,21 @@ import type { DataImportRowFilter, DataImportSearchFilter, DataImportView } from
 
 /** A request to generate a pandas load statement. */
 export interface PandasImportRequest {
-    /** The absolute path of the file to load. */
-    filePath: string;
+    /**
+     * The path of the file to load as a ready-to-embed string literal, already quoted and escaped
+     * (the output of positron.paths.formatPathForCode): workspace-relative when the file is inside
+     * the workspace, absolute otherwise.
+     */
+    pathLiteral: string;
 
     /** The target dataframe variable name. */
     variableName: string;
 
     /** Whether the first row holds column names. Treated as true when absent. */
     hasHeaderRow?: boolean;
+
+    /** The worksheet to read, for formats that have sheets. Omitted means the first sheet. */
+    sheetName?: string;
 
     /** The Data Explorer view (filters and sorts) to reproduce after the load, if requested. */
     view?: DataImportView;
@@ -34,10 +41,10 @@ export interface PandasImportResult {
 }
 
 /**
- * Escapes a string so it can be embedded in a double-quoted, single-line Python literal. Windows
- * paths are the reason this exists: an unescaped backslash before a 'n' or a 't' silently changes
- * the path. POSIX paths are the reason control characters are handled too: a file name may legally
- * contain a newline, which would otherwise terminate the generated literal.
+ * Escapes a string so it can be embedded in a double-quoted, single-line Python literal. Filter
+ * terms and column values are arbitrary text: an unescaped backslash before a 'n' or a 't'
+ * silently changes the value, and an unescaped control character would terminate or corrupt the
+ * generated literal.
  */
 export function escapePythonString(value: string): string {
     return value.replace(/[\\"\u0000-\u001f\u007f]/g, (character) => {
@@ -103,9 +110,27 @@ export const PYTHON_KEYWORDS = new Set([
     'yield',
 ]);
 
-/** Whether a path names a tab-separated file, which pandas needs told explicitly. */
-function isTabSeparated(filePath: string): boolean {
-    return filePath.toLowerCase().endsWith('.tsv');
+/** The file formats the generator can write a load call for, keyed off the path's extension. */
+type FileFormat = 'csv' | 'tsv' | 'xlsx' | 'parquet';
+
+/**
+ * Detects the format from the extension of a quoted path literal. The literal's closing quote is
+ * part of each match, so the check cannot be fooled by a directory named `x.tsv` in the middle of
+ * the path. An unrecognized extension falls back to CSV, preserving the generator's existing
+ * behavior for paths the registry should not have sent it.
+ */
+function detectFileFormat(pathLiteral: string): FileFormat {
+    const lower = pathLiteral.toLowerCase();
+    if (lower.endsWith('.tsv"')) {
+        return 'tsv';
+    }
+    if (lower.endsWith('.xlsx"')) {
+        return 'xlsx';
+    }
+    if (lower.endsWith('.parquet"') || lower.endsWith('.parq"')) {
+        return 'parquet';
+    }
+    return 'csv';
 }
 
 /** Display types whose stringified values are emitted as bare numeric literals. */
@@ -295,24 +320,49 @@ function translateView(
  * describes, and it names the variable so a script that accumulates several imports stays readable.
  */
 export function generatePandasImportCode(request: PandasImportRequest): PandasImportResult {
-    const args = [`"${escapePythonString(request.filePath)}"`];
-    if (isTabSeparated(request.filePath)) {
-        args.push('sep="\\t"');
-    }
-    if (request.hasHeaderRow === false) {
-        args.push('header=None');
+    const format = detectFileFormat(request.pathLiteral);
+    const args = [request.pathLiteral];
+
+    let readFunction: string;
+    switch (format) {
+        case 'parquet':
+            // Parquet always carries column names and has no sheets, so the header and
+            // sheet options do not apply, whatever the options bag says.
+            readFunction = 'read_parquet';
+            break;
+        case 'xlsx':
+            readFunction = 'read_excel';
+            if (request.sheetName !== undefined) {
+                args.push(`sheet_name="${escapePythonString(request.sheetName)}"`);
+            }
+            if (request.hasHeaderRow === false) {
+                args.push('header=None');
+            }
+            break;
+        case 'tsv':
+        case 'csv':
+            readFunction = 'read_csv';
+            if (format === 'tsv') {
+                args.push('sep="\\t"');
+            }
+            if (request.hasHeaderRow === false) {
+                args.push('header=None');
+            }
+            break;
     }
 
     const lines = [
         'import pandas as pd',
         '',
         `# Load ${request.variableName} data`,
-        `${request.variableName} = pd.read_csv(${args.join(', ')})`,
+        `${request.variableName} = pd.${readFunction}(${args.join(', ')})`,
     ];
 
     const unsupported: string[] = [];
     if (request.view) {
-        const statements = translateView(request.variableName, request.view, request.hasHeaderRow, unsupported);
+        // Parquet columns are always named, so the headerless-columns guard never applies.
+        const headerForView = format === 'parquet' ? undefined : request.hasHeaderRow;
+        const statements = translateView(request.variableName, request.view, headerForView, unsupported);
         if (statements.length > 0) {
             lines.push('', '# Filter and sort as shown in the Data Explorer', ...statements);
         }

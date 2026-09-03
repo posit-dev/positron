@@ -9,6 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { getLogger } from '../common/logger';
+import { pickConfiguredDownloadUrlTemplate, UNIFIED_DOWNLOAD_URL_KEY, UNIFIED_DOWNLOAD_URL_SECTION } from './serverDownloadUrl';
 
 /**
  * Server platform information
@@ -207,6 +208,28 @@ export class ServerConfigProvider {
 	}
 
 	/**
+	 * Get the server download URL template that this build was published with, from
+	 * product.json. This is what gives a local or dev build a server that matches it,
+	 * and it is the fallback when the user has configured no download URL of their own.
+	 */
+	private getProductDownloadUrlTemplate(): string | undefined {
+		try {
+			const appRoot = vscode.env.appRoot;
+			const productPath = path.join(appRoot, 'product.json');
+
+			const productJson = fs.readFileSync(productPath, 'utf8');
+			const product = JSON.parse(productJson);
+			if (product.serverDownloadUrlTemplate) {
+				return product.serverDownloadUrlTemplate;
+			}
+		} catch (error) {
+			this.logger.error(`Failed to read serverDownloadUrlTemplate from product.json: ${error}`);
+		}
+
+		return undefined;
+	}
+
+	/**
 	 * Get platform information for the host
 	 */
 	private getPlatformInfo(): ServerPlatform {
@@ -269,9 +292,13 @@ export class ServerConfigProvider {
 	 * @param platform Platform information
 	 */
 	private getDownloadUrl(version: string, commit: string, quality: string, platform: ServerPlatform): string {
-		// Get the URL template from configuration or use default
-		const config = vscode.workspace.getConfiguration('dev.containers');
-		const urlTemplate = config.get<string>('serverDownloadUrlTemplate') || DEFAULT_DOWNLOAD_URL_TEMPLATE;
+		// Prefer whatever the user configured, then what this build was published with,
+		// then the hardcoded default.
+		const configured = pickConfiguredDownloadUrlTemplate(
+			vscode.workspace.getConfiguration('dev.containers').inspect<string>('serverDownloadUrlTemplate'),
+			vscode.workspace.getConfiguration(UNIFIED_DOWNLOAD_URL_SECTION).inspect<string>(UNIFIED_DOWNLOAD_URL_KEY)
+		);
+		const urlTemplate = configured || this.getProductDownloadUrlTemplate() || DEFAULT_DOWNLOAD_URL_TEMPLATE;
 
 		// Get the long-form architecture name (e.g., x86_64 instead of x64)
 		const archLong = this.getArchLong(platform.arch);

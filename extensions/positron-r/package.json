@@ -230,10 +230,15 @@
             ],
             "description": "%r.configuration.pipe%"
           },
+          "positron.r.diagnostics.enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "%r.configuration.diagnostics.enabled.description%"
+          },
           "positron.r.diagnostics.enable": {
             "type": "boolean",
             "default": true,
-            "description": "%r.configuration.diagnostics.enable.description%"
+            "deprecationMessage": "%r.configuration.diagnostics.enable.deprecationMessage%"
           },
           "oak.sourceFetching.enabled": {
             "type": "boolean",
@@ -458,7 +463,7 @@
               "posit-ppm",
               "none"
             ],
-            "enumDescriptions": [
+            "markdownEnumDescriptions": [
               "%r.configuration.defaultRepositories.auto.description%",
               "%r.configuration.defaultRepositories.rstudio.description%",
               "%r.configuration.defaultRepositories.posit-ppm.description%",

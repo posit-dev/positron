@@ -178,8 +178,6 @@ export interface WillExecuteEvent {
  * Configuration for execution behavior.
  */
 export interface IQuartoExecutionConfig {
-	/** Timeout for individual cell execution in milliseconds. 0 = no timeout. Default: 300000 (5 min) */
-	readonly executionTimeout: number;
 	/** Maximum output size in bytes before truncation. Default: 10MB */
 	readonly maxOutputSize: number;
 	/** Maximum number of output items per cell. Default: 100 */
@@ -190,7 +188,6 @@ export interface IQuartoExecutionConfig {
  * Default execution configuration values.
  */
 export const DEFAULT_EXECUTION_CONFIG: IQuartoExecutionConfig = {
-	executionTimeout: 300000, // 5 minutes
 	maxOutputSize: 10 * 1024 * 1024, // 10MB
 	maxOutputItems: 100,
 };

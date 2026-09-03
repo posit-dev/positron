@@ -34,7 +34,9 @@
 		"dist",
 		"tmp",
 		"src/spec/test/**/*",
-		"src/cli-0.80.1/**/*"
+		"src/cli-0.80.1/**/*",
+		"src/**/*.vitest.ts",
+		"src/**/*.vitest.tsx"
 	],
 	"include": [
 		"src/**/*",
