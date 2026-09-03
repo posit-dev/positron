@@ -9,6 +9,12 @@ services:
     # workbench-local-lib.sh). The default keeps a bare `docker compose up` and
     # the CI action, which do not set it, on Ubuntu.
     image: ${WB_TEST_IMAGE:-ghcr.io/posit-dev/positron-ubuntu24:24.18.0}
+    # Normally empty, which Compose drops entirely so the multi-arch resolution
+    # above still applies. workbench-local.sh sets it (to linux/amd64) only for
+    # an OS with no Workbench package for this machine's arch -- openSUSE 15,
+    # which Posit builds for x86_64 only, so on Apple Silicon the local loop has
+    # to be emulated. See wb_os_platform in workbench-local-lib.sh.
+    platform: ${WB_TEST_PLATFORM:-}
     container_name: test
     init: true
     ports:
