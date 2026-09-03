@@ -17,7 +17,12 @@ import { WebviewIconPath, WebviewInput } from '../../contrib/webviewPanel/browse
 import { IWebViewShowOptions, IWebviewWorkbenchService } from '../../contrib/webviewPanel/browser/webviewWorkbenchService.js';
 import { editorGroupToColumn } from '../../services/editor/common/editorGroupColumn.js';
 import { GroupLocation, GroupsOrder, IEditorGroup, IEditorGroupsService, preferredSideBySideGroupDirection } from '../../services/editor/common/editorGroupsService.js';
-import { ACTIVE_GROUP, IEditorService, PreferredGroup, SIDE_GROUP } from '../../services/editor/common/editorService.js';
+// --- Start Positron ---
+// USE_MODAL_EDITOR_SETTING and UseModalEditorMode route a modal-requesting
+// webview panel to the modal editor part.
+import { ACTIVE_GROUP, IEditorService, PreferredGroup, SIDE_GROUP, USE_MODAL_EDITOR_SETTING, UseModalEditorMode } from '../../services/editor/common/editorService.js';
+import { resolveModalWebviewGroup } from './positron/modalWebviewGroup.js';
+// --- End Positron ---
 import { IExtensionService } from '../../services/extensions/common/extensions.js';
 import { IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import * as extHostProtocol from '../common/extHost.protocol.js';
@@ -206,6 +211,20 @@ export class MainThreadWebviewPanels extends Disposable implements extHostProtoc
 	}
 
 	private getTargetGroupFromShowOptions(showOptions: extHostProtocol.WebviewPanelShowOptions): PreferredGroup {
+		// --- Start Positron ---
+		// A modal-requesting panel routes to the modal editor part instead of a
+		// normal group; `editorGroupFinder` creates that part on demand. Falls
+		// through to the usual resolution (an ordinary tab) when the user
+		// disabled modal editors.
+		const modalGroup = resolveModalWebviewGroup({
+			modal: !!showOptions.modal,
+			useModalSetting: this._configurationService.getValue<UseModalEditorMode>(USE_MODAL_EDITOR_SETTING),
+		});
+		if (modalGroup !== undefined) {
+			return modalGroup;
+		}
+		// --- End Positron ---
+
 		if (typeof showOptions.viewColumn === 'undefined'
 			|| showOptions.viewColumn === ACTIVE_GROUP
 			|| (this._editorGroupService.count === 1 && this._editorGroupService.activeGroup.isEmpty)

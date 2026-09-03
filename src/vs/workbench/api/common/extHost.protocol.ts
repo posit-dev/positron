@@ -1024,6 +1024,11 @@ export type WebviewHandle = string;
 export interface WebviewPanelShowOptions {
 	readonly viewColumn?: EditorGroupColumn;
 	readonly preserveFocus?: boolean;
+	// --- Start Positron ---
+	// Lets an extension request that its webview panel be presented as a
+	// centered modal, via positron.window.createModalWebviewPanel.
+	readonly modal?: boolean;
+	// --- End Positron ---
 }
 
 export interface WebviewExtensionDescription {

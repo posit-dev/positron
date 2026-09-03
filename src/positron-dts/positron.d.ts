@@ -2744,6 +2744,32 @@ declare module 'positron' {
 
 	namespace window {
 		/**
+		 * Create and show a webview panel presented as a centered modal.
+		 *
+		 * Identical to `vscode.window.createWebviewPanel`, except the panel is
+		 * hosted in the modal editor part rather than an editor group. If the
+		 * user has set `workbench.editor.useModal` to `'off'`, the panel opens as
+		 * an ordinary editor tab instead. Callers should therefore treat modal
+		 * presentation as a preference, not a guarantee, and must not depend on
+		 * `panel.viewColumn`, which is `undefined` while the panel is modal.
+		 *
+		 * The webview is an iframe, so an Escape keypress inside it does not
+		 * reach the modal's own key handling. Content that should be dismissable
+		 * with Escape has to listen for it and dispose the panel itself.
+		 *
+		 * @param viewType Identifies the type of the webview panel.
+		 * @param title Title of the panel.
+		 * @param options Settings for the new panel.
+		 *
+		 * @return New webview panel.
+		 */
+		export function createModalWebviewPanel(
+			viewType: string,
+			title: string,
+			options?: vscode.WebviewPanelOptions & vscode.WebviewOptions,
+		): vscode.WebviewPanel;
+
+		/**
 		 * Create and show a new preview panel.
 		 *
 		 * @param viewType Identifies the type of the preview panel.

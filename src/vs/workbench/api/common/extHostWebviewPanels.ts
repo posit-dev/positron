@@ -227,6 +227,37 @@ export class ExtHostWebviewPanels extends Disposable implements extHostProtocol.
 		return panel;
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Create a webview panel presented as a centered modal.
+	 *
+	 * Mirrors `createWebviewPanel`, except the panel requests the modal editor
+	 * part rather than an editor group. If no modal part is available, or the
+	 * user set `workbench.editor.useModal` to `'off'`, it opens as a normal tab.
+	 * Backs `positron.window.createModalWebviewPanel`.
+	 */
+	public createModalWebviewPanel(
+		extension: IExtensionDescription,
+		viewType: string,
+		title: string,
+		options: (vscode.WebviewPanelOptions & vscode.WebviewOptions) = {},
+	): vscode.WebviewPanel {
+		const serializeBuffersForPostMessage = shouldSerializeBuffersForPostMessage(extension);
+		const handle = ExtHostWebviewPanels.newHandle();
+		this._proxy.$createWebviewPanel(toExtensionData(extension), handle, viewType, {
+			title,
+			panelOptions: serializeWebviewPanelOptions(options),
+			webviewOptions: serializeWebviewOptions(extension, this.workspace, options),
+			serializeBuffersForPostMessage,
+		}, { modal: true });
+
+		const webview = this.webviews.createNewWebview(handle, options, extension);
+		// A modal panel has no editor column, so `viewColumn` stays undefined
+		// rather than reporting a column the panel is not actually in.
+		return this.createNewWebviewPanel(handle, viewType, title, undefined, options, webview, true);
+	}
+	// --- End Positron ---
+
 	public $onDidChangeWebviewPanelViewStates(newStates: extHostProtocol.WebviewPanelViewStateData): void {
 		const handles = Object.keys(newStates);
 		// Notify webviews of state changes in the following order:
@@ -311,7 +342,7 @@ export class ExtHostWebviewPanels extends Disposable implements extHostProtocol.
 		await serializer.deserializeWebviewPanel(revivedPanel, initData.state);
 	}
 
-	public createNewWebviewPanel(webviewHandle: string, viewType: string, title: string, position: vscode.ViewColumn, options: extHostProtocol.IWebviewPanelOptions, webview: ExtHostWebview, active: boolean) {
+	public createNewWebviewPanel(webviewHandle: string, viewType: string, title: string, /* --- Start Positron: a modal panel has no editor column --- */ position: vscode.ViewColumn | undefined, /* --- End Positron --- */ options: extHostProtocol.IWebviewPanelOptions, webview: ExtHostWebview, active: boolean) {
 		const panel = new ExtHostWebviewPanel(webviewHandle, this._proxy, webview, { viewType, title, viewColumn: position, panelOptions: options, active });
 		this._webviewPanels.set(webviewHandle, panel);
 		return panel;

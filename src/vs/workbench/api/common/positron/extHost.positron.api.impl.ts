@@ -25,6 +25,7 @@ import { ExtHostContext } from '../extHost.protocol.js';
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import { IExtHostCommands } from '../extHostCommands.js';
 import { ExtHostWebviews } from '../extHostWebview.js';
+import { ExtHostWebviewPanels } from '../extHostWebviewPanels.js';
 import { ExtHostLanguageFeatures } from '../extHostLanguageFeatures.js';
 import { createExtHostQuickOpen } from '../extHostQuickOpen.js';
 import { ExtHostOutputService } from '../extHostOutput.js';
@@ -80,6 +81,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	// VS Code API can share a single instance of for instance `ExtHostWebViews`,
 	// which is necessary since the instance effectively needs to be a singleton.
 	const extHostWebviews: ExtHostWebviews = rpcProtocol.getRaw(ExtHostContext.ExtHostWebviews);
+	// Shared with the VS Code API for the same singleton reason as
+	// `ExtHostWebviews`; backs `positron.window.createModalWebviewPanel`.
+	const extHostWebviewPanels: ExtHostWebviewPanels = rpcProtocol.getRaw(ExtHostContext.ExtHostWebviewPanels);
 	const extHostOutputService: ExtHostOutputService = rpcProtocol.getRaw(ExtHostContext.ExtHostOutputService);
 	const extHostLanguageFeatures: ExtHostLanguageFeatures =
 		rpcProtocol.getRaw(ExtHostContext.ExtHostLanguageFeatures);
@@ -220,6 +224,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const window: typeof positron.window = {
+			createModalWebviewPanel(viewType: string, title: string, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
+				return extHostWebviewPanels.createModalWebviewPanel(extension, viewType, title, options);
+			},
 			createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
 				return extHostPreviewPanels.createPreviewPanel(extension, viewType, title, preserveFocus, options);
 			},
