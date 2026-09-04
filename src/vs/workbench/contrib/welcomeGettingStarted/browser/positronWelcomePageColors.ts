@@ -53,10 +53,6 @@ export const POSITRON_WELCOME_ENVIRONMENT_SETUP_LANGUAGE_HEADER_BACKGROUND = reg
 	{ dark: transparent(foreground, 0.04), light: transparent(foreground, 0.04), hcDark: null, hcLight: null },
 	localize('positronWelcome.environmentSetupLanguageHeaderBackground', "Background color of the language header rows in the environment setup card on the Positron welcome page."));
 
-export const POSITRON_WELCOME_ENVIRONMENT_SETUP_TITLE_FOREGROUND = registerColor('positronWelcome.environmentSetupTitleForeground',
-	foreground,
-	localize('positronWelcome.environmentSetupTitleForeground', "Foreground color of the environment setup card's title bar on the Positron welcome page."));
-
 export const POSITRON_WELCOME_ENVIRONMENT_SETUP_PASS_ICON = registerColor('positronWelcome.environmentSetupPassIcon',
 	chartsGreen,
 	localize('positronWelcome.environmentSetupPassIcon', "Color of the icon for a check that passed on the Positron welcome page."));
