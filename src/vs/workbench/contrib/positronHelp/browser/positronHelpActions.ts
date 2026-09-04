@@ -4,8 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { URI } from '../../../../base/common/uri.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
@@ -269,28 +267,5 @@ export class LookupHelpTopic extends Action2 {
 			return { found: false, message };
 		}
 		return { found: true, topic, languageId };
-	}
-}
-
-export class CheatSheets extends Action2 {
-	constructor() {
-		super({
-			id: 'positron.help.cheatSheets',
-			title: {
-				value: localize('positron.help.cheatSheets', "Posit Cheat Sheets"),
-				original: 'Posit Cheat Sheets'
-			},
-			category: Categories.Help,
-			f1: true,
-			menu: {
-				id: MenuId.MenubarHelpMenu,
-				group: '1_welcome',
-				order: 9
-			}
-		});
-	}
-
-	async run(accessor: ServicesAccessor): Promise<void> {
-		await accessor.get(IOpenerService).open(URI.parse('https://posit.co/resources/cheatsheets/'));
 	}
 }

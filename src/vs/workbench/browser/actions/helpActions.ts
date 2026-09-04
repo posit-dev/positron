@@ -474,4 +474,25 @@ registerAction2(class extends Action2 {
 		openerService.open(URI.parse('https://posit.co/positron-updates-signup/'));
 	}
 });
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.help.cheatSheets',
+			title: localize2('positron.help.cheatSheets', 'Posit Cheat Sheets'),
+			category: Categories.Help,
+			f1: true,
+			menu: {
+				id: MenuId.MenubarHelpMenu,
+				group: '1_welcome',
+				order: 9
+			}
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		const openerService = accessor.get(IOpenerService);
+		openerService.open(URI.parse('https://posit.co/resources/cheatsheets/'));
+	}
+});
 // --- End Positron ---
