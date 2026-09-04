@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { openProviderDemo } from './providerDemoPanel.js';
+import { openProviderDemo, openProviderDemoDialog } from './providerDemoPanel.js';
 
 /** Show a secret's shape without putting the secret itself on screen. */
 function redact(value: string | undefined): string {
@@ -167,6 +167,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	// driven from a React app the extension owns, rendered in a Positron modal.
 	disposables.push(vscode.commands.registerCommand('scratch.openProviderDemo', () => {
 		openProviderDemo(context, log);
+	}));
+
+	// The identical app, hosted in one of Positron core's own modal dialogs
+	// instead of the modal editor part, so the two chromes can be compared.
+	disposables.push(vscode.commands.registerCommand('scratch.openProviderDemoDialog', () => {
+		openProviderDemoDialog(context, log);
 	}));
 
 	log.info(`Starting secrets...`);

@@ -26,7 +26,11 @@
 			},
 			{
 				"command": "scratch.openProviderDemo",
-				"title": "Scratch: Open Provider Demo"
+				"title": "Scratch: Open Provider Demo (Webview Modal)"
+			},
+			{
+				"command": "scratch.openProviderDemoDialog",
+				"title": "Scratch: Open Provider Demo (Core Modal Dialog)"
 			}
 		]
 	},

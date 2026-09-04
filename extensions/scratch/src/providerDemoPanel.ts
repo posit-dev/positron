@@ -18,15 +18,23 @@ function redact(value: string | undefined): string {
 }
 
 /**
- * Opens the provider demo as a modal webview panel.
+ * What the demo needs from whatever is hosting the webview.
  *
- * Everything the panel can do is reachable from an extension today: the list
- * comes from `positron.ai.getRegisteredProviders`, the actions go through the
- * transitional `positron.ai.runLegacyProviderAction` bridge, and the credential
- * read goes through `vscode.authentication` under `trustedExtensionAuthAccess`.
- * The only new piece is `positron.window.createModalWebviewPanel`.
+ * Both `vscode.WebviewPanel` and `positron.WebviewDialog` satisfy this
+ * structurally, which is the point: the demo's entire behaviour is carried by
+ * the webview message channel, so swapping the host swaps only the chrome.
  */
-export function openProviderDemo(context: vscode.ExtensionContext, log: vscode.LogOutputChannel): vscode.WebviewPanel {
+interface IDemoHost {
+	readonly webview: vscode.Webview;
+	readonly onDidDispose: vscode.Event<void>;
+	dispose(): void;
+}
+
+/**
+ * Opens the provider demo in the modal editor part, via
+ * `positron.window.createModalWebviewPanel`.
+ */
+export function openProviderDemo(context: vscode.ExtensionContext, log: vscode.LogOutputChannel): void {
 	const panel = positron.window.createModalWebviewPanel(VIEW_TYPE, 'Scratch Provider Demo', {
 		enableScripts: true,
 		// Deliberately not `retainContextWhenHidden`: a modal is a transient
@@ -34,13 +42,39 @@ export function openProviderDemo(context: vscode.ExtensionContext, log: vscode.L
 		// state bugs that a real dialog would surface.
 		localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist')],
 	});
+	wireProviderDemo(panel, context, log);
+}
 
-	panel.webview.html = renderHtml(panel.webview, context.extensionUri);
+/**
+ * Opens the same demo in one of Positron core's own modal dialogs, via
+ * `positron.window.createWebviewDialog`. Identical content and identical
+ * message wiring -- only the surrounding chrome differs.
+ */
+export function openProviderDemoDialog(context: vscode.ExtensionContext, log: vscode.LogOutputChannel): void {
+	const dialog = positron.window.createWebviewDialog(VIEW_TYPE, 'Scratch Provider Demo', {
+		enableScripts: true,
+		localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist')],
+		width: 820,
+		height: 620,
+	});
+	wireProviderDemo(dialog, context, log);
+}
+
+/**
+ * Wires the demo's message channel to a host.
+ *
+ * Everything here is reachable from an extension today: the list comes from
+ * `positron.ai.getRegisteredProviders`, the actions go through the transitional
+ * `positron.ai.runLegacyProviderAction` bridge, and the credential read goes
+ * through `vscode.authentication` under `trustedExtensionAuthAccess`.
+ */
+function wireProviderDemo(host: IDemoHost, context: vscode.ExtensionContext, log: vscode.LogOutputChannel): void {
+	host.webview.html = renderHtml(host.webview, context.extensionUri);
 
 	const post = (message: HostMessage) => {
 		// Fire-and-forget: postMessage resolves false once the panel is gone,
 		// which is expected during teardown and not worth reporting.
-		void panel.webview.postMessage(message);
+		void host.webview.postMessage(message);
 	};
 
 	const sendProviders = async () => {
@@ -119,7 +153,7 @@ export function openProviderDemo(context: vscode.ExtensionContext, log: vscode.L
 	// Scoped to the panel, not to `context.subscriptions`: this function runs once
 	// per command invocation, so registering on the extension would accumulate a
 	// listener per open and keep every closed panel's closure alive.
-	const listener = panel.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
+	const listener = host.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
 		switch (message.type) {
 			case 'ready':
 			case 'refresh':
@@ -132,13 +166,11 @@ export function openProviderDemo(context: vscode.ExtensionContext, log: vscode.L
 				await inspectCredential(message.requestId, message.providerId);
 				return;
 			case 'close':
-				panel.dispose();
+				host.dispose();
 				return;
 		}
 	});
-	panel.onDidDispose(() => listener.dispose());
-
-	return panel;
+	host.onDidDispose(() => listener.dispose());
 }
 
 function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
