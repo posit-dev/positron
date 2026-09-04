@@ -10,29 +10,30 @@
 }
 
 .segmented-toggle .toggle-container {
-	height: 22px;
+	padding: 0;
 	border: none;
-	display: grid;
-	padding: 0 .5px;
+	display: flex;
 	cursor: pointer;
 	border-radius: 6px;
-	align-items: center;
 	user-select: none;
+}
+
+.segmented-toggle .toggle-face {
+	height: 22px;
+	display: grid;
+	padding: 0 .5px;
+	border-radius: 6px;
+	align-items: center;
 	grid-template-columns: [left] 1fr [right] 1fr [end];
 	background-color: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
 }
 
-.segmented-toggle .toggle-container:focus {
-	outline: none;
-}
-
 .segmented-toggle .toggle-container:focus-visible {
 	outline-offset: 2px;
-	outline: 1px solid var(--vscode-focusBorder);
+	border-radius: 6px;
 }
 
 .segmented-toggle .toggle-container.disabled {
-	opacity: 0.5;
 	cursor: default;
 }
 
@@ -47,7 +48,18 @@
 	white-space: nowrap;
 }
 
-.segmented-toggle .toggle-container .toggle-button:not(.highlighted):hover {
+/*
+ * The unavailable state greys the labels instead of making anything translucent. The track and the
+ * selected option are stacked surfaces, so fading them lets each one show through the one behind
+ * it: the selected option stops reading as selected, and the focus ring ends up circling a washed
+ * out shape. This toggle stays in the tab order when it is unavailable, so a keyboard user does
+ * land on it and does see that ring.
+ */
+.segmented-toggle .toggle-container.disabled .toggle-face {
+	color: var(--vscode-disabledForeground);
+}
+
+.segmented-toggle .toggle-container:not(.disabled) .toggle-button:not(.highlighted):hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
@@ -56,8 +68,14 @@
 	border: 1px solid var(--vscode-positronActionBar-toggleButtonHighlightedBorder, var(--vscode-contrastBorder, transparent));
 }
 
-.segmented-toggle .toggle-container .toggle-button.highlighted:hover {
-	background-color: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
+/*
+ * The selected option keeps its own background on hover and shows the hover on its border. The
+ * track is a partly foreground-tinted surface and the selected option is the plain editor
+ * surface, so tinting the selected option on hover would move it toward the track in every theme
+ * and it would stop reading as selected.
+ */
+.segmented-toggle .toggle-container:not(.disabled) .toggle-button.highlighted:hover {
+	border-color: color-mix(in srgb, var(--vscode-positronActionBar-foreground, currentColor) 40%, transparent);
 }
 
 .segmented-toggle .toggle-container .toggle-button.left {
