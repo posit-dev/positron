@@ -198,9 +198,6 @@ export class HandshakeSocket implements vscode.Disposable {
 	public static connect(socketPath: string, timeoutMs: number): Promise<KallichoreServerState> {
 		const handles = new PromiseHandles<KallichoreServerState>();
 
-		// Log paired boundary events (start/end) rather than elapsed durations;
-		// the surrounding log capture already timestamps each line, so a
-		// separate elapsed-time computation here would be redundant.
 		let bytesReceived = 0;
 		console.log(
 			`[HandshakeSocket] connect: starting cached-handshake retrieval from ` +
