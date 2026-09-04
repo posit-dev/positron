@@ -4,9 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import {
-	buttonBackground,
-	buttonForeground,
-	buttonHoverBackground,
 	chartsGreen,
 	disabledForeground,
 	editorBackground,
@@ -17,30 +14,17 @@ import {
 	transparent,
 } from '../../../../platform/theme/common/colorRegistry.js';
 import { localize } from '../../../../nls.js';
-import { welcomePageTileBackground, welcomePageTileBorder } from './gettingStartedColors.js';
+import { welcomePageTileBorder } from './gettingStartedColors.js';
 
 // Colors for the Positron welcome page.
 
 // The Help button in the header is an outline: no fill, so it stays quieter than
 // the fix buttons in the environment setup card, which are the only controls on
-// the page worth pressing. Sharing the tile border keeps it in line with the card
-// and the banner below it.
+// the page worth pressing. Sharing the tile border keeps it in line with the
+// environment setup card below it.
 export const POSITRON_WELCOME_HEADER_BUTTON_BORDER = registerColor('positronWelcome.headerButtonBorder',
 	welcomePageTileBorder,
 	localize('positronWelcome.headerButtonBorder', "Border color of the Help button in the header of the Positron welcome page."));
-
-// The default follows the tiles on the original page, which every theme already
-// tunes, so the banner looks native in a theme nobody here has seen. Positron's
-// own light theme paints it a pale blue instead; a theme wanting that look sets
-// this color rather than getting a blue it never chose.
-export const POSITRON_WELCOME_BANNER_BACKGROUND = registerColor('positronWelcome.bannerBackground',
-	welcomePageTileBackground,
-	localize('positronWelcome.bannerBackground', "Background color of the walkthrough banner on the Positron welcome page."));
-
-export const POSITRON_WELCOME_BANNER_BORDER = registerColor('positronWelcome.bannerBorder',
-	welcomePageTileBorder,
-	localize('positronWelcome.bannerBorder', "Border color of the walkthrough banner on the Positron welcome page."));
-
 
 export const POSITRON_WELCOME_ENVIRONMENT_SETUP_BACKGROUND = registerColor('positronWelcome.environmentSetupBackground',
 	editorBackground,
@@ -55,20 +39,6 @@ export const POSITRON_WELCOME_ENVIRONMENT_SETUP_BORDER = registerColor('positron
 export const POSITRON_WELCOME_ENVIRONMENT_SETUP_LANGUAGE_HEADER_BACKGROUND = registerColor('positronWelcome.environmentSetupLanguageHeaderBackground',
 	{ dark: transparent(foreground, 0.04), light: transparent(foreground, 0.04), hcDark: null, hcLight: null },
 	localize('positronWelcome.environmentSetupLanguageHeaderBackground', "Background color of the language header rows in the environment setup card on the Positron welcome page."));
-
-export const POSITRON_WELCOME_ENVIRONMENT_SETUP_TITLE_BACKGROUND = registerColor('positronWelcome.environmentSetupTitleBackground',
-	buttonBackground,
-	localize('positronWelcome.environmentSetupTitleBackground', "Background color of the environment setup card's title bar on the Positron welcome page."));
-
-export const POSITRON_WELCOME_ENVIRONMENT_SETUP_TITLE_FOREGROUND = registerColor('positronWelcome.environmentSetupTitleForeground',
-	buttonForeground,
-	localize('positronWelcome.environmentSetupTitleForeground', "Foreground color of the environment setup card's title bar on the Positron welcome page."));
-
-// The Recheck control sits on the title bar and borrows its foreground, so its
-// hover has to lift off that colour rather than off the card's.
-export const POSITRON_WELCOME_ENVIRONMENT_SETUP_TITLE_HOVER_BACKGROUND = registerColor('positronWelcome.environmentSetupTitleHoverBackground',
-	buttonHoverBackground,
-	localize('positronWelcome.environmentSetupTitleHoverBackground', "Background color of a hovered control in the environment setup card's title bar on the Positron welcome page."));
 
 export const POSITRON_WELCOME_ENVIRONMENT_SETUP_PASS_ICON = registerColor('positronWelcome.environmentSetupPassIcon',
 	chartsGreen,

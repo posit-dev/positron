@@ -114,13 +114,18 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		const { welcome } = app.workbench;
 
 		await expect(welcome.environmentSetup).toBeVisible();
-		// Settled means both languages have a summary line, which only the settled
-		// states render -- a language still checking has none. Waiting on one of
-		// them is not enough: R often finishes while Python is still running. The
-		// wording depends on how the machine is set up, so nothing here asserts a
-		// particular sentence.
-		await expect(welcome.environmentSetupSummary).toHaveCount(2, { timeout: 30000 });
-		const settled = await welcome.environmentSetupSummary.allTextContents();
+		// Settled has two shapes, and which one shows depends on how the machine is
+		// set up, so this waits for either. If anything needs attention the card
+		// stays open and every language carries a summary line -- waiting on one is
+		// not enough, because R often finishes while Python is still running. If
+		// every check passed, the card collapses and there are no language groups
+		// left to count. Nothing here asserts a particular sentence.
+		await expect(async () => {
+			const collapsed = await welcome.environmentSetupReadyRow.count();
+			const summaries = await welcome.environmentSetupSummary.count();
+			expect(collapsed === 1 || summaries === 2).toBe(true);
+		}).toPass({ timeout: 30000 });
+		const settled = await welcome.environmentSetup.innerText();
 
 		// A different editor needs a different pane, which is the path that calls
 		// clearInput on the welcome pane.
@@ -137,8 +142,15 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		// Read the count once rather than asserting it retryably -- a retrying
 		// toHaveCount(0) would wait for any re-check to finish and then pass.
 		expect(await welcome.environmentSetupProgress.count()).toBe(0);
-		// Same reason for the short timeout: the summary has to be there *now*,
-		// not after a re-check has had time to refill it.
-		await expect(welcome.environmentSetupSummary).toHaveText(settled, { timeout: 2000 });
+		// Same reason for the short timeout: the card has to read the same *now*,
+		// not after a re-check has had time to refill it. Comparing the section's
+		// whole text covers both settled shapes without caring which one this
+		// machine produced.
+		//
+		// `useInnerText` because `settled` was read with innerText, and the default
+		// reads textContent instead. The card's rows are block elements, so
+		// innerText puts a line break between them where textContent runs them
+		// together, and the two can never match.
+		await expect(welcome.environmentSetup).toHaveText(settled, { timeout: 2000, useInnerText: true });
 	});
 });

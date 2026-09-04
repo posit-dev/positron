@@ -26,6 +26,102 @@
 }
 
 /*
+ * Recent and Learn sit side by side whenever there is room for both, and stack
+ * when there is not. Each one below declares the narrowest width it is worth
+ * giving a column, and flex-wrap does the rest -- so the switch happens at
+ * 400 + 280 + 32 = 712px of page width, which is a number you can read off
+ * these rules rather than one measured off a screenshot.
+ *
+ * This measures the page, not the window, and it does it without a container
+ * query: the page lives in an editor pane, so a wide monitor says nothing about
+ * how much room it has. Split the editor and it can be 400px on a 32 inch
+ * display.
+ *
+ * Measured against a real Recent list: a 921px editor pane is an 873px page,
+ * because .gettingStartedSlideCategories takes 24px a side, and that lands well
+ * clear of the 712px wrap. Read widths off .positron-welcome-page, not the pane
+ * or the window, or the 48px goes missing.
+ *
+ * Two gaps: 32px between the columns, and 24px between them once they stack, so
+ * stacked spacing matches the rest of the page.
+ */
+.positron-welcome-page .positron-welcome-page-columns {
+	align-items: flex-start;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 24px 32px;
+}
+
+/*
+ * Recent is capped at five rows by `limit` in gettingStarted.ts, so its height is
+ * fixed and only its row text wants width -- below about 400px the folder paths
+ * ellipsize away to nothing. It takes the larger share of whatever is spare.
+ *
+ * No gap, because the connect action reads as the list's last row and sits flush
+ * against it.
+ */
+.positron-welcome-page .positron-welcome-page-column-main {
+	display: flex;
+	flex: 3 1 400px;
+	flex-direction: column;
+	min-width: 0;
+}
+
+/*
+ * Puts the connect action in the same 24px line box the recent rows use
+ * (gettingStarted.css sets it on the list's ul), so it lands on the list's
+ * rhythm rather than just below it. The rows carry no indent -- `padding-left: 0`
+ * on that ul -- so nothing is needed to line up its left edge.
+ */
+.positron-welcome-page .positron-welcome-page-connect {
+	line-height: 24px;
+}
+
+/*
+ * Learn is one paragraph of about 145 characters, so unlike Recent it trades
+ * width for height: the narrower this gets, the taller it grows. 280px is about
+ * 45 characters a line, which is the point below which a column is not worth
+ * having.
+ *
+ * `min-width: 0` because a flex child will not shrink narrower than its longest
+ * word without it, and the banner breaks long words rather than spilling out of
+ * the column.
+ */
+.positron-welcome-page .positron-welcome-page-columns > .positron-welcome-page-walkthrough-banner {
+	flex: 2 1 280px;
+	min-width: 0;
+}
+
+/*
+ * Every section heading is a label for what is under it rather than a line of the
+ * page's own, so it is set small, upper case, letter-spaced and muted: the eye
+ * lands on Recent's list and the card, not on the words naming them.
+ *
+ * The capitals come from `text-transform`, never from the localized string. A
+ * translator writes the heading in ordinary case, and a language whose script has
+ * no capitals is left alone.
+ *
+ * 12px, a step under the 13px body text below it, so the label reads as smaller
+ * than what it names without shrinking to the 11px the workbench uses for pane
+ * titles. A pane title labels a whole side of the window; these label one block
+ * on a page, at arm's length from the body text they sit above.
+ *
+ * This repeats the container chain because gettingStarted.css sets every h2 in
+ * the container to 1.5em and weight 400. It reaches the Recent heading, which the
+ * editor pane builds rather than this folder, and that is the point: the three
+ * sections have to look like one page.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer .positron-welcome-page h2 {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	line-height: normal;
+	margin: 0 0 8px;
+	text-transform: uppercase;
+}
+
+/*
  * Lets the user select and copy the text on this page.
  *
  * The workbench turns selection off for everything (`user-select: none` on

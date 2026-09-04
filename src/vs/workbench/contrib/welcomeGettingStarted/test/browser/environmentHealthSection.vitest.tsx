@@ -40,10 +40,99 @@ describe('EnvironmentHealthSection', () => {
 		{ language: 'r', label: 'R', state: { kind: 'loading' } },
 	];
 
+	const allPassing: EnvironmentHealthSnapshot = [
+		{ language: 'python', label: 'Python', state: { kind: 'result', result: { ok: true, items: [{ id: 'pythonInstalled', status: 'pass', summary: 'A supported Python is installed' }] } } },
+		{ language: 'r', label: 'R', state: { kind: 'result', result: { ok: true, items: [{ id: 'rInstalled', status: 'pass', summary: 'A supported R is installed' }] } } },
+	];
+
 	it('names itself and renders a group per language', () => {
 		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
 		expect(screen.getByRole('region', { name: 'Environment setup' })).toBeInTheDocument();
 		expect(screen.getAllByRole('group')).toHaveLength(2);
+	});
+
+	it('renders nothing when every language is turned off in the setting', () => {
+		// The only way into this state is editing the setting, so the way back is
+		// the same place. Nothing is left on the page to explain it.
+		const allHidden: EnvironmentHealthSnapshot = [
+			{ language: 'python', label: 'Python', state: { kind: 'hidden' } },
+			{ language: 'r', label: 'R', state: { kind: 'hidden' } },
+		];
+		const { container } = rtl.render(
+			<EnvironmentHealthSection environmentHealthService={environmentHealthService(allHidden)} expandedByLanguage={new Map()} />
+		);
+		expect(container).toBeEmptyDOMElement();
+	});
+
+	it('collapses to a single row when every enabled language passes', () => {
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(allPassing)} expandedByLanguage={new Map()} />);
+		expect(screen.getByText('You are all set up')).toBeInTheDocument();
+		expect(screen.queryAllByRole('group')).toHaveLength(0);
+	});
+
+	it('states that everything passed rather than offering it as a control', () => {
+		// Nothing in the card is worth acting on when every check passed, so the
+		// row is a sentence, not a disclosure. Recheck and the gear above it are
+		// the only things here to press.
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(allPassing)} expandedByLanguage={new Map()} />);
+		expect(screen.queryByRole('button', { name: 'You are all set up' })).not.toBeInTheDocument();
+	});
+
+	it('keeps the title above the collapsed row, so the row is named', () => {
+		// Collapsed is the state a healthy user sees almost every time. Without the
+		// title there is nothing on the page saying what the row is about.
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(allPassing)} expandedByLanguage={new Map()} />);
+		expect(screen.getByRole('region', { name: 'Environment setup' })).toBeInTheDocument();
+		// getByRole throws on a second match, which is the point: the header carries
+		// these two in every state, so the row must not repeat them.
+		expect(screen.getByRole('button', { name: 'Run the environment setup checks again' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Choose which languages are checked' })).toBeInTheDocument();
+	});
+
+	it('stays expanded when a language could not be checked, which is not success', () => {
+		// `unavailable` and `error` are not passing. A missing extension must not
+		// collapse the card into a claim that everything is fine.
+		const oneUnavailable: EnvironmentHealthSnapshot = [
+			allPassing[0],
+			{ language: 'r', label: 'R', state: { kind: 'unavailable' } },
+		];
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(oneUnavailable)} expandedByLanguage={new Map()} />);
+		expect(screen.queryByText('You are all set up')).not.toBeInTheDocument();
+		expect(screen.getAllByRole('group')).toHaveLength(2);
+	});
+
+	it('stays expanded while a check is still running', () => {
+		// `loading` has no result yet, so it cannot be called passing.
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
+		expect(screen.queryByText('You are all set up')).not.toBeInTheDocument();
+	});
+
+	it('rechecks every language while the card is collapsed', async () => {
+		// The header is on the page in this state, so a healthy user does not have
+		// to expand the card to run the checks again.
+		const rerunCheckForLanguage = vi.fn();
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(allPassing, { rerunCheckForLanguage })} expandedByLanguage={new Map()} />);
+		expect(screen.getByText('You are all set up')).toBeInTheDocument();
+		await userEvent.setup().click(screen.getByRole('button', { name: 'Run the environment setup checks again' }));
+		expect(rerunCheckForLanguage.mock.calls.map(c => c[0])).toEqual(['python', 'r']);
+	});
+
+	it('shows an indicator on the collapsed row while that recheck runs', () => {
+		// The service keeps the previous results during a recheck, so the row
+		// stays collapsed and has to report the run itself. Without this, pressing
+		// recheck here would look like nothing happening.
+		const running = environmentHealthService(allPassing, { isBusy: () => true });
+		rtl.render(<EnvironmentHealthSection environmentHealthService={running} expandedByLanguage={new Map()} />);
+		expect(screen.getByText('You are all set up')).toBeInTheDocument();
+		expect(screen.getByTestId('environment-health-summary-progress')).toBeInTheDocument();
+	});
+
+	it('keeps the title and its controls outside the card', () => {
+		// Outside, so the title and its two controls stay put whichever shape the
+		// card takes. Inside, they went missing the moment the card collapsed.
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
+		expect(screen.getByTestId('environment-health-card')).not.toContainElement(screen.getByTestId('environment-health-header'));
+		expect(screen.getByRole('region', { name: 'Environment setup' })).toBeInTheDocument();
 	});
 
 	it('rechecks every language when the control is pressed', async () => {
@@ -53,21 +142,13 @@ describe('EnvironmentHealthSection', () => {
 		expect(rerunCheckForLanguage.mock.calls.map(c => c[0])).toEqual(['python', 'r']);
 	});
 
-	it('says it is busy with a progress bar, not by changing the button', async () => {
-		// A spinner inside the button grew the header and shifted the card below
-		// it, and the label swap put "Checking..." on screen twice. The bar sits
-		// on the header's bottom edge, outside the text flow.
+	it('has no card-level progress bar, because each language shows its own', () => {
 		const running = environmentHealthService(loading, { isBusy: () => true });
 		rtl.render(<EnvironmentHealthSection environmentHealthService={running} expandedByLanguage={new Map()} />);
-		expect(screen.getByRole('progressbar', { name: 'Checking...' })).toBeInTheDocument();
+		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 		// The label never changes, so the control cannot move or resize, and it
 		// stays reachable by keyboard rather than dropping out of the tab order.
 		expect(screen.getByRole('button', { name: 'Run the environment setup checks again' })).toBeEnabled();
-	});
-
-	it('shows no progress bar once nothing is running', () => {
-		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
-		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 	});
 
 	it('does not recheck while a run is in flight', async () => {
@@ -151,21 +232,6 @@ describe('EnvironmentHealthSection', () => {
 		])} expandedByLanguage={new Map()} />);
 		expect(screen.getByText('Python')).toBeInTheDocument();
 		expect(screen.queryByText('R')).not.toBeInTheDocument();
-	});
-
-	it('explains itself when every language is turned off', async () => {
-		// With no groups there is nothing to recheck either, so both header
-		// controls go. Turning the checks back on is the only thing left to do
-		// here, so it gets the wording and the prominence the gear cannot carry.
-		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService([
-			{ language: 'python', label: 'Python', state: { kind: 'hidden' } },
-			{ language: 'r', label: 'R', state: { kind: 'hidden' } },
-		])} expandedByLanguage={new Map()} />);
-		expect(screen.getByText('Environment setup checks are turned off for every language.')).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Run the environment setup checks again' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Choose which languages are checked' })).not.toBeInTheDocument();
-		await userEvent.setup().click(screen.getByRole('button', { name: 'You can turn them back on in Settings' }));
-		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'welcomePage.environmentChecks');
 	});
 
 	it('re-renders when the environmentHealthService fires', async () => {

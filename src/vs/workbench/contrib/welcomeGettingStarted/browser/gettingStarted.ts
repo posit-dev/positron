@@ -1015,17 +1015,22 @@ export class GettingStartedPage extends EditorPane {
 
 		// --- Start Positron ---
 		// The "Connect to..." button is normally a part of the start list
-		// which is not used in Positron. We show the action underneath the
-		// recent list instead.
+		// which is not used in Positron. We show the action as the last row of
+		// the recent list instead: it opens a workspace the same way the rows
+		// above it do.
+		//
+		// No dividing rule, which read as a section break and, once Learn moved
+		// alongside Recent, stopped two thirds across the page. No leading icon
+		// either: it took the left edge the recent rows and "More..." all start
+		// from, indenting this label past every one of them, and its glyph stood
+		// taller than the list's 24px line box so the row sat low.
 		const otherList = $('.other-actions', {},
-			$('hr'),
 			$('button.button-link',
 				{
 					'x-dispatch': 'selectStartEntry:topLevelRemoteOpen',
 					title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
 					when: !isWeb,
 				},
-				this.iconWidgetFor({ icon: { type: 'icon', icon: Codicon.remote } }),
 				localize('gettingStarted.topLevelRemoteOpen.title', "Connect to...")
 			)
 		);
@@ -1550,11 +1555,20 @@ export class GettingStartedPage extends EditorPane {
 		});
 	}
 
+	// --- Start Positron ---
+	//
+	// This function is not used in Positron. Its remaining callers are the
+	// commented-out start list and category grid above; the last live one was the
+	// "Connect to..." action, which now renders as a plain row of the recent list.
+	// Commented out rather than being deleted to minimize merge conflicts.
+	/*
 	private iconWidgetFor(category: IResolvedWalkthrough | { icon: { type: 'icon'; icon: ThemeIcon } }) {
 		const widget = category.icon.type === 'icon' ? $(ThemeIcon.asCSSSelector(category.icon.icon)) : $('img.category-icon', { src: category.icon.path });
 		widget.classList.add('icon-widget');
 		return widget;
 	}
+	*/
+	// --- End Positron ---
 
 	private focusSideEditorGroup() {
 		const fullSize = this.groupsService.getPart(this.group).contentDimension;

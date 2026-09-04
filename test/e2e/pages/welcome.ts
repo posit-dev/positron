@@ -21,6 +21,15 @@ const DETAILS_SLIDE = '.gettingStartedSlideDetails';
 const STARTUP_CHECKBOX = '#showOnStartup';
 const ENVIRONMENT_SETUP = '.positron-welcome-page-environment-setup';
 const ENVIRONMENT_SETUP_SUMMARY = '.positron-welcome-page-environment-setup .environment-health-group-summary';
+const ENVIRONMENT_SETUP_READY = '.positron-welcome-page-environment-setup .environment-health-summary-row';
+/*
+ * One class for both places the card reports a running check: under each language
+ * header when it is expanded, and on the collapsed row when every check has
+ * passed. It does not carry the progressbar role -- the group's `aria-busy` says
+ * it for a screen reader, so the element itself is decorative -- which is why
+ * this matches on class.
+ */
+const ENVIRONMENT_SETUP_PROGRESS = '.positron-welcome-page-environment-setup .environment-health-progress';
 
 export class Welcome {
 
@@ -34,8 +43,10 @@ export class Welcome {
 	get recentTitle(): Locator { return this.recentSection.getByRole(HEADING_ROLE); }
 	get startupCheckbox(): Locator { return this.code.driver.currentPage.locator(STARTUP_CHECKBOX); }
 	get environmentSetup(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP); }
-	get environmentSetupProgress(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP).getByRole('progressbar'); }
+	get environmentSetupProgress(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP_PROGRESS); }
 	get environmentSetupSummary(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP_SUMMARY); }
+	/** The one-line state the card collapses to when every check has passed. */
+	get environmentSetupReadyRow(): Locator { return this.code.driver.currentPage.locator(ENVIRONMENT_SETUP_READY); }
 
 	constructor(private code: Code) { }
 

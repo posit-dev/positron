@@ -83,9 +83,18 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 		<>
 			<WelcomeHeader />
 			<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
-			<WalkthroughBanner />
-			<DomSlot element={props.recentList} />
-			{props.connectAction && <DomSlot element={props.connectAction} />}
+			{/*
+				One element so the row below wraps Recent and the connect action as a
+				single column. The connect action opens a workspace too, so it reads as
+				the last row of the recent list.
+			*/}
+			<div className='positron-welcome-page-columns'>
+				<div className='positron-welcome-page-column-main'>
+					<DomSlot element={props.recentList} />
+					{props.connectAction && <DomSlot className='positron-welcome-page-connect' element={props.connectAction} />}
+				</div>
+				<WalkthroughBanner />
+			</div>
 			<DomSlot className='positron-welcome-page-footer' element={props.footer} />
 		</>
 	);
