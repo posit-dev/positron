@@ -7,7 +7,7 @@
 	<!-- Start PWB: serve same origin -->
 	<!-- Start Positron -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-mXmbGZWc7y57qzxx5u1Cv1JgPhGq1xeU/qZdSKeBwIo=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-yLVYoz0ixpoKBQ9WjOFkVt9foXu+rht9iFTOJyDGH6k=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -244,6 +244,11 @@
 				`;
 		}
 
+		// --- Start Positron ---
+		// Bounds the controllerchange wait below; matches resolveTimeout in service-worker.js.
+		const controllerChangeTimeout = 30_000;
+		// --- End Positron ---
+
 		/** @type {Promise<void>} */
 		const workerReady = new Promise((resolve, reject) => {
 			if (disableServiceWorker) {
@@ -280,9 +285,32 @@
 						// First ever load
 						|| !navigator.serviceWorker.controller
 					) {
-						await new Promise(r => {
-							navigator.serviceWorker.addEventListener('controllerchange', r, { once: true });
+						// --- Start Positron ---
+						// Firefox can leave this worker uncontrolled, so controllerchange never fires
+						// without a claim. Skipped during install/waiting so the incoming worker takes
+						// over instead.
+						//
+						// Upstream:
+						// await new Promise(r => {
+						// 	navigator.serviceWorker.addEventListener('controllerchange', r, { once: true });
+						// });
+						await new Promise((resolveControlled, rejectControlled) => {
+							let timeout;
+							const onControllerChange = () => {
+								clearTimeout(timeout);
+								resolveControlled();
+							};
+							navigator.serviceWorker.addEventListener('controllerchange', onControllerChange, { once: true });
+							timeout = setTimeout(() => {
+								navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+								rejectControlled(new Error(`Timed out after ${controllerChangeTimeout}ms waiting for the service worker to take control`));
+							}, controllerChangeTimeout);
+
+							if (isFirefox && !registration.installing && !registration.waiting && registration.active) {
+								registration.active.postMessage({ channel: 'claim' });
+							}
 						});
+						// --- End Positron ---
 					}
 
 					return resolve();

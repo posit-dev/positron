@@ -258,6 +258,19 @@ sw.addEventListener('message', async (event) => {
 	/** @type {Client} */
 	const source = event.source;
 	switch (event.data.channel) {
+		// --- Start Positron ---
+		case 'claim': {
+			// Requested by pre/index.html when Firefox leaves a webview iframe uncontrolled.
+			event.waitUntil((async () => {
+				try {
+					await sw.clients.claim();
+				} catch (e) {
+					console.error(`Failed to claim webview clients: ${e}`);
+				}
+			})());
+			return;
+		}
+		// --- End Positron ---
 		case 'did-load-resource': {
 			/** @type {ResourceResponse} */
 			const response = event.data.data;
