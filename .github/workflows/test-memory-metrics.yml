@@ -296,11 +296,43 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Compiles test/e2e, which is where summarize-cli.ts lives. Same action
-      # the memory job uses, so the compiled output this job runs is built the
-      # same way.
-      - name: Setup test dependencies and compile tests
-        uses: ./.github/actions/setup-e2e-test-dependencies
+      # Deliberately NOT ./.github/actions/setup-e2e-test-dependencies, which the
+      # memory matrix job uses: that installs the whole Playwright toolchain and
+      # downloads the browser binaries, and this job renders one HTML file from
+      # JSON on disk. It never launches a browser. Seven npm installs inside a
+      # 10-minute budget is also how this job died twice in run 33813858347, on a
+      # night the registry was slow: one install took 7 minutes on its own.
+      #
+      # summarize-cli's import closure is Node builtins, so TypeScript and
+      # @types/node compile it. tsconfig.summarize.json compiles that closure and
+      # nothing else, and fails loudly if an import ever reaches past it.
+      - name: Compile the summarizer
+        run: |
+          # From the root package.json rather than restated, for the same reason
+          # the setup action reads it there: a hardcoded range drifts. The name
+          # matters as well as the version -- `typescript` is aliased to
+          # @typescript/typescript6, whose bin is `tsc6` rather than `tsc`, which
+          # is what test/e2e's compile script invokes by path.
+          SPECS=$(node -e '
+            const pkg = require("./package.json");
+            const ranges = { ...pkg.dependencies, ...pkg.devDependencies };
+            const names = ["typescript", "@types/node"];
+            const missing = names.filter((n) => !ranges[n]);
+            if (missing.length) {
+              console.error("not declared in the root package.json: " + missing.join(", "));
+              process.exit(1);
+            }
+            console.log(names.map((n) => n + "@" + ranges[n]).join(" "));
+          ')
+
+          # Same stub swap the setup action does: `npm install <pkg>` in the repo
+          # root would otherwise install the product's entire dependency tree
+          # before getting to the two packages this job asked for.
+          rm package.json
+          echo '{}' > package.json
+
+          npm install $SPECS
+          npm --prefix test/e2e run compile -- -p tsconfig.summarize.json
 
       # Downloads every memory-report-<lane>-<scenario> artifact that was
       # uploaded, each into its own subdirectory named after the artifact --
