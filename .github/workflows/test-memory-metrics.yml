@@ -273,31 +273,19 @@ jobs:
       # for a later job to append to this one's summary, so all four links are
       # printed by summarize-memory instead, and appear on the run's Summary page.
 
-  # Combines the matrix jobs' per-lane-and-scenario reports into one
-  # scenario memory report: the per-role numbers are 20-50x quieter than the
-  # tree TOTAL and are the useful signal, but nothing compared them side by
-  # side before this job existed.
-  #
-  # Runs on a plain runner, not the private container image: it only reads
-  # JSON off disk and renders HTML, so it needs none of the memory job's
-  # requirements (container image, Xvfb, a Positron build, an interpreter).
-  # `if: always()` and no `needs` result requirement means it still runs, and
-  # still produces a summary, when one lane/scenario matrix job failed.
-  summarize:
-    name: summarize-memory
-    needs: memory
-    if: always()
+  # Compiles the summarizer for the `summarize` job below. Separate and with no
+  # `needs`, so its npm install runs alongside the matrix rather than on the
+  # critical path behind it; the install has been observed to take 2-7 minutes.
+  compile-summarizer:
+    name: compile-summarizer
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      # For the AWS OIDC role-assumption in upload-report-to-s3.
-      id-token: write
+    # Wide because the install is the variable part, and nothing waits on it.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
-      # Not ./.github/actions/setup-e2e-test-dependencies: this job renders one
-      # HTML file from JSON on disk, so it needs tsc, not the Playwright toolchain.
+      # Not ./.github/actions/setup-e2e-test-dependencies: this compiles one CLI,
+      # so it needs tsc, not the Playwright toolchain and its browser binaries.
       - name: Compile the summarizer
         run: |
           # Ranges from the root package.json so a hardcoded one can't drift; the
@@ -321,6 +309,46 @@ jobs:
           # Two more registry round-trips whose output this job never reads.
           npm install --no-audit --no-fund $SPECS
           npm --prefix test/e2e run compile -- -p tsconfig.summarize.json
+
+      # tsconfig.summarize.json emits only summarize-cli and its import closure,
+      # so this is a handful of JS files rather than the whole e2e build.
+      - name: Upload the summarizer
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-summarizer
+          path: test/e2e/out
+          if-no-files-found: error
+
+  # Combines the matrix jobs' per-lane-and-scenario reports into one
+  # scenario memory report: the per-role numbers are 20-50x quieter than the
+  # tree TOTAL and are the useful signal, but nothing compared them side by
+  # side before this job existed.
+  #
+  # Runs on a plain runner, not the private container image: it only reads
+  # JSON off disk and renders HTML, so it needs none of the memory job's
+  # requirements (container image, Xvfb, a Positron build, an interpreter).
+  # `if: always()` and no `needs` result requirement means it still runs, and
+  # still produces a summary, when one lane/scenario matrix job failed.
+  summarize:
+    name: summarize-memory
+    needs: [memory, compile-summarizer]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # For the AWS OIDC role-assumption in upload-report-to-s3.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # summarize-cli imports only Node builtins and its own siblings, so the
+      # emitted JS runs here with no npm install of any kind.
+      - name: Download the summarizer
+        uses: actions/download-artifact@v8
+        with:
+          name: memory-summarizer
+          path: test/e2e/out
 
       # Downloads every memory-report-<lane>-<scenario> artifact that was
       # uploaded, each into its own subdirectory named after the artifact --
