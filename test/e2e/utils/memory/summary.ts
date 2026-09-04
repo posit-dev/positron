@@ -831,9 +831,16 @@ function kernelCardHtml(matrix: SummaryMatrix): string {
 	</div>`;
 }
 
-/** Whether any cell will carry a count marker, which gates the footnote explaining it. */
+/**
+ * Whether any cell will carry a count marker, which gates the footnote explaining it.
+ *
+ * TOTAL as well as the rows: a scenario running one kernel of each of two
+ * languages leaves every row at one process and still totals two, so gating on
+ * the rows alone printed a superscript with nothing to explain it.
+ */
 function hasMultiProcessKernel(kernels: KernelMatrix): boolean {
-	return kernels.rows.some(row => Object.values(row.processCounts).some(count => count > 1));
+	const counts = [...kernels.rows.map(row => row.processCounts), kernels.totalProcessCounts];
+	return counts.some(byScenario => Object.values(byScenario).some(count => count > 1));
 }
 
 const KERNEL_COUNT_FOOTNOTE = `A superscript is how many kernel processes that figure sums;

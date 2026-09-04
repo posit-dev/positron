@@ -818,6 +818,23 @@ describe('kernel matrix', () => {
 		expect(html).not.toContain('A superscript is how many');
 	});
 
+	// TOTAL sums across labels, so it can be marked while every row it sums is a
+	// single process. The footnote has to follow the marker, not the rows.
+	test('footnotes a TOTAL marker that no single row earns', () => {
+		const twoLanguages = scenarioEntry('quarto-inline', [
+			proc(), kernelProc('ark', 100, 200), kernelProc('python3', 100, 201)
+		]);
+		const matrix = buildSummaryMatrix([...entries, twoLanguages]);
+		const html = renderSummaryHtml(matrix);
+		// Scoped to the kernel card: the extension table has a TOTAL row of its own, earlier.
+		const totalRow = html.split('<h2>Kernel memory by language</h2>')[1].split('TOTAL')[1].split('</tr>')[0];
+
+		expect(matrix.kernels!.rows.every(row => (row.processCounts['quarto-inline'] ?? 0) <= 1)).toBe(true);
+		expect(matrix.kernels!.totalProcessCounts['quarto-inline']).toBe(2);
+		expect(totalRow).toContain('<span class="count-marker">2</span>');
+		expect(html).toContain('A superscript is how many');
+	});
+
 	test('renders the card in html', () => {
 		const html = renderSummaryHtml(buildSummaryMatrix(entries));
 
