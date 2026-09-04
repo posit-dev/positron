@@ -117,8 +117,7 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('ap_math_enrollment', /61 rows x 23 columns/);
 	});
 
-	// need to merge this PR and rebuild the CI images first
-	test.skip('R nanoparquet - Verify importing a Parquet file creates a dataframe in the session', async function ({ app, openDataFile, r }) {
+	test('R nanoparquet - Verify importing a Parquet file creates a dataframe in the session', async function ({ app, openDataFile, r }) {
 		const { dataExplorer, variables } = app.workbench;
 
 		await openDataFile(join('data-files', 'misc-parquet', 'decimal_types.parquet'));
