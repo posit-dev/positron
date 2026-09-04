@@ -95,7 +95,11 @@ export class SupervisorHandshakeBroker {
 			socket.on('error', (err) => this._readyReject(err));
 		} else {
 			// A window reading the cached payload back out: replay and close.
-			socket.end(this._cached);
+			const cached = this._cached;
+			console.log('[SupervisorHandshakeBroker] cached-handshake replay requested');
+			socket.end(cached, () => {
+				console.log('[SupervisorHandshakeBroker] cached-handshake replay completed');
+			});
 		}
 	}
 
