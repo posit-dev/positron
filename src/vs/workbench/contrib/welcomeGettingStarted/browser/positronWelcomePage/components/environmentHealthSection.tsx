@@ -21,6 +21,7 @@ import { PositronActionBarHoverManager } from '../../../../../../platform/positr
 import { WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY } from '../../../common/positronWelcomePageConfiguration.js';
 import { EnvironmentHealthLanguage } from '../environmentHealth.js';
 import { IEnvironmentHealthService } from '../environmentHealthService.js';
+import { EnvironmentHealthSummaryRow } from './environmentHealthSummaryRow.js';
 import { LanguageHealthGroup } from './languageHealthGroup.js';
 
 export interface EnvironmentHealthSectionProps {
@@ -49,6 +50,10 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	const enabledLanguages = languages.filter(language => language.state.kind !== 'hidden');
 	// Every language turned off in the setting.
 	const allChecksDisabled = enabledLanguages.length === 0;
+	// Every enabled language has a result and every item in it passed. `loading`,
+	// `unavailable` and `error` are not success, so any of them keeps the card open.
+	const allPassing = enabledLanguages.every(language =>
+		language.state.kind === 'result' && language.state.result.items.every(item => item.status === 'pass'));
 
 	// Built the way the console tab list builds its hovers, so this one follows the
 	// workbench's hover delay and styling rather than being a title attribute.
@@ -78,6 +83,9 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 
 	const openSetting = () =>
 		services.commandService.executeCommand('workbench.action.openSettings', WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY);
+
+	const rerunAll = () =>
+		languages.forEach(language => environmentHealthService.rerunCheckForLanguage(language.language));
 
 	// Nothing to check and nothing to say. The setting is the only way in and the
 	// only way out, so the card leaves no trace on the page. This sits below every
@@ -111,7 +119,7 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 						tooltip={busy
 							? localize('positron.welcome.environmentSetupCheckRerunBusyTooltip', "Waiting for the current check to finish")
 							: localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
-						onPressed={() => languages.forEach(language => environmentHealthService.rerunCheckForLanguage(language.language))}
+						onPressed={rerunAll}
 					>
 						<span aria-hidden='true' className='codicon codicon-refresh' />
 					</Button>
@@ -132,20 +140,22 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 				</div>
 			</div>
 			{/*
-				The box the languages sit in. The title above it is plain text on the
-				page, so a theme cannot paint a bar there that outshouts the fix
-				buttons in here.
+				Nothing needs attention, so the card gives way to one row. The header
+				above stays either way: it names what is below it, and it keeps recheck
+				and the gear in one place rather than moving them per state.
 			*/}
-			<div className='environment-health-card' data-testid='environment-health-card'>
-				{enabledLanguages.map(language =>
-					<LanguageHealthGroup
-						key={language.language}
-						busy={environmentHealthService.isBusy(language.language)}
-						expandedByLanguage={expandedByLanguage}
-						health={language}
-						hoverManager={hoverManager}
-						onRunFix={fix => environmentHealthService.runFix(language.language, fix)} />)}
-			</div>
+			{allPassing
+				? <EnvironmentHealthSummaryRow busy={busy} />
+				: <div className='environment-health-card' data-testid='environment-health-card'>
+					{enabledLanguages.map(language =>
+						<LanguageHealthGroup
+							key={language.language}
+							busy={environmentHealthService.isBusy(language.language)}
+							expandedByLanguage={expandedByLanguage}
+							health={language}
+							hoverManager={hoverManager}
+							onRunFix={fix => environmentHealthService.runFix(language.language, fix)} />)}
+				</div>}
 		</section>
 	);
 };
