@@ -95,28 +95,19 @@
 	-webkit-font-smoothing: antialiased;
 }
 
-.positron-welcome-page-environment-setup .environment-health-header-title,
 .positron-welcome-page-environment-setup .environment-health-group-name {
 	font-size: 13px;
 	font-weight: 600;
 	margin: 0;
 }
 
+/*
+ * gettingStarted.css gives every h2 in the container a 5px bottom margin. In this
+ * flex row that margin is not collapsed: it makes the title's box taller than its
+ * text and lifts the text off centre against the buttons beside it.
+ */
 .positron-welcome-page-environment-setup .environment-health-header-title {
 	flex: 1 1 auto;
-}
-
-/*
- * gettingStarted.css sets every h2 in the container to 1.5em, weight 400 and
- * line-height: initial, so this selector repeats the container chain to win on
- * specificity and keep the title reading like the rest of the card.
- */
-.monaco-workbench .part.editor > .content .gettingStartedContainer
-.gettingStartedSlideCategories
-.positron-welcome-page-environment-setup .environment-health-header-title {
-	font-size: 13px;
-	font-weight: 600;
-	line-height: var(--_line-height);
 	margin: 0;
 }
 

@@ -43,25 +43,12 @@
 	overflow-wrap: anywhere;
 }
 
-.positron-welcome-page-walkthrough-banner .walkthrough-banner-label {
-	color: var(--vscode-descriptionForeground);
-	font-size: 11px;
-	font-weight: 600;
-	letter-spacing: 0.05em;
-	margin: 0;
-	text-transform: uppercase;
-}
-
 /*
- * gettingStarted.css sets every h2 in the container to 1.5em, weight 400 and
- * line-height: initial, so this selector repeats the container chain to win on
- * specificity and keep the label reading like the small caps it is designed as.
+ * gettingStarted.css gives every h2 in the container a 5px bottom margin, which
+ * here lands on top of the 4px gap above and sets this heading further from its
+ * paragraph than Recent's heading is from its list.
  */
-.monaco-workbench .part.editor > .content .gettingStartedContainer
 .positron-welcome-page-walkthrough-banner .walkthrough-banner-label {
-	font-size: 11px;
-	font-weight: 600;
-	line-height: normal;
 	margin: 0;
 }
 
