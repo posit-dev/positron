@@ -63,11 +63,11 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 		return () => disposables.dispose();
 	}, [services.configurationService, services.hoverService]);
 
-	// A progressbar is not a live region -- it is read only if the user navigates
-	// onto it -- so starting a run would otherwise be silent. Only on the
-	// transition into busy, and never on the first mount: the pane rebuilds its
-	// React tree whenever a walkthrough registers, and announcing then would speak
-	// at someone working in a different tab.
+	// The busy indicator is not a live region -- a screen reader reads it only if
+	// the user navigates onto it -- so starting a run would otherwise be silent.
+	// Announced only on the transition into busy, and never on the first mount:
+	// the pane rebuilds its React tree whenever a walkthrough registers, and
+	// announcing then would speak at someone working in a different tab.
 	const wasBusy = useRef(busy);
 	useEffect(() => {
 		if (busy && !wasBusy.current) {
@@ -90,7 +90,7 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	// Render.
 	return (
 		<section aria-labelledby={titleId} className='positron-welcome-page-environment-setup'>
-			<div className='environment-health-header'>
+			<div className='environment-health-header' data-testid='environment-health-header'>
 				<h2 className='environment-health-header-title' id={titleId}>
 					{localize('positron.welcome.environmentSetupTitle', "Environment setup")}
 				</h2>
@@ -130,27 +130,22 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 						<span aria-hidden='true' className='codicon codicon-gear' />
 					</Button>
 				</div>
-				{/*
-					Sits on the header's bottom edge, outside the text flow, so starting
-					a check cannot shift anything below it. A spinner inside the button
-					grew the header and moved the whole card.
-				*/}
-				{busy &&
-					<div
-						aria-label={localize('positron.welcome.environmentSetupChecking', "Checking...")}
-						className='environment-health-progress'
-						role='progressbar'
-					/>}
 			</div>
-			{enabledLanguages.map(language =>
-				<LanguageHealthGroup
-					key={language.language}
-					busy={environmentHealthService.isBusy(language.language)}
-					expandedByLanguage={expandedByLanguage}
-					health={language}
-					hoverManager={hoverManager}
-					onRunFix={fix => environmentHealthService.runFix(language.language, fix)}
-				/>)}
+			{/*
+				The box the languages sit in. The title above it is plain text on the
+				page, so a theme cannot paint a bar there that outshouts the fix
+				buttons in here.
+			*/}
+			<div className='environment-health-card' data-testid='environment-health-card'>
+				{enabledLanguages.map(language =>
+					<LanguageHealthGroup
+						key={language.language}
+						busy={environmentHealthService.isBusy(language.language)}
+						expandedByLanguage={expandedByLanguage}
+						health={language}
+						hoverManager={hoverManager}
+						onRunFix={fix => environmentHealthService.runFix(language.language, fix)} />)}
+			</div>
 		</section>
 	);
 };

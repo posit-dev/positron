@@ -4,10 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * Three surfaces, lightest to heaviest: the check rows take the card's own
- * background, each language header a wash on top of it, and the card's title bar
- * the strongest. Without that separation everything reads as one flat grey and
- * nothing tells you where a language begins.
+ * Two surfaces: the check rows take the card's own background, and each language
+ * header a wash on top of it. Without that separation everything reads as one
+ * flat grey and nothing tells you where a language begins.
  */
 .positron-welcome-page-environment-setup {
 	/* The card's text line box. */
@@ -16,6 +15,9 @@
 	--_item-line-height: 24px;
 
 	line-height: var(--_line-height);
+}
+
+.positron-welcome-page-environment-setup .environment-health-card {
 	background-color: var(--vscode-positronWelcome-environmentSetupBackground);
 	border: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
 	border-radius: 6px;
@@ -41,18 +43,14 @@
 
 .positron-welcome-page-environment-setup .environment-health-header {
 	align-items: center;
-	background-color: var(--vscode-positronWelcome-environmentSetupTitleBackground);
-	color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
-	padding: 8px 16px;
-	/* The progress line is positioned against this. */
-	position: relative;
+	margin-bottom: 8px;
 }
 
 /*
- * The recheck and settings buttons move as a pair: at the card's narrowest
+ * The recheck and settings buttons move as a pair: at the page's narrowest
  * widths there is not enough room beside the title for both, and wrapping
  * them individually would strand one button alone on its own line. This
  * wraps the pair below the title instead. No horizontal alignment is set
@@ -72,6 +70,7 @@
 .positron-welcome-page-environment-setup .environment-health-group-heading {
 	margin: 0;
 }
+
 
 /*
  * Mirrors iconLabel.css's `.monaco-icon-label::before`, so a language icon looks
@@ -309,8 +308,8 @@
 	}
 
 	/*
-	 * The title bar's own controls: recheck, and the shortcut to the setting.
-	 * Icons rather than labelled buttons because a label here outweighed the fix
+	 * The header's own controls: recheck, and the shortcut to the setting. Icons
+	 * rather than labelled buttons because a label here outweighed the fix
 	 * buttons, which are the only thing in the card worth pressing.
 	 */
 	& .environment-health-header-button {
@@ -323,6 +322,12 @@
 		align-items: center;
 		background-color: transparent;
 		border: none;
+		/*
+		 * The same radius the action bar gives its icon buttons, so the hover fill
+		 * here is the same shape as every other icon button in the workbench. See
+		 * positronActionBar/browser/components/actionBarButton.css.
+		 */
+		border-radius: 4px;
 		color: inherit;
 		display: flex;
 		justify-content: center;
@@ -330,8 +335,13 @@
 		padding: 4px;
 	}
 
+	/*
+	 * The workbench's own icon-button hover, the same fill the action bar gives
+	 * its buttons. Along with the radius above, that makes these read as the
+	 * icon buttons they are.
+	 */
 	& .environment-health-header-button:hover:not(.disabled) {
-		background-color: var(--vscode-positronWelcome-environmentSetupTitleHoverBackground);
+		background-color: var(--vscode-toolbar-hoverBackground);
 	}
 
 	/* Recheck, while a check or a fix is running. Its tooltip says why. */
@@ -399,6 +409,14 @@
 
 	& .environment-health-group-header:hover {
 		background-color: var(--vscode-list-hoverBackground);
+	}
+
+	/*
+	 * The first row is the card's top edge, so its divider would draw a rule
+	 * against nothing.
+	 */
+	& .environment-health-group:first-child .environment-health-group-header {
+		border-top: none;
 	}
 
 	/*

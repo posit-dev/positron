@@ -59,6 +59,14 @@ describe('EnvironmentHealthSection', () => {
 		expect(container).toBeEmptyDOMElement();
 	});
 
+	it('keeps the title and its controls outside the card', () => {
+		// Outside, so the title and its two controls stay put whichever shape the
+		// card takes. Inside, they went missing the moment the card collapsed.
+		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
+		expect(screen.getByTestId('environment-health-card')).not.toContainElement(screen.getByTestId('environment-health-header'));
+		expect(screen.getByRole('region', { name: 'Environment setup' })).toBeInTheDocument();
+	});
+
 	it('rechecks every language when the control is pressed', async () => {
 		const rerunCheckForLanguage = vi.fn();
 		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading, { rerunCheckForLanguage })} expandedByLanguage={new Map()} />);
@@ -66,21 +74,13 @@ describe('EnvironmentHealthSection', () => {
 		expect(rerunCheckForLanguage.mock.calls.map(c => c[0])).toEqual(['python', 'r']);
 	});
 
-	it('says it is busy with a progress bar, not by changing the button', async () => {
-		// A spinner inside the button grew the header and shifted the card below
-		// it, and the label swap put "Checking..." on screen twice. The bar sits
-		// on the header's bottom edge, outside the text flow.
+	it('has no card-level progress bar, because each language shows its own', () => {
 		const running = environmentHealthService(loading, { isBusy: () => true });
 		rtl.render(<EnvironmentHealthSection environmentHealthService={running} expandedByLanguage={new Map()} />);
-		expect(screen.getByRole('progressbar', { name: 'Checking...' })).toBeInTheDocument();
+		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 		// The label never changes, so the control cannot move or resize, and it
 		// stays reachable by keyboard rather than dropping out of the tab order.
 		expect(screen.getByRole('button', { name: 'Run the environment setup checks again' })).toBeEnabled();
-	});
-
-	it('shows no progress bar once nothing is running', () => {
-		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading)} expandedByLanguage={new Map()} />);
-		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 	});
 
 	it('does not recheck while a run is in flight', async () => {
