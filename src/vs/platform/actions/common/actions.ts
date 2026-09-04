@@ -18,7 +18,7 @@ import { IKeybindingRule, KeybindingsRegistry } from '../../keybinding/common/ke
 // --- Start Positron ---
 import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
 // eslint-disable-next-line no-duplicate-imports
-import { PositronActionBarOptions } from '../../action/common/action.js';
+import { PositronActionBarOptions, positronActionBarStateExpression } from '../../action/common/action.js';
 // --- End Positron ---
 
 
@@ -661,6 +661,17 @@ export class MenuItemAction implements IAction {
 				this.label = typeof toggled.title === 'string' ? toggled.title : toggled.title.value;
 			}
 		}
+
+		// --- Start Positron ---
+		// A Positron action bar checkbox or toggle keeps its state in its own expression instead of
+		// in `toggled`, so evaluate that here as well. The menu service tracks the keys it names
+		// alongside the toggled ones, so the menu raises a change event and the action bar rebuilds
+		// with a fresh value.
+		const positronStateExpression = positronActionBarStateExpression(item.positronActionBarOptions);
+		if (positronStateExpression) {
+			this.checked = contextKeyService.contextMatchesRules(positronStateExpression);
+		}
+		// --- End Positron ---
 
 		if (!icon) {
 			icon = ThemeIcon.isThemeIcon(item.icon) ? item.icon : undefined;

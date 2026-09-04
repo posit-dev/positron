@@ -15,6 +15,10 @@ import { IStorageService, StorageScope, StorageTarget } from '../../storage/comm
 import { removeFastWithoutKeepingOrder } from '../../../base/common/arrays.js';
 import { localize } from '../../../nls.js';
 import { IKeybindingService } from '../../keybinding/common/keybinding.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { positronActionBarStateExpression } from '../../action/common/action.js';
+// --- End Positron ---
 
 export class MenuService extends Disposable implements IMenuService {
 
@@ -241,6 +245,16 @@ class MenuInfoSnapshot {
 				const toggledExpression: ContextKeyExpression = (item.command.toggled as { condition: ContextKeyExpression }).condition || item.command.toggled;
 				MenuInfoSnapshot._fillInKbExprKeys(toggledExpression, this._toggledContextKeys);
 			}
+
+			// --- Start Positron ---
+			// A Positron action bar checkbox or toggle keeps its state in its own expression, so
+			// keep its keys too. Without this the menu never raises an event when the control's
+			// state changes and the control goes on drawing a stale value.
+			MenuInfoSnapshot._fillInKbExprKeys(
+				positronActionBarStateExpression(item.command.positronActionBarOptions),
+				this._toggledContextKeys
+			);
+			// --- End Positron ---
 
 		} else if (this._collectContextKeysForSubmenus) {
 			// recursively collect context keys from submenus so that this

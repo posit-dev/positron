@@ -101,6 +101,25 @@ export const isPositronActionBarCheckboxOptions = (positronActionBarOptions?: Po
 
 export const isPositronActionBarToggleOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarToggleOptions =>
 	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'toggle';
+
+/**
+ * Gets the context key expression that carries the state of a Positron action bar control. A
+ * checkbox calls it `checked` and a toggle calls it `toggled`; both mean the same thing to the
+ * menu, which is why the menu service and MenuItemAction both read it through here.
+ * @param positronActionBarOptions The Positron action bar options.
+ * @returns The expression, or undefined if the control has no state of its own.
+ */
+export const positronActionBarStateExpression = (positronActionBarOptions?: PositronActionBarOptions): ContextKeyExpression | undefined => {
+	if (isPositronActionBarCheckboxOptions(positronActionBarOptions)) {
+		return positronActionBarOptions.checked;
+	}
+
+	if (isPositronActionBarToggleOptions(positronActionBarOptions)) {
+		return positronActionBarOptions.toggled;
+	}
+
+	return undefined;
+};
 // --- End Positron ---
 
 export interface ICommandAction {
