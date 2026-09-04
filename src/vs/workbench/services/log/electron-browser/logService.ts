@@ -3,14 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ConsoleLogger, ILogger, isDevConsoleLogForwardingEnabled, LogLevel, registerDevConsoleLogForwarder } from '../../../../platform/log/common/log.js';
+import { ConsoleLogger, ILogger, isDevConsoleLogForwardingEnabled, registerDevConsoleLogForwarder } from '../../../../platform/log/common/log.js';
 import { INativeWorkbenchEnvironmentService } from '../../environment/electron-browser/environmentService.js';
 import { LoggerChannelClient } from '../../../../platform/log/common/logIpc.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { windowLogGroup, windowLogId } from '../common/logConstants.js';
 import { LogService } from '../../../../platform/log/common/logService.js';
 // --- Start Positron ---
-import { FixedLevelConsoleLogger, shouldPinConsoleEcho } from '../common/fixedLevelConsoleLogger.js';
+import { FixedLevelConsoleLogger, PINNED_CONSOLE_LEVEL, shouldPinConsoleEcho } from '../common/fixedLevelConsoleLogger.js';
 // --- End Positron ---
 
 export class NativeLogService extends LogService {
@@ -28,17 +28,12 @@ export class NativeLogService extends LogService {
 		} else {
 			// Normal mode: Log to console
 			// --- Start Positron ---
-			// The console echo below follows the file-log level, and e2e runs pass `--log=trace`,
-			// so every trace record is also pushed over the Playwright CDP session. That flood
-			// starves the session's request/response direction: `expect` evaluations park for tens
-			// of seconds against a workbench that is already rendered, then drain in one batch.
-			// Pin the echo at Debug under the smoke driver, which drops 78% of the volume (trace
-			// records were 614 of the 791 messages in one measured failure window) while keeping
-			// debug output in the trace, where it sits on the same timeline as the test's actions.
-			// On-disk logs stay at trace, and `--verbose` opts back out.
+			// Under the e2e smoke driver the console echo is pinned instead of following the
+			// file-log level, which `--log=trace` would otherwise push over the Playwright CDP
+			// session in volumes that starve it. See PINNED_CONSOLE_LEVEL for why Debug.
 			// consoleLogger = new ConsoleLogger(fileLogger.getLevel());
 			consoleLogger = shouldPinConsoleEcho(environmentService)
-				? new FixedLevelConsoleLogger(LogLevel.Debug)
+				? new FixedLevelConsoleLogger(PINNED_CONSOLE_LEVEL)
 				: new ConsoleLogger(fileLogger.getLevel());
 			// --- End Positron ---
 		}

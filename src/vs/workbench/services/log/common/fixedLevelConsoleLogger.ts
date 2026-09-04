@@ -56,3 +56,13 @@ export interface IConsoleEchoEnvironment {
 export function shouldPinConsoleEcho(environmentService: IConsoleEchoEnvironment): boolean {
 	return environmentService.enableSmokeTestDriver === true && !environmentService.verbose;
 }
+
+/**
+ * The level the console echo is pinned to under the smoke driver.
+ *
+ * Debug rather than Info: in one measured failure window, trace records were 614 of the 791
+ * console messages, so stopping at Debug removes 78% of the volume while keeping debug output
+ * in the Playwright trace, where it sits on the same timeline as the test's own actions. Info
+ * would cut 90% and give that up.
+ */
+export const PINNED_CONSOLE_LEVEL = LogLevel.Debug;
