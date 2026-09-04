@@ -2742,7 +2742,71 @@ declare module 'positron' {
 		Load = 4,
 	}
 
+	/**
+	 * Settings for a webview dialog.
+	 */
+	export interface WebviewDialogOptions extends vscode.WebviewOptions {
+		/** Dialog width in pixels. Defaults to 700. */
+		width?: number;
+		/** Dialog height in pixels. Defaults to 500. */
+		height?: number;
+	}
+
+	/**
+	 * A webview hosted in a Positron modal dialog.
+	 *
+	 * Simpler than {@link vscode.WebviewPanel}: a dialog is either open or gone,
+	 * so there is no view column and no visible/active state to observe.
+	 */
+	export interface WebviewDialog {
+		/** Identifies the type of the dialog, e.g. `'myExtension.settings'`. */
+		readonly viewType: string;
+
+		/** Title shown in the dialog's title bar. */
+		readonly title: string;
+
+		/** {@linkcode Webview} belonging to the dialog. */
+		readonly webview: vscode.Webview;
+
+		/**
+		 * Fired when the dialog is closed, either because the user dismissed it or
+		 * because `dispose()` was called.
+		 *
+		 * Using the dialog after it has been disposed throws.
+		 */
+		readonly onDidDispose: vscode.Event<void>;
+
+		/** Close the dialog. */
+		dispose(): void;
+	}
+
 	namespace window {
+		/**
+		 * Create and show a webview inside a Positron modal dialog.
+		 *
+		 * The dialog chrome is Positron's own -- title bar, sizing, dimmed
+		 * backdrop, focus capture -- so it looks and behaves like every other
+		 * Positron dialog, while the body is a webview the extension controls.
+		 * Prefer this over {@link createModalWebviewPanel} when the content should
+		 * read as a dialog rather than as a modal editor.
+		 *
+		 * Escape closes the dialog while focus is on the chrome, but not while
+		 * focus is inside the webview: it is an iframe, so the keydown never
+		 * reaches the dialog's handler. Content that should be dismissable with
+		 * Escape has to listen for it and dispose the dialog itself.
+		 *
+		 * @param viewType Identifies the type of the dialog.
+		 * @param title Title shown in the dialog's title bar.
+		 * @param options Settings for the new dialog.
+		 *
+		 * @return New webview dialog.
+		 */
+		export function createWebviewDialog(
+			viewType: string,
+			title: string,
+			options?: WebviewDialogOptions,
+		): WebviewDialog;
+
 		/**
 		 * Create and show a webview panel presented as a centered modal.
 		 *

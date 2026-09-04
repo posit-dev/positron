@@ -554,6 +554,35 @@ export interface IPreviewInitData {
 	readonly webviewOptions: IPreviewContentOptions;
 }
 
+/**
+ * The initial data needed to create a webview dialog. Mirrors IPreviewInitData,
+ * plus the dialog's size -- a modal dialog has a fixed size the caller picks,
+ * where a preview fills its pane.
+ */
+export interface IWebviewDialogInitData {
+	readonly title: string;
+	readonly webviewOptions: IPreviewContentOptions;
+	readonly width: number;
+	readonly height: number;
+}
+
+export interface ExtHostWebviewDialogShape {
+	$onDidDisposeWebviewDialog(handle: WebviewDialogHandle): Promise<void>;
+}
+
+export interface MainThreadWebviewDialogShape extends IDisposable {
+	$createWebviewDialog(
+		extension: WebviewExtensionDescription,
+		handle: WebviewDialogHandle,
+		viewType: string,
+		initData: IWebviewDialogInitData,
+		serializeBuffersForPostMessage: boolean,
+	): void;
+	$disposeWebviewDialog(handle: WebviewDialogHandle): void;
+}
+
+export type WebviewDialogHandle = string;
+
 export interface MainThreadPreviewPanelShape extends IDisposable {
 	$createPreviewPanel(
 		extension: WebviewExtensionDescription,
@@ -610,6 +639,7 @@ export interface IMainPositronContext extends IRPCProtocol {
 export const ExtHostPositronContext = {
 	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
 	ExtHostPreviewPanel: createProxyIdentifier<ExtHostPreviewPanelShape>('ExtHostPreviewPanel'),
+	ExtHostWebviewDialog: createProxyIdentifier<ExtHostWebviewDialogShape>('ExtHostWebviewDialog'),
 	ExtHostModalDialogs: createProxyIdentifier<ExtHostModalDialogsShape>('ExtHostModalDialogs'),
 	ExtHostConsoleService: createProxyIdentifier<ExtHostConsoleServiceShape>('ExtHostConsoleService'),
 	ExtHostContextKeyService: createProxyIdentifier<ExtHostContextKeyServiceShape>('ExtHostContextKeyService'),
@@ -636,6 +666,7 @@ export const MainPositronContext = {
 	MainThreadHiddenEditorManager: createProxyIdentifier<IMainThreadHiddenEditorManager>('MainThreadHiddenEditorManager'),
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
+	MainThreadWebviewDialog: createProxyIdentifier<MainThreadWebviewDialogShape>('MainThreadWebviewDialog'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),
 	MainThreadConsoleService: createProxyIdentifier<MainThreadConsoleServiceShape>('MainThreadConsoleService'),
 	MainThreadEnvironment: createProxyIdentifier<MainThreadEnvironmentShape>('MainThreadEnvironment'),

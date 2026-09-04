@@ -18,6 +18,7 @@ import * as extHostTypes from './extHostTypes.positron.js';
 import { NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { IExtHostInitDataService } from '../extHostInitDataService.js';
 import { ExtHostPreviewPanels } from './extHostPreviewPanels.js';
+import { ExtHostWebviewDialogs } from './extHostWebviewDialogs.js';
 import { ExtHostModalDialogs } from './extHostModalDialogs.js';
 import { ExtHostContextKeyService } from './extHostContextKeyService.js';
 import { ExtHostDocuments } from '../extHostDocuments.js';
@@ -94,6 +95,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
 	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol, extHostCommands, extHostWorkspace));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
+	const extHostWebviewDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostWebviewDialog, new ExtHostWebviewDialogs(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
 	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService, extHostDocumentsAndEditors));
@@ -224,6 +226,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const window: typeof positron.window = {
+			createWebviewDialog(viewType: string, title: string, options?: positron.WebviewDialogOptions) {
+				return extHostWebviewDialogs.createWebviewDialog(extension, viewType, title, options);
+			},
 			createModalWebviewPanel(viewType: string, title: string, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
 				return extHostWebviewPanels.createModalWebviewPanel(extension, viewType, title, options);
 			},
