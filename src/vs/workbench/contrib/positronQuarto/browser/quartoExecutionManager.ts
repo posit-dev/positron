@@ -41,7 +41,7 @@ import {
 	WillExecuteEvent,
 } from '../common/quartoExecutionTypes.js';
 import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQuartoConfig.js';
-import { RuntimeOnlineState, RuntimeState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOnlineState, RuntimeState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -227,6 +227,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 		@IMissingPackagesPreflightService private readonly _missingPackagesPreflightService: IMissingPackagesPreflightService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 	) {
 		super();
 
@@ -274,7 +275,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (isMultiCellExecution) {
 			const textModel = await this._getTextModel(documentUri);
 			if (textModel) {
+				const primaryLanguage = this._documentModelService.getModel(textModel).primaryLanguage;
 				filteredCells = cells.filter(cell => {
+					// Skip diagram/markup cells (mermaid, dot, ...) that have no
+					// way to execute, so one of them can't abort the run.
+					if (!this._isExecutableLanguage(cell.language, primaryLanguage)) {
+						this._logService.debug(
+							`[QuartoExecutionManager] Skipping cell ${cell.id} with non-executable language '${cell.language}'`
+						);
+						return false;
+					}
 					const codeRange = new Range(
 						cell.codeStartLine,
 						1,
@@ -661,6 +671,21 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		this._executionQueue.set(documentUri, executionPromise);
 		return executionPromise;
+	}
+
+	/**
+	 * Whether a cell's language can be executed: the document's primary
+	 * language (kernel), a shell language (terminal), or any language with a
+	 * registered runtime (console). Diagram/markup languages such as mermaid,
+	 * dot, or plantuml match none of these and are treated as non-executable.
+	 */
+	private _isExecutableLanguage(language: string, primaryLanguage: string | undefined): boolean {
+		const lang = language.toLowerCase();
+		if (isShellLanguage(lang) || lang === primaryLanguage?.toLowerCase()) {
+			return true;
+		}
+		return this._languageRuntimeService.registeredRuntimes.some(
+			runtime => runtime.languageId.toLowerCase() === lang);
 	}
 
 	/**
