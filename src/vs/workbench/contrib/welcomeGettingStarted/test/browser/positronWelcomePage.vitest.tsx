@@ -72,7 +72,7 @@ describe('PositronWelcomePage', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('renders the header, the banner, then the recent list, the connect action and the footer', () => {
+	it('renders the header, the card, then the recent list, the connect action, Learn and the footer', () => {
 		const { recentList, connectAction, footer } = slottedDom();
 		const { container } = rtl.render(
 			<PositronWelcomePage
@@ -84,7 +84,10 @@ describe('PositronWelcomePage', () => {
 			/>
 		);
 
-		expect(container).toHaveTextContent(/Welcome to .*Help.*Environment setup.*Learn.*Recent.*Connect to\.\.\..*Show welcome page on startup/);
+		// Recent leads: it is the primary reason to open this page, and on a wide
+		// pane it takes the left column. DOM order matches that rather than being
+		// reordered in CSS, so the tab order agrees with what is on screen.
+		expect(container).toHaveTextContent(/Welcome to .*Help.*Environment setup.*Recent.*Connect to\.\.\..*Learn.*Show welcome page on startup/);
 	});
 
 	it('omits the connect action when there is none, as on web', () => {
