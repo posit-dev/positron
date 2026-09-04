@@ -331,8 +331,7 @@ jobs:
           rm package.json
           echo '{}' > package.json
 
-          # --no-audit --no-fund: two extra registry round-trips this job has no
-          # use for, and round-trips are what makes this install slow.
+          # Two more registry round-trips whose output this job never reads.
           npm install --no-audit --no-fund $SPECS
           npm --prefix test/e2e run compile -- -p tsconfig.summarize.json
 
