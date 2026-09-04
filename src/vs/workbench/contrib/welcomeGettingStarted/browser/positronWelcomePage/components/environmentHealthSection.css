@@ -139,20 +139,6 @@
 	flex: 0 0 auto;
 }
 
-.positron-welcome-page-environment-setup .environment-health-group-footer {
-	align-items: baseline;
-	border-top: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
-	display: flex;
-	flex-wrap: wrap;
-	gap: 4px;
-	padding: 8px 16px;
-}
-
-.positron-welcome-page-environment-setup .environment-health-group-footer-text {
-	color: var(--vscode-descriptionForeground);
-	margin: 0;
-}
-
 .positron-welcome-page-environment-setup .environment-health-item-list {
 	list-style: none;
 	margin: 0;
@@ -440,25 +426,6 @@
 	& .environment-health-group:last-child > .environment-health-group-heading:last-child .environment-health-group-header:focus-visible {
 		border-bottom-left-radius: 5px;
 		border-bottom-right-radius: 5px;
-	}
-
-	/*
-	 * Styled as a link although it is a button, because it navigates to the
-	 * Settings editor rather than changing anything on the page.
-	 */
-	& .environment-health-group-footer-link {
-		background: none;
-		border: none;
-		color: var(--vscode-textLink-foreground);
-		font-size: inherit;
-		margin: 0;
-		padding: 0;
-		text-align: left;
-	}
-
-	& .environment-health-group-footer-link:hover {
-		color: var(--vscode-textLink-activeForeground);
-		text-decoration: underline;
 	}
 
 }

@@ -46,6 +46,19 @@ describe('EnvironmentHealthSection', () => {
 		expect(screen.getAllByRole('group')).toHaveLength(2);
 	});
 
+	it('renders nothing when every language is turned off in the setting', () => {
+		// The only way into this state is editing the setting, so the way back is
+		// the same place. Nothing is left on the page to explain it.
+		const allHidden: EnvironmentHealthSnapshot = [
+			{ language: 'python', label: 'Python', state: { kind: 'hidden' } },
+			{ language: 'r', label: 'R', state: { kind: 'hidden' } },
+		];
+		const { container } = rtl.render(
+			<EnvironmentHealthSection environmentHealthService={environmentHealthService(allHidden)} expandedByLanguage={new Map()} />
+		);
+		expect(container).toBeEmptyDOMElement();
+	});
+
 	it('rechecks every language when the control is pressed', async () => {
 		const rerunCheckForLanguage = vi.fn();
 		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService(loading, { rerunCheckForLanguage })} expandedByLanguage={new Map()} />);
@@ -151,21 +164,6 @@ describe('EnvironmentHealthSection', () => {
 		])} expandedByLanguage={new Map()} />);
 		expect(screen.getByText('Python')).toBeInTheDocument();
 		expect(screen.queryByText('R')).not.toBeInTheDocument();
-	});
-
-	it('explains itself when every language is turned off', async () => {
-		// With no groups there is nothing to recheck either, so both header
-		// controls go. Turning the checks back on is the only thing left to do
-		// here, so it gets the wording and the prominence the gear cannot carry.
-		rtl.render(<EnvironmentHealthSection environmentHealthService={environmentHealthService([
-			{ language: 'python', label: 'Python', state: { kind: 'hidden' } },
-			{ language: 'r', label: 'R', state: { kind: 'hidden' } },
-		])} expandedByLanguage={new Map()} />);
-		expect(screen.getByText('Environment setup checks are turned off for every language.')).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Run the environment setup checks again' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Choose which languages are checked' })).not.toBeInTheDocument();
-		await userEvent.setup().click(screen.getByRole('button', { name: 'You can turn them back on in Settings' }));
-		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'welcomePage.environmentChecks');
 	});
 
 	it('re-renders when the environmentHealthService fires', async () => {

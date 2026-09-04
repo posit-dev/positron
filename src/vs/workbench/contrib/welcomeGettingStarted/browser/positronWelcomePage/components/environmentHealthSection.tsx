@@ -47,8 +47,7 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	// A language removed from the setting renders nothing at all, so the only
 	// trace of it is the setting itself.
 	const enabledLanguages = languages.filter(language => language.state.kind !== 'hidden');
-	// Every language turned off in the setting. The card has nothing to check, so
-	// it drops its controls and explains itself instead.
+	// Every language turned off in the setting.
 	const allChecksDisabled = enabledLanguages.length === 0;
 
 	// Built the way the console tab list builds its hovers, so this one follows the
@@ -80,6 +79,14 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	const openSetting = () =>
 		services.commandService.executeCommand('workbench.action.openSettings', WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY);
 
+	// Nothing to check and nothing to say. The setting is the only way in and the
+	// only way out, so the card leaves no trace on the page. This sits below every
+	// hook: turning the last language off re-renders this component, and an early
+	// return above them would change its hook count.
+	if (allChecksDisabled) {
+		return null;
+	}
+
 	// Render.
 	return (
 		<section aria-labelledby={titleId} className='positron-welcome-page-environment-setup'>
@@ -92,38 +99,37 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 					for how the header wraps them below the title, rather than squeezing
 					both buttons into whatever sliver is left beside the wrapping text.
 				*/}
-				{!allChecksDisabled &&
-					<div className='environment-health-header-buttons'>
-						<Button
-							ariaDisabled={busy}
-							ariaLabel={localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
-							className='environment-health-header-button'
-							hoverManager={hoverManager}
-							// While anything is running this says why it cannot be pressed.
-							// A control that looks pressable and silently does nothing is
-							// worse than one that explains itself.
-							tooltip={busy
-								? localize('positron.welcome.environmentSetupCheckRerunBusyTooltip', "Waiting for the current check to finish")
-								: localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
-							onPressed={() => languages.forEach(language => environmentHealthService.rerunCheckForLanguage(language.language))}
-						>
-							<span aria-hidden='true' className='codicon codicon-refresh' />
-						</Button>
-						{/*
-							An icon beside the recheck control rather than a link under the
-							card. The link read as a call to action for turning the feature
-							off, which put it in competition with the fix buttons.
-						*/}
-						<Button
-							ariaLabel={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
-							className='environment-health-header-button'
-							hoverManager={hoverManager}
-							tooltip={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
-							onPressed={openSetting}
-						>
-							<span aria-hidden='true' className='codicon codicon-gear' />
-						</Button>
-					</div>}
+				<div className='environment-health-header-buttons'>
+					<Button
+						ariaDisabled={busy}
+						ariaLabel={localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
+						className='environment-health-header-button'
+						hoverManager={hoverManager}
+						// While anything is running this says why it cannot be pressed.
+						// A control that looks pressable and silently does nothing is
+						// worse than one that explains itself.
+						tooltip={busy
+							? localize('positron.welcome.environmentSetupCheckRerunBusyTooltip', "Waiting for the current check to finish")
+							: localize('positron.welcome.environmentSetupCheckRerunTooltip', "Run the environment setup checks again")}
+						onPressed={() => languages.forEach(language => environmentHealthService.rerunCheckForLanguage(language.language))}
+					>
+						<span aria-hidden='true' className='codicon codicon-refresh' />
+					</Button>
+					{/*
+						An icon beside the recheck control rather than a link under the
+						card. The link read as a call to action for turning the feature
+						off, which put it in competition with the fix buttons.
+					*/}
+					<Button
+						ariaLabel={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
+						className='environment-health-header-button'
+						hoverManager={hoverManager}
+						tooltip={localize('positron.welcome.environmentSetupSettingsTooltip', "Choose which languages are checked")}
+						onPressed={openSetting}
+					>
+						<span aria-hidden='true' className='codicon codicon-gear' />
+					</Button>
+				</div>
 				{/*
 					Sits on the header's bottom edge, outside the text flow, so starting
 					a check cannot shift anything below it. A spinner inside the button
@@ -136,24 +142,15 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 						role='progressbar'
 					/>}
 			</div>
-			{allChecksDisabled
-				? <div className='environment-health-group-footer'>
-					<p className='environment-health-group-footer-text'>
-						{localize('positron.welcome.environmentSetupAllDisabled', "Environment setup checks are turned off for every language.")}
-					</p>
-					<Button className='environment-health-group-footer-link' onPressed={openSetting}>
-						{localize('positron.welcome.environmentSetupTurnOnChecks', "You can turn them back on in Settings")}
-					</Button>
-				</div>
-				: enabledLanguages.map(language =>
-					<LanguageHealthGroup
-						key={language.language}
-						busy={environmentHealthService.isBusy(language.language)}
-						expandedByLanguage={expandedByLanguage}
-						health={language}
-						hoverManager={hoverManager}
-						onRunFix={fix => environmentHealthService.runFix(language.language, fix)}
-					/>)}
+			{enabledLanguages.map(language =>
+				<LanguageHealthGroup
+					key={language.language}
+					busy={environmentHealthService.isBusy(language.language)}
+					expandedByLanguage={expandedByLanguage}
+					health={language}
+					hoverManager={hoverManager}
+					onRunFix={fix => environmentHealthService.runFix(language.language, fix)}
+				/>)}
 		</section>
 	);
 };
