@@ -121,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.76.0",
+			"version": "2026.78.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -283,8 +283,8 @@
 		},
 		{
 			"name": "posit.shiny",
-			"version": "1.4.2",
-			"sha256": "3aae12e054a7c9317ddbc41eeea3d6e98c0634f70db14f32f8623da7dfcaff27",
+			"version": "1.4.3",
+			"sha256": "19b95d79997882d69c3df3522eb9e26cbd3bb8d7f8ae924c9179c41485d06f62",
 			"repo": "https://github.com/posit-dev/shiny-vscode",
 			"metadata": {
 				"id": "7ffa9a66-85ab-44de-ab80-2eecce45b0fe",

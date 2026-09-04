@@ -9,6 +9,18 @@ on:
         description: "Positron version: a tag, 'latest-prerelease', or 'latest-release'"
         required: false
         default: "latest-prerelease"
+      notify_on:
+        description: 'Budget alert: always | over_budget_only | never'
+        required: false
+        default: over_budget_only
+      channel:
+        description: 'Slack channel for the budget alert'
+        required: false
+        default: '#positron-dev'
+      ceiling_gib:
+        description: 'Memory budget per scenario, in GiB'
+        required: false
+        default: '2'
 
 concurrency:
   group: memory-metrics-${{ github.ref }}
@@ -426,3 +438,89 @@ jobs:
               fi
             done
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Non-fatal by design: a budget alert must never fail the memory run.
+      # Only main publishes to the production dataset, so a branch dispatch
+      # finds no rows for its run_id and the route reports 0 scenarios.
+      - name: Memory budget alert
+        continue-on-error: true
+        env:
+          # Scheduled runs get EMPTY inputs, not the declared defaults, so each
+          # needs an explicit fallback here.
+          NOTIFY_ON: ${{ inputs.notify_on || 'over_budget_only' }}
+          CHANNEL: ${{ inputs.channel || '#positron-dev' }}
+          CEILING_GIB: ${{ inputs.ceiling_gib || '2' }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ "$NOTIFY_ON" = "never" ]; then
+            echo "[dryrun] notify_on=never; will compute but not post"
+          fi
+
+          # Query by run_id, so no date arithmetic and no interaction with the
+          # dashboard's 00:00-00:30 UTC maintenance window.
+          url="https://connect.posit.it/e2e-test-insights-api/memory/budget-check"
+          status=$(curl -sS -o response.json -w '%{http_code}' \
+            -H "Authorization: Key ${CONNECT_API_KEY}" \
+            --get "$url" \
+            --data-urlencode "run_id=${RUN_ID}" \
+            --data-urlencode "branch=main" \
+            --data-urlencode "lane=desktop" \
+            --data-urlencode "ceiling_gib=${CEILING_GIB}")
+
+          # The route reserves non-2xx for a bad request, never for "nothing
+          # to report".
+          if [ "$status" != "200" ]; then
+            echo "budget-check returned HTTP $status:"
+            cat response.json
+            exit 1
+          fi
+          cat response.json
+
+          # Branch on over_budget, NEVER on slack_text -- that field is
+          # informational prose whose wording will change.
+          if jq -e '.over_budget' response.json >/dev/null; then
+            over_budget=true
+          else
+            over_budget=false
+          fi
+
+          if [ "$NOTIFY_ON" = "never" ]; then
+            echo "[dryrun] Would post to Slack:"
+            jq -r '.slack_text' response.json
+            exit 0
+          fi
+          if [ "$NOTIFY_ON" = "over_budget_only" ] && [ "$over_budget" = false ]; then
+            echo "Under budget and notify_on=over_budget_only; not posting."
+            exit 0
+          fi
+
+          # `// ""` because jq -r renders a null as the literal "null", which
+          # would sail past the -z check and get posted verbatim.
+          text=$(jq -r '.slack_text // ""' response.json)
+          if [ -z "$text" ]; then
+            reported=$(jq -r '.scenarios_reported' response.json)
+            ceiling=$(jq -r '.ceiling_bytes' response.json)
+            text="Nightly memory budget: all ${reported} reported scenario(s) within ${ceiling} bytes."
+          fi
+
+          jq -n --arg channel "$CHANNEL" --arg text "$text" \
+            '{channel: $channel, text: $text}' > payload.json
+
+          curl -sS -o slack.json \
+            -H "Authorization: Bearer ${SLACK_TOKEN}" \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            --data @payload.json \
+            https://slack.com/api/chat.postMessage
+
+          # A bad channel comes back as HTTP 200 with {"ok":false}, so an
+          # ignored response would make a typo look like success.
+          if ! jq -e '.ok' slack.json >/dev/null; then
+            echo "Slack rejected the message:"
+            cat slack.json
+            exit 1
+          fi
+          echo "Posted to ${CHANNEL}."
