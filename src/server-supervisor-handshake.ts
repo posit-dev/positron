@@ -50,12 +50,6 @@ export class SupervisorHandshakeBroker {
 
 	private _disposed = false;
 
-	/**
-	 * Monotonic timestamp (`performance.now()`) at which this broker started
-	 * listening, used as the origin for elapsed-time logging below.
-	 */
-	private readonly _createdAt = performance.now();
-
 	/** Number of connections accepted so far, used to label log lines. */
 	private _connectionCount = 0;
 
@@ -93,12 +87,10 @@ export class SupervisorHandshakeBroker {
 	 */
 	private _onConnection(socket: net.Socket): void {
 		const connectionId = ++this._connectionCount;
-		const acceptedAt = performance.now();
 		const isReportIn = this._cached === undefined;
 		console.log(
-			`[SupervisorHandshakeBroker] connection #${connectionId} accepted ` +
-			`${(acceptedAt - this._createdAt).toFixed(1)}ms after broker start; ` +
-			`classified as ${isReportIn ? 'kcserver report-in' : 'cached replay'}`);
+			`[SupervisorHandshakeBroker] connection #${connectionId} accepted on ` +
+			`${this.socketPath}; classified as ${isReportIn ? 'kcserver report-in' : 'cached replay'}`);
 
 		if (isReportIn) {
 			// kcserver reporting in: read the payload to EOF and cache it.
@@ -113,40 +105,37 @@ export class SupervisorHandshakeBroker {
 				this._cached = text;
 				console.log(
 					`[SupervisorHandshakeBroker] connection #${connectionId}: cached ` +
-					`report-in payload (${bytesReceived} bytes) after ` +
-					`${(performance.now() - acceptedAt).toFixed(1)}ms`);
+					`report-in payload (${bytesReceived} bytes)`);
 				this._readyResolve();
 			});
 			socket.on('close', () => {
 				console.log(
-					`[SupervisorHandshakeBroker] connection #${connectionId}: report-in ` +
-					`socket closed after ${(performance.now() - acceptedAt).toFixed(1)}ms`);
+					`[SupervisorHandshakeBroker] connection #${connectionId}: report-in socket closed`);
 			});
 			socket.on('error', (err) => {
 				console.log(
 					`[SupervisorHandshakeBroker] connection #${connectionId}: report-in ` +
-					`socket error after ${(performance.now() - acceptedAt).toFixed(1)}ms: ${err}`);
+					`socket error: ${err}`);
 				this._readyReject(err);
 			});
 		} else {
 			// A window reading the cached payload back out: replay and close.
 			const cached = this._cached ?? '';
 			const payloadBytes = Buffer.byteLength(cached, 'utf8');
+			console.log(
+				`[SupervisorHandshakeBroker] connection #${connectionId}: replaying ` +
+				`cached payload (${payloadBytes} bytes)`);
 			socket.end(cached, () => {
 				console.log(
-					`[SupervisorHandshakeBroker] connection #${connectionId}: replayed ` +
-					`cached payload (${payloadBytes} bytes) after ` +
-					`${(performance.now() - acceptedAt).toFixed(1)}ms`);
+					`[SupervisorHandshakeBroker] connection #${connectionId}: replay write completed`);
 			});
 			socket.on('close', () => {
 				console.log(
-					`[SupervisorHandshakeBroker] connection #${connectionId}: replay ` +
-					`socket closed after ${(performance.now() - acceptedAt).toFixed(1)}ms`);
+					`[SupervisorHandshakeBroker] connection #${connectionId}: replay socket closed`);
 			});
 			socket.on('error', (err) => {
 				console.log(
-					`[SupervisorHandshakeBroker] connection #${connectionId}: replay ` +
-					`socket error after ${(performance.now() - acceptedAt).toFixed(1)}ms: ${err}`);
+					`[SupervisorHandshakeBroker] connection #${connectionId}: replay socket error: ${err}`);
 			});
 		}
 	}
@@ -216,13 +205,15 @@ export class SupervisorHandshakeBroker {
 	 * @throws An error if kcserver does not report in within the timeout.
 	 */
 	public async ready(timeoutMs: number): Promise<void> {
-		const start = performance.now();
+		console.log(
+			`[SupervisorHandshakeBroker] ready(): waiting for the supervisor to report in ` +
+			`(timeout ${timeoutMs}ms)`);
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const timeout = new Promise<never>((_, reject) => {
 			timer = setTimeout(() => {
 				console.log(
-					`[SupervisorHandshakeBroker] ready(): timed out after ` +
-					`${(performance.now() - start).toFixed(1)}ms (timeout ${timeoutMs}ms)`);
+					`[SupervisorHandshakeBroker] ready(): timed out waiting for the supervisor ` +
+					`to report in (timeout ${timeoutMs}ms)`);
 				reject(new Error(
 					`Timed out waiting for the supervisor to connect to the ` +
 					`handshake socket after ${timeoutMs}ms`));
@@ -230,9 +221,7 @@ export class SupervisorHandshakeBroker {
 		});
 		try {
 			await Promise.race([this._ready, timeout]);
-			console.log(
-				`[SupervisorHandshakeBroker] ready(): supervisor reported in after ` +
-				`${(performance.now() - start).toFixed(1)}ms`);
+			console.log(`[SupervisorHandshakeBroker] ready(): supervisor reported in`);
 		} finally {
 			if (timer !== undefined) {
 				clearTimeout(timer);

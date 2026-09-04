@@ -198,20 +198,16 @@ export class HandshakeSocket implements vscode.Disposable {
 	public static connect(socketPath: string, timeoutMs: number): Promise<KallichoreServerState> {
 		const handles = new PromiseHandles<KallichoreServerState>();
 
-		// Monotonic clock for elapsed timing, plus a wall clock timestamp so the
-		// operation can be correlated with other log sources (e.g. the server
-		// broker's own logs).
-		const start = performance.now();
-		const startedAt = new Date().toISOString();
+		// Log paired boundary events (start/end) rather than elapsed durations;
+		// the surrounding log capture already timestamps each line, so a
+		// separate elapsed-time computation here would be redundant.
 		let bytesReceived = 0;
 		console.log(
 			`[HandshakeSocket] connect: starting cached-handshake retrieval from ` +
-			`${socketPath} at ${startedAt} (timeout ${timeoutMs}ms)`);
+			`${socketPath} (timeout ${timeoutMs}ms)`);
 
 		const socket = net.connect(socketPath, () => {
-			console.log(
-				`[HandshakeSocket] connect: socket connected to ${socketPath} ` +
-				`after ${(performance.now() - start).toFixed(1)}ms`);
+			console.log(`[HandshakeSocket] connect: socket connected to ${socketPath}`);
 		});
 		let text = '';
 		let firstByteLogged = false;
@@ -222,36 +218,32 @@ export class HandshakeSocket implements vscode.Disposable {
 			if (!firstByteLogged) {
 				firstByteLogged = true;
 				console.log(
-					`[HandshakeSocket] connect: first data from ${socketPath} ` +
-					`after ${(performance.now() - start).toFixed(1)}ms (${bytesReceived} bytes so far)`);
+					`[HandshakeSocket] connect: first data received from ${socketPath}`);
 			}
 		});
 		socket.on('end', () => {
-			const elapsed = (performance.now() - start).toFixed(1);
 			try {
 				handles.resolve(JSON.parse(text) as KallichoreServerState);
 				console.log(
 					`[HandshakeSocket] connect: parsed handshake payload from ` +
-					`${socketPath} after ${elapsed}ms (${bytesReceived} bytes total)`);
+					`${socketPath} (${bytesReceived} bytes total)`);
 			} catch (err) {
 				console.log(
 					`[HandshakeSocket] connect: failed to parse handshake payload from ` +
-					`${socketPath} after ${elapsed}ms (${bytesReceived} bytes total): ${err}`);
+					`${socketPath} (${bytesReceived} bytes total): ${err}`);
 				handles.reject(new Error(`Failed to parse handshake payload: ${err}`));
 			}
 		});
 		socket.on('error', (err) => {
 			console.log(
-				`[HandshakeSocket] connect: socket error on ${socketPath} after ` +
-				`${(performance.now() - start).toFixed(1)}ms: ${err}`);
+				`[HandshakeSocket] connect: socket error on ${socketPath}: ${err}`);
 			handles.reject(err);
 		});
 
 		const timer = setTimeout(() => {
 			console.log(
 				`[HandshakeSocket] connect: timed out reading handshake payload from ` +
-				`${socketPath} after ${(performance.now() - start).toFixed(1)}ms ` +
-				`(timeout ${timeoutMs}ms, ${bytesReceived} bytes received so far)`);
+				`${socketPath} (timeout ${timeoutMs}ms, ${bytesReceived} bytes received so far)`);
 			socket.destroy();
 			handles.reject(new Error(
 				`Timed out reading handshake payload from ${socketPath} after ${timeoutMs}ms`));
