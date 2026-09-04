@@ -9,14 +9,21 @@ import { isMacintosh, isLinux, language, isWeb } from '../../../base/common/plat
 import { ITelemetryService } from '../../../platform/telemetry/common/telemetry.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { URI } from '../../../base/common/uri.js';
-import { MenuId, Action2, registerAction2, MenuRegistry } from '../../../platform/actions/common/actions.js';
+// --- Start Positron ---
+// MenuRegistry and ContextKeyExpr below are only used by the upstream
+// "Ask @vscode" action, which Positron does not register.
+import { MenuId, Action2, registerAction2 } from '../../../platform/actions/common/actions.js';
+// import { MenuId, Action2, registerAction2, MenuRegistry } from '../../../platform/actions/common/actions.js';
+// --- End Positron ---
 import { KeyChord, KeyMod, KeyCode } from '../../../base/common/keyCodes.js';
 import { IProductService } from '../../../platform/product/common/productService.js';
 import { ServicesAccessor } from '../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../platform/keybinding/common/keybindingsRegistry.js';
 import { Categories } from '../../../platform/action/common/actionCommonCategories.js';
 import { ICommandService } from '../../../platform/commands/common/commands.js';
-import { ContextKeyExpr } from '../../../platform/contextkey/common/contextkey.js';
+// --- Start Positron ---
+// import { ContextKeyExpr } from '../../../platform/contextkey/common/contextkey.js';
+// --- End Positron ---
 import { IsSessionsWindowContext } from '../../common/contextkeys.js';
 // --- Start Positron ---
 import { IPositronDocsService } from '../../services/positronDocs/browser/positronDocsService.js';
@@ -345,43 +352,38 @@ class GetStartedWithAccessibilityFeatures extends Action2 {
 	}
 }
 
-class AskVSCodeCopilot extends Action2 {
-	static readonly ID = 'workbench.action.askVScode';
-
-	constructor() {
-		super({
-			id: AskVSCodeCopilot.ID,
-			// --- Start Positron ---
-			title: localize2('askVScode', 'Ask Positron Assistant'),
-			// title: localize2('askVScode', 'Ask @vscode'),
-			// --- End Positron ---
-			category: Categories.Help,
-			f1: true,
-			precondition: ContextKeyExpr.and(ContextKeyExpr.equals('chatSetupHidden', false), ContextKeyExpr.equals('chatSetupDisabledInWorkspace', false), IsSessionsWindowContext.negate())
-		});
-	}
-
-	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandService = accessor.get(ICommandService);
-		// --- Start Positron ---
-		// commandService.executeCommand('workbench.action.chat.open', { mode: 'agent', query: '@vscode ', isPartialQuery: true });
-		commandService.executeCommand('workbench.action.chat.open', { mode: 'ask', query: '', isPartialQuery: true });
-		// --- End Positron ---
-	}
-}
-
-MenuRegistry.appendMenuItem(MenuId.MenubarHelpMenu, {
-	command: {
-		id: AskVSCodeCopilot.ID,
-		// --- Start Positron ---
-		title: localize2('askVScode', 'Ask Positron Assistant'),
-		// title: localize2('askVScode', 'Ask @vscode'),
-		// --- End Positron ---
-	},
-	order: 7,
-	group: '1_welcome',
-	when: ContextKeyExpr.and(ContextKeyExpr.equals('chatSetupHidden', false), ContextKeyExpr.equals('chatSetupDisabledInWorkspace', false), IsSessionsWindowContext.negate())
-});
+// --- Start Positron ---
+// The upstream "Ask @vscode" action is not registered in Positron.
+//
+// class AskVSCodeCopilot extends Action2 {
+// 	static readonly ID = 'workbench.action.askVScode';
+//
+// 	constructor() {
+// 		super({
+// 			id: AskVSCodeCopilot.ID,
+// 			title: localize2('askVScode', 'Ask @vscode'),
+// 			category: Categories.Help,
+// 			f1: true,
+// 			precondition: ContextKeyExpr.and(ContextKeyExpr.equals('chatSetupHidden', false), ContextKeyExpr.equals('chatSetupDisabledInWorkspace', false), IsSessionsWindowContext.negate())
+// 		});
+// 	}
+//
+// 	async run(accessor: ServicesAccessor): Promise<void> {
+// 		const commandService = accessor.get(ICommandService);
+// 		commandService.executeCommand('workbench.action.chat.open', { mode: 'agent', query: '@vscode ', isPartialQuery: true });
+// 	}
+// }
+//
+// MenuRegistry.appendMenuItem(MenuId.MenubarHelpMenu, {
+// 	command: {
+// 		id: AskVSCodeCopilot.ID,
+// 		title: localize2('askVScode', 'Ask @vscode'),
+// 	},
+// 	order: 7,
+// 	group: '1_welcome',
+// 	when: ContextKeyExpr.and(ContextKeyExpr.equals('chatSetupHidden', false), ContextKeyExpr.equals('chatSetupDisabledInWorkspace', false), IsSessionsWindowContext.negate())
+// });
+// --- End Positron ---
 
 // --- Actions Registration
 
@@ -423,7 +425,9 @@ if (OpenPrivacyStatementUrlAction.AVAILABLE) {
 
 registerAction2(GetStartedWithAccessibilityFeatures);
 
-registerAction2(AskVSCodeCopilot);
+// --- Start Positron ---
+// registerAction2(AskVSCodeCopilot);
+// --- End Positron ---
 
 // --- Start Positron ---
 registerAction2(class extends Action2 {
