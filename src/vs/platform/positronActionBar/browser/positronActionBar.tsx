@@ -118,7 +118,14 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 
 	useEffect(() => {
 		if (!props.nestedActionBar && prevIndex >= 0 && (focusedIndex !== prevIndex)) {
-			const items = Array.from(context.focusableComponents);
+			// Controls register themselves as they mount, so the set is in mount order. A control
+			// an extension contributes lands at the end of it whatever its place on screen,
+			// because the extension activates after the bar is already up: Quarto's Render on Save
+			// checkbox sits between two of Positron's own buttons and used to come after both of
+			// them. Sorting by document position makes the arrow keys follow what is on screen.
+			const items = Array.from(context.focusableComponents).sort((a, b) =>
+				a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+			);
 			const currentNode = items[focusedIndex];
 			const previousNode = items[prevIndex];
 
