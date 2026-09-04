@@ -15,7 +15,14 @@
 
 .positron-modal-overlay {
 	inset: 0;
-	/* Below VS Code dialogs (z-index: 2575) so that vscode.window.showInformationMessage etc. appear above Positron modal dialogs */
+	/*
+	 * Below VS Code dialogs (z-index: 2575) so that vscode.window.showInformationMessage etc.
+	 * appear above Positron modal dialogs.
+	 *
+	 * This is the base value only. PositronModalReactRenderer.render overrides it per modal
+	 * with modalOverlayZIndex(depth), so nested modals stack explicitly rather than by DOM
+	 * order. Keep MODAL_OVERLAY_BASE_Z_INDEX in positronModalReactRenderer.tsx in sync.
+	 */
 	z-index: 2500;
 	position: absolute;
 	/* Makes some devices run their hardware acceleration. */

@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { PositronModalReactRenderer } from '../../browser/positronModalReactRenderer.js';
+import { modalOverlayZIndex, PositronModalReactRenderer } from '../../browser/positronModalReactRenderer.js';
 import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
 
 describe('PositronModalReactRenderer', () => {
@@ -503,6 +503,29 @@ describe('PositronModalReactRenderer', () => {
 			renderer.dispose();
 
 			expect(callbackCalled).toBe(false);
+		});
+	});
+
+	describe('modalOverlayZIndex', () => {
+		it('raises each nested modal above the one below it', () => {
+			expect([0, 1, 2, 3].map(modalOverlayZIndex)).toEqual([2500, 2502, 2504, 2506]);
+		});
+
+		it('leaves an odd number free between adjacent modals', () => {
+			// An overlay webview anchored inside a modal takes that modal's z-index
+			// plus one. The gap is what keeps it below the next modal up instead of
+			// painting over it, which is the whole reason for a step of 2.
+			const lower = modalOverlayZIndex(0);
+			const anchoredInLower = lower + 1;
+
+			expect(anchoredInLower).toBeLessThan(modalOverlayZIndex(1));
+		});
+
+		it('stays below VS Code dialogs however deep the nesting goes', () => {
+			// Native dialogs sit at 2575 (base/browser/ui/dialog/dialog.css) and must
+			// stay on top, so the ramp saturates rather than climbing past them.
+			// Checked with room to spare for the +1 an anchored webview adds.
+			expect(modalOverlayZIndex(1000) + 1).toBeLessThan(2575);
 		});
 	});
 });

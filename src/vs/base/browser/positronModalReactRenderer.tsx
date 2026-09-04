@@ -105,6 +105,54 @@ class Stack<T> {
 	forEach(callback: (item: T) => void): void {
 		this.items.forEach(callback);
 	}
+
+	/**
+	 * The number of items in the stack.
+	 */
+	get size(): number { return this.items.length; }
+}
+
+/**
+ * The z-index of the bottom-most modal overlay. Must match the `z-index` of
+ * `.positron-modal-overlay` in positronModalReactRenderer.css.
+ */
+const MODAL_OVERLAY_BASE_Z_INDEX = 2500;
+
+/**
+ * How much each nested modal is raised above the one below it.
+ *
+ * Two, not one, so that content anchored *inside* a modal can take the odd
+ * number in between and still sit below the next modal up. An overlay webview
+ * does exactly that: `OverlayLayoutElement._updateZIndex` gives it its nearest
+ * positioned ancestor's z-index plus one.
+ */
+const MODAL_OVERLAY_Z_INDEX_STEP = 2;
+
+/**
+ * The highest z-index a modal overlay may take.
+ *
+ * VS Code dialogs live at 2575 (`dialog.css`) and are meant to appear above
+ * Positron modals, so the ramp stops short of that. Deep enough nesting ties
+ * instead of overtaking it, which degrades to DOM ordering rather than putting
+ * a Positron modal over a native dialog.
+ */
+const MODAL_OVERLAY_MAX_Z_INDEX = 2570;
+
+/**
+ * The z-index for a modal overlay at `depth`, where 0 is the bottom-most modal.
+ *
+ * Positron modals all share one z-index in CSS, which orders them only by DOM
+ * position. That is enough for a modal whose content is entirely inside its own
+ * overlay, but not for one hosting an overlay webview: webviews are mounted on
+ * the workbench container rather than inside the modal (see
+ * `OverlayWebview.overlayLayout`), so their z-index competes with every modal's,
+ * and a webview at base+1 would paint over every modal opened after it.
+ */
+export function modalOverlayZIndex(depth: number): number {
+	return Math.min(
+		MODAL_OVERLAY_BASE_Z_INDEX + (depth * MODAL_OVERLAY_Z_INDEX_STEP),
+		MODAL_OVERLAY_MAX_Z_INDEX,
+	);
 }
 
 /**
@@ -386,6 +434,13 @@ export class PositronModalReactRenderer extends Disposable {
 		// element.
 		this._overlay = this._options.container!.appendChild(
 			DOM.$('.positron-modal-overlay', { tabIndex: 0, 'data-testid': 'positron-modal-overlay' })
+		);
+
+		// Give this modal an explicit place in the stack rather than relying on DOM
+		// order, so that content anchored inside a lower modal cannot paint over a
+		// higher one. See modalOverlayZIndex.
+		this._overlay.style.zIndex = String(
+			modalOverlayZIndex(PositronModalReactRenderer._renderersStack.size)
 		);
 
 		// When pointer passthrough is enabled, allow mouse events to pass through the overlay
