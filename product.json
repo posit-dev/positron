@@ -713,16 +713,19 @@
 		],
 		"anthropic-api": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"posit-ai": [
 			"positron.authentication",
 			"positron.next-edit-suggestions",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"ms-foundry": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"amazon-bedrock": [
 			"positron.authentication",
@@ -731,35 +734,43 @@
 		],
 		"snowflake-cortex": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"openai-api": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"deepseek-api": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"openai-compatible": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"google": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"google-cloud": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"databricks": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		],
 		"positron-custom-provider": [
 			"positron.authentication",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.scratch"
 		]
 	},
 	"onboardingKeymaps": [
