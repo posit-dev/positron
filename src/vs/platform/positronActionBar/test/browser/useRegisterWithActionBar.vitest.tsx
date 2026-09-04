@@ -9,6 +9,7 @@ import { useRef, useState } from 'react';
 import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useRegisterWithActionBar } from '../../browser/useRegisterWithActionBar.js';
+import { PositronActionBar } from '../../browser/positronActionBar.js';
 import { PositronActionBarContextProvider } from '../../browser/positronActionBarContext.js';
 import { setupRTLRenderer } from '../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
@@ -62,6 +63,28 @@ describe('useRegisterWithActionBar', () => {
 
 		expect(first()).toHaveAttribute('tabindex', '0');
 		expect(second()).toHaveAttribute('tabindex', '-1');
+	});
+
+	it('reaches every control with the arrow keys, from the bar\'s one tab stop', async () => {
+		const user = userEvent.setup();
+		rtl.render(
+			<PositronActionBarContextProvider>
+				<PositronActionBar ariaLabel='Editor actions'>
+					<Control label='First' />
+					<Control label='Second' />
+					<Control label='Third' />
+				</PositronActionBar>
+			</PositronActionBarContextProvider>
+		);
+
+		// The bar has to announce itself as a toolbar, or the arrow keys are an invisible
+		// convention and Tab looks like it is skipping most of the bar for no reason.
+		expect(screen.getByRole('toolbar', { name: 'Editor actions' })).toBeInTheDocument();
+
+		screen.getByRole('button', { name: 'First' }).focus();
+		await user.keyboard('{ArrowRight}{ArrowRight}');
+
+		expect(screen.getByRole('button', { name: 'Third' })).toHaveFocus();
 	});
 
 	it('keeps the tab stop when the control holding it re-renders', async () => {
