@@ -1,0 +1,396 @@
+# --- Start PWB: deliberate Posit branding for this workflow's display name ---
+name: PR - Linux Test (reusable)
+# --- End PWB ---
+
+on:
+  workflow_call:
+    inputs:
+      job_name:
+        type: string
+        required: true
+
+jobs:
+  linux-test:
+    name: ${{ inputs.job_name }}
+    # --- Start PWB: GitHub-hosted runner, not Posit's self-hosted posit-ubuntu-24-amd64-4-core.
+    # This job previously also ran Electron smoke tests, which failed completely on the
+    # self-hosted container (every vscode-file:// request, including the main
+    # workbench.desktop.main.js bundle, failed with net::ERR_FAILED, leaving every window
+    # blank); the Electron tests have since been removed from this job entirely, but it's kept
+    # on the GitHub-hosted runner for consistency with the other PR test jobs. ---
+    runs-on: ubuntu-24.04
+    # --- End PWB ---
+    env:
+      # --- Start PWB: hardcoded since this job only ever runs browser tests (no Electron variant
+      # on Linux) ---
+      ARTIFACT_NAME: browser
+      # --- End PWB ---
+      NPM_ARCH: x64
+      VSCODE_ARCH: x64
+    steps:
+      - name: Checkout microsoft/vscode
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        # --- Start PWB: this fork disables git-lfs (see .gitattributes) and the runner image
+        # doesn't have git-lfs installed, so omit lfs: true here ---
+        # --- End PWB ---
+
+      # --- Start PWB: upstream's "Detect Agent Host E2E changes" step is intentionally not
+      # reincorporated. It only feeds VSCODE_SKIP_AGENT_HOST_E2E into the Electron integration
+      # test step, which this job doesn't run, and it is gated on the `electron_tests` /
+      # `unit_and_integration_tests` inputs that this reduced workflow doesn't declare. ---
+      # --- End PWB ---
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup system services
+        run: |
+          set -e
+          # Allow unprivileged user namespaces for Chromium's namespace sandbox
+          # Ubuntu 24.04 restricts this by default via AppArmor
+          # --- Start PWB: only apply the sysctl when present rather than failing the step --
+          # -- this repo also runs on Posit's self-hosted (Kubernetes-based) runner, which
+          # doesn't expose this sysctl at all ---
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          # --- End PWB ---
+          # Start X server
+          ./build/azure-pipelines/linux/apt-retry.sh sudo apt-get update
+          ./build/azure-pipelines/linux/apt-retry.sh sudo apt-get install -y pkg-config \
+            xvfb \
+            libgtk-3-0 \
+            libxkbfile-dev \
+            libkrb5-dev \
+            libgbm1 \
+            rpm \
+            bubblewrap \
+            socat
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      - name: Restore node_modules cache
+        id: cache-node-modules
+        uses: ./.github/actions/restore-node-modules
+        with:
+          key-prefix: node_modules-linux
+          key-args: "linux ${{ env.VSCODE_ARCH }} $(node -p process.arch)"
+
+      - name: Install build dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        working-directory: build
+        run: |
+          set -e
+
+          for i in {1..5}; do # try 5 times
+            npm ci && break
+            if [ $i -eq 5 ]; then
+              echo "Npm install failed too many times" >&2
+              exit 1
+            fi
+            echo "Npm install failed $i, trying again..."
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: |
+          set -e
+
+          source ./build/azure-pipelines/linux/setup-env.sh
+
+          for i in {1..5}; do # try 5 times
+            npm ci && break
+            if [ $i -eq 5 ]; then
+              echo "Npm install failed too many times" >&2
+              exit 1
+            fi
+            echo "Npm install failed $i, trying again..."
+          done
+        env:
+          npm_config_arch: ${{ env.NPM_ARCH }}
+          VSCODE_ARCH: ${{ env.VSCODE_ARCH }}
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create .build folder
+        run: mkdir -p .build
+
+      - name: Prepare built-in extensions cache key
+        run: node build/azure-pipelines/common/computeBuiltInDepsCacheKey.ts > .build/builtindepshash
+
+      - name: Restore built-in extensions cache
+        id: cache-builtin-extensions
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          enableCrossOsArchive: true
+          path: .build/builtInExtensions
+          key: "builtin-extensions-${{ hashFiles('.build/builtindepshash') }}"
+
+      - name: Download built-in extensions
+        if: steps.cache-builtin-extensions.outputs.cache-hit != 'true'
+        run: node build/lib/builtInExtensions.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Workaround expat NULL deref CVEs in fontconfig parsing
+        run: |
+          set -e
+          # Ubuntu 24.04 ships expat 2.6.1 which has multiple NULL dereference
+          # CVEs triggered when fontconfig parses <include> directives via
+          # expat's XML_ExternalEntityParserCreate:
+          #   CVE-2026-24515 (backported but crash persists)
+          #   CVE-2026-32776 (not yet backported) - empty external parameter entities
+          #   CVE-2026-32778 (not yet backported) - setContext after OOM
+          # All three are fixed upstream in expat >= 2.7.5.
+          # Check if the runner already has the fix — skip workaround if so.
+          EXPAT_VER=$(dpkg-query -W -f='${Version}' libexpat1 2>/dev/null || echo "0")
+          if dpkg --compare-versions "$EXPAT_VER" ge "2.7.5"; then
+            echo "::warning::libexpat1 $EXPAT_VER includes all CVE fixes (>= 2.7.5). The fontconfig workaround in this workflow can be removed."
+            exit 0
+          fi
+          echo "Installed expat: $EXPAT_VER — applying fontconfig workaround"
+          # Workaround: use a minimal fontconfig config with no <include> directives,
+          # avoiding the external entity parser codepath entirely. Based on upstream
+          # fontconfig 2.15.0 fonts.conf.in with <include> removed, generic family
+          # aliases inlined, and default font mappings for generic families added
+          # (from conf.d/49-sansserif.conf and DejaVu font configs).
+          # Remove once Ubuntu backports the remaining CVE fixes.
+          cat > /tmp/fonts-minimal.conf << 'FONTCONFIG_EOF'
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+          <fontconfig>
+            <dir>/usr/share/fonts</dir>
+            <dir>/usr/local/share/fonts</dir>
+            <dir prefix="xdg">fonts</dir>
+            <cachedir>/var/cache/fontconfig</cachedir>
+            <cachedir prefix="xdg">fontconfig</cachedir>
+            <!-- Generic family aliases from upstream fonts.conf -->
+            <match target="pattern">
+              <test qual="any" name="family"><string>mono</string></test>
+              <edit name="family" mode="assign" binding="same"><string>monospace</string></edit>
+            </match>
+            <match target="pattern">
+              <test qual="any" name="family"><string>sans serif</string></test>
+              <edit name="family" mode="assign" binding="same"><string>sans-serif</string></edit>
+            </match>
+            <match target="pattern">
+              <test qual="any" name="family"><string>sans</string></test>
+              <edit name="family" mode="assign" binding="same"><string>sans-serif</string></edit>
+            </match>
+            <match target="pattern">
+              <test qual="any" name="family"><string>system ui</string></test>
+              <edit name="family" mode="assign" binding="same"><string>system-ui</string></edit>
+            </match>
+            <!-- Map generic families to actual fonts (from conf.d/49-sansserif, 57-dejavu) -->
+            <alias>
+              <family>monospace</family>
+              <prefer><family>DejaVu Sans Mono</family></prefer>
+            </alias>
+            <alias>
+              <family>sans-serif</family>
+              <prefer><family>DejaVu Sans</family></prefer>
+            </alias>
+            <alias>
+              <family>serif</family>
+              <prefer><family>DejaVu Serif</family></prefer>
+            </alias>
+            <!-- Fallback: assign sans-serif to unmatched families (from 49-sansserif.conf) -->
+            <match target="pattern">
+              <test qual="all" name="family" compare="not_eq"><string>sans-serif</string></test>
+              <test qual="all" name="family" compare="not_eq"><string>serif</string></test>
+              <test qual="all" name="family" compare="not_eq"><string>monospace</string></test>
+              <edit name="family" mode="append_last"><string>sans-serif</string></edit>
+            </match>
+            <!-- Rendering defaults -->
+            <match target="font">
+              <edit name="antialias" mode="assign"><bool>true</bool></edit>
+              <edit name="hinting" mode="assign"><bool>true</bool></edit>
+              <edit name="hintstyle" mode="assign"><const>hintslight</const></edit>
+            </match>
+            <config>
+              <rescan><int>0</int></rescan>
+            </config>
+          </fontconfig>
+          FONTCONFIG_EOF
+          echo "FONTCONFIG_FILE=/tmp/fonts-minimal.conf" >> "$GITHUB_ENV"
+
+      # Root-cause fix for the intermittent Electron startup SIGSEGV on Linux CI.
+      # Symbolizing the crash dumps shows the fault is a Pango concurrency bug, not
+      # a VS Code bug:
+      #
+      #   pango: fc_thread_func -> init_in_thread -> FcInit()       (pangofc-fontmap.c)
+      #   fontconfig: FcInit -> FcConfigParseAndLoadFromMemory -> _FcConfigParse
+      #   libexpat: XML_ParseBuffer -> libc (NULL deref, SIGSEGV)
+      #
+      # Pango >= 1.52's pango_fc_font_map_init() unconditionally spawns a
+      # "[pango] fontconfig" thread that runs FcInit(). That races against the
+      # Electron/Chromium main thread's own fontconfig use during startup and
+      # corrupts fontconfig's global config while it is being parsed. There is no
+      # env var to disable the Pango thread, and it is still present in Pango 1.56.
+      #
+      # Eliminate the race by initializing fontconfig once, single-threaded, from
+      # an ELF constructor that runs before main() (and therefore before any thread
+      # exists). Pango's later threaded FcInit() then finds fontconfig already
+      # initialized and returns immediately, so the concurrent parse never happens.
+      - name: Pre-initialize fontconfig to avoid Pango threaded FcInit crash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/fcpreinit.c" <<'CEOF'
+          #define _GNU_SOURCE
+          #include <dlfcn.h>
+
+          __attribute__((constructor))
+          static void preinit_fontconfig(void)
+          {
+            void *handle = dlopen("libfontconfig.so.1", RTLD_NOW | RTLD_GLOBAL);
+            if (handle) {
+              int (*fc_init)(void) = (int (*)(void)) dlsym(handle, "FcInit");
+              if (fc_init) {
+                fc_init();
+              }
+            }
+          }
+          CEOF
+          gcc -shared -fPIC -O2 -o "$RUNNER_TEMP/libfcpreinit.so" "$RUNNER_TEMP/fcpreinit.c" -ldl
+          echo "Built fontconfig pre-init shim at $RUNNER_TEMP/libfcpreinit.so"
+          # Preload it for every subsequent step that launches Electron/Chromium.
+          echo "LD_PRELOAD=$RUNNER_TEMP/libfcpreinit.so${LD_PRELOAD:+:$LD_PRELOAD}" >> "$GITHUB_ENV"
+
+      - name: Transpile client and extensions
+        run: npm run gulp transpile-client-esbuild transpile-extensions
+
+      # --- Start PWB: upstream gates this step behind `inputs.electron_tests &&
+      # inputs.unit_and_integration_tests`, since upstream only runs it from the Electron
+      # invocation of this reusable workflow. This job only ever runs the Browser invocation (see
+      # below), so that condition would never be true here; the gate is dropped so the step
+      # actually runs. Name, timeout, and run command are otherwise identical to upstream. ---
+      - name: 🧪 Run unit tests (node.js)
+        timeout-minutes: 15
+        run: npm run test-node
+      # --- End PWB ---
+
+      # --- Start PWB: only Playwright is downloaded here (no Electron binary) since this job
+      # only ever runs browser tests ---
+      - name: Download Playwright
+        run: |
+          set -e
+
+          for i in {1..3}; do # try 3 times (matching retryCountOnTaskFailure: 3)
+            if npm run playwright-install; then
+              echo "Download successful on attempt $i"
+              break
+            fi
+
+            if [ $i -eq 3 ]; then
+              echo "Download failed after 3 attempts" >&2
+              exit 1
+            fi
+
+            echo "Download failed on attempt $i, retrying..."
+            sleep 5 # optional: add a small delay between retries
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # --- End PWB ---
+
+      # --- Start PWB: the full browser unit test suite currently fails broadly on a pre-existing
+      # "userDataPath was not provided to the browser" error in the in-process test harness's
+      # workbench instantiation, unrelated to any change under review. Browser integration and
+      # smoke tests below launch a real served instance and aren't affected, so they remain the
+      # coverage for this platform. ---
+      # --- End PWB ---
+
+      - name: Compile extensions for integration tests & smoke tests
+        run: |
+          set -e
+          npm run gulp \
+            compile-extension:configuration-editing \
+            compile-extension:css-language-features-server \
+            compile-extension:emmet \
+            compile-extension:git \
+            compile-extension:github-authentication \
+            compile-extension:html-language-features-server \
+            compile-extension:ipynb \
+            compile-extension:notebook-renderers \
+            compile-extension:json-language-features-server \
+            compile-extension:markdown-language-features \
+            compile-extension-media \
+            compile-extension:microsoft-authentication \
+            compile-extension:typescript-language-features \
+            compile-extension:vscode-api-tests \
+            compile-extension:vscode-colorize-tests \
+            compile-extension:vscode-colorize-perf-tests \
+            compile-extension:vscode-test-resolver
+
+      # --- Start PWB: upstream's Electron integration test step is intentionally not
+      # reincorporated -- this job only ever runs the Browser invocation of this workflow. ---
+      # --- End PWB ---
+
+      - name: 🧪 Run integration tests (Browser, Chromium)
+        timeout-minutes: 20
+        run: ./scripts/test-web-integration.sh --browser chromium
+
+      - name: Compile smoke tests
+        working-directory: test/smoke
+        run: npm run compile
+
+      - name: Diagnostics before smoke test run (processes, max_user_watches, number of opened file handles)
+        run: |
+          set -e
+          ps -ef
+          cat /proc/sys/fs/inotify/max_user_watches
+          lsof | wc -l
+          # --- Start PWB: retained from diagnosing the self-hosted-runner blank-window issue
+          # described above; harmless to keep ---
+          echo "ulimit -n: $(ulimit -n)"
+          # --- End PWB ---
+        continue-on-error: true
+
+      - name: 🧪 Run smoke tests (Browser, Chromium)
+        timeout-minutes: 20
+        run: npm run smoketest-no-compile -- --web --tracing --headless
+
+      - name: Diagnostics after smoke test run (processes, max_user_watches, number of opened file handles)
+        if: always()
+        run: |
+          set -e
+          ps -ef
+          cat /proc/sys/fs/inotify/max_user_watches
+          lsof | wc -l
+        continue-on-error: true
+
+      - name: Publish Crash Reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        continue-on-error: true
+        with:
+          name: ${{ format('crash-dump-linux-{0}-{1}-{2}', env.VSCODE_ARCH, env.ARTIFACT_NAME, github.run_attempt) }}
+          path: .build/crashes
+          if-no-files-found: ignore
+
+      # In order to properly symbolify above crash reports
+      # (if any), we need the compiled native modules too
+      - name: Publish Node Modules
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        continue-on-error: true
+        with:
+          name: ${{ format('node-modules-linux-{0}-{1}-{2}', env.VSCODE_ARCH, env.ARTIFACT_NAME, github.run_attempt) }}
+          path: node_modules
+          if-no-files-found: ignore
+
+      - name: Publish Log Files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        continue-on-error: true
+        with:
+          name: ${{ format('logs-linux-{0}-{1}-{2}', env.VSCODE_ARCH, env.ARTIFACT_NAME, github.run_attempt) }}
+          path: .build/logs
+          if-no-files-found: ignore

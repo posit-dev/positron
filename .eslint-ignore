@@ -28,6 +28,7 @@
 **/extensions/positron-supervisor/src/kcclient/**
 # --- End Positron ---
 **/extensions/markdown-language-features/media/**
+**/extensions/markdown-language-features/markdown-editor-out/**
 **/extensions/markdown-language-features/notebook-out/**
 **/extensions/markdown-math/notebook-out/**
 **/extensions/mermaid-markdown-features/chat-webview-out/**

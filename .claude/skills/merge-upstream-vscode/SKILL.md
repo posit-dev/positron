@@ -188,7 +188,14 @@ Stage any lockfile updates. If you see problems, fix them and run `npm install`
 again until all lockfile issues are resolved.
 
 Once `npm install` succeeds, run `npm ci` until it passes to confirm that the
-lockfile is complete.
+lockfile is complete. Do not skip this: a hand-resolved lockfile can leave an
+entry that `npm install` reports as "up to date" (it only reconciles against the
+node_modules already on disk) while `npm ci` rejects it with an error like
+`Missing: <pkg>@ from lock file`. This bites hardest on `overrides` (e.g. the
+`sharp` stub), where the merge can nest the override under the wrong package
+instead of at the top level. If `npm ci` fails, regenerate the lockfile from
+package.json alone with `npm install --package-lock-only` rather than editing it
+further by hand, then confirm with `npm ci --dry-run`.
 
 ### Step 4: Compile
 
@@ -198,21 +205,158 @@ Once installation is complete, compile the code to check for compile errors:
 Once the basic compilation test is passing, verify that you can run a release
 build. If you're on macOS: `npm run gulp vscode-darwin-arm64`
 
+#### Typecheck the build tooling
+
+`npm run compile` and the release build both run the **gulp** pipeline. They do
+NOT exercise `build/next/` (the transpile-based build the dev daemons and
+`launch.json` use), and they do not typecheck anything under `build/`. Those
+files run via `--experimental-strip-types`, so a type error there -- for example
+a call site not updated after the merge changed a function's signature -- has no
+static check and fails only at runtime. Run the build folder's own typecheck to
+cover them:
+
+```bash
+cd build && npm run typecheck && cd ..
+```
+
+This catches the whole class of "the merge added a required parameter and one
+Positron call site wasn't updated" semantic conflicts (e.g. a 2-vs-3 argument
+mismatch reported as `error TS2554: Expected 3 arguments, but got 2`).
+
+This suite is not fully green at baseline -- `main` carries a few pre-existing
+errors (e.g. unused-var warnings in the platform `gulpfile.vscode.*.ts` files).
+The goal is **no new errors in files the merge touched**: scan the output for
+anything under `build/next/` or any build file that appears in your merge diff,
+and ignore the known pre-existing noise elsewhere.
+
+#### Smoke-launch a dev build
+
+The release build passing does NOT mean a dev build works -- they are different
+build systems, and Positron code that only the dev path touches (anything in
+`build/next/`) can be broken while the release build is green. This is the most
+common way engineers actually run Positron, so verify it explicitly:
+
+```bash
+npm run build-stop && npm run build-start && npm run build-check
+```
+
+`build-check` must report **0 errors from every daemon**, including
+`watch-client-transpile`. Do not accept a "Finished transpilation with N errors"
+line: `build-check` only prints the summary count, not the underlying error. To
+see what actually failed, attach to the offending daemon directly, e.g.
+`npx deemon --attach -- npm run watch-client-transpile`. A transpile error there
+means a file didn't emit its `.js`, so the workbench fails to load at runtime
+with `ERR_FILE_NOT_FOUND` / "Failed to fetch dynamically imported module" even
+though every gulp-based check passed.
+
 ### Step 5: Test
 
 Run the unit tests and the extension host tests. Investigate and fix any
 failures, and keep running until they pass.
 
+"Unit tests" means BOTH runners, not just one. The Positron vitest suite is fast
+and needs no build daemons, so it's tempting to run it and assume units are
+covered -- but it does not execute the core Mocha `.test.ts` files, which is
+exactly where upstream's own tests collide with Positron's edits. A green vitest
+run is NOT evidence that units pass. You must run the core Mocha suite to green
+before treating unit tests as done or relying on CI:
+
+```bash
+npm run build-start && npm run build-check   # daemons must be green first
+npm run test:core                            # the full core Mocha suite
+```
+
+Do not push the merge with the core Mocha suite unrun. If the log records units
+as "not run yet," they are not done -- CI will find what you skipped. The `test /
+unit` CI job runs this suite, so any red here is a red CI job.
+
+These are the recurring ways an upstream `.test.ts` collides with Positron's
+edits. Watch for all of them, not just the first:
+
+- **New constructor dependency.** The merge adds a `@IService` parameter to an
+  upstream class, and its upstream `.test.ts` doesn't stub the service, so it
+  throws at construction. A variant: the test *does* stub it but registers the
+  stub AFTER `createInstance(...)` of the class -- order matters, stub first.
+  Recurring casualties: `chatAgents.test.ts`, `defaultAccount.test.ts`,
+  `extensionGalleryService.test.ts`.
+- **Positron flips an upstream default.** A test assumes an upstream config
+  default, but Positron changed it (e.g. `telemetry.telemetryLevel` defaults to
+  `off`, not `all`), so the test's expected value no longer holds. Fix the test
+  setup to establish the value it needs explicitly rather than leaning on the
+  default.
+- **PWB behavioral patch invalidates a negative assertion.** PWB patches
+  `isProposedApiEnabled` to always return true, so any upstream test asserting
+  that a proposed-API check *throws* (`checkProposedApiEnabled`) can never pass.
+  Skip such a test with a `// --- Start Positron ---` note explaining the patch.
+- **Positron edited the production class, not the test.** Positron modified an
+  upstream class (new fields it reads, new gates it checks -- e.g. reading
+  `positronVersion` or gating on `update.positron.channel`) but the upstream
+  test still exercises the pre-Positron behavior. Update the test to set up the
+  Positron inputs the production code now reads.
+
+#### Extension host tests
+
+The `test / ext-host` CI job runs three driver scripts in sequence, matching
+`.github/workflows/test-ext-host.yml`: `scripts/test-integration-pr.sh` (Positron
+extensions, Electron), `scripts/test-remote-integration.sh` (upstream API/language
+suites, Remote), and `scripts/test-web-integration.sh` (Chromium). A red job can
+come from any of the three, not just the first.
+
+Read this job's failure carefully: it has a signature that looks green. Every
+suite can report `N passing` and `Extension host test runner exit code: 0` while
+the job still ends in `##[error]Process completed with exit code 1`. When that
+happens the failure is in the driver script, not a test:
+
+- **`set -e` cleanup race.** The drivers `rm -rf` a throwaway user-data temp dir
+  at the end. A builtin extension (notably `ms-python`) can still be writing a
+  bytecache into it during teardown, so `rm` fails with `rm: cannot remove ...
+  Directory not empty` and `set -e` turns that into exit 1. That one `rm:` line
+  sits just above the exit code, after the last suite's `exited with code: 0`.
+  These temp-dir cleanups must be best-effort (`|| true`); don't chase it as a
+  test failure.
+- **Unhandled rejection at shutdown.** A rejected promise logged as `rejected
+  promise not handled within 1 second` can fail the process after tests pass.
+  Note it appears benignly in many suites (e.g. copilot's `GitHubLoginFailed`);
+  only treat it as the cause if it correlates with the failing process.
+
+So when the ext-host job is red, don't stop at the mocha summary. Scan the tail of
+the failing suite for a non-test line (`rm:`, a stack trace, a crash) between the
+last `exited with code: 0` and the final exit code.
+
 Next, install all e2e test dependencies and run the test suite. Investigate any
 failures and fix them if they are caused by the merge.
 
-### Step 6: Document
+### Step 6: Check the test tag map
+
+The `pr-tags` CI job fails if the merge touches a Positron-owned source dir that
+has no entry in `.github/workflows/test-tag-paths-map.json`. A merge often pulls
+Positron edits into upstream dirs that aren't mapped yet (e.g. a change under
+`src/vs/platform/policy/`), so check this before pushing. Reproduce the exact CI
+check locally:
+
+```bash
+source scripts/lib/pr-tags-lib.sh
+find_unmapped_positron_dirs "$(git diff --name-only origin/main...HEAD)" \
+  .github/workflows/test-tag-paths-map.json
+```
+
+On a large merge this takes a minute or two (it reads each changed file's
+copyright header). Add every dir it prints to the map: a feature tag list like
+`["@:console"]` if that dir has e2e coverage, or `[]` if it doesn't. For an
+upstream dir where only a Posit-owned file or two live, map the dir to `[]` and,
+if a Posit-owned file has coverage, add a longer per-file key for it.
+
+Note this local check is stricter than CI: the `pr-tags` job only sees the first
+3000 changed files (GitHub's API cap), so on a big merge it can miss dirs this
+command catches. Map them anyway.
+
+### Step 7: Document
 
 Summarize all your findings and any design decisions you made during the merge
 at the end of the log file. Include any manual steps engineers will need to take
 when pulling down the merged code.
 
-## Step 7: Final Tests
+## Step 8: Final Tests
 
 Prompt the user to commit the change (a prerequisite to running the CI lab
 tests). Tell them you're done with the merge and preliminary tests are passing,

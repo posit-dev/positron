@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { CopilotSession, SessionEvent, SessionEventPayload, SessionEventType } from '@github/copilot-sdk';
+import { DeferredPromise } from '../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 
@@ -16,25 +17,46 @@ export class CopilotSessionWrapper extends Disposable {
 
 	private readonly _handledEventTypes = new Set<SessionEventType>();
 	private readonly _onUnhandledEvent = this._register(new Emitter<SessionEvent>());
-	// --- Start Positron ---
-	// Add an explicit type annotation to avoid TS2742 during declaration emit.
+	// --- Start PWB:
+	// the inferred type is not nameable because the SDK re-exports SessionEvent as
+	// an alias of a renamed import, and tsb forces declaration emit (TS2883)
+	// I suspect this will be fixed upstream, and if that happens we can remove this
+	// change to match upstream's change.
 	readonly onUnhandledEvent: Event<SessionEvent> = this._onUnhandledEvent.event;
-	// --- End Positron ---
+	// --- End PWB ---
+	private readonly _shutdown = new DeferredPromise<void>();
+	private _disconnectPromise: Promise<void> | undefined;
 
 	constructor(readonly session: CopilotSession) {
 		super();
 		const unsubscribeAll = session.on(event => {
+			if (event.type === 'session.shutdown') {
+				void this._shutdown.complete();
+			}
 			if (!this._handledEventTypes.has(event.type)) {
 				this._onUnhandledEvent.fire(event);
 			}
 		});
 		this._register(toDisposable(unsubscribeAll));
 		this._register(toDisposable(() => {
-			session.disconnect().catch(() => { /* best-effort */ });
+			void this.disconnect().catch(() => { /* best-effort */ });
 		}));
 	}
 
 	get sessionId(): string { return this.session.sessionId; }
+
+	/** Disconnects once the request completes or the SDK reports session shutdown. */
+	disconnect(): Promise<void> {
+		if (this._shutdown.isSettled) {
+			return this._shutdown.p;
+		}
+		this._disconnectPromise ??= this.session.disconnect().catch(error => {
+			if (!this._shutdown.isSettled) {
+				throw error;
+			}
+		});
+		return Promise.race([this._disconnectPromise, this._shutdown.p]);
+	}
 
 	private _onMessageDelta: Event<SessionEventPayload<'assistant.message_delta'>> | undefined;
 	get onMessageDelta(): Event<SessionEventPayload<'assistant.message_delta'>> {
@@ -44,6 +66,11 @@ export class CopilotSessionWrapper extends Disposable {
 	private _onMessage: Event<SessionEventPayload<'assistant.message'>> | undefined;
 	get onMessage(): Event<SessionEventPayload<'assistant.message'>> {
 		return this._onMessage ??= this._sdkEvent('assistant.message');
+	}
+
+	private _onToolCallDelta: Event<SessionEventPayload<'assistant.tool_call_delta'>> | undefined;
+	get onToolCallDelta(): Event<SessionEventPayload<'assistant.tool_call_delta'>> {
+		return this._onToolCallDelta ??= this._sdkEvent('assistant.tool_call_delta');
 	}
 
 	private _onToolStart: Event<SessionEventPayload<'tool.execution_start'>> | undefined;
@@ -59,6 +86,11 @@ export class CopilotSessionWrapper extends Disposable {
 	private _onPermissionRequested: Event<SessionEventPayload<'permission.requested'>> | undefined;
 	get onPermissionRequested(): Event<SessionEventPayload<'permission.requested'>> {
 		return this._onPermissionRequested ??= this._sdkEvent('permission.requested');
+	}
+
+	private _onPermissionCompleted: Event<SessionEventPayload<'permission.completed'>> | undefined;
+	get onPermissionCompleted(): Event<SessionEventPayload<'permission.completed'>> {
+		return this._onPermissionCompleted ??= this._sdkEvent('permission.completed');
 	}
 
 	private _onIdle: Event<SessionEventPayload<'session.idle'>> | undefined;
@@ -99,6 +131,16 @@ export class CopilotSessionWrapper extends Disposable {
 	private _onAutoModeResolved: Event<SessionEventPayload<'session.auto_mode_resolved'>> | undefined;
 	get onAutoModeResolved(): Event<SessionEventPayload<'session.auto_mode_resolved'>> {
 		return this._onAutoModeResolved ??= this._sdkEvent('session.auto_mode_resolved');
+	}
+
+	private _onManagedSettingsResolved: Event<SessionEventPayload<'session.managed_settings_resolved'>> | undefined;
+	get onManagedSettingsResolved(): Event<SessionEventPayload<'session.managed_settings_resolved'>> {
+		return this._onManagedSettingsResolved ??= this._sdkEvent('session.managed_settings_resolved');
+	}
+
+	private _onManagedSettingsEnforced: Event<SessionEventPayload<'session.managed_settings_enforced'>> | undefined;
+	get onManagedSettingsEnforced(): Event<SessionEventPayload<'session.managed_settings_enforced'>> {
+		return this._onManagedSettingsEnforced ??= this._sdkEvent('session.managed_settings_enforced');
 	}
 
 	private _onSessionHandoff: Event<SessionEventPayload<'session.handoff'>> | undefined;
@@ -174,6 +216,11 @@ export class CopilotSessionWrapper extends Disposable {
 	private _onUsage: Event<SessionEventPayload<'assistant.usage'>> | undefined;
 	get onUsage(): Event<SessionEventPayload<'assistant.usage'>> {
 		return this._onUsage ??= this._sdkEvent('assistant.usage');
+	}
+
+	private _onModelCallFailure: Event<SessionEventPayload<'model.call_failure'>> | undefined;
+	get onModelCallFailure(): Event<SessionEventPayload<'model.call_failure'>> {
+		return this._onModelCallFailure ??= this._sdkEvent('model.call_failure');
 	}
 
 	private _onAbort: Event<SessionEventPayload<'abort'>> | undefined;

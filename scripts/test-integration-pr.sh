@@ -155,5 +155,9 @@ run_extension_suite npm run test-extension -- -l positron-zed
 kill_app
 
 # Cleanup
+# Best-effort: a builtin extension (e.g. ms-python) can still be writing a
+# bytecache into the user-data dir as we tear down, so `rm -rf` may fail with
+# "Directory not empty". This is a throwaway temp dir, so never let its cleanup
+# fail an otherwise-green run under `set -e`.
 
-rm -rf $VSCODEUSERDATADIR
+rm -rf $VSCODEUSERDATADIR || true

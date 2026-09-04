@@ -30,6 +30,7 @@ suite('AgentSessionsCache', () => {
 			timing: { created: 1, lastRequestStarted: undefined, lastRequestEnded: undefined },
 			changes,
 			archived: false,
+			providerIsRead: true,
 		};
 	}
 

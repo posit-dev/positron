@@ -4284,8 +4284,8 @@
 		}
 	},
 	{
-		"c": "syntax: '<angle",
-		"t": "source.css meta.at-rule.body.css meta.selector.css",
+		"c": "syntax",
+		"t": "source.css meta.at-rule.body.css meta.property-name.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -4321,7 +4321,7 @@
 	},
 	{
 		"c": "\t",
-		"t": "source.css meta.at-rule.body.css meta.selector.css",
+		"t": "source.css meta.at-rule.body.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -4333,7 +4333,7 @@
 	},
 	{
 		"c": "initial-value",
-		"t": "source.css meta.at-rule.body.css meta.selector.css entity.name.tag.custom.css",
+		"t": "source.css meta.at-rule.body.css meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"2026-light": "entity.name.tag: #116329",
@@ -4344,8 +4344,8 @@
 		}
 	},
 	{
-		"c": ": 0deg;",
-		"t": "source.css meta.at-rule.body.css meta.selector.css",
+		"c": ":",
+		"t": "source.css meta.at-rule.body.css punctuation.separator.key-value.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -4693,7 +4693,7 @@
 	},
 	{
 		"c": "0",
-		"t": "source.css meta.at-rule.body.css meta.property-list.css meta.property-value.css constant.numeric.css",
+		"t": "source.css meta.at-rule.body.css meta.property-value.css constant.numeric.css",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"2026-light": "constant.numeric: #098658",
@@ -4728,8 +4728,8 @@
 		}
 	},
 	{
-		"c": "px",
-		"t": "source.css meta.at-rule.body.css meta.property-list.css meta.property-value.css constant.numeric.css keyword.other.unit.px.css",
+		"c": "deg",
+		"t": "source.css meta.at-rule.body.css meta.property-value.css constant.numeric.css keyword.other.unit.deg.css",
 		"r": {
 			"hc_black": "keyword.other.unit: #B5CEA8",
 			"2026-light": "keyword.other.unit: #098658",
@@ -4801,7 +4801,7 @@
 	},
 	{
 		"c": ";",
-		"t": "source.css meta.at-rule.body.css meta.property-list.css punctuation.terminator.rule.css",
+		"t": "source.css meta.at-rule.body.css punctuation.terminator.rule.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -9684,8 +9684,8 @@
 		}
 	},
 	{
-		"c": "child",
-		"t": "source.css meta.at-rule.body.css meta.property-list.css meta.property-name.css",
+		"c": "inherits",
+		"t": "source.css meta.at-rule.body.css meta.property-name.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "meta.property-name: #0550AE",
@@ -9733,7 +9733,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.css meta.at-rule.body.css meta.property-list.css punctuation.separator.key-value.css",
+		"t": "source.css meta.at-rule.body.css punctuation.separator.key-value.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -9745,7 +9745,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.css meta.at-rule.body.css meta.property-list.css",
+		"t": "source.css meta.at-rule.body.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -9756,8 +9756,8 @@
 		}
 	},
 	{
-		"c": "blue",
-		"t": "source.css meta.at-rule.body.css meta.property-list.css meta.property-value.css support.constant.color.w3c-standard-color-name.css",
+		"c": "false",
+		"t": "source.css meta.at-rule.body.css meta.property-value.css",
 		"r": {
 			"hc_black": "support.constant.color: #CE9178",
 			"2026-light": "support.constant.color: #0451A5",
@@ -9769,7 +9769,7 @@
 	},
 	{
 		"c": ";",
-		"t": "source.css meta.at-rule.body.css meta.property-list.css punctuation.terminator.rule.css",
+		"t": "source.css meta.at-rule.body.css punctuation.terminator.rule.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -9828,7 +9828,7 @@
 		}
 	},
 	{
-		"c": "parent",
+		"c": "page-wrapper",
 		"t": "source.css meta.selector.css entity.other.attribute-name.class.css",
 		"r": {
 			"hc_black": "entity.other.attribute-name.class.css: #D7BA7D",
@@ -10224,7 +10224,7 @@
 		}
 	},
 	{
-		"c": "cr2.gif",
+		"c": "zen-bg.jpg",
 		"t": "source.css meta.property-list.css meta.property-value.css meta.function.url.css variable.parameter.url.css",
 		"r": {
 			"hc_black": "source.css variable: #D4D4D4",
@@ -10369,7 +10369,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.css meta.property-list.css",
+		"t": "source.css meta.property-list.css meta.property-value.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -10380,7 +10380,7 @@
 		}
 	},
 	{
-		"c": "absolute",
+		"c": "top",
 		"t": "source.css meta.property-list.css meta.property-value.css support.constant.property-value.css",
 		"r": {
 			"hc_black": "support.constant.property-value: #CE9178",
@@ -10416,7 +10416,7 @@
 		}
 	},
 	{
-		"c": "top",
+		"c": "padding",
 		"t": "source.css meta.property-list.css meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
@@ -10597,7 +10597,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.css meta.property-list.css",
+		"t": "source.css meta.property-list.css meta.property-value.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -10608,7 +10608,7 @@
 		}
 	},
 	{
-		"c": "148",
+		"c": "175",
 		"t": "source.css meta.property-list.css meta.property-value.css constant.numeric.css",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
@@ -10681,7 +10681,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.css meta.property-list.css",
+		"t": "source.css meta.property-list.css meta.property-value.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -10920,7 +10920,7 @@
 		}
 	},
 	{
-		"c": "font-size",
+		"c": "margin",
 		"t": "source.css meta.property-list.css meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
@@ -10956,7 +10956,7 @@
 		}
 	},
 	{
-		"c": "16",
+		"c": "0",
 		"t": "source.css meta.property-list.css meta.property-value.css constant.numeric.css",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
@@ -11088,7 +11088,7 @@
 		}
 	},
 	{
-		"c": "absolute",
+		"c": "relative",
 		"t": "source.css meta.property-list.css meta.property-value.css support.constant.property-value.css",
 		"r": {
 			"hc_black": "support.constant.property-value: #CE9178",
@@ -11292,8 +11292,8 @@
 		}
 	},
 	{
-		"c": "figma-select",
-		"t": "source.css meta.selector.css entity.name.tag.custom.css",
+		"c": ".",
+		"t": "source.css meta.selector.css entity.other.attribute-name.class.css punctuation.definition.entity.css",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"2026-light": "entity.name.tag: #116329",
@@ -11304,7 +11304,23 @@
 		}
 	},
 	{
-		"c": "::part(listbox",
+		"c": "intro",
+		"t": "source.css meta.selector.css entity.other.attribute-name.class.css",
+		"r": {
+			"dark_plus": "entity.other.attribute-name.class.css: #D7BA7D",
+			"light_plus": "entity.other.attribute-name.class.css: #800000",
+			"dark_vs": "entity.other.attribute-name.class.css: #D7BA7D",
+			"light_vs": "entity.other.attribute-name.class.css: #800000",
+			"hc_black": "entity.other.attribute-name.class.css: #D7BA7D",
+			"2026-dark": "entity.other.attribute-name.class.css: #D7BA7D",
+			"dark_modern": "entity.other.attribute-name.class.css: #D7BA7D",
+			"2026-light": "entity.other.attribute-name.class.css: #800000",
+			"hc_light": "entity.other.attribute-name.class.css: #0F4A85",
+			"light_modern": "entity.other.attribute-name.class.css: #800000"
+		}
+	},
+	{
+		"c": " ",
 		"t": "source.css meta.selector.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
@@ -11496,8 +11512,8 @@
 		}
 	},
 	{
-		"c": " ",
-		"t": "source.css meta.selector.css",
+		"c": "::",
+		"t": "source.css meta.selector.css entity.other.attribute-name.pseudo-element.css punctuation.definition.entity.css",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"2026-light": "default: #202020",
@@ -11508,8 +11524,8 @@
 		}
 	},
 	{
-		"c": "+",
-		"t": "source.css meta.selector.css keyword.operator.combinator.css",
+		"c": "after",
+		"t": "source.css meta.selector.css entity.other.attribute-name.pseudo-element.css",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"2026-light": "keyword.operator: #000000",
@@ -11616,7 +11632,7 @@
 		}
 	},
 	{
-		"c": "4",
+		"c": "10",
 		"t": "source.css meta.property-list.css meta.property-value.css constant.numeric.css",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
@@ -11628,8 +11644,8 @@
 		}
 	},
 	{
-		"c": "rem",
-		"t": "source.css meta.property-list.css meta.property-value.css constant.numeric.css keyword.other.unit.rem.css",
+		"c": "px",
+		"t": "source.css meta.property-list.css meta.property-value.css constant.numeric.css keyword.other.unit.px.css",
 		"r": {
 			"hc_black": "keyword.other.unit: #B5CEA8",
 			"2026-light": "keyword.other.unit: #098658",
@@ -11712,7 +11728,7 @@
 		}
 	},
 	{
-		"c": "box-sizing",
+		"c": "display",
 		"t": "source.css meta.property-list.css meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
@@ -11748,7 +11764,7 @@
 		}
 	},
 	{
-		"c": "border-box",
+		"c": "block",
 		"t": "source.css meta.property-list.css meta.property-value.css support.constant.property-value.css",
 		"r": {
 			"hc_black": "support.constant.property-value: #CE9178",

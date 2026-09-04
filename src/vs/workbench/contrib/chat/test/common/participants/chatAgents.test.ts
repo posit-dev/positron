@@ -63,6 +63,7 @@ class TestLanguageModelsService implements ILanguageModelsService {
 	getStoredProviderVendor() { return undefined; }
 	invalidateProvider(_vendorId: string): void { }
 	updateModelPickerPreference(_modelIdentifier: string, _showInModelPicker: boolean): void { }
+	setModelsHidden(_modelIdentifiers: readonly string[], _hidden: boolean): void { }
 	getVendors(): ILanguageModelProviderDescriptor[] { return []; }
 	getLanguageModelIds() { return []; }
 	lookupLanguageModel() { return undefined; }

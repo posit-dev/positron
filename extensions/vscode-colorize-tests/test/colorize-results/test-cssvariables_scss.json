@@ -373,7 +373,7 @@
 	},
 	{
 		"c": "padding-left",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",

@@ -267,6 +267,13 @@ export interface IWorkbenchConstructionOptions {
 	// --- End Positron ---
 
 	/**
+	 * List of extensions allowed to use proposed APIs in this session.
+	 * This is the equivalent of the `--enable-proposed-api` command line flag.
+	 * An empty array enables proposed APIs for all extensions.
+	 */
+	readonly enabledExtensionProposedApi?: readonly ExtensionId[];
+
+	/**
 	 * Additional domains allowed to open from the workbench without the
 	 * link protection popup.
 	 */
@@ -563,6 +570,11 @@ export interface ITunnelDiscoveryProvider {
 	 * @param clusterId The cluster region of the tunnel.
 	 */
 	connect(tunnelId: string, clusterId: string): Promise<ITunnelConnection>;
+
+	/**
+	 * Delete a tunnel from the embedder's backing tunnel service.
+	 */
+	deleteTunnel?(tunnelId: string, clusterId: string): Promise<void>;
 }
 
 /**

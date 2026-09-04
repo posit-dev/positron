@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { existsSync, readFileSync } from 'fs';
 import { dirname, join, posix } from '../../base/common/path.js';
 import { fileURLToPath } from 'url';
+
 export const kProxyRegex = new RegExp('\/proxy\/[0-9]+[^a-zA-Z](\/)?');
 
 // --- Start PWB: session-less static URL prefix for cacheable assets ---

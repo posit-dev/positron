@@ -224,7 +224,7 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 			const assistantTabs = app.code.driver.currentPage
 				.locator('.tabs-container .tab[data-resource-name^="webview-posit-assistant"]');
 			while (await assistantTabs.count() > 0) {
-				await assistantTabs.first().locator('.action-label.codicon-close').click();
+				await assistantTabs.first().locator('.action-label.codicon-close-small').click();
 			}
 			await app.workbench.layouts.enterLayout('stacked');
 		});

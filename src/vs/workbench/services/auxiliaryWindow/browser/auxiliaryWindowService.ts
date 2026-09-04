@@ -55,6 +55,7 @@ export interface IAuxiliaryWindowOpenOptions {
 	readonly frameless?: boolean;
 	readonly transparent?: boolean;
 	readonly notResizable?: boolean;
+	readonly disableMaximize?: boolean;
 	readonly noBackgroundThrottling?: boolean;
 	readonly backgroundColor?: string;
 
@@ -98,6 +99,8 @@ export interface IAuxiliaryWindow extends IDisposable {
 	readonly container: HTMLElement;
 
 	updateOptions(options: { compact: boolean } | undefined): void;
+
+	setBounds(bounds: IRectangle): Promise<void>;
 
 	layout(): void;
 
@@ -168,6 +171,11 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 		}
 	}
 	// --- End Positron ---
+
+	async setBounds(bounds: IRectangle): Promise<void> {
+		this.window.moveTo(bounds.x, bounds.y);
+		this.window.resizeTo(bounds.width, bounds.height);
+	}
 
 	private registerListeners(): void {
 		this._register(addDisposableListener(this.window, EventType.BEFORE_UNLOAD, (e: BeforeUnloadEvent) => this.handleBeforeUnload(e)));
@@ -418,6 +426,7 @@ export class BrowserAuxiliaryWindowService extends Disposable implements IAuxili
 			options?.frameless ? 'window-frameless=yes' : undefined,
 			options?.transparent ? 'window-transparent=yes' : undefined,
 			options?.notResizable ? 'window-not-resizable=yes' : undefined,
+			options?.disableMaximize ? 'window-disable-maximize=yes' : undefined,
 			options?.noBackgroundThrottling ? 'window-no-background-throttling=yes' : undefined,
 			options?.backgroundColor && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(options.backgroundColor) ? `window-background-color=${options.backgroundColor}` : undefined,
 		]);

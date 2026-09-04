@@ -5,7 +5,6 @@
 
 import { createReadStream, promises } from 'fs';
 import type * as http from 'http';
-import * as url from 'url';
 import * as cookie from 'cookie';
 import * as crypto from 'crypto';
 import { isEqualOrParent } from '../../base/common/extpath.js';
@@ -232,7 +231,7 @@ export class WebClientServer {
 	 * @param parsedUrl The URL to handle, including base and product path
 	 * @param pathname The pathname of the URL, without base and product path
 	 */
-	async handle(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: url.UrlWithParsedQuery, pathname: string): Promise<void> {
+	async handle(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: URL, pathname: string): Promise<void> {
 		try {
 			// --- Start PWB ---
 			const sessionlessStaticCallbackRoute = resolveSessionlessStaticCallbackRoute();
@@ -318,7 +317,7 @@ export class WebClientServer {
 		// Append query string if it exists. The caller passes only the pathname, so the query
 		// string must be recovered from req.url; websocket apps like marimo require it
 		// (e.g. /ws?session_id=...).
-		const search = url.parse(req.url ?? '').search;
+		const search = new URL(req.url ?? '', 'http://localhost').search;
 		if (search) {
 			path = path.concat(search);
 		}
@@ -467,7 +466,7 @@ export class WebClientServer {
 	/**
 	 * Handle HTTP requests for /
 	 */
-	private async _handleRoot(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: url.UrlWithParsedQuery): Promise<void> {
+	private async _handleRoot(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: URL): Promise<void> {
 
 		const getFirstHeader = (headerName: string) => {
 			const val = req.headers[headerName];
@@ -477,8 +476,9 @@ export class WebClientServer {
 		// Prefix routes with basePath for clients
 		const basePath = getFirstHeader('x-forwarded-prefix') || this._basePath;
 
-		const queryConnectionToken = parsedUrl.query[connectionTokenQueryName];
-		if (typeof queryConnectionToken === 'string') {
+		const queryConnectionTokens = parsedUrl.searchParams.getAll(connectionTokenQueryName);
+		if (queryConnectionTokens.length === 1) {
+			const queryConnectionToken = queryConnectionTokens[0];
 			// We got a connection token as a query parameter.
 			// We want to have a clean URL, so we strip it
 			const responseHeaders: Record<string, string> = Object.create(null);
@@ -494,13 +494,10 @@ export class WebClientServer {
 				}
 			);
 
-			const newQuery = Object.create(null);
-			for (const key in parsedUrl.query) {
-				if (key !== connectionTokenQueryName) {
-					newQuery[key] = parsedUrl.query[key];
-				}
-			}
-			const newLocation = url.format({ pathname: basePath, query: newQuery });
+			const newQuery = new URLSearchParams(parsedUrl.searchParams);
+			newQuery.delete(connectionTokenQueryName);
+			const queryString = newQuery.toString();
+			const newLocation = queryString ? `${basePath}?${queryString}` : basePath;
 			responseHeaders['Location'] = newLocation;
 
 			res.writeHead(302, responseHeaders);
@@ -602,6 +599,7 @@ export class WebClientServer {
 
 		const productConfiguration: Partial<Mutable<IProductConfiguration>> = {
 			embedderIdentifier: 'server-distro',
+			voiceWsUrl: this._productService.voiceWsUrl,
 			// --- Start PWB: web prefix, proxy port url, custom extensions gallery ---
 			rootEndpoint: base,
 			proxyEndpointTemplate: base + `/p/{{port}}/${process.env.RS_PORT_TOKEN}`,
@@ -632,6 +630,7 @@ export class WebClientServer {
 		} else {
 			this._logService.info('[WebClientServer] No POSITRON_ENFORCED_SETTINGS environment variable found');
 		}
+		// --- End PWB ---
 
 		// --- Start Positron ---
 		const positronDocsUrl = process.env['POSITRON_DOCS_URL'];
@@ -669,6 +668,7 @@ export class WebClientServer {
 			developmentOptions: { enableSmokeTestDriver: this._environmentService.args['enable-smoke-test-driver'] ? true : undefined, logLevel: this._logService.getLevel() },
 			settingsSyncOptions: !this._environmentService.isBuilt && this._environmentService.args['enable-sync'] ? { enabled: true } : undefined,
 			enableWorkspaceTrust: !this._environmentService.args['disable-workspace-trust'],
+			enabledExtensionProposedApi: this._environmentService.args['enable-proposed-api'],
 			folderUri: resolveWorkspaceURI(this._environmentService.args['default-folder']),
 			workspaceUri: resolveWorkspaceURI(this._environmentService.args['default-workspace']),
 			// --- Start Positron ---

@@ -99,10 +99,10 @@ export class Extensions {
 
 	async closeExtension(title: string): Promise<any> {
 		try {
-			await this.code.driver.currentPage.locator(`.tabs-container div.tab[aria-label="Extension: ${title}, preview"] div.tab-actions a.action-label.codicon.codicon-close`).click();
+			await this.code.driver.currentPage.locator(`.tabs-container div.tab[aria-label="Extension: ${title}, preview"] div.tab-actions a.action-label.codicon.codicon-close-small`).click();
 		} catch (e) {
 			this.code.logger.log(`Extension '${title}' not opened as preview. Trying without 'preview'.`);
-			await this.code.driver.currentPage.locator(`.tabs-container div.tab[aria-label="Extension: ${title}"] div.tab-actions a.action-label.codicon.codicon-close`).click();
+			await this.code.driver.currentPage.locator(`.tabs-container div.tab[aria-label="Extension: ${title}"] div.tab-actions a.action-label.codicon.codicon-close-small`).click();
 		}
 	}
 

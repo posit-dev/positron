@@ -21,6 +21,11 @@
   "dependencies": {
     "odbc": "^2.5.0"
   },
+  "overrides": {
+    "odbc": {
+      "node-addon-api": "^8.0.0"
+    }
+  },
   "devDependencies": {
     "positron-data-explorer-formatting": "file:../positron-data-explorer-formatting",
     "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol",
