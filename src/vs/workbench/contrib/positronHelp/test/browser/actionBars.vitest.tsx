@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Event } from '../../../../../base/common/event.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
@@ -72,10 +72,11 @@ describe('Help ActionBars', () => {
 		const input = screen.getByRole('combobox', { name: 'Search R Help' });
 		await user.click(input);
 		await user.type(input, 'plot');
-		await waitFor(() => expect(screen.getByRole('option', { name: /plot graphics/ })).toBeVisible());
-		await user.keyboard('{ArrowDown}{Enter}');
+		const option = await screen.findByRole('option', { name: /plot graphics/ });
+		await user.click(option);
 
 		expect(showHelpTopicForForegroundSession).toHaveBeenCalledWith('graphics::plot');
 		expect(searchHelp).not.toHaveBeenCalled();
+		expect(screen.queryByRole('listbox')).toBeNull();
 	});
 });
