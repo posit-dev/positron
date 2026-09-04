@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { MutableRefObject, useEffect } from 'react';
+import { MutableRefObject, useEffect, useRef } from 'react';
 import { usePositronActionBarContext } from './positronActionBarContext.js';
 
 /**
@@ -15,17 +15,28 @@ import { usePositronActionBarContext } from './positronActionBarContext.js';
 export const useRegisterWithActionBar = (refs: MutableRefObject<HTMLElement>[]) => {
 	const { focusableComponents } = usePositronActionBarContext();
 
+	// Every call site passes an inline array literal, so `refs` is a different array on every
+	// render. Holding it in a ref lets the effect below depend on the action bar alone. If the
+	// effect re-ran on every render it would set tabIndex back to -1, leaving the bar with no
+	// tab stop, and re-adding the element to the insertion-ordered set would move the component
+	// to the end of the arrow-key order.
+	const latestRefs = useRef(refs);
+	latestRefs.current = refs;
+
 	useEffect(() => {
-		refs.forEach(ref => {
+		// Capture the elements now so the cleanup removes the same ones that were added, even if
+		// a ref has since been pointed somewhere else.
+		const elements = latestRefs.current.map(ref => ref.current);
+		elements.forEach(element => {
 			if (focusableComponents.size === 0) {
-				ref.current.tabIndex = 0; // initially the first component is focusable
+				element.tabIndex = 0; // initially the first component is focusable
 			} else {
-				ref.current.tabIndex = -1;
+				element.tabIndex = -1;
 			}
-			focusableComponents.add(ref.current);
+			focusableComponents.add(element);
 		});
 		return () => {
-			refs.forEach(ref => focusableComponents.delete(ref.current));
+			elements.forEach(element => focusableComponents.delete(element));
 		};
-	}, [focusableComponents, refs]);
+	}, [focusableComponents]);
 };
