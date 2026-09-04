@@ -3,43 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-welcome-page-walkthrough-banner {
-	background-color: var(--vscode-positronWelcome-bannerBackground);
-	border: 1px solid var(--vscode-positronWelcome-bannerBorder);
-	border-radius: 6px;
-	display: flex;
-	gap: 16px;
-	/*
-	 * Clips the text rather than letting it paint outside the banner's border.
-	 * Under about 90px wide, the padding and the icon take up the whole banner, so
-	 * there is no space left to wrap text into.
-	 */
-	overflow: hidden;
-	padding: 20px;
-}
-
-.positron-welcome-page-walkthrough-banner .walkthrough-banner-icon {
-	align-self: center;
-	color: var(--vscode-icon-foreground);
-	flex: 0 0 auto;
-}
-
 /*
- * Lets the text wrap rather than spill out of the banner in a narrow editor.
+ * No fill, no border, no radius. A filled rounded box with an icon is the shape
+ * of a workbench notification, and a notification has a close button, so the eye
+ * looks for one that is not there. Recent is a plain titled list, and this is the
+ * same kind of thing.
  *
- * A flex child will not shrink narrower than its longest word unless min-width
- * is 0. Once the column is narrower than a single word, overflow-wrap breaks
- * that word.
- *
- * Both `anywhere` and `break-word` break the word, but only `anywhere` also lets
- * the column itself be narrower than one word. With `break-word` the column
- * stays as wide as its longest word, and the text spills out again.
+ * Both `anywhere` and `break-word` break a word too long for the column, but only
+ * `anywhere` also lets the column itself be narrower than one word. With
+ * `break-word` the column stays as wide as its longest word and the text spills
+ * out of the banner in a narrow editor. `min-width: 0`, which the column needs
+ * before it can shrink that far, is set with the rest of its sizing in
+ * positronWelcomePage.css.
  */
-.positron-welcome-page-walkthrough-banner .walkthrough-banner-text {
+.positron-welcome-page-walkthrough-banner {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-	min-width: 0;
 	overflow-wrap: anywhere;
 }
 
@@ -52,7 +32,18 @@
 	margin: 0;
 }
 
+/*
+ * .gettingStartedContainer sets line-height: 16px for the whole page, which on
+ * 13px text is tight enough that three wrapped lines run together. This is the
+ * only real paragraph on the page -- everything else is a row or a label -- so it
+ * is the only place that shows. 20px matches the environment setup card's body
+ * text, so the two blocks beside each other set text the same way.
+ *
+ * No container chain needed: 16px arrives here by inheritance, and a rule that
+ * targets the element beats an inherited value whatever its specificity.
+ */
 .positron-welcome-page-walkthrough-banner .walkthrough-banner-description {
+	line-height: 20px;
 	margin: 0;
 }
 

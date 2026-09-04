@@ -50,25 +50,22 @@ export const WalkthroughBanner = () => {
 	// Render.
 	return (
 		<section aria-labelledby={headingId} className='positron-welcome-page-walkthrough-banner'>
-			<span aria-hidden='true' className='walkthrough-banner-icon codicon codicon-mortar-board' />
-			<div className='walkthrough-banner-text'>
-				<h2 className='walkthrough-banner-label' id={headingId}>
-					{localize('positron.welcome.learn', "Learn")}
-				</h2>
-				<p className='walkthrough-banner-description'>
-					{localize(
-						'positron.welcome.walkthroughBannerDescription',
-						"Take a guided tour of Positron without leaving the IDE. Start with the basics, or see what's different if you're coming from RStudio or VS Code."
-					)}
-				</p>
-				<Button
-					className='walkthrough-banner-link positron-welcome-page-link'
-					onPressed={showAllWalkthroughs}
-				>
-					{localize('positron.welcome.seeAllWalkthroughs', "See all walkthroughs")}
-					<span aria-hidden='true' className='walkthrough-banner-arrow codicon codicon-arrow-right' />
-				</Button>
-			</div>
+			<h2 className='walkthrough-banner-label' id={headingId}>
+				{localize('positron.welcome.learn', "Learn")}
+			</h2>
+			<p className='walkthrough-banner-description'>
+				{localize(
+					'positron.welcome.walkthroughBannerDescription',
+					"Take a guided tour of Positron without leaving the IDE. Start with the basics, or see what's different if you're coming from RStudio or VS Code."
+				)}
+			</p>
+			<Button
+				className='walkthrough-banner-link positron-welcome-page-link'
+				onPressed={showAllWalkthroughs}
+			>
+				{localize('positron.welcome.seeAllWalkthroughs', "See all walkthroughs")}
+				<span aria-hidden='true' className='walkthrough-banner-arrow codicon codicon-arrow-right' />
+			</Button>
 		</section>
 	);
 };
