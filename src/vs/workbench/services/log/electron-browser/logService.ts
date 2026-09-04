@@ -9,6 +9,9 @@ import { LoggerChannelClient } from '../../../../platform/log/common/logIpc.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { windowLogGroup, windowLogId } from '../common/logConstants.js';
 import { LogService } from '../../../../platform/log/common/logService.js';
+// --- Start Positron ---
+import { FixedLevelConsoleLogger, PINNED_CONSOLE_LEVEL, shouldPinConsoleEcho } from '../common/fixedLevelConsoleLogger.js';
+// --- End Positron ---
 
 export class NativeLogService extends LogService {
 
@@ -24,7 +27,15 @@ export class NativeLogService extends LogService {
 			consoleLogger = loggerService.createConsoleMainLogger();
 		} else {
 			// Normal mode: Log to console
-			consoleLogger = new ConsoleLogger(fileLogger.getLevel());
+			// --- Start Positron ---
+			// Under the e2e smoke driver the console echo is pinned instead of following the
+			// file-log level, which `--log=trace` would otherwise push over the Playwright CDP
+			// session in volumes that starve it. See PINNED_CONSOLE_LEVEL for why Debug.
+			// consoleLogger = new ConsoleLogger(fileLogger.getLevel());
+			consoleLogger = shouldPinConsoleEcho(environmentService)
+				? new FixedLevelConsoleLogger(PINNED_CONSOLE_LEVEL)
+				: new ConsoleLogger(fileLogger.getLevel());
+			// --- End Positron ---
 		}
 
 		super(fileLogger, [consoleLogger]);
