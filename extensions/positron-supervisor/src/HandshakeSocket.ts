@@ -198,20 +198,60 @@ export class HandshakeSocket implements vscode.Disposable {
 	public static connect(socketPath: string, timeoutMs: number): Promise<KallichoreServerState> {
 		const handles = new PromiseHandles<KallichoreServerState>();
 
-		const socket = net.connect(socketPath);
+		// Monotonic clock for elapsed timing, plus a wall clock timestamp so the
+		// operation can be correlated with other log sources (e.g. the server
+		// broker's own logs).
+		const start = performance.now();
+		const startedAt = new Date().toISOString();
+		let bytesReceived = 0;
+		console.log(
+			`[HandshakeSocket] connect: starting cached-handshake retrieval from ` +
+			`${socketPath} at ${startedAt} (timeout ${timeoutMs}ms)`);
+
+		const socket = net.connect(socketPath, () => {
+			console.log(
+				`[HandshakeSocket] connect: socket connected to ${socketPath} ` +
+				`after ${(performance.now() - start).toFixed(1)}ms`);
+		});
 		let text = '';
+		let firstByteLogged = false;
 		socket.setEncoding('utf8');
-		socket.on('data', (chunk: string) => { text += chunk; });
+		socket.on('data', (chunk: string) => {
+			text += chunk;
+			bytesReceived += Buffer.byteLength(chunk, 'utf8');
+			if (!firstByteLogged) {
+				firstByteLogged = true;
+				console.log(
+					`[HandshakeSocket] connect: first data from ${socketPath} ` +
+					`after ${(performance.now() - start).toFixed(1)}ms (${bytesReceived} bytes so far)`);
+			}
+		});
 		socket.on('end', () => {
+			const elapsed = (performance.now() - start).toFixed(1);
 			try {
 				handles.resolve(JSON.parse(text) as KallichoreServerState);
+				console.log(
+					`[HandshakeSocket] connect: parsed handshake payload from ` +
+					`${socketPath} after ${elapsed}ms (${bytesReceived} bytes total)`);
 			} catch (err) {
+				console.log(
+					`[HandshakeSocket] connect: failed to parse handshake payload from ` +
+					`${socketPath} after ${elapsed}ms (${bytesReceived} bytes total): ${err}`);
 				handles.reject(new Error(`Failed to parse handshake payload: ${err}`));
 			}
 		});
-		socket.on('error', (err) => handles.reject(err));
+		socket.on('error', (err) => {
+			console.log(
+				`[HandshakeSocket] connect: socket error on ${socketPath} after ` +
+				`${(performance.now() - start).toFixed(1)}ms: ${err}`);
+			handles.reject(err);
+		});
 
 		const timer = setTimeout(() => {
+			console.log(
+				`[HandshakeSocket] connect: timed out reading handshake payload from ` +
+				`${socketPath} after ${(performance.now() - start).toFixed(1)}ms ` +
+				`(timeout ${timeoutMs}ms, ${bytesReceived} bytes received so far)`);
 			socket.destroy();
 			handles.reject(new Error(
 				`Timed out reading handshake payload from ${socketPath} after ${timeoutMs}ms`));

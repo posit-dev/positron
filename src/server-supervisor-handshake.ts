@@ -50,6 +50,15 @@ export class SupervisorHandshakeBroker {
 
 	private _disposed = false;
 
+	/**
+	 * Monotonic timestamp (`performance.now()`) at which this broker started
+	 * listening, used as the origin for elapsed-time logging below.
+	 */
+	private readonly _createdAt = performance.now();
+
+	/** Number of connections accepted so far, used to label log lines. */
+	private _connectionCount = 0;
+
 	private constructor(
 		private readonly _server: net.Server,
 		/**
@@ -83,19 +92,62 @@ export class SupervisorHandshakeBroker {
 	 * window's extension host reading the cached payload back out.
 	 */
 	private _onConnection(socket: net.Socket): void {
-		if (this._cached === undefined) {
+		const connectionId = ++this._connectionCount;
+		const acceptedAt = performance.now();
+		const isReportIn = this._cached === undefined;
+		console.log(
+			`[SupervisorHandshakeBroker] connection #${connectionId} accepted ` +
+			`${(acceptedAt - this._createdAt).toFixed(1)}ms after broker start; ` +
+			`classified as ${isReportIn ? 'kcserver report-in' : 'cached replay'}`);
+
+		if (isReportIn) {
 			// kcserver reporting in: read the payload to EOF and cache it.
 			let text = '';
+			let bytesReceived = 0;
 			socket.setEncoding('utf8');
-			socket.on('data', (chunk: string) => { text += chunk; });
+			socket.on('data', (chunk: string) => {
+				text += chunk;
+				bytesReceived += Buffer.byteLength(chunk, 'utf8');
+			});
 			socket.on('end', () => {
 				this._cached = text;
+				console.log(
+					`[SupervisorHandshakeBroker] connection #${connectionId}: cached ` +
+					`report-in payload (${bytesReceived} bytes) after ` +
+					`${(performance.now() - acceptedAt).toFixed(1)}ms`);
 				this._readyResolve();
 			});
-			socket.on('error', (err) => this._readyReject(err));
+			socket.on('close', () => {
+				console.log(
+					`[SupervisorHandshakeBroker] connection #${connectionId}: report-in ` +
+					`socket closed after ${(performance.now() - acceptedAt).toFixed(1)}ms`);
+			});
+			socket.on('error', (err) => {
+				console.log(
+					`[SupervisorHandshakeBroker] connection #${connectionId}: report-in ` +
+					`socket error after ${(performance.now() - acceptedAt).toFixed(1)}ms: ${err}`);
+				this._readyReject(err);
+			});
 		} else {
 			// A window reading the cached payload back out: replay and close.
-			socket.end(this._cached);
+			const cached = this._cached ?? '';
+			const payloadBytes = Buffer.byteLength(cached, 'utf8');
+			socket.end(cached, () => {
+				console.log(
+					`[SupervisorHandshakeBroker] connection #${connectionId}: replayed ` +
+					`cached payload (${payloadBytes} bytes) after ` +
+					`${(performance.now() - acceptedAt).toFixed(1)}ms`);
+			});
+			socket.on('close', () => {
+				console.log(
+					`[SupervisorHandshakeBroker] connection #${connectionId}: replay ` +
+					`socket closed after ${(performance.now() - acceptedAt).toFixed(1)}ms`);
+			});
+			socket.on('error', (err) => {
+				console.log(
+					`[SupervisorHandshakeBroker] connection #${connectionId}: replay ` +
+					`socket error after ${(performance.now() - acceptedAt).toFixed(1)}ms: ${err}`);
+			});
 		}
 	}
 
@@ -164,9 +216,13 @@ export class SupervisorHandshakeBroker {
 	 * @throws An error if kcserver does not report in within the timeout.
 	 */
 	public async ready(timeoutMs: number): Promise<void> {
+		const start = performance.now();
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const timeout = new Promise<never>((_, reject) => {
 			timer = setTimeout(() => {
+				console.log(
+					`[SupervisorHandshakeBroker] ready(): timed out after ` +
+					`${(performance.now() - start).toFixed(1)}ms (timeout ${timeoutMs}ms)`);
 				reject(new Error(
 					`Timed out waiting for the supervisor to connect to the ` +
 					`handshake socket after ${timeoutMs}ms`));
@@ -174,6 +230,9 @@ export class SupervisorHandshakeBroker {
 		});
 		try {
 			await Promise.race([this._ready, timeout]);
+			console.log(
+				`[SupervisorHandshakeBroker] ready(): supervisor reported in after ` +
+				`${(performance.now() - start).toFixed(1)}ms`);
 		} finally {
 			if (timer !== undefined) {
 				clearTimeout(timer);
