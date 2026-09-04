@@ -102,6 +102,7 @@ const HelpSearch = () => {
 		}
 		setSubmitting(true);
 		setActiveIndex(-1);
+		setFocused(false);
 		try {
 			const shown = topic
 				? await services.positronHelpService.showHelpTopicForForegroundSession(topic.topic)
