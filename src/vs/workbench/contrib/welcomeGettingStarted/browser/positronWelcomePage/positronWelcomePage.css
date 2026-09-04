@@ -93,6 +93,35 @@
 }
 
 /*
+ * Every section heading is a label for what is under it rather than a line of the
+ * page's own, so it is set small, upper case, letter-spaced and muted: the eye
+ * lands on Recent's list and the card, not on the words naming them.
+ *
+ * The capitals come from `text-transform`, never from the localized string. A
+ * translator writes the heading in ordinary case, and a language whose script has
+ * no capitals is left alone.
+ *
+ * 12px, a step under the 13px body text below it, so the label reads as smaller
+ * than what it names without shrinking to the 11px the workbench uses for pane
+ * titles. A pane title labels a whole side of the window; these label one block
+ * on a page, at arm's length from the body text they sit above.
+ *
+ * This repeats the container chain because gettingStarted.css sets every h2 in
+ * the container to 1.5em and weight 400. It reaches the Recent heading, which the
+ * editor pane builds rather than this folder, and that is the point: the three
+ * sections have to look like one page.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer .positron-welcome-page h2 {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	line-height: normal;
+	margin: 0 0 8px;
+	text-transform: uppercase;
+}
+
+/*
  * Lets the user select and copy the text on this page.
  *
  * The workbench turns selection off for everything (`user-select: none` on

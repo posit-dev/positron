@@ -19,17 +19,7 @@
 .positron-welcome-page-walkthrough-banner {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
 	overflow-wrap: anywhere;
-}
-
-/*
- * gettingStarted.css gives every h2 in the container a 5px bottom margin, which
- * here lands on top of the 4px gap above and sets this heading further from its
- * paragraph than Recent's heading is from its list.
- */
-.positron-welcome-page-walkthrough-banner .walkthrough-banner-label {
-	margin: 0;
 }
 
 /*

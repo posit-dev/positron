@@ -102,10 +102,14 @@
 }
 
 /*
- * gettingStarted.css gives every h2 in the container a 5px bottom margin. In this
- * flex row that margin is not collapsed: it makes the title's box taller than its
- * text and lifts the text off centre against the buttons beside it.
+ * The only heading on the page that shares a row with something else, so it is
+ * the only one with no bottom margin: in a flex row that margin is not collapsed,
+ * and it would make the title's box taller than its text and lift the text off
+ * centre against the buttons. `.environment-health-header` spaces the row from
+ * the card instead. The container chain is here to outrank the page-wide heading
+ * rule in positronWelcomePage.css.
  */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
 .positron-welcome-page-environment-setup .environment-health-header-title {
 	flex: 1 1 auto;
 	margin: 0;
