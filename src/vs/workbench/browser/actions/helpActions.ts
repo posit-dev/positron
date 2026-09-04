@@ -430,6 +430,10 @@ registerAction2(GetStartedWithAccessibilityFeatures);
 // --- End Positron ---
 
 // --- Start Positron ---
+// These Posit links get their own menu group so the menubar draws a separator
+// between them and the upstream welcome items. '2_positron' sorts after
+// '1_welcome' and before '2_reference' (groups are compared with
+// localeCompare, see MenuInfo._compareMenuItems).
 registerAction2(class extends Action2 {
 	static readonly ID = 'workbench.action.openPositronDocumentation';
 
@@ -441,8 +445,8 @@ registerAction2(class extends Action2 {
 			f1: true,
 			menu: {
 				id: MenuId.MenubarHelpMenu,
-				group: '1_welcome',
-				order: 7
+				group: '2_positron',
+				order: 1
 			}
 		});
 	}
@@ -463,8 +467,8 @@ registerAction2(class extends Action2 {
 			f1: true,
 			menu: {
 				id: MenuId.MenubarHelpMenu,
-				group: '1_welcome',
-				order: 8
+				group: '2_positron',
+				order: 2
 			}
 		});
 	}
@@ -484,8 +488,8 @@ registerAction2(class extends Action2 {
 			f1: true,
 			menu: {
 				id: MenuId.MenubarHelpMenu,
-				group: '1_welcome',
-				order: 9
+				group: '2_positron',
+				order: 3
 			}
 		});
 	}
