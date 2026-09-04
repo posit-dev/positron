@@ -728,3 +728,125 @@ describe('containerHtmlFrom', () => {
 		expect(() => containerHtmlFrom(doc, 'server')).toThrow(/server/);
 	});
 });
+
+describe('kernel matrix', () => {
+	const kernelProc = (cmdBasename: string, mb: number, pid: number): LabeledProcess =>
+		proc({ pid, processRole: 'kernel', processName: cmdBasename, cmdBasename, pssBytes: mb * MB });
+
+	const entries: ScenarioSnapshots[] = [
+		scenarioEntry('idle', [proc()]),
+		scenarioEntry('session-r', [proc(), kernelProc('ark', 180, 200)]),
+		scenarioEntry('session-python', [proc(), kernelProc('python3', 90, 200)]),
+		scenarioEntry('notebook', [proc(), kernelProc('python3.11', 120, 200)])
+	];
+
+	test('decomposes the kernel role by language across scenarios', () => {
+		const kernels = buildSummaryMatrix(entries).kernels!;
+
+		expect(kernels.rows.map(row => row.label)).toEqual(['R (ark)', 'Python']);
+		expect(kernels.rows[0].values['session-r']).toBe(180 * MB);
+		expect(kernels.rows[1].values['session-python']).toBe(90 * MB);
+		expect(kernels.rows[1].values['notebook']).toBe(120 * MB);
+	});
+
+	// The em-dash the cell renderer prints for an absent value, not a fabricated
+	// zero: idle starts no session, so it has no R kernel rather than a 0 MB one.
+	test('leaves a scenario without that kernel absent', () => {
+		const kernels = buildSummaryMatrix(entries).kernels!;
+
+		expect(kernels.rows[0].values['idle']).toBeUndefined();
+		expect(kernels.rows[0].values['session-python']).toBeUndefined();
+	});
+
+	test('totals the kernels a scenario did run', () => {
+		const kernels = buildSummaryMatrix(entries).kernels!;
+
+		expect(kernels.totals['session-r']).toBe(180 * MB);
+		expect(kernels.totals['idle']).toBeUndefined();
+	});
+
+	// The invariant the dashboard's chart depends on, checked on our side of the
+	// same mapping: the labels have to add up to the band they decompose.
+	test('sums to the kernel row in the role matrix, per scenario', () => {
+		const matrix = buildSummaryMatrix(entries);
+		const kernelRole = matrix.rows.find(row => row.role === 'kernel')!;
+
+		for (const scenario of ['session-r', 'session-python', 'notebook'] as MemoryScenario[]) {
+			expect(matrix.kernels!.totals[scenario]).toBe(kernelRole.values[scenario]);
+		}
+	});
+
+	test('is undefined when no scenario ran a kernel', () => {
+		const matrix = buildSummaryMatrix([scenarioEntry('idle', [proc()])]);
+
+		expect(matrix.kernels).toBeUndefined();
+	});
+
+	// The regression a row-level count caused: quarto-inline runs two arks and
+	// session-r one, and a single number per row reported both as two.
+	test('counts kernel processes per scenario, not per row', () => {
+		const twoArks = scenarioEntry('quarto-inline', [
+			proc(), kernelProc('ark', 100, 200), kernelProc('ark', 100, 201)
+		]);
+		const kernels = buildSummaryMatrix([...entries, twoArks]).kernels!;
+		const ark = kernels.rows.find(row => row.label === 'R (ark)')!;
+
+		expect(ark.processCounts['quarto-inline']).toBe(2);
+		expect(ark.processCounts['session-r']).toBe(1);
+		// Summed across labels, so a column's marker counts every kernel in it.
+		expect(kernels.totalProcessCounts['quarto-inline']).toBe(2);
+	});
+
+	// Only the cell it is true of is marked, and the label carries no suffix.
+	test('superscripts only the multi-process cell', () => {
+		const twoArks = scenarioEntry('quarto-inline', [
+			proc(), kernelProc('ark', 100, 200), kernelProc('ark', 100, 201)
+		]);
+		const html = renderSummaryHtml(buildSummaryMatrix([...entries, twoArks]));
+		const arkRow = html.split('R (ark)')[1].split('</tr>')[0];
+
+		expect(html).not.toContain('processes)');
+		expect(arkRow.match(/<span class="count-marker">/g)).toHaveLength(1);
+		expect(arkRow).toContain('<span class="count-marker">2</span>');
+	});
+
+	test('omits the count footnote when every kernel is one process', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix(entries));
+
+		// The class name itself is in the stylesheet either way; the span is not.
+		expect(html).not.toContain('<span class="count-marker">');
+		expect(html).not.toContain('A superscript is how many');
+	});
+
+	// TOTAL sums across labels, so it can be marked while every row it sums is a
+	// single process. The footnote has to follow the marker, not the rows.
+	test('footnotes a TOTAL marker that no single row earns', () => {
+		const twoLanguages = scenarioEntry('quarto-inline', [
+			proc(), kernelProc('ark', 100, 200), kernelProc('python3', 100, 201)
+		]);
+		const matrix = buildSummaryMatrix([...entries, twoLanguages]);
+		const html = renderSummaryHtml(matrix);
+		// Scoped to the kernel card: the extension table has a TOTAL row of its own, earlier.
+		const totalRow = html.split('<h2>Kernel memory by language</h2>')[1].split('TOTAL')[1].split('</tr>')[0];
+
+		expect(matrix.kernels!.rows.every(row => (row.processCounts['quarto-inline'] ?? 0) <= 1)).toBe(true);
+		expect(matrix.kernels!.totalProcessCounts['quarto-inline']).toBe(2);
+		expect(totalRow).toContain('<span class="count-marker">2</span>');
+		expect(html).toContain('A superscript is how many');
+	});
+
+	test('renders the card in html', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix(entries));
+
+		expect(html).toContain('Kernel memory by language');
+		expect(html).toContain('R (ark)');
+	});
+
+	// Absent rather than an "unavailable" sentence: unlike a failed heap
+	// attribution, a run with no kernel is a legitimate result.
+	test('omits the card when no scenario ran a kernel', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix([scenarioEntry('idle', [proc()])]));
+
+		expect(html).not.toContain('Kernel memory by language');
+	});
+});

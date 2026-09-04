@@ -308,11 +308,31 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Compiles test/e2e, which is where summarize-cli.ts lives. Same action
-      # the memory job uses, so the compiled output this job runs is built the
-      # same way.
-      - name: Setup test dependencies and compile tests
-        uses: ./.github/actions/setup-e2e-test-dependencies
+      # Not ./.github/actions/setup-e2e-test-dependencies: this job renders one
+      # HTML file from JSON on disk, so it needs tsc, not the Playwright toolchain.
+      - name: Compile the summarizer
+        run: |
+          # Ranges from the root package.json so a hardcoded one can't drift; the
+          # name matters too, since `typescript` is aliased and its bin is `tsc6`.
+          SPECS=$(node -e '
+            const pkg = require("./package.json");
+            const ranges = { ...pkg.dependencies, ...pkg.devDependencies };
+            const names = ["typescript", "@types/node"];
+            const missing = names.filter((n) => !ranges[n]);
+            if (missing.length) {
+              console.error("not declared in the root package.json: " + missing.join(", "));
+              process.exit(1);
+            }
+            console.log(names.map((n) => n + "@" + ranges[n]).join(" "));
+          ')
+
+          # Otherwise npm install here builds the product's whole dependency tree.
+          rm package.json
+          echo '{}' > package.json
+
+          # Two more registry round-trips whose output this job never reads.
+          npm install --no-audit --no-fund $SPECS
+          npm --prefix test/e2e run compile -- -p tsconfig.summarize.json
 
       # Downloads every memory-report-<lane>-<scenario> artifact that was
       # uploaded, each into its own subdirectory named after the artifact --

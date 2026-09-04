@@ -307,6 +307,35 @@ describe('baselineToSnapshot', () => {
 		expect(mapped?.processes[0].processRole).toBe('kernel');
 	});
 
+	test('carries cmd_basename through, so a kernel can be diffed per language', () => {
+		const mapped = baselineToSnapshot({
+			found: true,
+			...baselineProvenance,
+			snapshot: {
+				tree_total_pss_bytes: 1000, settle_ms: 5000,
+				processes: [{ process_name: 'positron-r (ark)', process_role: 'kernel', cmd_basename: 'ark', pss_bytes: 40 }],
+				extensions: []
+			}
+		}, 'idle');
+		expect(mapped?.processes[0].cmdBasename).toBe('ark');
+	});
+
+	// The API gained the field after this client shipped, so a baseline stored by
+	// the older route has none. Blank keeps that baseline usable: the kernel card
+	// leaves its per-label changes blank rather than reporting every kernel new.
+	test('reads a missing cmd_basename as blank rather than rejecting the baseline', () => {
+		const mapped = baselineToSnapshot({
+			found: true,
+			...baselineProvenance,
+			snapshot: {
+				tree_total_pss_bytes: 1000, settle_ms: 5000,
+				processes: [{ process_name: 'positron-r (ark)', process_role: 'kernel', pss_bytes: 40 }],
+				extensions: []
+			}
+		}, 'idle');
+		expect(mapped?.processes[0].cmdBasename).toBe('');
+	});
+
 	test('fills unmapped numbers with zero rather than plausible values', () => {
 		const mapped = baselineToSnapshot({
 			found: true,

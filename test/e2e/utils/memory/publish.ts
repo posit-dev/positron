@@ -335,7 +335,13 @@ export type BaselineResponse =
 		snapshot: {
 			tree_total_pss_bytes: number;
 			settle_ms: number;
-			processes: { process_name: string; process_role: string; pss_bytes: number }[];
+			/**
+			 * `cmd_basename` is optional because the API gained it after this client
+			 * shipped (posit-dev/e2e-test-insights#241): a baseline stored by the
+			 * older route carries no such field, and treating its absence as an error
+			 * would throw away an otherwise usable baseline.
+			 */
+			processes: { process_name: string; process_role: string; cmd_basename?: string; pss_bytes: number }[];
 			extensions: { extension_id: string; activation_event: string | null }[];
 		};
 	};
@@ -389,7 +395,11 @@ export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScena
 			// knows it would otherwise become an invalid ProcessRole at runtime and
 			// fall through every switch downstream.
 			processRole: isProcessRole(p.process_role) ? p.process_role : 'unlabeled',
-			labeled: true, cmdBasename: '',
+			labeled: true,
+			// Empty when the response predates the field. `kernelLabelFor` reads that
+			// as `unknown`, and the kernel card leaves its per-label changes blank
+			// rather than reporting every language as new.
+			cmdBasename: typeof p.cmd_basename === 'string' ? p.cmd_basename : '',
 			// The response carries no such field and the report reads it for neither
 			// side of the delta, so this is neutral rather than a claim -- the same
 			// reasoning as `labeled: true` above.

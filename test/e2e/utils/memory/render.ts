@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { deltaHtml, escapeHtml, formatBytes, GC_NOTE, KB, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
+import { KERNEL_LABEL_UNKNOWN, kernelProcessCounts, kernelTotals } from './kernel.js';
+import { deltaHtml, deltaHtmlFromDiff, escapeHtml, formatBytes, GC_NOTE, KB, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
 import { unstableProcesses } from './snapshot.js';
 import { ActivatedExtension, ExtensionHeapBreakdown, ExtensionHeapStatus, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
 
@@ -356,6 +357,102 @@ export function extensionHeapRows(
 	return rows;
 }
 
+/**
+ * One kernel language's share of the `kernel` role, or the summed TOTAL.
+ *
+ * Shaped like {@link ExtensionHeapRow} rather than reusing it: the two tables
+ * render the same way, but a kernel row carries a process count and an
+ * extension row carries an id, and one type holding both would let either
+ * table render a field the other filled in.
+ */
+export type KernelRow = {
+	/** A label from `kernelLabelFor`, or `TOTAL` on the summed row. */
+	label: string;
+	bytes: number;
+	/** How many processes this figure adds up, at its highest across launches. */
+	processCount: number;
+	/** The rendered change for the markdown table: blank, "new", or a signed figure. */
+	change: string;
+	/** The same change unrendered, for the HTML card's glyph and class. Undefined when there is nothing to compare against. */
+	changeBytes?: number;
+	isTotal?: boolean;
+};
+
+const KERNEL_TOTAL_ROW = 'TOTAL';
+
+/**
+ * Median PSS per kernel label across launches, largest first, with a summed
+ * TOTAL when there is more than one label.
+ *
+ * Empty for a scenario that starts no session, which is what makes the whole
+ * card omissible rather than an empty table a reader has to read as "no
+ * kernel" instead of "the measurement failed".
+ *
+ * A label absent from a launch counts as zero for that launch, the same
+ * zero-filling `byRole` does and for the same reason.
+ */
+export function kernelRows(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): KernelRow[] {
+	const perLaunch = snapshots.map(kernelTotals);
+	const labels = new Set(perLaunch.flatMap(totals => [...totals.keys()]));
+	if (labels.size === 0) {
+		return [];
+	}
+	const counts = kernelProcessCounts(snapshots);
+	const baselineTotals = baseline ? kernelTotals(baseline) : undefined;
+
+	// The baseline arrives from the dashboard API, which returns a role and a
+	// figure per process but no command name, so `baselineToSnapshot` leaves
+	// cmdBasename empty and every baseline kernel lands under `unknown`. That
+	// total is still the right thing to diff the TOTAL row against, but it can
+	// say nothing about any individual language, so per-label changes stay blank
+	// rather than reporting every kernel as "new" every night.
+	const baselineLabeled = baselineTotals !== undefined
+		&& [...baselineTotals.keys()].some(label => label !== KERNEL_LABEL_UNKNOWN);
+
+	// Blank rather than "new" everywhere when the baseline had no kernel at all:
+	// that is the first night, or a baseline captured from a scenario that starts
+	// no session, not a night the kernels appeared.
+	const changeFor = (label: string, bytes: number): Pick<KernelRow, 'change' | 'changeBytes'> => {
+		if (baselineTotals === undefined || !baselineLabeled) {
+			return { change: '' };
+		}
+		const before = baselineTotals.get(label);
+		if (before === undefined) {
+			return { change: 'new' };
+		}
+		return { change: signed(bytes - before), changeBytes: bytes - before };
+	};
+
+	const rows: KernelRow[] = [...labels]
+		.map(label => ({ label, bytes: median(perLaunch.map(totals => totals.get(label) ?? 0)) }))
+		.sort((a, b) => b.bytes - a.bytes)
+		.map(({ label, bytes }) => ({ label, bytes, processCount: counts.get(label) ?? 0, ...changeFor(label, bytes) }));
+
+	// One label makes the TOTAL that label's figure printed twice, which says
+	// nothing and invites the reader to hunt for the difference.
+	if (rows.length < 2) {
+		return rows;
+	}
+
+	// Summed from the rows rather than re-derived, for the same reason the
+	// extension table does it: the column a reader adds up is the column that is
+	// printed. Per-label medians across launches need not sum to any one
+	// launch's kernel total.
+	const total = rows.reduce((sum, row) => sum + row.bytes, 0);
+	const baselineTotal = baselineTotals === undefined || baselineTotals.size === 0
+		? undefined
+		: [...baselineTotals.values()].reduce((sum, bytes) => sum + bytes, 0);
+	rows.push({
+		label: KERNEL_TOTAL_ROW,
+		bytes: total,
+		processCount: [...counts.values()].reduce((sum, count) => sum + count, 0),
+		change: baselineTotal === undefined ? '' : signed(total - baselineTotal),
+		changeBytes: baselineTotal === undefined ? undefined : total - baselineTotal,
+		isTotal: true
+	});
+	return rows;
+}
+
 export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
 	const total = totalAcrossLaunches(snapshots);
 	const lines: string[] = [`## Memory: ${snapshots[0]?.scenario}`, ''];
@@ -406,6 +503,20 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 			const label = row.extensionId === UNATTRIBUTED_ROW
 				? `_${UNATTRIBUTED_ROW}_`
 				: row.extensionId === EXTENSION_TOTAL_ROW ? `**${EXTENSION_TOTAL_ROW}**` : `\`${row.extensionId}\``;
+			lines.push(`| ${label} | ${formatBytes(row.bytes)} | ${row.change} |`);
+		}
+		lines.push('');
+	}
+
+	// Below the extension table for the same reason the card is: both decompose a
+	// row of the role table above, and neither means anything without it.
+	const kernels = kernelRows(snapshots, baseline);
+	if (kernels.length > 0) {
+		lines.push(`### Kernel memory: ${snapshots[0]?.scenario}`, '');
+		lines.push('| Kernel | PSS | Change |', '| --- | --- | --- |');
+		for (const row of kernels) {
+			const count = row.processCount > 1 ? ` (${row.processCount} processes)` : '';
+			const label = row.isTotal ? `**${row.label}**` : `${row.label}${count}`;
 			lines.push(`| ${label} | ${formatBytes(row.bytes)} | ${row.change} |`);
 		}
 		lines.push('');
@@ -733,6 +844,58 @@ function unlabeledNoteHtml(snapshots: MemorySnapshot[], roleTotals: Map<ProcessR
 	return `<p class="muted">${unlabeled.length} unlabeled process name(s) across ${snapshots.length} launch(es), ${formatBytes(bytes)} in the median launch: ${names}. Add them to the role map in <code>test/e2e/utils/memory/label.ts</code>.</p>`;
 }
 
+/**
+ * One kernel row's label: the language, plus a process count when the figure is
+ * a sum. Not code-formatted -- these are display names, not process names, and
+ * setting them in the same face as a `cmdBasename` implies they are one.
+ */
+function kernelRowLabelHtml(row: KernelRow): string {
+	if (row.isTotal) {
+		// No count here: the column warns that a label's figure is a sum, and a
+		// row named TOTAL has already said that about itself.
+		return `<strong>${escapeHtml(row.label)}</strong>`;
+	}
+	const count = row.processCount > 1 ? ` <span class="muted">(${row.processCount} processes)</span>` : '';
+	return `${escapeHtml(row.label)}${count}`;
+}
+
+/** The change cell for one kernel row, at the role table's scale rather than the extension table's. */
+function kernelChangeHtml(row: KernelRow): string {
+	if (row.changeBytes !== undefined) {
+		return deltaHtmlFromDiff(row.changeBytes);
+	}
+	return row.change === '' ? '' : `<span class="delta-flat">${escapeHtml(row.change)}</span>`;
+}
+
+/**
+ * Decomposes the role table's `kernel` row by language runtime.
+ *
+ * Empty string for a scenario that starts no session, so the card is absent
+ * rather than an empty table -- idle, editors and data-explorer run no kernel,
+ * and an empty table there reads as a failed measurement.
+ */
+function kernelCardHtml(rows: KernelRow[]): string {
+	if (rows.length === 0) {
+		return '';
+	}
+	// TOTAL is every other row added up, so including it would make it the longest
+	// bar by construction and squash the kernels it is meant to compare.
+	const maxBytes = Math.max(0, ...rows.filter(row => !row.isTotal).map(row => row.bytes));
+	return `<div class="card">
+		<h2>Kernel memory</h2>
+		<table>
+			<tr><th>Kernel</th><th align="right">PSS</th><th></th><th align="right">Change</th></tr>
+			${rows.map(row => `<tr${row.isTotal ? ' class="total-row"' : ''}>
+				<td>${kernelRowLabelHtml(row)}</td>
+				<td align="right">${formatBytes(row.bytes)}</td>
+				<td>${row.isTotal ? '' : magnitudeBar(row.bytes, maxBytes)}</td>
+				<td align="right">${kernelChangeHtml(row)}</td>
+			</tr>`).join('\n')}
+		</table>
+		<p class="muted">Rows decompose the <code>kernel</code> role by language runtime; <code>kernel_supervisor</code> and <code>language_server</code> are separate roles and are not counted here.</p>
+	</div>`;
+}
+
 export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
 	const first = snapshots[0];
 	const total = totalAcrossLaunches(snapshots);
@@ -757,6 +920,8 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	const newProcessesCard = newProcessesHtml(snapshots, baseline);
 	const unlabeledNote = unlabeledNoteHtml(snapshots, roleTotals);
 	const instabilityCard = instabilityHtml(snapshots);
+
+	const kernelCard = kernelCardHtml(kernelRows(snapshots, baseline));
 
 	const heapRows = extensionHeapRows(snapshots, baseline);
 	// TOTAL is every other row added up, so including it would make it the longest
@@ -812,6 +977,8 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	</div>
 
 	${extensionHeapCard}
+
+	${kernelCard}
 
 	<div class="card">
 		<h2>Process tree</h2>
