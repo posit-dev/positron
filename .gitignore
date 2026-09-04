@@ -97,4 +97,8 @@ dist
 # ci-arm dev container local secrets
 .devcontainer/ci-arm/.env
 .devcontainer/ci-arm/license.txt
+# Staging folders rebuild.sh moves the old node_modules trees into before
+# deleting them in the background. Present while rebuild.sh runs, and left
+# behind if a run is interrupted before the deletion finishes.
+.rebuild-trash.*
 # --- End Positron ---

@@ -142,6 +142,11 @@ npm install
 echo "Installing e2e test dependencies..."
 npm --prefix test/e2e install
 
+# Everything that had to happen has happened, so stop treating an interrupt as
+# an abort. Only the background deletion is still outstanding, and it cleans up
+# after itself whether or not we stick around to watch.
+trap - HUP INT TERM
+
 # Wait for the background deletion of the old 'node_modules' folders. By now it
 # has almost certainly finished during the installs above. It removes the
 # staging folders itself, so there is nothing left to clean up here.
@@ -149,7 +154,5 @@ if [ -n "${trash_pid}" ]; then
 	echo "Waiting for the old node_modules folders to finish deleting..."
 	wait "${trash_pid}"
 fi
-
-trap - HUP INT TERM
 
 echo "Done"
