@@ -296,23 +296,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Deliberately NOT ./.github/actions/setup-e2e-test-dependencies, which the
-      # memory matrix job uses: that installs the whole Playwright toolchain and
-      # downloads the browser binaries, and this job renders one HTML file from
-      # JSON on disk. It never launches a browser. Seven npm installs inside a
-      # 10-minute budget is also how this job died twice in run 33813858347, on a
-      # night the registry was slow: one install took 7 minutes on its own.
-      #
-      # summarize-cli's import closure is Node builtins, so TypeScript and
-      # @types/node compile it. tsconfig.summarize.json compiles that closure and
-      # nothing else, and fails loudly if an import ever reaches past it.
+      # Not ./.github/actions/setup-e2e-test-dependencies: this job renders one
+      # HTML file from JSON on disk, so it needs tsc, not the Playwright toolchain.
       - name: Compile the summarizer
         run: |
-          # From the root package.json rather than restated, for the same reason
-          # the setup action reads it there: a hardcoded range drifts. The name
-          # matters as well as the version -- `typescript` is aliased to
-          # @typescript/typescript6, whose bin is `tsc6` rather than `tsc`, which
-          # is what test/e2e's compile script invokes by path.
+          # Ranges from the root package.json so a hardcoded one can't drift; the
+          # name matters too, since `typescript` is aliased and its bin is `tsc6`.
           SPECS=$(node -e '
             const pkg = require("./package.json");
             const ranges = { ...pkg.dependencies, ...pkg.devDependencies };
@@ -325,9 +314,7 @@ jobs:
             console.log(names.map((n) => n + "@" + ranges[n]).join(" "));
           ')
 
-          # Same stub swap the setup action does: `npm install <pkg>` in the repo
-          # root would otherwise install the product's entire dependency tree
-          # before getting to the two packages this job asked for.
+          # Otherwise npm install here builds the product's whole dependency tree.
           rm package.json
           echo '{}' > package.json
 
