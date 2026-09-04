@@ -32,11 +32,13 @@ export class NativeLogService extends LogService {
 			// so every trace record is also pushed over the Playwright CDP session. That flood
 			// starves the session's request/response direction: `expect` evaluations park for tens
 			// of seconds against a workbench that is already rendered, then drain in one batch.
-			// Pin the echo at Info under the smoke driver; on-disk logs stay at trace, and
-			// `--verbose` opts back out.
+			// Pin the echo at Debug under the smoke driver, which drops 78% of the volume (trace
+			// records were 614 of the 791 messages in one measured failure window) while keeping
+			// debug output in the trace, where it sits on the same timeline as the test's actions.
+			// On-disk logs stay at trace, and `--verbose` opts back out.
 			// consoleLogger = new ConsoleLogger(fileLogger.getLevel());
 			consoleLogger = environmentService.enableSmokeTestDriver && !environmentService.verbose
-				? new FixedLevelConsoleLogger(LogLevel.Info)
+				? new FixedLevelConsoleLogger(LogLevel.Debug)
 				: new ConsoleLogger(fileLogger.getLevel());
 			// --- End Positron ---
 		}
