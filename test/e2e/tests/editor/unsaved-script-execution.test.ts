@@ -57,6 +57,11 @@ for (const config of languageConfigs) {
 		test(`${config.session === 'r' ? 'R' : 'Python'} - runs an untitled script without a save prompt`, async ({ app, runCommand }) => {
 			const { editor, editors, console: consolePane } = app.workbench;
 
+			// The scratch path below is formatted relative to the session's
+			// working directory, which the session reports asynchronously after
+			// it starts. Running before it lands yields an absolute path.
+			await consolePane.waitForWorkingDirectory();
+
 			await test.step('Create a new untitled script with code', async () => {
 				await runCommand(config.newFileCommand);
 				await editor.type(config.code);

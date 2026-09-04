@@ -18,6 +18,7 @@ const EMPTY_CONSOLE = '.positron-console .empty-console';
 const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
 const SUGGESTION_LIST = '.suggest-widget .monaco-list-row';
 const CONSOLE_LINES = `${ACTIVE_CONSOLE_INSTANCE} div span`;
+const WORKING_DIRECTORY_LABEL = '.current-working-directory-label .label';
 const ERROR = '.activity-error-message';
 
 /*
@@ -207,6 +208,22 @@ export class Console {
 			}
 			await this.waitForReady(prompt, timeout);
 			await this.waitForConsoleContents('started', { timeout, expectedCount });
+		});
+	}
+
+	/**
+	 * Wait until the console action bar reports a working directory for the
+	 * active session.
+	 *
+	 * A session's working directory arrives asynchronously, over the UI comm,
+	 * after the "started" banner. Until it lands, anything deriving a
+	 * session-relative path gets an absolute one instead.
+	 */
+	async waitForWorkingDirectory(timeout = 30000): Promise<void> {
+		await test.step('Wait for console working directory to be reported', async () => {
+			await expect(
+				this.code.driver.currentPage.locator(WORKING_DIRECTORY_LABEL)
+			).not.toBeEmpty({ timeout });
 		});
 	}
 
