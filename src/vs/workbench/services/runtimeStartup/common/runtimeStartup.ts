@@ -772,6 +772,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Whether any extension provides language runtimes for the given language.
+	 * Reflects the `languageRuntimes` contribution, which is read when
+	 * extensions are scanned, before any of them activate.
+	 *
+	 * @param languageId The language identifier.
+	 */
+	public hasLanguageRuntimeProvider(languageId: string): boolean {
+		return this._languagePacks.has(languageId);
+	}
+
+	/**
 	 * Used to register an instance of a MainThreadLanguageRuntime.
 	 *
 	 * This is required because there can be multiple extension hosts

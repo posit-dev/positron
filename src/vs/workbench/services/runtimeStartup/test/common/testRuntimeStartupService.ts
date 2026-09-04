@@ -22,6 +22,9 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	private _restoredSessions: SerializedSessionMetadata[] = [];
 	private _runtimeManagers: IRuntimeManager[] = [];
 
+	/** Languages an extension provides runtimes for; tests add to this directly. */
+	public readonly runtimeProviderLanguageIds = new Set<string>();
+
 	public startupPhase: RuntimeStartupPhase = RuntimeStartupPhase.Complete;
 	public backgroundDiscoveryInProgress: boolean = false;
 	public lastDiscoveryRuntimeCount: number = 0;
@@ -47,6 +50,13 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	 */
 	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined {
 		return this._preferredRuntimes.get(languageId);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	public hasLanguageRuntimeProvider(languageId: string): boolean {
+		return this.runtimeProviderLanguageIds.has(languageId);
 	}
 
 	/**

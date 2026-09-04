@@ -32,6 +32,7 @@ import { IQuartoDocumentModel } from '../../common/quartoTypes.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 import { QuartoVirtualNotebookService } from '../../browser/quartoVirtualNotebookService.js';
+import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 
 const R_AND_PYTHON = [
 	'# Intro',
@@ -177,6 +178,7 @@ function marker(message: string): IMarkerData {
 
 describe('QuartoVirtualNotebookService', () => {
 	const logService = new NullLogService();
+	const runtimeStartupService = createTestRuntimeStartupService();
 	const configurationService = new TestConfigurationService();
 	const markerService = new MarkerService();
 
@@ -232,7 +234,7 @@ describe('QuartoVirtualNotebookService', () => {
 			const key = textModel.uri.toString();
 			let model = documentModels.get(key);
 			if (!model) {
-				model = new QuartoDocumentModel(textModel, logService);
+				model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 				documentModels.set(key, model);
 			}
 			return model;
