@@ -300,7 +300,9 @@ jobs:
     needs: memory
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Nearly all of this is one npm install, seen as slow as 7 minutes; a
+    # 10-minute budget killed the job twice.
+    timeout-minutes: 20
     permissions:
       contents: read
       # For the AWS OIDC role-assumption in upload-report-to-s3.
@@ -524,3 +526,24 @@ jobs:
             exit 1
           fi
           echo "Posted to ${CHANNEL}."
+
+  # A separate job so it survives what it reports: the budget alert is
+  # `summarize`'s last step, so a summarize timeout skips it and the nightly
+  # goes quiet.
+  #
+  # `always()`, not `failure()`: a job killed by timeout-minutes is reported as
+  # cancelled, for which `failure()` is false.
+  notify:
+    name: notify-test-results
+    needs: [resolve-build, memory, summarize]
+    # Scheduled runs only: a branch dispatch is watched by whoever started it.
+    if: always() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.3
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          notify_on: "failure"
+          slack_channel: "#positron-test-results"
