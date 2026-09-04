@@ -277,15 +277,15 @@ export class CheatSheets extends Action2 {
 		super({
 			id: 'positron.help.cheatSheets',
 			title: {
-				value: localize('positron.help.cheatSheets', 'Cheat Sheets'),
-				original: 'Cheat Sheets'
+				value: localize('positron.help.cheatSheets', "Posit Cheat Sheets"),
+				original: 'Posit Cheat Sheets'
 			},
 			category: Categories.Help,
 			f1: true,
 			menu: {
 				id: MenuId.MenubarHelpMenu,
-				group: '2_reference',
-				order: 1
+				group: '1_welcome',
+				order: 9
 			}
 		});
 	}
