@@ -36,3 +36,23 @@ export class FixedLevelConsoleLogger extends ConsoleLogger {
 		super.setLevel(level);
 	}
 }
+
+/**
+ * The subset of the environment service this decision reads. Declared structurally so the rule
+ * can be exercised on its own; callers pass the real `INativeWorkbenchEnvironmentService`.
+ */
+export interface IConsoleEchoEnvironment {
+	readonly enableSmokeTestDriver?: boolean;
+	readonly verbose: boolean;
+}
+
+/**
+ * Whether the console echo should be pinned instead of following the file-log level.
+ *
+ * Only under the e2e smoke driver, and only when the run has not asked for verbose output --
+ * `--verbose` is the way back to the full echo when someone is debugging a smoke-driver window
+ * by hand.
+ */
+export function shouldPinConsoleEcho(environmentService: IConsoleEchoEnvironment): boolean {
+	return environmentService.enableSmokeTestDriver === true && !environmentService.verbose;
+}

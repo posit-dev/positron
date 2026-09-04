@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { ConsoleLogger, LogLevel, MultiplexLogger } from '../../../../../platform/log/common/log.js';
-import { FixedLevelConsoleLogger } from '../../common/fixedLevelConsoleLogger.js';
+import { FixedLevelConsoleLogger, shouldPinConsoleEcho } from '../../common/fixedLevelConsoleLogger.js';
 
 describe('FixedLevelConsoleLogger', () => {
 
@@ -30,5 +30,27 @@ describe('FixedLevelConsoleLogger', () => {
 
 		expect({ pinned: pinned.getLevel(), upstream: upstream.getLevel() })
 			.toEqual({ pinned: LogLevel.Info, upstream: LogLevel.Trace });
+	});
+});
+
+describe('shouldPinConsoleEcho', () => {
+
+	test('pins only under the smoke driver, and never when verbose is asked for', () => {
+		const decide = (enableSmokeTestDriver: boolean | undefined, verbose: boolean) =>
+			shouldPinConsoleEcho({ enableSmokeTestDriver, verbose });
+
+		expect({
+			smoke: decide(true, false),
+			smokeVerbose: decide(true, true),
+			normal: decide(false, false),
+			normalVerbose: decide(false, true),
+			flagAbsent: decide(undefined, false),
+		}).toEqual({
+			smoke: true,
+			smokeVerbose: false,
+			normal: false,
+			normalVerbose: false,
+			flagAbsent: false,
+		});
 	});
 });

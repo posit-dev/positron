@@ -10,7 +10,7 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { windowLogGroup, windowLogId } from '../common/logConstants.js';
 import { LogService } from '../../../../platform/log/common/logService.js';
 // --- Start Positron ---
-import { FixedLevelConsoleLogger } from '../common/fixedLevelConsoleLogger.js';
+import { FixedLevelConsoleLogger, shouldPinConsoleEcho } from '../common/fixedLevelConsoleLogger.js';
 // --- End Positron ---
 
 export class NativeLogService extends LogService {
@@ -37,7 +37,7 @@ export class NativeLogService extends LogService {
 			// debug output in the trace, where it sits on the same timeline as the test's actions.
 			// On-disk logs stay at trace, and `--verbose` opts back out.
 			// consoleLogger = new ConsoleLogger(fileLogger.getLevel());
-			consoleLogger = environmentService.enableSmokeTestDriver && !environmentService.verbose
+			consoleLogger = shouldPinConsoleEcho(environmentService)
 				? new FixedLevelConsoleLogger(LogLevel.Debug)
 				: new ConsoleLogger(fileLogger.getLevel());
 			// --- End Positron ---
