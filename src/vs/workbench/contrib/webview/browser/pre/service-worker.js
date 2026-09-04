@@ -261,12 +261,16 @@ sw.addEventListener('message', async (event) => {
 		// --- Start Positron ---
 		case 'claim': {
 			// Requested by pre/index.html when Firefox leaves a webview iframe uncontrolled.
-			try {
-				await sw.clients.claim();
-			} catch (e) {
-				// The client is blocked on `controllerchange`, so surface the failure.
-				console.error(`Failed to claim webview clients: ${e}`);
-			}
+			// waitUntil keeps this worker alive until the claim settles, matching the
+			// activate handler below, which claims the same way.
+			event.waitUntil((async () => {
+				try {
+					await sw.clients.claim();
+				} catch (e) {
+					// The client is blocked on `controllerchange`, so surface the failure.
+					console.error(`Failed to claim webview clients: ${e}`);
+				}
+			})());
 			return;
 		}
 		// --- End Positron ---

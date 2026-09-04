@@ -7,7 +7,7 @@
 	<!-- Start PWB: serve same origin -->
 	<!-- Start Positron -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-qUITkH/ymeyLH2q9+oOB7y9UndRxtlJwBAzpZtu7daM=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-yLVYoz0ixpoKBQ9WjOFkVt9foXu+rht9iFTOJyDGH6k=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -244,6 +244,13 @@
 				`;
 		}
 
+		// --- Start Positron ---
+		// Wait for the worker to take control; long enough to cover registration plus an
+		// update download. Matches resolveTimeout in service-worker.js, which bounds an
+		// analogous wait on an external event.
+		const controllerChangeTimeout = 30_000;
+		// --- End Positron ---
+
 		/** @type {Promise<void>} */
 		const workerReady = new Promise((resolve, reject) => {
 			if (disableServiceWorker) {
@@ -280,19 +287,33 @@
 						// First ever load
 						|| !navigator.serviceWorker.controller
 					) {
-						await new Promise(r => {
-							navigator.serviceWorker.addEventListener('controllerchange', r, { once: true });
+						// --- Start Positron ---
+						// Firefox leaves a new webview iframe uncontrolled even when this worker is
+						// active, so `controllerchange` never fires; claiming makes it fire. Not claimed
+						// while a worker is installing or waiting, so the incoming one takes over. The
+						// timeout turns any remaining hang into a fatal error instead of a blank webview.
+						//
+						// Upstream:
+						// await new Promise(r => {
+						// 	navigator.serviceWorker.addEventListener('controllerchange', r, { once: true });
+						// });
+						await new Promise((resolveControlled, rejectControlled) => {
+							let timeout;
+							const onControllerChange = () => {
+								clearTimeout(timeout);
+								resolveControlled();
+							};
+							navigator.serviceWorker.addEventListener('controllerchange', onControllerChange, { once: true });
+							timeout = setTimeout(() => {
+								navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+								rejectControlled(new Error(`Timed out after ${controllerChangeTimeout}ms waiting for the service worker to take control`));
+							}, controllerChangeTimeout);
 
-							// --- Start Positron ---
-							// Firefox leaves a new webview iframe uncontrolled even when this worker is
-							// active, so `controllerchange` never fires and this hangs; claiming makes it
-							// fire. Skipped while a worker is installing or waiting, which needs the wait
-							// above so the incoming worker takes over instead of the current one.
-							if (!registration.installing && !registration.waiting && registration.active) {
+							if (isFirefox && !registration.installing && !registration.waiting && registration.active) {
 								registration.active.postMessage({ channel: 'claim' });
 							}
-							// --- End Positron ---
 						});
+						// --- End Positron ---
 					}
 
 					return resolve();
