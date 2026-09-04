@@ -21,7 +21,7 @@ import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { LookupHelpTopic, ShowHelpAtCursor } from './positronHelpActions.js';
+import { CheatSheets, LookupHelpTopic, ShowHelpAtCursor } from './positronHelpActions.js';
 
 // The Positron help view icon.
 const positronHelpViewIcon = registerIcon('positron-help-view-icon', Codicon.positronHelpView, nls.localize('positronHelpViewIcon', 'View icon of the Positron help view.'));
@@ -106,6 +106,7 @@ class PositronHelpContribution extends Disposable implements IWorkbenchContribut
 	private registerActions(): void {
 		registerAction2(ShowHelpAtCursor);
 		registerAction2(LookupHelpTopic);
+		registerAction2(CheatSheets);
 	}
 }
 
