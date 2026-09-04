@@ -300,9 +300,8 @@ jobs:
     needs: memory
     if: always()
     runs-on: ubuntu-latest
-    # Nearly all of this is one npm install, which has been observed between 5
-    # and 7 minutes; the rendering it guards takes about 6 seconds. A 10-minute
-    # budget killed the job twice on slow-registry nights.
+    # Nearly all of this is one npm install, seen as slow as 7 minutes; a
+    # 10-minute budget killed the job twice.
     timeout-minutes: 20
     permissions:
       contents: read
@@ -508,15 +507,12 @@ jobs:
           fi
           echo "Posted to ${CHANNEL}."
 
-  # Separate job so it survives the failure it reports: the budget alert is the
-  # last step of `summarize`, so a summarize timeout skips it and the nightly
-  # goes quiet. Posts to #positron-test-results rather than the budget alert's
-  # #positron-dev -- this one says the run broke, not that memory grew.
+  # A separate job so it survives what it reports: the budget alert is
+  # `summarize`'s last step, so a summarize timeout skips it and the nightly
+  # goes quiet.
   #
-  # `always()` rather than `failure()`, which is false for a cancelled run --
-  # and a job killed by timeout-minutes is reported as cancelled, which is
-  # exactly the case here. The action treats any conclusion outside
-  # success/skipped as a failure, so it decides whether to post.
+  # `always()`, not `failure()`: a job killed by timeout-minutes is reported as
+  # cancelled, for which `failure()` is false.
   notify:
     name: notify-test-results
     needs: [resolve-build, memory, summarize]
