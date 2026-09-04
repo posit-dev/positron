@@ -7,65 +7,72 @@
 import './actionBarCheckbox.css';
 
 // React.
-import { forwardRef, PropsWithChildren, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { generateUuid } from '../../../../base/common/uuid.js';
-import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
+import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { usePositronActionBarContext } from '../positronActionBarContext.js';
 
 /**
  * ActionBarCheckboxProps interface.
  */
 export interface ActionBarCheckboxProps {
 	readonly ariaLabel?: string;
-	readonly checked?: boolean;
+	readonly checked: boolean;
+	/**
+	 * Marks the checkbox unavailable while leaving it focusable and in the tab order, so a
+	 * keyboard user who lands on it is told it is unavailable instead of skipping past it.
+	 */
+	readonly disabled?: boolean;
 	readonly label?: string;
 	readonly tooltip?: string | (() => string | undefined);
 	readonly onChanged: (checked: boolean) => void;
+	ref?: React.Ref<HTMLButtonElement>;
 }
 
 /**
  * ActionBarCheckbox component.
+ *
+ * This is a `role='checkbox'` button rather than an `<input type='checkbox'>`, which is also what
+ * core's own checkbox is (see Toggle in `base/browser/ui/toggle/toggle.ts`). A native input cannot
+ * be unavailable and focusable at the same time: `disabled` drops it out of the tab order, and
+ * `aria-disabled` leaves it toggling itself on click. Core's Toggle reads its state off
+ * `aria-disabled` for the same reason. Button gates the press in one place and supplies the action
+ * bar's hover manager for tooltips. Activating on Enter as well as Space follows from Button, and
+ * matches what core's Toggle accepts.
+ *
+ * Wrapping core's Toggle instead would mean owning an imperative DOM widget's lifecycle from
+ * React, and it brings its own codicon and title handling to fight with the action bar's.
+ *
  * @param props An ActionBarCheckboxProps that contains the component properties.
- * @param ref A ref to the HTMLButtonElement.
  * @returns The rendered component.
  */
-export const ActionBarCheckbox = forwardRef<
-	HTMLButtonElement,
-	PropsWithChildren<ActionBarCheckboxProps>
->((props, ref) => {
-	// Reference hooks.
-	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+export const ActionBarCheckbox = (props: ActionBarCheckboxProps) => {
+	// Context hooks.
+	const context = usePositronActionBarContext();
 
-	// Imperative handle to ref.
-	useImperativeHandle(ref, () => buttonRef.current);
-
-	// State hooks.
-	const [id] = useState(generateUuid());
-	const [checked, setChecked] = useState(props.checked ?? false);
-
-	// Effect hook to update the checked state when the prop changes.
-	useEffect(() => {
-		setChecked(props.checked ?? false);
-	}, [props.checked]);
-
-	// Participate in roving tabindex.
-	useRegisterWithActionBar([buttonRef]);
-
-	// Click handler.
-	const clickHandler = () => {
-		buttonRef.current.setAttribute('aria-checked', !checked ? 'true' : 'false');
-		setChecked(!checked);
-		props.onChanged(!checked);
-	};
-
-	// Render.
+	// Render. The face is hidden from assistive technology and the control is named by ariaLabel,
+	// because VoiceOver reads a button with inner text as a group rather than as a single control.
 	return (
 		<div className='action-bar-checkbox'>
-			<button ref={buttonRef} aria-checked={checked} className='checkbox-button' id={id} role='checkbox' tabIndex={0} onClick={clickHandler}>
-				{checked && <div className='check-indicator codicon codicon-check' />}
-			</button>
-			<label className='checkbox-label' htmlFor={id}>{props.label}</label>
+			<Button
+				ref={props.ref}
+				ariaChecked={props.checked}
+				ariaDisabled={props.disabled}
+				ariaLabel={props.ariaLabel ?? props.label}
+				className='checkbox-button'
+				hoverManager={context.hoverManager}
+				role='checkbox'
+				tooltip={props.tooltip}
+				onPressed={() => props.onChanged(!props.checked)}
+			>
+				<div aria-hidden='true' className='checkbox-face'>
+					<div className='checkbox-indicator'>
+						{props.checked && <div className='codicon codicon-check' />}
+					</div>
+					{props.label && <div className='checkbox-label'>{props.label}</div>}
+				</div>
+			</Button>
 		</div>
 	);
-});
+};

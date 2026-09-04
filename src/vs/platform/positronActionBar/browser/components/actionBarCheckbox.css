@@ -1,42 +1,62 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 .action-bar-checkbox {
-	gap: 6px;
 	display: flex;
 	margin: 0 4px;
 	font-size: 12px;
 	align-items: center;
 }
 
+/* The label sits inside the button so that clicking it toggles the checkbox. */
 .action-bar-checkbox .checkbox-button {
-	width: 16px;
-	height: 16px;
-	border: none;
+	padding: 0;
 	display: flex;
 	cursor: pointer;
-	border-radius: 3px;
-	justify-content: center;
+	align-items: center;
 	background-color: transparent;
 	color: var(--vscode-positronActionBar-foreground);
-	border: 1px solid var(--vscode-positronActionBar-checkboxBorder);
 }
 
-.action-bar-checkbox .checkbox-button:focus {
-	outline: none !important;
+.action-bar-checkbox .checkbox-button.disabled {
+	cursor: default;
 }
 
 .action-bar-checkbox .checkbox-button:focus-visible {
 	outline-offset: 2px;
-	outline: 1px solid var(--vscode-focusBorder);
 }
 
-.action-bar-checkbox .checkbox-button .check-indicator {
+.action-bar-checkbox .checkbox-face {
+	gap: 6px;
+	display: flex;
+	align-items: center;
+}
+
+/*
+ * The box and the label dim, not the button. The button draws the focus ring, and the ring has to
+ * stay at full strength: this checkbox keeps its place in the tab order when it is unavailable, so
+ * a keyboard user still lands on it and has to be able to see where they are.
+ */
+.action-bar-checkbox .checkbox-button.disabled .checkbox-face {
+	opacity: 0.5;
+}
+
+.action-bar-checkbox .checkbox-indicator {
+	width: 16px;
+	height: 16px;
+	display: flex;
+	flex: 0 0 auto;
+	border-radius: 3px;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--vscode-positronActionBar-checkboxBorder);
+}
+
+.action-bar-checkbox .checkbox-indicator .codicon {
 	font-weight: bold;
 	font-size: 12px !important;
-	color: var(--vscode-positronActionBar-foreground);
 }
 
 .action-bar-checkbox .checkbox-label {
