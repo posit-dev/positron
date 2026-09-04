@@ -737,7 +737,6 @@ function extensionCardHtml(matrix: SummaryMatrix): string {
 	const rows = matrix.extensions.rows.map(row => extensionRowHtml(row, matrix.scenarios)).join('\n');
 	return `<div class="card">
 		<h2>Extension host heap by extension</h2>
-		<div class="meta">${EXTENSION_DELTA_LEGEND}</div>
 		<div class="meta">${EXTENSION_COVERAGE_NOTE}</div>
 		<table class="matrix">
 			<tr><th>Extension</th>${scenarioHeaderHtml(matrix.scenarios)}</tr>
@@ -749,23 +748,19 @@ function extensionCardHtml(matrix: SummaryMatrix): string {
 }
 
 /**
- * The extension table's own legend. Separate from {@link DELTA_LEGEND} because
- * its floor is a different number, and one legend quoting the role floor over an
- * extension table would misstate the bar by a factor of five.
- */
-const EXTENSION_DELTA_LEGEND = `Deltas mark changes that exceed normal launch-to-launch variation
-	and are at least ${formatBytes(MIN_EXTENSION_EMPHASIS_BYTES)}.`;
-
-/**
- * Says what the figures are and what `unattributed` holds, in one line.
+ * What the figures are, the delta bar, and what `unattributed` holds.
  *
- * Deliberately short: this is the dashboard surface, and the row order already
- * shows that the extensions and `unattributed` make up TOTAL. How the partition
- * is built, and why it sits under the `extension_host` PSS row, belong in the
- * module docs rather than above the table.
+ * Deliberately terse: the table already carries most of this, so the note only
+ * has to make it readable. How the partition is built, and why it sits under the
+ * `extension_host` PSS row, belong in the module docs rather than above a table.
+ *
+ * Interpolates its own floor rather than spelling it out. {@link DELTA_LEGEND}
+ * quotes the role floor, which is five times larger, so a hardcoded number here
+ * would misstate the bar the moment either constant moved.
  */
-const EXTENSION_COVERAGE_NOTE = `Rows show each extension's reachable V8 heap;
-	<em>unattributed</em> includes host runtime and extension code not owned by an extension object.`;
+const EXTENSION_COVERAGE_NOTE = `Reachable V8 heap by extension. Deltas flag changes beyond
+	normal launch variation and &ge;${formatBytes(MIN_EXTENSION_EMPHASIS_BYTES)};
+	<em>unattributed</em> includes host runtime and unowned extension code.`;
 
 /**
  * The kernel section, or nothing at all.
@@ -807,9 +802,9 @@ function kernelCardHtml(matrix: SummaryMatrix): string {
  * Says what the rows are and, as importantly, why there are no deltas: idle
  * runs no kernel, so there is no baseline column to measure one from.
  */
-const KERNEL_COVERAGE_NOTE = `Rows decompose the <code>kernel</code> role by language runtime;
-	<code>kernel_supervisor</code> and <code>language_server</code> are separate roles and are not counted here.
-	No deltas: idle starts no session, so there is no baseline kernel to compare against.`;
+const KERNEL_COVERAGE_NOTE = `Kernel memory by language runtime. Excludes
+	<code>kernel_supervisor</code> and <code>language_server</code>;
+	no deltas because idle has no kernel baseline.`;
 
 /** True when at least one row will render the dagger marker, which gates the footnote explaining it. */
 function hasNoBaselineRows(matrix: SummaryMatrix): boolean {
