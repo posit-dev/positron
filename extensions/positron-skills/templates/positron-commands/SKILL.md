@@ -3,18 +3,17 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes
   (Console, Variables, Plots, Help, Packages), clearing the console, opening a
-  file or data file in the right editor, listing or discovering interpreters,
-  listing running sessions, switching or starting a session, restarting or
-  interrupting a stuck one, setting up Python, and reading, installing or
-  updating the packages in a session. Use when the user wants Positron itself
-  to act, or to know what is installed, rather than to run R or Python code.
+  file or data file in the right editor, discovering interpreters, listing,
+  switching, starting, restarting or interrupting sessions, setting up Python,
+  reading, installing or updating the packages in a session, and running or
+  debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
+  marimo). Use when the user wants Positron itself to act, or to know what is
+  installed, rather than to run R or Python code.
   Triggers: "switch to the data science layout", "show the variables pane",
   "clear the console", "open data.csv", "what interpreters are available",
-  "switch to my R session", "start a new Python session", "my R interpreter
-  isn't showing up", "my session is stuck", "is pandas installed?", "install
-  dplyr", "update all my packages", "do I have any vulnerable packages?", "I
-  don't have Python installed", "set up a Python environment", "which Python am
-  I using".
+  "switch to my R session", "start a new Python session", "my session is
+  stuck", "is pandas installed?", "install dplyr", "update all my packages",
+  "set up a Python environment", "run my shiny app", "my app URL doesn't load".
 ---
 
 # Positron IDE commands
@@ -106,3 +105,13 @@ rather than running code to check.
 Read when the user is getting Python set up: installing a Python interpreter when
 they have none, creating a project environment (venv, Conda, or uv), or finding
 out which interpreter is currently active.
+
+**Interactive web apps** -- [references/interactive-apps.md]({{skill_dir}}/references/interactive-apps.md)
+Read when the user wants a web app running or debugged: "run my app", "start
+the shiny/flask/dash/streamlit/marimo app", "preview my dashboard". Read it
+**before** starting any app server yourself -- app servers must not be started via
+`executeCode` or a raw terminal command for supported app frameworks. The
+commands it documents manage the terminal, detect the app URL, set up any
+proxying the environment requires (on Posit Workbench, raw `localhost`
+URLs are not reachable from the user's browser), and preview the app -- in the
+Viewer by default, or wherever the user's preview mode setting points.

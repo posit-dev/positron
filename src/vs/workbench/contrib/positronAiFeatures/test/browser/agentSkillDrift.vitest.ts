@@ -65,11 +65,26 @@ const ALLOWED_PREFIXES = ['positron.', 'positronAssistant.', 'positronPackages.'
  * itself flagged as stale by the test below.
  */
 const KNOWN_EXTENSION_COMMANDS = new Set([
-	// All three declared in extensions/positron-python/src/client/common/constants.ts
+	// All declared in extensions/positron-python/src/client/common/constants.ts
 	'python.createEnvironmentAndRegister',
 	'python.installPythonViaUv',
 	'python.interpreterPath',
+	'python.execDashInTerminal',
+	'python.execFastAPIInTerminal',
+	'python.execFlaskInTerminal',
+	'python.execGradioInTerminal',
+	'python.execMarimoInTerminal',
+	'python.execStreamlitInTerminal',
 ]);
+
+/**
+ * Prefixes under which a dotted, `positron.`-prefixed prose token is a
+ * *setting* key rather than a command id, so the command scan must skip it.
+ * `positron.runApp.previewMode` and `positron.runApp.urlDetectionTimeout` are
+ * contributed by the positron-run-app extension and are named in the
+ * interactive-apps reference as settings to read, not commands to run.
+ */
+const SETTING_PREFIXES = ['positron.runApp.'];
 
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -167,6 +182,9 @@ function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 				continue;
 			}
 			if (!ALLOWED_PREFIXES.some(prefix => token.startsWith(prefix))) {
+				continue;
+			}
+			if (SETTING_PREFIXES.some(prefix => token.startsWith(prefix))) {
 				continue;
 			}
 			candidates.push({ id: token, skillName: skill.name });
