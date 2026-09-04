@@ -8,7 +8,14 @@ import * as positron from 'positron';
 import { RedshiftConnection, RedshiftConnectionConfig } from '../redshiftConnection.js';
 import { PgClientFactory, RedshiftClient, RedshiftFieldConfig } from '../redshiftClient.js';
 import { createDatabaseNode, createSchemaNode } from '../redshiftNodes.js';
-import { parseRedshiftEndpoint } from '../redshiftDriver.js';
+import {
+	describeRedshiftEndpoint,
+	iamTargetFromParams,
+	parseRedshiftEndpoint,
+	renderIamDbiCode,
+	renderIamRedshiftConnectorCode,
+} from '../redshiftDriver.js';
+import { RedshiftIamConfig } from '../redshiftIamCredentials.js';
 
 // Default config for tests -- not used to connect, just to construct.
 const TEST_CONFIG: RedshiftConnectionConfig = {
@@ -625,5 +632,179 @@ suite('Redshift Endpoint Parsing', () => {
 
 	test('surrounding whitespace is trimmed', () => {
 		assert.deepStrictEqual(parseRedshiftEndpoint(`  ${host}:5439/dev  `), { host, port: 5439, database: 'dev' });
+	});
+});
+
+suite('Redshift Endpoint Description', () => {
+
+	test('a serverless endpoint yields the workgroup and its region', () => {
+		assert.deepStrictEqual(
+			describeRedshiftEndpoint('positron-redshift-dev-test.749683154838.us-east-2.redshift-serverless.amazonaws.com'),
+			{ kind: 'serverless', name: 'positron-redshift-dev-test', region: 'us-east-2' });
+	});
+
+	test('a provisioned endpoint yields the cluster identifier and its region', () => {
+		assert.deepStrictEqual(
+			describeRedshiftEndpoint('my-cluster.abc123xyz.us-west-2.redshift.amazonaws.com'),
+			{ kind: 'provisioned', name: 'my-cluster', region: 'us-west-2' });
+	});
+
+	test('the regional variants parse without being enumerated', () => {
+		assert.deepStrictEqual(
+			describeRedshiftEndpoint('wg.123.cn-north-1.redshift-serverless.amazonaws.com.cn'),
+			{ kind: 'serverless', name: 'wg', region: 'cn-north-1' });
+	});
+
+	test('hostnames are matched case-insensitively', () => {
+		assert.deepStrictEqual(
+			describeRedshiftEndpoint('WG.123.US-EAST-2.REDSHIFT-SERVERLESS.AMAZONAWS.COM'),
+			{ kind: 'serverless', name: 'wg', region: 'us-east-2' });
+	});
+
+	test('a private host merely containing a redshift label is not an endpoint', () => {
+		// Without an amazonaws anchor this resolved to region 'corp', which would then be sent to
+		// AWS as a real region.
+		assert.deepStrictEqual(
+			describeRedshiftEndpoint('warehouse.corp.redshift.example.com'), { kind: 'unknown' });
+		assert.deepStrictEqual(
+			describeRedshiftEndpoint('redshift-serverless.internal.example.com'), { kind: 'unknown' });
+	});
+
+	test('a workgroup named redshift does not shadow the service label', () => {
+		assert.deepStrictEqual(
+			describeRedshiftEndpoint('redshift.123456789012.us-east-2.redshift-serverless.amazonaws.com'),
+			{ kind: 'serverless', name: 'redshift', region: 'us-east-2' });
+	});
+
+	test('an AWS host for some other service is not a Redshift endpoint', () => {
+		assert.deepStrictEqual(
+			describeRedshiftEndpoint('mydb.abc123.us-east-1.rds.amazonaws.com'), { kind: 'unknown' });
+	});
+
+	test('a host that is not an AWS endpoint is reported unknown rather than guessed at', () => {
+		// A tunnel, proxy, or private alias carries no workgroup or region to read.
+		assert.deepStrictEqual(describeRedshiftEndpoint('localhost'), { kind: 'unknown' });
+		assert.deepStrictEqual(describeRedshiftEndpoint('redshift.internal.example.com'), { kind: 'unknown' });
+	});
+});
+
+suite('Redshift IAM Target Resolution', () => {
+
+	const SERVERLESS_HOST = 'my-workgroup.123456789012.us-east-2.redshift-serverless.amazonaws.com';
+
+	test('the target is derived from the endpoint, not asked for', () => {
+		const target = iamTargetFromParams({ host: SERVERLESS_HOST, port: 5439, database: 'dev', profile: 'work' });
+
+		assert.deepStrictEqual(target.iam, {
+			kind: 'serverless',
+			name: 'my-workgroup',
+			region: 'us-east-2',
+			database: 'dev',
+			profile: 'work',
+			dbUser: undefined,
+		});
+	});
+
+	test('a database embedded in the endpoint wins over the field', () => {
+		const target = iamTargetFromParams({ host: `${SERVERLESS_HOST}:5555/analytics`, port: 5439, database: 'dev' });
+
+		assert.strictEqual(target.port, 5555);
+		assert.strictEqual(target.database, 'analytics');
+		assert.strictEqual(target.iam.database, 'analytics');
+	});
+
+	test('a provisioned endpoint requires a database user', () => {
+		const host = 'my-cluster.abc123xyz.us-west-2.redshift.amazonaws.com';
+
+		assert.throws(() => iamTargetFromParams({ host, port: 5439, database: 'dev' }), /requires a database user/i);
+		assert.strictEqual(
+			iamTargetFromParams({ host, port: 5439, database: 'dev', dbUser: 'analyst' }).iam.dbUser,
+			'analyst');
+	});
+
+	test('an unrecognized host is refused rather than guessed at', () => {
+		assert.throws(
+			() => iamTargetFromParams({ host: 'tunnel.example.com', port: 5439, database: 'dev' }),
+			/not a recognized Redshift endpoint/i);
+	});
+
+	test('host and database are required', () => {
+		assert.throws(() => iamTargetFromParams({ port: 5439, database: 'dev' }), /Host is required/i);
+		assert.throws(() => iamTargetFromParams({ host: SERVERLESS_HOST, port: 5439 }), /Database is required/i);
+	});
+});
+
+suite('Redshift IAM Connection Code', () => {
+
+	const SERVERLESS: RedshiftIamConfig = {
+		kind: 'serverless',
+		name: 'my-workgroup',
+		region: 'us-east-2',
+		database: 'dev',
+		profile: 'work',
+	};
+
+	const PROVISIONED: RedshiftIamConfig = {
+		kind: 'provisioned',
+		name: 'my-cluster',
+		region: 'us-west-2',
+		database: 'dev',
+		dbUser: 'analyst',
+	};
+
+	test('serverless Python code asks the library to mint credentials, and names no user', () => {
+		const code = renderIamRedshiftConnectorCode('host.example.com', 5439, SERVERLESS).code;
+
+		assert.match(code, /iam=True/);
+		assert.match(code, /is_serverless=True/);
+		assert.match(code, /serverless_work_group="my-workgroup"/);
+		assert.match(code, /profile="work"/);
+		// No credentials are embedded, so the snippet outlives the session's temporary password.
+		assert.doesNotMatch(code, /password/);
+		assert.doesNotMatch(code, /db_user/);
+	});
+
+	test('provisioned Python code identifies the cluster and its database user', () => {
+		const code = renderIamRedshiftConnectorCode('host.example.com', 5439, PROVISIONED).code;
+
+		assert.match(code, /cluster_identifier="my-cluster"/);
+		assert.match(code, /db_user="analyst"/);
+		assert.doesNotMatch(code, /is_serverless/);
+		// No profile was configured, so none is pinned in the snippet.
+		assert.doesNotMatch(code, /profile=/);
+	});
+
+	test('serverless R code fetches credentials with paws and reads the returned user', () => {
+		const code = renderIamDbiCode('host.example.com', 5439, SERVERLESS).code;
+
+		assert.match(code, /paws::redshiftserverless/);
+		assert.match(code, /workgroupName = "my-workgroup"/);
+		// RPostgres has no IAM of its own, so the minted pair is passed through.
+		assert.match(code, /user = creds\$dbUser/);
+		assert.match(code, /password = creds\$dbPassword/);
+		assert.match(code, /AWS_PROFILE = "work"/);
+	});
+
+	test('the IAM renderers honor the Use SSL parameter', () => {
+		// The live connection honors `ssl`, so generated code must agree with it.
+		const pythonOff = renderIamRedshiftConnectorCode('host.example.com', 5439, SERVERLESS, false).code;
+		const pythonOn = renderIamRedshiftConnectorCode('host.example.com', 5439, SERVERLESS, true).code;
+		const rOff = renderIamDbiCode('host.example.com', 5439, SERVERLESS, false).code;
+		const rOn = renderIamDbiCode('host.example.com', 5439, SERVERLESS, true).code;
+
+		assert.match(pythonOff, /ssl=False/);
+		assert.doesNotMatch(pythonOn, /ssl=False/);
+		assert.doesNotMatch(rOff, /sslmode/);
+		assert.match(rOn, /sslmode = "require"/);
+	});
+
+	test('provisioned R code uses the cluster API and its PascalCase fields', () => {
+		const code = renderIamDbiCode('host.example.com', 5439, PROVISIONED).code;
+
+		assert.match(code, /paws::redshift\(/);
+		assert.match(code, /get_cluster_credentials/);
+		assert.match(code, /ClusterIdentifier = "my-cluster"/);
+		assert.match(code, /user = creds\$DbUser/);
+		assert.match(code, /password = creds\$DbPassword/);
 	});
 });

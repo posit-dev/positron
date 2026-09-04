@@ -10,7 +10,9 @@
 // absent here. The top-level nodes are always the schemas of the connected database.
 
 import * as positron from 'positron';
-import { RedshiftClient, RedshiftFieldConfig } from './redshiftClient.js';
+import * as vscode from 'vscode';
+import { isAuthenticationError, PgClientFactory, RedshiftClient, RedshiftFieldConfig } from './redshiftClient.js';
+import { createIamCredentialProvider, RedshiftCredentialFetcher, RedshiftIamConfig } from './redshiftIamCredentials.js';
 import { createDatabasesGroupNode, createSchemasGroupNode, IRedshiftPreviewHost } from './redshiftNodes.js';
 import { IRedshiftDataExplorerHost, REDSHIFT_DATA_EXPLORER_PROVIDER_ID } from './redshiftDataExplorerRpcHandler.js';
 
@@ -18,10 +20,26 @@ import { IRedshiftDataExplorerHost, REDSHIFT_DATA_EXPLORER_PROVIDER_ID } from '.
 let nextConnectionId = 1;
 
 /**
- * Connection configuration passed from the driver. Only the discrete-fields form is supported today;
- * the `kind` discriminant leaves room for a connection-string form later without changing callers.
+ * Connection configuration passed from the driver. `fields` is a user-supplied host, user, and
+ * password; `iam` carries the AWS target instead, and the user and password are minted from the
+ * caller's IAM identity on each connect. The `kind` discriminant also leaves room for a
+ * connection-string form later without changing callers.
  */
-export type RedshiftConnectionConfig = { kind: 'fields' } & RedshiftFieldConfig;
+export type RedshiftConnectionConfig =
+	| ({ kind: 'fields' } & RedshiftFieldConfig)
+	| ({ kind: 'iam'; iam: RedshiftIamConfig } & RedshiftFieldConfig);
+
+/**
+ * The connection's outward-facing dependencies. Both default to the real implementations; a test
+ * supplies fakes so the whole chain -- config to credential provider to pg client -- runs without a
+ * cluster or an AWS account.
+ */
+export interface RedshiftConnectionDependencies {
+	/** Builds the underlying pg client. */
+	pgClientFactory?: PgClientFactory;
+	/** Mints IAM credentials. Ignored for a `fields` connection. */
+	credentialFetcher?: RedshiftCredentialFetcher;
+}
 
 /**
  * A live Amazon Redshift connection implementing the DataConnection interface. Connects via a
@@ -48,13 +66,27 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	 * @param _config The connection configuration.
 	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
 	 * @param _logger Optional diagnostic log sink for connection lifecycle and query events.
+	 * @param _options Overrides for the two dependencies that reach outside the process, so tests
+	 * can exercise the real wiring -- including the IAM credential path -- without a cluster or an
+	 * AWS account.
 	 */
 	constructor(
 		private readonly _config: RedshiftConnectionConfig,
 		private readonly _dataExplorerHandler: IRedshiftDataExplorerHost,
-		private readonly _logger?: positron.DataConnectionLogger
+		private readonly _logger?: positron.DataConnectionLogger,
+		private readonly _options?: RedshiftConnectionDependencies
 	) {
-		this._client = new RedshiftClient(this._config);
+		// Under IAM the credentials are minted per connect rather than configured, so hand the client
+		// a provider instead of a password.
+		this._client = new RedshiftClient(
+			this._config.kind === 'iam'
+				? {
+					...this._config,
+					credentialProvider: createIamCredentialProvider(
+						this._config.iam, this._logger, this._options?.credentialFetcher),
+				}
+				: this._config,
+			this._options?.pgClientFactory);
 	}
 
 	/** Establishes the connection. Must be called before any other method. */
@@ -62,19 +94,51 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 		if (!this._client) {
 			throw new Error('Redshift connection has been disconnected');
 		}
-		this._logger?.info(`Connecting to ${this._config.host}:${this._config.port}/${this._config.database} as ${this._config.user}`);
+		// Under IAM there is no user to name yet: AWS derives it from the federated identity and
+		// returns it during connect, so it is only known afterwards.
+		const target = `${this._config.host}:${this._config.port}/${this._config.database}`;
+		this._logger?.info(this._config.kind === 'iam'
+			? `Connecting to ${target} with AWS IAM credentials`
+			: `Connecting to ${target} as ${this._config.user}`);
 		try {
 			await this._client.connect();
 		} catch (err: any) {
 			this._client = null;
-			const error = new Error(`Failed to connect to Redshift at ${this._config.host}:${this._config.port}: ${err.message}`);
+			const error = new Error(`Failed to connect to Redshift at ${this._config.host}:${this._config.port}: ${err.message}${this._missingDatabaseUserHint(err)}`);
 			this._logger?.error(error.message);
 			throw error;
 		}
 		// Detect cross-database support once the connection is up. A failure here is non-fatal: the
 		// connection still works, it just browses the single connected database.
 		this._crossDatabase = await this._detectCrossDatabase();
-		this._logger?.info(`Connected to ${this._config.host}:${this._config.port} (cross-database ${this._crossDatabase ? 'available' : 'unavailable'})`);
+		const connectedAs = this._client.resolvedUser;
+		this._logger?.info(`Connected to ${this._config.host}:${this._config.port}${connectedAs ? ` as ${connectedAs}` : ''} (cross-database ${this._crossDatabase ? 'available' : 'unavailable'})`);
+	}
+
+	/**
+	 * Extra guidance for the one provisioned-cluster failure that is predictable.
+	 *
+	 * With AutoCreate off -- the AWS default, and what this driver asks for so that connecting never
+	 * silently creates a database user -- GetClusterCredentials *succeeds* for a user that does not
+	 * exist, and the login is what fails. So the cause is an AWS-side decision but the symptom is a
+	 * bare authentication error from Postgres, which points nowhere useful. Under IAM the password
+	 * was minted rather than typed, so an authentication failure cannot be a wrong password: the
+	 * identity simply is not a user in the database.
+	 *
+	 * Returns an empty string when the failure is anything else, so the message is unchanged.
+	 */
+	private _missingDatabaseUserHint(err: unknown): string {
+		if (this._config.kind !== 'iam' || this._config.iam.kind !== 'provisioned') {
+			return '';
+		}
+		// Same predicate the client uses to decide a credential was rejected, so the retry set and
+		// this hint cannot drift apart.
+		if (!isAuthenticationError(err)) {
+			return '';
+		}
+		return ' ' + vscode.l10n.t(
+			"The IAM credentials were issued, but the database user '{0}' may not exist in cluster '{1}'. Redshift does not create it. Create the user in the database, or use a database user that already exists.",
+			this._config.iam.dbUser ?? '', this._config.iam.name);
 	}
 
 	/**
