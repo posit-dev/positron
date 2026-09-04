@@ -18,10 +18,10 @@ import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../interpreter/contracts';
 import { traceError, traceInfo } from '../logging';
 import { IConfigurationService, IDisposable, IDisposableRegistry } from '../common/types';
-import { getActivePythonSessions, PythonRuntimeSession } from './session';
+import { PythonRuntimeSession, registerActivePythonSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { getPythonDiscoveryRootSignature } from './discoveryRootSignature';
-import { EXTENSION_ROOT_DIR } from '../common/constants';
+import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
@@ -200,16 +200,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             const deletedPath = event.old.path;
             this.unregisterRuntimeForPath(deletedPath);
             try {
-                // Only Python sessions; other languages' sessions may not even have
-                // extraRuntimeData (e.g. restored from a serialized state).
-                const sessions = await getActivePythonSessions();
-                const toShutdown = sessions.filter(
-                    (s) => (s.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData).pythonPath === deletedPath,
-                );
-                if (toShutdown.length > 0) {
-                    traceInfo(`Shutting down ${toShutdown.length} session(s) for deleted interpreter ${deletedPath}`);
-                    await Promise.all(toShutdown.map((s) => s.shutdown(positron.RuntimeExitReason.Shutdown)));
-                }
+                await shutdownSessionsForPythonPath(deletedPath, `deleted interpreter ${deletedPath}`);
             } catch (error) {
                 traceError(`Failed to clean up sessions for deleted interpreter ${deletedPath}: ${error}`);
             }
@@ -567,6 +558,14 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             kernelSpec,
             sessionName,
         );
+        // Track the session so `getActivePythonSessions()` can hand the owned
+        // object back to `LanguageServerManager`, which needs the concrete
+        // `PythonRuntimeSession` for `activateLsp()`/`deactivateLsp()` -- core has
+        // no notion of those, so the proxy from `getActiveSessions()` can't carry
+        // them (#12589). Lifecycle operations must NOT use this registry; they go
+        // through the `positron.runtime` namespace so core stays in the loop. The
+        // session removes itself from the registry when it is disposed.
+        registerActivePythonSession(session);
         this._onDidCreateSession.fire(session);
         return session;
     }
@@ -689,20 +688,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             return alreadyRegisteredRuntime;
         }
         if (alreadyRegisteredRuntime && recreateRuntime) {
-            const sessions = await getActivePythonSessions();
-            // Find any active sessions using this runtime
-            const sessionsToShutdown = sessions.filter((session) => {
-                const sessionRuntime = session.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
-                return sessionRuntime.pythonPath === pythonPath;
-            });
-
-            // Shut down all sessions for this runtime before recreating it
-            if (sessionsToShutdown.length > 0) {
-                traceInfo(`Shutting down ${sessionsToShutdown.length} sessions using Python runtime at ${pythonPath}`);
-                await Promise.all(
-                    sessionsToShutdown.map((session) => session.shutdown(positron.RuntimeExitReason.Shutdown)),
-                );
-            }
+            // Shut down all sessions for this runtime before recreating it.
+            await shutdownSessionsForPythonPath(pythonPath, `Python runtime at ${pythonPath}`);
 
             // clear stale entry so registerLanguageRuntime below fires _onDidDiscoverRuntime
             // for the new runtime vs. leaving Positron with an orphaned stale entry.
@@ -771,5 +758,35 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      */
     async triggerInterpreterRefresh(): Promise<void> {
         await this.interpreterService.triggerRefresh();
+    }
+}
+
+/**
+ * Shut down every active Python session running the interpreter at `pythonPath`.
+ *
+ * Sessions come from `positron.runtime.getActiveSessions()` rather than the
+ * extension's own registry so that each `shutdown()` is mediated by Positron
+ * core (#12589). Shutting a session down in-process would take the kernel down
+ * without core ever seeing it, leaving a stuck console and stale state
+ * indicators behind. Core routes the call back to the owning session, so the
+ * LSP teardown in `PythonRuntimeSession.shutdown()` still runs.
+ *
+ * @param description How to describe the reason in the log line.
+ */
+async function shutdownSessionsForPythonPath(pythonPath: string, description: string): Promise<void> {
+    const sessions = await positron.runtime.getActiveSessions();
+    const toShutdown = sessions.filter((session) => {
+        // Only Python sessions; other languages' sessions may not even have
+        // extraRuntimeData (e.g. restored from a serialized state).
+        if (session.runtimeMetadata.languageId !== PYTHON_LANGUAGE) {
+            return false;
+        }
+        const extraData = session.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData | undefined;
+        return extraData?.pythonPath === pythonPath;
+    });
+
+    if (toShutdown.length > 0) {
+        traceInfo(`Shutting down ${toShutdown.length} session(s) for ${description}`);
+        await Promise.all(toShutdown.map((session) => session.shutdown(positron.RuntimeExitReason.Shutdown)));
     }
 }

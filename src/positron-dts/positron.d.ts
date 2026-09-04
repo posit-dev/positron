@@ -3181,25 +3181,69 @@ declare module 'positron' {
 
 		/**
 		 * List all active sessions.
+		 *
+		 * The returned sessions are managed by Positron: operations invoked on
+		 * them route through Positron core so it stays in the loop (console
+		 * attribution, foreground tracking, state indicators). Prefer the
+		 * `positron.runtime.*` methods (`restartSession`, `interruptSession`,
+		 * `executeCode`, ...) for actions. To obtain a session you own and can
+		 * drive directly, use `startLanguageRuntime` or register a
+		 * `LanguageRuntimeManager`.
 		 */
 		export function getActiveSessions(): Thenable<BaseLanguageRuntimeSession[]>;
 
 		/**
 		 * Get a specific session by its ID.
+		 *
+		 * See {@link getActiveSessions} for how the returned session routes
+		 * operations through Positron core.
 		 */
 		export function getSession(sessionId: string): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Get the active foreground session, if any.
+		 *
+		 * See {@link getActiveSessions} for how the returned session routes
+		 * operations through Positron core.
 		 */
 		export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Get the session corresponding to a notebook, if any.
 		 *
+		 * See {@link getActiveSessions} for how the returned session routes
+		 * operations through Positron core.
+		 *
 		 * @param notebookUri The URI of the notebook.
 		 */
 		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<BaseLanguageRuntimeSession | undefined>;
+
+		/**
+		 * Get the full {@link LanguageRuntimeSession} object for a session that
+		 * lives in the calling extension host, if there is one.
+		 *
+		 * This is an escape hatch for the rare consumer that needs parts of the
+		 * session surface Positron core cannot mediate -- for example
+		 * {@link LanguageRuntimeSession.debug} for DAP over the kernel's control
+		 * channel, or `onDidReceiveRuntimeMessage` to observe raw runtime
+		 * messages. The other `get*Session` methods return only
+		 * {@link BaseLanguageRuntimeSession} so that operations route through
+		 * Positron core.
+		 *
+		 * Prefer the `positron.runtime.*` methods for anything they cover.
+		 * Calling lifecycle or execution methods (`restart`, `interrupt`,
+		 * `execute`, `shutdown`, ...) on the object returned here bypasses
+		 * Positron core and causes stuck consoles and stale state indicators.
+		 *
+		 * Returns `undefined` when the session is owned by a different extension
+		 * host, so callers must guarantee co-location (typically by declaring a
+		 * dependency on the owning extension in `package.json`) and handle
+		 * `undefined`. The lookup is local to the extension host, so it is
+		 * synchronous.
+		 *
+		 * @param sessionId The ID of the session to look up.
+		 */
+		export function getLocalSession(sessionId: string): LanguageRuntimeSession | undefined;
 
 		/**
 		 * Select and start a runtime previously registered with Positron. Any
@@ -3211,6 +3255,9 @@ declare module 'positron' {
 
 		/**
 		 * Start a new session for a runtime previously registered with Positron.
+		 *
+		 * Unlike the `get*Session` query methods, this returns the full
+		 * `LanguageRuntimeSession` to its creator, which may be driven directly.
 		 *
 		 * @param runtimeId The ID of the runtime to select and start.
 		 * @param sessionName A human-readable name for the new session.
