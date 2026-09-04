@@ -56,13 +56,25 @@
  * Recent is capped at five rows by `limit` in gettingStarted.ts, so its height is
  * fixed and only its row text wants width -- below about 400px the folder paths
  * ellipsize away to nothing. It takes the larger share of whatever is spare.
+ *
+ * No gap, because the connect action reads as the list's last row and sits flush
+ * against it.
  */
 .positron-welcome-page .positron-welcome-page-column-main {
 	display: flex;
 	flex: 3 1 400px;
 	flex-direction: column;
-	gap: 8px;
 	min-width: 0;
+}
+
+/*
+ * Puts the connect action in the same 24px line box the recent rows use
+ * (gettingStarted.css sets it on the list's ul), so it lands on the list's
+ * rhythm rather than just below it. The rows carry no indent -- `padding-left: 0`
+ * on that ul -- so nothing is needed to line up its left edge.
+ */
+.positron-welcome-page .positron-welcome-page-connect {
+	line-height: 24px;
 }
 
 /*

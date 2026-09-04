@@ -233,10 +233,10 @@
 }
 
 /*
- * Overrides the slide-wide codicon margin from gettingStarted.css:295-297, which
- * targets .gettingStartedSlideCategories .codicon. This selector includes that
- * class so it outranks the upstream rule on specificity (9 classes vs 8), regardless
- * of stylesheet load order.
+ * Overrides the slide-wide codicon margin gettingStarted.css sets on
+ * `.gettingStartedSlideCategories .codicon`. This selector includes that class so
+ * it outranks the upstream rule on specificity (9 classes vs 8), regardless of
+ * stylesheet load order.
  */
 .monaco-workbench .part.editor > .content .gettingStartedContainer
 .gettingStartedSlideCategories
@@ -292,9 +292,9 @@
 .gettingStartedSlideCategories
 .positron-welcome-page-environment-setup {
 	/*
-	 * gettingStarted.css:232 sets white-space: nowrap on every li in this slide,
-	 * and the check rows are li. Without this the summary and detail cannot wrap
-	 * and run underneath the fix button instead of yielding to it.
+	 * gettingStarted.css sets white-space: nowrap on every li in this slide, and
+	 * the check rows are li. Without this the summary and detail cannot wrap and
+	 * run underneath the fix button instead of yielding to it.
 	 */
 	& .environment-health-item {
 		white-space: normal;

@@ -91,7 +91,7 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 			<div className='positron-welcome-page-columns'>
 				<div className='positron-welcome-page-column-main'>
 					<DomSlot element={props.recentList} />
-					{props.connectAction && <DomSlot element={props.connectAction} />}
+					{props.connectAction && <DomSlot className='positron-welcome-page-connect' element={props.connectAction} />}
 				</div>
 				<WalkthroughBanner />
 			</div>
