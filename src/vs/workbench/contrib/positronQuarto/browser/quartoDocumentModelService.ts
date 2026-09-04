@@ -10,6 +10,7 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { QuartoDocumentModel } from './quartoDocumentModel.js';
 import { IQuartoDocumentModel } from '../common/quartoTypes.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 export const IQuartoDocumentModelService = createDecorator<IQuartoDocumentModelService>('quartoDocumentModelService');
 
@@ -53,6 +54,7 @@ export class QuartoDocumentModelService extends Disposable implements IQuartoDoc
 
 	constructor(
 		@ILogService private readonly _logService: ILogService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 	) {
 		super();
 	}
@@ -63,7 +65,7 @@ export class QuartoDocumentModelService extends Disposable implements IQuartoDoc
 		let model = this._models.get(key);
 		if (!model) {
 			this._logService.debug(`[QuartoDocumentModelService] Creating model for ${key}`);
-			model = new QuartoDocumentModel(textModel, this._logService);
+			model = new QuartoDocumentModel(textModel, this._logService, this._runtimeStartupService);
 			this._models.set(key, model);
 
 			// Listen for model disposal to clean up.
