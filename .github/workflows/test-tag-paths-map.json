@@ -183,6 +183,7 @@
   "src/vs/workbench/services/actions/": ["@:assistant"],
   "src/vs/workbench/services/encryption/": [],
   "src/vs/workbench/services/encryption/browser/browserEncryptionService.ts": ["@:web"],
+  "src/vs/workbench/services/log/": [],
   "src/vs/workbench/services/notification/": [],
   "src/vs/workbench/services/themes/": [],
   "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": []
