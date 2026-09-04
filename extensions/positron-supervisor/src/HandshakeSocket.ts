@@ -198,49 +198,26 @@ export class HandshakeSocket implements vscode.Disposable {
 	public static connect(socketPath: string, timeoutMs: number): Promise<KallichoreServerState> {
 		const handles = new PromiseHandles<KallichoreServerState>();
 
-		let bytesReceived = 0;
 		console.log(
 			`[HandshakeSocket] connect: starting cached-handshake retrieval from ` +
 			`${socketPath} (timeout ${timeoutMs}ms)`);
 
-		const socket = net.connect(socketPath, () => {
-			console.log(`[HandshakeSocket] connect: socket connected to ${socketPath}`);
-		});
+		const socket = net.connect(socketPath);
 		let text = '';
-		let firstByteLogged = false;
 		socket.setEncoding('utf8');
-		socket.on('data', (chunk: string) => {
-			text += chunk;
-			bytesReceived += Buffer.byteLength(chunk, 'utf8');
-			if (!firstByteLogged) {
-				firstByteLogged = true;
-				console.log(
-					`[HandshakeSocket] connect: first data received from ${socketPath}`);
-			}
-		});
+		socket.on('data', (chunk: string) => { text += chunk; });
 		socket.on('end', () => {
 			try {
 				handles.resolve(JSON.parse(text) as KallichoreServerState);
 				console.log(
-					`[HandshakeSocket] connect: parsed handshake payload from ` +
-					`${socketPath} (${bytesReceived} bytes total)`);
+					`[HandshakeSocket] connect: cached handshake received from ${socketPath}`);
 			} catch (err) {
-				console.log(
-					`[HandshakeSocket] connect: failed to parse handshake payload from ` +
-					`${socketPath} (${bytesReceived} bytes total): ${err}`);
 				handles.reject(new Error(`Failed to parse handshake payload: ${err}`));
 			}
 		});
-		socket.on('error', (err) => {
-			console.log(
-				`[HandshakeSocket] connect: socket error on ${socketPath}: ${err}`);
-			handles.reject(err);
-		});
+		socket.on('error', (err) => handles.reject(err));
 
 		const timer = setTimeout(() => {
-			console.log(
-				`[HandshakeSocket] connect: timed out reading handshake payload from ` +
-				`${socketPath} (timeout ${timeoutMs}ms, ${bytesReceived} bytes received so far)`);
 			socket.destroy();
 			handles.reject(new Error(
 				`Timed out reading handshake payload from ${socketPath} after ${timeoutMs}ms`));
