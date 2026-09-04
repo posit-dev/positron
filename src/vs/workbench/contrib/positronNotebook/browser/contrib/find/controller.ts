@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
+import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../../editor/contrib/find/browser/findModel.js';
 import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
@@ -90,6 +91,13 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}, 20));
 
 	private readonly _notebookModelDisposables = this._register(new DisposableStore());
+
+	/**
+	 * Watches for a match's cell editor to attach so the match selection and
+	 * line reveal can be applied once it does. Replaced on each navigation and
+	 * cleared when the find widget is hidden.
+	 */
+	private readonly _pendingMatchReveal = this._register(new MutableDisposable());
 
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
@@ -221,6 +229,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					replaceInputFocused.reset();
 
 					// Clear state
+					this._pendingMatchReveal.clear();
 					transaction((tx) => {
 						this._matches.set([], tx);
 						this._currentMatch.set(undefined, tx);
@@ -509,21 +518,10 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		const cellMatch = cellMatches[matchIndex];
-		const { cell, cellRange } = cellMatch;
 
-		// Select the cell and reveal it
-		this._notebook.selectionStateMachine.selectCell(cell);
-		this._notebook.revealInCenterIfOutsideViewport(cell).catch((error) => {
-			this._logService.error('Error revealing cell for find match:', error);
-		});
-
-		// Select the match in the editor
-		if (cell.currentEditor) {
-			// Set the selection to the match range
-			cell.currentEditor.setSelection(cellRange.range);
-			// Reveal the range in the editor
-			cell.currentEditor.revealRangeInCenter(cellRange.range);
-		}
+		// Select the cell and reveal the match
+		this._notebook.selectionStateMachine.selectCell(cellMatch.cell);
+		this._revealMatch(cellMatch);
 
 		transaction((tx) => {
 			// Update the match index
@@ -531,6 +529,49 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 			// Update current match tracking
 			this._currentMatch.set({ cellMatch, matchIndex: matchIndex }, tx);
+		});
+	}
+
+	/**
+	 * Selects the match in the cell's editor and scrolls the notebook so the
+	 * match's line is visible. Cells whose editor is not attached yet (e.g. a
+	 * rendered markdown cell, or a code cell React has not mounted) are
+	 * revealed at cell granularity now, and the selection + line reveal are
+	 * applied once the editor attaches.
+	 */
+	private _revealMatch(cellMatch: PositronCellFindMatch): void {
+		const { cell, cellRange } = cellMatch;
+
+		const applyEditorReveal = (editor: ICodeEditor) => {
+			// Select the match and reveal its line within the notebook viewport
+			editor.setSelection(cellRange.range);
+			cell.reveal({ reason: 'programmatic', range: cellRange.range }).catch((error) => {
+				this._logService.error('Error revealing find match:', error);
+			});
+		};
+
+		const editor = cell.currentEditor;
+		if (editor) {
+			this._pendingMatchReveal.clear();
+			applyEditorReveal(editor);
+			return;
+		}
+
+		// No editor yet: reveal the cell itself now, then apply the selection
+		// and line reveal once the editor attaches.
+		cell.reveal({ reason: 'programmatic' }).catch((error) => {
+			this._logService.error('Error revealing cell for find match:', error);
+		});
+		this._pendingMatchReveal.value = autorun(reader => {
+			const attachedEditor = cell.editor.read(reader);
+			if (!attachedEditor) {
+				return;
+			}
+			// Skip if navigation moved on to another match while waiting.
+			// Untracked read: navigation changes must not re-trigger this autorun.
+			if (this._currentMatch.read(undefined)?.cellMatch === cellMatch) {
+				applyEditorReveal(attachedEditor);
+			}
 		});
 	}
 
