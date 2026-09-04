@@ -245,9 +245,7 @@
 		}
 
 		// --- Start Positron ---
-		// Wait for the worker to take control; long enough to cover registration plus an
-		// update download. Matches resolveTimeout in service-worker.js, which bounds an
-		// analogous wait on an external event.
+		// Bounds the controllerchange wait below; matches resolveTimeout in service-worker.js.
 		const controllerChangeTimeout = 30_000;
 		// --- End Positron ---
 
@@ -288,10 +286,9 @@
 						|| !navigator.serviceWorker.controller
 					) {
 						// --- Start Positron ---
-						// Firefox leaves a new webview iframe uncontrolled even when this worker is
-						// active, so `controllerchange` never fires; claiming makes it fire. Not claimed
-						// while a worker is installing or waiting, so the incoming one takes over. The
-						// timeout turns any remaining hang into a fatal error instead of a blank webview.
+						// Firefox can leave this worker uncontrolled, so controllerchange never fires
+						// without a claim. Skipped during install/waiting so the incoming worker takes
+						// over instead.
 						//
 						// Upstream:
 						// await new Promise(r => {
