@@ -782,6 +782,42 @@ describe('kernel matrix', () => {
 		expect(matrix.kernels).toBeUndefined();
 	});
 
+	// The regression a row-level count caused: quarto-inline runs two arks and
+	// session-r one, and a single number per row reported both as two.
+	test('counts kernel processes per scenario, not per row', () => {
+		const twoArks = scenarioEntry('quarto-inline', [
+			proc(), kernelProc('ark', 100, 200), kernelProc('ark', 100, 201)
+		]);
+		const kernels = buildSummaryMatrix([...entries, twoArks]).kernels!;
+		const ark = kernels.rows.find(row => row.label === 'R (ark)')!;
+
+		expect(ark.processCounts['quarto-inline']).toBe(2);
+		expect(ark.processCounts['session-r']).toBe(1);
+		// Summed across labels, so a column's marker counts every kernel in it.
+		expect(kernels.totalProcessCounts['quarto-inline']).toBe(2);
+	});
+
+	// Only the cell it is true of is marked, and the label carries no suffix.
+	test('superscripts only the multi-process cell', () => {
+		const twoArks = scenarioEntry('quarto-inline', [
+			proc(), kernelProc('ark', 100, 200), kernelProc('ark', 100, 201)
+		]);
+		const html = renderSummaryHtml(buildSummaryMatrix([...entries, twoArks]));
+		const arkRow = html.split('R (ark)')[1].split('</tr>')[0];
+
+		expect(html).not.toContain('processes)');
+		expect(arkRow.match(/<span class="count-marker">/g)).toHaveLength(1);
+		expect(arkRow).toContain('<span class="count-marker">2</span>');
+	});
+
+	test('omits the count footnote when every kernel is one process', () => {
+		const html = renderSummaryHtml(buildSummaryMatrix(entries));
+
+		// The class name itself is in the stylesheet either way; the span is not.
+		expect(html).not.toContain('<span class="count-marker">');
+		expect(html).not.toContain('A superscript is how many');
+	});
+
 	test('renders the card in html', () => {
 		const html = renderSummaryHtml(buildSummaryMatrix(entries));
 

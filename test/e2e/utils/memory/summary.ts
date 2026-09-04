@@ -89,11 +89,12 @@ export type KernelSummaryRow = {
 	label: string;
 	values: Partial<Record<MemoryScenario, number>>;
 	/**
-	 * The most processes this label covered in any scenario's any launch, for the
-	 * label suffix. Row-level rather than per cell: a suffix that changed down a
-	 * row would have to sit in the cells, competing with the figures.
+	 * How many processes each scenario's figure sums, at its highest across that
+	 * scenario's launches. Per cell rather than per row: one scenario running a
+	 * second kernel was previously reported as a suffix on the label, which read
+	 * as a claim about every cell in the row.
 	 */
-	processCount: number;
+	processCounts: Partial<Record<MemoryScenario, number>>;
 };
 
 export type KernelMatrix = {
@@ -101,6 +102,8 @@ export type KernelMatrix = {
 	rows: KernelSummaryRow[];
 	/** The whole `kernel` role per scenario: the sum of every row above. Absent for a scenario that ran none. */
 	totals: Partial<Record<MemoryScenario, number>>;
+	/** Kernel processes per scenario across every label, for the TOTAL row's marker. */
+	totalProcessCounts: Partial<Record<MemoryScenario, number>>;
 };
 
 /** One process that was still moving when it was sampled, named for the warning banner. */
@@ -427,11 +430,12 @@ function buildKernelMatrix(entries: ScenarioSnapshots[], scenarios: MemoryScenar
 		return undefined;
 	}
 
-	const counts = new Map<string, number>();
-	for (const { snapshots } of entries) {
-		for (const [label, count] of kernelProcessCounts(snapshots)) {
-			counts.set(label, Math.max(counts.get(label) ?? 0, count));
-		}
+	// Kept per scenario rather than maxed into one number per label: the count is
+	// a property of the scenario that ran the kernel, and only one scenario has
+	// ever run two.
+	const countsByScenario = new Map<MemoryScenario, Map<string, number>>();
+	for (const { scenario, snapshots } of entries) {
+		countsByScenario.set(scenario, kernelProcessCounts(snapshots));
 	}
 
 	const peak = (label: string) => Math.max(0, ...[...mediansByScenario.values()].map(m => m.get(label) ?? 0));
@@ -445,21 +449,32 @@ function buildKernelMatrix(entries: ScenarioSnapshots[], scenarios: MemoryScenar
 					values[scenario] = value;
 				}
 			}
-			return { label, values, processCount: counts.get(label) ?? 0 };
+			const processCounts: Partial<Record<MemoryScenario, number>> = {};
+			for (const scenario of scenarios) {
+				const count = countsByScenario.get(scenario)?.get(label);
+				if (count !== undefined) {
+					processCounts[scenario] = count;
+				}
+			}
+			return { label, values, processCounts };
 		});
 
 	// Summed from the rendered rows, so the column a reader adds up is the column
 	// that is printed. A scenario that ran no kernel is left absent rather than
 	// totalled to zero.
 	const totals: Partial<Record<MemoryScenario, number>> = {};
+	const totalProcessCounts: Partial<Record<MemoryScenario, number>> = {};
 	for (const scenario of scenarios) {
 		if ((mediansByScenario.get(scenario)?.size ?? 0) === 0) {
 			continue;
 		}
 		totals[scenario] = rows.reduce((sum, row) => sum + (row.values[scenario] ?? 0), 0);
+		// Summed, not maxed: TOTAL spans the labels, so two kernels of one language
+		// and one of another is three processes in that column.
+		totalProcessCounts[scenario] = rows.reduce((sum, row) => sum + (row.processCounts[scenario] ?? 0), 0);
 	}
 
-	return { rows, totals };
+	return { rows, totals, totalProcessCounts };
 }
 
 /**
@@ -619,11 +634,18 @@ type CellOptions = {
 	 * activated an extension idle does not -- which is what the scenario is for.
 	 */
 	newInScenario?: boolean;
+	/**
+	 * How many processes this one figure sums, superscripted when above one.
+	 *
+	 * Per cell because the fact is per cell: only `quarto-inline` runs a second
+	 * ark, and stating it once on the row label claimed it of `session-r` too.
+	 */
+	processCount?: number;
 };
 
 /** One scenario's cell: the value, plus (for a non-idle scenario) its delta against idle underneath. */
 function cellHtml(scenario: MemoryScenario, value: number | undefined, options: CellOptions = {}): string {
-	const { delta, threshold, flagNoBaseline, newInScenario } = options;
+	const { delta, threshold, flagNoBaseline, newInScenario, processCount } = options;
 	if (value === undefined) {
 		return `<td align="right"${baselineClass(scenario)}>${ABSENT_MARKER}</td>`;
 	}
@@ -645,7 +667,14 @@ function cellHtml(scenario: MemoryScenario, value: number | undefined, options: 
 	// Positioned absolutely off `.value-wrap` rather than appended inline: an inline
 	// dagger widens this cell's content, which widens the whole column and shifts
 	// every other row's value left to share it, breaking the alignment down the column.
-	const marker = flagNoBaseline ? '<span class="baseline-marker">&dagger;</span>' : '';
+	// Same absolute-positioning trick for the same reason. Only one of the two can
+	// ever apply to a cell: the dagger is a delta marker, and the kernel table
+	// that carries counts has no deltas at all.
+	const marker = flagNoBaseline
+		? '<span class="baseline-marker">&dagger;</span>'
+		: processCount !== undefined && processCount > 1
+			? `<span class="count-marker">${processCount}</span>`
+			: '';
 	return `<td align="right"${baselineClass(scenario)}><span class="value-wrap"><span class="value">${formatBytes(value)}</span>${marker}</span>${deltaLine}</td>`;
 }
 
@@ -775,14 +804,17 @@ function kernelCardHtml(matrix: SummaryMatrix): string {
 		return '';
 	}
 	const rows = kernels.rows.map(row => {
-		const count = row.processCount > 1 ? ` <span class="muted">(${row.processCount} processes)</span>` : '';
-		const cells = matrix.scenarios.map(scenario => cellHtml(scenario, row.values[scenario])).join('');
+		const cells = matrix.scenarios.map(scenario => cellHtml(scenario, row.values[scenario], {
+			processCount: row.processCounts[scenario]
+		})).join('');
 		return `<tr>
-		<td>${escapeHtml(row.label)}${count}</td>
+		<td>${escapeHtml(row.label)}</td>
 		${cells}
 	</tr>`;
 	}).join('\n');
-	const totalCells = matrix.scenarios.map(scenario => cellHtml(scenario, kernels.totals[scenario])).join('');
+	const totalCells = matrix.scenarios.map(scenario => cellHtml(scenario, kernels.totals[scenario], {
+		processCount: kernels.totalProcessCounts[scenario]
+	})).join('');
 
 	return `<div class="card">
 		<h2>Kernel memory by language</h2>
@@ -795,8 +827,17 @@ function kernelCardHtml(matrix: SummaryMatrix): string {
 				${totalCells}
 			</tr>
 		</table>
+		${hasMultiProcessKernel(kernels) ? `<div class="footnote">${KERNEL_COUNT_FOOTNOTE}</div>` : ''}
 	</div>`;
 }
+
+/** Whether any cell will carry a count marker, which gates the footnote explaining it. */
+function hasMultiProcessKernel(kernels: KernelMatrix): boolean {
+	return kernels.rows.some(row => Object.values(row.processCounts).some(count => count > 1));
+}
+
+const KERNEL_COUNT_FOOTNOTE = `A superscript is how many kernel processes that figure sums;
+	an unmarked figure is a single process.`;
 
 /**
  * Says what the rows are and, as importantly, why there are no deltas: idle
@@ -884,7 +925,7 @@ export const SUMMARY_CSS = `
 		absolutely positioned dagger inside it cannot widen this cell and shift every
 		other row's value in the column to share the extra space. */
 		.value-wrap { position: relative; }
-		.baseline-marker { position: absolute; left: 100%; top: 0; margin-left: 1px; font-size: 0.7em; line-height: 1; color: #9ca3af; }
+		.baseline-marker, .count-marker { position: absolute; left: 100%; top: 0; margin-left: 1px; font-size: 0.7em; line-height: 1; color: #9ca3af; }
 		/* Only some cells carry a delta on a second line. Centering would then drop a bare
 		value half a line below its emphasized neighbour, so the row no longer reads
 		across. Top-aligned, every PSS figure shares a baseline and the deltas hang below. */
