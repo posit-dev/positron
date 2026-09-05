@@ -73,6 +73,7 @@ export const ActionBarActionToggle = (props: ActionBarActionToggleProps) => {
 		<ActionBarToggle
 			ref={buttonRef}
 			ariaLabel={ariaLabel}
+			disabled={!menuItemAction.enabled}
 			leftTitle={leftTitle}
 			rightTitle={rightTitle}
 			toggled={menuItemAction.checked ?? false}

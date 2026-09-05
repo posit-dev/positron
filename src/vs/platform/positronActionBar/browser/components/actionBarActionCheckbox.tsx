@@ -63,6 +63,7 @@ export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => 
 			ref={buttonRef}
 			ariaLabel={props.action.label ?? props.action.tooltip}
 			checked={menuItemAction.checked ?? false}
+			disabled={!menuItemAction.enabled}
 			label={menuItemAction.label ?? props.action.label}
 			tooltip={actionTooltip(
 				services.contextKeyService,
