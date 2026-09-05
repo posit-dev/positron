@@ -47,16 +47,13 @@ export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
 
-	// Get the menu item action.
+	// Get the menu item action and the Positron action bar checkbox options. The options and their
+	// checked expression must both be defined; otherwise the checkbox has no state to show and
+	// nothing is rendered.
 	const menuItemAction = toMenuItemAction(props.action);
-	if (!menuItemAction) {
-		return null;
-	}
+	const positronActionBarCheckboxOptions = toPositronActionBarCheckboxOptions(menuItemAction?.positronActionBarOptions);
 
-	// Get the Positron action bar checkbox options. This must be defined and the checked context ket expression must be defined.
-	// If this is not the case, render nothing. This prevents the checkbox from being rendered when its initial state isn't know.
-	const positronActionBarCheckboxOptions = toPositronActionBarCheckboxOptions(menuItemAction.positronActionBarOptions);
-	if (!positronActionBarCheckboxOptions || !positronActionBarCheckboxOptions.checked) {
+	if (!menuItemAction || !positronActionBarCheckboxOptions?.checked) {
 		return null;
 	}
 
@@ -65,8 +62,9 @@ export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => 
 		<ActionBarCheckbox
 			ref={buttonRef}
 			ariaLabel={props.action.label ?? props.action.tooltip}
-			checked={services.contextKeyService.contextMatchesRules(positronActionBarCheckboxOptions.checked)}
-			label={menuItemAction?.label ?? props.action.label}
+			checked={menuItemAction.checked ?? false}
+			disabled={!menuItemAction.enabled}
+			label={menuItemAction.label ?? props.action.label}
 			tooltip={actionTooltip(
 				services.contextKeyService,
 				services.keybindingService,

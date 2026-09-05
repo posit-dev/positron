@@ -220,6 +220,7 @@ export class EditorActionBarFactory extends Disposable {
 		// Return the action bar.
 		return (
 			<PositronActionBar
+				ariaLabel={localize('positron.editorActionBar.ariaLabel', "Editor actions")}
 				borderBottom={true}
 				borderTop={false}
 				paddingLeft={PADDING_LEFT}

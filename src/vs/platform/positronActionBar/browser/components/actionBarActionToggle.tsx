@@ -11,6 +11,7 @@ import { useRef } from 'react';
 
 // Other imports.
 import { ActionBarToggle } from './actionBarToggle.js';
+import { localize } from '../../../../nls.js';
 import { IAction } from '../../../../base/common/actions.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
@@ -47,27 +48,35 @@ export const ActionBarActionToggle = (props: ActionBarActionToggleProps) => {
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
 
-	// Get the menu item action.
+	// Get the menu item action and the Positron action bar toggle options. The options and their
+	// toggled expression must both be defined; otherwise the toggle has no state to show and
+	// nothing is rendered.
 	const menuItemAction = toMenuItemAction(props.action);
-	if (!menuItemAction) {
+	const positronActionBarToggleOptions = toPositronActionBarToggleOptions(menuItemAction?.positronActionBarOptions);
+
+	if (!menuItemAction || !positronActionBarToggleOptions?.toggled) {
 		return null;
 	}
 
-	// Get the Positron action bar toggle options. This must be defined and the toggled context ket expression must be defined.
-	// If this is not the case, render nothing. This prevents the toggle from being rendered when its initial state isn't know.
-	const positronActionBarToggleOptions = toPositronActionBarToggleOptions(menuItemAction.positronActionBarOptions);
-	if (!positronActionBarToggleOptions || !positronActionBarToggleOptions.toggled) {
-		return null;
-	}
+	const leftTitle = isLocalizedString(positronActionBarToggleOptions.leftTitle) ? positronActionBarToggleOptions.leftTitle.value : positronActionBarToggleOptions.leftTitle;
+	const rightTitle = isLocalizedString(positronActionBarToggleOptions.rightTitle) ? positronActionBarToggleOptions.rightTitle.value : positronActionBarToggleOptions.rightTitle;
+
+	// A switch announces "on" and "off", never the option names, so name it after the option that
+	// "on" stands for. The left option is the one SegmentedToggle reports as checked, so a toggle
+	// labelled "Edit Mode" with a left title of "Source" announces "Edit Mode: Source, switch, on"
+	// when Source is active and "off" when Visual is.
+	const label = props.action.label ?? props.action.tooltip;
+	const ariaLabel = leftTitle ? localize('positron.actionBarToggle.ariaLabel', "{0}: {1}", label, leftTitle) : label;
 
 	// Render.
 	return (
 		<ActionBarToggle
 			ref={buttonRef}
-			ariaLabel={props.action.label ?? props.action.tooltip}
-			leftTitle={isLocalizedString(positronActionBarToggleOptions.leftTitle) ? positronActionBarToggleOptions.leftTitle.value : positronActionBarToggleOptions.leftTitle}
-			rightTitle={isLocalizedString(positronActionBarToggleOptions.rightTitle) ? positronActionBarToggleOptions.rightTitle.value : positronActionBarToggleOptions.rightTitle}
-			toggled={services.contextKeyService.contextMatchesRules(positronActionBarToggleOptions.toggled)}
+			ariaLabel={ariaLabel}
+			disabled={!menuItemAction.enabled}
+			leftTitle={leftTitle}
+			rightTitle={rightTitle}
+			toggled={menuItemAction.checked ?? false}
 			tooltip={actionTooltip(
 				services.contextKeyService,
 				services.keybindingService,
