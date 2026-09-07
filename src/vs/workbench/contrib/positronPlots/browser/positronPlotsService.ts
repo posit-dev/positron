@@ -1461,7 +1461,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private async getSavePlotDirectory(): Promise<URI> {
-		return this._lastSavePlotDirectory ?? this._fileDialogService.defaultFilePath();
+		if (this._lastSavePlotDirectory && await this._fileService.exists(this._lastSavePlotDirectory)) {
+			return this._lastSavePlotDirectory;
+		}
+
+		return this._fileDialogService.defaultFilePath();
 	}
 
 	private rememberSavePlotDirectory(path: URI): void {

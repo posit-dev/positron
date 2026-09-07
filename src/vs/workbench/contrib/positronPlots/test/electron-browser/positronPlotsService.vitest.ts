@@ -27,6 +27,7 @@ import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { IFileService } from '../../../../../platform/files/common/files.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
 describe('Positron - Plots Service', () => {
@@ -347,9 +348,11 @@ describe('Positron - Plots Service', () => {
 
 	describe('save plot directory', () => {
 		let fileDialogService: IFileDialogService;
+		let fileService: IFileService;
 
 		beforeEach(() => {
 			fileDialogService = ctx.instantiationService.invokeFunction(accessor => accessor.get(IFileDialogService));
+			fileService = ctx.instantiationService.invokeFunction(accessor => accessor.get(IFileService));
 		});
 
 		it('falls back to the file dialog default path when nothing has been remembered', async () => {
@@ -366,6 +369,7 @@ describe('Positron - Plots Service', () => {
 		it('reuses the last saved plot directory for subsequent saves', async () => {
 			const savedPlotPath = URI.file('/tmp/positron-plots/nested/plot.png');
 			const defaultFilePathSpy = vi.spyOn(fileDialogService, 'defaultFilePath');
+			vi.spyOn(fileService, 'exists').mockResolvedValue(true);
 
 			// eslint-disable-next-line local/code-no-any-casts -- testing private helper behavior directly
 			(plotsService as any).rememberSavePlotDirectory(savedPlotPath);
@@ -376,21 +380,36 @@ describe('Positron - Plots Service', () => {
 			expect(defaultFilePathSpy).not.toHaveBeenCalled();
 		});
 
+		it('falls back to the default path when the remembered directory no longer exists', async () => {
+			const defaultDirectory = URI.file('/tmp/positron-default-plots');
+			const defaultFilePathSpy = vi.spyOn(fileDialogService, 'defaultFilePath').mockResolvedValue(defaultDirectory);
+			vi.spyOn(fileService, 'exists').mockResolvedValue(false);
+
+			// eslint-disable-next-line local/code-no-any-casts -- testing private helper behavior directly
+			(plotsService as any).rememberSavePlotDirectory(URI.file('/tmp/positron-plots/stale/plot.png'));
+			// eslint-disable-next-line local/code-no-any-casts -- testing private helper behavior directly
+			const saveDirectory = await (plotsService as any).getSavePlotDirectory();
+
+			expect(saveDirectory.toString()).toBe(defaultDirectory.toString());
+			expect(defaultFilePathSpy).toHaveBeenCalledOnce();
+		});
+
 		it('uses the remembered directory when opening the static save dialog', async () => {
 			const defaultFilePathSpy = vi.spyOn(fileDialogService, 'defaultFilePath');
 			const showSaveDialogSpy = vi.spyOn(fileDialogService, 'showSaveDialog').mockResolvedValue(undefined);
+			vi.spyOn(fileService, 'exists').mockResolvedValue(true);
 
 			// eslint-disable-next-line local/code-no-any-casts -- testing private helper behavior directly
 			(plotsService as any).rememberSavePlotDirectory(URI.file('/tmp/positron-plots/reused/plot.svg'));
 			// eslint-disable-next-line local/code-no-any-casts -- testing private helper behavior directly
 			(plotsService as any).showSavePlotDialog('data:image/svg+xml,%3Csvg%20xmlns%3D%22http://www.w3.org/2000/svg%22%3E%3C/svg%3E', 'plot');
 
-			await Promise.resolve();
-
-			expect(defaultFilePathSpy).not.toHaveBeenCalled();
-			expect(showSaveDialogSpy).toHaveBeenCalledWith(expect.objectContaining({
-				defaultUri: URI.file('/tmp/positron-plots/reused/plot'),
-			}));
+			await vi.waitFor(() => {
+				expect(defaultFilePathSpy).not.toHaveBeenCalled();
+				expect(showSaveDialogSpy).toHaveBeenCalledWith(expect.objectContaining({
+					defaultUri: URI.file('/tmp/positron-plots/reused/plot'),
+				}));
+			});
 		});
 	});
 
