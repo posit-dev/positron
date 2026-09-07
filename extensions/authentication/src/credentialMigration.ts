@@ -54,8 +54,15 @@ export interface MigratedProvider {
 }
 
 /**
- * Hand the language-model providers' credentials to the Assistant once, so
+ * Copy the language-model providers' credentials to the Assistant once, so
  * moving their ownership does not sign the user out.
+ *
+ * A copy, not a move: this extension keeps its own secrets and account index so
+ * a user who tries this branch can go back to a build where it still owns these
+ * providers and find themselves still signed in. The two stores can drift if
+ * they then re-key a provider on the older build -- the handoff runs once and
+ * does not reconcile afterwards -- which is the accepted cost of that
+ * reversibility.
  *
  * Pushed to a command the Assistant registers rather than exposed as an export
  * the Assistant calls: `executeCommand` carries no caller identity, so a pull
@@ -97,8 +104,7 @@ async function handoffCredentials(context: vscode.ExtensionContext): Promise<voi
 	const providers = await collectMigratedCredentials(context);
 	if (providers.length > 0) {
 		await vscode.commands.executeCommand(IMPORT_COMMAND, providers);
-		await clearMigratedCredentials(context, providers);
-		log.info(`Credential handoff: transferred ${providers.length} provider(s) to ${ASSISTANT_EXTENSION_ID}`);
+		log.info(`Credential handoff: copied ${providers.length} provider(s) to ${ASSISTANT_EXTENSION_ID}`);
 	}
 
 	await context.globalState.update(MIGRATION_DONE_KEY, true);
@@ -144,21 +150,4 @@ async function collectMigratedCredentials(
 	}
 
 	return collected;
-}
-
-/** Drop the handed-off secrets, so they live in exactly one store. */
-async function clearMigratedCredentials(
-	context: vscode.ExtensionContext,
-	providers: readonly MigratedProvider[]
-): Promise<void> {
-	for (const provider of providers) {
-		for (const { accountId } of provider.apiKeys) {
-			await context.secrets.delete(`apiKey-${provider.providerId}-${accountId}`);
-		}
-		for (const key of Object.keys(provider.oauth ?? {})) {
-			await context.secrets.delete(key);
-		}
-		await context.globalState.update(`auth.accounts.${provider.providerId}`, undefined);
-		await context.globalState.update(`authentication.previouslySignedIn.${provider.providerId}`, undefined);
-	}
 }
