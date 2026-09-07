@@ -9,15 +9,8 @@ import { PlotClientInstance } from '../../../services/languageRuntime/common/lan
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext } from '../common/interfaces/positronAssistantService.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
-import { URI } from '../../../../base/common/uri.js';
-import { IChatService } from '../../chat/common/chatService/chatService.js';
-import { IChatWidgetService } from '../../chat/browser/chat.js';
-import { isFileExcludedFromAI } from '../../chat/browser/tools/utils.js';
-import { isCompletionsEnabled } from '../../../../editor/common/services/completionsEnablement.js';
-import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 
 /**
@@ -79,14 +72,9 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	//#region Constructor
 
 	constructor(
-		@IChatService private readonly _chatService: IChatService,
-		@IChatWidgetService private readonly _chatWidgetService: IChatWidgetService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@ILanguageService private readonly _languageService: ILanguageService,
 		@IPositronPlotsService private readonly _plotService: IPositronPlotsService,
 		@IProductService protected readonly _productService: IProductService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
-		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
 	) {
 		super();
 	}
@@ -137,44 +125,8 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		return isPlotVisible ? plot.lastRender.uri : undefined;
 	}
 
-	areCompletionsEnabled(uri: URI): boolean {
-		if (!this._aiProviderService.isEnabled('copilot')) {
-			return false; // Copilot provider disabled in the catalog
-		}
-
-		// First, check the completions enablement setting for the file's
-		// language. This reads the product-configured setting
-		// (`github.copilot.enable`), the single source of truth shared with
-		// Copilot, the Assistant's toggle command, and the chat status UI.
-		const languageId = this._languageService.guessLanguageIdByFilepathOrFirstLine(uri) ?? undefined;
-		if (!isCompletionsEnabled(this._configurationService, languageId)) {
-			return false; // Completions are disabled for this language
-		}
-
-		// Then, check the exclusion patterns
-		if (isFileExcludedFromAI(this._configurationService, uri.path)) {
-			return false; // File matches an exclusion pattern, so it is excluded from completions
-		}
-
-		return true; // No patterns matched, so completions are enabled
-	}
-
 	//#endregion
 	//#region Language Model UI
-
-	getChatExport() {
-		const chatWidget = this._chatWidgetService.lastFocusedWidget;
-		if (!chatWidget || !chatWidget.viewModel) {
-			return undefined;
-		}
-
-		const model = this._chatService.getSession(chatWidget.viewModel.sessionResource);
-		if (!model) {
-			return undefined;
-		}
-
-		return model.toExport();
-	}
 
 	//#endregion
 }
