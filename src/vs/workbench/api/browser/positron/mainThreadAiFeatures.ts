@@ -13,7 +13,7 @@ import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/
 import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/model/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService/chatService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
-import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronAssistantService, IPositronChatContext } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
@@ -37,7 +37,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	constructor(
 		extHostContext: IExtHostContext,
 		@IPositronAssistantService private readonly _positronAssistantService: IPositronAssistantService,
-		@IPositronAssistantConfigurationService private readonly _positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		@IChatService private readonly _chatService: IChatService,
 		@IChatAgentService private readonly _chatAgentService: IChatAgentService,
 		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
@@ -50,11 +49,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		super();
 		// Create the proxy for the extension host.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostAiFeatures);
-
-		// Forward provider configuration changes to the extension host.
-		this._register(this._positronAssistantConfigurationService.onChangeProviderConfig(source => {
-			this._proxy.$onDidChangeProviderConfig(source);
-		}));
 
 		// Forward per-provider catalog enablement flips to the extension host. The
 		// baseline snapshot is captured after initialization so activation-time
@@ -90,25 +84,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	$unregisterChatAgent(id: string): void {
 		this._registrations.deleteAndDispose(id);
-	}
-
-	/*
-	 * Show a modal dialog for language model configuration. Return a promise resolving to the
-	 * configuration saved by the user.
-	 */
-	$languageModelConfig(id: string, options?: IShowLanguageModelConfigOptions): Thenable<void> {
-		return new Promise((resolve, reject) => {
-			this._positronAssistantService.showLanguageModelModalDialog(
-				async (source, config, action) => {
-					await this._proxy.$responseProviderAction(source, config, action);
-				},
-				() => {
-					this._proxy.$onCompleteLanguageModelConfig(id);
-					resolve();
-				},
-				options,
-			);
-		});
 	}
 
 	/**
@@ -202,34 +177,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		return this._positronAssistantService.getChatExport();
 	}
 
-	$registerProvider(registration: IPositronLanguageModelSource): void {
-		this._positronAssistantConfigurationService.registerProvider(registration);
-	}
-
-	$updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
-		this._positronAssistantConfigurationService.updateProvider(id, update);
-
-		// Invalidate the provider's model cache so the model picker and
-		// welcome view update to reflect that the provider is no longer
-		// signed in.
-		if (update.signedIn === false) {
-			this._languageModelsService.invalidateProvider(id);
-		}
-	}
-
-	$unregisterProvider(id: string): void {
-		this._positronAssistantConfigurationService.unregisterProvider(id);
-		this._languageModelsService.invalidateProvider(id);
-	}
-
-	async $getRegisteredProviders(): Promise<IPositronLanguageModelSource[]> {
-		// Same timing rule as $getEnabledProviders: the sources are filtered by
-		// catalog enablement, so the pre-initialization snapshot would both drop
-		// providers that are enabled and keep ones providers.json disables.
-		await this._aiProviderService.whenInitialized;
-		return this._positronAssistantConfigurationService.getRegisteredSources();
-	}
-
 	/**
 	 * Check if a file should be enabled for Copilot inline completions based on
 	 * configuration settings. Scoped to Copilot; Posit AI NES has its own separate gate.
@@ -276,22 +223,12 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Get the list of enabled provider IDs from configuration.
-	 */
-	async $getEnabledProviders(): Promise<string[]> {
-		// Never expose the empty pre-initialization snapshot to extension
-		// activation code; the RPC is already async so callers see no change.
-		await this._aiProviderService.whenInitialized;
-		return this._positronAssistantConfigurationService.getEnabledProviders();
-	}
-
-	/**
 	 * Check whether a provider (identified by its catalog id) is enabled in the
 	 * resolved provider catalog.
 	 */
 	async $isProviderEnabled(id: string): Promise<boolean> {
-		// Same timing rule as $getEnabledProviders: activation-time callers must
-		// not observe the pre-initialization snapshot.
+		// Activation-time callers must not observe the pre-initialization
+		// snapshot.
 		await this._aiProviderService.whenInitialized;
 		return this._aiProviderService.isEnabled(id);
 	}

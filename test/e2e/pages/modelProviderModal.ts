@@ -3,6 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/*
+ * Targets the core "Configure LLM Providers" modal, which has been removed
+ * along with the `positron.ai` provider-configuration API. Retained, unused,
+ * while the suites that drove it are quarantined: provider sign-in now lives in
+ * the Posit Assistant extension's provider-manager webview, and this file is
+ * the specification of what that webview's page object has to cover.
+ */
+
 import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Toasts } from './dialog-toasts.js';

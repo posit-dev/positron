@@ -712,13 +712,11 @@
 			"positron.authentication"
 		],
 		"anthropic-api": [
-			"positron.authentication",
 			"posit.assistant"
 		],
 		"posit-ai": [
-			"positron.authentication",
-			"positron.next-edit-suggestions",
-			"posit.assistant"
+			"posit.assistant",
+			"positron.next-edit-suggestions"
 		],
 		"ms-foundry": [
 			"positron.authentication",
@@ -733,19 +731,15 @@
 			"posit.assistant"
 		],
 		"openai-api": [
-			"positron.authentication",
 			"posit.assistant"
 		],
 		"deepseek-api": [
-			"positron.authentication",
 			"posit.assistant"
 		],
 		"openai-compatible": [
-			"positron.authentication",
 			"posit.assistant"
 		],
 		"google": [
-			"positron.authentication",
 			"posit.assistant"
 		],
 		"google-cloud": [
@@ -757,7 +751,6 @@
 			"posit.assistant"
 		],
 		"positron-custom-provider": [
-			"positron.authentication",
 			"posit.assistant"
 		]
 	},

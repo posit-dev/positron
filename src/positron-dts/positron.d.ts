@@ -995,14 +995,6 @@ declare module 'positron' {
 	}
 
 	/**
-	 * The possible types of language model that can be used with the Positron Assistant.
-	 */
-	export enum PositronLanguageModelType {
-		Chat = 'chat',
-		Completion = 'completion',
-	}
-
-	/**
 	 * The possible locations a Positron Assistant chat request can be invoked from.
 	 */
 	export enum PositronChatAgentLocation {
@@ -3995,39 +3987,6 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
-		 * A language model provider, extends vscode.LanguageModelChatProvider.
-		 */
-		export interface LanguageModelChatProvider<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
-			displayName: string;
-			providerId: string;
-			id: string;
-
-			providerName: string;
-
-			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any>;
-
-			provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
-
-			provideTokenCount(model: T, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number>;
-
-			/**
-			 * Tests the connection to the language model provider.
-			 *
-			 * Returns an error if the connection fails.
-			 */
-			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
-
-			/**
-			 * Retrieves a list of supported models from the provider.
-			 *
-			 * This is used to populate the model selection dropdown in the language model configuration dialog. This
-			 * should be called before registering the chat provider.
-			 * @returns A list of supported model identifiers, or undefined if the provider does not support a model listing.
-			 */
-			resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined>;
-		}
-
-		/**
 		 * Dynamically defined chat agent properties and metadata.
 		 */
 		export interface ChatAgentData {
@@ -4059,199 +4018,6 @@ declare module 'positron' {
 		 * This allows for dynamic chat agent commands in Positron.
 		 */
 		export function registerChatAgent(agentData: ChatAgentData): Thenable<vscode.Disposable>;
-
-		/**
-		 * Metadata about a language model provider used for configuration.
-		 * Registered during extension activation, independent of sign-in state.
-		 */
-		export interface ProviderMetadata {
-			/**
-			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot-auth').
-			 * Used internally to distinguish between provider implementations.
-			 */
-			id: string;
-			/**
-			 * Display name shown in the UI (e.g., 'Anthropic', 'OpenAI', 'GitHub Copilot').
-			 * Appears in settings, model selection dialogs, and provider lists.
-			 */
-			displayName: string;
-			/**
-			 * Provider id in the resolved provider catalog (`~/.posit/ai/providers.json`), used to
-			 * resolve enablement and connection config. When undefined, `id` is used instead, so a
-			 * provider is still subject to the catalog if the catalog knows that id. Providers the
-			 * catalog has never heard of are treated as enabled.
-			 */
-			catalogId?: string;
-			/**
-			 * Maturity status of the provider. Drives how it's presented in the
-			 * configuration modal: stable providers (no status) are listed first,
-			 * then 'preview', then 'experimental'.
-			 */
-			status?: 'preview' | 'experimental';
-			/**
-			 * For a provider that comes from a `providers.custom` entry, the
-			 * entry's type (its client kind, e.g. 'anthropic'). Undefined for
-			 * built-in providers. The configuration modal shows the entry under
-			 * that vendor's icon and marks the row as custom.
-			 */
-			customKind?: string;
-			/**
-			 * Optional data URL for the provider icon shown in the configuration dialog
-			 * (e.g., 'data:image/svg+xml;base64,...'). Falls back to built-in icons
-			 * when not provided.
-			 */
-			logoUrl?: string;
-		}
-
-		/**
-		 * Why a field cannot be set in the configuration form, and what value
-		 * applies instead. Today this is always an environment variable, which
-		 * ai-config ranks above the user's configuration file.
-		 *
-		 * Deliberately not part of `LanguageModelConfig`: that type is
-		 * bidirectional (it arrives as `defaults` and is submitted back on
-		 * save), and this is an inbound-only fact about the environment.
-		 */
-		export interface LanguageModelFieldOverride {
-			/** The value in effect, shown in place of the user's saved value. */
-			readonly value: string;
-			/**
-			 * Name of the environment variable supplying the value, e.g.
-			 * `AWS_REGION`, so the form can say what to change instead. Omit when
-			 * there is no single name to give.
-			 */
-			readonly name?: string;
-		}
-
-		/**
-		 * Which of a provider's form fields are supplied by a higher-precedence
-		 * layer, shaped to mirror `LanguageModelConfig` with each value replaced
-		 * by the reason it cannot be set.
-		 *
-		 * Only the fields something can actually take over appear, rather than
-		 * every config key.
-		 */
-		export interface LanguageModelFieldOverrides {
-			baseUrl?: LanguageModelFieldOverride;
-			apiKey?: LanguageModelFieldOverride;
-			aws?: {
-				profile?: LanguageModelFieldOverride;
-				region?: LanguageModelFieldOverride;
-			};
-		}
-
-		/**
-		 * Positron Language Model source, used for user configuration of language models.
-		 */
-		export interface LanguageModelSource {
-			type: PositronLanguageModelType;
-			provider: ProviderMetadata;
-			supportedOptions: Exclude<{
-				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
-			}[keyof LanguageModelConfig], undefined>[];
-			defaults: LanguageModelConfig;
-			/**
-			 * Fields the user cannot set here because a higher-precedence config
-			 * layer supplies them. Absent when every supported field is editable.
-			 */
-			overrides?: LanguageModelFieldOverrides;
-			signedIn?: boolean;
-			authMethods?: string[];
-			/**
-			 * Provider health. `'ok'` = signed in and healthy; `'error'` = a
-			 * problem worth surfacing, described by `statusMessage`; `null` =
-			 * nothing to report.
-			 */
-			status?: 'ok' | 'error' | null;
-			/**
-			 * Human-readable reason when `status` is `'error'`
-			 * (e.g. "Authentication expired").
-			 */
-			statusMessage?: string;
-		}
-
-		/**
-		 * Positron Language Model configuration options.
-		 */
-		export interface LanguageModelConfig {
-			model?: string;
-			baseUrl?: string;
-			apiKey?: string;
-			oauth?: boolean;
-			toolCalls?: boolean;
-			resourceName?: string;
-			project?: string;
-			location?: string;
-			numCtx?: number;
-			maxInputTokens?: number;
-			maxOutputTokens?: number;
-			completions?: boolean;
-			/**
-			 * Wire protocol (API type) the provider speaks, e.g. 'openai-chat'
-			 * (Chat Completions) or 'openai-responses' (Responses). Routes custom
-			 * / OpenAI-compatible providers to the right API. Omit to let the
-			 * provider decide.
-			 */
-			protocol?: string;
-			/**
-			 * Explicit model list for a custom provider whose endpoint has no
-			 * `/models` listing. Persisted as the provider's custom model
-			 * definitions.
-			 */
-			customModels?: LanguageModelCustomModel[];
-			autoconfigure?: LanguageModelAutoconfigure;
-			/**
-			 * AWS profile and region for a provider authenticating through the
-			 * AWS credential chain. Both are optional; an omitted field falls
-			 * back to the ambient AWS configuration. An empty string means the
-			 * user cleared the field and any saved value should be removed.
-			 */
-			aws?: { profile?: string; region?: string };
-		}
-
-		/**
-		 * A user-declared model for a custom provider, for providers whose
-		 * endpoint does not list its own models.
-		 */
-		export interface LanguageModelCustomModel {
-			id: string;
-			name: string;
-			maxContextLength: number;
-			supportsTools: boolean;
-			supportsImages: boolean;
-			supportsToolResultImages: boolean;
-			supportsWebSearch: boolean;
-		}
-
-		/**
-		 * Types of autoconfiguration support for language models.
-		 */
-		export enum LanguageModelAutoconfigureType {
-			// Autoconfigured using environment variables
-			EnvVariable = 0,
-			// Autoconfigured using a custom function on the language model provider
-			// E.g., for Workbench managed credentials
-			Custom = 1
-		}
-		/**
-		 * Language model autoconfiguration options.
-		 */
-		export type LanguageModelAutoconfigure = (
-			{
-				type: LanguageModelAutoconfigureType.EnvVariable;
-				// Environment variable key used to retrieve API key, if set
-				key: string;
-				signedIn: boolean;
-			} |
-			{
-				type: LanguageModelAutoconfigureType.Custom;
-				// Message to show in the UI if autoconfiguration was successful
-				message: string;
-				signedIn: boolean;
-				// Whether this credential is managed by Posit Workbench
-				isPositWorkbench?: boolean;
-			}
-		);
 
 		/**
 		 * Request the current plot data.
@@ -4305,65 +4071,6 @@ declare module 'positron' {
 		export function getChatExport(): Thenable<object | undefined>;
 
 		/**
-		 * Options for showing the language model configuration modal.
-		 */
-		export interface ShowLanguageModelConfigOptions {
-			/**
-			 * Optional provider ID to pre-select in the dialog.
-			 * If provided and valid, the modal will open with this provider selected.
-			 */
-			preselectedProviderId?: string;
-		}
-
-		/**
-		 * Show a modal dialog for language model configuration.
-		 * Sources are read from internal state, populated via registerProvider.
-		 */
-		export function showLanguageModelConfig(
-			options?: ShowLanguageModelConfigOptions,
-		): Thenable<void>;
-
-		/**
-		 * Registers a language model provider with Positron.
-		 *
-		 * Call once per provider during extension activation. This registers
-		 * everything static about the provider. Enablement is read from the
-		 * resolved provider catalog (providers.json), not a per-provider setting.
-		 *
-		 * Returns a Disposable. When disposed, the provider is removed
-		 * from the configuration service.
-		 *
-		 * @param source Provider source definition
-		 * @param onAction Optional callback invoked for user actions.
-		 * @returns A Disposable that unregisters the provider when disposed
-		 */
-		export function registerProvider(
-			source: LanguageModelSource,
-			onAction?: (source: LanguageModelSource, config: LanguageModelConfig, action: string) => Thenable<void>,
-		): vscode.Disposable;
-
-		/**
-		 * Updates dynamic state for a previously registered provider.
-		 *
-		 * @param id Provider ID (must match a previously registered provider)
-		 * @param update Partial state to deep-merge
-		 */
-		export function updateProvider(id: string, update: Partial<LanguageModelSource>): void;
-
-		/**
-		 * Returns the sources of all registered, enabled language model
-		 * providers, including their current `signedIn`, `status`, and
-		 * `statusMessage` state.
-		 */
-		export function getRegisteredProviders(): Thenable<LanguageModelSource[]>;
-
-		/**
-		 * Event that fires when a provider's configuration changes via
-		 * registerProvider, unregisterProvider, or updateProvider.
-		 */
-		export const onDidChangeProviderConfig: vscode.Event<LanguageModelSource>;
-
-		/**
 		 * The context in which a chat request is made.
 		 */
 		export interface ChatContext {
@@ -4402,16 +4109,6 @@ declare module 'positron' {
 		 * Set the current language chat provider.
 		 */
 		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
-
-		/**
-		 * Gets the list of enabled provider IDs from user configuration.
-		 *
-		 * Reads from individual provider enable settings ('positron.assistant.provider.<name>.enable')
-		 * and the deprecated 'positron.assistant.enabledProviders' array setting for backward compatibility.
-		 *
-		 * @returns A Thenable that resolves to an array of enabled provider IDs
-		 */
-		export function getEnabledProviders(): Thenable<string[]>;
 
 		/**
 		 * Whether the provider with the given CATALOG id (e.g. 'copilot',

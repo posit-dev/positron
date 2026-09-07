@@ -11,6 +11,13 @@ test.use({
 	suiteId: __filename,
 });
 
+// Quarantined: this suite drives the core "Configure LLM Providers" modal, which
+// has been removed along with the `positron.ai` provider-configuration API.
+// Provider sign-in now lives in the Posit Assistant extension's provider-manager
+// webview, which needs its own page object before these can be restored.
+test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
+
+
 // Snowflake Cortex advertises a single sign-in method everywhere -- an API key (a
 // Snowflake programmatic access token) plus the bare account identifier, from which the
 // extension derives the Cortex URL (#13750). So there is no auth-method radio group to

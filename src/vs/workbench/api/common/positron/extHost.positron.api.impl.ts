@@ -39,7 +39,6 @@ import { createLazyDriverLogger } from './extHostDataConnectionsLogging.js';
 import { ExtHostDataExplorer } from './extHostDataExplorer.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles, formatPathForCode, ResolvedBase } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
@@ -503,9 +502,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
-			showLanguageModelConfig(options?: positron.ai.ShowLanguageModelConfigOptions): Thenable<void> {
-				return extHostAiFeatures.showLanguageModelConfig(options);
-			},
 			registerChatAgent(agentData: positron.ai.ChatAgentData): Thenable<vscode.Disposable> {
 				return extHostAiFeatures.registerChatAgent(extension, agentData);
 			},
@@ -525,22 +521,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getChatExport(): Thenable<object | undefined> {
 				return extHostAiFeatures.getChatExport();
 			},
-			registerProvider(source: positron.ai.LanguageModelSource, onAction?: (source: positron.ai.LanguageModelSource, config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): vscode.Disposable {
-				return extHostAiFeatures.registerProvider(extension, source as IPositronLanguageModelSource, onAction as (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>);
-			},
-			updateProvider(id: string, update: Partial<positron.ai.LanguageModelSource>): void {
-				return extHostAiFeatures.updateProvider(id, update as Partial<IPositronLanguageModelSource>);
-			},
-			getRegisteredProviders(): Thenable<positron.ai.LanguageModelSource[]> {
-				return extHostAiFeatures.getRegisteredProviders() as Thenable<positron.ai.LanguageModelSource[]>;
-			},
-			onDidChangeProviderConfig: (listener, thisArgs?, disposables?) => {
-				return extHostAiFeatures.onDidChangeProviderConfig(
-					source => listener.call(thisArgs, source as positron.ai.LanguageModelSource),
-					undefined,
-					disposables
-				);
-			},
 			onDidChangeProviderEnablement: (listener, thisArgs?, disposables?) => {
 				return extHostAiFeatures.onDidChangeProviderEnablement(listener, thisArgs, disposables);
 			},
@@ -558,9 +538,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			setCurrentProvider(id: string): Promise<positron.ai.ChatProvider | undefined> {
 				return extHostAiFeatures.setCurrentProvider(id);
-			},
-			getEnabledProviders(): Thenable<string[]> {
-				return extHostAiFeatures.getEnabledProviders();
 			},
 			isProviderEnabled(id: string): Thenable<boolean> {
 				return extHostAiFeatures.isProviderEnabled(id);
@@ -581,7 +558,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			): Thenable<positron.ai.ValidateAndExecuteCommandResult> {
 				return extHostAiFeatures.validateAndExecuteCommand(commandId, args);
 			},
-			LanguageModelAutoconfigureType: extHostTypes.LanguageModelAutoconfigureType
 		};
 
 		const notebooks: typeof positron.notebooks = {
@@ -722,7 +698,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			workspace,
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,
 			EnvironmentContributionFilter: extHostTypes.EnvironmentContributionFilter,
-			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
 			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			PositronChatMode: extHostTypes.PositronChatMode,

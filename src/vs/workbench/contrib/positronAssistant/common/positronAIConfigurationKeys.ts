@@ -25,13 +25,3 @@
  */
 export const AI_ENABLED_KEY = 'ai.enabled';
 
-/**
- * Chooses which dialog the Configure Providers command opens. On, it opens the
- * Configure LLM Providers modal. Off, it opens the older Configure Language
- * Model Providers dialog.
- *
- * Defaults to on. The older dialog stays available as a way back: if something
- * in the current modal does not work for a user, they can turn this off and
- * carry on.
- */
-export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';

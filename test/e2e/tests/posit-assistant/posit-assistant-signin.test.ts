@@ -16,6 +16,13 @@ test.use({
 	extraEnv: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined },
 });
 
+// Quarantined: this suite drives the core "Configure LLM Providers" modal, which
+// has been removed along with the `positron.ai` provider-configuration API.
+// Provider sign-in now lives in the Posit Assistant extension's provider-manager
+// webview, which needs its own page object before these can be restored.
+test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
+
+
 // Whatever goes wrong in this suite, do not reach for a window reload. A restarted
 // extension host re-probes the cloud credential-chain metadata endpoints (AWS/Azure
 // IMDS, metadata.google.internal). Those are unreachable from the test container and

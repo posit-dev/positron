@@ -13,9 +13,8 @@ import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
-import { IChatRequestData, IChatRequestReferenceSession, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IChatRequestReferenceSession, IPositronChatContext } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
@@ -25,13 +24,9 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	private readonly _proxy: extHostProtocol.MainThreadAiFeaturesShape;
 	private readonly _disposables: DisposableStore = new DisposableStore();
-	private readonly _providerActionCallbacks = new Map<string, (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>>();
-	private readonly _dialogSessions = new Map<string, { resolve: () => void }>();
-	private readonly _onDidChangeProviderConfigEmitter = this._disposables.add(new Emitter<IPositronLanguageModelSource>());
 	private readonly _onDidChangeProviderEnablementEmitter = this._disposables.add(new Emitter<{ id: string; enabled: boolean }>());
 	private readonly _onDidChangeAgentSkillRootsEmitter = this._disposables.add(new Emitter<void>());
 
-	readonly onDidChangeProviderConfig = this._onDidChangeProviderConfigEmitter.event;
 	readonly onDidChangeProviderEnablement = this._onDidChangeProviderEnablementEmitter.event;
 	readonly onDidChangeAgentSkillRoots = this._onDidChangeAgentSkillRootsEmitter.event;
 
@@ -70,44 +65,8 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	registerProvider(extension: IExtensionDescription, source: IPositronLanguageModelSource, onAction?: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>): Disposable {
-		if (onAction) {
-			this._providerActionCallbacks.set(source.provider.id, onAction);
-		}
-		this._proxy.$registerProvider(source);
-
-		return new Disposable(() => {
-			this._providerActionCallbacks.delete(source.provider.id);
-			this._proxy.$unregisterProvider(source.provider.id);
-		});
-	}
-
-	updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
-		this._proxy.$updateProvider(id, update);
-	}
-
-	async getRegisteredProviders(): Promise<IPositronLanguageModelSource[]> {
-		return this._proxy.$getRegisteredProviders();
-	}
-
-	$onDidChangeProviderConfig(source: IPositronLanguageModelSource): void {
-		this._onDidChangeProviderConfigEmitter.fire(source);
-	}
-
 	$onDidChangeProviderEnablement(id: string, enabled: boolean): void {
 		this._onDidChangeProviderEnablementEmitter.fire({ id, enabled });
-	}
-
-	async showLanguageModelConfig(options?: positron.ai.ShowLanguageModelConfigOptions): Promise<void> {
-		const id = generateUuid();
-
-		return new Promise<void>((resolve, reject) => {
-			this._dialogSessions.set(id, { resolve });
-			Promise.resolve(this._proxy.$languageModelConfig(id, options)).catch((err: unknown) => {
-				this._dialogSessions.delete(id);
-				reject(err);
-			});
-		});
 	}
 
 	async getCurrentPlotUri(): Promise<string | undefined> {
@@ -152,22 +111,6 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		this._proxy.$responseProgress(context.sessionResource, dto);
 	}
 
-	async $responseProviderAction(source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string): Promise<void> {
-		const onAction = this._providerActionCallbacks.get(source.provider.id);
-		if (!onAction) {
-			return;
-		}
-		return onAction(source, config, action);
-	}
-
-	$onCompleteLanguageModelConfig(id: string): void {
-		const session = this._dialogSessions.get(id);
-		if (session) {
-			session.resolve();
-			this._dialogSessions.delete(id);
-		}
-	}
-
 	async getChatExport(): Promise<object | undefined> {
 		return this._proxy.$getChatExport();
 	}
@@ -190,10 +133,6 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	async setCurrentProvider(id: string): Promise<IPositronChatProvider | undefined> {
 		return this._proxy.$setCurrentProvider(id);
-	}
-
-	async getEnabledProviders(): Promise<string[]> {
-		return this._proxy.$getEnabledProviders();
 	}
 
 	async isProviderEnabled(id: string): Promise<boolean> {
