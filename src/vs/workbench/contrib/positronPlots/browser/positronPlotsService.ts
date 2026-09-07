@@ -51,7 +51,7 @@ import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { plotOriginFromCodeLocation } from './plotUtils.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
-import { joinPath } from '../../../../base/common/resources.js';
+import { dirname, joinPath } from '../../../../base/common/resources.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 
 /** The maximum number of recent executions to store. */
@@ -217,6 +217,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The current plot rendering settings. */
 	private readonly _plotsRenderSettings: ISettableObservable<PlotRenderSettings>;
+
+	/** The last directory used to save a plot during the current session. */
+	private _lastSavePlotDirectory?: URI;
 
 	/** Creates the Positron plots service instance */
 	constructor(
@@ -1387,34 +1390,32 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._notificationService.error(localize('positronPlots.noPlotSelected', 'No plot selected.'));
 			return;
 		}
-		this._fileDialogService.defaultFilePath()
-			.then(defaultPath => {
-				const suggestedPath = defaultPath;
-				if (plotClient) {
-					if (plotClient instanceof StaticPlotClient) {
-						// if it's a static plot, save the image to disk
-						const uri = plotClient.uri;
-						this.showSavePlotDialog(uri, plotClient.metadata.suggested_file_name);
-					} else if (plotClient instanceof PlotClientInstance) {
-						// if it's a dynamic plot, present options dialog
-						showSavePlotModalDialog(
-							this._selectedSizingPolicy,
-							plotClient,
-							this.savePlotAs,
-							suggestedPath
-						);
-					} else {
-						// if it's a webview plot, do nothing
-						return;
-					}
-				}
-			})
-			.catch((error) => {
-				throw new Error(`Error saving plot: ${error.message}`);
-			});
+		if (plotClient instanceof StaticPlotClient) {
+			// if it's a static plot, save the image to disk
+			this.showSavePlotDialog(plotClient.uri, plotClient.metadata.suggested_file_name);
+			return;
+		}
+		if (plotClient instanceof PlotClientInstance) {
+			this.getSavePlotDirectory()
+				.then(defaultPath => {
+					// if it's a dynamic plot, present options dialog
+					showSavePlotModalDialog(
+						this._selectedSizingPolicy,
+						plotClient,
+						this.savePlotAs,
+						defaultPath
+					);
+				})
+				.catch((error) => {
+					throw new Error(`Error saving plot: ${error.message}`);
+				});
+			return;
+		}
+		// if it's a webview plot, do nothing
 	}
 
 	private savePlotAs = (options: SavePlotOptions) => {
+		this.rememberSavePlotDirectory(options.path);
 		const htmlFileSystemProvider = this._fileService.getProvider(options.path.scheme) as HTMLFileSystemProvider;
 		// Decode both base64 and URL-encoded image data.
 		const decoded = decodeImageDataUrl(options.uri);
@@ -1439,7 +1440,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Derive the extension from the MIME type; image/svg+xml maps to .svg.
 		const extension = getImageExtensionForMimeType(parsed.mimeType).substring(1);
 
-		this._fileDialogService.defaultFilePath().then(defaultPath => {
+		this.getSavePlotDirectory().then(defaultPath => {
 			const defaultUri = joinPath(defaultPath, suggestedFileName ?? 'plot');
 			this._fileDialogService.showSaveDialog({
 				title: localize('positron.savePlot', "Save Plot"),
@@ -1457,6 +1458,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				}
 			});
 		});
+	}
+
+	private async getSavePlotDirectory(): Promise<URI> {
+		return this._lastSavePlotDirectory ?? this._fileDialogService.defaultFilePath();
+	}
+
+	private rememberSavePlotDirectory(path: URI): void {
+		this._lastSavePlotDirectory = dirname(path);
 	}
 
 	private async copyPlotToClipboard(plotClient: IPositronPlotClient): Promise<void> {
