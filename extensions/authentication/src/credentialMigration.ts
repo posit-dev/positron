@@ -74,11 +74,21 @@ async function handoffCredentials(context: vscode.ExtensionContext): Promise<voi
 	if (context.globalState.get<boolean>(MIGRATION_DONE_KEY)) {
 		return;
 	}
-	if (!vscode.extensions.getExtension(ASSISTANT_EXTENSION_ID)) {
+	const assistant = vscode.extensions.getExtension(ASSISTANT_EXTENSION_ID);
+	if (!assistant) {
 		// Nothing to hand off to. Left unmarked so it retries once the
 		// Assistant is installed.
 		return;
 	}
+
+	// Both extensions activate on `onStartupFinished`, so the Assistant may not
+	// have registered the import command yet. Activating it explicitly keeps the
+	// handoff to the user's first launch; waiting for the next one would leave
+	// them signed out until they restarted.
+	if (!assistant.isActive) {
+		await assistant.activate();
+	}
+
 	if (!(await vscode.commands.getCommands(true)).includes(IMPORT_COMMAND)) {
 		log.info(`Credential handoff: ${ASSISTANT_EXTENSION_ID} has not registered ${IMPORT_COMMAND}; will retry next activation`);
 		return;
