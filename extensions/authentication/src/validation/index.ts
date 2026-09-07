@@ -3,12 +3,5 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export { validateAnthropicApiKey } from './anthropic';
-export { validateCustomProviderApiKey } from './customProvider';
 export { validateDatabricksApiKey } from './databricks';
-export { validateDeepSeekApiKey } from './deepseek';
-export { normalizeToV1Url, validateFoundryApiKey } from './foundry';
-export { validateGeminiApiKey } from './gemini';
-export { validateGeapCredentials } from './geap';
-export { validateOpenaiApiKey } from './openai';
-export { validateSnowflakeApiKey } from './snowflake';
+export { normalizeToV1Url } from './foundry';
