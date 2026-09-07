@@ -10,6 +10,13 @@ test.use({
 	suiteId: __filename,
 });
 
+// Quarantined: this suite drives the core "Configure LLM Providers" modal, which
+// has been removed along with the `positron.ai` provider-configuration API.
+// Provider sign-in now lives in the Posit Assistant extension's provider-manager
+// webview, which needs its own page object before these can be restored.
+test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
+
+
 const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
 
 test.describe('Posit Assistant', {

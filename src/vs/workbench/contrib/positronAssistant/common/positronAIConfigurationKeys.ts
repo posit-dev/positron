@@ -26,17 +26,6 @@
 export const AI_ENABLED_KEY = 'ai.enabled';
 
 /**
- * Chooses which dialog the Configure Providers command opens. On, it opens the
- * Configure LLM Providers modal. Off, it opens the older Configure Language
- * Model Providers dialog.
- *
- * Defaults to on. The older dialog stays available as a way back: if something
- * in the current modal does not work for a user, they can turn this off and
- * carry on.
- */
-export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
-
-/**
  * Whether this window offers its live sessions and its agent-compatible
  * commands to external coding agents (Claude Code, Codex, any MCP client)
  * through the kernel supervisor's Model Context Protocol server.

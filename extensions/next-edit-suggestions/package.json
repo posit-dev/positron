@@ -14,15 +14,14 @@
 	],
 	"activationEvents": [
 		"onAiEnabled",
-		"onAuthenticationRequest:posit-ai",
-		"onCommand:authentication.configureProviders"
+		"onAuthenticationRequest:posit-ai"
 	],
 	"main": "./out/extension.js",
 	"enabledApiProposals": [
 		"inlineCompletionsAdditions"
 	],
 	"extensionDependencies": [
-		"positron.authentication"
+		"posit.assistant"
 	],
 	"contributes": {
 		"commands": [
@@ -47,8 +46,8 @@
 						"scminput": false
 					},
 					"additionalProperties": {
-                    	"type": "boolean"
-                    },
+						"type": "boolean"
+					},
 					"description": "%configuration.enabled.description%",
 					"tags": [
 						"preview"

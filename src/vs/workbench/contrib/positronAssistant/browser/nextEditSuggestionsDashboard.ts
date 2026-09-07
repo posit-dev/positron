@@ -60,8 +60,8 @@ export const NES_CONTEXT_BUSY = 'nextEditSuggestions.busy';
  */
 export const NES_CONTEXT_FILE_ENABLED = 'nextEditSuggestions.fileEnabled';
 
-/** Command (owned by the authentication extension) that opens the Configure Language Model Providers modal. */
-const CONFIGURE_PROVIDERS_COMMAND = 'authentication.configureProviders';
+/** Command (owned by the Posit Assistant extension) that opens its provider manager. */
+const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.manageProviders';
 
 /** Shape of the {@link NES_CONTEXT_MODEL} context key value. */
 interface INextEditSuggestionsModel {

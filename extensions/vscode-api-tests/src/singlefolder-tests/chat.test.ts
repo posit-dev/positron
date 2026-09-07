@@ -10,34 +10,12 @@ import 'mocha';
 import { ChatContext, ChatRequest, ChatRequestTurn, ChatRequestTurn2, ChatResult, Disposable, env, Event, EventEmitter, chat, commands, lm, UIKind } from 'vscode';
 import { DeferredPromise, asPromise, assertNoRpc, closeAllEditors, delay, disposeAll } from '../utils';
 
-// --- Start Positron ---
-import * as positron from 'positron';
-// --- End Positron ---
-
 // TODO: this now became flaky with built-in copilot
 suite('chat', () => {
 
 	let disposables: Disposable[] = [];
 	setup(() => {
 		disposables = [];
-		// --- Start Positron ---
-		positron.ai.registerProvider({
-			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor' },
-			type: positron.PositronLanguageModelType.Chat,
-			supportedOptions: [],
-			defaults: {},
-		});
-		// Register copilot provider so it's enabled in Positron. The 'copilot'
-		// vendor resolves via the 'copilot-auth' provider's `catalogId: 'copilot'`,
-		// which the catalog enables by default.
-		positron.ai.registerProvider({
-			provider: { id: 'copilot-auth', displayName: 'Test Copilot', catalogId: 'copilot' },
-			type: positron.PositronLanguageModelType.Chat,
-			supportedOptions: [],
-			defaults: {},
-		});
-		// --- End Positron ---
-
 		// Register a dummy default model which is required for a participant request to go through
 		disposables.push(lm.registerLanguageModelChatProvider('copilot', {
 			async provideLanguageModelChatInformation(_options, _token) {

@@ -273,76 +273,9 @@ export interface IPositronAssistantConfigurationService {
 	readonly onChangeEnabledProviders: Event<void>;
 
 	/**
-	 * Registers a language model provider with the configuration service.
-	 * Call once per provider during extension activation with all static config.
-	 * Enablement is read from the provider catalog (providers.json), not a setting.
-	 *
-	 * @param source Provider source definition
-	 */
-	registerProvider(source: IPositronLanguageModelSource): void;
-
-	/**
-	 * Unregisters a provider, removing its registration and dynamic state.
-	 * Fires onChangeProviderConfig so open dialogs update immediately.
-	 *
-	 * @param id Provider ID to unregister
-	 */
-	unregisterProvider(id: string): void;
-
-	/**
-	 * Updates dynamic state for a previously registered provider.
-	 * Fires onChangeProviderConfig so listeners react immediately.
-	 *
-	 * @param id Provider ID (must match a previously registered provider)
-	 * @param update Partial state to deep-merge
-	 */
-	updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void;
-
-	/**
-	 * Returns sources for all registered, enabled providers.
-	 */
-	getRegisteredSources(): IPositronLanguageModelSource[];
-
-	/**
-	 * Returns every registered provider source, including those whose catalog
-	 * entry is disabled. getRegisteredSources filters to enabled providers,
-	 * which is what the configuration modal wants; a caller reporting provider
-	 * status needs the disabled registrations too, so it can say "configured
-	 * but disabled" instead of omitting the provider entirely.
-	 */
-	getProviderRegistrations(): IPositronLanguageModelSource[];
-
-	/**
-	 * Event that fires when a provider's configuration changes via
-	 * registerProvider, unregisterProvider, or updateProvider.
-	 */
-	readonly onChangeProviderConfig: Event<IPositronLanguageModelSource>;
-
-	/**
-	 * Fires when the set of registered providers changes, i.e. on registerProvider
-	 * and unregisterProvider but not on updateProvider. Separate from
-	 * onChangeProviderConfig, where a listener can't tell an update from an
-	 * arrival by looking at the source alone. The set is no longer fixed after
-	 * activation: a custom provider can appear or disappear at any point.
-	 */
-	readonly onChangeProviderRegistrations: Event<void>;
-
-	/**
-	 * Gets the list of enabled provider IDs from configuration.
-	 *
-	 * Should only be used after the Positron Assistant extension has finished activation,
-	 * as enabled providers are registered as part of the extension activation flow.
-	 *
-	 * Reads enablement from the resolved provider catalog (providers.json).
-	 *
-	 * @returns Array of enabled provider IDs
-	 */
-	getEnabledProviders(): string[];
-
-	/**
 	 * Check if a specific provider is enabled in Positron's provider configuration.
 	 *
-	 * @param providerId The provider ID to check (e.g., 'copilot', 'anthropic-api', 'openai-api')
+	 * @param providerId The catalog provider ID to check (e.g., 'copilot', 'anthropic', 'openai')
 	 * @returns true if the provider is enabled, false otherwise
 	 */
 	isProviderEnabled(providerId: string): boolean;
@@ -369,16 +302,6 @@ export interface IPositronAssistantService {
 	 * Get the currently visible plot as a URI.
 	 */
 	getCurrentPlotUri(): string | undefined;
-
-	/**
-	 * Show the language model configuration modal.
-	 * Sources are read from the configuration service's internal state.
-	 */
-	showLanguageModelModalDialog(
-		onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>,
-		onClose: () => void,
-		options?: IShowLanguageModelConfigOptions,
-	): void;
 
 	/**
 	 * Get the chat export as a JSON object (IExportableChatData).

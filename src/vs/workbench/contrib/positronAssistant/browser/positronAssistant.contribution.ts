@@ -40,6 +40,9 @@ import './inlineCompletionsMigration.js';
 // Register the agent-compatible `positronAssistant.getProviderStatus` command.
 import './providerStatusCommand.js';
 
+/** Command (owned by the Posit Assistant extension) that opens its provider manager. */
+const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.manageProviders';
+
 // Register the commit message generation feature.
 registerCommitMessageGeneration();
 
@@ -74,7 +77,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 			}
 
 			override async run(accessor: ServicesAccessor): Promise<void> {
-				return accessor.get(ICommandService).executeCommand('authentication.configureProviders');
+				return accessor.get(ICommandService).executeCommand(CONFIGURE_PROVIDERS_COMMAND);
 			}
 		});
 

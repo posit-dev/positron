@@ -16,6 +16,13 @@ test.use({
 	extraEnv: { DATABRICKS_TOKEN: undefined, DATABRICKS_HOST: undefined },
 });
 
+// Quarantined: this suite drives the core "Configure LLM Providers" modal, which
+// has been removed along with the `positron.ai` provider-configuration API.
+// Provider sign-in now lives in the Posit Assistant extension's provider-manager
+// webview, which needs its own page object before these can be restored.
+test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
+
+
 // Databricks is the one provider whose sign-in differs by build, so it gets its own
 // file rather than joining the provider loop in posit-assistant-signin.test.ts:
 //
