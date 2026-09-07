@@ -49,6 +49,13 @@ export interface CredentialChainConfig {
 }
 
 /**
+ * Attempt to recover from a failed credential resolution -- for example by
+ * re-running an external sign-in. Return true when the failure is worth
+ * retrying once.
+ */
+export type RecoverCallback = (err: unknown) => Promise<boolean>;
+
+/**
  * Generic AuthenticationProvider supporting three credential strategies:
  * 1. Credential chain -- resolved from environment (e.g. AWS SDK)
  * 2. Workbench delegation -- bearer tokens from Posit Workbench
@@ -76,6 +83,7 @@ export class AuthProvider
 		protected readonly context: vscode.ExtensionContext,
 		private readonly workbench?: WorkbenchCredentialConfig,
 		private readonly credentialChain?: CredentialChainConfig,
+		private readonly recover?: RecoverCallback,
 	) {
 		this.logger = new AuthProviderLogger(this.displayName);
 	}
@@ -209,6 +217,26 @@ export class AuthProvider
 		_scopes: readonly string[],
 		_options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession> {
+		if (this.credentialChain && this.recover) {
+			// Give the provider one chance to recover -- AWS uses this to
+			// re-run `aws sso login` when the SSO session has lapsed. Exactly
+			// one retry: a recovery that succeeds while the chain still fails
+			// (wrong region, missing model permission) must surface that
+			// failure rather than loop.
+			try {
+				return await this.createSessionOnce();
+			} catch (err) {
+				if (!await this.recover(err)) {
+					throw err;
+				}
+				this.logger.info('Recovered credentials; retrying');
+				return this.createSessionOnce();
+			}
+		}
+		return this.createSessionOnce();
+	}
+
+	private async createSessionOnce(): Promise<vscode.AuthenticationSession> {
 		if (this.credentialChain) {
 			let session: vscode.AuthenticationSession | undefined;
 			// Stays undefined when the chain produced nothing without failing,

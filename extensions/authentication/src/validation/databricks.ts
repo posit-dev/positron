@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { normalizeHost } from '../databricksOAuth';
 import { getCachedProvider } from '../providerCatalog';
@@ -18,12 +17,18 @@ class DatabricksValidationError extends Error {
 	}
 }
 
+/** The connection settings a validation call needs. */
+export interface DatabricksValidationConfig {
+	/** Workspace host to validate against. */
+	readonly baseUrl?: string;
+}
+
 /**
- * Resolve the workspace host for validation: the config dialog's baseUrl
- * field, falling back to the host saved in the provider catalog.
+ * Resolve the workspace host for validation: the caller's baseUrl, falling
+ * back to the host saved in the provider catalog.
  */
 function resolveValidationHost(
-	config: positron.ai.LanguageModelConfig
+	config: DatabricksValidationConfig
 ): string | undefined {
 	const fromConfig = config.baseUrl?.trim();
 	if (fromConfig) {
@@ -39,7 +44,7 @@ function resolveValidationHost(
  */
 export async function validateDatabricksApiKey(
 	apiKey: string,
-	config: positron.ai.LanguageModelConfig
+	config: DatabricksValidationConfig
 ): Promise<void> {
 	const rawHost = resolveValidationHost(config);
 	if (!rawHost) {
