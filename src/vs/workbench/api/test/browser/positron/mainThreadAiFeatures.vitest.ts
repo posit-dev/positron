@@ -12,9 +12,6 @@ import { IExtHostContext } from '../../../../services/extensions/common/extHostC
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
 import { IProviderCatalogChangeData, IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { IPositronAssistantService } from '../../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { IChatService } from '../../../../contrib/chat/common/chatService/chatService.js';
-import { IChatAgentService } from '../../../../contrib/chat/common/participants/chatAgents.js';
-import { ILanguageModelsService } from '../../../../contrib/chat/common/languageModels.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
@@ -58,9 +55,6 @@ describe('MainThreadAiFeatures', () => {
 		const mainThread = disposables.add(new MainThreadAiFeatures(
 			extHostContext,
 			stubInterface<IPositronAssistantService>({}),
-			stubInterface<IChatService>({}),
-			stubInterface<IChatAgentService>({}),
-			stubInterface<ILanguageModelsService>({}),
 			stubInterface<IViewsService>({}),
 			stubInterface<IRuntimeSessionService>({}),
 			stubInterface<IFileService>({}),

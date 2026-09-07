@@ -3987,47 +3987,9 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
-		 * Dynamically defined chat agent properties and metadata.
-		 */
-		export interface ChatAgentData {
-			id: string;
-			name: string;
-			fullName?: string;
-			description?: string;
-			isDefault?: boolean;
-			metadata: { isSticky?: boolean };
-			slashCommands: {
-				name: string;
-				description: string;
-				isSticky?: boolean;
-			}[];
-			modes: PositronChatMode[];
-			locations: PositronChatAgentLocation[];
-			disambiguation: { category: string; description: string; examples: string[] }[];
-		}
-
-		/**
-		 * A chat participant, extends vscode.ChatParticipant with additional dynamic metadata.
-		 */
-		export interface ChatParticipant extends vscode.ChatParticipant {
-			agentData: ChatAgentData;
-		}
-
-		/**
-		 * Register a chat agent dynamically, without requiring registration in `package.json`.
-		 * This allows for dynamic chat agent commands in Positron.
-		 */
-		export function registerChatAgent(agentData: ChatAgentData): Thenable<vscode.Disposable>;
-
-		/**
 		 * Request the current plot data.
 		 */
 		export function getCurrentPlotUri(): Thenable<string | undefined>;
-
-		/**
-		 * Get Positron global context information to be included with every request.
-		 */
-		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;
 
 		/**
 		 * Filters a chat request's tools down to those Positron considers enabled
@@ -4051,66 +4013,6 @@ declare module 'positron' {
 		export function generateAssistantPrompt(request: vscode.ChatRequest): Thenable<string>;
 
 		/**
-		 * Send a progress response to the chat response stream.
-		 */
-		export function responseProgress(token: unknown, part: vscode.ChatResponsePart | {
-			// vscode.ChatResponseConfirmationPart
-			title: string;
-			message: string;
-			data: any;
-			buttons?: string[];
-		} | {
-			// vscode.ChatResponseTextEditPart
-			uri: vscode.Uri;
-			edits: vscode.TextEdit[];
-		}): void;
-
-		/**
-		 * Get the chat export as a JSON object (IExportableChatData).
-		 */
-		export function getChatExport(): Thenable<object | undefined>;
-
-		/**
-		 * The context in which a chat request is made.
-		 */
-		export interface ChatContext {
-			positronVersion?: string;
-			currentDate?: string;
-			plots?: {
-				hasPlots: boolean;
-			};
-			shell?: string;
-		}
-
-		/**
-		 * A chat language model provider.
-		 */
-		export interface ChatProvider {
-			readonly id: string;
-			readonly displayName: string;
-		}
-
-		/**
-		 * Get the current langauge model provider.
-		 */
-		export function getCurrentProvider(): Thenable<ChatProvider | undefined>;
-
-		/**
-		 * Get the currently selected mode in the chat UI.
-		 */
-		export function getCurrentChatMode(): Thenable<string | undefined>;
-
-		/**
-		 * Get all the available langauge model providers.
-		 */
-		export function getProviders(): Thenable<ChatProvider[]>;
-
-		/**
-		 * Set the current language chat provider.
-		 */
-		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
-
-		/**
 		 * Whether the provider with the given CATALOG id (e.g. 'copilot',
 		 * 'anthropic') is enabled in the resolved provider catalog. Unlike
 		 * getEnabledProviders(), ids are catalog ids, not registered auth-provider
@@ -4121,15 +4023,6 @@ declare module 'positron' {
 
 		/** Fires when a provider's catalog enablement flips. Ids are catalog ids. */
 		export const onDidChangeProviderEnablement: vscode.Event<{ readonly id: string; readonly enabled: boolean }>;
-
-		/**
-		 * Checks if Copilot inline completions are enabled for the given file.
-		 * Scoped to Copilot: gated on the Copilot catalog provider. Posit AI Next Edit
-		 * Suggestions (NES) has its own separate enablement and does not use this.
-		 * @param uri The file URI to check if completions are enabled.
-		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
-		 */
-		export function areCompletionsEnabled(uri: vscode.Uri): Thenable<boolean>;
 
 		/**
 		 * A positional parameter accepted by an agent-compatible command.

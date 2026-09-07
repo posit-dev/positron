@@ -4,19 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as vscode from 'vscode';
-import type * as positron from 'positron';
 
 import { ChatRequestEditorData, Disposable } from '../extHostTypes.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import * as typeConvert from '../extHostTypeConverters.js';
-import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
-import { IChatRequestData, IChatRequestReferenceSession, IPositronChatContext } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
-import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
-import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
+import { IChatRequestReferenceSession } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
 
@@ -32,7 +26,6 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
-		private readonly _commands: ExtHostCommands,
 		private readonly _extHostWorkspace: IExtHostWorkspace,
 	) {
 		// Trigger creation of proxy to main thread
@@ -49,35 +42,12 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return filterEnabledTools(request, tools, isWorkspaceOpen);
 	}
 
-	async registerChatAgent(extension: IExtensionDescription, agentData: positron.ai.ChatAgentData): Promise<Disposable> {
-		await this._proxy.$registerChatAgent({
-			...agentData,
-			modes: agentData.modes as unknown as ChatModeKind[],
-			extensionId: extension.identifier,
-			extensionVersion: extension.version,
-			extensionPublisherId: extension.publisher,
-			extensionDisplayName: extension.displayName ?? extension.publisher,
-			locations: agentData.locations.map((v) => ChatAgentLocation.fromRaw(v)),
-		});
-
-		return new Disposable(() => {
-			this._proxy.$unregisterChatAgent(agentData.id);
-		});
-	}
-
 	$onDidChangeProviderEnablement(id: string, enabled: boolean): void {
 		this._onDidChangeProviderEnablementEmitter.fire({ id, enabled });
 	}
 
 	async getCurrentPlotUri(): Promise<string | undefined> {
 		return this._proxy.$getCurrentPlotUri();
-	}
-
-	async getPositronChatContext(request: vscode.ChatRequest): Promise<IPositronChatContext> {
-		const agentRequest: IChatRequestData = {
-			location: typeConvert.ChatLocation.from(request.location),
-		};
-		return this._proxy.$getPositronChatContext(agentRequest);
 	}
 
 	async generateAssistantPrompt(request: vscode.ChatRequest): Promise<string> {
@@ -100,39 +70,6 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 			selectionIsEmpty,
 			referenceSessions,
 		});
-	}
-
-	responseProgress(context: IToolInvocationContext, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart | vscode.ChatResponseConfirmationPart): void {
-		if (!isToolInvocationContext(context)) {
-			throw new Error('Invalid tool invocation token');
-		}
-
-		const dto = typeConvert.ChatResponsePart.from(part, this._commands.converter, this._disposables);
-		this._proxy.$responseProgress(context.sessionResource, dto);
-	}
-
-	async getChatExport(): Promise<object | undefined> {
-		return this._proxy.$getChatExport();
-	}
-
-	async areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
-		return this._proxy.$areCompletionsEnabled(file);
-	}
-
-	async getCurrentProvider(): Promise<IPositronChatProvider | undefined> {
-		return this._proxy.$getCurrentProvider();
-	}
-
-	async getCurrentChatMode(): Promise<string | undefined> {
-		return this._proxy.$getCurrentChatMode();
-	}
-
-	async getProviders(): Promise<IPositronChatProvider[]> {
-		return this._proxy.$getProviders();
-	}
-
-	async setCurrentProvider(id: string): Promise<IPositronChatProvider | undefined> {
-		return this._proxy.$setCurrentProvider(id);
 	}
 
 	async isProviderEnabled(id: string): Promise<boolean> {

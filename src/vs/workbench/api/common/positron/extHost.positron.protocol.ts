@@ -7,7 +7,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IHostedLanguageContribution, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, IRuntimeRootSignature, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
-import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape, ITextEditorAddData, IEditorPropertiesChangeData } from '../extHost.protocol.js';
+import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, ExtHostQuickOpenShape, ITextEditorAddData, IEditorPropertiesChangeData } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { IPackageRepositoryRequest, IPackageRepositoryResponse } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -17,15 +17,13 @@ import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/
 import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
-import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IGenerateAssistantPromptRequest } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IDataImporterMetadata, IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
-import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -431,18 +429,8 @@ export interface ISerializedConsoleHistoryEntry {
 }
 
 export interface MainThreadAiFeaturesShape {
-	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
-	$unregisterChatAgent(id: string): void;
 	$getCurrentPlotUri(): Promise<string | undefined>;
-	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
 	$generateAssistantPrompt(request: IGenerateAssistantPromptRequest): Thenable<string>;
-	$responseProgress(sessionResource: URI, dto: IChatProgressDto): void;
-	$getChatExport(): Thenable<object | undefined>;
-	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
-	$getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
-	$getCurrentChatMode(): Thenable<string | undefined>;
-	$getProviders(): Thenable<IPositronChatProvider[]>;
-	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 	$isProviderEnabled(id: string): Thenable<boolean>;
 	$getAgentAllowedCommands(options?: { includeDisabled?: boolean }): Promise<ISerializedAgentCommand[]>;
 	$validateAndExecuteCommand(
@@ -453,10 +441,6 @@ export interface MainThreadAiFeaturesShape {
 
 export interface ExtHostAiFeaturesShape {
 	$onDidChangeProviderEnablement(id: string, enabled: boolean): void;
-	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
-	getCurrentChatMode(): Thenable<string | undefined>;
-	getProviders(): Thenable<IPositronChatProvider[]>;
-	setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
 
 export interface MainThreadPlotsServiceShape {

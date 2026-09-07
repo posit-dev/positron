@@ -6,8 +6,6 @@
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { Event } from '../../../../../base/common/event.js';
 import { ChatAgentLocation } from '../../../chat/common/constants.js';
-import { URI } from '../../../../../base/common/uri.js';
-import { IExportableChatData } from '../../../chat/common/model/chatModel.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
 export const IPositronAssistantConfigurationService = createDecorator<IPositronAssistantConfigurationService>('positronAssistantConfigurationService');
@@ -302,20 +300,6 @@ export interface IPositronAssistantService {
 	 * Get the currently visible plot as a URI.
 	 */
 	getCurrentPlotUri(): string | undefined;
-
-	/**
-	 * Get the chat export as a JSON object (IExportableChatData).
-	 */
-	getChatExport(): IExportableChatData | undefined;
-
-	/**
-	 * Checks if Copilot inline completions are enabled for the given file.
-	 * Scoped to Copilot: gated on the Copilot catalog provider. Posit AI Next Edit
-	 * Suggestions (NES) has its own separate enablement and does not use this.
-	 * @param uri The file URI to check if completions are enabled.
-	 * @returns true if completions should be enabled for the file, false otherwise.
-	 */
-	areCompletionsEnabled(uri: URI): boolean;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronAssistantService.

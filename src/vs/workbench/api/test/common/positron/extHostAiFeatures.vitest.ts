@@ -7,7 +7,6 @@
 
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
-import { ExtHostCommands } from '../../../common/extHostCommands.js';
 import { IExtHostWorkspace } from '../../../common/extHostWorkspace.js';
 import { ExtHostAiFeatures } from '../../../common/positron/extHostAiFeatures.js';
 import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
@@ -15,7 +14,6 @@ import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
 function createFeatures(): ExtHostAiFeatures {
 	return new ExtHostAiFeatures(
 		SingleProxyRPCProtocol(null),
-		stubInterface<ExtHostCommands>(),
 		stubInterface<IExtHostWorkspace>(),
 	);
 }
