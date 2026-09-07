@@ -40,8 +40,12 @@ import './inlineCompletionsMigration.js';
 // Register the agent-compatible `positronAssistant.getProviderStatus` command.
 import './providerStatusCommand.js';
 
-/** Command (owned by the Posit Assistant extension) that opens its provider manager. */
-const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.manageProviders';
+/**
+ * Command (owned by the Posit Assistant extension) that opens provider
+ * configuration. This is the Assistant's canonical entry point: it owns the
+ * routing decision, so callers do not choose a surface.
+ */
+const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.configureProviders';
 
 // Register the commit message generation feature.
 registerCommitMessageGeneration();
