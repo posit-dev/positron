@@ -63,12 +63,11 @@
 	flex-shrink: 0;
 	overflow: hidden;
 	align-items: center;
-	white-space: nowrap;
-	text-overflow: ellipsis;
 }
 
 .variable-item .name-column .name-column-indenter {
 	display: flex;
+	min-width: 0;
 }
 
 .variable-item .name-column .gutter {
@@ -89,8 +88,10 @@
 }
 
 .variable-item .name-value {
-	display: flex;
-	align-items: center;
+	overflow: hidden;
+	line-height: 26px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 
 .variable-item .details-column {
