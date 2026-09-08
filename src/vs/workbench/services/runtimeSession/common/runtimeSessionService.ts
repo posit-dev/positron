@@ -89,7 +89,7 @@ export interface IStartNewRuntimeSessionOptions {
 	 */
 	readonly userSelected?: boolean;
 
-	/** The directory the session should start in; overrides the notebook working directory. */
+	/** Overrides the notebook working directory. */
 	readonly workingDirectory?: string;
 }
 

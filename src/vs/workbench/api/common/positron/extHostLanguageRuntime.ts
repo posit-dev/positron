@@ -326,9 +326,6 @@ export class ExtHostRuntimeSessionProxy
 		return this._proxy.$executeInSession(this.sessionId, code, id, mode, errorBehavior, executionMetadata);
 	}
 
-	/**
-	 * Set the current working directory of the session
-	 */
 	setWorkingDirectory(dir: string): Thenable<void> {
 		return this._proxy.$setSessionWorkingDirectory(this.sessionId, dir);
 	}
@@ -1860,7 +1857,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param sessionName A human-readable name for the new session.
 	 * @param sessionMode The mode in which the session is to be run.
 	 * @param notebookUri The URI of the notebook document, if in notebook mode.
-	 * @param workingDirectory The directory the session should start in, if any.
+	 * @param workingDirectory Startup directory.
 	 *
 	 * Returns a Thenable that resolves with the newly created session, or
 	 * rejects with an error.

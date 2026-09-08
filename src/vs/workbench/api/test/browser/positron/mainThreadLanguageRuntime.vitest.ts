@@ -175,7 +175,6 @@ describe('ExtHostLanguageRuntimeSessionAdapter - missing-package capabilities', 
 	});
 });
 
-/** Builds a MainThreadLanguageRuntime over stubbed services, overriding only what a test cares about. */
 function createMainThread(disposables: Pick<DisposableStore, 'add'>, overrides: {
 	proxy?: Partial<ExtHostLanguageRuntimeShape>;
 	runtimeSessionService?: Partial<IRuntimeSessionService>;

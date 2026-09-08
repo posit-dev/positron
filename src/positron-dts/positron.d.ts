@@ -1614,13 +1614,10 @@ declare module 'positron' {
 		): Thenable<void> | void;
 
 		/**
-		 * Set the current working directory of the session. Changes the
-		 * directory of the live process without restarting it or resetting
-		 * its environment. The returned Thenable signals acceptance of the
-		 * request, not completion of the directory change. Use
-		 * {@link runtime.getSessionWorkingDirectory} to observe the reported directory.
+		 * Changes directory without resetting session state. Resolves on request
+		 * acceptance, not completion; check {@link runtime.getSessionWorkingDirectory}.
 		 *
-		 * @param dir An absolute path on the machine where the runtime runs
+		 * @param dir Absolute path on the runtime's machine.
 		 */
 		setWorkingDirectory(dir: string): Thenable<void>;
 
@@ -3222,20 +3219,15 @@ declare module 'positron' {
 		 * @param sessionName A human-readable name for the new session.
 		 * @param notebookUri If the session is associated with a notebook,
 		 *   the notebook URI.
-		 * @param workingDirectory An absolute path on the machine where the
-		 *   runtime runs. An explicit value overrides the notebook working
-		 *   directory setting. When omitted, notebooks use that setting and
-		 *   consoles use the runtime's default. The path is passed to the
-		 *   runtime without expansion or an existence check.
+		 * @param workingDirectory Absolute path on the runtime's machine, without
+		 *   expansion or an existence check. Overrides the notebook working directory
+		 *   setting; omitted values use that setting or the console runtime's default.
 		 *
-		 * Concurrent requests for the same runtime, session mode, and notebook
-		 * may join a session that is already starting. In that case, this
-		 * request's working directory is ignored. Console starts deferred until
-		 * workspace trust is granted also use the existing auto-start defaults.
-		 * Call `setWorkingDirectory`
-		 * on the returned session and verify its reported directory if needed.
+		 * Concurrent starts for the same runtime, mode, and notebook share the first
+		 * request's directory. Console starts deferred for workspace trust use
+		 * auto-start defaults.
 		 *
-		 * Returns a Thenable that resolves with the started session.
+		 * @returns The started session.
 		 */
 		export function startLanguageRuntime(runtimeId: string,
 			sessionName: string,
@@ -3243,10 +3235,8 @@ declare module 'positron' {
 			workingDirectory?: string): Thenable<LanguageRuntimeSession>;
 
 		/**
-		 * Get the current working directory of a session.
-		 *
-		 * @param sessionId The session ID, or undefined for the foreground session
-		 * @returns The working directory, or undefined if not available
+		 * @param sessionId Omit for the foreground session.
+		 * @returns The runtime-reported directory, or undefined if unavailable.
 		 */
 		export function getSessionWorkingDirectory(sessionId?: string): Thenable<string | undefined>;
 

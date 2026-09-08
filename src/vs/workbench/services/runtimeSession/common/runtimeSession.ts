@@ -1841,8 +1841,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
 
-		// Resolve the working directory; an explicit request wins over the
-		// notebook configuration
 		let workingDirectory: string | undefined = options?.workingDirectory;
 		if (workingDirectory === undefined && notebookUri) {
 			workingDirectory = await resolveNotebookWorkingDirectory(
