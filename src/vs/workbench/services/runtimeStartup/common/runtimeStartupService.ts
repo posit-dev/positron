@@ -96,9 +96,9 @@ export interface IRuntimeStartupService {
 
 	/**
 	 * Whether any extension provides language runtimes for a language. This
-	 * comes from the static `languageRuntimes` contribution, so it is known as
-	 * soon as extensions are scanned -- before they activate and before any
-	 * runtime has been discovered.
+	 * mostly comes from the static `languageRuntimes` contribution, so it is
+	 * known as soon as extensions are scanned -- before they activate and before
+	 * any runtime has been discovered -- but a registered runtime counts too.
 	 *
 	 * @param languageId The language identifier.
 	 */
