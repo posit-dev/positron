@@ -318,6 +318,7 @@
 			"publisherDisplayName": "Posit Software, PBC"
 		}
 	],
+	"nlsCoreBaseUrl": "https://cdn.posit.co/positron/nls/",
 	"extensionsGallery": {
 		"serviceUrl": "https://p3m.dev/openvsx/latest/vscode/gallery",
 		"itemUrl": "https://p3m.dev/openvsx/latest/vscode/item",

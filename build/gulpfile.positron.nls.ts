@@ -30,8 +30,10 @@ const NLS_BUNDLE_FILE_HEADER = `/*----------------------------------------------
  * The output layout matches the tail of the URL template the server hands the
  * browser (`${nlsCoreBaseUrl}${commit}/${version}/${locale}/nls.messages.js`,
  * see src/vs/server/node/webClientServer.ts), so publishing is a recursive
- * copy of `out-build-nls/` to `<base>/<commit>/<version>/`. Until
- * `nlsCoreBaseUrl` is set in product.json, nothing consumes these files.
+ * copy of `out-build-nls/` to `<base>/<commit>/<version>/`, where `<base>` is
+ * the `nlsCoreBaseUrl` set in product.json. A locale whose bundle is missing
+ * from that base falls back to the English bundle the workbench always loads
+ * first, so an unpublished build degrades rather than breaks.
  *
  * See build/lib/positronNlsBundles.ts for why this merges English defaults
  * instead of reusing processCoreBundleFormat.
