@@ -1024,6 +1024,11 @@ export type WebviewHandle = string;
 export interface WebviewPanelShowOptions {
 	readonly viewColumn?: EditorGroupColumn;
 	readonly preserveFocus?: boolean;
+	// --- Start Positron ---
+	// Allows extensions to open their webview panel in the modal editor part,
+	// matching how Settings, Extensions and MCP servers are presented.
+	readonly modal?: boolean;
+	// --- End Positron ---
 }
 
 export interface WebviewExtensionDescription {

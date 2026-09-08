@@ -17,13 +17,22 @@ import { GroupIdentifier } from '../../../common/editor.js';
 import { DiffEditorInput } from '../../../common/editor/diffEditorInput.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
-import { ACTIVE_GROUP_TYPE, IEditorService, SIDE_GROUP_TYPE } from '../../../services/editor/common/editorService.js';
+import { ACTIVE_GROUP_TYPE, IEditorService, MODAL_GROUP_TYPE, SIDE_GROUP_TYPE } from '../../../services/editor/common/editorService.js';
 import { IOverlayWebview, IWebviewService, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { CONTEXT_ACTIVE_WEBVIEW_PANEL_ID } from './webviewEditor.js';
 import { WebviewIconPath, WebviewInput, WebviewInputInitInfo } from './webviewEditorInput.js';
 
+// --- Start Positron ---
+// The group a webview panel can be opened or revealed in. `MODAL_GROUP_TYPE`
+// lets extensions place their panel in the modal editor part.
+type WebviewTargetGroup = IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE | MODAL_GROUP_TYPE;
+// --- End Positron ---
+
 export interface IWebViewShowOptions {
-	readonly group?: IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE;
+	// --- Start Positron ---
+	// readonly group?: IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE;
+	readonly group?: WebviewTargetGroup;
+	// --- End Positron ---
 	readonly preserveFocus?: boolean;
 }
 
@@ -70,7 +79,10 @@ export interface IWebviewWorkbenchService {
 	 */
 	revealWebview(
 		webview: WebviewInput,
-		group: IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE,
+		// --- Start Positron ---
+		// group: IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE,
+		group: WebviewTargetGroup,
+		// --- End Positron ---
 		preserveFocus: boolean
 	): void;
 
@@ -292,7 +304,10 @@ export class WebviewEditorService extends Disposable implements IWebviewWorkbenc
 
 	public revealWebview(
 		webview: WebviewInput,
-		group: IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE,
+		// --- Start Positron ---
+		// group: IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE,
+		group: WebviewTargetGroup,
+		// --- End Positron ---
 		preserveFocus: boolean
 	): void {
 		const topLevelEditor = this.findTopLevelEditorForWebview(webview);

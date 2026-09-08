@@ -17,7 +17,10 @@ import { WebviewIconPath, WebviewInput } from '../../contrib/webviewPanel/browse
 import { IWebViewShowOptions, IWebviewWorkbenchService } from '../../contrib/webviewPanel/browser/webviewWorkbenchService.js';
 import { editorGroupToColumn } from '../../services/editor/common/editorGroupColumn.js';
 import { GroupLocation, GroupsOrder, IEditorGroup, IEditorGroupsService, preferredSideBySideGroupDirection } from '../../services/editor/common/editorGroupsService.js';
-import { ACTIVE_GROUP, IEditorService, PreferredGroup, SIDE_GROUP } from '../../services/editor/common/editorService.js';
+// --- Start Positron ---
+// import { ACTIVE_GROUP, IEditorService, PreferredGroup, SIDE_GROUP } from '../../services/editor/common/editorService.js';
+import { ACTIVE_GROUP, IEditorService, MODAL_GROUP, PreferredGroup, SIDE_GROUP, USE_MODAL_EDITOR_SETTING, UseModalEditorMode } from '../../services/editor/common/editorService.js';
+// --- End Positron ---
 import { IExtensionService } from '../../services/extensions/common/extensions.js';
 import { IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import * as extHostProtocol from '../common/extHost.protocol.js';
@@ -206,6 +209,14 @@ export class MainThreadWebviewPanels extends Disposable implements extHostProtoc
 	}
 
 	private getTargetGroupFromShowOptions(showOptions: extHostProtocol.WebviewPanelShowOptions): PreferredGroup {
+		// --- Start Positron ---
+		// Honor a request for the modal editor part unless the user has turned
+		// modal editors off entirely, as the Settings editor does.
+		if (showOptions.modal && this._configurationService.getValue<UseModalEditorMode>(USE_MODAL_EDITOR_SETTING) !== 'off') {
+			return MODAL_GROUP;
+		}
+		// --- End Positron ---
+
 		if (typeof showOptions.viewColumn === 'undefined'
 			|| showOptions.viewColumn === ACTIVE_GROUP
 			|| (this._editorGroupService.count === 1 && this._editorGroupService.activeGroup.isEmpty)

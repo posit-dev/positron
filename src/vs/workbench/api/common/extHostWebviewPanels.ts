@@ -28,6 +28,10 @@ class ExtHostWebviewPanel extends Disposable implements vscode.WebviewPanel {
 	#title: string;
 	#iconPath?: vscode.IconPath;
 	#viewColumn: vscode.ViewColumn | undefined = undefined;
+	// --- Start Positron ---
+	// Remembered so that revealing the panel again keeps it in the modal editor part.
+	readonly #modal: boolean;
+	// --- End Positron ---
 	#visible: boolean = true;
 	#active: boolean;
 	#isDisposed: boolean = false;
@@ -48,6 +52,9 @@ class ExtHostWebviewPanel extends Disposable implements vscode.WebviewPanel {
 			viewColumn: vscode.ViewColumn | undefined;
 			panelOptions: vscode.WebviewPanelOptions;
 			active: boolean;
+			// --- Start Positron ---
+			modal?: boolean;
+			// --- End Positron ---
 		}
 	) {
 		super();
@@ -59,6 +66,9 @@ class ExtHostWebviewPanel extends Disposable implements vscode.WebviewPanel {
 		this.#viewColumn = params.viewColumn;
 		this.#title = params.title;
 		this.#active = params.active;
+		// --- Start Positron ---
+		this.#modal = !!params.modal;
+		// --- End Positron ---
 	}
 
 	public override dispose() {
@@ -157,7 +167,10 @@ class ExtHostWebviewPanel extends Disposable implements vscode.WebviewPanel {
 		this.assertNotDisposed();
 		this.#proxy.$reveal(this.#handle, {
 			viewColumn: typeof viewColumn === 'undefined' ? undefined : typeConverters.ViewColumn.from(viewColumn),
-			preserveFocus: !!preserveFocus
+			preserveFocus: !!preserveFocus,
+			// --- Start Positron ---
+			modal: this.#modal
+			// --- End Positron ---
 		});
 	}
 
@@ -203,13 +216,22 @@ export class ExtHostWebviewPanels extends Disposable implements extHostProtocol.
 		extension: IExtensionDescription,
 		viewType: string,
 		title: string,
-		showOptions: vscode.ViewColumn | { viewColumn: vscode.ViewColumn; preserveFocus?: boolean },
+		// --- Start Positron ---
+		// showOptions: vscode.ViewColumn | { viewColumn: vscode.ViewColumn; preserveFocus?: boolean },
+		showOptions: vscode.ViewColumn | { viewColumn?: vscode.ViewColumn; preserveFocus?: boolean; modal?: boolean },
+		// --- End Positron ---
 		options: (vscode.WebviewPanelOptions & vscode.WebviewOptions) = {},
 	): vscode.WebviewPanel {
 		const viewColumn = typeof showOptions === 'object' ? showOptions.viewColumn : showOptions;
+		// --- Start Positron ---
+		const modal = typeof showOptions === 'object' && !!showOptions.modal;
+		// --- End Positron ---
 		const webviewShowOptions = {
 			viewColumn: typeConverters.ViewColumn.from(viewColumn),
-			preserveFocus: typeof showOptions === 'object' && !!showOptions.preserveFocus
+			preserveFocus: typeof showOptions === 'object' && !!showOptions.preserveFocus,
+			// --- Start Positron ---
+			modal
+			// --- End Positron ---
 		};
 
 		const serializeBuffersForPostMessage = shouldSerializeBuffersForPostMessage(extension);
@@ -222,7 +244,10 @@ export class ExtHostWebviewPanels extends Disposable implements extHostProtocol.
 		}, webviewShowOptions);
 
 		const webview = this.webviews.createNewWebview(handle, options, extension);
-		const panel = this.createNewWebviewPanel(handle, viewType, title, viewColumn, options, webview, true);
+		// --- Start Positron ---
+		// const panel = this.createNewWebviewPanel(handle, viewType, title, viewColumn, options, webview, true);
+		const panel = this.createNewWebviewPanel(handle, viewType, title, viewColumn, options, webview, true, modal);
+		// --- End Positron ---
 
 		return panel;
 	}
@@ -311,8 +336,11 @@ export class ExtHostWebviewPanels extends Disposable implements extHostProtocol.
 		await serializer.deserializeWebviewPanel(revivedPanel, initData.state);
 	}
 
-	public createNewWebviewPanel(webviewHandle: string, viewType: string, title: string, position: vscode.ViewColumn, options: extHostProtocol.IWebviewPanelOptions, webview: ExtHostWebview, active: boolean) {
-		const panel = new ExtHostWebviewPanel(webviewHandle, this._proxy, webview, { viewType, title, viewColumn: position, panelOptions: options, active });
+	// --- Start Positron ---
+	// public createNewWebviewPanel(webviewHandle: string, viewType: string, title: string, position: vscode.ViewColumn, options: extHostProtocol.IWebviewPanelOptions, webview: ExtHostWebview, active: boolean) {
+	public createNewWebviewPanel(webviewHandle: string, viewType: string, title: string, position: vscode.ViewColumn | undefined, options: extHostProtocol.IWebviewPanelOptions, webview: ExtHostWebview, active: boolean, modal?: boolean) {
+		const panel = new ExtHostWebviewPanel(webviewHandle, this._proxy, webview, { viewType, title, viewColumn: position, panelOptions: options, active, modal });
+		// --- End Positron ---
 		this._webviewPanels.set(webviewHandle, panel);
 		return panel;
 	}
