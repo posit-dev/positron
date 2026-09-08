@@ -56,10 +56,14 @@ is the only writer of `diagnosisBlockRecorded`, which gates `phase=done`. A
 hand-appended block leaves that flag unset, so you would also have to set it
 manually and you lose the field validation.
 
-If you must append by hand, write the body to a file and use:
+If you must append by hand, **read the existing body first** -- `body=@<file>`
+replaces the whole body, so writing only your block destroys everything already
+there (a PR description, an earlier triage block):
 
 ```bash
-gh api repos/<owner>/<repo>/pulls/<n> -X PATCH -F body=@<file>
+gh api repos/<owner>/<repo>/pulls/<n> --jq .body > body.md
+cat block.md >> body.md
+gh api repos/<owner>/<repo>/pulls/<n> -X PATCH -F body=@body.md
 ```
 
 `gh pr edit` fails on the Projects-classic GraphQL deprecation.

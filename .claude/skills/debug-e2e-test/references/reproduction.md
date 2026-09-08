@@ -48,8 +48,9 @@ shared fixture, UI timing).
 
 ## Pick a project from the pattern's environments
 
-The selected pattern's `environment_breakdown` names the OS/browser combos it
-actually failed on. Pick the cheapest project that covers one of them, and move
+The selected pattern's `environments[]` names the OS/browser combos it
+actually failed on (the raw `environment_breakdown` is per *test*, not per
+pattern, so it can't answer this). Pick the cheapest project that covers one of them, and move
 down only for a reason you can state (on the local entry there is no breakdown --
 reproduce on the project the failure came from, and note that one machine's
 result says nothing about the others):
@@ -79,6 +80,9 @@ the test carries the tag before using it.
 npx playwright test <spec> --project <project> --grep '<test name>'
 ```
 
+Run it with Bash `run_in_background: true` and tail the log -- foreground is
+never an option here (SKILL, "Non-negotiable rules").
+
 ## Deterministic failure
 
 Confirm it fails the same way on the picked project before touching code, then
@@ -99,8 +103,8 @@ worker interleaving you can't force on demand.
      machine has none of the contention that surfaces it. Run the failing spec
      alongside a sibling that exercises the same racy path, both with
      `--repeat-each`: `npx playwright test specA.test.ts specB.test.ts
-     --project e2e-electron --repeat-each=4`. Recreate the contention, not just
-     the repeat count.
+     --project e2e-electron --repeat-each=4` -- in the background, like every
+     run here. Recreate the contention, not just the repeat count.
 2. **Repeated local runs are weak evidence, not proof.** `--repeat-each=N`
    passing N/N locally does not confirm the race is gone, especially when it
    depends on contention `--repeat-each` won't recreate. State it as "didn't
@@ -134,8 +138,8 @@ result.
 
 ## Environment-specific failures
 
-If the pattern looks environment-specific (`environment_breakdown` shows it only
-on certain OS/browser combos, or you suspect the CI image itself), the projects
+If the pattern looks environment-specific (`environments[]` lists only certain
+OS/browser combos, or you suspect the CI image itself), the projects
 above still run on your local OS and won't surface a CI-runner-image issue. For
 that, reproduce on the real CI image per `.devcontainer/ci-arm/README.md`
 (Posit-internal, arm64 access required -- see the gating note in the repo-root
