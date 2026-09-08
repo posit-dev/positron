@@ -86,6 +86,8 @@ const driver = stubInterface<IDataConnectionDriver>({
 	},
 });
 
+const getDriver = vi.fn(() => driver);
+
 describe('DataConnectionEntryRow', () => {
 	// Saving a discovered profile hands back the id of the ordinary profile it became, which the row
 	// then looks up. Declared here so the tests can assert against the calls.
@@ -95,7 +97,7 @@ describe('DataConnectionEntryRow', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IPositronDataConnectionsService, {
-			driverManager: stubInterface<IDataConnectionsDriverManager>({ getDriver: () => driver }),
+			driverManager: stubInterface<IDataConnectionsDriverManager>({ getDriver }),
 			getProfile,
 			saveDiscoveredProfile,
 		})
@@ -268,5 +270,52 @@ describe('DataConnectionEntryRow', () => {
 			  "remove": true,
 			}
 		`);
+	});
+
+	describe('a profile whose mechanism the driver dropped', () => {
+		// Supports a language so the "Connect With" group would appear if the mechanism resolved --
+		// isolating the assertion to the mechanism lookup rather than language support.
+		const driverWithDroppedMechanism = stubInterface<IDataConnectionDriver>({
+			id: 'test-driver',
+			metadata: {
+				id: 'test-driver',
+				name: 'Test Driver',
+				description: '',
+				iconSvg: '',
+				// 'test-mechanism' (the profile's mechanismId) is not among these.
+				mechanisms: [{ id: 'other-mechanism', label: 'Other', description: '', parameters: [] }],
+				supportedLanguageIds: ['python'],
+			},
+		});
+
+		it('offers no Connect With group, but keeps Edit Connection and Remove', async () => {
+			getDriver.mockReturnValueOnce(driverWithDroppedMechanism);
+
+			rtl.render(
+				<DataConnectionEntryRow
+					entry={{ profile }}
+					onDisconnect={onDisconnect}
+					onMenuOpening={onMenuOpening}
+					onRefresh={onRefresh}
+				/>
+			);
+			const user = userEvent.setup();
+			await user.pointer({ keys: '[MouseRight]', target: screen.getByText('My Connection', { exact: false }) });
+
+			const call = showCustomContextMenu.mock.calls.at(-1)?.[0];
+			const labels = call?.entries.map((entry: unknown) =>
+				entry instanceof CustomContextMenuSeparator ? '---' : (entry as CustomContextMenuItem).options.label
+			);
+
+			expect(labels).toMatchInlineSnapshot(`
+				[
+				  "Refresh",
+				  "---",
+				  "Edit Connection",
+				  "---",
+				  "Remove",
+				]
+			`);
+		});
 	});
 });

@@ -84,6 +84,20 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 	};
 
 	/**
+	 * Reports that the driver dropped or renamed the mechanism this profile was configured with.
+	 * Proceeding against a substituted mechanism would silently rebind the connection, so this
+	 * sends the user through setup again instead.
+	 */
+	const reportMechanismNotAvailable = () => {
+		notificationService.error(localize(
+			'positron.dataConnections.mechanismNotAvailable',
+			"The connection '{0}' was set up using a sign-in method that '{1}' no longer supports. Remove it and add the connection again.",
+			profile.connectionName,
+			profile.driverMetadata.name
+		));
+	};
+
+	/**
 	 * Opens the edit dialog for this connection profile.
 	 *
 	 * Editing a discovered connection saves it first. A discovery is derived from the machine's ODBC
@@ -119,14 +133,7 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		// pre-mechanisms profiles); its parameters drive the form.
 		const mechanism = resolveDataConnectionMechanism(driver.metadata, target.mechanismId);
 		if (!mechanism) {
-			// The driver dropped or renamed this mechanism. Editing against a substituted one would
-			// silently rebind the connection, so send the user through setup again instead.
-			notificationService.error(localize(
-				'positron.dataConnections.mechanismNotAvailable',
-				"The connection '{0}' was set up using a sign-in method that '{1}' no longer supports. Remove it and add the connection again.",
-				profile.connectionName,
-				profile.driverMetadata.name
-			));
+			reportMechanismNotAvailable();
 			return;
 		}
 
@@ -189,12 +196,16 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		}
 
 		// Resolve the mechanism id (falling back to the first for pre-mechanisms profiles) once for
-		// all code generation calls below.
-		const mechanismId = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId)?.id ?? profile.mechanismId;
+		// all code generation calls below. A dropped or renamed mechanism means generating code would
+		// run the driver against parameters it no longer recognizes, so the language-specific
+		// "Connect With" options are left out of the menu below in that case; Edit Connection and
+		// Remove stay available to let the user recover the connection.
+		const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
 
 		// Generates the connection code variants for the given language and, if any are available,
-		// opens the Connect dialog to preview and run them.
-		const connectWith = async (languageId: string) => {
+		// opens the Connect dialog to preview and run them. Only wired into the menu when mechanism
+		// resolved (see the language-support checks below).
+		const connectWith = async (mechanismId: string, languageId: string) => {
 			// The in-memory profile's parameterValues never contains secret values (those live in
 			// secret storage), so this is the default, secret-free preview. Secret values are only
 			// pulled in if the user explicitly opts in via the dialog's Include Secrets action.
@@ -227,10 +238,11 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 			});
 		};
 
-		// Find out what languages the are supported.
-		const pythonSupported = driver.metadata.supportedLanguageIds.includes('python');
-		const rSupported = driver.metadata.supportedLanguageIds.includes('r');
-		const sqlSupported = driver.metadata.supportedLanguageIds.includes('sql');
+		// Find out what languages are supported. None are offered when the mechanism can't be
+		// resolved, since generating code would need it.
+		const pythonSupported = !!mechanism && driver.metadata.supportedLanguageIds.includes('python');
+		const rSupported = !!mechanism && driver.metadata.supportedLanguageIds.includes('r');
+		const sqlSupported = !!mechanism && driver.metadata.supportedLanguageIds.includes('sql');
 
 		// Build the menu entries. Refresh leads, separated from the profile actions below it --
 		// Edit Connection is always present, so the separator always has something under it.
@@ -249,7 +261,10 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		];
 
 		// If any language is supported, add a separator before the language-specific connect options.
-		if (pythonSupported || rSupported || sqlSupported) {
+		// Reaching here means mechanism resolved: each *Supported flag above is false otherwise.
+		if (mechanism && (pythonSupported || rSupported || sqlSupported)) {
+			const mechanismId = mechanism.id;
+
 			// Add a separator with a label before the language-specific connect options.
 			entries.push(new CustomContextMenuSeparator(localize('positron.dataConnections.connectWith', "Connect With")));
 
@@ -258,7 +273,7 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 				entries.push(new CustomContextMenuItem({
 					iconSrc: `data:image/svg+xml;base64,${PYTHON_ICON_BASE64}`,
 					label: localize('positron.dataConnections.connectWithPython', "Python"),
-					onSelected: () => connectWith('python'),
+					onSelected: () => connectWith(mechanismId, 'python'),
 				}));
 			}
 
@@ -267,7 +282,7 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 				entries.push(new CustomContextMenuItem({
 					iconSrc: `data:image/svg+xml;base64,${R_ICON_BASE64}`,
 					label: localize('positron.dataConnections.connectWithR', "R"),
-					onSelected: () => connectWith('r'),
+					onSelected: () => connectWith(mechanismId, 'r'),
 				}));
 			}
 
@@ -276,7 +291,7 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 				entries.push(new CustomContextMenuItem({
 					icon: 'database',
 					label: localize('positron.dataConnections.connectWithSQL', "SQL"),
-					onSelected: () => connectWith('sql'),
+					onSelected: () => connectWith(mechanismId, 'sql'),
 				}));
 			}
 		}

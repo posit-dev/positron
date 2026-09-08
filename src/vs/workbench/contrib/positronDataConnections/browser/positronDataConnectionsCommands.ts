@@ -190,9 +190,15 @@ export async function getDataConnections(accessor: ServicesAccessor): Promise<ID
 		let mechanismId = profile.mechanismId;
 		let languages: Record<string, IDataConnectionsGetConnectionsLanguageResult> = {};
 		if (driver) {
+			// A mechanism the driver doesn't recognize means its parameters no longer fit anything
+			// the driver offers; generating code against it would run the driver on parameters it
+			// doesn't understand, so this reports the profile's own (unresolved) mechanismId and no
+			// per-language code instead, same as the driver-unregistered case above.
 			const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
-			mechanismId = mechanism?.id ?? profile.mechanismId;
-			languages = await getLanguagePayloads(profile, mechanismId, driver, logService);
+			if (mechanism) {
+				mechanismId = mechanism.id;
+				languages = await getLanguagePayloads(profile, mechanism.id, driver, logService);
+			}
 		}
 
 		return {

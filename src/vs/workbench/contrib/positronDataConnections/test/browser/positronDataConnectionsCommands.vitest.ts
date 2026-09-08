@@ -195,6 +195,31 @@ describe('getDataConnections', () => {
 		expect(disconnectedResult.connected).toBe(false);
 	});
 
+	// Reports the profile's own mechanismId and no per-language code, rather than generating code
+	// against a mechanism the driver would not recognize.
+	it('reports no languages for a profile whose mechanism the driver dropped', async () => {
+		const generateConnectionCode = vi.fn(async () => [{ id: 'default', label: 'Default', code: 'conn = connect()\n' }]);
+		const driver = createDriver({
+			generateConnectionCode,
+			metadata: {
+				id: 'test-driver',
+				name: 'Test Driver',
+				description: '',
+				iconSvg: '',
+				supportedLanguageIds: ['python', 'r'],
+				// Does not include 'test-mechanism', the profile's mechanismId.
+				mechanisms: [{ id: 'other-mechanism', label: 'Other', description: '', parameters: [] }],
+			},
+		});
+		const dataConnectionsService = createDataConnectionsService({ driver });
+
+		const [result] = await run(dataConnectionsService);
+
+		expect(result.mechanismId).toBe('test-mechanism');
+		expect(result.languages).toEqual({});
+		expect(generateConnectionCode).not.toHaveBeenCalled();
+	});
+
 	it('produces a payload that survives a JSON round-trip', async () => {
 		const driver = createDriver({
 			generateConnectionCode: vi.fn(async () => [{ id: 'default', label: 'Default', code: 'conn = connect()\n' }]),
