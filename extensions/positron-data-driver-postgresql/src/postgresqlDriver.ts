@@ -28,6 +28,47 @@ function escapeDoubleQuoted(value: string): string {
 }
 
 /**
+ * The characters that oblige an ODBC-style connection string value to be brace-wrapped, from the
+ * ODBC specification. A password is free to contain any of them.
+ */
+const ODBC_VALUE_NEEDS_BRACES = /[[\]{}(),;?*=!@]/;
+
+/**
+ * Escapes one ODBC-style connection string value, brace-wrapping it when it contains a character
+ * from ODBC_VALUE_NEEDS_BRACES. A closing brace inside a brace-wrapped value is doubled, which is
+ * how the ODBC specification says to escape it.
+ */
+function escapeOdbcValue(value: string): string {
+	if (!ODBC_VALUE_NEEDS_BRACES.test(value)) {
+		return value;
+	}
+	return `{${value.replace(/\}/g, '}}')}}`;
+}
+
+/**
+ * Builds an ODBC-style `KEY=VALUE;KEY=VALUE` connection string from attributes, skipping any whose
+ * value is undefined or empty.
+ */
+function buildOdbcConnectionString(attributes: ReadonlyArray<readonly [string, string | number | undefined]>): string {
+	return attributes
+		.filter((entry): entry is [string, string | number] => {
+			const value = entry[1];
+			return value !== undefined && String(value).length > 0;
+		})
+		.map(([key, value]) => `${key}=${escapeOdbcValue(String(value))}`)
+		.join(';');
+}
+
+/**
+ * The psqlODBC driver name assumed for the ggsql connection code, since this driver connects
+ * natively via `pg` and has no installed-ODBC-driver discovery (unlike positron-data-driver-odbc,
+ * which reads the real installed driver name from odbcinst). "PostgreSQL Unicode" is the name used
+ * by the official psqlODBC installers on Windows and most Linux distributions; a user whose driver
+ * is registered under a different name will need to edit this before the code will connect.
+ */
+const ASSUMED_ODBC_DRIVER_NAME = 'PostgreSQL Unicode';
+
+/**
  * The id of the user/password connection mechanism. Used both in the driver's mechanism list
  * and in the connect/generate switches, so they stay in sync.
  */
@@ -260,6 +301,35 @@ function renderDbiCode(fields: PostgresConnectionFields): positron.ConnectionCod
 }
 
 /**
+ * Renders a ggsql `@connect` directive as an ODBC connection string. ggsql has no native Postgres
+ * reader yet (only `duckdb://`, `sqlite://`, and `odbc://` are implemented; see
+ * src/reader/connection.rs in the ggsql repository), so this goes through its ODBC reader instead,
+ * the same way positron-data-driver-odbc's ggsql code does. Unlike that driver, this one has no
+ * installed-ODBC-driver discovery, so the driver name is a guess (see ASSUMED_ODBC_DRIVER_NAME)
+ * rather than a name known to be installed. Replace this with a `postgres://` URI once ggsql
+ * implements a native Postgres reader.
+ */
+function renderGgsqlCode(fields: PostgresConnectionFields): positron.ConnectionCodeVariant {
+	const dsn = buildOdbcConnectionString([
+		['Driver', ASSUMED_ODBC_DRIVER_NAME],
+		['Servername', fields.host],
+		['Port', fields.port],
+		['Database', fields.database],
+		['UID', fields.user],
+		['PWD', fields.password],
+		['sslmode', fields.sslmode],
+		['sslrootcert', fields.sslrootcert],
+		['sslcert', fields.sslcert],
+		['sslkey', fields.sslkey],
+	]);
+	return {
+		id: 'ggsql',
+		label: 'ggsql',
+		code: `-- @connect: odbc://${dsn}`,
+	};
+}
+
+/**
  * Generates the connection code variants for the given language from normalized fields. Returns an
  * empty array when the fields could not be built (a required parameter was missing) or the language
  * is unsupported.
@@ -273,6 +343,8 @@ function generateConnectionCodeForFields(languageId: string, fields: PostgresCon
 			return [renderPsycopg2Code(fields), renderSqlAlchemyCode(fields)];
 		case 'r':
 			return [renderDbiCode(fields)];
+		case 'ggsql':
+			return [renderGgsqlCode(fields)];
 		default:
 			return [];
 	}
@@ -506,7 +578,7 @@ export function createPostgreSQLDriver(
 		name: 'PostgreSQL',
 		description: vscode.l10n.t('Connect to a PostgreSQL database server'),
 		iconSvg,
-		supportedLanguageIds: ['python', 'r'],
+		supportedLanguageIds: ['python', 'r', 'ggsql'],
 		mechanisms,
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			switch (mechanismId) {
