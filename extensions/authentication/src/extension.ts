@@ -334,7 +334,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 	registerProvidersJsonMigration(context);
 
-	return { getLogs: () => log.formatEntriesForDiagnostics() };
+	return {
+		getLogs: () => log.formatEntriesForDiagnostics(),
+		// Lets `next-edit-suggestions` read a resolved connection value without
+		// duplicating the catalog here.
+		getResolvedProviderBaseUrl: (catalogId: string) => getCachedProvider(catalogId)?.connection.baseUrl,
+	};
 }
 
 async function registerAnthropicProvider(

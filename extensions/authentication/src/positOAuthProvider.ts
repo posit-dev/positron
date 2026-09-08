@@ -5,10 +5,17 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { POSIT_AI_DEFAULTS } from 'ai-config';
 import { POSIT_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
 import { AuthProvider } from './authProvider';
+import { getCachedProvider } from './providerCatalog';
 import { log } from './log';
 
+/**
+ * Positron's registered OAuth client, distinct from ai-config's `POSIT_AI_DEFAULTS`:
+ * `clientId` is `rstudio-ide` there (RStudio's client), not Positron's.
+ */
+const PRODUCTION_DEFAULTS = { authHost: 'https://login.posit.cloud', scope: 'prism', clientId: 'positron' };
 
 /**
  * Posit AI Pass authentication provider using OAuth 2.0 Device Authorization
@@ -279,15 +286,26 @@ export class PositOAuthProvider extends AuthProvider {
 		return { success: true, accessToken: access_token };
 	}
 
+	/**
+	 * Resolves OAuth parameters from the `positai.positaiLogin` catalog entry
+	 * (providers.json + enforced/env). A field equal to ai-config's built-in
+	 * default means nothing overrode it, so {@link PRODUCTION_DEFAULTS} is used
+	 * instead -- that default's `clientId` is RStudio's, not Positron's.
+	 *
+	 * `host` is bare (providers.json's convention) and gets a scheme added here.
+	 */
 	private getOAuthParameters(): { authHost: string; scope: string; clientId: string } {
-		const config = vscode.workspace.getConfiguration('authentication.positai');
-		const authHost = config.inspect<string>('authHost')?.globalValue
-			?? 'https://login.posit.cloud';
-		const scope = config.inspect<string>('scope')?.globalValue
-			?? 'prism';
-		const clientId = config.inspect<string>('clientId')?.globalValue
-			?? 'positron';
+		const login = getCachedProvider('positai')?.connection.positaiLogin;
+		const builtinDefaults = POSIT_AI_DEFAULTS.positaiLogin;
 
-		return { authHost, scope, clientId };
+		const host = login?.host !== builtinDefaults.host ? login?.host : undefined;
+		const clientId = login?.clientId !== builtinDefaults.clientId ? login?.clientId : undefined;
+		const scope = login?.scope !== builtinDefaults.scope ? login?.scope : undefined;
+
+		return {
+			authHost: host ? `https://${host}` : PRODUCTION_DEFAULTS.authHost,
+			scope: scope ?? PRODUCTION_DEFAULTS.scope,
+			clientId: clientId ?? PRODUCTION_DEFAULTS.clientId,
+		};
 	}
 }
