@@ -416,7 +416,7 @@ export class PositronModalReactRenderer extends Disposable {
 	//#region Private Methods
 
 	/**
-	 * The active container can belong to the hidden IDE window in Canvas mode.
+	 * The active container can belong to a hidden window when focus is absent or stale.
 	 */
 	private static resolveContainer(): HTMLElement {
 		const layoutService = PositronReactServices.services.workbenchLayoutService;
