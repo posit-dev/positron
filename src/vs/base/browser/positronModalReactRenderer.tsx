@@ -175,14 +175,11 @@ export class PositronModalReactRenderer extends Disposable {
 		// Call the base class's constructor.
 		super();
 
-		// If the container is not provided, resolve one.
 		if (_options.container === undefined) {
 			_options.container = PositronModalReactRenderer.resolveContainer();
 		}
 
-		// Get the active element. It is read from the window the modal opens in, so that focus
-		// returns there on dispose rather than to whichever window the active document resolves
-		// to, which can be a hidden IDE window while Canvas mode presents an auxiliary window.
+		// Restore focus in the modal's window; the active window may be hidden.
 		let activeElement: Element | null = null;
 		if (_options.parent !== undefined) {
 			activeElement = DOM.getWindow(_options.parent).document.activeElement;
@@ -419,12 +416,7 @@ export class PositronModalReactRenderer extends Disposable {
 	//#region Private Methods
 
 	/**
-	 * Resolves the container for a renderer that was given none. This is the active container,
-	 * unless its window is hidden and another workbench window is visible. Canvas mode hides the
-	 * IDE window, and the active document can still resolve to it (nothing has focus, or its focus
-	 * state is stale), which would open the modal where the user cannot see or dismiss it. Among
-	 * visible windows, one that has focus wins.
-	 * @returns The container to render into.
+	 * The active container can belong to the hidden IDE window in Canvas mode.
 	 */
 	private static resolveContainer(): HTMLElement {
 		const layoutService = PositronReactServices.services.workbenchLayoutService;
@@ -466,9 +458,7 @@ export class PositronModalReactRenderer extends Disposable {
 			// Convert the KeyboardEvent into a StandardKeyboardEvent.
 			const event = new StandardKeyboardEvent(e);
 
-			// Soft dispatch the keyboard event so we can determine whether it is bound to a
-			// command. The renderer's container is the target: it is in the window the listener
-			// is bound to, where the active container can be another window's.
+			// Resolve commands in the modal's window, which may differ from the active window.
 			const resolutionResult = PositronReactServices.services.keybindingService.softDispatch(
 				event,
 				renderer._options.container!
