@@ -11,6 +11,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IOpener } from '../../../../../platform/opener/common/opener.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
@@ -1235,6 +1236,20 @@ describe('Positron - RuntimeSessionService', () => {
 			const session = await startSession(runtime, LanguageRuntimeSessionMode.Console, undefined, workingDir);
 
 			expect(session.metadata.workingDirectory, 'Working directory should be the requested one').toBe(workingDir);
+		});
+
+		it('concurrent starts keep the first working directory and warn about the ignored request', async () => {
+			const warn = vi.spyOn(ctx.instantiationService.get(ILogService), 'warn');
+			const [first, second] = await Promise.all([
+				startSession(runtime, LanguageRuntimeSessionMode.Console, undefined, '/first/directory'),
+				startSession(runtime, LanguageRuntimeSessionMode.Console, undefined, '/second/directory')
+			]);
+
+			expect(second.sessionId).toBe(first.sessionId);
+			expect(second.metadata.workingDirectory).toBe('/first/directory');
+			expect(warn).toHaveBeenCalledWith(
+				`Ignoring working directory '/second/directory' for runtime ${runtime.runtimeId}: a session is already starting.`
+			);
 		});
 
 		it('an explicitly requested working directory takes precedence over the notebook configuration', async () => {

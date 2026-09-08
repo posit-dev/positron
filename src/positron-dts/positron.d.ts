@@ -1615,7 +1615,10 @@ declare module 'positron' {
 
 		/**
 		 * Set the current working directory of the session. Changes the
-		 * directory of the live process without restarting it.
+		 * directory of the live process without restarting it or resetting
+		 * its environment. The returned Thenable signals acceptance of the
+		 * request, not completion of the directory change. Use
+		 * {@link runtime.getSessionWorkingDirectory} to observe the reported directory.
 		 *
 		 * @param dir An absolute path on the machine where the runtime runs
 		 */
@@ -3220,10 +3223,19 @@ declare module 'positron' {
 		 * @param notebookUri If the session is associated with a notebook,
 		 *   the notebook URI.
 		 * @param workingDirectory An absolute path on the machine where the
-		 *   runtime runs. When omitted, notebooks use the notebook working
-		 *   directory setting and consoles use the runtime's default.
+		 *   runtime runs. An explicit value overrides the notebook working
+		 *   directory setting. When omitted, notebooks use that setting and
+		 *   consoles use the runtime's default. The path is passed to the
+		 *   runtime without expansion or an existence check.
 		 *
-		 * Returns a Thenable that resolves with the newly created session.
+		 * Concurrent requests for the same runtime, session mode, and notebook
+		 * may join a session that is already starting. In that case, this
+		 * request's working directory is ignored. Console starts deferred until
+		 * workspace trust is granted also use the existing auto-start defaults.
+		 * Call `setWorkingDirectory`
+		 * on the returned session and verify its reported directory if needed.
+		 *
+		 * Returns a Thenable that resolves with the started session.
 		 */
 		export function startLanguageRuntime(runtimeId: string,
 			sessionName: string,
