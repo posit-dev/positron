@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { IQuickInputService, IQuickPickItem, QuickInputHideReason, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
+import { IPickOptions, IQuickInputService, IQuickPickItem, QuickInputHideReason, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -342,6 +342,24 @@ describe('selectNewLanguageRuntime', () => {
 				(item): item is IQuickPickItem => item.type !== 'separator'
 			);
 			expect(runtimeItems.every(item => item.neverShowWhenFiltered !== true)).toBe(true);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('searches interpreter paths as well as names', async () => {
+			await registerRuntime(makeRuntime({
+				runtimeId: 'py-opt',
+				runtimeName: 'Python 3.12',
+				runtimePath: '/opt/python/bin/python3',
+			}));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			const item = pick.items.find(
+				(item): item is IQuickPickItem => item.type !== 'separator' && item.id === 'py-opt'
+			);
+			expect(item?.detail).toBe('/opt/python/bin/python3');
+			expect(pick.matchOnDetail).toBe(true);
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});
@@ -694,8 +712,10 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	const changeNotebookSessionLabel = 'Change Notebook Session...';
 
 	let pickItems: QuickPickItem[] = [];
-	const pickFn = vi.fn(async (items: QuickPickItem[]): Promise<QuickPickItem | undefined> => {
+	let pickOptions: IPickOptions<QuickPickItem> | undefined;
+	const pickFn = vi.fn(async (items: QuickPickItem[], options?: IPickOptions<QuickPickItem>): Promise<QuickPickItem | undefined> => {
 		pickItems = items;
+		pickOptions = options;
 		return undefined; // user cancels by default; specific tests override
 	});
 	const executeCommand = vi.fn(async () => undefined);
@@ -756,6 +776,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	beforeEach(() => {
 		foregroundSession = undefined;
 		pickItems = [];
+		pickOptions = undefined;
 		// Default to the Positron Notebook Editor for tests
 		activeEditor = makeEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, URI.file('/path/to/notebook.ipynb'));
 	});
@@ -768,6 +789,11 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	function hasChangeNotebookItem(): boolean {
 		return pickItems.some(item => item.label === changeNotebookSessionLabel);
 	}
+
+	it('searches session paths as well as names', async () => {
+		await openInterpreterPicker();
+		expect(pickOptions?.matchOnDetail).toBe(true);
+	});
 
 	it('shows the item when foreground is an .ipynb notebook session', async () => {
 		foregroundSession = makeNotebookSession(URI.file('/path/to/notebook.ipynb'));

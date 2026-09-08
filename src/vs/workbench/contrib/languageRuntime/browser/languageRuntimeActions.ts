@@ -432,6 +432,8 @@ export const selectLanguageRuntimeSession = async (
 	const result = await quickInputService.pick(quickPickItems, {
 		title: options?.title || localize('positron.languageRuntime.selectSession.quickPickTitle', 'Select Interpreter Session'),
 		canPickMany: false,
+		// Each row's detail is its interpreter path; make it searchable.
+		matchOnDetail: true,
 		activeItem: sessionItems.find(item => item.picked)
 	});
 
@@ -734,6 +736,8 @@ export const selectNewLanguageRuntime = async (
 	const quickPick = disposables.add(quickInputService.createQuickPick<IQuickPickItem>({ useSeparators: true }));
 	quickPick.title = options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session');
 	quickPick.canSelectMany = false;
+	// Each row's detail is its interpreter path; make it searchable.
+	quickPick.matchOnDetail = true;
 
 	// Reflect discovery state in the picker: a busy spinner while runtimes are
 	// still being discovered, and an explanatory placeholder for an empty list.
