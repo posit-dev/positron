@@ -14,8 +14,13 @@ const INNER_FRAME = '#active-frame';
 // Activity bar button and sidebar view
 const ACTIVITY_BAR_BUTTON = 'a.action-label[aria-label="Posit Assistant"]';
 
-// Header buttons
-const NEW_CHAT_BUTTON = 'button:has(svg.lucide-plus)';
+// Header buttons.
+// The new-chat button is scoped to the top bar because the conversation tab
+// strip and the vertical tab rail contribute their own `lucide-plus` buttons
+// (`aria-label="New conversation tab"` and `aria-label="New conversation"`).
+// An unscoped selector goes strict-mode ambiguous as soon as that tab chrome
+// renders in the Positron panel.
+const NEW_CHAT_BUTTON = '[data-slot="topbar"] button:has(svg.lucide-plus)';
 const HISTORY_BUTTON = 'button:has(svg.lucide-history)';
 const MORE_BUTTON = 'button:has(svg.lucide-ellipsis):has(.sr-only:text("More"))';
 const SETTINGS_BUTTON = 'button:has(svg.lucide-settings):has(.sr-only:text("Settings"))';
@@ -198,42 +203,40 @@ export class PositAssistant {
 
 	/**
 	 * Starts a new conversation by clicking the new chat button.
-	 * If the button is disabled (already on landing page), this is a no-op.
+	 * If the pane is already showing a fresh conversation, this is a no-op.
 	 *
-	 * The new-conversation button is disabled both while a response is streaming
-	 * and when the conversation is already empty (`isNewConversation`). That
-	 * disabled state is derived from async-loaded webview state (messages-loaded +
-	 * streaming), so immediately after the chat input renders the button can be
-	 * transiently enabled while messages are still loading, then flip to disabled
-	 * once an empty conversation finishes loading. A bare `isDisabled()` snapshot
-	 * followed by `click()` races that flip and fails with a 30s click timeout on
-	 * a now-disabled button, so guard the click and treat a disabled flip as the
-	 * desired "already on a fresh conversation" end state.
+	 * The click is handled asynchronously: for up to ~1s the pane still shows the
+	 * outgoing conversation, its model selection, and an editable input, so
+	 * `waitForReady()` alone is satisfied against the old conversation. We have to
+	 * wait for the fresh conversation to actually land -- which is also when the
+	 * model selection is dropped -- or a model the caller selects next gets
+	 * clobbered mid-test and Send stays disabled.
+	 *
+	 * The landing signal is the persona greeting, which the assistant renders
+	 * exactly when `isNewConversation` is true. That is the same predicate that
+	 * used to drive the button's disabled state, which this helper waited on until
+	 * assistant#2374 ("browser-style tab model") removed the `disableNewConversation`
+	 * gating and made the top bar `+` a composer-focusing no-op on a fresh
+	 * conversation instead. Greeting-visible works on both sides of that change.
 	 */
 	async startNewConversation(): Promise<void> {
 		const button = this.frame.locator(NEW_CHAT_BUTTON);
-		if (await button.isDisabled()) {
-			// Already on a fresh conversation (or streaming) -- nothing to start.
-			return;
-		}
-		try {
-			await button.click({ timeout: 5000 });
-		} catch (e) {
-			// If the button flipped to disabled mid-click we're already on a fresh
-			// conversation, which is the desired end state; otherwise re-throw.
-			if (await button.isDisabled()) {
-				return;
+		// Released assistant builds still disable this button on a fresh (or
+		// streaming) conversation, and clicking a disabled button just burns the
+		// click timeout. Skip the click in that case -- being on a fresh
+		// conversation is the desired end state anyway.
+		if (await button.isEnabled()) {
+			try {
+				await button.click({ timeout: 5000 });
+			} catch (e) {
+				// If the button flipped to disabled mid-click on such a build, the
+				// fresh conversation already landed; otherwise re-throw.
+				if (await button.isEnabled()) {
+					throw e;
+				}
 			}
-			throw e;
 		}
-		// The click is handled asynchronously: for up to ~1s the pane still shows
-		// the outgoing conversation, its model selection, and an editable input, so
-		// `waitForReady()` alone is satisfied against the old conversation. The
-		// button flips to disabled only once the fresh conversation has actually
-		// landed -- which is also when the model selection is dropped -- so wait for
-		// that here, or a model the caller selects next gets clobbered mid-test and
-		// Send stays disabled.
-		await expect(button).toBeDisabled();
+		await expect(this.frame.locator(WELCOME_TITLE)).toBeVisible();
 		await this.waitForReady();
 	}
 
@@ -300,7 +303,7 @@ export class PositAssistant {
 	 * @param message The message to send
 	 * @param waitForResponse Whether to wait for the response to complete (default: true)
 	 * @param options.newConversation Whether to start a new conversation first (default: true).
-	 *   If the button is disabled (already on landing page), this is a no-op.
+	 *   If the pane is already showing a fresh conversation, this is a no-op.
 	 */
 	async sendMessage(message: string, waitForResponse: boolean = true, options: { newConversation?: boolean } = {}): Promise<void> {
 		const { newConversation = true } = options;
