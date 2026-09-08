@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { EnvironmentVariableAction } from 'positron';
+import { EnvironmentContributionFilter, EnvironmentVariableAction } from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 
 export class ExtHostEnvironment implements extHostProtocol.ExtHostEnvironmentShape {
@@ -16,8 +16,8 @@ export class ExtHostEnvironment implements extHostProtocol.ExtHostEnvironmentSha
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadEnvironment);
 	}
 
-	public async getEnvironmentContributions(): Promise<Record<string, EnvironmentVariableAction[]>> {
-		const contributions = await this._proxy.$getEnvironmentContributions();
+	public async getEnvironmentContributions(filter?: EnvironmentContributionFilter): Promise<Record<string, EnvironmentVariableAction[]>> {
+		const contributions = await this._proxy.$getEnvironmentContributions(filter);
 		return contributions;
 	}
 }

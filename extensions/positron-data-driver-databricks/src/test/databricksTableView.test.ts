@@ -90,11 +90,13 @@ suite('Databricks Column Profiles', () => {
 		// Constructor count + one scalar query; the median costs no separate round-trip.
 		assert.strictEqual(queries.length, 2);
 		assert.match(queries[1], /percentile_cont\(0\.5\) WITHIN GROUP \(ORDER BY `n`\)/);
+		// The median of an integer column formats as an integer, matching min_value and max_value
+		// (which are stringified directly) and the column's own cells. It used to read '20.00'.
 		assert.deepStrictEqual(profiles[0].summary_stats?.number_stats, {
 			min_value: '10',
 			max_value: '40',
 			mean: '25.00',
-			median: '20.00',
+			median: '20',
 			stdev: '12.91',
 		});
 	});
@@ -348,6 +350,33 @@ suite('Databricks Cell Formatting', () => {
 		assert.strictEqual(await firstCell(entryToRead, ' 42 '), '42');
 		assert.strictEqual(await firstCell(entryToRead, 1e21), '1e+21');
 		assert.strictEqual(await firstCell(entryToRead, 42), '42');
+	});
+
+	test('a wide DECIMAL(n,2) keeps its exact digits', async () => {
+		// Same flag as the DECIMAL(n,0) case above, but a scale of 2 makes this a Decimal column
+		// rather than an Integer one. The integral part is past 2^53, so Number() would report
+		// ...994.00 for it. Room for the integral digits, so the value is not folded into a mantissa.
+		const wide = { ...FORMAT_OPTIONS, max_integral_digits: 40 };
+		const entryToRead = entry('amount', ColumnDisplayType.Decimal, 'decimal(38,2)');
+
+		assert.strictEqual(await firstCell(entryToRead, '9007199254740993.01', wide), '9007199254740993.01');
+	});
+
+	test('a DECIMAL rounds on its exact digits, while a DOUBLE still rounds as a double', async () => {
+		// The double nearest 1.005 is just below the half-way digit, so the two display types
+		// legitimately disagree here: the DECIMAL column holds exactly 1.005 and the DOUBLE does not.
+		const decimalEntry = entry('amount', ColumnDisplayType.Decimal, 'decimal(10,3)');
+		const doubleEntry = entry('rate', ColumnDisplayType.Floating, 'double');
+
+		assert.strictEqual(await firstCell(decimalEntry, '1.005'), '1.01');
+		assert.strictEqual(await firstCell(doubleEntry, 1.005), '1.00');
+	});
+
+	test('a DECIMAL that is not a plain decimal literal still goes through Number', async () => {
+		const entryToRead = entry('amount', ColumnDisplayType.Decimal, 'decimal(10,2)');
+
+		assert.strictEqual(await firstCell(entryToRead, ' 1.5 '), '1.50');
+		assert.strictEqual(await firstCell(entryToRead, 1.5), '1.50');
 	});
 });
 

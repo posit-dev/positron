@@ -6,12 +6,17 @@
 /// <reference types="vitest/globals" />
 
 import type { ProviderCatalogChange, ResolvedConnection, ResolvedProvider } from 'ai-config/node';
-import type { IProviderCatalogChangeData, IResolvedConnectionData, IResolvedProviderData } from '../../common/aiProviderCatalog.js';
+import type { IProviderCatalogChangeData, IResolvedConnectionData, IResolvedModelsData, IResolvedProviderData } from '../../common/aiProviderCatalog.js';
 
 // Compile-time guard that the hand-mirrored IPC types stay assignable from the
 // ai-config types they mirror at the pinned commit. One-directional: the mirror
 // is a deliberate reduced view, so a rename/retype of a mirrored field fails the
 // typecheck rather than drifting silently.
+//
+// Drift in an all-optional field (ModelOverride) is not detectable this way:
+// optional-only types stay mutually assignable whatever their field names, and
+// excess-property checking applies only to fresh literals. Required fields are
+// what this guard actually pins, which covers CustomModel and the change flags.
 
 const _connection = (c: ResolvedConnection): IResolvedConnectionData => ({
 	baseUrl: c.baseUrl,
@@ -26,6 +31,15 @@ const _provider = (p: ResolvedProvider): IResolvedProviderData => ({
 	id: p.id,
 	enabled: p.enabled,
 	connection: _connection(p.connection),
+	models: p.models && _models(p.models),
+});
+
+const _models = (m: NonNullable<ResolvedProvider['models']>): IResolvedModelsData => ({
+	discovery: m.discovery,
+	allow: m.allow,
+	deny: m.deny,
+	overrides: m.overrides,
+	custom: m.custom,
 });
 
 const _change = (change: ProviderCatalogChange): Omit<IProviderCatalogChangeData, 'catalog'> => ({
@@ -36,6 +50,6 @@ const _change = (change: ProviderCatalogChange): Omit<IProviderCatalogChangeData
 
 describe('aiProviderCatalog shape guard', () => {
 	it('mirrors ai-config types (compile-time assertion)', () => {
-		expect([_connection, _provider, _change]).toHaveLength(3);
+		expect([_connection, _provider, _models, _change]).toHaveLength(4);
 	});
 });

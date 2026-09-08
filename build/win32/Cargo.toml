@@ -3,7 +3,6 @@ name = "inno_updater"
 # --- Start Positron ---
 # This version must match the binary vendored from
 # https://github.com/posit-dev/positron-inno-updater, not upstream's.
-# version = "0.21.0"
 version = "0.22.0"
 # --- End Positron ---
 authors = ["Microsoft <monacotools@microsoft.com>"]

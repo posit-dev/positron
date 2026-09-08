@@ -6,7 +6,11 @@
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { DATA_IMPORTER_ACTIVATION_EVENT, IDataImporter, IPositronDataImporterRegistry } from '../common/positronDataImporterRegistry.js';
+import {
+	DATA_IMPORTER_ACTIVATION_EVENT,
+	IDataImporter,
+	IPositronDataImporterRegistry
+} from '../common/positronDataImporterRegistry.js';
 
 /**
  * Normalizes a file extension for comparison: no leading dot, lower case. Importers declare
@@ -52,6 +56,11 @@ export class PositronDataImporterRegistry extends Disposable implements IPositro
 				matches.push(importer);
 			}
 		}
+
+		// Sort by display name, so the dialog's package list does not depend on which extension
+		// happened to activate first. Every display name leads with its language ('Python (pandas)',
+		// 'R (readr)'), so this also groups the list by language.
+		matches.sort((one, other) => one.displayName.localeCompare(other.displayName));
 		return matches;
 	}
 }

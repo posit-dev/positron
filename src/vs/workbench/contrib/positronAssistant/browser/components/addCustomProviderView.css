@@ -1,0 +1,26 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Add Custom Provider. Layers onto connectProviderView.css, which supplies the
+field label, input, and notice styling the two views share. */
+
+.add-custom-provider-view {
+	overflow-y: auto;
+}
+
+/* Type picker. Group headings are non-selectable rows rather than real
+optgroups, because the shared dropdown has no grouping of its own. */
+.add-custom-provider-type-heading {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Kinds sit indented under their heading so the grouping reads at a glance. */
+.drop-down-list-box-items .add-custom-provider-type-label {
+	padding-left: 10px;
+}

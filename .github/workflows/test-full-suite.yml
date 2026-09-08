@@ -69,6 +69,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_e2e_workbench_suse:
+        description: "E2E Tests / Workbench (openSUSE Leap 15.6)"
+        required: false
+        default: false
+        type: boolean
       run_e2e_pyrefly:
         description: "E2E Tests / Pyrefly (Ubuntu)"
         required: false
@@ -341,7 +346,7 @@ jobs:
   build-workbench:
     name: build
     needs: [validate-commit]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench || inputs.run_e2e_workbench_stable || inputs.run_e2e_workbench_rocky) }}
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench || inputs.run_e2e_workbench_stable || inputs.run_e2e_workbench_rocky || inputs.run_e2e_workbench_suse) }}
     uses: ./.github/workflows/build-workbench-linux.yml
     secrets: inherit
     with:
@@ -393,6 +398,27 @@ jobs:
       os: "rocky9"
       grep: "@:workbench"
       display_name: "workbench-rocky"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  # Same test set again, on an openSUSE Leap 15.6 container. `grep` is pinned to
+  # "@:workbench" for the same reason as the Rocky lane above: @:workbench-suse
+  # selects the lane, never individual tests, so no test carries it.
+  # @:workbench-all sets this lane's flag too (see scripts/pr-tags-parse.sh),
+  # which is why there is no separate condition for it here.
+  e2e-workbench-suse:
+    name: e2e
+    needs: [build-workbench]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_suse) }}
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      os: "opensuse15"
+      grep: "@:workbench"
+      display_name: "workbench-suse"
       install_license: false
       upload_logs: false
       allow_soft_fail: false
@@ -500,7 +526,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [validate-commit, e2e-electron, e2e-windows, e2e-macos-arm64, e2e-macos-x64, e2e-chromium, e2e-chromium-rocky, e2e-chromium-suse, e2e-chromium-sles, e2e-chromium-debian, e2e-workbench, e2e-workbench-stable, e2e-workbench-rocky, e2e-pyrefly, e2e-connect, e2e-jupyter, e2e-remote-ssh, unit-tests, ext-host-tests]
+      [validate-commit, e2e-electron, e2e-windows, e2e-macos-arm64, e2e-macos-x64, e2e-chromium, e2e-chromium-rocky, e2e-chromium-suse, e2e-chromium-sles, e2e-chromium-debian, e2e-workbench, e2e-workbench-stable, e2e-workbench-rocky, e2e-workbench-suse, e2e-pyrefly, e2e-connect, e2e-jupyter, e2e-remote-ssh, unit-tests, ext-host-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

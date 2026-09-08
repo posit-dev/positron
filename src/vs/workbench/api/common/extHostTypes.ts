@@ -3333,6 +3333,7 @@ export class ChatSubagentToolInvocationData {
 	agentName?: string;
 	prompt?: string;
 	result?: string;
+	modelName?: string;
 	constructor(description?: string, agentName?: string, prompt?: string, result?: string) {
 		this.description = description;
 		this.agentName = agentName;
@@ -3407,6 +3408,17 @@ export class ChatResponseHookPart {
 		this.stopReason = stopReason;
 		this.systemMessage = systemMessage;
 		this.metadata = metadata;
+	}
+}
+
+export type ChatResponseVoiceProgressStage = 'investigating' | 'planning' | 'editing' | 'validating' | 'recovering';
+
+export class ChatResponseVoiceProgressPart {
+	readonly id: ChatResponseVoiceProgressStage;
+	readonly value: string;
+	constructor(id: ChatResponseVoiceProgressStage, value: string) {
+		this.id = id;
+		this.value = value;
 	}
 }
 

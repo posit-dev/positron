@@ -131,6 +131,19 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
     );
 }
 
+/**
+ * Open the document for a run/debug command's `uri` argument.
+ *
+ * @returns The document to run, or `undefined` when no URI was passed, leaving
+ *  the Run App API to fall back to the active editor.
+ */
+async function openAppDocument(uri?: vscode.Uri | string): Promise<vscode.TextDocument | undefined> {
+    if (uri === undefined) {
+        return undefined;
+    }
+    return vscode.workspace.openTextDocument(typeof uri === 'string' ? vscode.Uri.parse(uri) : uri);
+}
+
 function registerExecCommand(
     command: string,
     name: string,
@@ -143,10 +156,16 @@ function registerExecCommand(
     appReadyMessage?: string,
     appUrlStrings?: string[],
 ): vscode.Disposable {
-    return vscode.commands.registerCommand(command, async () => {
+    // Called with:
+    // - `vscode.Uri` when the user clicks an editor title button
+    // - `string` when an agent uses the `positronCommand` tool
+    // - `undefined` when the user uses it from the command palette
+    return vscode.commands.registerCommand(command, async (uri?: vscode.Uri | string) => {
+        const document = await openAppDocument(uri);
         const runAppApi = await getPositronRunAppApi();
         await runAppApi.runApplication({
             name,
+            document,
             async getTerminalOptions(runtime, document, urlPrefix) {
                 const config = await getDebugConfiguration(runtime, document, urlPrefix);
                 if (!config) {
@@ -194,10 +213,16 @@ function registerDebugCommand(
     appReadyMessage?: string,
     appUrlStrings?: string[],
 ): vscode.Disposable {
-    return vscode.commands.registerCommand(command, async () => {
+    // Called with:
+    // - `vscode.Uri` when the user clicks an editor title button
+    // - `string` when an agent uses the `positronCommand` tool
+    // - `undefined` when the user uses it from the command palette
+    return vscode.commands.registerCommand(command, async (uri?: vscode.Uri | string) => {
+        const document = await openAppDocument(uri);
         const runAppApi = await getPositronRunAppApi();
         await runAppApi.debugApplication({
             name,
+            document,
             async getDebugConfiguration(runtime, document, urlPrefix) {
                 const config = await getPythonDebugConfiguration(runtime, document, urlPrefix);
                 if (!config) {

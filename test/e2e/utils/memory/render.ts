@@ -3,9 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { deltaHtml, escapeHtml, formatBytes, GC_NOTE, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
+import { KERNEL_LABEL_UNKNOWN, kernelProcessCounts, kernelTotals } from './kernel.js';
+import { deltaHtml, deltaHtmlFromDiff, escapeHtml, formatBytes, GC_NOTE, KB, notSteadyStateCardHtml, REPORT_CSS, signed } from './report-shell.js';
 import { unstableProcesses } from './snapshot.js';
-import { ActivatedExtension, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
+import { ActivatedExtension, ExtensionHeapBreakdown, ExtensionHeapStatus, LabeledProcess, MemorySnapshot, ProcessRole } from './types.js';
 
 export { formatBytes } from './report-shell.js';
 
@@ -172,6 +173,286 @@ function samplingSummary(snapshots: MemorySnapshot[]): string {
 	return `${parts.join(', ')}.`;
 }
 
+/**
+ * Retained bytes below which an extension collapses into a single "others" row.
+ *
+ * A fixed byte floor rather than a top N or a percentage: it keeps a newly
+ * appearing extension visible the moment it matters, and the long tail is real
+ * (14 extensions under 0.2 MB in a measured heap).
+ */
+export const EXTENSION_HEAP_FLOOR_BYTES = 1_048_576;
+
+/** The unattributed remainder's row label, in both report formats. */
+export const UNATTRIBUTED_ROW = 'unattributed';
+
+/** The whole reachable heap's row label, in both report formats. */
+export const EXTENSION_TOTAL_ROW = 'TOTAL';
+
+/**
+ * Magnitude of an extension-row figure. `formatBytes` alone rounds to one MB
+ * decimal, which flattens a real sub-MB extension change to "0.0 MB" --
+ * extensions sit an order of magnitude below the role table's figures, so
+ * anything below 1 MB is shown in KB instead. Binary units throughout.
+ */
+function extensionMagnitude(bytes: number): string {
+	const abs = Math.abs(bytes);
+	if (abs >= 1024 * KB) {
+		return formatBytes(abs);
+	}
+	return `${(abs / KB).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} KB`;
+}
+
+/** Signed delta for an extension row, in the markdown table. */
+function signedExtensionChange(bytes: number): string {
+	return `${bytes >= 0 ? '+' : '-'}${extensionMagnitude(bytes)}`;
+}
+
+/**
+ * The extension-row counterpart of `deltaHtmlFromDiff`: same glyph, same
+ * classes, one scale down. Flat is under a KB rather than under an MB, since
+ * the shared MB band would swallow every extension delta there is and no row
+ * would ever get an arrow.
+ */
+function extensionDeltaHtml(diff: number): string {
+	const flat = Math.abs(diff) < KB;
+	const cls = flat ? 'delta-flat' : diff > 0 ? 'delta-up' : 'delta-down';
+	const glyph = flat ? '' : diff > 0 ? '&#9650; ' : '&#9660; ';
+	return `<span class="${cls}">${glyph}${flat ? signedExtensionChange(diff) : extensionMagnitude(diff)}</span>`;
+}
+
+/** The change cell for one extension row, matching how the role table renders a delta and a new row. */
+function extensionChangeHtml(row: ExtensionHeapRow): string {
+	if (row.changeBytes !== undefined) {
+		return extensionDeltaHtml(row.changeBytes);
+	}
+	return row.change === '' ? '' : `<span class="delta-flat">${escapeHtml(row.change)}</span>`;
+}
+
+/**
+ * Median retained bytes per extension across launches, zero-filling a launch
+ * that did not have one, for the same reason `byRole` does.
+ */
+function extensionHeapMedians(breakdowns: ExtensionHeapBreakdown[]): Map<string, number> {
+	const ids = new Set(breakdowns.flatMap(b => b.extensions.map(e => e.extensionId)));
+	return new Map([...ids].map(id => [
+		id,
+		median(breakdowns.map(b => b.extensions.find(e => e.extensionId === id)?.retainedBytes ?? 0))
+	]));
+}
+
+/** Said in both formats when no launch produced a breakdown. */
+const EXTENSION_HEAP_UNAVAILABLE = 'Per-extension breakdown unavailable for this run.';
+
+/**
+ * One sentence per wire status, so the reader learns why instead of reading an
+ * absent table as "no extensions". `ok` is deliberately absent: it has no
+ * failure to explain, so it falls back to the bare sentence like an
+ * unrecognized status does.
+ */
+const EXTENSION_HEAP_REASONS: Partial<Record<ExtensionHeapStatus, string>> = {
+	capture_failed: 'The extension host inspector did not produce a heap snapshot.',
+	parse_failed: 'The heap snapshot was captured but could not be read back.',
+	unsupported_format: 'The heap snapshot was not in the format this parser understands.',
+	untrusted: 'Too many nodes had an unresolved script id, so the partition was discarded as incomplete.'
+};
+
+/**
+ * The unavailable sentence plus the reason, for the run's first status: every
+ * launch of a scenario runs the same build the same way, so they fail alike.
+ * Runs predating the feature carry no status and get the bare sentence.
+ */
+export function extensionHeapUnavailableText(snapshots: MemorySnapshot[]): string {
+	const status = snapshots.map(s => s.extensionHeapStatus).find(s => s !== undefined);
+	const reason = status === undefined ? undefined : EXTENSION_HEAP_REASONS[status];
+	return reason ? `${EXTENSION_HEAP_UNAVAILABLE} ${reason}` : EXTENSION_HEAP_UNAVAILABLE;
+}
+
+/**
+ * The per-extension rows, largest first, with everything under the floor
+ * collapsed and `unattributed` always last.
+ *
+ * `unattributed` is always shown: it is most of the heap, and hiding it would
+ * imply the extensions sum to the extension host row.
+ */
+export type ExtensionHeapRow = {
+	extensionId: string;
+	bytes: number;
+	/** The rendered change for the markdown table: blank, "new", or a signed figure. */
+	change: string;
+	/** The same change unrendered, so the HTML card can put a glyph and a class on it. Undefined when there is nothing to compare against. */
+	changeBytes?: number;
+};
+
+/** An extension id, the italic remainder, or the bold TOTAL. */
+function extensionRowLabelHtml(extensionId: string): string {
+	if (extensionId === UNATTRIBUTED_ROW) {
+		return `<em>${UNATTRIBUTED_ROW}</em>`;
+	}
+	if (extensionId === EXTENSION_TOTAL_ROW) {
+		return `<strong>${EXTENSION_TOTAL_ROW}</strong>`;
+	}
+	return `<code>${escapeHtml(extensionId)}</code>`;
+}
+
+export function extensionHeapRows(
+	snapshots: MemorySnapshot[],
+	baseline?: MemorySnapshot
+): ExtensionHeapRow[] {
+	const breakdowns = snapshots.map(s => s.extensionHeap).filter((b): b is ExtensionHeapBreakdown => b !== undefined);
+	if (breakdowns.length === 0) {
+		return [];
+	}
+	const medians = extensionHeapMedians(breakdowns);
+	const baselineBreakdown = baseline?.extensionHeap;
+	const baselineBytes = new Map(baselineBreakdown?.extensions.map(e => [e.extensionId, e.retainedBytes]) ?? []);
+
+	// Blank rather than "new" everywhere when there is no extension-level
+	// baseline at all, which is the first night and any run against a baseline
+	// captured before this shipped.
+	const changeFor = (id: string, bytes: number): Pick<ExtensionHeapRow, 'change' | 'changeBytes'> => {
+		if (!baselineBreakdown) {
+			return { change: '' };
+		}
+		const before = baselineBytes.get(id);
+		if (before === undefined) {
+			return { change: 'new' };
+		}
+		return { change: signedExtensionChange(bytes - before), changeBytes: bytes - before };
+	};
+
+	const ranked = [...medians].sort((a, b) => b[1] - a[1]);
+	const shown = ranked.filter(([, bytes]) => bytes >= EXTENSION_HEAP_FLOOR_BYTES);
+	const collapsed = ranked.filter(([, bytes]) => bytes > 0 && bytes < EXTENSION_HEAP_FLOOR_BYTES);
+
+	const rows: ExtensionHeapRow[] = shown.map(([extensionId, bytes]) => ({ extensionId, bytes, ...changeFor(extensionId, bytes) }));
+	if (collapsed.length > 0) {
+		rows.push({
+			extensionId: `(${collapsed.length} others)`,
+			bytes: collapsed.reduce((sum, [, bytes]) => sum + bytes, 0),
+			change: ''
+		});
+	}
+	const unattributed = median(breakdowns.map(b => b.unattributedBytes));
+	const unattributedDiff = baselineBreakdown ? unattributed - baselineBreakdown.unattributedBytes : undefined;
+	rows.push({
+		extensionId: UNATTRIBUTED_ROW,
+		bytes: unattributed,
+		change: unattributedDiff === undefined ? '' : signedExtensionChange(unattributedDiff),
+		changeBytes: unattributedDiff
+	});
+
+	// Summed from the rows rather than taken from `reachableBytes`, so the column
+	// a reader adds up is the column that is printed: these are per-extension
+	// medians across launches, whose sum need not equal any one launch's total.
+	const total = rows.reduce((sum, row) => sum + row.bytes, 0);
+	const baselineTotal = baselineBreakdown
+		? baselineBreakdown.extensions.reduce((sum, e) => sum + e.retainedBytes, 0) + baselineBreakdown.unattributedBytes
+		: undefined;
+	rows.push({
+		extensionId: EXTENSION_TOTAL_ROW,
+		bytes: total,
+		change: baselineTotal === undefined ? '' : signedExtensionChange(total - baselineTotal),
+		changeBytes: baselineTotal === undefined ? undefined : total - baselineTotal
+	});
+	return rows;
+}
+
+/**
+ * One kernel language's share of the `kernel` role, or the summed TOTAL.
+ *
+ * Shaped like {@link ExtensionHeapRow} rather than reusing it: the two tables
+ * render the same way, but a kernel row carries a process count and an
+ * extension row carries an id, and one type holding both would let either
+ * table render a field the other filled in.
+ */
+export type KernelRow = {
+	/** A label from `kernelLabelFor`, or `TOTAL` on the summed row. */
+	label: string;
+	bytes: number;
+	/** How many processes this figure adds up, at its highest across launches. */
+	processCount: number;
+	/** The rendered change for the markdown table: blank, "new", or a signed figure. */
+	change: string;
+	/** The same change unrendered, for the HTML card's glyph and class. Undefined when there is nothing to compare against. */
+	changeBytes?: number;
+	isTotal?: boolean;
+};
+
+const KERNEL_TOTAL_ROW = 'TOTAL';
+
+/**
+ * Median PSS per kernel label across launches, largest first, with a summed
+ * TOTAL when there is more than one label.
+ *
+ * Empty for a scenario that starts no session, which is what makes the whole
+ * card omissible rather than an empty table a reader has to read as "no
+ * kernel" instead of "the measurement failed".
+ *
+ * A label absent from a launch counts as zero for that launch, the same
+ * zero-filling `byRole` does and for the same reason.
+ */
+export function kernelRows(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): KernelRow[] {
+	const perLaunch = snapshots.map(kernelTotals);
+	const labels = new Set(perLaunch.flatMap(totals => [...totals.keys()]));
+	if (labels.size === 0) {
+		return [];
+	}
+	const counts = kernelProcessCounts(snapshots);
+	const baselineTotals = baseline ? kernelTotals(baseline) : undefined;
+
+	// The baseline arrives from the dashboard API, which returns a role and a
+	// figure per process but no command name, so `baselineToSnapshot` leaves
+	// cmdBasename empty and every baseline kernel lands under `unknown`. That
+	// total is still the right thing to diff the TOTAL row against, but it can
+	// say nothing about any individual language, so per-label changes stay blank
+	// rather than reporting every kernel as "new" every night.
+	const baselineLabeled = baselineTotals !== undefined
+		&& [...baselineTotals.keys()].some(label => label !== KERNEL_LABEL_UNKNOWN);
+
+	// Blank rather than "new" everywhere when the baseline had no kernel at all:
+	// that is the first night, or a baseline captured from a scenario that starts
+	// no session, not a night the kernels appeared.
+	const changeFor = (label: string, bytes: number): Pick<KernelRow, 'change' | 'changeBytes'> => {
+		if (baselineTotals === undefined || !baselineLabeled) {
+			return { change: '' };
+		}
+		const before = baselineTotals.get(label);
+		if (before === undefined) {
+			return { change: 'new' };
+		}
+		return { change: signed(bytes - before), changeBytes: bytes - before };
+	};
+
+	const rows: KernelRow[] = [...labels]
+		.map(label => ({ label, bytes: median(perLaunch.map(totals => totals.get(label) ?? 0)) }))
+		.sort((a, b) => b.bytes - a.bytes)
+		.map(({ label, bytes }) => ({ label, bytes, processCount: counts.get(label) ?? 0, ...changeFor(label, bytes) }));
+
+	// One label makes the TOTAL that label's figure printed twice, which says
+	// nothing and invites the reader to hunt for the difference.
+	if (rows.length < 2) {
+		return rows;
+	}
+
+	// Summed from the rows rather than re-derived, for the same reason the
+	// extension table does it: the column a reader adds up is the column that is
+	// printed. Per-label medians across launches need not sum to any one
+	// launch's kernel total.
+	const total = rows.reduce((sum, row) => sum + row.bytes, 0);
+	const baselineTotal = baselineTotals === undefined || baselineTotals.size === 0
+		? undefined
+		: [...baselineTotals.values()].reduce((sum, bytes) => sum + bytes, 0);
+	rows.push({
+		label: KERNEL_TOTAL_ROW,
+		bytes: total,
+		processCount: [...counts.values()].reduce((sum, count) => sum + count, 0),
+		change: baselineTotal === undefined ? '' : signed(total - baselineTotal),
+		changeBytes: baselineTotal === undefined ? undefined : total - baselineTotal,
+		isTotal: true
+	});
+	return rows;
+}
+
 export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
 	const total = totalAcrossLaunches(snapshots);
 	const lines: string[] = [`## Memory: ${snapshots[0]?.scenario}`, ''];
@@ -211,6 +492,35 @@ export function renderMarkdown(snapshots: MemorySnapshot[], baseline?: MemorySna
 		lines.push(`| \`${role}\` | ${formatBytes(bytes)} | ${change} |`);
 	}
 	lines.push('');
+
+	const heapRows = extensionHeapRows(snapshots, baseline);
+	if (heapRows.length === 0) {
+		lines.push(`_${extensionHeapUnavailableText(snapshots)}_`, '');
+	} else {
+		lines.push(`### Extension host heap: ${snapshots[0]?.scenario}`, '');
+		lines.push('| Extension | Retained | Change |', '| --- | --- | --- |');
+		for (const row of heapRows) {
+			const label = row.extensionId === UNATTRIBUTED_ROW
+				? `_${UNATTRIBUTED_ROW}_`
+				: row.extensionId === EXTENSION_TOTAL_ROW ? `**${EXTENSION_TOTAL_ROW}**` : `\`${row.extensionId}\``;
+			lines.push(`| ${label} | ${formatBytes(row.bytes)} | ${row.change} |`);
+		}
+		lines.push('');
+	}
+
+	// Below the extension table for the same reason the card is: both decompose a
+	// row of the role table above, and neither means anything without it.
+	const kernels = kernelRows(snapshots, baseline);
+	if (kernels.length > 0) {
+		lines.push(`### Kernel memory: ${snapshots[0]?.scenario}`, '');
+		lines.push('| Kernel | PSS | Change |', '| --- | --- | --- |');
+		for (const row of kernels) {
+			const count = row.processCount > 1 ? ` (${row.processCount} processes)` : '';
+			const label = row.isTotal ? `**${row.label}**` : `${row.label}${count}`;
+			lines.push(`| ${label} | ${formatBytes(row.bytes)} | ${row.change} |`);
+		}
+		lines.push('');
+	}
 
 	return lines.join('\n');
 }
@@ -534,6 +844,58 @@ function unlabeledNoteHtml(snapshots: MemorySnapshot[], roleTotals: Map<ProcessR
 	return `<p class="muted">${unlabeled.length} unlabeled process name(s) across ${snapshots.length} launch(es), ${formatBytes(bytes)} in the median launch: ${names}. Add them to the role map in <code>test/e2e/utils/memory/label.ts</code>.</p>`;
 }
 
+/**
+ * One kernel row's label: the language, plus a process count when the figure is
+ * a sum. Not code-formatted -- these are display names, not process names, and
+ * setting them in the same face as a `cmdBasename` implies they are one.
+ */
+function kernelRowLabelHtml(row: KernelRow): string {
+	if (row.isTotal) {
+		// No count here: the column warns that a label's figure is a sum, and a
+		// row named TOTAL has already said that about itself.
+		return `<strong>${escapeHtml(row.label)}</strong>`;
+	}
+	const count = row.processCount > 1 ? ` <span class="muted">(${row.processCount} processes)</span>` : '';
+	return `${escapeHtml(row.label)}${count}`;
+}
+
+/** The change cell for one kernel row, at the role table's scale rather than the extension table's. */
+function kernelChangeHtml(row: KernelRow): string {
+	if (row.changeBytes !== undefined) {
+		return deltaHtmlFromDiff(row.changeBytes);
+	}
+	return row.change === '' ? '' : `<span class="delta-flat">${escapeHtml(row.change)}</span>`;
+}
+
+/**
+ * Decomposes the role table's `kernel` row by language runtime.
+ *
+ * Empty string for a scenario that starts no session, so the card is absent
+ * rather than an empty table -- idle, editors and data-explorer run no kernel,
+ * and an empty table there reads as a failed measurement.
+ */
+function kernelCardHtml(rows: KernelRow[]): string {
+	if (rows.length === 0) {
+		return '';
+	}
+	// TOTAL is every other row added up, so including it would make it the longest
+	// bar by construction and squash the kernels it is meant to compare.
+	const maxBytes = Math.max(0, ...rows.filter(row => !row.isTotal).map(row => row.bytes));
+	return `<div class="card">
+		<h2>Kernel memory</h2>
+		<table>
+			<tr><th>Kernel</th><th align="right">PSS</th><th></th><th align="right">Change</th></tr>
+			${rows.map(row => `<tr${row.isTotal ? ' class="total-row"' : ''}>
+				<td>${kernelRowLabelHtml(row)}</td>
+				<td align="right">${formatBytes(row.bytes)}</td>
+				<td>${row.isTotal ? '' : magnitudeBar(row.bytes, maxBytes)}</td>
+				<td align="right">${kernelChangeHtml(row)}</td>
+			</tr>`).join('\n')}
+		</table>
+		<p class="muted">Rows decompose the <code>kernel</code> role by language runtime; <code>kernel_supervisor</code> and <code>language_server</code> are separate roles and are not counted here.</p>
+	</div>`;
+}
+
 export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapshot): string {
 	const first = snapshots[0];
 	const total = totalAcrossLaunches(snapshots);
@@ -558,6 +920,31 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 	const newProcessesCard = newProcessesHtml(snapshots, baseline);
 	const unlabeledNote = unlabeledNoteHtml(snapshots, roleTotals);
 	const instabilityCard = instabilityHtml(snapshots);
+
+	const kernelCard = kernelCardHtml(kernelRows(snapshots, baseline));
+
+	const heapRows = extensionHeapRows(snapshots, baseline);
+	// TOTAL is every other row added up, so including it would make it the longest
+	// bar by construction and squash the extensions it is meant to compare.
+	const maxHeapBytes = Math.max(0, ...heapRows.filter(row => row.extensionId !== EXTENSION_TOTAL_ROW).map(row => row.bytes));
+	const extensionHeapCard = heapRows.length === 0
+		? `<div class="card">
+		<h2>Extension host heap</h2>
+		<p class="muted">${escapeHtml(extensionHeapUnavailableText(snapshots))}</p>
+	</div>`
+		: `<div class="card">
+		<h2>Extension host heap</h2>
+		<table>
+			<tr><th>Extension</th><th align="right">Retained</th><th></th><th align="right">Change</th></tr>
+			${heapRows.map(row => `<tr${row.extensionId === EXTENSION_TOTAL_ROW ? ' class="total-row"' : ''}>
+				<td>${extensionRowLabelHtml(row.extensionId)}</td>
+				<td align="right">${formatBytes(row.bytes)}</td>
+				<td>${row.extensionId === EXTENSION_TOTAL_ROW ? '' : magnitudeBar(row.bytes, maxHeapBytes)}</td>
+				<td align="right">${extensionChangeHtml(row)}</td>
+			</tr>`).join('\n')}
+		</table>
+		<p class="muted">Rows show each extension's reachable V8 heap; <em>unattributed</em> includes host runtime and extension code not owned by an extension object.</p>
+	</div>`;
 
 	return `<!DOCTYPE html>
 <html>
@@ -588,6 +975,10 @@ export function renderHtml(snapshots: MemorySnapshot[], baseline?: MemorySnapsho
 		</table>
 		${unlabeledNote}
 	</div>
+
+	${extensionHeapCard}
+
+	${kernelCard}
 
 	<div class="card">
 		<h2>Process tree</h2>

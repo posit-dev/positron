@@ -241,6 +241,33 @@ union_csv_tags() {
 		| awk 'NF && !seen[$0]++' | paste -sd, -
 }
 
+# collapse_workbench_all_tags <csv>
+# @:workbench-all is a shorthand for "run every Workbench OS lane", so when it is
+# present the three lane selectors it stands for -- @:workbench (Ubuntu),
+# @:workbench-rocky and @:workbench-suse -- are redundant. Echoes <csv> with
+# those removed, order-stable; echoes <csv> unchanged when @:workbench-all is
+# absent.
+#
+# This is presentation, not selection: pr-tags-parse.sh sets the three lane flags
+# from @:workbench-all directly, so removing the tags here cannot stop a lane from
+# running. The point is that the PR comment lists what will run without also
+# listing three tags that say the same thing again.
+#
+# Deliberately does NOT touch @:workbench-stable (a different axis -- the last
+# stable Workbench release, still on Ubuntu, not an OS lane) or the
+# @:workbench-{snowflake,databricks,azure} credential tags (test tags consumed by
+# the Ubuntu lane's shard matrix, not lane selectors).
+collapse_workbench_all_tags() {
+	local csv="$1"
+	case ",${csv}," in
+		*",@:workbench-all,"*) ;;
+		*) printf '%s' "$csv"; return 0 ;;
+	esac
+	printf '%s\n' "${csv//,/$'\n'}" \
+		| awk 'NF && $0 != "@:workbench" && $0 != "@:workbench-rocky" && $0 != "@:workbench-suse"' \
+		| paste -sd, -
+}
+
 # positron_dir_of <path>
 # THE single source of truth for "which mappable Positron dir does a path belong
 # to". Echoes the path truncated to its FIRST positron* segment with a trailing

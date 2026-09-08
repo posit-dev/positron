@@ -171,7 +171,10 @@ function toEnvVarAction(type: vscode.EnvironmentVariableMutatorType): EnvVarActi
  * @returns The contributed mutations, in no particular order.
  */
 async function getContributedMutations(): Promise<EnvVarMutation[]> {
-	const contributions = await positron.environment.getEnvironmentContributions();
+	// This process is spawned directly (no shell integration), like a kernel, so
+	// request only contributions applied at process creation.
+	const contributions = await positron.environment.getEnvironmentContributions(
+		positron.EnvironmentContributionFilter.ProcessCreation);
 	const mutations: EnvVarMutation[] = [];
 	for (const [extensionId, actions] of Object.entries(contributions)) {
 		for (const action of actions) {

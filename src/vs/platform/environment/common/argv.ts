@@ -116,6 +116,7 @@ export interface NativeParsedArgs {
 	'canvas'?: boolean;
 	// --- End Positron ---
 	'disable-telemetry'?: boolean;
+	'telemetry-level'?: string;
 	'export-default-configuration'?: string;
 	'export-policy-data'?: string;
 	'export-default-keybindings'?: string;

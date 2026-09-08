@@ -2050,6 +2050,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
 		executionMetadata?: Record<string, unknown>) {
+		// Normalize line endings so the boundary provider's line-by-line parse
+		// (and the local split) see clean LF input, not a CRLF editor's carriage
+		// returns. The runtime's parser normalizes source the same way.
+		code = code.replace(/\r\n?/g, '\n');
+
 		// If a manually assigned execution ID is provided, add it to the set of
 		// external execution IDs.
 		if (executionId) {
@@ -2433,6 +2438,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 */
 	async submitCode(code: string, attribution: IConsoleCodeAttribution): Promise<CodeSubmissionResult> {
 		const t0 = Date.now();
+
+		// Normalize line endings so the boundary provider's line-by-line parse
+		// (and the local split) see clean LF input, not a CRLF editor's carriage
+		// returns. The runtime's parser normalizes source the same way.
+		code = code.replace(/\r\n?/g, '\n');
 
 		// Flow 3 short-circuit: completeness checking is disabled, so run the
 		// code as-is with no checks, no roundtrips, and no submission visuals.

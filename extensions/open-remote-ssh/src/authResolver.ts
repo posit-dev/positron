@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -23,6 +23,7 @@ import { untildify, exists as fileExists } from './common/files';
 import { findRandomPort } from './common/ports';
 import { disposeAll } from './common/disposable';
 import { installCodeServer, ServerInstallError } from './serverSetup';
+import { pickConfiguredDownloadUrlTemplate, UNIFIED_DOWNLOAD_URL_KEY, UNIFIED_DOWNLOAD_URL_SECTION } from './serverDownloadUrl';
 import { isWindows } from './common/platform';
 import * as os from 'os';
 
@@ -89,7 +90,10 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 		const remoteSSHconfig = vscode.workspace.getConfiguration('remoteSSH');
 		const enableDynamicForwarding = remoteSSHconfig.get<boolean>('enableDynamicForwarding', true)!;
 		const enableAgentForwarding = remoteSSHconfig.get<boolean>('enableAgentForwarding', true)!;
-		const serverDownloadUrlTemplate = remoteSSHconfig.get<string>('serverDownloadUrlTemplate');
+		const serverDownloadUrlTemplate = pickConfiguredDownloadUrlTemplate(
+			remoteSSHconfig.inspect<string>('serverDownloadUrlTemplate'),
+			vscode.workspace.getConfiguration(UNIFIED_DOWNLOAD_URL_SECTION).inspect<string>(UNIFIED_DOWNLOAD_URL_KEY)
+		);
 		const defaultExtensions = remoteSSHconfig.get<string[]>('defaultExtensions', []);
 		const remotePlatformMap = remoteSSHconfig.get<Record<string, string>>('remotePlatform', {});
 		const remoteServerListenOnSocket = remoteSSHconfig.get<boolean>('remoteServerListenOnSocket', false)!;

@@ -14,7 +14,7 @@ import { IPackageRepositoryRequest, IPackageRepositoryResponse } from '../../../
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { IRange } from '../../../../editor/common/core/range.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -384,7 +384,7 @@ export interface ExtHostDataExplorerShape {
 }
 
 export interface MainThreadEnvironmentShape extends IDisposable {
-	$getEnvironmentContributions(): Promise<Record<string, EnvironmentVariableAction[]>>;
+	$getEnvironmentContributions(filter?: EnvironmentContributionFilter): Promise<Record<string, EnvironmentVariableAction[]>>;
 }
 
 export interface ExtHostEnvironmentShape { }

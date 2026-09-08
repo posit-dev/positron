@@ -7,6 +7,7 @@ import { MainPositronContext, MainThreadEnvironmentShape } from '../../common/po
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IEnvironmentVariableService } from '../../../contrib/terminal/common/environmentVariable.js';
+import { EnvironmentContributionFilter } from '../../common/positron/extHostTypes.positron.js';
 
 interface IEnvironmentVariableAction {
 	/** The action to take */
@@ -29,7 +30,7 @@ export class MainThreadEnvironment implements MainThreadEnvironmentShape {
 	) {
 	}
 
-	async $getEnvironmentContributions(): Promise<Record<string, IEnvironmentVariableAction[]>> {
+	async $getEnvironmentContributions(filter?: EnvironmentContributionFilter): Promise<Record<string, IEnvironmentVariableAction[]>> {
 		// Get environment variable collections from the environment service
 		const collections = this._environmentService.collections;
 
@@ -40,13 +41,14 @@ export class MainThreadEnvironment implements MainThreadEnvironmentShape {
 		for (const [extensionIdentifier, collection] of collections.entries()) {
 			const actions: IEnvironmentVariableAction[] = [];
 			for (const [variable, mutator] of collection.map) {
-				// Skip mutators that opt out of process creation. These are
-				// contributed for interactive terminals only (applied via shell
-				// integration) and must not be inherited by spawned runtime
-				// processes such as kernels. The default is to apply at process
-				// creation, so only explicit opt-outs are excluded and existing
-				// contributions are unaffected.
-				if (mutator.options?.applyAtProcessCreation === false) {
+				// When filtering to process creation, skip mutators that opt out
+				// of it. These are contributed for interactive terminals only
+				// (applied via shell integration) and must not be inherited by
+				// spawned runtime processes such as kernels. Without a filter,
+				// every contribution is returned so terminal-like consumers can
+				// replay shell-integration-only variables too.
+				if (filter === EnvironmentContributionFilter.ProcessCreation &&
+					mutator.options?.applyAtProcessCreation === false) {
 					continue;
 				}
 				actions.push({

@@ -366,6 +366,15 @@ export namespace GlobalEnvironment {
         );
     export const createButton = l10n.t('Create Global Environment');
     export const notNow = l10n.t('Not Now');
+    export const registrationFailed = (pythonPath: string) =>
+        l10n.t('Created the global Python environment at {0}, but could not start it.', pythonPath);
+    export const sessionPromptTitle = l10n.t('Create a global Python environment?');
+    export const sessionPromptMessage = (interpreterLabel: string, venvPath: string) =>
+        l10n.t(
+            '{0} is managed by your operating system or a package manager. Installing Python packages into it can break other software. Positron can create a shared environment at {1} for use outside of projects.',
+            interpreterLabel,
+            venvPath,
+        );
 }
 // --- End Positron ---
 

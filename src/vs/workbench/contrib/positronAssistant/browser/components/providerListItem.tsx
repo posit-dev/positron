@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../../nls.js';
-import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { IPositronLanguageModelSource, LanguageModelAutoconfigureType } from '../../common/interfaces/positronAssistantService.js';
 import { ProviderSectionId } from '../../common/providerGrouping.js';
 import { LanguageModelIcon, getStatusLabel } from './languageModelButton.js';
+import { providerIconId } from '../customProviderKinds.js';
 
 interface ProviderListItemProps {
 	source: IPositronLanguageModelSource;
@@ -40,6 +40,7 @@ function actionLabel(section: ProviderSectionId): string {
 		case 'needs-attention':
 			return localize('positron.configureLLMProvidersModal.action.fix', "Fix Connection");
 		case 'model-providers':
+		case 'custom':
 			return localize('positron.configureLLMProvidersModal.action.connect', "Connect");
 	}
 }
@@ -51,19 +52,27 @@ function actionLabel(section: ProviderSectionId): string {
  */
 export const ProviderListItem = (props: ProviderListItemProps) => {
 	const { source, section, description, onAction } = props;
-	const maturityLabel = getStatusLabel(source.provider.status);
+	// A custom entry is always shown as experimental, regardless of any status
+	// its metadata carries: the custom-provider feature itself is still evolving.
+	const maturityStatus = source.provider.customKind ? 'experimental' : source.provider.status;
+	const maturityLabel = getStatusLabel(maturityStatus);
 	const authLabel = section === 'connected' ? authBadgeLabel(source) : undefined;
 
 	return (
 		<div className='provider-list-item' data-provider-section={section} data-testid={`provider-row-${source.provider.id}`}>
 			<div className='provider-list-item-icon'>
-				<LanguageModelIcon monochrome logoUrl={source.provider.logoUrl} provider={source.provider.id} />
+				<LanguageModelIcon monochrome logoUrl={source.provider.logoUrl} provider={providerIconId(source.provider)} />
 			</div>
 			<div className='provider-list-item-text'>
 				<div className='provider-list-item-name'>
 					<span className='provider-list-item-display-name'>{source.provider.displayName}</span>
-					{maturityLabel && <span className={positronClassNames('provider-list-item-badge', source.provider.status)}>{maturityLabel}</span>}
-					{authLabel && <span className='provider-list-item-badge environment'>{authLabel}</span>}
+					{source.provider.customKind &&
+						<span className='provider-list-item-badge'>
+							{localize('positron.configureLLMProvidersModal.badge.custom', "Custom")}
+						</span>
+					}
+					{maturityLabel && <span className='provider-list-item-badge'>{maturityLabel}</span>}
+					{authLabel && <span className='provider-list-item-badge'>{authLabel}</span>}
 					{section === 'needs-attention' &&
 						<span className='provider-list-item-badge error'>
 							{localize('positron.configureLLMProvidersModal.badge.error', "Error")}
@@ -73,13 +82,13 @@ export const ProviderListItem = (props: ProviderListItemProps) => {
 				{section === 'needs-attention' && source.statusMessage &&
 					<div className='provider-list-item-error'>{source.statusMessage}</div>
 				}
-				{section === 'model-providers' && description &&
+				{(section === 'model-providers' || section === 'custom') && description &&
 					<div className='provider-list-item-desc'>{description}</div>
 				}
 			</div>
 			<div className='provider-list-item-actions'>
 				<button className='provider-list-item-action' data-testid={`provider-action-${source.provider.id}`} type='button' onClick={onAction}>
-					{section === 'model-providers' && <span aria-hidden='true' className='codicon codicon-add' />}
+					{(section === 'model-providers' || section === 'custom') && <span aria-hidden='true' className='codicon codicon-add' />}
 					{actionLabel(section)}
 				</button>
 			</div>

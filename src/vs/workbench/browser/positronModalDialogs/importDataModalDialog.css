@@ -20,6 +20,10 @@
 	flex-direction: column;
 }
 
+.import-data .include-view {
+	margin-bottom: 8px;
+}
+
 /* Package list (master) beside the code preview (detail), as in the data connections dialog. */
 .import-data .body {
 	height: 300px;

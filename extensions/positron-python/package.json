@@ -683,7 +683,7 @@
                     "scope": "machine",
                     "type": "string"
                 },
-                "python.environmentProviders.enable": {
+                "python.environmentProviders.enabled": {
                     "default": {
                         "Venv": true,
                         "Conda": true,
@@ -696,7 +696,7 @@
                             "uv": true
                         }
                     ],
-                    "markdownDescription": "%python.environmentProviders.enable.markdownDescription%",
+                    "markdownDescription": "%python.environmentProviders.enabled.markdownDescription%",
                     "scope": "resource",
                     "type": "object",
                     "properties": {
@@ -711,6 +711,28 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "python.environmentProviders.enable": {
+                    "default": {
+                        "Venv": true,
+                        "Conda": true,
+                        "uv": true
+                    },
+                    "scope": "resource",
+                    "type": "object",
+                    "properties": {
+                        "Venv": {
+                            "type": "boolean"
+                        },
+                        "Conda": {
+                            "type": "boolean"
+                        },
+                        "uv": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "markdownDeprecationMessage": "%python.environmentProviders.enable.markdownDeprecationMessage%"
                 },
                 "python.allowUvPythonInstall": {
                     "default": true,

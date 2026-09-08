@@ -399,8 +399,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			 *
 			 * @returns A map of environment variable actions, keyed by the extension ID.
 			 */
-			getEnvironmentContributions(): Thenable<Record<string, positron.EnvironmentVariableAction[]>> {
-				return extHostEnvironment.getEnvironmentContributions();
+			getEnvironmentContributions(filter?: positron.EnvironmentContributionFilter): Thenable<Record<string, positron.EnvironmentVariableAction[]>> {
+				return extHostEnvironment.getEnvironmentContributions(filter);
 			}
 		};
 
@@ -721,6 +721,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			notebooks,
 			workspace,
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,
+			EnvironmentContributionFilter: extHostTypes.EnvironmentContributionFilter,
 			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
 			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,

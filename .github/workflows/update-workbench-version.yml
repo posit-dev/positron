@@ -7,9 +7,13 @@ on:
 jobs:
   update-rstudio-pro:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     env:
       install_file: dependencies/common/install-code-server
       news_file: .github/NEWS.md
+      default_reviewers: melissa-barca,cm421
 
     steps:
       - name: Check out vscode-server
@@ -21,6 +25,30 @@ jobs:
           echo "CODE_OSS_VERSION=${{ github.event.client_payload.code_oss_version }}" >> $GITHUB_ENV
           echo "BRANCH=${{ github.event.client_payload.branch }}" >> $GITHUB_ENV
           echo "TOKEN=${{ github.event.client_payload.github_pat }}" >> $GITHUB_ENV
+
+      - name: Fetch reviewers from merged PR
+        id: pr_info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Author + reviewers of the most recently merged PR into the branch, minus bots and teams
+          candidates=$(gh pr list --repo "${{ github.repository }}" \
+            --state merged --base "$BRANCH" --limit 10 \
+            --json author,reviews,reviewRequests,mergedAt \
+            --jq 'sort_by(.mergedAt) | last // empty
+                  | [.author] + [.reviews[].author] + .reviewRequests
+                  | map(select(.is_bot != true) | .login | strings)
+                  | unique | .[]')
+
+          # Filter out developers without write access to rstudio-pro.
+          reviewers=$(for user in ${default_reviewers//,/ } $candidates; do
+            GH_TOKEN="$TOKEN" gh api "repos/rstudio/rstudio-pro/collaborators/$user" --silent 2>/dev/null \
+              && echo "$user"
+          done | sort -u | paste -sd, -)
+
+          # Safety net in case the collaborator checks fail (e.g. API outage)
+          echo "reviewers=${reviewers:-$default_reviewers}" >> "$GITHUB_OUTPUT"
+          echo "Requesting reviewers: ${reviewers:-$default_reviewers}"
 
       - name: Clone rstudio/rstudio-pro
         run: |
@@ -61,5 +89,5 @@ jobs:
 
             @:vscode
           branch: update-pwb-code-server-${{ env.VERSION }}
-          reviewers: melissa-barca
+          reviewers: ${{ steps.pr_info.outputs.reviewers }}
           path: rstudio-pro

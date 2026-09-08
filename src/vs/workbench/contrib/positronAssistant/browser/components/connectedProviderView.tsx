@@ -16,7 +16,33 @@ import { getBaseUrlLabel } from '../providerFieldLabels.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ConnectProviderHeader, ProviderErrorBanner, ProviderNotice } from './connectProviderView.js';
+import { EditRawConfigLink } from './editRawConfigLink.js';
 import { ProviderModalFooter } from './providerModalFooter.js';
+
+/** Props for {@link DetailRow}. */
+interface DetailRowProps {
+	testId: string;
+	label: string;
+	value: string;
+	/**
+	 * Environment variable supplying the value, when one is. Named in the label
+	 * rather than on a line of its own: these rows are compact by design, and a
+	 * third line per row would treble the section's vertical weight.
+	 */
+	from?: string;
+}
+
+/** One read-only connection detail, with where the value came from if not the user. */
+const DetailRow = (props: DetailRowProps) => (
+	<div className='connect-provider-detail' data-testid={props.testId}>
+		<span className='connect-provider-detail-label'>
+			{props.from
+				? localize('positron.connectedProvider.labelFromEnv', "{0} (from {1})", props.label, props.from)
+				: props.label}
+		</span>
+		<span className='connect-provider-detail-value'>{props.value}</span>
+	</div>
+);
 
 export interface ConnectedProviderViewProps {
 	/** The renderer this view draws its dialog box into. */
@@ -29,6 +55,8 @@ export interface ConnectedProviderViewProps {
 	onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	/** Invoked by the footer Back button. */
 	onBack: () => void;
+	/** Open providers.json for advanced editing. */
+	onEditRawConfig: () => void;
 }
 
 export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
@@ -84,10 +112,30 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 		?? localize('positron.connectedProvider.error', "This provider reported a problem with its configuration or credentials.");
 
 
-	const actionTitle = authMethod === AuthMethod.OAUTH ? localize('positron.connectedProvider.signOut', "Sign Out") : localize('positron.connectedProvider.remove', "Remove");
+	// "Disconnect", not "Remove": it clears the stored credential and leaves the
+	// provider in the list with its settings intact. Deleting a custom entry is a
+	// different action, and the two must not read the same.
+	const actionTitle = authMethod === AuthMethod.OAUTH ? localize('positron.connectedProvider.signOut', "Sign Out") : localize('positron.connectedProvider.disconnect', "Disconnect");
 	const actionLoadingTitle = authMethod === AuthMethod.OAUTH
 		? localize('positron.connectedProvider.signingOut', "Signing Out...")
-		: localize('positron.connectedProvider.removing', "Removing...");
+		: localize('positron.connectedProvider.disconnecting', "Disconnecting...");
+
+	// The value each detail row reports: what the environment supplies if it
+	// does, otherwise what the user saved. `defaults` carries the user layer
+	// alone, so reading it by itself would show nothing for a provider whose
+	// values all come from the environment -- while the connect form for the
+	// same provider names them.
+	const overrides = current.overrides;
+	const baseUrlValue = overrides?.baseUrl?.value ?? current.defaults.baseUrl;
+	const awsProfileValue = overrides?.aws?.profile?.value ?? current.defaults.aws?.profile;
+	const awsRegionValue = overrides?.aws?.region?.value ?? current.defaults.aws?.region;
+
+	// Hoisted so the group wrapper can tell whether any row will render at all.
+	const supportsAws = current.supportedOptions.includes('aws');
+	const showBaseUrl = current.supportedOptions.includes('baseUrl') && !!baseUrlValue;
+	const showAwsProfile = supportsAws && !!awsProfileValue;
+	const showAwsRegion = supportsAws && !!awsRegionValue;
+	const hasDetails = showBaseUrl || showAwsProfile || showAwsRegion;
 
 	return (
 		<PositronDynamicModalDialog
@@ -100,14 +148,41 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 							{localize('positron.connectedProvider.copilotSignOut', "To sign out of GitHub, use the [Accounts: Manage Accounts]({0}) command. This signs you out of GitHub for every extension in Positron.", 'command:workbench.action.manageAccounts')}
 						</EmbeddedLink>
 					}
-					{current.supportedOptions.includes('baseUrl') && current.defaults.baseUrl &&
-						<p className='connect-provider-detail' data-testid='provider-base-url'>
-							<span className='connect-provider-detail-label'>
-								{getBaseUrlLabel(current.provider.id)}
-							</span>
-							<span className='connect-provider-detail-value'>{current.defaults.baseUrl}</span>
-						</p>
+					{/* Rendered only when there is something to show, since a flex gap
+						applies to an empty child too and would space the header off the
+						notice for every provider without details. A row reports the value in
+						effect, naming the environment variable when that is where it came
+						from, so this view and the connect form agree on what the connection
+						is actually using. */}
+					{hasDetails &&
+						<div className='connect-provider-details' data-testid='provider-details'>
+							{showBaseUrl &&
+								<DetailRow
+									from={overrides?.baseUrl?.name}
+									label={getBaseUrlLabel(current.provider.id)}
+									testId='provider-base-url'
+									value={baseUrlValue!}
+								/>
+							}
+							{showAwsProfile &&
+								<DetailRow
+									from={overrides?.aws?.profile?.name}
+									label={localize('positron.connectedProvider.awsProfile', "AWS Profile")}
+									testId='provider-aws-profile'
+									value={awsProfileValue!}
+								/>
+							}
+							{showAwsRegion &&
+								<DetailRow
+									from={overrides?.aws?.region?.name}
+									label={localize('positron.connectedProvider.awsRegion', "AWS Region")}
+									testId='provider-aws-region'
+									value={awsRegionValue!}
+								/>
+							}
+						</div>
 					}
+					<EditRawConfigLink onClick={props.onEditRawConfig} />
 					<ProviderNotice source={current} />
 					{errorMessage && <div className='connect-provider-error'>{errorMessage}</div>}
 				</div>

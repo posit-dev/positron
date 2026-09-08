@@ -102,10 +102,12 @@ class PositronDataExplorerContribution extends Disposable {
 			{
 				singlePerResource: true,
 				canSupportResource: resource => {
-					let fileExt = extname(resource).substring(1);
+					// The registration glob above matches case-insensitively, so compare
+					// case-insensitively here too or DATA.CSV resolves to no editor.
+					let fileExt = extname(resource).substring(1).toLowerCase();
 					if (fileExt === 'gz') {
 						// Strip the .gz and get the actual extension
-						fileExt = posix.extname(resource.path.slice(0, -3)).substring(1);
+						fileExt = posix.extname(resource.path.slice(0, -3)).substring(1).toLowerCase();
 					}
 					return DUCKDB_SUPPORTED_EXTENSIONS.includes(fileExt);
 				}

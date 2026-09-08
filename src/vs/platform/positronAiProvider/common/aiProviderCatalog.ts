@@ -23,11 +23,78 @@ export interface IResolvedConnectionData {
 	readonly databricks?: { readonly host?: string };
 }
 
-/** Mirrors ai-config's ResolvedProvider (id, enabled, connection). */
+/** Mirrors ai-config's Protocol union. */
+export type IResolvedProtocol =
+	| 'anthropic-messages'
+	| 'openai-chat'
+	| 'openai-responses'
+	| 'mlflow-responses'
+	| 'bedrock-converse'
+	| 'google-generative';
+
+/** Mirrors ai-config's ModelOverride as plain IPC-marshalable data. */
+export interface IResolvedModelOverrideData {
+	readonly name?: string;
+	readonly family?: string;
+	readonly maxContextLength?: number;
+	readonly maxInputTokens?: number;
+	readonly maxOutputTokens?: number;
+	readonly protocol?: IResolvedProtocol;
+	readonly baseUrl?: string;
+	readonly supportsTools?: boolean;
+	readonly supportsImages?: boolean;
+	readonly supportsToolResultImages?: boolean;
+	readonly supportedInputMediaTypes?: string[];
+	readonly supportsWebSearch?: boolean;
+	readonly thinkingEffortLevels?: string[];
+}
+
+/** Mirrors ai-config's CustomModel as plain IPC-marshalable data. */
+export interface IResolvedCustomModelData extends IResolvedModelOverrideData {
+	readonly id: string;
+	readonly name: string;
+	readonly maxContextLength: number;
+	readonly supportsTools: boolean;
+	readonly supportsImages: boolean;
+	readonly supportsToolResultImages: boolean;
+	readonly supportsWebSearch: boolean;
+}
+
+/** Mirrors ai-config's ModelsBlock as plain IPC-marshalable data. */
+export interface IResolvedModelsData {
+	readonly discovery?: 'auto' | 'off';
+	readonly allow?: string[];
+	readonly deny?: string[];
+	readonly overrides?: Record<string, IResolvedModelOverrideData>;
+	readonly custom?: IResolvedCustomModelData[];
+}
+
+/**
+ * Mirrors ai-config's ResolvedProvider (id, enabled, connection, model
+ * policy), plus two fields computed node-side rather than mirrored: `custom`
+ * and `customizedConnection` need ai-config's provider registry and built-in
+ * connection defaults, which only the node host can import, while their
+ * consumers live in the renderer.
+ */
 export interface IResolvedProviderData {
 	readonly id: string;
 	readonly enabled: boolean;
 	readonly connection: IResolvedConnectionData;
+	readonly models?: IResolvedModelsData;
+
+	/** Present, and true, only for a provider from a custom providers.json entry. */
+	readonly custom?: boolean;
+
+	/**
+	 * Dotted names of the connection fields whose resolved value differs from
+	 * ai-config's built-in default for this provider, e.g. 'baseUrl' or
+	 * 'aws.profile'. The resolved connection alone cannot answer "did the user
+	 * customize this": ai-config layers built-in defaults (a stock positai
+	 * entry resolves a baseUrl the user never wrote) under the user/enforced
+	 * config, and only the node side can import those defaults to diff
+	 * against. Omitted when nothing differs, so a stock install reports none.
+	 */
+	readonly customizedConnection?: readonly string[];
 }
 
 /** Mirrors ai-config's ProviderCatalogChange. */

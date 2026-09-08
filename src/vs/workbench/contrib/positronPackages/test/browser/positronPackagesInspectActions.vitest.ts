@@ -19,7 +19,7 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
-import { PACKAGES_GET_PACKAGES_COMMAND_ID } from '../../browser/positronPackagesCommands.js';
+import { PACKAGES_GET_ALL_PACKAGES_COMMAND_ID } from '../../browser/positronPackagesCommands.js';
 import { IPackagesSnapshot, IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 import { ShowPackagesAction } from '../../browser/positronPackagesInspectActions.js';
 
@@ -36,8 +36,9 @@ const ANSWERED_SNAPSHOT: IPackagesSnapshot = {
 	packages: [NUMPY],
 };
 
-// The payload both the action and a programmatic caller should see: one installed package in a
-// session that can answer.
+// The payload both the action and a programmatic caller should see: the compact
+// getAllPackages list, one installed package in a session that can answer. The
+// list omits advisories, so the snapshot's advisory fields don't appear here.
 const PACKAGES_PAYLOAD = {
 	available: true,
 	session: {
@@ -49,8 +50,6 @@ const PACKAGES_PAYLOAD = {
 		runtimeName: 'Python 3.12.4 (.venv)',
 	},
 	metadataStatus: 'fresh',
-	vulnerabilityStatus: 'cached',
-	vulnerabilitySource: { host: 'ppm.example.com', fetchedAt: '2026-08-19T10:00:00.000Z' },
 	packages: [{
 		name: 'numpy',
 		version: '2.1.0',
@@ -59,7 +58,6 @@ const PACKAGES_PAYLOAD = {
 		attached: undefined,
 		description: undefined,
 		url: undefined,
-		vulnerabilities: undefined,
 	}],
 };
 
@@ -120,11 +118,6 @@ describe('packages inspect action', () => {
 		await ctx.instantiationService.invokeFunction(accessor => new ShowPackagesAction().run(accessor));
 	}
 
-	/** The JSON the action opened, parsed back. */
-	function shownPayload(): { vulnerabilityStatus: string } {
-		return JSON.parse(openEditor.mock.calls[0][0].contents!);
-	}
-
 	// The JSON contents are the whole point of the action: they're what a developer reads to see
 	// exactly what Assistant gets from the command it wraps.
 	it('shows the packages payload as JSON', async () => {
@@ -153,16 +146,6 @@ describe('packages inspect action', () => {
 		);
 	});
 
-	it('shows the payload even when no advisories could be obtained', async () => {
-		// 'unavailable' is an answer, not a failure: the packages and their
-		// outdated state are still what the developer opened this to read.
-		snapshot = { ...ANSWERED_SNAPSHOT, vulnerabilityStatus: 'unavailable', vulnerabilitySource: undefined };
-
-		await runAction();
-
-		expect(shownPayload().vulnerabilityStatus).toBe('unavailable');
-	});
-
 	it('is offered in the Command Palette only while the Packages pane is enabled', () => {
 		const item = MenuRegistry.getMenuItems(MenuId.CommandPalette)
 			.filter(isIMenuItem)
@@ -177,7 +160,7 @@ describe('packages inspect action', () => {
 	// registerAction2 never sets, so the guard is that nobody adds it by hand later.
 	it('is not advertised to AI agents, unlike the payload command it wraps', () => {
 		expect(CommandsRegistry.getCommand('positronPackages.showPackages')?.metadata?.agentCompatible).toBeFalsy();
-		expect(CommandsRegistry.getCommand(PACKAGES_GET_PACKAGES_COMMAND_ID)?.metadata?.agentCompatible).toBe(true);
+		expect(CommandsRegistry.getCommand(PACKAGES_GET_ALL_PACKAGES_COMMAND_ID)?.metadata?.agentCompatible).toBe(true);
 	});
 
 	// The property Assistant depends on: executing the payload command hands the JSON back to the
@@ -187,7 +170,7 @@ describe('packages inspect action', () => {
 	it('returns the payload to a programmatic caller without opening an editor', async () => {
 		// The registry types every handler as returning void; this one returns its payload, which is
 		// what executeCommand passes back to the caller.
-		const handler = CommandsRegistry.getCommand(PACKAGES_GET_PACKAGES_COMMAND_ID)?.handler as
+		const handler = CommandsRegistry.getCommand(PACKAGES_GET_ALL_PACKAGES_COMMAND_ID)?.handler as
 			((accessor: ServicesAccessor) => Promise<unknown>) | undefined;
 
 		const result = await ctx.instantiationService.invokeFunction(accessor => handler!(accessor));

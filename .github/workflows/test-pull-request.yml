@@ -31,6 +31,7 @@ jobs:
       workbench_tag_found: ${{ steps.pr-tags.outputs.workbench_tag_found }}
       workbench_stable_tag_found: ${{ steps.pr-tags.outputs.workbench_stable_tag_found }}
       workbench_rocky_tag_found: ${{ steps.pr-tags.outputs.workbench_rocky_tag_found }}
+      workbench_suse_tag_found: ${{ steps.pr-tags.outputs.workbench_suse_tag_found }}
       jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
       remote_ssh_tag_found: ${{ steps.pr-tags.outputs.remote_ssh_tag_found }}
       connect_tag_found: ${{ steps.pr-tags.outputs.connect_tag_found }}
@@ -240,7 +241,7 @@ jobs:
 
   build-workbench:
     needs: pr-tags
-    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' || needs.pr-tags.outputs.workbench_stable_tag_found == 'true' || needs.pr-tags.outputs.workbench_rocky_tag_found == 'true' }}
+    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' || needs.pr-tags.outputs.workbench_stable_tag_found == 'true' || needs.pr-tags.outputs.workbench_rocky_tag_found == 'true' || needs.pr-tags.outputs.workbench_suse_tag_found == 'true' }}
     name: build
     uses: ./.github/workflows/build-workbench-linux.yml
     secrets: inherit
@@ -285,6 +286,25 @@ jobs:
       os: "rocky9"
       grep: "@:workbench"
       display_name: "workbench-rocky"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
+    secrets: inherit
+
+  # Same test set again, on an openSUSE Leap 15.6 container. `grep` is pinned to
+  # "@:workbench" for the same reason as the Rocky lane above: @:workbench-suse
+  # selects the lane, never individual tests, so no test carries it.
+  # @:workbench-all sets this lane's flag too (see scripts/pr-tags-parse.sh),
+  # which is why there is no separate condition for it here.
+  e2e-workbench-suse:
+    needs: [pr-tags, build-workbench]
+    if: ${{ needs.pr-tags.outputs.workbench_suse_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
+    with:
+      os: "opensuse15"
+      grep: "@:workbench"
+      display_name: "workbench-suse"
       install_license: false
       upload_logs: false
       allow_soft_fail: false

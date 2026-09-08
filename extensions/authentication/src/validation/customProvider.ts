@@ -52,7 +52,7 @@ export async function validateCustomProviderApiKey(
 	const baseUrl = config.baseUrl?.trim();
 	if (!baseUrl) {
 		throw new CustomProviderValidationError(
-			vscode.l10n.t('Custom Provider base URL is required')
+			vscode.l10n.t('Base URL is required')
 		);
 	}
 
@@ -97,7 +97,7 @@ export async function validateCustomProviderApiKey(
 				return;
 			}
 			throw new CustomProviderValidationError(
-				vscode.l10n.t('Invalid Custom Provider API key')
+				vscode.l10n.t('Invalid API key')
 			);
 		}
 
@@ -107,13 +107,13 @@ export async function validateCustomProviderApiKey(
 		}
 
 		throw new CustomProviderValidationError(vscode.l10n.t(
-			'Unable to validate Custom Provider credentials (HTTP {0})',
+			'Unable to validate credentials (HTTP {0})',
 			String(response.status)
 		));
 	} catch (err) {
 		if (err instanceof Error && err.name === 'AbortError') {
 			throw new CustomProviderValidationError(vscode.l10n.t(
-				'Could not validate Custom Provider credentials within {0} seconds',
+				'Could not validate credentials within {0} seconds',
 				String(KEY_VALIDATION_TIMEOUT_MS / 1000)
 			));
 		}
@@ -121,7 +121,7 @@ export async function validateCustomProviderApiKey(
 			throw err;
 		}
 		throw new CustomProviderValidationError(vscode.l10n.t(
-			'Could not validate Custom Provider credentials. Check your network connection and try again.'
+			'Could not validate credentials. Check your network connection and try again.'
 		));
 	} finally {
 		clearTimeout(timeout);

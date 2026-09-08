@@ -5,8 +5,8 @@
 
 // --- Start Positron ---
 // Also import saveParentsScrollTop/restoreParentsScrollTop for the focus() fix below.
-// import { addDisposableListener, getActiveElement, getShadowRoot } from '../../../../../base/browser/dom.js';
-import { addDisposableListener, getActiveElement, getShadowRoot, restoreParentsScrollTop, saveParentsScrollTop } from '../../../../../base/browser/dom.js';
+// import { addDisposableListener, getShadowRoot } from '../../../../../base/browser/dom.js';
+import { addDisposableListener, getShadowRoot, restoreParentsScrollTop, saveParentsScrollTop } from '../../../../../base/browser/dom.js';
 // --- End Positron ---
 import { IDisposable, Disposable } from '../../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
@@ -80,7 +80,7 @@ export class FocusTracker extends Disposable {
 
 	public refreshFocusState(): void {
 		const shadowRoot = getShadowRoot(this._domNode);
-		const activeElement = shadowRoot ? shadowRoot.activeElement : getActiveElement();
+		const activeElement = shadowRoot ? shadowRoot.activeElement : this._domNode.ownerDocument.activeElement;
 		const focused = this._domNode === activeElement;
 		this._handleFocusedChanged(focused);
 	}

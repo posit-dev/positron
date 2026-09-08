@@ -95,14 +95,11 @@ export function readArkVersion(buildRoot: string = process.env.BUILD || process.
 				if (value) {
 					return value;
 				}
-			} catch (error) {
-				console.log(`[ark] could not read ${path}: ${error}`);
+			} catch {
+				// Unreadable sidecar: keep looking, and fall through to `undefined`.
 			}
 		}
 	}
 
-	// Logged, not swallowed. Absence is indistinguishable from a build layout
-	// this does not know about, and only the log can tell them apart.
-	console.log(`[ark] no ark version sidecar found under ${dirs.join(' or ')}; publishing without one`);
 	return undefined;
 }

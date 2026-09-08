@@ -11,6 +11,9 @@ import * as positron from 'positron';
 // --- End Positron ---
 
 import * as path from 'path';
+// --- Start Positron ---
+import * as os from 'os';
+// --- End Positron ---
 import { ICommandManager, IDocumentManager } from '../../common/application/types';
 import { Commands } from '../../common/constants';
 import '../../common/extensions';
@@ -28,10 +31,17 @@ import {
 } from '../../pythonEnvironments/creation/createEnvironmentTrigger';
 import { ReplType } from '../../repl/types';
 import { runInDedicatedTerminal, runInTerminal, useEnvExtension } from '../../envExt/api.internal';
+// --- Start Positron ---
+import { UnsavedScriptFiles } from './unsavedScripts';
+// --- End Positron ---
 
 @injectable()
 export class CodeExecutionManager implements ICodeExecutionManager {
     private eventEmitter: EventEmitter<string> = new EventEmitter<string>();
+    // --- Start Positron ---
+    /** Backs the "run file" gesture for unsaved (untitled) Python scripts. */
+    private readonly unsavedScripts = new UnsavedScriptFiles();
+    // --- End Positron ---
     constructor(
         @inject(ICommandManager) private commandManager: ICommandManager,
         @inject(IDocumentManager) private documentManager: IDocumentManager,
@@ -41,6 +51,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
     ) {}
 
     public registerCommands() {
+        // --- Start Positron ---
+        this.disposableRegistry.push(this.unsavedScripts);
+        // --- End Positron ---
         [Commands.Exec_In_Terminal, Commands.Exec_In_Terminal_Icon, Commands.Exec_In_Separate_Terminal].forEach(
             (cmd) => {
                 this.disposableRegistry.push(
@@ -94,38 +107,45 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         // --- Start Positron ---
         this.disposableRegistry.push(
             this.commandManager.registerCommand(Commands.Exec_In_Console as any, async (resource?: Uri) => {
-                let filePath: string | undefined;
-
-                if (resource) {
-                    // Use the provided resource URI (from editor action bar button)
-                    filePath = resource.fsPath;
-                } else {
-                    // Fall back to active text editor (from command palette or other invocations)
-                    const editor = vscode.window.activeTextEditor;
-                    if (!editor) {
-                        // No editor; nothing to do
-                        return;
-                    }
-                    filePath = editor.document.uri.fsPath;
-                }
-
-                if (!filePath) {
-                    // File is unsaved; show a warning
-                    vscode.window.showWarningMessage('Cannot source unsaved file.');
+                // Resolve the target document from the resource URI (editor
+                // action bar button) or the active editor (command palette).
+                const document = resource
+                    ? await vscode.workspace.openTextDocument(resource)
+                    : vscode.window.activeTextEditor?.document;
+                if (!document) {
+                    // No editor; nothing to do
                     return;
                 }
 
-                // Save the file before sourcing it to ensure that the contents are
-                // up to date with editor buffer.
-                if (resource) {
-                    // Save the specific document
-                    const document = await vscode.workspace.openTextDocument(resource);
+                // Unsaved (untitled) buffers are written to a scratch file so
+                // they can be run without prompting the user to save first. The
+                // scratch file is cleaned up once the run finishes.
+                let filePath: string | undefined;
+                let onFinished: (() => void) | undefined;
+                if (document.isUntitled) {
+                    filePath = await this.unsavedScripts.write(document);
+                    // Guard so the scratch file's in-flight count is
+                    // decremented once, whether cleanup is driven by the
+                    // observer or the catch below.
+                    let finished = false;
+                    onFinished = () => {
+                        if (finished) {
+                            return;
+                        }
+                        finished = true;
+                        void this.unsavedScripts.finished(filePath!);
+                    };
+                } else {
+                    filePath = document.uri.fsPath;
+                    if (!filePath) {
+                        vscode.window.showWarningMessage('Cannot source unsaved file.');
+                        return;
+                    }
+                    // Save the file before running it so that the contents on
+                    // disk are up to date with the editor buffer.
                     if (document.isDirty) {
                         await document.save();
                     }
-                } else {
-                    // Save the active editor
-                    await vscode.commands.executeCommand('workbench.action.files.save');
                 }
 
                 try {
@@ -133,19 +153,21 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                     // the VS Code file system API.
                     const fsStat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
 
-                    // In the future, we will want to shorten the path by making it
-                    // relative to the current directory; doing so, however, will
-                    // require the kernel to alert us to the current working directory,
-                    // or provide a method for asking it to create the `source()`
-                    // command.
-                    //
-                    // For now, just use the full path, passed through JSON encoding
-                    // to ensure that it is properly escaped.
                     if (fsStat) {
+                        const fileUri = vscode.Uri.file(filePath);
+
+                        // Format the path relative to the session's working
+                        // directory when possible, falling back to home-relative
+                        // or absolute. IPython's %run expands ~ and reads the
+                        // file from disk.
+                        const formattedPath = await positron.paths.formatPathForCode(filePath, {
+                            relativeTo: ['session', 'home'],
+                            homeUri: vscode.Uri.file(os.homedir()),
+                        });
+
                         // Use -- to ensure everything after is treated as the path, not flags
                         // This prevents paths with -m (or other dash options) from being misinterpreted
-                        const command = `%run -- ${JSON.stringify(filePath)}`;
-                        const fileUri = vscode.Uri.file(filePath);
+                        const command = `%run -- ${formattedPath}`;
 
                         // Offer to install missing packages before running. The
                         // preflight runs in the Positron frontend and returns
@@ -155,22 +177,34 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                             fileUri,
                         );
                         if (shouldRun === false) {
+                            onFinished?.();
                             return;
                         }
 
-                        positron.runtime.executeCode(
-                            'python',
-                            command,
-                            false,
-                            true,
-                            undefined,
-                            undefined,
-                            undefined,
-                            undefined,
-                            fileUri,
-                        );
+                        const observer = onFinished ? { onFinished } : undefined;
+                        // Not awaited: the run proceeds asynchronously and the
+                        // observer reports completion. If the call rejects (e.g.
+                        // no session can be started), clean up here; onFinished
+                        // is idempotent, so a redundant call after the observer
+                        // already fired is a no-op.
+                        Promise.resolve(
+                            positron.runtime.executeCode(
+                                'python',
+                                command,
+                                false,
+                                true,
+                                undefined,
+                                undefined,
+                                observer,
+                                undefined,
+                                fileUri,
+                            ),
+                        ).catch(() => onFinished?.());
+                    } else {
+                        onFinished?.();
                     }
                 } catch (e) {
+                    onFinished?.();
                     // This is not a valid file path, which isn't an error; it just
                     // means the active editor has something loaded into it that
                     // isn't a file on disk.  In Positron, there is currently a bug

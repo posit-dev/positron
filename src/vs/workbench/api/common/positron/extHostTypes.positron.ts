@@ -443,6 +443,14 @@ export enum PositronChatAgentLocation {
 }
 
 /**
+ * Selects which environment variable contributions
+ * getEnvironmentContributions returns.
+ */
+export enum EnvironmentContributionFilter {
+	ProcessCreation = 'processCreation',
+}
+
+/**
  * Code attribution sources for code executed in the Console.
  */
 export enum CodeAttributionSource {

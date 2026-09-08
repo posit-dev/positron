@@ -19,6 +19,17 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from '../../../../platform/storage/common/storage.js';
 import { defaultKeybindingLabelStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { addDisposableListener } from '../../../../base/browser/dom.js';
+// eslint-disable-next-line no-duplicate-imports
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+// --- End Positron ---
 
 interface WatermarkEntry {
 	readonly id: string;
@@ -29,9 +40,11 @@ interface WatermarkEntry {
 	};
 }
 
-const showChatContextKey = ContextKeyExpr.and(ContextKeyExpr.equals('chatSetupHidden', false), ContextKeyExpr.equals('chatSetupDisabledInWorkspace', false));
-
-const openChat: WatermarkEntry = { text: localize('watermark.openChat', "Open Chat"), id: 'workbench.action.chat.open', when: { native: showChatContextKey, web: showChatContextKey } };
+// --- Start Positron ---
+// Do not show the upstream Copilot chat entry on the empty editor screen.
+// const showChatContextKey = ContextKeyExpr.and(ContextKeyExpr.equals('chatSetupHidden', false), ContextKeyExpr.equals('chatSetupDisabledInWorkspace', false));
+// const openChat: WatermarkEntry = { text: localize('watermark.openChat', "Open Chat"), id: 'workbench.action.chat.open', when: { native: showChatContextKey, web: showChatContextKey } };
+// --- End Positron ---
 const showCommands: WatermarkEntry = { text: localize('watermark.showCommands', "Show All Commands"), id: 'workbench.action.showCommands' };
 const gotoFile: WatermarkEntry = { text: localize('watermark.quickAccess', "Go to File"), id: 'workbench.action.quickOpen' };
 const openFile: WatermarkEntry = { text: localize('watermark.openFile', "Open File"), id: 'workbench.action.files.openFile' };
@@ -40,12 +53,19 @@ const openFileOrFolder: WatermarkEntry = { text: localize('watermark.openFileFol
 const openRecent: WatermarkEntry = { text: localize('watermark.openRecent', "Open Recent"), id: 'workbench.action.openRecent' };
 const newUntitledFile: WatermarkEntry = { text: localize('watermark.newUntitledFile', "New Untitled Text File"), id: 'workbench.action.files.newUntitledFile' };
 const findInFiles: WatermarkEntry = { text: localize('watermark.findInFiles', "Find in Files"), id: 'workbench.action.findInFiles' };
-const toggleTerminal: WatermarkEntry = { text: localize({ key: 'watermark.toggleTerminal', comment: ['toggle is a verb here'] }, "Toggle Terminal"), id: 'workbench.action.terminal.toggleTerminal', when: { web: ContextKeyExpr.equals('terminalProcessSupported', true) } };
+// --- Start Positron ---
+// Show the "Focus Console" entry instead of the upstream "Toggle Terminal" entry, since that is more relevant to Positron users.
+// const toggleTerminal: WatermarkEntry = { text: localize({ key: 'watermark.toggleTerminal', comment: ['toggle is a verb here'] }, "Toggle Terminal"), id: 'workbench.action.terminal.toggleTerminal', when: { web: ContextKeyExpr.equals('terminalProcessSupported', true) } };
+const focusConsole: WatermarkEntry = { text: localize('positron.watermark.focusConsole', "Focus Console"), id: 'workbench.action.positronConsole.focusConsole' };
+// --- End Positron ---
 const startDebugging: WatermarkEntry = { text: localize('watermark.startDebugging', "Start Debugging"), id: 'workbench.action.debug.start', when: { web: ContextKeyExpr.equals('terminalProcessSupported', true) } };
 const openSettings: WatermarkEntry = { text: localize('watermark.openSettings', "Open Settings"), id: 'workbench.action.openSettings' };
 
 const baseEntries: WatermarkEntry[] = [
-	openChat,
+	// --- Start Positron ---
+	// Do not show the upstream Copilot chat entry on the empty editor screen.
+	// openChat,
+	// --- End Positron ---
 	showCommands,
 ];
 
@@ -64,7 +84,10 @@ const otherEntries: WatermarkEntry[] = [
 	gotoFile,
 	findInFiles,
 	startDebugging,
-	toggleTerminal,
+	// --- Start Positron ---
+	// toggleTerminal,
+	focusConsole,
+	// --- End Positron ---
 	openSettings,
 ];
 
@@ -78,6 +101,9 @@ export class EditorGroupWatermark extends Disposable {
 
 	private readonly shortcuts: HTMLElement;
 	private readonly toolbarContainer: HTMLElement;
+	// --- Start Positron ---
+	private readonly watermarkActions: HTMLElement;
+	// --- End Positron ---
 	private readonly transientDisposables = this._register(new DisposableStore());
 	private readonly keybindingLabels = this._register(new DisposableStore());
 
@@ -91,7 +117,12 @@ export class EditorGroupWatermark extends Disposable {
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IStorageService private readonly storageService: IStorageService,
-		@IInstantiationService private readonly instantiationService: IInstantiationService
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		// --- Start Positron ---
+		@ICommandService private readonly commandService: ICommandService,
+		@IOpenerService private readonly openerService: IOpenerService,
+		@IPositronDocsService private readonly docsService: IPositronDocsService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -103,6 +134,9 @@ export class EditorGroupWatermark extends Disposable {
 			h('.editor-group-watermark', [
 				h('.watermark-container', [
 					h('.letterpress'),
+					// --- Start Positron ---
+					h('.watermark-actions@watermarkActions'),
+					// --- End Positron ---
 					h('.shortcuts@shortcuts'),
 				])
 			])
@@ -111,6 +145,9 @@ export class EditorGroupWatermark extends Disposable {
 		append(container, elements.root);
 		this.shortcuts = elements.shortcuts;
 		this.toolbarContainer = elements.toolbarContainer;
+		// --- Start Positron ---
+		this.watermarkActions = elements.watermarkActions;
+		// --- End Positron ---
 
 		this._register(this.instantiationService.createInstance(MenuWorkbenchToolBar, this.toolbarContainer, MenuId.EditorGroupWatermarkToolbar, {
 			hiddenItemStrategy: HiddenItemStrategy.NoHide,
@@ -155,15 +192,57 @@ export class EditorGroupWatermark extends Disposable {
 		}));
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Renders the Positron action buttons shown above the keyboard shortcuts.
+	 */
+	private renderPositronActions(): void {
+		const viewDocsButton = this.createActionButton(Codicon.linkExternal, localize('positron.watermark.viewDocumentation', "View Documentation"));
+		this.transientDisposables.add(addDisposableListener(viewDocsButton, 'click', async () => {
+			await this.openerService.open(URI.parse(this.docsService.baseUrl));
+		}));
+
+		const releaseNotesButton = this.createActionButton(Codicon.megaphone, localize('positron.watermark.releaseNotes', "Release Notes"));
+		this.transientDisposables.add(addDisposableListener(releaseNotesButton, 'click', async () => {
+			try {
+				// Command id kept as a literal because workbench/browser code cannot
+				// import from workbench/contrib; matches ShowCurrentReleaseNotesActionId
+				// in vs/workbench/contrib/update/common/update.ts.
+				await this.commandService.executeCommand('update.showCurrentReleaseNotes');
+			} catch {
+				// The command fetches the notes for this version and throws if
+				// that fails, and it is not registered at all on builds without
+				// a releaseNotesUrl. Open the hosted page instead.
+				await this.openerService.open(URI.parse(this.docsService.getUrl('release-notes.html')));
+			}
+		}));
+	}
+
+	private createActionButton(icon: ThemeIcon, label: string): HTMLElement {
+		const button = append(this.watermarkActions, $('button.watermark-action'));
+		append(button, $(`span.watermark-action-icon${ThemeIcon.asCSSSelector(icon)}`));
+		const labelElement = append(button, $('span.watermark-action-label'));
+		labelElement.textContent = label;
+		return button;
+	}
+	// --- End Positron ---
+
 	private render(): void {
 		this.enabled = this.configurationService.getValue<boolean>(EditorGroupWatermark.SETTINGS_KEY);
 
 		clearNode(this.shortcuts);
+		// --- Start Positron ---
+		clearNode(this.watermarkActions);
+		// --- End Positron ---
 		this.transientDisposables.clear();
 
 		if (!this.enabled) {
 			return;
 		}
+
+		// --- Start Positron ---
+		this.renderPositronActions();
+		// --- End Positron ---
 
 		const entries = this.filterEntries(this.workbenchState !== WorkbenchState.EMPTY ? workspaceEntries : emptyWindowEntries);
 		if (entries.length < EditorGroupWatermark.MINIMUM_ENTRIES) {
