@@ -1171,6 +1171,42 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 	});
 });
 
+describe('RuntimeStartupService - hasLanguageRuntimeProvider', () => {
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
+			onWillShutdown: new Emitter<WillShutdownEvent>().event,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	it('counts a runtime registered without a `languageRuntimes` contribution', () => {
+		// Extensions can register a runtime manager through the API alone, so a
+		// registered runtime proves the language is provided even when nothing
+		// declared it in extension metadata.
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+			metadata({ languageId: 'testquarto', runtimeId: 'rt-testquarto' })));
+
+		expect(svc.hasLanguageRuntimeProvider('testquarto')).toBe(true);
+		expect(svc.hasLanguageRuntimeProvider('mermaid')).toBe(false);
+	});
+});
+
 describe('RuntimeStartupService - discovery completion', () => {
 
 	const notificationService = new TestNotificationService();
