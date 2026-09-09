@@ -260,6 +260,51 @@ describe('names that CI proved wrong', () => {
 	});
 });
 
+describe('the agent host and its SDK runtime', () => {
+	// Build 2026.10.0-9 spawned the agent host eagerly, and it forked the agent
+	// SDK runtime as `electron-nodejs (index.js)`: 161 MB that neither the name
+	// nor the argv attributes to anyone, so it landed in extension_child and read
+	// as extension memory on the dashboard. When the 1.134.0 merge stopped the
+	// agent host from spawning, "extension_child" dropped 161 MB overnight and
+	// nobody could tell why from the chart.
+	const SDK_RUNTIME = '/opt/positron/positron /home/u/.config/Positron/agent-host/sdk-cache/claude/1.2.3/linux-x64/index.js';
+
+	test('a generic child of the agent host is the agent host\'s cost, not an extension\'s', () => {
+		const { role } = resolveRole({
+			positronName: 'electron-nodejs (index.js)',
+			cmd: '/opt/positron/positron /somewhere/else/index.js',
+			isRoot: false,
+			parentRole: 'agent_host'
+		});
+		expect(role).toBe('agent_host');
+	});
+
+	test('the SDK cache path identifies the runtime even with no parent role or name', () => {
+		const { role } = resolveRole({ cmd: SDK_RUNTIME, isRoot: false });
+		expect(role).toBe('agent_host');
+	});
+
+	test('the parent role cannot steal a child argv already identified', () => {
+		const { role } = resolveRole({
+			positronName: 'electron-nodejs (lsp.js)',
+			cmd: QUARTO_LSP,
+			isRoot: false,
+			parentRole: 'agent_host'
+		});
+		expect(role).toBe('language_server');
+	});
+
+	test('only the agent host adopts its children; other parents do not', () => {
+		const { role } = resolveRole({
+			positronName: 'electron-nodejs (helper.js)',
+			cmd: '/build/node /build/some/helper.js',
+			isRoot: false,
+			parentRole: 'extension_host'
+		});
+		expect(role).toBe('extension_child');
+	});
+});
+
 describe('namedShareGateApplies', () => {
 	test('applies on desktop, where --status can name processes', () => {
 		expect(namedShareGateApplies('desktop')).toBe(true);
