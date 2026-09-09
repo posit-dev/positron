@@ -67,6 +67,7 @@
 
 .variable-item .name-column .name-column-indenter {
 	display: flex;
+	align-items: center;
 	min-width: 0;
 }
 
@@ -89,7 +90,6 @@
 
 .variable-item .name-value {
 	overflow: hidden;
-	line-height: 26px;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
