@@ -117,6 +117,57 @@ describe('reconcileCellAssociations', () => {
 		expect(result).toEqual({ kind: 'moved', oldId: '1-dup-unlabeled', newCell: cell(2, 'dup') });
 	});
 
+	it('keeps a surviving duplicate\'s association when its twin is edited', () => {
+		// Two identical cells, only the second tracked. Editing the FIRST
+		// cell shrinks the hash group to one candidate; matching that ranks
+		// associations within the group would read the survivor's stale rank
+		// (1) as out of bounds and orphan it, dropping its output, even
+		// though the tracked cell itself never changed.
+		const previousCells = [cell(0, 'dup'), cell(1, 'dup')];
+		const model = source(cell(0, 'edited'), cell(1, 'dup'));
+
+		const [result] = reconcileCellAssociations(model, previousCells, [
+			{ id: '1-dup-unlabeled', contentHash: 'dup' },
+		]);
+
+		expect(result).toEqual({ kind: 'moved', oldId: '1-dup-unlabeled', newCell: cell(1, 'dup') });
+	});
+
+	it('keeps a surviving duplicate\'s association when its twin is deleted', () => {
+		// Same scenario, but the first cell is deleted outright. The diff
+		// cannot tell which identical twin vanished, so it aligns the
+		// untracked first cell onto the survivor; the tracked association
+		// inherits that cell rather than being orphaned and losing its
+		// output.
+		const previousCells = [cell(0, 'dup'), cell(1, 'dup')];
+		const model = source(cell(0, 'dup'));
+
+		const [result] = reconcileCellAssociations(model, previousCells, [
+			{ id: '1-dup-unlabeled', contentHash: 'dup' },
+		]);
+
+		expect(result).toEqual({ kind: 'moved', oldId: '1-dup-unlabeled', newCell: cell(0, 'dup') });
+	});
+
+	it('tracks cells across edits in disjoint regions of the same parse', () => {
+		// An edit near the top and a deletion near the bottom landing in one
+		// parse (a multi-cell paste, an undo of a multi-part edit). Matching
+		// in from both ends only would widen the whole middle into one
+		// changed region and orphan everything in it.
+		const previousCells = [cell(0, 'a'), cell(1, 'dup'), cell(2, 'dup'), cell(3, 'b')];
+		const model = source(cell(0, 'a2'), cell(1, 'dup'), cell(2, 'dup'));
+
+		const results = reconcileCellAssociations(model, previousCells, [
+			{ id: '1-dup-unlabeled', contentHash: 'dup' },
+			{ id: '2-dup-unlabeled', contentHash: 'dup' },
+		]);
+
+		expect(results).toEqual([
+			{ kind: 'moved', oldId: '1-dup-unlabeled', newCell: cell(1, 'dup') },
+			{ kind: 'moved', oldId: '2-dup-unlabeled', newCell: cell(2, 'dup') },
+		]);
+	});
+
 	it('falls back to the id-embedded index when the association is not in the previous cell list', () => {
 		// No previous-cell history yet (e.g. the very first reconciliation
 		// pass) -- falls back to the index parsed from the id, same as before

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ISequence, LcsDiff } from '../../../../base/common/diff/diff.js';
 import { QuartoCodeCell } from './quartoTypes.js';
 
 /**
@@ -33,106 +34,190 @@ export interface IQuartoCellSource {
 	readonly cells: readonly QuartoCodeCell[];
 }
 
+/** A cell sequence for `LcsDiff`, compared by content hash. */
+class CellHashSequence implements ISequence {
+	private readonly _hashes: string[];
+
+	constructor(cells: readonly QuartoCodeCell[]) {
+		this._hashes = cells.map(cell => cell.contentHash);
+	}
+
+	getElements(): string[] {
+		return this._hashes;
+	}
+}
+
 /**
- * Re-anchors associations to their current cells by content hash, since a
- * stale `id` resolving to *some* cell doesn't prove it resolves to the
- * *same* one: ids embed their index (`{index}-{hashPrefix}-{label}`), so
- * identical-content cells can swap which one an old id names across a shift.
+ * Re-anchors associations to their current cells by aligning the previous
+ * and current cell sequences on content hash. A stale `id` resolving to
+ * *some* cell doesn't prove it resolves to the *same* one: ids embed their
+ * index (`{index}-{hashPrefix}-{label}`), so identical-content cells can
+ * swap which one an old id names across a shift.
  *
- * Within each content-hash group, current cells are ranked by index and
- * associations by how many same-hash siblings preceded them in
- * `previousCells` -- the full cell list from the last update, not just the
- * tracked ones, since tracking is sparse (only cells with a view zone or
- * toolbar get an association). Same-rank pairs match; an association past
- * the end of its group's current cells is `orphaned`. An id missing from
- * `previousCells` (no prior update yet) falls back to the index in its own
- * id instead of a true rank.
+ * The alignment is a whole-document LCS diff over the hash sequences, so an
+ * unchanged cell keeps its association no matter what changed elsewhere in
+ * the document -- including an edit or deletion of a same-content sibling,
+ * which per-hash-group reasoning cannot tell apart from the cell itself
+ * moving. Within a run of identical cells the diff cannot know which twin
+ * was added or removed; when it deems a *tracked* cell deleted while an
+ * untracked twin from the same run survives, the association inherits the
+ * twin's aligned cell rather than being orphaned, since identical content
+ * makes the surviving twin an equally good home for it. (When both twins
+ * are tracked, one orphan is unavoidable -- a cell really did vanish.)
  *
- * Known limitation: rank is fixed from `previousCells` and reused as-is, so
- * if an earlier same-hash cell is itself added or removed (not just shifted)
- * between updates, every later association in that group can be misranked.
- * Fixing this needs a whole-document, anchor-aware alignment (using
- * non-duplicate neighbors to localize where a change happened) rather than
- * per-group ranking; accepted for now.
+ * An association whose id is missing from `previousCells` entirely (no
+ * prior parse recorded) falls back to matching by content hash, in
+ * id-index order, against cells no aligned association claimed.
  */
 export function reconcileCellAssociations(
 	model: IQuartoCellSource,
 	previousCells: readonly QuartoCodeCell[],
 	associations: readonly ICellAssociation[],
 ): CellReconciliation[] {
-	const previousCellsById = new Map<string, QuartoCodeCell>();
-	for (const cell of previousCells) {
-		previousCellsById.set(cell.id, cell);
-	}
+	const currentCells = model.cells;
 
-	const cellsByHash = new Map<string, QuartoCodeCell[]>();
-	for (const cell of model.cells) {
-		const group = cellsByHash.get(cell.contentHash);
-		if (group) {
-			group.push(cell);
-		} else {
-			cellsByHash.set(cell.contentHash, [cell]);
-		}
-	}
+	// Align the two cell sequences; unchanged blocks map an old array
+	// position to its new one.
+	const oldToNew = alignCellSequences(previousCells, currentCells);
 
-	interface GroupEntry {
-		readonly position: number;
-		readonly id: string;
-		/** True rank among all same-hash siblings in `previousCells`, tracked or not; `undefined` if `id` isn't in `previousCells` at all. */
-		readonly trueRank: number | undefined;
-		/** Ordering fallback for when `trueRank` is unavailable: the index embedded in `id`, meaningful only relative to other associations in the same group. */
-		readonly parsedIndex: number;
-	}
+	const previousPositionById = new Map<string, number>();
+	previousCells.forEach((cell, position) => previousPositionById.set(cell.id, position));
 
-	const results: CellReconciliation[] = new Array(associations.length);
-	const groups = new Map<string, GroupEntry[]>();
+	const results: (CellReconciliation | undefined)[] = new Array(associations.length);
+	const claimedNewPositions = new Set<number>();
+	const orphanedPositions: number[] = [];
+	const fallbackPositions: number[] = [];
+
+	// Aligned path: an association whose previous cell still has an aligned
+	// counterpart moves to it; one whose previous cell was deleted (or
+	// edited into different content) is tentatively orphaned.
 	associations.forEach((association, position) => {
-		const previousCell = previousCellsById.get(association.id);
-		const entry: GroupEntry = {
-			position,
-			id: association.id,
-			trueRank: previousCell ? countPrecedingSiblings(previousCells, previousCell) : undefined,
-			parsedIndex: parsePreviousIndex(association.id) ?? 0,
-		};
-		const group = groups.get(association.contentHash);
-		if (group) {
-			group.push(entry);
-		} else {
-			groups.set(association.contentHash, [entry]);
+		const oldPosition = previousPositionById.get(association.id);
+		if (oldPosition === undefined) {
+			fallbackPositions.push(position);
+			return;
 		}
+		const newPosition = oldToNew.get(oldPosition);
+		if (newPosition === undefined) {
+			orphanedPositions.push(position);
+			return;
+		}
+		claimedNewPositions.add(newPosition);
+		results[position] = { kind: 'moved', oldId: association.id, newCell: currentCells[newPosition] };
 	});
 
-	for (const [hash, group] of groups) {
-		const candidates = cellsByHash.get(hash) ?? [];
-		const allRanked = group.every(entry => entry.trueRank !== undefined);
-		const ordered = allRanked
-			? [...group].sort((a, b) => a.trueRank! - b.trueRank!)
-			: [...group].sort((a, b) => a.parsedIndex - b.parsedIndex);
-		ordered.forEach((entry, sequentialIndex) => {
-			const candidateIndex = allRanked ? entry.trueRank! : sequentialIndex;
-			const newCell = candidates[candidateIndex];
-			results[entry.position] = newCell
-				? { kind: 'moved', oldId: entry.id, newCell }
-				: { kind: 'orphaned', id: entry.id };
-		});
+	// Rescue pass: a tentatively orphaned association whose previous cell
+	// sat in a run of identical cells inherits the aligned cell of an
+	// untracked twin from that run, if one exists. The diff's choice of
+	// which twin was deleted is arbitrary, so prefer the choice that keeps
+	// tracked state alive.
+	const trackedIds = new Set(associations.map(association => association.id));
+	for (const position of orphanedPositions) {
+		const association = associations[position];
+		const oldPosition = previousPositionById.get(association.id)!;
+		const rescued = findUntrackedTwinCell(previousCells, oldPosition, oldToNew, trackedIds, claimedNewPositions);
+		if (rescued !== undefined) {
+			claimedNewPositions.add(rescued);
+			results[position] = { kind: 'moved', oldId: association.id, newCell: currentCells[rescued] };
+		}
 	}
 
-	return results;
+	// Fallback path: associations with no entry in the previous cell list
+	// match by content hash, in id-index order, against unclaimed cells.
+	const fallbackCandidates = new Map<string, number[]>();
+	currentCells.forEach((cell, position) => {
+		if (claimedNewPositions.has(position)) {
+			return;
+		}
+		const candidates = fallbackCandidates.get(cell.contentHash);
+		if (candidates) {
+			candidates.push(position);
+		} else {
+			fallbackCandidates.set(cell.contentHash, [position]);
+		}
+	});
+	const orderedFallbacks = [...fallbackPositions].sort((a, b) =>
+		(parsePreviousIndex(associations[a].id) ?? 0) - (parsePreviousIndex(associations[b].id) ?? 0));
+	for (const position of orderedFallbacks) {
+		const association = associations[position];
+		const candidates = fallbackCandidates.get(association.contentHash);
+		const newPosition = candidates?.shift();
+		if (newPosition === undefined) {
+			continue;
+		}
+		results[position] = { kind: 'moved', oldId: association.id, newCell: currentCells[newPosition] };
+	}
+
+	// Anything still unresolved is genuinely orphaned.
+	return associations.map((association, position) =>
+		results[position] ?? { kind: 'orphaned', id: association.id });
 }
 
 /**
- * How many cells sharing `previousCell`'s content hash preceded it in the
- * full previous parse -- its true position among same-content siblings,
- * regardless of which of them were tracked.
+ * Maps each previous-cell array position to its current array position via
+ * an LCS diff of the two content-hash sequences. Positions inside changed
+ * regions have no entry.
  */
-function countPrecedingSiblings(previousCells: readonly QuartoCodeCell[], previousCell: QuartoCodeCell): number {
-	let rank = 0;
-	for (const cell of previousCells) {
-		if (cell.contentHash === previousCell.contentHash && cell.index < previousCell.index) {
-			rank++;
+function alignCellSequences(
+	previousCells: readonly QuartoCodeCell[],
+	currentCells: readonly QuartoCodeCell[],
+): Map<number, number> {
+	const { changes } = new LcsDiff(
+		new CellHashSequence(previousCells),
+		new CellHashSequence(currentCells),
+	).ComputeDiff(false);
+
+	const oldToNew = new Map<number, number>();
+	let oldPosition = 0;
+	let newPosition = 0;
+	for (const change of changes) {
+		// The gap before this change is an unchanged block.
+		let alignedNew = newPosition;
+		for (let alignedOld = oldPosition; alignedOld < change.originalStart; alignedOld++) {
+			oldToNew.set(alignedOld, alignedNew++);
+		}
+		oldPosition = change.originalStart + change.originalLength;
+		newPosition = change.modifiedStart + change.modifiedLength;
+	}
+	let alignedNew = newPosition;
+	for (let alignedOld = oldPosition; alignedOld < previousCells.length; alignedOld++) {
+		oldToNew.set(alignedOld, alignedNew++);
+	}
+	return oldToNew;
+}
+
+/**
+ * The aligned current position of an untracked twin of the deleted cell at
+ * `oldPosition`: another cell from the same maximal run of identical
+ * content in `previousCells` that no association tracks and whose aligned
+ * cell no result has claimed. `undefined` when no such twin exists.
+ */
+function findUntrackedTwinCell(
+	previousCells: readonly QuartoCodeCell[],
+	oldPosition: number,
+	oldToNew: Map<number, number>,
+	trackedIds: ReadonlySet<string>,
+	claimedNewPositions: ReadonlySet<number>,
+): number | undefined {
+	const contentHash = previousCells[oldPosition].contentHash;
+	let runStart = oldPosition;
+	while (runStart > 0 && previousCells[runStart - 1].contentHash === contentHash) {
+		runStart--;
+	}
+	let runEnd = oldPosition;
+	while (runEnd < previousCells.length - 1 && previousCells[runEnd + 1].contentHash === contentHash) {
+		runEnd++;
+	}
+	for (let twin = runStart; twin <= runEnd; twin++) {
+		if (twin === oldPosition || trackedIds.has(previousCells[twin].id)) {
+			continue;
+		}
+		const newPosition = oldToNew.get(twin);
+		if (newPosition !== undefined && !claimedNewPositions.has(newPosition)) {
+			return newPosition;
 		}
 	}
-	return rank;
+	return undefined;
 }
 
 /** The leading digits of a cell id are its index; `NaN` becomes "no preference". */
