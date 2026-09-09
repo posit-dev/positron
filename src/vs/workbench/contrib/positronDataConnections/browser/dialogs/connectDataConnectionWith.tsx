@@ -7,14 +7,16 @@
 import './connectDataConnectionWith.css';
 
 // React.
-import { PropsWithChildren, useRef, useState } from 'react';
+import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import Severity from '../../../../../base/common/severity.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
 import { showIncludeSecretsConfirmation } from './includeSecretsConfirmation.js';
+import { GGSQL_INSTALL_LABEL, isGgsqlKnownMissing, openGgsqlInstallPage, showGgsqlNotInstalled } from './ggsqlNotInstalled.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -132,6 +134,20 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 	// by the caller; replaced with secret-bearing variants once the user includes secrets.
 	const [variants, setVariants] = useState(props.variants);
 
+	// Whether this code is ggsql and Positron has no ggsql runtime to run it in. Drives the notice
+	// above the code and makes Connect offer to install ggsql instead of failing. Re-checked when a
+	// runtime registers or the startup phase advances, so installing ggsql while the dialog is open
+	// clears the notice. Best-effort only -- there is no event for the tail of background discovery,
+	// so connectHandler re-checks at press time rather than trusting this.
+	const [ggsqlMissing, setGgsqlMissing] = useState(() => isGgsqlKnownMissing(services, props.languageId));
+	useEffect(() => {
+		const disposables = new DisposableStore();
+		const recheck = () => setGgsqlMissing(isGgsqlKnownMissing(services, props.languageId));
+		disposables.add(services.languageRuntimeService.onDidRegisterRuntime(recheck));
+		disposables.add(services.languageRuntimeService.onDidChangeRuntimeStartupPhase(recheck));
+		return () => disposables.dispose();
+	}, [services, props.languageId]);
+
 	// The currently-selected variant. Initialized from the profile's stored preference (falling back
 	// to the first/default variant when unset or stale). Variant ids are stable across
 	// regeneration, so the selection survives including secrets.
@@ -214,6 +230,17 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 		// Acquire code before disposing of the renderer.
 		let code = editorRef.current.getCode();
 
+		// There is no ggsql runtime to run this code in, so executing it would fail with an internal
+		// error about an unregistered runtime. Explain the real problem and offer the install page
+		// instead. This dialog stays open behind that one: the code is still worth copying or turning
+		// into a script, so this is a detour rather than a dead end. Checked here rather than trusting
+		// ggsqlMissing, which can lag behind the tail of runtime discovery.
+		if (isGgsqlKnownMissing(services, props.languageId)) {
+			setGgsqlMissing(true);
+			showGgsqlNotInstalled(services);
+			return;
+		}
+
 		// Secrets are required for this code to actually connect, and the user has not opted in yet
 		// (via the Include Secrets action or a previous Connect attempt). Ask now rather than running
 		// code that is missing a password. This also covers the case where the initial preview had no
@@ -269,7 +296,25 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 	return (
 		<PositronDynamicModalDialog
 			content={
-				<div className={positronClassNames('connect-data-connection-with', { 'has-variants': showVariantSelector })}>
+				<div className={positronClassNames('connect-data-connection-with', { 'has-variants': showVariantSelector, 'has-notice': ggsqlMissing })}>
+					{ggsqlMissing &&
+						<div className='notice'>
+							<span className='codicon codicon-info' />
+							<span className='notice-text'>
+								{localize(
+									'positron.connectDataConnectionWith.ggsqlNotInstalled',
+									"ggsql is not installed. You can still copy this code or create a script for it."
+								)}
+							</span>
+							<Button
+								ariaLabel={localize('positron.connectDataConnectionWith.goToGgsqlSite', "Go to ggsql.org")}
+								className='notice-link'
+								onPressed={() => openGgsqlInstallPage(services)}
+							>
+								{GGSQL_INSTALL_LABEL}
+							</Button>
+						</div>
+					}
 					{showVariantSelector &&
 						<div className='library-header'>{variantGroupLabel}</div>
 					}
