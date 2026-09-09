@@ -86,7 +86,7 @@ test.describe('Data Connections - Redshift', {
 		await dataConnections.openDataConnectionsView();
 		await dataConnections.clickAddConnection();
 		await dataConnections.selectProvider('Redshift');
-		await dataConnections.selectConnectionMechanism('Use & Password');
+		await dataConnections.selectConnectionMechanism('User & Password');
 
 		// SSL is left on (the default), which the serverless endpoint requires.
 		await dataConnections.fillConnectionInputs({
