@@ -152,7 +152,21 @@ const CMD_RULES: [RegExp, ProcessRole][] = [
 	// `language-server` nor ends in `ServerMain`, so the name rules miss it and it
 	// would otherwise fall through to the extension fallback below.
 	[/language-server|\/lsp\//, 'language_server'],
+	// The agent SDK runtime the agent host downloads and forks
+	// (agentSdkDownloader.ts `_cacheDir`). Its cost belongs with the host that
+	// spawned it, not with extensions.
+	[/\/agent-host\/sdk-cache\//, 'agent_host'],
 ];
+
+/**
+ * Roles whose children are the role's own cost when nothing more specific
+ * claims them. The agent host forks the agent SDK runtime through the same
+ * electron binary under a generic `electron-nodejs (index.js)` name, so neither
+ * the name nor argv says whose it is; the parent does. Without this it was
+ * 161 MB of `extension_child`, and when the host stopped spawning
+ * (2026.10.0-25) the chart showed extensions shrinking for no reason.
+ */
+const ADOPTING_PARENT_ROLES: ReadonlySet<ProcessRole> = new Set(['agent_host']);
 
 /**
  * Names Positron reports that identify a wrapper rather than a process.
@@ -189,8 +203,13 @@ function firstMatch(rules: [RegExp, ProcessRole][], subject: string): ProcessRol
  * An unclassifiable process becomes `unlabeled` rather than being folded into a
  * neighbouring role. That is deliberate. A new unnamed process should show up
  * as a visible gap in the chart, not silently inflate another bucket.
+ *
+ * `parentRole` is the already-resolved role of the process's parent, when the
+ * caller has one. It is consulted only after the name and argv rules, and only
+ * for the few parents listed in ADOPTING_PARENT_ROLES, so it can never
+ * re-bucket a process something more specific identified.
  */
-export function resolveRole(input: { positronName?: string; cmd: string; isRoot: boolean }): { role: ProcessRole; labeled: boolean } {
+export function resolveRole(input: { positronName?: string; cmd: string; isRoot: boolean; parentRole?: ProcessRole }): { role: ProcessRole; labeled: boolean } {
 	const labeled = !!input.positronName;
 
 	if (input.isRoot) {
@@ -205,6 +224,10 @@ export function resolveRole(input: { positronName?: string; cmd: string; isRoot:
 	const byCmd = firstMatch(CMD_RULES, input.cmd);
 	if (byCmd) {
 		return { role: byCmd, labeled };
+	}
+
+	if (input.parentRole !== undefined && ADOPTING_PARENT_ROLES.has(input.parentRole)) {
+		return { role: input.parentRole, labeled };
 	}
 
 	const byGenericName = input.positronName ? firstMatch(GENERIC_NAME_RULES, input.positronName) : undefined;
