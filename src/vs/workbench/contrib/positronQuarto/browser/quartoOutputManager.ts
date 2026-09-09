@@ -26,7 +26,9 @@ import { getImageDataUrl } from '../../../services/positronPlots/common/imageDat
 import { getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '../../positronNotebook/common/imageOutputUtils.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
+import { QuartoCodeCell } from '../common/quartoTypes.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { ICellAssociation, reconcileCellAssociations } from '../common/quartoCellReconciliation.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument, usingQuartoInlineOutputAutoScroll } from '../common/positronQuartoConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
@@ -227,6 +229,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private readonly _contentHashByCellId = new Map<string, string>();
 	// Track last-known execution info per cell so the status bar can survive tab switches
 	private readonly _executionInfoByCell = new Map<string, { state: CellExecutionState; startTime?: number; endTime?: number }>();
+	// The full cell list as of the last position update, tracked or not
+	private _previousCells: readonly QuartoCodeCell[] = [];
 	private _documentUri: URI | undefined;
 	private _featureEnabled: boolean;
 	private _outputHandlingInitialized = false;
@@ -373,6 +377,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._contentHashByCellId.clear();
 			this._executionInfoByCell.clear();
 			this._cellsAwaitingRecomputeOutput.clear();
+			this._previousCells = [];
 
 			// Clear previous output handling subscriptions to prevent duplicates
 			this._outputHandlingDisposables.clear();
@@ -422,6 +427,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		}
 		this._outputHandlingInitialized = true;
 		this._logService.debug('[QuartoOutputContribution] Initializing for', this._documentUri?.toString());
+
+		// Record the cell list now, before anything below can start tracking
+		// output for individual cells (loading the cache, then live
+		// execution).
+		const initialModel = this._editor.getModel();
+		if (initialModel) {
+			this._previousCells = this._documentModelService.getModel(initialModel).cells;
+		}
 
 		// Load cached outputs
 		this._loadCachedOutputs();
@@ -1725,45 +1738,60 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		// (can't modify maps while iterating)
 		const remappings: Array<{ oldId: string; newId: string; contentHash: string }> = [];
 		const deletions: string[] = [];
+		const toReconcile: ICellAssociation[] = [];
 
 		for (const [cellId, viewZone] of this._viewZones) {
+			const contentHash = this._contentHashByCellId.get(cellId);
+			if (contentHash) {
+				toReconcile.push({ id: cellId, contentHash });
+				continue;
+			}
 			const cell = quartoModel.getCellById(cellId);
 			if (cell) {
-				// Cell still exists with same ID - just update position
 				viewZone.updateAfterLineNumber(cell.endLine);
 			} else {
-				// Cell ID not found - check if the cell just moved (ID changed due to index shift)
-				const contentHash = this._contentHashByCellId.get(cellId);
-				if (contentHash) {
-					const oldIndex = parseInt(cellId, 10);
-					const movedCell = quartoModel.findCellByContentHash(contentHash, isNaN(oldIndex) ? undefined : oldIndex);
-					if (movedCell) {
-						// Cell moved! Remap to new ID and update position
-						this._logService.debug('[QuartoOutputContribution] Cell moved from', cellId, 'to', movedCell.id);
-						viewZone.updateAfterLineNumber(movedCell.endLine);
-						remappings.push({ oldId: cellId, newId: movedCell.id, contentHash });
-					} else {
-						// Cell content hash no longer exists - cell was truly deleted
-						deletions.push(cellId);
-					}
-				} else {
-					// No content hash tracked - cell was truly deleted
-					deletions.push(cellId);
-				}
+				deletions.push(cellId);
 			}
 		}
 
-		// Apply remappings
-		for (const { oldId, newId, contentHash } of remappings) {
-			const viewZone = this._viewZones.get(oldId);
-			const outputs = this._outputsByCell.get(oldId);
+		for (const result of reconcileCellAssociations(quartoModel, this._previousCells, toReconcile)) {
+			if (result.kind === 'orphaned') {
+				// Cell content hash no longer exists - cell was truly deleted
+				deletions.push(result.id);
+				continue;
+			}
+			// Cell moved (or stayed put); refresh its position either way
+			const viewZone = this._viewZones.get(result.oldId);
+			if (viewZone) {
+				if (result.oldId !== result.newCell.id) {
+					this._logService.debug('[QuartoOutputContribution] Cell moved from', result.oldId, 'to', result.newCell.id);
+				}
+				viewZone.updateAfterLineNumber(result.newCell.endLine);
+			}
+			remappings.push({ oldId: result.oldId, newId: result.newCell.id, contentHash: result.newCell.contentHash });
+		}
 
-			// Remove old entries
+		// Apply remappings and deletions together
+		const remapSnapshots = remappings.map(({ oldId, newId, contentHash }) => ({
+			newId,
+			contentHash,
+			viewZone: this._viewZones.get(oldId),
+			outputs: this._outputsByCell.get(oldId),
+		}));
+		const deletionSnapshots = deletions.map(cellId => this._viewZones.get(cellId));
+
+		for (const { oldId } of remappings) {
 			this._viewZones.delete(oldId);
 			this._outputsByCell.delete(oldId);
 			this._contentHashByCellId.delete(oldId);
+		}
+		for (const cellId of deletions) {
+			this._viewZones.delete(cellId);
+			this._outputsByCell.delete(cellId);
+			this._contentHashByCellId.delete(cellId);
+		}
 
-			// Add with new ID
+		for (const { newId, contentHash, viewZone, outputs } of remapSnapshots) {
 			if (viewZone) {
 				this._viewZones.set(newId, viewZone);
 			}
@@ -1772,17 +1800,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 			this._contentHashByCellId.set(newId, contentHash);
 		}
-
-		// Apply deletions
-		for (const cellId of deletions) {
-			const viewZone = this._viewZones.get(cellId);
-			if (viewZone) {
-				viewZone.dispose();
-			}
-			this._viewZones.delete(cellId);
-			this._outputsByCell.delete(cellId);
-			this._contentHashByCellId.delete(cellId);
+		for (const viewZone of deletionSnapshots) {
+			viewZone?.dispose();
 		}
+
+		// Record this parse's cells for next time
+		this._previousCells = quartoModel.cells;
 	}
 
 	private _handleFeatureToggle(): void {
