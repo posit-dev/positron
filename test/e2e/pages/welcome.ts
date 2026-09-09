@@ -15,7 +15,6 @@ const WALKTHROUGH_BANNER = '.positron-welcome-page-walkthrough-banner';
 const SEE_ALL_WALKTHROUGHS = '.positron-welcome-page-walkthrough-banner .walkthrough-banner-link';
 const RECENT_SECTION = '.recently-opened';
 const HEADING_ROLE = 'heading';
-const BUTTON_ROLE = 'button';
 const CATEGORIES_SLIDE = '.gettingStartedSlideCategories';
 const DETAILS_SLIDE = '.gettingStartedSlideDetails';
 const STARTUP_CHECKBOX = '#showOnStartup';
@@ -73,18 +72,6 @@ export class Welcome {
 	async expectTabTitleToBe(title: string) {
 		await test.step(`Verify tab title: ${title}`, async () => {
 			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.editor"]').getByRole('tab', { name: title })).toBeVisible();
-		});
-	}
-
-	async expectConnectToBeVisible(visible: boolean) {
-		await test.step(`Verify "Connect to..." is ${visible ? '' : 'NOT'} visible`, async () => {
-			const connectButton = this.code.driver.currentPage.getByRole(BUTTON_ROLE, { name: 'Connect to...' });
-			if (visible) {
-				await expect(connectButton).toBeVisible();
-			}
-			else {
-				await expect(connectButton).not.toBeVisible();
-			}
 		});
 	}
 

@@ -29,12 +29,6 @@ export interface PositronWelcomePageProps {
 	readonly recentList: HTMLElement;
 
 	/**
-	 * The "Connect to..." action. Built by the editor pane. Undefined on web,
-	 * where there is nothing to connect to.
-	 */
-	readonly connectAction?: HTMLElement;
-
-	/**
 	 * The "Show welcome page on startup" checkbox row. Built by the editor pane
 	 * because it reuses the existing Toggle widget and its telemetry.
 	 */
@@ -83,15 +77,9 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 		<>
 			<WelcomeHeader />
 			<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
-			{/*
-				One element so the row below wraps Recent and the connect action as a
-				single column. The connect action opens a workspace too, so it reads as
-				the last row of the recent list.
-			*/}
 			<div className='positron-welcome-page-columns'>
 				<div className='positron-welcome-page-column-main'>
 					<DomSlot element={props.recentList} />
-					{props.connectAction && <DomSlot className='positron-welcome-page-connect' element={props.connectAction} />}
 				</div>
 				<WalkthroughBanner />
 			</div>

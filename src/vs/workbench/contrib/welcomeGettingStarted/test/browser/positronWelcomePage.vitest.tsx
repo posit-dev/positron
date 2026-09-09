@@ -55,13 +55,10 @@ const slottedDom = () => {
 	const recentList = document.createElement('div');
 	recentList.textContent = 'Recent';
 
-	const connectAction = document.createElement('div');
-	connectAction.textContent = 'Connect to...';
-
 	const footer = document.createElement('div');
 	footer.textContent = 'Show welcome page on startup';
 
-	return { recentList, connectAction, footer };
+	return { recentList, footer };
 };
 
 describe('PositronWelcomePage', () => {
@@ -72,11 +69,10 @@ describe('PositronWelcomePage', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('renders the header, the card, then the recent list, the connect action, Learn and the footer', () => {
-		const { recentList, connectAction, footer } = slottedDom();
+	it('renders the header, the card, then the recent list, Learn and the footer', () => {
+		const { recentList, footer } = slottedDom();
 		const { container } = rtl.render(
 			<PositronWelcomePage
-				connectAction={connectAction}
 				environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
 				footer={footer}
 				recentList={recentList}
@@ -87,32 +83,21 @@ describe('PositronWelcomePage', () => {
 		// Recent leads: it is the primary reason to open this page, and on a wide
 		// pane it takes the left column. DOM order matches that rather than being
 		// reordered in CSS, so the tab order agrees with what is on screen.
-		expect(container).toHaveTextContent(/Welcome to .*Help.*Environment setup.*Recent.*Connect to\.\.\..*Learn.*Show welcome page on startup/);
-	});
-
-	it('omits the connect action when there is none, as on web', () => {
-		const { recentList, footer } = slottedDom();
-		rtl.render(
-			<PositronWelcomePage environmentHealthService={environmentHealthService} expandedByLanguage={new Map()} footer={footer} recentList={recentList} onDidMount={vi.fn()} />
-		);
-
-		expect(screen.queryByText('Connect to...')).not.toBeInTheDocument();
+		expect(container).toHaveTextContent(/Welcome to .*Help.*Environment setup.*Recent.*Learn.*Show welcome page on startup/);
 	});
 
 	it('calls onDidMount once every slotted element is in the document', () => {
-		const { recentList, connectAction, footer } = slottedDom();
-		const connectedAtCallTime: { recent: boolean; connect: boolean; footer: boolean }[] = [];
+		const { recentList, footer } = slottedDom();
+		const connectedAtCallTime: { recent: boolean; footer: boolean }[] = [];
 		const onDidMount = () => {
 			connectedAtCallTime.push({
 				recent: recentList.isConnected,
-				connect: connectAction.isConnected,
 				footer: footer.isConnected,
 			});
 		};
 
 		rtl.render(
 			<PositronWelcomePage
-				connectAction={connectAction}
 				environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
 				footer={footer}
 				recentList={recentList}
@@ -122,7 +107,7 @@ describe('PositronWelcomePage', () => {
 
 		// The editor pane attaches click handlers from this callback, so it has
 		// to run after the slotted elements land in the DOM, not before.
-		expect(connectedAtCallTime).toEqual([{ recent: true, connect: true, footer: true }]);
+		expect(connectedAtCallTime).toEqual([{ recent: true, footer: true }]);
 	});
 });
 

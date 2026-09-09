@@ -42,7 +42,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Verify page renders with the header, recent list, connect action and startup checkbox', async function ({ app }) {
+	test('Verify page renders with the header, recent list and startup checkbox', async function ({ app }) {
 		const { welcome } = app.workbench;
 
 		await welcome.expectPageToBeVisible();
@@ -50,9 +50,6 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		await welcome.expectRecentToBeVisible();
 		await welcome.expectStartupCheckboxToBeVisible();
 		await welcome.expectTabTitleToBe('Welcome');
-		app.web
-			? await welcome.expectConnectToBeVisible(false)
-			: await welcome.expectConnectToBeVisible(true);
 	});
 
 	test('Verify the walkthrough banner opens the full list of walkthroughs', async function ({ app }) {
