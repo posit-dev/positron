@@ -198,6 +198,13 @@ export class TestAccessService extends BaseTestService implements IAuthenticatio
 		this.trackCall('removeAllowedExtensions', providerId, accountName);
 		this.data.delete(this.getKey(providerId, accountName));
 	}
+
+	// --- Start Positron ---
+	isProviderTrusted(providerId: string, extensionId: string): boolean {
+		this.trackCall('isProviderTrusted', providerId, extensionId);
+		return false;
+	}
+	// --- End Positron ---
 }
 
 export class TestMcpAccessService extends BaseTestService implements IAuthenticationMcpAccessService {

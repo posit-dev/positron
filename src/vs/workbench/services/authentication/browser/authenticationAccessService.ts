@@ -30,6 +30,16 @@ export interface IAuthenticationAccessService {
 	readAllowedExtensions(providerId: string, accountName: string): AllowedExtension[];
 	updateAllowedExtensions(providerId: string, accountName: string, extensions: AllowedExtension[]): void;
 	removeAllowedExtensions(providerId: string, accountName: string): void;
+	// --- Start Positron ---
+	/**
+	 * Whether product.json unconditionally trusts this extension for this provider,
+	 * independent of any account. Unlike {@link isAccessAllowed}, which answers "can this
+	 * extension see a specific account's session," this answers "does this extension need
+	 * to ask the user at all for this provider" -- the product.json input to both, extracted
+	 * so it can also gate session *creation*, not just reuse of an existing session.
+	 */
+	isProviderTrusted(providerId: string, extensionId: string): boolean;
+	// --- End Positron ---
 }
 
 // TODO@TylerLeonhardt: Move this class to MainThreadAuthentication
@@ -47,16 +57,32 @@ export class AuthenticationAccessService extends Disposable implements IAuthenti
 		super();
 	}
 
-	isAccessAllowed(providerId: string, accountName: string, extensionId: string): boolean | undefined {
+	// --- Start Positron ---
+	isProviderTrusted(providerId: string, extensionId: string): boolean {
 		const trustedExtensionAuthAccess = this._productService.trustedExtensionAuthAccess;
 		const extensionKey = ExtensionIdentifier.toKey(extensionId);
 		if (Array.isArray(trustedExtensionAuthAccess)) {
-			if (trustedExtensionAuthAccess.includes(extensionKey)) {
-				return true;
-			}
-		} else if (trustedExtensionAuthAccess?.[providerId]?.includes(extensionKey)) {
+			return trustedExtensionAuthAccess.includes(extensionKey);
+		}
+		return trustedExtensionAuthAccess?.[providerId]?.includes(extensionKey) ?? false;
+	}
+	// --- End Positron ---
+
+	isAccessAllowed(providerId: string, accountName: string, extensionId: string): boolean | undefined {
+		const extensionKey = ExtensionIdentifier.toKey(extensionId);
+		// --- Start Positron ---
+		// const trustedExtensionAuthAccess = this._productService.trustedExtensionAuthAccess;
+		// if (Array.isArray(trustedExtensionAuthAccess)) {
+		// 	if (trustedExtensionAuthAccess.includes(extensionKey)) {
+		// 		return true;
+		// 	}
+		// } else if (trustedExtensionAuthAccess?.[providerId]?.includes(extensionKey)) {
+		// 	return true;
+		// }
+		if (this.isProviderTrusted(providerId, extensionId)) {
 			return true;
 		}
+		// --- End Positron ---
 
 		const allowList = this.readAllowedExtensions(providerId, accountName);
 		const extensionData = allowList.find(extension => extension.id === extensionKey);

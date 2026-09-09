@@ -477,7 +477,15 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 			// We only want to show the "recreating session" prompt if we are using forceNewSession & there are sessions
 			// that we will be "forcing through".
 			const recreatingSession = !!(options.forceNewSession && sessions.length);
-			const isAllowed = await this.loginPrompt(provider, extensionName, recreatingSession, uiOptions);
+			// --- Start Positron ---
+			// Extensions product.json already trusts for this provider skip the interactive
+			// consent prompt for session *creation* too, not just for reusing an existing
+			// session (the isAccessAllowed checks above only cover reuse). A trusted
+			// first-party extension creating a provider's very first session otherwise always
+			// hits "wants to sign in", with no way to avoid it via product.json.
+			const isAllowed = this.authenticationAccessService.isProviderTrusted(providerId, extensionId)
+				|| await this.loginPrompt(provider, extensionName, recreatingSession, uiOptions);
+			// --- End Positron ---
 			if (!isAllowed) {
 				throw new Error('User did not consent to login.');
 			}

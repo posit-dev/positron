@@ -128,6 +128,61 @@ suite('AuthenticationAccessService', () => {
 		});
 	});
 
+	// --- Start Positron ---
+	suite('isProviderTrusted', () => {
+		test('returns false for unknown extension with no product configuration', () => {
+			const result = authenticationAccessService.isProviderTrusted('github', 'unknown-extension');
+			assert.strictEqual(result, false);
+		});
+
+		test('returns true for trusted extension from product.json (array format)', () => {
+			productService.trustedExtensionAuthAccess = ['trusted-extension-1', 'trusted-extension-2'];
+
+			const result = authenticationAccessService.isProviderTrusted('github', 'trusted-extension-1');
+			assert.strictEqual(result, true);
+		});
+
+		test('returns true for trusted extension from product.json (object format)', () => {
+			productService.trustedExtensionAuthAccess = {
+				'github': ['github-extension'],
+				'microsoft': ['microsoft-extension']
+			};
+
+			const result = authenticationAccessService.isProviderTrusted('github', 'github-extension');
+			assert.strictEqual(result, true);
+		});
+
+		test('returns false for extension trusted under a different provider (object format)', () => {
+			productService.trustedExtensionAuthAccess = {
+				'github': ['github-extension'],
+				'microsoft': ['microsoft-extension']
+			};
+
+			const result = authenticationAccessService.isProviderTrusted('microsoft', 'github-extension');
+			assert.strictEqual(result, false);
+		});
+
+		test('returns false for extension not in the trusted list', () => {
+			productService.trustedExtensionAuthAccess = ['trusted-extension'];
+
+			const result = authenticationAccessService.isProviderTrusted('github', 'untrusted-extension');
+			assert.strictEqual(result, false);
+		});
+
+		test('does not consult stored per-account allow lists', () => {
+			// A per-account grant (e.g. from a prior interactive consent) must
+			// not make isProviderTrusted true -- it answers a provider-wide
+			// question, independent of any account, unlike isAccessAllowed.
+			authenticationAccessService.updateAllowedExtensions('github', 'user@example.com', [
+				{ id: 'stored-extension', name: 'Stored Extension', allowed: true }
+			]);
+
+			const result = authenticationAccessService.isProviderTrusted('github', 'stored-extension');
+			assert.strictEqual(result, false);
+		});
+	});
+	// --- End Positron ---
+
 	suite('readAllowedExtensions', () => {
 		test('returns empty array when no data exists', () => {
 			const result = authenticationAccessService.readAllowedExtensions('github', 'user@example.com');
