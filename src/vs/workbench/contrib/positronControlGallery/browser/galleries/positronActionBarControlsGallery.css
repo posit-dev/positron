@@ -1,0 +1,54 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.action-bar-controls-harness {
+	gap: 24px;
+	width: 100%;
+	display: flex;
+	padding: 16px 0;
+	flex-direction: column;
+}
+
+.action-bar-controls-harness-section {
+	display: flex;
+	flex-direction: column;
+}
+
+.action-bar-controls-harness-section-title {
+	font-weight: 600;
+	padding: 0 16px 4px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.action-bar-controls-harness-toolbar {
+	gap: 16px;
+	display: flex;
+	flex-wrap: wrap;
+	padding: 8px 16px;
+	align-items: center;
+}
+
+.action-bar-controls-harness-knob {
+	gap: 6px;
+	font-size: 0.9em;
+	align-items: center;
+	display: inline-flex;
+}
+
+.action-bar-controls-harness-knob input {
+	width: 100px;
+	padding: 2px 6px;
+	border-radius: 2px;
+	color: var(--vscode-input-foreground);
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, transparent);
+}
+
+.action-bar-controls-harness-checkbox input {
+	width: auto;
+	padding: 0;
+	border: none;
+	background-color: transparent;
+}
