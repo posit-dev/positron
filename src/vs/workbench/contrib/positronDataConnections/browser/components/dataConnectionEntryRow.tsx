@@ -217,8 +217,16 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 				// needs, instead of reporting a hard failure. A mechanism with a genuine but incomplete
 				// preview (e.g. missing just a password) is instead covered by the dialog's own Include
 				// Secrets action.
+				//
+				// Both halves are required, matching the dialog: the schema must declare a secret
+				// parameter and the profile must have a value stored for one of them. On the schema
+				// alone, a connection whose preview is empty for some other reason (a Postgres
+				// key=value DSN, which has no structured form to render) would prompt for secrets and
+				// then fail anyway, having promised the prompt would help.
 				const mechanism = resolveDataConnectionMechanism(driver.metadata, mechanismId);
-				if (!(mechanism?.parameters.some(isSecretParameter) ?? false)) {
+				const secretParameterIds = mechanism?.parameters.filter(isSecretParameter).map(parameter => parameter.id) ?? [];
+				const storedSecretIds = positronDataConnectionsService.getProfileSecretIds(profile.id);
+				if (!secretParameterIds.some(id => storedSecretIds.includes(id))) {
 					reportFailure();
 					return;
 				}

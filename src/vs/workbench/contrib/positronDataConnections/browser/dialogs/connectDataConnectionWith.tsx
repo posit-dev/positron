@@ -268,10 +268,12 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 
 		// Secrets are required for this code to actually connect, and the user has not opted in yet
 		// (via the Include Secrets action or a previous Connect attempt). Ask now rather than running
-		// code that is missing a password. This also covers the case where the initial preview had no
-		// secret-free variant to show at all (the mechanism's only parameter is a secret): the caller
-		// still requires an explicit opt-in to reveal it, so it prompts through here on the first
-		// Connect click instead of silently including it in the code the dialog opened with.
+		// code that is missing a password.
+		//
+		// The case where there was no secret-free preview to show at all (the mechanism's only
+		// parameters are secret) does not reach here: the caller prompts for that one before opening
+		// the dialog and passes initialIncludeSecrets, so includeSecrets already starts true. Do not
+		// remove that caller-side prompt on the assumption this branch covers it.
 		if (hasSecrets && !includeSecrets && !userEditedCode) {
 			const confirmed = await showIncludeSecretsConfirmation({ requiredForConnect: true });
 			if (!confirmed) {

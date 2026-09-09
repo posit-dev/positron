@@ -331,12 +331,14 @@ function renderDbiCode(fields: PostgresConnectionFields): positron.ConnectionCod
  * - No host means the local-server mechanism's Unix domain socket. Omitting `Servername` does not
  *   produce a socket connection; psqlODBC falls back to TCP on localhost, which is a different
  *   server with different authentication.
- * - A client certificate and key are libpq keywords. psqlODBC accepts `sslmode` but not
- *   `sslcert`/`sslkey`/`sslrootcert`, so the certificate the mechanism exists to present would be
- *   dropped and the connection would attempt password authentication instead.
+ * - Any of the certificate paths are libpq keywords. psqlODBC accepts `sslmode` but not
+ *   `sslcert`/`sslkey`/`sslrootcert`, so forwarding just the `sslmode` would change what is
+ *   verified rather than merely weaken it: a client certificate would be dropped and the connection
+ *   would fall back to password authentication, and a `verify-full` that named its own CA would
+ *   instead be checked against psqlODBC's default root store.
  */
 function renderGgsqlCode(fields: PostgresConnectionFields): positron.ConnectionCodeVariant | undefined {
-	if (!fields.host || fields.sslcert || fields.sslkey) {
+	if (!fields.host || fields.sslrootcert || fields.sslcert || fields.sslkey) {
 		return undefined;
 	}
 	const dsn = buildOdbcConnectionString([

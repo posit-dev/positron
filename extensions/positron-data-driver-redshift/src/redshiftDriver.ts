@@ -398,7 +398,12 @@ function renderGgsqlCode(fields: RedshiftConnectionFields): positron.ConnectionC
 		['Database', fields.database],
 		['UID', fields.user],
 		['PWD', fields.password],
-		['SSL', fields.ssl === false ? '0' : '1'],
+		// SSLMode, not the older SSL=0/1 boolean: the current Amazon Redshift ODBC driver documents
+		// SSLMode and would ignore an SSL keyword it does not recognize, silently encrypting a
+		// connection the user asked to leave unencrypted. Omitted entirely when SSL is on, so the
+		// driver's own default (verify-ca) applies rather than this code pinning a verification level
+		// the Python and R variants do not.
+		['SSLMode', fields.ssl === false ? 'disable' : undefined],
 	]);
 	return {
 		id: 'ggsql',
