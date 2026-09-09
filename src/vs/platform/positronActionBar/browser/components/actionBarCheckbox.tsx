@@ -11,7 +11,6 @@ import { forwardRef, PropsWithChildren, useEffect, useImperativeHandle, useRef, 
 
 // Other dependencies.
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 
 /**
  * ActionBarCheckboxProps interface.
@@ -48,9 +47,6 @@ export const ActionBarCheckbox = forwardRef<
 	useEffect(() => {
 		setChecked(props.checked ?? false);
 	}, [props.checked]);
-
-	// Participate in roving tabindex.
-	useRegisterWithActionBar([buttonRef]);
 
 	// Click handler.
 	const clickHandler = () => {
