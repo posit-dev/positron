@@ -7,10 +7,12 @@
 import './actionBarCheckbox.css';
 
 // React.
-import { forwardRef, PropsWithChildren, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { usePositronActionBarContext } from '../positronActionBarContext.js';
+import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * ActionBarCheckboxProps interface.
@@ -21,26 +23,30 @@ export interface ActionBarCheckboxProps {
 	readonly label?: string;
 	readonly tooltip?: string | (() => string | undefined);
 	readonly onChanged: (checked: boolean) => void;
+	ref?: React.Ref<HTMLButtonElement>;
 }
 
 /**
  * ActionBarCheckbox component.
+ *
+ * This is a `role='checkbox'` button rather than an `<input type='checkbox'>`, which is also what
+ * core's own checkbox is (see Toggle in `base/browser/ui/toggle/toggle.ts`). Button supplies the
+ * action bar's hover manager for tooltips, activates once per Space or Enter press rather than
+ * twice, and consumes mousedown so pressing the control does not move focus.
+ *
+ * The checkbox flips its own state on click and then reports the new value, which is what it has
+ * always done. The displayed state can therefore disagree with the command until the next render.
+ * Correcting that means reading the command's state instead, which is a separate change.
+ *
  * @param props An ActionBarCheckboxProps that contains the component properties.
- * @param ref A ref to the HTMLButtonElement.
  * @returns The rendered component.
  */
-export const ActionBarCheckbox = forwardRef<
-	HTMLButtonElement,
-	PropsWithChildren<ActionBarCheckboxProps>
->((props, ref) => {
-	// Reference hooks.
-	const buttonRef = useRef<HTMLButtonElement>(undefined!);
-
-	// Imperative handle to ref.
-	useImperativeHandle(ref, () => buttonRef.current);
+export const ActionBarCheckbox = (props: ActionBarCheckboxProps) => {
+	// Context hooks.
+	const context = usePositronActionBarContext();
 
 	// State hooks.
-	const [id] = useState(generateUuid());
+	const [id] = useState(() => generateUuid());
 	const [checked, setChecked] = useState(props.checked ?? false);
 
 	// Effect hook to update the checked state when the prop changes.
@@ -48,20 +54,25 @@ export const ActionBarCheckbox = forwardRef<
 		setChecked(props.checked ?? false);
 	}, [props.checked]);
 
-	// Click handler.
-	const clickHandler = () => {
-		buttonRef.current.setAttribute('aria-checked', !checked ? 'true' : 'false');
-		setChecked(!checked);
-		props.onChanged(!checked);
-	};
-
 	// Render.
 	return (
 		<div className='action-bar-checkbox'>
-			<button ref={buttonRef} aria-checked={checked} className='checkbox-button' id={id} role='checkbox' tabIndex={0} onClick={clickHandler}>
+			<Button
+				ref={props.ref}
+				ariaChecked={checked}
+				className='checkbox-button'
+				hoverManager={context.hoverManager}
+				id={id}
+				role='checkbox'
+				tooltip={props.tooltip}
+				onPressed={() => {
+					setChecked(!checked);
+					props.onChanged(!checked);
+				}}
+			>
 				{checked && <div className='check-indicator codicon codicon-check' />}
-			</button>
+			</Button>
 			<label className='checkbox-label' htmlFor={id}>{props.label}</label>
 		</div>
 	);
-});
+};

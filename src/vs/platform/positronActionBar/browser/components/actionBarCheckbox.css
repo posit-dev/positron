@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,26 +11,27 @@
 	align-items: center;
 }
 
+/*
+ * The button also carries Button's positron-button class, which supplies the cursor, the
+ * transparent background and the removal of the user agent border. What is left here is the box
+ * itself.
+ */
 .action-bar-checkbox .checkbox-button {
 	width: 16px;
 	height: 16px;
-	border: none;
+	padding: 0;
 	display: flex;
-	cursor: pointer;
 	border-radius: 3px;
+	align-items: center;
 	justify-content: center;
-	background-color: transparent;
 	color: var(--vscode-positronActionBar-foreground);
 	border: 1px solid var(--vscode-positronActionBar-checkboxBorder);
 }
 
-.action-bar-checkbox .checkbox-button:focus {
-	outline: none !important;
-}
-
+/* positron-button rounds the focus ring to 4px, which does not match this 16px box. */
 .action-bar-checkbox .checkbox-button:focus-visible {
 	outline-offset: 2px;
-	outline: 1px solid var(--vscode-focusBorder);
+	border-radius: 3px;
 }
 
 .action-bar-checkbox .checkbox-button .check-indicator {
