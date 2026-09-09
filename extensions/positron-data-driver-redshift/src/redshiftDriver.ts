@@ -138,6 +138,47 @@ function escapeDoubleQuoted(value: string): string {
 }
 
 /**
+ * The characters that oblige an ODBC-style connection string value to be brace-wrapped, from the
+ * ODBC specification. A password is free to contain any of them.
+ */
+const ODBC_VALUE_NEEDS_BRACES = /[[\]{}(),;?*=!@]/;
+
+/**
+ * Escapes one ODBC-style connection string value, brace-wrapping it when it contains a character
+ * from ODBC_VALUE_NEEDS_BRACES. A closing brace inside a brace-wrapped value is doubled, which is
+ * how the ODBC specification says to escape it.
+ */
+function escapeOdbcValue(value: string): string {
+	if (!ODBC_VALUE_NEEDS_BRACES.test(value)) {
+		return value;
+	}
+	return `{${value.replace(/\}/g, '}}')}}`;
+}
+
+/**
+ * Builds an ODBC-style `KEY=VALUE;KEY=VALUE` connection string from attributes, skipping any whose
+ * value is undefined or empty.
+ */
+function buildOdbcConnectionString(attributes: ReadonlyArray<readonly [string, string | number | undefined]>): string {
+	return attributes
+		.filter((entry): entry is [string, string | number] => {
+			const value = entry[1];
+			return value !== undefined && String(value).length > 0;
+		})
+		.map(([key, value]) => `${key}=${escapeOdbcValue(String(value))}`)
+		.join(';');
+}
+
+/**
+ * The Amazon Redshift ODBC driver name assumed for the ggsql connection code, since this driver
+ * connects natively via `pg` and has no installed-ODBC-driver discovery (unlike
+ * positron-data-driver-odbc, which reads the real installed driver name from odbcinst). This is the
+ * name used by Amazon's official installers; a user whose driver is registered under a different
+ * name will need to edit this before the code will connect.
+ */
+const ASSUMED_ODBC_DRIVER_NAME = 'Amazon Redshift ODBC Driver (x64)';
+
+/**
  * The id of the user/password connection mechanism. Used both in the driver's mechanism list and in
  * the connect/generate switches, so they stay in sync.
  */
@@ -325,6 +366,32 @@ export function renderIamDbiCode(host: string, port: number, iam: RedshiftIamCon
 }
 
 /**
+ * Renders a ggsql `@connect` directive as an ODBC connection string. ggsql has no native Redshift
+ * (or Postgres-family) reader yet -- only `duckdb://`, `sqlite://`, and `odbc://` are implemented;
+ * see src/reader/connection.rs in the ggsql repository -- so this goes through its ODBC reader
+ * instead, the same way positron-data-driver-postgresql's ggsql code does. This driver has no
+ * installed-ODBC-driver discovery, so the driver name is a guess (see ASSUMED_ODBC_DRIVER_NAME)
+ * rather than a name known to be installed. Replace this with a native scheme once ggsql implements
+ * one.
+ */
+function renderGgsqlCode(fields: RedshiftConnectionFields): positron.ConnectionCodeVariant {
+	const dsn = buildOdbcConnectionString([
+		['Driver', ASSUMED_ODBC_DRIVER_NAME],
+		['Server', fields.host],
+		['Port', fields.port],
+		['Database', fields.database],
+		['UID', fields.user],
+		['PWD', fields.password],
+		['SSL', fields.ssl === false ? '0' : '1'],
+	]);
+	return {
+		id: 'ggsql',
+		label: 'ggsql',
+		code: `-- @connect: odbc://${dsn}`,
+	};
+}
+
+/**
  * Generates the connection code variants for the given language from normalized fields. Returns an
  * empty array when the fields could not be built (a required parameter was missing) or the language
  * is unsupported.
@@ -338,6 +405,8 @@ function generateConnectionCodeForFields(languageId: string, fields: RedshiftCon
 			return [renderRedshiftConnectorCode(fields)];
 		case 'r':
 			return [renderDbiCode(fields)];
+		case 'ggsql':
+			return [renderGgsqlCode(fields)];
 		default:
 			return [];
 	}
@@ -468,7 +537,7 @@ export function createRedshiftDriver(
 		name: 'Redshift',
 		description: vscode.l10n.t('Connect to a Redshift cluster or workgroup'),
 		iconSvg,
-		supportedLanguageIds: ['python', 'r'],
+		supportedLanguageIds: ['python', 'r', 'ggsql'],
 		mechanisms: [passwordMechanism, iamMechanism],
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			switch (mechanismId) {
