@@ -34,6 +34,11 @@ export interface ActionBarCheckboxProps {
  * action bar's hover manager for tooltips, activates once per Space or Enter press rather than
  * twice, and consumes mousedown so pressing the control does not move focus.
  *
+ * The name comes from ariaLabel rather than the visible <label>. A <label for> does not name a
+ * <button> under VoiceOver, and without a name of its own the button would be named by its
+ * contents, which is the check codicon: a private use character that reads as nothing when
+ * unchecked and as a stray glyph when checked. The label element keeps its click target.
+ *
  * The checkbox flips its own state on click and then reports the new value, which is what it has
  * always done. The displayed state can therefore disagree with the command until the next render.
  * Correcting that means reading the command's state instead, which is a separate change.
@@ -60,6 +65,7 @@ export const ActionBarCheckbox = (props: ActionBarCheckboxProps) => {
 			<Button
 				ref={props.ref}
 				ariaChecked={checked}
+				ariaLabel={props.ariaLabel ?? props.label}
 				className='checkbox-button'
 				hoverManager={context.hoverManager}
 				id={id}
@@ -70,9 +76,9 @@ export const ActionBarCheckbox = (props: ActionBarCheckboxProps) => {
 					props.onChanged(!checked);
 				}}
 			>
-				{checked && <div className='check-indicator codicon codicon-check' />}
+				{checked && <div aria-hidden='true' className='check-indicator codicon codicon-check' />}
 			</Button>
-			<label className='checkbox-label' htmlFor={id}>{props.label}</label>
+			{props.label && <label className='checkbox-label' htmlFor={id}>{props.label}</label>}
 		</div>
 	);
 };
