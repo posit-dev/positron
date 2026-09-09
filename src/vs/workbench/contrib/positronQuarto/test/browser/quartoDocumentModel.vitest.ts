@@ -9,7 +9,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
-import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
+import { QuartoDocumentModel, parseCellId } from '../../browser/quartoDocumentModel.js';
 
 describe('QuartoDocumentModel', () => {
 	const ctx = createTestContainer().build();
@@ -695,4 +695,22 @@ x = 1
 		});
 	});
 
+});
+
+describe('parseCellId', () => {
+	it('extracts the index and hash prefix from a well-formed id', () => {
+		expect(parseCellId('2-a1b2c3d4-unlabeled')).toEqual({ index: 2, hashPrefix: 'a1b2c3d4' });
+	});
+
+	it('extracts the hash prefix even when the label itself contains hyphens', () => {
+		expect(parseCellId('0-a1b2c3d4-my-analysis')).toEqual({ index: 0, hashPrefix: 'a1b2c3d4' });
+	});
+
+	it('returns an undefined index when the id has no parseable leading number', () => {
+		expect(parseCellId('not-a-valid-id')).toEqual({ index: undefined, hashPrefix: 'a' });
+	});
+
+	it('returns an undefined hash prefix when the id has no second segment', () => {
+		expect(parseCellId('5')).toEqual({ index: 5, hashPrefix: undefined });
+	});
 });

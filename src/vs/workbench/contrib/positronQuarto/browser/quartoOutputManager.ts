@@ -27,6 +27,7 @@ import { getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '..
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../common/quartoTypes.js';
+import { parseCellId } from './quartoDocumentModel.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 import { ICellAssociation, reconcileCellAssociations } from '../common/quartoCellReconciliation.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_AUTO_SCROLL_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument, usingQuartoInlineOutputAutoScroll } from '../common/positronQuartoConfig.js';
@@ -873,11 +874,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			// If not found by ID, try to find by content hash
 			// (cell IDs include index which could differ if whitespace/parsing changed)
 			if (!cell) {
-				// Extract content hash from old cell ID (format: index-hashPrefix-label)
-				const parts = cellId.split('-');
-				if (parts.length >= 2) {
-					const hashPrefix = parts[1];
-					// Find cell with matching hash prefix
+				const { hashPrefix } = parseCellId(cellId);
+				if (hashPrefix) {
 					cell = quartoModel.cells.find(c => c.contentHash.startsWith(hashPrefix));
 				}
 			}
@@ -1433,8 +1431,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	 * Returns the zero-based cell index encoded at the start of the cell ID.
 	 */
 	private _getCellIndex(cellId: string): number {
-		const index = parseInt(cellId.split('-')[0], 10);
-		return Number.isNaN(index) ? 0 : index;
+		return parseCellId(cellId).index ?? 0;
 	}
 
 	/** Returns the cell's current code, when the cell still exists. */

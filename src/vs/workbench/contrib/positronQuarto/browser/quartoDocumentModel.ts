@@ -37,6 +37,25 @@ function generateCellId(
 	return `${index}-${hashPrefix}-${labelPart}`;
 }
 
+/** The index and content-hash prefix embedded in a cell id. */
+export interface ParsedCellId {
+	readonly index: number | undefined;
+	readonly hashPrefix: string | undefined;
+}
+
+/**
+ * Reads a cell id back apart (partial inverse of `generateCellId`; the label
+ * isn't reconstructed, since no caller needs it back).
+ */
+export function parseCellId(id: string): ParsedCellId {
+	const parts = id.split('-');
+	const index = parseInt(parts[0], 10);
+	return {
+		index: Number.isNaN(index) ? undefined : index,
+		hashPrefix: parts.length >= 2 ? parts[1] : undefined,
+	};
+}
+
 
 /**
  * Represents the parsed state of a Quarto document.
