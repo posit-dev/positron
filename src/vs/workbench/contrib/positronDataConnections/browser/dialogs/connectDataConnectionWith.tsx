@@ -104,7 +104,9 @@ interface ConnectDataConnectionWithProps {
 	readonly profileId: string;
 	readonly generateSecretVariants: () => Promise<IDataConnectionCodeVariant[]>;
 	readonly variants: IDataConnectionCodeVariant[];
-	readonly initialIncludeSecrets: boolean;
+	// Optional, like the equivalent field on ConnectDataConnectionWithOptions: a caller that has not
+	// already fetched secrets opens the dialog secret-free. Defaults to false.
+	readonly initialIncludeSecrets?: boolean;
 }
 
 /**
@@ -117,18 +119,24 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 
 	const editorRef = useRef<EditableCodeEditorWidget>(undefined!);
 
-	// Whether the connection's mechanism has any secret parameters (e.g. a password) whose values we
-	// keep out of the generated code unless the user opts in. Falls back to the first mechanism for
-	// pre-mechanisms profiles.
+	// Whether this connection actually has a secret to embed. Both halves are required: the
+	// mechanism's schema must declare a secret parameter (falling back to the first mechanism for
+	// pre-mechanisms profiles), and the profile must have a value stored for one of them. The schema
+	// alone is not enough -- an ODBC DSN or a Postgres trust-auth connection declares a password
+	// parameter and leaves it blank -- and treating those as having secrets makes Connect show a
+	// "this connection requires secrets" prompt that confirming cannot satisfy, because there is
+	// nothing to fetch.
 	const mechanism = resolveDataConnectionMechanism(props.driver.metadata, props.mechanismId);
-	const hasSecrets = mechanism?.parameters.some(isSecretParameter) ?? false;
+	const secretParameterIds = mechanism?.parameters.filter(isSecretParameter).map(parameter => parameter.id) ?? [];
+	const storedSecretIds = services.positronDataConnectionsService.getProfileSecretIds(props.profileId);
+	const hasSecrets = secretParameterIds.some(id => storedSecretIds.includes(id));
 
 	// Whether secret parameter values have been embedded in the generated code. Starts from the
 	// caller's initialIncludeSecrets (true when the caller already had to fetch secrets to produce
 	// any preview at all); otherwise set once the user confirms the Include Secrets action, or
 	// confirms the equivalent prompt Connect shows when secrets are required and not yet included.
 	// One-way: the dialog reopens secret-free.
-	const [includeSecrets, setIncludeSecrets] = useState(props.initialIncludeSecrets);
+	const [includeSecrets, setIncludeSecrets] = useState(props.initialIncludeSecrets ?? false);
 
 	// The connection code variants to display. Initialized with the secret-free variants generated
 	// by the caller; replaced with secret-bearing variants once the user includes secrets.
@@ -165,15 +173,25 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 
 	// Regenerates the variants with secrets embedded and applies them to component state, without
 	// prompting -- callers show whichever confirmation wording fits their context first. Returns the
-	// regenerated variants (or the current ones, if generation yields nothing) so a caller that needs
-	// the code immediately (Connect) does not have to wait for the state update to re-render.
-	const applySecretVariants = async (): Promise<IDataConnectionCodeVariant[]> => {
+	// regenerated variants so a caller that needs the code immediately (Connect) does not have to
+	// wait for the state update to re-render, or undefined when generation produced nothing.
+	//
+	// An empty result means the secrets could not be read (secret storage unavailable, or the
+	// profile's stored values are gone). That leaves includeSecrets false, so the Include Secrets
+	// action stays available to retry and Connect will not run code that is missing the password it
+	// needs while reporting that secrets were included.
+	const applySecretVariants = async (): Promise<IDataConnectionCodeVariant[] | undefined> => {
 		const secretVariants = await props.generateSecretVariants();
-		if (secretVariants.length > 0) {
-			setVariants(secretVariants);
+		if (secretVariants.length === 0) {
+			services.notificationService.error(localize(
+				'positron.connectDataConnectionWith.secretsUnavailable',
+				"Could not read this connection's stored secrets. The connection code is unchanged."
+			));
+			return undefined;
 		}
+		setVariants(secretVariants);
 		setIncludeSecrets(true);
-		return secretVariants.length > 0 ? secretVariants : variants;
+		return secretVariants;
 	};
 
 	const includeSecretsHandler = async () => {
@@ -241,19 +259,31 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 			return;
 		}
 
+		// Whether the code on screen is still the code we generated. The preview editor is editable,
+		// so the user may have rewritten it -- including typing a password in themselves. Regenerating
+		// would overwrite that, so an edited buffer is run as-is and the secrets prompt is skipped:
+		// the prompt exists to fill in a secret that the generated code is missing, and once the user
+		// has taken the code over, we no longer know that it is missing anything.
+		const userEditedCode = code !== selectedVariant.code;
+
 		// Secrets are required for this code to actually connect, and the user has not opted in yet
 		// (via the Include Secrets action or a previous Connect attempt). Ask now rather than running
 		// code that is missing a password. This also covers the case where the initial preview had no
 		// secret-free variant to show at all (the mechanism's only parameter is a secret): the caller
 		// still requires an explicit opt-in to reveal it, so it prompts through here on the first
 		// Connect click instead of silently including it in the code the dialog opened with.
-		if (hasSecrets && !includeSecrets) {
+		if (hasSecrets && !includeSecrets && !userEditedCode) {
 			const confirmed = await showIncludeSecretsConfirmation({ requiredForConnect: true });
 			if (!confirmed) {
 				// Stay in the dialog; the user declined to include the secrets Connect needs.
 				return;
 			}
 			const updatedVariants = await applySecretVariants();
+			if (!updatedVariants) {
+				// Stay in the dialog; applySecretVariants has already reported why. Connecting now
+				// would run code the user was just told would include secrets, without them.
+				return;
+			}
 			const updatedVariant = updatedVariants.find(variant => variant.id === selectedVariant.id) ?? updatedVariants[0];
 			code = updatedVariant.code;
 		}

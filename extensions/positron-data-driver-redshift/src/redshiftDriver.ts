@@ -144,12 +144,28 @@ function escapeDoubleQuoted(value: string): string {
 const ODBC_VALUE_NEEDS_BRACES = /[[\]{}(),;?*=!@]/;
 
 /**
- * Escapes one ODBC-style connection string value, brace-wrapping it when it contains a character
- * from ODBC_VALUE_NEEDS_BRACES. A closing brace inside a brace-wrapped value is doubled, which is
- * how the ODBC specification says to escape it.
+ * The attribute names always written brace-wrapped, whatever their value. Only the driver name: it is
+ * quoted this way universally, and some drivers parse an unbraced name containing a space wrongly --
+ * which ASSUMED_ODBC_DRIVER_NAME is, parentheses included.
  */
-function escapeOdbcValue(value: string): string {
-	if (!ODBC_VALUE_NEEDS_BRACES.test(value)) {
+const ODBC_ALWAYS_BRACED_KEYS = new Set(['driver']);
+
+/**
+ * Escapes one ODBC-style connection string value, brace-wrapping it when it contains a character
+ * from ODBC_VALUE_NEEDS_BRACES, when it has leading or trailing whitespace (which the driver manager
+ * would otherwise trim -- silently changing a password), or when the key is always braced. A closing
+ * brace inside a brace-wrapped value is doubled, which is how the ODBC specification says to escape
+ * it.
+ *
+ * Kept in step with escapeValue in positron-data-driver-odbc/src/odbcConnectionString.ts, which is
+ * the tested copy; ggsql hands everything after `odbc://` to the driver manager verbatim, so these
+ * rules have to match.
+ * @param value The raw value, unbraced.
+ * @param forceBraces Whether to wrap even when the value contains nothing that requires it.
+ */
+function escapeOdbcValue(value: string, forceBraces: boolean): string {
+	const needsBraces = forceBraces || ODBC_VALUE_NEEDS_BRACES.test(value) || value !== value.trim();
+	if (!needsBraces) {
 		return value;
 	}
 	return `{${value.replace(/\}/g, '}}')}}`;
@@ -165,7 +181,7 @@ function buildOdbcConnectionString(attributes: ReadonlyArray<readonly [string, s
 			const value = entry[1];
 			return value !== undefined && String(value).length > 0;
 		})
-		.map(([key, value]) => `${key}=${escapeOdbcValue(String(value))}`)
+		.map(([key, value]) => `${key}=${escapeOdbcValue(String(value), ODBC_ALWAYS_BRACED_KEYS.has(key.toLowerCase()))}`)
 		.join(';');
 }
 

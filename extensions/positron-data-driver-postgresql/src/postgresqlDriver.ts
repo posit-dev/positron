@@ -34,12 +34,28 @@ function escapeDoubleQuoted(value: string): string {
 const ODBC_VALUE_NEEDS_BRACES = /[[\]{}(),;?*=!@]/;
 
 /**
- * Escapes one ODBC-style connection string value, brace-wrapping it when it contains a character
- * from ODBC_VALUE_NEEDS_BRACES. A closing brace inside a brace-wrapped value is doubled, which is
- * how the ODBC specification says to escape it.
+ * The attribute names always written brace-wrapped, whatever their value. Only the driver name: it is
+ * quoted this way universally, and some drivers parse an unbraced name containing a space wrongly --
+ * which ASSUMED_ODBC_DRIVER_NAME is.
  */
-function escapeOdbcValue(value: string): string {
-	if (!ODBC_VALUE_NEEDS_BRACES.test(value)) {
+const ODBC_ALWAYS_BRACED_KEYS = new Set(['driver']);
+
+/**
+ * Escapes one ODBC-style connection string value, brace-wrapping it when it contains a character
+ * from ODBC_VALUE_NEEDS_BRACES, when it has leading or trailing whitespace (which the driver manager
+ * would otherwise trim -- silently changing a password), or when the key is always braced. A closing
+ * brace inside a brace-wrapped value is doubled, which is how the ODBC specification says to escape
+ * it.
+ *
+ * Kept in step with escapeValue in positron-data-driver-odbc/src/odbcConnectionString.ts, which is
+ * the tested copy; ggsql hands everything after `odbc://` to the driver manager verbatim, so these
+ * rules have to match.
+ * @param value The raw value, unbraced.
+ * @param forceBraces Whether to wrap even when the value contains nothing that requires it.
+ */
+function escapeOdbcValue(value: string, forceBraces: boolean): string {
+	const needsBraces = forceBraces || ODBC_VALUE_NEEDS_BRACES.test(value) || value !== value.trim();
+	if (!needsBraces) {
 		return value;
 	}
 	return `{${value.replace(/\}/g, '}}')}}`;
@@ -55,7 +71,7 @@ function buildOdbcConnectionString(attributes: ReadonlyArray<readonly [string, s
 			const value = entry[1];
 			return value !== undefined && String(value).length > 0;
 		})
-		.map(([key, value]) => `${key}=${escapeOdbcValue(String(value))}`)
+		.map(([key, value]) => `${key}=${escapeOdbcValue(String(value), ODBC_ALWAYS_BRACED_KEYS.has(key.toLowerCase()))}`)
 		.join(';');
 }
 
@@ -308,8 +324,21 @@ function renderDbiCode(fields: PostgresConnectionFields): positron.ConnectionCod
  * installed-ODBC-driver discovery, so the driver name is a guess (see ASSUMED_ODBC_DRIVER_NAME)
  * rather than a name known to be installed. Replace this with a `postgres://` URI once ggsql
  * implements a native Postgres reader.
+ *
+ * Returns undefined for connections psqlODBC cannot express, rather than emitting a directive that
+ * silently connects somewhere else:
+ *
+ * - No host means the local-server mechanism's Unix domain socket. Omitting `Servername` does not
+ *   produce a socket connection; psqlODBC falls back to TCP on localhost, which is a different
+ *   server with different authentication.
+ * - A client certificate and key are libpq keywords. psqlODBC accepts `sslmode` but not
+ *   `sslcert`/`sslkey`/`sslrootcert`, so the certificate the mechanism exists to present would be
+ *   dropped and the connection would attempt password authentication instead.
  */
-function renderGgsqlCode(fields: PostgresConnectionFields): positron.ConnectionCodeVariant {
+function renderGgsqlCode(fields: PostgresConnectionFields): positron.ConnectionCodeVariant | undefined {
+	if (!fields.host || fields.sslcert || fields.sslkey) {
+		return undefined;
+	}
 	const dsn = buildOdbcConnectionString([
 		['Driver', ASSUMED_ODBC_DRIVER_NAME],
 		['Servername', fields.host],
@@ -317,10 +346,10 @@ function renderGgsqlCode(fields: PostgresConnectionFields): positron.ConnectionC
 		['Database', fields.database],
 		['UID', fields.user],
 		['PWD', fields.password],
+		// sslmode is the one SSL keyword psqlODBC shares with libpq. The certificate paths
+		// (sslrootcert / sslcert / sslkey) are libpq-only and are deliberately not forwarded; a
+		// connection that depends on them is rejected above instead.
 		['sslmode', fields.sslmode],
-		['sslrootcert', fields.sslrootcert],
-		['sslcert', fields.sslcert],
-		['sslkey', fields.sslkey],
 	]);
 	return {
 		id: 'ggsql',
@@ -331,8 +360,9 @@ function renderGgsqlCode(fields: PostgresConnectionFields): positron.ConnectionC
 
 /**
  * Generates the connection code variants for the given language from normalized fields. Returns an
- * empty array when the fields could not be built (a required parameter was missing) or the language
- * is unsupported.
+ * empty array when the fields could not be built (a required parameter was missing), the language is
+ * unsupported, or -- for ggsql -- the connection cannot be expressed as an ODBC string. An empty
+ * result leaves the caller with no code to preview, which is the honest answer.
  */
 function generateConnectionCodeForFields(languageId: string, fields: PostgresConnectionFields | undefined): positron.ConnectionCodeVariant[] {
 	if (!fields) {
@@ -343,8 +373,10 @@ function generateConnectionCodeForFields(languageId: string, fields: PostgresCon
 			return [renderPsycopg2Code(fields), renderSqlAlchemyCode(fields)];
 		case 'r':
 			return [renderDbiCode(fields)];
-		case 'ggsql':
-			return [renderGgsqlCode(fields)];
+		case 'ggsql': {
+			const ggsqlVariant = renderGgsqlCode(fields);
+			return ggsqlVariant ? [ggsqlVariant] : [];
+		}
 		default:
 			return [];
 	}
