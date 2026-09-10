@@ -14,7 +14,7 @@ description: >
   "what interpreters are available", "switch to my R session", "my session is
   stuck", "is pandas installed?", "set up a Python environment", "run my
   shiny app", "what databases am I connected to", "what tables are in my
-  warehouse".
+  warehouse", "deploy my app to Connect".
 ---
 
 # Positron IDE commands
@@ -121,3 +121,10 @@ Viewer by default, or wherever the user's preview mode setting points.
 Read when the user asks about: the database or warehouse connections they have
 configured, which of them are connected, the tables and columns a live
 connection exposes, or writing a query against one of their connections.
+
+**Deploying to Connect** -- [references/publishing.md]({{skill_dir}}/references/publishing.md)
+Read when the user wants to deploy or publish a project to Posit Connect or
+Connect Cloud, asks what they can deploy, needs a Connect credential, or is
+asking why a deployment failed. Read it **before** deploying anything --
+deployment must go through the commands it documents, never through
+`rsconnect`, `quarto publish` or another CLI run in a terminal.
