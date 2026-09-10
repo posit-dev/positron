@@ -63,10 +63,13 @@ describe('ConnectDataConnectionWith', () => {
 		};
 	}
 
-	function stubDataConnectionsService(profile?: IDataConnectionProfile) {
+	function stubDataConnectionsService(profile?: IDataConnectionProfile, storedSecretIds: readonly string[] = []) {
 		const setPreferredCodeVariant = vi.fn();
 		ctx.instantiationService.stub(IPositronDataConnectionsService, stubInterface<IPositronDataConnectionsService>({
 			getProfile: () => profile,
+			// The dialog treats a connection as having secrets only when the profile actually has a
+			// value stored, not merely because the mechanism declares a secret parameter.
+			getProfileSecretIds: () => storedSecretIds,
 			setPreferredCodeVariant,
 		}));
 		return { setPreferredCodeVariant };

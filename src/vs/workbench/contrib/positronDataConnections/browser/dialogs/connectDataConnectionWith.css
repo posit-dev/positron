@@ -21,6 +21,67 @@
 		"variants       code";
 }
 
+/*
+ * The notice row is only in the template when a notice is actually rendered: an always-present
+ * empty track would still contribute a row gap and push the header down.
+ */
+.connect-data-connection-with.has-notice {
+	grid-template-rows: auto auto 1fr;
+	grid-template-areas:
+		"notice"
+		"code-header"
+		"code";
+}
+
+.connect-data-connection-with.has-notice.has-variants {
+	grid-template-rows: auto auto 1fr;
+	grid-template-areas:
+		"notice         notice"
+		"library-header code-header"
+		"variants       code";
+}
+
+/*
+ * Informational notice above the code (e.g. ggsql is not installed). Quiet on purpose: nothing here
+ * is broken, and the code below it is still worth copying, so this stays at the notice tier rather
+ * than borrowing warning or error color.
+ */
+.connect-data-connection-with .notice {
+	grid-area: notice;
+	display: flex;
+	gap: 6px;
+	padding: 6px 8px;
+	align-items: center;
+	border-radius: 4px;
+	background: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-positronModalDialog-border);
+}
+
+.connect-data-connection-with .notice .codicon {
+	flex-shrink: 0;
+	color: var(--vscode-notificationsInfoIcon-foreground);
+}
+
+.connect-data-connection-with .notice .notice-text {
+	flex: 1;
+}
+
+/*
+ * The install link. `.positron-button` already clears the border and background, but a <button>
+ * keeps the user agent's padding and font size, so those are matched to the notice text here.
+ */
+.connect-data-connection-with .notice .notice-link {
+	padding: 0;
+	flex-shrink: 0;
+	font-size: inherit;
+	color: var(--vscode-textLink-foreground);
+}
+
+.connect-data-connection-with .notice .notice-link:hover {
+	text-decoration: underline;
+	color: var(--vscode-textLink-activeForeground);
+}
+
 .connect-data-connection-with .library-header {
 	grid-area: library-header;
 	display: flex;
