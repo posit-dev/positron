@@ -5,6 +5,7 @@
 
 import { assert } from 'chai';
 import { getRuntimeSourceAndShortName } from '../../client/positron/runtime';
+import { getEnvironmentTypeRank } from '../../client/interpreter/configuration/environmentTypeComparer';
 import { EnvironmentType } from '../../client/pythonEnvironments/info';
 import { ModuleMetadata } from '../../client/pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 
@@ -31,8 +32,13 @@ suite('getRuntimeSourceAndShortName', () => {
 
         assert.deepEqual(result, {
             runtimeSource: EnvironmentType.Module,
+            runtimeSourceOrder: getEnvironmentTypeRank(EnvironmentType.Module),
             runtimeShortName: '3.12.8 (Module: Python-Leaves)',
         });
+
+        // The rank has to follow the module metadata too, or the picker would file the
+        // Module heading under Unknown's rank and list it last.
+        assert.isBelow(result.runtimeSourceOrder, getEnvironmentTypeRank(EnvironmentType.Unknown));
     });
 
     test('uses the parent project name for a .venv environment', () => {
@@ -46,6 +52,7 @@ suite('getRuntimeSourceAndShortName', () => {
 
         assert.deepEqual(result, {
             runtimeSource: EnvironmentType.Venv,
+            runtimeSourceOrder: getEnvironmentTypeRank(EnvironmentType.Venv),
             runtimeShortName: '3.10.17 (Venv: my-python-project)',
         });
     });
@@ -61,6 +68,7 @@ suite('getRuntimeSourceAndShortName', () => {
 
         assert.deepEqual(result, {
             runtimeSource: EnvironmentType.System,
+            runtimeSourceOrder: getEnvironmentTypeRank(EnvironmentType.System),
             runtimeShortName: '3.12.3 (System)',
         });
     });

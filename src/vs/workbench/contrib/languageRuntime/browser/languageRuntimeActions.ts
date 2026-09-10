@@ -646,6 +646,7 @@ export const selectNewLanguageRuntime = async (
 		interpreterGroups.forEach(group => {
 			// Group runtimes by environment type
 			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
+			const envTypeOrder = new Map<string, number>();
 			const allRuntimes = group.alternateRuntimes;
 
 			allRuntimes.forEach(runtime => {
@@ -655,12 +656,17 @@ export const selectNewLanguageRuntime = async (
 				}
 				runtimesByEnvType.get(envType)!.push(runtime);
 
+				const order = runtime.runtimeSourceOrder ?? Number.MAX_SAFE_INTEGER;
+				envTypeOrder.set(envType, Math.min(envTypeOrder.get(envType) ?? order, order));
 			});
 
-			// The environment type headings render in the order each type was first
-			// registered, so the extension that registers the runtimes owns their order
-			// (see sortInterpreters in positron-python's positron/discoverer.ts).
-			const envTypes = Array.from(runtimesByEnvType.keys());
+			// Order the headings by the rank the extension gave each source, so that
+			// e.g. system Pythons come last. Registration order is not usable here:
+			// runtimes are registered one at a time as discovery finds them, and the
+			// order varies with discovery timing and the warm-start cache. Sources the
+			// extension didn't rank keep their registration order, after the ranked ones.
+			const envTypes = Array.from(runtimesByEnvType.keys())
+				.sort((a, b) => envTypeOrder.get(a)! - envTypeOrder.get(b)!);
 
 			// Sort runtimes by version (decreasing), then alphabetically
 			envTypes.forEach(envType => {

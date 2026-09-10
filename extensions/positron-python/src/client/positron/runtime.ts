@@ -17,6 +17,7 @@ import { IApplicationEnvironment, IWorkspaceService } from '../common/applicatio
 import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION, PYTHON_LANGUAGE } from '../common/constants';
 import {
     EnvLocationHeuristic,
+    getEnvironmentTypeRank,
     getEnvLocationHeuristic,
     isVersionSupported,
 } from '../interpreter/configuration/environmentTypeComparer';
@@ -109,7 +110,7 @@ function isPythonRuntimeCacheable(interpreter: PythonEnvironment, workspaceFolde
  * @param envName The environment name reported by discovery, if any.
  * @param pythonVersion The formatted Python version (e.g. '3.10.17').
  * @param moduleMetadata Module metadata for this interpreter, if module-provided.
- * @returns The runtime source and the short display name.
+ * @returns The runtime source, its rank among sources, and the short display name.
  */
 export function getRuntimeSourceAndShortName(
     interpreterPath: string,
@@ -117,7 +118,7 @@ export function getRuntimeSourceAndShortName(
     envName: string | undefined,
     pythonVersion: string,
     moduleMetadata: ModuleMetadata | undefined,
-): { runtimeSource: EnvironmentType; runtimeShortName: string } {
+): { runtimeSource: EnvironmentType; runtimeSourceOrder: number; runtimeShortName: string } {
     // Get the environment name, using parent directory name for .venv/.conda
     // folders (like uv does). Module environments use their configured name.
     let resolvedEnvName = envName ?? '';
@@ -146,7 +147,7 @@ export function getRuntimeSourceAndShortName(
     }
     runtimeShortName += ')';
 
-    return { runtimeSource, runtimeShortName };
+    return { runtimeSource, runtimeSourceOrder: getEnvironmentTypeRank(runtimeSource), runtimeShortName };
 }
 
 export async function createPythonRuntimeMetadata(
@@ -227,7 +228,7 @@ export async function createPythonRuntimeMetadata(
     const moduleMetadata = moduleMetadataMap.get(interpreter.path);
 
     // Determine the display source (e.g. 'Venv', 'Module') and short name.
-    const { runtimeSource, runtimeShortName } = getRuntimeSourceAndShortName(
+    const { runtimeSource, runtimeSourceOrder, runtimeShortName } = getRuntimeSourceAndShortName(
         interpreter.path,
         interpreter.envType,
         interpreter.envName,
@@ -286,6 +287,7 @@ export async function createPythonRuntimeMetadata(
         runtimePath,
         runtimeVersion: applicationEnv.packageJson.version,
         runtimeSource,
+        runtimeSourceOrder,
         languageId: PYTHON_LANGUAGE,
         languageName: 'Python',
         languageVersion: pythonVersion,

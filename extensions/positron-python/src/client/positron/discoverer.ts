@@ -150,9 +150,9 @@ function filterInterpreters(interpreters: PythonEnvironment[]): PythonEnvironmen
  * Returns a sorted copy of the array of Python environments: the preferred interpreter first,
  * then by environment type, then by descending Python version.
  *
- * This order is the order the runtimes are registered in, which is the order Positron shows the
- * environment type headings in the interpreter picker. Ranking by environment type keeps a newer
- * system Python from pulling the System heading above uv, venv and conda.
+ * This is the order the runtimes are yielded and registered in. It does not decide the order of
+ * the environment type headings in the picker -- runtimes are also registered one at a time as
+ * discovery finds them, so Positron sorts the headings by `runtimeSourceOrder` instead.
  */
 export function sortInterpreters(
     interpreters: PythonEnvironment[],

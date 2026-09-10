@@ -27,9 +27,7 @@ function describeOrder(interpreters: PythonEnvironment[]): string[] {
 
 suite('sortInterpreters', () => {
     test('ranks environment types ahead of Python version, with system Pythons last', () => {
-        // The yield order here becomes the registration order in Positron, which in turn
-        // decides the order of the source separators in the interpreter picker. A newer
-        // system Python must not drag the System group above uv or venv.
+        // A newer system Python must not outrank a uv, venv or conda environment.
         const interpreters = [
             makeInterpreter(EnvironmentType.System, '3.13.1'),
             makeInterpreter(EnvironmentType.Conda, '3.11.9'),
@@ -79,7 +77,7 @@ suite('sortInterpreters', () => {
     });
 
     test('keeps the preferred interpreter first regardless of its environment type', () => {
-        // Positron uses the first registered runtime for a language as its last-resort
+        // Positron falls back to the first registered runtime for a language as its
         // preferred runtime, so the recommended interpreter has to stay at the front.
         const preferred = makeInterpreter(EnvironmentType.System, '3.9.18');
         const interpreters = [makeInterpreter(EnvironmentType.Uv, '3.13.1'), preferred];

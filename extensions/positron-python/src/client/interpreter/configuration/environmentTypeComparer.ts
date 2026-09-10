@@ -394,7 +394,6 @@ function getPrioritizedEnvironmentType(): EnvironmentType[] {
         EnvironmentType.Unknown,
     ];
 }
-
 // --- Start Positron ---
 const ENV_TYPE_RANKS = new Map(getPrioritizedEnvironmentType().map((envType, index) => [envType, index]));
 
