@@ -385,14 +385,34 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('lists unranked environment types after ranked ones, in registration order', async () => {
+			// Registered Other before Mystery on purpose: that order is the reverse of
+			// alphabetical, so the assertion can only pass if the unranked sources kept
+			// their registration order rather than being sorted by label.
 			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeSource: 'Pyenv' }));
-			await registerRuntime(makeRuntime({ runtimeId: 'py-mystery', runtimeSource: 'Mystery' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-other', runtimeSource: 'Other' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-mystery', runtimeSource: 'Mystery' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeSourceOrder: 20 }));
 
 			const promise = runPicker();
 			await waitUntilOpened();
-			expect(separatorLabels()).toEqual(['Suggested', 'Conda', 'Mystery', 'Other']);
+			expect(separatorLabels()).toEqual(['Suggested', 'Conda', 'Other', 'Mystery']);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('ranks a source by its best-ranked runtime when only some carry a rank', async () => {
+			// A discovery cache written before runtimeSourceOrder existed yields runtimes
+			// with no rank alongside freshly discovered ones that have it, in no
+			// guaranteed order. The source must follow the rank it does have rather than
+			// whichever runtime happened to be registered last.
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeSource: 'Pyenv' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-sys-fresh', runtimeSource: 'System', runtimeSourceOrder: 30 }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-sys-cached', runtimeSource: 'System' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-global', runtimeSource: 'Global', runtimeSourceOrder: 40 }));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(separatorLabels()).toEqual(['Suggested', 'System', 'Global']);
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});
