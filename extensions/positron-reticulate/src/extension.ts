@@ -66,7 +66,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 
 		switch (option) {
 			case 'auto':
-				const val = this._context.workspaceState.get(autoEnabledStorageKey, false);
+				const val = CONTEXT.workspaceState.get(autoEnabledStorageKey, false);
 				return val;
 			case 'never':
 				return false;
@@ -220,12 +220,12 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 
 	setSessions(hostRSessionId: string, reticulateId: string, session: positron.LanguageRuntimeSession) {
 		let sessionsMap: ReticulateSessionInfo[] =
-			this._context.workspaceState.get('reticulate-sessions-map', []);
+			CONTEXT.workspaceState.get('reticulate-sessions-map', []);
 
 		session.onDidEndSession(() => {
 			// Remove the session from the map when it ends.
 			sessionsMap = sessionsMap.filter((pair) => pair.reticulateSessionId !== session.metadata.sessionId);
-			this._context.workspaceState.update('reticulate-sessions-map', sessionsMap);
+			CONTEXT.workspaceState.update('reticulate-sessions-map', sessionsMap);
 			this._sessions.delete(session.metadata.sessionId);
 		});
 
@@ -241,11 +241,11 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		}
 
 		this._sessions.set(session.metadata.sessionId, session);
-		this._context.workspaceState.update('reticulate-sessions-map', sessionsMap);
+		CONTEXT.workspaceState.update('reticulate-sessions-map', sessionsMap);
 	}
 
 	getSessions(): Array<ReticulateSessionInfo> {
-		const sessionsMap = this._context.workspaceState.get('reticulate-sessions-map', []);
+		const sessionsMap = CONTEXT.workspaceState.get('reticulate-sessions-map', []);
 		return sessionsMap as Array<ReticulateSessionInfo>;
 	}
 
