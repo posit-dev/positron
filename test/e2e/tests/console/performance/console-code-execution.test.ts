@@ -6,7 +6,10 @@
 import { expect, test, tags } from '../../_test.setup';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// Disable snapshots because document-wide capture includes a previous session's
+	// console at `z-index: -1` and attributes its output to this sample.
+	snapshots: false
 });
 
 const LANGUAGES = [
@@ -66,21 +69,23 @@ test.describe('Console Performance: Code Execution', {
 					const { console: positronConsole } = app.workbench;
 					await sessions.start(runtime, { reuse: true });
 
-					// Pre-timer setup: ensure console is focused and idle, then stage the code.
-					// pasteCodeToConsole dispatches a ClipboardEvent directly to the input
-					// element so it doesn't need keyboard focus.
+					// Pre-timer setup: Clear output so the wait can match only this
+					// submission. `waitForReady()` establishes focus outside the timer,
+					// and `pasteCodeToConsole()` preserves it.
+					await positronConsole.clearButton.click();
 					await positronConsole.waitForReady(prompt);
 					await positronConsole.pasteCodeToConsole(code);
 					await page.waitForTimeout(200);
 
 					// Metric: Enter keypress → output appears → prompt returns.
-					// waitForConsoleContents guards against Enter missing the console —
-					// if focus was lost, no output appears and the test fails rather than
-					// recording a false near-0ms result from an already-idle prompt.
+					// Keep focus restoration outside the measurement. `waitForReady()`
+					// sends `Cmd+K F` and those keypresses slow as the console DOM grows.
+					// `waitForConsoleContents()` fails if Enter misses the console,
+					// preventing an idle prompt from producing a near-zero duration.
 					const { duration_ms } = await metric.console.executeCode(async () => {
 						await page.keyboard.press('Enter');
 						await positronConsole.waitForConsoleContents(scenario.output, { timeout: 60000 });
-						await positronConsole.waitForReady(prompt, 60000);
+						await positronConsole.expectPromptReady(prompt, 60000);
 					}, target, {
 						language: lang,
 						description: `${lang}: ${scenario.name}`,
