@@ -97,11 +97,17 @@ The launcher:
 - converts the profile paths for the native binary on Windows;
 - waits for CDP and verifies that the app remains alive before returning.
 
-### Pass the workspace yourself
+### Arguments to pass yourself
+
+Everything before the `--` configures the launcher; everything after it is
+handed to the app. Putting a launcher argument after the `--` does not warn:
+the app ignores it and the launcher uses its default instead. Misplacing
+`--source-user-data-dir` this way copies the real `~/.positron-dev` profile.
 
 | Argument | Purpose |
 |---|---|
 | `--folder-uri file:///private/tmp/myworkspace` | Open a workspace reliably. Do not pass a bare positional folder: Positron may discard it. On macOS, use the canonical `/private/tmp` path rather than `/tmp`. On Windows the URI needs a drive letter, so build it with `cygpath -m`: `--folder-uri "file:///$(cygpath -m /tmp/myworkspace)"`. |
+| `--log debug` | Recommended. At the default level the `[Runtime startup] Phase changed to ...` lines are absent, so runtime startup, discovery, and cache replay cannot be told apart from the log. |
 
 ### Arguments the launcher supplies
 
@@ -130,10 +136,12 @@ echo '{"positron.notebook.enabled": true}' \
 	> /tmp/positron-seed/User/settings.json
 ```
 
-Then launch with:
+Then launch with it before the `--`, since it is a launcher argument:
 
 ```bash
---source-user-data-dir /tmp/positron-seed
+.claude/skills/drive-positron/scripts/launch.sh \
+	--source-user-data-dir /tmp/positron-seed -- \
+	--folder-uri file:///private/tmp/myworkspace
 ```
 
 ## Attach Playwright
