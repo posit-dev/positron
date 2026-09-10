@@ -657,6 +657,9 @@ export const selectNewLanguageRuntime = async (
 
 			});
 
+			// The environment type headings render in the order each type was first
+			// registered, so the extension that registers the runtimes owns their order
+			// (see sortInterpreters in positron-python's positron/discoverer.ts).
 			const envTypes = Array.from(runtimesByEnvType.keys());
 
 			// Sort runtimes by version (decreasing), then alphabetically

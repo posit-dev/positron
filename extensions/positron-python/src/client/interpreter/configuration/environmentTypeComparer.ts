@@ -355,8 +355,11 @@ function compareEnvironmentType(a: PythonEnvironment, b: PythonEnvironment): num
 
         return 0;
     }
-    const envTypeByPriority = getPrioritizedEnvironmentType();
-    return Math.sign(envTypeByPriority.indexOf(a.envType) - envTypeByPriority.indexOf(b.envType));
+    // --- Start Positron ---
+    // const envTypeByPriority = getPrioritizedEnvironmentType();
+    // return Math.sign(envTypeByPriority.indexOf(a.envType) - envTypeByPriority.indexOf(b.envType));
+    return Math.sign(getEnvironmentTypeRank(a.envType) - getEnvironmentTypeRank(b.envType));
+    // --- End Positron ---
 }
 
 function getPrioritizedEnvironmentType(): EnvironmentType[] {
@@ -367,6 +370,10 @@ function getPrioritizedEnvironmentType(): EnvironmentType[] {
         // --- End Positron ---
         EnvironmentType.Poetry,
         EnvironmentType.Pipenv,
+        // --- Start Positron ---
+        // Pixi was missing from this list, so it landed at index -1 and outranked everything.
+        EnvironmentType.Pixi,
+        // --- End Positron ---
         EnvironmentType.VirtualEnvWrapper,
         EnvironmentType.Hatch,
         EnvironmentType.Venv,
@@ -374,16 +381,31 @@ function getPrioritizedEnvironmentType(): EnvironmentType[] {
         EnvironmentType.ActiveState,
         EnvironmentType.Conda,
         EnvironmentType.Pyenv,
+        // --- Start Positron ---
+        // Module and Custom interpreters were deliberately made available, by a site admin
+        // through environment modules or by the user through python.interpreters.include,
+        // so they rank above whatever else happens to be installed on the machine.
+        EnvironmentType.Module,
+        EnvironmentType.Custom,
+        // --- End Positron ---
         EnvironmentType.MicrosoftStore,
         EnvironmentType.Global,
         EnvironmentType.System,
-        // --- Start Positron ---
-        EnvironmentType.Custom,
-        // --- End Positron ---
         EnvironmentType.Unknown,
     ];
 }
+
 // --- Start Positron ---
+const ENV_TYPE_RANKS = new Map(getPrioritizedEnvironmentType().map((envType, index) => [envType, index]));
+
+/**
+ * Rank an environment type by assumed usefulness, lowest first. Types missing from the priority
+ * list rank last rather than at index -1.
+ */
+export function getEnvironmentTypeRank(envType: EnvironmentType): number {
+    return ENV_TYPE_RANKS.get(envType) ?? Number.MAX_SAFE_INTEGER;
+}
+
 /**
  * Return true if the version name is not of the form x.y.z. This typically means it's a virtual environment name.
  */
