@@ -113,13 +113,16 @@ export class Toasts {
 	}
 
 	async closeAll() {
-		const count = await this.toastNotification.count();
-		for (let i = 0; i < count; i++) {
+		// Always close index 0: closing a toast shifts the remaining ones up, so
+		// re-checking count() each pass (rather than iterating a snapshot of it)
+		// avoids skipping over the toast that just moved into a lower index.
+		while (await this.toastNotification.count() > 0) {
 			try {
-				await this.toastNotification.nth(i).hover({ timeout: 5000 });
-				await this.closeButton.nth(i).click({ timeout: 5000 });
+				await this.toastNotification.first().hover({ timeout: 5000 });
+				await this.closeButton.first().click({ timeout: 5000 });
 			} catch {
-				this.code.logger.log(`Toast ${i} already closed`);
+				this.code.logger.log('Toast already closed');
+				break;
 			}
 		}
 	}
