@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 
 import { generateSuggestion } from '../suggestions.js';
+import { CompletionTriggerKind } from '../types.js';
 import * as clientModule from '../client.js';
 import * as modelModule from '../model.js';
 import * as variablesModule from '../variables.js';
@@ -45,7 +46,7 @@ suite('suggestions / generateSuggestion', () => {
 			correlationId: 'corr-1',
 		}));
 
-		const item = await generateSuggestion(doc, position);
+		const item = await generateSuggestion(doc, position, CompletionTriggerKind.TriggerCharacter);
 
 		assert.ok(item, 'expected a suggestion item');
 		assert.strictEqual(item!.insertText, '42');
@@ -65,7 +66,7 @@ suite('suggestions / generateSuggestion', () => {
 			correlationId: 'corr-2',
 		}));
 
-		const item = await generateSuggestion(doc, position);
+		const item = await generateSuggestion(doc, position, CompletionTriggerKind.TriggerCharacter);
 
 		assert.ok(item, 'expected a suggestion item');
 		assert.strictEqual(item!.insertText, '    return a + b');
@@ -85,7 +86,7 @@ suite('suggestions / generateSuggestion', () => {
 			correlationId: 'corr-3',
 		}));
 
-		const item = await generateSuggestion(doc, position);
+		const item = await generateSuggestion(doc, position, CompletionTriggerKind.TriggerCharacter);
 
 		assert.ok(item);
 		assert.strictEqual(item!.insertText, 'foo');
@@ -101,7 +102,7 @@ suite('suggestions / generateSuggestion', () => {
 			correlationId: 'corr-4',
 		}));
 
-		const item = await generateSuggestion(doc, position);
+		const item = await generateSuggestion(doc, position, CompletionTriggerKind.TriggerCharacter);
 
 		assert.strictEqual(item, null);
 		assert.ok(sendFeedback.calledOnceWithExactly('corr-4', 'filtered'));
@@ -115,22 +116,36 @@ suite('suggestions / generateSuggestion', () => {
 			range: { start: { line: 0, character: 4 }, end: { line: 0, character: 4 } },
 		}));
 
-		await generateSuggestion(doc, position);
+		await generateSuggestion(doc, position, CompletionTriggerKind.TriggerCharacter);
 
 		assert.ok(fake.sendRequest.calledOnce);
 		const params = fake.sendRequest.firstCall.args[1];
 		assert.strictEqual(params.textDocument.uri, doc.uri.toString());
 		assert.deepStrictEqual(params.position, { line: 0, character: 4 });
+		assert.strictEqual(params.context.triggerKind, CompletionTriggerKind.TriggerCharacter);
 		assert.ok(params.selection.excerpt.includes('<|user_cursor_is_here|>'));
 		assert.ok(params.selection.excerpt.includes('<|editable_region_start|>'));
 		assert.ok(params.selection.excerpt.includes('<|editable_region_end|>'));
+	});
+
+	test('forwards an explicit invocation to the language server', async () => {
+		const doc = await openDoc('x = ');
+		fake.sendRequest.resolves(makeInlineEditResult({
+			text: '42',
+			range: { start: { line: 0, character: 4 }, end: { line: 0, character: 4 } },
+		}));
+
+		await generateSuggestion(doc, new vscode.Position(0, 4), CompletionTriggerKind.Invoked);
+
+		const params = fake.sendRequest.firstCall.args[1];
+		assert.strictEqual(params.context.triggerKind, CompletionTriggerKind.Invoked);
 	});
 
 	test('returns null when no language client is running', async () => {
 		getClientManager.returns(undefined);
 		const doc = await openDoc('x = ');
 
-		const item = await generateSuggestion(doc, new vscode.Position(0, 4));
+		const item = await generateSuggestion(doc, new vscode.Position(0, 4), CompletionTriggerKind.TriggerCharacter);
 
 		assert.strictEqual(item, null);
 		assert.ok(fake.sendRequest.notCalled);
@@ -140,7 +155,7 @@ suite('suggestions / generateSuggestion', () => {
 		getLLMConfiguration.resolves(null);
 		const doc = await openDoc('x = ');
 
-		const item = await generateSuggestion(doc, new vscode.Position(0, 4));
+		const item = await generateSuggestion(doc, new vscode.Position(0, 4), CompletionTriggerKind.TriggerCharacter);
 
 		assert.strictEqual(item, null);
 		assert.ok(fake.sendRequest.notCalled);

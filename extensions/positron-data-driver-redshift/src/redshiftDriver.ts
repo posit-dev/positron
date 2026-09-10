@@ -16,6 +16,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { RedshiftConnection } from './redshiftConnection.js';
 import { RedshiftDataExplorerRpcHandler } from './redshiftDataExplorerRpcHandler.js';
+import { RedshiftIamConfig } from './redshiftIamCredentials.js';
 
 /** The Redshift default port. */
 const DEFAULT_PORT = 5439;
@@ -64,6 +65,70 @@ export function parseRedshiftEndpoint(input: string): { host: string; port?: num
 }
 
 /**
+ * Which flavour of Redshift an endpoint points at. The two mint temporary credentials through
+ * different APIs -- `redshift-serverless:GetCredentials` keyed on a workgroup, versus
+ * `redshift:GetClusterCredentials` keyed on a cluster identifier -- so IAM authorization has to know
+ * which one it is talking to before it can ask for anything.
+ */
+export type RedshiftEndpointKind = 'serverless' | 'provisioned' | 'unknown';
+
+/**
+ * The IAM-relevant identifiers carried by a Redshift endpoint hostname. AWS encodes the workgroup
+ * (or cluster) and its region into the endpoint itself:
+ *
+ *     <workgroup>.<account>.<region>.redshift-serverless.amazonaws.com
+ *     <cluster>.<id>.<region>.redshift.amazonaws.com
+ *
+ * so pasting the console endpoint already supplies everything the credential call needs, and the
+ * user is never asked to restate which flavour of Redshift they are on. Both fields are left
+ * undefined for a host that is not a recognizable AWS endpoint -- an SSH tunnel, a proxy, a private
+ * DNS alias -- so the caller can fall back to asking rather than guessing wrong.
+ */
+export interface RedshiftEndpointDetails {
+	kind: RedshiftEndpointKind;
+	/** The workgroup name (serverless) or cluster identifier (provisioned). */
+	name?: string;
+	/**
+	 * The region hosting the workgroup or cluster. Note this is not necessarily the region the
+	 * caller authenticates against: with IAM Identity Center, the SSO region is configured in the
+	 * AWS profile and is unrelated to where the workgroup lives.
+	 */
+	region?: string;
+}
+
+/**
+ * Extracts the flavour, name, and region from a Redshift endpoint hostname. Takes the bare host, so
+ * run the input through parseRedshiftEndpoint() first if it may carry a port or database.
+ */
+export function describeRedshiftEndpoint(host: string): RedshiftEndpointDetails {
+	const labels = host.trim().toLowerCase().split('.');
+
+	// Anchor on the AWS domain rather than searching for the service label. Two reasons: a private
+	// host that merely contains a `redshift` label (warehouse.corp.redshift.example.com) must not
+	// be mistaken for an endpoint and have `corp` sent to AWS as a region; and a workgroup whose
+	// own name happens to be `redshift` must not shadow the real service label. Matching the
+	// `amazonaws` label instead of a full suffix keeps the regional variants (amazonaws.com.cn,
+	// GovCloud) working without enumerating them.
+	const suffix = labels.slice(-3).join('.');
+	if (suffix !== 'amazonaws.com.cn' && labels.slice(-2).join('.') !== 'amazonaws.com') {
+		return { kind: 'unknown' };
+	}
+
+	// The service label always sits immediately before `amazonaws`, the region before that, and the
+	// workgroup or cluster name is the first label.
+	const serviceIndex = labels.lastIndexOf('amazonaws') - 1;
+	const service = labels[serviceIndex];
+	if (serviceIndex < 2 || (service !== 'redshift-serverless' && service !== 'redshift')) {
+		return { kind: 'unknown' };
+	}
+	return {
+		kind: service === 'redshift-serverless' ? 'serverless' : 'provisioned',
+		name: labels[0] || undefined,
+		region: labels[serviceIndex - 1] || undefined,
+	};
+}
+
+/**
  * Escapes a value for embedding in a double-quoted Python or R string literal. Both languages treat
  * backslash as an escape character in double-quoted strings, so values containing backslashes or
  * quotes must be escaped.
@@ -73,10 +138,116 @@ function escapeDoubleQuoted(value: string): string {
 }
 
 /**
+ * The characters that oblige an ODBC-style connection string value to be brace-wrapped, from the
+ * ODBC specification. A password is free to contain any of them.
+ */
+const ODBC_VALUE_NEEDS_BRACES = /[[\]{}(),;?*=!@]/;
+
+/**
+ * The attribute names always written brace-wrapped, whatever their value. Only the driver name: it is
+ * quoted this way universally, and some drivers parse an unbraced name containing a space wrongly --
+ * which ASSUMED_ODBC_DRIVER_NAME is, parentheses included.
+ */
+const ODBC_ALWAYS_BRACED_KEYS = new Set(['driver']);
+
+/**
+ * Escapes one ODBC-style connection string value, brace-wrapping it when it contains a character
+ * from ODBC_VALUE_NEEDS_BRACES, when it has leading or trailing whitespace (which the driver manager
+ * would otherwise trim -- silently changing a password), or when the key is always braced. A closing
+ * brace inside a brace-wrapped value is doubled, which is how the ODBC specification says to escape
+ * it.
+ *
+ * Kept in step with escapeValue in positron-data-driver-odbc/src/odbcConnectionString.ts, which is
+ * the tested copy; ggsql hands everything after `odbc://` to the driver manager verbatim, so these
+ * rules have to match.
+ * @param value The raw value, unbraced.
+ * @param forceBraces Whether to wrap even when the value contains nothing that requires it.
+ */
+function escapeOdbcValue(value: string, forceBraces: boolean): string {
+	const needsBraces = forceBraces || ODBC_VALUE_NEEDS_BRACES.test(value) || value !== value.trim();
+	if (!needsBraces) {
+		return value;
+	}
+	return `{${value.replace(/\}/g, '}}')}}`;
+}
+
+/**
+ * Builds an ODBC-style `KEY=VALUE;KEY=VALUE` connection string from attributes, skipping any whose
+ * value is undefined or empty.
+ */
+function buildOdbcConnectionString(attributes: ReadonlyArray<readonly [string, string | number | undefined]>): string {
+	return attributes
+		.filter((entry): entry is [string, string | number] => {
+			const value = entry[1];
+			return value !== undefined && String(value).length > 0;
+		})
+		.map(([key, value]) => `${key}=${escapeOdbcValue(String(value), ODBC_ALWAYS_BRACED_KEYS.has(key.toLowerCase()))}`)
+		.join(';');
+}
+
+/**
+ * The Amazon Redshift ODBC driver name assumed for the ggsql connection code, since this driver
+ * connects natively via `pg` and has no installed-ODBC-driver discovery (unlike
+ * positron-data-driver-odbc, which reads the real installed driver name from odbcinst). This is the
+ * name used by Amazon's official installers; a user whose driver is registered under a different
+ * name will need to edit this before the code will connect.
+ */
+const ASSUMED_ODBC_DRIVER_NAME = 'Amazon Redshift ODBC Driver (x64)';
+
+/**
  * The id of the user/password connection mechanism. Used both in the driver's mechanism list and in
  * the connect/generate switches, so they stay in sync.
  */
 const PASSWORD_MECHANISM_ID = 'password';
+
+/**
+ * The id of the AWS IAM connection mechanism. One mechanism covers both serverless workgroups and
+ * provisioned clusters: the endpoint says which is which, so there is nothing for the user to pick
+ * between, and two near-identical entries in the mechanism list would only invite picking wrong.
+ */
+const IAM_MECHANISM_ID = 'iam';
+
+/**
+ * Resolves the AWS target from the connection parameters, or explains why it could not. IAM needs
+ * the flavour, name, and region, all of which are encoded in a standard Redshift endpoint; a host
+ * that is not one (an SSH tunnel, a proxy, a private DNS alias) cannot be resolved and is reported
+ * rather than guessed at.
+ */
+export function iamTargetFromParams(params: positron.DataConnectionParameterValues): { host: string; port: number; database: string; iam: RedshiftIamConfig } {
+	const hostInput = params.host;
+	if (!isNonEmptyString(hostInput)) {
+		throw new Error(vscode.l10n.t('Host is required'));
+	}
+	const databaseInput = params.database;
+	if (!isNonEmptyString(databaseInput)) {
+		throw new Error(vscode.l10n.t('Database is required'));
+	}
+	const endpoint = parseRedshiftEndpoint(hostInput);
+	const details = describeRedshiftEndpoint(endpoint.host);
+	if (details.kind === 'unknown' || !details.name || !details.region) {
+		throw new Error(vscode.l10n.t("'{0}' is not a recognized Redshift endpoint, so the workgroup or cluster to request credentials for cannot be determined. Paste the endpoint shown in the AWS console, or use the User & Password mechanism.", endpoint.host));
+	}
+	const database = endpoint.database ?? databaseInput;
+	// Provisioned clusters mint credentials for a named database user; serverless derives the user
+	// from the IAM identity, so the field is ignored there.
+	const dbUser = isNonEmptyString(params.dbUser) ? params.dbUser : undefined;
+	if (details.kind === 'provisioned' && !dbUser) {
+		throw new Error(vscode.l10n.t("'{0}' is a provisioned cluster, which requires a database user.", details.name));
+	}
+	return {
+		host: endpoint.host,
+		port: endpoint.port ?? (typeof params.port === 'number' ? params.port : DEFAULT_PORT),
+		database,
+		iam: {
+			kind: details.kind,
+			name: details.name,
+			region: details.region,
+			database,
+			profile: isNonEmptyString(params.profile) ? params.profile : undefined,
+			dbUser,
+		},
+	};
+}
 
 /**
  * Normalized Redshift connection fields, independent of any client library. The renderers map these
@@ -152,6 +323,96 @@ function passwordConnectionFields(params: positron.DataConnectionParameterValues
 }
 
 /**
+ * Renders redshift_connector code for IAM. The library mints the credentials itself given `iam=True`
+ * plus the target, so no user or password appears in the generated code -- which is the point: the
+ * snippet stays valid after the temporary credentials behind the live connection have expired.
+ */
+export function renderIamRedshiftConnectorCode(host: string, port: number, iam: RedshiftIamConfig, ssl?: boolean): positron.ConnectionCodeVariant {
+	const args: string[] = ['iam=True'];
+	if (iam.kind === 'serverless') {
+		args.push('is_serverless=True');
+		args.push(`serverless_work_group="${escapeDoubleQuoted(iam.name)}"`);
+	} else {
+		args.push(`cluster_identifier="${escapeDoubleQuoted(iam.name)}"`);
+		if (iam.dbUser) { args.push(`db_user="${escapeDoubleQuoted(iam.dbUser)}"`); }
+	}
+	args.push(`region="${escapeDoubleQuoted(iam.region)}"`);
+	args.push(`host="${escapeDoubleQuoted(host)}"`);
+	args.push(`port=${port}`);
+	args.push(`database="${escapeDoubleQuoted(iam.database)}"`);
+	if (iam.profile) { args.push(`profile="${escapeDoubleQuoted(iam.profile)}"`); }
+	if (ssl === false) { args.push(`ssl=False`); }
+	return {
+		id: 'redshift_connector',
+		label: 'redshift_connector',
+		code: `import redshift_connector\n\nconn = redshift_connector.connect(\n${args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
+	};
+}
+
+/**
+ * Renders DBI/RPostgres code for IAM. RPostgres has no IAM support of its own -- it only takes a
+ * password -- so the snippet mints credentials with paws first and feeds the returned user and
+ * password into the ordinary connection. Note the user comes from the response rather than being
+ * chosen, exactly as it does for the live connection.
+ */
+export function renderIamDbiCode(host: string, port: number, iam: RedshiftIamConfig, ssl?: boolean): positron.ConnectionCodeVariant {
+	const profileLine = iam.profile
+		? `Sys.setenv(AWS_PROFILE = "${escapeDoubleQuoted(iam.profile)}")\n\n`
+		: '';
+	const credentials = iam.kind === 'serverless'
+		? `creds <- paws::redshiftserverless(\n\tconfig = list(region = "${escapeDoubleQuoted(iam.region)}")\n)$get_credentials(\n\tworkgroupName = "${escapeDoubleQuoted(iam.name)}",\n\tdbName = "${escapeDoubleQuoted(iam.database)}"\n)\n`
+		: `creds <- paws::redshift(\n\tconfig = list(region = "${escapeDoubleQuoted(iam.region)}")\n)$get_cluster_credentials(\n\tClusterIdentifier = "${escapeDoubleQuoted(iam.name)}",\n\tDbUser = "${escapeDoubleQuoted(iam.dbUser ?? '')}",\n\tDbName = "${escapeDoubleQuoted(iam.database)}"\n)\n`;
+	const user = iam.kind === 'serverless' ? 'creds$dbUser' : 'creds$DbUser';
+	const password = iam.kind === 'serverless' ? 'creds$dbPassword' : 'creds$DbPassword';
+	const args: string[] = [
+		'RPostgres::Postgres()',
+		`host = "${escapeDoubleQuoted(host)}"`,
+		`port = ${port}`,
+		`dbname = "${escapeDoubleQuoted(iam.database)}"`,
+		`user = ${user}`,
+		`password = ${password}`,
+	];
+	if (ssl !== false) { args.push(`sslmode = "require"`); }
+	return {
+		id: 'dbi',
+		label: 'DBI',
+		// R does not allow a trailing comma, so join the arguments with commas.
+		code: `library(paws)\nlibrary(DBI)\n\n${profileLine}${credentials}\ncon <- dbConnect(\n${args.map(arg => `\t${arg}`).join(',\n')}\n)\n`,
+	};
+}
+
+/**
+ * Renders a ggsql `@connect` directive as an ODBC connection string. ggsql has no native Redshift
+ * (or Postgres-family) reader yet -- only `duckdb://`, `sqlite://`, and `odbc://` are implemented;
+ * see src/reader/connection.rs in the ggsql repository -- so this goes through its ODBC reader
+ * instead, the same way positron-data-driver-postgresql's ggsql code does. This driver has no
+ * installed-ODBC-driver discovery, so the driver name is a guess (see ASSUMED_ODBC_DRIVER_NAME)
+ * rather than a name known to be installed. Replace this with a native scheme once ggsql implements
+ * one.
+ */
+function renderGgsqlCode(fields: RedshiftConnectionFields): positron.ConnectionCodeVariant {
+	const dsn = buildOdbcConnectionString([
+		['Driver', ASSUMED_ODBC_DRIVER_NAME],
+		['Server', fields.host],
+		['Port', fields.port],
+		['Database', fields.database],
+		['UID', fields.user],
+		['PWD', fields.password],
+		// SSLMode, not the older SSL=0/1 boolean: the current Amazon Redshift ODBC driver documents
+		// SSLMode and would ignore an SSL keyword it does not recognize, silently encrypting a
+		// connection the user asked to leave unencrypted. Omitted entirely when SSL is on, so the
+		// driver's own default (verify-ca) applies rather than this code pinning a verification level
+		// the Python and R variants do not.
+		['SSLMode', fields.ssl === false ? 'disable' : undefined],
+	]);
+	return {
+		id: 'ggsql',
+		label: 'ggsql',
+		code: `-- @connect: odbc://${dsn}`,
+	};
+}
+
+/**
  * Generates the connection code variants for the given language from normalized fields. Returns an
  * empty array when the fields could not be built (a required parameter was missing) or the language
  * is unsupported.
@@ -165,6 +426,8 @@ function generateConnectionCodeForFields(languageId: string, fields: RedshiftCon
 			return [renderRedshiftConnectorCode(fields)];
 		case 'r':
 			return [renderDbiCode(fields)];
+		case 'ggsql':
+			return [renderGgsqlCode(fields)];
 		default:
 			return [];
 	}
@@ -236,14 +499,67 @@ export function createRedshiftDriver(
 		],
 	};
 
+	// AWS IAM mechanism. Deliberately shorter than the password mechanism: the workgroup or cluster
+	// name and its region are read out of the endpoint, and the database user is returned by AWS
+	// rather than chosen, so the only things left to ask for are where to connect and which AWS
+	// profile to authenticate with.
+	const iamMechanism: positron.DataConnectionMechanism = {
+		id: IAM_MECHANISM_ID,
+		label: vscode.l10n.t('AWS IAM'),
+		description: vscode.l10n.t('Connect using temporary credentials from your AWS identity. No database password is needed.'),
+		parameters: [
+			{
+				id: 'host',
+				label: vscode.l10n.t('Host'),
+				description: vscode.l10n.t('The cluster or workgroup endpoint, as shown in the AWS console. The workgroup or cluster name and its region are read from it.'),
+				type: positron.DataConnectionParameterType.String,
+				required: true,
+			},
+			{
+				id: 'port',
+				label: vscode.l10n.t('Port'),
+				type: positron.DataConnectionParameterType.Number,
+				required: true,
+				defaultValue: DEFAULT_PORT,
+			},
+			{
+				id: 'database',
+				label: vscode.l10n.t('Database'),
+				type: positron.DataConnectionParameterType.String,
+				required: true,
+				defaultValue: 'dev',
+			},
+			{
+				id: 'profile',
+				label: vscode.l10n.t('AWS Profile'),
+				description: vscode.l10n.t('The profile to authenticate with. Leave empty to use the default AWS credential chain.'),
+				type: positron.DataConnectionParameterType.String,
+			},
+			{
+				id: 'dbUser',
+				label: vscode.l10n.t('Database User'),
+				description: vscode.l10n.t('Only for provisioned clusters, which mint credentials for a named user. Serverless workgroups derive the user from your AWS identity, so leave this empty.'),
+				type: positron.DataConnectionParameterType.String,
+			},
+			{
+				id: 'ssl',
+				label: vscode.l10n.t('Use SSL'),
+				type: positron.DataConnectionParameterType.Boolean,
+				// The temporary credential travels as the connection password, so encryption is not
+				// optional in practice.
+				defaultValue: true,
+			},
+		],
+	};
+
 	// Return the driver.
 	return {
 		id: 'positron-data-driver-redshift',
 		name: 'Redshift',
 		description: vscode.l10n.t('Connect to a Redshift cluster or workgroup'),
 		iconSvg,
-		supportedLanguageIds: ['python', 'r'],
-		mechanisms: [passwordMechanism],
+		supportedLanguageIds: ['python', 'r', 'ggsql'],
+		mechanisms: [passwordMechanism, iamMechanism],
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			switch (mechanismId) {
 				case PASSWORD_MECHANISM_ID: {
@@ -283,6 +599,22 @@ export function createRedshiftDriver(
 					// Return the connection.
 					return connection;
 				}
+				case IAM_MECHANISM_ID: {
+					// The endpoint identifies the workgroup or cluster; AWS supplies the user and
+					// password, minted fresh on each connect by the connection's credential provider.
+					const target = iamTargetFromParams(params);
+					const connection = new RedshiftConnection({
+						kind: 'iam',
+						host: target.host,
+						port: target.port,
+						database: target.database,
+						user: '',
+						ssl: params.ssl !== false,
+						iam: target.iam,
+					}, dataExplorerHandler, logger);
+					await connection.connect();
+					return connection;
+				}
 				default:
 					return Promise.reject(new Error(vscode.l10n.t("Unknown connection mechanism '{0}'.", mechanismId)));
 			}
@@ -291,6 +623,25 @@ export function createRedshiftDriver(
 			switch (mechanismId) {
 				case PASSWORD_MECHANISM_ID:
 					return generateConnectionCodeForFields(languageId, passwordConnectionFields(params));
+				case IAM_MECHANISM_ID: {
+					// Code generation runs against whatever is currently typed in the dialog, which
+					// may not yet resolve to an AWS target. Offer nothing rather than a broken
+					// snippet until it does.
+					let target;
+					try {
+						target = iamTargetFromParams(params);
+					} catch {
+						return [];
+					}
+					switch (languageId) {
+						case 'python':
+							return [renderIamRedshiftConnectorCode(target.host, target.port, target.iam, params.ssl !== false)];
+						case 'r':
+							return [renderIamDbiCode(target.host, target.port, target.iam, params.ssl !== false)];
+						default:
+							return [];
+					}
+				}
 				default:
 					return [];
 			}

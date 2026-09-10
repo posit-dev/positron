@@ -41,10 +41,47 @@ const SKILLS_ROOT = path.join(REPO_ROOT, 'extensions', 'positron-skills', 'templ
 
 /** Dotted-identifier shape, e.g. `workbench.action.foo` or `positron.help.lookupHelpTopic`. */
 const CANDIDATE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/;
-// `vscode.` is here because the skill documents `vscode.open`: not every command
-// the skill names is Positron's own, and an upstream rename would break the
-// skill just as surely as a Positron one.
-const ALLOWED_PREFIXES = ['positron.', 'positronDataConnections.', 'positronVariables.', 'vscode.', 'workbench.'];
+
+/**
+ * Prefixes that mark a backtick-delimited token as a command id worth
+ * checking. This gate exists only for *prose* mentions, where a dotted token
+ * may just as well be a setting key or a file name; `{{command:}}` directives
+ * are unambiguous and are checked unconditionally, so a command whose prefix
+ * is missing here is still covered as long as its directive exists somewhere
+ * in the templates. `vscode.` is here because the skill documents
+ * `vscode.open`: not every command the skill names is Positron's own, and an
+ * upstream rename would break the skill just as surely as a Positron one.
+ */
+const ALLOWED_PREFIXES = ['positron.', 'positronAssistant.', 'positronDataConnections.', 'positronPackages.', 'positronSettings.', 'positronVariables.', 'vscode.', 'workbench.'];
+
+/**
+ * Command ids referenced by the templates that are registered from extension
+ * source (outside `src/vs/workbench`), which this test does not scan. Each
+ * entry is deliberate: it trades drift coverage for not having to scan the
+ * extensions tree. An entry whose directive disappears from every template is
+ * itself flagged as stale by the test below.
+ */
+const KNOWN_EXTENSION_COMMANDS = new Set([
+	// All declared in extensions/positron-python/src/client/common/constants.ts
+	'python.createEnvironmentAndRegister',
+	'python.installPythonViaUv',
+	'python.interpreterPath',
+	'python.execDashInTerminal',
+	'python.execFastAPIInTerminal',
+	'python.execFlaskInTerminal',
+	'python.execGradioInTerminal',
+	'python.execMarimoInTerminal',
+	'python.execStreamlitInTerminal',
+]);
+
+/**
+ * Prefixes under which a dotted, `positron.`-prefixed prose token is a
+ * *setting* key rather than a command id, so the command scan must skip it.
+ * `positron.runApp.previewMode` and `positron.runApp.urlDetectionTimeout` are
+ * contributed by the positron-run-app extension and are named in the
+ * interactive-apps reference as settings to read, not commands to run.
+ */
+const SETTING_PREFIXES = ['positron.runApp.'];
 
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -126,6 +163,9 @@ function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 				continue;
 			}
 			if (!ALLOWED_PREFIXES.some(prefix => token.startsWith(prefix))) {
+				continue;
+			}
+			if (SETTING_PREFIXES.some(prefix => token.startsWith(prefix))) {
 				continue;
 			}
 			candidates.push({ id: token, skillName: skill.name });

@@ -10,8 +10,12 @@ import './welcomeHeader.css';
 import { localize } from '../../../../../../nls.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { URI } from '../../../../../../base/common/uri.js';
 import { IProductService } from '../../../../../../platform/product/common/productService.js';
+import { IPositronDocsService } from '../../../../../services/positronDocs/browser/positronDocsService.js';
 import type { GettingStartedActionClassification, GettingStartedActionEvent } from '../../gettingStarted.js';
+
+const SHOW_RELEASE_NOTES_COMMAND_ID = 'update.showCurrentReleaseNotes';
 
 /**
  * The command the Help view registers to open itself. Reaching the view through
@@ -21,13 +25,22 @@ import type { GettingStartedActionClassification, GettingStartedActionEvent } fr
 const OPEN_HELP_COMMAND_ID = 'workbench.action.positron.openHelp';
 
 /**
- * WelcomeHeader component. The Positron badge and name, and a button that opens
- * the Help pane.
+ * WelcomeHeader component. The Positron badge and name, and buttons that open
+ * the release notes and Help pane.
  * @returns The rendered component.
  */
 export const WelcomeHeader = () => {
 	const services = usePositronReactServicesContext();
 	const productName = services.get(IProductService).nameLong;
+
+	const openReleaseNotes = async () => {
+		try {
+			await services.commandService.executeCommand(SHOW_RELEASE_NOTES_COMMAND_ID);
+		} catch {
+			const docsService = services.get(IPositronDocsService);
+			await services.openerService.open(URI.parse(docsService.getUrl('release-notes.html')));
+		}
+	};
 
 	const openHelp = () => {
 		services.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>(
@@ -63,10 +76,16 @@ export const WelcomeHeader = () => {
 					</p>
 				</div>
 			</div>
-			<Button className='welcome-header-help' onPressed={openHelp}>
-				<span aria-hidden='true' className='welcome-header-help-icon codicon codicon-question' />
-				{localize('positron.welcome.help', "Help")}
-			</Button>
+			<div className='welcome-header-actions'>
+				<Button className='welcome-header-action' onPressed={openReleaseNotes}>
+					<span aria-hidden='true' className='welcome-header-action-icon codicon codicon-megaphone' />
+					{localize('positron.welcome.releaseNotes', "Release Notes")}
+				</Button>
+				<Button className='welcome-header-action welcome-header-help' onPressed={openHelp}>
+					<span aria-hidden='true' className='welcome-header-action-icon codicon codicon-question' />
+					{localize('positron.welcome.help', "Help")}
+				</Button>
+			</div>
 		</div>
 	);
 };

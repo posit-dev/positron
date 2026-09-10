@@ -99,10 +99,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.9.5",
+			"version": "2026.10.3",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "a1e5729381b3f117e6c1bef492fe33f4e38bad9a12db7733e5170f7b667ef839",
+			"sha256": "24e5cc4604f06540b490186d1a61c1f1d77fc3b87cb39cfb8b9b1f0c8bfb6681",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -318,6 +318,7 @@
 			"publisherDisplayName": "Posit Software, PBC"
 		}
 	],
+	"nlsCoreBaseUrl": "https://cdn.posit.co/positron/nls/",
 	"extensionsGallery": {
 		"serviceUrl": "https://p3m.dev/openvsx/latest/vscode/gallery",
 		"itemUrl": "https://p3m.dev/openvsx/latest/vscode/item",

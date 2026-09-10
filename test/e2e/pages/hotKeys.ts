@@ -12,8 +12,22 @@ import { STARTUP_MESSAGING_SELECTOR, STARTUP_MESSAGING_TIMEOUT } from './utils/s
  */
 const RELOAD_PROBE_TIMEOUT = 2000;
 
-/** Overall budget for the post-reload workbench gate. */
-const RELOAD_READY_TIMEOUT = 30000;
+/**
+ * Overall budget for the post-reload workbench gate.
+ *
+ * Sized against a measured stall rather than a guess. On Windows CI the CDP session for
+ * the swapped-in renderer can go mute in both directions across a reload: console pushes,
+ * screencast frames and probe replies all queue in the channel and flush at one instant,
+ * while the renderer keeps logging to disk and the runner keeps reading Electron's stdout.
+ * Matching the trace's receipt timestamps against `renderer.log` for 150 records put the
+ * in-transit delay at a 24.0s median and 26.2s worst case; the probes then passed 33.8s
+ * and 30.9s into the gate, i.e. both attempts missed a 30s budget by under four seconds.
+ *
+ * 60s is a little over double the observed stall. The budget is only spent when the
+ * channel is actually stalled -- a healthy reload settles on the first probe -- so this
+ * costs nothing on the happy path, and the 120s per-test timeout still bounds it.
+ */
+const RELOAD_READY_TIMEOUT = 60000;
 
 /**
  * Wall-clock margin on top of a probe's own timeout, so a probe that is merely

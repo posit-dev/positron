@@ -16,6 +16,24 @@ import { IResolvedWalkthrough, IWalkthroughsService } from '../../browser/gettin
 import { IEnvironmentHealthService } from '../../browser/positronWelcomePage/environmentHealthService.js';
 import { createPositronWelcomePage, PositronWelcomePage } from '../../browser/positronWelcomePage/positronWelcomePage.js';
 
+class FakeResizeObserver implements ResizeObserver {
+	public static instances: FakeResizeObserver[] = [];
+
+	private readonly callback: ResizeObserverCallback;
+	public readonly disconnect = vi.fn();
+	public readonly observe = vi.fn();
+	public readonly unobserve = vi.fn();
+
+	constructor(callback: ResizeObserverCallback) {
+		this.callback = callback;
+		FakeResizeObserver.instances.push(this);
+	}
+
+	public resize(): void {
+		this.callback([], this);
+	}
+}
+
 /**
  * The page renders the walkthrough banner, which reads this service. One
  * walkthrough with no `when` clause is what the real window always has, so the
@@ -55,13 +73,10 @@ const slottedDom = () => {
 	const recentList = document.createElement('div');
 	recentList.textContent = 'Recent';
 
-	const connectAction = document.createElement('div');
-	connectAction.textContent = 'Connect to...';
-
 	const footer = document.createElement('div');
 	footer.textContent = 'Show welcome page on startup';
 
-	return { recentList, connectAction, footer };
+	return { recentList, footer };
 };
 
 describe('PositronWelcomePage', () => {
@@ -72,54 +87,47 @@ describe('PositronWelcomePage', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('renders the header, the banner, then the recent list, the connect action and the footer', () => {
-		const { recentList, connectAction, footer } = slottedDom();
+	it('renders the header, the card, then the recent list, Learn and the footer', () => {
+		const { recentList, footer } = slottedDom();
 		const { container } = rtl.render(
 			<PositronWelcomePage
-				connectAction={connectAction}
 				environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
 				footer={footer}
 				recentList={recentList}
+				onDidChangeContentSize={vi.fn()}
 				onDidMount={vi.fn()}
 			/>
 		);
 
-		expect(container).toHaveTextContent(/Welcome to .*Help.*Environment setup.*Learn.*Recent.*Connect to\.\.\..*Show welcome page on startup/);
-	});
-
-	it('omits the connect action when there is none, as on web', () => {
-		const { recentList, footer } = slottedDom();
-		rtl.render(
-			<PositronWelcomePage environmentHealthService={environmentHealthService} expandedByLanguage={new Map()} footer={footer} recentList={recentList} onDidMount={vi.fn()} />
-		);
-
-		expect(screen.queryByText('Connect to...')).not.toBeInTheDocument();
+		// Recent leads: it is the primary reason to open this page, and on a wide
+		// pane it takes the left column. DOM order matches that rather than being
+		// reordered in CSS, so the tab order agrees with what is on screen.
+		expect(container).toHaveTextContent(/Welcome to .*Help.*Environment setup.*Recent.*Learn.*Show welcome page on startup/);
 	});
 
 	it('calls onDidMount once every slotted element is in the document', () => {
-		const { recentList, connectAction, footer } = slottedDom();
-		const connectedAtCallTime: { recent: boolean; connect: boolean; footer: boolean }[] = [];
+		const { recentList, footer } = slottedDom();
+		const connectedAtCallTime: { recent: boolean; footer: boolean }[] = [];
 		const onDidMount = () => {
 			connectedAtCallTime.push({
 				recent: recentList.isConnected,
-				connect: connectAction.isConnected,
 				footer: footer.isConnected,
 			});
 		};
 
 		rtl.render(
 			<PositronWelcomePage
-				connectAction={connectAction}
 				environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
 				footer={footer}
 				recentList={recentList}
+				onDidChangeContentSize={vi.fn()}
 				onDidMount={onDidMount}
 			/>
 		);
 
 		// The editor pane attaches click handlers from this callback, so it has
 		// to run after the slotted elements land in the DOM, not before.
-		expect(connectedAtCallTime).toEqual([{ recent: true, connect: true, footer: true }]);
+		expect(connectedAtCallTime).toEqual([{ recent: true, footer: true }]);
 	});
 });
 
@@ -131,6 +139,7 @@ describe('createPositronWelcomePage', () => {
 		.build();
 
 	beforeEach(() => {
+		FakeResizeObserver.instances = [];
 		// createPositronWelcomePage builds its own PositronReactRenderer, whose
 		// provider reads this singleton rather than taking services as an
 		// argument. Nothing else can reach into that renderer to supply them.
@@ -141,12 +150,16 @@ describe('createPositronWelcomePage', () => {
 		PositronReactServices.services = undefined!;
 	});
 
-	const renderInto = (container: HTMLElement) => {
+	const renderInto = (container: HTMLElement, onDidChangeContentSize = vi.fn()) => {
 		const recentList = document.createElement('div');
 		recentList.textContent = 'Recent';
 		const footer = document.createElement('div');
 
-		return createPositronWelcomePage(container, { environmentHealthService, expandedByLanguage: new Map(), recentList, footer, onDidMount: vi.fn() });
+		return createPositronWelcomePage(
+			container,
+			{ environmentHealthService, expandedByLanguage: new Map(), recentList, footer, onDidMount: vi.fn(), onDidChangeContentSize },
+			FakeResizeObserver
+		);
 	};
 
 	it('makes the container the page layout element', () => {
@@ -157,6 +170,27 @@ describe('createPositronWelcomePage', () => {
 		expect(container).toHaveClass('positron-welcome-page');
 
 		renderer.dispose();
+	});
+
+	it('reports page size changes and disconnects the observer when disposed', () => {
+		const container = document.createElement('div');
+		const onDidChangeContentSize = vi.fn();
+		const renderer = renderInto(container, onDidChangeContentSize);
+		const observer = FakeResizeObserver.instances[0];
+
+		observer.resize();
+		expect({
+			callbackCount: onDidChangeContentSize.mock.calls.length,
+			observedElements: observer.observe.mock.calls.map(call => call[0]),
+			disconnected: observer.disconnect.mock.calls.length,
+		}).toEqual({
+			callbackCount: 1,
+			observedElements: [container],
+			disconnected: 0,
+		});
+
+		renderer.dispose();
+		expect(observer.disconnect).toHaveBeenCalledOnce();
 	});
 
 	it('unmounts the page when the renderer is disposed', async () => {

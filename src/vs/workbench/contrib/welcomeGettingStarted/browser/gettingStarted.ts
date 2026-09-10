@@ -89,8 +89,6 @@ import './media/positronGettingStarted.css';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
-// eslint-disable-next-line no-duplicate-imports
-import { isWeb } from '../../../../base/common/platform.js';
 import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
 import { EnvironmentHealthLanguage } from './positronWelcomePage/environmentHealth.js';
 import { IEnvironmentHealthService } from './positronWelcomePage/environmentHealthService.js';
@@ -1014,24 +1012,6 @@ export class GettingStartedPage extends EditorPane {
 		// --- End Positron ---
 
 		// --- Start Positron ---
-		// The "Connect to..." button is normally a part of the start list
-		// which is not used in Positron. We show the action underneath the
-		// recent list instead.
-		const otherList = $('.other-actions', {},
-			$('hr'),
-			$('button.button-link',
-				{
-					'x-dispatch': 'selectStartEntry:topLevelRemoteOpen',
-					title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
-					when: !isWeb,
-				},
-				this.iconWidgetFor({ icon: { type: 'icon', icon: Codicon.remote } }),
-				localize('gettingStarted.topLevelRemoteOpen.title', "Connect to...")
-			)
-		);
-		// --- End Positron ---
-
-		// --- Start Positron ---
 		// Upstream adds an "Agents app" promotion banner here in non-stable
 		// builds. This banner promotes a VS Code-specific desktop window and is
 		// not part of the Positron product, so omit it from the Positron
@@ -1098,7 +1078,7 @@ export class GettingStartedPage extends EditorPane {
 		// layoutLists();
 		//
 		// reset(this.categoriesSlide, $('.gettingStartedCategoriesContainer', {}, header, leftColumn, rightColumn, footer,));
-		reset(this.categoriesSlide, this.buildPositronWelcomePage(recentList, otherList, footer));
+		reset(this.categoriesSlide, this.buildPositronWelcomePage(recentList, footer));
 		// --- End Positron ---
 
 		this.categoriesPageScrollbar?.scanDomNode();
@@ -1167,17 +1147,15 @@ export class GettingStartedPage extends EditorPane {
 	/**
 	 * Builds the Positron welcome page.
 	 *
-	 * The recent list, the "Connect to..." action and the show on startup
-	 * checkbox are passed in as already-built DOM, because each one reuses an
-	 * existing widget along with its behaviour and telemetry.
+	 * The recent list and show on startup checkbox are passed in as already-built
+	 * DOM, because each one reuses an existing widget along with its behaviour
+	 * and telemetry.
 	 * @param recentList The "Recent" list.
-	 * @param otherList The "Connect to..." action.
 	 * @param footer The "Show welcome page on startup" checkbox row.
 	 * @returns The container to show.
 	 */
 	private buildPositronWelcomePage(
 		recentList: GettingStartedIndexList<RecentEntry>,
-		otherList: HTMLElement,
 		footer: HTMLElement
 	): HTMLElement {
 		// The service decides whether this is a page it has already checked, because
@@ -1198,8 +1176,6 @@ export class GettingStartedPage extends EditorPane {
 		const reactHost = $('div');
 		this.positronReactRenderer.value = createPositronWelcomePage(reactHost, {
 			recentList: recentList.getDomElement(),
-			// Hide the "Connect to..." button if we are on a web platform
-			connectAction: isWeb ? undefined : otherList,
 			footer,
 			environmentHealthService: this.environmentHealthService,
 			expandedByLanguage: this.expandedByLanguage,
@@ -1215,6 +1191,7 @@ export class GettingStartedPage extends EditorPane {
 				this.registerDispatchListeners();
 				this.categoriesPageScrollbar?.scanDomNode();
 			},
+			onDidChangeContentSize: () => this.categoriesPageScrollbar?.scanDomNode(),
 		});
 
 		return reactHost;
@@ -1550,11 +1527,19 @@ export class GettingStartedPage extends EditorPane {
 		});
 	}
 
+	// --- Start Positron ---
+	//
+	// This function is not used in Positron. Its remaining callers are the
+	// commented-out start list and category grid above.
+	// Commented out rather than being deleted to minimize merge conflicts.
+	/*
 	private iconWidgetFor(category: IResolvedWalkthrough | { icon: { type: 'icon'; icon: ThemeIcon } }) {
 		const widget = category.icon.type === 'icon' ? $(ThemeIcon.asCSSSelector(category.icon.icon)) : $('img.category-icon', { src: category.icon.path });
 		widget.classList.add('icon-widget');
 		return widget;
 	}
+	*/
+	// --- End Positron ---
 
 	private focusSideEditorGroup() {
 		const fullSize = this.groupsService.getPart(this.group).contentDimension;

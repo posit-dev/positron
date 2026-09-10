@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * The badge and name on the left, the Help button on the right. They swap to
+ * The badge and name on the left, the header actions on the right. They swap to
  * stacked rows once there is no room for both, which is what flex-wrap buys:
- * the button drops below the name rather than crushing it.
+ * the actions drop below the name rather than crushing it.
  */
 .positron-welcome-page-header {
 	align-items: center;
@@ -48,6 +48,16 @@
 	min-width: 0;
 }
 
+.positron-welcome-page-header .welcome-header-actions {
+	display: flex;
+	flex: 0 1 auto;
+	flex-wrap: wrap;
+	gap: 8px;
+	justify-content: flex-end;
+	max-width: 100%;
+	min-width: 0;
+}
+
 /*
  * gettingStarted.css sets 2.7em, normal weight and white-space: nowrap on every
  * h1 in this container, so these rules need that same container chain to win on
@@ -83,7 +93,7 @@
 	 * buttons in the environment setup card, which are the only controls on the
 	 * page worth pressing.
 	 */
-	& .welcome-header-help {
+	& .welcome-header-action {
 		align-items: center;
 		background-color: transparent;
 		border: 1px solid var(--vscode-positronWelcome-headerButtonBorder);
@@ -100,12 +110,12 @@
 		white-space: nowrap;
 	}
 
-	& .welcome-header-help:hover {
+	& .welcome-header-action:hover {
 		background-color: var(--vscode-toolbar-hoverBackground);
 	}
 
 	/* The icon takes its color from the button rather than the container. */
-	& .welcome-header-help-icon.codicon {
+	& .welcome-header-action-icon.codicon {
 		color: inherit;
 		font-size: 14px;
 	}
