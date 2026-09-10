@@ -395,7 +395,14 @@ function getPrioritizedEnvironmentType(): EnvironmentType[] {
     ];
 }
 // --- Start Positron ---
-const ENV_TYPE_RANKS = new Map(getPrioritizedEnvironmentType().map((envType, index) => [envType, index]));
+// Spaced by 10 so that other extensions contributing Python runtimes -- reticulate, say -- can
+// slot a source between two of these without renumbering the list. These numbers are persisted in
+// the workbench's discovery cache, so changing one means bumping
+// RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION; otherwise cached entries sort on the old scale.
+const ENV_TYPE_RANK_SPACING = 10;
+const ENV_TYPE_RANKS = new Map(
+    getPrioritizedEnvironmentType().map((envType, index) => [envType, (index + 1) * ENV_TYPE_RANK_SPACING]),
+);
 
 /**
  * Rank an environment type by assumed usefulness, lowest first. Types missing from the priority

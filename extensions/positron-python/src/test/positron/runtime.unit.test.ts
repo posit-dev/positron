@@ -72,4 +72,14 @@ suite('getRuntimeSourceAndShortName', () => {
             runtimeShortName: '3.12.3 (System)',
         });
     });
+
+    test('leaves room between the deliberate and machine-wide environment types', () => {
+        // positron-reticulate ranks its Python between these two, so it sorts below an
+        // interpreter the project provides but above anything merely installed on the
+        // machine. Renumbering these consecutively would leave it nowhere to go.
+        assert.isAbove(
+            getEnvironmentTypeRank(EnvironmentType.MicrosoftStore) - getEnvironmentTypeRank(EnvironmentType.Custom),
+            1,
+        );
+    });
 });
