@@ -66,7 +66,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 
 		switch (option) {
 			case 'auto':
-				const val = CONTEXT.workspaceState.get(autoEnabledStorageKey, false);
+				const val = this._context.workspaceState.get(autoEnabledStorageKey, false);
 				return val;
 			case 'never':
 				return false;
@@ -220,12 +220,12 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 
 	setSessions(hostRSessionId: string, reticulateId: string, session: positron.LanguageRuntimeSession) {
 		let sessionsMap: ReticulateSessionInfo[] =
-			CONTEXT.workspaceState.get('reticulate-sessions-map', []);
+			this._context.workspaceState.get('reticulate-sessions-map', []);
 
 		session.onDidEndSession(() => {
 			// Remove the session from the map when it ends.
 			sessionsMap = sessionsMap.filter((pair) => pair.reticulateSessionId !== session.metadata.sessionId);
-			CONTEXT.workspaceState.update('reticulate-sessions-map', sessionsMap);
+			this._context.workspaceState.update('reticulate-sessions-map', sessionsMap);
 			this._sessions.delete(session.metadata.sessionId);
 		});
 
@@ -241,11 +241,11 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		}
 
 		this._sessions.set(session.metadata.sessionId, session);
-		CONTEXT.workspaceState.update('reticulate-sessions-map', sessionsMap);
+		this._context.workspaceState.update('reticulate-sessions-map', sessionsMap);
 	}
 
 	getSessions(): Array<ReticulateSessionInfo> {
-		const sessionsMap = CONTEXT.workspaceState.get('reticulate-sessions-map', []);
+		const sessionsMap = this._context.workspaceState.get('reticulate-sessions-map', []);
 		return sessionsMap as Array<ReticulateSessionInfo>;
 	}
 
@@ -356,7 +356,11 @@ enum ReticulateRuntimeSessionType {
 class ReticulateConfig {
 	python?: string;
 	venv?: string;
-	ipykernel?: boolean;
+	embeddedInterpreter?: {
+		version: { major: number; minor: number };
+		implementation: string;
+		architecture: string;
+	};
 	error?: string;
 }
 
@@ -428,7 +432,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			config.finally(() => clearTimeout(timeout));
 		}
 
-		const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, (await config).python);
+		const metadata = ReticulateRuntimeSession.applyConfig(runtimeMetadata, await config);
 
 		// Create the session itself.
 		const session = new ReticulateRuntimeSession(
@@ -451,7 +455,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		// Make sure the R session has the necessary packages installed.
 		progress.report({ increment: 10, message: vscode.l10n.t('Checking prerequisites') });
 		const config = await ReticulateRuntimeSession.checkRSession(rSession);
-		const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
+		const metadata = ReticulateRuntimeSession.applyConfig(runtimeMetadata, config);
 
 		// Create the session itself.
 		const session = new ReticulateRuntimeSession(
@@ -465,7 +469,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return session;
 	}
 
-	static async checkRSession(rSession: positron.LanguageRuntimeSession): Promise<{ python: string }> {
+	static async checkRSession(rSession: positron.LanguageRuntimeSession): Promise<ReticulateConfig & { python: string }> {
 		// Check that we have a minimum version of reticulate.
 		if (!await rSession.callMethod?.('is_installed', 'reticulate', '1.39')) {
 			// Offer to install reticulate
@@ -579,19 +583,23 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			informCreateVirtualEenv();
 		}
 
-		return { python: config.python };
+		return { ...config, python: config.python };
 	}
 
-	static async fixInterpreterPath(
+	static applyConfig(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
-		interpreterPath: string
-	): Promise<positron.LanguageRuntimeMetadata> {
+		config: ReticulateConfig & { python: string }
+	): positron.LanguageRuntimeMetadata {
 
-		const output = runtimeMetadata;
-		output.runtimePath = interpreterPath;
-		output.extraRuntimeData.pythonPath = interpreterPath;
-
-		return output;
+		return {
+			...runtimeMetadata,
+			runtimePath: config.python,
+			extraRuntimeData: {
+				...runtimeMetadata.extraRuntimeData,
+				pythonPath: config.python,
+				embeddedInterpreter: config.embeddedInterpreter,
+			},
+		};
 	}
 
 	/** An object that emits language runtime events */
@@ -733,12 +741,15 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			throw new Error(vscode.l10n.t('No `callMethod` method in the RSession. This is not expected.'));
 		}
 
+		const pythonPath: string[] = this.runtimeMetadata.extraRuntimeData.ipykernelBundle.paths ?? [];
 		const init_err = await this.rSession.callMethod(
 			'reticulate_start_kernel',
 			kernelPath as string,
 			connnectionFile as string,
 			logFile as string,
-			logLevel as string
+			logLevel as string,
+			// Keep the original RPC signature when no bundle is used, including with older hosts.
+			...(pythonPath.length ? [pythonPath] : [])
 		) as string;
 
 		// An empty result means that the initialization went fine.
@@ -879,8 +890,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 					const metadata: positron.RuntimeSessionMetadata = { ...this.sessionMetadata, sessionId: `reticulate-python-${randomId}` };
 
 					// When the R session is ready, we can start a new Reticulate session.
+					const config = await ReticulateRuntimeSession.checkRSession(this.rSession);
+					const runtimeMetadata = ReticulateRuntimeSession.applyConfig(this.runtimeMetadata, config);
 					this.pythonSession = await this.createPythonRuntimeSession(
-						this.runtimeMetadata,
+						runtimeMetadata,
 						metadata,
 						kernelSpec
 					);
@@ -947,7 +960,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	extraRuntimeData: any = {
 		pythonPath: 'Managed by the reticulate package',
 		ipykernelBundle: {
-			disabledReason: 'Cannot bundle ipykernel for reticulate sessions',
+			disabledReason: 'Waiting for the embedded Python interpreter',
 		},
 		externallyManaged: true,
 	};

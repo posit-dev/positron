@@ -27,8 +27,10 @@ suite('Ipykernel', () => {
     let pythonExecutionFactory: IPythonExecutionFactory;
     let workspaceConfiguration: vscode.WorkspaceConfiguration;
     let serviceContainer: IServiceContainer;
+    let pathExists: sinon.SinonStub;
 
     setup(() => {
+        pathExists = sinon.stub(fs, 'pathExists').resolves(true);
         // Default to x64 architecture and cpython implementation for tests
         interpreter = mock<PythonEnvironment>({
             id: 'pythonEnvironmentId',
@@ -102,8 +104,6 @@ suite('Ipykernel', () => {
     test('should use interpreter architecture for arm64 interpreter', async () => {
         // Set interpreter to arm64 architecture
         sinon.stub(interpreter, 'architecture').get(() => Architecture.arm64);
-        // Stub fs.pathExists to return true so tests pass on CI where arm64 bundles may not exist
-        sinon.stub(fs, 'pathExists').resolves(true);
 
         const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
 
@@ -130,8 +130,6 @@ suite('Ipykernel', () => {
                 architecture: Architecture.arm64,
             }),
         );
-        // Stub fs.pathExists to return true so tests pass on CI where arm64 bundles may not exist
-        sinon.stub(fs, 'pathExists').resolves(true);
 
         const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
 
@@ -151,7 +149,6 @@ suite('Ipykernel', () => {
     test('should probe module interpreters through the activated environment', async () => {
         // Force the fresh interpreter-info probe to run.
         sinon.stub(interpreter, 'architecture').get(() => Architecture.Unknown);
-        sinon.stub(fs, 'pathExists').resolves(true);
         moduleMetadataMap.set(interpreter.path, {
             type: 'module',
             environmentName: 'python/3.9',
@@ -239,7 +236,7 @@ suite('Ipykernel', () => {
 
     test('should not bundle ipykernel if bundle path does not exist', async () => {
         // Simulate the bundle paths not existing.
-        sinon.stub(fs, 'pathExists').resolves(false);
+        pathExists.resolves(false);
 
         const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
 
