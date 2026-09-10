@@ -660,11 +660,9 @@ export const selectNewLanguageRuntime = async (
 				envTypeOrder.set(envType, Math.min(envTypeOrder.get(envType) ?? order, order));
 			});
 
-			// Order the headings by the rank the extension gave each source, so that
-			// e.g. system Pythons come last. Registration order is not usable here:
-			// runtimes are registered one at a time as discovery finds them, and the
-			// order varies with discovery timing and the warm-start cache. Sources the
-			// extension didn't rank keep their registration order, after the ranked ones.
+			// Sort by the rank the extension gave each source, so e.g. system Pythons
+			// come last. Registration order is discovery order, which varies run to run.
+			// Unranked sources keep their registration order, after the ranked ones.
 			const envTypes = Array.from(runtimesByEnvType.keys())
 				.sort((a, b) => envTypeOrder.get(a)! - envTypeOrder.get(b)!);
 
