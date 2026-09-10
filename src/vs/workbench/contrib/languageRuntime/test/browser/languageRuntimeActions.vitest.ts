@@ -401,10 +401,9 @@ describe('selectNewLanguageRuntime', () => {
 		});
 
 		it('ranks a source by its best-ranked runtime when only some carry a rank', async () => {
-			// A discovery cache written before runtimeSourceOrder existed yields runtimes
-			// with no rank alongside freshly discovered ones that have it, in no
-			// guaranteed order. The source must follow the rank it does have rather than
-			// whichever runtime happened to be registered last.
+			// An extension can rank some of a source's runtimes and not others, and they
+			// register in no guaranteed order. The source must follow the rank it does
+			// have rather than whichever runtime happened to be registered last.
 			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeSource: 'Pyenv' }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-sys-fresh', runtimeSource: 'System', runtimeSourceOrder: 30 }));
 			await registerRuntime(makeRuntime({ runtimeId: 'py-sys-cached', runtimeSource: 'System' }));
