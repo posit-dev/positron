@@ -30,6 +30,10 @@
 		// them via `test/e2e/**/*.vitest.ts` in vitest.tsconfig.json. Compiling
 		// them here fails in CI, where the e2e lanes install only the Playwright
 		// dependencies and `vitest` is not resolvable.
-		"**/*.vitest.ts"
+		"**/*.vitest.ts",
+		// Run directly by `node`, which strips its types, so it imports
+		// `./schema.ts` by its real path. This project emits, and tsc rejects a
+		// `.ts` import specifier outside `noEmit`.
+		"utils/perf-trace/analyze.mts"
 	]
 }

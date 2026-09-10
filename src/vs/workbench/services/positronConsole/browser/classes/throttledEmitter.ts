@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from '../../../../../base/common/event.js';
+import { isPerfTraceEnabled, perfMark } from '../../../../../base/common/positronPerfTrace.js';
 
 /**
  * ThrottledEmitter class.
@@ -35,6 +36,16 @@ export class ThrottledEmitter<T> extends Emitter<T> {
 	 * Gets or sets the last event.
 	 */
 	private _lastEvent?: T;
+
+	/**
+	 * Count of fires coalesced into the pending deferred delivery, for perf tracing.
+	 */
+	private _perfPendingCount = 0;
+
+	/**
+	 * Timestamp (`Date.now()`) when the current deferral began, for perf tracing.
+	 */
+	private _perfDeferralStart: number | undefined;
 
 	//#endregion Private Properties
 
@@ -89,6 +100,8 @@ export class ThrottledEmitter<T> extends Emitter<T> {
 		// If the event is being throttled, set the last event and return.
 		if (this._throttleEventTimeout) {
 			this._lastEvent = event;
+			this._perfPendingCount++;
+			perfMark('renderer.items_emitter.throttled', undefined, { pending: this._perfPendingCount });
 			return;
 		}
 
@@ -100,8 +113,18 @@ export class ThrottledEmitter<T> extends Emitter<T> {
 
 		// Set the last event and schedule the throttle event timeout.
 		this._lastEvent = event;
+		this._perfPendingCount = 1;
+		if (isPerfTraceEnabled()) {
+			this._perfDeferralStart = Date.now();
+		}
+		perfMark('renderer.items_emitter.throttled', undefined, { pending: this._perfPendingCount });
 		this._throttleEventTimeout = setTimeout(() => {
 			this._throttleEventTimeout = undefined;
+			if (this._perfDeferralStart !== undefined) {
+				perfMark('renderer.items_emitter.delivered', undefined, { delayed_ms: Date.now() - this._perfDeferralStart });
+				this._perfDeferralStart = undefined;
+			}
+			this._perfPendingCount = 0;
 			super.fire(this._lastEvent!);
 		}, this._throttleInterval);
 	}

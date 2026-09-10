@@ -38,6 +38,7 @@ import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrateg
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
 import { CodeSubmissionResult, IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { perfMark } from '../../../../../base/common/positronPerfTrace.js';
 import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
 import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -629,6 +630,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// Try to execute the code editor widget's code.
 				// Consume the event before the await to prevent it from being handled concurrently.
 				consumeEvent();
+				perfMark('renderer.enter.handler');
 				if (!await executeCodeEditorWidgetCodeIfPossible()) {
 					// The code was not executed, insert a new line.
 					services.commandService.executeCommand('editor.action.insertLineAfter');

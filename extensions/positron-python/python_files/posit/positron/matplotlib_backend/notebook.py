@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import time
 from typing import TYPE_CHECKING, Literal, cast
 
 import matplotlib
@@ -147,6 +148,10 @@ def _close_all_figures() -> None:
 
 def _show_figures():
     """Post execute hook to show the cell's figures and log errors."""
+    # Perf investigation: this is the plot-flush-equivalent step for notebook sessions,
+    # run via post_execute on every cell regardless of whether a plot was created.
+    perf_start = time.perf_counter()
+    shown = 0
     try:
         # Don't reuse `pyplot_show` here: it shows every figure, which would emit a second
         # output for a figure that user code already displayed via `plt.show()`/`fig.show()`.
@@ -156,10 +161,12 @@ def _show_figures():
         for manager in Gcf.get_all_fig_managers():
             if not isinstance(manager, FigureManagerPositronNotebook):
                 manager.show()
+                shown += 1
                 continue
 
             if not manager.displayed:
                 manager.show()
+                shown += 1
 
             # Reset even though the figure is about to be closed: should one ever outlive
             # the cell, showing it again beats silently swallowing its output.
@@ -168,6 +175,8 @@ def _show_figures():
         logger.exception("Error showing figures in post execute hook")
     finally:
         _close_all_figures()
+        elapsed_ms = (time.perf_counter() - perf_start) * 1000
+        logger.debug(f"perf: post_execute plot flush showed {shown} figure(s) in {elapsed_ms:.3f} ms")
 
 
 def install(shell: InteractiveShell) -> None:

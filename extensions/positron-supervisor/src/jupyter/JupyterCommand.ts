@@ -8,6 +8,7 @@ import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { unpackSerializedObjectWithBuffers } from '../util';
 import { JupyterMessageType } from './JupyterMessageType.js';
+import { perfMark } from '../perfTrace';
 
 /**
  * Base class for Jupyter commands; commands are messages to the kernel that do
@@ -93,6 +94,7 @@ export abstract class JupyterCommand<T> {
 		};
 		const text = JSON.stringify(payload);
 		socket.channel.debug(`>>> SEND ${this.commandType} [${this.channel}]: ${JSON.stringify(this.commandPayload)}`);
+		perfMark('exthost.supervisor.socket.send', { jupyter_msg_id: this.msgId }, { msg_type: this.commandType });
 		socket.ws.send(text);
 	}
 }

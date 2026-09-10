@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import sys
+import time
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Container, cast
@@ -450,6 +451,11 @@ class PositronShell(ZMQInteractiveShell):
         if not raw_cell or raw_cell.isspace():
             return
 
+        # Perf investigation: this is Python's closest equivalent to ark's post-execution
+        # completion handling (handle_active_request), run synchronously within the same
+        # execute_request's busy/idle window, via IPython's post_run_cell event.
+        perf_start = time.perf_counter()
+
         # TODO: Split these to separate callbacks?
         # Check for changes to the working directory
         try:
@@ -461,6 +467,9 @@ class PositronShell(ZMQInteractiveShell):
             self.kernel.variables_service.poll_variables()
         except Exception:
             logger.exception("Error polling variables")
+
+        elapsed_ms = (time.perf_counter() - perf_start) * 1000
+        logger.debug(f"perf: post_run_cell completion handling took {elapsed_ms:.3f} ms")
 
     def _add_editor_dir_to_sys_path(self) -> str | None:
         """
@@ -614,6 +623,7 @@ class PositronIPyKernel(IPythonKernel):
         # to override the parent to do that.
         parent = cast("PositronIPKernelApp", kwargs["parent"])
         self.session_mode = parent.session_mode
+        self._execute_request_start: float | None = None
 
         super().__init__(**kwargs)
 
@@ -801,12 +811,31 @@ class PositronIPyKernel(IPythonKernel):
         except Exception as e:
             self.log.debug("Error in super().pre_handler_hook(): %s", e, exc_info=False)
 
+        # Perf investigation: this is the earliest first-party hook point after
+        # ipykernel's dispatch_shell publishes "busy", so it's the closest available
+        # marker for "execute_request received".
+        if self._is_execute_request():
+            self._execute_request_start = time.perf_counter()
+            logger.debug("perf: execute_request received")
+
     def post_handler_hook(self):
         # see the pre_handler_hook for details
         try:
             super().post_handler_hook()
         except Exception as e:
             self.log.debug("Error in super().post_handler_hook(): %s", e, exc_info=False)
+
+        # Perf investigation: this is the latest first-party hook point before
+        # ipykernel's dispatch_shell publishes "idle" and sends the reply.
+        if self._execute_request_start is not None:
+            elapsed_ms = (time.perf_counter() - self._execute_request_start) * 1000
+            self._execute_request_start = None
+            logger.debug(f"perf: execute_request handled in {elapsed_ms:.3f} ms")
+
+    def _is_execute_request(self) -> bool:
+        parent = self.get_parent("shell")
+        header = parent.get("header", {}) if parent else {}
+        return header.get("msg_type") == "execute_request"
 
 
 class PositronIPKernelApp(IPKernelApp):

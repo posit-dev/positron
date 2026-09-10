@@ -16,6 +16,7 @@ import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensi
 import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
+import { isPerfTraceEnabled, perfMark } from '../../../../base/common/positronPerfTrace.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
@@ -278,6 +279,8 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 
 	/** Timer used to ensure event queue processing occurs within a set interval */
 	private _eventQueueTimer: Timeout | undefined;
+
+	private _perfDeferStart: number | undefined;
 
 	/** The handle uniquely identifying this runtime session with the extension host*/
 	private handle: number;
@@ -703,6 +706,7 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 			}
 		}
 
+		perfMark('renderer.execute.proxy_send', { execution_id: id });
 		return this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation, undefined, executionMetadata);
 	}
 
@@ -1039,6 +1043,17 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 				clearTimeout(this._eventQueueTimer);
 				this._eventQueueTimer = undefined;
 			}
+			// An event arriving out of sequence holds every queued event,
+			// including output, for up to 250ms. Recorded so that hold shows up
+			// as its own stage rather than as time attributed to the kernel.
+			if (isPerfTraceEnabled()) {
+				this._perfDeferStart = Date.now();
+			}
+			perfMark('renderer.event_queue.defer', undefined, {
+				clock,
+				awaiting: this._eventClock + 1,
+				queued: this._eventQueue.length,
+			});
 			this._eventQueueTimer = setTimeout(() => {
 				// Warn that we're processing the queue after a timeout; this usually
 				// means we're going to process messages out of order because the
@@ -1052,8 +1067,16 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 
 	private processEventQueue(): void {
 		// Clear the timer, if there is one.
+		const wasDeferred = this._eventQueueTimer !== undefined;
 		clearTimeout(this._eventQueueTimer);
 		this._eventQueueTimer = undefined;
+
+		perfMark('renderer.event_queue.process', undefined, {
+			queued: this._eventQueue.length,
+			deferred: wasDeferred,
+			delayed_ms: wasDeferred && this._perfDeferStart !== undefined ? Date.now() - this._perfDeferStart : 0,
+		});
+		this._perfDeferStart = undefined;
 
 		// Typically, there's only ever 1 message in the queue; if there are 2
 		// or more, it means that we've received messages out of order

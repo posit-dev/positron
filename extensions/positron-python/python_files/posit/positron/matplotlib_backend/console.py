@@ -21,6 +21,7 @@ import hashlib
 import inspect
 import io
 import logging
+import time
 from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib
@@ -94,6 +95,10 @@ def _detach_library_figures() -> None:
     Plain matplotlib figures are intentionally left in the registry to preserve Positron's
     cross-cell figure persistence (updating or re-showing a plot across cells).
     """
+    # Perf investigation: this is the plot-flush-equivalent step for console sessions,
+    # run via post_execute on every cell regardless of whether a plot was created.
+    perf_start = time.perf_counter()
+    detached = 0
     try:
         from matplotlib._pylab_helpers import Gcf
 
@@ -106,8 +111,12 @@ def _detach_library_figures() -> None:
                 # Pass the manager rather than its number: numbers freed here can be reused
                 # by matplotlib, so destroying by number could hit a different figure.
                 Gcf.destroy(manager)
+                detached += 1
     except Exception:
         logger.exception("Error detaching high-level library figures")
+    finally:
+        elapsed_ms = (time.perf_counter() - perf_start) * 1000
+        logger.debug(f"perf: post_execute plot flush detached {detached} figure(s) in {elapsed_ms:.3f} ms")
 
 
 class FigureManagerPositron(FigureManagerBase):

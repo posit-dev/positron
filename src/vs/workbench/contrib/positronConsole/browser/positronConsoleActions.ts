@@ -28,6 +28,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IStatementRange, IStatementRangeSuccess, StatementRangeKind, StatementRangeRejectionKind, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
 import { toAction } from '../../../../base/common/actions.js';
+import { perfMark } from '../../../../base/common/positronPerfTrace.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
@@ -1285,9 +1286,14 @@ export function registerPositronConsoleActions() {
 		async run(accessor: ServicesAccessor) {
 			const viewsService = accessor.get(IViewsService);
 
+			// Brackets the command handler itself, so a cost inside `openView`
+			// (e.g. view/extension activation on first focus) is distinguished
+			// from a cost upstream of it (keybinding dispatch, CDP in a test).
+			perfMark('renderer.focus_console.start');
 			// Ensure that the panel and console are visible. This is essentially
 			// equivalent to what `workbench.panel.positronConsole.focus` does.
 			await viewsService.openView(POSITRON_CONSOLE_VIEW_ID, true);
+			perfMark('renderer.focus_console.end');
 		}
 	});
 

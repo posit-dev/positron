@@ -6,6 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { LanguageClient, RequestType } from 'vscode-languageclient/node';
+import { perfMark } from './perfTrace';
 
 export interface InputBoundariesParams {
 	text: string;
@@ -47,8 +48,11 @@ export class RInputBoundaryProvider implements positron.InputBoundaryProvider {
 		range: vscode.Range,
 		token: vscode.CancellationToken
 	): Promise<positron.InputBoundary[]> {
+		perfMark('exthost.r.boundaries.provider.entry');
 		const text = document.getText(range);
+		perfMark('exthost.r.lsp.send');
 		const response = await this._client.sendRequest(InputBoundariesRequest.type, { text }, token);
+		perfMark('exthost.r.lsp.response', undefined, { boundary_count: response.boundaries?.length ?? -1 });
 
 		return response.boundaries;
 	}

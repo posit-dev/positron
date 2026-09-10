@@ -69,6 +69,19 @@ export async function logMetric(
 	isElectronApp: boolean,
 	logger: MultiLogger
 ): Promise<MetricResponse> {
+	// A timing-investigation run produces samples for a hand-built comparison,
+	// not for the dashboard's history. Gating on the variable that already
+	// enables tracing means such a run cannot publish by forgetting a second
+	// flag, and it holds whatever branch or key the run happens to have.
+	if (process.env.POSITRON_PERF_TRACE_DIR) {
+		logger.log('Perf trace run: skipping metric upload.');
+		return {
+			statusCode: 0,
+			ok: false,
+			body: 'Perf trace run: upload suppressed'
+		};
+	}
+
 	if (process.env.CI && !CONNECT_API_KEY) {
 		logger.log('Missing CONNECT_API_KEY. Skipping metric logging.');
 		return {

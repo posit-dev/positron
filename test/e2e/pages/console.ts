@@ -9,6 +9,8 @@ import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys';
 import { availableRuntimes, SessionRuntimes } from './sessions';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu';
+import { mark, span } from '../utils/perf-trace/recorder.js';
+import { TraceName } from '../utils/perf-trace/schema.js';
 
 const CONSOLE_INPUT = '.console-input';
 export const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -193,10 +195,15 @@ export class Console {
 	async waitForReady(prompt: string, timeout = 30000): Promise<void> {
 		// Retry the focus + check together in case another panel (e.g. Terminal) steals
 		// focus after the console is focused but before the assertion completes.
+		//
+		// `focus()` sends the Cmd+K F chord, so it is automation work, not a
+		// prompt check. Its markers separate that cost from the wait for the
+		// prompt itself; both repeat when `toPass` retries.
 		await expect(async () => {
-			await this.focus();
+			await span(TraceName.harness.focusStart, TraceName.harness.focusEnd, () => this.focus());
 			const activeLine = this.code.driver.currentPage.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
-			await expect(activeLine).toHaveText(prompt, { timeout: 5000 });
+			await span(TraceName.harness.promptAssertStart, TraceName.harness.promptAssertEnd,
+				() => expect(activeLine).toHaveText(prompt, { timeout: 5000 }));
 		}).toPass({ timeout });
 	}
 
@@ -268,8 +275,18 @@ export class Console {
 			// Normal case: waiting for `expectedCount` occurrences
 			const matchingLines = this.code.driver.currentPage.locator(CONSOLE_LINES).getByText(consoleTextOrRegex, { exact });
 
-			await expect(matchingLines).toHaveCount(expectedCount, { timeout });
-			return expectedCount ? matchingLines.allTextContents() : [];
+			// The text retrieval after the count assertion is a further CDP
+			// round trip inside whatever interval encloses this call, so it is
+			// bracketed separately from the wait it follows.
+			await span(TraceName.harness.outputAssertStart, TraceName.harness.outputAssertEnd,
+				() => expect(matchingLines).toHaveCount(expectedCount, { timeout }));
+			if (!expectedCount) {
+				return [];
+			}
+			mark(TraceName.harness.textRetrieveStart);
+			const contents = await matchingLines.allTextContents();
+			mark(TraceName.harness.textRetrieveEnd);
+			return contents;
 		});
 	}
 

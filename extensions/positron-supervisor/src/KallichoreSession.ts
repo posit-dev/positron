@@ -38,6 +38,7 @@ import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeAxiosError } from './util';
+import { perfMark } from './perfTrace';
 import { AdoptedSession } from './AdoptedSession';
 import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
@@ -837,6 +838,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		codeLocation?: positron.Utf8Location,
 		executionMetadata?: Record<string, unknown>
 	): Promise<void> {
+		perfMark('exthost.supervisor.execute.entry', { execution_id: id, jupyter_msg_id: id }, { mode });
 
 		// For unprocessed code, check completeness ourselves before executing.
 		// This eliminates a client-to-(remote-)supervisor roundtrip: the
@@ -845,7 +847,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// incomplete, throw so the console can show the continuation prompt; if
 		// the submission is cancelled while we wait, throw a cancellation error.
 		if (mode === positron.RuntimeCodeExecutionMode.Unprocessed) {
+			perfMark('exthost.supervisor.completeness.start', { execution_id: id }, { path: 'unprocessed' });
 			await this.checkUnprocessedCompleteness(code, id);
+			perfMark('exthost.supervisor.completeness.end', { execution_id: id }, { path: 'unprocessed' });
 		}
 
 		// Translate the parameters into a Jupyter execute request. `Unprocessed`
@@ -949,7 +953,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			code
 		};
 		const isComplete = new IsCompleteRequest(request);
+		perfMark('exthost.supervisor.completeness.start', { jupyter_msg_id: isComplete.msgId }, { path: 'is_complete_request' });
 		const reply = await this.sendRequest(isComplete);
+		perfMark('exthost.supervisor.completeness.end', { jupyter_msg_id: isComplete.msgId }, { path: 'is_complete_request' });
 		switch (reply.status) {
 			case 'complete':
 				return positron.RuntimeCodeFragmentStatus.Complete;
@@ -1808,6 +1814,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._socket.ws.onmessage = (msg: any) => {
 				try {
 					const data = JSON.parse(msg.data.toString());
+					perfMark('exthost.supervisor.iopub.recv',
+						{ jupyter_msg_id: data.header?.msg_id, parent_msg_id: data.parent_header?.msg_id },
+						{ kind: data.kind });
 					this.handleMessage(data);
 				} catch (err) {
 					this.log(`Could not parse message: ${err}`, vscode.LogLevel.Error);
@@ -2324,6 +2333,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			const request = this._pendingRequests.get(msg.parent_header.msg_id);
 			if (request) {
 				if (request.replyType === msg.header.msg_type) {
+					perfMark('exthost.supervisor.pending.resolve', { jupyter_msg_id: msg.parent_header.msg_id }, { reply_type: msg.header.msg_type });
 					request.resolve(msg.content);
 					this._pendingRequests.delete(msg.parent_header.msg_id);
 
@@ -2417,6 +2427,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Translate the Jupyter message to a LanguageRuntimeMessage and emit it
+		perfMark('exthost.supervisor.event.emit', { parent_msg_id: msg.parent_header?.msg_id }, { msg_type: msg.header.msg_type });
 		this._messages.emitJupyter(msg);
 	}
 
@@ -2446,13 +2457,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async sendRequest<T>(request: JupyterRequest<any, T>): Promise<T> {
 		// Ensure we're connected before sending the request; if requests are
 		// sent before the connection is established, they'll fail
+		perfMark('exthost.supervisor.barrier.wait.start', { jupyter_msg_id: request.msgId });
 		await this._connected.wait();
+		perfMark('exthost.supervisor.barrier.wait.end', { jupyter_msg_id: request.msgId });
 
 		// Add the request to the pending requests map so we can match up the
 		// reply when it arrives
 		this._pendingRequests.set(request.msgId, request);
 
 		// Send the request over the websocket
+		perfMark('exthost.supervisor.msg.build', { jupyter_msg_id: request.msgId }, { reply_type: request.replyType });
 		return request.sendRpc(this._socket!);
 	}
 

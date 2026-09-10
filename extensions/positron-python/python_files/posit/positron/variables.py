@@ -173,28 +173,53 @@ class VariablesService:
             ...
         }
         """
+        # Perf investigation: this is the per-comm "environment changed" notification
+        # step, comparable to ark's comm_notify_environment_changed. Unlike ark, it
+        # only touches comms tied to variables that actually changed, rather than
+        # looping over every open comm.
+        perf_start = time.perf_counter()
+        notified_comms = self._notify_environment_changed(assigned, unevaluated, removed)
+        elapsed_ms = (time.perf_counter() - perf_start) * 1000
+        logger.debug(
+            f"perf: environment-changed notification touched {notified_comms} "
+            f"comm(s) in {elapsed_ms:.3f} ms"
+        )
+
+    def _notify_environment_changed(
+        self,
+        assigned: Mapping[str, Any],
+        unevaluated: Mapping[str, Any],
+        removed: set[str],
+    ) -> int:
+        """Notify the affected comms, and return how many were notified."""
         # Look for any assigned or removed variables that are active
         # in the data explorer service
         exp_service = self.kernel.data_explorer_service
         con_service = self.kernel.connections_service
+        notified_comms = 0
         for name in removed:
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_deleted(name)
+                notified_comms += 1
 
             if con_service.variable_has_active_connection(name):
                 con_service.handle_variable_deleted(name)
+                notified_comms += 1
 
         updated = {**assigned, **unevaluated}
         for name, value in updated.items():
             if exp_service.variable_has_active_explorers(name):
                 exp_service.handle_variable_updated(name, value)
+                notified_comms += 1
 
             if con_service.variable_has_active_connection(name):
                 con_service.handle_variable_updated(name, value)
+                notified_comms += 1
 
         # Ensure the number of changes does not exceed our maximum items
         if len(assigned) > MAX_ITEMS or len(removed) > MAX_ITEMS:
-            return self.send_refresh_event()
+            self.send_refresh_event()
+            return notified_comms + 1
 
         # Filter out hidden assigned variables
         variables = self._get_filtered_vars(assigned)
@@ -215,8 +240,8 @@ class VariablesService:
                 version=0,
             )
             self._send_event(VariablesFrontendEvent.Update.value, msg.dict())
-            return None
-        return None
+            notified_comms += 1
+        return notified_comms
 
     def send_refresh_event(self) -> None:
         """

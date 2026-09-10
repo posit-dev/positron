@@ -23,6 +23,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { RuntimeItem } from './classes/runtimeItem.js';
+import { nextPerfSubmissionId, perfMark } from '../../../../base/common/positronPerfTrace.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ThrottledEmitter } from './classes/throttledEmitter.js';
 import { RuntimeItemTrace } from './classes/runtimeItemTrace.js';
@@ -1223,6 +1224,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * Queue of pending code fragments waiting to be executed.
 	 */
 	private _pendingCodeQueue: IPendingCodeFragment[] = [];
+
+	/**
+	 * The submission id minted for the in-flight `submitCode` call, for perf tracing.
+	 */
+	private _perfSubmissionId: string | undefined;
 
 	/**
 	 * Gets or sets the session, if attached.
@@ -2444,9 +2450,13 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// returns. The runtime's parser normalizes source the same way.
 		code = code.replace(/\r\n?/g, '\n');
 
+		this._perfSubmissionId = nextPerfSubmissionId();
+		perfMark('renderer.submit.entry', { submission_id: this._perfSubmissionId });
+
 		// Flow 3 short-circuit: completeness checking is disabled, so run the
 		// code as-is with no checks, no roundtrips, and no submission visuals.
 		if (this._configurationService.getValue<boolean>(promptWhenIncompleteSettingId) === false) {
+			perfMark('renderer.submit.flow', { submission_id: this._perfSubmissionId }, { flow: 3 });
 			this.setPendingCode();
 			await this.doExecuteCode(code, attribution, RuntimeCodeExecutionMode.Interactive);
 			return CodeSubmissionResult.Executed;
@@ -2515,8 +2525,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// Flow 1: try the input boundary provider.
 			let boundaries: IInputBoundary[] | undefined;
 			try {
+				perfMark('renderer.boundaries.request', { submission_id: this._perfSubmissionId });
 				boundaries = await this.tryProvideInputBoundaries(code, token);
+				perfMark('renderer.boundaries.response', { submission_id: this._perfSubmissionId }, { provided: boundaries !== undefined });
 			} catch (err) {
+				perfMark('renderer.boundaries.response', { submission_id: this._perfSubmissionId }, { provided: false });
 				if (isCancellationError(err)) {
 					return CodeSubmissionResult.Cancelled;
 				}
@@ -2536,6 +2549,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 					fragments = undefined;
 				}
 				if (fragments) {
+					perfMark('renderer.submit.flow', { submission_id: this._perfSubmissionId }, { flow: 1 });
 					const result = this.submitViaBoundaries(code, attribution, fragments);
 					if (result === CodeSubmissionResult.Executed) {
 						dispatched = true;
@@ -2550,6 +2564,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 			// Flow 2: no provider (or malformed boundaries). Execute with the
 			// Unprocessed mode; the session checks completeness first.
+			perfMark('renderer.submit.flow', { submission_id: this._perfSubmissionId }, { flow: 2 });
 			const result = await this.doExecuteCode(
 				code,
 				attribution,
@@ -3085,6 +3100,9 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// Set the new state and raise the onDidChangeState event.
 		this._state = state;
 		this._onDidChangeStateEmitter.fire(this._state);
+		if (state === PositronConsoleState.Ready) {
+			perfMark('renderer.state.ready');
+		}
 	}
 
 	//#endregion Public Methods
@@ -3359,6 +3377,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// Add the onDidReceiveRuntimeMessageOutput event handler.
 		const handleDidReceiveRuntimeMessageOutput = (
 			(languageRuntimeMessageOutput: ILanguageRuntimeMessageOutput) => {
+				perfMark('renderer.runtime.msg.output', { parent_msg_id: languageRuntimeMessageOutput.parent_id });
+
 				// If trace is enabled, add a trace runtime item.
 				if (this._trace) {
 					this.addRuntimeItemTrace(
@@ -3382,6 +3402,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 		// Add the onDidReceiveRuntimeMessageStream event handler.
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
+			perfMark('renderer.runtime.msg.output', { parent_msg_id: languageRuntimeMessageStream.parent_id }, { kind: 'stream' });
+
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				// Get the sanitized trace output.
@@ -3472,6 +3494,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// Add the onDidReceiveRuntimeMessageState event handler.
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageState(
 			languageRuntimeMessageState => {
+				perfMark('renderer.runtime.msg.state', { parent_msg_id: languageRuntimeMessageState.parent_id }, { state: languageRuntimeMessageState.state });
+
 				// If trace is enabled, add a trace runtime item.
 				if (this._trace) {
 					this.addRuntimeItemTrace(
@@ -4331,6 +4355,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			this._pendingBusyExecutionId = id;
 			this._pendingBusyStart = Date.now();
 			try {
+				perfMark('renderer.execute.dispatch', { submission_id: this._perfSubmissionId, execution_id: id }, { awaited: true });
 				await session.execute(code, id, wireMode, errorBehavior, attribution, executionMetadata);
 			} catch (err) {
 				// Nothing was echoed to the console, so there is nothing to roll
@@ -4354,12 +4379,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 			// Accepted: echo the input and fire the event.
 			addProvisionalInput();
+			perfMark('renderer.provisional_input.echo', { execution_id: id });
 			fireExecutedEvent();
 			return CodeSubmissionResult.Executed;
 		}
 
 		// Standard (non-unprocessed) execution: echo immediately, then execute.
 		addProvisionalInput();
+		perfMark('renderer.provisional_input.echo', { execution_id: id });
 
 		/**
 		 * Execute the code.
@@ -4372,6 +4399,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		 * failure) is logged since there is no interactive submission to
 		 * surface it to.
 		 */
+		perfMark('renderer.execute.dispatch', { submission_id: this._perfSubmissionId, execution_id: id }, { awaited: false });
 		Promise.resolve(session.execute(
 			code,
 			id,
@@ -4419,6 +4447,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			this.trimScrollback();
 
 			// Fire the onDidChangeRuntimeItems event.
+			perfMark('renderer.model.update');
 			this._onDidChangeRuntimeItemsEmitter.fire();
 		} else {
 			// No activity runtime item was found, so create a new one and add the activity item to it.

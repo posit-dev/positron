@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { perfMark } from './perfTrace';
 import * as positron from 'positron';
 import * as path from 'path';
 import { PromiseHandles, timeout } from './util';
@@ -294,6 +295,7 @@ export class ArkLsp implements vscode.Disposable {
 			// Convert the state to our own enum
 			switch (event.newState) {
 				case State.Starting:
+					perfMark('exthost.r.lsp.client.starting');
 					this.setState(ArkLspState.Starting);
 					break;
 				case State.Running:
@@ -306,6 +308,10 @@ export class ArkLsp implements vscode.Disposable {
 						}
 						out.resolve();
 					}
+					// The handshake this closes runs inside the measured
+					// interval on the first R submission, because the harness's
+					// focus chord makes R the foreground session.
+					perfMark('exthost.r.lsp.client.running');
 					this.setState(ArkLspState.Running);
 					break;
 				case State.Stopped:

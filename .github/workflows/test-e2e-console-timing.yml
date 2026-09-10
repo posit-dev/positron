@@ -1,0 +1,368 @@
+name: "Test: E2E Console Execution Timing (Ubuntu)"
+
+# Focused entry point for the console-execution latency investigation
+# (posit-dev/positron#15466). Runs one spec on one worker and collects a
+# correlated timeline across the harness, renderer, extension host and Ark.
+#
+# Runner and container match test-e2e-ubuntu.yml deliberately: a faster runner
+# would shorten iteration at the cost of the behaviour being measured. Two
+# things the production lane has are absent here, and both are recorded in the
+# run manifest as deviations rather than being treated as equivalent: the
+# postgres service container and the 1Password/AWS credential steps. Trimming
+# concurrent load can itself change the measurement, so a run that fails to
+# reproduce the signal must be compared against the full lane before concluding
+# the signal is gone.
+#
+# Metric upload is suppressed by POSITRON_PERF_TRACE_DIR (see
+# test/e2e/utils/metrics/api.ts), so these samples never reach the dashboard.
+
+on:
+  # Added to run this via an unmerged PR instead of workflow_dispatch, which
+  # GitHub only allows once a workflow file exists on the default branch.
+  # `pull_request` has no equivalent restriction: it runs the head branch's
+  # own copy of the file. Values below are hardcoded for this event since
+  # `pull_request` carries no `inputs` context to read from.
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      samples:
+        required: false
+        description: "Samples per arm. Each is a separate Playwright invocation, so each gets a fresh app and session lifecycle. 1 to smoke, 10 to compare."
+        default: 1
+        type: number
+      ark_ref:
+        required: false
+        description: "Ark git ref to build from source and run against. Leave blank to use the binary the extension downloads."
+        default: ""
+        type: string
+      arm_label:
+        required: false
+        description: "Label for this arm, recorded in the manifest so paired runs can be joined."
+        default: "baseline"
+        type: string
+      trace:
+        required: false
+        description: "Collect timing markers. Turn off for an overhead comparison against the same commit."
+        default: true
+        type: boolean
+
+# A new push measures new code, so the run in flight is stale rather than
+# something to keep alongside it.
+concurrency:
+  group: console-timing-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  console-timing:
+    name: console-timing
+    timeout-minutes: 150
+    runs-on: ubuntu-latest-8x
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      options: --user 0:0 --init
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+      HOME: /root
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      RETICULATE_PYTHON: /root/.venv/bin/python
+      SPEC: test/e2e/tests/console/performance/console-code-execution.test.ts
+      # Lower this to 1 for a smoke run that proves the pipeline before spending
+      # a full lane on it. The Ark build cache is keyed on the Ark commit, so the
+      # run after a smoke run skips the expensive part.
+      SAMPLES: ${{ github.event_name == 'pull_request' && 10 || inputs.samples }}
+      TRACE_DIR: ${{ github.workspace }}/perf-trace
+      ARTIFACT_NAME: console-timing-${{ github.event_name == 'pull_request' && 'r-vs-python' || inputs.arm_label }}
+
+    steps:
+      - name: Record setup start
+        run: echo "SETUP_START=$(date +%s)" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: 📦 Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v4
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'
+          DOCKER_CONFIG: /tmp/.docker
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: bash scripts/install-npm-parallel.sh
+
+      - name: Download binaries (Ark, Kallichore)
+        uses: ./.github/actions/download-binaries
+        with:
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
+
+      # A submodule build outranks the downloaded binary in getArkKernelPath(),
+      # so building here is what actually swaps the kernel. Overwriting
+      # resources/ark/ark instead would be silently ignored.
+      - name: Check out requested Ark ref
+        if: ${{ github.event_name == 'pull_request' || inputs.ark_ref != '' }}
+        working-directory: extensions/positron-r/ark
+        run: |
+          git fetch origin "${{ github.event_name == 'pull_request' && 'perf' || inputs.ark_ref }}" --depth 1
+          git checkout FETCH_HEAD
+          echo "ARK_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      # Keyed on the Ark commit alone, and kept out of the Oak runtime cache the
+      # experiment controls, so alternating arms never rebuild identical artifacts.
+      - name: Cache Ark build
+        if: ${{ github.event_name == 'pull_request' || inputs.ark_ref != '' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            extensions/positron-r/ark/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ark-timing-${{ runner.os }}-${{ env.ARK_SHA }}
+          restore-keys: ark-timing-${{ runner.os }}-
+
+      - name: Build Ark
+        if: ${{ github.event_name == 'pull_request' || inputs.ark_ref != '' }}
+        working-directory: extensions/positron-r/ark
+        run: cargo build --release
+
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Install Playwright browsers
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+        run: npx playwright install
+
+      - name: Prelaunch
+        run: npm run prelaunch
+
+      # After Prelaunch, which re-extracts Electron and resets permissions.
+      - name: Set permissions on SUID sandbox helper
+        run: |
+          ELECTRON_ROOT=.build/electron
+          sudo chown root $ELECTRON_ROOT/chrome-sandbox
+          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+          stat $ELECTRON_ROOT/chrome-sandbox
+
+      - name: Compile E2E tests
+        run: npm --prefix test/e2e run compile
+
+      - name: Setup Xvfb
+        uses: ./.github/actions/setup-xvfb
+
+      - name: Alter AppArmor Restrictions for Playwright
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Record setup end
+        run: |
+          echo "SETUP_END=$(date +%s)" >> $GITHUB_ENV
+          mkdir -p "${TRACE_DIR}"
+
+      - name: 🧪 Run console timing spec
+        id: run-spec
+        shell: bash
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+          POSITRON_PY_VER_SEL: "3.10.12"
+          POSITRON_R_VER_SEL: 4.5.2
+          POSITRON_PY_ALT_VER_SEL: "3.13.0"
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
+          POSITRON_HIDDEN_R: 4.4.1
+          PW_JSON_FILE: test-results/console-timing.json
+          # Deliberately absent: CONNECT_API_KEY. Nothing here should publish.
+          POSITRON_PERF_TRACE_DIR: ${{ (github.event_name == 'pull_request' || inputs.trace) && env.TRACE_DIR || '' }}
+          POSITRON_PERF_TRACE_RUN_ID: ${{ github.run_id }}-${{ github.event_name == 'pull_request' && 'r-vs-python' || inputs.arm_label }}
+        run: |
+          echo "TEST_START=$(date +%s)" >> $GITHUB_ENV
+          # One Playwright invocation per sample, rather than --repeat-each.
+          # The app and sessions are worker-scoped, so a repetition would run
+          # the same expression into the same warm console: that breaks the
+          # spec's exact-count assertion and measures a different experiment.
+          # A fresh invocation gives the fresh app and session lifecycle the
+          # comparison needs.
+          #
+          # All four cases run in their declared order. Grepping down to one
+          # case would change the preceding workload and could remove the
+          # effect being looked for.
+          samples="${SAMPLES}"
+          failed=0
+          for i in $(seq 1 "$samples"); do
+            echo "::group::sample $i of $samples"
+            status=0
+            POSITRON_PERF_TRACE_SAMPLE_TAG="i${i}" \
+            SKIP_BOOTSTRAP=true npx playwright test "${SPEC}" \
+              --project e2e-electron \
+              --workers 1 \
+              --reporter=list || status=$?
+            echo "::endgroup::"
+            if [ "$status" -ne 0 ]; then
+              # Recorded as a failed sample, not silently retried into an
+              # ordinary one.
+              failed=$((failed + 1))
+              echo "sample $i failed with status $status" >> "${TRACE_DIR}/failed-samples.txt"
+            fi
+          done
+          echo "TEST_END=$(date +%s)" >> $GITHUB_ENV
+          if [ "$failed" -gt 0 ]; then
+            echo "Failed samples:"; cat "${TRACE_DIR}/failed-samples.txt"
+          fi
+          # One failed sample out of several still leaves a comparison to make.
+          # No successful sample leaves nothing, so the job says so rather than
+          # reporting green over an empty artifact.
+          if [ "$failed" -eq "$samples" ]; then
+            echo "::error::all $samples samples failed"
+            exit 1
+          fi
+
+      - name: Record test end on failure
+        if: ${{ failure() }}
+        run: echo "TEST_END=$(date +%s)" >> $GITHUB_ENV
+
+      # Written after the run so it reports the versions and paths that were
+      # actually used, including which Ark binary the R extension resolved.
+      - name: Write run manifest
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p "${TRACE_DIR}"
+          ARK_RESOLVED="$(grep -rhoE 'Loading Ark from [^\"]+' test-logs 2>/dev/null | head -1 || true)"
+          ARK_BUNDLED="$(ls -l extensions/positron-r/resources/ark/ark 2>/dev/null || true)"
+          ARK_SUBMODULE_BUILD="$(ls -l extensions/positron-r/ark/target/release/ark 2>/dev/null || true)"
+          cat > "${TRACE_DIR}/manifest.json" <<EOF
+          {
+            "arm_label": "${{ github.event_name == 'pull_request' && 'r-vs-python' || inputs.arm_label }}",
+            "run_id": "${{ github.run_id }}",
+            "attempt": "${{ github.run_attempt }}",
+            "samples_requested": ${SAMPLES},
+            "trace_enabled": ${{ github.event_name == 'pull_request' || inputs.trace }},
+            "spec": "${SPEC}",
+            "playwright_project": "e2e-electron",
+            "workers": 1,
+            "positron_sha": "${{ github.sha }}",
+            "positron_ref": "${{ github.ref_name }}",
+            "ark_ref_input": "${{ github.event_name == 'pull_request' && 'perf' || inputs.ark_ref }}",
+            "ark_sha": "${ARK_SHA:-unset}",
+            "ark_submodule_sha": "$(git -C extensions/positron-r/ark rev-parse HEAD 2>/dev/null || echo unknown)",
+            "ark_resolved_log_line": "${ARK_RESOLVED}",
+            "ark_bundled_binary": "${ARK_BUNDLED}",
+            "ark_submodule_build": "${ARK_SUBMODULE_BUILD}",
+            "runner_image": "ghcr.io/posit-dev/positron-ubuntu24:24.18.0",
+            "runner_label": "ubuntu-latest-8x",
+            "runner_nproc": "$(nproc)",
+            "runner_mem_kb": "$(awk '/MemTotal/ {print \$2}' /proc/meminfo)",
+            "node_version": "$(node --version)",
+            "playwright_version": "$(npx playwright --version 2>/dev/null || echo unknown)",
+            "electron_version": "$(cat .build/electron/version 2>/dev/null || echo unknown)",
+            "r_version": "$(R --version 2>/dev/null | head -1 || echo unknown)",
+            "python_version": "$(python3 --version 2>/dev/null || echo unknown)",
+            "r_ver_sel": "4.5.2",
+            "py_ver_sel": "3.10.12",
+            "rust_log_setting": "set by the spec via positron.r.kernel.env",
+            "setup_seconds": $(( ${SETUP_END:-0} - ${SETUP_START:-0} )),
+            "test_seconds": $(( ${TEST_END:-0} - ${TEST_START:-0} )),
+            "deviations_from_production_lane": [
+              "no postgres service container",
+              "no 1Password secret loading",
+              "no AWS S3 credentials or report upload",
+              "single worker instead of the lane default",
+              "single spec instead of a tag-selected set"
+            ],
+            "source_fetching_override": "none applied; effective behaviour is whatever this Ark revision defaults to"
+          }
+          EOF
+          cat "${TRACE_DIR}/manifest.json"
+
+      - name: Collect Ark and supervisor logs
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p "${TRACE_DIR}"
+
+          # Ark writes its markers to the kernel log the supervisor creates under
+          # TMPDIR, and nothing copies those into test-logs. Placed flat in the
+          # trace directory because analyze.mts reads that directory's own files
+          # and no deeper.
+          #
+          # Both patterns are needed: the supervisor uses a per-session directory
+          # on a fresh start and a flat file when a session reconnects.
+          logs=$(find "${TMPDIR:-/tmp}" -maxdepth 2 \( -path '*/kernel-*/kernel.log' -o -name 'kernel-*.log' \) 2>/dev/null)
+          n=0
+          for f in $logs; do
+            # Only logs that carry markers: a session that ran outside a sample
+            # would contribute events that join to nothing.
+            grep -q PERFTRACE "$f" || continue
+            n=$((n + 1))
+            cp "$f" "${TRACE_DIR}/ark-kernel-${n}.log"
+          done
+          echo "ark kernel logs carrying markers: ${n}"
+
+          # Diagnostics, kept next to the trace. Nested one level down so the
+          # analyzer cannot read the same markers a second time from the kernel
+          # channel's copy of them.
+          mkdir -p "${TRACE_DIR}/logs"
+          find test-logs -type f \( -name '*.log' -o -name '*.out' \) -exec cp --parents {} "${TRACE_DIR}/logs" \; 2>/dev/null || true
+          ls -R "${TRACE_DIR}/logs" | head -50 || true
+
+      - name: Analyze timeline
+        if: ${{ always() && (github.event_name == 'pull_request' || inputs.trace) }}
+        continue-on-error: true
+        run: |
+          # Node strips the types, so the version is part of whether this step
+          # works at all.
+          node --version
+          node test/e2e/utils/perf-trace/analyze.mts "${TRACE_DIR}" --out "${TRACE_DIR}/analysis"
+
+      - name: Upload timing artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            perf-trace
+            test-results/console-timing.json
+          if-no-files-found: warn
+
+      - name: Upload test logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.ARTIFACT_NAME }}-logs
+          path: test-logs
+          if-no-files-found: ignore
