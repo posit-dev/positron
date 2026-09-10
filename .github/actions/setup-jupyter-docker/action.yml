@@ -105,6 +105,27 @@ runs:
 
         echo "Positron license file installed"
 
+    # TEMPORARY DEBUG STEP -- revert before merging.
+    # Prints hashes only; the raw license is a masked secret and must not be echoed.
+    # Two hashes of the secret on purpose: the step above writes the file with
+    # `echo`, which appends a newline, so the container copy may not be
+    # byte-identical to the secret. This shows which form actually landed.
+    - name: DEBUG - fingerprint license
+      shell: bash
+      if: inputs.positron-license != ''
+      env:
+        LIC: ${{ inputs.positron-license }}
+      run: |
+        echo "=== as delivered by the secret ==="
+        echo "bytes (exact):    $(printf '%s' "$LIC" | wc -c)"
+        echo "sha256 (exact):   $(printf '%s' "$LIC" | sha256sum | cut -d' ' -f1)"
+        echo "sha256 (+ \\n):    $(printf '%s\n' "$LIC" | sha256sum | cut -d' ' -f1)"
+        echo "=== as it landed in the container ==="
+        ARCH=$(docker exec jupyter-test uname -m)
+        if [[ "$ARCH" == "aarch64" ]]; then D=aarch64; else D=x86_64; fi
+        P="/opt/positron-server/resources/activation/linux/$D/license.lic"
+        docker exec jupyter-test bash -c "ls -l $P; wc -c < $P; wc -l < $P; sha256sum $P"
+
     - name: Show container logs on failure
       shell: bash
       if: failure()
