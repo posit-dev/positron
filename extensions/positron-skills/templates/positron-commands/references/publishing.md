@@ -9,14 +9,8 @@ The **Arguments** and **Returns** sections are generated from command metadata,
 so they match the installed build. These commands require the separately
 installed Posit Publisher extension. If its metadata is unavailable, the
 generated sections say `None`; tell the user to install or enable Publisher.
-Do not guess arguments or use a publishing CLI as a fallback.
+Do not guess arguments.
 
-## Never deploy by hand
-
-Do not run `rsconnect`, `rsconnect-python`, `quarto publish`, or another
-publishing CLI through `executeCode` or a terminal. These commands reuse
-Publisher credentials, update its deployment records, and return the content
-URL. A CLI run can expose secrets and leave Publisher's state out of sync.
 
 ## Planning
 

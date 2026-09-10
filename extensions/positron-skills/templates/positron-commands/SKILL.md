@@ -14,7 +14,7 @@ description: >
   "switch to my R session", "start a new Python session", "my session is
   stuck", "is pandas installed?", "install dplyr", "update all my packages",
   "set up a Python environment", "run my shiny app", "my app URL doesn't
-  load", "deploy my app to Connect", "why did my deployment fail".
+  load", "deploy my app to Connect".
 ---
 
 # Positron IDE commands
