@@ -77,9 +77,6 @@ Run:
 
 ```bash
 .claude/skills/drive-positron/scripts/launch.sh -- \
-	--use-mock-keychain \
-	--disable-workspace-trust \
-	--skip-welcome \
 	--folder-uri file:///private/tmp/myworkspace
 ```
 
@@ -100,16 +97,24 @@ The launcher:
 - converts the profile paths for the native binary on Windows;
 - waits for CDP and verifies that the app remains alive before returning.
 
-### Required launch arguments
+### Pass the workspace yourself
 
 | Argument | Purpose |
 |---|---|
 | `--folder-uri file:///private/tmp/myworkspace` | Open a workspace reliably. Do not pass a bare positional folder: Positron may discard it. On macOS, use the canonical `/private/tmp` path rather than `/tmp`. On Windows the URI needs a drive letter, so build it with `cygpath -m`: `--folder-uri "file:///$(cygpath -m /tmp/myworkspace)"`. |
-| `--disable-workspace-trust` | Prevent a modal trust dialog from blocking automation when the seed profile has no trust state. |
+
+### Arguments the launcher supplies
+
+You do not pass these, and should not need to think about them:
+
+| Argument | Purpose |
+|---|---|
+| `--disable-workspace-trust` | Prevent a modal trust dialog from blocking automation when the seed profile has no trust state. Without it the app starts in restricted mode with extensions disabled, so interpreter discovery never runs and an empty picker looks like a product bug. |
 | `--use-mock-keychain` | Avoid using the per-user OS keychain from the disposable instance. A `GitHubLoginFailed` message in the log is expected. |
 | `--skip-welcome` | Keep the Welcome editor from receiving the initial focus. |
+| `--shared-data-dir` | Keep the disposable instance off the normal `~/.positron-shared` store. |
 
-The launcher supplies `--shared-data-dir` automatically, so the disposable instance does not use the normal `~/.positron-shared` store.
+Repeating one of the first three after `--` overrides the supplied copy. Pass `--no-default-app-args` before `--` to launch without any of them, which is only useful when the scenario under test is one of the behaviors they suppress, such as the workspace trust prompt itself.
 
 ## Protect the source profile
 
