@@ -21,12 +21,15 @@
 
 import { Client, QueryResult } from 'pg';
 import { ConnectionOptions } from 'tls';
+import { RedshiftCredentialProvider } from './redshiftIamCredentials.js';
 
 /**
  * The discrete connection fields for a Redshift connection. Host, port, database, and user identify
- * the cluster and login; the password is optional only in that future auth mechanisms (IAM, Okta)
- * will mint a temporary one. SSL defaults on because Redshift endpoints expect an encrypted
- * connection.
+ * the cluster and login. SSL defaults on because Redshift endpoints expect an encrypted connection.
+ *
+ * Under IAM, `user` and `password` are left empty and `credentialProvider` supplies both instead:
+ * Redshift derives the database user from the federated identity and returns it alongside the
+ * password, so neither is known until the credentials have been minted.
  */
 export interface RedshiftFieldConfig {
 	host: string;
@@ -35,6 +38,12 @@ export interface RedshiftFieldConfig {
 	user: string;
 	password?: string;
 	ssl?: boolean;
+	/**
+	 * Mints temporary credentials, overriding `user` and `password` when present. Carried on the
+	 * config rather than passed separately so that everything the pg client is built from travels
+	 * together, and so adding it costs no change to the PgClientFactory signature.
+	 */
+	credentialProvider?: RedshiftCredentialProvider;
 }
 
 /**
@@ -124,6 +133,21 @@ function isFatalConnectionError(err: unknown): boolean {
 }
 
 /**
+ * Whether an error is the server rejecting our credentials. Under IAM this is what expiry looks
+ * like: the socket is fine, so isFatalConnectionError() correctly says no, but the temporary
+ * password minted earlier is no longer accepted. Deliberately narrow -- the PostgreSQL
+ * invalid-authorization class only -- because the response is to discard the cached credentials and
+ * mint new ones, which is pointless for any other failure.
+ */
+export function isAuthenticationError(err: unknown): boolean {
+	if (!err || typeof err !== 'object') {
+		return false;
+	}
+	const { code } = err as { code?: string };
+	return code === '28000' || code === '28P01';
+}
+
+/**
  * A pg Client that survives an idle socket dropping out from under it. Presents the small slice of
  * the pg Client surface the rest of the driver uses -- connect(), query(), end() -- and swaps the
  * underlying pg Client transparently when a query hits a dead connection. Callers hold a stable
@@ -136,6 +160,14 @@ export class RedshiftClient {
 	// In-flight reconnect, shared so concurrent queries that all hit the dead socket rebuild the
 	// client once rather than racing to create several.
 	private _reconnecting: Promise<void> | null = null;
+
+	// The database user most recently minted by the credential provider, for logging. Unset when
+	// connecting with a configured user and password.
+	private _resolvedUser: string | undefined;
+
+	// Set by end(), to tell a deliberate close apart from a reconnect that failed. Both leave _pg
+	// null, but only the latter should be rebuilt on the next query.
+	private _closed = false;
 
 	/**
 	 * @param _config The connection configuration.
@@ -154,9 +186,14 @@ export class RedshiftClient {
 	 * transient connection failure with backoff so a resuming serverless workgroup is waited out; a
 	 * terminal error (bad auth, unknown host) or exhausting the attempts propagates.
 	 */
-	private async _open(): Promise<void> {
+	private async _open(forceRefresh = false): Promise<void> {
 		for (let attempt = 1; ; attempt++) {
-			const pg = this._createPgClient(this._config);
+			// Resolve credentials inside the retry loop, not outside it. Temporary IAM credentials
+			// last 900 seconds by default, and the backoff below can span a minute waiting out a
+			// resuming serverless workgroup, so a set fetched once up front can expire before the
+			// attempt that finally succeeds uses it. Only the first attempt forces a re-mint; the
+			// later ones reuse what it fetched rather than calling AWS once per retry.
+			const pg = this._createPgClient(await this._resolveConfig(forceRefresh && attempt === 1));
 			// When the socket dies while no query is in flight, the pg Client emits an asynchronous
 			// 'error' event. With no listener that becomes an unhandled 'error' and takes down the
 			// extension host, so absorb it here; the next query() observes the broken client and
@@ -180,6 +217,28 @@ export class RedshiftClient {
 		}
 	}
 
+	/**
+	 * The config to build a pg client from. Without a credential provider this is the config as
+	 * given. With one, the minted user and password replace the configured ones -- Redshift derives
+	 * the database user from the IAM identity, so it is not ours to choose.
+	 */
+	private async _resolveConfig(forceRefresh: boolean): Promise<RedshiftFieldConfig> {
+		if (!this._config.credentialProvider) {
+			return this._config;
+		}
+		const credentials = await this._config.credentialProvider(forceRefresh);
+		this._resolvedUser = credentials.user;
+		return { ...this._config, user: credentials.user, password: credentials.password };
+	}
+
+	/**
+	 * The database user this client last connected as. Under IAM this is only known after the first
+	 * connect, since AWS returns it; undefined before then.
+	 */
+	get resolvedUser(): string | undefined {
+		return this._resolvedUser ?? (this._config.user || undefined);
+	}
+
 	/** Establishes the connection. Must be called before query(). */
 	async connect(): Promise<void> {
 		await this._open();
@@ -190,13 +249,26 @@ export class RedshiftClient {
 	 * error (bad SQL, permissions) is thrown without a retry.
 	 */
 	async query(text: string, params?: unknown[]): Promise<QueryResult> {
+		// A previous reconnect may have failed part way through -- minting credentials can fail on
+		// its own, leaving no pg client behind. That is recoverable, and it must be retried here:
+		// the resulting "client is closed" is neither a socket error nor an auth error, so the
+		// catch below would not rebuild it and the connection would stay dead even after the user
+		// fixed whatever broke (an expired SSO session, say). end() sets _closed so a deliberate
+		// disconnect is never resurrected.
+		if (!this._pg && !this._closed) {
+			await this._reconnect();
+		}
 		try {
 			return await this._queryOnce(text, params);
 		} catch (err) {
-			if (!isFatalConnectionError(err)) {
+			// A dead socket, or -- under IAM only -- credentials the server no longer accepts.
+			// Expired temporary credentials are not a connection error, so they need their own
+			// test; reconnecting mints a fresh set on the way through _resolveConfig().
+			const rejectedCredentials = this._config.credentialProvider !== undefined && isAuthenticationError(err);
+			if (!isFatalConnectionError(err) && !rejectedCredentials) {
 				throw err;
 			}
-			await this._reconnect();
+			await this._reconnect(rejectedCredentials);
 			return await this._queryOnce(text, params);
 		}
 	}
@@ -214,7 +286,7 @@ export class RedshiftClient {
 	 * reconnect; the old client is closed best-effort (it has already errored, so failures to end it
 	 * are expected and ignored).
 	 */
-	private _reconnect(): Promise<void> {
+	private _reconnect(forceRefresh = false): Promise<void> {
 		if (!this._reconnecting) {
 			this._reconnecting = (async () => {
 				const old = this._pg;
@@ -226,7 +298,7 @@ export class RedshiftClient {
 						// The socket is already broken; nothing to clean up.
 					}
 				}
-				await this._open();
+				await this._open(forceRefresh);
 			})().finally(() => { this._reconnecting = null; });
 		}
 		return this._reconnecting;
@@ -236,6 +308,7 @@ export class RedshiftClient {
 	async end(): Promise<void> {
 		const pg = this._pg;
 		this._pg = null;
+		this._closed = true;
 		if (pg) {
 			try {
 				await pg.end();

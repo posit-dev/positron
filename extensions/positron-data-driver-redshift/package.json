@@ -19,6 +19,9 @@
   },
   "contributes": {},
   "dependencies": {
+    "@aws-sdk/client-redshift": "^3.734.0",
+    "@aws-sdk/client-redshift-serverless": "^3.734.0",
+    "@aws-sdk/credential-providers": "^3.734.0",
     "pg": "^8.20.0"
   },
   "devDependencies": {

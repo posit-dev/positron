@@ -4,8 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { PositOAuthProvider } from '../positOAuthProvider';
+import { initProviderCatalog } from '../providerCatalog';
 
 function storeValidTokens(secrets: Map<string, string>, overrides?: {
 	accessToken?: string;
@@ -124,6 +128,71 @@ suite('PositOAuthProvider', () => {
 		test('true when a refresh token is stored', async () => {
 			storeValidTokens(secrets);
 			assert.strictEqual(await provider.isConfigured(), true);
+		});
+	});
+
+	suite('OAuth parameters from providers.json', () => {
+		let dir: string;
+		let configPath: string;
+		let catalogContext: vscode.ExtensionContext;
+
+		setup(() => {
+			dir = fs.mkdtempSync(path.join(os.tmpdir(), 'posit-oauth-'));
+			configPath = path.join(dir, 'providers.json');
+			catalogContext = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+		});
+
+		teardown(() => {
+			for (const d of catalogContext.subscriptions) {
+				d.dispose();
+			}
+			fs.rmSync(dir, { recursive: true, force: true });
+		});
+
+		async function refreshAndCaptureRequest(): Promise<{ url: string; body: string }> {
+			storeValidTokens(secrets, { expiresAt: Date.now() - 1000 });
+
+			let requestedUrl = '';
+			let requestedBody = '';
+			globalThis.fetch = async (url, init) => {
+				requestedUrl = String(url);
+				requestedBody = String(init?.body ?? '');
+				return new Response(JSON.stringify({
+					access_token: 'new-token',
+					refresh_token: 'new-refresh',
+					expires_in: 3600,
+				}), { status: 200 });
+			};
+
+			await provider.getAccessToken();
+			return { url: requestedUrl, body: requestedBody };
+		}
+
+		test('uses the custom host, clientId, and scope configured in providers.json', async () => {
+			fs.writeFileSync(configPath, JSON.stringify({
+				version: 1,
+				providers: {
+					positai: { positaiLogin: { host: 'login.example.com', clientId: 'my-client', scope: 'custom-scope' } },
+				},
+			}));
+			await initProviderCatalog(catalogContext, { configPath });
+
+			const { url, body } = await refreshAndCaptureRequest();
+
+			assert.strictEqual(url, 'https://login.example.com/oauth/token');
+			assert.ok(body.includes('client_id=my-client'), body);
+			assert.ok(body.includes('scope=custom-scope'), body);
+		});
+
+		test('falls back to Positron production defaults when providers.json has no positai config', async () => {
+			fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers: {} }));
+			await initProviderCatalog(catalogContext, { configPath });
+
+			const { url, body } = await refreshAndCaptureRequest();
+
+			assert.strictEqual(url, 'https://login.posit.cloud/oauth/token');
+			assert.ok(body.includes('client_id=positron'), body);
+			assert.ok(body.includes('scope=prism'), body);
 		});
 	});
 

@@ -73,9 +73,25 @@ export type MemoryPayload = {
 	timestamp: string;
 	run_id: string;
 	branch: string;
+	/**
+	 * The checkout the harness ran from (`GITHUB_SHA`), not the build it measured.
+	 * The nightly workflow tests whichever build `latest-prerelease` resolves to,
+	 * which can trail this by days; `build_commit` below is the one to attribute a
+	 * memory change to.
+	 */
 	commit_sha: string;
 	app_version: string;
 	build_number: string;
+	/**
+	 * The VS Code release the build is based on, e.g. `1.134.0`, read from the
+	 * build's product.json. It changes exactly when an upstream merge ships, which
+	 * `app_version` (`2026.10.0` across both sides of a merge) does not show.
+	 * Optional and omitted rather than 'unknown', for the same reason as
+	 * `ark_version`: a marker drawn where it changes must not fire on a placeholder.
+	 */
+	vscode_version?: string;
+	/** The positron commit the build was made from, from the same product.json. */
+	build_commit?: string;
 	platform_os: string;
 	platform_version: string;
 	container_image: string;
@@ -231,6 +247,8 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 		commit_sha: meta.commitSha,
 		app_version: positronVersion?.positronVersion ?? 'unknown',
 		build_number: String(positronVersion?.buildNumber ?? 'unknown'),
+		vscode_version: positronVersion?.vscodeVersion,
+		build_commit: positronVersion?.commit,
 		platform_os: platformOs,
 		platform_version: platformVersion,
 		container_image: meta.containerImage,

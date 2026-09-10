@@ -41,7 +41,8 @@ import {
 	WillExecuteEvent,
 } from '../common/quartoExecutionTypes.js';
 import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQuartoConfig.js';
-import { RuntimeOnlineState, RuntimeState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOnlineState, RuntimeState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -53,6 +54,7 @@ import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 import { PromptInputState, IPromptInputModel } from '../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
+import { isExecutableLanguage, isShellLanguage } from '../common/quartoLanguages.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { getWindow } from '../../../../base/browser/dom.js';
 import type { EditorLayoutMetadata } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
@@ -69,18 +71,6 @@ const QUARTO_EXEC_PREFIX = 'quarto-exec';
  * Ephemeral state key prefix for execution queue persistence.
  */
 const EXECUTION_QUEUE_KEY_PREFIX = 'positron.quarto.executionQueue';
-
-/**
- * Shell languages that should be executed via terminal.
- */
-const SHELL_LANGUAGES = new Set(['bash', 'sh', 'zsh', 'fish', 'shell', 'powershell', 'pwsh', 'cmd']);
-
-/**
- * Check if a language should be executed via terminal.
- */
-function isShellLanguage(language: string): boolean {
-	return SHELL_LANGUAGES.has(language.toLowerCase());
-}
 
 /**
  * Internal tracking for a cell's execution.
@@ -227,7 +217,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 		@IMissingPackagesPreflightService private readonly _missingPackagesPreflightService: IMissingPackagesPreflightService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 	) {
 		super();
 
@@ -674,18 +664,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * Whether a cell's language can be executed: the document's primary
-	 * language (kernel), a shell language (terminal), or any language with a
-	 * registered runtime (console). Diagram/markup languages such as mermaid,
-	 * dot, or plantuml match none of these and are treated as non-executable.
+	 * Whether a cell's language can be executed: an executable language, or the
+	 * document's primary language, whose kernel the run starts even when no
+	 * extension provides runtimes for it.
 	 */
 	private _isExecutableLanguage(language: string, primaryLanguage: string | undefined): boolean {
-		const lang = language.toLowerCase();
-		if (isShellLanguage(lang) || lang === primaryLanguage?.toLowerCase()) {
-			return true;
-		}
-		return this._languageRuntimeService.registeredRuntimes.some(
-			runtime => runtime.languageId.toLowerCase() === lang);
+		return isExecutableLanguage(language, this._runtimeStartupService)
+			|| language.toLowerCase() === primaryLanguage?.toLowerCase();
 	}
 
 	/**

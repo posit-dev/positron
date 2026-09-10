@@ -11,16 +11,18 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 import { computeDeleteCellEdit, computeInsertCellEdit, computeJoinCellsEdit } from '../../browser/quartoCellOperations.js';
+import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 
 describe('quartoCellOperations', () => {
 	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
+	const runtimeStartupService = createTestRuntimeStartupService();
 
 	/** Build a parsed Quarto document model from the given source. */
 	function buildModel(content: string) {
 		const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 		ctx.disposables.add(textModel);
-		const model = new QuartoDocumentModel(textModel, logService);
+		const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 		ctx.disposables.add(model);
 		return { textModel, model };
 	}

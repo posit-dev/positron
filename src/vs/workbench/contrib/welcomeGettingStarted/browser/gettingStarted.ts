@@ -1191,6 +1191,7 @@ export class GettingStartedPage extends EditorPane {
 				this.registerDispatchListeners();
 				this.categoriesPageScrollbar?.scanDomNode();
 			},
+			onDidChangeContentSize: () => this.categoriesPageScrollbar?.scanDomNode(),
 		});
 
 		return reactHost;
