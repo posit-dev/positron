@@ -49,7 +49,8 @@ Tools they expect on `PATH`:
 | `node`, `npx` | all | `@playwright/cli` resolves from the repo's `node_modules` |
 | `curl` | `launch.sh`, `stop.sh` | CDP readiness and liveness probes |
 | `rsync` or `tar` | `launch.sh` | `rsync` preferred; `tar` is the fallback, and is what Git Bash has |
-| `jq` | `monaco-paste.sh` | not present in a bare Git Bash; install it separately |
+| `jq` | `monaco-paste.sh`, `quickpick-enum.sh` | not present in a bare Git Bash; install it separately |
+| `sqlite3` | `reseed.sh --list-keys` | optional; only used to print the seeded storage keys |
 | `cygpath` | `launch.sh` on Windows | ships with Git Bash |
 | `tasklist`, `powershell` | `launch.sh` on Windows | liveness check and the WMI launch below |
 
@@ -144,6 +145,29 @@ Then launch with it before the `--`, since it is a launcher argument:
 	--folder-uri file:///private/tmp/myworkspace
 ```
 
+## Launch a second time with the state the first run wrote
+
+A fresh profile only exercises the cold-start path. Anything that depends on
+state from a previous run -- the runtime discovery cache, storage-backed
+migrations, the recently opened list -- is untested by a single launch, so a bug
+that only appears on the second launch cannot be seen at all.
+
+To carry the profile forward, stop the instance and turn its profile into a
+seed:
+
+```bash
+.claude/skills/drive-positron/scripts/reseed.sh \
+	--run-dir "$RUN_DIR" --seed /tmp/positron-warm-seed \
+	--cdp-port "$CDP_PORT" --list-keys
+```
+
+`reseed.sh` stops the instance without deleting its run directory, copies the
+profile database and settings into the seed, and prints the launch command for
+the warm run. The instance has to be stopped first: the running app holds
+`User/globalStorage/state.vscdb` open and a copy taken mid-write can be torn.
+
+It leaves the run directory in place, so still remove it during cleanup.
+
 ## Attach Playwright
 
 Use a literal session name and reuse it for every command:
@@ -156,6 +180,11 @@ npx @playwright/cli -s=positron snapshot
 ```
 
 Do not derive the session name from `$$`. Separate shell invocations receive different process IDs and would silently create different sessions.
+
+Run every `npx @playwright/cli` command from the repository root. From another
+working directory `npx` installs its own copy of the CLI, which keeps its
+sessions elsewhere and reports the attached session as `The browser 'NAME' is
+not open`.
 
 Common operations:
 
@@ -193,6 +222,24 @@ Do not use `type` or `fill` for notebook cell editors or chat inputs backed by M
 ```
 
 Use individual `press` operations when testing actual keyboard handling.
+
+### Read a whole quick pick
+
+Do not count `.monaco-list-row` elements and do not set `scrollTop`. Quick picks
+render only a window of rows and move it with a transform, so both report a
+short list without failing. Use:
+
+```bash
+.claude/skills/drive-positron/scripts/quickpick-enum.sh --session positron
+```
+
+It walks the picker with ArrowDown and prints
+`index|kind|label|description|detail|active` for every row, headings included,
+leaving the picker on the item it started from.
+
+Read `references/reading-ui-state.md` before trusting any other reading of a
+list, tree, or quick input widget. It covers the virtualization, the hidden
+widgets left behind by closed pickers, and how separators are rendered.
 
 ## Account for Positron behavior
 
