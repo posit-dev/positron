@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import { RedshiftConnection, RedshiftConnectionConfig } from '../redshiftConnection.js';
-import { PgClientFactory, RedshiftClient, RedshiftFieldConfig } from '../redshiftClient.js';
+import { defaultPgClientFactory, PgClientFactory, RedshiftClient, RedshiftFieldConfig } from '../redshiftClient.js';
 import { createDatabaseNode, createSchemaNode } from '../redshiftNodes.js';
 import {
 	describeRedshiftEndpoint,
@@ -806,5 +806,19 @@ suite('Redshift IAM Connection Code', () => {
 		assert.match(code, /ClusterIdentifier = "my-cluster"/);
 		assert.match(code, /user = creds\$DbUser/);
 		assert.match(code, /password = creds\$DbPassword/);
+	});
+});
+
+suite('Redshift Lazy pg Loading', () => {
+	// pg is reached through a dynamic import() inside the default factory rather than a top-level
+	// import, so that opening the Data Connections pane does not pay to load it. That import is
+	// resolved at runtime against the real package, so an export the module namespace does not
+	// actually carry still type-checks and only fails at the user's first connect. The AWS SDK is
+	// deferred the same way, one level up, and is covered by the IAM connection-wiring test.
+	test('the default factory builds a real client from the deferred import', async () => {
+		const client = await defaultPgClientFactory(TEST_CONFIG);
+		assert.deepStrictEqual(
+			{ connect: typeof client.connect, query: typeof client.query },
+			{ connect: 'function', query: 'function' });
 	});
 });

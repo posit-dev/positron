@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import { PostgreSQLClient } from '../postgresqlClient.js';
-import { connectionTarget, PostgreSQLConnection, PostgreSQLConnectionConfig } from '../postgresqlConnection.js';
+import { buildPgClient, connectionTarget, PostgreSQLConnection, PostgreSQLConnectionConfig } from '../postgresqlConnection.js';
 import { createSchemaNode } from '../postgresqlNodes.js';
 
 // Default config for tests -- not used to connect, just to construct.
@@ -635,7 +635,7 @@ suite('PostgreSQL Reconnecting Client', () => {
 	// created so far.
 	function makeClient(handlers: Array<(sql: string, params?: unknown[]) => { rows: unknown[] }>) {
 		const clients: FakeClient[] = [];
-		const client = new PostgreSQLClient(() => {
+		const client = new PostgreSQLClient(async () => {
 			const pg = new FakeClient(handlers[clients.length] ?? (() => ({ rows: [] })));
 			clients.push(pg);
 			// eslint-disable-next-line local/code-no-any-casts
@@ -703,7 +703,7 @@ suite('PostgreSQL Reconnecting Client', () => {
 	// count, and passes a no-op sleep so the backoff does not slow the test.
 	function connectClient(connectErrors: Array<Error | undefined>) {
 		const state = { attempts: 0 };
-		const client = new PostgreSQLClient(() => {
+		const client = new PostgreSQLClient(async () => {
 			const err = connectErrors[state.attempts];
 			state.attempts++;
 			// eslint-disable-next-line local/code-no-any-casts
@@ -730,5 +730,18 @@ suite('PostgreSQL Reconnecting Client', () => {
 
 		await assert.rejects(() => client.connect(), /password authentication failed/);
 		assert.strictEqual(state.attempts, 1, 'a bad password should fail fast, not retry');
+	});
+});
+
+suite('PostgreSQL Lazy pg Loading', () => {
+	// pg is reached through a dynamic import() inside buildPgClient rather than a top-level import,
+	// so that opening the Data Connections pane does not pay to load it. That import is resolved at
+	// runtime against the real package, so an export the module namespace does not actually carry
+	// still type-checks and only fails at the user's first connect.
+	test('buildPgClient builds a real client from the deferred import', async () => {
+		const client = await buildPgClient(TEST_CONFIG);
+		assert.deepStrictEqual(
+			{ connect: typeof client.connect, query: typeof client.query },
+			{ connect: 'function', query: 'function' });
 	});
 });

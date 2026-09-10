@@ -16,9 +16,15 @@ run({
 	srcDir,
 	outdir: outDir,
 	additionalOptions: {
+		// pg is externalized so the dynamic import() in postgresqlConnection stays
+		// a deferred load: opening the Data Connections pane activates this
+		// extension, and a user who never connects to PostgreSQL should not pay
+		// to parse pg. positron-data-driver-postgresql is registered in
+		// extensionsWithNpmDeps (build/lib/extensions.ts) so pg is packaged.
+		//
 		// pg-native is an optional native dependency of pg; leave it as an
 		// external so its require() at runtime can no-op gracefully when
 		// callers don't opt into pg.native.
-		external: ['vscode', 'positron', 'pg-native'],
+		external: ['vscode', 'positron', 'pg', 'pg-native'],
 	},
 }, process.argv);

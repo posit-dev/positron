@@ -12,7 +12,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { isAuthenticationError, PgClientFactory, RedshiftClient, RedshiftFieldConfig } from './redshiftClient.js';
-import { createIamCredentialProvider, RedshiftCredentialFetcher, RedshiftIamConfig } from './redshiftIamCredentials.js';
+import type { RedshiftCredentialFetcher, RedshiftCredentialProvider, RedshiftIamConfig } from './redshiftIamCredentials.js';
 import { createDatabasesGroupNode, createSchemasGroupNode, IRedshiftPreviewHost } from './redshiftNodes.js';
 import { IRedshiftDataExplorerHost, REDSHIFT_DATA_EXPLORER_PROVIDER_ID } from './redshiftDataExplorerRpcHandler.js';
 
@@ -82,11 +82,35 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 			this._config.kind === 'iam'
 				? {
 					...this._config,
-					credentialProvider: createIamCredentialProvider(
-						this._config.iam, this._logger, this._options?.credentialFetcher),
+					credentialProvider: this._lazyIamCredentialProvider(this._config.iam),
 				}
 				: this._config,
 			this._options?.pgClientFactory);
+	}
+
+	/**
+	 * Wraps the IAM credential provider in one that loads redshiftIamCredentials on first use.
+	 *
+	 * That module statically imports the AWS SDK, so importing it from here would pull the SDK in at
+	 * activation. The Data Connections pane activates every driver at once, so the cost is paid by
+	 * every user, including one who never opens a Redshift connection (let alone an IAM one). The
+	 * real provider caches the credentials it mints, so it is created once and reused; only the
+	 * first call pays for the import.
+	 */
+	private _lazyIamCredentialProvider(iam: RedshiftIamConfig): RedshiftCredentialProvider {
+		let provider: Promise<RedshiftCredentialProvider> | undefined;
+		return async forceRefresh => {
+			if (!provider) {
+				const pending = import('./redshiftIamCredentials.js').then(
+					m => m.createIamCredentialProvider(iam, this._logger, this._options?.credentialFetcher));
+				// Drop a failed load rather than memoizing it. RedshiftClient re-resolves credentials on
+				// every connect attempt, so a cached rejection would spend the whole retry budget
+				// replaying one stale error, and leave the connection unable to ever reconnect.
+				pending.catch(() => { if (provider === pending) { provider = undefined; } });
+				provider = pending;
+			}
+			return (await provider)(forceRefresh);
+		};
 	}
 
 	/** Establishes the connection. Must be called before any other method. */

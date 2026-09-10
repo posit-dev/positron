@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
-import { SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
+import { defaultConnectionFactory, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
 import { createDatabaseNode, createSchemaNode } from '../snowflakeNodes.js';
 import { parseSnowflakeAccount } from '../snowflakeDriver.js';
 
@@ -418,7 +418,7 @@ suite('Snowflake Reconnecting Client', () => {
 	// nth handler backs the nth connection built), plus the list of connections created so far.
 	function makeFactory(handlers: Array<(sql: string, binds?: unknown[]) => { rows: unknown[] }>) {
 		const connections: FakeConnection[] = [];
-		const factory: SnowflakeConnectionFactory = () => {
+		const factory: SnowflakeConnectionFactory = async () => {
 			const conn = new FakeConnection(handlers[connections.length] ?? (() => ({ rows: [] })));
 			connections.push(conn);
 			// eslint-disable-next-line local/code-no-any-casts
@@ -489,7 +489,7 @@ suite('Snowflake Reconnecting Client', () => {
 	// a transient connect sequence can be simulated. Records the attempt count.
 	function connectFactory(connectErrors: Array<Error | undefined>) {
 		const state = { attempts: 0 };
-		const factory: SnowflakeConnectionFactory = () => {
+		const factory: SnowflakeConnectionFactory = async () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			return {
 				connect: (cb: (err: any, conn: any) => void) => { const err = connectErrors[state.attempts]; state.attempts++; cb(err, undefined); },
@@ -523,7 +523,7 @@ suite('Snowflake Reconnecting Client', () => {
 		// the browser-SSO / OAuth failure paths can. Callback-only wiring would wait for the SDK's
 		// internal timeout; consuming the returned promise rejects promptly.
 		const authError = Object.assign(new Error('Incorrect username or password was specified'), { code: '390100' });
-		const factory: SnowflakeConnectionFactory = () => {
+		const factory: SnowflakeConnectionFactory = async () => {
 			// eslint-disable-next-line local/code-no-any-casts
 			return {
 				connect: (cb: (err: any, conn: any) => void) => cb(authError, undefined),
@@ -567,7 +567,7 @@ suite('Snowflake Reconnecting Client', () => {
 		const built = [first, replacement];
 		let n = 0;
 		// eslint-disable-next-line local/code-no-any-casts
-		const factory: SnowflakeConnectionFactory = () => built[n++].conn as any;
+		const factory: SnowflakeConnectionFactory = async () => built[n++].conn as any;
 		const client = new SnowflakeClient(OPTIONS, factory, async () => { });
 		await client.connect();
 
@@ -591,7 +591,7 @@ suite('Snowflake Reconnecting Client', () => {
 		const built = [first, replacement];
 		let n = 0;
 		// eslint-disable-next-line local/code-no-any-casts
-		const factory: SnowflakeConnectionFactory = () => built[n++].conn as any;
+		const factory: SnowflakeConnectionFactory = async () => built[n++].conn as any;
 		const client = new SnowflakeClient(OPTIONS, factory, async () => { });
 		await client.connect();
 
@@ -643,5 +643,24 @@ suite('Snowflake Account Parsing', () => {
 			parseSnowflakeAccount('https://app.snowflake.com/duloftf/posit_software_pbc_dev/'),
 			'DULOFTF-POSIT_SOFTWARE_PBC_DEV'
 		);
+	});
+});
+
+suite('Snowflake Lazy SDK Loading', () => {
+	// The SDK is reached through a dynamic import() inside the default factory rather than a
+	// top-level import, so that opening the Data Connections pane does not pay to load it. That
+	// import is resolved at runtime against the real package, so an export the module namespace does
+	// not actually carry still type-checks and only fails at the user's first connect. snowflake-sdk
+	// is CommonJS with no `exports` map, which is exactly that case: its named exports are invisible
+	// to Node's ESM loader and only reachable through the namespace's `default`.
+	test('the default factory builds a real connection from the deferred import', async () => {
+		const conn = await defaultConnectionFactory({
+			account: 'myorg-myacct',
+			username: 'testuser',
+			password: 'testpass',
+		});
+		assert.deepStrictEqual(
+			{ execute: typeof conn.execute, connectAsync: typeof conn.connectAsync },
+			{ execute: 'function', connectAsync: 'function' });
 	});
 });
