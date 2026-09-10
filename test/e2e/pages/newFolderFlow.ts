@@ -6,6 +6,7 @@
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
+import { Toasts } from './dialog-toasts';
 
 export class NewFolderFlow {
 	// Dynamic modal dialogs render into an overlay with this same testid, so two on screen at once
@@ -28,7 +29,7 @@ export class NewFolderFlow {
 	private get interpreterDropdown(): Locator { return this.code.driver.currentPage.locator('#flow-sub-step-pythonenvironment-interpreterorversion').locator('button'); }
 	private get interpreterDropdownSubtitle(): Locator { return this.interpreterDropdown.locator('.dropdown-entry-subtitle'); }
 
-	constructor(private code: Code, private quickaccess: QuickAccess) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts) { }
 
 	/**
 	 * NEW FOLDER FLOW:
@@ -157,6 +158,9 @@ export class NewFolderFlow {
 			throw new Error(`Invalid flow button action: ${action}`);
 		}
 
+		// A background session's toast (e.g. a forwarded-port notice) can render over this
+		// modal and intercept the click for the full timeout.
+		await this.toasts.closeAll();
 		await button.click();
 	}
 
