@@ -199,7 +199,7 @@ test.describe('Data Connections - SQLite', {
 		// formatConnectionSummary (positronDataConnectionsCommands.ts) for the grammar. The
 		// driver's id is reported, not its display name.
 		expect(profile.summary).toContain(
-			`name=${connectionName} | driver=positron-data-driver-sqlite | mechanism=file | languages=python, r | parameters=`);
+			`name=${connectionName} | driver=positron-data-driver-sqlite | mechanism=file | languages=python, r, ggsql | parameters=`);
 		// The driver's parameters nest inside the single parameters= field. Matched rather than
 		// compared whole: the path is absolute, so it differs per machine and per platform.
 		expect(profile.summary).toMatch(/databasePath=[^,|]*order_tracking\.db/);
