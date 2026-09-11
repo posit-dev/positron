@@ -104,4 +104,14 @@ describe('ActionBarActionCheckbox', () => {
 		await user.click(checkbox);
 		expect(executeCommand).not.toHaveBeenCalled();
 	});
+
+	it('renders nothing when the action has no checked condition', () => {
+		renderCheckbox(createAction({
+			positronActionBarOptions: {
+				controlType: 'checkbox'
+			}
+		}));
+
+		expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+	});
 });
