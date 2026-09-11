@@ -31,6 +31,9 @@ const TRUST_BUTTON = 'button.bg-primary:has-text("Trust this workspace")';
 
 // Welcome/landing page elements
 const WELCOME_TITLE = '.text-4xl:has-text("Posit Assistant")';
+// How long the greeting must stay on screen before startNewConversation trusts
+// that a persisted conversation is not about to be restored over it.
+const NEW_CONVERSATION_SETTLE_MS = 1000;
 
 // Chat input area.
 // Posit Assistant migrated the chat input from a <textarea> to a TipTap/ProseMirror
@@ -221,22 +224,35 @@ export class PositAssistant {
 	 */
 	async startNewConversation(): Promise<void> {
 		const button = this.frame.locator(NEW_CHAT_BUTTON);
-		// Released assistant builds still disable this button on a fresh (or
-		// streaming) conversation, and clicking a disabled button just burns the
-		// click timeout. Skip the click in that case -- being on a fresh
-		// conversation is the desired end state anyway.
-		if (await button.isEnabled()) {
-			try {
-				await button.click({ timeout: 5000 });
-			} catch (e) {
-				// If the button flipped to disabled mid-click on such a build, the
-				// fresh conversation already landed; otherwise re-throw.
-				if (await button.isEnabled()) {
-					throw e;
+		const welcome = this.frame.locator(WELCOME_TITLE);
+		await expect(async () => {
+			// Released assistant builds still disable this button on a fresh (or
+			// streaming) conversation, and clicking a disabled button just burns
+			// the click timeout. Skip the click in that case -- being on a fresh
+			// conversation is the desired end state anyway.
+			if (await button.isEnabled()) {
+				try {
+					await button.click({ timeout: 5000 });
+				} catch (e) {
+					// If the button flipped to disabled mid-click on such a build,
+					// the fresh conversation already landed; otherwise re-throw.
+					if (await button.isEnabled()) {
+						throw e;
+					}
 				}
 			}
-		}
-		await expect(this.frame.locator(WELCOME_TITLE)).toBeVisible();
+			await expect(welcome).toBeVisible({ timeout: 5000 });
+			// The webview paints the fresh/greeting state first and only then
+			// restores the last persisted conversation (machine-wide store, see
+			// posit-assistant.test.ts and #15187). That restore lands ~100-300ms
+			// after the chat input appears, so a single sample can read "disabled
+			// button + greeting visible" during the pre-hydration window, skip the
+			// click, and then have the restored conversation replace the greeting.
+			// Require the greeting to survive a settle window; if it does not, the
+			// retry sees an enabled button and performs a real click.
+			await this.code.wait(NEW_CONVERSATION_SETTLE_MS);
+			await expect(welcome).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
 		await this.waitForReady();
 	}
 
@@ -599,10 +615,12 @@ export class PositAssistant {
 	// --- Chat messages ---
 
 	/**
-	 * Verifies that an assistant response is visible.
+	 * Verifies that an assistant response is visible. Targets the most recent
+	 * one so a multi-turn conversation (or the persona greeting, which renders
+	 * as an assistant message) does not trip strict mode.
 	 */
 	async expectResponseVisible(): Promise<void> {
-		await expect(this.frame.locator(CHAT_MESSAGE_ASSISTANT)).toBeVisible();
+		await expect(this.frame.locator(CHAT_MESSAGE_ASSISTANT).last()).toBeVisible();
 	}
 
 	/**
