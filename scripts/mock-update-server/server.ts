@@ -67,15 +67,17 @@ function downloadName(platform: string): string {
 	}
 }
 
-/** Matches the shape of the real feed; `IUpdate` reads `version`, `productVersion`, and `url`. */
+/**
+ * Matches the shape of the real feed, which has no `productVersion` or `notes`; `IUpdate` reads
+ * `version` and `url`, and the darwin service fills `productVersion` in from `name`.
+ */
 function releaseDocument(platform: string): string {
 	return JSON.stringify({
 		version: advertised.version,
 		pub_date: new Date().toISOString().replace('T', ' ').replace(/\..*/, ' UTC'),
 		name: advertised.version,
-		url: `https://cdn.posit.co/positron/releases/${platform}/${downloadName(platform)}`,
+		url: `https://cdn.posit.co/positron/dailies/${platform}/${downloadName(platform)}`,
 		commit: advertised.commit,
-		productVersion: advertised.version,
 		sha256hash: '0'.repeat(64),
 		codeoss_version: JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version,
 	}, undefined, '\t');

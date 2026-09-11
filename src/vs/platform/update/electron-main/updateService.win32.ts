@@ -504,6 +504,56 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			return;
 		}
 
+		this.stageUpdate(update);
+	}
+
+	/**
+	 * Developer hook: download and stage the build advertised by an arbitrary feed document as
+	 * the pending update. The channel feed is left alone, so the pending update's next re-check
+	 * compares against the real latest release and the overwrite flow runs end to end without
+	 * waiting for two builds to publish.
+	 */
+	override async _stageUpdateFromFeed(feedUrl: string): Promise<void> {
+		this.logService.info('update#_stageUpdateFromFeed - staging the update advertised by', feedUrl);
+
+		// Allowed from Ready as well, replacing the pending update: the regular check runs 30
+		// seconds after launch, so by the time a tester reaches the command something is usually
+		// already staged.
+		if (this.state.type !== StateType.Idle && this.state.type !== StateType.Ready) {
+			this.logService.warn('update#_stageUpdateFromFeed - ignored, the update service is neither idle nor holding a pending update', this.state.type);
+			return;
+		}
+
+		if (this.state.type === StateType.Ready) {
+			try {
+				await this.cancelPendingUpdate();
+			} catch (err) {
+				this.logService.error('update#_stageUpdateFromFeed - failed to cancel the pending update', err);
+				return;
+			}
+		}
+
+		this._overwrite = false;
+		this.setState(State.CheckingForUpdates(true));
+
+		try {
+			const headers = getUpdateRequestHeaders(this.productService.version);
+			const context = await this.requestService.request({ url: feedUrl, headers, callSite: 'updateService.win32._stageUpdateFromFeed' }, CancellationToken.None);
+			const update = await asJson<IUpdate>(context);
+			if (!update || !update.url || !update.version) {
+				this.logService.warn('update#_stageUpdateFromFeed - the feed does not advertise an update', update);
+				this.setState(State.Idle(getUpdateType()));
+				return;
+			}
+			this.stageUpdate(update);
+		} catch (err) {
+			this.logService.error('update#_stageUpdateFromFeed - failed to fetch the feed', err);
+			this.setState(State.Idle(getUpdateType(), String(err)));
+		}
+	}
+
+	/** Downloads the installer for `update` into the cache and lands in `Ready` (or applies it in the background). */
+	private stageUpdate(update: IUpdate): void {
 		// TODO: Code for installing updates is disabled due to this.enableAutoUpdate being false
 		this.setState(State.Downloading(update, false, false));
 

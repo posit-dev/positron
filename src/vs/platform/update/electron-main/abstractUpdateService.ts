@@ -506,6 +506,16 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 	// --- Start Positron ---
 	async checkForUpdates(explicit: boolean): Promise<void> {
+		// With an update already pending there is nothing to find for the installed version, but
+		// the pending update itself may have been superseded. Route the check to the overwrite
+		// re-check, so "Check for Updates" (and the scheduled check) can pick up a newer build
+		// instead of doing nothing until the next interval or a restart.
+		if (this.state.type === StateType.Ready && this.supportsUpdateOverwrite) {
+			this.logService.info('update#checkForUpdates - an update is pending, checking whether a newer one is available');
+			await this.checkForOverwriteUpdates(explicit);
+			return;
+		}
+
 		const includeLanguages = this.configurationService.getValue<boolean>('update.primaryLanguageReporting');
 		const includeAnonymousId = this.configurationService.getValue<boolean>('update.anonymousUsageReporting');
 
@@ -711,11 +721,19 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		}
 
 		this.setDeferred(false);
-		const pendingUpdateCommit = this.state.update.version;
+		// --- Start Positron ---
+		// Electron's `update-downloaded` event maps its release *notes* to `version`, which is
+		// where upstream's server puts the commit. Positron's feed has no notes, so `version` can
+		// arrive empty; the product version carries the same calver and works as the baseline.
+		// const pendingUpdateCommit = this.state.update.version;
+		const pendingUpdateCommit = this.state.update.version || this.state.update.productVersion;
 
 		if (!pendingUpdateCommit || pendingUpdateCommit === 'unknown') {
+			// Say so: a silent return here hid a pending update that was never re-checked.
+			this.logService.info('update#checkForOverwriteUpdates - skipping, the pending update has no version to compare against', this.state.update);
 			return false;
 		}
+		// --- End Positron ---
 
 		let isLatest: boolean | undefined;
 
@@ -823,6 +841,17 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	async _applySpecificUpdate(packagePath: string): Promise<void> {
 		// noop
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Developer hook: stage the build advertised by an arbitrary feed document as the pending
+	 * update, so the overwrite flow can be exercised against the real channel feed without
+	 * waiting for two builds to publish. Platforms that can stage an update override this.
+	 */
+	async _stageUpdateFromFeed(feedUrl: string): Promise<void> {
+		this.logService.warn('update#_stageUpdateFromFeed - not supported on this platform', feedUrl);
+	}
+	// --- End Positron ---
 
 	async setInternalOrg(internalOrg: string | undefined): Promise<void> {
 		if (this._internalOrg === internalOrg) {

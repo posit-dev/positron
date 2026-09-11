@@ -42,6 +42,13 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	// --- Start Positron ---
 	/** The in-flight simulated download, if any; see `simulateStagedUpdate`. */
 	private readonly devStagingSimulation = this._register(new MutableDisposable<IDisposable>());
+	/**
+	 * The feed document that led to the download Electron is running, so `onUpdateDownloaded`
+	 * can fill in what Electron's event leaves out. Electron reports the feed's `notes` as
+	 * `version` and its `name` as `productVersion`; Positron's feed has no `notes`, so without
+	 * this the pending update has no version and the overwrite check has nothing to compare.
+	 */
+	private downloadingFeedUpdate: IUpdate | undefined;
 	// --- End Positron ---
 
 	@memoize private get onRawError(): Event<string> { return Event.fromNodeEventEmitter(electron.autoUpdater, 'error', (_, message) => message); }
@@ -238,6 +245,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		} else {
 			// We cannot avoid Electron checking the URL again with this call. Electron can only check against
 			// the app version, which is VS Code's version.
+			this.downloadingFeedUpdate = update;
 			electron.autoUpdater.checkForUpdates();
 		}
 	}
@@ -261,14 +269,15 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			const context = await this.requestService.request({ url, headers, callSite: 'updateService.darwin.checkForOverwriteDownload' }, CancellationToken.None);
 			const update = await asJson<IUpdate>(context);
 
-			if (update && update.url && update.version && update.productVersion && hasUpdate(update, pendingCommit)) {
+			// The real feed has no `productVersion` (the mock server used to add one, which hid this);
+			// `version` is the calver and is all `hasUpdate` needs.
+			if (update && update.url && update.version && hasUpdate(update, pendingCommit)) {
 				this.logService.trace('update#checkForOverwriteDownload - newer update confirmed, downloading', { version: update.version });
-				// --- Start Positron ---
 				if (this.devUpdateTesting) {
 					this.simulateStagedUpdate(update, explicit);
 					return;
 				}
-				// --- End Positron ---
+				this.downloadingFeedUpdate = update;
 				electron.autoUpdater.checkForUpdates();
 				return;
 			}
@@ -349,7 +358,11 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			this.logService.trace('update#checkForUpdateNoDownload - response', { statusCode });
 
 			const update = await asJson<IUpdate>(context);
-			if (!update || !update.url || !update.version || !update.productVersion) {
+			// --- Start Positron ---
+			// Positron's feed has no `productVersion`; `version` is the calver.
+			// if (!update || !update.url || !update.version || !update.productVersion) {
+			if (!update || !update.url || !update.version) {
+				// --- End Positron ---
 				this.logService.trace('update#checkForUpdateNoDownload - no update available');
 				const notAvailable = this.state.type === StateType.CheckingForUpdates && this.state.explicit;
 				this.setState(State.Idle(UpdateType.Archive, undefined, notAvailable || undefined));
@@ -378,11 +391,39 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			return;
 		}
 
+		// --- Start Positron ---
+		// Electron's event carries the feed's `notes` as `version`, which Positron's feed does not
+		// have, so fall back to the release name (the feed's `name`, also the calver) and then to
+		// the feed document we handed Electron. The pending update must have a version: the
+		// overwrite check compares it against the feed, and a restart installs it by name.
+		update = this.withFeedDetails(update);
+		// --- End Positron ---
+
 		this.setState(State.Downloaded(update, this.state.explicit, this._overwrite));
 		this.logService.info(`Update downloaded: ${JSON.stringify(update)}`);
 
 		this.setState(State.Ready(update, this.state.explicit, this._overwrite));
 	}
+
+	// --- Start Positron ---
+	private withFeedDetails(update: IUpdate): IUpdate {
+		const feed = this.downloadingFeedUpdate;
+		this.downloadingFeedUpdate = undefined;
+
+		// Only trust the remembered document when it describes the build Electron just downloaded.
+		const sameBuild = feed && (!update.productVersion || feed.version === update.productVersion);
+		const version = update.version || update.productVersion || (sameBuild ? feed.version : '');
+		const productVersion = update.productVersion || (sameBuild ? feed.version : version) || undefined;
+
+		return {
+			...update,
+			version,
+			productVersion,
+			url: update.url ?? (sameBuild ? feed.url : undefined),
+			sha256hash: update.sha256hash ?? (sameBuild ? feed.sha256hash : undefined),
+		};
+	}
+	// --- End Positron ---
 
 	private onUpdateNotAvailable(): void {
 		this.logService.trace('update#onUpdateNotAvailable - Electron autoUpdater reported no update available');
@@ -407,10 +448,77 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		// --- Start Positron ---
 		this.buildUpdateFeedUrl(this.getUpdateChannel());
 		// this.buildUpdateFeedUrl(this.quality!, state.update.version, { internalOrg: this.getInternalOrg() });
+		this.downloadingFeedUpdate = state.update;
 		// --- End Positron ---
 		this.setState(State.CheckingForUpdates(true));
 		electron.autoUpdater.checkForUpdates();
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Developer hook: point Electron's auto-updater at an arbitrary feed document (typically one
+	 * that advertises an older, still-hosted build) and let it download and stage that build as
+	 * the pending update. The channel feed is left alone, so the pending update then re-checks
+	 * against the real latest release and the overwrite flow can be exercised end to end,
+	 * including Electron's second download, without waiting for two builds to publish.
+	 *
+	 * A source build cannot use the auto-updater, so it fetches the document itself and walks
+	 * the simulated download instead.
+	 */
+	override async _stageUpdateFromFeed(feedUrl: string): Promise<void> {
+		this.logService.info('update#_stageUpdateFromFeed - staging the update advertised by', feedUrl);
+
+		// Allowed from Ready as well, replacing the pending update: the regular check runs 30
+		// seconds after launch, so by the time a tester reaches the command something is usually
+		// already staged.
+		if (this.state.type !== StateType.Idle && this.state.type !== StateType.Ready) {
+			this.logService.warn('update#_stageUpdateFromFeed - ignored, the update service is neither idle nor holding a pending update', this.state.type);
+			return;
+		}
+
+		if (this.state.type === StateType.Ready) {
+			try {
+				await this.cancelPendingUpdate();
+			} catch (err) {
+				this.logService.error('update#_stageUpdateFromFeed - failed to cancel the pending update', err);
+				return;
+			}
+		}
+
+		this._overwrite = false;
+		this.setState(State.CheckingForUpdates(true));
+
+		if (this.devUpdateTesting) {
+			try {
+				const context = await this.requestService.request({ url: feedUrl, callSite: 'updateService.darwin._stageUpdateFromFeed' }, CancellationToken.None);
+				const update = await asJson<IUpdate>(context);
+				if (!update || !update.url || !update.version) {
+					this.logService.warn('update#_stageUpdateFromFeed - the feed does not advertise an update', update);
+					this.setState(State.Idle(UpdateType.Archive));
+					return;
+				}
+				this.simulateStagedUpdate(update, true);
+			} catch (err) {
+				this.logService.error('update#_stageUpdateFromFeed - failed to fetch the feed', err);
+				this.setState(State.Idle(UpdateType.Archive, String(err)));
+			}
+			return;
+		}
+
+		try {
+			electron.autoUpdater.setFeedURL({ url: feedUrl });
+		} catch (err) {
+			this.logService.error('update#_stageUpdateFromFeed - failed to set the feed URL', err);
+			this.setState(State.Idle(UpdateType.Archive, String(err)));
+			return;
+		}
+
+		// Electron's event fills the version in from the feed's `name`; nothing else about this
+		// document is known up front, so there is no feed update to remember here.
+		this.downloadingFeedUpdate = undefined;
+		electron.autoUpdater.checkForUpdates();
+	}
+	// --- End Positron ---
 
 	protected override doQuitAndInstall(): void {
 		// --- Start Positron ---

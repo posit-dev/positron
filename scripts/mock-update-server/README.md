@@ -100,6 +100,37 @@ the update was first found.
    update#doQuitAndInstall - dev update testing, would install 2026.09.0-3 2026.09.0-3
    ```
 
+## Faking a pending update from a hosted build
+
+The mock feed is enough for a source build, but a signed build is the only place
+the real download and Squirrel's second `checkForUpdates` can be exercised, and
+there the flow above needs two dailies to publish while Positron is running.
+**Developer: Stage Pending Update from Feed URL...** (macOS and Windows, update
+state `Idle` or `Ready`; from `Ready` it replaces the pending update) skips the
+wait: give it the URL of a feed document that advertises
+an *older*, still-hosted build (`releases.json` on macOS, `<target>-releases.json`
+on Windows), and the update service downloads and stages that build as the
+pending update. The channel feed is left alone, so the pending
+update's next re-check (or **Restart to Update**) sees the real latest release as
+newer and runs the overwrite flow end to end.
+
+For example, if the channel is currently at `2026.10.0-47`, publish a copy of
+the `2026.10.0-31` document somewhere reachable, run the command with its URL,
+wait for **Restart to Update** to show `-31`, and then either wait five minutes
+or click **Restart to Update**. The tooltip should pass through **Downloading
+Newer Update** and settle on `-47`.
+
+Under `devUpdateTesting` the same command fetches the document itself and walks
+the simulated download, so it also works against this mock server:
+
+```bash
+npm run mock-update-server -- --port 9000 --version 2026.09.0-1   # the "older" build
+```
+
+then enter `http://localhost:9000/positron/releases/mac/arm64/releases.json`.
+On Windows the download is real even from a source build, so use a hosted
+installer's feed rather than the mock server, whose `url` points at nothing.
+
 ## Limits
 
 A source build is unsigned, so Electron's auto-updater cannot be used at all.

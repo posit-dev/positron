@@ -21,7 +21,7 @@ import { IStateService } from '../../../state/node/state.js';
 import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { AbstractUpdateService } from '../../electron-main/abstractUpdateService.js';
-import { State, StateType, UpdateType } from '../../common/update.js';
+import { IUpdate, State, StateType, UpdateType } from '../../common/update.js';
 
 // The interfaces above come from `electron-main` files whose import chain pulls in the real
 // `electron` package, and requiring that package runs a postinstall shim that downloads the
@@ -216,9 +216,9 @@ describe('AbstractUpdateService overwrite updates', () => {
 		}
 
 		/** The real service reaches Ready through the download/apply chain, which needs a network. */
-		becomeReady(version: string = PENDING_VERSION): void {
+		becomeReady(update: string | IUpdate = PENDING_VERSION): void {
 			this.setFeed();
-			this.setState(State.Ready({ version }, false, false));
+			this.setState(State.Ready(typeof update === 'string' ? { version: update } : update, false, false));
 		}
 
 		/** Leaving Ready, e.g. because updates were disabled after the update was staged. */
@@ -362,6 +362,34 @@ describe('AbstractUpdateService overwrite updates', () => {
 			service.dispose();
 		});
 
+		it('compares against the product version when the pending update has no version', async () => {
+			// On macOS, Electron's `update-downloaded` event maps the feed's release *notes* to
+			// `version`. Positron's feed has none, so a pending update can arrive with an empty
+			// version and only the product version set; the overwrite check must still run.
+			feedVersion = '2026.09.0-2';
+			const service = createService();
+			service.becomeReady({ version: '', productVersion: PENDING_VERSION });
+
+			await service.quitAndInstall();
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			expect(service.state.type).toBe(StateType.Overwriting);
+			service.dispose();
+		});
+
+		it('restarts into the pending update when there is no version at all to compare', async () => {
+			feedVersion = '2026.09.0-2';
+			const service = createService();
+			service.becomeReady({ version: '' });
+
+			await service.quitAndInstall();
+			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
+
+			// Nothing to compare, so no overwrite; the restart itself must still go through.
+			expect(calls).toEqual(['quit', 'doQuitAndInstall']);
+			service.dispose();
+		});
+
 		it('proceeds with the restart of the pending update when the cancel fails', async () => {
 			feedVersion = '2026.09.0-2';
 			cancelFails = true;
@@ -432,6 +460,50 @@ describe('AbstractUpdateService overwrite updates', () => {
 			await new Promise<void>(resolve => setTimeout(resolve, 50));
 
 			expect(calls).toEqual([]);
+			service.dispose();
+		});
+	});
+
+	describe('checkForUpdates while an update is pending', () => {
+
+		// Nothing newer can be found for the *installed* version once an update is pending, so the
+		// regular check is routed to the overwrite re-check instead of silently doing nothing.
+
+		it('re-checks the feed for a build newer than the pending update', async () => {
+			feedVersion = '2026.09.0-2';
+			const service = createService();
+			service.becomeReady();
+
+			await service.checkForUpdates(true);
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			expect(service.state.type).toBe(StateType.Overwriting);
+			service.dispose();
+		});
+
+		it('leaves the pending update alone when the feed still advertises it', async () => {
+			const service = createService();
+			service.becomeReady();
+
+			await service.checkForUpdates(true);
+
+			expect(calls).toEqual([]);
+			expect(service.state.type).toBe(StateType.Ready);
+			service.dispose();
+		});
+
+		it('defers a scheduled check on a metered connection but not an explicit one', async () => {
+			feedVersion = '2026.09.0-2';
+			metered = true;
+			const service = createService();
+			service.becomeReady();
+
+			await service.checkForUpdates(false);
+			expect(calls).toEqual([]);
+			expect(service.state.type).toBe(StateType.Ready);
+
+			await service.checkForUpdates(true);
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
 			service.dispose();
 		});
 	});
