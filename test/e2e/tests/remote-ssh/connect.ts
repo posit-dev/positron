@@ -66,6 +66,15 @@ export async function connectToRemoteHost(app: Application): Promise<{ sshWin: P
 
 		process.env.POSITRON_PY_VER_SEL = process.env.POSITRON_PY_REMOTE_VER_SEL!;
 		process.env.POSITRON_R_VER_SEL = process.env.POSITRON_R_REMOTE_VER_SEL!;
+		// The remote host's interpreters are not the local ones, so its source
+		// selector has to travel with its version selector -- and when the remote
+		// selector is unset the local one has to go, not be assigned through
+		// (which would stringify undefined into an unmatchable source).
+		if (process.env.POSITRON_PY_REMOTE_SOURCE_SEL) {
+			process.env.POSITRON_PY_SOURCE_SEL = process.env.POSITRON_PY_REMOTE_SOURCE_SEL;
+		} else {
+			delete process.env.POSITRON_PY_SOURCE_SEL;
+		}
 
 		return sshWorkbench;
 	});

@@ -608,8 +608,10 @@ jobs:
         shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_SOURCE_SEL: System
           POSITRON_R_VER_SEL: ${{ steps.r-versions.outputs.r_version }}
           POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_PY_ALT_SOURCE_SEL: System
           POSITRON_R_ALT_VER_SEL: ${{ steps.r-versions.outputs.r_alt_version }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
         run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "${{ inputs.project }}" --reporter=null
@@ -618,8 +620,10 @@ jobs:
         shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_SOURCE_SEL: System
           POSITRON_R_VER_SEL: ${{ steps.r-versions.outputs.r_version }}
           POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_PY_ALT_SOURCE_SEL: System
           POSITRON_R_ALT_VER_SEL: ${{ steps.r-versions.outputs.r_alt_version }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1

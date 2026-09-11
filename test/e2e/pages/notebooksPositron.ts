@@ -10,7 +10,7 @@ import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
-import { ACTIVE_STATUS_ICON, DEPRIORITIZED_PYTHON_SOURCES, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
+import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, pythonSourceForVersion, SessionState } from './sessions.js';
 import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
@@ -2032,7 +2032,7 @@ export class Kernel extends KernelBase {
 			await this.quickinput.selectQuickInputElementContaining(desiredKernel, {
 				timeout: 1000,
 				force: false,
-				deprioritize: kernelGroup === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+				requireSource: kernelGroup === 'Python' ? pythonSourceForVersion(desiredKernel) : undefined,
 			});
 			await this.quickinput.waitForQuickInputClosed();
 		});
@@ -2096,7 +2096,7 @@ export class Kernel extends KernelBase {
 			await this.quickinput.selectQuickInputElementContaining(desiredKernel, {
 				timeout: 1000,
 				force: false,
-				deprioritize: kernelGroup === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+				requireSource: kernelGroup === 'Python' ? pythonSourceForVersion(desiredKernel) : undefined,
 			});
 			await this.quickinput.waitForQuickInputClosed();
 			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
