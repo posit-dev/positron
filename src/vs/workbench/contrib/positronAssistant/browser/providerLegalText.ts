@@ -89,7 +89,7 @@ export function getProviderThirdPartyServiceText(provider: IProvider): string | 
 	if (isCustomProvider(provider)) {
 		return localize(
 			'positron.languageModelConfig.custom.thirdPartyService',
-			'This is a custom provider connecting to an endpoint you configured, and your use of it is governed by that provider\'s terms of service.',
+			'This is a custom provider that connects to an endpoint you configure, and your use of it is governed by that provider\'s terms of service.',
 		);
 	}
 	return localize(
