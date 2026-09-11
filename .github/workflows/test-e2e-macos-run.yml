@@ -331,8 +331,10 @@ jobs:
       - name: Run Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_SOURCE_SEL: Pyenv
           POSITRON_R_VER_SEL: ${{ steps.r-versions.outputs.r_version }}
           POSITRON_PY_ALT_VER_SEL: 3.11.0
+          POSITRON_PY_ALT_SOURCE_SEL: Pyenv
           POSITRON_R_ALT_VER_SEL: ${{ steps.r-versions.outputs.r_alt_version }}
           REPORTER_REPO_NAME: positron
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}

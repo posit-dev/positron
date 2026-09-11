@@ -15,17 +15,12 @@ const getAlternatePython = () => process.env.POSITRON_PY_ALT_VER_SEL;
 const getAlternateR = () => process.env.POSITRON_R_ALT_VER_SEL;
 const getHiddenPython = () => process.env.POSITRON_HIDDEN_PY;
 const getHiddenR = () => process.env.POSITRON_HIDDEN_R;
+const getDesiredPythonSource = () => process.env.POSITRON_PY_SOURCE_SEL;
+const getAlternatePythonSource = () => process.env.POSITRON_PY_ALT_SOURCE_SEL;
 
 export const ACTIVE_STATUS_ICON = '.codicon-positron-runtime-status-active';
 export const IDLE_STATUS_ICON = '.codicon-positron-runtime-status-idle';
 export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-disconnected';
-
-// Python interpreter source markers to deprioritize when selecting an interpreter
-// by version. Several interpreters can share a version (e.g. a project venv and a
-// base pyenv both shown as "Python 3.10.12"); when that happens we want the real
-// environment, not the base install. The values match the "(<source>" portion of
-// the quick pick label produced by getRuntimeSourceAndShortName.
-export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown'];
 
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
@@ -35,6 +30,30 @@ const NEW_CONSOLE_SESSION_ITEM_LABEL = 'New Console Session...';
 // Quickpick label regex patterns used in SessionQuickPick
 const SESSION_QUICK_MENU_PATTERN = new RegExp(`(${INTERPRETER_SESSIONS_LABEL})|(${START_NEW_CONSOLE_SESSION_LABEL})`);
 const START_NEW_CONSOLE_SESSION_PATTERN = new RegExp(START_NEW_CONSOLE_SESSION_LABEL);
+
+/**
+ * The interpreter source CI pinned for a given Python version, if any.
+ *
+ * Several interpreters can share a version -- a project venv and the base install
+ * it was built on both read "Python 3.10.12" -- so a version alone does not
+ * identify a row in the quick pick. Each lane publishes the source of the
+ * interpreter it provisioned alongside the version, which does.
+ *
+ * Returns undefined for a version the lane hasn't pinned (or for a lane that sets
+ * no source at all), leaving the caller with version-only matching.
+ */
+export function pythonSourceForVersion(version: string | undefined): string | undefined {
+	if (!version) {
+		return undefined;
+	}
+	if (version === getDesiredPython()) {
+		return getDesiredPythonSource();
+	}
+	if (version === getAlternatePython()) {
+		return getAlternatePythonSource();
+	}
+	return undefined;
+}
 
 /**
  * Class to manage console sessions
@@ -564,7 +583,7 @@ export class Sessions {
 				try {
 					this._selectedRuntimeLabel = await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
 						timeout: 2000,
-						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+						requireSource: language === 'Python' ? pythonSourceForVersion(version) : undefined,
 					});
 				} catch (e) {
 					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter

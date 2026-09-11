@@ -128,8 +128,10 @@ jobs:
       # notebook and console-output start one explicitly and need real values.
       # Every matrix job sets them.
       POSITRON_PY_VER_SEL: "3.10.12"
+      POSITRON_PY_SOURCE_SEL: uv
       POSITRON_R_VER_SEL: 4.5.2
       POSITRON_PY_ALT_VER_SEL: "3.13.0"
+      POSITRON_PY_ALT_SOURCE_SEL: Pyenv
       POSITRON_R_ALT_VER_SEL: 4.4.2
     steps:
       - uses: actions/checkout@v7

@@ -49,6 +49,20 @@ Make sure you have the selected R and Python version installed that you are usin
 
 _Note: If you are using Pyenv for your alternate Python interpreter, please add ` (Pyenv)` to the variable value._
 
+Optionally, name the source of each Python interpreter:
+
+```bash
+POSITRON_PY_SOURCE_SEL=uv
+POSITRON_PY_ALT_SOURCE_SEL=Pyenv
+```
+
+A version on its own can match several interpreters -- a project venv and the base
+install it was built on both read "Python 3.10.12" -- and which one the session picker
+lands on then depends on discovery order. Setting the source makes the tests wait for
+the row you meant instead. The value is the source as the picker shows it, in the
+parentheses after the version: `uv`, `Pyenv`, `Conda`, `System`. Leave it unset and the
+tests fall back to matching on version alone.
+
 ## Dependencies
 
 Below are the different package and environment dependencies you'll need to install that are used in the smoke tests.

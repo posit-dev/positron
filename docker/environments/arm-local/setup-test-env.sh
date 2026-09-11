@@ -180,8 +180,10 @@ fi
 # Set environment variables
 echo "Setting environment variables..."
 export POSITRON_PY_VER_SEL="3.10.12"
+export POSITRON_PY_SOURCE_SEL="uv"
 export POSITRON_R_VER_SEL="4.5.2"
 export POSITRON_PY_ALT_VER_SEL="3.13.0"
+export POSITRON_PY_ALT_SOURCE_SEL="Pyenv"
 export POSITRON_R_ALT_VER_SEL="4.4.2"
 export POSITRON_HIDDEN_PY="3.12.10 (Conda)"
 export POSITRON_HIDDEN_R="4.4.1"
@@ -192,8 +194,10 @@ cat <<EOF >> ~/.bashrc
 # Positron test environment variables
 export DISPLAY=:10
 export POSITRON_PY_VER_SEL="3.10.12"
+export POSITRON_PY_SOURCE_SEL="uv"
 export POSITRON_R_VER_SEL="4.5.2"
 export POSITRON_PY_ALT_VER_SEL="3.13.0"
+export POSITRON_PY_ALT_SOURCE_SEL="Pyenv"
 export POSITRON_R_ALT_VER_SEL="4.4.2"
 export POSITRON_HIDDEN_PY="3.12.10 (Conda)"
 export POSITRON_HIDDEN_R="4.4.1"

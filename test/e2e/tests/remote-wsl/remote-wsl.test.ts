@@ -36,6 +36,9 @@ const WSL_SERVER_DOWNLOAD_URL = process.env.POSITRON_WSL_SERVER_DOWNLOAD_URL;
 function useWslInterpreterSelectors(): void {
 	if (process.env.POSITRON_PY_WSL_VER_SEL) {
 		process.env.POSITRON_PY_VER_SEL = process.env.POSITRON_PY_WSL_VER_SEL;
+		// The local source selector describes a local interpreter, so it cannot
+		// apply to whatever the distro has at this version.
+		delete process.env.POSITRON_PY_SOURCE_SEL;
 	}
 	if (process.env.POSITRON_R_WSL_VER_SEL) {
 		process.env.POSITRON_R_VER_SEL = process.env.POSITRON_R_WSL_VER_SEL;

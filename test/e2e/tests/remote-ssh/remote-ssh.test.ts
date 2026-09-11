@@ -38,8 +38,8 @@ test.describe('Remote SSH', {
 
 		const pythonSession = await test.step(`Check that correct Python is being used`, async () => {
 			// The remote host has both a base interpreter and the project venv at this
-			// version; startAndSkipMetadata deprioritizes base installs so the
-			// uv-managed /root/.venv is selected (verified by the assertion below).
+			// version, so the version alone does not pick one; POSITRON_PY_REMOTE_SOURCE_SEL
+			// names the uv-managed /root/.venv (verified by the assertion below).
 			// The version comes from POSITRON_PY_REMOTE_VER_SEL (set in the yml).
 			const pythonSessionId = await sshWorkbench.sessions.startAndSkipMetadata({
 				language: 'Python',

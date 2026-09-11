@@ -209,29 +209,24 @@ export class QuickInput {
 
 	async selectQuickInputElementContaining(
 		text: string,
-		{ timeout, force = true, deprioritize }: { timeout?: number; force?: boolean; deprioritize?: string[] } = {},
+		{ timeout, force = true, requireSource }: { timeout?: number; force?: boolean; requireSource?: string } = {},
 	): Promise<string> {
-		const matches = this.code.driver.currentPage
-			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`);
-
-		// By default select the first matching row. When `deprioritize` is set and
-		// several rows share `text` (e.g. a project venv and a base pyenv both
-		// labeled "Python 3.10.12"), prefer the first row whose aria-label contains
-		// none of the deprioritized source markers. Falls back to the first match
-		// when every match is deprioritized (e.g. a platform where only the base
-		// interpreter is installed).
-		let target = matches.first();
-		if (deprioritize?.length) {
-			await expect(target).toBeVisible({ timeout });
-			const count = await matches.count();
-			for (let i = 0; i < count; i++) {
-				const row = matches.nth(i);
-				const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
-				if (!deprioritize.some(source => ariaLabel.includes(source))) {
-					target = row;
-					break;
-				}
-			}
+		// Several interpreters can share a version -- a project venv and the base
+		// install it was built on both read "Python 3.10.12" -- so when the caller
+		// knows which environment it wants, `requireSource` narrows the match to that
+		// source's row. The source appears in the label as "(<source>)" or
+		// "(<source>: <env>)", hence the trailing open paren and no closing one.
+		//
+		// That row is then waited for, not merely preferred: runtimes register
+		// progressively during discovery, so the wanted one is often just not there
+		// yet on the first look, and settling for whichever row happens to be listed
+		// first is how the wrong interpreter gets started.
+		const sourceFilter = requireSource ? `[aria-label*="(${requireSource}"]` : '';
+		const target = this.code.driver.currentPage
+			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]${sourceFilter}`)
+			.first();
+		if (requireSource) {
+			await expect(target, `Quick pick row for "${text} (${requireSource}"`).toBeVisible({ timeout });
 		}
 
 		const targetResult =

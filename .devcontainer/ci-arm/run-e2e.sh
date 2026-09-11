@@ -23,9 +23,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${POSITRON_WORKSPACE_PATH:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 DEVCONTAINER_JSON="$SCRIPT_DIR/devcontainer.json"
 
-# Resolve the four interpreter selectors: keep any already exported, fill the rest from
+# Resolve the interpreter selectors: keep any already exported, fill the rest from
 # devcontainer.json (one source of truth) so the CLI path and the Dev Containers path agree.
-for key in POSITRON_PY_VER_SEL POSITRON_R_VER_SEL POSITRON_PY_ALT_VER_SEL POSITRON_R_ALT_VER_SEL; do
+for key in POSITRON_PY_VER_SEL POSITRON_R_VER_SEL POSITRON_PY_ALT_VER_SEL POSITRON_R_ALT_VER_SEL \
+	POSITRON_PY_SOURCE_SEL POSITRON_PY_ALT_SOURCE_SEL; do
 	if [ -z "${!key:-}" ]; then
 		val="$(grep -oE "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$DEVCONTAINER_JSON" 2>/dev/null | head -1 | sed -E 's/.*"([^"]*)"$/\1/')"
 		if [ -z "$val" ]; then
