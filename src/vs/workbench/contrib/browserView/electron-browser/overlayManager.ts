@@ -30,7 +30,11 @@ const OVERLAY_DEFINITIONS: ReadonlyArray<{ className: string; type: BrowserOverl
 	{ className: 'notifications-center', type: BrowserOverlayType.Notification },
 	{ className: 'notification-toast-container', type: BrowserOverlayType.Notification },
 	// Context view is very generic, so treat the content as unknown
-	{ className: 'context-view', type: BrowserOverlayType.Unknown }
+	{ className: 'context-view', type: BrowserOverlayType.Unknown },
+	// --- Start Positron ---
+	{ className: 'positron-modal-popup', type: BrowserOverlayType.Menu },
+	{ className: 'positron-modal-dialog-container', type: BrowserOverlayType.Dialog }
+	// --- End Positron ---
 ];
 
 const HIT_TEST_EXCLUDED_CLASSES = [
