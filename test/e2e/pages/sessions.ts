@@ -63,6 +63,10 @@ export class Sessions {
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private get outputChannel() { return this.page.getByRole('combobox'); }
 
+	// Label of the runtime row last clicked in the quick pick, set by
+	// startAndSkipMetadata() and consumed once by start().
+	private _selectedRuntimeLabel: string | undefined;
+
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu, private modals: Modals) { }
 
 	// -- Actions --
@@ -116,7 +120,9 @@ export class Sessions {
 				version: sessionTemplate.version, // This will call the getter again
 			};
 			newSession.id = await this.startAndSkipMetadata(newSession);
-			return await this.getMetadata(newSession.id);
+			const metadata = await this.getMetadata(newSession.id);
+			this.expectMetadataToMatchSelectedRuntime(metadata);
+			return metadata;
 		};
 
 		if (reuse) {
@@ -514,6 +520,8 @@ export class Sessions {
 
 		return await test.step(`Start session via ${triggerMode}: ${language} ${version} ${options.disambiguator}`, async () => {
 
+			this._selectedRuntimeLabel = undefined;
+
 			// Don't try to start a new runtime if one is currently starting up
 			await this.expectAllSessionsToBeReady();
 
@@ -554,7 +562,7 @@ export class Sessions {
 				// We need to click instead of using 'enter' because the Python select interpreter command
 				// may include additional items above the desired interpreter string.
 				try {
-					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
+					this._selectedRuntimeLabel = await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
 						timeout: 2000,
 						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
 					});
@@ -775,6 +783,41 @@ export class Sessions {
 				? await this.getMetadataFromDialog(sessionId)
 				: await this.getMetadataFromCommand(sessionId);
 		});
+	}
+
+	/**
+	 * Helper: Assert the session that started is the one that was clicked in the
+	 * quick pick.
+	 *
+	 * The runtime list is re-ranked as discovery registers interpreters, so a row
+	 * can move (or a better-ranked row can appear) between the click and the
+	 * start. Several interpreters also share a version -- e.g. a project venv and
+	 * the uv base it was built on both read "Python 3.10.12" -- so a version match
+	 * alone does not tell us which one we got. Compare the source instead: the row
+	 * label carries it as "(<source>)" or "(<source>: <env>)", and session
+	 * metadata reports it as `source`.
+	 *
+	 * Consumes the recorded label, so a later reused session (which never opens
+	 * the quick pick) is not checked against a stale selection.
+	 */
+	private expectMetadataToMatchSelectedRuntime(metadata: SessionMetaData): void {
+		const selected = this._selectedRuntimeLabel;
+		this._selectedRuntimeLabel = undefined;
+
+		// No label recorded, or a label with no source to compare (some runtimes
+		// are listed without one) -- nothing to assert.
+		const selectedSource = selected?.match(/\(([^)]+)\)/)?.[1].split(':')[0].trim();
+		if (!selectedSource || !metadata.source) {
+			return;
+		}
+
+		if (selectedSource !== metadata.source) {
+			throw new Error(
+				`Selected "${selected}" in the quick pick, but session ${metadata.id} started on `
+				+ `source "${metadata.source}" (${metadata.path}). The runtime list was likely `
+				+ 're-ranked between selection and start.'
+			);
+		}
 	}
 
 	/**
