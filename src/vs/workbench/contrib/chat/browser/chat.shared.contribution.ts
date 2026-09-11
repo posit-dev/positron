@@ -374,7 +374,12 @@ configurationRegistry.registerConfiguration({
 				nls.localize('chat.agentsControl.compact', "Replaces the command center search box with a compact agent status indicator and unified chat widget."),
 			],
 			markdownDescription: nls.localize('chat.agentsControl.enabled', "Controls how the 'Agent Status' indicator appears in the title bar command center. When set to `hidden`, the indicator is not shown. Other values show the indicator and automatically enable {0}. The unread and in-progress session indicators require {1} to be enabled.", '`#window.commandCenter#`', '`#chat.viewSessions.enabled#`'),
-			default: 'compact',
+			// --- Start Positron ---
+			// default: 'compact',
+			// Positron doesn't ship the Agents window, so keep the indicator out of
+			// the title bar.
+			default: 'hidden',
+			// --- End Positron ---
 			tags: ['experimental']
 		},
 		[ChatConfiguration.UnifiedAgentsBar]: {
@@ -2240,7 +2245,12 @@ configurationRegistry.registerConfiguration({
 		[ChatConfiguration.TitleBarOpenInAgentsWindowEnabled]: {
 			type: 'boolean',
 			description: nls.localize('chat.titleBar.openInAgentsWindow.enabled', "Controls whether the Open in Agents Window button is shown in the title bar."),
-			default: true,
+			// --- Start Positron ---
+			// default: true,
+			// Positron doesn't ship the Agents window, so the button would open an
+			// empty window.
+			default: false,
+			// --- End Positron ---
 		},
 		'chat.approvedAccountOrganizations': {
 			type: 'array',
