@@ -129,7 +129,11 @@ Iterate from rendered output, not source inspection alone.
 
 1. Render at the intended display width, commonly 400px for walkthroughs.
 2. Render at 2x or greater and inspect seams, clipping, optical alignment,
-   stroke weight, icon orientation, and overlay z-order.
+   stroke weight, icon orientation, and overlay z-order. Check every header or
+   title bar where readable text sits next to trailing action icons: a title's
+   rendered width depends on font size, letter spacing, and character count, so
+   confirm from the render that it does not run into the icons rather than
+   trusting a computed x position.
 3. Compare the render against the scene specification and source evidence.
 4. Perform an ownership pass: for every plot, table, output, menu, toolbar, and
    pane, point to evidence for its parent region. Remove unsupported objects.

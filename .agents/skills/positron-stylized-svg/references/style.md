@@ -126,6 +126,13 @@ bar with generic shapes.
 Tabs form a tight group at the leading edge. Title actions form a tight group
 at the trailing edge. Flexible space sits between those groups.
 
+The same leading-title / trailing-actions pattern applies to view panel
+headers (Source Control, Variables, and similar), not only editor tabs. These
+panels are typically much narrower than the editor, so a title and its actions
+can easily collide. Real VS Code truncates the title rather than letting it
+overlap the actions; do the same by shortening the title text or its font size
+until a render confirms clearance, instead of picking a fixed x offset by eye.
+
 An active editor tab uses the Positron accent on its top border. An active panel
 or auxiliary-bar tab uses the accent on its lower indicator. Do not also turn
 the label blue unless current source or a screenshot shows that state.
