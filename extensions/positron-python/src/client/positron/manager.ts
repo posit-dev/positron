@@ -65,6 +65,14 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
         forceRefresh?: boolean,
     ): Promise<positron.LanguageRuntimeMetadata | undefined>;
     selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<string | undefined>;
+    /**
+     * Resolves runtime metadata for an interpreter path.
+     * Refreshes discovery and retries once if the path is not found.
+     */
+    resolveRuntimeMetadataFromPath(
+        pythonPath: string,
+        recreateRuntime?: boolean,
+    ): Promise<positron.LanguageRuntimeMetadata | undefined>;
     triggerInterpreterRefresh(): Promise<void>;
 }
 
@@ -747,16 +755,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      * @returns Promise that resolves when the runtime is selected.
      */
     async selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<string | undefined> {
-        // Try to register the runtime
-        let metadata = await this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
-
-        // If registration failed, the interpreter might be newly created - trigger a refresh and retry
-        if (!metadata) {
-            traceInfo(`Runtime not found for ${pythonPath}, triggering interpreter refresh...`);
-            await this.triggerInterpreterRefresh();
-            metadata = await this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
-        }
-
+        const metadata = await this.resolveRuntimeMetadataFromPath(pythonPath, recreateRuntime);
         if (metadata) {
             await positron.runtime.selectLanguageRuntime(metadata.runtimeId);
             return metadata.runtimeId;
@@ -764,6 +763,28 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             traceError(`Tried to switch to a language runtime that has not been registered: ${pythonPath}`);
             return undefined;
         }
+    }
+
+    /**
+     * Resolves runtime metadata for an interpreter path.
+     * Refreshes discovery and retries once if the path is not found.
+     *
+     * @param pythonPath The path to the Python interpreter.
+     * @param recreateRuntime Whether to recreate an already registered runtime.
+     * @returns The runtime metadata, or undefined if the path is not found.
+     */
+    async resolveRuntimeMetadataFromPath(
+        pythonPath: string,
+        recreateRuntime?: boolean,
+    ): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        const metadata = await this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
+        if (metadata) {
+            return metadata;
+        }
+
+        traceInfo(`Runtime not found for ${pythonPath}, triggering interpreter refresh...`);
+        await this.triggerInterpreterRefresh();
+        return this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
     }
 
     /**
