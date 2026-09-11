@@ -171,6 +171,24 @@
         "category": "%command.positron.supervisor.category%",
         "title": "%command.restartSupervisor.title%",
         "shortTitle": "%command.restartSupervisor.title%"
+      },
+      {
+        "command": "positron.mcp.copyConnectionDetails",
+        "category": "%command.positron.mcp.category%",
+        "title": "%command.copyConnectionDetails.title%",
+        "shortTitle": "%command.copyConnectionDetails.title%"
+      },
+      {
+        "command": "positron.mcp.addToClaudeCode",
+        "category": "%command.positron.mcp.category%",
+        "title": "%command.addToClaudeCode.title%",
+        "shortTitle": "%command.addToClaudeCode.title%"
+      },
+      {
+        "command": "positron.mcp.addToCodex",
+        "category": "%command.positron.mcp.category%",
+        "title": "%command.addToCodex.title%",
+        "shortTitle": "%command.addToCodex.title%"
       }
     ]
   },

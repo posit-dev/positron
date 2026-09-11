@@ -90,6 +90,8 @@ export class ActivityItemInput extends ActivityItem {
 	 * @param inputPrompt The input prompt.
 	 * @param continuationPrompt The continuation prompt.
 	 * @param code The code.
+	 * @param attributionLabel Names who ran the code, when it was not the user.
+	 *  Displayed above the input; undefined for the user's own input.
 	 */
 	constructor(
 		id: string,
@@ -98,7 +100,8 @@ export class ActivityItemInput extends ActivityItem {
 		state: ActivityItemInputState,
 		readonly inputPrompt: string,
 		readonly continuationPrompt: string,
-		readonly code: string
+		readonly code: string,
+		readonly attributionLabel?: string
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);

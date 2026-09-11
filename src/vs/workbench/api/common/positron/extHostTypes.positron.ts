@@ -116,6 +116,12 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a request to update an output */
 	UpdateOutput = 'update_output',
+
+	/**
+	 * A message announcing that something other than Positron submitted code
+	 * to the runtime, sent before the code's echo and output arrive.
+	 */
+	ExecutionRequested = 'execution_requested',
 }
 
 /**
@@ -454,6 +460,7 @@ export enum EnvironmentContributionFilter {
  * Code attribution sources for code executed in the Console.
  */
 export enum CodeAttributionSource {
+	Agent = 'agent',
 	Assistant = 'assistant',
 	Extension = 'extension',
 	Interactive = 'interactive',

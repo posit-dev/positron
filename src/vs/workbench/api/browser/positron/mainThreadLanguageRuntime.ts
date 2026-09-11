@@ -13,7 +13,7 @@ import {
 	ISerializedConsoleHistoryEntry
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
@@ -225,6 +225,7 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 	private readonly _onDidReceiveRuntimeMessageResultEmitter = new Emitter<ILanguageRuntimeMessageResult>();
 	private readonly _onDidReceiveRuntimeMessageStreamEmitter = new Emitter<ILanguageRuntimeMessageStream>();
 	private readonly _onDidReceiveRuntimeMessageInputEmitter = new Emitter<ILanguageRuntimeMessageInput>();
+	private readonly _onDidReceiveRuntimeMessageExecutionRequestedEmitter = new Emitter<ILanguageRuntimeMessageExecutionRequested>();
 	private readonly _onDidReceiveRuntimeMessageErrorEmitter = new Emitter<ILanguageRuntimeMessageError>();
 	private readonly _onDidReceiveRuntimeMessagePromptEmitter = new Emitter<ILanguageRuntimeMessagePrompt>();
 	private readonly _onDidReceiveRuntimeMessageStateEmitter = new Emitter<ILanguageRuntimeMessageState>();
@@ -465,6 +466,7 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 	onDidReceiveRuntimeMessageResult = this._onDidReceiveRuntimeMessageResultEmitter.event;
 	onDidReceiveRuntimeMessageStream = this._onDidReceiveRuntimeMessageStreamEmitter.event;
 	onDidReceiveRuntimeMessageInput = this._onDidReceiveRuntimeMessageInputEmitter.event;
+	onDidReceiveRuntimeMessageExecutionRequested = this._onDidReceiveRuntimeMessageExecutionRequestedEmitter.event;
 	onDidReceiveRuntimeMessageError = this._onDidReceiveRuntimeMessageErrorEmitter.event;
 	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePromptEmitter.event;
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
@@ -507,6 +509,10 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 			this._inputLatencySamples++;
 		}
 		this._onDidReceiveRuntimeMessageInputEmitter.fire(languageRuntimeMessageInput);
+	}
+
+	emitDidReceiveRuntimeMessageExecutionRequested(message: ILanguageRuntimeMessageExecutionRequested) {
+		this._onDidReceiveRuntimeMessageExecutionRequestedEmitter.fire(message);
 	}
 
 	emitDidReceiveRuntimeMessageError(languageRuntimeMessageError: ILanguageRuntimeMessageError) {
@@ -1265,6 +1271,11 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 
 			case LanguageRuntimeMessageType.Input:
 				this.emitDidReceiveRuntimeMessageInput(message as ILanguageRuntimeMessageInput);
+				break;
+
+			case LanguageRuntimeMessageType.ExecutionRequested:
+				this.emitDidReceiveRuntimeMessageExecutionRequested(
+					message as ILanguageRuntimeMessageExecutionRequested);
 				break;
 
 			case LanguageRuntimeMessageType.Error:

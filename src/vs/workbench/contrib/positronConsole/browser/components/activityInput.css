@@ -45,6 +45,25 @@
 	display: inline-block;
 }
 
+.activity-input .attribution {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	/*
+	 * Use the regular UI font, not the console's monospace font this label
+	 * would otherwise inherit. The workbench has no `--vscode-font-family`
+	 * variable; it sets the UI font directly on `.monaco-workbench`, so spell
+	 * out the same stack here (matching submittingOverlay.css).
+	 */
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+	font-size: 0.9em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.activity-input .attribution .codicon {
+	font-size: 1em;
+}
+
 .activity-input.cancelled {
 	color: var(--vscode-positronActionBar-disabledForeground);
 }

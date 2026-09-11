@@ -72,6 +72,12 @@ declare module 'positron' {
 
 		/** A message representing a request to update an output */
 		UpdateOutput = 'update_output',
+
+		/**
+		 * A message announcing that something other than Positron submitted
+		 * code to the runtime, sent before the code's echo and output arrive.
+		 */
+		ExecutionRequested = 'execution_requested',
 	}
 
 	/**
@@ -487,6 +493,24 @@ declare module 'positron' {
 
 		/** The execution count */
 		execution_count: number;
+	}
+
+	/**
+	 * LanguageRuntimeExecutionRequested is a LanguageRuntimeMessage announcing
+	 * that code was submitted to the runtime by something other than Positron,
+	 * such as an external coding agent working through Positron's MCP server.
+	 *
+	 * Its `parent_id` is the ID of the announced execution, which every message
+	 * the execution produces also carries, so Positron can attribute them. The
+	 * runtime protocol carries no provenance of its own, so without this
+	 * message foreign code appears in the Console unattributed.
+	 */
+	export interface LanguageRuntimeExecutionRequested extends LanguageRuntimeMessage {
+		/** The code that is about to run. */
+		code: string;
+
+		/** Who asked for the execution. */
+		attribution: CodeAttribution;
 	}
 
 	/** LanguageRuntimePrompt is a LanguageRuntimeMessage representing a prompt for input */
@@ -1071,6 +1095,12 @@ declare module 'positron' {
 
 		/** The code was run as a fragment or whole of a script. */
 		Script = 'script',
+
+		/**
+		 * The code was executed by an external coding agent, working through
+		 * Positron's MCP server rather than the Positron API.
+		 */
+		Agent = 'agent',
 	}
 
 	/**

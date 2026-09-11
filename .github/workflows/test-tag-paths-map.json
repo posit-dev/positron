@@ -125,7 +125,7 @@
   "extensions/positron-r/": ["@:ark"],
   "extensions/positron-r/src/testing/": ["@:test-explorer"],
   "extensions/positron-runtime-debugger/": ["@:debug"],
-  "extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter"],
+  "extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter", "@:mcp"],
   "extensions/positron-zed/": [],
 
   "src/vs/editor/contrib/positronEditorActions/": ["@:editor-action-bar"],

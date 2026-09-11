@@ -35,3 +35,21 @@ export const AI_ENABLED_KEY = 'ai.enabled';
  * carry on.
  */
 export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
+
+/**
+ * Whether this window offers its live sessions and its agent-compatible
+ * commands to external coding agents (Claude Code, Codex, any MCP client)
+ * through the kernel supervisor's Model Context Protocol server.
+ *
+ * Read by the `positron-supervisor` extension, which registers the window with
+ * the supervisor and publishes the endpoint into integrated terminals. Sits
+ * under {@link AI_ENABLED_KEY}: the server runs only when both are on.
+ */
+export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
+
+/**
+ * The TCP port the MCP server should bind on the loopback interface. Zero (the
+ * default) lets the supervisor reuse the port it last used, or pick a free one.
+ * Set it when an agent's configuration needs a fixed URL.
+ */
+export const MCP_PORT_KEY = 'ai.mcp.port';

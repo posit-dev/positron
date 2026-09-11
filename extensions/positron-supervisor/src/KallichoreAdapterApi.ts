@@ -20,6 +20,8 @@ import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInsta
 import { KallichoreInstances } from './KallichoreInstances.js';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
+import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, McpFrontendState, mcpFeatureEnabled } from './McpFrontend.js';
+import { ADD_TO_CLAUDE_CODE_COMMAND, ADD_TO_CODEX_COMMAND, addToClaudeCode, addToCodex, autoConfigureClaudeCode, promptToEnable } from './McpAgentConfig.js';
 
 /**
  * The environment variable naming a handshake-broker socket. In web/server
@@ -296,6 +298,19 @@ export class KCApi implements PositronSupervisorApi {
 	private readonly _ephemeralState: positron.context.EphemeralMemento = positron.context.ephemeralState;
 
 	/**
+	 * The state of the server we are connected to, once it is online. Held so
+	 * that additions made after startup (such as the MCP frontend identity) can
+	 * be folded back into the saved state.
+	 */
+	private _serverState: KallichoreServerState | undefined;
+
+	/**
+	 * Registers this window with the server's MCP server, so external coding
+	 * agents can reach its sessions.
+	 */
+	private readonly _mcp: McpFrontend;
+
+	/**
 	 * Create a new Kallichore API object.
 	 *
 	 * @param _context The extension context
@@ -310,6 +325,14 @@ export class KCApi implements PositronSupervisorApi {
 		private readonly _reconnect: boolean) {
 
 		this._api = new KallichoreApiInstance(_transport);
+		this._mcp = new McpFrontend(
+			_context.environmentVariableCollection,
+			message => this.log(message),
+			() => this.loadMcpState(),
+			state => this.saveMcpState(state),
+			mcpFeatureEnabled,
+			() => autoConfigureClaudeCode(_context, message => this.log(message)));
+		this._disposables.push(this._mcp);
 		positron.runtime.emitPerfMark('initializing');
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
@@ -318,6 +341,10 @@ export class KCApi implements PositronSupervisorApi {
 			// Once the server is started, begin sending client heartbeats to
 			// keep the server alive.
 			this.startClientHeartbeat();
+
+			// Offer the MCP server to users who have an agent CLI installed
+			// but have not turned it on. Asked at most once per user.
+			await promptToEnable(_context);
 		}).catch((err) => {
 			this.log(`Failed to start Kallichore server: ${err}`);
 		});
@@ -333,6 +360,18 @@ export class KCApi implements PositronSupervisorApi {
 
 		this._context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.restartSupervisor', () => {
 			this.restartSupervisor();
+		}));
+
+		this._context.subscriptions.push(vscode.commands.registerCommand(COPY_MCP_DETAILS_COMMAND, () => {
+			return this._mcp.copyConnectionDetails();
+		}));
+
+		this._context.subscriptions.push(vscode.commands.registerCommand(ADD_TO_CLAUDE_CODE_COMMAND, () => {
+			return addToClaudeCode(this._mcp.connection);
+		}));
+
+		this._context.subscriptions.push(vscode.commands.registerCommand(ADD_TO_CODEX_COMMAND, () => {
+			return addToCodex(this._mcp.connection);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the
@@ -941,7 +980,12 @@ export class KCApi implements PositronSupervisorApi {
 			named_pipe: connectionData?.named_pipe || (isNamedPipePath(basePath) ? extractPipeName(basePath) || undefined : undefined),
 			// Record the server's identity so we can later detect when a saved
 			// connection points at a different server instance (stale token).
-			server_id: status.server_id
+			server_id: status.server_id,
+			// Ask the new server for the port the old one used, so an agent
+			// configured with a concrete URL keeps reaching us. The frontend ID
+			// is deliberately not carried over: the registry that backed it
+			// died with the previous server process.
+			mcp_port: serverState?.mcp_port
 		};
 
 		// Load the finalized state into the API instance so that subsequent
@@ -954,6 +998,8 @@ export class KCApi implements PositronSupervisorApi {
 		}
 
 		await KallichoreInstances.recordSupervisor(this.getWorkspaceName(), state);
+
+		await this._mcp.attach(this._api.api, id => this.mcpChannelTarget(id));
 	}
 
 	/**
@@ -1050,6 +1096,64 @@ export class KCApi implements PositronSupervisorApi {
 		const state = await this.loadServerState();
 		if (state) {
 			await this.saveServerState(state);
+		}
+	}
+
+	/**
+	 * Where a registered frontend's channel lives, in terms of the transport
+	 * this window's supervisor is using. The channel upgrades in place on every
+	 * transport, so the path is the same one the REST API uses.
+	 *
+	 * @param frontendId The ID the supervisor issued at registration.
+	 * @returns The channel's WebSocket URI and the headers to open it with.
+	 */
+	private mcpChannelTarget(frontendId: string): McpChannelTarget {
+		const path = `/mcp/frontends/${encodeURIComponent(frontendId)}/channel`;
+		const state = this._serverState;
+		let uri: string;
+		if (this._api.transport === KallichoreTransport.UnixSocket && state?.socket_path) {
+			uri = `ws+unix://${state.socket_path}:${path}`;
+		} else if (this._api.transport === KallichoreTransport.NamedPipe && state?.named_pipe) {
+			uri = `ws+npipe://${state.named_pipe}:${path}`;
+		} else {
+			const basePath = this._api.basePath;
+			if (!basePath) {
+				throw new Error('The supervisor has no base path for the MCP frontend channel');
+			}
+			const scheme = basePath.startsWith('https://') ? 'wss://' : 'ws://';
+			uri = `${scheme}${basePath.replace(/^https?:\/\//, '').replace(/\/$/, '')}${path}`;
+		}
+		return {
+			uri,
+			headers: { Authorization: `Bearer ${state?.bearer_token}` },
+		};
+	}
+
+	/**
+	 * The MCP frontend state saved alongside the server state, so a re-created
+	 * registration can recover its token and port.
+	 */
+	private loadMcpState(): McpFrontendState {
+		return {
+			frontendId: this._serverState?.mcp_frontend_id,
+			port: this._serverState?.mcp_port,
+		};
+	}
+
+	/**
+	 * Folds the MCP frontend state into the saved server state, so it lands in
+	 * the same storage tier as the API bearer token it sits beside.
+	 *
+	 * @param state The state to save.
+	 */
+	private async saveMcpState(state: McpFrontendState): Promise<void> {
+		if (!this._serverState) {
+			return;
+		}
+		this._serverState.mcp_frontend_id = state.frontendId;
+		this._serverState.mcp_port = state.port;
+		if (this._reconnect) {
+			await this.saveServerState(this._serverState);
 		}
 	}
 
@@ -1210,6 +1314,8 @@ export class KCApi implements PositronSupervisorApi {
 
 		await KallichoreInstances.recordSupervisor(this.getWorkspaceName(), serverState);
 
+		await this._mcp.attach(this._api.api, id => this.mcpChannelTarget(id));
+
 		return true;
 	}
 
@@ -1220,6 +1326,10 @@ export class KCApi implements PositronSupervisorApi {
 	 * @param state The new server state
 	 */
 	refreshServerState(state: KallichoreServerState) {
+		// Remember the state so that additions made after startup (such as the
+		// MCP frontend identity) can be folded back into it and re-saved.
+		this._serverState = state;
+
 		// Update the API object with the new connection information
 		this._api.loadState(state);
 

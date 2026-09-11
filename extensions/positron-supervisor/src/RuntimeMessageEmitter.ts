@@ -15,8 +15,9 @@ import { JupyterCommOpen } from './jupyter/JupyterCommOpen';
 import { JupyterClearOutput } from './jupyter/JupyterClearOutput';
 import { JupyterErrorReply } from './jupyter/JupyterErrorReply';
 import { JupyterStreamOutput } from './jupyter/JupyterStreamOutput';
+import { KernelExecutionRequestedMessage } from './ws/KernelMessage.js';
 import { JupyterInputRequest } from './jupyter/JupyterInputRequest';
-import { isEnumMember } from './util.js';
+import { createUniqueId, isEnumMember } from './util.js';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { JupyterUpdateDisplayData } from './jupyter/JupyterUpdateDisplayData.js';
 
@@ -33,6 +34,7 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 		| positron.LanguageRuntimeResult
 		| positron.LanguageRuntimeOutput
 		| positron.LanguageRuntimeInput
+		| positron.LanguageRuntimeExecutionRequested
 		| positron.LanguageRuntimeState
 		| positron.LanguageRuntimeClearOutput
 		| positron.LanguageRuntimeError
@@ -169,6 +171,35 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 			execution_count: data.execution_count,
 			metadata: message.metadata,
 		} satisfies positron.LanguageRuntimeInput);
+	}
+
+	/**
+	 * Converts the supervisor's announcement of a foreign execution into a
+	 * LanguageRuntimeMessage and emits it.
+	 *
+	 * Positron cannot learn who ran the code from the Jupyter protocol: iopub
+	 * messages carry only a parent header, not the parent's metadata. This
+	 * message is the supervisor telling us, ahead of the iopub traffic it
+	 * explains.
+	 *
+	 * @param data The supervisor's execution announcement
+	 */
+	onExecutionRequested(data: KernelExecutionRequestedMessage['executionRequested']) {
+		this._emitter.fire({
+			id: createUniqueId(),
+			parent_id: data.msg_id,
+			when: data.requested_at,
+			type: positron.LanguageRuntimeMessageType.ExecutionRequested,
+			code: data.code,
+			attribution: {
+				source: positron.CodeAttributionSource.Agent,
+				metadata: {
+					agentName: data.attribution.agent_name,
+					agentVersion: data.attribution.agent_version,
+					tool: data.attribution.tool,
+				},
+			},
+		} satisfies positron.LanguageRuntimeExecutionRequested);
 	}
 
 	/**

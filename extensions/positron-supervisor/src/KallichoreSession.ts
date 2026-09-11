@@ -35,7 +35,7 @@ import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
 import { Client } from './Client';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
 import { SocketSession } from './ws/SocketSession';
-import { KernelOutputMessage } from './ws/KernelMessage';
+import { KernelExecutionRequestedMessage, KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeAxiosError } from './util';
 import { AdoptedSession } from './AdoptedSession';
@@ -2059,6 +2059,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._canConnect = false;
 		} else if (data.hasOwnProperty('exited')) {
 			this.onExited(data.exited);
+		} else if (data.hasOwnProperty('executionRequested')) {
+			const requested = data as KernelExecutionRequestedMessage;
+			this._messages.onExecutionRequested(requested.executionRequested);
 		}
 	}
 

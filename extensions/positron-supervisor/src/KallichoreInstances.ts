@@ -11,6 +11,7 @@ import { KallichoreServerState } from './ServerState.js';
 import { ActiveSession, DefaultApi, ServerConfiguration, ServerStatus, SessionList, SessionMode, Status } from './kcclient/api';
 import { summarizeAxiosError } from './util';
 import { KALLICHORE_STATE_KEY } from './KallichoreAdapterApi.js';
+import { COPY_MCP_DETAILS_COMMAND, McpFrontend } from './McpFrontend.js';
 
 /**
  * Snapshot of a running Kallichore supervisor persisted in global storage.
@@ -41,7 +42,7 @@ interface SupervisorQuickPickItem extends vscode.QuickPickItem {
 }
 
 interface SupervisorSessionQuickPickItem extends vscode.QuickPickItem {
-	action?: 'shutdown' | 'openWorkspace' | 'showLogs';
+	action?: 'shutdown' | 'openWorkspace' | 'showLogs' | 'copyMcpDetails';
 	session?: ActiveSession;
 	workspaceUri?: vscode.Uri;
 	sessionCount?: number;
@@ -227,6 +228,14 @@ export class KallichoreInstances {
 			action: 'showLogs'
 		});
 
+		if (result.status?.mcp?.active && await this.isCurrentWindow(result.record)) {
+			items.push({
+				label: `$(plug) ${vscode.l10n.t("Copy MCP Connection Details")}`,
+				detail: vscode.l10n.t("Copy the endpoint and token an external agent needs"),
+				action: 'copyMcpDetails'
+			});
+		}
+
 		items.push({
 			label: `$(trash) ${vscode.l10n.t("Shutdown")}`,
 			detail: vscode.l10n.t("Stop this supervisor and terminate all sessions"),
@@ -277,6 +286,9 @@ export class KallichoreInstances {
 			case 'showLogs':
 				await this.handleShowLogsAction(result);
 				return;
+			case 'copyMcpDetails':
+				await vscode.commands.executeCommand(COPY_MCP_DETAILS_COMMAND);
+				return;
 			case 'openWorkspace':
 				if (selection.workspaceUri) {
 					await this.handleOpenWorkspaceAction(selection.workspaceUri, supervisorLabel);
@@ -320,6 +332,10 @@ export class KallichoreInstances {
 			detailParts.push(vscode.l10n.t("Connected to this window"));
 		} else if (result.configuration) {
 			detailParts.push(this.describeIdleShutdown(result.configuration.idle_shutdown_hours, result.status));
+		}
+		const mcpDetail = McpFrontend.describeStatus(result.status?.mcp);
+		if (mcpDetail) {
+			detailParts.push(mcpDetail);
 		}
 		if (result.error) {
 			detailParts.push(vscode.l10n.t("Status unavailable: {0}", result.error));
@@ -645,6 +661,18 @@ export class KallichoreInstances {
 	 * @param currentPid The PID of the supervisor connected to this window, if any.
 	 * @returns  True if the supervisor is tied to the current window, false otherwise.
 	 */
+	/**
+	 * Whether a supervisor record describes the supervisor serving this window.
+	 * Only that supervisor's MCP registration belongs to us, so only its
+	 * connection details are ours to hand out.
+	 *
+	 * @param record The supervisor record to test.
+	 * @returns True when the record is this window's supervisor.
+	 */
+	private static async isCurrentWindow(record: StoredKallichoreInstance): Promise<boolean> {
+		return this.isCurrentWindowSupervisor(record, await this.getCurrentWindowSupervisorPid());
+	}
+
 	private static isCurrentWindowSupervisor(record: StoredKallichoreInstance, currentPid: number | undefined): boolean {
 		if (currentPid === undefined || !record.state.server_pid) {
 			return false;

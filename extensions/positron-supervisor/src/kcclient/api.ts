@@ -288,6 +288,68 @@ export const InterruptMode = {
 export type InterruptMode = typeof InterruptMode[keyof typeof InterruptMode];
 
 
+export interface McpFrontend {
+    /**
+     * The frontend\'s ID; supply it again to re-register after a reconnect
+     */
+    'frontend_id': string;
+    /**
+     * The bearer token agents present to the MCP server. Scoped to this frontend and distinct from the supervisor API token.
+     */
+    'token': string;
+    /**
+     * The TCP port the MCP listener is bound to on 127.0.0.1
+     */
+    'port': number;
+    /**
+     * The full MCP endpoint URL agents should connect to
+     */
+    'url': string;
+}
+export interface McpFrontendCapabilities {
+    /**
+     * Whether the frontend can broker Positron commands over its channel
+     */
+    'commands': boolean;
+}
+export interface McpFrontendRegistration {
+    /**
+     * A previously issued frontend ID. Omit to have the server generate one.
+     */
+    'frontend_id'?: string;
+    /**
+     * A human-readable name for the frontend, shown in logs and status
+     */
+    'display_name': string;
+    /**
+     * The TCP port the MCP listener should bind. Used only when the listener isn\'t running yet, and ignored when the port is unavailable.
+     */
+    'preferred_port'?: number;
+    'capabilities'?: McpFrontendCapabilities;
+}
+export interface McpFrontendStatus {
+    'id': string;
+    'display_name': string;
+    /**
+     * Whether the frontend\'s channel is currently connected
+     */
+    'connected': boolean;
+}
+export interface McpStatus {
+    /**
+     * Whether the MCP listener is running
+     */
+    'active': boolean;
+    /**
+     * The port the MCP listener is bound to, or 0 when inactive
+     */
+    'port': number;
+    /**
+     * The number of MCP tool calls served since the listener started
+     */
+    'request_count': number;
+    'frontends': Array<McpFrontendStatus>;
+}
 export interface ModelError {
     'code': string;
     'message': string;
@@ -447,6 +509,7 @@ export interface ServerStatus {
      * A unique identifier generated when the server starts. Clients can compare this against a previously observed value to detect that they are talking to a different server instance (e.g. one that was restarted), and therefore that any persisted bearer token may be stale.
      */
     'server_id'?: string;
+    'mcp'?: McpStatus;
 }
 export interface SessionList {
     'total': number;
@@ -718,6 +781,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Removes the frontend and invalidates its token. When the last frontend is removed the MCP listener stops and its port is released.
+         * @summary Deregister a Positron frontend
+         * @param {string} frontendId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deregisterMcpFrontend: async (frontendId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'frontendId' is not null or undefined
+            assertParamExists('deregisterMcpFrontend', 'frontendId', frontendId)
+            const localVarPath = `/mcp/frontends/{frontend_id}`
+                .replace(`{${"frontend_id"}}`, encodeURIComponent(String(frontendId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Execute code and return results
          * @param {string} sessionId 
@@ -920,6 +1017,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Opens the bidirectional channel over which the frontend pushes its command catalog and foreground session, and over which the supervisor brokers agent command requests.
+         * @summary Upgrade to a WebSocket carrying the MCP frontend channel
+         * @param {string} frontendId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        mcpFrontendChannel: async (frontendId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'frontendId' is not null or undefined
+            assertParamExists('mcpFrontendChannel', 'frontendId', frontendId)
+            const localVarPath = `/mcp/frontends/{frontend_id}/channel`
+                .replace(`{${"frontend_id"}}`, encodeURIComponent(String(frontendId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Create a new session
          * @param {NewSession} newSession 
@@ -949,6 +1080,42 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(newSession, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Registers (or re-registers) a frontend and starts the MCP listener if it isn\'t already running. Re-registering with a known frontend ID returns the same bearer token, so agents launched from terminals that outlived the frontend keep working.
+         * @summary Register a Positron frontend with the MCP server
+         * @param {McpFrontendRegistration} mcpFrontendRegistration 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        registerMcpFrontend: async (mcpFrontendRegistration: McpFrontendRegistration, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'mcpFrontendRegistration' is not null or undefined
+            assertParamExists('registerMcpFrontend', 'mcpFrontendRegistration', mcpFrontendRegistration)
+            const localVarPath = `/mcp/frontends`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(mcpFrontendRegistration, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -1199,6 +1366,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Removes the frontend and invalidates its token. When the last frontend is removed the MCP listener stops and its port is released.
+         * @summary Deregister a Positron frontend
+         * @param {string} frontendId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deregisterMcpFrontend(frontendId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deregisterMcpFrontend(frontendId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deregisterMcpFrontend']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Execute code and return results
          * @param {string} sessionId 
@@ -1276,6 +1456,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Opens the bidirectional channel over which the frontend pushes its command catalog and foreground session, and over which the supervisor brokers agent command requests.
+         * @summary Upgrade to a WebSocket carrying the MCP frontend channel
+         * @param {string} frontendId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async mcpFrontendChannel(frontendId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.mcpFrontendChannel(frontendId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.mcpFrontendChannel']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Create a new session
          * @param {NewSession} newSession 
@@ -1286,6 +1479,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.newSession(newSession, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.newSession']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Registers (or re-registers) a frontend and starts the MCP listener if it isn\'t already running. Re-registering with a known frontend ID returns the same bearer token, so agents launched from terminals that outlived the frontend keep working.
+         * @summary Register a Positron frontend with the MCP server
+         * @param {McpFrontendRegistration} mcpFrontendRegistration 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async registerMcpFrontend(mcpFrontendRegistration: McpFrontendRegistration, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<McpFrontend>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.registerMcpFrontend(mcpFrontendRegistration, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.registerMcpFrontend']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -1413,6 +1619,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.deleteSession(sessionId, options).then((request) => request(axios, basePath));
         },
         /**
+         * Removes the frontend and invalidates its token. When the last frontend is removed the MCP listener stops and its port is released.
+         * @summary Deregister a Positron frontend
+         * @param {string} frontendId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deregisterMcpFrontend(frontendId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.deregisterMcpFrontend(frontendId, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Execute code and return results
          * @param {string} sessionId 
@@ -1472,6 +1688,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.listSessions(options).then((request) => request(axios, basePath));
         },
         /**
+         * Opens the bidirectional channel over which the frontend pushes its command catalog and foreground session, and over which the supervisor brokers agent command requests.
+         * @summary Upgrade to a WebSocket carrying the MCP frontend channel
+         * @param {string} frontendId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        mcpFrontendChannel(frontendId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.mcpFrontendChannel(frontendId, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Create a new session
          * @param {NewSession} newSession 
@@ -1480,6 +1706,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         newSession(newSession: NewSession, options?: RawAxiosRequestConfig): AxiosPromise<NewSession200Response> {
             return localVarFp.newSession(newSession, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Registers (or re-registers) a frontend and starts the MCP listener if it isn\'t already running. Re-registering with a known frontend ID returns the same bearer token, so agents launched from terminals that outlived the frontend keep working.
+         * @summary Register a Positron frontend with the MCP server
+         * @param {McpFrontendRegistration} mcpFrontendRegistration 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        registerMcpFrontend(mcpFrontendRegistration: McpFrontendRegistration, options?: RawAxiosRequestConfig): AxiosPromise<McpFrontend> {
+            return localVarFp.registerMcpFrontend(mcpFrontendRegistration, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -1594,6 +1830,17 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
+     * Removes the frontend and invalidates its token. When the last frontend is removed the MCP listener stops and its port is released.
+     * @summary Deregister a Positron frontend
+     * @param {string} frontendId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deregisterMcpFrontend(frontendId: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deregisterMcpFrontend(frontendId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
      * @summary Execute code and return results
      * @param {string} sessionId 
@@ -1659,6 +1906,17 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
+     * Opens the bidirectional channel over which the frontend pushes its command catalog and foreground session, and over which the supervisor brokers agent command requests.
+     * @summary Upgrade to a WebSocket carrying the MCP frontend channel
+     * @param {string} frontendId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public mcpFrontendChannel(frontendId: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).mcpFrontendChannel(frontendId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
      * @summary Create a new session
      * @param {NewSession} newSession 
@@ -1667,6 +1925,17 @@ export class DefaultApi extends BaseAPI {
      */
     public newSession(newSession: NewSession, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).newSession(newSession, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Registers (or re-registers) a frontend and starts the MCP listener if it isn\'t already running. Re-registering with a known frontend ID returns the same bearer token, so agents launched from terminals that outlived the frontend keep working.
+     * @summary Register a Positron frontend with the MCP server
+     * @param {McpFrontendRegistration} mcpFrontendRegistration 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public registerMcpFrontend(mcpFrontendRegistration: McpFrontendRegistration, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).registerMcpFrontend(mcpFrontendRegistration, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

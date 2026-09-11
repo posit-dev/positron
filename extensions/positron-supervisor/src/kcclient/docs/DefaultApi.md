@@ -9,13 +9,16 @@ All URIs are relative to *http://localhost*
 |[**clientHeartbeat**](#clientheartbeat) | **POST** /client_heartbeat | Notify the server that a client is connected|
 |[**connectionInfo**](#connectioninfo) | **GET** /sessions/{session_id}/connection_info | Get Jupyter connection information for the session|
 |[**deleteSession**](#deletesession) | **DELETE** /sessions/{session_id} | Delete session|
+|[**deregisterMcpFrontend**](#deregistermcpfrontend) | **DELETE** /mcp/frontends/{frontend_id} | Deregister a Positron frontend|
 |[**executeCode**](#executecode) | **POST** /sessions/{session_id}/execute | Execute code and return results|
 |[**getServerConfiguration**](#getserverconfiguration) | **GET** /server_configuration | Get the server configuration|
 |[**getSession**](#getsession) | **GET** /sessions/{session_id} | Get session details|
 |[**interruptSession**](#interruptsession) | **POST** /sessions/{session_id}/interrupt | Interrupt session|
 |[**killSession**](#killsession) | **POST** /sessions/{session_id}/kill | Force quit session|
 |[**listSessions**](#listsessions) | **GET** /sessions | List active sessions|
+|[**mcpFrontendChannel**](#mcpfrontendchannel) | **GET** /mcp/frontends/{frontend_id}/channel | Upgrade to a WebSocket carrying the MCP frontend channel|
 |[**newSession**](#newsession) | **PUT** /sessions | Create a new session|
+|[**registerMcpFrontend**](#registermcpfrontend) | **POST** /mcp/frontends | Register a Positron frontend with the MCP server|
 |[**restartSession**](#restartsession) | **POST** /sessions/{session_id}/restart | Restart a session|
 |[**serverStatus**](#serverstatus) | **GET** /status | Get server status and information|
 |[**setServerConfiguration**](#setserverconfiguration) | **POST** /server_configuration | Change the server configuration|
@@ -286,6 +289,59 @@ No authorization required
 |**400** | Failed to delete session |  -  |
 |**401** | Unauthorized |  -  |
 |**404** | Session not found |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **deregisterMcpFrontend**
+> deregisterMcpFrontend()
+
+Removes the frontend and invalidates its token. When the last frontend is removed the MCP listener stops and its port is released.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let frontendId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.deregisterMcpFrontend(
+    frontendId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **frontendId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+void (empty response body)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Frontend deregistered |  -  |
+|**401** | Unauthorized |  -  |
+|**404** | Frontend not found |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -592,6 +648,60 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **mcpFrontendChannel**
+> mcpFrontendChannel()
+
+Opens the bidirectional channel over which the frontend pushes its command catalog and foreground session, and over which the supervisor brokers agent command requests.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let frontendId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.mcpFrontendChannel(
+    frontendId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **frontendId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+void (empty response body)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Upgraded connection |  -  |
+|**400** | Invalid request |  -  |
+|**401** | Unauthorized |  -  |
+|**404** | Frontend not found |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **newSession**
 > NewSession200Response newSession(newSession)
 
@@ -640,6 +750,60 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | The session ID |  -  |
+|**400** | Invalid request |  -  |
+|**401** | Unauthorized |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **registerMcpFrontend**
+> McpFrontend registerMcpFrontend(mcpFrontendRegistration)
+
+Registers (or re-registers) a frontend and starts the MCP listener if it isn\'t already running. Re-registering with a known frontend ID returns the same bearer token, so agents launched from terminals that outlived the frontend keep working.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    McpFrontendRegistration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let mcpFrontendRegistration: McpFrontendRegistration; //
+
+const { status, data } = await apiInstance.registerMcpFrontend(
+    mcpFrontendRegistration
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **mcpFrontendRegistration** | **McpFrontendRegistration**|  | |
+
+
+### Return type
+
+**McpFrontend**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Frontend registered |  -  |
 |**400** | Invalid request |  -  |
 |**401** | Unauthorized |  -  |
 

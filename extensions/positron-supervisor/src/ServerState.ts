@@ -47,4 +47,17 @@ export interface KallichoreServerState {
 
 	/** The name of the named pipe (when using named pipe transport) */
 	named_pipe?: string;
+
+	/**
+	 * The ID this window was issued when it registered with the server's MCP
+	 * server. Re-registering with it recovers the same bearer token, so agents
+	 * running in terminals that outlived the window keep authenticating.
+	 */
+	mcp_frontend_id?: string;
+
+	/**
+	 * The port the MCP listener was bound to, offered back as the preferred
+	 * port so an agent's configured URL survives a server restart.
+	 */
+	mcp_port?: number;
 }
