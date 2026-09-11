@@ -396,7 +396,7 @@ export const ConnectProviderView = (props: ConnectProviderViewProps) => {
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
 					<div style={{ flexGrow: 1 }}>&nbsp;</div>
 					<EditRawConfigLink onClick={props.onEditRawConfig} />
-					<ProviderNotice source={props.source} />
+					<ProviderNotice provider={props.source.provider} />
 				</div>
 			}
 			footer={
@@ -450,9 +450,9 @@ export const ProviderErrorBanner = (props: { message: string }) => (
 	</div>
 );
 
-export const ProviderNotice = (props: { source: IPositronLanguageModelSource }) => {
-	const gettingStarted = getProviderGettingStartedText(props.source.provider);
-	const thirdPartyService = getProviderThirdPartyServiceText(props.source.provider);
+export const ProviderNotice = (props: { provider: IPositronLanguageModelSource['provider'] }) => {
+	const gettingStarted = getProviderGettingStartedText(props.provider);
+	const thirdPartyService = getProviderThirdPartyServiceText(props.provider);
 	if (!gettingStarted && !thirdPartyService) {
 		return null;
 	}

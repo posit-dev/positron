@@ -109,6 +109,19 @@ describe('AddCustomProviderView', () => {
 		expect(screen.getByPlaceholderText('Model ID')).toBeInTheDocument();
 	});
 
+	it('shows the third-party notice for the default kind even when its built-in form source is unregistered', () => {
+		// Most installs never have the legacy "OpenAI Compatible" tile in `sources`.
+		rtl.render(
+			<AddCustomProviderView
+				{...dialogProps()}
+				sources={sources.filter(s => s.provider.id !== 'openai-compatible')}
+				onBack={vi.fn()}
+				onCreate={vi.fn()}
+			/>
+		);
+		expect(screen.getByTestId('provider-notice')).toBeInTheDocument();
+	});
+
 	it('changing the type keeps everything already typed', async () => {
 		const user = userEvent.setup();
 		renderView();
