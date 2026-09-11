@@ -49,11 +49,11 @@ export interface KallichoreServerState {
 	named_pipe?: string;
 
 	/**
-	 * The ID this window was issued when it registered with the server's MCP
+	 * The ID this workspace was issued when it registered with the server's MCP
 	 * server. Re-registering with it recovers the same bearer token, so agents
 	 * running in terminals that outlived the window keep authenticating.
 	 */
-	mcp_frontend_id?: string;
+	mcp_workspace_id?: string;
 
 	/**
 	 * The port the MCP listener was bound to, offered back as the preferred

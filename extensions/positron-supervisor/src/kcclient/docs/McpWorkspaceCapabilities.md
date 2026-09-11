@@ -1,18 +1,18 @@
-# McpFrontendCapabilities
+# McpWorkspaceCapabilities
 
 
 ## Properties
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**commands** | **boolean** | Whether the frontend can broker Positron commands over its channel | [default to undefined]
+**commands** | **boolean** | Whether the workspace\&#39;s windows can broker Positron commands over their channels | [default to undefined]
 
 ## Example
 
 ```typescript
-import { McpFrontendCapabilities } from './api';
+import { McpWorkspaceCapabilities } from './api';
 
-const instance: McpFrontendCapabilities = {
+const instance: McpWorkspaceCapabilities = {
     commands,
 };
 ```

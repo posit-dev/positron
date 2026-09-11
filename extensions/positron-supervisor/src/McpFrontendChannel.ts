@@ -112,8 +112,8 @@ export class McpFrontendChannel implements vscode.Disposable {
 			this.sendSessions();
 		}));
 
-		// Several windows onto one workspace share a frontend registration, so
-		// the supervisor needs to know which of them the user is looking at in
+		// Several windows onto one workspace share a registration, so the
+		// supervisor needs to know which of them the user is looking at in
 		// order to send an agent's IDE commands somewhere visible.
 		this._disposables.push(vscode.window.onDidChangeWindowState(state => {
 			if (state.focused) {

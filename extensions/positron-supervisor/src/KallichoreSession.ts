@@ -398,11 +398,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Create the session in on the Kallichore server.
 	 *
 	 * @param kernelSpec The Jupyter kernel spec to use for the session
-	 * @param mcpFrontendId This window's MCP frontend, when it has registered
-	 *  one. It makes the session this window's: agents attached to another
-	 *  window cannot see it or run code in it.
+	 * @param mcpWorkspaceId This window's MCP workspace, when it has registered
+	 *  one. It makes the session that workspace's: agents attached to another
+	 *  workspace cannot see it or run code in it.
 	 */
-	public async create(kernelSpec: JupyterKernelSpec, mcpFrontendId?: string) {
+	public async create(kernelSpec: JupyterKernelSpec, mcpWorkspaceId?: string) {
 		if (!this._new) {
 			throw new Error(`Session ${this.metadata.sessionId} already exists`);
 		}
@@ -507,7 +507,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			interrupt_mode: interruptMode,
 			connection_timeout: connectionTimeout,
 			protocol_version: kernelSpec.kernel_protocol_version,
-			frontend_id: mcpFrontendId
+			workspace_id: mcpWorkspaceId
 		};
 		await this._api.newSession(session);
 

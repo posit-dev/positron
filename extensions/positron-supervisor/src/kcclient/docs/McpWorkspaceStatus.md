@@ -1,4 +1,4 @@
-# McpFrontendStatus
+# McpWorkspaceStatus
 
 
 ## Properties
@@ -7,14 +7,14 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **string** |  | [default to undefined]
 **display_name** | **string** |  | [default to undefined]
-**connected** | **boolean** | Whether the frontend\&#39;s channel is currently connected | [default to undefined]
+**connected** | **boolean** | Whether any of the workspace\&#39;s windows is currently connected | [default to undefined]
 
 ## Example
 
 ```typescript
-import { McpFrontendStatus } from './api';
+import { McpWorkspaceStatus } from './api';
 
-const instance: McpFrontendStatus = {
+const instance: McpWorkspaceStatus = {
     id,
     display_name,
     connected,

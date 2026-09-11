@@ -299,7 +299,7 @@ export class KCApi implements PositronSupervisorApi {
 
 	/**
 	 * The state of the server we are connected to, once it is online. Held so
-	 * that additions made after startup (such as the MCP frontend identity) can
+	 * that additions made after startup (such as the MCP workspace identity) can
 	 * be folded back into the saved state.
 	 */
 	private _serverState: KallichoreServerState | undefined;
@@ -983,8 +983,8 @@ export class KCApi implements PositronSupervisorApi {
 			// connection points at a different server instance (stale token).
 			server_id: status.server_id,
 			// Ask the new server for the port the old one used, so an agent
-			// configured with a concrete URL keeps reaching us. The frontend ID
-			// is deliberately not carried over: the registry that backed it
+			// configured with a concrete URL keeps reaching us. The workspace
+			// ID is deliberately not carried over: the registry that backed it
 			// died with the previous server process.
 			mcp_port: serverState?.mcp_port
 		};
@@ -1101,15 +1101,15 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
-	 * Where a registered frontend's channel lives, in terms of the transport
-	 * this window's supervisor is using. The channel upgrades in place on every
-	 * transport, so the path is the same one the REST API uses.
+	 * Where this window's frontend channel lives, in terms of the transport its
+	 * supervisor is using. The channel upgrades in place on every transport, so
+	 * the path is the same one the REST API uses.
 	 *
-	 * @param frontendId The ID the supervisor issued at registration.
+	 * @param workspaceId The ID the supervisor issued at registration.
 	 * @returns The channel's WebSocket URI and the headers to open it with.
 	 */
-	private mcpChannelTarget(frontendId: string): McpChannelTarget {
-		const path = `/mcp/frontends/${encodeURIComponent(frontendId)}/channel`;
+	private mcpChannelTarget(workspaceId: string): McpChannelTarget {
+		const path = `/mcp/workspaces/${encodeURIComponent(workspaceId)}/channel`;
 		const state = this._serverState;
 		let uri: string;
 		if (this._api.transport === KallichoreTransport.UnixSocket && state?.socket_path) {
@@ -1131,18 +1131,18 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
-	 * The MCP frontend state saved alongside the server state, so a re-created
+	 * The MCP state saved alongside the server state, so a re-created
 	 * registration can recover its token and port.
 	 */
 	private loadMcpState(): McpFrontendState {
 		return {
-			frontendId: this._serverState?.mcp_frontend_id,
+			workspaceId: this._serverState?.mcp_workspace_id,
 			port: this._serverState?.mcp_port,
 		};
 	}
 
 	/**
-	 * Folds the MCP frontend state into the saved server state, so it lands in
+	 * Folds the MCP state into the saved server state, so it lands in
 	 * the same storage tier as the API bearer token it sits beside.
 	 *
 	 * @param state The state to save.
@@ -1151,7 +1151,7 @@ export class KCApi implements PositronSupervisorApi {
 		if (!this._serverState) {
 			return;
 		}
-		this._serverState.mcp_frontend_id = state.frontendId;
+		this._serverState.mcp_workspace_id = state.workspaceId;
 		this._serverState.mcp_port = state.port;
 		if (this._reconnect) {
 			await this.saveServerState(this._serverState);
@@ -1328,7 +1328,7 @@ export class KCApi implements PositronSupervisorApi {
 	 */
 	refreshServerState(state: KallichoreServerState) {
 		// Remember the state so that additions made after startup (such as the
-		// MCP frontend identity) can be folded back into it and re-saved.
+		// MCP workspace identity) can be folded back into it and re-saved.
 		this._serverState = state;
 
 		// Update the API object with the new connection information
@@ -1456,7 +1456,7 @@ export class KCApi implements PositronSupervisorApi {
 		let retried = false;
 		while (true) {
 			try {
-				await session.create(kernel, this._mcp.connection?.frontendId);
+				await session.create(kernel, this._mcp.connection?.workspaceId);
 				break;
 			} catch (err) {
 				// A refused connection (the server may have exited) or a 401

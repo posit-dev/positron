@@ -41,7 +41,7 @@ export class McpTestClient {
 
 	/**
 	 * @param url This window's MCP endpoint, e.g.
-	 *  `http://127.0.0.1:39000/mcp/w/<frontend-id>`.
+	 *  `http://127.0.0.1:39000/mcp/w/<workspace-id>`.
 	 * @param token The bearer token Positron published for this window.
 	 * @param clientName The name the server records as the agent's identity.
 	 */

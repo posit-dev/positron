@@ -36,8 +36,8 @@ export interface KernelExecutionAttribution {
 	/** The version the agent reported in the MCP `clientInfo`. */
 	agent_version?: string;
 
-	/** The MCP frontend whose token authorized the request. */
-	frontend_id: string;
+	/** The MCP workspace whose token authorized the request. */
+	workspace_id: string;
 
 	/** The MCP tool used, e.g. 'execute_code' or 'evaluate_code'. */
 	tool: string;

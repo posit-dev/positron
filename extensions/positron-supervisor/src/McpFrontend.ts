@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 
-import { McpFrontend as McpFrontendResponse, McpFrontendRegistration, McpStatus } from './kcclient/api';
+import { McpWorkspace, McpWorkspaceRegistration, McpStatus } from './kcclient/api';
 import { McpFrontendChannel } from './McpFrontendChannel';
 import { summarizeError } from './util';
 
@@ -32,17 +32,17 @@ export const MCP_TOKEN_ENV_VAR = 'POSITRON_MCP_TOKEN';
 export const COPY_MCP_DETAILS_COMMAND = 'positron.mcp.copyConnectionDetails';
 
 /**
- * What is remembered between registrations, so that a re-registered frontend
+ * What is remembered between registrations, so that a re-registered workspace
  * keeps the token that agents in already-open terminals are using, and an
  * agent's configured URL keeps pointing at the right port.
  */
 export interface McpFrontendState {
 	/**
-	 * The frontend ID the supervisor issued. Only meaningful while we are
+	 * The workspace ID the supervisor issued. Only meaningful while we are
 	 * talking to the same server process that issued it, since the registry
 	 * (and therefore the token behind the ID) lives in that process.
 	 */
-	frontendId?: string;
+	workspaceId?: string;
 
 	/** The port the listener was last bound to. */
 	port?: number;
@@ -60,8 +60,8 @@ export interface McpTerminalEnvironment {
 
 /** The slice of the supervisor API the frontend calls. */
 export interface McpRegistrationApi {
-	registerMcpFrontend(registration: McpFrontendRegistration): Promise<{ data: McpFrontendResponse }>;
-	deregisterMcpFrontend(frontendId: string): Promise<unknown>;
+	registerMcpWorkspace(registration: McpWorkspaceRegistration): Promise<{ data: McpWorkspace }>;
+	deregisterMcpWorkspace(workspaceId: string): Promise<unknown>;
 }
 
 /**
@@ -76,8 +76,8 @@ export interface McpChannelTarget {
 
 /** A live MCP registration: everything an agent needs in order to connect. */
 export interface McpConnection {
-	/** The frontend ID issued by the supervisor. */
-	frontendId: string;
+	/** The workspace ID issued by the supervisor. */
+	workspaceId: string;
 
 	/** The port the listener is bound to. */
 	port: number;
@@ -90,9 +90,9 @@ export interface McpConnection {
 }
 
 /**
- * Registers this Positron window with the supervisor's MCP server so external
- * coding agents can reach its sessions, and publishes the resulting endpoint
- * and token into integrated terminals.
+ * Registers this window's workspace with the supervisor's MCP server so
+ * external coding agents can reach its sessions, and publishes the resulting
+ * endpoint and token into integrated terminals.
  *
  * Registration follows the supervisor's lifecycle: {@link attach} is called
  * whenever the supervisor starts or is reconnected to, and settings changes are
@@ -110,8 +110,8 @@ export class McpFrontend implements vscode.Disposable {
 	/** Serializes syncs so overlapping settings changes can't race. */
 	private _syncing: Promise<void> = Promise.resolve();
 
-	/** Resolves the channel target for a registered frontend. */
-	private _channelTarget: ((frontendId: string) => McpChannelTarget) | undefined;
+	/** Resolves the channel target for a registered workspace. */
+	private _channelTarget: ((workspaceId: string) => McpChannelTarget) | undefined;
 
 	/** The channel over which we broker commands, while registered. */
 	private _channel: McpFrontendChannel | undefined;
@@ -124,7 +124,8 @@ export class McpFrontend implements vscode.Disposable {
 	 * @param _loadState Reads the state left by a previous registration.
 	 * @param _saveState Persists the state, or clears it when undefined.
 	 * @param _sessionIds The sessions this window holds. With the sessions it
-	 *  created, these are the only ones agents attached to it may reach.
+	 *  created, these are the only ones agents attached to the workspace may
+	 *  reach.
 	 * @param _enabled Whether the feature is turned on. Read on every sync
 	 *  rather than cached, since both switches apply without a reload and
 	 *  `ai.enabled` can be enforced by a Workbench administrator at any time.
@@ -162,15 +163,15 @@ export class McpFrontend implements vscode.Disposable {
 	 *
 	 * @param api The API of the supervisor now serving this window.
 	 * @param channelTarget Resolves the frontend channel's WebSocket URI and
-	 *  headers, once a frontend ID has been issued.
+	 *  headers, once a workspace ID has been issued.
 	 */
 	public async attach(
 		api: McpRegistrationApi,
-		channelTarget?: (frontendId: string) => McpChannelTarget,
+		channelTarget?: (workspaceId: string) => McpChannelTarget,
 	): Promise<void> {
 		this._api = api;
 		this._channelTarget = channelTarget;
-		// A new server process means a new (empty) frontend registry, so the
+		// A new server process means a new (empty) workspace registry, so the
 		// registration we may have been holding no longer exists there.
 		this.closeChannel();
 		this._connection = undefined;
@@ -238,7 +239,7 @@ export class McpFrontend implements vscode.Disposable {
 			`export ${MCP_URL_ENV_VAR}=${this._connection.url}\n` +
 			`export ${MCP_TOKEN_ENV_VAR}=${this._connection.token}\n`);
 		await vscode.window.showInformationMessage(vscode.l10n.t(
-			"Copied the MCP connection details for {0}. Treat the token like a password: it lets an agent run code in this window's sessions.",
+			"Copied the MCP connection details for {0}. Treat the token like a password: it lets an agent run code in this workspace's sessions.",
 			this._connection.url));
 	}
 
@@ -273,21 +274,27 @@ export class McpFrontend implements vscode.Disposable {
 		await this.register();
 	}
 
-	/** Register with the supervisor and publish the result to terminals. */
+	/**
+	 * Register with the supervisor and publish the result to terminals.
+	 *
+	 * The display name is the workspace's, and the supervisor builds the
+	 * workspace ID out of it, so the URL agents are configured with names the
+	 * folder the user has open.
+	 */
 	private async register(): Promise<void> {
-		const response = await this._api!.registerMcpFrontend({
-			frontend_id: this._loadState().frontendId,
+		const response = await this._api!.registerMcpWorkspace({
+			workspace_id: this._loadState().workspaceId,
 			display_name: vscode.workspace.name ?? vscode.l10n.t("Empty Workspace"),
 			preferred_port: this.preferredPort(),
 			capabilities: { commands: true },
 		});
 
-		const { frontend_id: frontendId, token, port, url } = response.data;
-		this._connection = { frontendId, token, port, url };
-		await this._saveState({ frontendId, port });
+		const { workspace_id: workspaceId, token, port, url } = response.data;
+		this._connection = { workspaceId, token, port, url };
+		await this._saveState({ workspaceId, port });
 		this.publishEnvironment(this._connection);
-		this._log(`Registered MCP frontend ${frontendId}; agents can connect at ${url}`);
-		this.openChannel(frontendId);
+		this._log(`Registered MCP workspace ${workspaceId}; agents can connect at ${url}`);
+		this.openChannel(workspaceId);
 		this._onRegistered();
 	}
 
@@ -305,26 +312,26 @@ export class McpFrontend implements vscode.Disposable {
 		this.closeChannel();
 		this._environment.clear();
 		// Keep the port so re-enabling the feature reuses it, but forget the
-		// frontend ID: deregistration invalidates it along with its token.
+		// workspace ID: deregistration invalidates it along with its token.
 		await this._saveState({ port: connection?.port ?? this._loadState().port });
 		if (!connection) {
 			return;
 		}
-		await this._api!.deregisterMcpFrontend(connection.frontendId);
-		this._log(`Deregistered MCP frontend ${connection.frontendId}`);
+		await this._api!.deregisterMcpWorkspace(connection.workspaceId);
+		this._log(`Deregistered MCP workspace ${connection.workspaceId}`);
 	}
 
 	/**
 	 * Open the channel that carries this window's command catalog to the
 	 * supervisor and agents' command requests back.
 	 *
-	 * @param frontendId The ID the supervisor issued at registration.
+	 * @param workspaceId The ID the supervisor issued at registration.
 	 */
-	private openChannel(frontendId: string): void {
+	private openChannel(workspaceId: string): void {
 		if (!this._channelTarget) {
 			return;
 		}
-		const target = this._channelTarget(frontendId);
+		const target = this._channelTarget(workspaceId);
 		this._channel = new McpFrontendChannel(
 			target.uri, target.headers, this._log, this._sessionIds);
 	}
@@ -342,7 +349,7 @@ export class McpFrontend implements vscode.Disposable {
 	 */
 	private publishEnvironment(connection: McpConnection): void {
 		this._environment.description = vscode.l10n.t(
-			"Lets coding agents run code in this window's Positron sessions. Reopen a terminal to pick up changes.");
+			"Lets coding agents run code in this workspace's Positron sessions. Reopen a terminal to pick up changes.");
 		this._environment.replace(MCP_URL_ENV_VAR, connection.url);
 		this._environment.replace(MCP_TOKEN_ENV_VAR, connection.token);
 	}

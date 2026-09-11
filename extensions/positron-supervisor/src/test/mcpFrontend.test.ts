@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { McpFrontend as McpFrontendResponse, McpFrontendRegistration } from '../kcclient/api';
+import * as vscode from 'vscode';
+import { McpWorkspace, McpWorkspaceRegistration } from '../kcclient/api';
 import {
 	MCP_TOKEN_ENV_VAR,
 	MCP_URL_ENV_VAR,
@@ -30,43 +31,44 @@ class FakeEnvironment implements McpTerminalEnvironment {
 }
 
 /**
- * Stand-in for the supervisor's frontend registry, issuing one token per
- * frontend ID the way `kcserver` does: re-registering a known ID hands back the
- * token it was first given.
+ * Stand-in for the supervisor's workspace registry, issuing one token per
+ * workspace ID the way `kcserver` does: re-registering a known ID hands back
+ * the token it was first given. The real server builds the ID out of the
+ * display name; a counter is enough to keep these tests readable.
  */
 class FakeRegistry implements McpRegistrationApi {
-	readonly registrations: McpFrontendRegistration[] = [];
+	readonly registrations: McpWorkspaceRegistration[] = [];
 	readonly deregistrations: string[] = [];
 	private readonly _tokens = new Map<string, string>();
 	private _nextId = 1;
 
 	constructor(private readonly _port = 39000) { }
 
-	async registerMcpFrontend(
-		registration: McpFrontendRegistration
-	): Promise<{ data: McpFrontendResponse }> {
+	async registerMcpWorkspace(
+		registration: McpWorkspaceRegistration
+	): Promise<{ data: McpWorkspace }> {
 		this.registrations.push(registration);
-		const frontendId = registration.frontend_id ?? `frontend-${this._nextId++}`;
-		let token = this._tokens.get(frontendId);
+		const workspaceId = registration.workspace_id ?? `workspace-${this._nextId++}`;
+		let token = this._tokens.get(workspaceId);
 		if (!token) {
-			token = `token-${frontendId}`;
-			this._tokens.set(frontendId, token);
+			token = `token-${workspaceId}`;
+			this._tokens.set(workspaceId, token);
 		}
 		const port = registration.preferred_port || this._port;
 		return {
-			// Each frontend gets an endpoint of its own, as `kcserver` issues.
+			// Each workspace gets an endpoint of its own, as `kcserver` issues.
 			data: {
-				frontend_id: frontendId,
+				workspace_id: workspaceId,
 				token,
 				port,
-				url: `http://127.0.0.1:${port}/mcp/w/${frontendId}`,
+				url: `http://127.0.0.1:${port}/mcp/w/${workspaceId}`,
 			}
 		};
 	}
 
-	async deregisterMcpFrontend(frontendId: string): Promise<void> {
-		this.deregistrations.push(frontendId);
-		this._tokens.delete(frontendId);
+	async deregisterMcpWorkspace(workspaceId: string): Promise<void> {
+		this.deregistrations.push(workspaceId);
+		this._tokens.delete(workspaceId);
 	}
 }
 
@@ -106,7 +108,7 @@ function createHarness(saved: McpFrontendState = {}, enabled = true): Harness {
 	return harness;
 }
 
-function lastRegistration(harness: Harness): McpFrontendRegistration {
+function lastRegistration(harness: Harness): McpWorkspaceRegistration {
 	return harness.registry.registrations[harness.registry.registrations.length - 1];
 }
 
@@ -125,18 +127,31 @@ suite('McpFrontend', () => {
 			},
 			{
 				connection: {
-					frontendId: 'frontend-1',
+					workspaceId: 'workspace-1',
 					port: 39000,
-					token: 'token-frontend-1',
-					url: 'http://127.0.0.1:39000/mcp/w/frontend-1',
+					token: 'token-workspace-1',
+					url: 'http://127.0.0.1:39000/mcp/w/workspace-1',
 				},
-				saved: { frontendId: 'frontend-1', port: 39000 },
+				saved: { workspaceId: 'workspace-1', port: 39000 },
 				variables: {
-					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/frontend-1',
-					[MCP_TOKEN_ENV_VAR]: 'token-frontend-1',
+					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+					[MCP_TOKEN_ENV_VAR]: 'token-workspace-1',
 				},
 				hasDescription: true,
 			});
+	});
+
+	test('registers under the workspace name, which the ID is built from', async () => {
+		const harness = createHarness();
+
+		await harness.frontend.attach(harness.registry);
+
+		// The supervisor slugs this into the workspace ID, and therefore into
+		// the URL agents are configured with, so it has to be the folder the
+		// user has open rather than anything window-shaped.
+		assert.strictEqual(
+			lastRegistration(harness).display_name,
+			vscode.workspace.name ?? 'Empty Workspace');
 	});
 
 	test('does not register while the feature is off', async () => {
@@ -163,10 +178,10 @@ suite('McpFrontend', () => {
 
 		assert.deepStrictEqual(
 			{
-				ids: harness.registry.registrations.map(r => r.frontend_id),
+				ids: harness.registry.registrations.map(r => r.workspace_id),
 				token: harness.frontend.connection?.token,
 			},
-			{ ids: [undefined, 'frontend-1'], token: 'token-frontend-1' });
+			{ ids: [undefined, 'workspace-1'], token: 'token-workspace-1' });
 	});
 
 	test('turning the feature off deregisters and clears the terminal environment', async () => {
@@ -187,7 +202,7 @@ suite('McpFrontend', () => {
 			},
 			{
 				connection: undefined,
-				deregistrations: ['frontend-1'],
+				deregistrations: ['workspace-1'],
 				variables: 0,
 				saved: { port: 39000 },
 			});
@@ -210,11 +225,11 @@ suite('McpFrontend', () => {
 			{ port: 39000, preferred: 39000 });
 	});
 
-	test('a failed registration leaves the frontend unregistered', async () => {
+	test('a failed registration leaves the window unregistered', async () => {
 		const harness = createHarness();
 		const failing: McpRegistrationApi = {
-			registerMcpFrontend: () => Promise.reject(new Error('server refused')),
-			deregisterMcpFrontend: () => Promise.resolve(),
+			registerMcpWorkspace: () => Promise.reject(new Error('server refused')),
+			deregisterMcpWorkspace: () => Promise.resolve(),
 		};
 
 		await harness.frontend.attach(failing);
@@ -233,8 +248,8 @@ suite('McpFrontend', () => {
 
 		const failed = createHarness();
 		await failed.frontend.attach({
-			registerMcpFrontend: () => Promise.reject(new Error('server refused')),
-			deregisterMcpFrontend: () => Promise.resolve(),
+			registerMcpWorkspace: () => Promise.reject(new Error('server refused')),
+			deregisterMcpWorkspace: () => Promise.resolve(),
 		});
 
 		const registered = createHarness();
@@ -255,10 +270,10 @@ suite('McpFrontend.describeStatus', () => {
 		assert.deepStrictEqual(
 			[
 				McpFrontend.describeStatus({
-					active: true, port: 39000, request_count: 7, frontends: []
+					active: true, port: 39000, request_count: 7, workspaces: []
 				}),
 				McpFrontend.describeStatus({
-					active: false, port: 0, request_count: 0, frontends: []
+					active: false, port: 0, request_count: 0, workspaces: []
 				}),
 				McpFrontend.describeStatus(undefined),
 			],
