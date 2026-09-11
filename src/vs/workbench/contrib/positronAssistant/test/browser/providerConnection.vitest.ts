@@ -12,7 +12,7 @@ import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../c
 function source(overrides: Partial<IPositronLanguageModelSource> = {}): IPositronLanguageModelSource {
 	const result: IPositronLanguageModelSource = {
 		type: PositronLanguageModelType.Chat,
-		provider: { id: 'posit-ai', displayName: 'Posit AI' },
+		provider: { id: 'posit-ai', displayName: 'Posit AI Pass' },
 		supportedOptions: ['oauth'],
 		signedIn: false,
 		defaults: {},

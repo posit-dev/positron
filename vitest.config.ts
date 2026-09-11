@@ -10,7 +10,8 @@ export default defineConfig({
 		include: [
 			'src/vs/**/*.vitest.{ts,tsx}',
 			'src/*.vitest.{ts,tsx}',
-			'test/e2e/**/*.vitest.{ts,tsx}'
+			'test/e2e/**/*.vitest.{ts,tsx}',
+			'extensions/**/*.vitest.{ts,tsx}'
 		],
 		environment: 'happy-dom',
 		globals: true,

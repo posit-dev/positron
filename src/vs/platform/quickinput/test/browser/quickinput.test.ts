@@ -68,7 +68,12 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 		instantiationService.stub(IConfigurationService, new TestConfigurationService());
 		instantiationService.stub(IAccessibilityService, new TestAccessibilityService());
 		instantiationService.stub(IListService, store.add(new ListService()));
-		instantiationService.stub(ILayoutService, { _serviceBrand: undefined, activeContainer: fixture, onDidLayoutContainer: Event.None });
+		instantiationService.stub(ILayoutService, {
+			_serviceBrand: undefined,
+			activeContainer: fixture,
+			onDidLayoutContainer: Event.None,
+			getContainer: () => fixture,
+		});
 		instantiationService.stub(IContextViewService, store.add(instantiationService.createInstance(ContextViewService)));
 		instantiationService.stub(IContextKeyService, store.add(instantiationService.createInstance(ContextKeyService)));
 		instantiationService.stub(IKeybindingService, {
@@ -139,21 +144,20 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 		assert.strictEqual(modalContent.inert, false);
 	});
 
-	test('quick input reparents into a native <dialog> modal so it renders above the top layer', () => {
-		// The native <dialog> renderer uses showModal(), placing the dialog in the browser top layer;
-		// the quick input must become a descendant of it to appear above and be focusable.
-		const dialog = document.createElement('dialog');
-		dialog.className = 'positron-modal-dialog';
-		dialog.setAttribute('open', '');
+	test('quick input reparents into the newer dynamic modal dialog', () => {
+		// The newer dialog component renders a .positron-dynamic-modal-dialog-box; the quick input has
+		// to be a descendant of it to be inside its focus scope.
+		const dialogBox = document.createElement('div');
+		dialogBox.className = 'positron-dynamic-modal-dialog-box';
 		const modalContent = document.createElement('button');
-		dialog.appendChild(modalContent);
-		controller.container.appendChild(dialog);
-		store.add(toDisposable(() => dialog.remove()));
+		dialogBox.appendChild(modalContent);
+		controller.container.appendChild(dialogBox);
+		store.add(toDisposable(() => dialogBox.remove()));
 
 		const quickpick = store.add(controller.createQuickPick());
 
 		quickpick.show();
-		assert.ok(dialog.querySelector('.quick-input-widget'), 'quick input should be reparented into the dialog');
+		assert.ok(dialogBox.querySelector('.quick-input-widget'), 'quick input should be reparented into the dialog');
 		assert.strictEqual(modalContent.inert, true);
 
 		quickpick.hide();
@@ -200,6 +204,63 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 			{ display: '', closing: false, inert: false, visible: true },
 			{ display: 'none', closing: false, inert: false, visible: false },
 		]);
+	});
+
+	test('overlay picker aligns its input with the anchor and bypasses motion', () => {
+		fixture.style.width = '600px';
+		fixture.style.height = '400px';
+		fixture.classList.add('style-override', 'monaco-enable-motion');
+		controller.layout({ width: 600, height: 400 }, 0);
+
+		const anchor = document.createElement('div');
+		anchor.style.position = 'absolute';
+		anchor.style.left = '80px';
+		anchor.style.top = '40px';
+		anchor.style.width = '300px';
+		anchor.style.height = '26px';
+		fixture.appendChild(anchor);
+
+		const quickpick = store.add(controller.createQuickPick());
+		quickpick.anchor = anchor;
+		quickpick.anchorPosition = 'overlay';
+		quickpick.show();
+
+		const widget = fixture.querySelector<HTMLElement>('.quick-input-widget')!;
+		const input = fixture.querySelector<HTMLElement>('.quick-input-filter .monaco-inputbox')!;
+		const anchorRect = anchor.getBoundingClientRect();
+		const inputRect = input.getBoundingClientRect();
+		const openState = {
+			alignmentDelta: {
+				left: inputRect.left - anchorRect.left,
+				top: inputRect.top - anchorRect.top,
+				width: inputRect.width - anchorRect.width,
+				height: inputRect.height - anchorRect.height,
+			},
+			animationName: mainWindow.getComputedStyle(widget).animationName,
+			overlay: widget.classList.contains('quick-input-widget-overlay'),
+		};
+
+		quickpick.hide();
+
+		assert.deepStrictEqual({
+			openState,
+			closeState: {
+				display: widget.style.display,
+				closing: widget.classList.contains('quick-input-widget-closing'),
+				inert: widget.inert,
+			},
+		}, {
+			openState: {
+				alignmentDelta: { left: 0, top: 0, width: 0, height: 0 },
+				animationName: 'none',
+				overlay: true,
+			},
+			closeState: {
+				display: 'none',
+				closing: false,
+				inert: false,
+			},
+		});
 	});
 
 	test('pick - basecase', async () => {

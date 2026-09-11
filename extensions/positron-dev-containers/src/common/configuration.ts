@@ -7,6 +7,23 @@ import * as vscode from 'vscode';
 import { DevContainerConfiguration, LogLevel } from './types';
 import { getLogger } from './logger';
 
+const DEV_CONTAINERS_ENABLED_KEY = 'enabled';
+const DEPRECATED_DEV_CONTAINERS_ENABLE_KEY = 'enable';
+
+interface BooleanInspection {
+	globalValue?: boolean;
+	workspaceValue?: boolean;
+	workspaceFolderValue?: boolean;
+}
+
+function isConfigurationSet(inspection: BooleanInspection | undefined): boolean {
+	return (
+		inspection?.globalValue !== undefined ||
+		inspection?.workspaceValue !== undefined ||
+		inspection?.workspaceFolderValue !== undefined
+	);
+}
+
 /**
  * Configuration service for dev containers extension
  * Reads settings from workspace configuration
@@ -58,7 +75,13 @@ export class Configuration {
 	 * Get enable setting
 	 */
 	getEnable(): boolean {
-		return this.config.get<boolean>('enable', false);
+		for (const key of [DEV_CONTAINERS_ENABLED_KEY, DEPRECATED_DEV_CONTAINERS_ENABLE_KEY]) {
+			if (isConfigurationSet(this.config.inspect<boolean>(key))) {
+				return this.config.get<boolean>(key, false);
+			}
+		}
+
+		return false;
 	}
 
 	/**

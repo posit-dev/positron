@@ -187,6 +187,10 @@ export class Variables {
 		await this.code.driver.currentPage.getByLabel('Delete all objects').click();
 	}
 
+	async clickImportData() {
+		await this.code.driver.currentPage.getByLabel('Import Data', { exact: true }).click();
+	}
+
 	/**
 	 * Verify: Confirm the variable is visible and has the expected value.
 	 * @param variableName the name of the variable to check

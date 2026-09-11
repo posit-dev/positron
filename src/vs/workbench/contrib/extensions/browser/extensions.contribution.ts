@@ -83,6 +83,7 @@ import { ExtensionRecommendationsService } from './extensionRecommendationsServi
 import { ClearLanguageAction, ConfigureWorkspaceFolderRecommendedExtensionsAction, ConfigureWorkspaceRecommendedExtensionsAction, InstallAction, InstallAnotherVersionAction, InstallSpecificVersionOfExtensionAction, SetColorThemeAction, SetFileIconThemeAction, SetProductIconThemeAction, ToggleAutoUpdateForExtensionAction, ToggleAutoUpdatesForPublisherAction, TogglePreReleaseExtensionAction } from './extensionsActions.js';
 import { ExtensionActivationProgress } from './extensionsActivationProgress.js';
 import { ExtensionsCompletionItemsProvider } from './extensionsCompletionItemsProvider.js';
+import { ExtensionEnablementContextKeysContribution } from './extensionEnablementContext.js';
 import { ExtensionDependencyChecker } from './extensionsDependencyChecker.js';
 import { clearSearchResultsIcon, configureRecommendedIcon, extensionsViewIcon, filterIcon, installWorkspaceRecommendedIcon, refreshIcon } from './extensionsIcons.js';
 import { InstallExtensionQuickAccessProvider, ManageExtensionsQuickAccessProvider } from './extensionsQuickAccess.js';
@@ -206,7 +207,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 			// --- Start Positron ---
 			'extensions.gallery.sendUsageData': {
 				type: 'boolean',
-				description: localize('positron.extensions.gallery.sendUsageData', "When enabled, sends Positron distribution type, version, and update-check trigger as query parameters on extension gallery requests. No user-identifying data is sent. Disable this to stop sending these parameters."),
+				description: localize('positron.extensions.gallery.sendUsageData', "When enabled, sends the Positron distribution type, version, update-check trigger, and whether the session runs under an academic license as query parameters on extension gallery requests. Sessions licensed with a license file also send a hash that identifies that license. No user-identifying data is sent. Disable this to stop sending these parameters."),
 				default: true,
 				scope: ConfigurationScope.APPLICATION,
 				tags: ['usesOnlineServices']
@@ -2171,6 +2172,7 @@ workbenchRegistry.registerWorkbenchContribution(ExtensionActivationProgress, Lif
 workbenchRegistry.registerWorkbenchContribution(ExtensionDependencyChecker, LifecyclePhase.Eventually);
 workbenchRegistry.registerWorkbenchContribution(ExtensionEnablementWorkspaceTrustTransitionParticipant, LifecyclePhase.Restored);
 workbenchRegistry.registerWorkbenchContribution(ExtensionsCompletionItemsProvider, LifecyclePhase.Restored);
+workbenchRegistry.registerWorkbenchContribution(ExtensionEnablementContextKeysContribution, LifecyclePhase.Restored);
 workbenchRegistry.registerWorkbenchContribution(UnsupportedExtensionsMigrationContrib, LifecyclePhase.Eventually);
 workbenchRegistry.registerWorkbenchContribution(TrustedPublishersInitializer, LifecyclePhase.Eventually);
 workbenchRegistry.registerWorkbenchContribution(ExtensionMarketplaceStatusUpdater, LifecyclePhase.Eventually);

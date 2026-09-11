@@ -5,7 +5,6 @@
 
 import { createReadStream, promises } from 'fs';
 import type * as http from 'http';
-import * as url from 'url';
 import * as cookie from 'cookie';
 import * as crypto from 'crypto';
 import { isEqualOrParent } from '../../base/common/extpath.js';
@@ -34,14 +33,13 @@ import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService
 import httpProxy from 'http-proxy';
 // eslint-disable-next-line no-duplicate-imports
 import { existsSync } from 'fs';
-import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
+import { HAS_STATIC_ROUTE, kProxyRegex, resolveSessionlessStaticCallbackRoute, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX } from './pwbConstants.js';
 import { getListeningPortUid, isProxyPortOwnershipEnforced, ISocketOwnershipCheck } from './socketOwnership.js';
 import type * as net from 'net';
 // --- End PWB ---
 // --- Start Positron ---
-import { HAS_STATIC_ROUTE } from './pwbConstants.js';
-import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
-import { academicMarkerScript, IPositronAcademicLicenseService } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
+import { shouldUseSessionLessStaticCallbackRoute, shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
+import { IPositronAcademicLicenseService, licenseMarkerScript } from '../../platform/positronLicense/common/positronAcademicLicenseService.js';
 import { isSageMakerSession, sageMakerMarkerScript } from '../../platform/positronLicense/common/positronSageMakerSession.js';
 // --- End Positron ---
 
@@ -220,6 +218,10 @@ export class WebClientServer {
 	private get _useSessionLessStaticRoute(): boolean {
 		return shouldUseSessionLessStaticRoute(isWorkbench, HAS_STATIC_ROUTE, this._productService.quality);
 	}
+
+	private get _useSessionLessStaticCallbackRoute(): boolean {
+		return shouldUseSessionLessStaticCallbackRoute(isWorkbench, HAS_STATIC_ROUTE);
+	}
 	// --- End Positron ---
 
 	/**
@@ -229,21 +231,23 @@ export class WebClientServer {
 	 * @param parsedUrl The URL to handle, including base and product path
 	 * @param pathname The pathname of the URL, without base and product path
 	 */
-	async handle(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: url.UrlWithParsedQuery, pathname: string): Promise<void> {
+	async handle(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: URL, pathname: string): Promise<void> {
 		try {
+			// --- Start PWB ---
+			const sessionlessStaticCallbackRoute = resolveSessionlessStaticCallbackRoute();
+			const sessionlessStaticCallbackPath = sessionlessStaticCallbackRoute.substring(WORKBENCH_DEPLOYMENT_PREFIX.length);
+			if (this._useSessionLessStaticCallbackRoute && (pathname === sessionlessStaticCallbackRoute || pathname === sessionlessStaticCallbackPath)) {
+				return this._handleCallback(res);
+			}
+			// --- End PWB ---
 			// --- Start PWB: session-less static path (nginx serves these in prod; this is the dev fallback) ---
-			// URL shape: /<product-label>-static/<quality>-<commit>/static/<path>  →  serve APP_ROOT/<path>
-			// Only active when running under Workbench; standalone/dev code-server keeps the
-			// session-scoped /static/ route below.
 			if (this._useSessionLessStaticRoute && pathname.startsWith(VSCODE_STATIC_PREFIX) && pathname.charCodeAt(VSCODE_STATIC_PREFIX.length) === CharCode.Slash) {
-				const afterPrefix = pathname.substring(VSCODE_STATIC_PREFIX.length + 1); // strip "/<product-label>-static/"
+				const afterPrefix = pathname.substring(VSCODE_STATIC_PREFIX.length + 1);
 				const versionSlash = afterPrefix.indexOf('/');
 				if (versionSlash === -1) {
 					return serveError(req, res, 404, 'Not found.');
 				}
-				const afterVersion = afterPrefix.substring(versionSlash); // strip "<quality>-<commit>" → "/static/<path>"
-				// Mirror the validation the `/static/` route below uses: the remainder must start
-				// with `/static/` before we hand off to _handleStatic, which resolves relative to APP_ROOT.
+				const afterVersion = afterPrefix.substring(versionSlash);
 				if (afterVersion.startsWith(STATIC_PATH) && afterVersion.charCodeAt(STATIC_PATH.length) === CharCode.Slash) {
 					return this._handleStatic(req, res, afterVersion.substring(STATIC_PATH.length));
 				}
@@ -308,7 +312,16 @@ export class WebClientServer {
 			return;
 		}
 
-		const path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
+		let path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
+
+		// Append query string if it exists. The caller passes only the pathname, so the query
+		// string must be recovered from req.url; websocket apps like marimo require it
+		// (e.g. /ws?session_id=...).
+		const search = new URL(req.url ?? '', 'http://localhost').search;
+		if (search) {
+			path = path.concat(search);
+		}
+
 		return this._proxyServer.ws(req, socket, upgradeHead, {
 			ignorePath: true,
 			target: path
@@ -453,7 +466,7 @@ export class WebClientServer {
 	/**
 	 * Handle HTTP requests for /
 	 */
-	private async _handleRoot(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: url.UrlWithParsedQuery): Promise<void> {
+	private async _handleRoot(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: URL): Promise<void> {
 
 		const getFirstHeader = (headerName: string) => {
 			const val = req.headers[headerName];
@@ -463,8 +476,9 @@ export class WebClientServer {
 		// Prefix routes with basePath for clients
 		const basePath = getFirstHeader('x-forwarded-prefix') || this._basePath;
 
-		const queryConnectionToken = parsedUrl.query[connectionTokenQueryName];
-		if (typeof queryConnectionToken === 'string') {
+		const queryConnectionTokens = parsedUrl.searchParams.getAll(connectionTokenQueryName);
+		if (queryConnectionTokens.length === 1) {
+			const queryConnectionToken = queryConnectionTokens[0];
 			// We got a connection token as a query parameter.
 			// We want to have a clean URL, so we strip it
 			const responseHeaders: Record<string, string> = Object.create(null);
@@ -480,13 +494,10 @@ export class WebClientServer {
 				}
 			);
 
-			const newQuery = Object.create(null);
-			for (const key in parsedUrl.query) {
-				if (key !== connectionTokenQueryName) {
-					newQuery[key] = parsedUrl.query[key];
-				}
-			}
-			const newLocation = url.format({ pathname: basePath, query: newQuery });
+			const newQuery = new URLSearchParams(parsedUrl.searchParams);
+			newQuery.delete(connectionTokenQueryName);
+			const queryString = newQuery.toString();
+			const newLocation = queryString ? `${basePath}?${queryString}` : basePath;
 			responseHeaders['Location'] = newLocation;
 
 			res.writeHead(302, responseHeaders);
@@ -547,7 +558,11 @@ export class WebClientServer {
 		}
 
 		const staticRoute = posix.join(basePath, this._productPath, STATIC_PATH);
-		const callbackRoute = posix.join(basePath, this._productPath, CALLBACK_PATH);
+		// --- Start PWB ---
+		const callbackRoute = this._useSessionLessStaticCallbackRoute
+			? resolveSessionlessStaticCallbackRoute()
+			: posix.join(basePath, this._productPath, CALLBACK_PATH);
+		// --- End PWB ---
 		// --- Start PWB ---
 		// const webExtensionRoute = posix.join(basePath, this._productPath, WEB_EXTENSION_PATH);
 		// --- End PWB ---
@@ -584,6 +599,7 @@ export class WebClientServer {
 
 		const productConfiguration: Partial<Mutable<IProductConfiguration>> = {
 			embedderIdentifier: 'server-distro',
+			voiceWsUrl: this._productService.voiceWsUrl,
 			// --- Start PWB: web prefix, proxy port url, custom extensions gallery ---
 			rootEndpoint: base,
 			proxyEndpointTemplate: base + `/p/{{port}}/${process.env.RS_PORT_TOKEN}`,
@@ -614,6 +630,7 @@ export class WebClientServer {
 		} else {
 			this._logService.info('[WebClientServer] No POSITRON_ENFORCED_SETTINGS environment variable found');
 		}
+		// --- End PWB ---
 
 		// --- Start Positron ---
 		const positronDocsUrl = process.env['POSITRON_DOCS_URL'];
@@ -638,12 +655,20 @@ export class WebClientServer {
 			isEnabledFileUploads: !this._environmentService.args['disable-file-uploads'],
 			// --- End PWB ---
 			// --- Start PWB: serve same origin ---
-			webviewEndpoint: vscodeBase + staticRoute + '/out/vs/workbench/contrib/webview/browser/pre',
+			// Use the session-less static route when under Workbench. The webview iframe registers
+			// `pre/service-worker.js`, and as of VS Code 1.130 that registration is a *module*
+			// service worker (`register(..., { type: 'module' })`). The browser fetches a module
+			// service worker script without the Workbench auth cookie, so a session-scoped URL is
+			// answered with a 302 to /auth-sign-in and no webview ever loads. The session-less route
+			// is served off disk by Workbench's nginx with no auth check, and as a bonus these
+			// assets become cacheable across sessions like the rest of the static bundle.
+			webviewEndpoint: effectiveVsBase + effectiveStaticRoute + '/out/vs/workbench/contrib/webview/browser/pre',
 			// --- End PWB: serve same origin ---
 			_wrapWebWorkerExtHostInIframe,
 			developmentOptions: { enableSmokeTestDriver: this._environmentService.args['enable-smoke-test-driver'] ? true : undefined, logLevel: this._logService.getLevel() },
 			settingsSyncOptions: !this._environmentService.isBuilt && this._environmentService.args['enable-sync'] ? { enabled: true } : undefined,
 			enableWorkspaceTrust: !this._environmentService.args['disable-workspace-trust'],
+			enabledExtensionProposedApi: this._environmentService.args['enable-proposed-api'],
 			folderUri: resolveWorkspaceURI(this._environmentService.args['default-folder']),
 			workspaceUri: resolveWorkspaceURI(this._environmentService.args['default-workspace']),
 			// --- Start Positron ---
@@ -688,10 +713,10 @@ export class WebClientServer {
 		const pwbWorkbenchMarker = isWorkbench ? '<script>globalThis._PWB_IS_WORKBENCH = true;</script>' : '';
 		// --- End PWB ---
 
-		// --- Start Positron: browser-side academic marker ---
+		// --- Start Positron: browser-side license markers ---
 		// Same early-injection trick as the Workbench marker above, reusing the PWB_WORKBENCH_MARKER
 		// slot so no template changes are needed.
-		const academicMarker = academicMarkerScript(this._academicLicenseService.isAcademic);
+		const licenseMarker = licenseMarkerScript(this._academicLicenseService.isAcademic, this._academicLicenseService.licenseHash);
 		const sageMakerMarker = sageMakerMarkerScript(isSageMakerSession());
 		// --- End Positron ---
 
@@ -707,7 +732,7 @@ export class WebClientServer {
 			BASE: base,
 			VS_BASE: vscodeBase,
 			RS_LOGIN_CHECK_SCRIPT: rsLoginCheckScript,
-			PWB_WORKBENCH_MARKER: pwbWorkbenchMarker + academicMarker + sageMakerMarker,
+			PWB_WORKBENCH_MARKER: pwbWorkbenchMarker + licenseMarker + sageMakerMarker,
 			// --- End PWB ---
 		};
 
@@ -819,6 +844,7 @@ export class WebClientServer {
 
 		res.writeHead(200, {
 			'Content-Type': 'text/html',
+			'Cache-Control': 'no-store',
 			'Content-Security-Policy': cspDirectives
 		});
 		return void res.end(data);

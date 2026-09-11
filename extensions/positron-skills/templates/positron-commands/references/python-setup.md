@@ -12,7 +12,7 @@ guidance is hand-written.
 These commands come from the Python extension, so they only exist once it is
 active -- expect `not-found` if Python support isn't loaded yet. To start or
 switch a session once an interpreter exists, use the session commands in
-[troubleshooting.md]({{skill_dir}}/references/troubleshooting.md).
+[sessions.md]({{skill_dir}}/references/sessions.md).
 
 ## Finding the active interpreter
 

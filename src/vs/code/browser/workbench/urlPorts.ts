@@ -1,4 +1,7 @@
-/* eslint-disable header/header */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
 /* This code mimicks rstudio-pro server_core/UriPorts to generate port tokens and obscure ports.
  * Any functionality changes need to be accounted for there. Logic regarding 'server ports' has
  * been removed as requests coming from this extension are always 'session ports'.

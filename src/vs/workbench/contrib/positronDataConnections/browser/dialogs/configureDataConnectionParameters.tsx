@@ -88,7 +88,7 @@ export const ConfigureDataConnectionParameters = ({
 					// Boolean parameter.
 					case 'boolean': {
 						return (
-							<div key={parameter.id}>
+							<div key={parameter.id} className='parameter-checkbox-field'>
 								<Checkbox
 									initialChecked={parameterFieldStates[parameter.id].value as boolean}
 									label={parameter.label}

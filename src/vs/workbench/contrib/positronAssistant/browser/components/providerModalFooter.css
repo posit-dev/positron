@@ -1,0 +1,32 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Matches the dynamic modal dialog's own three-button footer in its bordered
+form, so this footer sits at the same height as the Add Data Connection wizard's.
+Scoped to the dialog's box because FooterButton's colors and sizing are too. The
+rule above the buttons is the only one below the title bar: the views draw none
+of their own. */
+.positron-dynamic-modal-dialog-box .provider-modal-footer {
+	display: flex;
+	padding: 16px;
+	flex: 0 0 auto;
+	justify-content: space-between;
+	align-items: flex-start;
+	border-top: solid 1px var(--vscode-positronModalDialog-border);
+}
+
+.positron-dynamic-modal-dialog-box .provider-modal-footer .provider-modal-footer-right {
+	gap: 10px;
+	display: flex;
+	align-items: flex-start;
+}
+
+/* Lay out the in-button spinner beside the label, and keep a longer in-flight
+label (e.g. "Signing Out...") on one line. Sizing and centering come from
+footerButton.css and the shared .dialog-button rule. */
+.positron-dynamic-modal-dialog-box .provider-modal-footer .footer-button {
+	gap: 6px;
+	white-space: nowrap;
+}

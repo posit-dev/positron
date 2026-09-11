@@ -15,7 +15,7 @@ import { localize } from '../../../../../nls.js';
 import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { OneButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/oneButtonFooter.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { PositronNotebookAssistantController } from '../contrib/assistant/controller.js';
 import { AssistantPanelContext } from './AssistantPanelContext.js';
@@ -96,7 +96,7 @@ export interface AssistantPanelProps {
 	initialNotebook: IPositronNotebookInstance | undefined;
 	/** Promise that resolves to the notebook instance (used when initialNotebook is undefined) */
 	notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined;
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 	chatEditingService: IChatEditingService;
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
@@ -716,6 +716,9 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			renderer={renderer}
 			title={panelTitle}
 			width={480}
+			// Escape closes the panel. The native <dialog> used to do this on its own; an ordinary
+			// element does not, so the dialog needs a cancel handler to route Escape to.
+			onCancel={handleClose}
 		/>
 	);
 };

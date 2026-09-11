@@ -7,7 +7,6 @@
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
-	height: 100%;
 }
 
 .connect-provider-header {
@@ -55,10 +54,6 @@
 	color: var(--vscode-descriptionForeground);
 }
 
-.connect-provider-divider {
-	border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
-}
-
 .connect-provider-banner {
 	display: flex;
 	align-items: center;
@@ -100,11 +95,20 @@
 	color: var(--vscode-charts-red);
 }
 
+/*
+ * The read-only detail rows, grouped so the whole set can be omitted when a
+ * provider has none.
+ */
+.connect-provider-details {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
 .connect-provider-detail {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
-	flex-grow: 1;
 }
 
 .connect-provider-detail-label {
@@ -164,10 +168,63 @@
 }
 
 .connect-provider-notice {
-	border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
-	padding-top: 12px;
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * More than one field, so this needs a tier above a single-field group: the
+ * looser gap separates one field from the next, while each field closes up
+ * around its own label and override note.
+ */
+.connect-provider-aws {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+/* Matches .connect-provider-apikey, the single-field group elsewhere in the form. */
+.connect-provider-aws-field {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.connect-provider-aws-hint {
+	margin: 0;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * A field the environment supplies. Dimmed to read as not-editable while
+ * staying legible, and selectable: the input is `readOnly`, not `disabled`, so
+ * the value in effect can be focused, announced, and copied.
+ */
+.connect-provider-apikey-input[readonly] {
+	color: var(--vscode-descriptionForeground);
+	background-color: var(--vscode-editorWidget-background);
+}
+
+.connect-provider-apikey-input[readonly]:focus {
+	outline-color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-field-override {
+	margin: 0;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * The shadowed value inside that note. Monospace so an arbitrary string reads
+ * as a value rather than running into the prose around it; sized down from the
+ * inherited 12px, since monospace runs visually larger at the same point size.
+ */
+.connect-provider-override-value {
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+	word-break: break-all;
 }
 
 .connect-provider-models {
@@ -246,4 +303,35 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+/* Collapsed section for fields a provider does not need but can override (the
+model rows on a provider that publishes its own list). */
+.connect-provider-disclosure {
+	border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+	padding-top: 12px;
+}
+
+.connect-provider-disclosure-summary {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0;
+	background: none;
+	border: none;
+	font-size: 12px;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+
+.connect-provider-disclosure-summary .codicon,
+.connect-provider-disclosure-count {
+	color: var(--vscode-descriptionForeground);
+}
+
+.connect-provider-disclosure-body {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 10px;
 }

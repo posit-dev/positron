@@ -17,7 +17,7 @@ import { enabledApiProposalsFallbackNone, isProposedApiEnabled, setEnabledApiPro
 // PWB. Skipped rather than deleted to keep it visible for future upstream merges; re-enable if
 // the always-allow override is ever removed.
 suite.skip('isProposedApiEnabled (extensionEnabledApiProposalsFallback experiment)', () => {
-// --- End PWB ---
+	// --- End PWB ---
 
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 

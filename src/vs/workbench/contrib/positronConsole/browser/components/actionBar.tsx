@@ -206,8 +206,8 @@ export const ActionBar = (props: ActionBarProps) => {
 				return;
 			}
 
-			// Set the initial state.
-			setInterruptible(session.dynState.busy);
+			// Seed interruptibility from the runtime state
+			setInterruptible(session.getRuntimeState() === RuntimeState.Busy);
 			setDirectoryLabel(session.dynState.currentWorkingDirectory);
 			setCanShutdown(session.getRuntimeState() !== RuntimeState.Exited && session.getRuntimeState() !== RuntimeState.Uninitialized);
 			setCanStart(session.getRuntimeState() === RuntimeState.Exited || session.getRuntimeState() === RuntimeState.Uninitialized);

@@ -7,3 +7,7 @@
 export function shouldUseSessionLessStaticRoute(isWorkbench: boolean, hasStaticRoute: boolean, quality: string | undefined): boolean {
 	return isWorkbench && hasStaticRoute && quality !== 'dailies';
 }
+
+export function shouldUseSessionLessStaticCallbackRoute(isWorkbench: boolean, hasStaticRoute: boolean): boolean {
+	return isWorkbench && hasStaticRoute;
+}

@@ -17,7 +17,7 @@ Enable the extension in your settings:
 
 ```json
 {
-  "dev.containers.enable": true
+  "dev.containers.enabled": true
 }
 ```
 
@@ -106,4 +106,3 @@ The workflow typically looks like this;
 - Requires Docker or Podman to be installed and running
 - GPU support is platform-dependent
 - Some features have limited support in containers
-

@@ -3,8 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start PWB ---
+import { mainWindow } from '../../../../base/browser/window.js';
+// --- End PWB ---
 import { Schemas } from '../../../../base/common/network.js';
 import { joinPath } from '../../../../base/common/resources.js';
+import { isWeb } from '../../../../base/common/platform.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ExtensionKind, IEnvironmentService, IExtensionHostDebugParams } from '../../../../platform/environment/common/environment.js';
 import { IPath } from '../../../../platform/window/common/window.js';
@@ -21,7 +25,6 @@ import { ITextEditorOptions } from '../../../../platform/editor/common/editor.js
 import { EXTENSION_IDENTIFIER_WITH_LOG_REGEX } from '../../../../platform/environment/common/environmentService.js';
 
 // --- Start PWB ---
-import { isWeb } from '../../../../base/common/platform.js';
 // --- End PWB ---
 
 export const IBrowserWorkbenchEnvironmentService = refineServiceDecorator<IEnvironmentService, IBrowserWorkbenchEnvironmentService>(IEnvironmentService);
@@ -130,10 +133,12 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	get logFile(): URI { return joinPath(this.windowLogsPath, 'window.log'); }
 
 	@memoize
-	// -- Start PWB: Local storage ---
+	// --- Start PWB: Local storage ---
 	get userRoamingDataHome(): URI {
 		// In a web context, derive the user data path from the `userDataPath`
-		// option if provided (always used on PWB)
+		// option if provided (always used on PWB). Fall back to the vscode-user-data
+		// scheme otherwise so the service never throws before we know updates/storage
+		// are needed (e.g. in tests that construct it without a userDataPath).
 		return isWeb && this.options.userDataPath ?
 			joinPath(URI.file(this.options.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User') :
 			URI.file('/User').with({ scheme: Schemas.vscodeUserData });
@@ -265,7 +270,15 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 			this.extensionHostDebugEnvironment = this.resolveExtensionHostDebugEnvironment();
 		}
 
-		return this.extensionHostDebugEnvironment.extensionEnabledProposedApi;
+		if (this.extensionHostDebugEnvironment.extensionEnabledProposedApi !== undefined) {
+			return this.extensionHostDebugEnvironment.extensionEnabledProposedApi;
+		}
+
+		if (this.options.enabledExtensionProposedApi !== undefined) {
+			return [...this.options.enabledExtensionProposedApi];
+		}
+
+		return undefined;
 	}
 
 	@memoize
@@ -317,7 +330,7 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	@memoize
 	get webviewExternalEndpoint(): string {
 		// --- Start PWB: serve same origin ---
-		const endpoint = (this.options.webviewEndpoint && new URL(this.options.webviewEndpoint, window.location.toString()).toString())
+		const endpoint = (this.options.webviewEndpoint && new URL(this.options.webviewEndpoint, mainWindow.location.toString()).toString())
 			|| this.productService.webviewContentExternalBaseUrlTemplate
 			|| 'https://{{uuid}}.vscode-cdn.net/{{quality}}/{{commit}}/out/vs/workbench/contrib/webview/browser/pre/';
 		// --- End PWB: serve same origin ---
@@ -390,8 +403,8 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 			extensionDevelopmentKind: undefined
 		};
 
-		// Fill in selected extra environmental properties
-		if (this.payload) {
+		// Extension host development options from the payload are only valid in development or smoke test builds.
+		if (this.payload && (!this.isBuilt || this.enableSmokeTestDriver)) {
 			for (const [key, value] of this.payload) {
 				switch (key) {
 					case 'extensionDevelopmentPath':

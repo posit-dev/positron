@@ -55,8 +55,11 @@ const compilations = [
 	// Shared, generated Data Explorer protocol types consumed by the data driver extensions.
 	// Compiled here so the data driver extensions can resolve its out/ (.js + .d.ts).
 	'extensions/positron-data-explorer-protocol/tsconfig.json',
+	// Shared Data Explorer value formatting consumed by the data driver extensions. Depends on the
+	// protocol package above; compiled before its consumers.
+	'extensions/positron-data-explorer-formatting/tsconfig.json',
 	// Shared DuckDB-backed Data Explorer backend consumed by the DuckDB (and later pins) data
-	// driver extensions. Depends on the protocol package above; compiled before its consumers.
+	// driver extensions. Depends on the two packages above; compiled before its consumers.
 	'extensions/positron-data-explorer-duckdb/tsconfig.json',
 	'extensions/authentication/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
@@ -325,9 +328,10 @@ task.task(transpileExtensionsTask);
 // must compile before their dependents. Running every compile task in parallel causes a race: the
 // clean step deletes out/, and a dependent that starts compiling before its prerequisite rebuilds
 // fails to resolve the import. Compile these prerequisites first, in order (the DuckDB backend itself
-// imports the protocol types), then the rest in parallel.
+// imports the protocol types and the shared formatting), then the rest in parallel.
 const orderedPrerequisites = [
 	'extensions/positron-data-explorer-protocol/tsconfig.json',
+	'extensions/positron-data-explorer-formatting/tsconfig.json',
 	'extensions/positron-data-explorer-duckdb/tsconfig.json',
 ]
 	.map(tsconfig => compilations.indexOf(tsconfig))

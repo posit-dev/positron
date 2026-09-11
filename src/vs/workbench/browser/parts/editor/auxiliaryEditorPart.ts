@@ -402,6 +402,7 @@ class AuxiliaryEditorPartImpl extends EditorPart implements IAuxiliaryEditorPart
 			if (!this.optionsDisposable.value) {
 				this.optionsDisposable.value = this.enforcePartOptions({
 					showTabs: 'none',
+					showBreadcrumbs: false,
 					closeEmptyGroups: true
 				});
 			}
@@ -475,7 +476,7 @@ class AuxiliaryEditorPartImpl extends EditorPart implements IAuxiliaryEditorPart
 
 			// First close all editors that are non-confirming
 			for (const group of this.groups) {
-				group.closeAllEditors({ excludeConfirming: true });
+				group.closeAllEditors({ excludeConfirming: true, force: true });
 			}
 
 			// Then merge remaining to main part

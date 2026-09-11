@@ -277,7 +277,7 @@
 	},
 	{
 		"c": "width",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -433,7 +433,7 @@
 	},
 	{
 		"c": "font-size",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -565,7 +565,7 @@
 	},
 	{
 		"c": "font-weight",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -733,7 +733,7 @@
 	},
 	{
 		"c": "font-size",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -937,7 +937,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -1057,7 +1057,7 @@
 	},
 	{
 		"c": "font-weight",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -1201,7 +1201,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -1537,7 +1537,7 @@
 	},
 	{
 		"c": "family",
-		"t": "source.css.scss meta.property-list.scss meta.property-value.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-value.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -1585,7 +1585,7 @@
 	},
 	{
 		"c": "size",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -1669,7 +1669,7 @@
 	},
 	{
 		"c": "weight",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -2773,7 +2773,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -2977,7 +2977,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -3421,7 +3421,7 @@
 	},
 	{
 		"c": "width",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -4501,7 +4501,7 @@
 	},
 	{
 		"c": "width",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -4717,7 +4717,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -4861,7 +4861,7 @@
 	},
 	{
 		"c": "font-family",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -4993,7 +4993,7 @@
 	},
 	{
 		"c": "margin",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -5353,7 +5353,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -5557,7 +5557,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -6517,7 +6517,7 @@
 	},
 	{
 		"c": "width",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -7333,7 +7333,7 @@
 	},
 	{
 		"c": "width",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -7609,7 +7609,7 @@
 	},
 	{
 		"c": "width",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -7813,7 +7813,7 @@
 	},
 	{
 		"c": "border",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -7933,7 +7933,7 @@
 	},
 	{
 		"c": "background-color",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -8161,7 +8161,7 @@
 	},
 	{
 		"c": "border-width",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -8341,7 +8341,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -8413,7 +8413,7 @@
 	},
 	{
 		"c": "font-weight",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -8485,7 +8485,7 @@
 	},
 	{
 		"c": "font-size",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -9805,7 +9805,7 @@
 	},
 	{
 		"c": "position",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -9877,7 +9877,7 @@
 	},
 	{
 		"c": "left",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -9949,7 +9949,7 @@
 	},
 	{
 		"c": "top",
-		"t": "source.css.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -10321,7 +10321,7 @@
 	},
 	{
 		"c": "border",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -10585,7 +10585,7 @@
 	},
 	{
 		"c": "border",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -10777,7 +10777,7 @@
 	},
 	{
 		"c": "border",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -11149,7 +11149,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -11293,7 +11293,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -11701,7 +11701,7 @@
 	},
 	{
 		"c": "width",
-		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -12121,7 +12121,7 @@
 	},
 	{
 		"c": "background-image",
-		"t": "source.css.scss meta.at-rule.each.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -12637,7 +12637,7 @@
 	},
 	{
 		"c": "width",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -14101,7 +14101,7 @@
 	},
 	{
 		"c": "family",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -14173,7 +14173,7 @@
 	},
 	{
 		"c": "size",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -14257,7 +14257,7 @@
 	},
 	{
 		"c": "weight",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -14353,7 +14353,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -14569,7 +14569,7 @@
 	},
 	{
 		"c": "padding",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -14881,7 +14881,7 @@
 	},
 	{
 		"c": "border",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -14929,7 +14929,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -15001,7 +15001,7 @@
 	},
 	{
 		"c": "width",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -15505,7 +15505,7 @@
 	},
 	{
 		"c": "-moz-box-shadow",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.vendored.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.vendored.property-name.css",
 		"r": {
 			"hc_black": "support.type.vendored.property-name: #D4D4D4",
 			"2026-light": "support.type.vendored.property-name: #E50000",
@@ -15577,7 +15577,7 @@
 	},
 	{
 		"c": "-webkit-box-shadow",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.vendored.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.vendored.property-name.css",
 		"r": {
 			"hc_black": "support.type.vendored.property-name: #D4D4D4",
 			"2026-light": "support.type.vendored.property-name: #E50000",
@@ -15649,7 +15649,7 @@
 	},
 	{
 		"c": "box-shadow",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -16357,7 +16357,7 @@
 	},
 	{
 		"c": "color",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -16429,7 +16429,7 @@
 	},
 	{
 		"c": "background-color",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -16501,7 +16501,7 @@
 	},
 	{
 		"c": "border-color",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -17281,7 +17281,7 @@
 	},
 	{
 		"c": "background-image",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -18013,7 +18013,7 @@
 	},
 	{
 		"c": "margin-left",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -18097,7 +18097,7 @@
 	},
 	{
 		"c": "margin-right",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -19033,7 +19033,7 @@
 	},
 	{
 		"c": "margin-top",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.extend.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.extend.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -19081,7 +19081,7 @@
 	},
 	{
 		"c": "margin-bottom",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -19141,7 +19141,7 @@
 	},
 	{
 		"c": "margin-top",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -20149,7 +20149,7 @@
 	},
 	{
 		"c": "font-family",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -20221,7 +20221,7 @@
 	},
 	{
 		"c": "src",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -21133,7 +21133,7 @@
 	},
 	{
 		"c": "opacity",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -21277,7 +21277,7 @@
 	},
 	{
 		"c": "opacity",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -21481,7 +21481,7 @@
 	},
 	{
 		"c": "opacity",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -21625,7 +21625,7 @@
 	},
 	{
 		"c": "opacity",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -21733,7 +21733,7 @@
 	},
 	{
 		"c": "-o-keyframes",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss support.type.vendored.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.vendored.property-name.css",
 		"r": {
 			"hc_black": "support.type.vendored.property-name: #D4D4D4",
 			"2026-light": "support.type.vendored.property-name: #E50000",
@@ -21829,7 +21829,7 @@
 	},
 	{
 		"c": "opacity",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -21949,7 +21949,7 @@
 	},
 	{
 		"c": "opacity",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -22177,7 +22177,7 @@
 	},
 	{
 		"c": "opacity",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",
@@ -22321,7 +22321,7 @@
 	},
 	{
 		"c": "opacity",
-		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss support.type.property-name.css",
+		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css",
 		"r": {
 			"hc_black": "support.type.property-name: #D4D4D4",
 			"2026-light": "support.type.property-name: #E50000",

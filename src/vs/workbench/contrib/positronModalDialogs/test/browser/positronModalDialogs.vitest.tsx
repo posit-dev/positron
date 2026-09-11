@@ -15,12 +15,12 @@ import { PositronModalDialogs } from '../../browser/positronModalDialogs.js';
 describe('showThreeButtonModalDialogPrompt', () => {
 	const ctx = createTestContainer().withReactServices().build();
 
-	// The dialog renders itself through its own PositronModalDialogReactRenderer rather than being
+	// The dialog renders itself through its own PositronModalReactRenderer rather than being
 	// handed to rtl.render, so this only establishes the services context it renders into.
 	setupRTLRenderer(() => ctx.reactServices);
 
 	beforeEach(() => {
-		// PositronModalDialogReactRenderer reads the services singleton in its constructor to find
+		// PositronModalReactRenderer reads the services singleton in its constructor to find
 		// the container to render into, so the container's services have to be reachable from there.
 		PositronReactServices.services = ctx.reactServices;
 	});
@@ -69,15 +69,6 @@ describe('showThreeButtonModalDialogPrompt', () => {
 		]);
 	});
 
-	it('resolves with the primary button title when Enter submits the form', async () => {
-		const choice = show();
-		expect(await screen.findByText(options.title)).toBeInTheDocument();
-
-		await userEvent.keyboard('{Enter}');
-
-		expect(await choice).toBe(options.primaryButtonTitle);
-	});
-
 	it('resolves with undefined when the close button dismisses the dialog', async () => {
 		const choice = show();
 		expect(await screen.findByText(options.title)).toBeInTheDocument();
@@ -87,17 +78,13 @@ describe('showThreeButtonModalDialogPrompt', () => {
 		expect(await choice).toBeUndefined();
 	});
 
-	it('resolves with undefined when the native dialog is closed directly', async () => {
-		// In a real browser, Escape closes the native <dialog> directly and disposes the
-		// renderer without going through onCancel, so the prompt has to settle on disposal
-		// too or it would hang here. jsdom does not wire Escape to <dialog>'s own close-on-
-		// Escape default action, so this drives the same close() the browser would call,
-		// leaving Escape's keyboard path covered by Task 8's e2e dismiss tests.
+	it('resolves with undefined when Escape dismisses the dialog', async () => {
+		// The renderer listens for keydowns at the window and hands them to the dialog, which cancels
+		// on Escape. Nothing settles the prompt on that path unless the dialog's onCancel does.
 		const choice = show();
 		expect(await screen.findByText(options.title)).toBeInTheDocument();
 
-		const dialog = screen.getByRole('dialog') as HTMLDialogElement;
-		dialog.close();
+		await userEvent.keyboard('{Escape}');
 
 		expect(await choice).toBeUndefined();
 	});

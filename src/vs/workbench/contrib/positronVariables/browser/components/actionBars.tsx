@@ -11,8 +11,7 @@ import { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { SortingMenuButton } from './sortingMenuButton.js';
@@ -28,18 +27,21 @@ import { DisposableStore, toDisposable } from '../../../../../base/common/lifecy
 import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronDynamicActionBar, DynamicActionBarAction, DEFAULT_ACTION_BAR_BUTTON_WIDTH, DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH, DEFAULT_ACTION_BAR_SEPARATOR_WIDTH } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
+import { PositronDataExplorerCommandId } from '../../../positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 
 // Constants.
-const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
 const kFilterTimeout = 800;
+const kFilterWidth = 150;
+const kFilterMinWidth = 60;
 
 /**
  * Localized strings.
  */
 const positronRefreshObjects = localize('positronRefreshObjects', "Refresh Objects");
 const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete All Objects");
+const positronImportData = localize('positronImportDataFromFile', "Import Data");
 
 /**
  * ActionBars component.
@@ -158,6 +160,14 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 	 */
 	const refreshObjectsHandler = () => {
 		positronVariablesContext.activePositronVariablesInstance?.requestRefresh();
+	};
+
+	/**
+	 * Import data event handler. Runs the global Import Data command, which opens a file picker
+	 * and then the Import Data dialog over the file in the Data Explorer.
+	 */
+	const importDataHandler = () => {
+		services.commandService.executeCommand(PositronDataExplorerCommandId.ImportDataFromFileAction);
 	};
 
 	// If there are no instances, return null.
@@ -295,6 +305,53 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		},
 	);
 
+	// Build the secondary action bar. Import Data lives here rather than on the primary bar:
+	// the primary bar's width is shared with the memory usage meter, whose bar shrinks and
+	// then disappears as actions are added, and at common pane widths there is not room for
+	// both. The secondary bar carries only the filter, so the button fits alongside it.
+	const secondaryLeftActions: DynamicActionBarAction[] = [
+		{
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			separator: false,
+			component: (
+				<ActionBarButton
+					ariaLabel={positronImportData}
+					icon={Codicon.positronImportData}
+					tooltip={positronImportData}
+					onPressed={importDataHandler}
+				/>
+			),
+			overflowContextMenuItem: {
+				commandId: PositronDataExplorerCommandId.ImportDataFromFileAction,
+				icon: 'positron-import-data',
+				label: positronImportData,
+				// The commandId above already runs the import; onSelected is called
+				// AFTER the command executes, so it must be a no-op to avoid a
+				// second invocation (and a second stacked file picker).
+				onSelected: () => { }
+			}
+		},
+	];
+
+	// The filter is allocated its minimum width and then grows into whatever space is left
+	// over, up to its preferred width. It has no overflow menu entry, so a fixed preferred
+	// width would make DynamicActionBar drop it outright once the pane got narrow enough;
+	// shrinking keeps filtering reachable instead. The component fills the granted cell.
+	const secondaryRightActions: DynamicActionBarAction[] = [
+		{
+			fixedWidth: kFilterMinWidth,
+			maxWidth: kFilterWidth,
+			separator: false,
+			component: (
+				<ActionBarFilter
+					ref={filterRef}
+					initialFilterText={filterText}
+					width='100%'
+					onFilterTextChanged={filterText => setFilterText(filterText)} />
+			)
+		},
+	];
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -307,20 +364,13 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 					paddingRight={kPaddingRight}
 					rightActions={rightActions}
 				/>
-				<PositronActionBar
+				<PositronDynamicActionBar
 					borderBottom={true}
-					gap={kSecondaryActionBarGap}
+					leftActions={secondaryLeftActions}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
-				>
-					<ActionBarRegion location='right'>
-						<ActionBarFilter
-							ref={filterRef}
-							initialFilterText={filterText}
-							width={150}
-							onFilterTextChanged={filterText => setFilterText(filterText)} />
-					</ActionBarRegion>
-				</PositronActionBar>
+					rightActions={secondaryRightActions}
+				/>
 			</div>
 		</PositronActionBarContextProvider>
 	);

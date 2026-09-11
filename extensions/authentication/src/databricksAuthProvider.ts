@@ -97,7 +97,7 @@ export class DatabricksAuthProvider extends AuthProvider {
 			return chainSessionBeforeHost;
 		}
 
-		const host = normalizeHost(await this.resolveHost());
+		const host = normalizeHost(this.resolveHost());
 		await this.persistHostSetting(host);
 
 		// If the chain failed only because no host was configured (e.g.
@@ -290,32 +290,21 @@ export class DatabricksAuthProvider extends AuthProvider {
 	// --- Helpers ---
 
 	/**
-	 * Resolve the workspace host from the provider catalog, then prompt the
-	 * user. The catalog already folds in the DATABRICKS_HOST env var and the
-	 * legacy `authentication.databricks.credentials` setting, so both are
-	 * covered by the single read.
+	 * Resolve the workspace host from the provider catalog. The catalog already
+	 * folds in the DATABRICKS_HOST env var and the legacy
+	 * `authentication.databricks.credentials` setting, so both are covered by the
+	 * single read, and the config dialog persists the Workspace URL the user
+	 * typed before it calls createSession. So by this point the host has been
+	 * supplied or it is not coming, and a missing one is an error to report
+	 * rather than something to ask for.
 	 */
-	private async resolveHost(): Promise<string> {
+	private resolveHost(): string {
 		const configuredHost = getCachedProvider('databricks')
 			?.connection.databricks?.host?.trim();
-		if (configuredHost) {
-			return configuredHost;
-		}
-
-		const input = await vscode.window.showInputBox({
-			prompt: vscode.l10n.t(
-				'Enter your Databricks workspace URL (e.g. https://adb-1234567890123456.7.azuredatabricks.net)'
-			),
-			ignoreFocusOut: true,
-			validateInput: value => value.trim()
-				? undefined
-				: vscode.l10n.t('A workspace URL is required'),
-		});
-		const host = input?.trim();
-		if (!host) {
+		if (!configuredHost) {
 			throw new Error(vscode.l10n.t('A Databricks workspace URL is required'));
 		}
-		return host;
+		return configuredHost;
 	}
 
 	/**

@@ -5,9 +5,10 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Event } from '../../../../../base/common/event.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { DynamicActionBarAction } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
@@ -46,6 +47,46 @@ describe('ActionBar', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	const container = stubInterface<IReactComponentContainer>();
+
+	// Disposes emitters created for busy sessions.
+	const disposables = new DisposableStore();
+	afterEach(() => disposables.clear());
+
+	// Adds a busy, attached console session whose runtime is executing a
+	// command. Returns a callback that fires the runtime's Busy state change,
+	// which is what surfaces the interrupt button.
+	function addBusyConsoleInstance(sessionId: string): { fireBusy: () => void } {
+		const sessionMetadata: IRuntimeSessionMetadata = {
+			sessionId,
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			notebookUri: undefined,
+			createdTimestamp: 0,
+			startReason: 'test',
+		};
+		const runtimeMetadata = stubInterface<ILanguageRuntimeMetadata>({
+			languageName: 'Python',
+			languageId: 'python',
+			base64EncodedIconSvg: undefined,
+		});
+		const instance = new TestPositronConsoleInstance(sessionId, 'Python', sessionMetadata, runtimeMetadata);
+		const runtimeStateEmitter = disposables.add(new Emitter<RuntimeState>());
+		// The runtime reports Busy while executing, but dynState.busy stays
+		// false: it's a separate UI-comm signal that not every runtime emits
+		// (Python never does), so it can't gate the interrupt button.
+		const busySession = stubInterface<ILanguageRuntimeSession>({
+			sessionId,
+			getRuntimeState: () => RuntimeState.Busy,
+			onDidChangeRuntimeState: runtimeStateEmitter.event,
+			onDidReceiveRuntimeClientEvent: Event.None,
+			dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ busy: false, currentWorkingDirectory: '' }),
+		});
+		instance.attachRuntimeSession(busySession, SessionAttachMode.Connected);
+		instance.setState(PositronConsoleState.Busy);
+
+		const consoleService = ctx.get(IPositronConsoleService) as TestPositronConsoleService;
+		consoleService.addTestConsoleInstance(instance);
+		return { fireBusy: () => runtimeStateEmitter.fire(RuntimeState.Busy) };
+	}
 
 	// Adds an idle, attached console session and makes it the active instance,
 	// so the restart button renders enabled.
@@ -101,5 +142,32 @@ describe('ActionBar', () => {
 
 		expect(restartSession).toHaveBeenCalledOnce();
 		await waitFor(() => expect(restartButton).toBeEnabled());
+	});
+
+	it('keeps the interrupt button after switching consoles and back', () => {
+		const consoleService = ctx.get(IPositronConsoleService) as TestPositronConsoleService;
+		const busy = addBusyConsoleInstance('busy');
+		addIdleConsoleInstance('idle');
+
+		// Start on the busy console.
+		act(() => consoleService.setActivePositronConsoleSession('busy'));
+
+		rtl.render(
+			<PositronConsoleContextProvider>
+				<ActionBar reactComponentContainer={container} />
+			</PositronConsoleContextProvider>
+		);
+
+		// The running command surfaces the interrupt button.
+		act(() => busy.fireBusy());
+		expect(screen.getByRole('button', { name: /Interrupt/ })).toBeInTheDocument();
+
+		// Switch to the idle console: no command running, no interrupt button.
+		act(() => consoleService.setActivePositronConsoleSession('idle'));
+		expect(screen.queryByRole('button', { name: /Interrupt/ })).not.toBeInTheDocument();
+
+		// Switch back to the still-busy console: the interrupt button must return.
+		act(() => consoleService.setActivePositronConsoleSession('busy'));
+		expect(screen.getByRole('button', { name: /Interrupt/ })).toBeInTheDocument();
 	});
 });

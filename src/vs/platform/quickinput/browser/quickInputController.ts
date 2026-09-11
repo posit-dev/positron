@@ -38,13 +38,14 @@ import { TriStateCheckbox, createToggleActionViewItemProvider } from '../../../b
 import { defaultCheckboxStyles } from '../../theme/browser/defaultStyles.js';
 import { QuickInputTreeController } from './tree/quickInputTreeController.js';
 import { QuickTree } from './tree/quickTree.js';
-import { AnchorAlignment, AnchorPosition, layout2d } from '../../../base/common/layout.js';
+import { AnchorAlignment, AnchorPosition, IRect, layout2d } from '../../../base/common/layout.js';
 import { getAnchorRect, IAnchor } from '../../../base/browser/ui/contextview/contextview.js';
 
 const $ = dom.$;
 
 const VIEWSTATE_STORAGE_KEY = 'workbench.quickInput.viewState';
 const QUICK_INPUT_MOTION_CLOSING_CLASS = 'quick-input-widget-closing';
+const QUICK_INPUT_OVERLAY_CLASS = 'quick-input-widget-overlay';
 const QUICK_INPUT_CLOSE_ANIMATION_DURATION = 150;
 const QUICK_INPUT_MOTION_ANCESTOR_CLASSES = ['style-override', 'monaco-enable-motion'];
 
@@ -53,13 +54,25 @@ type QuickInputViewState = {
 	readonly left?: number;
 };
 
-export class QuickInputController extends Disposable {
-	private static readonly MAX_WIDTH = 600; // Max total width of quick input widget
+type QuickInputOverlayLayoutCorrection = {
+	readonly anchor: IRect;
+	readonly left: number;
+	readonly right: number;
+	readonly top: number;
+	readonly bottom: number;
+	readonly width: number;
+};
 
+export function getQuickInputWidth(availableWidth: number): number {
+	return Math.min(availableWidth * 0.62, 600);
+}
+
+export class QuickInputController extends Disposable {
 	private idPrefix: string;
 	private ui: QuickInputUI | undefined;
 	private dimension?: dom.IDimension;
 	private titleBarOffset?: number;
+	private overlayLayoutCorrection: QuickInputOverlayLayoutCorrection | undefined;
 	private enabled = true;
 	private readonly onDidAcceptEmitter = this._register(new Emitter<void>());
 	private readonly onDidCustomEmitter = this._register(new Emitter<void>());
@@ -150,8 +163,8 @@ export class QuickInputController extends Disposable {
 	private positronModalInertElements: HTMLElement[] = [];
 
 	/**
-	 * Special handling for Positron modals. Reparents the quick input into the modal so it
-	 * renders above the dialog, and marks the modal's other children `inert` so the dialog
+	 * Special handling for Positron modals. Reparents the quick input into the modal so it is
+	 * inside the dialog's focus scope, and marks the modal's other children `inert` so the dialog
 	 * can't be interacted with while the quick pick is open (matching the desktop modality
 	 * users get from a native OS file picker). Unnecessarily reparenting causes focus problems
 	 * with the quick input, so the reparent itself is gated on the parent already being correct.
@@ -163,7 +176,7 @@ export class QuickInputController extends Disposable {
 				// a Positron modal is open, the quick pick will need to set its parent to it
 				dom.append(modalContainer, this.ui.container);
 				this.ui.container.style.position = 'fixed'; // modal hides overflow so this positions it so that nothing is hidden
-				this.ui.container.style.zIndex = 'auto'; // sets it above the modal since it is a child
+				this.ui.container.style.zIndex = 'auto'; // paint in DOM order inside the dialog rather than at 2550 outside it
 				// close the quick pick if the modal closed
 				new MutationObserver((_mutations, observer) => {
 					if (this.ui && !modalContainer.contains(this.ui.container)) {
@@ -188,31 +201,27 @@ export class QuickInputController extends Disposable {
 	}
 
 	/**
-	 * Finds the open Positron modal (if any) that the quick input should render inside so it paints
-	 * above the dialog and participates in its focus scope. Two modal renderers exist:
+	 * Finds the open Positron modal dialog (if any) that the quick input should render inside.
 	 *
-	 * - The native <dialog> renderer calls showModal(), which places the dialog in the browser top
-	 *   layer. A top-layer element beats any z-index, so the quick input can only appear above it (and
-	 *   be focusable past the dialog's focus trap) by being a DOM descendant of the <dialog>. Preferred
-	 *   when present; the <dialog> is styled with overflow: visible so the quick input is not clipped.
-	 * - The older div-overlay renderer (.positron-modal-dialog-box) is an ordinary z-indexed element;
-	 *   reparenting into it works the same way and is kept as a fallback.
+	 * Positron modal dialogs are ordinary z-indexed elements, so the quick input at z-index 2550
+	 * already paints above them. Reparenting is about focus, not painting: the dialog traps Tab
+	 * inside itself, and its renderer drives focus into its own overlay, so a quick input left
+	 * outside the dialog cannot be reached or typed into. Being a descendant puts it inside the
+	 * dialog's focus scope.
+	 *
+	 * Two dialog components exist and both are handled: the newer
+	 * `.positron-dynamic-modal-dialog-box` and the older `.positron-modal-dialog-box`. When dialogs
+	 * are stacked the last one in DOM order is the top-most, which is the one to host.
 	 *
 	 * @returns The element to host the quick input, or undefined when no Positron modal is open.
 	 */
 	private getPositronModalContainer(): HTMLElement | undefined {
-		// Prefer the top-most native <dialog>. showModal() sets the `open` attribute; when dialogs are
-		// nested the last one in DOM order is the top-most in the browser top layer.
 		// eslint-disable-next-line no-restricted-syntax -- the modal DOM is built by a separate renderer, so it must be located by selector rather than dom.ts h()
-		const dialogs = this.layoutService.activeContainer.querySelectorAll('dialog.positron-modal-dialog[open]');
+		const dialogs = this.layoutService.activeContainer.querySelectorAll(
+			'.positron-dynamic-modal-dialog-box, .positron-modal-dialog-box'
+		);
 		const topDialog = dialogs.length ? dialogs[dialogs.length - 1] : undefined;
-		if (dom.isHTMLElement(topDialog)) {
-			return topDialog;
-		}
-		// Fall back to the older div-overlay modal.
-		// eslint-disable-next-line no-restricted-syntax -- the modal DOM is built by a separate renderer, so it must be located by selector rather than dom.ts h()
-		const overlayModal = this.layoutService.activeContainer.getElementsByClassName('positron-modal-dialog-box').item(0);
-		return dom.isHTMLElement(overlayModal) ? overlayModal : undefined;
+		return dom.isHTMLElement(topDialog) ? topDialog : undefined;
 	}
 
 	private applyPositronModalInert(modalContainer: HTMLElement) {
@@ -833,10 +842,13 @@ export class QuickInputController extends Disposable {
 		ui.ignoreFocusOut = false;
 		ui.inputBox.toggles = undefined;
 		ui.inputBox.actions = undefined;
+		ui.inputBox.setHeight(undefined);
 
 		const backKeybindingLabel = this.options.backKeybindingLabel();
 		backButton.tooltip = backKeybindingLabel ? localize('quickInput.backWithKeybinding', "Back ({0})", backKeybindingLabel) : localize('quickInput.back', "Back");
 
+		this.overlayLayoutCorrection = undefined;
+		ui.container.classList.toggle(QUICK_INPUT_OVERLAY_CLASS, controller.anchorPosition === 'overlay');
 		ui.container.style.display = '';
 		// --- Start Positron ---
 		this.handlePositronModal(true);
@@ -879,6 +891,7 @@ export class QuickInputController extends Disposable {
 		ui.tree.displayed = !!visibilities.tree;
 		ui.container.classList.toggle('show-checkboxes', !!visibilities.checkBox);
 		ui.container.classList.toggle('hidden-input', !visibilities.inputBox && !visibilities.description);
+		this.overlayLayoutCorrection = undefined;
 		this.updateLayout(); // TODO
 	}
 
@@ -921,7 +934,7 @@ export class QuickInputController extends Disposable {
 		this.controller = null;
 		this.onHideEmitter.fire();
 		if (container) {
-			if (dom.hasParentWithClass(container, QUICK_INPUT_MOTION_ANCESTOR_CLASSES)) {
+			if (!container.classList.contains(QUICK_INPUT_OVERLAY_CLASS) && dom.hasParentWithClass(container, QUICK_INPUT_MOTION_ANCESTOR_CLASSES)) {
 				container.inert = true;
 				container.classList.add(QUICK_INPUT_MOTION_CLOSING_CLASS);
 				this.closeAnimation.value = disposableTimeout(() => this.completeCloseAnimation(), QUICK_INPUT_CLOSE_ANIMATION_DURATION);
@@ -1026,16 +1039,18 @@ export class QuickInputController extends Disposable {
 	layout(dimension: dom.IDimension, titleBarOffset: number): void {
 		this.dimension = dimension;
 		this.titleBarOffset = titleBarOffset;
+		this.overlayLayoutCorrection = undefined;
 		this.updateLayout();
 	}
 
 	private updateLayout() {
 		if (this.ui && this.isVisible()) {
 			const style = this.ui.container.style;
-			let width = Math.min(this.dimension!.width * 0.62 /* golden cut */, QuickInputController.MAX_WIDTH);
+			let width = getQuickInputWidth(this.dimension!.width);
 			style.width = width + 'px';
 
 			let listHeight = this.dimension && this.dimension.height * 0.4;
+			let overlayAnchor: IRect | undefined;
 
 			// Position
 			if (this.controller?.anchor) {
@@ -1051,14 +1066,11 @@ export class QuickInputController extends Disposable {
 				let maxListHeight = 200;
 
 				if (this.controller.anchorPosition === 'overlay') {
-					width = anchor.width + 12;
+					overlayAnchor = anchor;
+					this.ui.inputBox.setHeight(anchor.height);
+					width = anchor.width;
 					listHeightRatio = 0.4;
-					anchor = {
-						top: anchor.top - 7,
-						left: anchor.left - 7,
-						width: anchor.width,
-						height: 0
-					};
+					anchor = { ...anchor, height: 0 };
 					maxListHeight = Math.min(400, container.bottom - anchor.top - verticalPadding);
 					preferredAnchorPosition = AnchorPosition.BELOW;
 				} else {
@@ -1098,9 +1110,41 @@ export class QuickInputController extends Disposable {
 				style.height = '';
 			}
 
+			if (overlayAnchor) {
+				this.alignOverlayInput(overlayAnchor);
+			}
 			this.ui.inputBox.layout();
 			this.ui.list.layout(listHeight);
 			this.ui.tree.layout(listHeight);
+		}
+	}
+
+	private alignOverlayInput(anchor: IRect): void {
+		const style = this.ui!.container.style;
+		let correction = this.overlayLayoutCorrection;
+		if (!correction || correction.anchor.left !== anchor.left || correction.anchor.top !== anchor.top || correction.anchor.width !== anchor.width || correction.anchor.height !== anchor.height) {
+			this.ui!.inputBox.layout();
+			const input = this.ui!.filterContainer.getBoundingClientRect();
+			correction = this.overlayLayoutCorrection = {
+				anchor,
+				left: anchor.left - input.left,
+				right: input.right - (anchor.left + anchor.width),
+				top: anchor.top - input.top,
+				bottom: input.bottom - (anchor.top + anchor.height),
+				width: anchor.width - input.width,
+			};
+		}
+
+		style.width = `${parseFloat(style.width) + correction.width}px`;
+		if (style.left !== 'initial') {
+			style.left = `${parseFloat(style.left) + correction.left}px`;
+		} else {
+			style.right = `${parseFloat(style.right) + correction.right}px`;
+		}
+		if (style.top !== 'initial') {
+			style.top = `${parseFloat(style.top) + correction.top}px`;
+		} else {
+			style.bottom = `${parseFloat(style.bottom) + correction.bottom}px`;
 		}
 	}
 

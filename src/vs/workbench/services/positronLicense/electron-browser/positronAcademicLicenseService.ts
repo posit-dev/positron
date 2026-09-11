@@ -9,11 +9,13 @@ import { IPositronAcademicLicenseService } from '../../../../platform/positronLi
 /**
  * The implementation of `IPositronAcademicLicenseService` for the Electron desktop app.
  * Desktop installs never go through a license check (see `hasWebUi` in
- * `remoteExtensionHostAgentServer.ts`), so this is always false.
+ * `remoteExtensionHostAgentServer.ts`), so there is no academic status and no license file
+ * to hash.
  */
 export class ElectronPositronAcademicLicenseService implements IPositronAcademicLicenseService {
 	declare readonly _serviceBrand: undefined;
 	readonly isAcademic = false;
+	readonly licenseHash = undefined;
 }
 
 registerSingleton(IPositronAcademicLicenseService, ElectronPositronAcademicLicenseService, InstantiationType.Delayed);

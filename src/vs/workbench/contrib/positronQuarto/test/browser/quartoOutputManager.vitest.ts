@@ -10,6 +10,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
+import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 
 import { IPositronPreviewService } from '../../../positronPreview/browser/positronPreviewSevice.js';
 import { PreviewWebview } from '../../../positronPreview/browser/previewWebview.js';
@@ -17,6 +18,7 @@ import { PreviewWebview } from '../../../positronPreview/browser/previewWebview.
 describe('QuartoOutputManager', () => {
 	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
+	const runtimeStartupService = createTestRuntimeStartupService();
 
 	describe('Output Preservation When Cells Move', () => {
 		/**
@@ -45,7 +47,7 @@ y = 2
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			// Initial state: two cells with outputs
@@ -137,7 +139,7 @@ y = 2
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			// Initial state: two cells with outputs

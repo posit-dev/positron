@@ -38,6 +38,12 @@ const appTests: AppTestConfig[] = [
 		locator: frame => frame.getByRole('button', { name: 'Submit' }),
 	},
 	{
+		name: 'Marimo',
+		tags: [tags.WIN],
+		filePath: 'marimo_example/marimo_example.py',
+		locator: frame => frame.getByRole('heading', { name: 'Hello marimo' }),
+	},
+	{
 		name: 'Streamlit',
 		tags: [tags.WEB, tags.WIN],
 		filePath: 'streamlit_example/streamlit_example.py',

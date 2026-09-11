@@ -3,30 +3,90 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './providerModalFooter.css';
+
+// Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { ActionBarButtonConfig, OKCancelBackNextActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
+import * as platform from '../../../../../base/common/platform.js';
+import { FooterButton } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/footerButton.js';
 
-export interface ProviderModalFooterProps {
-	/** Renders a Back button (returning to the provider list) when provided. */
-	onBack?: () => void;
-	/** Invoked by the Close button. */
-	onClose: () => void;
-	/** The view's primary action button, if it has one. */
-	primaryButton?: ActionBarButtonConfig;
-	/** The view's optional cancel button configuration. */
-	cancelButton?: ActionBarButtonConfig;
-
+/**
+ * ProviderFooterButtonConfig interface.
+ */
+export interface ProviderFooterButtonConfig {
+	title: string;
+	disable?: boolean;
+	/** When true, the button shows an in-button spinner and is disabled. */
+	loading?: boolean;
+	/**
+	 * When true, this button becomes the dialog form's submit target, so pressing
+	 * Enter in a field activates it. Only one button per footer may set this.
+	 */
+	submit?: boolean;
+	onClick: () => void;
 }
 
 /**
- * The footer action bar shared by the Configure LLM Providers modal views:
- * an optional Back button, a Close button, and the view's optional primary
- * action button, which reads the view's own state directly.
+ * ProviderModalFooterProps interface.
  */
-export const ProviderModalFooter = ({ onBack, onClose, primaryButton, cancelButton }: ProviderModalFooterProps) => (
-	<OKCancelBackNextActionBar
-		backButtonConfig={onBack ? { onClick: onBack } : undefined}
-		cancelButtonConfig={cancelButton ?? { title: localize('positron.configureLLMProvidersModal.close', "Close"), onClick: onClose }}
-		nextButtonConfig={primaryButton}
-	/>
-);
+export interface ProviderModalFooterProps {
+	/** Renders a Back button (returning to the provider list) when provided. */
+	onBack?: () => void;
+	/** The view's primary action button, if it has one. */
+	primaryButton?: ProviderFooterButtonConfig;
+	/** A second right-hand button, e.g. Remove on an errored provider. */
+	secondaryButton?: ProviderFooterButtonConfig;
+}
+
+/**
+ * Renders one footer button from its config, showing a spinner (and forcing the
+ * disabled state) while the button's action is loading.
+ */
+const footerButton = (config: ProviderFooterButtonConfig | undefined, isDefault: boolean) => {
+	if (!config) {
+		return null;
+	}
+	return (
+		<FooterButton
+			default={isDefault}
+			disabled={(config.disable ?? false) || (config.loading ?? false)}
+			type={config.submit ? 'submit' : 'button'}
+			onPressed={config.onClick}
+		>
+			{config.loading && <span aria-hidden='true' className='codicon codicon-loading codicon-modifier-spin' />}
+			{config.title}
+		</FooterButton>
+	);
+};
+
+/**
+ * The footer shared by the Configure LLM Providers modal views: an optional Back
+ * button on the left, and the view's optional secondary and primary buttons on
+ * the right. There is no Close button, because the dialog's title bar carries the
+ * close control.
+ * @param props A ProviderModalFooterProps that contains the component properties.
+ * @returns The rendered component.
+ */
+export const ProviderModalFooter = ({ onBack, primaryButton, secondaryButton }: ProviderModalFooterProps) => {
+	const primary = footerButton(primaryButton, true);
+	const secondary = footerButton(secondaryButton, false);
+
+	return (
+		<div className='provider-modal-footer'>
+			{onBack
+				? <FooterButton onPressed={onBack}>
+					{localize('positron.configureLLMProvidersModal.back', "Back")}
+				</FooterButton>
+				: <div />
+			}
+			<div className='provider-modal-footer-right'>
+				{/* On Windows, the primary button comes first; on macOS/Linux, the secondary button comes first. */}
+				{platform.isWindows
+					? <>{primary}{secondary}</>
+					: <>{secondary}{primary}</>
+				}
+			</div>
+		</div>
+	);
+};

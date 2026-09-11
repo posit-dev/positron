@@ -1,0 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Recolor the built-in provider SVGs to the theme's icon foreground so they stay
+ * legible on every theme (see #15321). Gated on the `monochrome` class, which the
+ * component only adds when the caller opts in (the new provider modal); the
+ * legacy dialog leaves icons in their original brand colors. Cover every
+ * fillable shape element, since some marks (e.g. Posit AI) use a `rect` beside
+ * `path`. The URL-logo path recolors itself via a mask in the component.
+ */
+.language-model.icon.monochrome path,
+.language-model.icon.monochrome rect,
+.language-model.icon.monochrome circle,
+.language-model.icon.monochrome ellipse,
+.language-model.icon.monochrome polygon,
+.language-model.icon.monochrome polyline {
+	fill: var(--vscode-icon-foreground);
+}

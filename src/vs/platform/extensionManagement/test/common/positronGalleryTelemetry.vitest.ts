@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { appendPositronGalleryParams, formatPositronVersion, isP3MGalleryUrl } from '../../common/positronGalleryTelemetry.js';
+import { appendPositronGalleryParams, formatPositronVersion, isP3MGalleryUrl, PositronCheckTrigger, PositronSessionType } from '../../common/positronGalleryTelemetry.js';
 
 /** Path to the platform module as resolved from this test file. */
 const PLATFORM_MODULE = '../../../../base/common/platform.js';
@@ -68,71 +68,112 @@ describe('positronGalleryTelemetry', function () {
 	describe('appendPositronGalleryParams', function () {
 		const baseUrl = 'https://p3m.dev/openvsx/latest/vscode/gallery/extensionquery';
 
+		/**
+		 * Calls `appendPositronGalleryParams` by name. The real signature is positional and
+		 * ends in two booleans plus an optional hash, which at a call site reads as a row of
+		 * bare literals; naming them keeps each test to the one field it is about.
+		 */
+		function appendParams(overrides: {
+			url?: string;
+			checkTrigger?: PositronCheckTrigger;
+			sessionType?: PositronSessionType;
+			version?: string;
+			isAcademic?: boolean;
+			licenseHash?: string;
+			sendUsageData?: boolean;
+		} = {}): string {
+			const args = {
+				url: baseUrl,
+				sessionType: 'desktop' as PositronSessionType,
+				version: '2026.06.0-42',
+				isAcademic: true,
+				sendUsageData: true,
+				...overrides,
+			};
+			return appendPositronGalleryParams(args.url, args.checkTrigger, args.sessionType, args.version, args.isAcademic, args.licenseHash, args.sendUsageData);
+		}
+
 		it('always appends session-type, version, and is-academic', () => {
-			const result = appendPositronGalleryParams(baseUrl, undefined, 'desktop', '2026.06.0-42', true, true);
-			expect(result).toBe(`${baseUrl}?positron-session-type=desktop&positron-version=2026.06.0-42&positron-is-academic=true`);
+			expect(appendParams()).toBe(`${baseUrl}?positron-session-type=desktop&positron-version=2026.06.0-42&positron-is-academic=true`);
 		});
 
 		it('includes check-trigger when provided', () => {
-			const result = appendPositronGalleryParams(baseUrl, 'startup', 'desktop', '2026.06.0-42', true, true);
-			expect(result).toBe(`${baseUrl}?positron-check-trigger=startup&positron-session-type=desktop&positron-version=2026.06.0-42&positron-is-academic=true`);
+			expect(appendParams({ checkTrigger: 'startup' })).toBe(`${baseUrl}?positron-check-trigger=startup&positron-session-type=desktop&positron-version=2026.06.0-42&positron-is-academic=true`);
 		});
 
 		it('uses & separator when URL already has a query string', () => {
-			const result = appendPositronGalleryParams(`${baseUrl}?foo=1`, 'periodic', 'workbench', '2026.06.0-42', true, true);
-			expect(result).toBe(`${baseUrl}?foo=1&positron-check-trigger=periodic&positron-session-type=workbench&positron-version=2026.06.0-42&positron-is-academic=true`);
+			expect(appendParams({ url: `${baseUrl}?foo=1`, checkTrigger: 'periodic', sessionType: 'workbench' }))
+				.toBe(`${baseUrl}?foo=1&positron-check-trigger=periodic&positron-session-type=workbench&positron-version=2026.06.0-42&positron-is-academic=true`);
 		});
 
 		it('encodes special characters in version', () => {
-			const result = appendPositronGalleryParams(baseUrl, 'positron-updated', 'positron-server', '2026.06.0+dev', true, true);
-			expect(result).toContain('positron-version=2026.06.0%2Bdev');
+			expect(appendParams({ version: '2026.06.0+dev' })).toContain('positron-version=2026.06.0%2Bdev');
 		});
 
-		it('emits every session-type value without alteration', () => {
-			for (const sessionType of ['desktop', 'workbench', 'workbench-server', 'positron-server', 'positron-sagemaker', 'positron-sagemaker-server', 'remote-server'] as const) {
-				const result = appendPositronGalleryParams(baseUrl, undefined, sessionType, '2026.06.0', true, true);
-				expect(result).toContain(`positron-session-type=${sessionType}`);
-			}
-		});
+		it.each(['desktop', 'workbench', 'workbench-server', 'positron-server', 'positron-sagemaker', 'positron-sagemaker-server', 'remote-server'] as const)(
+			'emits session-type %s without alteration',
+			sessionType => {
+				expect(appendParams({ sessionType })).toContain(`positron-session-type=${sessionType}`);
+			});
 
 		it('appends positron-is-academic=false when the session is not academic', () => {
-			const result = appendPositronGalleryParams(baseUrl, undefined, 'positron-server', '2026.06.0', false, true);
-			expect(result).toContain('positron-is-academic=false');
+			expect(appendParams({ isAcademic: false })).toContain('positron-is-academic=false');
+		});
+
+		it('appends the license hash after is-academic when the session has one', () => {
+			expect(appendParams({ checkTrigger: 'startup', licenseHash: 'a1b2c3d4e5f60718' }))
+				.toBe(`${baseUrl}?positron-check-trigger=startup&positron-session-type=desktop&positron-version=2026.06.0-42&positron-is-academic=true&positron-license-hash=a1b2c3d4e5f60718`);
+		});
+
+		it('omits the license hash param rather than sending it empty', () => {
+			// The param is gated on the hash being truthy, not merely defined, so a license
+			// path that produced an empty string reports nothing at all.
+			expect(appendParams({ licenseHash: '' })).not.toContain('positron-license-hash');
+		});
+
+		it('encodes a license hash that is not a plain hex digest', () => {
+			// The browser reads the hash off an injected global and only checks that it is a
+			// string, so an unexpected value must not be able to add params of its own.
+			expect(appendParams({ licenseHash: 'a b&c=d' })).toContain('positron-license-hash=a%20b%26c%3Dd');
+		});
+
+		it('suppresses the license hash when sendUsageData is false', () => {
+			// Redundant with the opt-out tests below, since the opt-out returns before any
+			// param is built; kept to state the privacy contract for the most identifying
+			// param explicitly.
+			expect(appendParams({ checkTrigger: 'startup', licenseHash: 'a1b2c3d4e5f60718', sendUsageData: false })).toBe(baseUrl);
 		});
 
 		it('returns the URL unchanged for non-P3M galleries', () => {
 			const openVsx = 'https://open-vsx.org/vscode/gallery/extensionquery';
-			expect(appendPositronGalleryParams(openVsx, 'startup', 'desktop', '2026.06.0', true, true)).toBe(openVsx);
-
 			const internal = 'https://gallery.internal.example.com/extensionquery';
-			expect(appendPositronGalleryParams(internal, 'periodic', 'workbench', '2026.06.0', true, true)).toBe(internal);
+			expect([
+				appendParams({ url: openVsx, checkTrigger: 'startup' }),
+				appendParams({ url: internal, checkTrigger: 'periodic', sessionType: 'workbench' }),
+			]).toEqual([openVsx, internal]);
 		});
 
 		it('tags P3M subdomains (e.g. staging)', () => {
 			const staging = 'https://staging.p3m.dev/openvsx/latest/vscode/gallery/extensionquery';
-			const result = appendPositronGalleryParams(staging, 'startup', 'desktop', '2026.06.0', true, true);
-			expect(result).toContain('positron-check-trigger=startup');
+			expect(appendParams({ url: staging, checkTrigger: 'startup' })).toContain('positron-check-trigger=startup');
 		});
 
 		it('does not tag URLs that merely contain p3m.dev as substring', () => {
 			const spoof = 'https://p3m.dev.attacker.com/extensionquery';
-			expect(appendPositronGalleryParams(spoof, 'startup', 'desktop', '2026.06.0', true, true)).toBe(spoof);
+			expect(appendParams({ url: spoof, checkTrigger: 'startup' })).toBe(spoof);
 		});
 
 		it('tolerates URI template placeholders in the path', () => {
 			const template = 'https://p3m.dev/openvsx/latest/vscode/gallery/{publisher}/{name}/latest';
-			const result = appendPositronGalleryParams(template, 'startup', 'desktop', '2026.06.0', true, true);
-			expect(result).toContain('positron-check-trigger=startup');
+			expect(appendParams({ url: template, checkTrigger: 'startup' })).toContain('positron-check-trigger=startup');
 		});
 
 		it('returns the URL unchanged when sendUsageData is false', () => {
-			const result = appendPositronGalleryParams(baseUrl, 'startup', 'desktop', '2026.06.0', true, false);
-			expect(result).toBe(baseUrl);
+			expect(appendParams({ checkTrigger: 'startup', sendUsageData: false })).toBe(baseUrl);
 		});
 
 		it('respects sendUsageData=false even on a P3M URL with a trigger', () => {
-			const result = appendPositronGalleryParams(baseUrl, 'periodic', 'workbench-server', '2026.06.0-42', true, false);
-			expect(result).toBe(baseUrl);
+			expect(appendParams({ checkTrigger: 'periodic', sessionType: 'workbench-server', sendUsageData: false })).toBe(baseUrl);
 		});
 	});
 

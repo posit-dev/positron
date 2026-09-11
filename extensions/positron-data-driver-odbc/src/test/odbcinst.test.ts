@@ -88,8 +88,10 @@ suite('resolveUnixConfigPaths', () => {
 		const paths = resolveUnixConfigPaths(createTestHost({ home: '/home/brian' }));
 
 		assert.deepStrictEqual(paths, {
-			systemDrivers: ['/etc/odbcinst.ini', '/usr/local/etc/odbcinst.ini', '/opt/homebrew/etc/odbcinst.ini'],
-			systemDsns: ['/etc/odbc.ini', '/usr/local/etc/odbc.ini', '/opt/homebrew/etc/odbc.ini'],
+			// /etc/unixODBC is the SUSE-family SYSCONFDIR; openSUSE Leap ships unixODBC built
+			// that way, so omitting it hides every system DSN on that platform.
+			systemDrivers: ['/etc/odbcinst.ini', '/etc/unixODBC/odbcinst.ini', '/usr/local/etc/odbcinst.ini', '/opt/homebrew/etc/odbcinst.ini'],
+			systemDsns: ['/etc/odbc.ini', '/etc/unixODBC/odbc.ini', '/usr/local/etc/odbc.ini', '/opt/homebrew/etc/odbc.ini'],
 			userDrivers: ['/home/brian/.odbcinst.ini'],
 			userDsns: ['/home/brian/.odbc.ini'],
 		});

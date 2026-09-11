@@ -31,7 +31,7 @@ interface TwoButtonFooterProps {
 export const TwoButtonFooter = (props: TwoButtonFooterProps) => {
 	// Primary button.
 	const primaryButton = (
-		<FooterButton autoFocus default disabled={props.primaryButtonDisabled} type='submit' onPressed={props.onPrimaryButton}>
+		<FooterButton default disabled={props.primaryButtonDisabled} type='submit' onPressed={props.onPrimaryButton}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);

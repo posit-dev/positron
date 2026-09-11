@@ -11,13 +11,27 @@ vi.mock('undici', () => ({
 	request: vi.fn()
 }));
 
+// One mutable object rather than a fresh mock per test: publish.ts reads the
+// fields at call time, so a test can delete one to model a build that did not
+// stamp it. Hoisted because vi.mock factories run before this file's body.
+const { buildUnderTest } = vi.hoisted(() => {
+	const build: { positronVersion: string; buildNumber: number; vscodeVersion?: string; commit?: string } = {
+		positronVersion: '2026.10.0',
+		buildNumber: 25,
+		vscodeVersion: '1.134.0',
+		commit: '13e0efe1234567890abcdef1234567890abcdef12'
+	};
+	return { buildUnderTest: build };
+});
+
 vi.mock('../metrics/metric-base.js', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('../metrics/metric-base.js')>();
 	return {
 		...actual,
 		CONNECT_API_KEY: 'fake-key-for-testing',
 		LOCAL_API_URL: 'http://localhost:3000/metrics',
-		PROD_API_URL: 'https://api.example.com/metrics'
+		PROD_API_URL: 'https://api.example.com/metrics',
+		positronVersion: buildUnderTest
 	};
 });
 
@@ -146,6 +160,41 @@ describe('buildPayload', () => {
 		expect(JSON.parse(JSON.stringify(payload))).not.toHaveProperty('ark_version');
 	});
 
+	// The Positron version cannot place a build against the upstream merges, and
+	// commit_sha is the harness checkout, not the build. These two come from the
+	// build's own product.json, so a step change in the chart can be read against
+	// "which VS Code, which commit" without a trip through the resolve-build log.
+	describe('the build under test', () => {
+		afterEach(() => {
+			buildUnderTest.vscodeVersion = '1.134.0';
+			buildUnderTest.commit = '13e0efe1234567890abcdef1234567890abcdef12';
+		});
+
+		test('sends the VS Code version and the build commit at the payload root', () => {
+			const payload = buildPayload([snapshot], meta);
+			expect(payload.app_version).toBe('2026.10.0');
+			expect(payload.build_number).toBe('25');
+			expect(payload.vscode_version).toBe('1.134.0');
+			expect(payload.build_commit).toBe('13e0efe1234567890abcdef1234567890abcdef12');
+		});
+
+		test('keeps the build commit distinct from the harness commit', () => {
+			const payload = buildPayload([snapshot], meta);
+			expect(payload.commit_sha).toBe('abc123');
+			expect(payload.build_commit).not.toBe(payload.commit_sha);
+		});
+
+		// Same rule as ark_version: absent, never 'unknown', so a dashboard marker
+		// on "the value changed" cannot fire on a placeholder.
+		test('omits both entirely when the build did not stamp them', () => {
+			delete buildUnderTest.vscodeVersion;
+			delete buildUnderTest.commit;
+			const wire = JSON.parse(JSON.stringify(buildPayload([snapshot], meta)));
+			expect(wire).not.toHaveProperty('vscode_version');
+			expect(wire).not.toHaveProperty('build_commit');
+		});
+	});
+
 	test('still pins payload_version at 1 with both fields present', () => {
 		// A bump would 400 every POST against an API that has not been updated in
 		// lockstep, because validate_memory_payload compares with !=. Additive
@@ -181,6 +230,71 @@ describe('buildPayload', () => {
 	test('carries the snapshot scenario rather than assuming idle', () => {
 		const payload = buildPayload([{ ...snapshot, scenario: 'session-r' }], meta);
 		expect(payload.scenario).toBe('session-r');
+	});
+
+	test('carries the per-extension heap breakdown when a launch has one', () => {
+		const payload = buildPayload([{
+			...snapshot,
+			extensionHeapStatus: 'ok' as const,
+			extensionHeapPid: 4242,
+			extensionHeap: {
+				extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_500_000 }],
+				unattributedBytes: 192_800_000,
+				reachableBytes: 313_300_000
+			}
+		}], meta);
+
+		expect(payload.launches[0].extension_heap).toEqual({
+			status: 'ok',
+			pid: 4242,
+			process_role: 'extension_host',
+			reachable_bytes: 313_300_000,
+			unattributed_bytes: 192_800_000,
+			extensions: [{ extension_id: 'GitHub.copilot-chat', retained_bytes: 120_500_000 }]
+		});
+	});
+
+	test('sends status and pid alone on a failure, with no zero-valued byte counts to misread', () => {
+		const payload = buildPayload([{
+			...snapshot,
+			extensionHeapStatus: 'untrusted' as const,
+			extensionHeapPid: 4242
+		}], meta);
+
+		expect(payload.launches[0].extension_heap).toEqual({
+			status: 'untrusted',
+			pid: 4242,
+			process_role: 'extension_host'
+		});
+	});
+
+	test('omits pid when the inspector was never reached, rather than sending a placeholder', () => {
+		const payload = buildPayload([{ ...snapshot, extensionHeapStatus: 'capture_failed' as const }], meta);
+
+		expect(payload.launches[0].extension_heap).toEqual({
+			status: 'capture_failed',
+			process_role: 'extension_host'
+		});
+	});
+
+	test('omits the key entirely when the capture was never attempted, so an older endpoint is unaffected', () => {
+		const payload = buildPayload([snapshot], meta);
+		expect(Object.keys(payload.launches[0])).not.toContain('extension_heap');
+	});
+
+	test('keeps payload_version at 1, since the consumer rejects any other value', () => {
+		expect(buildPayload([snapshot], meta).payload_version).toBe(1);
+	});
+
+	test('publishes every extension rather than a top N, so the consumer picks the cutoff', () => {
+		const extensions = [...Array(40).keys()].map(i => ({ extensionId: `pub.ext-${i}`, retainedBytes: 1000 - i }));
+		const payload = buildPayload([{
+			...snapshot,
+			extensionHeapStatus: 'ok' as const,
+			extensionHeap: { extensions, unattributedBytes: 1, reachableBytes: 2 }
+		}], meta);
+
+		expect(payload.launches[0].extension_heap?.extensions).toHaveLength(40);
 	});
 });
 
@@ -240,6 +354,35 @@ describe('baselineToSnapshot', () => {
 			}
 		}, 'idle');
 		expect(mapped?.processes[0].processRole).toBe('kernel');
+	});
+
+	test('carries cmd_basename through, so a kernel can be diffed per language', () => {
+		const mapped = baselineToSnapshot({
+			found: true,
+			...baselineProvenance,
+			snapshot: {
+				tree_total_pss_bytes: 1000, settle_ms: 5000,
+				processes: [{ process_name: 'positron-r (ark)', process_role: 'kernel', cmd_basename: 'ark', pss_bytes: 40 }],
+				extensions: []
+			}
+		}, 'idle');
+		expect(mapped?.processes[0].cmdBasename).toBe('ark');
+	});
+
+	// The API gained the field after this client shipped, so a baseline stored by
+	// the older route has none. Blank keeps that baseline usable: the kernel card
+	// leaves its per-label changes blank rather than reporting every kernel new.
+	test('reads a missing cmd_basename as blank rather than rejecting the baseline', () => {
+		const mapped = baselineToSnapshot({
+			found: true,
+			...baselineProvenance,
+			snapshot: {
+				tree_total_pss_bytes: 1000, settle_ms: 5000,
+				processes: [{ process_name: 'positron-r (ark)', process_role: 'kernel', pss_bytes: 40 }],
+				extensions: []
+			}
+		}, 'idle');
+		expect(mapped?.processes[0].cmdBasename).toBe('');
 	});
 
 	test('fills unmapped numbers with zero rather than plausible values', () => {

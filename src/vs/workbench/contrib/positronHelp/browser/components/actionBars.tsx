@@ -77,7 +77,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		for (let helpEntryIndex = helpEntries.length - 1; helpEntryIndex >= 0; helpEntryIndex--) {
 			actions.push({
 				id: generateUuid(),
-				label: helpEntries[helpEntryIndex].title || shortenUrl(helpEntries[helpEntryIndex].sourceUrl),
+				label: helpEntries[helpEntryIndex].title || shortenUrl(helpEntries[helpEntryIndex].targetUrl),
 				tooltip: '',
 				class: undefined,
 				enabled: true,

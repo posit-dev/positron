@@ -41,7 +41,7 @@ export const ThreeButtonFooter = (props: ThreeButtonFooterProps) => {
 
 	// Primary button.
 	const primaryButton = (
-		<FooterButton autoFocus default type='submit' onPressed={props.onPrimaryButton}>
+		<FooterButton default type='submit' onPressed={props.onPrimaryButton}>
 			{props.primaryButtonTitle}
 		</FooterButton>
 	);

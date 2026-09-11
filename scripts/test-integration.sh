@@ -21,6 +21,7 @@ RUN_GLOB=""
 GREP_PATTERN=""
 SUITE_FILTER=""
 HELP=false
+AGENT_HOST_E2E_GLOB="**/agentHost/test/node/e2e/{providers/*AgentHostE2E,conformance/*}.integrationTest.js"
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -62,6 +63,7 @@ if $HELP; then
 	echo ""
 	echo "Runs integration tests. When no filters are given, all integration tests"
 	echo "(node.js integration tests + extension host tests) are run."
+	echo "Agent Host E2E entrypoints run in parallel before the remaining node.js tests."
 	echo ""
 	echo "--run and --runGlob select which node.js integration test files to load."
 	echo "Extension host tests are skipped when these options are used."
@@ -175,7 +177,12 @@ if [[ -z "$SUITE_FILTER" ]]; then
 	echo "### node.js integration tests"
 	echo
 	if [[ -z "$RUN_GLOB" && -z "$RUN_FILE" ]]; then
-		./scripts/test.sh --runGlob "**/*.integrationTest.js" "${EXTRA_ARGS[@]}"
+		if [[ "$VSCODE_SKIP_AGENT_HOST_E2E" == "1" ]]; then
+			echo "Skipping Agent Host E2E tests because no relevant files changed."
+		else
+			node ./scripts/test-agent-host-e2e.ts "${EXTRA_ARGS[@]}"
+		fi
+		VSCODE_SKIP_PRELAUNCH=1 ./scripts/test.sh --runGlob "**/*.integrationTest.js" --excludeRunGlob "$AGENT_HOST_E2E_GLOB" "${EXTRA_ARGS[@]}"
 	else
 		./scripts/test.sh "${EXTRA_ARGS[@]}"
 	fi
@@ -487,5 +494,9 @@ fi
 
 
 # Cleanup
+# Best-effort: a builtin extension (e.g. ms-python) can still be writing a
+# bytecache into the user-data dir as we tear down, so `rm -rf` may fail with
+# "Directory not empty". This is a throwaway temp dir, so never let its cleanup
+# fail an otherwise-green run under `set -e`.
 
-rm -rf -- "$VSCODEUSERDATADIR"
+rm -rf -- "$VSCODEUSERDATADIR" || true

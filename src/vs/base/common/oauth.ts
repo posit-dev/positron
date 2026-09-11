@@ -943,7 +943,7 @@ const grantTypesSupported = ['authorization_code', 'refresh_token', 'urn:ietf:pa
 export const DEFAULT_AUTH_FLOW_PORT = 33418;
 // --- Start Positron ---
 export async function fetchDynamicRegistration(serverMetadata: IAuthorizationServerMetadata, clientName: string, scopes?: string[],
-	additionalRedirectUris?: string[]
+	redirectUriOverride?: string
 ): Promise<IAuthorizationDynamicClientRegistrationResponse> {
 	// --- End Positron ---
 	if (!serverMetadata.registration_endpoint) {
@@ -952,12 +952,15 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 
 	const requestBody: IAuthorizationDynamicClientRegistrationRequest = {
 		client_name: clientName,
-		client_uri: 'https://code.visualstudio.com',
+		// --- Start Positron ---
+		client_uri: 'https://positron.posit.co',
+		// --- End Positron ---
 		grant_types: serverMetadata.grant_types_supported
 			? serverMetadata.grant_types_supported.filter(gt => grantTypesSupported.includes(gt))
 			: grantTypesSupported,
 		response_types: ['code'],
-		redirect_uris: [
+		// --- Start Positron ---
+		redirect_uris: redirectUriOverride ? [redirectUriOverride] : [
 			'https://insiders.vscode.dev/redirect',
 			'https://vscode.dev/redirect',
 			'http://127.0.0.1/',
@@ -966,10 +969,8 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 			// though the spec says it should not care
 			// about the port.
 			`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`,
-			// --- Start Positron ---
-			...(additionalRedirectUris ?? [])
-			// --- End Positron ---
 		],
+		// --- End Positron ---
 		scope: scopes?.join(AUTH_SCOPE_SEPARATOR),
 		token_endpoint_auth_method: 'none',
 		application_type: 'native'

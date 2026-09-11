@@ -402,6 +402,33 @@ suite('Create Environment APIs', () => {
 
         test('With the uv provider disabled the interception does not fire', async () => {
             workspaceConfig
+                .setup((c) => c.inspect<Record<string, boolean>>('environmentProviders.enabled'))
+                .returns(() => ({
+                    key: 'environmentProviders.enabled',
+                    workspaceValue: { venv: true, conda: true, uv: false },
+                }));
+            workspaceConfig
+                .setup((c) => c.get<Record<string, boolean>>('environmentProviders.enabled'))
+                .returns(() => ({ venv: true, conda: true, uv: false }));
+            showQuickPickStub.resolves(undefined);
+
+            assert.strictEqual(await runCommand(), undefined);
+            assert.ok(promptStub.notCalled);
+            assert.ok(ensureUvInstalledStub.notCalled);
+            assert.ok(createGlobalEnvironmentStub.notCalled);
+        });
+
+        test('With only the deprecated setting set, provider checks fall back to it', async () => {
+            workspaceConfig
+                .setup((c) => c.inspect<Record<string, boolean>>('environmentProviders.enabled'))
+                .returns(() => undefined);
+            workspaceConfig
+                .setup((c) => c.inspect<Record<string, boolean>>('environmentProviders.enable'))
+                .returns(() => ({
+                    key: 'environmentProviders.enable',
+                    workspaceValue: { venv: true, conda: true, uv: false },
+                }));
+            workspaceConfig
                 .setup((c) => c.get<Record<string, boolean>>('environmentProviders.enable'))
                 .returns(() => ({ venv: true, conda: true, uv: false }));
             showQuickPickStub.resolves(undefined);

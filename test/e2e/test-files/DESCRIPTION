@@ -5,6 +5,7 @@ Type: TestAssets
 Description: Not really a package. This file is just to enable installing dependencies.
 Imports: 
     arrow,
+    nanoparquet,
     readxl,
     connections,
     tidyverse,

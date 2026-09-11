@@ -7,12 +7,15 @@
 import './positronDynamicModalDialog.css';
 
 // React.
-import { FormEvent, ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../base/browser/dom.js';
 import { TitleBar } from './components/titleBar.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { useModalDialogKeyboard } from '../positronModalDialog/useModalDialogKeyboard.js';
 
 /**
  * The gutter where the dialog box cannot be moved.
@@ -20,10 +23,17 @@ import { PositronModalDialogReactRenderer } from '../../../../base/browser/posit
 const kGutter = 40;
 
 /**
+ * The number of dynamic modal dialogs currently mounted. A dialog that opens while another is
+ * already open dims nothing of its own, so the two backdrops do not compound into twice the
+ * darkness.
+ */
+let openDialogCount = 0;
+
+/**
  * PositronDynamicModalDialogProps interface.
  */
 export interface PositronDynamicModalDialogProps {
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 	title: string;
 	titleDescription?: string;
 	width: number;
@@ -32,15 +42,6 @@ export interface PositronDynamicModalDialogProps {
 	contentMaxHeight?: number;
 	footer?: ReactNode;
 	onCancel?: () => void;
-
-	// Optional form submit handler. The content and footer are always wrapped in a <form>; when this
-	// is provided, pressing Enter in any input fires this callback (the dialog calls preventDefault on
-	// the underlying submit event automatically). Enter-to-submit only fires if the footer includes a
-	// button with type='submit' to serve as the form's implicit submit target -- callers opt in
-	// per button (Button defaults to type='button', so other buttons never become the submit target).
-	// Wire onSubmit to the SAME action as that submit button's onPressed, otherwise Enter and a mouse
-	// click on the primary button will do different things.
-	onSubmit?: () => void;
 }
 
 /**
@@ -78,12 +79,33 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 	const dialogBoxRef = useRef<HTMLDivElement>(undefined!);
 	const hasBeenPositioned = useRef(false);
 
+	// Id hooks. The title element carries this id and aria-labelledby points at it, which is what
+	// gives the dialog its accessible name.
+	const titleId = useId();
+
 	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
 
-	// Center the dialog box on initial mount. On subsequent renders (e.g. content changes), keep
-	// the current position but clamp to ensure the dialog remains on screen. useLayoutEffect
-	// ensures the position is applied before the browser paints, avoiding a visible flash at 0,0.
+	// Whether this dialog opened while another was already open. Decided once, when this dialog
+	// mounts, and never revised: a dialog does not start or stop dimming because something above it
+	// came and went.
+	//
+	// The count is read in a layout effect rather than during render. A flow that swaps one dialog
+	// component for another, as the new data connection flow does per step, mounts the incoming
+	// dialog and unmounts the outgoing one in the same commit. Render runs before the outgoing
+	// dialog's cleanup, so reading the count there would see it still open and latch this dialog as
+	// nested for its whole life, leaving the workbench undimmed from the second step on. Layout
+	// effects run after that cleanup, and before paint, so there is no flash.
+	const [isNested, setIsNested] = useState(false);
+	useLayoutEffect(() => {
+		setIsNested(openDialogCount > 0);
+		openDialogCount++;
+		return () => { openDialogCount--; };
+	}, []);
+
+	// Center the dialog box on initial mount. On a later width change, keep the current position but
+	// clamp it to keep the dialog on screen. useLayoutEffect ensures the position is applied before
+	// the browser paints, avoiding a visible flash at 0,0.
 	useLayoutEffect(() => {
 		setDialogBoxState(prevDialogBoxState => {
 			const effectiveHeight = dialogBoxRef.current.offsetHeight;
@@ -112,6 +134,44 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 			};
 		});
 	}, [props.width]);
+
+	// Escape cancels and Tab stays inside the dialog. Enter belongs to the <form> below: with the
+	// focus on a control inside it, the browser answers Enter by clicking the form's submit button.
+	// Letting the hook act on the key too would fire two different things for one keystroke.
+	useModalDialogKeyboard({
+		dialogBoxRef,
+		enterHandledByCaller: true,
+		keyboardSource: props.renderer,
+		onCancel: props.onCancel
+	});
+
+	// Move focus into the dialog on mount. An ordinary element does not do this on its own, so a
+	// keyboard user would otherwise still be focused on whatever was behind the dialog. The renderer
+	// restores focus to that element when the dialog closes.
+	useEffect(() => {
+		const dialogBox = dialogBoxRef.current;
+
+		// A control inside the dialog may have claimed focus already, through React's autoFocus.
+		// The native dialog honored that too, so leave it where it is: a dialog whose content opens
+		// on a text input puts the focus there rather than on the box.
+		if (dialogBox.contains(DOM.getActiveElement())) {
+			return;
+		}
+
+		// Otherwise focus the box itself, so the dialog opens with no control armed and the first
+		// Tab or Shift-Tab is what picks one. The box carries role='dialog' with the title as its
+		// accessible name, so a screen reader announces the dialog rather than one control inside
+		// it, which is the placement the ARIA practices guide recommends for a dialog whose content
+		// is a list or a body of text.
+		//
+		// Focusing the first control instead would land on the title bar's close button, since that
+		// is the first one in the box. Enter and Space on a focused button activate it, so the
+		// dialog would open with Enter armed to close it, and with no ring to say so: a Positron
+		// Button only draws one for :focus-visible, which does not match focus moved after a click.
+		// A dialog that wants Enter to act on arrival has to name that control with autoFocus. No
+		// footer does, so Enter does nothing until the user Tabs to a button.
+		dialogBox.focus();
+	}, []);
 
 	// Set up keyboard and resize event handlers.
 	useEffect(() => {
@@ -216,30 +276,36 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		setDialogBoxState(prevDialogBoxState => updateDialogBoxState(prevDialogBoxState, x, y, false));
 	};
 
-	// Submit handler. Calls preventDefault and forwards to the consumer-provided onSubmit so
-	// callers don't need to remember to suppress the default form action.
-	const submitHandler = (event: FormEvent) => {
-		event.preventDefault();
-		props.onSubmit?.();
-	};
-
 	// Render.
 	return (
-		<div ref={dialogContainerRef} className='positron-dynamic-modal-dialog-box-container'>
-			<div ref={dialogBoxRef} className='positron-dynamic-modal-dialog-box' style={{
-				left: dialogBoxState.left,
-				top: dialogBoxState.top,
-				width: props.width,
-			}}>
-				<TitleBar title={props.title} titleDescription={props.titleDescription} onClose={props.onCancel} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
+		<div ref={dialogContainerRef} className={positronClassNames('positron-dynamic-modal-dialog-box-container', { 'nested': isNested })}>
+			<div
+				ref={dialogBoxRef}
+				aria-labelledby={titleId}
+				aria-modal='true'
+				className='positron-dynamic-modal-dialog-box'
+				role='dialog'
+				style={{
+					left: dialogBoxState.left,
+					top: dialogBoxState.top,
+					width: props.width,
+				}}
+				tabIndex={-1}
+			>
+				<TitleBar title={props.title} titleDescription={props.titleDescription} titleId={titleId} onClose={props.onCancel} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
 				{/*
-					The content area and footer are always wrapped in a <form>. Enter-key implicit
-					submission only activates when a submit target exists -- i.e. when the footer
-					includes a button with type='submit'. Button defaults to type='button', so other
-					buttons never serve as the submit target, letting callers compose any footer or
-					content while choosing exactly which button "is" the submit button.
+					The content and footer are wrapped in a <form> so that Enter in an input reaches
+					the footer: the browser answers it by clicking the form's first type='submit'
+					button, which is how a dialog gets Enter without this component handling the key.
+					Button defaults to type='button', so a footer chooses its own Enter target by
+					marking exactly one button type='submit'.
+
+					The submit never completes. Button calls preventDefault on the click, and
+					submitting is that click's default action, so the button's onPressed runs and the
+					form's submit event does not. onSubmit is here only to stop a form with no submit
+					button at all from trying to navigate.
 				*/}
-				<form className='positron-dynamic-modal-dialog-form' onSubmit={submitHandler}>
+				<form className='positron-dynamic-modal-dialog-form' onSubmit={event => event.preventDefault()}>
 					<div className='content-area' style={{
 						minHeight: props.contentMinHeight,
 						maxHeight: props.contentMaxHeight,

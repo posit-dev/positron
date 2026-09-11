@@ -19,10 +19,14 @@
   },
   "contributes": {},
   "dependencies": {
+    "@aws-sdk/client-redshift": "^3.734.0",
+    "@aws-sdk/client-redshift-serverless": "^3.734.0",
+    "@aws-sdk/credential-providers": "^3.734.0",
     "pg": "^8.20.0"
   },
   "devDependencies": {
     "@types/mocha": "^9.1.0",
+    "positron-data-explorer-formatting": "file:../positron-data-explorer-formatting",
     "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol",
     "@types/node": "14.x",
     "@types/pg": "^8.20.0",

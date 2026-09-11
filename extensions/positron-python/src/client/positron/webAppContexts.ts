@@ -8,7 +8,7 @@ import { executeCommand } from '../common/vscodeApis/commandApis';
 import { traceInfo } from '../logging';
 
 function getSupportedLibraries(): string[] {
-    const libraries: string[] = ['streamlit', 'dash', 'gradio', 'flask', 'fastapi'];
+    const libraries: string[] = ['marimo', 'streamlit', 'dash', 'gradio', 'flask', 'fastapi'];
     return libraries;
 }
 
@@ -27,6 +27,7 @@ export function getFramework(text: string): string | undefined {
 
     // Define patterns for app creation for each framework
     const appCreationPatterns: Record<string, RegExp> = {
+        marimo: /\w+\s*=\s*(?:marimo|mo)\.App\(/i,
         streamlit: /\bst\.\w+\(|streamlit\.\w+\(/i, // More specific pattern for actual streamlit usage
         dash: /\w+\s*=\s*(?:Dash|dash\.Dash)\(/i,
         gradio: /\w+\s*=\s*(?:gr\.|gradio\.)/i,

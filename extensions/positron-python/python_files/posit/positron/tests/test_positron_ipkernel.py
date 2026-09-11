@@ -276,7 +276,9 @@ def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
 
     # NOTE (here and below): Ignoring types related to `theme_table` and `ultratb.Token`
     # as they will report undefined in IPython < 9.0.0.
-    colors = ultratb.theme_table[shell.colors]  # type: ignore
+    from IPython.utils.PyColorize import theme_table  # type: ignore
+
+    colors = theme_table[shell.colors]  # type: ignore
 
     # This template matches the beginning of each traceback frame. We don't check each entire frame
     # because syntax highlighted code is full of escape codes. For example, after removing

@@ -291,6 +291,15 @@ configurationRegistry.registerConfiguration({
 				"How interpreters are started in new Positron windows."),
 			tags: ['interpreterSettings']
 		},
+		'interpreters.unsavedScriptsDirectory': {
+			scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+			type: 'string',
+			default: '',
+			description: nls.localize(
+				'positron.runtime.unsavedScriptsDirectory',
+				"Directory for temporary files created when running unsaved scripts. When empty, the workspace root is used (or the system temporary directory when no workspace is open)."),
+			tags: ['interpreterSettings']
+		},
 		'interpreters.discoveryCache.enabled': {
 			scope: ConfigurationScope.APPLICATION_MACHINE,
 			type: 'boolean',

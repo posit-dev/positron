@@ -133,7 +133,7 @@ export class WorkspaceService extends Disposable implements IWorkbenchConfigurat
 		let adminPolicyService: IAdminPolicyService | undefined;
 		// In native (Electron) environment, admin policies data is passed through window configuration
 		// In web (browser) environment, it's passed through options (IWorkbenchConstructionOptions)
-		const nativeEnv = environmentService as any;
+		const nativeEnv = environmentService as unknown as { configuration?: { adminPoliciesData?: string }; options?: { adminPoliciesData?: string } };
 		const enforcedSettings = nativeEnv.configuration?.adminPoliciesData || nativeEnv.options?.adminPoliciesData;
 		logService.info(`[Browser ConfigService] Checking for adminPoliciesData...`);
 		logService.info(`[Browser ConfigService] nativeEnv.configuration exists: ${!!nativeEnv.configuration}`);

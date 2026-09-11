@@ -8,6 +8,8 @@ import { URI } from '../../../../base/common/uri.js';
 import { originalFSPath } from '../../../../base/common/resources.js';
 import { isWindows } from '../../../../base/common/platform.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { getTerminalInternalOptions } from '../../common/extHost.api.impl.js';
+import { nullExtensionDescription } from '../../../services/extensions/common/extensions.js';
 
 suite('ExtHost API', function () {
 	test('issue #51387: originalFSPath', function () {
@@ -19,6 +21,17 @@ suite('ExtHost API', function () {
 			assert.strictEqual(originalFSPath(URI.revive(JSON.parse(JSON.stringify(URI.file('c:\\test'))))).charAt(0), 'c');
 		}
 	});
+
+	// --- Start Positron ---
+	// PWB patches `isProposedApiEnabled` to always return true, so
+	// `checkProposedApiEnabled` never throws and the proposal gate this test
+	// asserts on does not apply in Positron.
+	test.skip('TerminalOptions.isRemoteResolverTerminal requires terminalRemoteResolver proposal', () => {
+		const options = { isRemoteResolverTerminal: true };
+		assert.throws(() => getTerminalInternalOptions(nullExtensionDescription, options), /CANNOT use API proposal: terminalRemoteResolver/);
+		assert.deepStrictEqual(getTerminalInternalOptions({ ...nullExtensionDescription, enabledApiProposals: ['terminalRemoteResolver'] }, options), { isRemoteResolverTerminal: true });
+	});
+	// --- End Positron ---
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 });

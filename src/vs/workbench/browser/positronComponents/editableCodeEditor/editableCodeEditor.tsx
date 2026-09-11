@@ -97,12 +97,24 @@ export const EditableCodeEditor = (props: EditableCodeEditorProps) => {
 		));
 
 		// Create and set the model.
-		editor.setModel(disposableStore.add(services.modelService.createModel(
-			code,
-			services.languageService.createById(languageId),
-			undefined,
-			true
-		)));
+		//
+		// Creating a model in a language is what Positron reads as "a file in that language was
+		// opened", so previewing R code in a window that has never seen R implicitly starts an R
+		// session. Let's suppress that.
+		const suppressed = services.runtimeSessionService.implicitStartupSuppressed;
+		services.runtimeSessionService.implicitStartupSuppressed = true;
+		try {
+			editor.setModel(disposableStore.add(services.modelService.createModel(
+				code,
+				services.languageService.createById(languageId),
+				undefined,
+				true
+			)));
+		} finally {
+			// Restore in a finally: leaving the flag set because model creation threw would disable
+			// auto-start for the rest of the window's life.
+			services.runtimeSessionService.implicitStartupSuppressed = suppressed;
+		}
 
 		// Track the editor instance in a ref for the imperative handle.
 		editorRef.current = editor;

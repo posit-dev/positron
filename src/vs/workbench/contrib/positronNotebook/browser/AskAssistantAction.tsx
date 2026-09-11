@@ -18,7 +18,7 @@ import { IHeadlessLanguageModelService } from '../../../services/positronHeadles
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { openPositAssistantChat } from '../../positronAssistant/browser/positAssistantChat.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
-import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
@@ -89,7 +89,7 @@ export class AskAssistantAction extends Action2 {
 
 		// Create the modal renderer for a centered dialog
 		// Hook up cancellation so polling stops if the modal is closed early
-		const renderer = new PositronModalDialogReactRenderer({
+		const renderer = new PositronModalReactRenderer({
 			container: layoutService.activeContainer,
 			onDisposed: () => {
 				notebookPromise?.cancel();

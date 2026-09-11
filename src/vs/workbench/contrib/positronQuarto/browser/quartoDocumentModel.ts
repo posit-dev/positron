@@ -12,6 +12,8 @@ import { StringSHA1 } from '../../../../base/common/hash.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModel, QuartoCodeCell, QuartoCellChangeEvent, QuartoNodeType } from '../common/quartoTypes.js';
 import { kernelToLanguageId, parseQuarto } from '../common/quartoParser.js';
+import { hasRuntimeProvider } from '../common/quartoLanguages.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 /**
  * Computes a SHA-1 hash of the content, truncated to 16 characters.
@@ -43,7 +45,6 @@ function generateCellId(
  */
 interface ParsedDocument {
 	cells: QuartoCodeCell[];
-	primaryLanguage: string | undefined;
 	jupyterKernel: string | undefined;
 }
 
@@ -53,7 +54,7 @@ interface ParsedDocument {
  */
 export class QuartoDocumentModel extends Disposable implements IQuartoDocumentModel {
 	private _cells: QuartoCodeCell[] = [];
-	private _primaryLanguage: string | undefined;
+	private _reportedLanguage: string | undefined;
 	private _jupyterKernel: string | undefined;
 	private _cellsById = new Map<string, QuartoCodeCell>();
 	private _parseTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -73,6 +74,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	constructor(
 		private readonly _textModel: ITextModel,
 		private readonly _logService: ILogService,
+		private readonly _runtimeStartupService: IRuntimeStartupService,
 	) {
 		super();
 
@@ -106,7 +108,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	}
 
 	get primaryLanguage(): string | undefined {
-		return this._primaryLanguage;
+		return this._derivePrimaryLanguage();
 	}
 
 	get jupyterKernel(): string | undefined {
@@ -254,12 +256,13 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 			this._onDidChangeCells.fire({ added, removed, modified });
 		}
 
-		if (parsed.primaryLanguage !== this._primaryLanguage) {
-			this._primaryLanguage = parsed.primaryLanguage;
-			this._onDidChangeLanguage.fire(parsed.primaryLanguage);
-		}
-
 		this._jupyterKernel = parsed.jupyterKernel;
+
+		const primaryLanguage = this._derivePrimaryLanguage();
+		if (primaryLanguage !== this._reportedLanguage) {
+			this._reportedLanguage = primaryLanguage;
+			this._onDidChangeLanguage.fire(primaryLanguage);
+		}
 
 		this._parsedBarrier.open();
 
@@ -298,16 +301,25 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 			cellIndex++;
 		}
 
-		// Determine primary language from frontmatter, falling back to the first
-		// cell's fence language. A custom Jupyter kernelspec name (e.g.
-		// `spectral-comparison-3.14`) can't be mapped to a known language, so the
-		// cell fence language is used as a fallback rather than leaving the primary
-		// language undefined (which would disable the kernel picker and Run Cell).
-		const jupyterKernel = doc.frontmatter?.jupyterKernel;
-		const primaryLanguage =
-			(jupyterKernel ? kernelToLanguageId(jupyterKernel) : undefined)
-			?? cells.at(0)?.language;
+		return { cells, jupyterKernel: doc.frontmatter?.jupyterKernel };
+	}
 
-		return { cells, primaryLanguage, jupyterKernel };
+	/**
+	 * The primary language comes from the frontmatter kernel, falling back to the
+	 * fence language of the first cell whose language has runtimes. A custom
+	 * Jupyter kernelspec name (e.g. `spectral-comparison-3.14`) can't be mapped
+	 * to a known language, so the cell fence language is used as a fallback
+	 * rather than leaving the primary language undefined (which would disable the
+	 * kernel picker and Run Cell). Languages with no runtimes, such as mermaid
+	 * diagrams, can't host a kernel; a document made only of those has no primary
+	 * language.
+	 *
+	 * Derived on read, since the providers are known only once extensions have
+	 * been scanned, which can happen after the document is first parsed.
+	 */
+	private _derivePrimaryLanguage(): string | undefined {
+		return (this._jupyterKernel ? kernelToLanguageId(this._jupyterKernel) : undefined)
+			?? this._cells.find(
+				cell => hasRuntimeProvider(cell.language, this._runtimeStartupService))?.language;
 	}
 }

@@ -24,7 +24,7 @@ const CELL_COUNT = 30;
 // Runs against a Python session, so the interesting figure is this scenario minus
 // session-python, not minus idle: what the notebook editor, its cell editors, and
 // its rendered outputs cost on top of a session that already exists. The
-// cross-scenario summary deltas everything against idle today, so that subtraction
+// scenario memory report deltas everything against idle today, so that subtraction
 // is by eye until #15495.
 defineMemoryScenario({
 	scenario: 'notebook',

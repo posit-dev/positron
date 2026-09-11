@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './languageModelButton.css';
+
 import * as React from 'react';
 
 import { localize } from '../../../../../nls.js';
@@ -68,42 +70,71 @@ export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageMode
 	);
 });
 
-export const LanguageModelIcon = (props: { provider: string; logoUrl?: string }) => {
+export const LanguageModelIcon = (props: { provider: string; logoUrl?: string; monochrome?: boolean }) => {
+	// When `monochrome`, recolor the icon to the theme's icon foreground so it stays
+	// legible on every theme (see #15321). Only the new provider modal opts in;
+	// the legacy dialog renders icons in their original brand colors.
+	const iconClassName = positronClassNames('language-model icon', { monochrome: props.monochrome });
 	function getIcon() {
 		if (props.logoUrl) {
-			return <img className='language-model icon' src={props.logoUrl} />;
+			// A plain <img> can't be recolored, so when monochrome we paint the theme
+			// color and clip it to the logo shape with a CSS mask (logoUrl is a
+			// transparent-background icon; see IPositronProviderMetadata).
+			// Otherwise the logo renders as-is.
+			if (props.monochrome) {
+				// Quote and escape the URL: an unquoted CSS url() token can't hold
+				// whitespace, quotes, or parens, which some values (e.g. inline SVG
+				// data URIs) contain -- an invalid declaration would drop the mask
+				// and leave a solid theme-colored square.
+				const maskUrl = `url("${props.logoUrl.replace(/["\\]/g, '\\$&')}")`;
+				return <div className={iconClassName} data-testid='language-model-icon'
+					style={{
+						flex: 'none',
+						backgroundColor: 'var(--vscode-icon-foreground)',
+						WebkitMaskImage: maskUrl,
+						maskImage: maskUrl,
+						WebkitMaskSize: 'contain',
+						maskSize: 'contain',
+						WebkitMaskRepeat: 'no-repeat',
+						maskRepeat: 'no-repeat',
+						WebkitMaskPosition: 'center',
+						maskPosition: 'center',
+					}}
+				/>;
+			}
+			return <img className={iconClassName} data-testid='language-model-icon' src={props.logoUrl} />;
 		}
 		switch (props.provider) {
 			case 'anthropic-api':
-				return <Claude className='language-model icon' />;
+				return <Claude className={iconClassName} data-testid='language-model-icon' />;
 			case 'google':
-				return <Gemini className='language-model icon' />;
+				return <Gemini className={iconClassName} data-testid='language-model-icon' />;
 			case 'google-cloud':
-				return <Geap className='language-model icon' />;
+				return <Geap className={iconClassName} data-testid='language-model-icon' />;
 			case 'copilot':
 			case 'copilot-auth':
-				return <GithubCopilot className='language-model icon' />;
+				return <GithubCopilot className={iconClassName} data-testid='language-model-icon' />;
 			case 'amazon-bedrock': // Vercel API uses this as an id
-				return <Bedrock className='language-model icon' />;
+				return <Bedrock className={iconClassName} data-testid='language-model-icon' />;
 			case 'deepseek-api':
-				return <DeepSeek className='language-model icon' />;
+				return <DeepSeek className={iconClassName} data-testid='language-model-icon' />;
 			case 'openai-api':
-				return <OpenAI className='language-model icon' />;
+				return <OpenAI className={iconClassName} data-testid='language-model-icon' />;
 			case 'ms-foundry':
-				return <MicrosoftFoundry className='language-model icon' />;
+				return <MicrosoftFoundry className={iconClassName} data-testid='language-model-icon' />;
 			case 'posit-ai':
-				return <PositAi className='language-model icon' />;
+				return <PositAi className={iconClassName} data-testid='language-model-icon' />;
 			case 'snowflake-cortex':
-				return <Snowflake className='language-model icon' />;
+				return <Snowflake className={iconClassName} data-testid='language-model-icon' />;
 			case 'databricks':
-				return <Databricks className='language-model icon' />;
+				return <Databricks className={iconClassName} data-testid='language-model-icon' />;
 			case 'openai-compatible':
-				return <div className={`language-model icon button-icon codicon codicon-wrench`} />;
+				return <div className={`language-model icon button-icon codicon codicon-wrench`} data-testid='language-model-icon' />;
 			case 'error':
-				return <div className={`language-model icon button-icon codicon codicon-error`} />;
+				return <div className={`language-model icon button-icon codicon codicon-error`} data-testid='language-model-icon' />;
 			case 'echo':
 			case 'test':
-				return <div className={`language-model icon button-icon codicon codicon-info`} />;
+				return <div className={`language-model icon button-icon codicon codicon-info`} data-testid='language-model-icon' />;
 			default:
 				return null;
 		}

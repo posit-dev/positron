@@ -8,6 +8,61 @@ import { Code } from '../infra/code.js';
 import { STARTUP_MESSAGING_SELECTOR, STARTUP_MESSAGING_TIMEOUT } from './utils/startupMessaging.js';
 
 /**
+ * How long a single post-reload probe may wait before it is abandoned and retried.
+ */
+const RELOAD_PROBE_TIMEOUT = 2000;
+
+/**
+ * Overall budget for the post-reload workbench gate.
+ *
+ * Sized against a measured stall rather than a guess. On Windows CI the CDP session for
+ * the swapped-in renderer can go mute in both directions across a reload: console pushes,
+ * screencast frames and probe replies all queue in the channel and flush at one instant,
+ * while the renderer keeps logging to disk and the runner keeps reading Electron's stdout.
+ * Matching the trace's receipt timestamps against `renderer.log` for 150 records put the
+ * in-transit delay at a 24.0s median and 26.2s worst case; the probes then passed 33.8s
+ * and 30.9s into the gate, i.e. both attempts missed a 30s budget by under four seconds.
+ *
+ * 60s is a little over double the observed stall. The budget is only spent when the
+ * channel is actually stalled -- a healthy reload settles on the first probe -- so this
+ * costs nothing on the happy path, and the 120s per-test timeout still bounds it.
+ */
+const RELOAD_READY_TIMEOUT = 60000;
+
+/**
+ * Wall-clock margin on top of a probe's own timeout, so a probe that is merely
+ * slow still reports its own failure and only a parked one is abandoned.
+ */
+const RELOAD_PROBE_GRACE = 500;
+
+/** Budget for the post-reload load-state hint (best effort, see reloadWindow). */
+const RELOAD_LOADSTATE_TIMEOUT = 5000;
+
+/**
+ * Await `operation`, abandoning it after `timeoutMs` of wall clock.
+ *
+ * A Playwright query can park on a discarded execution-context promise, and no
+ * option on the query bounds that wait: the one-shot probe inside
+ * `expect(...).toBeVisible({ timeout })` never observes its own deadline, and
+ * every retry wrapper (`toPass`, `Code#poll`) awaits the probe, so the retry the
+ * timeout was supposed to trigger never runs. Racing a real timer is what
+ * actually lets go. `Promise.race` leaves a rejection handler attached to
+ * `operation`, so a late settle is handled rather than unhandled.
+ */
+async function withDeadline<T>(operation: Promise<T>, timeoutMs: number, what: string): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const expired = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => reject(new Error(`${what} did not settle within ${timeoutMs}ms`)), timeoutMs);
+	});
+
+	try {
+		return await Promise.race([operation, expired]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+/**
  * Provides hotkey shortcuts for common operations. References the keybindings defined in `test/e2e/fixtures/keybindings.json`.
  */
 export class HotKeys {
@@ -267,7 +322,37 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+B R', 'Reload window');
 		await navigated;
 
-		await page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		// `framenavigated` fires at the navigation-commit instant, before the new
+		// document has an execution context bound, so a query issued there aims at a
+		// context that is discarded moments later. DOMContentLoaded is a page-level
+		// lifecycle event rather than a context-bound evaluation, so waiting for it
+		// cannot park the way a locator query can. Best effort: the probe loop below
+		// is the real gate, and a missed load event should not fail the reload on its
+		// own.
+		await page.waitForLoadState('domcontentloaded', { timeout: RELOAD_LOADSTATE_TIMEOUT })
+			.catch(() => { });
+
+		// Bound each probe and retry, rather than spending the whole budget on one
+		// assertion. Playwright parks a query on the execution-context promise that
+		// existed when the query started, and an Electron reload clears the context
+		// more than once as the renderer is swapped -- each clear installs a fresh
+		// promise and orphans the old one, so a probe that started before the last
+		// clear waits forever on a promise nothing will resolve. That is the Windows
+		// CI failure where the workbench is fully rendered but the assertion reports
+		// "element(s) not found".
+		//
+		// The probe's own `timeout` does not bound that wait -- a parked probe has
+		// been observed running 17.7s on a 2s budget, starving `toPass` down to three
+		// attempts in 30s -- so the abandonment has to happen on wall clock. Only
+		// then does the next attempt pick up the current promise. The overall budget
+		// is unchanged.
+		await expect(async () => {
+			await withDeadline(
+				expect(page.locator('.monaco-workbench')).toBeVisible({ timeout: RELOAD_PROBE_TIMEOUT }),
+				RELOAD_PROBE_TIMEOUT + RELOAD_PROBE_GRACE,
+				'post-reload workbench probe'
+			);
+		}).toPass({ timeout: RELOAD_READY_TIMEOUT, intervals: [250] });
 
 		// Wait for the workbench lifecycle to reach Restored (the same positive signal
 		// Application#checkPositronReady gates launch on). External browsers (Posit

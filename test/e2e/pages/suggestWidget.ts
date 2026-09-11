@@ -44,12 +44,17 @@ export class SuggestWidget {
 	 * Trigger the suggest widget via `editor.action.triggerSuggest` (Ctrl+Space).
 	 * Wrapped in toPass so a missed first press (focus not yet in editor) is
 	 * retried. No-op once the widget is already visible.
+	 *
+	 * Waits past the widget's own "Loading..." state (shown while completions
+	 * are still being computed, e.g. by a slow language server under CI load)
+	 * so callers always see at least one rendered row, not just the container.
 	 */
 	async trigger({ timeout = 15_000 }: { timeout?: number } = {}): Promise<void> {
 		await expect(async () => {
 			await this.code.driver.currentPage.keyboard.press('Control+Space');
 			await expect(this.widget).toBeVisible({ timeout: 3_000 });
 		}).toPass({ timeout });
+		await expect(this.widget.locator('.monaco-list-row').first()).toBeVisible({ timeout });
 	}
 
 	/**

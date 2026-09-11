@@ -16,7 +16,7 @@ import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, A
 import { PackageManager } from '../pages/utils/packageManager';
 import {
 	FileOperationsFixture, SettingsFixture, Settings, MetricsFixture,
-	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
+	AttachScreenshotsToReportFixture, AttachLogsToReportFixture, AttachCrashDumpsToReportFixture,
 	TracingFixture, shouldUseCustomTracing, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
@@ -373,6 +373,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await attachLogsFixture({ suiteId, logsPath, testInfo }, use);
 	}, { auto: true }],
 
+	attachCrashDumpsToReport: [async ({ options }, use, testInfo) => {
+		const attachCrashDumpsFixture = AttachCrashDumpsToReportFixture();
+		await attachCrashDumpsFixture({ crashesPath: options.crashesPath, testInfo }, use);
+	}, { auto: true }],
+
 	tracing: [async ({ app }, use, testInfo) => {
 		const tracingFixture = TracingFixture();
 		await tracingFixture({ app, testInfo }, use);
@@ -640,6 +645,7 @@ export interface TestFixtures {
 	page: playwright.Page;
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
+	attachCrashDumpsToReport: any;
 	sessions: Sessions;
 	assistant: Assistant;
 	r: void;

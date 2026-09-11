@@ -21,6 +21,10 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 interface TitleBarProps {
 	title: string;
 	titleDescription?: string;
+
+	// When provided, set as the id of the title element so the dialog can point aria-labelledby at
+	// it, which is what gives the dialog its accessible name.
+	titleId?: string;
 	onStartDrag: () => void;
 	onDrag: (x: number, y: number) => void;
 	onStopDrag: (x: number, y: number) => void;
@@ -113,7 +117,7 @@ export const TitleBar = (props: TitleBarProps) => {
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 		<div className='title-bar' onMouseDown={mouseDownHandler}>
 			<div className='title-bar-titles'>
-				<div className='title-bar-title'>
+				<div className='title-bar-title' id={props.titleId}>
 					{props.title}
 				</div>
 				{props.titleDescription &&

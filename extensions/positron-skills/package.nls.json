@@ -1,0 +1,3 @@
+{
+	"configuration.prefetchLocalDocs.description": "Download the local Positron documentation in the background at startup so it is available to the assistant."
+}

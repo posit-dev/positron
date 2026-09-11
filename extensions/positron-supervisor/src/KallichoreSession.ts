@@ -314,8 +314,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			value: vscode.env.uiKind === vscode.UIKind.Desktop ? 'desktop' : 'server'
 		});
 
-		// Start with the environment variables from any extension's contributions.
-		const contributedVars = await positron.environment.getEnvironmentContributions();
+		// Start with the environment variables from any extension's
+		// contributions. Kernels are spawned processes, so request only
+		// contributions applied at process creation; shell-integration-only
+		// contributions belong to interactive terminals.
+		const contributedVars = await positron.environment.getEnvironmentContributions(
+			positron.EnvironmentContributionFilter.ProcessCreation);
 		for (const [extensionId, actions] of Object.entries(contributedVars)) {
 
 			if (restart && extensionId === 'ms-python.python') {

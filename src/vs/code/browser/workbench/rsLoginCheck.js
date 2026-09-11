@@ -1,4 +1,7 @@
-/* eslint-disable header/header */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
 
 /* eslint-disable no-var */
 var sCheckInProgress = false;
@@ -68,11 +71,11 @@ function rs_showSessionDialog(hdr, msg, actionName, actionFunc) {
 function rs_getWorkbenchPrefix() {
 	var path = window.location.pathname;
 	// look for prefix, e.g. /rstudio inserted by a proxy server
-	var prefixEnd = path.indexOf("/s/");
+	var prefixEnd = path.indexOf('/s/');
 	if (prefixEnd > 0) {
 		return path.substring(0, prefixEnd);
 	}
-	return "";
+	return '';
 }
 
 function rs_checkConnectionRequest() {
@@ -118,9 +121,9 @@ function rs_checkConnectionRequest() {
 	var url = '/job_launcher_rpc/session_status';
 	var path = window.location.pathname;
 	// look for prefix, e.g. /rstudio inserted by a proxy server
-	var prefixEnd = path.indexOf("/s/");
+	var prefixEnd = path.indexOf('/s/');
 	if (prefixEnd > 0) {
-		var prefix = prefixEnd == 0 ? "" : path.substring(0, prefixEnd);
+		var prefix = prefixEnd === 0 ? '' : path.substring(0, prefixEnd);
 		path = path.substring(prefixEnd);
 		url = prefix + url;
 	}

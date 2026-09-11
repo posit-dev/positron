@@ -6,13 +6,13 @@
 /// <reference types="vitest/globals" />
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { IQuickInputService, IQuickPickItem, QuickInputHideReason, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
+import { IPickOptions, IQuickInputService, IQuickPickItem, QuickInputHideReason, QuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -75,6 +75,60 @@ describe('summarizeRegisteredRuntime', () => {
 	test('falls back to the raw path when there is no display path', () => {
 		const summary = summarizeRegisteredRuntime(makeRuntime({ runtimePath: '/usr/bin/python3' }));
 		expect(summary.runtimePath).toBe('/usr/bin/python3');
+	});
+});
+
+describe('summarizeActiveSession', () => {
+	function makeSession(sessionId: string, sessionName: string, runtimeId: string): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			sessionId,
+			runtimeMetadata: makeRuntime({ runtimeId }),
+			dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName }),
+			metadata: {
+				sessionId,
+				sessionMode: LanguageRuntimeSessionMode.Console,
+				notebookUri: undefined,
+				createdTimestamp: 0,
+				startReason: 'test',
+			},
+			getRuntimeState: () => RuntimeState.Idle,
+		});
+	}
+
+	test('projects the fields an agent needs and flags only the foreground session', () => {
+		const sessions = [
+			makeSession('py-session-1', 'Python 3.12', 'py-abc'),
+			makeSession('py-session-2', 'Python 3.12 (2)', 'py-abc'),
+		];
+
+		const summaries = sessions.map(session => summarizeActiveSession(session, 'py-session-1'));
+
+		expect(summaries).toMatchInlineSnapshot(`
+			[
+			  {
+			    "foreground": true,
+			    "languageId": "python",
+			    "languageName": "Python",
+			    "runtimeId": "py-abc",
+			    "runtimeName": "Python 3.12 (System)",
+			    "sessionId": "py-session-1",
+			    "sessionMode": "console",
+			    "sessionName": "Python 3.12",
+			    "state": "idle",
+			  },
+			  {
+			    "foreground": false,
+			    "languageId": "python",
+			    "languageName": "Python",
+			    "runtimeId": "py-abc",
+			    "runtimeName": "Python 3.12 (System)",
+			    "sessionId": "py-session-2",
+			    "sessionMode": "console",
+			    "sessionName": "Python 3.12 (2)",
+			    "state": "idle",
+			  },
+			]
+		`);
 	});
 });
 
@@ -288,6 +342,24 @@ describe('selectNewLanguageRuntime', () => {
 				(item): item is IQuickPickItem => item.type !== 'separator'
 			);
 			expect(runtimeItems.every(item => item.neverShowWhenFiltered !== true)).toBe(true);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('searches interpreter paths as well as names', async () => {
+			await registerRuntime(makeRuntime({
+				runtimeId: 'py-opt',
+				runtimeName: 'Python 3.12',
+				runtimePath: '/opt/python/bin/python3',
+			}));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			const item = pick.items.find(
+				(item): item is IQuickPickItem => item.type !== 'separator' && item.id === 'py-opt'
+			);
+			expect(item?.detail).toBe('/opt/python/bin/python3');
+			expect(pick.matchOnDetail).toBe(true);
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});
@@ -640,8 +712,10 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	const changeNotebookSessionLabel = 'Change Notebook Session...';
 
 	let pickItems: QuickPickItem[] = [];
-	const pickFn = vi.fn(async (items: QuickPickItem[]): Promise<QuickPickItem | undefined> => {
+	let pickOptions: IPickOptions<QuickPickItem> | undefined;
+	const pickFn = vi.fn(async (items: QuickPickItem[], options?: IPickOptions<QuickPickItem>): Promise<QuickPickItem | undefined> => {
 		pickItems = items;
+		pickOptions = options;
 		return undefined; // user cancels by default; specific tests override
 	});
 	const executeCommand = vi.fn(async () => undefined);
@@ -702,6 +776,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	beforeEach(() => {
 		foregroundSession = undefined;
 		pickItems = [];
+		pickOptions = undefined;
 		// Default to the Positron Notebook Editor for tests
 		activeEditor = makeEditorInput(POSITRON_NOTEBOOK_EDITOR_INPUT_ID, URI.file('/path/to/notebook.ipynb'));
 	});
@@ -714,6 +789,11 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 	function hasChangeNotebookItem(): boolean {
 		return pickItems.some(item => item.label === changeNotebookSessionLabel);
 	}
+
+	it('searches session paths as well as names', async () => {
+		await openInterpreterPicker();
+		expect(pickOptions?.matchOnDetail).toBe(true);
+	});
 
 	it('shows the item when foreground is an .ipynb notebook session', async () => {
 		foregroundSession = makeNotebookSession(URI.file('/path/to/notebook.ipynb'));

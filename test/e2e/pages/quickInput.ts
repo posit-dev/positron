@@ -14,8 +14,9 @@ export class QuickInput {
 	private static QUICK_INPUT_RESULT = `${QuickInput.QUICK_INPUT} .quick-input-list .monaco-list-row`;
 	// Note: this only grabs the label and not the description or detail
 	static readonly QUICK_INPUT_ENTRY_LABEL = `${this.QUICK_INPUT_RESULT} .quick-input-list-row > .monaco-icon-label .label-name`;
-	private static QUICKINPUT_OK_BUTTON =
-		'.quick-input-widget .quick-input-action a:has-text(\'OK\')';
+	private static quickInputActionButton(label: string): string {
+		return `.quick-input-widget .quick-input-action a:has-text('${label}')`;
+	}
 	quickInputList: Locator;
 	quickInput: Locator;
 	quickInputTitleBar: Locator;
@@ -115,10 +116,16 @@ export class QuickInput {
 	 * languageRuntimeActions.ts) and lists only the interpreters found so far.
 	 * Selecting during this window races discovery: a version-string match can
 	 * land on a fast-discovered source (e.g. a uv base install) instead of the
-	 * intended interpreter. The placeholder is set synchronously before the
-	 * picker is shown, so this assertion cannot pass vacuously mid-discovery.
+	 * intended interpreter.
+	 *
+	 * Wait for this picker to be on screen before reading the placeholder: the
+	 * quick input widget is a singleton that an earlier picker (e.g. the reuse
+	 * scan's session quick pick) leaves hidden in the DOM carrying no
+	 * placeholder, so asserting the negative straight away passes against that
+	 * stale element while discovery is still running.
 	 */
 	async waitForInterpreterDiscoveryToComplete({ timeout = 30000 }: { timeout?: number } = {}): Promise<void> {
+		await this.waitForQuickInputOpened({ timeout });
 		await expect(
 			this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT),
 		).not.toHaveAttribute('placeholder', /Discovering interpreters/i, { timeout });
@@ -251,9 +258,9 @@ export class QuickInput {
 		await this.code.driver.currentPage.mouse.move(0, 0);
 	}
 
-	async clickOkButton(): Promise<void> {
+	async clickOkButton(label: string = 'OK'): Promise<void> {
 		await this.code.driver.currentPage
-			.locator(QuickInput.QUICKINPUT_OK_BUTTON)
+			.locator(QuickInput.quickInputActionButton(label))
 			.click();
 	}
 

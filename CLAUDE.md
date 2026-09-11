@@ -78,6 +78,8 @@ Positron has three test categories:
 
 **Don't create new `.test.ts` in `src/vs/` for Positron code** -- use Vitest. Core Mocha rows are for maintaining existing upstream tests.
 
+**Vitest also collects `extensions/**/*.vitest.{ts,tsx}`**, for plain modules that don't import `vscode`. Prefer it over an extension host test when the logic can be reached without the `vscode` API. Adding the first one to an extension means excluding it from that extension's build, or it ships inside the extension -- see [Tests inside `extensions/`](.claude/rules/vitest-tests.md#tests-inside-extensions).
+
 ### Running tests
 
 - **Vitest** (`*.vitest.ts` / `*.vitest.tsx`, **no build daemons needed**):

@@ -5,7 +5,7 @@
 
 import { ChildProcess, spawn } from 'child_process';
 import { app } from 'electron';
-import { existsSync, unlinkSync } from 'fs';
+import { unlinkSync, writeFileSync } from 'fs';
 import { mkdir, readFile, unlink } from 'fs/promises';
 import { release, tmpdir } from 'os';
 import { Delayer, ProcessTimeRunOnceScheduler, timeout } from '../../../base/common/async.js';
@@ -33,15 +33,11 @@ import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
 import { IApplicationStorageMainService } from '../../storage/electron-main/storageMainService.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
-// --- Start Positron ---
-// removed unused imports: AvailableForDownload, IUpdateURLOptions
 import { DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, UpdateErrorClassification } from './abstractUpdateService.js';
-// --- End Positron ---
-
+import { getRelaunchArguments } from './updateRelaunchArguments.js';
+import { getWin32UpdateType } from './win32UpdateType.js';
 // --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { writeFileSync } from 'fs';
 import { hasUpdate } from '../common/positronVersion.js';
 import { IStateService } from '../../state/node/state.js';
 import { ICodeWindow } from '../../window/electron-main/window.js';
@@ -57,12 +53,12 @@ interface IAvailableUpdate {
 	updateProcess?: ChildProcess;
 }
 
+const RELAUNCH_ARGUMENTS_FILE_PREFIX = 'relaunch-args-';
+
 let _updateType: UpdateType | undefined = undefined;
 function getUpdateType(): UpdateType {
 	if (typeof _updateType === 'undefined') {
-		_updateType = existsSync(path.join(path.dirname(process.execPath), 'unins000.exe'))
-			? UpdateType.Setup
-			: UpdateType.Archive;
+		_updateType = getWin32UpdateType();
 	}
 
 	return _updateType;
@@ -80,6 +76,14 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	private readonly readyMutexName: string;
 	private readonly updatingMutexName: string;
 	private readonly setupMutexName: string;
+
+	private get cachePathSync(): string {
+		// --- Start Positron ---
+		// Route through the Positron-specific cache path so the update installer and the
+		// relaunch-arguments file share one directory.
+		return this.cachePathValue;
+		// --- End Positron ---
+	}
 
 	@memoize
 	get cachePath(): Promise<string> {
@@ -583,7 +587,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	}
 
 	private async cleanup(exceptVersion: string | null = null): Promise<void> {
-		const filter = exceptVersion ? (one: string) => !(new RegExp(`${this.productService.quality}-${exceptVersion}\\.exe$`).test(one)) : () => true;
+		const relaunchArgumentsFileName = exceptVersion ? `${RELAUNCH_ARGUMENTS_FILE_PREFIX}${exceptVersion}` : undefined;
+		const filter = exceptVersion
+			? (one: string) => one !== relaunchArgumentsFileName && !(new RegExp(`${this.productService.quality}-${exceptVersion}\\.exe$`).test(one))
+			: () => true;
 
 		const cachePath = await this.cachePath;
 		const versions = await pfs.Promises.readdir(cachePath);
@@ -646,22 +653,29 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			// --- End Positron ---
 			await pfs.Promises.writeFile(this.availableUpdate.updateFilePath, 'flag');
 
+			const installerArgs = [
+				'/verysilent',
+				'/log',
+				`/update="${this.availableUpdate.updateFilePath}"`,
+				`/progress="${progressFilePath}"`,
+				`/sessionend="${sessionEndFlagPath}"`,
+				`/cancel="${cancelFilePath}"`,
+				'/nocloseapplications',
+				'/mergetasks=runcode,!desktopicon,!quicklaunchicon'
+			];
+
 			// --- Start Positron ---
 			// Pass the current install directory so Inno Setup does not fall back to
 			// the hardcoded default path when Positron was installed to a custom location.
-			const installDir = path.dirname(process.execPath);
+			installerArgs.push(`/DIR="${path.dirname(process.execPath)}"`);
+			// --- End Positron ---
+
+			// The restarting instance populates this file immediately before releasing the installer.
+			const relaunchArgsFilePath = this.getRelaunchArgumentsFilePath(cachePath, update.version);
+			installerArgs.push(`/relaunchargs="${relaunchArgsFilePath}"`);
+
 			const child = spawn(this.availableUpdate.packagePath,
-				[
-					'/verysilent',
-					'/log',
-					`/update="${this.availableUpdate.updateFilePath}"`,
-					`/progress="${progressFilePath}"`,
-					`/sessionend="${sessionEndFlagPath}"`,
-					`/cancel="${cancelFilePath}"`,
-					'/nocloseapplications',
-					'/mergetasks=runcode,!desktopicon,!quicklaunchicon',
-					`/DIR="${installDir}"`
-				],
+				installerArgs,
 				{
 					detached: true,
 					stdio: ['ignore', 'ignore', 'ignore'],
@@ -861,6 +875,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		this.logService.trace('update#quitAndInstall(): running raw#quitAndInstall()');
 
 		if (this.availableUpdate.updateFilePath) {
+			this.writeRelaunchArgumentsFile(this.cachePathSync, this.state.update.version);
 			try {
 				// --- Start Positron ---
 				// Normally already deleted by `prepareForQuitAndInstall()`. This remains the only
@@ -872,16 +887,56 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				// ignore
 			}
 		} else {
+			const installerArgs = ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'];
+
 			// --- Start Positron ---
 			// Pass the current install directory so Inno Setup does not fall back to
 			// the hardcoded default path when Positron was installed to a custom location.
-			spawn(this.availableUpdate.packagePath, ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon', `/DIR="${path.dirname(process.execPath)}"`], {
+			installerArgs.push(`/DIR="${path.dirname(process.execPath)}"`);
+			// --- End Positron ---
+
+			// Preserve session defining arguments (e.g. --extensions-dir) across the installer relaunch (see #322663).
+			const relaunchArgsFilePath = this.writeRelaunchArgumentsFile(this.cachePathSync, this.state.update.version);
+			if (relaunchArgsFilePath) {
+				installerArgs.push(`/relaunchargs="${relaunchArgsFilePath}"`);
+			}
+
+			spawn(this.availableUpdate.packagePath, installerArgs, {
 				detached: true,
 				stdio: ['ignore', 'ignore', 'ignore'],
 				windowsVerbatimArguments: true,
 				env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' }
 			});
-			// --- End Positron ---
+		}
+	}
+
+	private getRelaunchArgumentsFilePath(cachePath: string, version: string): string {
+		return path.join(cachePath, `${RELAUNCH_ARGUMENTS_FILE_PREFIX}${version}`);
+	}
+
+	/**
+	 * Writes the arguments from {@link getRelaunchArguments} to a file in the update cache and returns its path (or
+	 * `undefined` when there is nothing to carry forward). The installer reads it and passes the arguments to `Code.exe`.
+	 */
+	private writeRelaunchArgumentsFile(cachePath: string, version: string): string | undefined {
+		const relaunchArguments = getRelaunchArguments(this.environmentMainService.args, process.argv);
+		const relaunchArgsFilePath = this.getRelaunchArgumentsFilePath(cachePath, version);
+
+		if (!relaunchArguments) {
+			try {
+				unlinkSync(relaunchArgsFilePath); // remove any stale file from a previous relaunch
+			} catch {
+				// ignore
+			}
+			return undefined;
+		}
+
+		try {
+			writeFileSync(relaunchArgsFilePath, relaunchArguments);
+			return relaunchArgsFilePath;
+		} catch (err) {
+			this.logService.error('update#writeRelaunchArgumentsFile: failed to write relaunch arguments', err);
+			return undefined;
 		}
 	}
 

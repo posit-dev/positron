@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -44,12 +44,13 @@ export const POSITRON_DATA_EXPLORER_IS_XLSX = new RawContextKey<boolean>(
 	'positronDataExplorerIsXlsx',
 	false
 );
+/**
+ * Context key for whether the backend can convert the current view to code: it reports the feature
+ * as supported and offers at least one code syntax. Both halves come from the same backend state
+ * and no backend reports one without the other, so this is a single key rather than two.
+ */
 export const POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED = new RawContextKey<boolean>(
 	'positronDataExplorerIsConvertToCodeEnabled',
-	false
-);
-export const POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE = new RawContextKey<boolean>(
-	'positronDataExplorerCodeSyntaxesAvailable',
 	false
 );
 export const POSITRON_DATA_EXPLORER_IS_ROW_FILTERING = new RawContextKey<boolean>(
@@ -64,4 +65,15 @@ export const POSITRON_DATA_EXPLORER_IS_ROW_FILTERING = new RawContextKey<boolean
 export const POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW = new RawContextKey<boolean>(
 	'positronDataExplorerFileHasHeaderRow',
 	true
+);
+
+/**
+ * Context key for whether the Data Explorer is backed by a file on disk (the DuckDB extension
+ * backend) rather than a kernel object. The real test is the duckdb: client-id prefix, read from
+ * the instance's isFileBacked; the filename-based IS_PLAINTEXT key is only a proxy and misses
+ * Parquet. Import Data shows on file-backed explorers; Convert to Code shows on the rest.
+ */
+export const POSITRON_DATA_EXPLORER_IS_FILE_BACKED = new RawContextKey<boolean>(
+	'positronDataExplorerIsFileBacked',
+	false
 );

@@ -9,13 +9,13 @@ import { log } from './log';
 import { ProviderCatalogOptions, saveProviderEnabled } from './providerCatalog';
 
 /**
- * On PWB, Posit AI defaults to disabled so admins control AI access.
+ * On PWB, Posit AI Pass defaults to disabled so admins control AI access.
  * Applied once on first activation; skipped afterwards so user or admin choices
  * are never overwritten.
  *
  * Since package.json doesn't support conditional defaults, we use globalState
  * to track whether we've applied the PWB default. This ensures:
- * - First run on PWB: Posit AI is disabled (unless already configured)
+ * - First run on PWB: Posit AI Pass is disabled (unless already configured)
  * - Admin configures via policy: their choice is respected because we can't overwrite admin policies
  * - User changes the setting: their choice is preserved
  * - Subsequent runs: we don't overwrite existing choices
@@ -39,7 +39,7 @@ export async function applyPwbPositAIDefault(
 	try {
 		await saveProviderEnabled('positai', false, /* onlyIfUnset */ true, options);
 	} catch (error) {
-		log.warn(`Failed to write the Posit AI PWB default: ${error}`);
+		log.warn(`Failed to write the Posit AI Pass PWB default: ${error}`);
 	}
 
 	await context.globalState.update(pwbDefaultAppliedKey, true);

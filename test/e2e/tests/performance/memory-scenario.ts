@@ -3,12 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { expect, tags, test } from '../_test.setup';
 import { Application, Sessions } from '../../infra';
 import { readActivatedExtensions } from '../../utils/memory/extensions.js';
 import { collectAllGarbage, gcTargetsFor, malformedForcedGc } from '../../utils/memory/gc.js';
+import { attributeHeap } from '../../utils/memory/heap-attribute.js';
+import { readHeapSnapshot } from '../../utils/memory/heap-read.js';
+import { captureExtensionHostHeap, HEAP_CAPTURE_BUDGET_MS, HeapCaptureSidecar, heapSidecarPath, heapSnapshotPath } from '../../utils/memory/heap-capture.js';
 import { namedShareGateApplies } from '../../utils/memory/label.js';
 import { MemoryLane } from '../../utils/memory/lanes.js';
 import { containerImageFromEnv, fetchBaseline, publishingEnabled, publishSnapshots, publishTargetIsProduction } from '../../utils/memory/publish.js';
@@ -92,8 +95,10 @@ export function defineMemoryScenario(options: {
 			// Derived rather than a round number, because the default 2 minutes is
 			// now too short: a run that waits out both caps would time out before it
 			// could report which one it hit, turning a diagnosable result into a
-			// bare timeout.
-			test.setTimeout(SETTLE_CAP_MS + SAMPLING_CAP_MS + MEASURE_OVERHEAD_MS);
+			// bare timeout. HEAP_CAPTURE_BUDGET_MS must be in this sum too, or
+			// Playwright would time out the test before the CDP heap capture
+			// timeout could fire and fail that step alone.
+			test.setTimeout(SETTLE_CAP_MS + SAMPLING_CAP_MS + HEAP_CAPTURE_BUDGET_MS + MEASURE_OVERHEAD_MS);
 
 			// Only test-memory-metrics.yml collects these specs, and it always sets
 			// BUILD. A missing one means the workflow is broken, not that the spec
@@ -135,6 +140,24 @@ export function defineMemoryScenario(options: {
 				extensions,
 				forceGc: () => collectAllGarbage(gcTargetsFor(lane))
 			});
+
+			// After captureSnapshot, never before: the forced GC has already run by
+			// then, so this is the post-collection heap rather than one carrying the
+			// startup garbage that made pre-GC figures swing. Capture only, about 5
+			// seconds; the parse needs several GB and happens in the render step.
+			const capture = await captureExtensionHostHeap({
+				dir: SNAPSHOT_DIR,
+				launchIndex: snapshot.launchIndex,
+				extensionRoots: [join(buildRoot!, 'resources', 'app', 'extensions'), app.extensionsPath]
+			});
+			// Prefer the pid the inspector reported about itself; fall back to the
+			// labeled tree when it was never reachable, so a failed capture is still
+			// attributable to a process.
+			snapshot.extensionHeapPid = capture.pid
+				?? snapshot.processes.find(p => p.processRole === 'extension_host')?.pid;
+			if (!capture.captured) {
+				snapshot.extensionHeapStatus = 'capture_failed';
+			}
 
 			expect(snapshot.processes.length, 'no processes found in the tree').toBeGreaterThan(3);
 			expect(snapshot.treeTotalPssBytes, 'total PSS was zero; smaps_rollup is probably unreadable').toBeGreaterThan(0);
@@ -267,6 +290,52 @@ export function defineMemoryScenario(options: {
 			// A mixed set would render one heading over two app states.
 			const scenarios = [...new Set(snapshots.map(s => s.scenario))];
 			expect(scenarios, `snapshots span more than one scenario: ${scenarios.join(', ')}`).toEqual([scenario]);
+
+			// Parsed here rather than at capture: a 354 MB snapshot needs several GB
+			// to parse, which must not run while Positron is being sampled, and this
+			// runs once per scenario instead of once per launch. Same job as the
+			// launches, so RUNNER_TEMP still holds the files.
+			for (const snapshot of snapshots) {
+				const heapPath = heapSnapshotPath(SNAPSHOT_DIR, snapshot.launchIndex);
+				const sidecarPath = heapSidecarPath(SNAPSHOT_DIR, snapshot.launchIndex);
+				if (!existsSync(heapPath) || !existsSync(sidecarPath)) {
+					// A kill between the snapshot and its sidecar leaves a 354 MB orphan
+					// that nothing else deletes. No-op in the ordinary never-captured case.
+					rmSync(heapPath, { force: true });
+					rmSync(sidecarPath, { force: true });
+					// The measure step already recorded why; leave its status alone.
+					continue;
+				}
+				try {
+					const sidecar: HeapCaptureSidecar = JSON.parse(readFileSync(sidecarPath, 'utf8'));
+					const heap = readHeapSnapshot(heapPath);
+					const result = attributeHeap({ snapshot: heap, scriptUrls: sidecar.scriptUrls, extensionIds: sidecar.extensionIds });
+					if (result.ok) {
+						snapshot.extensionHeap = result.breakdown;
+						snapshot.extensionHeapStatus = 'ok';
+					} else {
+						snapshot.extensionHeapStatus = result.kind;
+						console.log(`[memory] launch ${snapshot.launchIndex}: no per-extension breakdown, ${result.reason}`);
+					}
+				} catch (error) {
+					// Covers both a truncated snapshot file and a JSON parse that ran
+					// out of heap, which are indistinguishable from here.
+					snapshot.extensionHeapStatus = 'parse_failed';
+					console.log(`[memory] launch ${snapshot.launchIndex}: could not parse the heap snapshot: ${error}`);
+				} finally {
+					// Never uploaded: 354 MB per launch is not worth retaining when the
+					// derived rows are a few hundred bytes.
+					rmSync(heapPath, { force: true });
+					rmSync(sidecarPath, { force: true });
+				}
+			}
+
+			// The enrichment above is otherwise in-memory only, and these files are
+			// both the uploaded artifact and summarize-cli's input: without this the
+			// summary job cannot see the breakdown at all, and a downloaded artifact
+			// reads as though attribution never ran while the HTML beside it shows
+			// the table.
+			snapshots.forEach((snapshot, i) => writeFileSync(paths[i], JSON.stringify(snapshot)));
 
 			const baseline = await fetchBaseline(scenario, lane);
 			const markdown = renderMarkdown(snapshots, baseline);

@@ -272,7 +272,6 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 					{ 'has-content': customPrompt.trim().length > 0 }
 				)}>
 					<textarea
-						autoFocus
 						className='assistant-panel-prompt-input'
 						placeholder={localize('assistantPanel.prompt.placeholder', 'Or enter a custom prompt')}
 						rows={1}

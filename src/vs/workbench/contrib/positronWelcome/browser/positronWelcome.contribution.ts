@@ -17,11 +17,24 @@ import { PositronImportSettings, ResetPositronImportPrompt } from './actions.js'
 import { getCodeSettingsPathNative, getCodeSettingsPathWeb, getImportWasPrompted, promptImport } from './helpers.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize } from '../../../../nls.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IConfigurationService, isConfigured } from '../../../../platform/configuration/common/configuration.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { isWeb } from '../../../../base/common/platform.js';
+import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
 
-export const POSITRON_SETTINGS_IMPORT_ENABLE_KEY = 'positron.importSettings.enable';
+export const WORKBENCH_SETTINGS_IMPORT_FROM_VSCODE_ENABLED_KEY = 'workbench.settings.importFromVSCode.enabled';
+const DEPRECATED_POSITRON_SETTINGS_IMPORT_ENABLE_KEY = 'positron.importSettings.enable';
+
+export function getImportSettingsEnabled(configurationService: IConfigurationService): boolean {
+	for (const key of [WORKBENCH_SETTINGS_IMPORT_FROM_VSCODE_ENABLED_KEY, DEPRECATED_POSITRON_SETTINGS_IMPORT_ENABLE_KEY]) {
+		if (isConfigured(configurationService.inspect(key))) {
+			return configurationService.getValue<boolean>(key) ?? true;
+		}
+	}
+
+	return configurationService.getValue<boolean>(WORKBENCH_SETTINGS_IMPORT_FROM_VSCODE_ENABLED_KEY) ?? true;
+}
+
 class PositronWelcomeContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -35,7 +48,7 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 	) {
 		super();
 
-		const enabledGlobally = this.configurationService.getValue<boolean>(POSITRON_SETTINGS_IMPORT_ENABLE_KEY);
+		const enabledGlobally = getImportSettingsEnabled(this.configurationService);
 
 		if (!enabledGlobally) {
 			return;
@@ -76,11 +89,19 @@ registerWorkbenchContribution2('positron.welcome', PositronWelcomeContribution, 
 // Register the configuration setting
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 	.registerConfiguration({
+		...workbenchConfigurationNodeBase,
 		properties: {
-			[POSITRON_SETTINGS_IMPORT_ENABLE_KEY]: {
+			[WORKBENCH_SETTINGS_IMPORT_FROM_VSCODE_ENABLED_KEY]: {
 				type: 'boolean',
 				default: true,
-				description: localize('positron.importSettings.enable', "Should Positron allow users to import settings from Visual Studio Code. Requires a restart to take effect."),
+				description: localize('workbench.settings.importFromVSCode.enabled', "Controls whether Positron offers to import settings from Visual Studio Code. Requires a restart to take effect."),
+				scope: ConfigurationScope.MACHINE_OVERRIDABLE
+			},
+			[DEPRECATED_POSITRON_SETTINGS_IMPORT_ENABLE_KEY]: {
+				type: 'boolean',
+				default: true,
+				markdownDeprecationMessage: localize('positron.importSettings.enable.deprecated', "Deprecated. Use `#workbench.settings.importFromVSCode.enabled#` instead."),
+				included: false,
 				doNotSuggest: true,
 				scope: ConfigurationScope.MACHINE_OVERRIDABLE
 			}

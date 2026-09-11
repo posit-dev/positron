@@ -77,6 +77,21 @@ describe('PositronDocsTriggers: ai.enabled gating', () => {
 		expect(ctx.logger.infos.join('\n')).toContain('ai.enabled is off; not serving local docs');
 	});
 
+	it('returns undefined from getLocalDocsCache without peeking when ai.enabled is false', async () => {
+		const ctx = setup({ aiEnabled: false, peeked: DOCS });
+		expect(await ctx.triggers.getLocalDocsCache()).toBeUndefined();
+		expect(ctx.peek).not.toHaveBeenCalled();
+		expect(ctx.ensure).not.toHaveBeenCalled();
+		expect(ctx.logger.infos.join('\n')).toContain('ai.enabled is off; not serving local docs');
+	});
+
+	it('serves the cached bundle from getLocalDocsCache without ever downloading', async () => {
+		const ctx = setup({ peeked: DOCS });
+		expect(await ctx.triggers.getLocalDocsCache()).toEqual(DOCS);
+		expect(ctx.peek).toHaveBeenCalledTimes(1);
+		expect(ctx.ensure).not.toHaveBeenCalled();
+	});
+
 	it('fetches on launch when ai.enabled is true', async () => {
 		const ctx = setup();
 		const running = ctx.triggers.runBackgroundFetch();
