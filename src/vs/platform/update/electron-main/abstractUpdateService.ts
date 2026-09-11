@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
-import { CancelablePromise, IntervalTimer, Throttler, timeout } from '../../../base/common/async.js';
+import { CancelablePromise, createCancelablePromise, IntervalTimer, Throttler, timeout } from '../../../base/common/async.js';
 import { CancellationToken, CancellationTokenSource } from '../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../base/common/errors.js';
 import { Emitter, Event } from '../../../base/common/event.js';
@@ -45,6 +45,9 @@ import { buildReleaseNotesUrl, buildUpdateUrl, mergeActiveLanguageRecord, parseA
 export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
 	return `${productService.updateUrl}/${channel}/${platform}`;
 }
+
+/** How long each simulated download state is held during dev update testing. */
+const DEV_STAGING_STATE_DURATION = 3000;
 //--- End Positron ---
 
 /**
@@ -122,6 +125,8 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	private static readonly TELEMETRY_ID_KEY = 'telemetry.anonymousId';
 	private static readonly ACTIVE_LANGUAGES_KEY = 'update.activeLanguages';
 	private static readonly ACTIVE_LANGUAGES_MAX_AGE_DAYS = 7;
+	/** The in-flight simulated download, if any; see `simulateStagedUpdate`. */
+	private readonly devStagingSimulation = this._register(new MutableDisposable<IDisposable>());
 	// --- End Positron ---
 
 	private _state: IInternalUpdateState = { state: State.Uninitialized, deferred: false };
@@ -405,6 +410,49 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	 */
 	protected get overwriteCheckIntervalMs(): number {
 		return this.devUpdateTesting ? 30 * 1000 : 5 * 60 * 1000;
+	}
+
+	/**
+	 * Reads the current state type behind a call, so that checking it in one place does not narrow
+	 * `this.state` for the checks that follow.
+	 */
+	private isCurrentState(type: StateType): boolean {
+		return this.state.type === type;
+	}
+
+	/**
+	 * Stands in for the platform's download pipeline, which a source build cannot use: macOS is
+	 * unsigned so Electron's auto-updater refuses it, and Windows has no Inno install to hand an
+	 * installer to. Walks the same states a real download does so the pending-update UI and the
+	 * `Ready` -> `Overwriting` -> `Ready` flow can be exercised by hand; nothing is downloaded and
+	 * a restart will not install anything.
+	 *
+	 * The states are held for a few seconds each, because a real download is not instant and a
+	 * flow that jumps straight to `Ready` never renders the states a tester needs to look at.
+	 */
+	protected simulateStagedUpdate(update: IUpdate, explicit: boolean): void {
+		this.logService.info('update#simulateStagedUpdate - dev update testing, staging update without downloading it', update.version);
+		this.setState(State.Downloading(update, explicit, this._overwrite));
+
+		const promise = createCancelablePromise(async token => {
+			await timeout(DEV_STAGING_STATE_DURATION, token);
+			// Anything that moved the state on in the meantime (a cancel, or updates being
+			// disabled) wins; do not drag it back to a staged update.
+			if (!this.isCurrentState(StateType.Downloading)) {
+				return;
+			}
+			this.setState(State.Downloaded(update, explicit, this._overwrite));
+
+			await timeout(DEV_STAGING_STATE_DURATION, token);
+			if (!this.isCurrentState(StateType.Downloaded)) {
+				return;
+			}
+			this.setState(State.Ready(update, explicit, this._overwrite));
+		});
+
+		// Cancels a simulation still in flight, so a second check cannot race the first to Ready.
+		this.devStagingSimulation.value = toDisposable(() => promise.cancel());
+		promise.catch(() => { /* cancelled, or the service went away */ });
 	}
 	// --- End Positron ---
 

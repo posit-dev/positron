@@ -144,7 +144,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			return false; // we cannot apply an update and restart with different args
 		}
 
-		if (this.state.type !== StateType.Ready || !this.availableUpdate) {
+		// --- Start Positron ---
+		// Dev update testing never downloads an installer, so `availableUpdate` is unset; still
+		// handle the relaunch, so `doQuitAndInstall()` can log which version it would have used.
+		// if (this.state.type !== StateType.Ready || !this.availableUpdate) {
+		if (this.state.type !== StateType.Ready || (!this.availableUpdate && !this.devUpdateTesting)) {
+			// --- End Positron ---
 			return false; // we only handle the relaunch when we have a pending update
 		}
 
@@ -339,7 +344,13 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		const headers = getUpdateRequestHeaders(this.productService.version);
 		const promise = this.requestService.request({ url, headers, callSite: 'updateService.win32.checkForUpdates' }, token)
-			.then<IUpdate | null>(asJson)
+			// --- Start Positron ---
+			// .then<IUpdate | null>(asJson)
+			.then<IUpdate | null>(async context => {
+				const update = await asJson<IUpdate>(context);
+				return update && this.withProductVersion(update);
+			})
+			// --- End Positron ---
 			.then(update => {
 				const updateType = getUpdateType();
 
@@ -347,7 +358,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 					return Promise.resolve(null);
 				}
 
-				if (!update || !update.url || !update.version || !update.productVersion) {
+				// --- Start Positron ---
+				// Positron's feed has no `productVersion`; `version` is the calver.
+				// if (!update || !update.url || !update.version || !update.productVersion) {
+				if (!update || !update.url || !update.version) {
+					// --- End Positron ---
 					// If we were checking for an overwrite update and found nothing newer,
 					// restore the Ready state with the pending update
 					if (this.state.type === StateType.Overwriting) {
@@ -370,6 +385,17 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				// instead of downloading the same installer again.
 				if (this.state.type === StateType.Overwriting && pendingCommit && !hasUpdate(update, pendingCommit)) {
 					return this.restorePendingUpdate(this.state.update, this.state.explicit).then(() => null);
+				}
+				// --- End Positron ---
+
+				// --- Start Positron ---
+				// A source build has no Inno install to hand an installer to, so walk the simulated
+				// download instead. This also has to come before the `UpdateType.Archive` branch
+				// below, which a source build always lands in for want of `unins000.exe` and which
+				// would abandon the overwrite flow at `AvailableForDownload`.
+				if (this.devUpdateTesting) {
+					this.simulateStagedUpdate(update, explicit);
+					return Promise.resolve(null);
 				}
 				// --- End Positron ---
 
@@ -499,7 +525,9 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	// --- Start Positron ---
 	protected override updateAvailable(update: IUpdate): void {
 		// Notify about updates for now. Do not download or install them.
-		if (!this.enableAutoUpdate) {
+		// Dev update testing simulates the staging, so it runs whether or not auto-update is on:
+		// there is nothing for a download page to install from a source build either.
+		if (!this.enableAutoUpdate && !this.devUpdateTesting) {
 			this.setState(State.AvailableForDownload(update));
 			return;
 		}
@@ -552,8 +580,25 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		}
 	}
 
+	/**
+	 * Positron's feed carries no `productVersion`, but the update notification and the release
+	 * notes link both bail without one, so fill it in from the calver the feed does carry.
+	 */
+	private withProductVersion(update: IUpdate): IUpdate {
+		return update.productVersion ? update : { ...update, productVersion: update.version };
+	}
+
 	/** Downloads the installer for `update` into the cache and lands in `Ready` (or applies it in the background). */
 	private stageUpdate(update: IUpdate): void {
+		update = this.withProductVersion(update);
+
+		// A source build cannot install what it downloads, and a mock feed's `url` points at
+		// nothing, so walk the simulated download instead.
+		if (this.devUpdateTesting) {
+			this.simulateStagedUpdate(update, false);
+			return;
+		}
+
 		// TODO: Code for installing updates is disabled due to this.enableAutoUpdate being false
 		this.setState(State.Downloading(update, false, false));
 
@@ -602,6 +647,13 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	 */
 	private async restorePendingUpdate(update: IUpdate, explicit: boolean): Promise<void> {
 		this._overwrite = false;
+
+		// Dev update testing downloaded nothing, so there is no installer to re-stage and no flag
+		// file to rewrite; the simulated pending update is whole as soon as `Ready` is back.
+		if (this.devUpdateTesting) {
+			this.setState(State.Ready(update, explicit, false));
+			return;
+		}
 
 		try {
 			const packagePath = await this.getUpdatePackagePath(update.version);
@@ -918,6 +970,18 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	// --- End Positron ---
 
 	protected override doQuitAndInstall(): void {
+		// --- Start Positron ---
+		// A source build has nothing staged, so there is no installer to spawn. Log the version the
+		// real install would have used instead: this is the evidence that a restart installs
+		// whatever was latest at restart time, not the version that was pending when the update was
+		// first found.
+		if (this.devUpdateTesting) {
+			const update = (this.state.type === StateType.Ready || this.state.type === StateType.Restarting) ? this.state.update : undefined;
+			this.logService.info('update#doQuitAndInstall - dev update testing, would install', update?.productVersion, update?.version);
+			return;
+		}
+		// --- End Positron ---
+
 		if ((this.state.type !== StateType.Ready && this.state.type !== StateType.Restarting) || !this.availableUpdate) {
 			return;
 		}

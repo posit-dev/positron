@@ -4,12 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as electron from 'electron';
-import { createCancelablePromise, timeout } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { memoize } from '../../../base/common/decorators.js';
 import { Event } from '../../../base/common/event.js';
 import { hash } from '../../../base/common/hash.js';
-import { IDisposable, MutableDisposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../configuration/common/configuration.js';
 import { IEnvironmentMainService } from '../../environment/electron-main/environmentMainService.js';
 import { ILifecycleMainService, IRelaunchHandler, IRelaunchOptions } from '../../lifecycle/electron-main/lifecycleMainService.js';
@@ -32,16 +30,9 @@ import { IStateService } from '../../state/node/state.js';
 import { arch } from 'os';
 // --- End Positron ---
 
-// --- Start Positron ---
-/** How long each simulated download state is held during dev update testing. */
-const DEV_STAGING_STATE_DURATION = 3000;
-// --- End Positron ---
-
 export class DarwinUpdateService extends AbstractUpdateService implements IRelaunchHandler {
 
 	// --- Start Positron ---
-	/** The in-flight simulated download, if any; see `simulateStagedUpdate`. */
-	private readonly devStagingSimulation = this._register(new MutableDisposable<IDisposable>());
 	/**
 	 * The feed document that led to the download Electron is running, so `onUpdateDownloaded`
 	 * can fill in what Electron's event leaves out. Electron reports the feed's `notes` as
@@ -288,48 +279,6 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		}
 
 		this.restorePendingUpdate(pendingUpdate, explicit);
-	}
-
-	/**
-	 * Stands in for Electron's download pipeline, which a source build cannot use because it is
-	 * unsigned. Walks the same states a real download does so the pending-update UI and the
-	 * `Ready` -> `Overwriting` -> `Ready` flow can be exercised by hand; nothing is downloaded and
-	 * a restart will not install anything.
-	 *
-	 * The states are held for a few seconds each, because a real download is not instant and a
-	 * flow that jumps straight to `Ready` never renders the states a tester needs to look at.
-	 */
-	/**
-	 * Reads the current state type behind a call, so that checking it in one place does not narrow
-	 * `this.state` for the checks that follow.
-	 */
-	private isCurrentState(type: StateType): boolean {
-		return this.state.type === type;
-	}
-
-	private simulateStagedUpdate(update: IUpdate, explicit: boolean): void {
-		this.logService.info('update#simulateStagedUpdate - dev update testing, staging update without downloading it', update.version);
-		this.setState(State.Downloading(update, explicit, this._overwrite));
-
-		const promise = createCancelablePromise(async token => {
-			await timeout(DEV_STAGING_STATE_DURATION, token);
-			// Anything that moved the state on in the meantime (a cancel, or updates being
-			// disabled) wins; do not drag it back to a staged update.
-			if (!this.isCurrentState(StateType.Downloading)) {
-				return;
-			}
-			this.setState(State.Downloaded(update, explicit, this._overwrite));
-
-			await timeout(DEV_STAGING_STATE_DURATION, token);
-			if (!this.isCurrentState(StateType.Downloaded)) {
-				return;
-			}
-			this.setState(State.Ready(update, explicit, this._overwrite));
-		});
-
-		// Cancels a simulation still in flight, so a second check cannot race the first to Ready.
-		this.devStagingSimulation.value = toDisposable(() => promise.cancel());
-		promise.catch(() => { /* cancelled, or the service went away */ });
 	}
 
 	/**

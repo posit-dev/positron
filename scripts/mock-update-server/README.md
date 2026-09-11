@@ -127,15 +127,17 @@ the simulated download, so it also works against this mock server:
 npm run mock-update-server -- --port 9000 --version 2026.09.0-1   # the "older" build
 ```
 
-then enter `http://localhost:9000/positron/releases/mac/arm64/releases.json`.
-On Windows the download is real even from a source build, so use a hosted
-installer's feed rather than the mock server, whose `url` points at nothing.
+then enter `http://localhost:9000/positron/releases/mac/arm64/releases.json`, or
+on Windows `http://localhost:9000/positron/releases/win/x86_64/undefined-releases.json`
+(`undefined` is `product.json`'s `target`, which a source build leaves unset).
 
 ## Limits
 
-A source build is unsigned, so Electron's auto-updater cannot be used at all.
-Under `devUpdateTesting` the darwin service simulates the download instead
-(`simulateStagedUpdate`), holding each state for a few seconds so the UI is
+A source build cannot install what a feed advertises: on macOS it is unsigned, so
+Electron's auto-updater refuses it outright, and on Windows there is no Inno
+install for the downloaded installer to swap into. Under `devUpdateTesting` both
+services simulate the download instead (`simulateStagedUpdate`, shared on
+`AbstractUpdateService`), holding each state for a few seconds so the UI is
 observable, and `doQuitAndInstall` logs rather than installing. So this exercises
 which version the service *selects* and hands over -- not the install itself,
 which needs a real signed build.
