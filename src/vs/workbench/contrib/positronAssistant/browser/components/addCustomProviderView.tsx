@@ -211,7 +211,8 @@ export const AddCustomProviderView = (props: AddCustomProviderViewProps) => {
 
 					{errorMessage && <ProviderErrorBanner message={errorMessage} />}
 					<div style={{ flexGrow: 1 }}>&nbsp;</div>
-					{builtInSource && <ProviderNotice source={builtInSource} />}
+					{/* Built from kind, not builtInSource: the "OpenAI Compatible" built-in isn't always registered. */}
+					<ProviderNotice provider={{ id: kind, displayName: CUSTOM_PROVIDER_KINDS[kind].label, customKind: kind }} />
 				</div>
 			}
 			footer={
