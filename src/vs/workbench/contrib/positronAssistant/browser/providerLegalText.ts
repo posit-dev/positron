@@ -76,6 +76,29 @@ export function getProviderGettingStartedText(provider: IProvider): string | und
 	}
 }
 
+/**
+ * A one-line third-party notice shown for every provider except Posit AI,
+ * which gets its own marketing copy from {@link getProviderGettingStartedText}
+ * instead. A custom entry gets generic wording, since its kind (e.g.
+ * 'anthropic') names the wire protocol, not who operates the endpoint.
+ */
+export function getProviderThirdPartyServiceText(provider: IProvider): string | undefined {
+	if (provider.id === 'posit-ai') {
+		return undefined;
+	}
+	if (isCustomProvider(provider)) {
+		return localize(
+			'positron.languageModelConfig.custom.thirdPartyService',
+			'This is a custom provider connecting to an endpoint you configured, and your use of it is governed by that provider\'s terms of service.',
+		);
+	}
+	return localize(
+		'positron.languageModelConfig.thirdPartyService',
+		'{0} is a third-party service and your use of {0} is governed by {0}\'s terms of service.',
+		provider.displayName,
+	);
+}
+
 export function getProviderUsageDisclaimerText(provider: IProvider) {
 	if (isCustomProvider(provider)) {
 		return localize(
