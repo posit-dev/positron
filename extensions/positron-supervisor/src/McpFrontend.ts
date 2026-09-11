@@ -123,6 +123,8 @@ export class McpFrontend implements vscode.Disposable {
 	 * @param _log Writes a line to the Kernel Supervisor output channel.
 	 * @param _loadState Reads the state left by a previous registration.
 	 * @param _saveState Persists the state, or clears it when undefined.
+	 * @param _sessionIds The sessions this window holds. With the sessions it
+	 *  created, these are the only ones agents attached to it may reach.
 	 * @param _enabled Whether the feature is turned on. Read on every sync
 	 *  rather than cached, since both switches apply without a reload and
 	 *  `ai.enabled` can be enforced by a Workbench administrator at any time.
@@ -134,6 +136,7 @@ export class McpFrontend implements vscode.Disposable {
 		private readonly _log: (message: string) => void,
 		private readonly _loadState: () => McpFrontendState,
 		private readonly _saveState: (state: McpFrontendState) => Promise<void>,
+		private readonly _sessionIds: () => string[],
 		private readonly _enabled: () => boolean = mcpFeatureEnabled,
 		private readonly _onRegistered: () => void = () => { },
 	) {
@@ -205,6 +208,19 @@ export class McpFrontend implements vscode.Disposable {
 			"MCP: 127.0.0.1:{0} • {1} agent requests",
 			status.port,
 			status.request_count);
+	}
+
+	/**
+	 * Tell the supervisor which sessions this window holds, so agents attached
+	 * to it reach those and no others.
+	 *
+	 * Sessions this window starts name it as they are created, so this is what
+	 * covers the rest: sessions that were already running when the user turned
+	 * MCP on. Does nothing when the channel is closed; the supervisor keeps the
+	 * last set it was told, and we send a fresh one as soon as we reconnect.
+	 */
+	public notifySessionsChanged(): void {
+		this._channel?.sessionsChanged();
 	}
 
 	/**
@@ -309,7 +325,8 @@ export class McpFrontend implements vscode.Disposable {
 			return;
 		}
 		const target = this._channelTarget(frontendId);
-		this._channel = new McpFrontendChannel(target.uri, target.headers, this._log);
+		this._channel = new McpFrontendChannel(
+			target.uri, target.headers, this._log, this._sessionIds);
 	}
 
 	/** Close the channel, leaving the registration itself in place. */

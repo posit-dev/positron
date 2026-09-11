@@ -330,6 +330,7 @@ export class KCApi implements PositronSupervisorApi {
 			message => this.log(message),
 			() => this.loadMcpState(),
 			state => this.saveMcpState(state),
+			() => this._sessions.map(session => session.metadata.sessionId),
 			mcpFeatureEnabled,
 			() => autoConfigureClaudeCode(_context, message => this.log(message)));
 		this._disposables.push(this._mcp);
@@ -1455,7 +1456,7 @@ export class KCApi implements PositronSupervisorApi {
 		let retried = false;
 		while (true) {
 			try {
-				await session.create(kernel);
+				await session.create(kernel, this._mcp.connection?.frontendId);
 				break;
 			} catch (err) {
 				// A refused connection (the server may have exited) or a 401
@@ -1501,6 +1502,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Save the session now that it has been created on the server
 		this.addDisconnectHandler(session);
 		this._sessions.push(session);
+		this._mcp.notifySessionsChanged();
 
 		return session;
 	}
@@ -1780,6 +1782,7 @@ export class KCApi implements PositronSupervisorApi {
 				// Save the session
 				this.addDisconnectHandler(session);
 				this._sessions.push(session);
+				this._mcp.notifySessionsChanged();
 				resolve(session);
 			}).catch((err) => {
 				if (isAxiosError(err)) {

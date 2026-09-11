@@ -54,7 +54,13 @@ class FakeRegistry implements McpRegistrationApi {
 		}
 		const port = registration.preferred_port || this._port;
 		return {
-			data: { frontend_id: frontendId, token, port, url: `http://127.0.0.1:${port}/mcp` }
+			// Each frontend gets an endpoint of its own, as `kcserver` issues.
+			data: {
+				frontend_id: frontendId,
+				token,
+				port,
+				url: `http://127.0.0.1:${port}/mcp/w/${frontendId}`,
+			}
 		};
 	}
 
@@ -93,6 +99,7 @@ function createHarness(saved: McpFrontendState = {}, enabled = true): Harness {
 			() => { },
 			() => harness.saved,
 			async state => { harness.saved = state; },
+			() => [],
 			() => enabled,
 			() => { harness.registrations++; }),
 	};
@@ -121,11 +128,11 @@ suite('McpFrontend', () => {
 					frontendId: 'frontend-1',
 					port: 39000,
 					token: 'token-frontend-1',
-					url: 'http://127.0.0.1:39000/mcp',
+					url: 'http://127.0.0.1:39000/mcp/w/frontend-1',
 				},
 				saved: { frontendId: 'frontend-1', port: 39000 },
 				variables: {
-					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp',
+					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/frontend-1',
 					[MCP_TOKEN_ENV_VAR]: 'token-frontend-1',
 				},
 				hasDescription: true,

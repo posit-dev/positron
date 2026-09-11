@@ -302,7 +302,7 @@ export interface McpFrontend {
      */
     'port': number;
     /**
-     * The full MCP endpoint URL agents should connect to
+     * The full MCP endpoint URL agents should connect to. Unique to this frontend, so an agent configured with it can only reach this frontend\'s window.
      */
     'url': string;
 }
@@ -411,6 +411,10 @@ export interface NewSession {
      * The command or script to run before starting the session
      */
     'startup_environment_arg'?: string;
+    /**
+     * The MCP frontend creating the session, if the client has registered one. The session belongs to that frontend: agents reach it through that frontend\'s MCP endpoint and no other.
+     */
+    'frontend_id'?: string;
 }
 
 

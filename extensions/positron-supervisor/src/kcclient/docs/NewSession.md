@@ -21,6 +21,7 @@ Name | Type | Description | Notes
 **protocol_version** | **string** | The Jupyter protocol version supported by the underlying kernel | [optional] [default to '5.3']
 **startup_environment** | [**StartupEnvironment**](StartupEnvironment.md) |  | [default to undefined]
 **startup_environment_arg** | **string** | The command or script to run before starting the session | [optional] [default to undefined]
+**frontend_id** | **string** | The MCP frontend creating the session, if the client has registered one. The session belongs to that frontend: agents reach it through that frontend\&#39;s MCP endpoint and no other. | [optional] [default to undefined]
 
 ## Example
 
@@ -44,6 +45,7 @@ const instance: NewSession = {
     protocol_version,
     startup_environment,
     startup_environment_arg,
+    frontend_id,
 };
 ```
 

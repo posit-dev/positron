@@ -60,8 +60,16 @@ type ServerFrontendMessage = CommandRequest;
 
 /**
  * Connects this window to the supervisor's MCP server over a WebSocket,
- * publishing what only Positron knows -- its command catalog and its foreground
- * session -- and running the commands agents ask for.
+ * publishing what only Positron knows -- its command catalog, the sessions it
+ * holds, its foreground session, and whether the user is looking at it -- and
+ * running the commands agents ask for.
+ *
+ * A supervisor can be shared by every window of a Positron server, so an agent
+ * must not be able to run code in a window the user cannot see. Sessions we
+ * start name us as they are created; the session list we publish here covers
+ * the rest, such as sessions that were already running when the user turned MCP
+ * on. The supervisor caches what we send, so the scoping survives us going
+ * away.
  *
  * The channel is not required for the supervisor's kernel tools, which work
  * whether or not a window is connected. It is required for the command tools,
@@ -86,14 +94,31 @@ export class McpFrontendChannel implements vscode.Disposable {
 	 * @param _uri The WebSocket URI of this frontend's channel.
 	 * @param _headers Headers carrying the supervisor API bearer token.
 	 * @param _log Writes a line to the Kernel Supervisor output channel.
+	 * @param _sessionIds The sessions this window holds. Read on every send
+	 *  rather than cached, so a channel that opens long after the window did
+	 *  still reports the sessions it already has.
 	 */
 	constructor(
 		private readonly _uri: string,
 		private readonly _headers: { [key: string]: string },
 		private readonly _log: (message: string) => void,
+		private readonly _sessionIds: () => string[],
 	) {
 		this._disposables.push(positron.runtime.onDidChangeForegroundSession(sessionId => {
 			this.send({ kind: 'foreground_changed', session_id: sessionId });
+			// Sessions usually take the foreground as they start, and give it
+			// up as they exit, so this is also the cheapest moment to notice
+			// that the set we hold has changed.
+			this.sendSessions();
+		}));
+
+		// Several windows onto one workspace share a frontend registration, so
+		// the supervisor needs to know which of them the user is looking at in
+		// order to send an agent's IDE commands somewhere visible.
+		this._disposables.push(vscode.window.onDidChangeWindowState(state => {
+			if (state.focused) {
+				this.send({ kind: 'focused' });
+			}
 		}));
 
 		// The catalog grows and shrinks with the installed extensions, since
@@ -171,8 +196,17 @@ export class McpFrontendChannel implements vscode.Disposable {
 	}
 
 	/**
-	 * Announce ourselves: the command catalog, the session agents should target
-	 * by default, and whether they may read console history.
+	 * Tell the supervisor which sessions this window holds. Call this whenever
+	 * the window gains or loses one.
+	 */
+	public sessionsChanged(): void {
+		this.sendSessions();
+	}
+
+	/**
+	 * Announce ourselves: the command catalog, the sessions we hold, the one
+	 * agents should target by default, and whether they may read console
+	 * history.
 	 */
 	private async sayHello(): Promise<void> {
 		const [commands, foreground] = await Promise.all([
@@ -183,10 +217,17 @@ export class McpFrontendChannel implements vscode.Disposable {
 			kind: 'hello',
 			positron_version: positron.version,
 			commands,
+			session_ids: this._sessionIds(),
 			foreground_session_id: foreground?.metadata.sessionId,
 			history_api_enabled: vscode.workspace.getConfiguration()
 				.get<boolean>(HISTORY_API_ENABLED_KEY) === true,
+			focused: vscode.window.state.focused,
 		});
+	}
+
+	/** Push the current session set. */
+	private sendSessions(): void {
+		this.send({ kind: 'sessions_changed', session_ids: this._sessionIds() });
 	}
 
 	/** Re-read the catalog and push it, coalescing bursts of changes. */

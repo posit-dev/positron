@@ -80,10 +80,11 @@ export function mergeClaudeCodeConfig(existing: string | undefined): string {
 /**
  * Adds Positron to a Codex configuration, preserving the rest of the file.
  *
- * Codex does not expand variables in `url`, so the port is written out. It is
- * the port Positron asks the supervisor to reuse, so it survives restarts;
- * running the command again after a change rewrites it. The token is still
- * referenced by variable rather than written down.
+ * Codex does not expand variables in `url`, so the endpoint is written out. It
+ * names this window, and its port is the one Positron asks the supervisor to
+ * reuse, so it survives restarts; running the command again after a change
+ * rewrites it. The token is still referenced by variable rather than written
+ * down, and a token from another window will not open this endpoint.
  *
  * @param existing The current contents of `config.toml`, if the file exists.
  * @param url The MCP endpoint URL.
