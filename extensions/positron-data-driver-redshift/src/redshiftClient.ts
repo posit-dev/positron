@@ -19,9 +19,9 @@
 //      serverless workgroup can take tens of seconds to accept the new connection; the reconnect
 //      waits for it rather than imposing a shorter deadline of our own.)
 
-import { Client, QueryResult } from 'pg';
+import type { Client, QueryResult } from 'pg';
 import { ConnectionOptions } from 'tls';
-import { RedshiftCredentialProvider } from './redshiftIamCredentials.js';
+import type { RedshiftCredentialProvider } from './redshiftIamCredentials.js';
 
 /**
  * The discrete connection fields for a Redshift connection. Host, port, database, and user identify
@@ -85,10 +85,19 @@ function buildSslConfig(config: RedshiftFieldConfig): boolean | ConnectionOption
  * overridable via the RedshiftClient constructor) so tests can supply a fake pg client without a
  * live cluster.
  */
-export type PgClientFactory = (config: RedshiftFieldConfig) => Client;
+export type PgClientFactory = (config: RedshiftFieldConfig) => Promise<Client>;
 
-/** The real factory: a keepalive-enabled pg Client. */
-const defaultPgClientFactory: PgClientFactory = config => new Client({
+/**
+ * The real factory: a keepalive-enabled pg Client.
+ *
+ * pg is imported here rather than at the top of the module so that loading it is paid for by the
+ * first connection attempt, not by activating the extension. The Data Connections pane activates
+ * every driver at once, and a user who never opens a Redshift connection should never pay to load
+ * pg.
+ *
+ * Exported for unit tests, which assert the lazy import yields a constructible client.
+ */
+export const defaultPgClientFactory: PgClientFactory = async config => new (await import('pg')).Client({
 	host: config.host,
 	port: config.port,
 	user: config.user,
@@ -193,7 +202,7 @@ export class RedshiftClient {
 			// resuming serverless workgroup, so a set fetched once up front can expire before the
 			// attempt that finally succeeds uses it. Only the first attempt forces a re-mint; the
 			// later ones reuse what it fetched rather than calling AWS once per retry.
-			const pg = this._createPgClient(await this._resolveConfig(forceRefresh && attempt === 1));
+			const pg = await this._createPgClient(await this._resolveConfig(forceRefresh && attempt === 1));
 			// When the socket dies while no query is in flight, the pg Client emits an asynchronous
 			// 'error' event. With no listener that becomes an unhandled 'error' and takes down the
 			// extension host, so absorb it here; the next query() observes the broken client and
