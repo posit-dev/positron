@@ -806,7 +806,12 @@ export class Sessions {
 
 		// No label recorded, or a label with no source to compare (some runtimes
 		// are listed without one) -- nothing to assert.
-		const selectedSource = selected?.match(/\(([^)]+)\)/)?.[1].split(':')[0].trim();
+		//
+		// Anchor on the parenthetical that directly follows the language and version
+		// at the start of the label; a bare "first parenthetical anywhere" would read
+		// a directory name like "~/project (backup)/bin/python" as the source if a
+		// path ever trails the label.
+		const selectedSource = selected?.match(/^\W*\w+(?:\s[\d.]+)?\s*\(([^)]+)\)/)?.[1].split(':')[0].trim();
 		if (!selectedSource || !metadata.source) {
 			return;
 		}
