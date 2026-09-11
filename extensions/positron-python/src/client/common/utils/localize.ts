@@ -244,6 +244,14 @@ export namespace Interpreters {
     export const environmentPromptMessage = l10n.t(
         'We noticed a new environment has been created. Do you want to select it for the workspace folder?',
     );
+    // --- Start Positron ---
+    export const environmentSessionPromptMessage = l10n.t(
+        'A new Python environment was created in this workspace. Would you like to start a console session with this environment?',
+    );
+    export const startSession = l10n.t('Start Session');
+    export const environmentSessionStartFailed = (environment: string) =>
+        l10n.t('Failed to start a console session for Python environment {0}.', environment);
+    // --- End Positron ---
     export const entireWorkspace = l10n.t('Select at workspace level');
     export const clearAtWorkspace = l10n.t('Clear at workspace level');
     export const selectInterpreterTip = l10n.t(
