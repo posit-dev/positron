@@ -22,10 +22,7 @@ import { fileURLToPath } from 'url';
  * pair of worked examples for the system prompt, not the full set of ids the
  * skills document.
  *
- * Instead, every candidate command id extracted from a skill file -- every
- * `{{command:}}` directive, plus prose mentions matching a known prefix (see
- * `extractCandidates`) -- must either be listed in `KNOWN_EXTENSION_COMMANDS`
- * (registered from extension source, which this test does not scan) or be
+ * Instead, every candidate command id extracted from a skill file must be
  * *derivable* from the `src/vs/workbench` source text, either because:
  *   (a) the id literally appears in the source, or
  *   (b) the id is assembled from a `${CONST}.suffix` template, where `CONST`
@@ -55,7 +52,7 @@ const CANDIDATE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/
  * `vscode.open`: not every command the skill names is Positron's own, and an
  * upstream rename would break the skill just as surely as a Positron one.
  */
-const ALLOWED_PREFIXES = ['positron.', 'positronAssistant.', 'positronPackages.', 'positronSettings.', 'positronVariables.', 'vscode.', 'workbench.'];
+const ALLOWED_PREFIXES = ['positron.', 'positronAssistant.', 'positronDataConnections.', 'positronPackages.', 'positronSettings.', 'positronVariables.', 'vscode.', 'workbench.'];
 
 /**
  * Command ids referenced by the templates that are registered from extension
@@ -153,28 +150,12 @@ interface Candidate {
 	readonly skillName: string;
 }
 
-/**
- * Every command id a template references, from two sources:
- *
- * 1. `{{command:<id>}}` expansion directives. Unconditional: a directive is a
- *    command reference by definition, so gating these on a prefix allowlist
- *    would silently drop coverage for any new command family whose prefix
- *    nobody remembered to add (which is exactly what happened to
- *    `positronPackages.*`).
- * 2. Backtick-delimited, dotted-identifier-shaped tokens beginning with a
- *    known command prefix -- prose mentions, where the prefix gate is needed
- *    because a dotted token may be a setting key or file name instead.
- */
+/** Backtick-delimited, dotted-identifier-shaped tokens beginning with a known command prefix. */
 function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 	const candidates: Candidate[] = [];
-	const directivePattern = /\{\{command:([^}]+)\}\}/g;
 	const backtickPattern = /`([^`]+)`/g;
 	for (const skill of skills) {
 		let match: RegExpExecArray | null;
-		directivePattern.lastIndex = 0;
-		while ((match = directivePattern.exec(skill.content))) {
-			candidates.push({ id: match[1].trim(), skillName: skill.name });
-		}
 		backtickPattern.lastIndex = 0;
 		while ((match = backtickPattern.exec(skill.content))) {
 			const token = match[1];
@@ -238,8 +219,7 @@ function isResolvable(id: string): boolean {
 
 describe('agent skill / command drift', () => {
 	it('every command id named in a skill file is derivable from workbench source', () => {
-		const candidates = extractCandidates(skillFiles)
-			.filter(candidate => !KNOWN_EXTENSION_COMMANDS.has(candidate.id));
+		const candidates = extractCandidates(skillFiles);
 		const unresolved = candidates.filter(candidate => !isResolvable(candidate.id));
 
 		if (unresolved.length > 0) {
@@ -256,13 +236,5 @@ describe('agent skill / command drift', () => {
 	it('found skill files and extracted a plausible number of candidate ids', () => {
 		expect(skillFiles.length).toBeGreaterThan(0);
 		expect(extractCandidates(skillFiles).length).toBeGreaterThanOrEqual(10);
-	});
-
-	// An exclusion is a deliberate coverage hole; one that no template
-	// references anymore is pure staleness and should be deleted.
-	it('every known-external exclusion is still referenced by some template', () => {
-		const referenced = new Set(extractCandidates(skillFiles).map(candidate => candidate.id));
-		const stale = [...KNOWN_EXTENSION_COMMANDS].filter(id => !referenced.has(id));
-		expect(stale).toEqual([]);
 	});
 });

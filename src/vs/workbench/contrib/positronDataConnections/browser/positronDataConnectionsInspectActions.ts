@@ -14,9 +14,9 @@ import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnections
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { IDataConnectionInstance } from '../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { getDataConnectionSchema, getDataConnections } from './positronDataConnectionsCommands.js';
+import { getDataConnectionCode, getDataConnectionSchema, getDataConnections } from './positronDataConnectionsCommands.js';
 
-// The Command Palette category both actions appear under.
+// The Command Palette category these actions appear under.
 const CATEGORY = localize2('positron.dataConnections.category', 'Data Connections');
 
 // Both actions are gated on the data connections feature flag alone. Not on ai.enabled: they show
@@ -24,8 +24,26 @@ const CATEGORY = localize2('positron.dataConnections.category', 'Data Connection
 // isDataConnectionsCommandEnabled.
 const PRECONDITION = ContextKeyExpr.equals(`config.${POSITRON_DATA_CONNECTIONS_ENABLED_KEY}`, true);
 
-interface IDataConnectionInstancePickItem extends IQuickPickItem {
-	instance: IDataConnectionInstance;
+interface IDataConnectionProfilePickItem extends IQuickPickItem {
+	profileId: string;
+}
+
+/**
+ * Asks which of several connections to inspect. Returns undefined if the picker is dismissed. Both
+ * actions that need to choose pick the same way -- only what they are choosing among differs, which
+ * is what the caller builds into `picks`.
+ * @param quickInputService The quick input service.
+ * @param picks The connections to choose from.
+ * @param placeHolder The picker's placeholder text.
+ */
+async function pickProfileId(
+	quickInputService: IQuickInputService,
+	picks: IDataConnectionProfilePickItem[],
+	placeHolder: string,
+): Promise<string | undefined> {
+	const pick = await quickInputService.pick(picks, { placeHolder });
+
+	return pick?.profileId;
 }
 
 /**
@@ -72,8 +90,74 @@ export class ShowDataConnectionsAction extends Action2 {
 }
 
 /**
+ * Command Palette entry that shows the positronDataConnections.getConnectionCode payload -- the
+ * code that opens a connection -- in an untitled editor, asking which connection when the user has
+ * several configured. Unlike the catalog action above this needs no live connection: the code is
+ * generated from the saved or discovered profile.
+ *
+ * Exported so tests can construct it and call run() directly.
+ */
+export class ShowDataConnectionCodeAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronDataConnections.showConnectionCode',
+			title: localize2('positron.dataConnections.showConnectionCode', 'Show Connection Code as JSON'),
+			category: CATEGORY,
+			f1: true,
+			precondition: PRECONDITION,
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		// Every service this flow needs is resolved up front: the accessor stops being valid at the
+		// first await, and picking a connection is the first thing it does. That includes the
+		// instantiation service, which supplies a fresh accessor for getDataConnectionCode once the
+		// picking is done.
+		const instantiationService = accessor.get(IInstantiationService);
+		const editorService = accessor.get(IEditorService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+		const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
+
+		// The same catalog getConnections reports (saved profiles plus discovered connections), so
+		// the picker offers exactly the ids the getConnectionCode command accepts.
+		const profiles = dataConnectionsService.getAllProfiles();
+		if (profiles.length === 0) {
+			notificationService.info(localize(
+				'positron.dataConnections.showConnectionCode.noProfiles',
+				"No data connections are configured. Add one from the Data Connections panel first."
+			));
+			return;
+		}
+
+		const profileId = profiles.length === 1
+			? profiles[0].id
+			: await pickProfileId(
+				quickInputService,
+				profiles.map(profile => ({
+					label: profile.connectionName,
+					description: profile.driverMetadata.name,
+					profileId: profile.id,
+				})),
+				localize('positron.dataConnections.showConnectionCode.pickProfile', "Select a data connection to show the connection code for"));
+		if (profileId === undefined) {
+			return;
+		}
+
+		// No languageId: this shows what the command can produce, and every language the driver
+		// supports is the superset of what an agent could ask for.
+		const code = await instantiationService.invokeFunction(
+			codeAccessor => getDataConnectionCode(codeAccessor, { profileId }));
+
+		await showPayload(editorService, code);
+	}
+}
+
+/**
  * Command Palette entry that shows the positronDataConnections.getSchema payload for a live
  * connection in an untitled editor, asking which connection to summarize when several are live.
+ * Only live connections are offered, so unlike the command it wraps -- which connects its target
+ * automatically when it isn't live -- this action never opens a connection of its own.
  *
  * Exported so tests can construct it and call run() directly.
  */
@@ -110,8 +194,23 @@ export class ShowDataConnectionSchemaAction extends Action2 {
 
 		const profileId = instances.length === 1
 			? instances[0].profileId
-			: await this._pickProfileId(quickInputService, dataConnectionsService, instances);
+			: await pickProfileId(
+				quickInputService,
+				this._toPicks(dataConnectionsService, instances),
+				localize('positron.dataConnections.showSchema.pickInstance', "Select a data connection to summarize"));
 		if (profileId === undefined) {
+			return;
+		}
+
+		// The pick was awaited, so the chosen connection may have closed in the meantime -- and
+		// getSchema would then silently reconnect it (see its auto-connect), which this action
+		// promises never to do. Re-checking here, with no await before the getSchema call below,
+		// keeps the promise: getSchema finds the same live instance this check did.
+		if (dataConnectionsService.getInstanceForProfile(profileId) === undefined) {
+			notificationService.info(localize(
+				'positron.dataConnections.showSchema.instanceClosed',
+				"The selected data connection is no longer active. Connect to it from the Data Connections panel first."
+			));
 			return;
 		}
 
@@ -124,29 +223,23 @@ export class ShowDataConnectionSchemaAction extends Action2 {
 	}
 
 	/**
-	 * Asks which of several live connections to summarize. Returns undefined if the picker is
-	 * dismissed.
-	 * @param quickInputService The quick input service.
+	 * Labels the live connections for the picker, falling back to the profile id when the profile it
+	 * came from is gone.
 	 * @param dataConnectionsService The data connections service.
 	 * @param instances The live connections to choose from.
 	 */
-	private async _pickProfileId(
-		quickInputService: IQuickInputService,
+	private _toPicks(
 		dataConnectionsService: IPositronDataConnectionsService,
 		instances: IDataConnectionInstance[],
-	): Promise<string | undefined> {
-		const picks: IDataConnectionInstancePickItem[] = instances.map(candidate => ({
+	): IDataConnectionProfilePickItem[] {
+		return instances.map(candidate => ({
 			label: dataConnectionsService.getProfile(candidate.profileId)?.connectionName ?? candidate.profileId,
 			description: candidate.driverName,
-			instance: candidate,
+			profileId: candidate.profileId,
 		}));
-		const pick = await quickInputService.pick(picks, {
-			placeHolder: localize('positron.dataConnections.showSchema.pickInstance', "Select a data connection to summarize"),
-		});
-
-		return pick?.instance.profileId;
 	}
 }
 
 registerAction2(ShowDataConnectionsAction);
+registerAction2(ShowDataConnectionCodeAction);
 registerAction2(ShowDataConnectionSchemaAction);

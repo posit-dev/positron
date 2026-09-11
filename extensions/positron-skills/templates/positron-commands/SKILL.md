@@ -5,15 +5,16 @@ description: >
   (Console, Variables, Plots, Help, Packages), clearing the console, opening a
   file or data file in the right editor, discovering interpreters, listing,
   switching, starting, restarting or interrupting sessions, setting up Python,
-  reading, installing or updating the packages in a session, and running or
-  debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
-  marimo). Use when the user wants Positron itself to act, or to know what is
-  installed, rather than to run R or Python code.
-  Triggers: "switch to the data science layout", "show the variables pane",
-  "clear the console", "open data.csv", "what interpreters are available",
-  "switch to my R session", "start a new Python session", "my session is
-  stuck", "is pandas installed?", "install dplyr", "update all my packages",
-  "set up a Python environment", "run my shiny app", "my app URL doesn't load".
+  reading, installing or updating a session's packages, running or debugging
+  a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio, marimo), and
+  reading the Data Connections pane -- connections code in the session cannot
+  see -- including a live connection's tables and columns. Use when the user
+  wants Positron itself to act, or to know what is installed, rather than to
+  run R or Python code. Triggers: "show the variables pane", "open data.csv",
+  "what interpreters are available", "switch to my R session", "my session is
+  stuck", "is pandas installed?", "set up a Python environment", "run my
+  shiny app", "what databases am I connected to", "what tables are in my
+  warehouse".
 ---
 
 # Positron IDE commands
@@ -115,3 +116,8 @@ commands it documents manage the terminal, detect the app URL, set up any
 proxying the environment requires (on Posit Workbench, raw `localhost`
 URLs are not reachable from the user's browser), and preview the app -- in the
 Viewer by default, or wherever the user's preview mode setting points.
+
+**Data connections and schemas** -- [references/data-connections.md]({{skill_dir}}/references/data-connections.md)
+Read when the user asks about: the database or warehouse connections they have
+configured, which of them are connected, the tables and columns a live
+connection exposes, or writing a query against one of their connections.
