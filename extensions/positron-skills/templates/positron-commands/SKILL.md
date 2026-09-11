@@ -13,7 +13,8 @@ description: >
   "clear the console", "open data.csv", "what interpreters are available",
   "switch to my R session", "start a new Python session", "my session is
   stuck", "is pandas installed?", "install dplyr", "update all my packages",
-  "set up a Python environment", "run my shiny app", "my app URL doesn't load".
+  "set up a Python environment", "run my shiny app", "my app URL doesn't
+  load", "deploy my app to Connect".
 ---
 
 # Positron IDE commands
@@ -115,3 +116,10 @@ commands it documents manage the terminal, detect the app URL, set up any
 proxying the environment requires (on Posit Workbench, raw `localhost`
 URLs are not reachable from the user's browser), and preview the app -- in the
 Viewer by default, or wherever the user's preview mode setting points.
+
+**Deploying to Connect** -- [references/publishing.md]({{skill_dir}}/references/publishing.md)
+Read when the user wants to deploy or publish a project to Posit Connect or
+Connect Cloud, asks what they can deploy, needs a Connect credential, or is
+asking why a deployment failed. Read it **before** deploying anything --
+deployment must go through the commands it documents, never through
+`rsconnect`, `quarto publish` or another CLI run in a terminal.

@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+/* eslint-disable local/code-import-patterns -- this test scans repository files with Node APIs. */
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -75,6 +76,12 @@ const KNOWN_EXTENSION_COMMANDS = new Set([
 	'python.execGradioInTerminal',
 	'python.execMarimoInTerminal',
 	'python.execStreamlitInTerminal',
+	// Posit Publisher is installed separately; its source is not in this repo.
+	'posit.publisher.agent.addCredential',
+	'posit.publisher.agent.deployContent',
+	'posit.publisher.agent.planDeployment',
+	'posit.publisher.agent.troubleshootConfigurationError',
+	'posit.publisher.agent.troubleshootDeploymentFailure',
 ]);
 
 /**
