@@ -271,6 +271,10 @@ export class NodeExtHostDocs extends Disposable implements IExtHostDocs {
 		return await this._triggers.getLocalDocs();
 	}
 
+	async getLocalDocsCache(): Promise<positron.docs.LocalDocs | undefined> {
+		return await this._triggers.getLocalDocsCache();
+	}
+
 	/**
 	 * The launch delay is measured from the startup-finished signal rather than
 	 * from construction, so the download stays clear of the eager-activation

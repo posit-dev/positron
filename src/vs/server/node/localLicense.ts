@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execFile } from 'child_process';
@@ -60,6 +61,83 @@ function extractJson(stdout: string): string {
 }
 
 /**
+ * Hashes the contents of a license file into the short, stable identifier that P3M
+ * telemetry reports as `positron-license-hash`, so Posit can count session starts per
+ * license it issued. SHA-256 over the trimmed license bytes, truncated to 16 hex
+ * characters: wide enough that collisions across the issued licenses are negligible,
+ * short enough to stay readable in URLs and logs.
+ *
+ * Surrounding ASCII whitespace is the only thing normalized away. Everything between the
+ * first and last non-ASCII-whitespace byte is hashed exactly as it appears, interior line
+ * endings included; the Posit-side script must use the same byte-level contract.
+ *
+ * The hash identifies a deployment's license, not a user, and is meaningless to anyone
+ * without Posit's own records of the licenses it issued.
+ */
+export function hashLicenseContents(contents: Buffer): string | undefined {
+	let start = 0;
+	while (start < contents.length && isAsciiWhitespace(contents[start])) {
+		start++;
+	}
+
+	let end = contents.length;
+	while (end > start && isAsciiWhitespace(contents[end - 1])) {
+		end--;
+	}
+
+	if (start === end) {
+		return undefined;
+	}
+	return crypto.createHash('sha256').update(contents.subarray(start, end)).digest('hex').slice(0, 16);
+}
+
+function isAsciiWhitespace(byte: number): boolean {
+	return byte === 0x20 || (byte >= 0x09 && byte <= 0x0d);
+}
+
+/**
+ * Hashes the license file backing a verified license. Prefers the path the license-manager
+ * binary reported; falls back to the .lic in its own directory, which is where both
+ * `activateLicenseFile` and `verifyLocalLicense` leave the effective license.
+ *
+ * Returns undefined when no candidate yields a hash. The hash is telemetry only, so a
+ * failure to compute it must never fail an otherwise valid license check; reporting nothing
+ * is always better than reporting a hash that does not identify a license Posit issued.
+ */
+export function licenseFileHash(licenseManagerDir: string, reportedPath?: string): string | undefined {
+	// Only an absolute reported path is usable. A relative one would resolve against the
+	// server process's working directory rather than the binary's, which could read an
+	// unrelated same-named file; the directory scan below is the better guess in that case.
+	const candidates: string[] = reportedPath && path.isAbsolute(reportedPath) ? [reportedPath] : [];
+	try {
+		const localLic = fs.readdirSync(licenseManagerDir).find(f => f.endsWith('.lic'));
+		if (localLic) {
+			candidates.push(path.join(licenseManagerDir, localLic));
+		}
+	} catch {
+		// Directory unreadable; whatever the binary reported is all we have.
+	}
+	for (const candidate of candidates) {
+		let contents: Buffer;
+		try {
+			contents = fs.readFileSync(candidate);
+		} catch {
+			// Unreadable candidate; try the next one.
+			continue;
+		}
+		// An empty or whitespace-only file hashes to a perfectly well-formed value that
+		// identifies no license at all, and every deployment with a truncated or
+		// placeholder .lic would report that same value. Skip it: a collapsed group in
+		// Posit's per-license counts is far worse than a missing one.
+		const licenseHash = hashLicenseContents(contents);
+		if (licenseHash) {
+			return licenseHash;
+		}
+	}
+	return undefined;
+}
+
+/**
  * Wrapper for executing classic `license-manager` binary commands (the binary bundled
  * under `resources/activation/`). Not to be confused with `licenseManager.ts`, which
  * supervises the AWS License Manager client.
@@ -109,7 +187,11 @@ class LocalLicenseManager {
 
 		const validated = validatedResult(result);
 		console.log(`Positron license verified: ${JSON.stringify(result)}`);
-		return validated;
+		// Hash the verified file here rather than at the call sites: this is the one
+		// place both the activated and the pre-existing local .lic converge, so the
+		// hash always names the license that was actually accepted.
+		const licenseHash = licenseFileHash(path.dirname(this.licenseManagerPath), result['license-file']);
+		return licenseHash ? { ...validated, licenseHash } : validated;
 	}
 
 	async activateLicenseFile(licenseFilePath: string): Promise<ILicenseValidationResult> {

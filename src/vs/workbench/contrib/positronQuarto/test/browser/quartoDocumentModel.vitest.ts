@@ -10,15 +10,18 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
+import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 
 describe('QuartoDocumentModel', () => {
 	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
+	const runtimeStartupService = createTestRuntimeStartupService();
 
-	function createModel(content: string, uri?: URI): QuartoDocumentModel {
+	function createModel(content: string, uri?: URI, startupService: IRuntimeStartupService = runtimeStartupService): QuartoDocumentModel {
 		const textModel = createTextModel(content, null, undefined, uri ?? URI.file('/test.qmd'));
 		ctx.disposables.add(textModel);
-		const model = new QuartoDocumentModel(textModel, logService);
+		const model = new QuartoDocumentModel(textModel, logService, startupService);
 		ctx.disposables.add(model);
 		return model;
 	}
@@ -203,6 +206,45 @@ x <- 1
 
 			expect(model.jupyterKernel).toBe(undefined);
 			expect(model.primaryLanguage).toBe('r');
+		});
+
+		it('skips cells whose language has no runtime provider when choosing the fallback', () => {
+			// No extension provides mermaid runtimes, so a leading mermaid cell can
+			// never host a kernel; the language comes from the first cell that can.
+			const content = [
+				'```{mermaid}',
+				'graph TD; A-->B;',
+				'```',
+				'',
+				'```{python}',
+				'x = 1',
+				'```',
+				'',
+			].join('\n');
+			const model = createModel(content);
+
+			expect(model.primaryLanguage).toBe('python');
+		});
+
+		it('leaves the language undefined when no cell has a runtime provider', () => {
+			const content = [
+				'```{mermaid}',
+				'graph TD; A-->B;',
+				'```',
+				'',
+			].join('\n');
+			const model = createModel(content);
+
+			expect(model.primaryLanguage).toBe(undefined);
+		});
+
+		it('picks the language of a provided but undiscovered runtime', () => {
+			// Providers come from extension metadata, so the language is known
+			// before the extension activates and discovers any interpreter.
+			const content = ['```{julia}', 'x = 1', '```', ''].join('\n');
+			const model = createModel(content, undefined, createTestRuntimeStartupService(['julia']));
+
+			expect(model.primaryLanguage).toBe('julia');
 		});
 
 		it('handles document without frontmatter', () => {
@@ -415,7 +457,7 @@ x = 1
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			// Initial state: cell starts at line 3, ends at line 5
@@ -455,7 +497,7 @@ x = 1
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			// Initial state: cell starts at line 1, ends at line 3
@@ -502,7 +544,7 @@ y = 2
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			// Initial state: two cells at indices 0 and 1
@@ -565,7 +607,7 @@ x = 1
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			let changeEventFired = false;
@@ -598,7 +640,7 @@ x = 1
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			let newLanguage: string | undefined;
@@ -631,7 +673,7 @@ x = 1
 		it('is false while a debounced re-parse is pending, and true once it lands', async () => {
 			const textModel = createTextModel('Just some markdown.\n', null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			expect(model.isParsed).toBe(true);
@@ -654,7 +696,7 @@ x = 1
 		it('whenParsed resolves for a waiter that arrived before a further edit rescheduled the parse', async () => {
 			const textModel = createTextModel('Just some markdown.\n', null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			textModel.setValue('```{python}\nx = 1\n```\n');
@@ -671,7 +713,7 @@ x = 1
 		it('flushes a pending debounced re-parse without awaiting', () => {
 			const textModel = createTextModel('```{r}\nx <- 1\n```\n', null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			textModel.setValue('```{r}\nx <- 1\ny <- 2\n```\n');

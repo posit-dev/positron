@@ -3,17 +3,17 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes
   (Console, Variables, Plots, Help, Packages), clearing the console, opening a
-  file or a data file in the right editor, listing or discovering registered
-  interpreters, restarting or interrupting a stuck session, setting up Python,
-  and reading, installing or updating the packages in a session. Use when the
-  user wants Positron itself to do something, or wants to know what is
-  installed, rather than to run R or Python code. Triggers: "switch to the data
-  science layout", "show the variables pane", "clear the console", "open
-  data.csv", "let's look at this parquet file", "what interpreters are
-  available", "my R interpreter isn't showing up", "my session is stuck", "is
-  pandas installed?", "install dplyr", "update all my packages", "do I have any
-  vulnerable packages?", "I don't have Python installed", "set up a Python
-  environment", "which Python am I using".
+  file or data file in the right editor, discovering interpreters, listing,
+  switching, starting, restarting or interrupting sessions, setting up Python,
+  reading, installing or updating the packages in a session, and running or
+  debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
+  marimo). Use when the user wants Positron itself to act, or to know what is
+  installed, rather than to run R or Python code.
+  Triggers: "switch to the data science layout", "show the variables pane",
+  "clear the console", "open data.csv", "what interpreters are available",
+  "switch to my R session", "start a new Python session", "my session is
+  stuck", "is pandas installed?", "install dplyr", "update all my packages",
+  "set up a Python environment", "run my shiny app", "my app URL doesn't load".
 ---
 
 # Positron IDE commands
@@ -41,6 +41,12 @@ handing the task straight back to them. Read the relevant reference file first
 and use the id and arguments it gives you. If what the user wants is not covered
 by any file below, say so rather than reaching for an id from general VS Code
 knowledge.
+
+Some commands take or return an internal id -- a runtime id or a session id.
+These are opaque handles you pass back into another command; they are not shown
+anywhere in the Positron UI, so a user won't recognize one and it would only
+confuse them. Use ids to make the call, but never repeat one to the user. Refer
+to a session or interpreter by its name instead.
 
 ## When a command doesn't work
 
@@ -77,7 +83,13 @@ interpreters listed (Python, R, or another language), or needs Positron to
 rescan for newly installed environments. Also the place to find a base
 interpreter before creating an environment.
 
-**Sessions** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
+**Sessions** -- [references/sessions.md]({{skill_dir}}/references/sessions.md)
+Read when the user asks about: which sessions are running, switching to a
+different session, or starting a new one. Also explains the difference between
+console sessions and notebook sessions, which decides whether a session can be
+selected.
+
+**Stuck sessions and help** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
 Read when the user asks about a session that is stuck, needs interrupting, or
 needs restarting. Also covers looking up a help topic for a function or symbol.
 
@@ -93,3 +105,13 @@ rather than running code to check.
 Read when the user is getting Python set up: installing a Python interpreter when
 they have none, creating a project environment (venv, Conda, or uv), or finding
 out which interpreter is currently active.
+
+**Interactive web apps** -- [references/interactive-apps.md]({{skill_dir}}/references/interactive-apps.md)
+Read when the user wants a web app running or debugged: "run my app", "start
+the shiny/flask/dash/streamlit/marimo app", "preview my dashboard". Read it
+**before** starting any app server yourself -- app servers must not be started via
+`executeCode` or a raw terminal command for supported app frameworks. The
+commands it documents manage the terminal, detect the app URL, set up any
+proxying the environment requires (on Posit Workbench, raw `localhost`
+URLs are not reachable from the user's browser), and preview the app -- in the
+Viewer by default, or wherever the user's preview mode setting points.

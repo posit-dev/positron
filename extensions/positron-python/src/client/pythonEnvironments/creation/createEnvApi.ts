@@ -245,7 +245,8 @@ export async function registerCreateEnvironmentFeatures(
                 // With no folder open every provider dead-ends at pickWorkspaceFolder(),
                 // so offer the global environment before provider selection runs. The
                 // global environment is uv-backed, so a user who turned the uv provider
-                // off through python.environmentProviders.enable does not get it, and
+                // off through python.environmentProviders.enabled (or the deprecated
+                // python.environmentProviders.enable alias) does not get it, and
                 // neither does a caller that explicitly asked for another provider: both
                 // fall through to the provider ladder's own open-a-folder error rather
                 // than being handed a uv environment they did not ask for. So does a user

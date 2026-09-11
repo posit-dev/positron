@@ -20,6 +20,14 @@ This repository contains Docker images used for Positron continuous integration 
     local loop (Posit publishes no arm64 Workbench package for RHEL 8)
   - See the [Rocky 9 README](rocky_9/README.md) for detailed information
 
+- `openSUSE15_6/` - Docker configurations for openSUSE Leap 15.6 environments
+  - Supports both AMD64 and ARM64 architectures
+  - Used by both the Chromium e2e SUSE lane and the Workbench e2e SUSE lane
+  - Unlike the Rocky lane, the Workbench lane here has **no native arm64 local
+    loop**: Posit publishes the openSUSE Workbench package for x86_64 only, so
+    `npm run pwb -- --os=opensuse15` forces an emulated amd64 container on Apple
+    Silicon. CI runners are amd64 and run it natively
+
 ## Purpose
 
 These Docker images provide consistent testing environments for Positron across different architectures. They include:

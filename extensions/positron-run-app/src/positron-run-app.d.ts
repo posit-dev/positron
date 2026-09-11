@@ -113,6 +113,11 @@ interface RunAppOptionsBase {
 	name: string;
 
 	/**
+	 * The document to run. When omitted, the active editor's document is used.
+	 */
+	document?: vscode.TextDocument;
+
+	/**
 	 * How to preview the application once the URL is detected.
 	 *
 	 * Defaults to `'default'`, which resolves to the user's
@@ -196,6 +201,11 @@ export interface DebugAppOptions {
 	 * The human-readable label for the application e.g. `'Streamlit'`.
 	 */
 	name: string;
+
+	/**
+	 * The document to debug. When omitted, the active editor's document is used.
+	 */
+	document?: vscode.TextDocument;
 
 	/**
 	 * A function that will be called to get the ${@link vscode.DebugConfiguration, debug configuration} for debugging the application.

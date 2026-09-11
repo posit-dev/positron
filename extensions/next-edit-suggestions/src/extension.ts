@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 
-import type { SubmitCompletionFeedbackParams } from './types.js';
+import { CompletionTriggerKind, type SubmitCompletionFeedbackParams } from './types.js';
 import { CompletionBusyState } from './completionBusyState.js';
 import { getLanguageClientManager, startLanguageServer, stopLanguageServer } from './client.js';
 import { deriveStatusContext, isAIEnabled, isCompletionEnabled, isCompletionEnabledForAnyFileType, isCompletionEnabledForFileType, migrateEnabledSetting } from './config.js';
@@ -145,7 +145,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		provideInlineCompletionItems: async (
 			document: vscode.TextDocument,
 			position: vscode.Position,
-			_context: vscode.InlineCompletionContext,
+			completionContext: vscode.InlineCompletionContext,
 			token: vscode.CancellationToken,
 		): Promise<vscode.InlineCompletionList | undefined> => {
 			if (!isCompletionEnabled(document)) {
@@ -160,8 +160,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				token.onCancellationRequested(() => resolve(null));
 			});
 
+			const triggerKind = completionContext.triggerKind === vscode.InlineCompletionTriggerKind.Invoke
+				? CompletionTriggerKind.Invoked
+				: CompletionTriggerKind.TriggerCharacter;
+
 			const result = await busyState.track(
-				() => Promise.race([generateSuggestion(document, position), timeoutPromise, cancellationPromise])
+				() => Promise.race([
+					generateSuggestion(document, position, triggerKind),
+					timeoutPromise,
+					cancellationPromise,
+				])
 			);
 			if (!result) {
 				return new vscode.InlineCompletionList([]);

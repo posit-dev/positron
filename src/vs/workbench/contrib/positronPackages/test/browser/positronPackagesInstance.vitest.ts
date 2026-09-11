@@ -233,6 +233,74 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		});
 	});
 
+	it('serves a second session of the same interpreter from the shared cache without refetching metadata', async () => {
+		// Both sources answer fully in the first session's round, so every entry
+		// is covered: outdated state plus an advisory answer for each package.
+		getVulnerabilities.mockResolvedValue(lookupResult([['numpy', [ADVISORY]], ['pandas', []]]));
+
+		const first = makeInstance();
+		const firstFires = waitForEvents(first.onDidRefreshPackagesInstance, 2);
+		await first.refreshPackages();
+		await firstFires;
+
+		// A second console for the same interpreter: a new session id but the same
+		// runtime id and the same shared cache (the packages service threads one
+		// cache into every instance). The per-console cost #12994 worries about
+		// is the repository round trip; the kernel-side list stays per-session.
+		const session2 = stubInterface<ILanguageRuntimeSession>({
+			sessionId: 'session-2',
+			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID, languageId: 'python' }),
+			getRuntimeState: () => RuntimeState.Uninitialized,
+			onDidChangeRuntimeState: Event.None,
+			getPackageManager: () => packageManager,
+		});
+		const second = disposables.add(new PositronPackagesInstance(session2, new NullLogService(), cache, vulnerabilityLookup));
+		const secondFires = waitForEvents(second.onDidRefreshPackagesInstance, 2);
+		await second.refreshPackages();
+		const [stage1] = await secondFires;
+
+		// Give a microtask for any (incorrectly issued) refetch to run.
+		await new Promise(resolve => setTimeout(resolve, 10));
+
+		// The kernel list is read once per session; the metadata round trips
+		// happened once per interpreter.
+		expect(getPackages).toHaveBeenCalledTimes(2);
+		expect(getPackageMetadata).toHaveBeenCalledTimes(1);
+		expect(getVulnerabilities).toHaveBeenCalledTimes(1);
+		// And the second console renders the shared metadata immediately, in its
+		// very first (Stage 1) push.
+		expect(stage1.find(p => p.name === 'numpy')).toMatchObject({
+			outdated: true,
+			latestVersion: '2.1.0',
+			vulnerabilities: [ADVISORY],
+		});
+	});
+
+	it('fetches metadata for a large library in one batched call per source', async () => {
+		// #12994 scale: thousands of installed packages. The instance must hand
+		// each source the whole list at once -- one kernel metadata call and one
+		// lookup invocation -- rather than degrading to per-package calls.
+		const largeLibrary = Array.from({ length: 5000 }, (_, i) => pkg(`pkg-${i}`, '1.0.0'));
+		getPackages.mockResolvedValue(largeLibrary);
+		getPackageMetadata.mockImplementation(async (names) =>
+			new Map(names.map((name): [string, Partial<ILanguageRuntimePackage>] => [name, { outdated: true, latestVersion: '2.0.0' }])));
+		getVulnerabilities.mockResolvedValue(lookupResult(largeLibrary.map((p): [string, []] => [p.name, []])));
+
+		const instance = makeInstance();
+		const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+		await instance.refreshPackages();
+		const [, stage2] = await fires;
+
+		expect(getPackageMetadata).toHaveBeenCalledTimes(1);
+		expect(getPackageMetadata.mock.calls[0][0]).toHaveLength(5000);
+		expect(getVulnerabilities).toHaveBeenCalledTimes(1);
+		expect(getVulnerabilities.mock.calls[0][2]).toHaveLength(5000);
+		// The merge covers the whole library, first row to last...
+		expect(stage2[4999]).toMatchObject({ name: 'pkg-4999', outdated: true, latestVersion: '2.0.0', vulnerabilities: [] });
+		// ...and the whole set persists, so the next session starts warm.
+		expect(Object.keys(cache.get(RUNTIME_ID)?.packages ?? {})).toHaveLength(5000);
+	});
+
 	it('merges both sources into one entry, and persists the advisory source', async () => {
 		// numpy is vulnerable; pandas is affirmatively clean ([]); a package the
 		// repository doesn't know at its installed version is absent from the

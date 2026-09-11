@@ -117,6 +117,32 @@ source "$(dirname "${BASH_SOURCE[0]}")/ensure-connect-token.sh"
 # URL resolution here is the same code the host-side picker runs.
 source "$(dirname "${BASH_SOURCE[0]}")/workbench-local-lib.sh"
 
+# Every zypper call goes through this, and the PATH override is the whole point.
+#
+# The openSUSE image puts /opt/conda/bin first on PATH (its Dockerfile needs
+# conda's python on PATH for the interpreter tests). zypper shells out to
+# `repo2solv` *by name* to build its metadata cache, and conda ships its own
+# libsolv whose repo2solv is compiled without rpm-md support -- so conda's is the
+# one zypper finds, and every `zypper refresh` fails with:
+#
+#   repo2solv ... rpmmd repo type is not supported
+#   Skipping repository '...' because of the above error.
+#
+# which reads like a broken mirror rather than a shadowed binary. zypper then has
+# no package names at all, so every install afterwards fails with the equally
+# misleading "'jq' not found in package names". Putting the system bin
+# directories first is the entire fix; verified against this image.
+#
+# --force-resolution because sysvinit-tools, which supplies the startproc and
+# killproc the SUSE init scripts call, conflicts with the
+# busybox-sysvinit-tools the image ships. Nothing on the image requires the
+# busybox variant and it provides a strict subset (pidof, killall5, fsync,
+# usleep -- no startproc), so having zypper resolve the conflict by replacing it
+# is the outcome we want, not one we are tolerating.
+wb_zypper() {
+    sudo env PATH="/usr/sbin:/usr/bin:/sbin:/bin" zypper --non-interactive "$@"
+}
+
 # Stop rserver and *verify* it exited. Do not trust `rstudio-server stop`'s exit
 # status: on EL9 the init script's status check uses `pidof -c`, which cannot see
 # rserver inside a container, so the stop short-circuits to a silent no-op and
@@ -152,32 +178,115 @@ LAUNCHER_SOCKET=/var/run/rstudio-server/rserver-launcher.socket
 # it -- see the same note in workbench-local.sh.
 LAUNCHER_PGREP='[/]usr/lib/rstudio-server/bin/rstudio-launcher'
 
+# Create the runtime directory the launcher binds its socket in, owned by the
+# user the launcher runs as.
+#
+# rserver creates /var/run/rstudio-server itself at startup and gives it to the
+# server-user -- but we have to start the LAUNCHER first, because rserver shuts
+# itself down if the launcher socket is missing. The launcher drops privileges to
+# that same server-user before binding, so on a fresh container it finds a
+# root-owned (or absent) directory and dies immediately:
+#
+#   ERROR system error 13 (Permission denied)
+#     [stream: /var/run/rstudio-server/rserver-launcher.socket]
+#
+# and then rserver has no socket to connect to, so :8787 never comes up at all.
+# Nothing else creates this directory in a container: the rpm ships no
+# tmpfiles.d config, and neither the systemd units nor the SysV scripts make it
+# -- the same class of gap as the missing init scripts.
+#
+# Mode 1777 and the ownership are what a successful rserver start produces, so
+# this is not a loosening; it is doing early what rserver would have done later.
+# Reads server-user from launcher.conf rather than assuming, since it has to
+# match what rserver uses.
+prepare_runtime_dir() {
+    local server_user
+    server_user="$(awk -F= '/^server-user=/{print $2}' /etc/rstudio/launcher.conf 2>/dev/null | tr -d '[:space:]')"
+    server_user="${server_user:-rstudio-server}"
+    if ! sudo install -d -m 1777 -o "${server_user}" -g "${server_user}" /var/run/rstudio-server; then
+        log_error "Failed to prepare /var/run/rstudio-server for ${server_user}"
+    fi
+}
+
 start_workbench() {
-    if [ "${WB_OS}" = "rocky9" ]; then
-        # The rstudio-launcher script the rpm ships is unusable on EL9: its
-        # install guard tests $rserver, which that script never defines (so start
-        # silently exits 0); it passes --name/--pidfiles/--stop to `daemon`, none
-        # of which EL9's initscripts supports; and the launcher does not
-        # self-daemonize the way rserver does, so a plain `daemon` call would
-        # block forever. Start it directly instead.
+    local i
+    if [ "${WB_FAMILY}" != "debian" ]; then
+        prepare_runtime_dir
+        # How the launcher gets started depends on the family, because only one of
+        # the two rpm init scripts is usable in this container. Keep this in step
+        # with wb_ensure_workbench in workbench-local.sh, which has to make the
+        # same choice from the host side.
         if ! pgrep -f "${LAUNCHER_PGREP}" >/dev/null 2>&1; then
             echo "Starting rstudio-launcher..."
             sudo rm -f "${LAUNCHER_SOCKET}"
-            sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
-                >/var/log/rstudio-launcher.stdout.log 2>&1 &
+            if [ "${WB_FAMILY}" = "suse" ]; then
+                # SUSE's script works: `startproc -s -q` on the launcher binary,
+                # which brings the socket up in about a second. Use the packaged
+                # path rather than hand-detaching the binary -- an earlier
+                # revision of this ran the redhat branch below on SUSE too, "for
+                # one code path", and the socket never appeared at all on the CI
+                # runner while working locally. Whatever the direct start needs
+                # that it did not get there, the init script does not need it.
+                #
+                # `|| true` because startproc's exit status is as unreliable here
+                # as the rest: it reports failure whenever it cannot match the
+                # process through /proc/<pid>/exe (which is how it behaves under
+                # Rosetta) while having started the launcher perfectly well. The
+                # socket check below is the real verdict.
+                sudo /etc/init.d/rstudio-launcher start || true
+            else
+                # The rstudio-launcher script the rpm ships is unusable on EL9:
+                # its install guard tests $rserver, which that script never
+                # defines (so start silently exits 0); it passes
+                # --name/--pidfiles/--stop to `daemon`, none of which EL9's
+                # initscripts supports; and the launcher does not self-daemonize
+                # the way rserver does, so a plain `daemon` call would block
+                # forever. Start it directly instead.
+                sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
+                    >/var/log/rstudio-launcher.stdout.log 2>&1 &
+            fi
         fi
-        local i
-        for i in $(seq 1 30); do
+        # Generous cap because this exits as soon as the socket shows up: a couple
+        # of seconds natively, longer in an emulated container (openSUSE on Apple
+        # Silicon, which has no arm64 Workbench package).
+        for i in $(seq 1 90); do
             [ -S "${LAUNCHER_SOCKET}" ] && break
             sleep 1
         done
         if [ ! -S "${LAUNCHER_SOCKET}" ]; then
+            # Fatal, not accumulated: rserver calls LauncherClient::initialize()
+            # at startup and shuts itself down with ENOENT when this socket is
+            # missing, so everything after this point is guaranteed to fail. It
+            # used to be a log_error, and the install went on to "complete" with a
+            # warning -- then the real damage surfaced minutes later as a bare
+            # ":8787 never answered" from a different step, which is a much harder
+            # thing to read. Dump what we know before giving up.
             log_error "rstudio-launcher socket never appeared at ${LAUNCHER_SOCKET}"
+            echo "--- rstudio-launcher processes ---"
+            pgrep -af "${LAUNCHER_PGREP}" || echo "(none running)"
+            echo "--- /var/log/rstudio-launcher.stdout.log ---"
+            sudo tail -50 /var/log/rstudio-launcher.stdout.log 2>/dev/null || echo "(absent)"
+            echo "--- /var/log/rstudio/launcher ---"
+            sudo tail -n 50 /var/log/rstudio/launcher/* 2>/dev/null || echo "(absent)"
+            echo ""
+            echo "Aborting: rserver cannot start without the launcher socket."
+            exit 1
         fi
     fi
-    if ! sudo rstudio-server start; then
-        log_error "Failed to start RStudio server"
-    fi
+    # Judge the start by whether rserver is running, not by the init script's
+    # exit status, which is not trustworthy in a container on either rpm OS:
+    # EL9's checks with `pidof -c` and SUSE's with `checkproc`, and neither can
+    # see rserver here. On openSUSE this was observed printing
+    # "Starting rstudio-server ..failed" and exiting non-zero while rserver was
+    # up and :8787 was serving 302 -- checkproc matches through
+    # /proc/<pid>/exe, which is not readable for a process running under
+    # Rosetta. `pgrep -x` reads comm instead and is correct in both cases.
+    sudo rstudio-server start || true
+    for i in $(seq 1 30); do
+        pgrep -x rserver >/dev/null 2>&1 && return 0
+        sleep 1
+    done
+    log_error "Failed to start RStudio server (rserver is not running)"
 }
 
 # Initial parameter setup - auto-detect architecture if not set
@@ -190,14 +299,20 @@ if [ -z "${ARCH_SUFFIX:-}" ]; then
 fi
 POSITRON_TAG=${POSITRON_TAG:-""}  # Empty default will get the latest release
 GITHUB_TOKEN=${GITHUB_TOKEN:-"myToken"}
-# Host OS of this container: ubuntu24 (apt/.deb) or rocky9 (dnf/.rpm). Every
-# OS-specific step below branches on it. Same vocabulary the --os flag and the
-# compose image use -- see workbench-local-lib.sh.
+# Host OS of this container: ubuntu24 (apt/.deb), rocky9 (dnf/.rpm) or
+# opensuse15 (zypper/.rpm). Same vocabulary the --os flag and the compose image
+# use -- see workbench-local-lib.sh.
 WB_OS=${WB_OS:-"ubuntu24"}
 if ! wb_os_valid "${WB_OS}"; then
     exit 1
 fi
 WB_PKG_EXT="$(wb_os_pkg_ext "${WB_OS}")"
+# The OS-specific steps below branch on the *family* (debian|redhat|suse), not
+# the OS. Both rpm families need the same handling in most places and differ in
+# only a few, so a family branch keeps each step to the distinctions that are
+# real. It is also the name of the extras/init.d/<family> directory the package
+# ships, which the SysV install below relies on.
+WB_FAMILY="$(wb_os_family "${WB_OS}")"
 
 # User configuration with defaults that can be overridden by environment variables
 Q_USER=${Q_USER:-"user1"}
@@ -208,28 +323,46 @@ WB_PASSWORD=${WB_PASSWORD:-"testpassword"}
 
 # Install required packages early so we have jq for URL fetching
 echo "Installing required packages (${WB_OS})..."
-if [ "${WB_OS}" = "rocky9" ]; then
-    # initscripts provides /etc/rc.d/init.d/functions, which the SysV scripts the
-    # Workbench rpm ships in extras/init.d/redhat/ source on line 8. The rpm's
-    # postinst installs systemd units instead of those scripts, and this container
-    # has no systemd, so we copy them in by hand after the install below.
-    if ! sudo dnf install -y acl jq curl initscripts; then
-        log_error "Failed to install required packages (acl, jq, curl, initscripts)"
-    fi
-else
-    if ! sudo apt-get update; then
-        log_error "Failed to update package lists"
-    fi
-    if ! sudo add-apt-repository -y universe; then
-        log_error "Failed to add universe repository"
-    fi
-    if ! sudo apt-get update; then
-        log_error "Failed to update package lists after adding universe"
-    fi
-    if ! sudo apt-get install -y acl jq curl; then
-        log_error "Failed to install required packages (acl, jq, curl)"
-    fi
-fi
+case "${WB_FAMILY}" in
+    redhat)
+        # initscripts provides /etc/rc.d/init.d/functions, which the SysV scripts
+        # the Workbench rpm ships in extras/init.d/redhat/ source on line 8. The
+        # rpm's postinst installs systemd units instead of those scripts, and this
+        # container has no systemd, so we copy them in by hand after the install
+        # below.
+        if ! sudo dnf install -y acl jq curl initscripts; then
+            log_error "Failed to install required packages (acl, jq, curl, initscripts)"
+        fi
+        ;;
+    suse)
+        # Same reason as redhat, different providers: the SysV scripts in
+        # extras/init.d/suse/ source /etc/rc.status (from aaa_base, already on the
+        # image) and call startproc/killproc, which come from sysvinit-tools. The
+        # image ships neither acl (setfacl, needed below) nor jq (needed by the
+        # URL resolution above), so both are real installs here rather than the
+        # no-op reinstalls the other two OSes get.
+        if ! wb_zypper --gpg-auto-import-keys refresh; then
+            log_error "Failed to refresh zypper repositories"
+        fi
+        if ! wb_zypper install --force-resolution acl jq curl sysvinit-tools; then
+            log_error "Failed to install required packages (acl, jq, curl, sysvinit-tools)"
+        fi
+        ;;
+    *)
+        if ! sudo apt-get update; then
+            log_error "Failed to update package lists"
+        fi
+        if ! sudo add-apt-repository -y universe; then
+            log_error "Failed to add universe repository"
+        fi
+        if ! sudo apt-get update; then
+            log_error "Failed to update package lists after adding universe"
+        fi
+        if ! sudo apt-get install -y acl jq curl; then
+            log_error "Failed to install required packages (acl, jq, curl)"
+        fi
+        ;;
+esac
 
 # Now we can fetch the WB_URL if it wasn't provided
 if [ -z "${WB_URL}" ]; then
@@ -310,20 +443,43 @@ fi
 
 # Install Workbench
 echo "Installing Workbench..."
-if [ "${WB_OS}" = "rocky9" ]; then
-    if ! sudo dnf install -y "./workbench.${WB_PKG_EXT}"; then
-        log_error "Failed to install Workbench package"
-    fi
-    # The rpm's postinst installs systemd units, so /etc/init.d stays empty and
-    # `rstudio-server start` has nothing to run. The SysV scripts it ships are
-    # the ones the Ubuntu .deb installs for us; copy them into place so the
-    # start/stop paths below (and wb_ensure_workbench) work on both OSes.
-    if [ -d /usr/lib/rstudio-server/extras/init.d/redhat ]; then
-        sudo cp /usr/lib/rstudio-server/extras/init.d/redhat/rstudio-server /etc/init.d/
-        sudo cp /usr/lib/rstudio-server/extras/init.d/redhat/rstudio-launcher /etc/init.d/
+case "${WB_FAMILY}" in
+    redhat)
+        if ! sudo dnf install -y "./workbench.${WB_PKG_EXT}"; then
+            log_error "Failed to install Workbench package"
+        fi
+        ;;
+    suse)
+        # --allow-unsigned-rpm because the downloaded package carries no key this
+        # container trusts, and --no-gpg-checks so resolving its dependencies out
+        # of the image's repos does not stop on the same question. `zypper
+        # install <path>`, not `rpm -i`, so those dependencies get pulled rather
+        # than reported as unmet.
+        if ! wb_zypper --no-gpg-checks install --allow-unsigned-rpm "./workbench.${WB_PKG_EXT}"; then
+            log_error "Failed to install Workbench package"
+        fi
+        ;;
+    *)
+        if ! sudo apt install -y "./workbench.${WB_PKG_EXT}"; then
+            log_error "Failed to install Workbench package"
+        fi
+        ;;
+esac
+
+if [ "${WB_FAMILY}" != "debian" ]; then
+    # Both rpm packages' postinst installs systemd units, so /etc/init.d stays
+    # empty and `rstudio-server start` has nothing to run. Each package also
+    # ships the SysV scripts the Ubuntu .deb installs for us, in a directory
+    # named for the family (verified: extras/init.d/{debian,redhat,suse} all
+    # exist); copy those into place so the start/stop paths below (and
+    # wb_ensure_workbench) work on every OS.
+    INIT_SRC="/usr/lib/rstudio-server/extras/init.d/${WB_FAMILY}"
+    if [ -d "${INIT_SRC}" ]; then
+        sudo cp "${INIT_SRC}/rstudio-server" /etc/init.d/
+        sudo cp "${INIT_SRC}/rstudio-launcher" /etc/init.d/
         sudo chmod +x /etc/init.d/rstudio-server /etc/init.d/rstudio-launcher
     else
-        log_error "Workbench rpm did not ship extras/init.d/redhat (no SysV scripts to install)"
+        log_error "Workbench rpm did not ship ${INIT_SRC} (no SysV scripts to install)"
     fi
     # Without this the launcher warns that HOME is unset and that plugins may
     # inherit an incorrect one.
@@ -335,9 +491,10 @@ if [ "${WB_OS}" = "rocky9" ]; then
     # rserver launches sessions through PAM, which builds a fresh environment
     # rather than inheriting the container's -- so the image's `ENV PATH` never
     # reaches a session, and putting a directory on PATH in the Dockerfile does
-    # not help. `pam_env` (in /etc/pam.d/system-auth on EL9) reads
-    # /etc/environment for that PATH; Debian/Ubuntu ship a populated one, EL9
-    # ships it empty. The result on Rocky was a session PATH without
+    # not help. `pam_env` (/etc/pam.d/system-auth on EL9, /etc/pam.d/common-session
+    # on openSUSE) reads /etc/environment for that PATH; Debian/Ubuntu ship a
+    # populated one and neither rpm distro does. The result on Rocky was a
+    # session PATH without
     # /usr/local/bin, which is where the image installs quarto -- so Posit
     # Publisher's `quarto inspect` (spawned by name) failed, it fell back to a
     # hardcoded version with no engines, and Connect then declined to provision R
@@ -349,10 +506,6 @@ if [ "${WB_OS}" = "rocky9" ]; then
         printf 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n' \
             | sudo tee -a /etc/environment > /dev/null
         sudo chmod 644 /etc/environment
-    fi
-else
-    if ! sudo apt install -y "./workbench.${WB_PKG_EXT}"; then
-        log_error "Failed to install Workbench package"
     fi
 fi
 
@@ -459,19 +612,32 @@ start_workbench
 # Ensure (fetch once) + export CONNECT_TOKEN for subsequent steps/tests
 ensure_connect_token || true
 
-# Setup environment modules. Both images bake the package in, so this is a
-# no-op reinstall on a normal run; it stays as a safety net for an image that
-# predates it.
+# Setup environment modules. The Ubuntu and Rocky images bake the package in, so
+# there this is a no-op reinstall (and a safety net for an image that predates
+# it). The openSUSE image does not ship it, so there it is a real install --
+# worth adding to that image's package list eventually, but it costs seconds and
+# keeping it here means the lane does not wait on an image rebuild.
 echo "Setting up environment modules..."
-if [ "${WB_OS}" = "rocky9" ]; then
-    if ! sudo dnf install -y environment-modules; then
-        log_error "Failed to install environment-modules"
-    fi
-else
-    if ! sudo apt install -y environment-modules; then
-        log_error "Failed to install environment-modules"
-    fi
-fi
+case "${WB_FAMILY}" in
+    redhat)
+        if ! sudo dnf install -y environment-modules; then
+            log_error "Failed to install environment-modules"
+        fi
+        ;;
+    suse)
+        # openSUSE names the same project's package "Modules", not
+        # "environment-modules". It drops the same /etc/profile.d/modules.sh the
+        # other two do, which is what the profile.d snippet below sources.
+        if ! wb_zypper install Modules; then
+            log_error "Failed to install Modules (environment-modules)"
+        fi
+        ;;
+    *)
+        if ! sudo apt install -y environment-modules; then
+            log_error "Failed to install environment-modules"
+        fi
+        ;;
+esac
 # The session user (not root) resolves these modulefiles, so the tree has to be
 # world-readable. State the modes rather than inheriting the ambient umask: a
 # sourced helper leaking `umask 077` once made these 0700/0600, which hid both

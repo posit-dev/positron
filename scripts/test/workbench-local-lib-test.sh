@@ -36,10 +36,16 @@ assert_fails() {
 
 # --- Fixtures -----------------------------------------------------------------
 # Trimmed to the keys the lib reads, but the values are verbatim from the live
-# feeds (captured 2026-08-09) -- the arch tokens are the whole point of these
-# tests, so they must not be idealized. Note the two feeds disagree about how to
-# spell arm64 for rhel9: the platform *key* says arm64, the *filename* says
-# aarch64. Several assertions below exist only to pin that asymmetry.
+# feeds (rhel9/noble captured 2026-08-09, opensuse15 2026-09-02) -- the arch
+# tokens are the whole point of these tests, so they must not be idealized. Note
+# the two feeds disagree about how to spell arm64 for rhel9: the platform *key*
+# says arm64, the *filename* says aarch64. Several assertions below exist only to
+# pin that asymmetry.
+#
+# There is deliberately no "opensuse15-arm64" key and no arm64 rpm in the stable
+# fixture: the live feeds publish neither, which is why wb_os_arches lists
+# opensuse15 as amd64-only. Adding a fake arm64 key here would make the tests
+# pass on a URL that 404s in reality.
 
 _wb_fetch_downloads_json() {
 	cat <<'JSON'
@@ -47,7 +53,8 @@ _wb_fetch_downloads_json() {
 	"rstudio": { "pro": { "stable": { "server": { "installer": {
 		"noble": { "url": "https://download2.rstudio.org/server/jammy/amd64/rstudio-workbench-2026.07.1-147.pro6-amd64.deb" },
 		"rhel9": { "url": "https://download2.rstudio.org/server/rocky9/x86_64/rstudio-workbench-rhel-2026.07.1-147.pro6-x86_64.rpm" },
-		"rhel8": { "url": "https://download2.rstudio.org/server/rhel8/x86_64/rstudio-workbench-rhel-2026.07.1-147.pro6-x86_64.rpm" }
+		"rhel8": { "url": "https://download2.rstudio.org/server/rhel8/x86_64/rstudio-workbench-rhel-2026.07.1-147.pro6-x86_64.rpm" },
+		"opensuse15": { "url": "https://download2.rstudio.org/server/opensuse15/x86_64/rstudio-workbench-2026.08.2-200.pro1-x86_64.rpm" }
 	} } } } }
 }
 JSON
@@ -61,7 +68,8 @@ _wb_fetch_dailies_json() {
 		"noble-arm64":  { "link": "https://dl.dailies.rstudio.com/server/jammy/arm64/rstudio-workbench-2026.08.0-187.pro5-arm64.deb" },
 		"rhel9-x86_64": { "link": "https://dl.dailies.rstudio.com/server/rocky9/x86_64/rstudio-workbench-rhel-2026.08.0-187.pro5-x86_64.rpm" },
 		"rhel9-arm64":  { "link": "https://dl.dailies.rstudio.com/server/rocky9/arm64/rstudio-workbench-rhel-2026.08.0-187.pro5-aarch64.rpm" },
-		"rhel8-x86_64": { "link": "https://dl.dailies.rstudio.com/server/rhel8/x86_64/rstudio-workbench-rhel-2026.08.0-187.pro5-x86_64.rpm" }
+		"rhel8-x86_64": { "link": "https://dl.dailies.rstudio.com/server/rhel8/x86_64/rstudio-workbench-rhel-2026.08.0-187.pro5-x86_64.rpm" },
+		"opensuse15-x86_64": { "link": "https://dl.dailies.rstudio.com/server/opensuse15/x86_64/rstudio-workbench-2026.09.0-166.pro8-x86_64.rpm" }
 	} } }
 }
 JSON
@@ -82,6 +90,7 @@ assert_fails "detect_arch rejects an unknown machine type" wb_detect_arch ppc64l
 
 assert_ok    "os_valid accepts ubuntu24" wb_os_valid ubuntu24
 assert_ok    "os_valid accepts rocky9" wb_os_valid rocky9
+assert_ok    "os_valid accepts opensuse15" wb_os_valid opensuse15
 # The feed names are NOT accepted as input -- one vocabulary, checked at the door.
 assert_fails "os_valid rejects the feed name noble" wb_os_valid noble
 assert_fails "os_valid rejects the feed name rhel9" wb_os_valid rhel9
@@ -91,15 +100,51 @@ assert_fails "os_valid rejects an empty OS"         wb_os_valid ""
 # the contract that keeps "rhel9"/"noble" out of the rest of the codebase.
 assert_eq "feed name ubuntu24 -> noble" "noble" "$(wb_os_feed ubuntu24)"
 assert_eq "feed name rocky9 -> rhel9"   "rhel9" "$(wb_os_feed rocky9)"
+# opensuse15 is the one OS whose token and feed name coincide. Asserted so the
+# coincidence is a checked fact rather than a reason to skip wb_os_feed.
+assert_eq "feed name opensuse15 -> opensuse15" "opensuse15" "$(wb_os_feed opensuse15)"
 assert_fails "feed name rejects a feed name fed back in" wb_os_feed noble
 assert_eq "image ubuntu24" "ghcr.io/posit-dev/positron-ubuntu24:24.18.0" "$(wb_os_image ubuntu24)"
 assert_eq "image rocky9"   "ghcr.io/posit-dev/positron-rocky9:24.18.0"   "$(wb_os_image rocky9)"
+assert_eq "image opensuse15" "ghcr.io/posit-dev/positron-opensuse156:24.18.0" "$(wb_os_image opensuse15)"
 assert_fails "image rejects an unknown OS" wb_os_image plan9
 
 assert_eq "pkg_ext ubuntu24"  "deb" "$(wb_os_pkg_ext ubuntu24)"
 assert_eq "pkg_ext rocky9"  "rpm" "$(wb_os_pkg_ext rocky9)"
+assert_eq "pkg_ext opensuse15" "rpm" "$(wb_os_pkg_ext opensuse15)"
 assert_eq "pkg_stem ubuntu24" "rstudio-workbench-"      "$(wb_os_pkg_stem ubuntu24)"
 assert_eq "pkg_stem rocky9" "rstudio-workbench-rhel-" "$(wb_os_pkg_stem rocky9)"
+# Same extension as rocky9, different stem: the openSUSE rpm has no "-rhel"
+# segment. This pair is what wb_pkg_version's two-step strip depends on.
+assert_eq "pkg_stem opensuse15" "rstudio-workbench-" "$(wb_os_pkg_stem opensuse15)"
+
+assert_eq "family ubuntu24"   "debian" "$(wb_os_family ubuntu24)"
+assert_eq "family rocky9"     "redhat" "$(wb_os_family rocky9)"
+assert_eq "family opensuse15" "suse"   "$(wb_os_family opensuse15)"
+assert_fails "family rejects an unknown OS" wb_os_family plan9
+
+# --- wb_os_arches / wb_os_supports_arch / wb_os_platform ----------------------
+# Posit publishes no arm64 Workbench for openSUSE 15 on either channel, so this
+# is a fact about the feeds, not a policy choice. Everything downstream (URL
+# resolution refusing, the local stack forcing an emulated amd64 container)
+# hangs off these three.
+
+assert_eq "arches ubuntu24"   "amd64 arm64" "$(wb_os_arches ubuntu24)"
+assert_eq "arches rocky9"     "amd64 arm64" "$(wb_os_arches rocky9)"
+assert_eq "arches opensuse15" "amd64"       "$(wb_os_arches opensuse15)"
+
+assert_ok    "supports_arch ubuntu24/arm64"   wb_os_supports_arch ubuntu24 arm64
+assert_ok    "supports_arch opensuse15/amd64" wb_os_supports_arch opensuse15 amd64
+assert_fails "supports_arch rejects opensuse15/arm64" wb_os_supports_arch opensuse15 arm64
+assert_fails "supports_arch rejects an unknown arch"  wb_os_supports_arch rocky9 ppc64le
+assert_fails "supports_arch rejects an unknown OS"    wb_os_supports_arch plan9 amd64
+
+# Empty means "let Docker resolve the multi-arch manifest"; non-empty is the
+# emulation escape hatch, and it must fire ONLY for a pair with no package.
+assert_eq "platform ubuntu24/arm64 is unset"     "" "$(wb_os_platform ubuntu24 arm64)"
+assert_eq "platform rocky9/arm64 is unset"       "" "$(wb_os_platform rocky9 arm64)"
+assert_eq "platform opensuse15/amd64 is unset"   "" "$(wb_os_platform opensuse15 amd64)"
+assert_eq "platform opensuse15/arm64 forces amd64" "linux/amd64" "$(wb_os_platform opensuse15 arm64)"
 
 assert_eq "key_arch ubuntu24/amd64"  "amd64"   "$(wb_os_key_arch ubuntu24 amd64)"
 assert_eq "key_arch ubuntu24/arm64"  "arm64"   "$(wb_os_key_arch ubuntu24 arm64)"
@@ -107,6 +152,8 @@ assert_eq "key_arch rocky9/amd64"  "x86_64"  "$(wb_os_key_arch rocky9 amd64)"
 # The feed key says arm64 where the filename says aarch64. Pinned here so
 # "fixing" the key to match the filename fails loudly rather than 404ing.
 assert_eq "key_arch rocky9/arm64 is arm64, not aarch64" "arm64" "$(wb_os_key_arch rocky9 arm64)"
+assert_eq "key_arch opensuse15/amd64" "x86_64" "$(wb_os_key_arch opensuse15 amd64)"
+assert_fails "key_arch has no opensuse15/arm64" wb_os_key_arch opensuse15 arm64
 assert_fails "key_arch rejects an unknown arch" wb_os_key_arch rocky9 ppc64le
 
 # --- wb_pkg_version -----------------------------------------------------------
@@ -123,6 +170,14 @@ assert_eq "pkg_version from an aarch64 .rpm" "2026.07.1-147.pro6" \
 	"$(wb_pkg_version "https://download2.rstudio.org/server/rocky9/arm64/rstudio-workbench-rhel-2026.07.1-147.pro6-aarch64.rpm")"
 assert_eq "pkg_version from a bare filename" "2026.08.0-187.pro5" \
 	"$(wb_pkg_version "rstudio-workbench-rhel-2026.08.0-187.pro5-x86_64.rpm")"
+# The openSUSE rpm shares rocky9's extension but uses ubuntu24's stem, so a
+# version parser that picks its strip by extension alone leaves "rstudio-
+# workbench-" glued to the front. Both directions are asserted because the fix
+# is order-dependent: strip the longer stem first, then the shorter.
+assert_eq "pkg_version from an openSUSE .rpm (plain stem, rpm extension)" "2026.09.0-166.pro8" \
+	"$(wb_pkg_version "https://dl.dailies.rstudio.com/server/opensuse15/x86_64/rstudio-workbench-2026.09.0-166.pro8-x86_64.rpm")"
+assert_eq "pkg_version still strips the rhel stem, not just the plain one" "2026.08.0-187.pro5" \
+	"$(wb_pkg_version "rstudio-workbench-rhel-2026.08.0-187.pro5-aarch64.rpm")"
 # The menu labels render `$(wb_pkg_version "$url" || echo unavailable)`, so the
 # non-zero exit on junk is load-bearing, not cosmetic.
 assert_eq "pkg_version of an empty URL falls back" "unavailable" \
@@ -161,6 +216,16 @@ assert_eq "stable rocky9/amd64 is the published URL verbatim" \
 assert_eq "stable rocky9/arm64 rewrites the path and the filename differently" \
 	"https://download2.rstudio.org/server/rocky9/arm64/rstudio-workbench-rhel-2026.07.1-147.pro6-aarch64.rpm" \
 	"$(wb_resolve_stable_url rocky9 arm64)"
+assert_eq "stable opensuse15/amd64 is the published URL verbatim" \
+	"https://download2.rstudio.org/server/opensuse15/x86_64/rstudio-workbench-2026.08.2-200.pro1-x86_64.rpm" \
+	"$(wb_resolve_stable_url opensuse15 amd64)"
+# The refusal matters more than the success: without it the arm64 rewrite below
+# would fall through its case statement and hand back the x86_64 rpm unchanged,
+# which looks exactly like a successful resolution.
+assert_fails "stable refuses opensuse15/arm64 rather than returning the x86 URL" \
+	wb_resolve_stable_url opensuse15 arm64
+assert_eq "stable prints no URL for opensuse15/arm64" "" \
+	"$(wb_resolve_stable_url opensuse15 arm64 2>/dev/null)"
 assert_fails "stable rejects an unsupported OS" wb_resolve_stable_url plan9 amd64
 
 _wb_orig_downloads="$(declare -f _wb_fetch_downloads_json)"
@@ -207,6 +272,10 @@ assert_eq "daily rocky9/amd64 uses the x86_64 platform key" \
 assert_eq "daily rocky9/arm64 uses the arm64 platform key" \
 	"https://dl.dailies.rstudio.com/server/rocky9/arm64/rstudio-workbench-rhel-2026.08.0-187.pro5-aarch64.rpm" \
 	"$(wb_resolve_daily_url rocky9 arm64)"
+assert_eq "daily opensuse15/amd64 uses the x86_64 platform key" \
+	"https://dl.dailies.rstudio.com/server/opensuse15/x86_64/rstudio-workbench-2026.09.0-166.pro8-x86_64.rpm" \
+	"$(wb_resolve_daily_url opensuse15 amd64)"
+assert_fails "daily refuses opensuse15/arm64" wb_resolve_daily_url opensuse15 arm64
 assert_fails "daily rejects an unsupported OS"   wb_resolve_daily_url plan9 amd64
 assert_fails "daily rejects an unsupported arch" wb_resolve_daily_url rocky9 ppc64le
 
@@ -216,13 +285,17 @@ assert_fails "daily fails when the platform key is absent" wb_resolve_daily_url 
 eval "$_wb_orig_dailies"
 
 # --- Round trip ---------------------------------------------------------------
-# The property that actually protects the Rocky lane: whatever a resolver hands
-# back must parse back to the architecture that was asked for. A wrong rewrite
-# rule (e.g. leaving -x86_64.rpm on an arm64 URL) fails here even if the string
-# assertions above were updated to match the bug.
+# The property that actually protects the non-Ubuntu lanes: whatever a resolver
+# hands back must parse back to the architecture that was asked for. A wrong
+# rewrite rule (e.g. leaving -x86_64.rpm on an arm64 URL) fails here even if the
+# string assertions above were updated to match the bug.
+#
+# Driven off wb_os_arches rather than a hardcoded arch list, so adding an OS
+# extends the property automatically and an amd64-only OS is not asked for a
+# URL that does not exist.
 
-for _os in ubuntu24 rocky9; do
-	for _arch in amd64 arm64; do
+for _os in $WB_OS_CHOICES; do
+	for _arch in $(wb_os_arches "$_os"); do
 		assert_eq "round trip: stable ${_os}/${_arch} parses back to ${_arch}" "$_arch" \
 			"$(wb_pkg_arch "$(wb_resolve_stable_url "$_os" "$_arch")")"
 		assert_eq "round trip: daily ${_os}/${_arch} parses back to ${_arch}" "$_arch" \
@@ -240,6 +313,8 @@ assert_ok "validate accepts a matching ubuntu24/amd64 .deb" \
 	wb_validate_wb_url "https://dl.dailies.rstudio.com/server/jammy/amd64/rstudio-workbench-2026.08.0-187.pro5-amd64.deb" ubuntu24 amd64
 assert_ok "validate accepts a matching rocky9/arm64 .rpm" \
 	wb_validate_wb_url "https://dl.dailies.rstudio.com/server/rocky9/arm64/rstudio-workbench-rhel-2026.08.0-187.pro5-aarch64.rpm" rocky9 arm64
+assert_ok "validate accepts a matching opensuse15/amd64 .rpm" \
+	wb_validate_wb_url "https://dl.dailies.rstudio.com/server/opensuse15/x86_64/rstudio-workbench-2026.09.0-166.pro8-x86_64.rpm" opensuse15 amd64
 # The mistake this guards is pasting the URL you had in your scrollback from the
 # other lane: right arch, wrong package format for the container.
 assert_fails "validate rejects a .deb when the OS installs rpms" \

@@ -37,6 +37,9 @@ import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 // `positron.assistant.inlineCompletions.enable` setting to `github.copilot.enable`.
 import './inlineCompletionsMigration.js';
 
+// Register the agent-compatible `positronAssistant.getProviderStatus` command.
+import './providerStatusCommand.js';
+
 // Register the commit message generation feature.
 registerCommitMessageGeneration();
 

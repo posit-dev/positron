@@ -9,6 +9,18 @@ on:
         description: "Positron version: a tag, 'latest-prerelease', or 'latest-release'"
         required: false
         default: "latest-prerelease"
+      notify_on:
+        description: 'Budget alert: always | over_budget_only | never'
+        required: false
+        default: over_budget_only
+      channel:
+        description: 'Slack channel for the budget alert'
+        required: false
+        default: '#positron-dev'
+      ceiling_gib:
+        description: 'Memory budget per scenario, in GiB'
+        required: false
+        default: '2'
 
 concurrency:
   group: memory-metrics-${{ github.ref }}
@@ -82,6 +94,8 @@ jobs:
           - { lane: desktop, scenario: notebook }
           - { lane: desktop, scenario: editors }
           - { lane: desktop, scenario: console-output }
+          - { lane: desktop, scenario: quarto-render }
+          - { lane: desktop, scenario: quarto-inline }
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       # The image is private, so the pull needs credentials. Copied from
@@ -224,6 +238,10 @@ jobs:
       # measures and renders but writes nothing to the trend.
       - name: Render report
         env:
+          # Parsing a 354 MB heap snapshot needs several GB. Deliberate headroom
+          # rather than the runner default: a V8 OOM aborts the process, so the
+          # parse's own try/catch cannot turn it back into a skipped breakdown.
+          NODE_OPTIONS: '--max-old-space-size=8192'
           BUILD: ${{ steps.build.outputs.BUILD }}
           MEMORY_PUBLISH: 'true'
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
@@ -237,7 +255,12 @@ jobs:
           # Matches snapshotDir() in the spec, which is per lane and scenario.
           # Deliberately not test-results/, which Playwright wipes at the
           # start of every invocation.
-          path: ${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/
+          # Excludes the heap snapshots: this step is if: always(), so a failed
+          # measure or render step would otherwise upload 3 x 354 MB of them.
+          path: |
+            ${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/
+            !${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/*.heapsnapshot
+            !${{ runner.temp }}/memory-snapshots-${{ matrix.lane }}-${{ matrix.scenario }}/*.meta.json
           if-no-files-found: warn
 
       # Only on failure, and deliberately including test-results/: when the app
@@ -263,7 +286,7 @@ jobs:
       # printed by summarize-memory instead, and appear on the run's Summary page.
 
   # Combines the matrix jobs' per-lane-and-scenario reports into one
-  # cross-scenario view: the per-role numbers are 20-50x quieter than the
+  # scenario memory report: the per-role numbers are 20-50x quieter than the
   # tree TOTAL and are the useful signal, but nothing compared them side by
   # side before this job existed.
   #
@@ -277,7 +300,9 @@ jobs:
     needs: memory
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Nearly all of this is one npm install, seen as slow as 7 minutes; a
+    # 10-minute budget killed the job twice.
+    timeout-minutes: 20
     permissions:
       contents: read
       # For the AWS OIDC role-assumption in upload-report-to-s3.
@@ -285,11 +310,31 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Compiles test/e2e, which is where summarize-cli.ts lives. Same action
-      # the memory job uses, so the compiled output this job runs is built the
-      # same way.
-      - name: Setup test dependencies and compile tests
-        uses: ./.github/actions/setup-e2e-test-dependencies
+      # Not ./.github/actions/setup-e2e-test-dependencies: this job renders one
+      # HTML file from JSON on disk, so it needs tsc, not the Playwright toolchain.
+      - name: Compile the summarizer
+        run: |
+          # Ranges from the root package.json so a hardcoded one can't drift; the
+          # name matters too, since `typescript` is aliased and its bin is `tsc6`.
+          SPECS=$(node -e '
+            const pkg = require("./package.json");
+            const ranges = { ...pkg.dependencies, ...pkg.devDependencies };
+            const names = ["typescript", "@types/node"];
+            const missing = names.filter((n) => !ranges[n]);
+            if (missing.length) {
+              console.error("not declared in the root package.json: " + missing.join(", "));
+              process.exit(1);
+            }
+            console.log(names.map((n) => n + "@" + ranges[n]).join(" "));
+          ')
+
+          # Otherwise npm install here builds the product's whole dependency tree.
+          rm package.json
+          echo '{}' > package.json
+
+          # Two more registry round-trips whose output this job never reads.
+          npm install --no-audit --no-fund $SPECS
+          npm --prefix test/e2e run compile -- -p tsconfig.summarize.json
 
       # Downloads every memory-report-<lane>-<scenario> artifact that was
       # uploaded, each into its own subdirectory named after the artifact --
@@ -309,7 +354,7 @@ jobs:
       # The per-lane-and-scenario reports are published alongside the summary,
       # not replaced by it: only they carry the delta against the previous
       # nightly, the process tree, and the activated-extension cards.
-      - name: Render cross-scenario summary
+      - name: Render the scenario memory report
         run: |
           STAGE="${{ runner.temp }}/playwright-report"
           mkdir -p "$STAGE"
@@ -379,7 +424,9 @@ jobs:
           {
             echo "## Memory"
             echo ""
-            echo "[Cross-scenario summary]($REPORT_URL)"
+            echo "**[Scenario Memory Report]($REPORT_URL)**"
+            echo ""
+            echo "Per-scenario detail:"
             echo ""
             for FILE in "${{ runner.temp }}"/playwright-report/*.html; do
               # An unmatched glob expands to the literal pattern, which would
@@ -393,3 +440,110 @@ jobs:
               fi
             done
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Non-fatal by design: a budget alert must never fail the memory run.
+      # Only main publishes to the production dataset, so a branch dispatch
+      # finds no rows for its run_id and the route reports 0 scenarios.
+      - name: Memory budget alert
+        continue-on-error: true
+        env:
+          # Scheduled runs get EMPTY inputs, not the declared defaults, so each
+          # needs an explicit fallback here.
+          NOTIFY_ON: ${{ inputs.notify_on || 'over_budget_only' }}
+          CHANNEL: ${{ inputs.channel || '#positron-dev' }}
+          CEILING_GIB: ${{ inputs.ceiling_gib || '2' }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ "$NOTIFY_ON" = "never" ]; then
+            echo "[dryrun] notify_on=never; will compute but not post"
+          fi
+
+          # Query by run_id, so no date arithmetic and no interaction with the
+          # dashboard's 00:00-00:30 UTC maintenance window.
+          url="https://connect.posit.it/e2e-test-insights-api/memory/budget-check"
+          status=$(curl -sS -o response.json -w '%{http_code}' \
+            -H "Authorization: Key ${CONNECT_API_KEY}" \
+            --get "$url" \
+            --data-urlencode "run_id=${RUN_ID}" \
+            --data-urlencode "branch=main" \
+            --data-urlencode "lane=desktop" \
+            --data-urlencode "ceiling_gib=${CEILING_GIB}")
+
+          # The route reserves non-2xx for a bad request, never for "nothing
+          # to report".
+          if [ "$status" != "200" ]; then
+            echo "budget-check returned HTTP $status:"
+            cat response.json
+            exit 1
+          fi
+          cat response.json
+
+          # Branch on over_budget, NEVER on slack_text -- that field is
+          # informational prose whose wording will change.
+          if jq -e '.over_budget' response.json >/dev/null; then
+            over_budget=true
+          else
+            over_budget=false
+          fi
+
+          if [ "$NOTIFY_ON" = "never" ]; then
+            echo "[dryrun] Would post to Slack:"
+            jq -r '.slack_text' response.json
+            exit 0
+          fi
+          if [ "$NOTIFY_ON" = "over_budget_only" ] && [ "$over_budget" = false ]; then
+            echo "Under budget and notify_on=over_budget_only; not posting."
+            exit 0
+          fi
+
+          # `// ""` because jq -r renders a null as the literal "null", which
+          # would sail past the -z check and get posted verbatim.
+          text=$(jq -r '.slack_text // ""' response.json)
+          if [ -z "$text" ]; then
+            reported=$(jq -r '.scenarios_reported' response.json)
+            ceiling=$(jq -r '.ceiling_bytes' response.json)
+            text="Nightly memory budget: all ${reported} reported scenario(s) within ${ceiling} bytes."
+          fi
+
+          jq -n --arg channel "$CHANNEL" --arg text "$text" \
+            '{channel: $channel, text: $text}' > payload.json
+
+          curl -sS -o slack.json \
+            -H "Authorization: Bearer ${SLACK_TOKEN}" \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            --data @payload.json \
+            https://slack.com/api/chat.postMessage
+
+          # A bad channel comes back as HTTP 200 with {"ok":false}, so an
+          # ignored response would make a typo look like success.
+          if ! jq -e '.ok' slack.json >/dev/null; then
+            echo "Slack rejected the message:"
+            cat slack.json
+            exit 1
+          fi
+          echo "Posted to ${CHANNEL}."
+
+  # A separate job so it survives what it reports: the budget alert is
+  # `summarize`'s last step, so a summarize timeout skips it and the nightly
+  # goes quiet.
+  #
+  # `always()`, not `failure()`: a job killed by timeout-minutes is reported as
+  # cancelled, for which `failure()` is false.
+  notify:
+    name: notify-test-results
+    needs: [resolve-build, memory, summarize]
+    # Scheduled runs only: a branch dispatch is watched by whoever started it.
+    if: always() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.3
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          notify_on: "failure"
+          slack_channel: "#positron-test-results"

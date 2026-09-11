@@ -61,6 +61,8 @@ run, so it must end in an offer, not a report:
 npx playwright test <spec> --project e2e-electron --grep '<test name>'
 ```
 
+Run it in the background (Bash `run_in_background: true`) and tail the log.
+
 This is the one place the local entry needs a test identity, and only to build
 that command -- so run `resolve-test-key.js` *here*, lazily, rather than at
 entry. With artifacts already on disk, the results directory names the test and
@@ -87,12 +89,22 @@ session doesn't have.
 
 Checkpoint at the moment that stops being true: you are about to open a PR or
 file an issue, or the engineer wants a `/clear`. Then resolve the key and init
-where you actually are:
+where you actually are.
+
+**Nothing derived a `<triage-id>` for you here** -- the CI entry gets one from
+`triage-history.js`, the local entry never ran it. Coin one from the leaf title
+(`<leaf-test-slug>-local`) and use it verbatim from then on:
 
 ```bash
 node .claude/skills/debug-e2e-test/scripts/checkpoint.js --triage-id <id> \
   --init --test-key '<key>' --phase evidence-gathered
+node .claude/skills/debug-e2e-test/scripts/collect-local-evidence.js \
+  --dir '<selected.dir>' --triage-id <id>
 ```
+
+The second call is not optional: the first collection wrote to
+`<work-dir>/local/<dir>`, so without it the checkpoint carries no evidence and
+`--resume` finds none.
 
 From there the close-out is unchanged: declare an `outcome`, record the block
 with `record-diagnosis.js`, then `phase=done`.

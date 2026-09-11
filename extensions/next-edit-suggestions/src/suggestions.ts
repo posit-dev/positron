@@ -32,6 +32,7 @@ const inlineEditRequest = new RequestType<InlineEditParams, InlineEditResult | n
 export async function generateSuggestion(
 	document: vscode.TextDocument,
 	position: vscode.Position,
+	triggerKind: CompletionTriggerKind,
 ): Promise<vscode.InlineCompletionItem | null> {
 	try {
 		const clientManager = getLanguageClientManager();
@@ -116,7 +117,7 @@ export async function generateSuggestion(
 			position: { line: position.line, character: position.character },
 			variables: sessionVariableContexts,
 			context: {
-				triggerKind: CompletionTriggerKind.Invoked,
+				triggerKind,
 			},
 			selection: {
 				excerpt,

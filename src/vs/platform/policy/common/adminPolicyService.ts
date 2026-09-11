@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// eslint-disable-next-line header/header
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { isObject } from '../../../base/common/types.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
@@ -22,7 +21,7 @@ export interface IAdminPolicyService {
 
 export interface AdminPolicy {
 	key: string;
-	value: any;
+	value: unknown;
 }
 
 export class AdminPolicyService extends Disposable implements IAdminPolicyService {

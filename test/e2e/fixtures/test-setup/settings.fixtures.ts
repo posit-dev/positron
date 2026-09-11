@@ -23,6 +23,8 @@ export function SettingsFixture(app: Application) {
 			await settings.set(newSettings, { keepOpen });
 
 			if (reload === true || (reload === 'web' && app.web === true)) {
+				// reloadWindow waits deterministically for the new page (navigation +
+				// workbench restored), so no fixed sleep is needed here.
 				await app.workbench.hotKeys.reloadWindow(false);
 			}
 			if (waitMs) {
@@ -30,8 +32,6 @@ export function SettingsFixture(app: Application) {
 			}
 
 			if (waitForReady) {
-				await app.code.driver.currentPage.waitForTimeout(3000);
-				await app.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 				await app.workbench.sessions.expectNoStartUpMessaging();
 			}
 		},

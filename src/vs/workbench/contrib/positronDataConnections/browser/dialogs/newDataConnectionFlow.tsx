@@ -14,7 +14,7 @@ import { ConfigureDataConnection } from './configureDataConnection.js';
 import { SelectDataConnectionProvider } from './selectDataConnectionProvider.js';
 import { SelectDataConnectionMechanism } from './selectDataConnectionMechanism.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IDataConnectionDriver, IDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
@@ -43,7 +43,7 @@ enum NewDataConnectionFlowStep {
  */
 interface NewDataConnectionFlowProps {
 	// The renderer.
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 }
 
 /**

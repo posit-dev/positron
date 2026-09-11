@@ -24,6 +24,7 @@ import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { IChatRequestViewModel, IChatResponseViewModel, isChatTreeItem, isRequestVM, isResponseVM } from '../../common/model/chatViewModel.js';
 import { ChatTreeItem, IChatWidgetService } from '../chat.js';
 import { CHAT_CATEGORY, stringifyItem } from './chatActions.js';
+import { toPortableMarkdown } from '../widget/chatClipboard.js';
 
 const CopyItemActionId = 'workbench.action.chat.copyItem';
 const copyFeedbackDuration = 1200;
@@ -172,7 +173,7 @@ export function registerChatCopyActions() {
 					.map(item => stringifyItem(item))
 					.join('\n\n');
 				if (sessionAsText) {
-					clipboardService.writeText(sessionAsText);
+					clipboardService.writeText(toPortableMarkdown(sessionAsText));
 				}
 			}
 		}
@@ -233,7 +234,7 @@ export function registerChatCopyActions() {
 			}
 
 			const text = stringifyItem(item, false);
-			await clipboardService.writeText(text);
+			await clipboardService.writeText(toPortableMarkdown(text));
 		}
 	});
 
@@ -275,7 +276,7 @@ export function registerChatCopyActions() {
 
 			const text = item.response.getFinalResponse();
 			if (text) {
-				await clipboardService.writeText(text);
+				await clipboardService.writeText(toPortableMarkdown(text));
 			}
 		}
 	});

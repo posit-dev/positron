@@ -1,0 +1,24 @@
+{
+	// Compiles only summarize-cli.ts and whatever it imports, for the nightly
+	// Memory Metrics summarize job.
+	//
+	// That job used to run the full e2e setup action -- seven npm installs plus
+	// the Playwright browser binaries -- to render one HTML file from JSON on
+	// disk, and twice hit its 10-minute budget mid-install (run 33813858347).
+	// summarize-cli's import closure is Node builtins only, so TypeScript and
+	// @types/node are the whole toolchain it needs.
+	//
+	// `files` rather than `include`: tsc pulls the closure in through the
+	// imports, so this stays correct as the closure changes, and an import that
+	// reaches a package the job does not install fails the compile loudly rather
+	// than at render time.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"types": [
+			"node"
+		]
+	},
+	"files": [
+		"utils/memory/summarize-cli.ts"
+	]
+}

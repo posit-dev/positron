@@ -12,7 +12,7 @@ import React from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { isMacintosh } from '../../../../../../base/common/platform.js';
-import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { PositronDynamicModalDialog } from '../../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { OneButtonFooter } from '../../../../../browser/positronComponents/positronDynamicModalDialog/components/oneButtonFooter.js';
 import { REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID } from './config.js';
@@ -45,7 +45,7 @@ const openModelSettingLabel = localize('ghostCellInfo.openModelSetting', 'Open m
  * GhostCellInfoModalDialogProps interface.
  */
 interface GhostCellInfoModalDialogProps {
-	renderer: PositronModalDialogReactRenderer;
+	renderer: PositronModalReactRenderer;
 	modelName?: string;
 }
 
@@ -138,7 +138,9 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 			renderer={renderer}
 			title={dialogTitle}
 			width={480}
-			onSubmit={handleClose}
+			// Escape closes the dialog. The native <dialog> used to do this on its own; an ordinary
+			// element does not, so the dialog needs a cancel handler to route Escape to.
+			onCancel={handleClose}
 		/>
 	);
 };

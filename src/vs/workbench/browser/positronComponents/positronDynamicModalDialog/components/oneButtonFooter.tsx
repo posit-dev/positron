@@ -27,7 +27,7 @@ interface OneButtonFooterProps {
 export const OneButtonFooter = (props: OneButtonFooterProps) => {
 	return (
 		<div className='one-button-footer'>
-			<FooterButton autoFocus default type='submit' onPressed={props.onButton}>
+			<FooterButton default type='submit' onPressed={props.onButton}>
 				{props.buttonTitle}
 			</FooterButton>
 		</div>

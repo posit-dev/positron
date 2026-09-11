@@ -27,6 +27,10 @@
 		// plain TypeScript with no workbench dependencies. Without these the
 		// type check silently skips them.
 		"test/e2e/**/*.vitest.ts",
+		// Vitest tests for built-in extension modules. Like the e2e helpers, these
+		// cover plain TypeScript with no workbench and no `vscode` dependencies.
+		"extensions/**/*.vitest.ts",
+		"extensions/**/*.vitest.tsx",
 		// Add files from the base tsconfig that we need for Vitest tests
 		"src/typings",
 		"src/positron-dts/positron.d.ts",

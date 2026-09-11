@@ -35,11 +35,15 @@ jobs:
   unit-tests:
     name: unit
     runs-on: ubuntu-latest-4x
-    # The job takes ~37m when the npm caches hit, so 40m left no headroom: an
-    # evicted npm-extensions-stable entry adds ~4m (cold extension install plus
-    # the extra cache save) and the run got cancelled part-way through the
-    # browser tests. 60m absorbs a cold cache while still capping a hung run.
-    timeout-minutes: 60
+    # The three test steps only account for ~5m; almost all of the wall clock is
+    # npm install plus the cache save, and both scale with how many npm caches
+    # missed. A warm-ish run lands at ~35m, but a run that misses all three npm
+    # caches (e.g. run 33655268940) pays ~14m of cold install *and* ~30m of
+    # cache save (npm-core 8m, extensions-volatile 4m, extensions-stable 18m),
+    # reaching the Electron tests at ~57m. 60m cancelled that run 3m into the
+    # first test step. 75m covers the fully-cold ~62m path with headroom while
+    # still capping a genuinely hung run.
+    timeout-minutes: 75
     # Run inside the shared CI image, which bakes in the system dependencies,
     # Node (matching .nvmrc), and R 4.5.2 + test-files deps that this
     # job used to install at runtime. Built from docker/images/ubuntu24_04.

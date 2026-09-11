@@ -133,7 +133,7 @@ export class Workbench {
 		this.explorer = new Explorer(code, this.quickaccess);
 		this.connections = new Connections(code, this.quickaccess);
 		this.dataConnections = new DataConnections(code, this.quickaccess);
-		this.newFolderFlow = new NewFolderFlow(code, this.quickaccess);
+		this.newFolderFlow = new NewFolderFlow(code, this.quickaccess, this.toasts);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickInput, this.hotKeys, this.contextMenu);
 		this.modals = new Modals(code, this.toasts);
@@ -162,7 +162,7 @@ export class Workbench {
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts, this.modals);
 		this.positConnect = new PositConnect(code);
 		this.positAssistant = new PositAssistant(code);
-		this.modelProviderModal = new ModelProviderModal(code, this.modals, this.toasts);
+		this.modelProviderModal = new ModelProviderModal(code, this.toasts);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 		this.publisher = new Publisher(this.quickInput);

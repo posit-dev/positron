@@ -5,12 +5,9 @@
 
 /// <reference types="vitest/globals" />
 
-// React.
-import React from 'react';
-
 // Testing libraries.
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 
 // Other dependencies.
 import { Emitter, Event } from '../../../../../base/common/event.js';
@@ -19,6 +16,7 @@ import { IReactComponentContainer } from '../../../../../base/browser/positronRe
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { stubGridLayoutWithSize } from '../../../../../test/vitest/stubGridLayout.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -44,37 +42,6 @@ const pkg = (name: string, version: string): ILanguageRuntimePackage => ({
 	displayName: name,
 	version,
 });
-
-/**
- * The data grid sizes itself from the DOM via requestAnimationFrame + ResizeObserver, neither of
- * which produces a real layout in happy-dom. Give elements a concrete offset size and hand that
- * size to the grid synchronously through a ResizeObserver that fires on observe(), so the rows
- * paint during render. Mirrors the helper in positronList.vitest.tsx. Returns a restore function
- * for the offset overrides; callers must also call vi.unstubAllGlobals().
- */
-function stubGridLayoutWithSize(width: number, height: number): () => void {
-	const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
-	const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
-	Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => width });
-	Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => height });
-
-	vi.stubGlobal('requestAnimationFrame', () => 0);
-	vi.stubGlobal('ResizeObserver', class {
-		private readonly _callback: ResizeObserverCallback;
-		constructor(callback: ResizeObserverCallback) { this._callback = callback; }
-		observe() {
-			const entry = { contentRect: { width, height } };
-			this._callback([entry] as unknown as ResizeObserverEntry[], this as unknown as ResizeObserver);
-		}
-		unobserve() { }
-		disconnect() { }
-	});
-
-	return () => {
-		Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidthDescriptor!);
-		Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeightDescriptor!);
-	};
-}
 
 describe('ListPackages', () => {
 	// Emitters live at describe scope so the .stub() below captures their .event during build();

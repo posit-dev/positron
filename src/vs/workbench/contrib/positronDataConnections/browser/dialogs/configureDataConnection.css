@@ -54,6 +54,16 @@
 	flex-direction: column;
 }
 
+/*
+ * Every other parameter is a label line above a control, and the 8px gap between fields separates
+ * those pairs. A checkbox carries its label inline, so it has no label line to act as its header and
+ * the bare gap leaves it reading as part of the field above it. The extra space stands in for the
+ * missing line, putting the checkbox back in the same rhythm as its neighbors.
+ */
+.configure-data-connection .parameter-checkbox-field {
+	margin-top: 6px;
+}
+
 .configure-data-connection .parameter-label {
 	font-size: 11px;
 	color: var(--vscode-descriptionForeground);

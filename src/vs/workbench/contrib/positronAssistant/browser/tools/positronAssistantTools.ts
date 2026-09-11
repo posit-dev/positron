@@ -54,6 +54,10 @@ const getPlotToolData: IToolData = {
 	displayName: localize('positron.assistant.tool.getPlot.displayName', "View Active Plot"),
 	userDescription: localize('positron.assistant.tool.getPlot.userDescription', "View the current active plot."),
 	modelDescription: 'View the current active plot if one exists. Don\'t invoke this tool if there are no plots in the session.',
+	inputSchema: {
+		type: 'object',
+		properties: {},
+	},
 };
 
 export class GetPlotTool implements IToolImpl {

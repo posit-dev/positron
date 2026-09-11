@@ -10,23 +10,10 @@ import './positronModalDialog.css';
 import { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from '../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { DraggableTitleBar } from './components/draggableTitleBar.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
-
-/**
- * Focusable element selectors.
- */
-const focusableElementSelectors =
-	'a[href]:not([disabled]),' +
-	'button:not([disabled]),' +
-	'textarea:not([disabled]),' +
-	'input[type="text"]:not([disabled]),' +
-	'input[type="number"]:not([disabled]),' +
-	'input[type="radio"]:not([disabled]),' +
-	'input[type="checkbox"]:not([disabled]),' +
-	'select:not([disabled])';
+import { useModalDialogKeyboard } from './useModalDialogKeyboard.js';
 
 /**
  * The gutter where the dialog box cannot be moved.
@@ -96,113 +83,17 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 		});
 	}, [props.width, props.height]);
 
-	// Set up keyboard and resize event handlers.
+	// Escape, Enter and the Tab focus trap.
+	useModalDialogKeyboard({
+		dialogBoxRef,
+		keyboardSource: props.renderer,
+		onCancel: props.onCancel
+	});
+
+	// Set up the resize event handler.
 	useEffect(() => {
-		// Create a disposable store for the event handlers we'll add.
+		// Create a disposable store for the event handler we'll add.
 		const disposableStore = new DisposableStore();
-
-		// Add the onKeyDown event handler.
-		disposableStore.add(props.renderer.onKeyDown(e => {
-			/**
-			 * Consumes an event.
-			 */
-			const consumeEvent = () => {
-				e.preventDefault();
-				e.stopPropagation();
-			};
-
-			// Handle the event.
-			switch (e.key) {
-				// Enter clicks the first default button that is not disabled, if there is one.
-				case 'Enter': {
-					// If the active element is a text area, return.
-					const activeElement = DOM.getDocument(dialogBoxRef.current).activeElement;
-					if (DOM.isHTMLTextAreaElement(activeElement)) {
-						return;
-					}
-
-					// Get the first default button that is not disabled. If there is one, click it.
-					// eslint-disable-next-line no-restricted-syntax
-					const defaultButton = dialogBoxRef.current.querySelector<HTMLElement>(
-						'button.default:not([disabled])'
-					);
-					if (defaultButton) {
-						consumeEvent();
-						defaultButton.click();
-					}
-					break;
-				}
-
-				// Escape cancels dialog.
-				case 'Escape': {
-					consumeEvent();
-					props.onCancel?.();
-					break;
-				}
-
-				// Tab moves between dialog elements. This code works to keep the focus in the dialog.
-				case 'Tab': {
-					// Get the focusable elements.
-					// eslint-disable-next-line no-restricted-syntax
-					const focusableElements = dialogBoxRef.current.querySelectorAll<HTMLElement>(
-						focusableElementSelectors
-					);
-
-					// If there are focusable elements in the modal dialog, keep focus in the dialog;
-					// otherwise, prevent focus from going outside of the dialog.
-					if (focusableElements.length) {
-						// For convenience, get the first and last focusable elements.
-						const firstFocusableElement = focusableElements[0];
-						const lastFocusableElement = focusableElements[focusableElements.length - 1];
-
-						// Get the active element.
-						const activeElement = DOM.getActiveElement();
-
-						/**
-						 * Determines whether the active element is one of the focusable elements.
-						 * @returns true if the active element is one of the focusable element;
-						 * otherwise, false.
-						 */
-						const activeElementIsFocusableElement = () => {
-							// Enumerate the focusable elements and determine whether one of them is
-							// the active element.
-							if (activeElement) {
-								for (let i = 0; i < focusableElements.length; i++) {
-									if (focusableElements[i] === activeElement) {
-										return true;
-									}
-								}
-							}
-
-							// The active element is not a focusable element.
-							return false;
-						};
-
-						// If the user is tabbing forward, wrap around at the last element; otherwise,
-						// the user is tabbing backward, so wrap around at the first element.
-						if (!e.shiftKey) {
-							if (!activeElement ||
-								!activeElementIsFocusableElement() ||
-								activeElement === lastFocusableElement) {
-								consumeEvent();
-								firstFocusableElement.focus();
-							}
-						} else {
-							if (!activeElement ||
-								!activeElementIsFocusableElement() ||
-								activeElement === firstFocusableElement) {
-								consumeEvent();
-								lastFocusableElement.focus();
-							}
-						}
-					} else {
-						// Prevent focus from going outside of the dialog.
-						consumeEvent();
-					}
-					break;
-				}
-			}
-		}));
 
 		// Add the onResize event handler.
 		disposableStore.add(props.renderer.onResize(e => {

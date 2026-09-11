@@ -19,11 +19,13 @@ import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
 import { QuartoCellToolbar } from '../../browser/quartoCellToolbar.js';
+import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 import { CellExecutionState } from '../../common/quartoExecutionTypes.js';
 
 describe('QuartoCellToolbar - Position Updates', () => {
 	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
+	const runtimeStartupService = createTestRuntimeStartupService();
 
 	/**
 	 * Test that verifies the document model fires appropriate events when cells move.
@@ -43,7 +45,7 @@ y = 2
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			// Initial state: verify cell positions
@@ -94,7 +96,7 @@ y = 2
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			let parseEventFired = false;
@@ -130,7 +132,7 @@ y = 2
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			let changeEventFired = false;
@@ -175,7 +177,7 @@ y = 2
 `;
 			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
 			ctx.disposables.add(textModel);
-			const model = new QuartoDocumentModel(textModel, logService);
+			const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 			ctx.disposables.add(model);
 
 			// Track both events
@@ -231,6 +233,7 @@ y = 2
 describe('QuartoCellToolbar - Execution State DOM', () => {
 	const ctx = createTestContainer().build();
 	const logService = new NullLogService();
+	const runtimeStartupService = createTestRuntimeStartupService();
 
 	const TWO_CELLS = `\`\`\`{python}
 x = 1
@@ -248,7 +251,7 @@ y = 2
 	function createToolbar(cellIndex = 0) {
 		const textModel = createTextModel(TWO_CELLS, null, undefined, URI.file('/test.qmd'));
 		ctx.disposables.add(textModel);
-		const model = new QuartoDocumentModel(textModel, logService);
+		const model = new QuartoDocumentModel(textModel, logService, runtimeStartupService);
 		ctx.disposables.add(model);
 
 		const editor = stubInterface<ICodeEditor>({

@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "14.x",
+    "positron-data-explorer-formatting": "file:../positron-data-explorer-formatting",
     "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol",
     "typescript": "^4.5.5"
   }

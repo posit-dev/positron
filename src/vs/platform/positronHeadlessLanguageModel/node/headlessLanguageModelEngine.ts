@@ -3,19 +3,25 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { Logger, ModelInfo, ModelMessage, ProviderId, ProviderRegistry } from 'ai-provider-bridge';
+import type { ModelInfoLike } from 'ai-config';
+import type { Logger, ModelMessage, ProviderId, ProviderRegistry } from 'ai-provider-bridge';
 import { AsyncIterableObject } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { SelfHealingLazyPromise } from '../../../base/common/positron/async.js';
 import { ILogService } from '../../log/common/log.js';
+import { IAiProviderCatalog } from '../../positronAiProvider/common/aiProviderCatalog.js';
 import { ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../common/engine.js';
 
 /**
  * The Node-side egress engine: the one place that touches the provider bridge
- * and the network. It is intentionally thin -- it holds no policy. Selection,
- * priority, credentials, and availability all live in the workbench facade;
- * this just lists models and streams text for an already-chosen provider/model,
- * and adapts the service-owned port types to the bridge.
+ * and the network. Intentionally thin -- selection, priority, credentials, and
+ * availability all live in the workbench facade; this lists models and streams
+ * text for an already-chosen provider/model, and adapts the service-owned port
+ * types to the bridge.
+ *
+ * The one policy it does apply is the catalog's model policy, because a model
+ * providers.json excludes must never reach a consumer: filtering here covers
+ * every caller of the channel at the point discovery happens.
  *
  * Runs in the shared process (desktop) or the remote server (Remote SSH / web)
  * and is reached over an IPC channel.
@@ -26,7 +32,7 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 	/** Self-healing so a transient first-use failure (e.g. a deferred bridge import error) retries on the next call. */
 	private readonly _registry = new SelfHealingLazyPromise(() => this.createRegistry());
 
-	constructor(logService: ILogService) {
+	constructor(logService: ILogService, private readonly _catalog: IAiProviderCatalog) {
 		this._logger = {
 			info: (m: string, ...a: unknown[]) => logService.info(m, ...a),
 			warn: (m: string, ...a: unknown[]) => logService.warn(m, ...a),
@@ -63,7 +69,7 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 	async listModels(providerId: string, credentials: ICredentials): Promise<IModelDescriptor[]> {
 		const registry = await this._registry.get();
 		const models = await registry.getModelsForProvider(providerId, credentials);
-		return models.map((model: ModelInfo) => ({ id: model.id, name: model.name, vendor: model.vendor, providerId }));
+		return applyModelPolicy(this._catalog, providerId, models);
 	}
 
 	streamChat(request: IEngineChatRequest, token: CancellationToken): AsyncIterable<string> {
@@ -119,4 +125,34 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 		});
 		return registry;
 	}
+}
+
+/** A model as discovery reports it: ai-config's resolution input plus the display vendor. */
+type IDiscoveredModel = ModelInfoLike & { readonly vendor: string };
+
+/**
+ * Resolve a listing against the catalog's model policy (`discovery`, `custom`,
+ * `allow`, `deny`). Declared `custom` models participate even when discovery
+ * never reported them, carrying the metadata from their declaration.
+ *
+ * Fails open when the provider has no policy, so a catalog read failure cannot
+ * blank a picker.
+ */
+export async function applyModelPolicy(
+	catalog: IAiProviderCatalog,
+	providerId: string,
+	models: readonly IDiscoveredModel[],
+): Promise<IModelDescriptor[]> {
+	const providers = await catalog.getCatalog();
+	const policy = providers.find(provider => provider.id === providerId)?.models;
+	if (!policy) {
+		return models.map(model => describe(model, model.vendor, providerId));
+	}
+	const { resolveModels } = await import('ai-config');
+	const vendors = new Map(models.map(model => [model.id, model.vendor]));
+	return resolveModels(policy, models).map(model => describe(model, vendors.get(model.id), providerId));
+}
+
+function describe(model: { id: string; name: string }, vendor: string | undefined, providerId: string): IModelDescriptor {
+	return { id: model.id, name: model.name, vendor: vendor ?? providerId, providerId };
 }

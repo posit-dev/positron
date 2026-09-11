@@ -49,7 +49,7 @@ export const showLanguageModelModalDialog = (
 };
 
 /**
- * Sort rank for grouping providers in the modal: Posit AI first, then stable
+ * Sort rank for grouping providers in the modal: Posit AI Pass first, then stable
  * providers (no status), then preview, then experimental. Within a group,
  * callers fall back to an alphabetical comparison.
  */
@@ -82,7 +82,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const providers = props.sources
 		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot-auth'))
 		.sort((a, b) => {
-			// Posit AI is always first, then stable providers, then preview,
+			// Posit AI Pass is always first, then stable providers, then preview,
 			// then experimental. Within each group, sort alphabetically.
 			const rankDiff = providerSortRank(a.provider) - providerSortRank(b.provider);
 			if (rankDiff !== 0) {
@@ -168,7 +168,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		const authService = props.renderer.services.get(IAuthenticationService);
 		const disposable = syncAuthSessions(
 			authService,
-			providers.map(source => source.provider.id),
+			// A custom entry's sessions come from the shared provider, under the
+			// entry name as a scope, not from a provider of its own.
+			providers.map(source => ({
+				id: source.provider.id,
+				custom: !!source.provider.customKind,
+			})),
 			(providerId, signedIn) => {
 				trace(`auth session sync: provider=${providerId} signedIn=${signedIn}`);
 				setProviderSources(prevSources => {

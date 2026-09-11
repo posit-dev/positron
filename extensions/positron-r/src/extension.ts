@@ -18,6 +18,7 @@ import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
 import { RDataEditorProvider, RdsEditorProvider } from './rdata-editor.js';
+import { registerRDataImporter } from './data-import';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
@@ -54,6 +55,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register file associations.
 	registerFileAssociations();
+
+	// Register the readr data importer for the Import Data dialog.
+	registerRDataImporter(context);
 
 	// Register custom editors for R data files.
 	context.subscriptions.push(RDataEditorProvider.register(context));

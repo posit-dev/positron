@@ -18,6 +18,7 @@ const EMPTY_CONSOLE = '.positron-console .empty-console';
 const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
 const SUGGESTION_LIST = '.suggest-widget .monaco-list-row';
 const CONSOLE_LINES = `${ACTIVE_CONSOLE_INSTANCE} div span`;
+const WORKING_DIRECTORY_LABEL = '.current-working-directory-label .label';
 const ERROR = '.activity-error-message';
 
 /*
@@ -199,6 +200,17 @@ export class Console {
 		}).toPass({ timeout });
 	}
 
+	/**
+	 * Checks whether the prompt is ready without moving focus.
+	 *
+	 * Use in timed paths. `waitForReady()` sends the `Cmd+K F` chord through CDP,
+	 * whose keypresses must stay outside the measurement.
+	 */
+	async expectPromptReady(prompt: string, timeout = 30000): Promise<void> {
+		const activeLine = this.code.driver.currentPage.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
+		await expect(activeLine).toHaveText(prompt, { timeout });
+	}
+
 	async waitForReadyAndStarted(prompt: string, timeout = 30000, expectedCount = 1): Promise<void> {
 		await test.step('Wait for console to be ready and started', async () => {
 			// Only click the console tab if it's visible
@@ -207,6 +219,22 @@ export class Console {
 			}
 			await this.waitForReady(prompt, timeout);
 			await this.waitForConsoleContents('started', { timeout, expectedCount });
+		});
+	}
+
+	/**
+	 * Wait until the console action bar reports a working directory for the
+	 * active session.
+	 *
+	 * A session's working directory arrives asynchronously, over the UI comm,
+	 * after the "started" banner. Until it lands, anything deriving a
+	 * session-relative path gets an absolute one instead.
+	 */
+	async waitForWorkingDirectory(timeout = 30000): Promise<void> {
+		await test.step('Wait for console working directory to be reported', async () => {
+			await expect(
+				this.code.driver.currentPage.locator(WORKING_DIRECTORY_LABEL)
+			).not.toBeEmpty({ timeout });
 		});
 	}
 

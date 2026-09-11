@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { describe, expect, test } from 'vitest';
-import { findExtHostLog, parseActivationLog } from './extensions.js';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { findExtHostLog, parseActivationLog, readExtensionIdsByDirectory } from './extensions.js';
 
 const line = (id: string, startup: boolean, event: string, rootCause?: string): string =>
 	`2026-08-10 12:48:59.813 [info] ExtensionService#_doActivateExtension ${id}, startup: ${startup}, activationEvent: '${event}'${rootCause ? `, root cause: ${rootCause}` : ''}`;
@@ -120,5 +120,60 @@ describe('findExtHostLog', () => {
 		const root = layout('20260810T124853', 'window1', 'exthost');
 		mkdirSync(join(root, 'zzz-scratch'), { recursive: true });
 		expect(await findExtHostLog(root)).toBe(join(root, '20260810T124853', 'window1', 'exthost', 'exthost.log'));
+	});
+});
+
+describe('readExtensionIdsByDirectory', () => {
+	let root: string;
+
+	beforeEach(() => {
+		root = mkdtempSync(join(tmpdir(), 'ext-ids-'));
+	});
+	afterEach(() => {
+		rmSync(root, { recursive: true, force: true });
+	});
+
+	function writeExtension(name: string, manifest: string | undefined): void {
+		mkdirSync(join(root, name), { recursive: true });
+		if (manifest !== undefined) {
+			writeFileSync(join(root, name, 'package.json'), manifest);
+		}
+	}
+
+	test('maps a directory name to publisher.name', async () => {
+		writeExtension('copilot', JSON.stringify({ publisher: 'GitHub', name: 'copilot-chat' }));
+
+		await expect(readExtensionIdsByDirectory([root])).resolves.toEqual({ copilot: 'GitHub.copilot-chat' });
+	});
+
+	test('omits a directory with no package.json, so the caller falls back to the directory name', async () => {
+		writeExtension('mystery', undefined);
+
+		await expect(readExtensionIdsByDirectory([root])).resolves.toEqual({});
+	});
+
+	test('omits a directory whose package.json is malformed', async () => {
+		writeExtension('broken', '{ not json');
+
+		await expect(readExtensionIdsByDirectory([root])).resolves.toEqual({});
+	});
+
+	test('omits a manifest missing publisher or name', async () => {
+		writeExtension('half', JSON.stringify({ name: 'no-publisher' }));
+
+		await expect(readExtensionIdsByDirectory([root])).resolves.toEqual({});
+	});
+
+	test('strips the version suffix user-installed directories carry', async () => {
+		writeExtension('posit.air-vscode-0.4.1', JSON.stringify({ publisher: 'posit', name: 'air-vscode' }));
+
+		await expect(readExtensionIdsByDirectory([root])).resolves.toEqual({ 'posit.air-vscode': 'posit.air-vscode' });
+	});
+
+	test('reads every root, and a missing root is not an error', async () => {
+		writeExtension('copilot', JSON.stringify({ publisher: 'GitHub', name: 'copilot-chat' }));
+
+		await expect(readExtensionIdsByDirectory([root, join(root, 'does-not-exist')]))
+			.resolves.toEqual({ copilot: 'GitHub.copilot-chat' });
 	});
 });

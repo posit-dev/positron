@@ -294,7 +294,12 @@ function sortLanguages(languages: Language[]): Language[] {
 	});
 }
 
-function stripComments(content: string): string {
+// --- Start Positron ---
+// Exported for reuse by positronNlsBundles.ts, which parses the same
+// vscode-loc translation files when generating per-locale reh-web bundles.
+// function stripComments(content: string): string {
+export function stripComments(content: string): string {
+	// --- End Positron ---
 	// Copied from stripComments.js
 	//
 	// First group matches a double quoted string

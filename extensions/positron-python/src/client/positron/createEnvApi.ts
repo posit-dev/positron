@@ -24,6 +24,9 @@ import { VenvCreationProviderId } from '../pythonEnvironments/creation/provider/
 import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
 import { traceInfo, traceVerbose } from '../logging';
 
+const ENVIRONMENT_PROVIDERS_ENABLED_KEY = 'environmentProviders.enabled';
+const DEPRECATED_ENVIRONMENT_PROVIDERS_ENABLE_KEY = 'environmentProviders.enable';
+
 /**
  * A simplified version of an environment provider that can be used in the Positron New Folder Flow
  */
@@ -167,12 +170,36 @@ enum EnvProviderToProviderId {
     'uv' = UV_PROVIDER_ID,
 }
 
+interface ConfigurationInspection<T> {
+    globalValue?: T;
+    workspaceValue?: T;
+    workspaceFolderValue?: T;
+}
+
+function isConfigurationSet<T>(inspection: ConfigurationInspection<T> | undefined): boolean {
+    return (
+        inspection?.globalValue !== undefined ||
+        inspection?.workspaceValue !== undefined ||
+        inspection?.workspaceFolderValue !== undefined
+    );
+}
+
+function getEnvProviderConfig(): Record<string, boolean> | undefined {
+    const config = getConfiguration('python');
+    for (const key of [ENVIRONMENT_PROVIDERS_ENABLED_KEY, DEPRECATED_ENVIRONMENT_PROVIDERS_ENABLE_KEY]) {
+        if (isConfigurationSet(config.inspect<Record<string, boolean>>(key))) {
+            return config.get<Record<string, boolean>>(key);
+        }
+    }
+    return undefined;
+}
+
 /**
  * Retrieves the list of enabled Python environment providers.
  * @returns The list of enabled Python environment provider IDs.
  */
 function getEnabledEnvProviderIds(): string[] {
-    const envProviderConfig = getConfiguration('python').get<Record<string, boolean>>('environmentProviders.enable');
+    const envProviderConfig = getEnvProviderConfig();
     if (!envProviderConfig) {
         // If the config hasn't been set, return the default providers
         traceInfo('[getEnabledEnvProviderIds] No environment provider settings configured. Using default providers.');

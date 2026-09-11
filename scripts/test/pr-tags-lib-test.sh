@@ -31,19 +31,19 @@ assert_eq() {
 MAP="$(mktemp)"
 cat > "$MAP" <<'JSON'
 {
-  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
-  "extensions/positron-assistant/": ["@:assistant"],
-  "extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter"],
-  "extensions/positron-python/": ["@:interpreter", "@:console", "@:packages-pane"],
-  "extensions/positron-python/src/client/positron/packages/": ["@:packages-pane"],
-  "extensions/positron-python/python_files/posit/positron/": ["@:console", "@:interpreter"],
-  "extensions/positron-python/python_files/posit/positron/matplotlib_backend": ["@:plots"],
-  "extensions/positron-python/python_files/posit/positron/data_explorer": ["@:data-explorer"],
-  "extensions/positron-python/python_files/posit/positron/variables": ["@:variables"],
-  "extensions/positron-python/python_files/posit/positron/_vendor/": [],
-  "src/vs/workbench/contrib/positronTelemetry/": [],
-  "src/vs/workbench/contrib/upstreamThing/": [],
-  "src/vs/workbench/contrib/upstreamThing/browser/positronBit.ts": ["@:welcome"]
+	"src/vs/workbench/contrib/positronConsole/": ["@:console"],
+	"extensions/positron-assistant/": ["@:assistant"],
+	"extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter"],
+	"extensions/positron-python/": ["@:interpreter", "@:console", "@:packages-pane"],
+	"extensions/positron-python/src/client/positron/packages/": ["@:packages-pane"],
+	"extensions/positron-python/python_files/posit/positron/": ["@:console", "@:interpreter"],
+	"extensions/positron-python/python_files/posit/positron/matplotlib_backend": ["@:plots"],
+	"extensions/positron-python/python_files/posit/positron/data_explorer": ["@:data-explorer"],
+	"extensions/positron-python/python_files/posit/positron/variables": ["@:variables"],
+	"extensions/positron-python/python_files/posit/positron/_vendor/": [],
+	"src/vs/workbench/contrib/positronTelemetry/": [],
+	"src/vs/workbench/contrib/upstreamThing/": [],
+	"src/vs/workbench/contrib/upstreamThing/browser/positronBit.ts": ["@:welcome"]
 }
 JSON
 
@@ -347,6 +347,54 @@ assert_eq "union with empty b" "@:critical" "$(union_csv_tags "@:critical" "")"
 assert_eq "union collapses internal dup" "@:critical,@:ark,@:debug" \
 	"$(union_csv_tags "@:critical,@:ark,@:debug,@:ark" "")"
 
+# --- collapse_workbench_all_tags ---
+# @:workbench-all triggers the three OS lanes on its own (pr-tags-parse.sh sets
+# the flags), so listing them alongside it in the PR comment says the same thing
+# four times. These pin WHICH tags it absorbs -- the interesting part is what it
+# leaves alone.
+assert_eq "collapse absorbs the per-OS lane tags" "@:critical,@:workbench-all" \
+	"$(collapse_workbench_all_tags "@:critical,@:workbench,@:workbench-all,@:workbench-rocky,@:workbench-suse")"
+assert_eq "collapse keeps order and unrelated tags" "@:workbench-all,@:console" \
+	"$(collapse_workbench_all_tags "@:workbench-all,@:workbench-rocky,@:console")"
+# A different axis (Workbench version, still Ubuntu), so @:workbench-all does not
+# imply it and must not hide it -- doing so would silently drop a lane the author
+# asked for from the comment.
+assert_eq "collapse keeps @:workbench-stable" "@:workbench-all,@:workbench-stable" \
+	"$(collapse_workbench_all_tags "@:workbench-all,@:workbench,@:workbench-stable")"
+# Credential tags are real test tags consumed by the Ubuntu lane's shard matrix,
+# not lane selectors, so they are not @:workbench-all's to absorb either.
+assert_eq "collapse keeps the credential tags" "@:workbench-all,@:workbench-snowflake,@:workbench-azure" \
+	"$(collapse_workbench_all_tags "@:workbench-all,@:workbench-snowflake,@:workbench-azure")"
+# No-op unless @:workbench-all is actually present: the three OS tags on their
+# own each select exactly one lane and all belong in the comment.
+assert_eq "collapse is a no-op without @:workbench-all" "@:critical,@:workbench,@:workbench-rocky" \
+	"$(collapse_workbench_all_tags "@:critical,@:workbench,@:workbench-rocky")"
+# Substring safety: the check is on whole comma-delimited fields, so neither of
+# these contains the tag.
+assert_eq "collapse ignores a lookalike tag" "@:workbench,@:workbench-allowlist" \
+	"$(collapse_workbench_all_tags "@:workbench,@:workbench-allowlist")"
+assert_eq "collapse of an empty list is empty" "" "$(collapse_workbench_all_tags "")"
+# @:workbench-all alone must survive its own collapse.
+assert_eq "collapse leaves @:workbench-all itself" "@:workbench-all" \
+	"$(collapse_workbench_all_tags "@:workbench-all")"
+
+# @:workbench-all has to be a real enum tag, or pr-tags-parse.sh's validation
+# drops it as a typo and the comment never mentions it. It also has to sit
+# OUTSIDE FeatureTags: a lane selector in that block would become eligible for
+# auto test-change derivation, which is how you end up spending three OS lanes on
+# an unrelated PR.
+REAL_ENUM_WBALL="$HERE/../../test/e2e/infra/test-runner/test-tags.ts"
+if printf '%s\n' "$(valid_enum_tags "$REAL_ENUM_WBALL")" | grep -qxF "@:workbench-all"; then
+	echo "PASS: real TestTags includes @:workbench-all"
+else
+	echo "FAIL: real TestTags should include @:workbench-all"; fail=1
+fi
+if printf '%s\n' "$(feature_enum_tags "$REAL_ENUM_WBALL")" | grep -qxF "@:workbench-all"; then
+	echo "FAIL: @:workbench-all must not be in FeatureTags (it is a lane selector)"; fail=1
+else
+	echo "PASS: real FeatureTags excludes @:workbench-all"
+fi
+
 # --- valid_enum_tags / split_valid_invalid_tags ---
 ENUM="$(mktemp)"
 cat > "$ENUM" <<'TS'
@@ -448,8 +496,8 @@ fi
 STALE_MAP="$(mktemp)"
 cat > "$STALE_MAP" <<'JSON'
 {
-  "scripts/lib/pr-tags-lib.sh": [],
-  "definitely/not/a/real/path/": []
+	"scripts/lib/pr-tags-lib.sh": [],
+	"definitely/not/a/real/path/": []
 }
 JSON
 if MAP_FILE="$STALE_MAP" bash "$HERE/../check-test-tag-map.sh" --tags-only >/dev/null 2>&1; then
@@ -476,8 +524,8 @@ fi
 JSON_MAP="$(mktemp)"
 cat > "$JSON_MAP" <<'JSON'
 {
-  "scripts/lib/pr-tags-lib.sh": [],
-  "definitely/not/a/real/path/": ["@:not-a-real-tag"]
+	"scripts/lib/pr-tags-lib.sh": [],
+	"definitely/not/a/real/path/": ["@:not-a-real-tag"]
 }
 JSON
 JSON_OUTPUT="$(MAP_FILE="$JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json 2>&1)"
@@ -596,9 +644,9 @@ assert_eq "dir_of: positron file inside positron dir -> the dir" "src/vs/workben
 MAP2="$(mktemp)"
 cat > "$MAP2" <<'JSON'
 {
-  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
-  "src/vs/workbench/contrib/positronTelemetry/": [],
-  "src/vs/workbench/services/positronConsole/": ["@:console"]
+	"src/vs/workbench/contrib/positronConsole/": ["@:console"],
+	"src/vs/workbench/contrib/positronTelemetry/": [],
+	"src/vs/workbench/services/positronConsole/": ["@:console"]
 }
 JSON
 # A mapped dir (incl. a [] entry) is NOT flagged; an unmapped positron dir IS.
@@ -648,14 +696,14 @@ assert_eq "owner_root_dir_of: non-src/extensions -> empty" "" \
 POSIT_FILE="$(mktemp)"
 cat > "$POSIT_FILE" <<'HDR'
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
- *--------------------------------------------------------------------------------------------*/
+	*  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+	*--------------------------------------------------------------------------------------------*/
 HDR
 MSFT_FILE="$(mktemp)"
 cat > "$MSFT_FILE" <<'HDR'
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *--------------------------------------------------------------------------------------------*/
+	*  Copyright (c) Microsoft Corporation. All rights reserved.
+	*--------------------------------------------------------------------------------------------*/
 HDR
 assert_eq "is_posit_owned_file: Posit header" "true" "$(is_posit_owned_file "$POSIT_FILE")"
 assert_eq "is_posit_owned_file: Microsoft header" "false" "$(is_posit_owned_file "$MSFT_FILE")"
@@ -692,13 +740,13 @@ FALLBACK_ROOT="$(mktemp -d)"
 mkdir -p "$FALLBACK_ROOT/src/vs/workbench/contrib/legacyRuntime" "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing"
 cat > "$FALLBACK_ROOT/src/vs/workbench/contrib/legacyRuntime/x.ts" <<'HDR'
 /*
- *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
- */
+	*  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+	*/
 HDR
 cat > "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/y.ts" <<'HDR'
 /*
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- */
+	*  Copyright (c) Microsoft Corporation. All rights reserved.
+	*/
 HDR
 EMPTY_MAP="$(mktemp)"
 echo '{}' > "$EMPTY_MAP"
@@ -746,11 +794,11 @@ APPLY_SCRIPT="$HERE/../apply-test-tag-map-fixes.mjs"
 APPLY_DIR="$(mktemp -d)"
 cat > "$APPLY_DIR/map.json" <<'JSON'
 {
-  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
-  "src/vs/workbench/contrib/positronPlots/": ["@:plots"],
+	"src/vs/workbench/contrib/positronConsole/": ["@:console"],
+	"src/vs/workbench/contrib/positronPlots/": ["@:plots"],
 
-  "extensions/positron-gone/": [],
-  "extensions/positron-real/": ["@:reticulate"]
+	"extensions/positron-gone/": [],
+	"extensions/positron-real/": ["@:reticulate"]
 }
 JSON
 echo '["extensions/positron-gone/"]' > "$APPLY_DIR/stale.json"
@@ -798,10 +846,10 @@ fi
 # refuse to write rather than corrupt the map.
 cat > "$APPLY_DIR/bad-map.json" <<'JSON'
 {
-  "src/vs/workbench/contrib/positronConsole/": [
-    "@:console"
-  ],
-  "extensions/positron-real/": ["@:reticulate"]
+	"src/vs/workbench/contrib/positronConsole/": [
+		"@:console"
+	],
+	"extensions/positron-real/": ["@:reticulate"]
 }
 JSON
 cp "$APPLY_DIR/bad-map.json" "$APPLY_DIR/bad-map.orig.json"
@@ -822,10 +870,10 @@ fi
 # while reporting success), the script must fail loudly.
 cat > "$APPLY_DIR/multiline-map.json" <<'JSON'
 {
-  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
-  "extensions/positron-gone/": [
-    "@:reticulate"
-  ]
+	"src/vs/workbench/contrib/positronConsole/": ["@:console"],
+	"extensions/positron-gone/": [
+		"@:reticulate"
+	]
 }
 JSON
 cp "$APPLY_DIR/multiline-map.json" "$APPLY_DIR/multiline-map.orig.json"
@@ -968,84 +1016,84 @@ DERIVE_DIR="$(mktemp -d)"
 # real minimization.
 cat > "$DERIVE_DIR/list.json" <<'JSON'
 {
-  "suites": [
-    {
-      "file": "tests/viewer/viewer.test.ts",
-      "suites": [
-        {
-          "file": "tests/viewer/viewer.test.ts",
-          "specs": [
-            { "title": "Python - opens", "tags": [":viewer", ":console"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "R - opens", "tags": [":viewer", ":console", ":web"], "tests": [{ "expectedStatus": "passed" }] }
-          ]
-        }
-      ]
-    },
-    {
-      "file": "tests/plots/plots.test.ts",
-      "suites": [
-        {
-          "file": "tests/plots/plots.test.ts",
-          "specs": [
-            { "title": "Python plot", "tags": [":plots", ":editor"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "R plot", "tags": [":plots", ":editor", ":ark"], "tests": [{ "expectedStatus": "passed" }] }
-          ]
-        }
-      ]
-    },
-    {
-      "file": "tests/console/console-untagged.test.ts",
-      "suites": [
-        {
-          "file": "tests/console/console-untagged.test.ts",
-          "specs": [
-            { "title": "no tags here", "tags": [], "tests": [{ "expectedStatus": "passed" }] }
-          ]
-        }
-      ]
-    },
-    {
-      "file": "tests/console/console-skipped.test.ts",
-      "suites": [
-        {
-          "file": "tests/console/console-skipped.test.ts",
-          "specs": [
-            { "title": "statically skipped", "tags": [":console"], "tests": [{ "expectedStatus": "skipped" }] }
-          ]
-        }
-      ]
-    },
-    {
-      "file": "tests/console/console-other.test.ts",
-      "suites": [
-        {
-          "file": "tests/console/console-other.test.ts",
-          "specs": [
-            { "title": "other console test 0", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "other console test 1", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "other console test 2", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "other console test 3", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "other console test 4", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] }
-          ]
-        }
-      ]
-    },
-    {
-      "file": "tests/editor/editor-other.test.ts",
-      "suites": [
-        {
-          "file": "tests/editor/editor-other.test.ts",
-          "specs": [
-            { "title": "other editor test 0", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "other editor test 1", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "other editor test 2", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "other editor test 3", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "other editor test 4", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] }
-          ]
-        }
-      ]
-    }
-  ]
+	"suites": [
+		{
+			"file": "tests/viewer/viewer.test.ts",
+			"suites": [
+				{
+					"file": "tests/viewer/viewer.test.ts",
+					"specs": [
+						{ "title": "Python - opens", "tags": [":viewer", ":console"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "R - opens", "tags": [":viewer", ":console", ":web"], "tests": [{ "expectedStatus": "passed" }] }
+					]
+				}
+			]
+		},
+		{
+			"file": "tests/plots/plots.test.ts",
+			"suites": [
+				{
+					"file": "tests/plots/plots.test.ts",
+					"specs": [
+						{ "title": "Python plot", "tags": [":plots", ":editor"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "R plot", "tags": [":plots", ":editor", ":ark"], "tests": [{ "expectedStatus": "passed" }] }
+					]
+				}
+			]
+		},
+		{
+			"file": "tests/console/console-untagged.test.ts",
+			"suites": [
+				{
+					"file": "tests/console/console-untagged.test.ts",
+					"specs": [
+						{ "title": "no tags here", "tags": [], "tests": [{ "expectedStatus": "passed" }] }
+					]
+				}
+			]
+		},
+		{
+			"file": "tests/console/console-skipped.test.ts",
+			"suites": [
+				{
+					"file": "tests/console/console-skipped.test.ts",
+					"specs": [
+						{ "title": "statically skipped", "tags": [":console"], "tests": [{ "expectedStatus": "skipped" }] }
+					]
+				}
+			]
+		},
+		{
+			"file": "tests/console/console-other.test.ts",
+			"suites": [
+				{
+					"file": "tests/console/console-other.test.ts",
+					"specs": [
+						{ "title": "other console test 0", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "other console test 1", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "other console test 2", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "other console test 3", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "other console test 4", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] }
+					]
+				}
+			]
+		},
+		{
+			"file": "tests/editor/editor-other.test.ts",
+			"suites": [
+				{
+					"file": "tests/editor/editor-other.test.ts",
+					"specs": [
+						{ "title": "other editor test 0", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "other editor test 1", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "other editor test 2", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "other editor test 3", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "other editor test 4", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] }
+					]
+				}
+			]
+		}
+	]
 }
 JSON
 
@@ -1070,24 +1118,24 @@ assert_eq "two touched files, no shared tag: picks one cheap tag per file" "$(pr
 # result must be the single shared tag rather than the two per-file tags.
 cat > "$DERIVE_DIR/shared-list.json" <<'JSON'
 {
-  "suites": [
-    { "file": "tests/aaa/a.test.ts", "suites": [ { "file": "tests/aaa/a.test.ts", "specs": [
-      { "title": "a1", "tags": [":common", ":feat-a"], "tests": [{ "expectedStatus": "passed" }] }
-    ] } ] },
-    { "file": "tests/bbb/b.test.ts", "suites": [ { "file": "tests/bbb/b.test.ts", "specs": [
-      { "title": "b1", "tags": [":common", ":feat-b"], "tests": [{ "expectedStatus": "passed" }] }
-    ] } ] },
-    { "file": "tests/aaa/a-other.test.ts", "suites": [ { "file": "tests/aaa/a-other.test.ts", "specs": [
-      { "title": "ao0", "tags": [":feat-a"], "tests": [{ "expectedStatus": "passed" }] },
-      { "title": "ao1", "tags": [":feat-a"], "tests": [{ "expectedStatus": "passed" }] },
-      { "title": "ao2", "tags": [":feat-a"], "tests": [{ "expectedStatus": "passed" }] }
-    ] } ] },
-    { "file": "tests/bbb/b-other.test.ts", "suites": [ { "file": "tests/bbb/b-other.test.ts", "specs": [
-      { "title": "bo0", "tags": [":feat-b"], "tests": [{ "expectedStatus": "passed" }] },
-      { "title": "bo1", "tags": [":feat-b"], "tests": [{ "expectedStatus": "passed" }] },
-      { "title": "bo2", "tags": [":feat-b"], "tests": [{ "expectedStatus": "passed" }] }
-    ] } ] }
-  ]
+	"suites": [
+		{ "file": "tests/aaa/a.test.ts", "suites": [ { "file": "tests/aaa/a.test.ts", "specs": [
+			{ "title": "a1", "tags": [":common", ":feat-a"], "tests": [{ "expectedStatus": "passed" }] }
+		] } ] },
+		{ "file": "tests/bbb/b.test.ts", "suites": [ { "file": "tests/bbb/b.test.ts", "specs": [
+			{ "title": "b1", "tags": [":common", ":feat-b"], "tests": [{ "expectedStatus": "passed" }] }
+		] } ] },
+		{ "file": "tests/aaa/a-other.test.ts", "suites": [ { "file": "tests/aaa/a-other.test.ts", "specs": [
+			{ "title": "ao0", "tags": [":feat-a"], "tests": [{ "expectedStatus": "passed" }] },
+			{ "title": "ao1", "tags": [":feat-a"], "tests": [{ "expectedStatus": "passed" }] },
+			{ "title": "ao2", "tags": [":feat-a"], "tests": [{ "expectedStatus": "passed" }] }
+		] } ] },
+		{ "file": "tests/bbb/b-other.test.ts", "suites": [ { "file": "tests/bbb/b-other.test.ts", "specs": [
+			{ "title": "bo0", "tags": [":feat-b"], "tests": [{ "expectedStatus": "passed" }] },
+			{ "title": "bo1", "tags": [":feat-b"], "tests": [{ "expectedStatus": "passed" }] },
+			{ "title": "bo2", "tags": [":feat-b"], "tests": [{ "expectedStatus": "passed" }] }
+		] } ] }
+	]
 }
 JSON
 printf '%s\n%s\n' "test/e2e/tests/aaa/a.test.ts" "test/e2e/tests/bbb/b.test.ts" > "$DERIVE_DIR/changed-shared.txt"
@@ -1130,45 +1178,45 @@ fi
 # widens the run without enabling its own lane.
 cat > "$DERIVE_DIR/plat-list.json" <<'JSON'
 {
-  "suites": [
-    {
-      "file": "tests/plat/plat.test.ts",
-      "suites": [
-        {
-          "file": "tests/plat/plat.test.ts",
-          "specs": [
-            { "title": "cross-browser search thing", "tags": [":cross-browser", ":search"], "tests": [{ "expectedStatus": "passed" }] }
-          ]
-        }
-      ]
-    },
-    {
-      "file": "tests/search/search-other.test.ts",
-      "suites": [
-        {
-          "file": "tests/search/search-other.test.ts",
-          "specs": [
-            { "title": "s0", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "s1", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "s2", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "s3", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
-            { "title": "s4", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] }
-          ]
-        }
-      ]
-    },
-    {
-      "file": "tests/webonly/webonly.test.ts",
-      "suites": [
-        {
-          "file": "tests/webonly/webonly.test.ts",
-          "specs": [
-            { "title": "web only", "tags": [":web"], "tests": [{ "expectedStatus": "passed" }] }
-          ]
-        }
-      ]
-    }
-  ]
+	"suites": [
+		{
+			"file": "tests/plat/plat.test.ts",
+			"suites": [
+				{
+					"file": "tests/plat/plat.test.ts",
+					"specs": [
+						{ "title": "cross-browser search thing", "tags": [":cross-browser", ":search"], "tests": [{ "expectedStatus": "passed" }] }
+					]
+				}
+			]
+		},
+		{
+			"file": "tests/search/search-other.test.ts",
+			"suites": [
+				{
+					"file": "tests/search/search-other.test.ts",
+					"specs": [
+						{ "title": "s0", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "s1", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "s2", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "s3", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
+						{ "title": "s4", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] }
+					]
+				}
+			]
+		},
+		{
+			"file": "tests/webonly/webonly.test.ts",
+			"suites": [
+				{
+					"file": "tests/webonly/webonly.test.ts",
+					"specs": [
+						{ "title": "web only", "tags": [":web"], "tests": [{ "expectedStatus": "passed" }] }
+					]
+				}
+			]
+		}
+	]
 }
 JSON
 

@@ -35,7 +35,7 @@ export const NES_ENABLE_SETTING = 'nextEditSuggestions.enabled';
 /** Context key (owned by the extension) gating whether the status item is shown at all. */
 export const NES_CONTEXT_AVAILABLE = 'nextEditSuggestions.available';
 
-/** Context key (owned by the extension) that is true when signed in to Posit AI. */
+/** Context key (owned by the extension) that is true when signed in to Posit AI Pass. */
 export const NES_CONTEXT_SIGNED_IN = 'nextEditSuggestions.signedIn';
 
 /**
@@ -148,7 +148,7 @@ export class NextEditSuggestionsStatusDashboard extends DomWidget {
 
 		if (!signedIn) {
 			const description = this.element.appendChild($('div.description'));
-			const signIn = localize('positron.nes.signIn', "[Sign in to Posit AI]({0}) to enable Next Edit Suggestions.", `command:${CONFIGURE_PROVIDERS_COMMAND}`);
+			const signIn = localize('positron.nes.signIn', "[Sign in to Posit AI Pass]({0}) to enable Next Edit Suggestions.", `command:${CONFIGURE_PROVIDERS_COMMAND}`);
 			for (const node of parseLinkedText(signIn).nodes) {
 				if (typeof node === 'string') {
 					description.append(...renderLabelWithIcons(node));

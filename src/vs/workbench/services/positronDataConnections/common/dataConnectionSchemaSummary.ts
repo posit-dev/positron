@@ -16,7 +16,7 @@ const DEFAULT_MAX_TOTAL_NODES = 500;
 // "Tables", "Views") and carry no schema information of their own. IDataConnectionNodeDTO.kind
 // crosses the RPC wire as a plain string (see dataConnectionDTOs.ts), so these are compared as
 // string literals rather than imported from the ext-host-only DataConnectionNodeKind enum.
-const CONTAINER_ONLY_KINDS = new Set([
+export const CONTAINER_ONLY_KINDS = new Set([
 	'group-databases',
 	'group-catalogs',
 	'group-schemas',

@@ -14,8 +14,13 @@ const INNER_FRAME = '#active-frame';
 // Activity bar button and sidebar view
 const ACTIVITY_BAR_BUTTON = 'a.action-label[aria-label="Posit Assistant"]';
 
-// Header buttons
-const NEW_CHAT_BUTTON = 'button:has(svg.lucide-plus)';
+// Header buttons.
+// The new-chat button is scoped to the top bar because the conversation tab
+// strip and the vertical tab rail contribute their own `lucide-plus` buttons
+// (`aria-label="New conversation tab"` and `aria-label="New conversation"`).
+// An unscoped selector goes strict-mode ambiguous as soon as that tab chrome
+// renders in the Positron panel.
+const NEW_CHAT_BUTTON = '[data-slot="topbar"] button:has(svg.lucide-plus)';
 const HISTORY_BUTTON = 'button:has(svg.lucide-history)';
 const MORE_BUTTON = 'button:has(svg.lucide-ellipsis):has(.sr-only:text("More"))';
 const SETTINGS_BUTTON = 'button:has(svg.lucide-settings):has(.sr-only:text("Settings"))';
@@ -62,9 +67,36 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	'databricks': 'Databricks',
 	'openai-api': 'OpenAI',
 	'ms-foundry': 'Microsoft Foundry',
-	'posit-ai': 'Posit AI',
+	'posit-ai': 'Posit AI Pass',
 	'snowflake-cortex': 'Snowflake Cortex',
 };
+
+/**
+ * Older display names a provider's group header may still carry, matched in
+ * addition to the canonical name above.
+ *
+ * A rename lands in the assistant's provider registry well before it ships in a
+ * published release. Most suites run the bootstrapped release pinned in
+ * `product.json`, while `posit-assistant.test.ts` and `posit-assistant-mcp.test.ts`
+ * float their machine to the latest dev build, so which name a suite sees depends
+ * on which specs shared its runner. Both have to match until the rename ships.
+ *
+ * Drop an entry once `product.json` pins an assistant release that carries the
+ * new name.
+ */
+const PROVIDER_DISPLAY_NAME_ALIASES: Record<string, string[]> = {
+	// Renamed to "Posit AI Pass" in the assistant's provider registry after the
+	// bootstrapped 1.2.0 release; mirrored here in #15858.
+	'posit-ai': ['Posit AI'],
+};
+
+/**
+ * Builds a selector list matching `template` for every display name a provider
+ * may render, so a single locator covers the canonical name and its aliases.
+ */
+function providerNameSelector(providerNames: string[], template: (name: string) => string): string {
+	return providerNames.map(template).join(', ');
+}
 
 // Chat message elements
 const CHAT_MESSAGE_USER = '.chat-message-user';
@@ -171,42 +203,40 @@ export class PositAssistant {
 
 	/**
 	 * Starts a new conversation by clicking the new chat button.
-	 * If the button is disabled (already on landing page), this is a no-op.
+	 * If the pane is already showing a fresh conversation, this is a no-op.
 	 *
-	 * The new-conversation button is disabled both while a response is streaming
-	 * and when the conversation is already empty (`isNewConversation`). That
-	 * disabled state is derived from async-loaded webview state (messages-loaded +
-	 * streaming), so immediately after the chat input renders the button can be
-	 * transiently enabled while messages are still loading, then flip to disabled
-	 * once an empty conversation finishes loading. A bare `isDisabled()` snapshot
-	 * followed by `click()` races that flip and fails with a 30s click timeout on
-	 * a now-disabled button, so guard the click and treat a disabled flip as the
-	 * desired "already on a fresh conversation" end state.
+	 * The click is handled asynchronously: for up to ~1s the pane still shows the
+	 * outgoing conversation, its model selection, and an editable input, so
+	 * `waitForReady()` alone is satisfied against the old conversation. We have to
+	 * wait for the fresh conversation to actually land -- which is also when the
+	 * model selection is dropped -- or a model the caller selects next gets
+	 * clobbered mid-test and Send stays disabled.
+	 *
+	 * The landing signal is the persona greeting, which the assistant renders
+	 * exactly when `isNewConversation` is true. That is the same predicate that
+	 * used to drive the button's disabled state, which this helper waited on until
+	 * assistant#2374 ("browser-style tab model") removed the `disableNewConversation`
+	 * gating and made the top bar `+` a composer-focusing no-op on a fresh
+	 * conversation instead. Greeting-visible works on both sides of that change.
 	 */
 	async startNewConversation(): Promise<void> {
 		const button = this.frame.locator(NEW_CHAT_BUTTON);
-		if (await button.isDisabled()) {
-			// Already on a fresh conversation (or streaming) -- nothing to start.
-			return;
-		}
-		try {
-			await button.click({ timeout: 5000 });
-		} catch (e) {
-			// If the button flipped to disabled mid-click we're already on a fresh
-			// conversation, which is the desired end state; otherwise re-throw.
-			if (await button.isDisabled()) {
-				return;
+		// Released assistant builds still disable this button on a fresh (or
+		// streaming) conversation, and clicking a disabled button just burns the
+		// click timeout. Skip the click in that case -- being on a fresh
+		// conversation is the desired end state anyway.
+		if (await button.isEnabled()) {
+			try {
+				await button.click({ timeout: 5000 });
+			} catch (e) {
+				// If the button flipped to disabled mid-click on such a build, the
+				// fresh conversation already landed; otherwise re-throw.
+				if (await button.isEnabled()) {
+					throw e;
+				}
 			}
-			throw e;
 		}
-		// The click is handled asynchronously: for up to ~1s the pane still shows
-		// the outgoing conversation, its model selection, and an editable input, so
-		// `waitForReady()` alone is satisfied against the old conversation. The
-		// button flips to disabled only once the fresh conversation has actually
-		// landed -- which is also when the model selection is dropped -- so wait for
-		// that here, or a model the caller selects next gets clobbered mid-test and
-		// Send stays disabled.
-		await expect(button).toBeDisabled();
+		await expect(this.frame.locator(WELCOME_TITLE)).toBeVisible();
 		await this.waitForReady();
 	}
 
@@ -273,7 +303,7 @@ export class PositAssistant {
 	 * @param message The message to send
 	 * @param waitForResponse Whether to wait for the response to complete (default: true)
 	 * @param options.newConversation Whether to start a new conversation first (default: true).
-	 *   If the button is disabled (already on landing page), this is a no-op.
+	 *   If the pane is already showing a fresh conversation, this is a no-op.
 	 */
 	async sendMessage(message: string, waitForResponse: boolean = true, options: { newConversation?: boolean } = {}): Promise<void> {
 		const { newConversation = true } = options;
@@ -425,12 +455,14 @@ export class PositAssistant {
 			throw new Error(`No model-picker display name mapped for provider "${provider}"`);
 		}
 
+		const providerNames = [providerName, ...(PROVIDER_DISPLAY_NAME_ALIASES[provider] ?? [])];
+
 		const overflow = this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON);
 		const menuMode = await overflow.isVisible().catch(() => false);
 		if (menuMode) {
-			await this.selectProviderModelMenuMode(overflow, providerName);
+			await this.selectProviderModelMenuMode(overflow, providerNames);
 		} else {
-			await this.selectProviderModelInlineMode(providerName);
+			await this.selectProviderModelInlineMode(providerNames);
 		}
 	}
 
@@ -439,19 +471,19 @@ export class PositAssistant {
 	 * menu and its "Model" submenu, then click the first model in the provider's
 	 * group container.
 	 *
-	 * The open->select->close cycle is retried because a model list populated by a
-	 * live fetch (Posit AI, or any provider in a remote session) can re-render the
-	 * group mid-click. Every click inside the loop carries a short timeout: an
-	 * unbounded one inherits the default, and a single stalled click eats the whole
-	 * retry budget.
+	 * The open->select->close cycle is retried because a model list populated by
+	 * a live fetch (Posit AI Pass, or any provider in a remote session) can
+	 * re-render the group mid-click. Every click inside the loop carries a short
+	 * timeout: an unbounded one inherits the default, and a single stalled click
+	 * eats the whole retry budget.
 	 */
-	private async selectProviderModelMenuMode(overflow: Locator, providerName: string): Promise<void> {
+	private async selectProviderModelMenuMode(overflow: Locator, providerNames: string[]): Promise<void> {
 		const modelSubmenu = this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))');
 		// Scope to the provider's group (label + its model items live in one
 		// container).
-		const group = this.frame.locator(
-			`${MODEL_MENU_GROUP}:has([data-slot="dropdown-menu-label"] span:text-is("${providerName}"))`,
-		);
+		const group = this.frame.locator(providerNameSelector(providerNames,
+			name => `${MODEL_MENU_GROUP}:has([data-slot="dropdown-menu-label"] span:text-is("${name}"))`,
+		));
 		const models = group.locator('[role="menuitem"]');
 
 		await expect(async () => {
@@ -521,16 +553,21 @@ export class PositAssistant {
 	 *    regular menu items used in menu mode), so the menu must be dismissed
 	 *    explicitly with Escape afterwards, or the overlay blocks the chat input.
 	 */
-	private async selectProviderModelInlineMode(providerName: string): Promise<void> {
+	private async selectProviderModelInlineMode(providerNames: string[]): Promise<void> {
 		const trigger = this.frame.locator(INLINE_MODEL_TRIGGER).last();
 		const radioGroup = this.frame.locator(MODEL_RADIO_GROUP);
-		const headerSelector = `div:has(> span:text-is("${providerName}"))`;
-		const header = radioGroup.locator(headerSelector);
+		// Each alias needs its own full selector: a trailing combinator binds to the
+		// last item of a selector list, so it cannot be appended to the list as a
+		// whole.
+		const headerSelector = (suffix = '') => providerNameSelector(providerNames,
+			name => `div:has(> span:text-is("${name}"))${suffix}`,
+		);
+		const header = radioGroup.locator(headerSelector());
 		// A model shown directly under the provider header (adjacent sibling).
-		const directTopModel = radioGroup.locator(`${headerSelector} + [role="menuitemradio"]`);
+		const directTopModel = radioGroup.locator(headerSelector(' + [role="menuitemradio"]'));
 		// The provider's "More models" disclosure, present as the header's adjacent
 		// sibling only when the provider has no model shown directly.
-		const moreModels = radioGroup.locator(`${headerSelector} + button:has-text("More models")`);
+		const moreModels = radioGroup.locator(headerSelector(' + button:has-text("More models")'));
 		// The provider's top model, whether shown directly or revealed by expanding
 		// "More models": the first radio item following this provider's header.
 		const topModel = header.locator('xpath=./following-sibling::*[@role="menuitemradio"][1]');

@@ -565,22 +565,49 @@ registerAction2(EnterEditModeAction);
  */
 export class ExitEditModeAction extends NotebookAction2 {
 	constructor() {
+		const escapeGuards = [
+			// Don't exit when multiple selections are active (escape should cancel multi selection first #10385)
+			EditorContextKeys.hasMultipleSelections.toNegated(),
+			// Don't exit when text is selected (escape should deselect first)
+			EditorContextKeys.hasNonEmptySelection.toNegated(),
+			// Don't exit when a hover tooltip is shown (escape should dismiss hover first)
+			EditorContextKeys.hoverVisible.toNegated()
+		];
 		super({
 			id: 'positronNotebook.cell.quitEdit',
 			title: localize2('positronNotebook.cell.quitEdit', "Exit Cell Edit Mode"),
-			keybinding: {
-				when: ContextKeyExpr.and(
-					NotebookContextKeys.cellEditorFocused,
-					// Don't exit when multiple selections are active (escape should cancel multi selection first #10385)
-					EditorContextKeys.hasMultipleSelections.toNegated(),
-					// Don't exit when text is selected (escape should deselect first)
-					EditorContextKeys.hasNonEmptySelection.toNegated(),
-					// Don't exit when a hover tooltip is shown (escape should dismiss hover first)
-					EditorContextKeys.hoverVisible.toNegated()
-				),
-				weight: KeybindingWeight.EditorContrib,
-				primary: KeyCode.Escape
-			}
+			keybinding: [
+				{
+					when: ContextKeyExpr.and(
+						NotebookContextKeys.cellEditorFocused,
+						...escapeGuards
+					),
+					weight: KeybindingWeight.EditorContrib,
+					primary: KeyCode.Escape
+				},
+				// Vim extensions bind Escape at extension weight, outranking the rule
+				// above. These higher-weight rules reclaim Escape in vim Normal mode.
+				{
+					// VSCodeVim (vscodevim.vim)
+					when: ContextKeyExpr.and(
+						NotebookContextKeys.cellEditorFocused,
+						ContextKeyExpr.equals('vim.mode', 'Normal'),
+						...escapeGuards
+					),
+					weight: KeybindingWeight.ExternalExtension + 1,
+					primary: KeyCode.Escape
+				},
+				{
+					// vscode-neovim (asvetliakov.vscode-neovim)
+					when: ContextKeyExpr.and(
+						NotebookContextKeys.cellEditorFocused,
+						ContextKeyExpr.equals('neovim.mode', 'normal'),
+						...escapeGuards
+					),
+					weight: KeybindingWeight.ExternalExtension + 1,
+					primary: KeyCode.Escape
+				}
+			]
 		});
 	}
 

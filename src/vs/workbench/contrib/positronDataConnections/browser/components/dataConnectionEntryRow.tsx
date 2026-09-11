@@ -14,16 +14,18 @@ import { localize } from '../../../../../nls.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionWith.js';
+import { showIncludeSecretsConfirmation } from '../dialogs/includeSecretsConfirmation.js';
 import { showRemoveDataConnectionConfirmation } from '../dialogs/removeDataConnectionConfirmation.js';
+import { showSaveDataConnectionConfirmation } from '../dialogs/saveDataConnectionConfirmation.js';
 import { DataConnectionEntry } from '../classes/dataConnectionsTreeInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
-import { PYTHON_ICON_BASE64, R_ICON_BASE64 } from '../../../../services/positronDataConnections/common/languageIcons.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { GGSQL_ICON_BASE64, PYTHON_ICON_BASE64, R_ICON_BASE64 } from '../../../../services/positronDataConnections/common/languageIcons.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { AnchorPoint } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
-import { IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * DataConnectionEntryRowProps interface.
@@ -123,14 +125,26 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		}
 
 		// Render the ConfigureDataConnection dialog for this profile.
-		const renderer = new PositronModalDialogReactRenderer();
+		const renderer = new PositronModalReactRenderer();
 		renderer.render(
 			<ConfigureDataConnection
 				driver={driver}
 				mechanism={mechanism}
 				profile={target}
 				renderer={renderer}
-				onSave={updatedProfile => {
+				onSave={async updatedProfile => {
+					// Saving a value the connection was opened with closes it, and the Data Explorers
+					// previewed from it with it. Confirm before taking the user's grids down; with
+					// none open there is nothing to warn about. Leaving the edit dialog up on a
+					// cancel keeps the user's unsaved changes.
+					if (positronDataConnectionsService.wouldCloseConnection(updatedProfile)) {
+						const openDataExplorerCount = positronDataConnectionsService.countOpenDataExplorers(target.id);
+						if (openDataExplorerCount > 0 &&
+							!await showSaveDataConnectionConfirmation(target.connectionName, openDataExplorerCount)) {
+							return;
+						}
+					}
+
 					positronDataConnectionsService.addUpdateProfile(updatedProfile);
 					renderer.dispose();
 				}}
@@ -175,34 +189,69 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		// Generates the connection code variants for the given language and, if any are available,
 		// opens the Connect dialog to preview and run them.
 		const connectWith = async (languageId: string) => {
+			// Regenerates the code with secret values (e.g. passwords) pulled from secret storage.
+			// Invoked after the user confirms an Include Secrets prompt, either the dialog's own action
+			// or the one shown below when there is no secret-free preview to show at all.
+			const generateSecretVariants = async () => {
+				const profileWithSecrets = await positronDataConnectionsService.getProfileWithSecrets(profile.id);
+				if (!profileWithSecrets) {
+					return [];
+				}
+				return driver.generateConnectionCode(mechanismId, languageId, profileWithSecrets.parameterValues);
+			};
+
+			const reportFailure = () => notificationService.error(localize(
+				'positron.dataConnections.codeGenerationFailed',
+				"Could not generate connection code for '{0}'.",
+				profile.connectionName
+			));
+
 			// The in-memory profile's parameterValues never contains secret values (those live in
-			// secret storage), so this is the default, secret-free preview. Secret values are only
-			// pulled in if the user explicitly opts in via the dialog's Include Secrets action.
-			const variants = await driver.generateConnectionCode(mechanismId, languageId, profile.parameterValues);
+			// secret storage), so this is the default, secret-free preview.
+			let variants = await driver.generateConnectionCode(mechanismId, languageId, profile.parameterValues);
+			let initialIncludeSecrets = false;
+
 			if (variants.length === 0) {
-				notificationService.error(localize(
-					'positron.dataConnections.codeGenerationFailed',
-					"Could not generate connection code for '{0}'.",
-					profile.connectionName
-				));
-				return;
+				// A mechanism whose only parameters are secret (e.g. a pasted connection string) has no
+				// secret-free preview at all -- ask up front whether to include the secrets Connect
+				// needs, instead of reporting a hard failure. A mechanism with a genuine but incomplete
+				// preview (e.g. missing just a password) is instead covered by the dialog's own Include
+				// Secrets action.
+				//
+				// Both halves are required, matching the dialog: the schema must declare a secret
+				// parameter and the profile must have a value stored for one of them. On the schema
+				// alone, a connection whose preview is empty for some other reason (a Postgres
+				// key=value DSN, which has no structured form to render) would prompt for secrets and
+				// then fail anyway, having promised the prompt would help.
+				const mechanism = resolveDataConnectionMechanism(driver.metadata, mechanismId);
+				const secretParameterIds = mechanism?.parameters.filter(isSecretParameter).map(parameter => parameter.id) ?? [];
+				const storedSecretIds = positronDataConnectionsService.getProfileSecretIds(profile.id);
+				if (!secretParameterIds.some(id => storedSecretIds.includes(id))) {
+					reportFailure();
+					return;
+				}
+
+				const confirmed = await showIncludeSecretsConfirmation({ requiredForConnect: true });
+				if (!confirmed) {
+					return;
+				}
+
+				variants = await generateSecretVariants();
+				if (variants.length === 0) {
+					reportFailure();
+					return;
+				}
+				initialIncludeSecrets = true;
 			}
 
 			showConnectDataConnectionWith({
 				languageId,
 				connectionName: profile.connectionName,
 				driver,
+				generateSecretVariants,
+				initialIncludeSecrets,
 				mechanismId,
 				profileId: profile.id,
-				// Regenerates the code with secret values (e.g. passwords) pulled from secret storage.
-				// Invoked only after the user confirms the Include Secrets action in the dialog.
-				generateSecretVariants: async () => {
-					const profileWithSecrets = await positronDataConnectionsService.getProfileWithSecrets(profile.id);
-					if (!profileWithSecrets) {
-						return [];
-					}
-					return driver.generateConnectionCode(mechanismId, languageId, profileWithSecrets.parameterValues);
-				},
 				variants,
 			});
 		};
@@ -211,6 +260,7 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		const pythonSupported = driver.metadata.supportedLanguageIds.includes('python');
 		const rSupported = driver.metadata.supportedLanguageIds.includes('r');
 		const sqlSupported = driver.metadata.supportedLanguageIds.includes('sql');
+		const ggsqlSupported = driver.metadata.supportedLanguageIds.includes('ggsql');
 
 		// Build the menu entries. Refresh leads, separated from the profile actions below it --
 		// Edit Connection is always present, so the separator always has something under it.
@@ -229,7 +279,7 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		];
 
 		// If any language is supported, add a separator before the language-specific connect options.
-		if (pythonSupported || rSupported || sqlSupported) {
+		if (pythonSupported || rSupported || sqlSupported || ggsqlSupported) {
 			// Add a separator with a label before the language-specific connect options.
 			entries.push(new CustomContextMenuSeparator(localize('positron.dataConnections.connectWith', "Connect With")));
 
@@ -257,6 +307,15 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 					icon: 'database',
 					label: localize('positron.dataConnections.connectWithSQL', "SQL"),
 					onSelected: () => connectWith('sql'),
+				}));
+			}
+
+			// If ggsql is supported, add a "Connect with ggsql" entry with the ggsql icon.
+			if (ggsqlSupported) {
+				entries.push(new CustomContextMenuItem({
+					iconSrc: `data:image/svg+xml;base64,${GGSQL_ICON_BASE64}`,
+					label: localize('positron.dataConnections.connectWithGgsql', "ggsql"),
+					onSelected: () => connectWith('ggsql'),
 				}));
 			}
 		}

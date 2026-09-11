@@ -84,6 +84,13 @@
 	position: relative;
 	width: 100%;
 	height: 100%;
+	/* --- Start Positron --- */
+	/*
+	 * Lets the action buttons below measure themselves against the width of
+	 * the editor group rather than the narrower watermark column.
+	 */
+	container-type: inline-size;
+	/* --- End Positron --- */
 }
 
 .monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper > .editor-group-watermark-toolbar-container {
@@ -130,7 +137,11 @@
 	width: 100%;
 	max-height: 100%;
 	aspect-ratio: 1/1;
-	background-image: url('./letterpress-light.svg');
+	/* --- Start Positron --- */
+	/* Positron mark instead of the Code OSS letterpress logo. */
+	/* background-image: url('./letterpress-light.svg'); */
+	background-image: url('./positron-letterpress-light.svg');
+	/* --- End Positron --- */
 	background-size: contain;
 	background-position-x: center;
 	background-repeat: no-repeat;
@@ -138,16 +149,74 @@
 }
 
 .monaco-workbench.vs-dark .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-dark.svg');
+	/* --- Start Positron --- */
+	/* background-image: url('./letterpress-dark.svg'); */
+	background-image: url('./positron-letterpress-dark.svg');
+	/* --- End Positron --- */
 }
 
 .monaco-workbench.hc-light .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-hcLight.svg');
+	/* --- Start Positron --- */
+	/* background-image: url('./letterpress-hcLight.svg'); */
+	background-image: url('./positron-letterpress-hcLight.svg');
+	/* --- End Positron --- */
 }
 
 .monaco-workbench.hc-black .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-hcDark.svg');
+	/* --- Start Positron --- */
+	/* background-image: url('./letterpress-hcDark.svg'); */
+	background-image: url('./positron-letterpress-hcDark.svg');
+	/* --- End Positron --- */
 }
+
+/* --- Start Positron --- */
+.monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .watermark-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	justify-content: center;
+	margin: 12px 0;
+	/*
+	 * The watermark column is capped at 272px, which is narrower than the two
+	 * buttons side by side, so they would always wrap. max-content opts this
+	 * row out of that cap; the container query then caps it at the width of
+	 * the editor group, so the buttons wrap only when the group is too narrow.
+	 */
+	width: max-content;
+	max-width: calc(100cqi - 16px);
+}
+
+.monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .watermark-actions .watermark-action {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 12px;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-panel-border);
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+
+.monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .watermark-actions .watermark-action:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+	/*
+	 * contrastActiveBorder is defined only in high-contrast themes, where
+	 * toolbar.hoverBackground is null and hover would otherwise show nothing.
+	 * Elsewhere the fallback leaves the border unchanged.
+	 */
+	border-color: var(--vscode-contrastActiveBorder, var(--vscode-panel-border));
+}
+
+.monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .watermark-actions .watermark-action:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .watermark-actions .watermark-action .watermark-action-icon {
+	font-size: 14px;
+}
+/* --- End Positron --- */
 
 .monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .shortcuts {
 	width: 100%;

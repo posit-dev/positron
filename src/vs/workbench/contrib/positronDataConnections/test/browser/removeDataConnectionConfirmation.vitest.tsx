@@ -15,12 +15,12 @@ import { showRemoveDataConnectionConfirmation } from '../../browser/dialogs/remo
 describe('showRemoveDataConnectionConfirmation', () => {
 	const ctx = createTestContainer().withReactServices().build();
 
-	// The dialog renders itself through its own PositronModalDialogReactRenderer rather than being
+	// The dialog renders itself through its own PositronModalReactRenderer rather than being
 	// handed to rtl.render, so this only establishes the services context it renders into.
 	setupRTLRenderer(() => ctx.reactServices);
 
 	beforeEach(() => {
-		// PositronModalDialogReactRenderer reads the services singleton in its constructor to find the
+		// PositronModalReactRenderer reads the services singleton in its constructor to find the
 		// container to render into, so the container's services have to be reachable from there.
 		PositronReactServices.services = ctx.reactServices;
 	});
@@ -48,15 +48,20 @@ describe('showRemoveDataConnectionConfirmation', () => {
 		expect(await confirmation).toBe(true);
 	});
 
-	it('opens with the focus on Cancel, not on the confirming button', async () => {
+	it('tabs to Cancel before Remove, so Enter backs out instead of removing', async () => {
 		const confirmation = showRemoveDataConnectionConfirmation('My Connection', 0);
+		expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
 
-		// Removing a connection cannot be undone, so the keystrokes that dismiss a dialog must not
-		// carry it out: Enter on the focused Cancel button backs out.
-		const cancelButton = await screen.findByRole('button', { name: 'Cancel' });
-		expect(cancelButton).toHaveFocus();
-		expect(screen.getByRole('button', { name: 'Remove' })).not.toHaveFocus();
+		// The dialog opens with the focus on the box, so the first Tab lands
+		// on the title bar's close button and the second on Cancel.
+		await userEvent.tab();
+		expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus();
 
+		// Second Tab lands on Cancel.
+		await userEvent.tab();
+		expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+
+		// Enter on the focused Cancel backs out rather than removing the connection.
 		await userEvent.keyboard('{Enter}');
 		expect(await confirmation).toBe(false);
 	});
@@ -73,6 +78,15 @@ describe('showRemoveDataConnectionConfirmation', () => {
 		// Settle the dialog: it renders into the layout container through its own renderer, which
 		// outlives RTL's cleanup, so a dialog left open would still be there for the next test.
 		await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		expect(await confirmation).toBe(false);
+	});
+
+	it('resolves false when the dialog is dismissed with Escape', async () => {
+		const confirmation = showRemoveDataConnectionConfirmation('My Connection', 0);
+		expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+
+		await userEvent.keyboard('{Escape}');
+
 		expect(await confirmation).toBe(false);
 	});
 

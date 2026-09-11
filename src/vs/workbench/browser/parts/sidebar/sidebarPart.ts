@@ -17,6 +17,8 @@ import { SIDE_BAR_TITLE_FOREGROUND, SIDE_BAR_TITLE_BORDER, SIDE_BAR_BACKGROUND, 
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { AnchorAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
+import { IBoundarySashes } from '../../../../base/browser/ui/sash/sash.js';
+import { MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { LayoutPriority } from '../../../../base/browser/ui/grid/grid.js';
 import { assertReturnsDefined } from '../../../../base/common/types.js';
@@ -35,13 +37,14 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { VisibleViewContainersTracker } from '../visibleViewContainersTracker.js';
 import { Extensions } from '../../panecomposite.js';
 
+const PRIMARY_SIDE_BAR_SASH_CLASS = 'primary-sidebar-sash';
+
 // --- Start Positron ---
 // The minimum sidebar part width is 170. Export this as a constant so that we can use this same
 // width in layout.ts where we set the default size (see LayoutStateKeys.SIDEBAR_SIZE.defaultValue
 // in layout.ts).
 export const SIDEBAR_PART_MINIMUM_WIDTH = 170;
 // --- End Positron ---
-//
 export class SidebarPart extends AbstractPaneCompositePart {
 
 	static readonly activeViewletSettingsKey = 'workbench.sidebar.activeviewletid';
@@ -75,6 +78,7 @@ export class SidebarPart extends AbstractPaneCompositePart {
 
 	private readonly activityBarPart = this._register(this.instantiationService.createInstance(ActivitybarPart, this.location, this));
 	private readonly visibleViewContainersTracker: VisibleViewContainersTracker;
+	private readonly primarySideBarSashClassDisposable = this._register(new MutableDisposable());
 
 	//#endregion
 
@@ -193,6 +197,14 @@ export class SidebarPart extends AbstractPaneCompositePart {
 		}
 
 		super.layout(width, height, top, left);
+	}
+
+	override setBoundarySashes(sashes: IBoundarySashes): void {
+		super.setBoundarySashes?.(sashes);
+
+		this.primarySideBarSashClassDisposable.clear();
+		const primarySideBarSash = this.layoutService.getSideBarPosition() === SideBarPosition.LEFT ? sashes.right : sashes.left;
+		this.primarySideBarSashClassDisposable.value = primarySideBarSash?.addClass(PRIMARY_SIDE_BAR_SASH_CLASS);
 	}
 
 	protected override getTitleAreaDropDownAnchorAlignment(): AnchorAlignment {

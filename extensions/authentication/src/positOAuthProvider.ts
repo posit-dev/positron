@@ -5,13 +5,20 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { POSIT_AI_DEFAULTS } from 'ai-config';
 import { POSIT_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS } from './constants';
 import { AuthProvider } from './authProvider';
+import { getCachedProvider } from './providerCatalog';
 import { log } from './log';
 
+/**
+ * Positron's registered OAuth client, distinct from ai-config's `POSIT_AI_DEFAULTS`:
+ * `clientId` is `rstudio-ide` there (RStudio's client), not Positron's.
+ */
+const PRODUCTION_DEFAULTS = { authHost: 'https://login.posit.cloud', scope: 'prism', clientId: 'positron' };
 
 /**
- * Posit AI authentication provider using OAuth 2.0 Device Authorization
+ * Posit AI Pass authentication provider using OAuth 2.0 Device Authorization
  * Grant (RFC 8628).
  *
  * Extends AuthProvider so the config dialog can treat it uniformly
@@ -25,11 +32,11 @@ export class PositOAuthProvider extends AuthProvider {
 	private _cancellationToken: vscode.CancellationTokenSource | null = null;
 
 	constructor(context: vscode.ExtensionContext) {
-		super(POSIT_AUTH_PROVIDER_ID, 'Posit AI', context);
+		super(POSIT_AUTH_PROVIDER_ID, 'Posit AI Pass', context);
 	}
 
 	private async signIn(): Promise<void> {
-		log.info('[Posit AI] Signing in.');
+		log.info('[Posit AI Pass] Signing in.');
 
 		const params = this.getOAuthParameters();
 		const response = await fetch(
@@ -54,7 +61,7 @@ export class PositOAuthProvider extends AuthProvider {
 
 		await vscode.env.clipboard.writeText(user_code);
 		await positron.methods.showDialog(
-			'Posit AI Sign In',
+			'Posit AI Pass Sign In',
 			`You will need this code to sign in: <code>${user_code}</code>. It has been copied to your clipboard.`,
 		);
 		await vscode.env.openExternal(vscode.Uri.parse(verification_uri_complete));
@@ -63,7 +70,7 @@ export class PositOAuthProvider extends AuthProvider {
 		this._cancellationToken = cancellationToken;
 
 		cancellationToken.token.onCancellationRequested(() => {
-			vscode.window.showInformationMessage(vscode.l10n.t('Posit AI sign-in cancelled.'));
+			vscode.window.showInformationMessage(vscode.l10n.t('Posit AI Pass sign-in cancelled.'));
 		});
 
 		try {
@@ -102,7 +109,7 @@ export class PositOAuthProvider extends AuthProvider {
 					await this.context.secrets.store('posit-ai.refresh_token', refresh_token);
 					await this.context.secrets.store('posit-ai.token_expiry', expiryTime.toString());
 
-					log.info('[Posit AI] Sign-in successful.');
+					log.info('[Posit AI Pass] Sign-in successful.');
 					return;
 				}
 
@@ -134,7 +141,7 @@ export class PositOAuthProvider extends AuthProvider {
 	}
 
 	private async signOut(): Promise<void> {
-		log.info('[Posit AI] Signing out.');
+		log.info('[Posit AI Pass] Signing out.');
 		await this.context.secrets.delete('posit-ai.access_token');
 		await this.context.secrets.delete('posit-ai.refresh_token');
 		await this.context.secrets.delete('posit-ai.token_expiry');
@@ -162,7 +169,7 @@ export class PositOAuthProvider extends AuthProvider {
 			return [{
 				id: POSIT_AUTH_PROVIDER_ID,
 				accessToken,
-				account: { label: 'Posit AI', id: POSIT_AUTH_PROVIDER_ID },
+				account: { label: 'Posit AI Pass', id: POSIT_AUTH_PROVIDER_ID },
 				scopes: [],
 			}];
 		} catch {
@@ -181,7 +188,7 @@ export class PositOAuthProvider extends AuthProvider {
 		const session: vscode.AuthenticationSession = {
 			id: POSIT_AUTH_PROVIDER_ID,
 			accessToken,
-			account: { label: 'Posit AI', id: POSIT_AUTH_PROVIDER_ID },
+			account: { label: 'Posit AI Pass', id: POSIT_AUTH_PROVIDER_ID },
 			scopes: [],
 		};
 
@@ -216,14 +223,14 @@ export class PositOAuthProvider extends AuthProvider {
 		const tokenExpiry = await this.context.secrets.get('posit-ai.token_expiry');
 
 		if (!accessToken || !tokenExpiry) {
-			throw new Error('No Posit AI access token found. Please sign in.');
+			throw new Error('No Posit AI Pass access token found. Please sign in.');
 		}
 
 		const expiry = parseInt(tokenExpiry) - CREDENTIAL_REFRESH_INTERVAL_MS;
 		if (Date.now() >= expiry) {
 			const result = await this.refreshAccessToken();
 			if (!result.success) {
-				throw new Error('Failed to refresh Posit AI access token. Please sign in again.');
+				throw new Error('Failed to refresh Posit AI Pass access token. Please sign in again.');
 			}
 			accessToken = result.accessToken;
 		}
@@ -232,12 +239,12 @@ export class PositOAuthProvider extends AuthProvider {
 	}
 
 	private async refreshAccessToken(): Promise<{ success: false } | { success: true; accessToken: string }> {
-		log.info('[Posit AI] Refreshing access token.');
+		log.info('[Posit AI Pass] Refreshing access token.');
 		const params = this.getOAuthParameters();
 
 		const refreshToken = await this.context.secrets.get('posit-ai.refresh_token');
 		if (!refreshToken) {
-			log.error('[Posit AI] No refresh token found.');
+			log.error('[Posit AI Pass] No refresh token found.');
 			return { success: false };
 		}
 
@@ -258,8 +265,8 @@ export class PositOAuthProvider extends AuthProvider {
 		if (!response.ok) {
 			const errorData = await response.json().catch(() => ({})) as { error_description?: string };
 			const errorMsg = errorData.error_description || response.statusText;
-			log.error(`[Posit AI] Failed to refresh token: ${errorMsg}`);
-			vscode.window.showErrorMessage(vscode.l10n.t('Failed to refresh Posit AI access token: {0}', errorMsg));
+			log.error(`[Posit AI Pass] Failed to refresh token: ${errorMsg}`);
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to refresh Posit AI Pass access token: {0}', errorMsg));
 			return { success: false };
 		}
 
@@ -275,19 +282,30 @@ export class PositOAuthProvider extends AuthProvider {
 		await this.context.secrets.store('posit-ai.refresh_token', refresh_token);
 		await this.context.secrets.store('posit-ai.token_expiry', expiryTime.toString());
 
-		log.info('[Posit AI] Access token refreshed successfully.');
+		log.info('[Posit AI Pass] Access token refreshed successfully.');
 		return { success: true, accessToken: access_token };
 	}
 
+	/**
+	 * Resolves OAuth parameters from the `positai.positaiLogin` catalog entry
+	 * (providers.json + enforced/env). A field equal to ai-config's built-in
+	 * default means nothing overrode it, so {@link PRODUCTION_DEFAULTS} is used
+	 * instead -- that default's `clientId` is RStudio's, not Positron's.
+	 *
+	 * `host` is bare (providers.json's convention) and gets a scheme added here.
+	 */
 	private getOAuthParameters(): { authHost: string; scope: string; clientId: string } {
-		const config = vscode.workspace.getConfiguration('authentication.positai');
-		const authHost = config.inspect<string>('authHost')?.globalValue
-			?? 'https://login.posit.cloud';
-		const scope = config.inspect<string>('scope')?.globalValue
-			?? 'prism';
-		const clientId = config.inspect<string>('clientId')?.globalValue
-			?? 'positron';
+		const login = getCachedProvider('positai')?.connection.positaiLogin;
+		const builtinDefaults = POSIT_AI_DEFAULTS.positaiLogin;
 
-		return { authHost, scope, clientId };
+		const host = login?.host !== builtinDefaults.host ? login?.host : undefined;
+		const clientId = login?.clientId !== builtinDefaults.clientId ? login?.clientId : undefined;
+		const scope = login?.scope !== builtinDefaults.scope ? login?.scope : undefined;
+
+		return {
+			authHost: host ? `https://${host}` : PRODUCTION_DEFAULTS.authHost,
+			scope: scope ?? PRODUCTION_DEFAULTS.scope,
+			clientId: clientId ?? PRODUCTION_DEFAULTS.clientId,
+		};
 	}
 }

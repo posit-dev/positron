@@ -118,6 +118,7 @@ import { localize } from '../../../nls.js';
 import { LogService } from '../../../platform/log/common/logService.js';
 import { ISharedProcessLifecycleService, SharedProcessLifecycleService } from '../../../platform/lifecycle/node/sharedProcessLifecycleService.js';
 import { RemoteTunnelService } from '../../../platform/remoteTunnel/node/remoteTunnelService.js';
+import { ITunnelProcessCoordinator, TunnelProcessCoordinator } from '../../../platform/remoteTunnel/node/tunnelProcessCoordinator.js';
 import { ExtensionsProfileScannerService } from '../../../platform/extensionManagement/node/extensionsProfileScannerService.js';
 import { ExtensionRecommendationNotificationServiceChannelClient } from '../../../platform/extensionRecommendations/common/extensionRecommendationsIpc.js';
 import { INativeHostService } from '../../../platform/native/common/native.js';
@@ -442,6 +443,7 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		services.set(ISharedProcessTunnelService, new SyncDescriptor(SharedProcessTunnelService));
 
 		// Remote Tunnel
+		services.set(ITunnelProcessCoordinator, new SyncDescriptor(TunnelProcessCoordinator, [undefined], true));
 		services.set(IRemoteTunnelService, new SyncDescriptor(RemoteTunnelService));
 
 		// --- Start Positron ---
@@ -509,16 +511,18 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		this.server.registerChannel('customEndpointTelemetry', customEndpointTelemetryChannel);
 
 		// --- Start Positron ---
-		// Headless Language Model engine: local-desktop egress runs here in the
-		// shared process; the workbench reaches it over this channel.
-		const headlessLmEngine = new HeadlessLanguageModelEngine(accessor.get(ILogService));
-		this.server.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
-
 		// AI provider catalog: resolves providers.json + enforced/default env
 		// fragments where they live (this process's HOME/env); the workbench
 		// reads it over this channel.
 		const aiProviderCatalog = this._store.add(new AiProviderCatalog(accessor.get(ILogService)));
 		this.server.registerChannel(POSITRON_AI_PROVIDER_CHANNEL, new AiProviderCatalogChannel(aiProviderCatalog));
+
+		// Headless Language Model engine: local-desktop egress runs here in the
+		// shared process; the workbench reaches it over this channel. The engine
+		// applies the catalog's model policy so a listing never offers a model
+		// providers.json excludes.
+		const headlessLmEngine = new HeadlessLanguageModelEngine(accessor.get(ILogService), aiProviderCatalog);
+		this.server.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
 		// --- End Positron ---
 
 		const userDataSyncAccountChannel = new UserDataSyncAccountServiceChannel(accessor.get(IUserDataSyncAccountService));

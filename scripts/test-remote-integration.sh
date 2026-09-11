@@ -163,9 +163,13 @@ run_integration_test "$INTEGRATION_TEST_ELECTRON_PATH" --folder-uri=$AUTHORITY$(
 kill_app
 
 # Cleanup
+# Best-effort: a builtin extension (e.g. ms-python) can still be writing a
+# bytecache into the user-data dir as we tear down, so `rm -rf` may fail with
+# "Directory not empty". These are throwaway temp dirs, so never let their
+# cleanup fail an otherwise-green run under `set -e`.
 
 if [[ "$3" == "" ]]; then
-	rm -rf $VSCODEUSERDATADIR
+	rm -rf $VSCODEUSERDATADIR || true
 fi
 
-rm -rf $TESTRESOLVER_DATA_FOLDER
+rm -rf $TESTRESOLVER_DATA_FOLDER || true

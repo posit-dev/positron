@@ -4,10 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as sinon from 'sinon';
+import type { ClientKind } from 'ai-config';
 import * as providerCatalog from '../providerCatalog';
 
 interface ValidationProvider {
 	readonly customHeaders?: Record<string, string>;
+	/** Only matters for tests that read it; validation itself doesn't. */
+	readonly clientKind?: ClientKind;
 }
 
 export function stubValidationCatalog(
@@ -20,6 +23,7 @@ export function stubValidationCatalog(
 		}
 		return {
 			id: catalogId,
+			clientKind: provider.clientKind ?? 'openai-compatible',
 			enabled: true,
 			connection: { customHeaders: provider.customHeaders },
 		};

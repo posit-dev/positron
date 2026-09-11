@@ -10,7 +10,7 @@ import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IsDevelopmentContext, IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
-import { RemoteNameContext } from '../../../common/contextkeys.js';
+import { RemoteNameContext, ResourceContextKey } from '../../../common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
@@ -27,22 +27,24 @@ import { IDataFrameResolutionServices, resolveDataFrameAtPosition } from './posi
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
-import { extname, toLocalResource } from '../../../../base/common/resources.js';
+import { toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/convertToCodeModalDialog.js';
 import { showFileOptionsModalDialog } from '../../../browser/positronModalDialogs/fileOptionsModalDialog.js';
-import { showImportDataModalDialog } from '../../../browser/positronModalDialogs/importDataModalDialog.js';
-import { isSessionVisibleFile } from '../../../services/positronDataExplorer/common/importDataFileUri.js';
 import { IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { CodeSyntaxName } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { mainWindow } from '../../../../base/browser/window.js';
+import { IImportDataServices, importDataResourceArgument, openFileAndShowImportDataDialog, showImportDataDialogForInstance } from './positronDataExplorerImportData.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { ExplorerFolderContext } from '../../files/common/files.js';
 
 /**
  * Positron Data Explorer action category.
@@ -77,6 +79,7 @@ export const enum PositronDataExplorerCommandId {
 	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
 	FileOptionsAction = 'workbench.action.positronDataExplorer.fileOptions',
 	ImportDataAction = 'workbench.action.positronDataExplorer.importData',
+	ImportDataFromFileAction = 'workbench.action.positronDataExplorer.importDataFromFile',
 	ShowColumnContextMenuAction = 'workbench.action.positronDataExplorer.showColumnContextMenu',
 	ShowRowContextMenuAction = 'workbench.action.positronDataExplorer.showRowContextMenu',
 	ShowCellContextMenuAction = 'workbench.action.positronDataExplorer.showCellContextMenu',
@@ -822,6 +825,18 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
+		// File-backed explorers offer Import Data instead, and their backend reports Convert to Code
+		// as unsupported. The negated file-backed key is kept because it is set as soon as the
+		// editor opens, while the convert-to-code key waits for the backend state to arrive; it is
+		// what keeps the button from appearing for a moment on a file.
+		const when = ContextKeyExpr.and(
+			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			POSITRON_DATA_EXPLORER_IS_FILE_BACKED.toNegated(),
+			POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED,
+			ContextKeyExpr.or(
+				POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
+				POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
+		);
 		super({
 			id: PositronDataExplorerCommandId.ConvertToCodeModalAction,
 			title: {
@@ -834,21 +849,9 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 				displayTitle: true,
 			},
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE,
-				ContextKeyExpr.or(
-					POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
-					POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
-			),
+			precondition: when,
 			keybinding: {
-				when: ContextKeyExpr.and(
-					POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-					POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE,
-					ContextKeyExpr.or(
-						POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
-						POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
-				),
+				when,
 				weight: KeybindingWeight.WorkbenchContrib + 1,
 				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyC),
 			},
@@ -858,6 +861,7 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 					id: MenuId.EditorActionsLeft,
 					when: ContextKeyExpr.and(
 						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_FILE_BACKED.toNegated(),
 						POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED
 					),
 					order: 3
@@ -867,6 +871,7 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 					group: 'navigation',
 					when: ContextKeyExpr.and(
 						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_FILE_BACKED.toNegated(),
 						POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED
 					),
 				}
@@ -1127,14 +1132,12 @@ class PositronDataExplorerImportDataAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
-		// Gated on plaintext (CSV/TSV/XLSX) rather than "file-backed" because no context key
-		// distinguishes a file-backed Data Explorer from a kernel-backed one yet. A future PR adds
-		// POSITRON_DATA_EXPLORER_IS_FILE_BACKED and this switches to it, which also picks up
-		// Parquet. Deliberately not gated on a sort or filter existing: loading an unfiltered file
-		// is the main case.
+		// Gated on the explorer being file-backed, which is the real test (the duckdb: client-id
+		// prefix) rather than the filename proxy, so Parquet is picked up too. Deliberately not
+		// gated on a sort or filter existing: loading an unfiltered file is the main case.
 		const when = ContextKeyExpr.and(
 			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-			POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+			POSITRON_DATA_EXPLORER_IS_FILE_BACKED
 		);
 		super({
 			id: PositronDataExplorerCommandId.ImportDataAction,
@@ -1170,11 +1173,15 @@ class PositronDataExplorerImportDataAction extends Action2 {
 	 * @param accessor The services accessor.
 	 */
 	async run(accessor: ServicesAccessor): Promise<void> {
-		// Access the services we need.
-		const editorService = accessor.get(IEditorService);
-		const environmentService = accessor.get(IWorkbenchEnvironmentService);
-		const importerRegistry = accessor.get(IPositronDataImporterRegistry);
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		// Access the services we need. An accessor is only valid before the first await.
+		const services: IImportDataServices = {
+			editorService: accessor.get(IEditorService),
+			environmentService: accessor.get(IWorkbenchEnvironmentService),
+			importerRegistry: accessor.get(IPositronDataImporterRegistry),
+			notificationService: accessor.get(INotificationService),
+			positronDataExplorerService: accessor.get(IPositronDataExplorerService),
+			runtimeSessionService: accessor.get(IRuntimeSessionService),
+		};
 
 		// Get the Positron data explorer instance, which is where the file options come from.
 		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
@@ -1184,32 +1191,112 @@ class PositronDataExplorerImportDataAction extends Action2 {
 
 		// Recover the original file from the positron-data-explorer URI. A kernel-backed explorer
 		// has no backing file, so there is nothing to import.
-		const originalUri = EditorResourceAccessor.getOriginalUri(editorService.activeEditor);
+		const originalUri = EditorResourceAccessor.getOriginalUri(services.editorService.activeEditor);
 		const fileUri = originalUri && PositronDataExplorerUri.backingUri(originalUri);
 		if (!fileUri) {
 			return;
 		}
 
-		// Ask the registry which importers can read this file. This activates contributing
-		// extensions, so it must happen before the dialog opens.
-		//
-		// Offer nothing for a file the runtime session's machine cannot open: the generated code
-		// names fileUri.fsPath, and a path the session cannot resolve is worse than no code at all.
-		// The dialog renders the empty list as its empty state.
-		const importers = isSessionVisibleFile(fileUri, environmentService.remoteAuthority)
-			? await importerRegistry.getImporters(extname(fileUri))
-			: [];
+		await showImportDataDialogForInstance(services, fileUri, positronDataExplorerInstance);
+	}
+}
 
-		showImportDataModalDialog({
-			fileUri,
-			importers,
-			options: {
-				hasHeaderRow: positronDataExplorerInstance.fileHasHeaderRow,
-				// Import the sheet the user is looking at, not the workbook's default one.
-				sheetName: positronDataExplorerInstance.fileSelectedSheet,
+/**
+ * PositronImportDataFromFileAction action.
+ * The global Import Data entry points: the Explorer context menu passes the clicked file's URI;
+ * the File menu (and the Variables pane toolbar button, which executes this command) pass nothing,
+ * which opens a file picker. Either way the file is opened in the Data Explorer first and the
+ * Import Data dialog opens over it, so all entry points share one dialog code path.
+ */
+class PositronImportDataFromFileAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		// Match the file types the Data Explorer opens and an importer can read (.csv/.tsv/.xlsx/
+		// .parquet/.parq). Compressed files (.gz) are deliberately absent: the importer registry
+		// matches only the final extension, so gzip support is its own change.
+		// Scheme-gate to files a runtime session could plausibly open; a virtual-filesystem file
+		// names no path on the session's machine, so no menu item is offered for it.
+		const importableFile = ContextKeyExpr.and(
+			ExplorerFolderContext.toNegated(),
+			ContextKeyExpr.regex(ResourceContextKey.Extension.key, /\.(csv|tsv|xlsx|parquet|parq)$/i),
+			ContextKeyExpr.or(
+				ResourceContextKey.Scheme.isEqualTo(Schemas.file),
+				ResourceContextKey.Scheme.isEqualTo(Schemas.vscodeRemote)
+			)
+		);
+		super({
+			id: PositronDataExplorerCommandId.ImportDataFromFileAction,
+			title: {
+				value: localize('positronDataExplorer.importDataFromFile', 'Import Data...'),
+				original: 'Import Data...'
 			},
-			preferredLanguageId: runtimeSessionService.foregroundSession?.runtimeMetadata.languageId,
+			category,
+			// Not in the command palette: the palette already offers the Data Explorer variant
+			// when one is active, and two adjacent "Import Data" entries would be confusing.
+			f1: false,
+			menu: [
+				{
+					id: MenuId.ExplorerContext,
+					group: 'navigation',
+					order: 30,
+					when: importableFile
+				},
+				{
+					// The design places this near the Open group: it is where people who think of
+					// importing as a file operation go looking. Always enabled; order 100 puts it
+					// after the Open File/Folder/Recent entries in the group.
+					id: MenuId.MenubarFileMenu,
+					group: '2_open',
+					order: 100
+				}
+			]
 		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 * @param resource The file to import, supplied by the Explorer context menu; not a URI when
+	 * invoked from the File menu or the Variables pane, which opens a file picker instead.
+	 */
+	async run(accessor: ServicesAccessor, resource?: unknown): Promise<void> {
+		// Access the services we need. An accessor is only valid before the first await.
+		const fileDialogService = accessor.get(IFileDialogService);
+		const services: IImportDataServices = {
+			editorService: accessor.get(IEditorService),
+			environmentService: accessor.get(IWorkbenchEnvironmentService),
+			importerRegistry: accessor.get(IPositronDataImporterRegistry),
+			notificationService: accessor.get(INotificationService),
+			positronDataExplorerService: accessor.get(IPositronDataExplorerService),
+			runtimeSessionService: accessor.get(IRuntimeSessionService),
+		};
+
+		// Without a resource, ask for one. The picker is scoped to the extensions the Data
+		// Explorer can open for import; it browses the workspace's filesystem, which in a remote
+		// window is the remote machine, so the picked path is one the session can open.
+		let fileUri = importDataResourceArgument(resource);
+		if (!fileUri) {
+			const uris = await fileDialogService.showOpenDialog({
+				title: localize('positronDataExplorer.importDataPickerTitle', "Import Data"),
+				openLabel: localize('positronDataExplorer.importDataPickerLabel', "Import"),
+				canSelectFiles: true,
+				canSelectFolders: false,
+				canSelectMany: false,
+				defaultUri: await fileDialogService.defaultFilePath(),
+				filters: [{
+					name: localize('positronDataExplorer.importDataPickerFilter', "Data Files"),
+					extensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq']
+				}]
+			});
+			fileUri = uris?.at(0);
+			if (!fileUri) {
+				return;
+			}
+		}
+
+		await openFileAndShowImportDataDialog(services, fileUri);
 	}
 }
 
@@ -1599,6 +1686,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerOpenAsSpreadsheetAction);
 	registerAction2(PositronDataExplorerFileOptionsAction);
 	registerAction2(PositronDataExplorerImportDataAction);
+	registerAction2(PositronImportDataFromFileAction);
 	registerAction2(PositronDataExplorerConvertToCodeAction);
 	registerAction2(PositronDataExplorerConvertToCodeModalAction);
 	registerAction2(PositronDataExplorerShowColumnContextMenuAction);

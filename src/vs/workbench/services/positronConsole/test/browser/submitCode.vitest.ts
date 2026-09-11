@@ -180,6 +180,42 @@ describe('PositronConsoleInstance.submitCode', () => {
 		expect(executedCode).toEqual(['2 +\n3']);
 	});
 
+	it('normalizes CRLF line endings before the boundary provider and split', async () => {
+		const { instance, languageFeaturesService } = createInstance(disposables);
+
+		// The boundary provider parses the code line-by-line; a stray carriage
+		// return outside a string is a syntax error, so CRLF input must be
+		// normalized to LF before it reaches the provider (and before the local
+		// split), matching how R normalizes source. Record what the provider is
+		// handed so we can assert it never sees a carriage return.
+		let providerText: string | undefined;
+		disposables.add(languageFeaturesService.inputBoundaryProvider.register(
+			{ language: 'r', scheme: 'inmemory' },
+			{
+				provideInputBoundaries: model => {
+					providerText = model.getValue();
+					return [
+						{ range: { start: 0, end: 2 }, kind: 'complete' },
+						{ range: { start: 2, end: 3 }, kind: 'complete' },
+					];
+				}
+			}
+		));
+
+		const executedCode: string[] = [];
+		disposables.add(instance.onDidExecuteCode(e => executedCode.push(e.code)));
+
+		// A multi-line quoted statement followed by another line, with Windows
+		// CRLF line endings (as an editor selection from a CRLF file produces).
+		await instance.submitCode(
+			`text1 <- 'First line \r\n second line'\r\ntext2 <- ''`,
+			{ source: CodeAttributionSource.Interactive }
+		);
+
+		expect(providerText).not.toContain('\r');
+		expect(executedCode).toEqual([`text1 <- 'First line \n second line'`]);
+	});
+
 	it('shows the continuation prompt when the session reports incomplete code (no provider)', async () => {
 		const { instance, session } = createInstance(disposables);
 

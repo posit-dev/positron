@@ -40,6 +40,23 @@ describe('joinProcesses', () => {
 		expect(kernel.processRole).toBe('kernel_supervisor');
 	});
 
+	test('resolves a child against its parent\'s role, so the agent SDK runtime is agent_host', () => {
+		// The real shape from build 2026.10.0-9: the agent host is a utility
+		// process under main, and it forks the SDK runtime through the same
+		// electron binary, so argv alone says nothing about who owns it.
+		const tree = [
+			proc(100, 1, '/opt/positron/positron', 90),
+			proc(104, 100, '/opt/positron/positron --type=utility --utility-sub-type=node.mojom.NodeService', 86),
+			proc(105, 104, '/opt/positron/positron /home/u/.config/Positron/x/index.js', 161),
+		];
+		const treeNames = new Map([[100, 'positron'], [104, 'agent-host'], [105, 'electron-nodejs (index.js)']]);
+		const joined = joinProcesses(tree, treeNames, 100, [tree]);
+		expect(joined.find(p => p.pid === 104)?.processRole).toBe('agent_host');
+		expect(joined.find(p => p.pid === 105)?.processRole).toBe('agent_host');
+		// Display name is untouched: the role changes, what the report calls it does not.
+		expect(joined.find(p => p.pid === 105)?.processName).toBe('electron-nodejs (index.js)');
+	});
+
 	test('takes the median across samples and keeps min and max', () => {
 		const samples = [
 			[proc(100, 1, '/opt/positron/positron', 80)],

@@ -14,11 +14,11 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IUserInteractionService } from '../../../../../platform/userInteraction/browser/userInteractionService.js';
 import { UserInteractionService } from '../../../../../platform/userInteraction/browser/userInteractionServiceImpl.js';
-import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
-import { IDataImporter, IDataImportRequest, IDataImportResult } from '../../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
+import { IDataImporter, IDataImportRequest, IDataImportResult, IDataImportView } from '../../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { ImportDataModalDialog } from '../../importDataModalDialog.js';
 
 describe('ImportDataModalDialog', () => {
@@ -42,7 +42,7 @@ describe('ImportDataModalDialog', () => {
 		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(260);
 	});
 
-	const renderer = stubInterface<PositronModalDialogReactRenderer>({ onResize: Event.None, dispose: vi.fn() });
+	const renderer = stubInterface<PositronModalReactRenderer>({ onKeyDown: Event.None, onResize: Event.None, dispose: vi.fn() });
 
 	const fileUri = URI.file('/Users/austin/data/flights.csv');
 
@@ -51,12 +51,17 @@ describe('ImportDataModalDialog', () => {
 			languageId: 'python',
 			displayName: 'Python (pandas)',
 			fileExtensions: ['csv', 'tsv'],
+			reservedNames: ['class', 'import'],
 			generateCode: async (request: IDataImportRequest) => ({
 				code: `${request.variableName} = pd.read_csv("${request.fileUri.fsPath}")\n`,
 			}),
 			...overrides,
 		};
 	}
+
+	// Shaped like the list the readr importer registers, so the tests exercise a genuinely
+	// different language's reserved words rather than a copy of Python's.
+	const R_RESERVED_NAMES = ['if', 'TRUE', 'NA'];
 
 	// Monaco splits a rendered line's text across nested spans (one per token), and every ancestor up
 	// to the view-lines container also reports the matching text via textContent, so the match is
@@ -68,14 +73,25 @@ describe('ImportDataModalDialog', () => {
 			&& pattern.test((element?.textContent ?? '').replace(/\u00A0/g, ' '));
 	}
 
-	function renderDialog(importers: readonly IDataImporter[], preferredLanguageId?: string) {
+	const sortOnlyView: IDataImportView = {
+		rowFilters: [],
+		sortKeys: [{ columnName: 'dep_delay', ascending: false }],
+	};
+
+	function renderDialog(
+		importers: readonly IDataImporter[],
+		preferredLanguageId?: string,
+		uri: URI = fileUri,
+		view?: IDataImportView
+	) {
 		rtl.render(
 			<ImportDataModalDialog
-				fileUri={fileUri}
+				fileUri={uri}
 				importers={importers}
 				options={{ hasHeaderRow: true }}
 				preferredLanguageId={preferredLanguageId}
 				renderer={renderer}
+				view={view}
 			/>
 		);
 	}
@@ -110,20 +126,72 @@ describe('ImportDataModalDialog', () => {
 		expect(await screen.findByText(codeTextMatching(/df = /))).toBeInTheDocument();
 	});
 
-	it('rejects a name that is not a valid identifier', async () => {
+	it('generates with a name the language cannot assign to rather than blocking it', async () => {
 		const user = userEvent.setup();
+		const executeCode = vi.fn();
+		ctx.instantiationService.stub(IPositronConsoleService, { executeCode });
 		renderDialog([createImporter()]);
 		const nameInput = await screen.findByLabelText('Variable Name');
 
 		await user.clear(nameInput);
 		await user.type(nameInput, '2020 data');
+		expect(await screen.findByText(codeTextMatching(/pd\.read_csv/))).toBeInTheDocument();
 
-		expect(await screen.findByText('Enter a valid variable name.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
+		await user.click(screen.getByRole('button', { name: 'Import' }));
+
+		// The dialog does not validate the name. The user gets the code they asked for, and the
+		// syntax error (if any) surfaces in the console where they can see and fix it.
+		expect(executeCode).toHaveBeenCalledWith(
+			'python',
+			undefined,
+			expect.stringContaining('2020 data = pd.read_csv'),
+			expect.objectContaining({ source: 'interactive' }),
+			true,
+			true
+		);
+	});
+
+	it('falls back to the derived name when the field is emptied', async () => {
+		const user = userEvent.setup();
+		renderDialog([createImporter()]);
+		const nameInput = await screen.findByLabelText('Variable Name');
+
+		await user.clear(nameInput);
+
+		// The field is left as the user left it, but the preview shows what Import would run now,
+		// rather than a statement with no left-hand side.
+		expect(nameInput).toHaveValue('');
+		expect(await screen.findByText(codeTextMatching(/flights = /))).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Import' })).toBeEnabled();
+	});
+
+	it('re-derives an untouched default name when the package changes', async () => {
+		const user = userEvent.setup();
+		const r = createImporter({ languageId: 'r', displayName: 'R (readr)', reservedNames: R_RESERVED_NAMES });
+		renderDialog([createImporter(), r], undefined, URI.file('/Users/austin/data/class.csv'));
+		// 'class' is reserved in Python, so the default is suffixed; R assigns to it happily.
+		expect(await screen.findByLabelText('Variable Name')).toHaveValue('class_');
+
+		await user.click(screen.getByRole('option', { name: 'R (readr)' }));
+
+		expect(await screen.findByLabelText('Variable Name')).toHaveValue('class');
+	});
+
+	it('keeps an edited name when the package changes', async () => {
+		const user = userEvent.setup();
+		const r = createImporter({ languageId: 'r', displayName: 'R (readr)', reservedNames: R_RESERVED_NAMES });
+		renderDialog([createImporter(), r]);
+		const nameInput = await screen.findByLabelText('Variable Name');
+		await user.clear(nameInput);
+		await user.type(nameInput, 'df');
+
+		await user.click(screen.getByRole('option', { name: 'R (readr)' }));
+
+		expect(screen.getByLabelText('Variable Name')).toHaveValue('df');
 	});
 
 	it('preselects the importer matching the foreground session language', async () => {
-		const r = createImporter({ languageId: 'r', displayName: 'R (readr)' });
+		const r = createImporter({ languageId: 'r', displayName: 'R (readr)', reservedNames: R_RESERVED_NAMES });
 		renderDialog([createImporter(), r], 'r');
 
 		expect(await screen.findByRole('option', { name: 'R (readr)' })).toHaveAttribute('aria-selected', 'true');
@@ -134,6 +202,7 @@ describe('ImportDataModalDialog', () => {
 		const r = createImporter({
 			languageId: 'r',
 			displayName: 'R (readr)',
+			reservedNames: R_RESERVED_NAMES,
 			generateCode: async (request: IDataImportRequest) => ({ code: `${request.variableName} <- read_csv()\n` }),
 		});
 		renderDialog([createImporter(), r]);
@@ -148,6 +217,7 @@ describe('ImportDataModalDialog', () => {
 		const r = createImporter({
 			languageId: 'r',
 			displayName: 'R (readr)',
+			reservedNames: R_RESERVED_NAMES,
 			// Never settles, so the test observes the window while generation is in flight.
 			generateCode: () => new Promise<IDataImportResult>(() => { }),
 		});
@@ -164,15 +234,20 @@ describe('ImportDataModalDialog', () => {
 	it('drops a generation failure once the name is no longer the one that failed', async () => {
 		const user = userEvent.setup();
 		renderDialog([createImporter({
-			generateCode: async () => { throw new Error('importer exploded'); },
+			generateCode: async (request: IDataImportRequest) => {
+				if (request.variableName === 'flights') {
+					throw new Error('importer exploded');
+				}
+				return { code: `${request.variableName} = pd.read_csv()\n` };
+			},
 		})]);
 		expect(await screen.findByRole('alert')).toHaveTextContent('importer exploded');
 
 		const nameInput = screen.getByLabelText('Variable Name');
 		await user.clear(nameInput);
-		await user.type(nameInput, '2020 data');
+		await user.type(nameInput, 'df');
 
-		expect(await screen.findByText('Enter a valid variable name.')).toBeInTheDocument();
+		expect(await screen.findByText(codeTextMatching(/df = /))).toBeInTheDocument();
 		expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 	});
 
@@ -183,11 +258,83 @@ describe('ImportDataModalDialog', () => {
 		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
 	});
 
+	it('shows no filters-and-sorts checkbox when the view is empty', async () => {
+		renderDialog([createImporter()]);
+
+		expect(await screen.findByText(codeTextMatching(/pd\.read_csv/))).toBeInTheDocument();
+		expect(screen.queryByRole('checkbox', { name: 'Include current filters and sorts (experimental)' })).not.toBeInTheDocument();
+	});
+
+	it('offers the checkbox unchecked and generates without the view by default', async () => {
+		const requests: IDataImportRequest[] = [];
+		const importer = createImporter({
+			generateCode: async (request: IDataImportRequest) => {
+				requests.push(request);
+				return { code: `${request.variableName} = pd.read_csv(...)\n` };
+			},
+		});
+		renderDialog([importer], undefined, fileUri, sortOnlyView);
+
+		expect(await screen.findByRole('checkbox', { name: 'Include current filters and sorts (experimental)' })).not.toBeChecked();
+		expect(await screen.findByText(codeTextMatching(/pd\.read_csv/))).toBeInTheDocument();
+		expect(requests.at(-1)?.view).toBeUndefined();
+	});
+
+	it('includes the view in generation while checked and drops it when unchecked again', async () => {
+		const user = userEvent.setup();
+		const requests: IDataImportRequest[] = [];
+		const importer = createImporter({
+			generateCode: async (request: IDataImportRequest) => {
+				requests.push(request);
+				return { code: `x = ${requests.length}\n` };
+			},
+		});
+		renderDialog([importer], undefined, fileUri, sortOnlyView);
+		const checkbox = await screen.findByRole('checkbox', { name: 'Include current filters and sorts (experimental)' });
+
+		await user.click(checkbox);
+		expect(await screen.findByText(codeTextMatching(/x = 2/))).toBeInTheDocument();
+		expect(requests.at(-1)?.view).toEqual(sortOnlyView);
+
+		await user.click(checkbox);
+		expect(await screen.findByText(codeTextMatching(/x = 3/))).toBeInTheDocument();
+		expect(requests.at(-1)?.view).toBeUndefined();
+	});
+
+	it('warns about anything the importer reported as unsupported', async () => {
+		const user = userEvent.setup();
+		const importer = createImporter({
+			generateCode: async () => ({
+				code: 'x = 1\n',
+				unsupported: ['filter on "carrier" (regex_match)'],
+			}),
+		});
+		renderDialog([importer], undefined, fileUri, sortOnlyView);
+
+		await user.click(await screen.findByRole('checkbox', { name: 'Include current filters and sorts (experimental)' }));
+
+		expect(await screen.findByRole('alert')).toHaveTextContent(
+			'Not included in the generated code: filter on "carrier" (regex_match)'
+		);
+	});
+
 	it('shows an empty state when no importer can read the file', () => {
 		renderDialog([]);
 
 		expect(screen.getByText('No extension can generate code to import this file.')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
+	});
+
+	it('narrows the dialog for the empty state', () => {
+		renderDialog([]);
+
+		expect(screen.getByRole('dialog')).toHaveStyle({ width: '450px' });
+	});
+
+	it('keeps the dialog wide when an importer can read the file', () => {
+		renderDialog([createImporter()]);
+
+		expect(screen.getByRole('dialog')).toHaveStyle({ width: '800px' });
 	});
 
 	it('warns about anything the importer could not translate', async () => {
@@ -238,6 +385,7 @@ describe('ImportDataModalDialog', () => {
 			undefined,
 			expect.stringContaining('flights = pd.read_csv'),
 			expect.objectContaining({ source: 'interactive' }),
+			true,
 			true
 		);
 		expect(openEditor).not.toHaveBeenCalled();
@@ -260,19 +408,19 @@ describe('ImportDataModalDialog', () => {
 			undefined,
 			expect.stringContaining('flights = pd.read_csv'),
 			expect.objectContaining({ source: 'interactive' }),
+			true,
 			true
 		);
 	});
 
-	it('ignores Enter while the variable name is invalid', async () => {
+	it('ignores Enter while there is no generated code to run', async () => {
 		const user = userEvent.setup();
 		const executeCode = vi.fn();
 		ctx.instantiationService.stub(IPositronConsoleService, { executeCode });
-		renderDialog([createImporter()]);
-		const nameInput = await screen.findByLabelText('Variable Name');
+		// Never settles, so Enter arrives while the first generation is still in flight.
+		renderDialog([createImporter({ generateCode: () => new Promise<IDataImportResult>(() => { }) })]);
 
-		await user.clear(nameInput);
-		await user.type(nameInput, '2020 data{Enter}');
+		await user.type(await screen.findByLabelText('Variable Name'), '{Enter}');
 
 		expect(executeCode).not.toHaveBeenCalled();
 	});

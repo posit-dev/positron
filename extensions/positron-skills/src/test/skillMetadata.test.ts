@@ -31,7 +31,9 @@ function skillManifests(dir: string): string[] {
 /** Parse the YAML frontmatter of a `SKILL.md` file. */
 function frontmatter(file: string): { description?: string } {
 	const content = fs.readFileSync(file, 'utf8');
-	const match = content.match(/^---\n([\s\S]*?)\n---/);
+	// CRLF-tolerant: with core.autocrlf, a Windows checkout's working copies
+	// carry \r\n, and a \n-only match reports every manifest as frontmatterless.
+	const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 	assert.ok(match, `${file} has no frontmatter`);
 	return yaml.load(match[1]) as { description?: string };
 }

@@ -10,19 +10,19 @@ import { Action2, registerAction2 } from '../../../../platform/actions/common/ac
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { POSITRON_PACKAGES_ENABLED } from './positronPackagesContextKeys.js';
-import { getPackages } from './positronPackagesCommands.js';
+import { getAllPackages } from './positronPackagesCommands.js';
 
 /**
- * Command Palette entry that shows the positronPackages.getPackages payload --
- * the same JSON Assistant reads -- in an untitled editor. Unlike the command it
- * wraps, this ships rather than being development-only, so the payload can be
- * inspected in a release build.
+ * Command Palette entry that shows the positronPackages.getAllPackages payload
+ * -- the same compact JSON Assistant reads -- in an untitled editor. Unlike the
+ * command it wraps, this ships rather than being development-only, so the
+ * payload can be inspected in a release build.
  *
  * Wrapped in progress because the command fills its own gaps: on a cold cache
- * it queries the repositories for outdated state and Package Manager for
- * security advisories before answering, which takes seconds. A palette entry
- * that sat silent for that long would read as a hang, and the delay only shows
- * up on exactly the runs a developer reaches for this to inspect.
+ * it queries the repositories for outdated state before answering, which takes
+ * seconds. A palette entry that sat silent for that long would read as a hang,
+ * and the delay only shows up on exactly the runs a developer reaches for this
+ * to inspect.
  *
  * Exported so tests can construct it and call run() directly.
  */
@@ -39,11 +39,11 @@ export class ShowPackagesAction extends Action2 {
 
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		// The accessor stops being valid at the first await, so the services are
-		// resolved up front and getPackages is called before anything is awaited
-		// (it resolves the services it needs synchronously).
+		// resolved up front and getAllPackages is called before anything is
+		// awaited (it resolves the services it needs synchronously).
 		const editorService = accessor.get(IEditorService);
 		const progressService = accessor.get(IProgressService);
-		const packagesPromise = getPackages(accessor);
+		const packagesPromise = getAllPackages(accessor);
 
 		const packages = await progressService.withProgress({
 			title: localize('positron.packages.showPackages.reading', "Reading packages..."),

@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { formatBytes, renderHtml, renderMarkdown } from './render.js';
+import { byRole, extensionHeapRows, formatBytes, kernelRows, renderHtml, renderMarkdown } from './render.js';
 import { REPORT_CSS } from './report-shell.js';
-import { ActivatedExtension, LabeledProcess, MemorySnapshot } from './types.js';
+import { ActivatedExtension, ExtensionHeapBreakdown, ExtensionHeapStatus, LabeledProcess, MemorySnapshot } from './types.js';
 
 const MB = 1024 * 1024;
 
@@ -36,6 +36,10 @@ const snapshot = (procs: LabeledProcess[], launchIndex = 0, extensions: Activate
 	treeTotalPssBytes: procs.reduce((sum, p) => sum + p.pssBytes, 0),
 	processes: procs, extensions
 });
+
+/** The existing factory takes no overrides, so the new field is spread on. */
+const withHeap = (extensionHeap?: ExtensionHeapBreakdown, extensionHeapStatus?: ExtensionHeapStatus): MemorySnapshot =>
+	({ ...snapshot([proc()]), extensionHeap, extensionHeapStatus });
 
 describe('formatBytes', () => {
 	test('renders megabytes with one decimal', () => {
@@ -595,5 +599,321 @@ describe('renderHtml', () => {
 		];
 		const output = renderHtml([snapshot([proc()], 0, mixed)]);
 		expect(output.indexOf('<code>*</code>')).toBeLessThan(output.indexOf('onStartupFinished'));
+	});
+});
+
+describe('extension host heap breakdown', () => {
+	const breakdown = {
+		extensions: [
+			{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_500_000 },
+			{ extensionId: 'positron.positron-python', retainedBytes: 37_600_000 },
+			{ extensionId: 'vscode.authentication', retainedBytes: 2_800_000 },
+			{ extensionId: 'vscode.tiny-one', retainedBytes: 400_000 },
+			{ extensionId: 'vscode.tiny-two', retainedBytes: 300_000 }
+		],
+		unattributedBytes: 192_800_000,
+		reachableBytes: 354_400_000
+	};
+
+	test('lists extensions above the floor, collapses the rest, and ends with unattributed then TOTAL', () => {
+		const rows = extensionHeapRows([withHeap(breakdown)]);
+
+		expect(rows.map(r => r.extensionId)).toEqual([
+			'GitHub.copilot-chat',
+			'positron.positron-python',
+			'vscode.authentication',
+			'(2 others)',
+			'unattributed',
+			'TOTAL'
+		]);
+		expect(rows.find(r => r.extensionId === '(2 others)')?.bytes).toBe(700_000);
+	});
+
+	test('TOTAL is the rows above it added up, so the printed column adds up', () => {
+		const rows = extensionHeapRows([withHeap(breakdown)]);
+
+		// unattributed is a slice of the partition like any other row, not the
+		// summary line its position and old styling made it look like.
+		const total = rows.find(r => r.extensionId === 'TOTAL')!;
+		const parts = rows.filter(r => r.extensionId !== 'TOTAL');
+		expect(total.bytes).toBe(parts.reduce((sum, row) => sum + row.bytes, 0));
+	});
+
+	test('reports change against the baseline, and "new" for an extension the baseline lacked', () => {
+		const baseline = withHeap({
+			extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_192_800 }],
+			unattributedBytes: 189_200_000,
+			reachableBytes: 309_400_000
+		});
+
+		const rows = extensionHeapRows([withHeap(breakdown)], baseline);
+
+		expect(rows.find(r => r.extensionId === 'GitHub.copilot-chat')?.change).toBe('+300.0 KB');
+		expect(rows.find(r => r.extensionId === 'positron.positron-python')?.change).toBe('new');
+	});
+
+	/** Same three extensions as `breakdown`: one up 300 KB, one down 300.4 KB, one unmoved. */
+	const movedBaseline = withHeap({
+		extensions: [
+			{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_192_800 },
+			{ extensionId: 'positron.positron-python', retainedBytes: 37_907_600 },
+			{ extensionId: 'vscode.authentication', retainedBytes: 2_800_000 }
+		],
+		unattributedBytes: 192_800_000,
+		reachableBytes: 353_701_200
+	});
+
+	test('renders an unchanged extension as flat rather than as a rise', () => {
+		const row = extensionHeapRows([withHeap(breakdown)], movedBaseline)
+			.find(r => r.extensionId === 'vscode.authentication');
+
+		expect(row?.change).toBe('+0.0 KB');
+		expect(row?.changeBytes).toBe(0);
+		expect(renderHtml([withHeap(breakdown)], movedBaseline)).toContain('<span class="delta-flat">+0.0 KB</span>');
+	});
+
+	test('gives the html change cell the same glyph and classes as the role table', () => {
+		const html = renderHtml([withHeap(breakdown)], movedBaseline);
+
+		expect(html).toContain('<span class="delta-up">&#9650; 300.0 KB</span>');
+		expect(html).toContain('<span class="delta-down">&#9660; 300.4 KB</span>');
+		// The role table marks an unmatched row this way too.
+		expect(renderHtml([withHeap(breakdown)], withHeap({
+			extensions: [], unattributedBytes: 192_800_000, reachableBytes: 192_800_000
+		}))).toContain('<span class="delta-flat">new</span>');
+	});
+
+	test('leaves change blank when there is no baseline at all', () => {
+		const rows = extensionHeapRows([withHeap(breakdown)]);
+
+		expect(rows.every(r => r.change === '')).toBe(true);
+	});
+
+	test('leaves change blank when the baseline predates the breakdown', () => {
+		const rows = extensionHeapRows([withHeap(breakdown)], withHeap());
+
+		expect(rows.every(r => r.change === '')).toBe(true);
+	});
+
+	test('takes the median across launches, zero-filling a launch that lacked an extension', () => {
+		const withOnlyCopilot = {
+			extensions: [{ extensionId: 'GitHub.copilot-chat', retainedBytes: 120_500_000 }],
+			unattributedBytes: 192_800_000,
+			reachableBytes: 313_300_000
+		};
+		const rows = extensionHeapRows([
+			withHeap(breakdown),
+			withHeap(withOnlyCopilot),
+			withHeap(withOnlyCopilot)
+		]);
+
+		expect(rows.find(r => r.extensionId === 'GitHub.copilot-chat')?.bytes).toBe(120_500_000);
+		// Present in one launch of three, so its median is zero and it falls below
+		// the floor rather than reading as heavy as something present in all three.
+		expect(rows.map(r => r.extensionId)).not.toContain('positron.positron-python');
+	});
+
+	test('renders no table, and falls back to the bare sentence for a run carrying no status', () => {
+		const markdown = renderMarkdown([withHeap()]);
+
+		expect(markdown).not.toContain('Extension host heap');
+		expect(markdown).toContain('Per-extension breakdown unavailable for this run._');
+	});
+
+	test('falls back to the bare sentence in html too, rather than dropping the card silently', () => {
+		const html = renderHtml([withHeap()]);
+
+		expect(html).toContain('Per-extension breakdown unavailable for this run.</p>');
+		expect(html).not.toContain('<th>Extension</th>');
+	});
+
+	test('markdown names the failure that cost the breakdown', () => {
+		expect(renderMarkdown([withHeap(undefined, 'capture_failed')]))
+			.toContain('The extension host inspector did not produce a heap snapshot.');
+		expect(renderMarkdown([withHeap(undefined, 'untrusted')]))
+			.toContain('unresolved script id');
+	});
+
+	test('html names the failure that cost the breakdown', () => {
+		expect(renderHtml([withHeap(undefined, 'parse_failed')]))
+			.toContain('The heap snapshot was captured but could not be read back.');
+		expect(renderHtml([withHeap(undefined, 'unsupported_format')]))
+			.toContain('not in the format this parser understands');
+	});
+
+	test('renders the table in markdown when a breakdown is present', () => {
+		const markdown = renderMarkdown([withHeap(breakdown)]);
+
+		expect(markdown).toContain('### Extension host heap');
+		expect(markdown).toContain('`GitHub.copilot-chat`');
+		expect(markdown).toContain('_unattributed_');
+	});
+
+	test('renders the table in html when a breakdown is present', () => {
+		const html = renderHtml([withHeap(breakdown)]);
+
+		expect(html).toContain('Extension host heap');
+		expect(html).toContain('GitHub.copilot-chat');
+	});
+});
+
+describe('kernelRows', () => {
+	const kernelProc = (cmdBasename: string, pssBytes: number, pid: number): LabeledProcess =>
+		proc({ pid, processRole: 'kernel', processName: cmdBasename, cmdBasename, pssBytes });
+
+	test('ranks the labels largest first', () => {
+		const rows = kernelRows([snapshot([
+			proc(),
+			kernelProc('python3', 90 * MB, 200),
+			kernelProc('ark', 180 * MB, 201)
+		])]);
+
+		expect(rows.map(row => row.label)).toEqual(['R (ark)', 'Python', 'TOTAL']);
+		expect(rows[0].bytes).toBe(180 * MB);
+	});
+
+	// The same zero-filling byRole does, and for the same reason: a kernel that
+	// appeared in one launch of three must not read as heavy as one that ran in
+	// all three.
+	test('counts a label absent from a launch as zero in the median', () => {
+		const rows = kernelRows([
+			snapshot([kernelProc('ark', 90 * MB, 200)], 0),
+			snapshot([], 1),
+			snapshot([], 2)
+		]);
+
+		expect(rows.find(row => row.label === 'R (ark)')!.bytes).toBe(0);
+	});
+
+	test('says how many processes a label folds together', () => {
+		const rows = kernelRows([snapshot([
+			kernelProc('python3', 90 * MB, 200),
+			kernelProc('python3.11', 60 * MB, 201)
+		])]);
+
+		expect(rows[0]).toMatchObject({ label: 'Python', bytes: 150 * MB, processCount: 2 });
+	});
+
+	// With one label the TOTAL is that label's figure printed twice, which says
+	// nothing and invites the reader to look for the difference.
+	test('omits the TOTAL row for a single label', () => {
+		const rows = kernelRows([snapshot([kernelProc('ark', 90 * MB, 200)])]);
+
+		expect(rows.map(row => row.label)).toEqual(['R (ark)']);
+	});
+
+	test('sums the TOTAL from the printed rows', () => {
+		const rows = kernelRows([snapshot([
+			kernelProc('ark', 180 * MB, 200),
+			kernelProc('python3', 90 * MB, 201)
+		])]);
+
+		expect(rows.at(-1)).toMatchObject({ label: 'TOTAL', bytes: 270 * MB, isTotal: true });
+	});
+
+	test('is empty for a scenario that starts no kernel', () => {
+		expect(kernelRows([snapshot([proc()])])).toEqual([]);
+	});
+
+	test('reports a change against the previous nightly', () => {
+		const rows = kernelRows(
+			[snapshot([kernelProc('ark', 180 * MB, 200)])],
+			snapshot([kernelProc('ark', 160 * MB, 200)]));
+
+		expect(rows[0]).toMatchObject({ change: '+20.0 MB', changeBytes: 20 * MB });
+	});
+
+	// A kernel the previous nightly did not run is a different fact from one that
+	// held flat, so it says so rather than reporting its whole figure as growth.
+	test('calls a label the baseline never had new', () => {
+		const rows = kernelRows(
+			[snapshot([kernelProc('ark', 180 * MB, 200)])],
+			snapshot([kernelProc('python3', 90 * MB, 200)]));
+
+		const row = rows.find(entry => entry.label === 'R (ark)')!;
+		expect(row.change).toBe('new');
+		expect(row.changeBytes).toBeUndefined();
+	});
+
+	// Blank rather than "new" on every row: a baseline with no kernel at all is
+	// the first night, or an idle baseline, not a night the kernels appeared.
+	test('leaves the change blank when the baseline had no kernel', () => {
+		const rows = kernelRows([snapshot([kernelProc('ark', 180 * MB, 200)])], snapshot([proc()]));
+
+		expect(rows[0].change).toBe('');
+	});
+
+	// The real shape of a fetched baseline: the dashboard API returns a role and a
+	// figure per process but no command name, so every baseline kernel reads as
+	// `unknown`. Reporting "new" against that would call every kernel new every
+	// night, so per-label changes stay blank while the TOTAL still diffs.
+	test('leaves per-label changes blank when the baseline carries no command names', () => {
+		const rows = kernelRows(
+			[snapshot([kernelProc('ark', 180 * MB, 200), kernelProc('python3', 90 * MB, 201)])],
+			snapshot([
+				proc({ pid: 200, processRole: 'kernel', processName: 'ark', cmdBasename: '', pssBytes: 160 * MB }),
+				proc({ pid: 201, processRole: 'kernel', processName: 'python3', cmdBasename: '', pssBytes: 90 * MB })
+			]));
+
+		expect(rows.filter(row => !row.isTotal).map(row => row.change)).toEqual(['', '']);
+		expect(rows.at(-1)).toMatchObject({ change: '+20.0 MB', changeBytes: 20 * MB });
+	});
+
+	// The alarm for our label mapping drifting from the dashboard's: it sums the
+	// kernel band the same way, so if a basename stops being counted here it has
+	// stopped being counted there too. Single launch, where a median is exact --
+	// across launches the per-label medians need not sum to the role's own median.
+	test('sums to the kernel row in the role table', () => {
+		const snapshots = [snapshot([
+			proc(),
+			kernelProc('ark', 180 * MB, 200),
+			kernelProc('python3.11', 90 * MB, 201),
+			kernelProc('julia', 40 * MB, 202)
+		])];
+
+		const total = kernelRows(snapshots).find(row => row.isTotal)!.bytes;
+		expect(total).toBe(byRole(snapshots).get('kernel'));
+	});
+});
+
+describe('kernel card', () => {
+	const sessionSnapshot = snapshot([
+		proc(),
+		proc({ pid: 200, processRole: 'kernel', processName: 'ark', cmdBasename: 'ark', pssBytes: 180 * MB })
+	]);
+
+	test('renders the labels in html', () => {
+		const html = renderHtml([sessionSnapshot]);
+
+		expect(html).toContain('Kernel memory');
+		expect(html).toContain('R (ark)');
+	});
+
+	// The count column warns that a label's figure is a sum; TOTAL says that
+	// about itself, and the suffix there only reads as a second figure.
+	test('leaves the process count off the TOTAL row', () => {
+		const html = renderHtml([snapshot([
+			proc({ pid: 200, processRole: 'kernel', processName: 'ark', cmdBasename: 'ark', pssBytes: 180 * MB }),
+			proc({ pid: 201, processRole: 'kernel', processName: 'python3', cmdBasename: 'python3', pssBytes: 90 * MB })
+		])]);
+
+		expect(html).not.toContain('<strong>TOTAL</strong> <span class="muted">(2 processes)');
+	});
+
+	// idle, editors and data-explorer start no session, and an empty table there
+	// reads as a failed measurement rather than as a scenario without a kernel.
+	test('omits the card entirely when no kernel ran', () => {
+		expect(renderHtml([snapshot([proc()])])).not.toContain('Kernel memory');
+	});
+
+	test('renders the labels in markdown', () => {
+		const markdown = renderMarkdown([sessionSnapshot]);
+
+		expect(markdown).toContain('### Kernel memory');
+		expect(markdown).toContain('R (ark)');
+	});
+
+	test('omits the markdown section when no kernel ran', () => {
+		expect(renderMarkdown([snapshot([proc()])])).not.toContain('### Kernel memory');
 	});
 });

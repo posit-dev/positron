@@ -4,8 +4,8 @@
 # and architecture.
 #
 # Usage: ./get-latest-wb-url.sh <os> [arch]
-#   os:   ubuntu24 or rocky9
-#   arch: amd64 (default) or arm64
+#   os:   ubuntu24, rocky9 or opensuse15
+#   arch: amd64 (default) or arm64 (not every OS has both -- see wb_os_arches)
 #
 # This runs inside the test container (copied to /tmp alongside the installer),
 # so it is a thin wrapper over workbench-local-lib.sh rather than its own copy of

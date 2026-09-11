@@ -1418,8 +1418,9 @@ configurationRegistry.registerConfiguration({
 			type: 'number',
 			// --- Start Positron ---
 			// https://github.com/posit-dev/positron/issues/2688
+			// https://github.com/posit-dev/positron/issues/15832
 			// default: 8,
-			default: 18,
+			default: 16,
 			// --- End Positron ---
 			minimum: 4,
 			maximum: 40,

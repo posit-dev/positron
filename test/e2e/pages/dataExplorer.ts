@@ -1165,10 +1165,47 @@ export class ImportDataModal {
 		return this.workbench.dynamicModals.dialogBox.locator('.import-data .code');
 	}
 
+	packageOption(displayName: string | RegExp): Locator {
+		return this.workbench.dynamicModals.dialogBox.getByRole('option', { name: displayName });
+	}
+
 	// --- Actions ---
+
+	/**
+	 * Selects a package in the importer list, e.g. 'Python (pandas)' or 'R (readr)'. The dialog
+	 * preselects the foreground session's language, so a test that needs a specific package must
+	 * select it rather than rely on which session happens to be running.
+	 */
+	async selectPackage(displayName: string) {
+		await test.step(`Select import package: ${displayName}`, async () => {
+			await this.packageOption(displayName).click();
+			await expect(this.packageOption(displayName)).toHaveAttribute('aria-selected', 'true');
+		});
+	}
+
+	get includeFiltersAndSortsCheckbox(): Locator {
+		return this.workbench.dynamicModals.dialogBox.getByRole('checkbox', { name: 'Include current filters and sorts (experimental)' });
+	}
+
+	/**
+	 * Checks or unchecks "Include current filters and sorts". The checkbox only exists when the
+	 * Data Explorer has filters or sorts applied, and it starts unchecked.
+	 */
+	async setIncludeFiltersAndSorts(checked: boolean) {
+		await test.step(`Set include filters and sorts: ${checked}`, async () => {
+			if (await this.includeFiltersAndSortsCheckbox.getAttribute('aria-checked') !== String(checked)) {
+				await this.includeFiltersAndSortsCheckbox.click();
+			}
+			await expect(this.includeFiltersAndSortsCheckbox).toHaveAttribute('aria-checked', String(checked));
+		});
+	}
 
 	async clickImport() {
 		await this.workbench.dynamicModals.clickButton('Import');
+	}
+
+	async clickCancel() {
+		await this.workbench.dynamicModals.clickButton('Cancel');
 	}
 
 	// --- Verifications ---

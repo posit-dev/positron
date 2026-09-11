@@ -12,6 +12,9 @@ import { MouseEvent as ReactMouseEvent, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
+import { useBusyIndicator } from '../../../../../base/browser/positronReactHooks.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
@@ -109,6 +112,11 @@ interface DataConnectionNodeRowProps {
 	dto: IDataConnectionNodeDTO;
 	handle: IDataConnectionHandle;
 
+	// The name of the namespace group this node was breadcrumbed into, when it was that group's
+	// only child. Shown ahead of the node's own name, matching how a connection row reads its
+	// profile and driver as "Bike Share / PostgreSQL".
+	labelPrefix?: string;
+
 	// Reloads this node's subtree. Supplied by the tree, which binds it to this row's node id.
 	onRefresh: () => void;
 
@@ -128,12 +136,20 @@ interface DataConnectionNodeRowProps {
  * Explorer on double-click or via the "Open in Data Explorer" context-menu action; nodes that
  * can have children offer a "Refresh" action that re-fetches the subtree.
  */
-export const DataConnectionNodeRow = ({ dto, handle, onMenuOpening, onRefresh, stale }: DataConnectionNodeRowProps) => {
+export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onRefresh, stale }: DataConnectionNodeRowProps) => {
 	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
+	// A group row labels the rows beneath it rather than naming a thing of its own, and it holds them
+	// at its own indent (see wrapDto). Its plural glyph and the indent guide are what tell it apart
+	// from the entities below it; the class carries no styling of its own yet, and is here as the
+	// seam for a treatment if one is wanted.
+	const isGroup = CONTAINER_ONLY_KINDS.has(dto.kind);
 	// Opening a preview can take a moment (a driver may download data first). Track it so the row can
-	// show a spinner for the duration, matching the tree's busy treatment on expansion.
+	// show a spinner for the duration, matching the tree's busy treatment on expansion. The spinner
+	// is gated so a fast source -- a local PostgreSQL answers in a few milliseconds -- doesn't swap
+	// the row's icon for a spinner and back again faster than the eye can resolve it.
 	const [opening, setOpening] = useState(false);
+	const showOpeningSpinner = useBusyIndicator(opening);
 
 	const openInDataExplorer = async () => {
 		// Ignore a repeat trigger (double-click or context menu) while a preview is already opening.
@@ -229,12 +245,17 @@ export const DataConnectionNodeRow = ({ dto, handle, onMenuOpening, onRefresh, s
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 		<div
 			ref={rowRef}
-			className='data-connection-node-row'
+			className={positronClassNames('data-connection-node-row', { 'group': isGroup })}
 			onContextMenu={onContextMenu}
 			onDoubleClick={onDoubleClick}
 		>
-			<div className={`codicon ${opening ? 'codicon-loading codicon-modifier-spin' : `codicon-${kindIcon(dto)}`} data-connection-node-icon`} />
-			<div className='data-connection-node-text'>{dto.name}</div>
+			<div className={`codicon ${showOpeningSpinner ? 'codicon-loading codicon-modifier-spin' : `codicon-${kindIcon(dto)}`} data-connection-node-icon`} />
+			<div className='data-connection-node-text'>
+				{labelPrefix !== undefined && (
+					<span className='data-connection-node-prefix'>{labelPrefix}{' · '}</span>
+				)}
+				<span className='data-connection-node-name'>{dto.name}</span>
+			</div>
 			{dto.dataType && (
 				<div className='data-connection-node-type'>{dto.dataType}</div>
 			)}

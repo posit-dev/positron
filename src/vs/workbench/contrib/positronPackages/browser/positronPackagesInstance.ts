@@ -96,6 +96,14 @@ export interface IPackagesSnapshotOptions {
 	metadataTimeoutMs?: number;
 	/** Budget for the advisory lookup, when one is run. */
 	vulnerabilityTimeoutMs?: number;
+	/**
+	 * Whether to run the advisory lookup at all. Defaults to true. A caller that
+	 * won't report advisories (the compact getAllPackages list) sets this false
+	 * to skip a whole-environment fetch it would only throw away; the resulting
+	 * snapshot carries no advisories, and its `vulnerabilityStatus` is not a
+	 * lookup result.
+	 */
+	includeVulnerabilities?: boolean;
 }
 
 /**
@@ -189,7 +197,7 @@ export interface IPositronPackagesInstance {
 	/**
 	 * Reads the installed packages together with their outdated state, for a
 	 * caller that needs an answer rather than a rendered pane -- notably the
-	 * positronPackages.getPackages command.
+	 * positronPackages.getAllPackages and getPackages commands.
 	 *
 	 * Differs from {@link refreshPackages} in the two ways that matter to such
 	 * a caller: it reads the installed list live on every call (an agent can
@@ -204,7 +212,8 @@ export interface IPositronPackagesInstance {
 	 * package with no cached advisory data is looked up now, and a cache still
 	 * inside its freshness window is reported as-is. So a caller never has to
 	 * ask twice to find out whether its packages have advisories, and a warm
-	 * cache still costs nothing.
+	 * cache still costs nothing. A caller that won't report advisories can skip
+	 * the lookup entirely with `options.includeVulnerabilities: false`.
 	 */
 	getPackagesSnapshot(token?: CancellationToken, options?: IPackagesSnapshotOptions): Promise<IPackagesSnapshot>;
 
@@ -989,14 +998,20 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			outdatedSupported
 				? this._snapshotOutdatedStage(packageManager, visiblePackages, versionByName, token, metadataDeadline, fetchAll)
 				: Promise.resolve<PackagesMetadataStatus>('unsupported'),
-			this._snapshotVulnerabilityStage(
-				packageManager,
-				visiblePackages,
-				versionByName,
-				token,
-				options.vulnerabilityTimeoutMs ?? PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS,
-				fetchAll,
-			),
+			// A caller that won't report advisories skips the lookup: it is the
+			// slow stage, and running it only to drop the result would defeat the
+			// point of the compact list. The packages then carry no advisories,
+			// so 'cached' here means "not looked up", not "as of the last fetch".
+			options.includeVulnerabilities === false
+				? Promise.resolve<PackagesVulnerabilityStatus>(this._vulnerabilityStatus('cached'))
+				: this._snapshotVulnerabilityStage(
+					packageManager,
+					visiblePackages,
+					versionByName,
+					token,
+					options.vulnerabilityTimeoutMs ?? PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS,
+					fetchAll,
+				),
 		]);
 
 		return this._snapshotResult(this.packages, metadataStatus, vulnerabilityStatus);

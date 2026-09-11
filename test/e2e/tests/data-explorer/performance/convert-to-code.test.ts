@@ -11,7 +11,6 @@ Summary:
 
  * |Type/Class        |Language |Variable                                   |Expected Code Style     |
  * |------------------|---------|-------------------------------------------|------------------------|
- * |DuckDB            |DuckDB   |n/a       									|SQL                     |
  * |pandas.DataFrame  |Python   |<class 'pandas.core.frame.DataFrame'>      |Pandas                  |
  * |polars.DataFrame  |Python   |<class 'polars.dataframe.frame.DataFrame'> |Polars                  |
  * |tibble/tibble_df  |R        |c("tbl_df","tbl","data.frame")             |Tidyverse (dplyr)       |
@@ -24,19 +23,12 @@ import { test, tags, expect } from '../../_test.setup';
 import { pandasDataFrameScript, polarsDataFrameScript, dplyrScript, normalizeCodeForDisplay } from '../helpers/convert-to-code-data.js';
 
 const testCases: {
-	environment: 'Python' | 'R' | 'DuckDB';
+	environment: 'Python' | 'R';
 	data: string;
-	expectedCodeStyle: 'SQL' | 'Pandas' | 'Polars' | 'dplyr';
+	expectedCodeStyle: 'Pandas' | 'Polars' | 'dplyr';
 	dataObjectType: MetricTargetType;
 	expectedGeneratedCode: string;
 }[] = [
-		{
-			environment: 'DuckDB',
-			data: 'data-files/convert-to-code/simple-student-data.csv',
-			expectedCodeStyle: 'SQL',
-			dataObjectType: 'file.csv',
-			expectedGeneratedCode: 'SELECT * \nFROM "simple-student-data"\nWHERE "status" = \'active\' AND "score" >= 85 AND "is_student" = false'
-		},
 		{
 			environment: 'Python',
 			data: pandasDataFrameScript,
@@ -87,18 +79,13 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 
 	testCases.forEach(({ environment, data: dataScript, expectedCodeStyle, dataObjectType, expectedGeneratedCode }) => {
 
-		test(`${environment} - ${expectedCodeStyle} (${dataObjectType}) - Verify copy code behavior with basic filters`, { tag: environment === 'DuckDB' ? [tags.DUCK_DB] : [] }, async function ({ app, sessions, hotKeys, metric, openDataFile }) {
+		test(`${environment} - ${expectedCodeStyle} (${dataObjectType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, metric }) {
 			const { dataExplorer, variables, modals, console, clipboard, toasts } = app.workbench;
 
-			if (environment === 'DuckDB') {
-				// open a data file via DuckDB
-				await openDataFile(dataScript);
-			} else {
-				// execute code to create a data construct
-				await sessions.start(environment === 'Python' ? 'python' : 'r');
-				await console.pasteCodeToConsole(dataScript, true);
-				await variables.doubleClickVariableRow('df');
-			}
+			// execute code to create a data construct
+			await sessions.start(environment === 'Python' ? 'python' : 'r');
+			await console.pasteCodeToConsole(dataScript, true);
+			await variables.doubleClickVariableRow('df');
 
 			await hotKeys.closeSecondarySidebar();
 
@@ -126,9 +113,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			}, dataObjectType);
 
 			// verify syntax highlighting
-			if (environment !== 'DuckDB') {
-				await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
-			}
+			await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
 
 			// verify copy to clipboard behavior - use un-normalized code (with newlines)
 			await dataExplorer.convertToCodeModal.clickOK();

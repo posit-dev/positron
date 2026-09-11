@@ -164,10 +164,11 @@ suite('Python runtime manager', () => {
 
         assert.deepStrictEqual(
             {
-                interpreterPath: promptToCreateVirtualEnvironmentStub.firstCall.args[2],
-                metadata: promptToCreateVirtualEnvironmentStub.firstCall.args[3],
+                runtimeManager: promptToCreateVirtualEnvironmentStub.firstCall.args[2],
+                interpreterPath: promptToCreateVirtualEnvironmentStub.firstCall.args[3],
+                metadata: promptToCreateVirtualEnvironmentStub.firstCall.args[4],
             },
-            { interpreterPath: pythonPath, metadata: sessionMetadata },
+            { runtimeManager: pythonRuntimeManager, interpreterPath: pythonPath, metadata: sessionMetadata },
         );
     });
 

@@ -13,10 +13,17 @@ import { Code } from '../infra/code.js';
  */
 export class DynamicModals {
 
-	constructor(private code: Code) { }
+	/**
+	 * @param scope Selector for a wrapper around one particular dialog, for a page object
+	 * that drives a single modal. Left off, `dialogBox` matches any dynamic modal on screen,
+	 * so two open at once fail Playwright's strict mode.
+	 */
+	constructor(private code: Code, private scope?: string) { }
 
 	get dialogBox(): Locator {
-		return this.code.driver.currentPage.locator('.positron-dynamic-modal-dialog-box');
+		const page = this.code.driver.currentPage;
+		const root = this.scope ? page.locator(this.scope) : page;
+		return root.locator('.positron-dynamic-modal-dialog-box');
 	}
 	get title(): Locator { return this.dialogBox.locator('.title-bar-title'); }
 	get message(): Locator { return this.dialogBox.locator('.content-area'); }

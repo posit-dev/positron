@@ -53,10 +53,20 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	saveDiscoveredProfile(id: string): string | undefined;
 
 	/**
-	 * Adds or updates a data connection profile.
+	 * Adds or updates a data connection profile. An edit that changes a value the profile's live
+	 * connection was opened with closes that connection, since it no longer represents the profile;
+	 * {@link wouldCloseConnection} reports that in advance.
 	 * @param profile The data connection profile to add or update.
 	 */
 	addUpdateProfile(profile: IDataConnectionProfile): void;
+
+	/**
+	 * Whether saving the given profile would close its live connection: true when a connection is
+	 * open and the edit changes a value it was opened with. Use it to warn the user before a save
+	 * takes their Data Explorers down with the connection.
+	 * @param profile The edited data connection profile, as it would be passed to addUpdateProfile.
+	 */
+	wouldCloseConnection(profile: IDataConnectionProfile): boolean;
 
 	/**
 	 * Gets all saved data connection profiles.

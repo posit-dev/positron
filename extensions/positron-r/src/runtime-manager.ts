@@ -300,8 +300,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// R interpreter's module environment into other-language kernels). Kernels
 		// get their module environment from the startup command instead; these
 		// contributions are for interactive terminals only. See
-		// getEnvironmentContributions in mainThreadEnvironment.ts, which skips
-		// mutators that opt out of process creation.
+		// getEnvironmentContributions in mainThreadEnvironment.ts: callers that
+		// spawn processes pass the ProcessCreation filter to skip these mutators.
 		const options = { applyAtProcessCreation: false, applyAtShellIntegration: true };
 		for (const v of captured) {
 			switch (v.action) {

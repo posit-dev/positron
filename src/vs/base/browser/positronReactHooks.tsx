@@ -3,11 +3,73 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePositronReactServicesContext } from './positronReactRendererContext.js';
 import { ContextKeyValue, IContextKeyService, RawContextKey } from '../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../platform/extensions/common/extensions.js';
 
+
+// How long an operation has to run before it is worth telling the user it is running, and how long
+// the indicator stays once it has appeared. See useBusyIndicator.
+const BUSY_INDICATOR_DELAY = 250;
+const BUSY_INDICATOR_MINIMUM = 400;
+
+/**
+ * useBusyIndicator hook. Gates a busy indicator so that a fast operation shows nothing at all and a
+ * slow one shows an indicator that stays long enough to read.
+ *
+ * Two rules, and both are needed. The indicator does not appear until the operation has run for
+ * `delayMs`, so an operation that finishes before that -- opening a table on a local PostgreSQL,
+ * say -- never swaps the icon and never flashes. Once it has appeared it stays for `minimumMs`, so
+ * an operation that finishes just past the delay doesn't blink the indicator out again.
+ *
+ * A minimum on its own would make the fast case worse rather than better: it turns a 40ms flicker
+ * into a spinner that is guaranteed to run for the full minimum on every single open. The delay is
+ * what removes the flash; the minimum only keeps the boundary from flickering.
+ *
+ * @param busy Whether the operation is running.
+ * @param delayMs How long the operation must run before the indicator appears.
+ * @param minimumMs How long the indicator stays once it has appeared.
+ * @returns Whether the indicator should be shown.
+ */
+export function useBusyIndicator(
+	busy: boolean,
+	delayMs: number = BUSY_INDICATOR_DELAY,
+	minimumMs: number = BUSY_INDICATOR_MINIMUM
+): boolean {
+	const [showing, setShowing] = useState(false);
+
+	// When the indicator went up, for measuring the minimum against. A ref rather than state: it is
+	// read when the operation ends, and writing it should not itself paint.
+	const shownAt = useRef(0);
+
+	useEffect(() => {
+		// Running and nothing shown yet: hold off until the delay is up. If the operation finishes
+		// first this effect is torn down and the timeout never fires, which is the whole point.
+		if (busy && !showing) {
+			const handle = setTimeout(() => {
+				shownAt.current = Date.now();
+				setShowing(true);
+			}, delayMs);
+			return () => clearTimeout(handle);
+		}
+
+		// Finished with the indicator up: take it down, but not before it has had its minimum.
+		if (!busy && showing) {
+			const remaining = minimumMs - (Date.now() - shownAt.current);
+			if (remaining <= 0) {
+				setShowing(false);
+				return undefined;
+			}
+			const handle = setTimeout(() => setShowing(false), remaining);
+			return () => clearTimeout(handle);
+		}
+
+		return undefined;
+	}, [busy, showing, delayMs, minimumMs]);
+
+	return showing;
+}
 
 /**
  * usePositronConfiguration hook.

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { isElectron, isWeb, isWorkbench } from '../../../base/common/platform.js';
+import { isSageMakerSession } from '../../positronLicense/common/positronSageMakerSession.js';
 
 /**
  * Setting key for opting out of P3M gallery telemetry. Boolean; defaults to true.
@@ -26,11 +27,13 @@ export type PositronCheckTrigger =
 
 /** Which Positron distribution / process the request is coming from. */
 export type PositronSessionType =
-	| 'desktop'           // Electron app (user's local machine).
-	| 'workbench'         // PWB-hosted Positron, browser tab side.
-	| 'workbench-server'  // PWB-hosted Positron, Node backend (RS_SERVER_URL set).
-	| 'positron-server'   // Positron Server such as JupyterHub, browser tab side.
-	| 'remote-server';    // Non-PWB Node backend: JupyterHub, remote SSH / WSL / dev container backend.
+	| 'desktop'                    // Electron app (user's local machine).
+	| 'workbench'                  // PWB-hosted Positron, browser tab side.
+	| 'workbench-server'           // PWB-hosted Positron, Node backend (RS_SERVER_URL set).
+	| 'positron-server'            // Positron Server such as JupyterHub, browser tab side.
+	| 'positron-sagemaker'         // Positron Server on Amazon SageMaker, browser tab side.
+	| 'positron-sagemaker-server'  // Positron Server on Amazon SageMaker, Node backend.
+	| 'remote-server';             // Non-PWB Node backend: JupyterHub, remote SSH / WSL / dev container backend.
 
 /**
  * Detects which Positron process is making the gallery request.
@@ -39,10 +42,16 @@ export type PositronSessionType =
  * process; both can independently hit the gallery, and we tag them separately so P3M
  * can correlate or count them as needed.
  *
+ * SageMaker splits the same way, rather than landing in the generic `positron-server` and
+ * `remote-server` buckets. Counting the server side alone counts deployments; counting both
+ * counts traffic. See {@link isSageMakerSession} for where the signal comes from.
  */
 export function getPositronSessionType(): PositronSessionType {
 	if (isWorkbench) {
 		return isWeb ? 'workbench' : 'workbench-server';
+	}
+	if (isSageMakerSession()) {
+		return isWeb ? 'positron-sagemaker' : 'positron-sagemaker-server';
 	}
 	if (isWeb) {
 		return 'positron-server';
@@ -95,8 +104,9 @@ export function isP3MGalleryUrl(url: string): boolean {
  * `User-Agent` overrides, so a header-based approach would not work uniformly.
  *
  * `checkTrigger` is omitted from the URL when undefined (browse / non-update-check
- * traffic). `positron-session-type`, `positron-version`, and `positron-is-academic`
- * are always sent.
+ * traffic), and `positron-license-hash` when the session has no license file behind it
+ * (desktop, and the license paths with nothing meaningful to hash). `positron-session-type`,
+ * `positron-version`, and `positron-is-academic` are always sent.
  */
 export function appendPositronGalleryParams(
 	url: string,
@@ -104,6 +114,7 @@ export function appendPositronGalleryParams(
 	sessionType: PositronSessionType,
 	positronVersion: string,
 	isAcademic: boolean,
+	licenseHash: string | undefined,
 	sendUsageData: boolean,
 ): string {
 	if (!sendUsageData || !isP3MGalleryUrl(url)) {
@@ -116,6 +127,9 @@ export function appendPositronGalleryParams(
 	params.push(`positron-session-type=${encodeURIComponent(sessionType)}`);
 	params.push(`positron-version=${encodeURIComponent(positronVersion)}`);
 	params.push(`positron-is-academic=${isAcademic}`);
+	if (licenseHash) {
+		params.push(`positron-license-hash=${encodeURIComponent(licenseHash)}`);
+	}
 	const separator = url.includes('?') ? '&' : '?';
 	return `${url}${separator}${params.join('&')}`;
 }

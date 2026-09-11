@@ -14,7 +14,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageVulnerability } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
-import { PACKAGES_GET_PACKAGES_COMMAND_ID, getPackages } from '../../browser/positronPackagesCommands.js';
+import { PACKAGES_GET_ALL_PACKAGES_COMMAND_ID, PACKAGES_GET_PACKAGES_COMMAND_ID, getAllPackages, getPackages } from '../../browser/positronPackagesCommands.js';
 import { IPackagesSnapshot, IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
 /** An installed package as a session's package list reports it. */
@@ -39,11 +39,13 @@ function createSession(runtimeState: RuntimeState = RuntimeState.Idle): ILanguag
 
 /**
  * A packages instance whose snapshot is `snapshot`, or that fails the read when
- * given an error.
+ * given an error. `details` supplies what getPackageDetail returns per package
+ * (keyed by lowercased name), for the getPackages detail merge.
  */
 function createInstance(
 	snapshot: SnapshotStub | Error,
 	session: ILanguageRuntimeSession = createSession(),
+	details: Record<string, Partial<ILanguageRuntimePackage>> = {},
 ): IPositronPackagesInstance {
 	return stubInterface<IPositronPackagesInstance>({
 		session,
@@ -55,6 +57,7 @@ function createInstance(
 			// refresh reports, so only the tests about advisories mention them.
 			return { vulnerabilityStatus: 'cached' as const, ...snapshot };
 		}),
+		getPackageDetail: vi.fn(async (name: string) => details[name.toLowerCase()]),
 	});
 }
 
@@ -81,7 +84,7 @@ function advisory(id: string, score?: number): IPackageVulnerability {
 	};
 }
 
-describe('getPackages', () => {
+describe('getAllPackages', () => {
 	const ctx = createTestContainer().build();
 
 	/**
@@ -106,7 +109,7 @@ describe('getPackages', () => {
 			{ 'packages.enabled': false, 'positron.packages.enable': true },
 		);
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getAllPackages(ctx.instantiationService);
 
 		expect(result).toEqual({ available: false, reason: 'disabled' });
 		expect(getPackagesSnapshot).not.toHaveBeenCalled();
@@ -118,14 +121,13 @@ describe('getPackages', () => {
 			{ 'packages.enabled': true, 'positron.packages.enable': false },
 		);
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getAllPackages(ctx.instantiationService);
 
 		expect(result).toEqual({ available: false, reason: 'disabled' });
 	});
 
 	// ai.enabled is deliberately not a gate: this payload is the user's own environment, not an AI
-	// feature, and the other agentCompatible package commands don't gate on it either. A stray check
-	// here would take the inspect action away from a user who turned AI off.
+	// feature, and the other agentCompatible package commands don't gate on it either.
 	it('reports packages even when ai.enabled is off', async () => {
 		stubServices(createInstance({ packages: [pkg('numpy', '2.1.0')], metadataStatus: 'fresh' }), {
 			'packages.enabled': true,
@@ -133,7 +135,7 @@ describe('getPackages', () => {
 			'ai.enabled': false,
 		});
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getAllPackages(ctx.instantiationService);
 
 		expect(result).toMatchObject({ available: true, packages: [{ name: 'numpy' }] });
 	});
@@ -141,7 +143,7 @@ describe('getPackages', () => {
 	it('reports no-session when no interpreter session is active', async () => {
 		stubServices(undefined);
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getAllPackages(ctx.instantiationService);
 
 		expect(result).toEqual({ available: false, reason: 'no-session' });
 	});
@@ -153,7 +155,7 @@ describe('getPackages', () => {
 			getPackagesSnapshot,
 		}));
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getAllPackages(ctx.instantiationService);
 
 		// Asking a kernel that isn't listening yet would hang rather than answer.
 		expect(result).toEqual({ available: false, reason: 'session-not-ready' });
@@ -163,7 +165,7 @@ describe('getPackages', () => {
 	it('reports unsupported for a runtime that does not manage packages', async () => {
 		stubServices(createInstance({ packages: [], metadataStatus: 'unsupported' }));
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getAllPackages(ctx.instantiationService);
 
 		expect(result).toEqual({ available: false, reason: 'unsupported' });
 	});
@@ -171,7 +173,7 @@ describe('getPackages', () => {
 	it('reports failed with the error message when the read fails', async () => {
 		stubServices(createInstance(new Error('Timed out reading the installed packages.')));
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getAllPackages(ctx.instantiationService);
 
 		expect(result).toEqual({
 			available: false,
@@ -180,17 +182,30 @@ describe('getPackages', () => {
 		});
 	});
 
-	it('returns the session, its packages, and how fresh their outdated state is', async () => {
+	it('reads the snapshot without the advisory lookup', async () => {
+		const instance = createInstance({ packages: [pkg('numpy', '2.1.0')], metadataStatus: 'fresh' });
+		stubServices(instance);
+
+		await getAllPackages(ctx.instantiationService);
+
+		// The compact list carries no advisories, so it opts out of the fetch.
+		expect(instance.getPackagesSnapshot).toHaveBeenCalledWith(undefined, { includeVulnerabilities: false });
+	});
+
+	it('returns the session, its packages, and how fresh their outdated state is -- but no advisories', async () => {
 		stubServices(createInstance({
 			metadataStatus: 'cached',
+			// A snapshot may still carry advisories; the compact list drops them.
+			vulnerabilityStatus: 'fresh',
+			vulnerabilitySource: VULNERABILITY_SOURCE,
 			packages: [
-				{ ...pkg('pandas', '2.2.1'), outdated: true, latestVersion: '2.3.0', attached: true, description: 'Data analysis', url: 'https://pandas.pydata.org' },
+				{ ...pkg('pandas', '2.2.1'), outdated: true, latestVersion: '2.3.0', attached: true, description: 'Data analysis', url: 'https://pandas.pydata.org', vulnerabilities: [advisory('CVE-2026-1000', 9.8)] },
 				// No summary: Python's package list sends '' rather than omitting it.
 				{ ...pkg('numpy', '2.1.0'), outdated: false, description: '' },
 			],
 		}));
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getAllPackages(ctx.instantiationService);
 
 		expect(result).toMatchInlineSnapshot(`
 			{
@@ -205,7 +220,6 @@ describe('getPackages', () => {
 			      "outdated": true,
 			      "url": "https://pandas.pydata.org",
 			      "version": "2.2.1",
-			      "vulnerabilities": undefined,
 			    },
 			    {
 			      "attached": undefined,
@@ -215,7 +229,6 @@ describe('getPackages', () => {
 			      "outdated": false,
 			      "url": undefined,
 			      "version": "2.1.0",
-			      "vulnerabilities": undefined,
 			    },
 			  ],
 			  "session": {
@@ -226,77 +239,111 @@ describe('getPackages', () => {
 			    "sessionId": "session-1",
 			    "sessionName": "Python 3.12.4",
 			  },
-			  "vulnerabilitySource": undefined,
-			  "vulnerabilityStatus": "cached",
 			}
 		`);
 	});
 
-	it('reports each package\'s advisories worst first, with the source that served them', async () => {
+	it('caps a long description and marks it truncated', async () => {
+		const longDescription = 'x'.repeat(300);
 		stubServices(createInstance({
 			metadataStatus: 'fresh',
-			vulnerabilityStatus: 'fresh',
-			vulnerabilitySource: VULNERABILITY_SOURCE,
-			packages: [
-				// Deliberately out of order, and mixing scored with unscored:
-				// the payload leads with the advisory the pane leads with.
-				{
-					...pkg('pandas', '2.2.1'),
-					vulnerabilities: [advisory('CVE-2026-2000', 5.4), advisory('RSEC-2026-1'), advisory('CVE-2026-1000', 9.8)],
-				},
-				// Asked about and reported clean: an empty array, not undefined.
-				{ ...pkg('numpy', '2.1.0'), vulnerabilities: [] },
-				// No advisory data at all, so nothing can be concluded.
-				pkg('polars', '1.9.0'),
-			],
+			packages: [{ ...pkg('pandas', '2.2.1'), description: longDescription }],
 		}));
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getAllPackages(ctx.instantiationService);
 
-		expect(result).toMatchObject({
-			available: true,
-			vulnerabilityStatus: 'fresh',
-			// Epoch ms in the snapshot, ISO 8601 in the payload.
-			vulnerabilitySource: { host: VULNERABILITY_SOURCE.host, fetchedAt: '2026-08-19T10:00:00.000Z' },
-			packages: [
-				{
-					name: 'pandas',
-					vulnerabilities: [
-						{ id: 'CVE-2026-1000', score: 9.8, severity: 'critical' },
-						{ id: 'CVE-2026-2000', score: 5.4, severity: 'medium' },
-						// Unscored sorts last but is still reported: known
-						// vulnerable, severity unknown.
-						{ id: 'RSEC-2026-1', score: undefined, severity: 'unscored' },
-					],
-				},
-				{ name: 'numpy', vulnerabilities: [] },
-				{ name: 'polars', vulnerabilities: undefined },
-			],
-		});
+		const description = (result as { packages: { description: string }[] }).packages[0].description;
+		expect(description).toBe(`${'x'.repeat(256)}...`);
 	});
 
-	it('maps every advisory field the lookup carries', async () => {
-		stubServices(createInstance({
-			metadataStatus: 'fresh',
-			vulnerabilityStatus: 'fresh',
-			vulnerabilitySource: VULNERABILITY_SOURCE,
-			packages: [{ ...pkg('pandas', '2.2.1'), vulnerabilities: [advisory('CVE-2026-1000', 7.5)] }],
+	it('is registered as an agent-compatible command', async () => {
+		const command = CommandsRegistry.getCommand(PACKAGES_GET_ALL_PACKAGES_COMMAND_ID);
+
+		expect(command?.metadata?.agentCompatible).toBe(true);
+	});
+});
+
+describe('getPackages', () => {
+	const ctx = createTestContainer().build();
+
+	function stubServices(
+		instance: IPositronPackagesInstance | undefined,
+		configuration: Record<string, boolean> = { 'packages.enabled': true, 'positron.packages.enable': true },
+	): void {
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService(configuration));
+		ctx.instantiationService.stub(ILogService, new NullLogService());
+		ctx.instantiationService.stub(IPositronPackagesService, stubInterface<IPositronPackagesService>({
+			activePackagesInstance: instance,
 		}));
+	}
+
+	it('reports no-names when called without any package names', async () => {
+		const getPackagesSnapshot = vi.fn<IPositronPackagesInstance['getPackagesSnapshot']>();
+		stubServices(stubInterface<IPositronPackagesInstance>({ getPackagesSnapshot }));
 
 		const result = await getPackages(ctx.instantiationService);
+
+		expect(result).toEqual({ available: false, reason: 'no-names' });
+		// A bad call, not a state of the session, so the session is never read.
+		expect(getPackagesSnapshot).not.toHaveBeenCalled();
+	});
+
+	it('reports the environment reasons a read can fail with', async () => {
+		stubServices(undefined);
+
+		const result = await getPackages(ctx.instantiationService, 'pandas');
+
+		expect(result).toEqual({ available: false, reason: 'no-session' });
+	});
+
+	it('reads the snapshot with the advisory lookup', async () => {
+		const instance = createInstance({ packages: [pkg('numpy', '2.1.0')], metadataStatus: 'fresh' });
+		stubServices(instance);
+
+		await getPackages(ctx.instantiationService, 'numpy');
+
+		expect(instance.getPackagesSnapshot).toHaveBeenCalledWith(undefined, { includeVulnerabilities: true });
+	});
+
+	it('returns full detail for the named packages and lists the rest as not found', async () => {
+		stubServices(createInstance(
+			{
+				metadataStatus: 'fresh',
+				vulnerabilityStatus: 'fresh',
+				vulnerabilitySource: VULNERABILITY_SOURCE,
+				packages: [
+					{ ...pkg('pandas', '2.2.1'), outdated: true, latestVersion: '2.3.0', description: 'Data analysis', url: 'https://pandas.pydata.org', vulnerabilities: [advisory('CVE-2026-1000', 9.8)] },
+					pkg('numpy', '2.1.0'),
+				],
+			},
+			createSession(),
+			// getPackageDetail merges these over the list entry.
+			{ pandas: { license: 'BSD-3-Clause', author: 'The pandas team', sourceRepository: 'PyPI', publishedDate: '2026-02-01', title: 'Powerful data structures' } },
+		));
+
+		// Case-insensitive, and a name that is not installed lands in notFound.
+		const result = await getPackages(ctx.instantiationService, ['Pandas', 'scikit-learn']);
 
 		expect(result).toMatchInlineSnapshot(`
 			{
 			  "available": true,
 			  "metadataStatus": "fresh",
+			  "notFound": [
+			    "scikit-learn",
+			  ],
 			  "packages": [
 			    {
 			      "attached": undefined,
-			      "description": undefined,
-			      "latestVersion": undefined,
+			      "author": "The pandas team",
+			      "description": "Data analysis",
+			      "latestVersion": "2.3.0",
+			      "license": "BSD-3-Clause",
 			      "name": "pandas",
-			      "outdated": undefined,
-			      "url": undefined,
+			      "outdated": true,
+			      "publishedDate": "2026-02-01",
+			      "sourceRepository": "PyPI",
+			      "title": "Powerful data structures",
+			      "url": "https://pandas.pydata.org",
 			      "version": "2.2.1",
 			      "vulnerabilities": [
 			        {
@@ -304,9 +351,9 @@ describe('getPackages', () => {
 			          "id": "CVE-2026-1000",
 			          "osvId": "PYSEC-CVE-2026-1000",
 			          "published": "2026-05-01T00:00:00Z",
-			          "score": 7.5,
+			          "score": 9.8,
 			          "scoreVersion": "v3",
-			          "severity": "high",
+			          "severity": "critical",
 			          "summary": "CVE-2026-1000 summary",
 			          "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1000",
 			        },
@@ -330,49 +377,55 @@ describe('getPackages', () => {
 		`);
 	});
 
+	it('reports a named package\'s advisories worst first', async () => {
+		stubServices(createInstance({
+			metadataStatus: 'fresh',
+			vulnerabilityStatus: 'fresh',
+			vulnerabilitySource: VULNERABILITY_SOURCE,
+			packages: [{
+				...pkg('pandas', '2.2.1'),
+				// Deliberately out of order, mixing scored with unscored.
+				vulnerabilities: [advisory('CVE-2026-2000', 5.4), advisory('RSEC-2026-1'), advisory('CVE-2026-1000', 9.8)],
+			}],
+		}));
+
+		const result = await getPackages(ctx.instantiationService, 'pandas');
+
+		expect(result).toMatchObject({
+			available: true,
+			packages: [{
+				name: 'pandas',
+				vulnerabilities: [
+					{ id: 'CVE-2026-1000', score: 9.8, severity: 'critical' },
+					{ id: 'CVE-2026-2000', score: 5.4, severity: 'medium' },
+					// Unscored sorts last but is still reported.
+					{ id: 'RSEC-2026-1', score: undefined, severity: 'unscored' },
+				],
+			}],
+		});
+	});
+
 	it('drops the advisories the cache still holds when lookups are turned off', async () => {
-		// The snapshot reports 'disabled' from the setting but still merges
-		// whatever the cache kept from before it was turned off. The payload
-		// must not report data its own status says isn't there.
 		stubServices(createInstance({
 			metadataStatus: 'fresh',
 			vulnerabilityStatus: 'disabled',
 			packages: [{ ...pkg('pandas', '2.2.1'), vulnerabilities: [advisory('CVE-2026-1000', 9.8)] }],
 		}));
 
-		const result = await getPackages(ctx.instantiationService);
+		const result = await getPackages(ctx.instantiationService, 'pandas');
 
 		expect(result).toMatchObject({
 			available: true,
 			vulnerabilityStatus: 'disabled',
-			// Nothing to attribute, so no source is named either.
 			vulnerabilitySource: undefined,
 			packages: [{ name: 'pandas', vulnerabilities: undefined }],
 		});
 	});
 
-	it('passes the advisory status through rather than deriving its own', async () => {
-		// Only the snapshot knows whether a lookup ran, so the payload reports
-		// what it was told -- including 'unavailable', which says a lookup
-		// happened and found nothing, not that one is still owed.
-		stubServices(createInstance({
-			metadataStatus: 'fresh',
-			vulnerabilityStatus: 'unavailable',
-			packages: [pkg('pandas', '2.2.1')],
-		}));
-
-		const result = await getPackages(ctx.instantiationService);
-
-		expect(result).toMatchObject({
-			available: true,
-			vulnerabilityStatus: 'unavailable',
-			vulnerabilitySource: undefined,
-		});
-	});
-
-	it('is registered as an agent-compatible command', async () => {
+	it('is registered as an agent-compatible command that takes names', async () => {
 		const command = CommandsRegistry.getCommand(PACKAGES_GET_PACKAGES_COMMAND_ID);
 
 		expect(command?.metadata?.agentCompatible).toBe(true);
+		expect(command?.metadata?.args?.[0].name).toBe('names');
 	});
 });

@@ -4,12 +4,36 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * Container that fills the host <dialog>. The native <dialog>'s ::backdrop provides the dimming,
- * so this layer must stay transparent because adding a background here would compound the dimming.
+ * Container that fills the renderer's overlay. This is what dims the workbench behind the dialog,
+ * at the same 20% black the older modal dialog container uses, so the two look identical.
  */
 .positron-dynamic-modal-dialog-box-container {
 	inset: 0;
 	position: absolute;
+	outline: none !important;
+	background: rgba(0, 0, 0, 0.2);
+}
+
+/*
+ * A dialog opened on top of another dynamic dialog dims nothing: the one underneath is already
+ * dimming the workbench, and a second 20% layer would darken the screen to 40%. Only dialogs on
+ * this component are counted, so an older-stack dialog underneath still compounds. That predates
+ * this rule -- the ::backdrop counter it replaces had the same blind spot.
+ */
+.positron-dynamic-modal-dialog-box-container.nested {
+	background: transparent;
+}
+
+/*
+ * The box takes programmatic focus on open and is click-focusable as a tabIndex={-1} element, and
+ * the workbench draws a focus ring on any [tabindex] element that has focus (style.css, the
+ * keyboard focus indication block). A ring around the whole dialog is not what that rule is for.
+ * Controls inside keep their own rings.
+ *
+ * !important because that rule is `.monaco-workbench [tabindex="-1"]:focus`, which outranks a
+ * single class on specificity, so it wins no matter where this file lands in the cascade.
+ */
+.positron-dynamic-modal-dialog-box:focus {
 	outline: none !important;
 }
 

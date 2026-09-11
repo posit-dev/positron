@@ -12,15 +12,23 @@
 	align-items: center;
 }
 
+/*
+ * The icon sits in a column the same width as the twisty column beside it, so the row is laid out on
+ * one repeating step. The glyph is centered in that box, with air on each side of it, so the twisty,
+ * the icon, and the label read as three set columns rather than two crowded ones and a gap.
+ */
 .data-connection-node-icon {
-	font-size: 14px;
-	margin: 0 3px 0 2px;
+	flex: 0 0 auto;
+	width: 16px;
+	margin-left: 3px;
 	color: var(--vscode-icon-foreground);
 }
 
+/* The gap before the label belongs to the label, so the icon column stays a clean 16px step. */
 .data-connection-node-text {
 	flex: 1;
 	min-width: 0;
+	padding-left: 4px;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;

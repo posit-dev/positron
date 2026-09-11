@@ -12,6 +12,7 @@ import * as configModule from '../config.js';
 import * as modelModule from '../model.js';
 import * as feedbackModule from '../feedback.js';
 import * as suggestionsModule from '../suggestions.js';
+import { CompletionTriggerKind } from '../types.js';
 
 const noopDisposable: vscode.Disposable = { dispose() { } };
 
@@ -110,6 +111,30 @@ suite('extension / inline completion provider', () => {
 			assert.strictEqual(result.items.length, 1);
 			assert.strictEqual(result.items[0], generated);
 			assert.strictEqual(result.enableForwardStability, true);
+		});
+
+		test('forwards an explicit invocation as "Invoked"', async () => {
+			sinon.stub(configModule, 'isCompletionEnabled').returns(true);
+			const generate = sinon.stub(suggestionsModule, 'generateSuggestion')
+				.resolves(new vscode.InlineCompletionItem('hello'));
+			const explicitContext = { triggerKind: vscode.InlineCompletionTriggerKind.Invoke } as vscode.InlineCompletionContext;
+
+			await provider.provideInlineCompletionItems(
+				{} as vscode.TextDocument, position, explicitContext, token());
+
+			assert.strictEqual(generate.firstCall.args[2], CompletionTriggerKind.Invoked);
+		});
+
+		test('forwards an automatic trigger as "TriggerCharacter"', async () => {
+			sinon.stub(configModule, 'isCompletionEnabled').returns(true);
+			const generate = sinon.stub(suggestionsModule, 'generateSuggestion')
+				.resolves(new vscode.InlineCompletionItem('hello'));
+			const automaticContext = { triggerKind: vscode.InlineCompletionTriggerKind.Automatic } as vscode.InlineCompletionContext;
+
+			await provider.provideInlineCompletionItems(
+				{} as vscode.TextDocument, position, automaticContext, token());
+
+			assert.strictEqual(generate.firstCall.args[2], CompletionTriggerKind.TriggerCharacter);
 		});
 	});
 });

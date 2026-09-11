@@ -169,10 +169,17 @@ function isReservedSection(name: string): boolean {
 /**
  * Candidate directories for the machine-wide ini files when `ODBCSYSINI` is unset. unixODBC bakes
  * its SYSCONFDIR in at compile time, so the right directory depends on how it was installed:
- * `/etc` for a distribution package (and for the Workbench `rstudio-drivers` install), and the
- * Homebrew prefixes on macOS. All of them are checked, nearest-first, rather than guessing one.
+ * `/etc` for a Debian/Ubuntu or RHEL-family package (and for the Workbench `rstudio-drivers`
+ * install), `/etc/unixODBC` for the SUSE-family one, and the Homebrew prefixes on macOS. All of
+ * them are checked, nearest-first, rather than guessing one.
+ *
+ * `/etc/unixODBC` is not hypothetical: openSUSE Leap 15.6 ships unixODBC built that way, so
+ * `odbcinst -j` there reports `/etc/unixODBC/odbc.ini` as the system data sources file. Without it
+ * in this list, a DSN an admin defined in the place their platform actually reads is invisible to
+ * the pane -- and, worse, a stray `/etc/odbc.ini` is offered instead even though the driver manager
+ * will never resolve it, producing a connection that appears and then cannot open.
  */
-const SYSTEM_CONFIG_DIRS = ['/etc', '/usr/local/etc', '/opt/homebrew/etc'];
+const SYSTEM_CONFIG_DIRS = ['/etc', '/etc/unixODBC', '/usr/local/etc', '/opt/homebrew/etc'];
 
 /**
  * Resolves the ini files to read on a unix-like platform, in the order their entries should be

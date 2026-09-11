@@ -89,7 +89,8 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
 		const issPath = path.join(import.meta.dirname, 'win32', 'code.iss');
 		*/
 		// --- End Positron ---
-		const originalProductJsonPath = path.join(sourcePath, versionedResourcesFolder, 'resources/app/product.json');
+		const productJsonRelativePath = path.join(versionedResourcesFolder, 'resources/app/product.json');
+		const originalProductJsonPath = path.join(sourcePath, productJsonRelativePath);
 		const productJsonPath = path.join(outputPath, 'product.json');
 		const productJson = JSON.parse(fs.readFileSync(originalProductJsonPath, 'utf8'));
 		productJson['target'] = target;
@@ -122,6 +123,7 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
 			RepoDir: repoPath,
 			OutputDir: outputPath,
 			InstallTarget: target,
+			ProductJsonRelativePath: productJsonRelativePath,
 			ProductJsonPath: productJsonPath,
 			VersionedResourcesFolder: versionedResourcesFolder,
 			Quality: quality

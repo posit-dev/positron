@@ -19,10 +19,10 @@ import { HealthItemRow } from './healthItemRow.js';
 /**
  * The one line that stands in for a whole group, or undefined while it has none.
  *
- * A language that is checking has none: the progress line in the card header is
- * the only busy signal, so nothing here competes with it. A recheck does not pass
- * through that state at all, because the environmentHealthService leaves the previous result in
- * place until the new one lands.
+ * A language that is checking has none: the line under this group's own header
+ * is the busy signal, so nothing here competes with it. A recheck does not pass
+ * through that state at all, because environmentHealthService leaves the
+ * previous result in place until the new one lands.
  */
 function summaryText(health: IEnvironmentHealthEntry): string | undefined {
 	switch (health.state.kind) {
@@ -178,7 +178,7 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, hoverMan
 	return (
 		// `show-file-icons` is required for file icon theme CSS to apply to
 		// `.environment-health-group-icon`; see environmentHealthSection.css.
-		<div aria-labelledby={headerId} className='environment-health-group show-file-icons' role='group'>
+		<div aria-busy={busy || undefined} aria-labelledby={headerId} className='environment-health-group show-file-icons' role='group'>
 			{/*
 				The heading wraps the button rather than the other way round: a
 				button's content model has no room for a heading, and this is the
@@ -215,6 +215,12 @@ export const LanguageHealthGroup = ({ health, expandedByLanguage, busy, hoverMan
 					>
 						{headerContent}
 					</div>}
+				{/*
+					Sits on the header's bottom edge, outside the text flow, so starting
+					a check cannot shift the checks below it. `aria-busy` on the group
+					carries this for a screen reader, so the element itself is decorative.
+				*/}
+				{busy && <span aria-hidden='true' className='environment-health-progress' data-testid='environment-health-group-progress' />}
 			</h3>
 			{hasBody(health) && expanded && body()}
 		</div>

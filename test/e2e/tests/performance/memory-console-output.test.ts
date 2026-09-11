@@ -20,7 +20,7 @@ const LINES = 10_000;
 
 // Runs against a Python session, so the figure of interest is this scenario minus
 // session-python: what holding 10k lines of output costs on top of a session that
-// already exists. The cross-scenario summary deltas against idle, so that
+// already exists. The scenario memory report deltas against idle, so that
 // subtraction is by eye until #15495.
 defineMemoryScenario({
 	scenario: 'console-output',

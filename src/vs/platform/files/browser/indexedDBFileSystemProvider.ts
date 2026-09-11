@@ -414,7 +414,7 @@ export class IndexedDBFileSystemProvider extends Disposable implements IFileSyst
 				}));
 				// --- Start PWB: Clear browser history
 				this.indexedDB.pwbAddToSessionSet(IndexedDB.PWB_CHANGED_CONNECTION_KEY);
-				// -- End PWB
+				// --- End PWB ---
 			} catch (ex) {
 				if (ex instanceof DOMException && ex.name === 'QuotaExceededError') {
 					throw ERR_FILE_EXCEEDS_STORAGE_QUOTA;

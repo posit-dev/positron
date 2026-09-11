@@ -76,9 +76,16 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 	public async runApplication(options: RunAppOptions): Promise<vscode.Uri | undefined> {
 		try {
-			const document = this.getDocumentForRun(options.name);
+			const document = this.getDocumentForRun(options);
 			if (!document) {
 				return;
+			}
+
+			// Keep this check adjacent to the queue call below: an await in
+			// between would let a concurrent invocation slip past it.
+			if (this._runApplicationSequencerByName.has(options.name)) {
+				this.showAppAlreadyStartingError(options.name);
+				return undefined;
 			}
 			return await this.queueRunApplication(options.name, (progress) => this.doRunApplication(document, options, progress));
 		} catch (error) {
@@ -89,9 +96,16 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 	public async runApplicationInConsole(options: RunConsoleAppOptions): Promise<vscode.Uri | undefined> {
 		try {
-			const document = this.getDocumentForRun(options.name);
+			const document = this.getDocumentForRun(options);
 			if (!document) {
 				return;
+			}
+
+			// Keep this check adjacent to the queue call below: an await in
+			// between would let a concurrent invocation slip past it.
+			if (this._runApplicationSequencerByName.has(options.name)) {
+				this.showAppAlreadyStartingError(options.name);
+				return undefined;
 			}
 			return await this.queueRunApplication(options.name, (progress) => this.doRunApplicationInConsole(document, options, progress));
 		} catch (error) {
@@ -100,18 +114,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 	}
 
-	private getDocumentForRun(appName: string): vscode.TextDocument | undefined {
-		const document = vscode.window.activeTextEditor?.document;
-		if (!document) {
-			return undefined;
-		}
-
-		if (this._runApplicationSequencerByName.has(appName)) {
-			vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', appName));
-			return undefined;
-		}
-
-		return document;
+	/** The document to run or debug: the caller's, else the active editor's. */
+	private getDocumentForRun(options: { document?: vscode.TextDocument }): vscode.TextDocument | undefined {
+		return options.document ?? vscode.window.activeTextEditor?.document;
 	}
 
 	public getProxyServerUri(appUrl: string): vscode.Uri | undefined {
@@ -457,7 +462,8 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 						// Keep watching for the URL. The observer has no cancellation
 						// token, so `detector.found` still resolves if the app prints
 						// its URL later. Don't await: holding the run task open would
-						// block a re-run (see `getDocumentForRun`) and would pin the
+						// block a re-run (see the sequencer guard in
+						// `runApplicationInConsole`) and would pin the
 						// progress notification.
 						this.watchForLateAppUrl(detector.found, executionFinished, {
 							appName: options.name,
@@ -502,14 +508,15 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 	public async debugApplication(options: DebugAppOptions): Promise<void> {
 		try {
-			// If there's no active text editor, do nothing.
-			const document = vscode.window.activeTextEditor?.document;
+			const document = this.getDocumentForRun(options);
 			if (!document) {
 				return;
 			}
 
+			// Keep this check adjacent to the queue call below: an await in
+			// between would let a concurrent invocation slip past it.
 			if (this._debugApplicationSequencerByName.has(options.name)) {
-				vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', options.name));
+				this.showAppAlreadyStartingError(options.name);
 				return;
 			}
 
@@ -704,6 +711,11 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 
 		return persisted[name];
+	}
+
+	/** Notify the user that the named application is already starting. */
+	private showAppAlreadyStartingError(appName: string): void {
+		vscode.window.showErrorMessage(vscode.l10n.t('{0} application is already starting.', appName));
 	}
 
 	private showRunError(appName: string, error: unknown): void {

@@ -39,7 +39,6 @@ const bundledDeps = [
 	'libvulkan.so.1',
 	'libvk_swiftshader.so',
 	'libffmpeg.so',
-	'libonnxruntime.so.1'
 ];
 
 export async function getDependencies(packageType: 'deb' | 'rpm', buildDir: string, applicationName: string, arch: string): Promise<string[]> {

@@ -60,6 +60,15 @@ import {
 	TableSelectionKind,
 	TextSearchType,
 } from 'positron-data-explorer-protocol';
+import {
+	formatDecimal,
+	formatFloat,
+	formatInteger,
+	formatNumericStat,
+	isDecimalLiteral,
+	isIntegerLiteral,
+	truncate,
+} from 'positron-data-explorer-formatting';
 
 /** The query surface the table view needs. Implemented by the connection over its `pg` client. */
 export interface IPostgresQueryClient {
@@ -422,6 +431,14 @@ export class PostgresTableView {
 		switch (displayType) {
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Decimal: {
+				// `pg` hands back numeric/decimal as an exact string precisely because a JS number cannot
+				// hold it, so it is formatted textually: `Number` would drop the whole-number digits past
+				// 2^53 and would also shift the rounding at the digit limit. A float4/float8 really is a
+				// double, so it keeps the numeric path, as do the non-finite numerics Postgres allows
+				// ('NaN', 'Infinity', '-Infinity'), which fall through to the sentinels below.
+				if (displayType === ColumnDisplayType.Decimal && isDecimalLiteral(value)) {
+					return formatDecimal(value, opts);
+				}
 				const num = typeof value === 'number' ? value : Number(value);
 				if (Number.isNaN(num)) { return SENTINEL_NAN; }
 				if (num === Infinity) { return SENTINEL_INF; }
@@ -726,7 +743,7 @@ export class PostgresTableView {
 					min_value: rows[0]?.lo === null || rows[0]?.lo === undefined ? undefined : String(rows[0].lo),
 					max_value: rows[0]?.hi === null || rows[0]?.hi === undefined ? undefined : String(rows[0].hi),
 					mean: n > 0 ? fmt(mean) : undefined,
-					median: median === undefined ? undefined : fmt(median),
+					median: formatNumericStat(median, display, formatOptions),
 					stdev: n > 1 ? fmt(Math.sqrt(variance)) : undefined,
 				},
 			};
@@ -792,8 +809,14 @@ export class PostgresTableView {
 	/**
 	 * Computes a quantile (0..1) by ordering the non-null values and reading the value at the
 	 * corresponding offset. `n` is the count of non-null values.
+	 *
+	 * Returns the raw cell value rather than a JS number, because its callers want different things
+	 * from it. The median is reported to the user, and a DECIMAL/NUMERIC median arrives as an exact
+	 * digit string that a double cannot hold, so `formatNumericStat` formats it textually. The
+	 * histogram's interquartile range is arithmetic on a bin width, which is approximate either way,
+	 * so those callers coerce.
 	 */
-	private async _quantile(quotedName: string, q: number, n: number): Promise<number | undefined> {
+	private async _quantile(quotedName: string, q: number, n: number): Promise<unknown> {
 		if (n === 0) {
 			return undefined;
 		}
@@ -802,7 +825,7 @@ export class PostgresTableView {
 			`SELECT ${quotedName} AS v FROM ${this._quotedTable}${this._wherePlus(`${quotedName} IS NOT NULL`)} ` +
 			`ORDER BY ${quotedName} LIMIT 1 OFFSET ${offset}`);
 		const value = rows[0]?.v;
-		return value === null || value === undefined ? undefined : Number(value);
+		return value === null ? undefined : value;
 	}
 
 	private async _frequencyTable(quotedName: string, limit: number, filteredRows: number): Promise<ColumnFrequencyTable> {
@@ -852,9 +875,9 @@ export class PostgresTableView {
 				binWidth = peakToPeak / params.num_bins;
 				break;
 			case ColumnHistogramParamsMethod.FreedmanDiaconis: {
-				const q1 = await this._quantile(quotedName, 0.25, nonNull);
-				const q3 = await this._quantile(quotedName, 0.75, nonNull);
-				const iqr = (q3 ?? 0) - (q1 ?? 0);
+				const q1 = Number(await this._quantile(quotedName, 0.25, nonNull) ?? 0);
+				const q3 = Number(await this._quantile(quotedName, 0.75, nonNull) ?? 0);
+				const iqr = q3 - q1;
 				if (iqr > 0) {
 					binWidth = 2 * iqr * Math.pow(nonNull, -1 / 3);
 				}
@@ -901,57 +924,6 @@ export class PostgresTableView {
 /** Type guard distinguishing a contiguous index range from an explicit index set. */
 function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
 	return (spec as DataSelectionRange).first_index !== undefined;
-}
-
-/** Applies a thousands separator to the integer part of an already-formatted number string. */
-function applyThousandsSep(formatted: string, sep: string): string {
-	const negative = formatted.startsWith('-');
-	const body = negative ? formatted.slice(1) : formatted;
-	const [intPart, fracPart] = body.split('.');
-	const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-	const result = fracPart === undefined ? grouped : `${grouped}.${fracPart}`;
-	return negative ? `-${result}` : result;
-}
-
-/** Formats a floating-point value following the Data Explorer FormatOptions. */
-function formatFloat(value: number, opts: FormatOptions): string {
-	const sciLimit = Math.pow(10, opts.max_integral_digits);
-	let formatted: string;
-	const abs = Math.abs(value);
-	if (abs !== 0 && abs >= sciLimit) {
-		return value.toExponential(opts.large_num_digits);
-	} else if (abs !== 0 && abs < 1) {
-		formatted = value.toFixed(opts.small_num_digits);
-	} else {
-		formatted = value.toFixed(opts.large_num_digits);
-	}
-	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
-}
-
-/**
- * Whether a value is an exact integer literal: a string of digits with an optional sign. `pg` returns
- * int8/bigint in this form, and it is only safe to format such a string as-is when it holds nothing
- * but digits -- anything else (an exponent, a decimal point, stray text) still goes through `Number`
- * so it is normalized rather than printed raw.
- */
-function isIntegerLiteral(value: unknown): value is string {
-	return typeof value === 'string' && /^[+-]?\d+$/.test(value);
-}
-
-/**
- * Formats an integer value, optionally with a thousands separator. Accepts an exact digit string
- * alongside number and bigint so a wide int8 keeps every digit: the body only stringifies its
- * argument, and `applyThousandsSep` groups the digits textually, so no step here narrows the value to
- * a JS number.
- */
-function formatInteger(value: number | bigint | string, opts: FormatOptions): string {
-	const formatted = value.toString();
-	return opts.thousands_sep ? applyThousandsSep(formatted, opts.thousands_sep) : formatted;
-}
-
-/** Truncates a string to the configured maximum formatted length. */
-function truncate(value: string, opts: FormatOptions): string {
-	return value.length > opts.max_value_length ? value.slice(0, opts.max_value_length) : value;
 }
 
 /** Stringifies a raw PostgreSQL value for export, rendering null as 'NULL' and dates as ISO. */

@@ -11,10 +11,14 @@ import { QuickAccess } from './quickaccess';
 const DATA_CONNECTIONS_VIEW_FOCUS_COMMAND = 'workbench.panel.positronDataConnections.focus';
 
 // The "Add Data Connection" -> "Configure Data Connection" dialog and its surrounding modal.
-const MODAL_DIALOG = '.positron-modal-dialog';
+const MODAL_DIALOG = '.positron-dynamic-modal-dialog-box';
 const PARAMETER_FIELD = '.parameter-field';
 const MECHANISM_CARD = '.mechanism-card';
 const DATA_CONNECTION_ENTRY_ROW = '.data-connection-entry-row';
+
+// Badge on a connection discovered from the machine's ODBC configuration (odbc.ini) rather than one
+// the user saved. See `dataConnectionEntryRow.tsx`.
+const DISCOVERED_BADGE = '.data-connection-entry-discovered';
 
 // The "Connect With" dialog, opened from a connection entry's Actions menu.
 const CONNECT_WITH_DIALOG_CONTENT = '.connect-data-connection-with';
@@ -166,6 +170,18 @@ export class DataConnections {
 		await expect(
 			this.connectionEntries.filter({ hasText: connectionName })
 		).toBeVisible({ timeout: this.actionTimeout });
+	}
+
+	/**
+	 * Asserts that a connection profile is present in the tree and badged "Detected": one the
+	 * machine's ODBC configuration provides, rather than one the user saved. Asserting the badge
+	 * (not just the row) is what distinguishes a discovery from a saved connection of the same name.
+	 * @param connectionName The connection name shown in the tree, i.e. the DSN name.
+	 */
+	async expectConnectionDetected(connectionName: string): Promise<void> {
+		const row = this.connectionEntries.filter({ hasText: connectionName });
+		await expect(row).toBeVisible({ timeout: this.actionTimeout });
+		await expect(row.locator(DISCOVERED_BADGE)).toBeVisible({ timeout: this.actionTimeout });
 	}
 
 	/**

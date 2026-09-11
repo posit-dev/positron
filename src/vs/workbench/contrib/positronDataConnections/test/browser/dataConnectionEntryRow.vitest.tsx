@@ -27,12 +27,12 @@ vi.mock('../../../../browser/positronComponents/customContextMenu/customContextM
 	showCustomContextMenu,
 }));
 
-// The edit dialog is opened through a renderer that drives a native <dialog> via showModal(), which
-// the test DOM doesn't implement -- and the dialog itself isn't what these tests are about. Mocking
-// the renderer lets us read the profile the row handed the dialog straight off the render call.
+// The edit dialog is opened through a modal renderer, and the dialog itself isn't what these tests
+// are about. Mocking the renderer lets us read the profile the row handed the dialog straight off
+// the render call.
 const { modalRender } = vi.hoisted(() => ({ modalRender: vi.fn() }));
-vi.mock('../../../../../base/browser/positronModalDialogReactRenderer.js', () => ({
-	PositronModalDialogReactRenderer: class {
+vi.mock('../../../../../base/browser/positronModalReactRenderer.js', () => ({
+	PositronModalReactRenderer: class {
 		render = modalRender;
 		dispose = vi.fn();
 	},

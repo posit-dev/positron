@@ -9,10 +9,19 @@ import * as positron from 'positron';
 import { isEnvProviderEnabled } from './createEnvApi';
 import { showThreeButtonModalDialogPrompt } from './positronApis';
 import { probeExternallyManagedEnvironment } from './externallyManagedEnvironment';
+import type { IPythonRuntimeManager } from './manager';
+import { shouldIncludeInterpreter } from './interpreterSettings';
 import { CONDA_PROVIDER_ID } from '../pythonEnvironments/creation/provider/condaCreationProvider';
 import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
 import { VenvCreationProviderId } from '../pythonEnvironments/creation/provider/venvCreationProvider';
 import { isUvInstalled } from '../pythonEnvironments/common/environmentManagers/uv';
+import {
+    createGlobalEnvironment,
+    getGlobalEnvironmentDir,
+    getGlobalEnvironmentPython,
+    globalEnvironmentErrorMessage,
+} from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
+import { showUvInstallError } from '../pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import {
     autoCreateVenvWithDeps,
     detectAutoCreateContext,
@@ -24,7 +33,7 @@ import {
 import { Commands } from '../common/constants';
 import { getGlobalStorage, IPersistentStorage } from '../common/persistentState';
 import { IExtensionContext } from '../common/types';
-import { CreateEnv } from '../common/utils/localize';
+import { CreateEnv, GlobalEnvironment } from '../common/utils/localize';
 import { executeCommand } from '../common/vscodeApis/commandApis';
 import { getConfiguration, getWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 import { IInterpreterService } from '../interpreter/contracts';
@@ -106,6 +115,8 @@ export enum CreateVirtualEnvironmentPromptOutcome {
  *
  * @param serviceContainer Used for the extension context that backs suppression storage.
  * @param interpreterService Used to resolve the picked interpreter.
+ * @param runtimeManager Used by the no-workspace branch to select the runtime for the
+ *   global environment it creates.
  * @param interpreterPath The interpreter the session would start.
  * @param sessionMetadata The metadata for the session being created.
  *
@@ -114,6 +125,7 @@ export enum CreateVirtualEnvironmentPromptOutcome {
 export async function promptToCreateVirtualEnvironment(
     serviceContainer: IServiceContainer,
     interpreterService: IInterpreterService,
+    runtimeManager: IPythonRuntimeManager,
     interpreterPath: string,
     sessionMetadata: positron.RuntimeSessionMetadata,
 ): Promise<CreateVirtualEnvironmentPromptOutcome> {
@@ -128,9 +140,7 @@ export async function promptToCreateVirtualEnvironment(
     }
 
     const workspaceFolders = getWorkspaceFolders();
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-        return CreateVirtualEnvironmentPromptOutcome.Proceed;
-    }
+    const hasWorkspace = (workspaceFolders?.length ?? 0) > 0;
 
     // Read the setting live so that turning it off takes effect without a reload.
     const pythonConfig = getConfiguration('python');
@@ -152,13 +162,17 @@ export async function promptToCreateVirtualEnvironment(
         return CreateVirtualEnvironmentPromptOutcome.Proceed;
     }
 
+    if (!hasWorkspace) {
+        return promptForGlobalEnvironmentOnSelect(serviceContainer, runtimeManager, interpreterPath, environment);
+    }
+
     const ladderInput: CreateEnvironmentLadderInput = {
         interpreterPath,
         versionMajorMinor: describeMajorMinor(environment),
         isCondaBase: environment !== undefined && isBaseCondaEnvironment(environment),
         uvInstalled: await isUvInstalled(),
         allowUvPythonInstall: pythonConfig?.get<boolean>('allowUvPythonInstall') ?? true,
-        workspaceFolder: workspaceFolders.length === 1 ? workspaceFolders[0] : undefined,
+        workspaceFolder: workspaceFolders?.length === 1 ? workspaceFolders[0] : undefined,
     };
     const createOptions = chooseCreateEnvironmentOptions(ladderInput);
     if (!createOptions) {
@@ -200,6 +214,118 @@ export async function promptToCreateVirtualEnvironment(
     // answer the question, so leave the startup notification free to ask it.
     clearCreateEnvModalShown();
     return CreateVirtualEnvironmentPromptOutcome.Abort;
+}
+
+/**
+ * The no-workspace arm of the prompt: offer the global environment instead of a
+ * workspace venv. There is no "Open Folder..." button here, unlike the other
+ * global-environment surfaces: this modal interrupts someone trying to run code who
+ * has already passed the environment-health check's "Open Folder" advice and needs a
+ * usable interpreter now.
+ *
+ * The prompt is only shown when the global environment could actually be created and
+ * then used: somewhere for it to live, a path the user's interpreter settings do not
+ * exclude, uv installed, and the uv provider enabled (the global environment is
+ * uv-backed by definition, and this surface never detours into the uv install-consent
+ * flow).
+ */
+async function promptForGlobalEnvironmentOnSelect(
+    serviceContainer: IServiceContainer,
+    runtimeManager: IPythonRuntimeManager,
+    interpreterPath: string,
+    environment: PythonEnvironment | undefined,
+): Promise<CreateVirtualEnvironmentPromptOutcome> {
+    const venvDir = getGlobalEnvironmentDir();
+    if (!venvDir || !isEnvProviderEnabled(UV_PROVIDER_ID) || !(await isUvInstalled())) {
+        traceInfo('Create venv prompt - The global environment is unavailable, skipping the prompt');
+        return CreateVirtualEnvironmentPromptOutcome.Proceed;
+    }
+
+    // An excluded path can be created but never registered as a runtime, so there would
+    // be nothing to switch to afterwards. `python.interpreters.override` reaches here on
+    // its own: it is an allowlist, and a global environment that does not exist yet
+    // cannot be on it.
+    if (!shouldIncludeInterpreter(getGlobalEnvironmentPython(venvDir))) {
+        traceInfo(`Create venv prompt - The global environment at ${venvDir} is excluded by user settings`);
+        return CreateVirtualEnvironmentPromptOutcome.Proceed;
+    }
+
+    // Marked before the modal opens so the startup notification cannot race in behind it,
+    // and undone again on the dismiss path below.
+    markCreateEnvModalShown();
+
+    const choice = await showThreeButtonModalDialogPrompt({
+        title: GlobalEnvironment.sessionPromptTitle,
+        message: GlobalEnvironment.sessionPromptMessage(describeInterpreter(environment, interpreterPath), venvDir),
+        primaryButtonTitle: GlobalEnvironment.createButton,
+        secondaryButtonTitle: GlobalEnvironment.notNow,
+        tertiaryButtonTitle: CreateEnv.InterpreterSelect.neverForThisInterpreter,
+    });
+
+    if (choice === CreateEnv.InterpreterSelect.neverForThisInterpreter) {
+        const suppressedInterpreters = getSuppressedInterpreters(serviceContainer);
+        await suppressedInterpreters.set([...suppressedInterpreters.get(), interpreterPath]);
+        return CreateVirtualEnvironmentPromptOutcome.Proceed;
+    }
+
+    if (choice === GlobalEnvironment.createButton) {
+        // Awaited, unlike the workspace branch's create flow: occupied and failed
+        // outcomes decide whether the pending session start proceeds.
+        const result = await createGlobalEnvironment(interpreterPath);
+        if (result.outcome !== 'created') {
+            await showUvInstallError(globalEnvironmentErrorMessage(result));
+            return CreateVirtualEnvironmentPromptOutcome.Proceed;
+        }
+        // Registration and selection are both awaited, and their failures caught, so the
+        // pending session is only aborted once the replacement has actually started;
+        // otherwise a failure here would leave the user with no session at all.
+        try {
+            const metadata = await registerGlobalEnvironmentRuntime(runtimeManager, result.pythonPath);
+            if (!metadata) {
+                traceError(`Create venv prompt - Could not register a runtime for ${result.pythonPath}`);
+                await showUvInstallError(GlobalEnvironment.registrationFailed(result.pythonPath));
+                return CreateVirtualEnvironmentPromptOutcome.Proceed;
+            }
+            const runtimeId = await runtimeManager.selectLanguageRuntimeFromPath(result.pythonPath);
+            if (!runtimeId) {
+                await showUvInstallError(GlobalEnvironment.registrationFailed(result.pythonPath));
+                return CreateVirtualEnvironmentPromptOutcome.Proceed;
+            }
+        } catch (error) {
+            traceError(`Create venv prompt - Failed to start the global environment: ${error}`);
+            await showUvInstallError(GlobalEnvironment.registrationFailed(result.pythonPath));
+            return CreateVirtualEnvironmentPromptOutcome.Proceed;
+        }
+        return CreateVirtualEnvironmentPromptOutcome.Abort;
+    }
+
+    if (choice === GlobalEnvironment.notNow) {
+        return CreateVirtualEnvironmentPromptOutcome.Proceed;
+    }
+
+    // Dismissed with the close button or Escape: not consent, so no environment. Unlike
+    // the workspace modal, the session still starts: with no folder open there is no
+    // alternate create flow to hand the user to, and they need a usable interpreter now.
+    clearCreateEnvModalShown();
+    return CreateVirtualEnvironmentPromptOutcome.Proceed;
+}
+
+/**
+ * Registers a runtime for a just-created global environment, retrying once behind an
+ * interpreter refresh: a brand new environment is not in the interpreter list yet, so
+ * the first attempt can come back empty.
+ */
+async function registerGlobalEnvironmentRuntime(
+    runtimeManager: IPythonRuntimeManager,
+    pythonPath: string,
+): Promise<positron.LanguageRuntimeMetadata | undefined> {
+    const metadata = await runtimeManager.registerLanguageRuntimeFromPath(pythonPath, /* recreateRuntime */ true);
+    if (metadata) {
+        return metadata;
+    }
+    traceInfo(`Create venv prompt - No runtime for ${pythonPath} yet, refreshing interpreters`);
+    await runtimeManager.triggerInterpreterRefresh();
+    return runtimeManager.registerLanguageRuntimeFromPath(pythonPath, /* recreateRuntime */ true);
 }
 
 /**

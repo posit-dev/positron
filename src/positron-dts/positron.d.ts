@@ -3493,13 +3493,30 @@ declare module 'positron' {
 		value: string;
 	}
 
+	/**
+	 * Selects which environment variable contributions
+	 * {@link environment.getEnvironmentContributions} returns.
+	 */
+	export enum EnvironmentContributionFilter {
+		/**
+		 * Only contributions that are applied at process creation. These are
+		 * inherited by spawned child processes such as language kernels;
+		 * contributions applied only via shell integration are excluded.
+		 */
+		ProcessCreation = 'processCreation',
+	}
+
 	namespace environment {
 		/**
 		 * Get the environment variable contributions for the current session.
 		 *
+		 * @param filter Optional filter selecting which contributions to
+		 *   return. When omitted, all contributions are returned, including
+		 *   those applied only via shell integration.
+		 *
 		 * @returns A map of extension IDs to arrays of environment variable actions.
 		 */
-		export function getEnvironmentContributions(): Thenable<Record<string, EnvironmentVariableAction[]>>;
+		export function getEnvironmentContributions(filter?: EnvironmentContributionFilter): Thenable<Record<string, EnvironmentVariableAction[]>>;
 	}
 
 	/**
@@ -3635,17 +3652,113 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A column sort from the Data Explorer view. The column is named rather than indexed, because
+	 * the generated code operates on the loaded dataframe, where names are the only stable handle.
+	 */
+	export interface DataImportSortKey {
+		/** The name of the column to sort by. */
+		columnName: string;
+
+		/** Sort order: ascending (true) or descending (false). */
+		ascending: boolean;
+	}
+
+	/** The fields every row filter carries, whatever its type. */
+	export interface DataImportRowFilterBase {
+		/** The name of the column the filter applies to. */
+		columnName: string;
+
+		/** The column's canonical Positron display type, e.g. 'integer', 'string', 'boolean'. */
+		columnType: string;
+
+		/** How this filter combines with the one before it. Ignored on the first filter. */
+		condition: 'and' | 'or';
+	}
+
+	/** Keeps rows where the column's value falls inside (or, for not_between, outside) a range. */
+	export interface DataImportBetweenFilter extends DataImportRowFilterBase {
+		filterType: 'between' | 'not_between';
+		/** The lower limit, as a stringified column value. */
+		leftValue: string;
+		/** The upper limit, as a stringified column value. */
+		rightValue: string;
+	}
+
+	/** Keeps rows satisfying a binary comparison against one value. */
+	export interface DataImportCompareFilter extends DataImportRowFilterBase {
+		filterType: 'compare';
+		op: '=' | '!=' | '<' | '<=' | '>' | '>=';
+		/** The comparison value, as a stringified column value. */
+		value: string;
+	}
+
+	/** Keeps rows whose text matches a search term. */
+	export interface DataImportSearchFilter extends DataImportRowFilterBase {
+		filterType: 'search';
+		searchType: 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'regex_match';
+		term: string;
+		caseSensitive: boolean;
+	}
+
+	/** Keeps rows whose value is in (or, when not inclusive, not in) a set. */
+	export interface DataImportSetMembershipFilter extends DataImportRowFilterBase {
+		filterType: 'set_membership';
+		/** The set members, as stringified column values. */
+		values: string[];
+		inclusive: boolean;
+	}
+
+	/** A row filter that needs no parameters beyond its type. */
+	export interface DataImportUnaryFilter extends DataImportRowFilterBase {
+		filterType: 'is_null' | 'not_null' | 'is_empty' | 'not_empty' | 'is_true' | 'is_false';
+	}
+
+	/**
+	 * One row filter from the Data Explorer view, discriminated on filterType so a generator can
+	 * switch over it exhaustively and route any type it cannot translate to `unsupported`.
+	 */
+	export type DataImportRowFilter =
+		| DataImportBetweenFilter
+		| DataImportCompareFilter
+		| DataImportSearchFilter
+		| DataImportSetMembershipFilter
+		| DataImportUnaryFilter;
+
+	/**
+	 * The Data Explorer view at the moment the dialog opened: what the user is looking at beyond
+	 * the raw file. Row filters marked invalid by the backend are excluded, because they are not
+	 * applied to the on-screen data either.
+	 */
+	export interface DataImportView {
+		rowFilters: DataImportRowFilter[];
+		sortKeys: DataImportSortKey[];
+	}
+
+	/**
 	 * A request to generate the code that loads one file into one variable.
 	 */
 	export interface DataImportRequest {
 		/** The original file, not the positron-data-explorer URI. */
 		fileUri: vscode.Uri;
 
-		/** The target variable name, already valid in the importer's language. */
+		/**
+		 * The target variable name, as entered by the user. This is arbitrary text, not
+		 * validated or sanitized for the importer's language: Positron does not check that it is
+		 * assignable, and importers are not expected to either. A name that is not a valid
+		 * identifier in the importer's language produces code that fails to run, which the code
+		 * preview already shows the user before they run it.
+		 */
 		variableName: string;
 
 		/** Format and parsing options. */
 		options: DataImportOptions;
+
+		/**
+		 * The Data Explorer view to reproduce (row filters and sorts), present
+		 * only when the user asked to include the current filters and sorts. Anything the importer
+		 * cannot translate belongs in the result's `unsupported` list, never dropped silently.
+		 */
+		view?: DataImportView;
 	}
 
 	/**
@@ -3676,6 +3789,17 @@ declare module 'positron' {
 
 		/** File extensions this importer can read, without a leading dot, e.g. ['csv', 'tsv']. */
 		fileExtensions: string[];
+
+		/**
+		 * Words this language will not let you assign to, e.g. 'class' for Python or 'if' for R.
+		 *
+		 * Positron derives the default variable name from the file name, restricted to an ASCII
+		 * letter followed by letters, digits and underscores, which is assignable in any language
+		 * an importer is likely to target. A reserved word is the one case that rule cannot catch,
+		 * so supply the language's list and Positron suffixes any collision: a file named class.csv
+		 * is offered as 'class_'. Omitting the list means such a file is offered as 'class'.
+		 */
+		reservedNames?: string[];
 
 		/**
 		 * Generates the code that loads the requested file.
@@ -3848,6 +3972,22 @@ declare module 'positron' {
 		 * @returns A Thenable resolving to the local docs, or undefined.
 		 */
 		export function getLocalDocs(): Thenable<LocalDocs | undefined>;
+
+		/**
+		 * Get the locally cached Positron documentation if it is already present,
+		 * without ever downloading it.
+		 *
+		 * Unlike {@link getLocalDocs}, this never touches the network: it returns
+		 * whatever a prior prefetch or fetch has already placed on disk. Use it
+		 * when a download would be too costly to trigger on demand.
+		 *
+		 * Resolves to `undefined` when there are no local docs on disk, which
+		 * means the caller should fall back to fetching documentation from the
+		 * web. That is the only meaning of `undefined`.
+		 *
+		 * @returns A Thenable resolving to the local docs, or undefined.
+		 */
+		export function getLocalDocsCache(): Thenable<LocalDocs | undefined>;
 	}
 
 	/**
@@ -3949,11 +4089,55 @@ declare module 'positron' {
 			 */
 			status?: 'preview' | 'experimental';
 			/**
+			 * For a provider that comes from a `providers.custom` entry, the
+			 * entry's type (its client kind, e.g. 'anthropic'). Undefined for
+			 * built-in providers. The configuration modal shows the entry under
+			 * that vendor's icon and marks the row as custom.
+			 */
+			customKind?: string;
+			/**
 			 * Optional data URL for the provider icon shown in the configuration dialog
 			 * (e.g., 'data:image/svg+xml;base64,...'). Falls back to built-in icons
 			 * when not provided.
 			 */
 			logoUrl?: string;
+		}
+
+		/**
+		 * Why a field cannot be set in the configuration form, and what value
+		 * applies instead. Today this is always an environment variable, which
+		 * ai-config ranks above the user's configuration file.
+		 *
+		 * Deliberately not part of `LanguageModelConfig`: that type is
+		 * bidirectional (it arrives as `defaults` and is submitted back on
+		 * save), and this is an inbound-only fact about the environment.
+		 */
+		export interface LanguageModelFieldOverride {
+			/** The value in effect, shown in place of the user's saved value. */
+			readonly value: string;
+			/**
+			 * Name of the environment variable supplying the value, e.g.
+			 * `AWS_REGION`, so the form can say what to change instead. Omit when
+			 * there is no single name to give.
+			 */
+			readonly name?: string;
+		}
+
+		/**
+		 * Which of a provider's form fields are supplied by a higher-precedence
+		 * layer, shaped to mirror `LanguageModelConfig` with each value replaced
+		 * by the reason it cannot be set.
+		 *
+		 * Only the fields something can actually take over appear, rather than
+		 * every config key.
+		 */
+		export interface LanguageModelFieldOverrides {
+			baseUrl?: LanguageModelFieldOverride;
+			apiKey?: LanguageModelFieldOverride;
+			aws?: {
+				profile?: LanguageModelFieldOverride;
+				region?: LanguageModelFieldOverride;
+			};
 		}
 
 		/**
@@ -3966,6 +4150,11 @@ declare module 'positron' {
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
 			defaults: LanguageModelConfig;
+			/**
+			 * Fields the user cannot set here because a higher-precedence config
+			 * layer supplies them. Absent when every supported field is editable.
+			 */
+			overrides?: LanguageModelFieldOverrides;
 			signedIn?: boolean;
 			authMethods?: string[];
 			/**
@@ -4011,6 +4200,13 @@ declare module 'positron' {
 			 */
 			customModels?: LanguageModelCustomModel[];
 			autoconfigure?: LanguageModelAutoconfigure;
+			/**
+			 * AWS profile and region for a provider authenticating through the
+			 * AWS credential chain. Both are optional; an omitted field falls
+			 * back to the ambient AWS configuration. An empty string means the
+			 * user cleared the field and any saved value should be removed.
+			 */
+			aws?: { profile?: string; region?: string };
 		}
 
 		/**

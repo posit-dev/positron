@@ -50,13 +50,21 @@ export interface TreeProjectionInput<T> {
 export function buildVisibleNodes<T>(input: TreeProjectionInput<T>): readonly VisibleNode<T>[] {
 	const result: VisibleNode<T>[] = [];
 
-	const walk = (siblings: readonly TreeNode<T>[], depth: number, stale: boolean): void => {
+	const walk = (
+		siblings: readonly TreeNode<T>[],
+		depth: number,
+		indentLevel: number,
+		flattenedParentGuide: boolean,
+		stale: boolean
+	): void => {
 		for (const node of siblings) {
 			const expandState = computeExpandState(node, input);
 			const refreshGeneration = input.recentlyRefreshed.get(node.id);
 			result.push({
 				node,
 				depth,
+				indentLevel,
+				flattenedParentGuide,
 				expandState,
 				refreshing: input.refreshing.has(node.id),
 				recentlyRefreshed: refreshGeneration !== undefined,
@@ -67,16 +75,30 @@ export function buildVisibleNodes<T>(input: TreeProjectionInput<T>): readonly Vi
 			if (expandState === 'expanded') {
 				const loaded = input.children.get(node.id);
 				if (loaded !== undefined) {
+					// Depth always advances -- the children really are one level down, and navigation
+					// depends on that. The indent only advances when the node isn't a category row
+					// holding its children at its own step.
+					//
 					// Staleness inherits: everything under a refreshing node is on its way out, so
 					// the flag passes down from wherever it was first set. The refreshing node
 					// itself is not stale -- it is the one being replaced into, not replaced.
-					walk(loaded, depth + 1, stale || input.refreshing.has(node.id));
+					// A flattening node's children carry the guide marking what they belong to, since
+					// the node gave up the step one would normally be drawn in -- but only when they
+					// are all leaves. See VisibleNode.flattenedParentGuide.
+					const flattens = node.flattensChildren === true;
+					walk(
+						loaded,
+						depth + 1,
+						flattens ? indentLevel : indentLevel + 1,
+						flattens && loaded.every(child => !child.hasChildren),
+						stale || input.refreshing.has(node.id)
+					);
 				}
 			}
 		}
 	};
 
-	walk(input.roots, 0, false);
+	walk(input.roots, 0, 0, false, false);
 	return result;
 }
 

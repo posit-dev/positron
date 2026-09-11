@@ -53,7 +53,7 @@ export function registerQuickChatActions() {
 				title: localize2('chat.closeQuickChat.label', "Close Quick Chat"),
 				f1: false,
 				category: CHAT_CATEGORY,
-				icon: Codicon.close,
+				icon: Codicon.closeSmall,
 				// --- Start Positron ---
 				// Hide when AI features are disabled.
 				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
