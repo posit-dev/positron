@@ -123,11 +123,6 @@ function withConnectionStringDatabase(connectionString: string, database: string
 }
 
 /**
- * Describes what a connection targets, for error messages and logging. A connection string is
- * never shown, because it can embed a password; a socket-directory host (or no host) means a
- * local-socket connection; otherwise the host:port is reported.
- */
-/**
  * Builds the underlying pg client from the connection config, optionally scoped to a specific
  * database. A connection string is parsed and applied by the pg client itself (including SSL);
  * otherwise the client is built from the individual fields. TCP keepalive is enabled so an idle
@@ -161,6 +156,11 @@ export async function buildPgClient(config: PostgreSQLConnectionConfig, database
 	});
 }
 
+/**
+ * Describes what a connection targets, for error messages and logging. A connection string is
+ * never shown, because it can embed a password; a socket-directory host (or no host) means a
+ * local-socket connection; otherwise the host:port is reported.
+ */
 export function connectionTarget(config: PostgreSQLConnectionConfig): string {
 	if (config.kind === 'connectionString') {
 		return 'the server in the connection string';
