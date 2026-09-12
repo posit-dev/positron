@@ -83,8 +83,9 @@ export function mergeClaudeCodeConfig(existing: string | undefined): string {
  *
  * Codex does not expand variables in `url`, so the endpoint is written out; its
  * workspace ID and port are the ones Positron asks the supervisor to reuse, so
- * it survives restarts. The token is still referenced by variable rather than
- * written down, and a token from another workspace will not open this endpoint.
+ * it survives restarts. The token is not named here at all: the CLI can only
+ * point Codex at an environment variable, and Codex's own extension spawns it
+ * without one. {@link insertHeadersHelper} adds the way it does get the token.
  *
  * @param url The MCP endpoint URL.
  * @returns The arguments to pass to the Codex CLI.
@@ -94,8 +95,58 @@ export function codexMcpAddArgs(url: string): string[] {
 		'mcp', 'add',
 		MCP_SERVER_NAME,
 		'--url', url,
-		'--bearer-token-env-var', MCP_TOKEN_ENV_VAR,
 	];
+}
+
+/**
+ * The command Codex runs to get the workspace's `Authorization` header.
+ *
+ * Codex reads the command's output, which has to be a JSON object of headers --
+ * exactly what Positron writes into the file -- so printing the file is the
+ * whole job. The command runs through the platform's shell, which is why
+ * Windows gets `type` rather than `cat`.
+ *
+ * @param headersPath The file Positron wrote the header to.
+ * @returns The shell command line.
+ */
+export function headersHelperCommand(headersPath: string): string {
+	return os.platform() === 'win32'
+		? `type "${headersPath}"`
+		: `cat '${headersPath.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Points the entry `codex mcp add` has just written at the headers helper.
+ *
+ * The CLI has no flag for it, and refuses to keep a `-c` override, so the key
+ * is written in directly. That is safe to do by hand here and nowhere else: the
+ * CLI has just rewritten this one table from scratch, leaving the rest of the
+ * file alone, so the line after its header is the top of an entry we know the
+ * shape of.
+ *
+ * @param config The contents of Codex's `config.toml`.
+ * @param helper The command from {@link headersHelperCommand}.
+ * @returns The contents to write back.
+ */
+export function insertHeadersHelper(config: string, helper: string): string {
+	const lines = config.split('\n');
+	const header = `[mcp_servers.${MCP_SERVER_NAME}]`;
+	const index = lines.findIndex(line => line.trim() === header);
+	if (index < 0) {
+		throw new Error(`Could not find ${header} in the Codex configuration.`);
+	}
+	// A TOML basic string, so a Windows path's backslashes survive.
+	const value = JSON.stringify(helper);
+	return [
+		...lines.slice(0, index + 1),
+		`http_headers_helper = ${value}`,
+		...lines.slice(index + 1),
+	].join('\n');
+}
+
+/** Codex's one configuration file. */
+function codexConfigPath(): string {
+	return path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'config.toml');
 }
 
 /**
@@ -142,8 +193,13 @@ export async function addToCodex(connection: McpConnection | undefined): Promise
 	}
 
 	const { command, args } = agentCliCommand(executable, codexMcpAddArgs(connection.url));
+	const configPath = codexConfigPath();
 	try {
 		await execFileAsync(command, args);
+		const config = await fs.promises.readFile(configPath, 'utf8');
+		await fs.promises.writeFile(
+			configPath,
+			insertHeadersHelper(config, headersHelperCommand(connection.headersPath)));
 	} catch (err) {
 		await vscode.window.showErrorMessage(vscode.l10n.t(
 			"Could not configure Codex: {0}",

@@ -326,6 +326,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		this._api = new KallichoreApiInstance(_transport);
 		this._mcp = new McpFrontend(
+			_context.globalStorageUri,
 			_context.environmentVariableCollection,
 			message => this.log(message),
 			() => loadMcpState(_context.workspaceState),

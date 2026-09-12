@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { McpWorkspace, McpWorkspaceRegistration } from '../kcclient/api';
 import {
@@ -13,6 +16,7 @@ import {
 	McpFrontendState,
 	McpRegistrationApi,
 	McpTerminalEnvironment,
+	headersFilePath,
 	loadMcpState,
 	saveMcpState,
 } from '../McpFrontend';
@@ -102,6 +106,8 @@ interface Harness {
 	environment: FakeEnvironment;
 	/** Stands in for the extension host's own environment. */
 	processEnv: NodeJS.ProcessEnv;
+	/** Stands in for the extension's global storage. */
+	storageUri: vscode.Uri;
 	registry: FakeRegistry;
 	memento: FakeMemento;
 	setEnabled(enabled: boolean): void;
@@ -112,15 +118,19 @@ interface Harness {
 function createHarness(memento = new FakeMemento(), enabled = true): Harness {
 	const environment = new FakeEnvironment();
 	const processEnv: NodeJS.ProcessEnv = {};
+	const storageUri = vscode.Uri.file(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-frontend-')));
 	const registry = new FakeRegistry();
 	const harness: Harness = {
 		environment,
 		processEnv,
+		storageUri,
 		registry,
 		memento,
 		registrations: 0,
 		setEnabled: (value: boolean) => { enabled = value; },
 		frontend: new McpFrontend(
+			storageUri,
 			environment,
 			() => { },
 			() => loadMcpState(memento),
@@ -131,6 +141,12 @@ function createHarness(memento = new FakeMemento(), enabled = true): Harness {
 			processEnv),
 	};
 	return harness;
+}
+
+/** What the frontend has left in the file agents read the header from. */
+function headersFile(harness: Harness, workspaceId: string): string | undefined {
+	const target = headersFilePath(harness.storageUri, workspaceId);
+	return fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined;
 }
 
 /** What the harness has persisted for the workspace. */
@@ -157,6 +173,9 @@ suite('McpFrontend', () => {
 				// Agents an extension spawns, such as Codex in its own panel,
 				// inherit the extension host's environment and nothing else.
 				processEnv: harness.processEnv,
+				// Codex's own extension spawns it with neither, so it is
+				// pointed at a file instead.
+				headers: headersFile(harness, 'workspace-1'),
 			},
 			{
 				connection: {
@@ -164,6 +183,7 @@ suite('McpFrontend', () => {
 					port: 39000,
 					token: 'token-workspace-1',
 					url: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+					headersPath: headersFilePath(harness.storageUri, 'workspace-1'),
 				},
 				saved: { workspaceId: 'workspace-1', port: 39000 },
 				variables: {
@@ -175,6 +195,7 @@ suite('McpFrontend', () => {
 					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
 					[MCP_TOKEN_ENV_VAR]: 'token-workspace-1',
 				},
+				headers: '{"Authorization":"Bearer token-workspace-1"}',
 			});
 	});
 
@@ -264,6 +285,7 @@ suite('McpFrontend', () => {
 				deregistrations: harness.registry.deregistrations,
 				variables: harness.environment.variables.size,
 				processEnv: harness.processEnv,
+				headers: headersFile(harness, 'workspace-1'),
 				// The identity is kept so that re-enabling the feature hands
 				// agents back the endpoint URL they are configured with.
 				saved: savedState(harness),
@@ -273,6 +295,7 @@ suite('McpFrontend', () => {
 				deregistrations: ['workspace-1'],
 				variables: 0,
 				processEnv: {},
+				headers: undefined,
 				saved: { workspaceId: 'workspace-1', port: 39000 },
 			});
 	});

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { CLAUDE_MCP_ADD_ARGS, agentCliCommand, codexMcpAddArgs, mergeClaudeCodeConfig } from '../McpAgentConfig';
+import { CLAUDE_MCP_ADD_ARGS, agentCliCommand, codexMcpAddArgs, insertHeadersHelper, mergeClaudeCodeConfig } from '../McpAgentConfig';
 
 suite('mergeClaudeCodeConfig', () => {
 	test('creates a configuration that names no port and no token', () => {
@@ -43,15 +43,59 @@ suite('codexMcpAddArgs', () => {
 	test('names the endpoint but not the token, for the configuration Codex reads', () => {
 		// Codex has no per-project configuration and does not expand variables
 		// in `url`, so the endpoint goes to its CLI, which owns the one file it
-		// does read. A file in the workspace would be ignored.
+		// does read. A file in the workspace would be ignored. The token is not
+		// here because the CLI can only name an environment variable for it, and
+		// Codex fails the server outright when that variable is missing -- which
+		// it is for the Codex extension, whatever the terminal has.
 		assert.deepStrictEqual(
 			codexMcpAddArgs('http://127.0.0.1:39000/mcp/w/my-project-2458p3'),
 			[
 				'mcp', 'add',
 				'positron',
 				'--url', 'http://127.0.0.1:39000/mcp/w/my-project-2458p3',
-				'--bearer-token-env-var', 'POSITRON_MCP_TOKEN',
 			]);
+	});
+});
+
+suite('insertHeadersHelper', () => {
+	test('adds the helper to the entry the CLI wrote, leaving the rest alone', () => {
+		// The shape the CLI leaves behind: it rewrites its own table and moves
+		// nothing else, including the settings a user put around it.
+		const config = [
+			'model = "gpt-5"',
+			'',
+			'[mcp_servers.other]',
+			'command = "other-server"',
+			'',
+			'[mcp_servers.positron]',
+			'url = "http://127.0.0.1:39000/mcp/w/my-project-2458p3"',
+			'',
+		].join('\n');
+
+		assert.strictEqual(
+			insertHeadersHelper(config, `cat '/storage/mcp/my-project-2458p3.json'`),
+			[
+				'model = "gpt-5"',
+				'',
+				'[mcp_servers.other]',
+				'command = "other-server"',
+				'',
+				'[mcp_servers.positron]',
+				`http_headers_helper = "cat '/storage/mcp/my-project-2458p3.json'"`,
+				'url = "http://127.0.0.1:39000/mcp/w/my-project-2458p3"',
+				'',
+			].join('\n'));
+	});
+
+	test('quotes a Windows path, whose separators TOML would otherwise escape', () => {
+		const config = '[mcp_servers.positron]\nurl = "http://127.0.0.1:39000/mcp/w/w-1"\n';
+
+		assert.ok(insertHeadersHelper(config, 'type "C:\\storage\\mcp\\w-1.json"')
+			.includes('http_headers_helper = "type \\"C:\\\\storage\\\\mcp\\\\w-1.json\\""'));
+	});
+
+	test('refuses a file the CLI left no entry in rather than guessing', () => {
+		assert.throws(() => insertHeadersHelper('model = "gpt-5"\n', 'cat /storage/w-1.json'));
 	});
 });
 
