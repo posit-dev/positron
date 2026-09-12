@@ -17,7 +17,8 @@
 #
 # Usage:
 #   launch.sh [--agents] [--source-user-data-dir <path>] [--repo <vscode-repo-root>]
-#             [--clone-extensions] [--full] [-- <extra code.sh args>]
+#             [--clone-extensions] [--full] [--no-default-app-args]
+#             [-- <extra code.sh args>]
 #
 # Flags:
 #   --clone-extensions  Copy the source extensions/ into the new profile (~10s).
@@ -123,6 +124,12 @@ REPO=""
 EXTRA_ARGS=()
 CLONE_EXTENSIONS=0
 FULL=0
+DEFAULT_APP_ARGS=1
+
+# Supplied by the launcher, not the caller: without --disable-workspace-trust a
+# fresh profile starts in restricted mode with extensions disabled, which reads
+# as missing functionality rather than as a launch problem.
+AUTOMATION_ARGS=(--use-mock-keychain --disable-workspace-trust --skip-welcome)
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -131,6 +138,7 @@ while [[ $# -gt 0 ]]; do
 		--repo) REPO="$2"; shift 2 ;;
 		--clone-extensions|--copy-extensions) CLONE_EXTENSIONS=1; shift ;;
 		--full) FULL=1; shift ;;
+		--no-default-app-args) DEFAULT_APP_ARGS=0; shift ;;
 		--) shift; EXTRA_ARGS=("$@"); break ;;
 		*) echo "Unknown arg: $1" >&2; exit 2 ;;
 	esac
@@ -287,6 +295,20 @@ ARGS=(
 )
 if [[ "$AGENTS" == "1" ]]; then
 	ARGS=("--agents" "${ARGS[@]}")
+fi
+if [[ "$DEFAULT_APP_ARGS" == "1" ]]; then
+	for automation_arg in "${AUTOMATION_ARGS[@]}"; do
+		supplied=0
+		for extra_arg in ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; do
+			if [[ "$extra_arg" == "$automation_arg" || "$extra_arg" == "$automation_arg="* ]]; then
+				supplied=1
+				break
+			fi
+		done
+		if (( supplied == 0 )); then
+			ARGS+=("$automation_arg")
+		fi
+	done
 fi
 if (( ${#EXTRA_ARGS[@]} )); then
 	ARGS+=("${EXTRA_ARGS[@]}")
