@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { claudeMcpAddCommand, mergeClaudeCodeConfig, mergeCodexConfig } from '../McpAgentConfig';
+import { CLAUDE_MCP_ADD_ARGS, agentCliCommand, codexMcpAddArgs, mergeClaudeCodeConfig } from '../McpAgentConfig';
 
 suite('mergeClaudeCodeConfig', () => {
 	test('creates a configuration that names no port and no token', () => {
@@ -39,56 +39,26 @@ suite('mergeClaudeCodeConfig', () => {
 	});
 });
 
-suite('mergeCodexConfig', () => {
-	const url = 'http://127.0.0.1:39000/mcp';
-
-	test('creates a configuration naming the port but not the token', () => {
-		assert.strictEqual(
-			mergeCodexConfig(undefined, url),
-			'[mcp_servers.positron]\n' +
-			'url = "http://127.0.0.1:39000/mcp"\n' +
-			'bearer_token_env_var = "POSITRON_MCP_TOKEN"\n');
-	});
-
-	test('appends to a file that configures other things', () => {
-		const existing = 'model = "o3"\n\n[mcp_servers.other]\nurl = "http://localhost:1/mcp"\n';
-
-		assert.strictEqual(
-			mergeCodexConfig(existing, url),
-			'model = "o3"\n' +
-			'\n' +
-			'[mcp_servers.other]\n' +
-			'url = "http://localhost:1/mcp"\n' +
-			'\n' +
-			'[mcp_servers.positron]\n' +
-			'url = "http://127.0.0.1:39000/mcp"\n' +
-			'bearer_token_env_var = "POSITRON_MCP_TOKEN"\n');
-	});
-
-	test('rewrites our own table in place when the port changes', () => {
-		const existing =
-			'[mcp_servers.positron]\n' +
-			'url = "http://127.0.0.1:12345/mcp"\n' +
-			'bearer_token_env_var = "POSITRON_MCP_TOKEN"\n' +
-			'\n' +
-			'[mcp_servers.other]\n' +
-			'url = "http://localhost:1/mcp"\n';
-
-		assert.strictEqual(
-			mergeCodexConfig(existing, url),
-			'[mcp_servers.positron]\n' +
-			'url = "http://127.0.0.1:39000/mcp"\n' +
-			'bearer_token_env_var = "POSITRON_MCP_TOKEN"\n' +
-			'\n' +
-			'[mcp_servers.other]\n' +
-			'url = "http://localhost:1/mcp"\n');
+suite('codexMcpAddArgs', () => {
+	test('names the endpoint but not the token, for the configuration Codex reads', () => {
+		// Codex has no per-project configuration and does not expand variables
+		// in `url`, so the endpoint goes to its CLI, which owns the one file it
+		// does read. A file in the workspace would be ignored.
+		assert.deepStrictEqual(
+			codexMcpAddArgs('http://127.0.0.1:39000/mcp/w/my-project-2458p3'),
+			[
+				'mcp', 'add',
+				'positron',
+				'--url', 'http://127.0.0.1:39000/mcp/w/my-project-2458p3',
+				'--bearer-token-env-var', 'POSITRON_MCP_TOKEN',
+			]);
 	});
 });
 
-suite('claudeMcpAddCommand', () => {
+suite('agentCliCommand', () => {
 	test('runs the CLI directly, naming no port and no token', () => {
 		assert.deepStrictEqual(
-			claudeMcpAddCommand('/usr/local/bin/claude'),
+			agentCliCommand('/usr/local/bin/claude', CLAUDE_MCP_ADD_ARGS),
 			{
 				command: '/usr/local/bin/claude',
 				args: [
@@ -103,7 +73,7 @@ suite('claudeMcpAddCommand', () => {
 	});
 
 	test('runs a Windows batch launcher under cmd, which cannot be spawned directly', () => {
-		const { command, args } = claudeMcpAddCommand('C:\\bin\\claude.CMD');
+		const { command, args } = agentCliCommand('C:\\bin\\claude.CMD', CLAUDE_MCP_ADD_ARGS);
 
 		assert.deepStrictEqual(
 			{ command, first: args.slice(0, 2) },

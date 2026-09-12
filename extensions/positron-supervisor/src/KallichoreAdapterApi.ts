@@ -20,7 +20,7 @@ import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInsta
 import { KallichoreInstances } from './KallichoreInstances.js';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
-import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, McpFrontendState, mcpFeatureEnabled } from './McpFrontend.js';
+import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
 import { ADD_TO_CLAUDE_CODE_COMMAND, ADD_TO_CODEX_COMMAND, addToClaudeCode, addToCodex, autoConfigureClaudeCode, promptToEnable } from './McpAgentConfig.js';
 
 /**
@@ -299,8 +299,8 @@ export class KCApi implements PositronSupervisorApi {
 
 	/**
 	 * The state of the server we are connected to, once it is online. Held so
-	 * that additions made after startup (such as the MCP workspace identity) can
-	 * be folded back into the saved state.
+	 * that the transport details and bearer token are on hand for connections
+	 * opened after startup, such as the MCP frontend channel.
 	 */
 	private _serverState: KallichoreServerState | undefined;
 
@@ -328,8 +328,8 @@ export class KCApi implements PositronSupervisorApi {
 		this._mcp = new McpFrontend(
 			_context.environmentVariableCollection,
 			message => this.log(message),
-			() => this.loadMcpState(),
-			state => this.saveMcpState(state),
+			() => loadMcpState(_context.workspaceState),
+			state => saveMcpState(_context.workspaceState, state),
 			() => this._sessions.map(session => session.metadata.sessionId),
 			mcpFeatureEnabled,
 			() => autoConfigureClaudeCode(_context, message => this.log(message)));
@@ -982,11 +982,6 @@ export class KCApi implements PositronSupervisorApi {
 			// Record the server's identity so we can later detect when a saved
 			// connection points at a different server instance (stale token).
 			server_id: status.server_id,
-			// Ask the new server for the port the old one used, so an agent
-			// configured with a concrete URL keeps reaching us. The workspace
-			// ID is deliberately not carried over: the registry that backed it
-			// died with the previous server process.
-			mcp_port: serverState?.mcp_port
 		};
 
 		// Load the finalized state into the API instance so that subsequent
@@ -1128,34 +1123,6 @@ export class KCApi implements PositronSupervisorApi {
 			uri,
 			headers: { Authorization: `Bearer ${state?.bearer_token}` },
 		};
-	}
-
-	/**
-	 * The MCP state saved alongside the server state, so a re-created
-	 * registration can recover its token and port.
-	 */
-	private loadMcpState(): McpFrontendState {
-		return {
-			workspaceId: this._serverState?.mcp_workspace_id,
-			port: this._serverState?.mcp_port,
-		};
-	}
-
-	/**
-	 * Folds the MCP state into the saved server state, so it lands in
-	 * the same storage tier as the API bearer token it sits beside.
-	 *
-	 * @param state The state to save.
-	 */
-	private async saveMcpState(state: McpFrontendState): Promise<void> {
-		if (!this._serverState) {
-			return;
-		}
-		this._serverState.mcp_workspace_id = state.workspaceId;
-		this._serverState.mcp_port = state.port;
-		if (this._reconnect) {
-			await this.saveServerState(this._serverState);
-		}
 	}
 
 	/***

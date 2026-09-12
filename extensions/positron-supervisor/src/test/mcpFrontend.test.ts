@@ -13,6 +13,8 @@ import {
 	McpFrontendState,
 	McpRegistrationApi,
 	McpTerminalEnvironment,
+	loadMcpState,
+	saveMcpState,
 } from '../McpFrontend';
 
 /** Records what the frontend publishes into terminals. */
@@ -30,19 +32,37 @@ class FakeEnvironment implements McpTerminalEnvironment {
 	}
 }
 
+/** Stands in for the workspace state the MCP identity is persisted to. */
+class FakeMemento implements vscode.Memento {
+	private readonly _values = new Map<string, unknown>();
+
+	keys(): readonly string[] {
+		return [...this._values.keys()];
+	}
+
+	get<T>(key: string, defaultValue?: T): T | undefined {
+		return (this._values.get(key) as T | undefined) ?? defaultValue;
+	}
+
+	async update(key: string, value: unknown): Promise<void> {
+		this._values.set(key, value);
+	}
+}
+
 /**
  * Stand-in for the supervisor's workspace registry, issuing one token per
  * workspace ID the way `kcserver` does: re-registering a known ID hands back
- * the token it was first given. The real server builds the ID out of the
- * display name; a counter is enough to keep these tests readable.
+ * the token it was first given, and an ID it has never seen is honored with a
+ * token of its own. The real server mints an ID from the display name plus a
+ * random suffix, so the counter is seedable: a registry standing in for a new
+ * server process cannot mint the ID its predecessor issued.
  */
 class FakeRegistry implements McpRegistrationApi {
 	readonly registrations: McpWorkspaceRegistration[] = [];
 	readonly deregistrations: string[] = [];
 	private readonly _tokens = new Map<string, string>();
-	private _nextId = 1;
 
-	constructor(private readonly _port = 39000) { }
+	constructor(private readonly _port = 39000, private _nextId = 1) { }
 
 	async registerMcpWorkspace(
 		registration: McpWorkspaceRegistration
@@ -74,38 +94,43 @@ class FakeRegistry implements McpRegistrationApi {
 
 /**
  * The pieces a test needs to drive a frontend: the frontend itself, the
- * terminal environment it publishes to, the registry it talks to, and the state
- * it persists (which stands in for the saved server state).
+ * terminal environment it publishes to, the registry it talks to, and the
+ * workspace state it persists its identity to.
  */
 interface Harness {
 	frontend: McpFrontend;
 	environment: FakeEnvironment;
 	registry: FakeRegistry;
-	saved: McpFrontendState;
+	memento: FakeMemento;
 	setEnabled(enabled: boolean): void;
 	/** How many times the post-registration hook has run. */
 	registrations: number;
 }
 
-function createHarness(saved: McpFrontendState = {}, enabled = true): Harness {
+function createHarness(memento = new FakeMemento(), enabled = true): Harness {
 	const environment = new FakeEnvironment();
 	const registry = new FakeRegistry();
 	const harness: Harness = {
 		environment,
 		registry,
-		saved,
+		memento,
 		registrations: 0,
 		setEnabled: (value: boolean) => { enabled = value; },
 		frontend: new McpFrontend(
 			environment,
 			() => { },
-			() => harness.saved,
-			async state => { harness.saved = state; },
+			() => loadMcpState(memento),
+			state => saveMcpState(memento, state),
 			() => [],
 			() => enabled,
 			() => { harness.registrations++; }),
 	};
 	return harness;
+}
+
+/** What the harness has persisted for the workspace. */
+function savedState(harness: Harness): McpFrontendState {
+	return loadMcpState(harness.memento);
 }
 
 function lastRegistration(harness: Harness): McpWorkspaceRegistration {
@@ -121,7 +146,7 @@ suite('McpFrontend', () => {
 		assert.deepStrictEqual(
 			{
 				connection: harness.frontend.connection,
-				saved: harness.saved,
+				saved: savedState(harness),
 				variables: Object.fromEntries(harness.environment.variables),
 				hasDescription: harness.environment.description !== undefined,
 			},
@@ -155,7 +180,7 @@ suite('McpFrontend', () => {
 	});
 
 	test('does not register while the feature is off', async () => {
-		const harness = createHarness({}, false);
+		const harness = createHarness(new FakeMemento(), false);
 
 		await harness.frontend.attach(harness.registry);
 
@@ -184,6 +209,36 @@ suite('McpFrontend', () => {
 			{ ids: [undefined, 'workspace-1'], token: 'token-workspace-1' });
 	});
 
+	test('keeps the endpoint URL when a new supervisor takes over', async () => {
+		const harness = createHarness();
+		await harness.frontend.attach(harness.registry);
+		const before = harness.frontend.connection?.url;
+
+		// The supervisor process exits and Positron starts another one, with an
+		// empty registry that mints IDs the old one could not have issued. The
+		// saved ID has to survive it: the endpoint URL names the workspace, so
+		// an agent holding the old URL -- Codex writes it into its
+		// configuration, and a terminal that outlived the supervisor still
+		// exports it -- is refused by a server that no longer has that
+		// workspace.
+		const successor = new FakeRegistry(39000, 2);
+		await harness.frontend.attach(successor);
+
+		assert.deepStrictEqual(
+			{
+				before,
+				after: harness.frontend.connection?.url,
+				published: harness.environment.variables.get(MCP_URL_ENV_VAR),
+				requested: successor.registrations[0].workspace_id,
+			},
+			{
+				before: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+				after: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+				published: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+				requested: 'workspace-1',
+			});
+	});
+
 	test('turning the feature off deregisters and clears the terminal environment', async () => {
 		const harness = createHarness();
 		await harness.frontend.attach(harness.registry);
@@ -196,15 +251,15 @@ suite('McpFrontend', () => {
 				connection: harness.frontend.connection,
 				deregistrations: harness.registry.deregistrations,
 				variables: harness.environment.variables.size,
-				// The port is kept so re-enabling reuses it; the ID is not,
-				// since deregistration invalidated it along with its token.
-				saved: harness.saved,
+				// The identity is kept so that re-enabling the feature hands
+				// agents back the endpoint URL they are configured with.
+				saved: savedState(harness),
 			},
 			{
 				connection: undefined,
 				deregistrations: ['workspace-1'],
 				variables: 0,
-				saved: { port: 39000 },
+				saved: { workspaceId: 'workspace-1', port: 39000 },
 			});
 	});
 
@@ -243,7 +298,7 @@ suite('McpFrontend', () => {
 	});
 
 	test('runs the post-registration hook only once the endpoint is live', async () => {
-		const disabled = createHarness({}, false);
+		const disabled = createHarness(new FakeMemento(), false);
 		await disabled.frontend.attach(disabled.registry);
 
 		const failed = createHarness();

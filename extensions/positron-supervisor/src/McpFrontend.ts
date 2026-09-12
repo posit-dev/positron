@@ -31,21 +31,47 @@ export const MCP_TOKEN_ENV_VAR = 'POSITRON_MCP_TOKEN';
 /** Command that puts the MCP endpoint and token on the clipboard. */
 export const COPY_MCP_DETAILS_COMMAND = 'positron.mcp.copyConnectionDetails';
 
+/** Where a workspace's MCP identity is kept. */
+const MCP_STATE_KEY = 'positron-supervisor.mcp.workspace';
+
 /**
  * What is remembered between registrations, so that a re-registered workspace
- * keeps the token that agents in already-open terminals are using, and an
- * agent's configured URL keeps pointing at the right port.
+ * keeps the endpoint URL agents are configured with.
  */
 export interface McpFrontendState {
 	/**
-	 * The workspace ID the supervisor issued. Only meaningful while we are
-	 * talking to the same server process that issued it, since the registry
-	 * (and therefore the token behind the ID) lives in that process.
+	 * The workspace ID the supervisor issued. Re-registering with it recovers
+	 * the same token from the server that issued it, and gives a new server the
+	 * same ID back so the endpoint URL does not move.
 	 */
 	workspaceId?: string;
 
 	/** The port the listener was last bound to. */
 	port?: number;
+}
+
+/**
+ * Read the MCP identity saved for this workspace.
+ *
+ * It lives in workspace state rather than beside the supervisor's own state,
+ * because the endpoint URL agents are configured with is built from the
+ * workspace ID and the port. Both have to outlive the supervisor process that
+ * issued them, or every restart hands agents a URL that no longer resolves.
+ *
+ * @param memento The workspace state.
+ */
+export function loadMcpState(memento: vscode.Memento): McpFrontendState {
+	return memento.get<McpFrontendState>(MCP_STATE_KEY) ?? {};
+}
+
+/**
+ * Persist the MCP identity for this workspace.
+ *
+ * @param memento The workspace state.
+ * @param state The identity to save.
+ */
+export function saveMcpState(memento: vscode.Memento, state: McpFrontendState): Thenable<void> {
+	return memento.update(MCP_STATE_KEY, state);
 }
 
 /**
@@ -122,7 +148,7 @@ export class McpFrontend implements vscode.Disposable {
 	 * @param _environment The terminal environment collection to publish into.
 	 * @param _log Writes a line to the Kernel Supervisor output channel.
 	 * @param _loadState Reads the state left by a previous registration.
-	 * @param _saveState Persists the state, or clears it when undefined.
+	 * @param _saveState Persists the state for the next registration.
 	 * @param _sessionIds The sessions this window holds. With the sessions it
 	 *  created, these are the only ones agents attached to the workspace may
 	 *  reach.
@@ -136,7 +162,7 @@ export class McpFrontend implements vscode.Disposable {
 		private readonly _environment: McpTerminalEnvironment,
 		private readonly _log: (message: string) => void,
 		private readonly _loadState: () => McpFrontendState,
-		private readonly _saveState: (state: McpFrontendState) => Promise<void>,
+		private readonly _saveState: (state: McpFrontendState) => Thenable<void>,
 		private readonly _sessionIds: () => string[],
 		private readonly _enabled: () => boolean = mcpFeatureEnabled,
 		private readonly _onRegistered: () => void = () => { },
@@ -311,9 +337,9 @@ export class McpFrontend implements vscode.Disposable {
 		this._connection = undefined;
 		this.closeChannel();
 		this._environment.clear();
-		// Keep the port so re-enabling the feature reuses it, but forget the
-		// workspace ID: deregistration invalidates it along with its token.
-		await this._saveState({ port: connection?.port ?? this._loadState().port });
+		// The saved identity is left alone: deregistration invalidates the token
+		// behind the workspace ID, but turning the feature back on should hand
+		// agents the URL they were already configured with.
 		if (!connection) {
 			return;
 		}

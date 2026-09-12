@@ -43,7 +43,7 @@ const ENABLE_PROMPT_SHOWN_KEY = 'positron-supervisor.mcp.enablePromptShown';
 const AUTO_CONFIGURED_KEY = 'positron-supervisor.mcp.claudeCodeConfigured';
 
 /** Adds Positron to the configuration Claude Code keeps for a directory. */
-const CLAUDE_MCP_ADD_ARGS = [
+export const CLAUDE_MCP_ADD_ARGS = [
 	'mcp', 'add',
 	'--transport', 'http',
 	'--scope', 'local',
@@ -78,43 +78,24 @@ export function mergeClaudeCodeConfig(existing: string | undefined): string {
 }
 
 /**
- * Adds Positron to a Codex configuration, preserving the rest of the file.
+ * The arguments that add Positron to Codex's configuration, replacing any
+ * entry already under the name.
  *
- * Codex does not expand variables in `url`, so the endpoint is written out. It
- * names this workspace, and its port is the one Positron asks the supervisor to
- * reuse, so it survives restarts; running the command again after a change
- * rewrites it. The token is still referenced by variable rather than written
- * down, and a token from another workspace will not open this endpoint.
+ * Codex does not expand variables in `url`, so the endpoint is written out; its
+ * workspace ID and port are the ones Positron asks the supervisor to reuse, so
+ * it survives restarts. The token is still referenced by variable rather than
+ * written down, and a token from another workspace will not open this endpoint.
  *
- * @param existing The current contents of `config.toml`, if the file exists.
  * @param url The MCP endpoint URL.
- * @returns The contents to write.
+ * @returns The arguments to pass to the Codex CLI.
  */
-export function mergeCodexConfig(existing: string | undefined, url: string): string {
-	const header = `[mcp_servers.${MCP_SERVER_NAME}]`;
-	const block = [
-		header,
-		`url = "${url}"`,
-		`bearer_token_env_var = "${MCP_TOKEN_ENV_VAR}"`,
+export function codexMcpAddArgs(url: string): string[] {
+	return [
+		'mcp', 'add',
+		MCP_SERVER_NAME,
+		'--url', url,
+		'--bearer-token-env-var', MCP_TOKEN_ENV_VAR,
 	];
-
-	if (!existing?.trim()) {
-		return `${block.join('\n')}\n`;
-	}
-
-	const lines = existing.split('\n');
-	const start = lines.findIndex(line => line.trim() === header);
-	if (start === -1) {
-		return `${existing.replace(/\n*$/, '')}\n\n${block.join('\n')}\n`;
-	}
-
-	// Replace the existing table, which runs until the next table header.
-	let end = start + 1;
-	while (end < lines.length && !lines[end].trimStart().startsWith('[')) {
-		end++;
-	}
-	lines.splice(start, end - start, ...block, '');
-	return lines.join('\n');
 }
 
 /**
@@ -135,8 +116,14 @@ export async function addToClaudeCode(connection: McpConnection | undefined): Pr
 }
 
 /**
- * Writes the Codex configuration for the current registration, and offers the
- * equivalent CLI command for Codex's global configuration.
+ * Adds Positron to Codex's configuration.
+ *
+ * Codex reads one configuration, `$CODEX_HOME/config.toml`, and has no
+ * per-project scope, so there is nothing to write into the workspace: a file
+ * there would be ignored. That is also why this is a command the user runs
+ * rather than something done for them, as it is for Claude Code -- the entry
+ * follows Codex into projects that have nothing to do with Positron, where the
+ * endpoint refuses it rather than answering for the wrong workspace.
  *
  * @param connection The live MCP registration, or undefined when the feature
  *  is off.
@@ -146,30 +133,45 @@ export async function addToCodex(connection: McpConnection | undefined): Promise
 		await warnNotRunning();
 		return;
 	}
-	await writeAgentConfig(
-		connection,
-		['.codex', 'config.toml'],
-		'Codex',
-		existing => mergeCodexConfig(existing, connection.url),
-		vscode.l10n.t("Copy Global Command"),
-		() => vscode.env.clipboard.writeText(
-			`codex mcp add ${MCP_SERVER_NAME} --url ${connection.url} ` +
-			`--bearer-token-env-var ${MCP_TOKEN_ENV_VAR}`));
+
+	const executable = resolveOnPath('codex');
+	if (!executable) {
+		await vscode.window.showErrorMessage(vscode.l10n.t(
+			"Could not find the Codex CLI on the path. Install Codex, then run this command again."));
+		return;
+	}
+
+	const { command, args } = agentCliCommand(executable, codexMcpAddArgs(connection.url));
+	try {
+		await execFileAsync(command, args);
+	} catch (err) {
+		await vscode.window.showErrorMessage(vscode.l10n.t(
+			"Could not configure Codex: {0}",
+			summarizeError(err)));
+		return;
+	}
+
+	await vscode.window.showInformationMessage(vscode.l10n.t(
+		"Added Positron to Codex. Open a new terminal so Codex picks up the connection."));
 }
 
 /**
- * How to invoke the Claude Code CLI without going through a shell. Windows
- * cannot execute a batch launcher directly, so those run under `cmd.exe`, which
- * leaves `${...}` alone: it expands `%VAR%`.
+ * How to invoke an agent CLI without going through a shell. Windows cannot
+ * execute a batch launcher directly, so those run under `cmd.exe`, which leaves
+ * `${...}` alone: it expands `%VAR%`.
  *
  * @param executable The full path to the CLI.
+ * @param args The arguments to pass to it.
  * @returns The command and arguments to spawn.
  */
-export function claudeMcpAddCommand(executable: string): { command: string; args: string[] } {
+export function agentCliCommand(
+	executable: string,
+	args: string[],
+): { command: string; args: string[] } {
 	if (/\.(cmd|bat)$/i.test(executable)) {
-		return { command: 'cmd.exe', args: ['/c', executable, ...CLAUDE_MCP_ADD_ARGS] };
+		return { command: 'cmd.exe', args: ['/c', executable, ...args] };
 	}
-	return { command: executable, args: CLAUDE_MCP_ADD_ARGS };
+	return { command: executable, args };
 }
 
 /**
@@ -212,7 +214,7 @@ export async function autoConfigureClaudeCode(
 		return;
 	}
 
-	const { command, args } = claudeMcpAddCommand(executable);
+	const { command, args } = agentCliCommand(executable, CLAUDE_MCP_ADD_ARGS);
 	try {
 		await execFileAsync(command, args, { cwd: folder.uri.fsPath });
 		log(`Configured Claude Code to use Positron's MCP server in ${folder.uri.fsPath}`);
@@ -298,16 +300,12 @@ function resolveOnPath(executable: string): string | undefined {
  * @param relativePath The file's path segments, relative to the workspace root.
  * @param agentName The agent whose configuration this is, for messages.
  * @param merge Produces the new contents from the old.
- * @param extraAction An optional additional button label.
- * @param onExtraAction Runs when that button is pressed.
  */
 async function writeAgentConfig(
 	connection: McpConnection | undefined,
 	relativePath: string[],
 	agentName: string,
 	merge: (existing: string | undefined) => string,
-	extraAction?: string,
-	onExtraAction?: () => Thenable<void>,
 ): Promise<void> {
 	if (!connection) {
 		await warnNotRunning();
@@ -345,18 +343,15 @@ async function writeAgentConfig(
 	await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(contents));
 
 	const open = vscode.l10n.t("Open File");
-	const actions = extraAction ? [open, extraAction] : [open];
 	const choice = await vscode.window.showInformationMessage(
 		vscode.l10n.t(
 			"Added Positron to {0}. Open a new terminal so {1} picks up the connection.",
 			vscode.workspace.asRelativePath(target),
 			agentName),
-		...actions);
+		open);
 
 	if (choice === open) {
 		await vscode.window.showTextDocument(target);
-	} else if (choice === extraAction) {
-		await onExtraAction?.();
 	}
 }
 
