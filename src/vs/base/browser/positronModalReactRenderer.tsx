@@ -175,18 +175,17 @@ export class PositronModalReactRenderer extends Disposable {
 		// Call the base class's constructor.
 		super();
 
-		// If the container is not provided, use the active container.
 		if (_options.container === undefined) {
-			_options.container = PositronReactServices.services.workbenchLayoutService.activeContainer;
+			_options.container = PositronModalReactRenderer.resolveContainer();
 		}
 
-		// Get the active element.
+		// Restore focus in the modal's window; the active window may be hidden.
 		let activeElement: Element | null = null;
 		if (_options.parent !== undefined) {
 			activeElement = DOM.getWindow(_options.parent).document.activeElement;
 		}
 		if (activeElement === null) {
-			activeElement = DOM.getActiveWindow().document.activeElement;
+			activeElement = DOM.getDocument(_options.container).activeElement;
 		}
 
 		// If the active element is an HTML element, set it as the last focused element.
@@ -417,6 +416,22 @@ export class PositronModalReactRenderer extends Disposable {
 	//#region Private Methods
 
 	/**
+	 * The active container can belong to a hidden window when focus is absent or stale.
+	 */
+	private static resolveContainer(): HTMLElement {
+		const layoutService = PositronReactServices.services.workbenchLayoutService;
+		const activeContainer = layoutService.activeContainer;
+		if (DOM.getDocument(activeContainer).visibilityState !== 'hidden') {
+			return activeContainer;
+		}
+
+		const visibleWindows = Array.from(DOM.getWindows(), ({ window }) => window)
+			.filter(window => window.document.visibilityState !== 'hidden');
+		const targetWindow = visibleWindows.find(window => window.document.hasFocus()) ?? visibleWindows[0];
+		return targetWindow !== undefined ? layoutService.getContainer(targetWindow) : activeContainer;
+	}
+
+	/**
 	 * Binds event listeners.
 	 */
 	private static bindEventListeners() {
@@ -443,11 +458,10 @@ export class PositronModalReactRenderer extends Disposable {
 			// Convert the KeyboardEvent into a StandardKeyboardEvent.
 			const event = new StandardKeyboardEvent(e);
 
-			// Soft dispatch the keyboard event so we can determine whether it is bound to a
-			// command.
+			// Resolve commands in the modal's window, which may differ from the active window.
 			const resolutionResult = PositronReactServices.services.keybindingService.softDispatch(
 				event,
-				PositronReactServices.services.workbenchLayoutService.activeContainer
+				renderer._options.container!
 			);
 
 			// If a keybinding to a command was found, stop it from being processed if it is not one
