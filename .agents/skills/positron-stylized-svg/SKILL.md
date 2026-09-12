@@ -1,5 +1,6 @@
 ---
 name: positron-stylized-svg
+disable-model-invocation: true
 description: Create or revise minimal, stylized SVG illustrations that accurately represent the Positron UI for documentation, tutorials, walkthroughs, onboarding, and feature previews. Use when an SVG should resemble Positron or match its walkthrough illustration style; do not use for diagrams that are not representations of the product UI.
 ---
 
