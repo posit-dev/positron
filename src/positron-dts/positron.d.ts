@@ -701,6 +701,15 @@ declare module 'positron' {
 		/** The runtime's source or origin; e.g. PyEnv, System, Homebrew, Conda, etc. */
 		runtimeSource: string;
 
+		/**
+		 * How useful this runtime's source is to the user, lowest first; used to
+		 * order the source headings in the interpreter picker. Sources left
+		 * unranked are listed after ranked ones.
+		 * The scale is shared by every extension that contributes runtimes for a
+		 * language, so ranking one source and not another mixes them up.
+		 */
+		runtimeSourceOrder?: number;
+
 		/** The free-form, user-friendly name of the language this runtime can execute; e.g. "R" */
 		languageName: string;
 
