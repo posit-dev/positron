@@ -3,235 +3,229 @@
 
 'use strict';
 
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
-import { anything, deepEqual, instance, mock, reset, verify, when } from 'ts-mockito';
-import { ConfigurationTarget, Disposable, Uri } from 'vscode';
+import { anything, instance, mock, verify, when } from 'ts-mockito';
+import { Disposable } from 'vscode';
 import { ApplicationShell } from '../../../client/common/application/applicationShell';
 import { IApplicationShell } from '../../../client/common/application/types';
 import { PersistentStateFactory } from '../../../client/common/persistentState';
 import { IPersistentState, IPersistentStateFactory } from '../../../client/common/types';
-import { Common } from '../../../client/common/utils/localize';
-import { PythonPathUpdaterService } from '../../../client/interpreter/configuration/pythonPathUpdaterService';
-import { IPythonPathUpdaterServiceManager } from '../../../client/interpreter/configuration/types';
-import { IComponentAdapter, IInterpreterHelper, IInterpreterService } from '../../../client/interpreter/contracts';
-import { InterpreterHelper } from '../../../client/interpreter/helpers';
+import { Common, Interpreters } from '../../../client/common/utils/localize';
+import { IComponentAdapter } from '../../../client/interpreter/contracts';
 import { VirtualEnvironmentPrompt } from '../../../client/interpreter/virtualEnvs/virtualEnvPrompt';
+import { IPythonRuntimeManager } from '../../../client/positron/manager';
 import { PythonEnvironment } from '../../../client/pythonEnvironments/info';
 import * as createEnvApi from '../../../client/pythonEnvironments/creation/createEnvApi';
+import * as sessionModule from '../../../client/positron/session';
+import * as telemetry from '../../../client/telemetry';
+import { EventName } from '../../../client/telemetry/constants';
 
 suite('Virtual Environment Prompt', () => {
     class VirtualEnvironmentPromptTest extends VirtualEnvironmentPrompt {
-        public async handleNewEnvironment(resource: Uri): Promise<void> {
-            await super.handleNewEnvironment(resource);
+        public async handleNewEnvironment(envPath: string): Promise<void> {
+            await super.handleNewEnvironment(envPath);
         }
 
-        public async notifyUser(interpreter: PythonEnvironment, resource: Uri): Promise<void> {
-            await super.notifyUser(interpreter, resource);
+        public async notifyUser(interpreter: PythonEnvironment): Promise<void> {
+            await super.notifyUser(interpreter);
         }
     }
+
+    const envPath = 'path/to/interpreter';
+    const interpreter = { path: envPath, detailedDisplayName: 'Python 3.11' } as unknown as PythonEnvironment;
+    const runtimeMetadata = {
+        runtimeId: 'runtime-id',
+        runtimeName: 'Python 3.11',
+    } as unknown as positron.LanguageRuntimeMetadata;
+
     let persistentStateFactory: IPersistentStateFactory;
-    let helper: IInterpreterHelper;
-    let pythonPathUpdaterService: IPythonPathUpdaterServiceManager;
     let disposable: Disposable;
     let appShell: IApplicationShell;
     let componentAdapter: IComponentAdapter;
-    let interpreterService: IInterpreterService;
+    let pythonRuntimeManager: IPythonRuntimeManager;
     let environmentPrompt: VirtualEnvironmentPromptTest;
     let isCreatingEnvironmentStub: sinon.SinonStub;
+    let getActivePythonSessionsStub: sinon.SinonStub;
+    let sendTelemetryEventStub: sinon.SinonStub;
+    let startLanguageRuntimeStub: sinon.SinonStub;
+    let notificationPromptEnabled: TypeMoq.IMock<IPersistentState<boolean>>;
+    let originalStartLanguageRuntime: unknown;
+    const prompts = [Interpreters.startSession, Common.notNow, Common.doNotShowAgain];
+
     setup(() => {
         persistentStateFactory = mock(PersistentStateFactory);
-        helper = mock(InterpreterHelper);
-        pythonPathUpdaterService = mock(PythonPathUpdaterService);
         componentAdapter = mock<IComponentAdapter>();
-        interpreterService = mock<IInterpreterService>();
+        pythonRuntimeManager = mock<IPythonRuntimeManager>();
         isCreatingEnvironmentStub = sinon.stub(createEnvApi, 'isCreatingEnvironment');
         isCreatingEnvironmentStub.returns(false);
-        when(interpreterService.getActiveInterpreter(anything())).thenResolve({
-            id: 'selected',
-            path: 'path/to/selected',
-        } as unknown as PythonEnvironment);
+        getActivePythonSessionsStub = sinon.stub(sessionModule, 'getActivePythonSessions');
+        getActivePythonSessionsStub.resolves([]);
+        sendTelemetryEventStub = sinon.stub(telemetry, 'sendTelemetryEvent');
+        when(componentAdapter.getInterpreterDetails(envPath)).thenResolve(interpreter);
         disposable = mock(Disposable);
         appShell = mock(ApplicationShell);
+
+        notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
+        notificationPromptEnabled.setup((n) => n.value).returns(() => true);
+        when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
+            notificationPromptEnabled.object,
+        );
+
+        when(pythonRuntimeManager.resolveRuntimeMetadataFromPath(envPath)).thenResolve(runtimeMetadata);
+
+        originalStartLanguageRuntime = (positron.runtime as { startLanguageRuntime?: unknown }).startLanguageRuntime;
+        startLanguageRuntimeStub = sinon.stub().resolves(undefined);
+        Object.assign(positron.runtime, { startLanguageRuntime: startLanguageRuntimeStub });
+
         environmentPrompt = new VirtualEnvironmentPromptTest(
             instance(persistentStateFactory),
-            instance(helper),
-            instance(pythonPathUpdaterService),
             [instance(disposable)],
             instance(appShell),
             instance(componentAdapter),
-            instance(interpreterService),
+            instance(pythonRuntimeManager),
         );
     });
 
     teardown(() => {
         sinon.restore();
+        if (originalStartLanguageRuntime === undefined) {
+            delete (positron.runtime as { startLanguageRuntime?: unknown }).startLanguageRuntime;
+        } else {
+            Object.assign(positron.runtime, { startLanguageRuntime: originalStartLanguageRuntime });
+        }
     });
 
-    test('User is notified if interpreter exists and only python path to global interpreter is specified in settings', async () => {
-        const resource = Uri.file('a');
-        const interpreter1 = { path: 'path/to/interpreter1' };
-        const interpreter2 = { path: 'path/to/interpreter2' };
-        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
-        const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
+    function fakeSession(pythonPath: string, state: positron.RuntimeState): sessionModule.PythonRuntimeSession {
+        return {
+            getRuntimeState: () => state,
+            runtimeMetadata: { extraRuntimeData: { pythonPath } },
+        } as unknown as sessionModule.PythonRuntimeSession;
+    }
 
-        when(componentAdapter.getWorkspaceVirtualEnvInterpreters(resource)).thenResolve([
-            interpreter1,
-            interpreter2,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ] as any);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        when(helper.getBestInterpreter(deepEqual([interpreter1, interpreter2] as any))).thenReturn(interpreter2 as any);
-        when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
-            notificationPromptEnabled.object,
-        );
-        notificationPromptEnabled.setup((n) => n.value).returns(() => true);
-        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve();
+    test('If environment is being created, no notification is shown', async () => {
+        isCreatingEnvironmentStub.returns(true);
 
-        await environmentPrompt.handleNewEnvironment(resource);
-
-        verify(appShell.showInformationMessage(anything(), ...prompts)).once();
-    });
-
-    test('User is not notified if currently selected interpreter is the same as new interpreter', async () => {
-        const resource = Uri.file('a');
-        const interpreter1 = { path: 'path/to/interpreter1' };
-        const interpreter2 = { path: 'path/to/interpreter2' };
-        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
-        const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
-
-        // Return interpreters using the component adapter instead
-        when(componentAdapter.getWorkspaceVirtualEnvInterpreters(resource)).thenResolve([
-            interpreter1,
-            interpreter2,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ] as any);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        when(helper.getBestInterpreter(deepEqual([interpreter1, interpreter2] as any))).thenReturn(interpreter2 as any);
-        reset(interpreterService);
-        when(interpreterService.getActiveInterpreter(anything())).thenResolve(
-            interpreter2 as unknown as PythonEnvironment,
-        );
-        when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
-            notificationPromptEnabled.object,
-        );
-        notificationPromptEnabled.setup((n) => n.value).returns(() => true);
-        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve();
-
-        await environmentPrompt.handleNewEnvironment(resource);
+        await environmentPrompt.handleNewEnvironment(envPath);
 
         verify(appShell.showInformationMessage(anything(), ...prompts)).never();
     });
-    test('User is notified if interpreter exists and only python path to global interpreter is specified in settings', async () => {
-        const resource = Uri.file('a');
-        const interpreter1 = { path: 'path/to/interpreter1' };
-        const interpreter2 = { path: 'path/to/interpreter2' };
-        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
-        const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
 
-        // Return interpreters using the component adapter instead
-        when(componentAdapter.getWorkspaceVirtualEnvInterpreters(resource)).thenResolve([
-            interpreter1,
-            interpreter2,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ] as any);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        when(helper.getBestInterpreter(deepEqual([interpreter1, interpreter2] as any))).thenReturn(interpreter2 as any);
-        when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
-            notificationPromptEnabled.object,
-        );
-        notificationPromptEnabled.setup((n) => n.value).returns(() => true);
+    test('If a matching non-exited session already exists, no notification is shown', async () => {
+        getActivePythonSessionsStub.resolves([fakeSession(envPath, positron.RuntimeState.Idle)]);
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(appShell.showInformationMessage(anything(), ...prompts)).never();
+    });
+
+    test('If a matching session has exited, notification is shown', async () => {
+        getActivePythonSessionsStub.resolves([fakeSession(envPath, positron.RuntimeState.Exited)]);
         when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve();
 
-        await environmentPrompt.handleNewEnvironment(resource);
+        await environmentPrompt.handleNewEnvironment(envPath);
 
         verify(appShell.showInformationMessage(anything(), ...prompts)).once();
     });
 
-    test("If user selects 'Yes', python path is updated", async () => {
-        const resource = Uri.file('a');
-        const interpreter1 = { path: 'path/to/interpreter1' };
-        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
-        const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
-        when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
-            notificationPromptEnabled.object,
-        );
-        notificationPromptEnabled.setup((n) => n.value).returns(() => true);
+    test('If a session exists for a different path, notification is shown', async () => {
+        getActivePythonSessionsStub.resolves([fakeSession('path/to/other', positron.RuntimeState.Idle)]);
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve();
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(appShell.showInformationMessage(anything(), ...prompts)).once();
+    });
+
+    test('If getInterpreterDetails returns undefined, no notification is shown', async () => {
+        when(componentAdapter.getInterpreterDetails(envPath)).thenResolve(undefined);
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(appShell.showInformationMessage(anything(), ...prompts)).never();
+    });
+
+    test('If the workspace preference is disabled, no notification is shown', async () => {
+        notificationPromptEnabled.reset();
+        notificationPromptEnabled.setup((n) => n.value).returns(() => false);
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(appShell.showInformationMessage(anything(), ...prompts)).never();
+    });
+
+    test('Notification shows the new session message and the three expected labels', async () => {
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve();
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(appShell.showInformationMessage(Interpreters.environmentSessionPromptMessage, ...prompts)).once();
+    });
+
+    test("'Start Session' starts the new environment", async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[0] as any);
-        when(
-            pythonPathUpdaterService.updatePythonPath(
-                interpreter1.path,
-                ConfigurationTarget.WorkspaceFolder,
-                'ui',
-                resource,
-            ),
-        ).thenResolve();
 
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(pythonRuntimeManager.resolveRuntimeMetadataFromPath(envPath)).once();
+        sinon.assert.calledOnceWithExactly(
+            startLanguageRuntimeStub,
+            runtimeMetadata.runtimeId,
+            runtimeMetadata.runtimeName,
+        );
+    });
+
+    test('If the environment cannot be registered, an error message is shown', async () => {
+        when(pythonRuntimeManager.resolveRuntimeMetadataFromPath(envPath)).thenResolve(undefined);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await environmentPrompt.notifyUser(interpreter1 as any, resource);
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[0] as any);
 
-        verify(persistentStateFactory.createWorkspacePersistentState(anything(), true)).once();
-        verify(appShell.showInformationMessage(anything(), ...prompts)).once();
+        await environmentPrompt.handleNewEnvironment(envPath);
+
         verify(
-            pythonPathUpdaterService.updatePythonPath(
-                interpreter1.path,
-                ConfigurationTarget.WorkspaceFolder,
-                'ui',
-                resource,
+            appShell.showErrorMessage(
+                Interpreters.environmentSessionStartFailed(interpreter.detailedDisplayName ?? interpreter.path),
             ),
         ).once();
     });
 
-    test("If user selects 'No', no operation is performed", async () => {
-        const resource = Uri.file('a');
-        const interpreter1 = { path: 'path/to/interpreter1' };
-        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
-        const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
-        when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
-            notificationPromptEnabled.object,
-        );
-        notificationPromptEnabled.setup((n) => n.value).returns(() => true);
+    test('If starting the environment rejects, an error message is shown once', async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[1] as any);
-        when(
-            pythonPathUpdaterService.updatePythonPath(
-                interpreter1.path,
-                ConfigurationTarget.WorkspaceFolder,
-                'ui',
-                resource,
-            ),
-        ).thenResolve();
-        notificationPromptEnabled
-            .setup((n) => n.updateValue(false))
-            .returns(() => Promise.resolve())
-            .verifiable(TypeMoq.Times.never());
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[0] as any);
+        startLanguageRuntimeStub.rejects(new Error('boom'));
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await environmentPrompt.notifyUser(interpreter1 as any, resource);
+        await environmentPrompt.handleNewEnvironment(envPath);
 
-        verify(persistentStateFactory.createWorkspacePersistentState(anything(), true)).once();
-        verify(appShell.showInformationMessage(anything(), ...prompts)).once();
         verify(
-            pythonPathUpdaterService.updatePythonPath(
-                interpreter1.path,
-                ConfigurationTarget.WorkspaceFolder,
-                'ui',
-                resource,
+            appShell.showErrorMessage(
+                Interpreters.environmentSessionStartFailed(interpreter.detailedDisplayName ?? interpreter.path),
             ),
-        ).never();
-        notificationPromptEnabled.verifyAll();
+        ).once();
     });
 
-    test('If user selects "Don\'t show again", prompt is disabled', async () => {
-        const resource = Uri.file('a');
-        const interpreter1 = { path: 'path/to/interpreter1' };
-        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
-        const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
-        when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
-            notificationPromptEnabled.object,
-        );
-        notificationPromptEnabled.setup((n) => n.value).returns(() => true);
+    test("If user selects 'Not Now', no side effects occur", async () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[1] as any);
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(pythonRuntimeManager.resolveRuntimeMetadataFromPath(envPath)).never();
+        notificationPromptEnabled.verify((n) => n.updateValue(false), TypeMoq.Times.never());
+    });
+
+    test('If the prompt is dismissed, no side effects occur', async () => {
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(undefined);
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(pythonRuntimeManager.resolveRuntimeMetadataFromPath(envPath)).never();
+        notificationPromptEnabled.verify((n) => n.updateValue(false), TypeMoq.Times.never());
+    });
+
+    test("If user selects 'Don't Show Again', the workspace preference is set to false", async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[2] as any);
         notificationPromptEnabled
@@ -239,43 +233,22 @@ suite('Virtual Environment Prompt', () => {
             .returns(() => Promise.resolve())
             .verifiable(TypeMoq.Times.once());
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await environmentPrompt.notifyUser(interpreter1 as any, resource);
+        await environmentPrompt.handleNewEnvironment(envPath);
 
-        verify(persistentStateFactory.createWorkspacePersistentState(anything(), true)).once();
-        verify(appShell.showInformationMessage(anything(), ...prompts)).once();
         notificationPromptEnabled.verifyAll();
     });
 
-    test('If prompt is disabled, no notification is shown', async () => {
-        const resource = Uri.file('a');
-        const interpreter1 = { path: 'path/to/interpreter1' };
-        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
-        const notificationPromptEnabled = TypeMoq.Mock.ofType<IPersistentState<boolean>>();
-        when(persistentStateFactory.createWorkspacePersistentState(anything(), true)).thenReturn(
-            notificationPromptEnabled.object,
+    test('Telemetry selections stay Yes, No, Ignore', async () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[1] as any);
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        sinon.assert.calledOnceWithExactly(
+            sendTelemetryEventStub,
+            EventName.PYTHON_INTERPRETER_ACTIVATE_ENVIRONMENT_PROMPT,
+            undefined,
+            { selection: 'No' },
         );
-        notificationPromptEnabled.setup((n) => n.value).returns(() => false);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[0] as any);
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await environmentPrompt.notifyUser(interpreter1 as any, resource);
-
-        verify(persistentStateFactory.createWorkspacePersistentState(anything(), true)).once();
-        verify(appShell.showInformationMessage(anything(), ...prompts)).never();
-    });
-
-    test('If environment is being created, no notification is shown', async () => {
-        isCreatingEnvironmentStub.reset();
-        isCreatingEnvironmentStub.returns(true);
-
-        const resource = Uri.file('a');
-        const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
-
-        await environmentPrompt.handleNewEnvironment(resource);
-
-        verify(persistentStateFactory.createWorkspacePersistentState(anything(), true)).never();
-        verify(appShell.showInformationMessage(anything(), ...prompts)).never();
     });
 });
