@@ -152,10 +152,6 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
 
     // --- Start Positron ---
     private async startSession(interpreter: PythonEnvironment): Promise<void> {
-        // A session may have started while the notification was open.
-        if (await this.hasRunningSession(interpreter.path)) {
-            return;
-        }
         try {
             const metadata = await this.pythonRuntimeManager.resolveRuntimeMetadataFromPath(interpreter.path);
             if (!metadata) {

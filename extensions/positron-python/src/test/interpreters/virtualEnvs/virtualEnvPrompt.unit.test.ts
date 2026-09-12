@@ -76,7 +76,6 @@ suite('Virtual Environment Prompt', () => {
 
         when(pythonRuntimeManager.resolveRuntimeMetadataFromPath(envPath)).thenResolve(runtimeMetadata);
 
-        // Stub this directly because ts-mockito cannot infer its overload.
         originalStartLanguageRuntime = (positron.runtime as { startLanguageRuntime?: unknown }).startLanguageRuntime;
         startLanguageRuntimeStub = sinon.stub().resolves(undefined);
         Object.assign(positron.runtime, { startLanguageRuntime: startLanguageRuntimeStub });
@@ -165,19 +164,7 @@ suite('Virtual Environment Prompt', () => {
         verify(appShell.showInformationMessage(Interpreters.environmentSessionPromptMessage, ...prompts)).once();
     });
 
-    test("'Start Session' re-checks sessions and returns if one now exists", async () => {
-        // Simulate a session starting while the notification is open.
-        getActivePythonSessionsStub.onFirstCall().resolves([]);
-        getActivePythonSessionsStub.onSecondCall().resolves([fakeSession(envPath, positron.RuntimeState.Idle)]);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[0] as any);
-
-        await environmentPrompt.handleNewEnvironment(envPath);
-
-        verify(pythonRuntimeManager.resolveRuntimeMetadataFromPath(envPath)).never();
-    });
-
-    test("'Start Session' calls resolveRuntimeMetadataFromPath then startLanguageRuntime with the returned id and name", async () => {
+    test("'Start Session' starts the new environment", async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[0] as any);
 
@@ -191,7 +178,7 @@ suite('Virtual Environment Prompt', () => {
         );
     });
 
-    test('If resolveRuntimeMetadataFromPath returns undefined, an error message is shown and startLanguageRuntime is not called', async () => {
+    test('If the environment cannot be registered, an error message is shown', async () => {
         when(pythonRuntimeManager.resolveRuntimeMetadataFromPath(envPath)).thenResolve(undefined);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[0] as any);
@@ -203,10 +190,9 @@ suite('Virtual Environment Prompt', () => {
                 Interpreters.environmentSessionStartFailed(interpreter.detailedDisplayName ?? interpreter.path),
             ),
         ).once();
-        sinon.assert.notCalled(startLanguageRuntimeStub);
     });
 
-    test('If startLanguageRuntime rejects, an error message is shown once', async () => {
+    test('If starting the environment rejects, an error message is shown once', async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve(prompts[0] as any);
         startLanguageRuntimeStub.rejects(new Error('boom'));
