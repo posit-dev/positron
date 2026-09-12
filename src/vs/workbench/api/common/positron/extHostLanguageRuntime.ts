@@ -326,6 +326,10 @@ export class ExtHostRuntimeSessionProxy
 		return this._proxy.$executeInSession(this.sessionId, code, id, mode, errorBehavior, executionMetadata);
 	}
 
+	setWorkingDirectory(dir: string): Thenable<void> {
+		return this._proxy.$setSessionWorkingDirectory(this.sessionId, dir);
+	}
+
 	/**
 	 * Shut down the runtime; returns a Thenable that resolves when the
 	 * runtime shutdown sequence has been successfully started (not
@@ -1853,6 +1857,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param sessionName A human-readable name for the new session.
 	 * @param sessionMode The mode in which the session is to be run.
 	 * @param notebookUri The URI of the notebook document, if in notebook mode.
+	 * @param workingDirectory Startup directory.
 	 *
 	 * Returns a Thenable that resolves with the newly created session, or
 	 * rejects with an error.
@@ -1860,11 +1865,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public async startLanguageRuntime(runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
-		notebookUri: URI | undefined): Promise<positron.LanguageRuntimeSession> {
+		notebookUri: URI | undefined,
+		workingDirectory?: string): Promise<positron.LanguageRuntimeSession> {
 
 		// Start the runtime and get the session ID
 		const sessionId =
-			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri);
+			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, workingDirectory);
 
 		// The process of starting a session in Positron should have caused the
 		// runtime to be registered with the extension host, so we should be able

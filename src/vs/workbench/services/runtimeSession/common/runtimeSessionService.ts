@@ -88,6 +88,9 @@ export interface IStartNewRuntimeSessionOptions {
 	 * transposed with `activate` at a call site.
 	 */
 	readonly userSelected?: boolean;
+
+	/** Overrides the notebook working directory. */
+	readonly workingDirectory?: string;
 }
 
 export interface IRuntimeSessionMetadata {

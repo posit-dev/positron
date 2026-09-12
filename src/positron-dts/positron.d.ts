@@ -1614,6 +1614,14 @@ declare module 'positron' {
 		): Thenable<void> | void;
 
 		/**
+		 * Changes directory without resetting session state. Resolves on request
+		 * acceptance, not completion; check {@link runtime.getSessionWorkingDirectory}.
+		 *
+		 * @param dir Absolute path on the runtime's machine.
+		 */
+		setWorkingDirectory(dir: string): Thenable<void>;
+
+		/**
 		 * Shut down the runtime; returns a Thenable that resolves when the
 		 * runtime shutdown sequence has been successfully started (not
 		 * necessarily when it has completed).
@@ -1694,11 +1702,6 @@ declare module 'positron' {
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;
-
-		/**
-		 * Set the current working directory of the session.
-		 */
-		setWorkingDirectory(dir: string): Thenable<void>;
 
 		/**
 		 * Start the session; returns a Thenable that resolves with information about the runtime.
@@ -3216,12 +3219,26 @@ declare module 'positron' {
 		 * @param sessionName A human-readable name for the new session.
 		 * @param notebookUri If the session is associated with a notebook,
 		 *   the notebook URI.
+		 * @param workingDirectory Absolute path on the runtime's machine, without
+		 *   expansion or an existence check. Overrides the notebook working directory
+		 *   setting; omitted values use that setting or the console runtime's default.
 		 *
-		 * Returns a Thenable that resolves with the newly created session.
+		 * Concurrent starts for the same runtime, mode, and notebook share the first
+		 * request's directory. Console starts deferred for workspace trust use
+		 * auto-start defaults.
+		 *
+		 * @returns The started session.
 		 */
 		export function startLanguageRuntime(runtimeId: string,
 			sessionName: string,
-			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
+			notebookUri?: vscode.Uri,
+			workingDirectory?: string): Thenable<LanguageRuntimeSession>;
+
+		/**
+		 * @param sessionId Omit for the foreground session.
+		 * @returns The runtime-reported directory, or undefined if unavailable.
+		 */
+		export function getSessionWorkingDirectory(sessionId?: string): Thenable<string | undefined>;
 
 		/**
 		 * Interrupt a running session.

@@ -674,6 +674,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const sessionMapKey = getSessionMapKey(sessionMode, runtimeId, notebookUri);
 		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
 		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
+			if (options?.workingDirectory !== undefined) {
+				this._logService.warn(`Ignoring working directory '${options.workingDirectory}' ` +
+					`for runtime ${runtimeId}: a session is already starting.`);
+			}
 			return startingRuntimePromise.p;
 		}
 
@@ -1837,9 +1841,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
 
-		// Resolve the working directory configuration
-		let workingDirectory: string | undefined;
-		if (notebookUri) {
+		let workingDirectory: string | undefined = options?.workingDirectory;
+		if (workingDirectory === undefined && notebookUri) {
 			workingDirectory = await resolveNotebookWorkingDirectory(
 				notebookUri,
 				this._fileService,
