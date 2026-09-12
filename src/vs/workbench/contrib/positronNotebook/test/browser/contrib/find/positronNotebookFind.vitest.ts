@@ -464,40 +464,46 @@ describe('PositronNotebookFindController', () => {
 			expect(getCellSelection(notebook.cells.get()[0])).toEqual([3, 1, 3, 7]);
 		});
 
-		it('navigating to a match requests an editor reveal of the match line', () => {
+		// Cell editors auto-grow to fit their content and never scroll
+		// internally, so a Monaco-level reveal can't bring a match line into
+		// view. The reveal must go through cell.reveal() with the match range
+		// so the notebook's scroll container scrolls to the line instead
+		// (https://github.com/posit-dev/positron/issues/14130).
+		it('navigating to a match requests a cell reveal of the match range', () => {
 			const { notebook, controller, find } = findFixture([
 				['line one\nline two\ntarget here', 'python', CellKind.Code],
 			]);
-			const revealSpy = vi.spyOn(notebook.cells.get()[0].currentEditor!, 'revealRangeInCenter');
+			const revealSpy = vi.spyOn(notebook.cells.get()[0], 'reveal');
 			find.searchString.set('target', undefined);
 
 			controller.findNext();
 
-			expect(revealSpy).toHaveBeenCalledWith(expect.objectContaining({ startLineNumber: 3 }));
+			expect(revealSpy).toHaveBeenCalledWith(expect.objectContaining({
+				range: expect.objectContaining({ startLineNumber: 3 }),
+			}));
 		});
 
-		it('navigating to a match in another cell requests a cell reveal', () => {
+		it('navigating to a match in another cell requests a reveal of that cell', () => {
 			const { notebook, controller, find } = findFixture([
 				['alpha', 'python', CellKind.Code],
 				['target', 'python', CellKind.Code],
 			]);
-			const revealSpy = vi.spyOn(notebook, 'revealInCenterIfOutsideViewport');
+			const revealSpy = vi.spyOn(notebook.cells.get()[1], 'reveal');
 			find.searchString.set('target', undefined);
 
 			controller.findNext();
 
-			expect(revealSpy).toHaveBeenCalledWith(notebook.cells.get()[1]);
+			expect(revealSpy).toHaveBeenCalledWith(expect.objectContaining({
+				range: expect.objectContaining({ startLineNumber: 1 }),
+			}));
 		});
 
-		// https://github.com/posit-dev/positron/issues/14130: find jumps to the
-		// right cell but not the matching line. `navigateToMatch()` only sets the
-		// selection and reveals the line when the cell already has an attached
-		// editor; for a cell whose editor attaches late (e.g. it was outside the
-		// viewport when the search navigated to it), the line reveal is skipped
-		// and never retried. These tests document the expected behavior and are
-		// marked `fails` until the bug is fixed -- flip them to `it` then.
+		// https://github.com/posit-dev/positron/issues/14130: for a cell whose
+		// editor attaches late (e.g. a rendered markdown cell, or a code cell
+		// React has not mounted yet), the selection and line reveal must be
+		// applied once the editor becomes available.
 
-		it.fails('applies the match selection once a late-attaching editor attaches', () => {
+		it('applies the match selection once a late-attaching editor attaches', () => {
 			const { notebook, controller, find } = findFixture([
 				['alpha', 'python', CellKind.Code],
 				['line one\nline two\ntarget here', 'python', CellKind.Code],
@@ -513,21 +519,41 @@ describe('PositronNotebookFindController', () => {
 			expect(getCellSelection(cell)).toEqual([3, 1, 3, 7]);
 		});
 
-		it.fails('requests an editor reveal once a late-attaching editor attaches', () => {
+		it('requests an editor reveal once a late-attaching editor attaches', () => {
 			const { notebook, controller, find } = findFixture([
 				['alpha', 'python', CellKind.Code],
 				['line one\nline two\ntarget here', 'python', CellKind.Code],
 			]);
 			const cell = notebook.cells.get()[1];
 			const editor = cell.currentEditor!;
-			const revealSpy = vi.spyOn(editor, 'revealRangeInCenter');
+			const revealSpy = vi.spyOn(cell, 'reveal');
 			cell.detachEditor();
 
 			find.searchString.set('target', undefined);
 			controller.findNext();
+			revealSpy.mockClear(); // Ignore the cell-granularity reveal that runs before the editor attaches
 			cell.attachEditor(editor);
 
-			expect(revealSpy).toHaveBeenCalledWith(expect.objectContaining({ startLineNumber: 3 }));
+			expect(revealSpy).toHaveBeenCalledWith(expect.objectContaining({
+				range: expect.objectContaining({ startLineNumber: 3 }),
+			}));
+		});
+
+		it('does not apply a stale selection when navigation moved on before the editor attached', () => {
+			const { notebook, controller, find } = findFixture([
+				['line one\nline two\ntarget here', 'python', CellKind.Code],
+				['target', 'python', CellKind.Code],
+			]);
+			const cell = notebook.cells.get()[0];
+			const editor = cell.currentEditor!;
+			cell.detachEditor();
+
+			find.searchString.set('target', undefined);
+			controller.findNext(); // match 0 (cell 0, editor detached -- reveal pending)
+			controller.findNext(); // match 1 (cell 1) -- match 0 is now stale
+			cell.attachEditor(editor);
+
+			expect(getCellSelection(cell), 'stale pending reveal must not select the old match').toEqual([1, 1, 1, 1]);
 		});
 
 	});
