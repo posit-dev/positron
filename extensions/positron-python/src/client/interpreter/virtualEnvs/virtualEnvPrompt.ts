@@ -48,8 +48,8 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
         // --- Start Positron ---
         // @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
         @inject(IPythonRuntimeManager) private readonly pythonRuntimeManager: IPythonRuntimeManager,
-        // --- End Positron ---
     ) {}
+    // --- End Positron ---
 
     public async activate(resource: Uri): Promise<void> {
         // --- Start Positron ---
