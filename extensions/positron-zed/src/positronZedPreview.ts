@@ -57,7 +57,7 @@ export class ZedPreview {
 	}
 
 	public sendMessage(): void {
-		this.panel.webview.postMessage('Recived message from console.');
+		this.panel.webview.postMessage('Received message from console.');
 	}
 
 	public addRecentCommand(command: string): void {
