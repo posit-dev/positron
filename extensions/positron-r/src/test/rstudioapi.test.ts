@@ -5,12 +5,45 @@
 
 import './mocha-setup';
 
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as assert from 'assert';
 import * as testKit from './kit';
 
 suite('RStudio API', () => {
+	// https://github.com/posit-dev/positron/issues/15459
+	test('sendToConsole queues code without hanging the session', async () => {
+		await testKit.withDisposables(async (disposables) => {
+			const [ses, sesDisposable] = await testKit.startR();
+			disposables.push(sesDisposable);
+
+			// `sendToConsole` should return as soon as the code is queued. It
+			// runs in the same session that is asking to queue it, so waiting
+			// for the queued code to finish would deadlock: the code can't run
+			// until this call returns and the session goes idle.
+			await testKit.execute(
+				'rstudioapi::sendToConsole("sendToConsole_test_15459 <- 42L")');
+
+			// The queued code should actually run once the session is idle. Until
+			// then the variable is undefined and `evaluateCode` rejects, so treat
+			// any failure as "not yet" and keep polling.
+			await testKit.pollForSuccess(async () => {
+				let value: string;
+				try {
+					const result = await positron.runtime.evaluateCode(
+						'r', 'sendToConsole_test_15459', undefined,
+						ses.metadata.sessionId, positron.RuntimeBusyBehavior.Queue);
+					value = JSON.stringify(result);
+				} catch (err) {
+					value = String(err);
+				}
+				assert.match(value, /42/,
+					`queued code should have set the variable, got: ${value}`);
+			});
+		});
+	});
+
 	// https://github.com/posit-dev/positron/issues/8374
 	test('Navigate to file', async () => {
 		await testKit.withDisposables(async (disposables) => {
