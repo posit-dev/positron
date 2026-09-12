@@ -8,7 +8,7 @@ import * as assert from 'assert';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as sinon from 'sinon';
-import { verify } from 'ts-mockito';
+import { verify, when } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
 import * as vscode from 'vscode';
 import { WorkspaceConfiguration } from 'vscode';
@@ -19,18 +19,24 @@ import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import * as environmentTypeComparer from '../../client/interpreter/configuration/environmentTypeComparer';
 import * as util from '../../client/positron/util';
+import * as conda from '../../client/pythonEnvironments/common/environmentManagers/conda';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
 import {
     IConfigurationService,
     IDisposable,
     IDisposableRegistry,
     InspectInterpreterSettingType,
+    IPythonSettings,
 } from '../../client/common/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { PythonRuntimeManager } from '../../client/positron/manager';
 import * as createVirtualEnvironmentPrompt from '../../client/positron/createVirtualEnvironmentPrompt';
 import { CreateVirtualEnvironmentPromptOutcome } from '../../client/positron/createVirtualEnvironmentPrompt';
-import { PythonRuntimeSession } from '../../client/positron/session';
+import {
+    getActivePythonSessions,
+    PythonRuntimeSession,
+    unregisterActivePythonSession,
+} from '../../client/positron/session';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { mockedPositronNamespaces } from '../vscode-mock';
@@ -97,6 +103,11 @@ suite('Python runtime manager', () => {
             .stub(createVirtualEnvironmentPrompt, 'promptToCreateVirtualEnvironment')
             .resolves(CreateVirtualEnvironmentPromptOutcome.Proceed);
 
+        // `PythonRuntimeManager` shuts sessions down through
+        // `positron.runtime.getActiveSessions()`; default it to empty so tests that
+        // don't care about sessions aren't tripped up by an unstubbed mock.
+        when(mockedPositronNamespaces.runtime!.getActiveSessions()).thenReturn(Promise.resolve([]));
+
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
         disposables = [];
     });
@@ -135,6 +146,37 @@ suite('Python runtime manager', () => {
         await assertRegisterLanguageRuntime(async () => {
             pythonRuntimeManager.registerLanguageRuntime(runtimeMetadata.object);
         });
+    });
+
+    test('createSession: adds the new session to the active Python session registry', async () => {
+        // `getActivePythonSessions()` no longer derives its list from
+        // `positron.runtime.getActiveSessions()` (which now hands back core-managed
+        // proxies, see #12589); the manager is the only thing that populates the
+        // owned-session registry it reads instead.
+        const settings = createTypeMoq<IPythonSettings>();
+        configService.setup((c) => c.getSettings()).returns(() => settings.object);
+        envVarsProvider.setup((e) => e.getEnvironmentVariables()).returns(() => Promise.resolve({}));
+        // Only consulted on Windows, but stub it so the test doesn't touch the filesystem there.
+        sinon.stub(conda, 'isCondaEnvironment').resolves(false);
+
+        const sessionRuntimeMetadata = createTypeMoq<positron.LanguageRuntimeMetadata>();
+        sessionRuntimeMetadata.setup((r) => r.runtimeName).returns(() => 'Python');
+        sessionRuntimeMetadata.setup((r) => r.extraRuntimeData).returns(() => ({ pythonPath, ipykernelBundle: {} }));
+        const sessionMetadata = createTypeMoq<positron.RuntimeSessionMetadata>();
+        sessionMetadata.setup((s) => s.sessionMode).returns(() => positron.LanguageRuntimeSessionMode.Console);
+
+        const session = (await pythonRuntimeManager.createSession(
+            sessionRuntimeMetadata.object,
+            sessionMetadata.object,
+        )) as PythonRuntimeSession;
+
+        try {
+            const activeSessions = await getActivePythonSessions();
+            assert.ok(activeSessions.includes(session), 'created session is missing from the registry');
+        } finally {
+            // Don't leak the session into other suites' registry reads.
+            unregisterActivePythonSession(session);
+        }
     });
 
     test('createSession rejects with a cancellation error when the prompt aborts', async () => {
@@ -747,8 +789,6 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
     >;
     let pythonRuntimeManager: PythonRuntimeManager;
     let selectSpy: sinon.SinonStub;
-    let getActiveSessionsImpl: () => Promise<positron.LanguageRuntimeSession[]>;
-    let originalGetActiveSessions: unknown;
 
     setup(() => {
         serviceContainer = createTypeMoq<IServiceContainer>();
@@ -766,27 +806,12 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         interpreterService.setup((i) => i.onDidChangeInterpreter).returns(() => onDidChangeInterpreterEmitter.event);
         interpreterService.setup((i) => i.onDidChangeInterpreters).returns(() => onDidChangeInterpretersEmitter.event);
 
-        // positron.runtime may have getActiveSessions replaced by Object.assign in a prior test
-        // (e.g. languageServerManager). Assign directly so we read from our fixture regardless of
-        // that prior state, and restore the prior value in teardown so this suite doesn't leak
-        // into later ones. Each test overrides getActiveSessionsImpl.
-        originalGetActiveSessions = (positron.runtime as { getActiveSessions?: unknown }).getActiveSessions;
-        getActiveSessionsImpl = async () => [];
-        Object.assign(positron.runtime, {
-            getActiveSessions: () => getActiveSessionsImpl(),
-        });
-
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
         selectSpy = sinon.stub(pythonRuntimeManager, 'selectLanguageRuntimeFromPath').resolves('runtime-id');
     });
 
     teardown(() => {
         sinon.restore();
-        if (originalGetActiveSessions === undefined) {
-            delete (positron.runtime as { getActiveSessions?: unknown }).getActiveSessions;
-        } else {
-            Object.assign(positron.runtime, { getActiveSessions: originalGetActiveSessions });
-        }
         onDidChangeInterpreterEmitter.dispose();
         onDidChangeInterpretersEmitter.dispose();
     });
@@ -818,11 +843,20 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
     });
 
     /** Build a fake that passes the `instanceof PythonRuntimeSession` filter without invoking the constructor. */
-    function createFakePythonSession(extraRuntimeData: unknown, shutdown: sinon.SinonStub): PythonRuntimeSession {
-        return Object.assign(Object.create(PythonRuntimeSession.prototype), {
-            runtimeMetadata: { extraRuntimeData },
+    /**
+     * Build a stand-in for what `positron.runtime.getActiveSessions()` hands back:
+     * a core-managed proxy, not an owned `PythonRuntimeSession`. Its `shutdown()` is
+     * the mediated one, which is the whole point of routing through core (#12589).
+     */
+    function createFakeActiveSession(
+        extraRuntimeData: unknown,
+        shutdown: sinon.SinonStub,
+        languageId = 'python',
+    ): positron.BaseLanguageRuntimeSession {
+        return ({
+            runtimeMetadata: { languageId, extraRuntimeData },
             shutdown,
-        });
+        } as unknown) as positron.BaseLanguageRuntimeSession;
     }
 
     test('interpreter deletion: clears registry entry and shuts down matching sessions', async () => {
@@ -840,16 +874,17 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         const matchingShutdown = sinon.stub().callsFake(async () => {
             shutdownResolver();
         });
-        const matchingSession = createFakePythonSession({ pythonPath: deletedPath }, matchingShutdown);
+        const matchingSession = createFakeActiveSession({ pythonPath: deletedPath }, matchingShutdown);
         const otherShutdown = sinon.stub().resolves();
-        const otherSession = createFakePythonSession({ pythonPath: '/other/python' }, otherShutdown);
-        // A non-Python session (e.g. R) without extraRuntimeData must not abort the cleanup.
-        const nonPythonShutdown = sinon.stub().resolves();
-        const nonPythonSession = {
-            runtimeMetadata: { extraRuntimeData: undefined },
-            shutdown: nonPythonShutdown,
-        };
-        getActiveSessionsImpl = async () => [nonPythonSession as any, matchingSession, otherSession];
+        const otherSession = createFakeActiveSession({ pythonPath: '/other/python' }, otherShutdown);
+        // An R session for the same path: proves we filter on languageId and don't
+        // shut down another language's session that happens to collide.
+        const rShutdown = sinon.stub().resolves();
+        const rSession = createFakeActiveSession({ pythonPath: deletedPath }, rShutdown, 'r');
+
+        when(mockedPositronNamespaces.runtime!.getActiveSessions()).thenReturn(
+            Promise.resolve([matchingSession, otherSession, rSession]),
+        );
 
         onDidChangeInterpretersEmitter.fire({ old: { path: deletedPath } as any, new: undefined });
         await Promise.race([shutdownDone, new Promise((r) => setTimeout(r, 500))]);
@@ -857,7 +892,7 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         assert.strictEqual(pythonRuntimeManager.registeredPythonRuntimes.has(deletedPath), false);
         sinon.assert.calledOnce(matchingShutdown);
         sinon.assert.notCalled(otherShutdown);
-        sinon.assert.notCalled(nonPythonShutdown);
+        sinon.assert.notCalled(rShutdown);
         sinon.assert.notCalled(selectSpy);
     });
 

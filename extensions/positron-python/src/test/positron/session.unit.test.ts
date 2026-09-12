@@ -33,7 +33,12 @@ import {
     JupyterKernelSpec,
     JupyterLanguageRuntimeSession,
 } from '../../client/positron-supervisor.d';
-import { PythonRuntimeSession } from '../../client/positron/session';
+import {
+    getActivePythonSessions,
+    PythonRuntimeSession,
+    registerActivePythonSession,
+    unregisterActivePythonSession,
+} from '../../client/positron/session';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { PythonVersion } from '../../client/pythonEnvironments/info/pythonVersion';
 import { mock } from './utils';
@@ -263,6 +268,30 @@ suite('Python Runtime Session', () => {
 
         // Should try to use ipykernel from the environment.
         sinon.assert.called(installerSpy.isProductVersionCompatible);
+    });
+
+    test('Dispose: removes the session from the active Python session registry', async () => {
+        // The registry backing `getActivePythonSessions()` is only pruned by
+        // `dispose()`; without that, dead sessions leak into LSP activation (#12589).
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        registerActivePythonSession(session);
+
+        try {
+            assert.ok(
+                (await getActivePythonSessions()).includes(session),
+                'session should be registered before disposal',
+            );
+
+            await session.dispose();
+
+            assert.ok(
+                !(await getActivePythonSessions()).includes(session),
+                'disposed session should be removed from the registry',
+            );
+        } finally {
+            // Don't leak the session into other suites' registry reads.
+            unregisterActivePythonSession(session);
+        }
     });
 
     test('Start: retries interpreter resolution after a refresh when the first resolve fails', async () => {

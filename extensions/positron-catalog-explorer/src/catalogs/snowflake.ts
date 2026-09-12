@@ -481,11 +481,16 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 		}
 
 		// Skip dependency checking
-		session.execute(
-			code.code,
+		// Execute via the runtime namespace so core stays in the loop (#12589).
+		await positron.runtime.executeCode(
 			session.runtimeMetadata.languageId,
+			code.code,
+			true,
+			undefined,
 			positron.RuntimeCodeExecutionMode.Interactive,
 			positron.RuntimeErrorBehavior.Continue,
+			undefined,
+			session.metadata.sessionId,
 		);
 	}
 

@@ -11,7 +11,12 @@ import * as vscode from 'vscode';
 import { interfaces } from 'inversify';
 import { registerLanguageServerManager } from '../../client/positron/languageServerManager';
 import { mock } from './utils';
-import { createUniqueId, PythonRuntimeSession } from '../../client/positron/session';
+import {
+    createUniqueId,
+    PythonRuntimeSession,
+    registerActivePythonSession,
+    unregisterActivePythonSession,
+} from '../../client/positron/session';
 import * as util from '../../client/positron/util';
 import { IServiceContainer } from '../../client/ioc/types';
 import { IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
@@ -89,8 +94,12 @@ suite('Language server manager', () => {
         // in the unit test environment, but TypeScript doesn't know that.
         Object.assign(positron.runtime, {
             onDidChangeForegroundSession: onDidChangeForegroundSession.event,
-            getActiveSessions: async () => [foregroundSession, nonForegroundSession],
         });
+
+        // The language server manager discovers sessions via
+        // `getActivePythonSessions()`, which reads the owned-session registry.
+        registerActivePythonSession(foregroundSession);
+        registerActivePythonSession(nonForegroundSession);
 
         registerLanguageServerManager(serviceContainer, disposables);
     });
@@ -98,6 +107,9 @@ suite('Language server manager', () => {
     teardown(() => {
         sinon.restore();
         disposables.forEach((d) => d.dispose());
+        // Clear registry entries so sessions don't leak into later tests.
+        unregisterActivePythonSession(foregroundSession);
+        unregisterActivePythonSession(nonForegroundSession);
     });
 
     function mockSession(sessionMode = positron.LanguageRuntimeSessionMode.Console): TestPythonRuntimeSession {
@@ -148,7 +160,7 @@ suite('Language server manager', () => {
     });
 
     test('should do nothing when foreground console changes to unknown session', async () => {
-        // Create a session unknown to positron.runtime.getActiveSessions.
+        // Create a session unknown to getActivePythonSessions.
         const unknownSession = mockSession();
         const unknownSessionSpy = sinon.spy(unknownSession);
 

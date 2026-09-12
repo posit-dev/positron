@@ -367,11 +367,16 @@ export class DatabricksCatalogProvider implements CatalogProvider {
 			traceWarn('R session dependencies check skipped - using catalog items may require manual package installation');
 		}
 
-		session.execute(
-			code,
+		// Execute via the runtime namespace so core stays in the loop (#12589).
+		await positron.runtime.executeCode(
 			session.runtimeMetadata.languageId,
+			code,
+			true,
+			undefined,
 			positron.RuntimeCodeExecutionMode.Interactive,
 			positron.RuntimeErrorBehavior.Continue,
+			undefined,
+			session.metadata.sessionId,
 		);
 	}
 
