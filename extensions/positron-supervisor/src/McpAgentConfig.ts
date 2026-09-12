@@ -152,7 +152,7 @@ export async function addToCodex(connection: McpConnection | undefined): Promise
 	}
 
 	await vscode.window.showInformationMessage(vscode.l10n.t(
-		"Added Positron to Codex. Open a new terminal so Codex picks up the connection."));
+		"Added Positron to Codex. Open a new terminal, or reload the window if you use the Codex extension, so it picks up the connection."));
 }
 
 /**

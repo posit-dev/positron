@@ -100,6 +100,8 @@ class FakeRegistry implements McpRegistrationApi {
 interface Harness {
 	frontend: McpFrontend;
 	environment: FakeEnvironment;
+	/** Stands in for the extension host's own environment. */
+	processEnv: NodeJS.ProcessEnv;
 	registry: FakeRegistry;
 	memento: FakeMemento;
 	setEnabled(enabled: boolean): void;
@@ -109,9 +111,11 @@ interface Harness {
 
 function createHarness(memento = new FakeMemento(), enabled = true): Harness {
 	const environment = new FakeEnvironment();
+	const processEnv: NodeJS.ProcessEnv = {};
 	const registry = new FakeRegistry();
 	const harness: Harness = {
 		environment,
+		processEnv,
 		registry,
 		memento,
 		registrations: 0,
@@ -123,7 +127,8 @@ function createHarness(memento = new FakeMemento(), enabled = true): Harness {
 			state => saveMcpState(memento, state),
 			() => [],
 			() => enabled,
-			() => { harness.registrations++; }),
+			() => { harness.registrations++; },
+			processEnv),
 	};
 	return harness;
 }
@@ -138,7 +143,7 @@ function lastRegistration(harness: Harness): McpWorkspaceRegistration {
 }
 
 suite('McpFrontend', () => {
-	test('registers and publishes the endpoint and token to terminals', async () => {
+	test('registers and publishes the endpoint and token to terminals and extensions', async () => {
 		const harness = createHarness();
 
 		await harness.frontend.attach(harness.registry);
@@ -149,6 +154,9 @@ suite('McpFrontend', () => {
 				saved: savedState(harness),
 				variables: Object.fromEntries(harness.environment.variables),
 				hasDescription: harness.environment.description !== undefined,
+				// Agents an extension spawns, such as Codex in its own panel,
+				// inherit the extension host's environment and nothing else.
+				processEnv: harness.processEnv,
 			},
 			{
 				connection: {
@@ -163,6 +171,10 @@ suite('McpFrontend', () => {
 					[MCP_TOKEN_ENV_VAR]: 'token-workspace-1',
 				},
 				hasDescription: true,
+				processEnv: {
+					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+					[MCP_TOKEN_ENV_VAR]: 'token-workspace-1',
+				},
 			});
 	});
 
@@ -239,7 +251,7 @@ suite('McpFrontend', () => {
 			});
 	});
 
-	test('turning the feature off deregisters and clears the terminal environment', async () => {
+	test('turning the feature off deregisters and clears the published environment', async () => {
 		const harness = createHarness();
 		await harness.frontend.attach(harness.registry);
 
@@ -251,6 +263,7 @@ suite('McpFrontend', () => {
 				connection: harness.frontend.connection,
 				deregistrations: harness.registry.deregistrations,
 				variables: harness.environment.variables.size,
+				processEnv: harness.processEnv,
 				// The identity is kept so that re-enabling the feature hands
 				// agents back the endpoint URL they are configured with.
 				saved: savedState(harness),
@@ -259,6 +272,7 @@ suite('McpFrontend', () => {
 				connection: undefined,
 				deregistrations: ['workspace-1'],
 				variables: 0,
+				processEnv: {},
 				saved: { workspaceId: 'workspace-1', port: 39000 },
 			});
 	});

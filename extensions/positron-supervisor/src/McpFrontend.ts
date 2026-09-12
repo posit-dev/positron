@@ -157,6 +157,8 @@ export class McpFrontend implements vscode.Disposable {
 	 *  `ai.enabled` can be enforced by a Workbench administrator at any time.
 	 * @param _onRegistered Called once the endpoint is live, for work that
 	 *  should not point agents at a listener that does not exist yet.
+	 * @param _processEnv The extension host's environment, which the agents
+	 *  extensions spawn inherit.
 	 */
 	constructor(
 		private readonly _environment: McpTerminalEnvironment,
@@ -166,6 +168,7 @@ export class McpFrontend implements vscode.Disposable {
 		private readonly _sessionIds: () => string[],
 		private readonly _enabled: () => boolean = mcpFeatureEnabled,
 		private readonly _onRegistered: () => void = () => { },
+		private readonly _processEnv: NodeJS.ProcessEnv = process.env,
 	) {
 		this._disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
 			if (event.affectsConfiguration(AI_ENABLED_KEY) ||
@@ -336,7 +339,7 @@ export class McpFrontend implements vscode.Disposable {
 		const connection = this._connection;
 		this._connection = undefined;
 		this.closeChannel();
-		this._environment.clear();
+		this.clearEnvironment();
 		// The saved identity is left alone: deregistration invalidates the token
 		// behind the workspace ID, but turning the feature back on should hand
 		// agents the URL they were already configured with.
@@ -369,15 +372,31 @@ export class McpFrontend implements vscode.Disposable {
 	}
 
 	/**
-	 * Publish the endpoint and token into integrated terminals. Agents read
-	 * these at startup, so terminals opened before registration need reopening;
-	 * the description explains that in the terminal's environment hover.
+	 * Publish the endpoint and token to the environments agents are started
+	 * from: integrated terminals, and the extension host process, whose
+	 * environment is inherited by the processes extensions spawn. An agent run
+	 * by an extension rather than typed into a terminal -- Codex in its own
+	 * panel, say -- has no other way to reach them, and its configuration names
+	 * the token by variable precisely so it is not written to disk.
+	 *
+	 * Agents read these at startup, so a terminal or an extension host that
+	 * predates registration has to be restarted to pick them up; the
+	 * description explains that in the terminal's environment hover.
 	 */
 	private publishEnvironment(connection: McpConnection): void {
 		this._environment.description = vscode.l10n.t(
 			"Lets coding agents run code in this workspace's Positron sessions. Reopen a terminal to pick up changes.");
 		this._environment.replace(MCP_URL_ENV_VAR, connection.url);
 		this._environment.replace(MCP_TOKEN_ENV_VAR, connection.token);
+		this._processEnv[MCP_URL_ENV_VAR] = connection.url;
+		this._processEnv[MCP_TOKEN_ENV_VAR] = connection.token;
+	}
+
+	/** Withdraw the endpoint and token from both environments. */
+	private clearEnvironment(): void {
+		this._environment.clear();
+		delete this._processEnv[MCP_URL_ENV_VAR];
+		delete this._processEnv[MCP_TOKEN_ENV_VAR];
 	}
 }
 
