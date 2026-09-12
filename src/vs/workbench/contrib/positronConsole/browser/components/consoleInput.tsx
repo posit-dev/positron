@@ -32,7 +32,7 @@ import { TabCompletionController } from '../../../snippets/browser/tabCompletion
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
 import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { PositronConsoleInputCursorBoundary } from '../../../../common/contextkeys.js';
+import { PositronConsoleInputCursorBoundary, PositronConsoleInputFocused } from '../../../../common/contextkeys.js';
 import { HistoryBrowserPopup } from './historyBrowserPopup.js';
 import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
@@ -792,6 +792,16 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(codeEditorWidget.onDidChangeModelContent(updateCursorBoundary));
 		disposableStore.add(codeEditorWidget.onDidFocusEditorWidget(updateCursorBoundary));
 		updateCursorBoundary();
+
+		// Bind and maintain the input-focused context key. Unlike the upstream editor's own
+		// `textInputFocus` (scoped per-editor-instance, so it isn't visible to callers that query
+		// a single shared context key service, e.g. the rstudioapi editor-context shim's
+		// `evaluateWhenClause` RPC), this key is bound directly to the shared context key service
+		// so it's queryable from anywhere.
+		const inputFocusedContext = PositronConsoleInputFocused.bindTo(services.contextKeyService);
+		disposableStore.add(codeEditorWidget.onDidFocusEditorWidget(() => inputFocusedContext.set(true)));
+		disposableStore.add(codeEditorWidget.onDidBlurEditorWidget(() => inputFocusedContext.set(false)));
+		disposableStore.add({ dispose: () => inputFocusedContext.reset() });
 
 		// Set the blur event handler.
 		disposableStore.add(codeEditorWidget.onDidBlurEditorWidget(() => {
