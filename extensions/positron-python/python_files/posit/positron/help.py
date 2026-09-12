@@ -9,12 +9,17 @@ import contextlib
 import logging
 import pydoc
 import re
+import warnings
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote_plus
 
 from .help_comm import (
+    GetHelpTopicsRequest,
     HelpBackendMessageContent,
     HelpFrontendEvent,
+    HelpTopicSuggestion,
+    SearchHelpRequest,
     ShowHelpKind,
     ShowHelpParams,
     ShowHelpTopicRequest,
@@ -152,6 +157,7 @@ class HelpService:
     def __init__(self):
         self._comm: PositronComm | None = None
         self._pydoc_thread = None
+        self._help_topics: list[HelpTopicSuggestion] | None = None
 
     def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
@@ -165,6 +171,15 @@ class HelpService:
             if self._comm is not None:
                 self._comm.send_result(data=True)
             self.show_help(request.params.topic)
+
+        elif isinstance(request, SearchHelpRequest):
+            if self._comm is not None:
+                self._comm.send_result(data=True)
+            self.search_help(request.params.query)
+
+        elif isinstance(request, GetHelpTopicsRequest):
+            if self._comm is not None:
+                self._comm.send_result(data=[topic.dict() for topic in self.get_help_topics()])
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -231,3 +246,31 @@ class HelpService:
         event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
         if self._comm is not None:
             self._comm.send_event(name=HelpFrontendEvent.ShowHelp.value, payload=event.dict())
+
+    def search_help(self, query: str) -> None:
+        """Show interpreter-wide pydoc search results for a query."""
+        if self._pydoc_thread is None or not self._pydoc_thread.serving:
+            logger.warning("Ignoring help search, the pydoc server is not serving")
+            return
+
+        url = f"{self._pydoc_thread.url}search?key={quote_plus(query)}"
+        event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
+        if self._comm is not None:
+            self._comm.send_event(name=HelpFrontendEvent.ShowHelp.value, payload=event.dict())
+
+    def get_help_topics(self) -> list[HelpTopicSuggestion]:
+        """Return cached installed module names for search autocomplete."""
+        if self._help_topics is not None:
+            return self._help_topics
+
+        names: set[str] = set()
+
+        def callback(_path: str, module_name: str, _description: str) -> None:
+            names.add(module_name.removesuffix(".__init__"))
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            pydoc.ModuleScanner().run(callback, "", onerror=lambda _module_name: None)
+
+        self._help_topics = [HelpTopicSuggestion(label=name, topic=name) for name in sorted(names)]
+        return self._help_topics
