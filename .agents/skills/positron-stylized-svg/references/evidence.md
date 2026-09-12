@@ -74,6 +74,33 @@ Important light-theme landmarks:
 - `tab.activeBorderTop`: `#3A78B1`
 - `panelTitle.activeBorder`: `#3A78B1`
 
+### Proportions
+
+Reviewed examples don't agree on absolute pixel dimensions for the same
+region: one draws an 18px-wide activity bar, another omits the activity bar
+entirely. Copying a number from the nearest existing SVG is not the same as
+matching the app -- when a region's relative size is part of what the user
+asked to get right, compute the ratio from source instead.
+
+- Activity bar width and per-item height: `ACTIVITYBAR_WIDTH` and
+  `ACTION_HEIGHT` in `src/vs/workbench/browser/parts/activitybar/activitybarPart.ts`
+  (48 and 48 by default; also `COMPACT_*` and `FLOATING_*` variants).
+- Default Primary Side Bar width: `SIDEBAR_SIZE`'s default in
+  `src/vs/workbench/browser/layout.ts`, computed as
+  `Math.min(300, mainContainerDimension.width / 4)` -- not a fixed constant,
+  so pick a plausible container width before deriving a ratio from it.
+- View/part title bar height: `.part > .title` in
+  `src/vs/workbench/browser/media/part.css` (35px). A view's own secondary
+  section header (e.g. "Changes" under "Source Control") is shorter --
+  see `.pane-header` in `src/vs/workbench/browser/parts/views/media/views.css`
+  (22px).
+
+Convert whichever pair of regions matters for the scene into a ratio (for
+example activity-bar-width : sidebar-width) and apply that ratio to the
+chosen canvas, rather than reusing one reviewed example's raw numbers. Render
+and eyeball the result afterward -- a mechanically correct ratio can still
+look wrong at the compact sizes these illustrations use.
+
 ### Actions and icons
 
 Search for labels, command IDs, `Codicon.<name>`, `ThemeIcon`, menu IDs, or CSS
@@ -114,6 +141,10 @@ Treat these as the canonical example set. Inspect the examples closest to the
 requested surface and at least one broader workbench example, such as
 `positron-panes-abstract.svg`, before drawing. Reuse proven spacing, palette,
 icon scale, border treatment, and abstraction patterns where applicable.
+
+Their absolute pixel dimensions are not a ratio guarantee across the set --
+see Proportions above before copying a region's width or height from one of
+these files.
 
 Do not assume every example depicts the latest product state. Verify pane
 ownership, control identity, and theme tokens against current source when those
