@@ -469,6 +469,10 @@
 							"items": {
 								"$ref": "#/components/schemas/selection"
 							}
+						},
+						"id": {
+							"description": "A stable identifier for the document, e.g. '#console' for the console",
+							"type": "string"
 						}
 					},
 					"required": [

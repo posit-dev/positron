@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -2430,7 +2430,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const request = msg.content as JupyterCommRequest;
 
 		// Get the response from Positron
-		const response = await positron.methods.call(request.method, request.params);
+		const response = await positron.methods.call(request.method, request.params,
+			{ sessionId: this.metadata.sessionId });
 
 		// Send the response back to the kernel
 		const reply = new RpcReplyCommand(msg.header, response);

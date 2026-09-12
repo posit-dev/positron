@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -117,6 +117,14 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		return this._activeConsoleSessionId !== undefined
 			? this._consoleEditorsBySessionId.get(this._activeConsoleSessionId)?.value
 			: undefined;
+	}
+
+	/**
+	 * The session id of the active console, if any. Used to gate console-aware RPCs (e.g. the
+	 * rstudioapi editor-context shim) to the calling kernel's own console.
+	 */
+	get activeConsoleSessionId(): string | undefined {
+		return this._activeConsoleSessionId;
 	}
 
 	/**

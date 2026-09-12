@@ -113,6 +113,11 @@ export interface EditorContext {
 	 */
 	selections: Array<Selection>;
 
+	/**
+	 * A stable identifier for the document, e.g. '#console' for the console
+	 */
+	id?: string;
+
 }
 
 /**
