@@ -31,25 +31,11 @@ export const GEMINI_DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.co
 export const DEEPSEEK_DEFAULT_BASE_URL = 'https://api.deepseek.com';
 export const VERTEX_DEFAULT_BASE_URL = 'https://aiplatform.googleapis.com';
 
-export const ANTHROPIC_AUTH_PROVIDER_ID = 'anthropic-api';
-export const POSIT_AUTH_PROVIDER_ID = 'posit-ai';
-export const AWS_AUTH_PROVIDER_ID = 'amazon-bedrock';
+export const AWS_AUTH_PROVIDER_ID = 'bedrock';
 export const FOUNDRY_AUTH_PROVIDER_ID = 'ms-foundry';
 export const SNOWFLAKE_AUTH_PROVIDER_ID = 'snowflake-cortex';
-export const OPENAI_AUTH_PROVIDER_ID = 'openai-api';
-export const CUSTOM_PROVIDER_AUTH_PROVIDER_ID = 'openai-compatible';
-export const GEMINI_AUTH_PROVIDER_ID = 'google';
-export const GOOGLE_CLOUD_AUTH_PROVIDER_ID = 'google-cloud';
-export const DEEPSEEK_AUTH_PROVIDER_ID = 'deepseek-api';
+export const GOOGLE_CLOUD_AUTH_PROVIDER_ID = 'google-vertex';
 export const DATABRICKS_AUTH_PROVIDER_ID = 'databricks';
-
-/**
- * The one authentication provider every `providers.custom` entry is served
- * under, with the entry name as the scope. Static so it can be allowlisted in
- * product.json's `trustedExtensionAuthAccess`, which a user-chosen entry name
- * never can. See {@link CustomProviderAggregate}.
- */
-export const POSITRON_CUSTOM_AUTH_PROVIDER_ID = 'positron-custom-provider';
 
 export const DATABRICKS_OAUTH_SESSION_ID = 'databricks-oauth';
 export const DATABRICKS_OAUTH_CLIENT_ID = 'databricks-cli';

@@ -11,9 +11,9 @@
 	"activationEvents": [
 		"onStartupFinished",
 		"onAuthenticationRequest:ms-foundry",
-		"onAuthenticationRequest:amazon-bedrock",
+		"onAuthenticationRequest:bedrock",
 		"onAuthenticationRequest:snowflake-cortex",
-		"onAuthenticationRequest:google-cloud",
+		"onAuthenticationRequest:google-vertex",
 		"onAuthenticationRequest:databricks",
 		"onCommand:authentication.migrateSettingsToProvidersJson"
 	],
@@ -34,7 +34,7 @@
 				"label": "Microsoft Foundry"
 			},
 			{
-				"id": "amazon-bedrock",
+				"id": "bedrock",
 				"label": "AWS"
 			},
 			{
@@ -42,7 +42,7 @@
 				"label": "Snowflake Cortex"
 			},
 			{
-				"id": "google-cloud",
+				"id": "google-vertex",
 				"label": "Gemini Enterprise Agent Platform"
 			},
 			{
