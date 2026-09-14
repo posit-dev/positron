@@ -69,11 +69,15 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 	// repository URL; once they do, their name stands even as the URL keeps changing.
 	const [folderNameEdited, setFolderNameEdited] = useState(false);
 
+	// The name the clone will actually use. An empty field means the user wants the name the URL
+	// implies, which is the name the field held before they cleared it, so emptying the field is a
+	// way back to the default rather than an error to recover from.
+	const effectiveFolderName = result.folderName || folderNameFromGitRepoUrl(result.repo);
+
 	// Validate the folder name against the parent folder it will be created in.
 	const validateFolderName = useCallback(async (name: string): Promise<string | undefined> => {
 		if (isInputEmpty(name)) {
-			// An empty name is reported when the user tries to accept the dialog, not while they
-			// are still filling it in.
+			// Only reachable before a URL is entered, when there is nothing to validate yet.
 			return undefined;
 		}
 
@@ -105,8 +109,10 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 		return undefined;
 	}, [parentFolderLabel, result.parentFolder, services.fileService]);
 
+	// Validating the effective name rather than the field means a collision with the default is
+	// reported while the field is still empty, instead of waiting for the user to fill it in.
 	const folderNameError = useDebouncedValidator({
-		value: result.folderName,
+		value: effectiveFolderName,
 		validator: validateFolderName
 	});
 
@@ -148,8 +154,9 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 
 	// Update the folder name.
 	const onChangeFolderName = (folderName: string) => {
-		// Clearing the field hands the name back to the URL, so emptying it is a way out of a name
-		// rather than a dead end.
+		// Clearing the field puts the name back under the URL's control. The field is left empty
+		// rather than refilled, so backspacing through a name to retype it does not fight the user
+		// by restoring the default mid-edit.
 		setFolderNameEdited(folderName !== '');
 		setResult(prevResult => ({ ...prevResult, folderName }));
 	};
@@ -180,18 +187,15 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 				if (isInputEmpty(result.repo)) {
 					throw new Error(localize('positron.gitRepoNotProvided', "A git repository URL was not provided."));
 				}
-				if (isInputEmpty(result.folderName)) {
-					throw new Error(localize('positron.folderNameNotProvided', "A folder name was not provided."));
-				}
 				// The displayed message is debounced and can lag the last keystroke, so the name is
 				// validated once more here rather than trusting what is on screen.
-				const error = await validateFolderName(result.folderName);
+				const error = await validateFolderName(effectiveFolderName);
 				if (error) {
 					throw new Error(error);
 				}
 				// Dispose dialog immediately, then start cloning
 				props.renderer.dispose();
-				await props.createFolder(result);
+				await props.createFolder({ ...result, folderName: effectiveFolderName });
 			}}
 			onCancel={() => props.renderer.dispose()}
 		>

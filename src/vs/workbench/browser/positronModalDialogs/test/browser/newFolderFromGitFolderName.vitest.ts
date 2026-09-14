@@ -48,6 +48,12 @@ describe('folderNameFromGitRepoUrl', () => {
 		expect(folderNameFromGitRepoUrl('   ')).toBe('');
 	});
 
+	it('falls back to repository when the last segment is nothing but .git, as the Git extension does', () => {
+		expect(folderNameFromGitRepoUrl('https://example.com/team/.git')).toBe('repository');
+		expect(folderNameFromGitRepoUrl('https://example.com/.git')).toBe('repository');
+		expect(folderNameFromGitRepoUrl('/')).toBe('repository');
+	});
+
 	it('falls back to the host when a URL names no repository, as the Git extension does', () => {
 		// Not a clonable URL, but the name shown has to be the name Git would have used, or the
 		// pre-filled field would quietly change where a clone lands.

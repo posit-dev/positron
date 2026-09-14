@@ -130,6 +130,29 @@ describe('NewFolderFromGitModalDialog', () => {
 		}));
 	});
 
+	it('creates under the derived name when the field is left empty', async () => {
+		const user = userEvent.setup();
+		const { createFolder } = renderDialog();
+
+		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
+		await user.clear(folderName());
+		await user.click(screen.getByRole('button', { name: 'OK' }));
+
+		// Clearing the field asks for the default back, so the clone lands where it would have
+		// without the field, rather than failing for a name the user deliberately gave up.
+		expect(createFolder).toHaveBeenCalledWith(expect.objectContaining({ folderName: 'positron' }));
+	});
+
+	it('reports a conflict with the derived name while the field is still empty', async () => {
+		const user = userEvent.setup();
+		renderDialog(['positron']);
+
+		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
+		await user.clear(folderName());
+
+		expect(await screen.findByText('A folder named \'positron\' already exists.')).toBeInTheDocument();
+	});
+
 	it('refuses to create a folder that already exists', async () => {
 		const user = userEvent.setup();
 		const { createFolder } = renderDialog(['positron']);

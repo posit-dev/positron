@@ -13,7 +13,7 @@
  * lands in the folder they would have landed in before the field existed.
  *
  * @param url The Git repository URL, as typed into the dialog.
- * @returns The derived folder name, or an empty string if the URL yields nothing usable.
+ * @returns The derived folder name, or an empty string if no URL has been entered yet.
  */
 export function folderNameFromGitRepoUrl(url: string): string {
 	// The Git extension strips a pasted 'git clone ' prefix before deriving a name, so a command
@@ -33,8 +33,14 @@ export function folderNameFromGitRepoUrl(url: string): string {
 		decodedUrl = trimmedUrl;
 	}
 
-	return decodedUrl
+	const derivedName = decodedUrl
 		.replace(/[\/]+$/, '')		// Trailing slashes.
 		.replace(/^.*[\/\\]/, '')	// Everything through the last separator.
 		.replace(/\.git$/, '');		// The .git suffix.
+
+	// A URL whose last segment is nothing but '.git' leaves no name behind. Git.clone() falls back
+	// to 'repository' there, and so does this, or the field would sit empty for a URL that used to
+	// clone fine. An empty URL is the one case that stays empty, since there is nothing yet to
+	// derive a name from.
+	return derivedName || 'repository';
 }
