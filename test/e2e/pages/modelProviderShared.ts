@@ -53,14 +53,14 @@ const POSIT_LOGIN_BUTTON = 'button[type="submit"]:has-text("Log in")';
  * Supported model providers for authentication.
  */
 export type ModelProvider =
-	| 'anthropic-api'
-	| 'amazon-bedrock'
+	| 'anthropic'
+	| 'bedrock'
 	| 'databricks'
 	| 'echo'
 	| 'error'
 	| 'ms-foundry'
-	| 'openai-api'
-	| 'posit-ai'
+	| 'openai'
+	| 'positai'
 	| 'snowflake-cortex';
 
 /**
@@ -116,14 +116,14 @@ export function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 		case 'echo':
 		case 'error':
 			return 'none';
-		case 'anthropic-api':
-		case 'openai-api':
+		case 'anthropic':
+		case 'openai':
 		case 'ms-foundry':
 		case 'snowflake-cortex':
 			return 'apiKey';
-		case 'amazon-bedrock':
+		case 'bedrock':
 			return 'aws';
-		case 'posit-ai':
+		case 'positai':
 			return 'oauth';
 		case 'databricks':
 			// Authorization code + PKCE against a loopback server, not a device code
@@ -167,7 +167,7 @@ export function getProviderBaseUrlEnvVarName(provider: ModelProvider): string {
 
 export function getOAuthConfig(provider: ModelProvider): OAuthDeviceCodeConfig {
 	switch (provider.toLowerCase()) {
-		case 'posit-ai':
+		case 'positai':
 			return {
 				provider: 'posit',
 				verificationUrl: '',
@@ -184,9 +184,9 @@ export function getOAuthConfig(provider: ModelProvider): OAuthDeviceCodeConfig {
 
 export function getProviderEnvVarName(provider: ModelProvider): string {
 	switch (provider.toLowerCase()) {
-		case 'anthropic-api':
+		case 'anthropic':
 			return 'ANTHROPIC_KEY';
-		case 'openai-api':
+		case 'openai':
 			return 'OPENAI_KEY';
 		case 'databricks':
 			// Databricks calls its API key a personal access token.
@@ -206,9 +206,9 @@ export function getProviderEnvKey(provider: ModelProvider): string | undefined {
 
 export function getProviderAutoSignInEnvVarName(provider: ModelProvider): string | undefined {
 	switch (provider.toLowerCase()) {
-		case 'anthropic-api':
+		case 'anthropic':
 			return 'ANTHROPIC_API_KEY';
-		case 'openai-api':
+		case 'openai':
 			return 'OPENAI_API_KEY';
 		default:
 			return undefined;

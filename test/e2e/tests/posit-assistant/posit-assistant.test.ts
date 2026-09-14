@@ -17,7 +17,7 @@ test.use({
 test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
 
 
-const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
+const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic'];
 
 test.describe('Posit Assistant', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN, tags.PLOTS],

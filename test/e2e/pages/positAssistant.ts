@@ -65,12 +65,12 @@ const INLINE_MODEL_TRIGGER = '[data-slot="dropdown-menu-trigger"]:has(svg.lucide
  * (packages/core/src/platform/provider-registry.ts).
  */
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-	'anthropic-api': 'Anthropic',
-	'amazon-bedrock': 'AWS Bedrock',
+	'anthropic': 'Anthropic',
+	'bedrock': 'AWS Bedrock',
 	'databricks': 'Databricks',
-	'openai-api': 'OpenAI',
+	'openai': 'OpenAI',
 	'ms-foundry': 'Microsoft Foundry',
-	'posit-ai': 'Posit AI Pass',
+	'positai': 'Posit AI Pass',
 	'snowflake-cortex': 'Snowflake Cortex',
 };
 
@@ -90,7 +90,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 const PROVIDER_DISPLAY_NAME_ALIASES: Record<string, string[]> = {
 	// Renamed to "Posit AI Pass" in the assistant's provider registry after the
 	// bootstrapped 1.2.0 release; mirrored here in #15858.
-	'posit-ai': ['Posit AI'],
+	'positai': ['Posit AI'],
 };
 
 /**
@@ -463,7 +463,7 @@ export class PositAssistant {
 	 *  - inline mode (wide status bar, e.g. a maximized sidebar): the model
 	 *    trigger opens a flat radio group whose provider headers are sibling divs.
 	 *
-	 * @param provider e2e provider id (e.g. 'anthropic-api', 'amazon-bedrock').
+	 * @param provider e2e provider id (e.g. 'anthropic', 'bedrock').
 	 */
 	async selectProviderModel(provider: string): Promise<void> {
 		const providerName = PROVIDER_DISPLAY_NAMES[provider];

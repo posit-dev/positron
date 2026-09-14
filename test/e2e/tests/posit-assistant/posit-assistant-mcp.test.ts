@@ -19,7 +19,7 @@ test.use({
 test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
 
 
-const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
+const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic'];
 
 // Catches regressions where MCP servers in `.positai/settings.json` are
 // ignored — see posit-dev/assistant#1289 (fixed in #1293). Uses the `echo`

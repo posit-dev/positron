@@ -40,7 +40,7 @@ test.use({
 test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
 
 
-const SIGNIN_PROVIDERS: ModelProvider[] = ['anthropic-api', 'openai-api', 'posit-ai'];
+const SIGNIN_PROVIDERS: ModelProvider[] = ['anthropic', 'openai', 'positai'];
 
 // Pins the reply to a single known word so the response assertion can check for
 // it. A bare "Say hello" leaves the model free to answer with a greeting that

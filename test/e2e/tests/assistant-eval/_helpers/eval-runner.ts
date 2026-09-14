@@ -139,7 +139,7 @@ export function evalTests(
 
 	test.beforeAll(async ({ assistant }) => {
 		await assistant.openPositronAssistantChat();
-		await assistant.loginModelProvider('anthropic-api');
+		await assistant.loginModelProvider('anthropic');
 	});
 
 	getModelKeys().forEach((modelKey, index) => {
@@ -171,6 +171,6 @@ export function evalTests(
 	});
 
 	test.afterAll(async ({ assistant }) => {
-		await assistant.logoutModelProvider('anthropic-api');
+		await assistant.logoutModelProvider('anthropic');
 	});
 }
