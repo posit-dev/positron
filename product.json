@@ -704,17 +704,20 @@
 		"rstudio"
 	],
 	"trustedExtensionAuthAccess": {
-		"github": [],
+		"github": [
+			"posit.assistant"
+		],
 		"github-enterprise": [
 			"GitHub.copilot-chat"
 		],
 		"posit-workbench": [
-			"positron.authentication"
-		],
-		"anthropic-api": [
+			"positron.authentication",
 			"posit.assistant"
 		],
-		"posit-ai": [
+		"anthropic": [
+			"posit.assistant"
+		],
+		"positai": [
 			"posit.assistant",
 			"positron.next-edit-suggestions"
 		],
@@ -722,7 +725,7 @@
 			"positron.authentication",
 			"posit.assistant"
 		],
-		"amazon-bedrock": [
+		"bedrock": [
 			"positron.authentication",
 			"posit.assistant"
 		],
@@ -730,19 +733,19 @@
 			"positron.authentication",
 			"posit.assistant"
 		],
-		"openai-api": [
+		"openai": [
 			"posit.assistant"
 		],
-		"deepseek-api": [
+		"deepseek": [
 			"posit.assistant"
 		],
 		"openai-compatible": [
 			"posit.assistant"
 		],
-		"google": [
+		"gemini": [
 			"posit.assistant"
 		],
-		"google-cloud": [
+		"google-vertex": [
 			"positron.authentication",
 			"posit.assistant"
 		],
@@ -750,7 +753,7 @@
 			"positron.authentication",
 			"posit.assistant"
 		],
-		"positron-custom-provider": [
+		"custom-providers": [
 			"posit.assistant"
 		]
 	},
