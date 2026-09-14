@@ -14,7 +14,7 @@
 	],
 	"activationEvents": [
 		"onAiEnabled",
-		"onAuthenticationRequest:posit-ai"
+		"onAuthenticationRequest:positai"
 	],
 	"main": "./out/extension.js",
 	"enabledApiProposals": [
