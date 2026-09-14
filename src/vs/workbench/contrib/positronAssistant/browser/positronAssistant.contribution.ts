@@ -25,6 +25,7 @@ import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.j
 import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
 import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
 import { AiExtensionActivationContribution } from './aiExtensionActivation.js';
+import { LegacyCredentialCopyContribution } from './legacyCredentialCopyContribution.js';
 import { PositronAssistantToolsContribution } from './tools/positronAssistantTools.js';
 import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -165,6 +166,7 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).regi
 // on. Registered at `Eventually` to preserve the deferred timing those
 // extensions had under `onStartupFinished`.
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(AiExtensionActivationContribution, LifecyclePhase.Eventually);
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(LegacyCredentialCopyContribution, LifecyclePhase.Eventually);
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantToolsContribution, LifecyclePhase.Restored);
 
