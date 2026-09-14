@@ -10,6 +10,9 @@ import { ILogService } from '../../../platform/log/common/log.js';
 import { SequencerByKey } from '../../../base/common/async.js';
 import { ISecretStorageService } from '../../../platform/secrets/common/secrets.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../services/environment/browser/environmentService.js';
+// --- Start Positron ---
+import { extensionSecretStorageKey } from '../common/extensionSecretStorageKey.js';
+// --- End Positron ---
 
 @extHostNamedCustomer(MainContext.MainThreadSecretState)
 export class MainThreadSecretState extends Disposable implements MainThreadSecretStateShape {
@@ -88,7 +91,12 @@ export class MainThreadSecretState extends Disposable implements MainThreadSecre
 	}
 
 	private getKey(extensionId: string, key: string): string {
-		return JSON.stringify({ extensionId, key });
+		// --- Start Positron ---
+		// Shared with the legacy-credential-copy planner, which needs to compute
+		// the same key from outside this class.
+		// return JSON.stringify({ extensionId, key });
+		return extensionSecretStorageKey(extensionId, key);
+		// --- End Positron ---
 	}
 
 	private parseKey(key: string): { extensionId: string; key: string } | undefined {

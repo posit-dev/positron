@@ -25,6 +25,8 @@ const _connection = (c: ResolvedConnection): IResolvedConnectionData => ({
 	aws: c.aws,
 	googleCloud: c.googleCloud,
 	snowflake: c.snowflake,
+	databricks: c.databricks,
+	positaiLogin: c.positaiLogin,
 });
 
 const _provider = (p: ResolvedProvider): IResolvedProviderData => ({

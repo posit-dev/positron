@@ -2008,6 +2008,34 @@ export default defineConfig(
 						} // node module allowed even in /browser/
 					]
 				},
+				// --- Start Positron ---
+				// Must precede the generic 'src/vs/workbench/contrib/*/~' entry:
+				// the rule uses the first matching target, so this scopes the
+				// ai-credentials allowance to the legacy-credential-copy planner.
+				{
+					'target': 'src/vs/workbench/contrib/positronAssistant/~',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/api/~',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/sessions/~',
+						{
+							'when': 'test',
+							'pattern': 'vs/test/vitest/**'
+						},
+						// The one-time copy planner's dependency on ai-lib's
+						// stored-credential shape and legacy-id table.
+						'ai-credentials/types',
+						'ai-credentials/store-backend'
+					]
+				},
+				// --- End Positron ---
 				{
 					'target': 'src/vs/workbench/contrib/*/~',
 					'restrictions': [
