@@ -349,7 +349,7 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		// Only query providers whose auth backend is actually registered and whose
 		// catalog entry is enabled. Calling getSessions for an unregistered provider
 		// would fire its activation event and time out waiting for it to register
-		// (e.g. 'deepseek-api' when the user has no DeepSeek auth) -- both slow and,
+		// (e.g. 'deepseek' when the user has no DeepSeek auth) -- both slow and,
 		// uncaught, fatal to the whole sweep. The user's real sign-ins are
 		// registered, so this loses nothing.
 		const registered = new Set(this._authService.getProviderIds());
