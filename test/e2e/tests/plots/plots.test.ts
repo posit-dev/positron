@@ -18,6 +18,10 @@ test.use({
 	suiteId: __filename
 });
 
+// Homebrew no longer ships x86_64 bottles, so the macOS x64 CI job does not
+// install graphviz. Tests that render through the `dot` binary skip there.
+const isMacIntel = process.platform === 'darwin' && process.arch === 'x64';
+
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	test.describe('Python Plots', () => {
 
@@ -91,6 +95,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		test('Python - Verify basic plot functionality - Static Plot', {
 			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
 		}, async function ({ app, logger }, testInfo) {
+			test.skip(isMacIntel, 'Graphviz is not installed on Intel macOS runners; see Setup Graphviz in test-e2e-macos-run.yml');
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('Python', pythonStaticPlot);
 			await app.workbench.plots.waitForCurrentStaticPlot();
@@ -115,6 +120,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - Verify the plots pane action bar - Plot actions', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+			test.skip(isMacIntel, 'Graphviz is not installed on Intel macOS runners; see Setup Graphviz in test-e2e-macos-run.yml');
 			const plots = app.workbench.plots;
 
 			// default plot pane state for action bar
