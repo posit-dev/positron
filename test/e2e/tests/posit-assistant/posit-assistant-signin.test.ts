@@ -33,10 +33,10 @@ test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager;
 // which is written before the app starts and so needs no reload.
 
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
-	'anthropic-api',
-	'openai-api',
-	'amazon-bedrock',
-	'posit-ai',
+	'anthropic',
+	'openai',
+	'bedrock',
+	'positai',
 	// Microsoft Foundry (Azure) via API key + Base URL on desktop. The managed
 	// credentials path is covered separately in the workbench suite.
 	'ms-foundry',

@@ -94,13 +94,13 @@ export interface EnterChatMessageResult {
  * Supported model providers for the Positron Assistant.
  */
 export type ModelProvider =
-	| 'anthropic-api'
-	| 'amazon-bedrock'
+	| 'anthropic'
+	| 'bedrock'
 	| 'Copilot'
 	| 'echo'
 	| 'error'
-	| 'openai-api'
-	| 'posit-ai';
+	| 'openai'
+	| 'positai';
 
 /**
  * Authentication types for model providers.
@@ -150,12 +150,12 @@ function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 		case 'echo':
 		case 'error':
 			return 'none';
-		case 'anthropic-api':
-		case 'openai-api':
+		case 'anthropic':
+		case 'openai':
 			return 'apiKey';
-		case 'amazon-bedrock':
+		case 'bedrock':
 			return 'aws';
-		case 'posit-ai':
+		case 'positai':
 			return 'oauth';
 		default:
 			throw new Error(`Unknown provider: ${provider}`);
@@ -167,7 +167,7 @@ function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
  */
 function getOAuthConfig(provider: ModelProvider): OAuthDeviceCodeConfig {
 	switch (provider.toLowerCase()) {
-		case 'posit-ai':
+		case 'positai':
 			return {
 				provider: 'posit',
 				// Verification URL is constructed from POSIT_AUTH_HOST env var + device code
@@ -188,9 +188,9 @@ function getOAuthConfig(provider: ModelProvider): OAuthDeviceCodeConfig {
  */
 function getProviderEnvVarName(provider: ModelProvider): string {
 	switch (provider.toLowerCase()) {
-		case 'anthropic-api':
+		case 'anthropic':
 			return 'ANTHROPIC_KEY';
-		case 'openai-api':
+		case 'openai':
 			return 'OPENAI_KEY';
 		default:
 			return `${provider.toUpperCase().replace(/-/g, '_')}_KEY`;
@@ -211,9 +211,9 @@ function getProviderEnvKey(provider: ModelProvider): string | undefined {
  */
 function getProviderAutoSignInEnvVarName(provider: ModelProvider): string | undefined {
 	switch (provider.toLowerCase()) {
-		case 'anthropic-api':
+		case 'anthropic':
 			return 'ANTHROPIC_API_KEY';
-		case 'openai-api':
+		case 'openai':
 			return 'OPENAI_API_KEY';
 		default:
 			return undefined;
@@ -319,10 +319,10 @@ export class Assistant {
 
 	async selectModelProvider(provider: ModelProvider) {
 		switch (provider.toLowerCase()) {
-			case 'anthropic-api':
+			case 'anthropic':
 				await this.code.driver.currentPage.locator(ANTHROPIC_BUTTON).click();
 				break;
-			case 'amazon-bedrock':
+			case 'bedrock':
 				await this.code.driver.currentPage.locator(AWS_BEDROCK_BUTTON).click();
 				break;
 			case 'copilot':
@@ -334,10 +334,10 @@ export class Assistant {
 			case 'error':
 				await this.code.driver.currentPage.locator(ERROR_MODEL_BUTTON).click();
 				break;
-			case 'openai-api':
+			case 'openai':
 				await this.code.driver.currentPage.locator(OPENAI_BUTTON).click();
 				break;
-			case 'posit-ai':
+			case 'positai':
 				await this.code.driver.currentPage.locator(POSIT_AI_BUTTON).click();
 				break;
 			default:
@@ -365,11 +365,11 @@ export class Assistant {
 	 *
 	 * @example
 	 * // Sign in to Anthropic with environment variable
-	 * await assistant.loginModelProvider('anthropic-api');
+	 * await assistant.loginModelProvider('anthropic');
 	 *
 	 * @example
 	 * // Sign in to OpenAI with explicit API key
-	 * await assistant.loginModelProvider('openai-api', { apiKey: 'sk-...' });
+	 * await assistant.loginModelProvider('openai', { apiKey: 'sk-...' });
 	 */
 	async loginModelProvider(provider: ModelProvider, options: LoginModelProviderOptions = {}) {
 		const { timeout = 15000 } = options;

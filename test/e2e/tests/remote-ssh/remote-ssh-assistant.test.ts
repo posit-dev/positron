@@ -52,7 +52,7 @@ test.describe('Remote SSH: Posit Assistant', {
 
 		const { sshWorkbench } = await connectToRemoteHost(app);
 
-		await sshWorkbench.modelProviderModal.loginModelProvider('anthropic-api');
+		await sshWorkbench.modelProviderModal.loginModelProvider('anthropic');
 
 		try {
 			await sshWorkbench.positAssistant.open();
@@ -62,14 +62,14 @@ test.describe('Remote SSH: Posit Assistant', {
 			// Select the just-signed-in provider's model rather than relying on an
 			// auto-selected default, which may belong to another signed-in provider.
 			// `newConversation: false` keeps that selection.
-			await sshWorkbench.positAssistant.selectProviderModel('anthropic-api');
+			await sshWorkbench.positAssistant.selectProviderModel('anthropic');
 			await sshWorkbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
 			await sshWorkbench.positAssistant.expectResponseVisible();
 
 			const responseText = await sshWorkbench.positAssistant.getLastResponseText();
 			expect(responseText.length).toBeGreaterThan(0);
 		} finally {
-			await sshWorkbench.modelProviderModal.logoutModelProvider('anthropic-api');
+			await sshWorkbench.modelProviderModal.logoutModelProvider('anthropic');
 		}
 	});
 });

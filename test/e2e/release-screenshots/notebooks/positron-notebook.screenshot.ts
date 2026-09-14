@@ -139,7 +139,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await editors.waitForActiveTab('explore-energy-data.ipynb', false);
 
 		// Log in to the model provider and open Posit Assistant chat on the left.
-		await modelProviderModal.loginModelProvider('anthropic-api');
+		await modelProviderModal.loginModelProvider('anthropic');
 		await positAssistant.open();
 		await positAssistant.waitForReady();
 		await positAssistant.sendMessageAndWait('Tell me about this notebook', { timeout: 90_000, newConversation: true });
