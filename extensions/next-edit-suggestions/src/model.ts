@@ -125,12 +125,12 @@ async function getGatewayCompletionModel(baseUrl: string, accessToken: string): 
  * Suggestions is disabled and {@link getLLMConfiguration} is never called.
  */
 export async function isSignedIn(): Promise<boolean> {
-	const session = await vscode.authentication.getSession('posit-ai', [], { silent: true });
+	const session = await vscode.authentication.getSession('positai', [], { silent: true });
 	return !!session?.accessToken;
 }
 
 export async function getLLMConfiguration(): Promise<LLMConfig | null> {
-	const session = await vscode.authentication.getSession('posit-ai', [], { silent: true });
+	const session = await vscode.authentication.getSession('positai', [], { silent: true });
 	if (!session?.accessToken) {
 		return null;
 	}

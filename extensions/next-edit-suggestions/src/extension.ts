@@ -92,7 +92,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	context.subscriptions.push(
 		vscode.authentication.onDidChangeSessions((e) => {
-			if (e.provider.id === 'posit-ai') {
+			if (e.provider.id === 'positai') {
 				void ensureLanguageServer();
 			}
 		}),
