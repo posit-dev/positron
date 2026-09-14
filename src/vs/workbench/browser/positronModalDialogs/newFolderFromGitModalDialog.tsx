@@ -71,8 +71,13 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 
 	// The name the clone will actually use. An empty field means the user wants the name the URL
 	// implies, which is the name the field held before they cleared it, so emptying the field is a
-	// way back to the default rather than an error to recover from.
-	const effectiveFolderName = result.folderName || folderNameFromGitRepoUrl(result.repo);
+	// way back to the default rather than an error to recover from. Whitespace reads as empty here,
+	// the way isInputEmpty reads it downstream: a truthy check would let '   ' through as a name,
+	// past a validator that waves it on as empty, and Git.clone() would take it as a targetName and
+	// create a folder called three spaces.
+	const effectiveFolderName = isInputEmpty(result.folderName)
+		? folderNameFromGitRepoUrl(result.repo)
+		: result.folderName;
 
 	// Validate the folder name against the parent folder it will be created in.
 	const validateFolderName = useCallback(async (name: string): Promise<string | undefined> => {
@@ -157,7 +162,7 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 		// Clearing the field puts the name back under the URL's control. The field is left empty
 		// rather than refilled, so backspacing through a name to retype it does not fight the user
 		// by restoring the default mid-edit.
-		setFolderNameEdited(folderName !== '');
+		setFolderNameEdited(!isInputEmpty(folderName));
 		setResult(prevResult => ({ ...prevResult, folderName }));
 	};
 

@@ -143,6 +143,32 @@ describe('NewFolderFromGitModalDialog', () => {
 		expect(createFolder).toHaveBeenCalledWith(expect.objectContaining({ folderName: 'positron' }));
 	});
 
+	it('treats a whitespace-only name as empty rather than cloning into it', async () => {
+		const user = userEvent.setup();
+		const { createFolder } = renderDialog();
+
+		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
+		await user.clear(folderName());
+		await user.type(folderName(), '   ');
+		await user.click(screen.getByRole('button', { name: 'OK' }));
+
+		// Git.clone() would take '   ' as a targetName and create a folder named three spaces.
+		expect(createFolder).toHaveBeenCalledWith(expect.objectContaining({ folderName: 'positron' }));
+	});
+
+	it('keeps following the URL when the name is only whitespace', async () => {
+		const user = userEvent.setup();
+		renderDialog();
+
+		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
+		await user.clear(folderName());
+		await user.type(folderName(), '   ');
+		await user.clear(repoUrl());
+		await user.type(repoUrl(), 'https://github.com/posit-dev/ark.git');
+
+		expect(folderName()).toHaveValue('ark');
+	});
+
 	it('reports a conflict with the derived name while the field is still empty', async () => {
 		const user = userEvent.setup();
 		renderDialog(['positron']);
