@@ -110,6 +110,10 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 			'CONFIG_KEY_OVERRIDES',
 			'shapeCredentials',
 		],
+		'ai-credentials/types': [
+			'POSITRON_LEGACY_AUTH_PROVIDER_IDS',
+			'storageKeyFor',
+		],
 	};
 
 	// Derive entry points from the export map keys.
