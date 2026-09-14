@@ -39,7 +39,6 @@ import { log } from './log';
 import { migrateAwsSettings } from './migration/aws';
 import { migrateSnowflakeSettings } from './migration/snowflake';
 import { autoMigrateProvidersJson, registerProvidersJsonMigration } from './migration/providersJsonUi';
-import { registerCredentialExport } from './credentialMigration';
 import { AuthProviderLogger } from './authProviderLogger';
 import { applyPwbPositAIDefault } from './pwbDefaults';
 import {
@@ -178,7 +177,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	log.info('Authentication extension activated');
 
 	registerProvidersJsonMigration(context);
-	registerCredentialExport(context);
 
 	return { getLogs: () => log.formatEntriesForDiagnostics() };
 }
