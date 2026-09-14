@@ -16,10 +16,13 @@
 // PostgreSQL connection creates clients several ways (a libpq connection string, discrete fields, and
 // per-database clients in server mode); the connection supplies the right builder for each.
 
-import { Client, QueryResult } from 'pg';
+import type { Client, QueryResult } from 'pg';
 
-/** Factory for the underlying pg Client. Overridable in tests to supply a fake. */
-export type PgClientFactory = () => Client;
+/**
+ * Factory for the underlying pg Client. Overridable in tests to supply a fake. Async because the
+ * real factory loads pg on demand.
+ */
+export type PgClientFactory = () => Promise<Client>;
 
 // Connect-retry budget. A server that is briefly unreachable on connect (a resuming instance, a
 // transient network blip) drops the first attempts with a transient connection error. The attempt
@@ -95,7 +98,7 @@ export class PostgreSQLClient {
 	 */
 	private async _open(): Promise<void> {
 		for (let attempt = 1; ; attempt++) {
-			const pg = this._createPgClient();
+			const pg = await this._createPgClient();
 			// When the socket dies while no query is in flight, the pg Client emits an asynchronous
 			// 'error' event. With no listener that becomes an unhandled 'error' and takes down the
 			// extension host, so absorb it here; the next query() observes the broken client and

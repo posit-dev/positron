@@ -104,4 +104,6 @@ dist
 # deleting them in the background. Present while rebuild.sh runs, and left
 # behind if a run is interrupted before the deletion finishes.
 .rebuild-trash.*
+# Posit Assistant plans, which are local working notes rather than repo content
+.posit/assistant/plans/
 # --- End Positron ---
