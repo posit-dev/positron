@@ -544,7 +544,6 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	 *
 	 * @returns the release notes as a string
 	 */
-	// --- Start Positron ---
 	async getReleaseNotes(version?: string): Promise<string> {
 		const targetVersion = version ?? this.productService.positronVersion;
 		const channel = process.env.POSITRON_UPDATE_CHANNEL ?? this.configurationService.getValue<string>('update.positron.channel');
@@ -818,6 +817,8 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	protected updateAvailable(context: IUpdate): void {
 		this.setState(State.AvailableForDownload(context));
 	}
+
+	// --- Start Positron ---
 	updateActiveLanguages(languages: string[]): void {
 		// Persist the day's usage so it can be reported on a later launch, even if
 		// this session ends before an update check fires. Every window pushes into
