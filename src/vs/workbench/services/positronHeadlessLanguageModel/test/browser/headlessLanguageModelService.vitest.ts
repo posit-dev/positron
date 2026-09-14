@@ -40,15 +40,15 @@ function model(id: string, name: string, providerId: string, vendor = 'Acme'): I
 
 // Stands in for the bridge's PROVIDER_MAP, served by the engine over IPC.
 const TEST_MAPPINGS: IProviderMapping[] = [
-	{ providerId: 'positai', authProviderId: 'posit-ai', scopes: ['positai'], credentialType: 'oauth', configKey: 'posit-ai' },
-	{ providerId: 'anthropic', authProviderId: 'anthropic-api', scopes: [], credentialType: 'apikey', configKey: 'anthropic' },
-	{ providerId: 'openai', authProviderId: 'openai-api', scopes: [], credentialType: 'apikey', configKey: 'openai' },
+	{ providerId: 'positai', authProviderId: 'positai', scopes: ['positai'], credentialType: 'oauth', configKey: 'positai' },
+	{ providerId: 'anthropic', authProviderId: 'anthropic', scopes: [], credentialType: 'apikey', configKey: 'anthropic' },
+	{ providerId: 'openai', authProviderId: 'openai', scopes: [], credentialType: 'apikey', configKey: 'openai' },
 ];
 
 // The non-apikey credential types, for the credential-shaping policy tests.
 const POLICY_MAPPINGS: IProviderMapping[] = [
-	{ providerId: 'vertex', authProviderId: 'vertex-api', scopes: [], credentialType: 'google-cloud', configKey: 'vertex' },
-	{ providerId: 'bedrock', authProviderId: 'aws', scopes: [], credentialType: 'aws-credentials', configKey: 'bedrock' },
+	{ providerId: 'vertex', authProviderId: 'google-vertex', scopes: [], credentialType: 'google-cloud', configKey: 'vertex' },
+	{ providerId: 'bedrock', authProviderId: 'bedrock', scopes: [], credentialType: 'aws-credentials', configKey: 'bedrock' },
 ];
 
 function fakeEngine(options: {
@@ -195,7 +195,7 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('reports no-model-matched when a pinned exact id is gone (the only no-match path)', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('haiku-1', 'Haiku', 'anthropic')] } }));
 			const result = await service.streamText({ systemPrompt: 's', messages: [], model: { id: 'nope' } });
 			expect(result).toEqual({ available: false, reason: 'no-model-matched' });
@@ -204,14 +204,14 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('model selection', () => {
 		it('default tier resolves via the fast/cheap patterns', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
 			expect(result.available && result.model.id).toBe('claude-haiku');
 		});
 
 		it('an exact id resolves precisely', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({
 				models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic'), model('claude-sonnet', 'Claude Sonnet', 'anthropic')] },
 			}));
@@ -220,7 +220,7 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('patterns are tried in order until one matches', async () => {
-			signedInAuthProviders.add('openai-api');
+			signedInAuthProviders.add('openai');
 			const service = createService(fakeEngine({ models: { openai: [model('gpt-5-mini', 'GPT-5 Mini', 'openai')] } }));
 			const result = await service.streamText({ systemPrompt: 's', messages: [], model: { patterns: ['nope', 'mini'] } });
 			expect(result.available && result.model.id).toBe('gpt-5-mini');
@@ -230,7 +230,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('no-match fallback', () => {
 		it('a tier selection falls back to the highest-priority model when its patterns match nothing', async () => {
-			signedInAuthProviders.add('openai-api');
+			signedInAuthProviders.add('openai');
 			// The default fast/cheap patterns (haiku/mini/flash/gemma) match neither id nor name.
 			const service = createService(fakeEngine({ models: { openai: [model('gpt-5', 'GPT-5', 'openai')] } }));
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
@@ -239,8 +239,8 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('a pattern selection falls back to the highest-priority model, respecting provider priority', async () => {
-			signedInAuthProviders.add('posit-ai');
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('positai');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({
 				models: {
 					anthropic: [model('claude-x', 'Claude X', 'anthropic')],
@@ -254,7 +254,7 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('the fast/cheap tier uses the built-in default patterns', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({
 				models: { anthropic: [model('claude-sonnet', 'Claude Sonnet', 'anthropic'), model('claude-haiku', 'Claude Haiku', 'anthropic')] },
 			}));
@@ -267,8 +267,8 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('provider priority', () => {
 		it('prefers the Posit gateway over a direct vendor for the same intent', async () => {
-			signedInAuthProviders.add('posit-ai');
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('positai');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({
 				models: {
 					anthropic: [model('haiku-direct', 'Haiku (direct)', 'anthropic')],
@@ -282,7 +282,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('streaming', () => {
 		it('streams the engine text deltas through the public result', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({
 				models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] },
 				stream: () => AsyncIterableObject.fromArray(['Hello, ', 'world']),
@@ -297,7 +297,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('fallback on stall', () => {
 		it('falls back to the next candidate when the first fails before its first delta', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			// Both match the 'haiku' pattern; the first (in listing order) errors
 			// before any delta, so the request should land on the second.
 			const service = createService(fakeEngine({
@@ -310,7 +310,7 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('reports temporarily-unavailable when every candidate fails before its first delta', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({
 				models: { anthropic: [model('haiku-1', 'Haiku One', 'anthropic'), model('haiku-2', 'Haiku Two', 'anthropic')] },
 				stream: () => errorStream(),
@@ -322,7 +322,7 @@ describe('HeadlessLanguageModelService', () => {
 		it('falls back to the next candidate when the first stalls past the first-delta timeout', async () => {
 			vi.useFakeTimers();
 			try {
-				signedInAuthProviders.add('anthropic-api');
+				signedInAuthProviders.add('anthropic');
 				const service = createService(fakeEngine({
 					models: { anthropic: [model('haiku-stall', 'Haiku Stall', 'anthropic'), model('haiku-ok', 'Haiku OK', 'anthropic')] },
 					stream: (request: IEngineChatRequest) =>
@@ -341,7 +341,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('non-interruption', () => {
 		it('never creates a session (no sign-in prompt)', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			await service.streamText({ systemPrompt: 's', messages: [] });
 			await service.getAvailableModels();
@@ -351,7 +351,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('discovery', () => {
 		it('exposes available models with vendor grouping but hides provider identity', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic', 'Anthropic')] } }));
 			const models = await service.getAvailableModels();
 			expect(models).toEqual([{ id: 'claude-haiku', name: 'Claude Haiku', vendor: 'Anthropic' }]);
@@ -359,7 +359,7 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('exposes provider identity and the queried providers through the diagnostics accessor', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic', 'Anthropic')] } }));
 			expect(await service.getModelListingDiagnostics()).toEqual({
 				queriedProviders: ['anthropic'],
@@ -368,8 +368,8 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('keeps a de-duplicated model visible to diagnostics under both providers', async () => {
-			signedInAuthProviders.add('posit-ai');
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('positai');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({
 				models: {
 					positai: [model('claude-haiku', 'Claude Haiku', 'positai', 'Anthropic')],
@@ -392,7 +392,7 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('reports a provider that was queried but returned no models', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: {} }));
 			expect(await service.getModelListingDiagnostics()).toEqual({ queriedProviders: ['anthropic'], models: [] });
 		});
@@ -405,7 +405,7 @@ describe('HeadlessLanguageModelService', () => {
 			const fired = vi.fn();
 			ctx.disposables.add(service.onDidChangeAvailableModels(fired));
 
-			sessionsChange.fire({ providerId: 'anthropic-api', label: 'a', event: { added: [], removed: [], changed: [] } });
+			sessionsChange.fire({ providerId: 'anthropic', label: 'a', event: { added: [], removed: [], changed: [] } });
 			expect(fired).toHaveBeenCalledTimes(1);
 
 			sessionsChange.fire({ providerId: 'some-unrelated-provider', label: 'b', event: { added: [], removed: [], changed: [] } });
@@ -415,21 +415,21 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('resilience', () => {
 		it('does not query providers whose auth backend is not registered', async () => {
-			// Only anthropic-api is registered; posit-ai / openai-api would time
-			// out if queried (the deepseek-api regression).
-			signedInAuthProviders.add('anthropic-api');
-			registeredAuthProviders = new Set(['anthropic-api']);
+			// Only anthropic is registered; positai / openai would time
+			// out if queried (the deepseek regression).
+			signedInAuthProviders.add('anthropic');
+			registeredAuthProviders = new Set(['anthropic']);
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
 			expect(result.available).toBe(true);
 			const queried = getSessions.mock.calls.map(call => call[0]);
-			expect(queried).not.toContain('posit-ai');
-			expect(queried).not.toContain('openai-api');
+			expect(queried).not.toContain('positai');
+			expect(queried).not.toContain('openai');
 		});
 
 		it('one provider erroring does not abort the credential sweep', async () => {
-			signedInAuthProviders.add('anthropic-api');
-			throwingAuthProviders.add('openai-api'); // e.g. an activation timeout
+			signedInAuthProviders.add('anthropic');
+			throwingAuthProviders.add('openai'); // e.g. an activation timeout
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
 			expect(result.available && result.model.id).toBe('claude-haiku');
@@ -438,7 +438,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('cancellation', () => {
 		it('streamText stops waiting on a hung preflight when the token is cancelled', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			// An engine whose model listing never resolves (a black-holed IPC call).
 			const hangingEngine: IHeadlessLanguageModelEngine = {
 				getProviderMappings: async () => TEST_MAPPINGS,
@@ -455,7 +455,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('credentials', () => {
 		it('re-resolves credentials for each request even when the model list is cached', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			await service.getAvailableModels();
 			const afterListing = getSessions.mock.calls.length;
@@ -485,7 +485,7 @@ describe('HeadlessLanguageModelService', () => {
 		}
 
 		it('streamText reports temporarily-unavailable then recovers on retry', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(rejectThenSucceedEngine());
 
 			const first = await service.streamText({ systemPrompt: 's', messages: [] });
@@ -496,7 +496,7 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('getAvailableModels returns [] then recovers on retry', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(rejectThenSucceedEngine());
 
 			expect(await service.getAvailableModels()).toEqual([]);
@@ -508,7 +508,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('cache staleness', () => {
 		it('a catalog connection change invalidates the cached model list', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			// Prime the cache and populate the mapping snapshot the handler reads.
 			await service.getAvailableModels();
@@ -527,7 +527,7 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('a catalog change that touches neither enablement, connections, nor model policy does not invalidate', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			await service.getAvailableModels();
 			const fired = vi.fn();
@@ -540,7 +540,7 @@ describe('HeadlessLanguageModelService', () => {
 		// The engine applies the policy (see applyModelPolicy); the service's job is
 		// to drop its cache so the next listing re-queries.
 		it('a catalog model policy change invalidates the cached model list', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const listModels = vi.fn().mockResolvedValue([model('claude-opus-5', 'Claude Opus 5', 'anthropic')]);
 			const service = createService(fakeEngine({ listModels }));
 			await service.getAvailableModels();
@@ -565,9 +565,9 @@ describe('HeadlessLanguageModelService', () => {
 			ctx.disposables.add(service.onDidChangeAvailableModels(fired));
 
 			// The user signs into anthropic: the backend registers, then a session exists.
-			signedInAuthProviders.add('anthropic-api');
-			registeredAuthProviders.add('anthropic-api');
-			registerProvider.fire({ id: 'anthropic-api', label: 'Anthropic' });
+			signedInAuthProviders.add('anthropic');
+			registeredAuthProviders.add('anthropic');
+			registerProvider.fire({ id: 'anthropic', label: 'Anthropic' });
 			expect(fired).toHaveBeenCalledTimes(1);
 
 			// The recomputed listing now sees the newly registered, signed-in provider.
@@ -612,9 +612,9 @@ describe('HeadlessLanguageModelService', () => {
 		it('drops a google-cloud provider whose token is missing project/location', async () => {
 			// A malformed blob (no project, no location) shapes to no credential, so
 			// the provider is silently dropped -- the support trap the test pins.
-			registeredAuthProviders = new Set(['vertex-api']);
-			signedInAuthProviders.add('vertex-api');
-			sessionTokenOverrides.set('vertex-api', JSON.stringify({ token: 'abc' }));
+			registeredAuthProviders = new Set(['google-vertex']);
+			signedInAuthProviders.add('google-vertex');
+			sessionTokenOverrides.set('google-vertex', JSON.stringify({ token: 'abc' }));
 			const { engine } = capturingEngine({ vertex: [model('gemini', 'Gemini', 'vertex')] });
 			const service = createService(engine);
 
@@ -623,9 +623,9 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('drops an aws provider whose token is missing accessKeyId/secretAccessKey', async () => {
-			registeredAuthProviders = new Set(['aws']);
-			signedInAuthProviders.add('aws');
-			sessionTokenOverrides.set('aws', JSON.stringify({ accessKeyId: 'AK' }));
+			registeredAuthProviders = new Set(['bedrock']);
+			signedInAuthProviders.add('bedrock');
+			sessionTokenOverrides.set('bedrock', JSON.stringify({ accessKeyId: 'AK' }));
 			const { engine } = capturingEngine({ bedrock: [model('claude-bedrock', 'Claude (Bedrock)', 'bedrock')] });
 			const service = createService(engine);
 
@@ -634,9 +634,9 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('defaults the aws region to us-east-1 when the bedrock connection has no aws details', async () => {
-			registeredAuthProviders = new Set(['aws']);
-			signedInAuthProviders.add('aws');
-			sessionTokenOverrides.set('aws', JSON.stringify({ accessKeyId: 'AK', secretAccessKey: 'SK' }));
+			registeredAuthProviders = new Set(['bedrock']);
+			signedInAuthProviders.add('bedrock');
+			sessionTokenOverrides.set('bedrock', JSON.stringify({ accessKeyId: 'AK', secretAccessKey: 'SK' }));
 			const { engine, captured } = capturingEngine({ bedrock: [model('claude-bedrock', 'Claude (Bedrock)', 'bedrock')] });
 			const service = createService(engine);
 
@@ -656,7 +656,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('catalog-backed enablement and availability', () => {
 		it('excludes a disabled provider from the candidate set', async () => {
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			catalogSnapshot.set('anthropic', provider('anthropic', {}, false));
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 
@@ -666,7 +666,7 @@ describe('HeadlessLanguageModelService', () => {
 		it('maps a catalog fetch error to temporarily-unavailable, never no-providers-configured', async () => {
 			providerStatus = 'error';
 			catalogSnapshot = new Map();
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
@@ -676,7 +676,7 @@ describe('HeadlessLanguageModelService', () => {
 		it('rejects the diagnostics listing on a catalog failure rather than reporting nothing was queried', async () => {
 			providerStatus = 'error';
 			catalogSnapshot = new Map();
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 
 			// A picker degrades to an empty list; the report sees the failure.
@@ -687,7 +687,7 @@ describe('HeadlessLanguageModelService', () => {
 		it('treats an empty catalog with status ready as genuine provider absence', async () => {
 			providerStatus = 'ready';
 			catalogSnapshot = new Map();
-			signedInAuthProviders.add('anthropic-api');
+			signedInAuthProviders.add('anthropic');
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
