@@ -5,15 +5,16 @@
 
 import * as assert from 'assert';
 import { MCP_AGENTS, McpAgent, findMcpAgent, mergeAgentConfig, mergeTomlConfig } from '../McpAgents';
-import { McpConnection } from '../McpFrontend';
+import { McpConnection } from '../mcpConnection';
 
 /** A registration with the shape the merges read: a URL and a headers file. */
 const CONNECTION: McpConnection = {
 	workspaceId: 'my-project-2458p3',
+	displayName: 'my-project',
 	port: 39000,
 	token: 'secret',
 	url: 'http://127.0.0.1:39000/mcp/w/my-project-2458p3',
-	headersPath: '/storage/mcp/my-project-2458p3.json',
+	headersPath: '/storage/mcp/headers/my-project-2458p3.json',
 };
 
 /** The row under test, which the table is required to have. */
@@ -64,7 +65,7 @@ suite('mergeAgentConfig', () => {
 			[
 				'[mcp_servers.positron]',
 				'url = "http://127.0.0.1:39000/mcp/w/my-project-2458p3"',
-				`http_headers_helper = "cat '/storage/mcp/my-project-2458p3.json'"`,
+				`http_headers_helper = "cat '/storage/mcp/headers/my-project-2458p3.json'"`,
 				'',
 			].join('\n'));
 	});

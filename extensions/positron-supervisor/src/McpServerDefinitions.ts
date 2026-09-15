@@ -5,8 +5,7 @@
 
 import * as vscode from 'vscode';
 
-import { MCP_SERVER_NAME } from './McpAgents';
-import { McpConnection } from './McpFrontend';
+import { MCP_SERVER_NAME, McpConnection } from './mcpConnection';
 
 /**
  * The ID of the server collection. Must match the

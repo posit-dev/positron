@@ -6,10 +6,12 @@
 import * as os from 'os';
 import * as path from 'path';
 
-import { MCP_TOKEN_ENV_VAR, MCP_URL_ENV_VAR, McpConnection } from './McpFrontend';
-
-/** The name agents see the server under, and prefix its tools with. */
-export const MCP_SERVER_NAME = 'positron';
+import {
+	MCP_SERVER_NAME,
+	MCP_TOKEN_ENV_VAR,
+	MCP_URL_ENV_VAR,
+	McpConnection,
+} from './mcpConnection';
 
 /**
  * How a harness spells an HTTP MCP server. Every harness records the same three

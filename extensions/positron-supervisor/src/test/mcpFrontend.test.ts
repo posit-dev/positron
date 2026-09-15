@@ -10,16 +10,22 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { McpWorkspace, McpWorkspaceRegistration } from '../kcclient/api';
 import {
-	MCP_TOKEN_ENV_VAR,
-	MCP_URL_ENV_VAR,
 	McpFrontend,
 	McpFrontendState,
 	McpRegistrationApi,
 	McpTerminalEnvironment,
-	headersFilePath,
 	loadMcpState,
 	saveMcpState,
 } from '../McpFrontend';
+import {
+	MCP_TOKEN_ENV_VAR,
+	MCP_URL_ENV_VAR,
+	McpConnectionDescriptor,
+	McpConnectionIndex,
+	mcpDescriptorPath,
+	mcpHeadersPath,
+	mcpIndexPath,
+} from '../mcpConnection';
 
 /** Records what the frontend publishes into terminals. */
 class FakeEnvironment implements McpTerminalEnvironment {
@@ -115,12 +121,22 @@ interface Harness {
 	registrations: number;
 }
 
-function createHarness(memento = new FakeMemento(), enabled = true): Harness {
+/**
+ * @param memento The workspace state to persist the identity to.
+ * @param enabled Whether the feature starts out on.
+ * @param shared The storage and supervisor of another window, for the tests
+ *  that need two windows on one machine.
+ */
+function createHarness(
+	memento = new FakeMemento(),
+	enabled = true,
+	shared: { storageUri?: vscode.Uri; registry?: FakeRegistry } = {},
+): Harness {
 	const environment = new FakeEnvironment();
 	const processEnv: NodeJS.ProcessEnv = {};
-	const storageUri = vscode.Uri.file(
+	const storageUri = shared.storageUri ?? vscode.Uri.file(
 		fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-frontend-')));
-	const registry = new FakeRegistry();
+	const registry = shared.registry ?? new FakeRegistry();
 	const harness: Harness = {
 		environment,
 		processEnv,
@@ -143,10 +159,27 @@ function createHarness(memento = new FakeMemento(), enabled = true): Harness {
 	return harness;
 }
 
+/** The JSON the frontend has left in a file, if it wrote one. */
+function readJson<T>(file: string): T | undefined {
+	return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : undefined;
+}
+
 /** What the frontend has left in the file agents read the header from. */
-function headersFile(harness: Harness, workspaceId: string): string | undefined {
-	const target = headersFilePath(harness.storageUri, workspaceId);
-	return fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined;
+function headersFile(harness: Harness, workspaceId: string): unknown {
+	return readJson(mcpHeadersPath(harness.storageUri, workspaceId));
+}
+
+/** The descriptor the frontend has left for a workspace. */
+function descriptorFile(
+	harness: Harness,
+	workspaceId: string,
+): McpConnectionDescriptor | undefined {
+	return readJson(mcpDescriptorPath(harness.storageUri, workspaceId));
+}
+
+/** The index of the workspaces registered on the harness's machine. */
+function indexFile(harness: Harness): McpConnectionIndex | undefined {
+	return readJson(mcpIndexPath(harness.storageUri));
 }
 
 /** What the harness has persisted for the workspace. */
@@ -180,10 +213,11 @@ suite('McpFrontend', () => {
 			{
 				connection: {
 					workspaceId: 'workspace-1',
+					displayName: vscode.workspace.name ?? 'Empty Workspace',
 					port: 39000,
 					token: 'token-workspace-1',
 					url: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-					headersPath: headersFilePath(harness.storageUri, 'workspace-1'),
+					headersPath: mcpHeadersPath(harness.storageUri, 'workspace-1'),
 				},
 				saved: { workspaceId: 'workspace-1', port: 39000 },
 				variables: {
@@ -195,8 +229,66 @@ suite('McpFrontend', () => {
 					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
 					[MCP_TOKEN_ENV_VAR]: 'token-workspace-1',
 				},
-				headers: '{"Authorization":"Bearer token-workspace-1"}',
+				headers: { Authorization: 'Bearer token-workspace-1' },
 			});
+	});
+
+	test('writes a connection descriptor a client can convert to its own dialect', async () => {
+		const harness = createHarness();
+
+		await harness.frontend.attach(harness.registry);
+
+		const url = 'http://127.0.0.1:39000/mcp/w/workspace-1';
+		assert.deepStrictEqual(
+			descriptorFile(harness, 'workspace-1'),
+			{
+				version: 1,
+				workspaceId: 'workspace-1',
+				displayName: vscode.workspace.name ?? 'Empty Workspace',
+				port: 39000,
+				url,
+				// Resolved, for the wrapper scripts and proxies that read this
+				// file precisely because they inherit no environment.
+				token: 'token-workspace-1',
+				headers: { Authorization: 'Bearer token-workspace-1' },
+				// Interpolated, so this block can be copied into a
+				// configuration that is committed or shared.
+				mcpServers: {
+					positron: {
+						title: 'Positron',
+						type: 'streamable-http',
+						url,
+						headers: { Authorization: 'Bearer ${env:POSITRON_MCP_TOKEN}' },
+					},
+				},
+			});
+	});
+
+	test('indexes every workspace registered on the machine', async () => {
+		const first = createHarness();
+		await first.frontend.attach(first.registry);
+
+		// A second window on another folder, sharing this machine's storage and
+		// its supervisor. The index is how an agent that knows neither
+		// workspace ID finds the one it wants -- and each window derives it
+		// from the descriptors on disk, so neither can drop the other's entry.
+		const second = createHarness(new FakeMemento(), true, {
+			storageUri: first.storageUri,
+			registry: first.registry,
+		});
+		await second.frontend.attach(second.registry);
+
+		assert.deepStrictEqual(
+			indexFile(first)!.workspaces['workspace-2'],
+			{
+				displayName: vscode.workspace.name ?? 'Empty Workspace',
+				port: 39000,
+				url: 'http://127.0.0.1:39000/mcp/w/workspace-2',
+				descriptor: mcpDescriptorPath(first.storageUri, 'workspace-2'),
+			});
+		assert.deepStrictEqual(
+			Object.keys(indexFile(first)!.workspaces).sort(),
+			['workspace-1', 'workspace-2']);
 	});
 
 	test('registers under the workspace name, which the ID is built from', async () => {
@@ -286,6 +378,8 @@ suite('McpFrontend', () => {
 				variables: harness.environment.variables.size,
 				processEnv: harness.processEnv,
 				headers: headersFile(harness, 'workspace-1'),
+				descriptor: descriptorFile(harness, 'workspace-1'),
+				indexed: Object.keys(indexFile(harness)!.workspaces),
 				// The identity is kept so that re-enabling the feature hands
 				// agents back the endpoint URL they are configured with.
 				saved: savedState(harness),
@@ -296,6 +390,8 @@ suite('McpFrontend', () => {
 				variables: 0,
 				processEnv: {},
 				headers: undefined,
+				descriptor: undefined,
+				indexed: [],
 				saved: { workspaceId: 'workspace-1', port: 39000 },
 			});
 	});

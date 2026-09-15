@@ -10,13 +10,14 @@ import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-import { MCP_AGENTS, MCP_SERVER_NAME, McpAgent, findMcpAgent, mergeAgentConfig } from './McpAgents';
+import { MCP_AGENTS, McpAgent, findMcpAgent, mergeAgentConfig } from './McpAgents';
+import { MCP_ENABLED_KEY } from './McpFrontend';
 import {
-	MCP_ENABLED_KEY,
+	MCP_SERVER_NAME,
 	MCP_TOKEN_ENV_VAR,
 	MCP_URL_ENV_VAR,
 	McpConnection,
-} from './McpFrontend';
+} from './mcpConnection';
 import { summarizeError } from './util';
 
 /** Runs a command without a shell, rejecting on a non-zero exit. */

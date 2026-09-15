@@ -5,13 +5,14 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { McpConnection } from '../McpFrontend';
+import { McpConnection } from '../mcpConnection';
 import { McpConnectionSource, McpServerDefinitions } from '../McpServerDefinitions';
 
 /** A registration standing in for one the supervisor issued. */
 function connection(token: string): McpConnection {
 	return {
 		workspaceId: 'demo-1',
+		displayName: 'demo',
 		port: 39000,
 		token,
 		url: 'http://127.0.0.1:39000/mcp/w/demo-1',

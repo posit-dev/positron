@@ -4,11 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { promises as fs } from 'fs';
-import * as path from 'path';
 
 import { McpWorkspace, McpWorkspaceRegistration, McpStatus } from './kcclient/api';
 import { McpFrontendChannel } from './McpFrontendChannel';
+import {
+	MCP_TOKEN_ENV_VAR,
+	MCP_URL_ENV_VAR,
+	McpConnection,
+	mcpDescriptorPath,
+	mcpHeadersPath,
+	removeConnectionFiles,
+	writeConnectionFiles,
+} from './mcpConnection';
 import { summarizeError } from './util';
 
 // The `ai.*` settings below are registered by Positron core, in
@@ -23,12 +30,6 @@ export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
 
 /** The port the MCP listener should prefer, or 0 to let the server choose. */
 export const MCP_PORT_KEY = 'ai.mcp.port';
-
-/** Environment variable naming the MCP endpoint in integrated terminals. */
-export const MCP_URL_ENV_VAR = 'POSITRON_MCP_URL';
-
-/** Environment variable carrying the MCP bearer token. */
-export const MCP_TOKEN_ENV_VAR = 'POSITRON_MCP_TOKEN';
 
 /** Command that puts the MCP endpoint and token on the clipboard. */
 export const COPY_MCP_DETAILS_COMMAND = 'positron.mcp.copyConnectionDetails';
@@ -102,65 +103,6 @@ export interface McpChannelTarget {
 	headers: { [key: string]: string };
 }
 
-/** A live MCP registration: everything an agent needs in order to connect. */
-export interface McpConnection {
-	/** The workspace ID issued by the supervisor. */
-	workspaceId: string;
-
-	/** The port the listener is bound to. */
-	port: number;
-
-	/** The bearer token agents present. Never logged or written to disk. */
-	token: string;
-
-	/** The MCP endpoint URL. */
-	url: string;
-
-	/**
-	 * The file holding the `Authorization` header for {@link token}, for agents
-	 * that cannot read an environment variable. See
-	 * {@link writeHeadersFile}.
-	 */
-	headersPath: string;
-}
-
-/**
- * The file an agent reads the workspace's `Authorization` header from.
- *
- * Kept in the extension's global storage rather than beside the workspace,
- * where it would be committed, and named for the workspace, since one Positron
- * installation serves several at once.
- *
- * @param storageUri The extension's global storage directory.
- * @param workspaceId The workspace ID the supervisor issued.
- * @returns The path to the headers file.
- */
-export function headersFilePath(storageUri: vscode.Uri, workspaceId: string): string {
-	// The ID is a slug the supervisor mints from the workspace name; encoding it
-	// keeps a surprising one from naming a file outside the directory.
-	return path.join(storageUri.fsPath, 'mcp', `${encodeURIComponent(workspaceId)}.json`);
-}
-
-/**
- * Write the workspace's `Authorization` header where an agent can read it.
- *
- * Agents Positron does not launch -- Codex running in its own extension, say --
- * do not inherit the environment the token is otherwise published in, and Codex
- * refuses to write a secret of its own into the configuration it shares between
- * projects. A file it is pointed at is the remaining way to hand it one, so the
- * file is written with owner-only permissions and holds exactly the JSON object
- * Codex's headers helper is required to emit.
- *
- * @param connection The live registration.
- */
-async function writeHeadersFile(connection: McpConnection): Promise<void> {
-	await fs.mkdir(path.dirname(connection.headersPath), { recursive: true, mode: 0o700 });
-	await fs.writeFile(
-		connection.headersPath,
-		JSON.stringify({ Authorization: `Bearer ${connection.token}` }),
-		{ mode: 0o600 });
-}
-
 /**
  * Registers this window's workspace with the supervisor's MCP server so
  * external coding agents can reach its sessions, and publishes the resulting
@@ -208,8 +150,8 @@ export class McpFrontend implements vscode.Disposable {
 	 *  should not point agents at a listener that does not exist yet.
 	 * @param _processEnv The extension host's environment, which the agents
 	 *  extensions spawn inherit.
-	 * @param _storageUri The extension's global storage, where the header file
-	 *  agents that cannot read an environment are pointed at is kept.
+	 * @param _storageUri The extension's global storage, where the connection
+	 *  files agents that cannot read an environment are pointed at are kept.
 	 */
 	constructor(
 		private readonly _storageUri: vscode.Uri,
@@ -388,22 +330,24 @@ export class McpFrontend implements vscode.Disposable {
 	 * folder the user has open.
 	 */
 	private async register(): Promise<void> {
+		const displayName = vscode.workspace.name ?? vscode.l10n.t("Empty Workspace");
 		const response = await this._api!.registerMcpWorkspace({
 			workspace_id: this._loadState().workspaceId,
-			display_name: vscode.workspace.name ?? vscode.l10n.t("Empty Workspace"),
+			display_name: displayName,
 			preferred_port: this.preferredPort(),
 			capabilities: { commands: true },
 		});
 
 		const { workspace_id: workspaceId, token, port, url } = response.data;
 		const connection: McpConnection = {
-			workspaceId, token, port, url,
-			headersPath: headersFilePath(this._storageUri, workspaceId),
+			workspaceId, displayName, token, port, url,
+			headersPath: mcpHeadersPath(this._storageUri, workspaceId),
 		};
 		this.setConnection(connection);
 		await this._saveState({ workspaceId, port });
 		await this.publishEnvironment(connection);
-		this._log(`Registered MCP workspace ${workspaceId}; agents can connect at ${url}`);
+		this._log(`Registered MCP workspace ${workspaceId}; agents can connect at ${url}, ` +
+			`or read ${mcpDescriptorPath(this._storageUri, workspaceId)}`);
 		this.openChannel(workspaceId);
 		this._onRegistered();
 	}
@@ -458,7 +402,9 @@ export class McpFrontend implements vscode.Disposable {
 	 * environment is inherited by the processes extensions spawn. An agent run
 	 * by an extension rather than typed into a terminal -- Codex in its own
 	 * panel, say -- has no other way to reach them, and its configuration names
-	 * the token by variable precisely so it is not written to disk.
+	 * the token by variable precisely so it is not written to disk. Agents that
+	 * inherit neither read the files written alongside; see
+	 * {@link writeConnectionFiles}.
 	 *
 	 * Agents read these at startup, so a terminal or an extension host that
 	 * predates registration has to be restarted to pick them up; the
@@ -472,12 +418,12 @@ export class McpFrontend implements vscode.Disposable {
 		this._processEnv[MCP_URL_ENV_VAR] = connection.url;
 		this._processEnv[MCP_TOKEN_ENV_VAR] = connection.token;
 		try {
-			await writeHeadersFile(connection);
+			await writeConnectionFiles(this._storageUri, connection);
 		} catch (err) {
 			// The environments above still carry the token, so terminals keep
-			// working; only the agents configured to read the file are affected,
-			// and configuring one fails loudly when it is missing.
-			this._log(`Could not write ${connection.headersPath}: ${summarizeError(err)}`);
+			// working; only the agents reading a file are affected, and
+			// configuring one of those fails loudly when it is missing.
+			this._log(`Could not write the MCP connection files: ${summarizeError(err)}`);
 		}
 	}
 
@@ -491,7 +437,7 @@ export class McpFrontend implements vscode.Disposable {
 		delete this._processEnv[MCP_URL_ENV_VAR];
 		delete this._processEnv[MCP_TOKEN_ENV_VAR];
 		if (connection) {
-			await fs.rm(connection.headersPath, { force: true });
+			await removeConnectionFiles(this._storageUri, connection);
 		}
 	}
 }
