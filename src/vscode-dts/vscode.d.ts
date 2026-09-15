@@ -7364,6 +7364,15 @@ declare module 'vscode' {
 		 * of editors will always be `One`, `Two`, `Three`,... or `undefined` but never `Beside`.
 		 */
 		Beside = -2,
+		// --- Start Positron ---
+		// Adding ViewColumn.Modal ahead of microsoft/vscode#307838 landing upstream; see positron#16082.
+		/**
+		 * A *symbolic* editor column representing a modal overlay on top of the workbench. This value
+		 * can be used when opening editors, but the *resolved* {@link TextEditor.viewColumn viewColumn}-value
+		 * of editors will always be `One`, `Two`, `Three`,... or `undefined` but never `Modal`.
+		 */
+		Modal = -4,
+		// --- End Positron ---
 		/**
 		 * The first editor column.
 		 */
