@@ -257,7 +257,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		const headers = getUpdateRequestHeaders(this.productService.version);
 
 		try {
-			const context = await this.requestService.request({ url, headers, callSite: 'updateService.darwin.checkForOverwriteDownload' }, CancellationToken.None);
+			const context = await this.requestService.request({ url, headers, disableCache: true, callSite: 'updateService.darwin.checkForOverwriteDownload' }, CancellationToken.None);
 			const update = await asJson<IUpdate>(context);
 
 			// The real feed has no `productVersion` (the mock server used to add one, which hid this);
@@ -302,7 +302,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		this.logService.trace('update#checkForUpdateNoDownload - checking update server', { url, headers });
 
 		try {
-			const context = await this.requestService.request({ url, headers, callSite: 'updateService.darwin.checkForUpdates' }, CancellationToken.None);
+			const context = await this.requestService.request({ url, headers, disableCache: true, callSite: 'updateService.darwin.checkForUpdates' }, CancellationToken.None);
 			const statusCode = context.res.statusCode;
 			this.logService.trace('update#checkForUpdateNoDownload - response', { statusCode });
 
@@ -439,7 +439,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 		if (this.devUpdateTesting) {
 			try {
-				const context = await this.requestService.request({ url: feedUrl, callSite: 'updateService.darwin._stageUpdateFromFeed' }, CancellationToken.None);
+				const context = await this.requestService.request({ url: feedUrl, disableCache: true, callSite: 'updateService.darwin._stageUpdateFromFeed' }, CancellationToken.None);
 				const update = await asJson<IUpdate>(context);
 				if (!update || !update.url || !update.version) {
 					this.logService.warn('update#_stageUpdateFromFeed - the feed does not advertise an update', update);

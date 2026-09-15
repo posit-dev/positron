@@ -48,6 +48,12 @@ export function createUpdateURL(platform: string, channel: string, productServic
 
 /** How long each simulated download state is held during dev update testing. */
 const DEV_STAGING_STATE_DURATION = 3000;
+
+/**
+ * How long the overwrite re-check waits for the feed before keeping the pending update. Short
+ * because the check also runs on the way into a restart the user has already accepted.
+ */
+const OVERWRITE_CHECK_TIMEOUT = 2000;
 //--- End Positron ---
 
 /**
@@ -587,7 +593,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 		this.logService.debug('update#checkForUpdates, url =', releaseMetadataUrl);
 
-		this.requestService.request({ url: releaseMetadataUrl, callSite: 'update.checkForUpdates' }, CancellationToken.None)
+		this.requestService.request({ url: releaseMetadataUrl, disableCache: true, callSite: 'update.checkForUpdates' }, CancellationToken.None)
 			.then<IUpdate | null>(asJson)
 			.catch(err => {
 				this.logService.trace('update#checkForUpdates, update request did not return valid update metadata:', err.message);
@@ -784,10 +790,16 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		// --- End Positron ---
 
 		let isLatest: boolean | undefined;
+		// --- Start Positron ---
+		// Tracked so the log can tell "the feed says there is nothing newer" apart from "we never
+		// got an answer": both leave `isLatest` unusable, but only one of them means the pending
+		// update really is the newest build.
+		let timedOut = false;
+		// --- End Positron ---
 
 		const cts = new CancellationTokenSource();
 		try {
-			const timeoutPromise = timeout(2000, cts.token).then(() => { cts.cancel(); return undefined; });
+			const timeoutPromise = timeout(OVERWRITE_CHECK_TIMEOUT, cts.token).then(() => { timedOut = true; cts.cancel(); return undefined; });
 			isLatest = await Promise.race([this.doIsLatestVersion(pendingUpdateCommit, cts.token), timeoutPromise]);
 		} catch (error) {
 			this.logService.warn('update#checkForOverwriteUpdates(): failed to check for updates, proceeding with restart');
@@ -797,7 +809,30 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			cts.dispose(true);
 		}
 
-		if (isLatest === false && this.state.type === StateType.Ready) {
+		// --- Start Positron ---
+		// Report the outcome. Upstream returns silently here, which left the far more common
+		// outcomes ("nothing newer" and "could not tell") indistinguishable in the logs from the
+		// check never having run at all.
+		if (isLatest === true) {
+			this.logService.info(`update#checkForOverwriteUpdates - nothing newer than the pending ${pendingUpdateCommit}, keeping it`);
+			return false;
+		}
+
+		if (isLatest === undefined) {
+			this.logService.info(timedOut
+				? `update#checkForOverwriteUpdates - the check for something newer than the pending ${pendingUpdateCommit} timed out after ${OVERWRITE_CHECK_TIMEOUT}ms, keeping it`
+				: `update#checkForOverwriteUpdates - could not determine whether the pending ${pendingUpdateCommit} is still the latest, keeping it`);
+			return false;
+		}
+
+		if (!this.isCurrentState(StateType.Ready)) {
+			this.logService.info('update#checkForOverwriteUpdates - a newer update is available, but the update state changed to', this.state.type);
+			return false;
+		}
+
+		// if (isLatest === false && this.state.type === StateType.Ready) {
+		if (isLatest === false) {
+			// --- End Positron ---
 			if (this.deferOverwriteCheckIfMetered(explicit)) {
 				return false;
 			}
@@ -872,12 +907,21 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		const baseline = commit ?? `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`;
 
 		try {
-			const context = await this.requestService.request({ url: this.url, callSite: 'update.poll' }, token);
+			// `disableCache` because the channel feed is a static JSON document served without
+			// `Cache-Control`, so Chromium's HTTP cache (this runs on `net.request`) is free to
+			// pick its own freshness lifetime and answer from disk. That silently pinned this
+			// check to whatever the feed said the last time it was fetched, which is how a
+			// pending build kept looking like the latest one after a newer build had published.
+			const context = await this.requestService.request({ url: this.url, disableCache: true, callSite: 'update.poll' }, token);
 			const update = await asJson<IUpdate>(context);
 			if (!update || !update.version) {
+				this.logService.info('update#isLatestVersion - the feed does not advertise a version', update);
 				return undefined;
 			}
-			return !hasUpdate(update, baseline);
+
+			const isLatest = !hasUpdate(update, baseline);
+			this.logService.info(`update#isLatestVersion - the feed advertises ${update.version}, baseline is ${baseline}: ${isLatest ? 'nothing newer' : 'a newer build is available'}`);
+			return isLatest;
 		} catch (error) {
 			this.logService.error('update#isLatestVersion(): failed to check for updates');
 			this.logService.error(error);

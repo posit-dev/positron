@@ -343,7 +343,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const token = cts.token;
 
 		const headers = getUpdateRequestHeaders(this.productService.version);
-		const promise = this.requestService.request({ url, headers, callSite: 'updateService.win32.checkForUpdates' }, token)
+		const promise = this.requestService.request({ url, headers, disableCache: true, callSite: 'updateService.win32.checkForUpdates' }, token)
 			// --- Start Positron ---
 			// .then<IUpdate | null>(asJson)
 			.then<IUpdate | null>(async context => {
@@ -369,6 +369,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 						// --- Start Positron ---
 						// this._overwrite = false;
 						// this.setState(State.Ready(this.state.update, this.state.explicit, false));
+						// Say so: the overwrite round ends by re-staging the same pending update it
+						// started with, which is indistinguishable in the logs from a successful
+						// overwrite unless the reason is written down.
+						this.logService.info('update#doCheckForUpdates - the overwrite check got no usable update from the feed, keeping the pending update', update);
 						return this.restorePendingUpdate(this.state.update, this.state.explicit).then(() => null);
 						// --- End Positron ---
 					} else {
@@ -384,8 +388,17 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				// `isLatestVersion` pre-check in `checkForOverwriteUpdates`), restore Ready
 				// instead of downloading the same installer again.
 				if (this.state.type === StateType.Overwriting && pendingCommit && !hasUpdate(update, pendingCommit)) {
+					this.logService.info(`update#doCheckForUpdates - the overwrite check found ${update.version}, which is not newer than the pending ${pendingCommit}; keeping the pending update`);
 					return this.restorePendingUpdate(this.state.update, this.state.explicit).then(() => null);
 				}
+				// --- End Positron ---
+
+				// --- Start Positron ---
+				// The version actually being staged, so a later log can be matched against what
+				// ends up installed. Especially for the overwrite round, where a wrong answer here
+				// is the difference between installing the newest build and re-installing the
+				// pending one.
+				this.logService.info(`update#doCheckForUpdates - staging ${update.version}${pendingCommit ? ` over the pending ${pendingCommit}` : ''}`);
 				// --- End Positron ---
 
 				// --- Start Positron ---
@@ -566,7 +579,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		try {
 			const headers = getUpdateRequestHeaders(this.productService.version);
-			const context = await this.requestService.request({ url: feedUrl, headers, callSite: 'updateService.win32._stageUpdateFromFeed' }, CancellationToken.None);
+			const context = await this.requestService.request({ url: feedUrl, headers, disableCache: true, callSite: 'updateService.win32._stageUpdateFromFeed' }, CancellationToken.None);
 			const update = await asJson<IUpdate>(context);
 			if (!update || !update.url || !update.version) {
 				this.logService.warn('update#_stageUpdateFromFeed - the feed does not advertise an update', update);
@@ -646,6 +659,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	 * same way the download path does.
 	 */
 	private async restorePendingUpdate(update: IUpdate, explicit: boolean): Promise<void> {
+		this.logService.info('update#restorePendingUpdate: re-staging the pending update', update.version);
 		this._overwrite = false;
 
 		// Dev update testing downloaded nothing, so there is no installer to re-stage and no flag
@@ -719,20 +733,6 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const cancelFilePath = path.join(cachePath, `cancel.flag`);
 		const progressFilePath = path.join(cachePath, `update-progress`);
 
-		// --- Start Positron ---
-		// Point Electron's `appUpdate` path at the same directory we pass as `/sessionend`. Upstream
-		// closed microsoft/vscode#264571 ("session-ending.flag is not present") with a commit whose
-		// only relevant change was this call, which implies a native writer that puts the flag in
-		// `appUpdate`. Upstream only does it under `win32VersionedUpdate`, which Positron does not
-		// set, so Positron has never pointed that writer anywhere useful. Done here rather than in
-		// `initialize()` because `setPath` throws unless the directory already exists, and because
-		// this is exactly when the flag starts to matter: an installer is about to wait on it.
-		try {
-			app.setPath('appUpdate', cachePath);
-		} catch (err) {
-			this.logService.warn('update#doApplyUpdate: failed to set the appUpdate path', err);
-		}
-		// --- End Positron ---
 		this.availableUpdate.updateFilePath = path.join(cachePath, `CodeSetup-${this.productService.quality}-${update.version}.flag`);
 		this.availableUpdate.cancelFilePath = cancelFilePath;
 
