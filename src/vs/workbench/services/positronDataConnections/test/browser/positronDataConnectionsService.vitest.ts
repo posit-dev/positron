@@ -19,7 +19,7 @@ import { IEditorService } from '../../../editor/common/editorService.js';
 import { PositronDataExplorerUri } from '../../../positronDataExplorer/common/positronDataExplorerUri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
 import { IPositronDataConnectionsService } from '../../common/interfaces/positronDataConnectionsService.js';
 import { PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
 
@@ -597,24 +597,112 @@ describe('PositronDataConnectionsService', () => {
 			expect(service.getProfiles()).toEqual([]);
 		});
 
-		it('hides a discovery that matches a saved profile, so a configured data source appears once', async () => {
+		it('reports the full catalog through getAllProfiles, saved profiles first', async () => {
+			await registerDiscoveringDriver([pagila]);
+			service.addUpdateProfile(createProfile('saved-1'));
+
+			expect(service.getAllProfiles().map(profile => profile.id)).toEqual([
+				'saved-1',
+				'discovered:test-driver:odbc-dsn:Pagila',
+			]);
+		});
+
+		// Saving one of two discoveries must not take the other down with it. They cannot be told
+		// apart by comparing values -- two data sources can differ only in a password, which no
+		// profile carries in public -- so the saved profile records which discovery it came from
+		// and exactly that one stops being reported.
+		it('stops reporting the discovery a profile was saved from, and only that one', async () => {
+			await registerDiscoveringDriver([
+				pagila,
+				{ ...pagila, id: 'odbc-dsn:Pagila (readonly)', name: 'Pagila (readonly)' },
+			]);
+
+			service.saveDiscoveredProfile('discovered:test-driver:odbc-dsn:Pagila');
+
+			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName))
+				.toEqual(['Pagila (readonly)']);
+		});
+
+		// A profile the user typed in by hand has no link to any discovery, so it is matched by
+		// value instead -- including its name, without which two data sources differing only in a
+		// credential would look identical to this comparison.
+		it('hides a discovery a hand-configured profile matches, name included', async () => {
 			await registerDiscoveringDriver([pagila]);
 
-			service.addUpdateProfile({
+			const handConfigured = {
 				...createProfile('saved-1'),
+				connectionName: 'Pagila',
 				mechanismId: 'test-mechanism',
 				parameterValues: { dsn: 'Pagila' },
-			});
+			};
+			service.addUpdateProfile(handConfigured);
 			expect(service.getDiscoveredProfiles()).toEqual([]);
 
-			// A profile whose values differ does not shadow it.
-			service.removeProfile('saved-1');
-			service.addUpdateProfile({
-				...createProfile('saved-2'),
-				mechanismId: 'test-mechanism',
-				parameterValues: { dsn: 'Elsewhere' },
-			});
+			// Same values under another name is another connection, and stays visible.
+			service.addUpdateProfile({ ...handConfigured, connectionName: 'Pagila (readonly)' });
 			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName)).toEqual(['Pagila']);
+		});
+
+		// A profile saved from the pane on a build before `discoveredFromId` existed carries no link
+		// to its discovery, and was suppressed purely by matching driver, mechanism and values --
+		// so renaming it was free. Now that the value match includes the name, the link has to be
+		// recovered on the way in, or the rename brings the discovery back as a duplicate row.
+		describe('profiles persisted before provenance was recorded', () => {
+			// Writes the profile the way an older build did: no `discoveredFromId`, and none of the
+			// marker this build stamps on everything it persists.
+			const persistLegacyProfile = (profile: IDataConnectionProfile) => {
+				storageService.store(
+					`positron.dataConnections.profile.${profile.id}`,
+					JSON.stringify({ profile, secretParameterIds: [] }),
+					StorageScope.PROFILE,
+					StorageTarget.USER,
+				);
+				const reloaded = ctx.instantiationService.createInstance(PositronDataConnectionsService);
+				ctx.disposables.add(reloaded);
+				return reloaded;
+			};
+
+			const registerPagilaDriver = (target: IPositronDataConnectionsService) =>
+				target.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					discoverConnections: async () => [pagila],
+				}));
+
+			it('links one to the discovery it matches, so a rename can\'t resurrect it', async () => {
+				// Saved from this discovery, renamed since, with nothing recording where it came from.
+				const reloaded = persistLegacyProfile({
+					...createProfile('saved-1'),
+					connectionName: 'Pagila (prod)',
+					parameterValues: { dsn: 'Pagila' },
+				});
+				registerPagilaDriver(reloaded);
+
+				await vi.waitFor(() => {
+					expect(reloaded.getProfile('saved-1')?.discoveredFromId)
+						.toBe('discovered:test-driver:odbc-dsn:Pagila');
+				});
+				expect(reloaded.getDiscoveredProfiles()).toEqual([]);
+			});
+
+			// The backfill exists for profiles an older build left unmarked. A profile saved by this
+			// build already says where it came from -- including by saying nothing, for one the user
+			// typed in -- so a same-shaped discovery under another name stays a row of its own.
+			it('leaves a profile this build persisted alone, discovery and all', async () => {
+				const reloaded = persistLegacyProfile(createProfile('saved-1'));
+				reloaded.addUpdateProfile({
+					...createProfile('saved-2'),
+					connectionName: 'Pagila (prod)',
+					parameterValues: { dsn: 'Pagila' },
+				});
+				registerPagilaDriver(reloaded);
+
+				await vi.waitFor(() => {
+					expect(reloaded.getDiscoveredProfiles().map(profile => profile.connectionName))
+						.toEqual(['Pagila']);
+				});
+				expect(reloaded.getProfile('saved-2')?.discoveredFromId).toBeUndefined();
+			});
 		});
 
 		it('saves a discovery as an ordinary profile under a fresh id, and stops reporting it', async () => {
@@ -643,6 +731,8 @@ describe('PositronDataConnectionsService', () => {
 				connectionName: 'Pagila',
 				mechanismId: 'test-mechanism',
 				parameterValues: { dsn: 'Pagila' },
+				// What it was saved from, which is what suppresses that discovery's own row.
+				discoveredFromId: 'discovered:test-driver:odbc-dsn:Pagila',
 			});
 			expect(service.getDiscoveredProfiles()).toEqual([]);
 		});
@@ -654,6 +744,51 @@ describe('PositronDataConnectionsService', () => {
 			expect(service.getProfile(id)?.connectionName).toBe('Pagila');
 			// A discovery holds no secrets, so resolving it with secrets is the same profile.
 			await expect(service.getProfileWithSecrets(id)).resolves.toMatchObject({ connectionName: 'Pagila' });
+		});
+
+		// A driver's discovery may carry a value its mechanism declares secret (e.g. a password
+		// embedded in a connection string). The service splits it out at discovery time -- the
+		// profiles every consumer sees (and the catalog command renders verbatim) stay secret-free
+		// -- and merges it back only for the connect, via getProfileWithSecrets. Saving the
+		// discovery routes the value into secret storage like any other saved secret.
+		it('splits secret-declared discovery values out of the public profile, keeping them for connect and save', async () => {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: {
+					...createDriverMetadata(),
+					mechanisms: [{
+						id: 'test-mechanism',
+						label: 'Test Mechanism',
+						description: '',
+						parameters: [{ id: 'pwd', label: 'Password', type: 'password', secret: true }],
+					}],
+				},
+				discoverConnections: async () => [{ ...pagila, parameterValues: { dsn: 'Pagila', pwd: 'hunter2' } }],
+			}));
+			await vi.waitFor(() => {
+				expect(service.getDiscoveredProfiles().length).toBe(1);
+			});
+
+			const id = 'discovered:test-driver:odbc-dsn:Pagila';
+			// The public form is secret-free, while the secret it holds aside is still reported as
+			// one -- a display-safe view must know to redact it rather than be told there is
+			// nothing there.
+			expect(service.getProfile(id)?.parameterValues).toEqual({ dsn: 'Pagila' });
+			expect(service.getProfileSecretIds(id)).toEqual(['pwd']);
+			// ...while the connect-time form has the value the driver reported.
+			await expect(service.getProfileWithSecrets(id)).resolves.toMatchObject({
+				parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
+			});
+
+			// Saving the discovery keeps the secret out of the public profile and round-trips it
+			// through secret storage.
+			const savedId = service.saveDiscoveredProfile(id)!;
+			expect(service.getProfile(savedId)?.parameterValues).toEqual({ dsn: 'Pagila' });
+			await vi.waitFor(async () => {
+				await expect(service.getProfileWithSecrets(savedId)).resolves.toMatchObject({
+					parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
+				});
+			});
 		});
 
 		it('is a no-op when the id is not a current discovery', () => {
@@ -670,6 +805,100 @@ describe('PositronDataConnectionsService', () => {
 			await registerDiscoveringDriver([pagila]);
 
 			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName)).toEqual(['Pagila']);
+		});
+	});
+	// Every parameter is offered to the driver for redaction, not only the ones the mechanism
+	// declares secret: a credential can sit inside an ordinary string parameter (an ODBC connection
+	// string embedding PWD=), and only the driver knows its own formats well enough to find it.
+	describe('getDisplayParameterValues', () => {
+		// A driver that masks the password inside any value carrying one, and reports nothing to
+		// redact in the rest -- the shape a real driver's format-specific redaction has.
+		const registerRedactingDriver = (parameters: IDataConnectionParameter[]) => {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: {
+					...createDriverMetadata(),
+					mechanisms: [{ id: 'test-mechanism', label: 'Test Mechanism', description: '', parameters }],
+				},
+				redactParameterValue: async (_mechanismId: string, _parameterId: string, value: string) =>
+					value.includes('PWD=') ? value.replace(/PWD=[^;]*/, 'PWD=****') : undefined,
+				discoverConnections: async () => [],
+			}));
+		};
+
+		it('masks a credential the driver finds in a parameter the mechanism does not call secret', async () => {
+			registerRedactingDriver([{ id: 'connectionString', label: 'Connection String', type: 'string' }]);
+			service.addUpdateProfile({
+				...createProfile('conn-1'),
+				parameterValues: { connectionString: 'DSN=Pagila;UID=admin;PWD=hunter2' },
+			});
+
+			await expect(service.getDisplayParameterValues(service.getProfile('conn-1')!)).resolves.toEqual({
+				connectionString: 'DSN=Pagila;UID=admin;PWD=****',
+			});
+		});
+
+		it('leaves out a secret the driver reports nothing to redact in, rather than passing it through', async () => {
+			registerRedactingDriver([{ id: 'pwd', label: 'Password', type: 'password' }]);
+			service.addUpdateProfile({
+				...createProfile('conn-1'),
+				parameterValues: { dsn: 'Pagila', pwd: 'hunter2' },
+			});
+
+			await expect(service.getDisplayParameterValues(service.getProfile('conn-1')!)).resolves.toEqual({ dsn: 'Pagila' });
+		});
+
+		// A discovery's secrets live in the service rather than in secret storage, so a display-safe
+		// view that only knew about secret storage would render them as if they were ordinary values.
+		it('redacts a discovered connection\'s secret the same way a saved one\'s is', async () => {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: {
+					...createDriverMetadata(),
+					mechanisms: [{
+						id: 'test-mechanism',
+						label: 'Test Mechanism',
+						description: '',
+						parameters: [{ id: 'pwd', label: 'Password', type: 'password' }],
+					}],
+				},
+				redactParameterValue: async (_mechanismId: string, _parameterId: string, value: string) =>
+					value.includes('PWD=') ? value.replace(/PWD=[^;]*/, 'PWD=****') : undefined,
+				discoverConnections: async () => [{
+					id: 'odbc-dsn:Pagila',
+					name: 'Pagila',
+					mechanismId: 'test-mechanism',
+					parameterValues: { dsn: 'Pagila', pwd: 'PWD=hunter2' },
+				}],
+			}));
+			await vi.waitFor(() => {
+				expect(service.getDiscoveredProfiles().length).toBe(1);
+			});
+
+			await expect(service.getDisplayParameterValues(service.getProfile('discovered:test-driver:odbc-dsn:Pagila')!))
+				.resolves.toEqual({ dsn: 'Pagila', pwd: 'PWD=****' });
+		});
+
+		// Nothing can be redacted without a driver, and passing values through unredacted is what
+		// this method exists to avoid, so it stops at what the profile holds in public.
+		it('falls back to the profile\'s secret-free values when the driver is unregistered', async () => {
+			service.addUpdateProfile({
+				...createProfile('conn-1'),
+				parameterValues: { connectionString: 'DSN=Pagila;PWD=hunter2' },
+			});
+
+			await expect(service.getDisplayParameterValues(service.getProfile('conn-1')!)).resolves.toEqual({
+				connectionString: 'DSN=Pagila;PWD=hunter2',
+			});
+		});
+
+		// The caller passes the profile it is rendering, from a catalog snapshot it took earlier.
+		// Discovery refreshes while that snapshot is in flight, so the profile can already be gone
+		// by the time this runs; its public values are still what the caller asked to display.
+		it('renders a profile that has since left the catalog from the profile it was given', async () => {
+			const gone = { ...createProfile('conn-gone'), parameterValues: { dsn: 'Pagila' } };
+
+			await expect(service.getDisplayParameterValues(gone)).resolves.toEqual({ dsn: 'Pagila' });
 		});
 	});
 });

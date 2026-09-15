@@ -10,6 +10,7 @@ import {
 	connectionOptions,
 	DatabricksClient,
 	DatabricksSdkClientFactory,
+	defaultClientFactory,
 	IDatabricksOperation,
 	IDatabricksSdkClient,
 	IDatabricksSession,
@@ -562,7 +563,7 @@ suite('Databricks Client', () => {
 			closedOperations: [] as string[],
 			queries: [] as string[],
 		};
-		const factory: DatabricksSdkClientFactory = () => {
+		const factory: DatabricksSdkClientFactory = async () => {
 			const generation = ++state.clientsCreated;
 			// Both statements and metadata calls resolve to an operation, so one builder serves each; the
 			// metadata call is recorded under a synthetic label so tests can assert on it like a query.
@@ -930,5 +931,18 @@ suite('Databricks Connection Code', () => {
 		const generated = code('pat', 'python', { token: 'dapi"123', catalog: 'my"catalog' });
 		assert.match(generated, /access_token="dapi\\"123"/);
 		assert.match(generated, /catalog="my\\"catalog"/);
+	});
+});
+
+suite('Databricks Lazy SDK Loading', () => {
+	// The SDK is reached through a dynamic import() inside the default factory rather than a
+	// top-level import, so that opening the Data Connections pane does not pay to load it. That
+	// import is resolved at runtime against the real package, so an export the module namespace does
+	// not actually carry still type-checks and only fails at the user's first connect.
+	test('the default factory builds a real client from the deferred import', async () => {
+		const client = await defaultClientFactory();
+		assert.deepStrictEqual(
+			{ connect: typeof client.connect, openSession: typeof client.openSession },
+			{ connect: 'function', openSession: 'function' });
 	});
 });
