@@ -36,6 +36,5 @@
 	"command.restartSupervisor.title": "Restart the Kernel Supervisor",
 	"command.positron.mcp.category": "Positron MCP",
 	"command.copyConnectionDetails.title": "Copy Connection Details",
-	"command.addToClaudeCode.title": "Add to Claude Code",
-	"command.addToCodex.title": "Add to Codex"
+	"command.configureAgent.title": "Add to Coding Agent"
 }

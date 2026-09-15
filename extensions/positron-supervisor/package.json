@@ -179,16 +179,10 @@
         "shortTitle": "%command.copyConnectionDetails.title%"
       },
       {
-        "command": "positron.mcp.addToClaudeCode",
+        "command": "positron.mcp.configureAgent",
         "category": "%command.positron.mcp.category%",
-        "title": "%command.addToClaudeCode.title%",
-        "shortTitle": "%command.addToClaudeCode.title%"
-      },
-      {
-        "command": "positron.mcp.addToCodex",
-        "category": "%command.positron.mcp.category%",
-        "title": "%command.addToCodex.title%",
-        "shortTitle": "%command.addToCodex.title%"
+        "title": "%command.configureAgent.title%",
+        "shortTitle": "%command.configureAgent.title%"
       }
     ]
   },

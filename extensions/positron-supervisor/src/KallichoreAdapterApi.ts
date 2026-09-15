@@ -21,7 +21,7 @@ import { KallichoreInstances } from './KallichoreInstances.js';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
-import { ADD_TO_CLAUDE_CODE_COMMAND, ADD_TO_CODEX_COMMAND, addToClaudeCode, addToCodex, autoConfigureClaudeCode, promptToEnable } from './McpAgentConfig.js';
+import { CONFIGURE_AGENT_COMMAND, autoConfigureClaudeCode, configureAgent, promptToEnable } from './McpAgentConfig.js';
 
 /**
  * The environment variable naming a handshake-broker socket. In web/server
@@ -368,12 +368,8 @@ export class KCApi implements PositronSupervisorApi {
 			return this._mcp.copyConnectionDetails();
 		}));
 
-		this._context.subscriptions.push(vscode.commands.registerCommand(ADD_TO_CLAUDE_CODE_COMMAND, () => {
-			return addToClaudeCode(this._mcp.connection);
-		}));
-
-		this._context.subscriptions.push(vscode.commands.registerCommand(ADD_TO_CODEX_COMMAND, () => {
-			return addToCodex(this._mcp.connection);
+		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
+			return configureAgent(this._mcp.connection, agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the
