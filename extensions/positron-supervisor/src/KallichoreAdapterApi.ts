@@ -22,6 +22,7 @@ import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
 import { CONFIGURE_AGENT_COMMAND, autoConfigureClaudeCode, configureAgent, promptToEnable } from './McpAgentConfig.js';
+import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
 
 /**
  * The environment variable naming a handshake-broker socket. In web/server
@@ -335,6 +336,13 @@ export class KCApi implements PositronSupervisorApi {
 			mcpFeatureEnabled,
 			() => autoConfigureClaudeCode(_context, message => this.log(message)));
 		this._disposables.push(this._mcp);
+
+		// Offer the same registration to the editor itself, so chat extensions
+		// hosted in this window need no configuration of their own.
+		const mcpDefinitions = new McpServerDefinitions(this._mcp);
+		this._disposables.push(mcpDefinitions);
+		this._disposables.push(vscode.lm.registerMcpServerDefinitionProvider(
+			MCP_DEFINITION_PROVIDER_ID, mcpDefinitions));
 		positron.runtime.emitPerfMark('initializing');
 
 		// Start Kallichore eagerly so it's warm when we start trying to create

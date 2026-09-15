@@ -47,7 +47,7 @@ configurationRegistry.registerConfiguration({
 			default: false,
 			markdownDescription: localize(
 				'positron.ai.mcp.enabled',
-				"Let external coding agents run code in this window's Python and R sessions, and run Positron commands, through the kernel supervisor's MCP server. The server listens on the loopback interface only, and agents must present a token that Positron publishes into its integrated terminals. Claude Code is set up automatically for each workspace you open; for other agents, run the _Add to_ commands."
+				"Let external coding agents run code in this window's Python and R sessions, and run Positron commands, through the kernel supervisor's MCP server. The server listens on the loopback interface only, and agents must present a token that Positron publishes into its integrated terminals. Chat extensions running in this window find the server on their own, as does Claude Code in each workspace you open; for other agents, run the _Add to_ commands."
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],

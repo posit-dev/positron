@@ -176,6 +176,9 @@ export class McpFrontend implements vscode.Disposable {
 	/** The current registration, when the feature is on and the server is up. */
 	private _connection: McpConnection | undefined;
 
+	/** Fires when {@link connection} is issued, replaced, or given up. */
+	private readonly _onDidChangeConnection = new vscode.EventEmitter<void>();
+
 	/** The supervisor API, once a supervisor is available. */
 	private _api: McpRegistrationApi | undefined;
 
@@ -236,6 +239,13 @@ export class McpFrontend implements vscode.Disposable {
 	}
 
 	/**
+	 * Fires whenever {@link connection} changes, so that anything publishing the
+	 * endpoint elsewhere -- the MCP server definition provider, say -- can
+	 * follow it.
+	 */
+	public readonly onDidChangeConnection: vscode.Event<void> = this._onDidChangeConnection.event;
+
+	/**
 	 * Point the frontend at a supervisor that has just started or been
 	 * reconnected to, and bring registration in line with the settings.
 	 *
@@ -252,7 +262,7 @@ export class McpFrontend implements vscode.Disposable {
 		// A new server process means a new (empty) workspace registry, so the
 		// registration we may have been holding no longer exists there.
 		this.closeChannel();
-		this._connection = undefined;
+		this.setConnection(undefined);
 		await this.sync();
 	}
 
@@ -323,8 +333,26 @@ export class McpFrontend implements vscode.Disposable {
 
 	public dispose() {
 		this.closeChannel();
+		this._onDidChangeConnection.dispose();
 		this._disposables.forEach(disposable => disposable.dispose());
 		this._disposables.length = 0;
+	}
+
+	/**
+	 * Replace the current registration and announce it.
+	 *
+	 * Compares tokens so that a re-registration that recovers the same identity
+	 * -- reconnecting to the supervisor we were already registered with -- does
+	 * not look like a change to anyone following the endpoint.
+	 *
+	 * @param connection The new registration, or undefined when giving one up.
+	 */
+	private setConnection(connection: McpConnection | undefined): void {
+		if (this._connection?.token === connection?.token) {
+			return;
+		}
+		this._connection = connection;
+		this._onDidChangeConnection.fire();
 	}
 
 	/**
@@ -368,12 +396,13 @@ export class McpFrontend implements vscode.Disposable {
 		});
 
 		const { workspace_id: workspaceId, token, port, url } = response.data;
-		this._connection = {
+		const connection: McpConnection = {
 			workspaceId, token, port, url,
 			headersPath: headersFilePath(this._storageUri, workspaceId),
 		};
+		this.setConnection(connection);
 		await this._saveState({ workspaceId, port });
-		await this.publishEnvironment(this._connection);
+		await this.publishEnvironment(connection);
 		this._log(`Registered MCP workspace ${workspaceId}; agents can connect at ${url}`);
 		this.openChannel(workspaceId);
 		this._onRegistered();
@@ -389,7 +418,7 @@ export class McpFrontend implements vscode.Disposable {
 	 */
 	private async deregister(): Promise<void> {
 		const connection = this._connection;
-		this._connection = undefined;
+		this.setConnection(undefined);
 		this.closeChannel();
 		await this.clearEnvironment(connection);
 		// The saved identity is left alone: deregistration invalidates the token

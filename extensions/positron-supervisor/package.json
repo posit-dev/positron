@@ -184,6 +184,13 @@
         "title": "%command.configureAgent.title%",
         "shortTitle": "%command.configureAgent.title%"
       }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "positron-sessions",
+        "label": "%mcp.positronSessions.label%",
+        "when": "config.ai.enabled && config.ai.mcp.enabled"
+      }
     ]
   },
   "repository": {
