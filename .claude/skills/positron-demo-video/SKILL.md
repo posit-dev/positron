@@ -17,7 +17,7 @@ Creates polished demo videos of Positron features through a collaborative script
 ## Prerequisites
 
 - Positron must be built (`npm run build-ps` to check)
-- ffmpeg installed for MP4 conversion (optional but recommended)
+- ffmpeg installed (`brew install ffmpeg`) -- required, not optional
 
 ## Workflow
 
@@ -73,6 +73,12 @@ Total: ~16s of action (+ ~12s trimmed initialization)
 - Change overlay wording
 - Adjust which features to highlight
 
+**Propose only steps the script needs.** Every step is a way the recording can fail, and each
+re-record costs a minute or two of app startup. Steps that open a panel to show supporting
+evidence are the usual culprit -- an on-disk log assertion plus a caption gets the same point
+across without driving any UI. If you do include one, say up front that it is the risky part, and
+cut it rather than re-recording around it.
+
 ### Phase 3: Iterate on Script
 
 Revise the script based on feedback. Keep presenting the updated script until the user approves. Only then move to implementation.
@@ -82,52 +88,59 @@ Revise the script based on feedback. Keep presenting the updated script until th
 Once the script is approved:
 
 1. **Write the demo test** -- translate the script into a Playwright test at `test/e2e/demos/<name>.demo.test.ts`
-   - Use `setupDemoLayout()` to collapse panels and enable screencast mode
-   - Include `...DEMO_SCREENCAST_SETTINGS` in the test's `settingsFile.append()`
-   - Use `narrate()` / `showOverlay()` for captions
-   - Use `pause()` between actions for pacing
-   - See `references/demo-patterns.md` for code patterns
-2. **Run it:**
+   - Pass `extraSettings: { ...DEMO_SCREENCAST_SETTINGS }` in `test.use`. Do **not** override the
+     `beforeApp` fixture -- that replaces the one writing the feature flags your demo needs.
+   - Use `setupDemoLayout(app, page, { keepSidebar: true })` when the feature lives in the sidebar.
+   - Use `narrate()` / `showOverlay()` for captions and `pause()` for pacing.
+   - Use `humanClick()` / `humanDoubleClick()` for any click the viewer should see. Screencast
+     mode draws no indicator for synthesized mouse events; these draw their own.
+   - Wrap polish-only steps in `bestEffort()` so they cannot discard the recording.
+   - See `references/demo-patterns.md` for code patterns and the failure modes behind each rule.
+2. **Record and post-process in one step:**
    ```bash
-   DEMO_RECORD_VIDEO=1 npx playwright test test/e2e/demos/<name>.demo.test.ts \
-     --project e2e-electron --reporter list --timeout 300000
+   npm run demo:record -- <name>
    ```
-3. **Trim and convert** -- use a subagent to find the start trim point (where initialization ends) and end trim point (where cleanup begins), then:
-   ```bash
-   ffmpeg -ss <START_SECONDS> -t <DURATION> -i demo-videos/<hash>.webm \
-     -c:v libx264 -crf 20 -preset slow -an demo-videos/<name>.mp4
-   ```
-   - `-ss`: skip initialization (typically ~10s)
-   - `-t`: duration to keep (cut before editor-close cleanup frames)
+   This records with `DEMO_RECORD_VIDEO=1`, trims the startup, crops the letterbox, converts to
+   MP4, and prints the path, duration, size, and a caption timeline. Add `--keep-webm` to keep the
+   raw capture.
+
+   The trim points are not guessed: `startDemo()` (called automatically by the first caption)
+   holds a black sentinel frame that ffmpeg locates, and the caption manifest gives the end time.
+   Reach for `npm run demo:postprocess` alone only to re-cut an existing capture.
+
+**MP4 is required, not preferred.** GitHub rejects `.webm` uploads as attachments. Size limits are
+10 MB on free accounts, 100 MB on paid.
 
 ### Phase 5: Verify and Deliver
 
-After trimming/converting, **delegate verification to a subagent** to avoid polluting the main context window with large image data.
+The caption timeline printed by `demo:record` already tells you what is where, so verification is
+about judgment, not timestamps: does the pacing read, does any caption lead its action, is the
+payoff legible.
 
-Launch a subagent (using the Agent tool) with a prompt like:
+**Delegate that to a subagent** to keep large image data out of the main context window:
 
 > Verify the demo video at `demo-videos/<name>.mp4`.
-> Extract thumbnail frames at key moments and read them to confirm overlays are visible, layout looks correct, and pacing is reasonable.
-> Report back: duration, file size, and a brief description of what each section shows.
-> Flag any issues (missing overlays, bad cropping, blank frames, etc.).
+> Extract frames at the caption timestamps below and read them. For each caption, confirm the
+> thing it describes is already visible -- flag any caption that appears before its action.
+> Also check: click rings visible at each click, no blank or glitched frames, no caption
+> colliding with UI, and the payoff text legible at the zoom.
+> Report duration, file size, and a one-line description per section.
 >
-> Commands to use:
+> Caption timeline: <paste from demo:record>
+>
 > ```bash
-> # Get duration and file size
 > ffprobe -v error -show_entries format=duration,size -of csv=p=0 demo-videos/<name>.mp4
->
-> # Extract frames at key moments
-> for t in 1 5 10 15 20; do
->   ffmpeg -y -ss $t -i demo-videos/<name>.mp4 -frames:v 1 /tmp/frame_${t}s.jpg 2>/dev/null
-> done
+> ffmpeg -y -ss <t> -i demo-videos/<name>.mp4 -frames:v 1 /tmp/frame_<t>.jpg
 > ```
-> Then read each `/tmp/frame_*.jpg` to visually inspect the frames.
 
 Once the subagent reports back, relay the results to the user:
-- The video file path (for drag-and-drop into PR)
+- The video file path (for drag-and-drop into a PR or issue)
 - Duration and file size
 - A brief summary of what each section shows
 - Any issues the subagent flagged
+
+**Attaching it is manual.** `gh` cannot upload attachments; the user has to drag the file into the
+PR or issue in a browser. Say so rather than implying the attachment is done.
 
 Ask the user to watch the video and let you know if they want changes.
 
@@ -144,7 +157,7 @@ Demo test files live in `test/e2e/demos/`. See `demo-utils.ts` for available hel
 
 ### Video Output
 
-- Records at 1920x1080 (1080p) for crisp output on retina displays
+- Captures at 1920x1080; the app window is smaller, so the capture is cropped in post
 - GitHub free: 10MB limit / paid: 100MB limit
-- First ~10-15s is initialization (always trimmed)
-- WebM works on GitHub; MP4 has better Safari compat
+- Initialization runs ~40s and is always trimmed (the sentinel marks where it ends)
+- MP4 only -- GitHub rejects `.webm` attachments
