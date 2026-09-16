@@ -95,22 +95,50 @@ describe('NewFolderFromGitModalDialog', () => {
 		expect(folderName()).toHaveValue('ark');
 	});
 
-	it('reports a folder that already exists instead of silently cloning beside it', async () => {
+	it('shows no error under the field for a name that collides, even once validation has had time to run', async () => {
 		const user = userEvent.setup();
 		renderDialog(['positron']);
 
 		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
 
+		// Outlast a debounced validator's delay before asserting its absence, so the test would
+		// catch an inline error appearing late rather than just outrunning it.
+		await new Promise(resolve => setTimeout(resolve, 200));
+		expect(screen.queryByText('A folder named \'positron\' already exists.')).not.toBeInTheDocument();
+	});
+
+	it('shows the collision error at the bottom of the dialog once the user presses OK', async () => {
+		const user = userEvent.setup();
+		renderDialog(['positron']);
+
+		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
+		await user.click(screen.getByRole('button', { name: 'OK' }));
+
 		expect(await screen.findByText('A folder named \'positron\' already exists.')).toBeInTheDocument();
 	});
 
-	it('rejects a name that would clone into a subfolder', async () => {
+	it('shows no error under the field for a name with a path separator, even once validation has had time to run', async () => {
 		const user = userEvent.setup();
 		renderDialog();
 
 		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
 		await user.clear(folderName());
 		await user.type(folderName(), 'forks/positron');
+
+		// Outlast a debounced validator's delay before asserting its absence, so the test would
+		// catch an inline error appearing late rather than just outrunning it.
+		await new Promise(resolve => setTimeout(resolve, 200));
+		expect(screen.queryByText('A folder name cannot contain a path separator.')).not.toBeInTheDocument();
+	});
+
+	it('shows the path separator error at the bottom of the dialog once the user presses OK', async () => {
+		const user = userEvent.setup();
+		renderDialog();
+
+		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
+		await user.clear(folderName());
+		await user.type(folderName(), 'forks/positron');
+		await user.click(screen.getByRole('button', { name: 'OK' }));
 
 		expect(await screen.findByText('A folder name cannot contain a path separator.')).toBeInTheDocument();
 	});
@@ -130,7 +158,7 @@ describe('NewFolderFromGitModalDialog', () => {
 		}));
 	});
 
-	it('creates under the derived name when the field is left empty', async () => {
+	it('shows a required-field error for an empty name instead of falling back to the one the URL implies', async () => {
 		const user = userEvent.setup();
 		const { createFolder } = renderDialog();
 
@@ -138,12 +166,13 @@ describe('NewFolderFromGitModalDialog', () => {
 		await user.clear(folderName());
 		await user.click(screen.getByRole('button', { name: 'OK' }));
 
-		// Clearing the field asks for the default back, so the clone lands where it would have
-		// without the field, rather than failing for a name the user deliberately gave up.
-		expect(createFolder).toHaveBeenCalledWith(expect.objectContaining({ folderName: 'positron' }));
+		// An empty field used to clone under the name the URL implies, invisibly to the user. It is
+		// invalid on its own now, so the folder is never created under a name never seen on screen.
+		expect(createFolder).not.toHaveBeenCalled();
+		expect(await screen.findByText('A folder name is required.')).toBeInTheDocument();
 	});
 
-	it('treats a whitespace-only name as empty rather than cloning into it', async () => {
+	it('shows a required-field error for a whitespace-only name, same as for an empty one', async () => {
 		const user = userEvent.setup();
 		const { createFolder } = renderDialog();
 
@@ -152,8 +181,8 @@ describe('NewFolderFromGitModalDialog', () => {
 		await user.type(folderName(), '   ');
 		await user.click(screen.getByRole('button', { name: 'OK' }));
 
-		// Git.clone() would take '   ' as a targetName and create a folder named three spaces.
-		expect(createFolder).toHaveBeenCalledWith(expect.objectContaining({ folderName: 'positron' }));
+		expect(createFolder).not.toHaveBeenCalled();
+		expect(await screen.findByText('A folder name is required.')).toBeInTheDocument();
 	});
 
 	it('keeps following the URL when the name is only whitespace', async () => {
@@ -169,14 +198,17 @@ describe('NewFolderFromGitModalDialog', () => {
 		expect(folderName()).toHaveValue('ark');
 	});
 
-	it('reports a conflict with the derived name while the field is still empty', async () => {
+	it('shows a required-field error for an empty name instead of checking the URL-derived name for a collision', async () => {
 		const user = userEvent.setup();
-		renderDialog(['positron']);
+		const { createFolder } = renderDialog(['positron']);
 
 		await user.type(repoUrl(), 'https://github.com/posit-dev/positron.git');
 		await user.clear(folderName());
+		await user.click(screen.getByRole('button', { name: 'OK' }));
 
-		expect(await screen.findByText('A folder named \'positron\' already exists.')).toBeInTheDocument();
+		expect(createFolder).not.toHaveBeenCalled();
+		expect(await screen.findByText('A folder name is required.')).toBeInTheDocument();
+		expect(screen.queryByText('A folder named \'positron\' already exists.')).not.toBeInTheDocument();
 	});
 
 	it('refuses to create a folder that already exists', async () => {

@@ -19,7 +19,6 @@ import { PositronModalReactRenderer } from '../../../base/browser/positronModalR
 import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 import { VerticalSpacer } from '../positronComponents/positronModalDialog/components/verticalSpacer.js';
-import { useDebouncedValidator } from '../positronComponents/positronModalDialog/components/useDebouncedValidator.js';
 import { checkIfPathValid, isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
 import { LabeledTextInput } from '../positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
@@ -69,21 +68,10 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 	// repository URL; once they do, their name stands even as the URL keeps changing.
 	const [folderNameEdited, setFolderNameEdited] = useState(false);
 
-	// The name the clone will actually use. An empty field means the user wants the name the URL
-	// implies, which is the name the field held before they cleared it, so emptying the field is a
-	// way back to the default rather than an error to recover from. Whitespace reads as empty here,
-	// the way isInputEmpty reads it downstream: a truthy check would let '   ' through as a name,
-	// past a validator that waves it on as empty, and Git.clone() would take it as a targetName and
-	// create a folder called three spaces.
-	const effectiveFolderName = isInputEmpty(result.folderName)
-		? folderNameFromGitRepoUrl(result.repo)
-		: result.folderName;
-
 	// Validate the folder name against the parent folder it will be created in.
 	const validateFolderName = useCallback(async (name: string): Promise<string | undefined> => {
 		if (isInputEmpty(name)) {
-			// Only reachable before a URL is entered, when there is nothing to validate yet.
-			return undefined;
+			return localize('positron.folderNameRequired', "A folder name is required.");
 		}
 
 		// A separator would clone into a subfolder of the folder the user picked, which is not what
@@ -113,13 +101,6 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 
 		return undefined;
 	}, [parentFolderLabel, result.parentFolder, services.fileService]);
-
-	// Validating the effective name rather than the field means a collision with the default is
-	// reported while the field is still empty, instead of waiting for the user to fill it in.
-	const folderNameError = useDebouncedValidator({
-		value: effectiveFolderName,
-		validator: validateFolderName
-	});
 
 	// The browse handler.
 	const browseHandler = async () => {
@@ -192,15 +173,16 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 				if (isInputEmpty(result.repo)) {
 					throw new Error(localize('positron.gitRepoNotProvided', "A git repository URL was not provided."));
 				}
-				// The displayed message is debounced and can lag the last keystroke, so the name is
-				// validated once more here rather than trusting what is on screen.
-				const error = await validateFolderName(effectiveFolderName);
+				// The folder name is validated on submission, rather than as the user types
+				// so an empty field, a collision, or a bad name is reported with all other
+				// errors in the dialog instead of as an error under the field.
+				const error = await validateFolderName(result.folderName);
 				if (error) {
 					throw new Error(error);
 				}
 				// Dispose dialog immediately, then start cloning
 				props.renderer.dispose();
-				await props.createFolder({ ...result, folderName: effectiveFolderName });
+				await props.createFolder(result);
 			}}
 			onCancel={() => props.renderer.dispose()}
 		>
@@ -216,8 +198,6 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 					onChange={e => onChangeRepo(e.target.value)}
 				/>
 				<LabeledTextInput
-					error={Boolean(folderNameError)}
-					errorMsg={folderNameError}
 					label={localize(
 						'positron.folderName',
 						"Folder name"
