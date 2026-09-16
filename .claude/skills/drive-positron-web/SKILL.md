@@ -131,6 +131,7 @@ Open the reported URL with a literal session name and reuse it for every command
 ```bash
 npx @playwright/cli -s=posweb open "$URL"
 npx @playwright/cli -s=posweb snapshot
+npx @playwright/cli -s=posweb find "Run Cell"
 npx @playwright/cli -s=posweb click e153
 npx @playwright/cli -s=posweb \
 	screenshot --filename="$PWD/shots/01.png"

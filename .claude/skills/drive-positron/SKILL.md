@@ -201,16 +201,24 @@ npx @playwright/cli -s=positron \
 
 Use element references from the latest snapshot. Do not substitute screen coordinates, and use the positional `right` argument for a right-click.
 
-Filter a large snapshot when looking for a known control:
+Filter a large snapshot rather than piping the whole thing through `grep`. To
+read the tree around a known control, `find` returns only the matching nodes and
+their context:
 
 ```bash
-R=$(npx @playwright/cli -s=positron snapshot 2>&1 \
-	| grep -oE 'button "Run Cell" \[ref=e[0-9]+' \
-	| grep -oE 'e[0-9]+$' \
+npx @playwright/cli -s=positron find "Run Cell"
+```
+
+To capture a reference for a script, query the structured snapshot. Matching
+`role` and `name` avoids escaping a regexp over the YAML rendering:
+
+```bash
+R=$(npx @playwright/cli -s=positron --json snapshot \
+	| jq -r '.. | objects | select(.role == "button" and .name == "Run Cell") | .ref' \
 	| head -1)
 ```
 
-Take a screenshot early when the UI does not match expectations. A screenshot often reveals blocking dialogs, an unopened workspace, missing kernels, or focus in the wrong editor faster than DOM inspection.
+Take a screenshot early when the UI does not match expectations. Pass `--hires` when the detail being judged is finer than a CSS pixel. A screenshot often reveals blocking dialogs, an unopened workspace, missing kernels, or focus in the wrong editor faster than DOM inspection.
 
 ### Enter text in Monaco
 
@@ -308,6 +316,7 @@ This works on every platform. `pgrep -f "remote-debugging-port=$CDP_PORT"` is eq
 - **Attach reports `connect ECONNREFUSED`:** The application exited after opening CDP. Inspect the path reported as `logFile`.
 - **The log reports `listen EINVAL` or an IPC path longer than 103 characters:** The run-directory base is too long. Unset `$POSITRON_LAUNCH_TMP` or point it at a shorter directory. This affects macOS and Linux only; Windows uses named pipes and has no such limit.
 - **`rsync: command not found` (Windows):** You are on an older copy of `launch.sh`. The current script falls back to `tar` when `rsync` is absent.
+- **A command reports an error:** The CLI exits non-zero on a failed command, so check the exit status rather than matching on its output.
 - **Snapshot references disappear:** Look for a modal dialog with a screenshot, then take a new snapshot.
 - **A built-in extension does not load:** Compile extensions with:
 
