@@ -821,7 +821,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.interrupt();
 	}
 
-	public async restart(workingDirectory: string | undefined) {
+	public async restart(_workingDirectory: string | undefined) {
 		// Sending a restart to the python session will not work simply, because it's
 		// tied to the R session.
 		// We have to send a restart to the R session, and send a reticulate::repl_python()
@@ -841,8 +841,11 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		// 1. shutdown the current reticulate session
 		// 2. restart the attached R session
 		// 3. start a new reticulate session.
-		this.pythonSession.onDidEndSession((sess) => {
-			this.rSession.restart(workingDirectory);
+		this.pythonSession.onDidEndSession(async (sess) => {
+			// Restart via the runtime namespace so core stays in the loop (#12589).
+			// `workingDirectory` is not carried through this path: the R session
+			// keeps its current working directory across the restart.
+			await positron.runtime.restartSession(this.rSession.metadata.sessionId);
 		});
 
 		const kernelSpec: JupyterKernelSpec = {

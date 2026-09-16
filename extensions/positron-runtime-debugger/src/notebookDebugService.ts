@@ -88,8 +88,15 @@ function getActiveNotebookCell(): vscode.NotebookCell | undefined {
 
 /** Get the language runtime session for a notebook. */
 export async function getNotebookSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession | undefined> {
-	// This cast is safe only because our package.json ensures that this
-	// extension runs in the same extension host as the notebook kernels.
-	const runtimeSession = await positron.runtime.getNotebookSession(notebookUri) as positron.LanguageRuntimeSession | undefined;
-	return runtimeSession;
+	// `getNotebookSession` returns a core-managed proxy, but debugging needs the
+	// full session surface -- `debug()`, `onDidReceiveRuntimeMessage`,
+	// `onDidEndSession`, `runtimeInfo` -- which the proxy can't forward, so
+	// resolve it back to the real session object. `getLocalSession` finds it only
+	// because our package.json ensures that this extension runs in the same
+	// extension host as the notebook kernels.
+	const proxySession = await positron.runtime.getNotebookSession(notebookUri);
+	if (!proxySession) {
+		return undefined;
+	}
+	return positron.runtime.getLocalSession(proxySession.metadata.sessionId);
 }

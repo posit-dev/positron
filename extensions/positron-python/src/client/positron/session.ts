@@ -47,6 +47,28 @@ import { listMissingPythonPackages, pythonMissingPackageProbe } from './missingP
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
 
 /**
+ * Registry of live Python runtime sessions owned by this extension.
+ *
+ * We track our own sessions rather than deriving them from
+ * `positron.runtime.getActiveSessions()`: that API now returns core-managed
+ * proxies (see issue #12589), which are not `PythonRuntimeSession` instances, so
+ * an `instanceof` filter over the getter results would come back empty. Callers
+ * need the real session objects (e.g. for `activateLsp`/`deactivateLsp`, which
+ * only exist on `PythonRuntimeSession`).
+ */
+const activePythonSessions = new Set<PythonRuntimeSession>();
+
+/** Adds a session to the active Python session registry. */
+export function registerActivePythonSession(session: PythonRuntimeSession): void {
+    activePythonSessions.add(session);
+}
+
+/** Removes a session from the active Python session registry. */
+export function unregisterActivePythonSession(session: PythonRuntimeSession): void {
+    activePythonSessions.delete(session);
+}
+
+/**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
  */
@@ -847,6 +869,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     async dispose() {
+        // Stop tracking this session in the active-sessions registry.
+        unregisterActivePythonSession(this);
+
         // Clean up the console width listener
         this._consoleWidthDisposable?.dispose();
         this._consoleWidthDisposable = undefined;
@@ -1053,8 +1078,7 @@ export function createJupyterKernelExtra(): undefined {
     return undefined;
 }
 
-/** Get the active Python language runtime sessions. */
+/** Get the active Python language runtime sessions owned by this extension. */
 export async function getActivePythonSessions(): Promise<PythonRuntimeSession[]> {
-    const sessions = await positron.runtime.getActiveSessions();
-    return sessions.filter((session) => session instanceof PythonRuntimeSession) as PythonRuntimeSession[];
+    return Array.from(activePythonSessions);
 }
