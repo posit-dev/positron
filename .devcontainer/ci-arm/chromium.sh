@@ -4,9 +4,11 @@
 # (web)" launch config so the config doesn't hardcode the volatile chromium-<rev> path, which
 # changes every time `playwright install` pulls a new build.
 set -euo pipefail
-# `|| true`: under `set -euo pipefail` a non-matching glob makes `ls` fail and pipefail would
-# abort the script here, before the guard below — losing the helpful message. Let it fall through.
-CHROME="$(ls -d "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | sort -V | tail -1 || true)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Ask Playwright itself: the directory inside chromium-<rev> is platform-specific
+# (chrome-linux-arm64, chrome-linux64, ...) and has changed across releases, so a glob over one
+# layout silently stops matching after an upgrade.
+CHROME="$(cd "$REPO_ROOT" && node -e 'process.stdout.write(require("playwright").chromium.executablePath())' 2>/dev/null || true)"
 if [ -z "$CHROME" ] || [ ! -x "$CHROME" ]; then
   echo "chromium.sh: no Playwright Chromium under ~/.cache/ms-playwright — run 'npm exec -- playwright install chromium'." >&2
   exit 1

@@ -135,7 +135,7 @@ npx @playwright/cli -s=posweb click e153
 npx @playwright/cli -s=posweb \
 	screenshot --filename="$PWD/shots/01.png"
 npx @playwright/cli -s=posweb console
-npx @playwright/cli -s=posweb network
+npx @playwright/cli -s=posweb requests
 npx @playwright/cli -s=posweb \
 	eval '(() => document.title)()'
 ```
