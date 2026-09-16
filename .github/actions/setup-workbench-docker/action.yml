@@ -170,7 +170,7 @@ runs:
           echo "--- listeners on :8787 ---"
           (ss -lntp 2>/dev/null || netstat -lntp 2>/dev/null) | grep 8787 || echo "(none)"
           echo "--- rserver processes ---"
-          ps -eo pid,ppid,etime,comm | grep -E "rserver|rstudio|supervisord" || echo "(none)"
+          ps -eo pid,ppid,etime,args | grep -E "rserver|rstudio|supervisord" | grep -v grep || echo "(none)"
           echo "--- launcher socket ---"
           ls -la /var/run/rstudio-server/rserver-launcher.socket 2>&1 || true
           echo "--- supervisor logs (tail) ---"

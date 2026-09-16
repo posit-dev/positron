@@ -350,8 +350,10 @@ dump_workbench_state() {
     curl -s -o /dev/null -w "http_code=%{http_code}\n" --max-time 5 http://localhost:8787 || true
     echo "--- launcher socket ---"
     ls -la "${LAUNCHER_SOCKET}" 2>&1 || true
+    # Match on args, not comm: openSUSE's supervisord runs as a plain python3
+    # script, so its comm is "python3" and a comm match would hide it.
     echo "--- processes ---"
-    ps -eo pid,ppid,etime,comm | grep -E "rserver|rstudio|supervisord" || echo "(none)"
+    ps -eo pid,ppid,etime,args | grep -E "rserver|rstudio|supervisord" | grep -v grep || echo "(none)"
     echo "--- supervisor logs (tail) ---"
     sudo tail -n 40 /var/log/supervisor/*.log 2>/dev/null || echo "(absent)"
     echo "--- rserver.log (tail) ---"
