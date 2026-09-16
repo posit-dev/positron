@@ -103,6 +103,10 @@ jobs:
       POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
       WB_PASSWORD: ${{ secrets.WB_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
+      # Databricks workspace + PAT for the catalog-explorer suite, which types them into the
+      # Add Catalog Provider prompts. Same repo secrets the Linux desktop lanes export.
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
       HOME: /home/runner
       AWS_S3_BUCKET: positron-test-reports
       R_LIBS_SITE: /usr/local/lib/R/site-library

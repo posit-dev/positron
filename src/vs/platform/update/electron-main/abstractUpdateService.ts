@@ -559,6 +559,15 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	// --- End Positron ---
 
 	// --- Start Positron ---
+	/**
+	 * The running build as the feed spells it, `<positronVersion>-<positronBuildNumber>`. Always
+	 * compare with this rather than `positronVersion` alone: `compare()` in `positronVersion.ts`
+	 * reports two versions as equal whenever either side omits the build number.
+	 */
+	private get currentVersion(): string {
+		return `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`;
+	}
+
 	async checkForUpdates(explicit: boolean): Promise<void> {
 		// With an update already pending there is nothing to find for the installed version, but
 		// the pending update itself may have been superseded. Route the check to the overwrite
@@ -604,11 +613,11 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 					return Promise.resolve(null);
 				}
 
-				if (hasUpdate(update, `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`)) {
+				if (hasUpdate(update, this.currentVersion)) {
 					this.logService.info(`update#checkForUpdates, ${update.version} is available`);
 					this.updateAvailable(update);
 				} else {
-					this.logService.info(`update#checkForUpdates, ${this.productService.positronVersion}-${this.productService.positronBuildNumber} is the latest version`);
+					this.logService.info(`update#checkForUpdates, ${this.currentVersion} is the latest version`);
 					this.setState(State.Idle(this.getUpdateType()));
 				}
 				return Promise.resolve(update);
@@ -630,7 +639,6 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	 *
 	 * @returns the release notes as a string
 	 */
-	// --- Start Positron ---
 	async getReleaseNotes(version?: string): Promise<string> {
 		const targetVersion = version ?? this.productService.positronVersion;
 		const channel = process.env.POSITRON_UPDATE_CHANNEL ?? this.configurationService.getValue<string>('update.positron.channel');
@@ -881,12 +889,19 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 	protected async doIsLatestVersion(commit?: string, token: CancellationToken = CancellationToken.None): Promise<boolean | undefined> {
 		// --- Start Positron ---
-		// Positron's feed is a static JSON document that always describes the latest release,
-		// unlike upstream's update server, which answers 204 when the given commit is already
-		// the latest. So "latest" is decided client-side by comparing the feed against a
-		// baseline version: the pending update's version when given (the overwrite check in
-		// `checkForOverwriteUpdates`), otherwise the installed version. Returns `true` when
-		// the baseline is already the latest, `undefined` when it cannot be determined.
+		// Reports whether a build is the newest one the feed offers, defaulting to the running
+		// build. `checkForOverwriteUpdates()` passes the build it has already staged, so that a
+		// pending update is only discarded when the feed has moved past *it*. An unknown answer is
+		// `undefined`, which every caller treats as "carry on": a feed we cannot read must not
+		// cancel a staged update or suppress startup telemetry.
+		//
+		// `commit` keeps upstream's parameter name and signature. Positron's feed is versioned
+		// rather than commit-addressed, so callers pass a `<version>-<build>` string. Unlike
+		// upstream's update server, which answers 204 when the given commit is already the latest,
+		// Positron's feed is a static JSON document that always describes the latest release, so
+		// "latest" is decided client-side by comparing the feed against that baseline.
+		//
+		// As long as updates are enabled, we check the update URL
 		const mode = this.configurationService.getValue<'none' | 'manual' | 'start' | 'default'>('update.mode');
 
 		if (mode === 'none') {
@@ -902,10 +917,14 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			return undefined;
 		}
 
-		// Include the build number: dailies share a calver and differ only by build, and
-		// `compare()` treats a missing build number as equal.
-		const baseline = commit ?? `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`;
+		// Compare against the full `<version>-<build>` string. `compare()` treats a missing build
+		// number as "equal", so passing the bare version reports every same-month daily as the
+		// same build, and `hasUpdate()` is then false for an update that really is newer.
+		const baseline = commit ?? this.currentVersion;
 
+		// Awaited inside the `try`, not returned from it: a returned promise settles after the
+		// block has exited, so a failed request, unparseable JSON, or the `hasUpdate()` throw on a
+		// malformed version would reject instead of reporting the unknown answer promised above.
 		try {
 			// `disableCache` because the channel feed is a static JSON document served without
 			// `Cache-Control`, so Chromium's HTTP cache (this runs on `net.request`) is free to
@@ -914,11 +933,14 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			// pending build kept looking like the latest one after a newer build had published.
 			const context = await this.requestService.request({ url: this.url, disableCache: true, callSite: 'update.poll' }, token);
 			const update = await asJson<IUpdate>(context);
+
 			if (!update || !update.version) {
 				this.logService.info('update#isLatestVersion - the feed does not advertise a version', update);
 				return undefined;
 			}
 
+			// `hasUpdate()` answers the opposite question: it is true when the feed has
+			// something newer, which is exactly when `baseline` is *not* the latest.
 			const isLatest = !hasUpdate(update, baseline);
 			this.logService.info(`update#isLatestVersion - the feed advertises ${update.version}, baseline is ${baseline}: ${isLatest ? 'nothing newer' : 'a newer build is available'}`);
 			return isLatest;
@@ -992,6 +1014,8 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	protected updateAvailable(context: IUpdate): void {
 		this.setState(State.AvailableForDownload(context));
 	}
+
+	// --- Start Positron ---
 	updateActiveLanguages(languages: string[]): void {
 		// Persist the day's usage so it can be reported on a later launch, even if
 		// this session ends before an update check fires. Every window pushes into

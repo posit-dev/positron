@@ -130,7 +130,18 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
 		// --- End Positron ---
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, telemetryService, applicationStorageMainService, meteredConnectionService, productService, nativeHostMainService, stateService, true);
+		// --- Start Positron ---
+		// The final argument is `supportsUpdateOverwrite`, and it is `false` rather than upstream's
+		// `true` so that `setState()` never arms the five-minute overwrite check. When that check
+		// fires and the feed really has moved past the staged update, it cancels the pending update
+		// and leaves it hanging: `cancelPendingUpdate()` clears `availableUpdate` and the state
+		// leaves `Ready`, so a later "Restart to Update" is declined by both `quitAndInstall()` and
+		// `handleRelaunch()` and falls through to a plain relaunch that installs nothing.
+		//
+		// Disarming it is deliberate and temporary. Re-arm this to `true` in the change that makes
+		// the overwrite path install the newer update instead of dropping it.
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, telemetryService, applicationStorageMainService, meteredConnectionService, productService, nativeHostMainService, stateService, false);
+		// --- End Positron ---
 
 		this.readyMutexName = `${productService.win32MutexName}-ready`;
 		this.updatingMutexName = `${productService.win32MutexName}-updating`;
