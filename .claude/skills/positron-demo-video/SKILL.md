@@ -87,7 +87,9 @@ Revise the script based on feedback. Keep presenting the updated script until th
 
 Once the script is approved:
 
-1. **Write the demo test** -- translate the script into a Playwright test at `test/e2e/demos/<name>.demo.test.ts`
+1. **Write the demo test** -- translate the script into a Playwright test at `test/e2e/demos/<name>.demo.test.ts`.
+   This file is scratch, not a test to maintain: it exists to produce one video and is gitignored,
+   so never offer to commit it and delete it once the user has the MP4.
    - Pass `extraSettings: { ...DEMO_SCREENCAST_SETTINGS }` in `test.use`. Do **not** override the
      `beforeApp` fixture -- that replaces the one writing the feature flags your demo needs.
    - Use `setupDemoLayout(app, page, { keepSidebar: true })` when the feature lives in the sidebar.
@@ -98,8 +100,10 @@ Once the script is approved:
    - See `references/demo-patterns.md` for code patterns and the failure modes behind each rule.
 2. **Record and post-process in one step:**
    ```bash
-   npm run demo:record -- <name>
+   npm run demo:record
    ```
+   Naming the demo (`npm run demo:record -- <name>`) is only needed when `test/e2e/demos/` holds
+   more than one.
    This records with `DEMO_RECORD_VIDEO=1`, trims the startup, crops the letterbox, converts to
    MP4, and prints the path, duration, size, and a caption timeline. Add `--keep-webm` to keep the
    raw capture.
@@ -149,11 +153,14 @@ Ask the user to watch the video and let you know if they want changes.
 If the user wants changes, go back to the appropriate phase:
 - **Script changes** (different steps, reordering) -> Phase 2
 - **Pacing/overlay tweaks** (timing, wording) -> Phase 4
-- **Approved** -> done, user has the video path
+- **Approved** -> delete the `.demo.test.ts` and hand over the video path
 
 ## Technical Reference
 
-Demo test files live in `test/e2e/demos/`. See `demo-utils.ts` for available helper functions (overlay text, human-speed typing/clicking, zoom, pacing, etc.) and existing `.demo.test.ts` files for examples. See `references/demo-patterns.md` for common demo patterns.
+Demo test files live in `test/e2e/demos/` and are gitignored scratch; only the helpers and scripts
+there are checked in. See `demo-utils.ts` for the available helpers (overlay text, human-speed
+typing and clicking, zoom, pacing) and `references/demo-patterns.md` for a template to start from
+and the failure mode behind each rule.
 
 ### Video Output
 
