@@ -11575,6 +11575,27 @@ declare module 'vscode' {
 			 * An optional flag that when `true` will stop the panel from taking focus.
 			 */
 			readonly preserveFocus?: boolean;
+			// --- Start Positron ---
+			// SPIKE: modal size control for positron#16082. Not yet reviewed/finalized.
+			/**
+			 * Options that only apply when `viewColumn` is {@link ViewColumn.Modal}.
+			 */
+			readonly modal?: {
+				/**
+				 * Size of the modal editor, in pixels.
+				 */
+				readonly size?: {
+					/**
+					 * The width of the modal editor.
+					 */
+					readonly width: number;
+					/**
+					 * The height of the modal editor.
+					 */
+					readonly height: number;
+				};
+			};
+			// --- End Positron ---
 		}, options?: WebviewPanelOptions & WebviewOptions): WebviewPanel;
 
 		/**

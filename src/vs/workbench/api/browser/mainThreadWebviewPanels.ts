@@ -158,7 +158,11 @@ export class MainThreadWebviewPanels extends Disposable implements extHostProtoc
 		const targetGroup = this.getTargetGroupFromShowOptions(showOptions);
 		const mainThreadShowOptions: IWebViewShowOptions = showOptions ? {
 			preserveFocus: !!showOptions.preserveFocus,
-			group: targetGroup
+			group: targetGroup,
+			// --- Start Positron ---
+			// SPIKE: modal size control for positron#16082. Not yet reviewed/finalized.
+			modal: showOptions.modal
+			// --- End Positron ---
 		} : {};
 
 		const extension = reviveWebviewExtension(extensionData);
