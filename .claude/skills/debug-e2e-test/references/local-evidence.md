@@ -58,10 +58,19 @@ Act on `verdict`:
 run, so it must end in an offer, not a report:
 
 ```bash
-npx playwright test <spec> --project e2e-electron --grep '<test name>'
+PW_TRACE_SNAPSHOTS=aria \
+	npx playwright test <spec> --project e2e-electron --grep '<test name>'
 ```
 
 Run it in the background (Bash `run_in_background: true`) and tail the log.
+
+`PW_TRACE_SNAPSHOTS=aria` adds an aria snapshot to every action in the trace, so
+the accessibility tree can be read at the failing step rather than only in
+`error-context.md`'s single end-of-test capture. It costs roughly 30% trace size
+and doubles action duration, so it is off everywhere else -- set it on a re-run
+you are about to read, not on a suite. `screen` is also accepted and records a
+screenshot per action, but it inflates the run several-fold; prefer the trace's
+existing screencast.
 
 This is the one place the local entry needs a test identity, and only to build
 that command -- so run `resolve-test-key.js` *here*, lazily, rather than at

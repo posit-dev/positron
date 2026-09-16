@@ -26,6 +26,13 @@ type TreeKillFunction = (pid: number, signal?: string | number) => void;
 const treeKillAsync = promisify<number, string | number | undefined, void>(treeKill as TreeKillFunction);
 
 export type Browser = 'chromium' | 'firefox' | 'webkit' | 'chromium-msedge' | 'chromium-chrome' | undefined;
+
+/**
+ * Mirrors the `snapshots` option of Playwright's `tracing.start()`. `true` is
+ * shorthand for DOM snapshots only; the object form adds aria and/or screen
+ * snapshots, which cost trace size and test duration.
+ */
+export type TraceSnapshots = boolean | { dom?: boolean; aria?: boolean; screen?: boolean };
 // --- End Positron ---
 
 export interface LaunchOptions {
@@ -52,7 +59,7 @@ export interface LaunchOptions {
 	 * handles it (browser-based runs in UI mode or the VS Code extension).
 	 */
 	readonly customTracing?: boolean;
-	snapshots?: boolean;
+	snapshots?: TraceSnapshots;
 	readonly headless?: boolean;
 	readonly browser?: 'chromium' | 'webkit' | 'firefox' | 'chromium-msedge' | 'chromium-chrome';
 	readonly quality: Quality;
