@@ -113,12 +113,21 @@ suite('Virtual Environment Prompt', () => {
         verify(appShell.showInformationMessage(anything(), ...prompts)).never();
     });
 
-    test('If a matching non-exited session already exists, no notification is shown', async () => {
+    test('If a matching running session already exists, no notification is shown', async () => {
         getActivePythonSessionsStub.resolves([fakeSession(envPath, positron.RuntimeState.Idle)]);
 
         await environmentPrompt.handleNewEnvironment(envPath);
 
         verify(appShell.showInformationMessage(anything(), ...prompts)).never();
+    });
+
+    test('If a matching session failed to start, notification is shown', async () => {
+        getActivePythonSessionsStub.resolves([fakeSession(envPath, positron.RuntimeState.Uninitialized)]);
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve();
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(appShell.showInformationMessage(anything(), ...prompts)).once();
     });
 
     test('If a matching session has exited, notification is shown', async () => {
