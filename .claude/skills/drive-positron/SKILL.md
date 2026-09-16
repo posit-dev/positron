@@ -195,6 +195,7 @@ npx @playwright/cli -s=positron type "some text"
 npx @playwright/cli -s=positron press Enter
 npx @playwright/cli -s=positron resize 1600 1100
 npx @playwright/cli -s=positron eval '(() => document.title)()'
+npx @playwright/cli -s=positron console warning
 npx @playwright/cli -s=positron \
 	screenshot --filename="$PWD/shots/01.png"
 ```
@@ -219,6 +220,21 @@ R=$(npx @playwright/cli -s=positron --json snapshot \
 ```
 
 Take a screenshot early when the UI does not match expectations. Pass `--hires` when the detail being judged is finer than a CSS pixel. A screenshot often reveals blocking dialogs, an unopened workspace, missing kernels, or focus in the wrong editor faster than DOM inspection.
+
+To make a screenshot point at one control rather than leaving the reader to hunt
+for it in a full workbench, draw an overlay on the element first. `highlight
+--hide` clears every overlay on the page:
+
+```bash
+npx @playwright/cli -s=positron highlight e153
+npx @playwright/cli -s=positron \
+	screenshot --hires --filename="$PWD/shots/01.png"
+npx @playwright/cli -s=positron highlight --hide
+```
+
+`console` reads the renderer console, which is a separate source from the log
+file the launcher reports as `logFile`. It takes a minimum level and defaults to
+`info`.
 
 ### Enter text in Monaco
 
