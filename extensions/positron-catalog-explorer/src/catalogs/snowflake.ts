@@ -42,7 +42,7 @@ let snowflakeSdk: typeof import('snowflake-sdk') | undefined;
  */
 async function loadSnowflakeSdk(context: vscode.ExtensionContext): Promise<typeof import('snowflake-sdk')> {
 	if (!snowflakeSdk) {
-		const sdk = await import('snowflake-sdk');
+		const sdk = (await import('snowflake-sdk')).default;
 		await configureSnowflakeLogging(context, sdk);
 		snowflakeSdk = sdk;
 	}

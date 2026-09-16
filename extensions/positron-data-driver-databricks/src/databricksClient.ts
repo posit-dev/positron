@@ -20,8 +20,6 @@
 //      browsing a connection that sat idle recovers transparently. A genuine SQL error (unknown
 //      table, parse error) is never retried.
 
-import { DBSQLClient } from '@databricks/sql';
-
 /** How the connection authenticates. Each value maps to a distinct @databricks/sql auth config. */
 export type DatabricksAuthType =
 	/** Personal access token, supplied as a bearer token. */
@@ -100,15 +98,27 @@ export interface IDatabricksSdkClient {
 
 /**
  * Builds a fresh SDK client. Factored out (and overridable via the DatabricksClient constructor) so
- * tests can supply a fake client without a live workspace.
+ * tests can supply a fake client without a live workspace. Async because the real factory loads the
+ * SDK on demand.
  */
-export type DatabricksSdkClientFactory = () => IDatabricksSdkClient;
+export type DatabricksSdkClientFactory = () => Promise<IDatabricksSdkClient>;
 
-/** The real factory: a stock DBSQLClient. */
-const defaultClientFactory: DatabricksSdkClientFactory = () =>
+/**
+ * The real factory: a stock DBSQLClient.
+ *
+ * @databricks/sql is imported here rather than at the top of the module so that loading it is paid
+ * for by the first connection attempt, not by activating the extension. The Data Connections pane
+ * activates every driver at once, and a user who never opens a Databricks connection should never
+ * pay to load its SDK.
+ *
+ * Exported for unit tests, which assert the lazy import yields a constructible client.
+ */
+export const defaultClientFactory: DatabricksSdkClientFactory = async () => {
+	const { DBSQLClient } = await import('@databricks/sql');
 	// DBSQLClient's connect() takes a discriminated union of auth shapes that this file assembles
 	// dynamically (see connectionOptions), so the boundary is cast to the narrower local interface.
-	new DBSQLClient() as unknown as IDatabricksSdkClient;
+	return new DBSQLClient() as unknown as IDatabricksSdkClient;
+};
 
 /**
  * Translates normalized options into the @databricks/sql connect options for the chosen auth flow.
@@ -236,7 +246,7 @@ export class DatabricksClient {
 	 */
 	private async _open(): Promise<void> {
 		for (let attempt = 1; ; attempt++) {
-			const client = this._createClient();
+			const client = await this._createClient();
 			try {
 				await client.connect(connectionOptions(this._config));
 				this._session = await client.openSession({

@@ -1044,6 +1044,7 @@ namespace schema {
 				},
 				{
 					type: 'object',
+					required: ['controlType', 'checked'],
 					properties: {
 						controlType: {
 							description: localize('vscode.extension.contributes.commandType.actionBarOptions.controlType', 'The type of the action bar control.'),
@@ -1057,6 +1058,7 @@ namespace schema {
 				},
 				{
 					type: 'object',
+					required: ['controlType', 'toggled', 'leftTitle', 'rightTitle'],
 					properties: {
 						controlType: {
 							description: localize('vscode.extension.contributes.commandType.actionBarOptions.controlType', 'The type of the action bar control.'),

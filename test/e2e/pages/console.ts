@@ -200,6 +200,17 @@ export class Console {
 		}).toPass({ timeout });
 	}
 
+	/**
+	 * Checks whether the prompt is ready without moving focus.
+	 *
+	 * Use in timed paths. `waitForReady()` sends the `Cmd+K F` chord through CDP,
+	 * whose keypresses must stay outside the measurement.
+	 */
+	async expectPromptReady(prompt: string, timeout = 30000): Promise<void> {
+		const activeLine = this.code.driver.currentPage.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
+		await expect(activeLine).toHaveText(prompt, { timeout });
+	}
+
 	async waitForReadyAndStarted(prompt: string, timeout = 30000, expectedCount = 1): Promise<void> {
 		await test.step('Wait for console to be ready and started', async () => {
 			// Only click the console tab if it's visible
