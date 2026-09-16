@@ -131,16 +131,14 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		// --- End Positron ---
 	) {
 		// --- Start Positron ---
-		// The final argument is `supportsUpdateOverwrite`, and it is `false` rather than upstream's
-		// `true` so that `setState()` never arms the five-minute overwrite check. When that check
-		// fires and the feed really has moved past the staged update, it cancels the pending update
-		// and leaves it hanging: `cancelPendingUpdate()` clears `availableUpdate` and the state
-		// leaves `Ready`, so a later "Restart to Update" is declined by both `quitAndInstall()` and
-		// `handleRelaunch()` and falls through to a plain relaunch that installs nothing.
-		//
-		// Disarming it is deliberate and temporary. Re-arm this to `true` in the change that makes
-		// the overwrite path install the newer update instead of dropping it.
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, telemetryService, applicationStorageMainService, meteredConnectionService, productService, nativeHostMainService, stateService, false);
+		// The final argument is `supportsUpdateOverwrite`. It is back to upstream's `true`, which arms
+		// the five-minute overwrite check in `setState()`, now that the overwrite round installs the
+		// newer update instead of dropping the staged one. #16083 set this to `false` because
+		// `cancelPendingUpdate()` cleared `availableUpdate` and left `Ready`, so the check could strand
+		// a pending update that "Restart to Update" then declined to install. `restorePendingUpdate()`
+		// closes that hole: every overwrite round ends either staging the newer build or putting the
+		// pending one back, flag file included.
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, telemetryService, applicationStorageMainService, meteredConnectionService, productService, nativeHostMainService, stateService, true);
 		// --- End Positron ---
 
 		this.readyMutexName = `${productService.win32MutexName}-ready`;
