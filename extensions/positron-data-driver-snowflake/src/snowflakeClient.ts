@@ -17,8 +17,6 @@
 //      rebuilds the connection once before retrying, so browsing a connection that sat idle recovers
 //      transparently. A genuine SQL error (bad identifier, compilation error) is never retried.
 
-import * as snowflake from 'snowflake-sdk';
-
 /**
  * Normalized Snowflake connection options, independent of any single auth mechanism. Built by the
  * driver from the mechanism's parameter values and passed straight to snowflake-sdk's
@@ -100,8 +98,9 @@ export interface SnowflakeQueryResult {
 /**
  * Builds a fresh snowflake-sdk Connection for the given options. Factored out (and overridable via
  * the SnowflakeClient constructor) so tests can supply a fake connection without a live account.
+ * Async because the real factory loads the SDK on demand.
  */
-export type SnowflakeConnectionFactory = (options: SnowflakeConnectionOptions) => ISnowflakeSdkConnection;
+export type SnowflakeConnectionFactory = (options: SnowflakeConnectionOptions) => Promise<ISnowflakeSdkConnection>;
 
 /**
  * Authenticators whose connect performs an asynchronous step (an OAuth token exchange or a browser
@@ -109,8 +108,22 @@ export type SnowflakeConnectionFactory = (options: SnowflakeConnectionOptions) =
  */
 const ASYNC_AUTHENTICATORS = new Set(['OAUTH_CLIENT_CREDENTIALS', 'OAUTH_AUTHORIZATION_CODE', 'EXTERNALBROWSER']);
 
-/** The real factory: a keepalive-enabled snowflake-sdk Connection. */
-const defaultConnectionFactory: SnowflakeConnectionFactory = options => {
+/**
+ * The real factory: a keepalive-enabled snowflake-sdk Connection.
+ *
+ * snowflake-sdk is imported here rather than at the top of the module so that loading it is paid
+ * for by the first connection attempt, not by activating the extension. The Data Connections pane
+ * activates every driver at once, and a user who never opens a Snowflake connection should never
+ * pay to load its SDK.
+ *
+ * Exported for unit tests, which assert the lazy import yields a constructible connection.
+ */
+export const defaultConnectionFactory: SnowflakeConnectionFactory = async options => {
+	// snowflake-sdk is CommonJS with no `exports` map, so Node's ESM loader cannot detect its named
+	// exports: the namespace a dynamic import() yields carries the module object on `default` and
+	// nothing else. @types/snowflake-sdk declares the package ESM-shaped, so reaching for
+	// `createConnection` on the namespace type-checks but is undefined at runtime.
+	const snowflake = (await import('snowflake-sdk')).default;
 	// createConnection returns @types/snowflake-sdk's Connection, whose execute signature is narrower
 	// than the simplified ISnowflakeSdkConnection this file declares (see that interface's comment).
 	// Cast at the SDK boundary since the two execute shapes aren't structurally assignable.
@@ -217,7 +230,7 @@ export class SnowflakeClient {
 	 */
 	private async _open(): Promise<void> {
 		for (let attempt = 1; ; attempt++) {
-			const conn = this._createConnection(this._config);
+			const conn = await this._createConnection(this._config);
 			try {
 				await this._connectOnce(conn);
 				this._conn = conn;

@@ -12,20 +12,21 @@ import { usePositronActionBarContext } from './positronActionBarContext.js';
  * in the Action Bar is focusable (i.e. tabindex=0) and the rest have tabindex=-1.
  * The arrow keys are used to move between the components in the Action Bar.
  */
-export const useRegisterWithActionBar = (refs: MutableRefObject<HTMLElement>[]) => {
+export const useRegisterWithActionBar = (refs: MutableRefObject<HTMLElement | undefined>[]) => {
 	const { focusableComponents } = usePositronActionBarContext();
 
 	useEffect(() => {
-		refs.forEach(ref => {
+		const elements = refs.map(ref => ref.current).filter(element => element !== undefined);
+		elements.forEach(element => {
 			if (focusableComponents.size === 0) {
-				ref.current.tabIndex = 0; // initially the first component is focusable
+				element.tabIndex = 0; // initially the first component is focusable
 			} else {
-				ref.current.tabIndex = -1;
+				element.tabIndex = -1;
 			}
-			focusableComponents.add(ref.current);
+			focusableComponents.add(element);
 		});
 		return () => {
-			refs.forEach(ref => focusableComponents.delete(ref.current));
+			elements.forEach(element => focusableComponents.delete(element));
 		};
 	}, [focusableComponents, refs]);
 };

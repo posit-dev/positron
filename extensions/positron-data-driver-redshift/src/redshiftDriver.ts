@@ -16,7 +16,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { RedshiftConnection } from './redshiftConnection.js';
 import { RedshiftDataExplorerRpcHandler } from './redshiftDataExplorerRpcHandler.js';
-import { RedshiftIamConfig } from './redshiftIamCredentials.js';
+import type { RedshiftIamConfig } from './redshiftIamCredentials.js';
 
 /** The Redshift default port. */
 const DEFAULT_PORT = 5439;
