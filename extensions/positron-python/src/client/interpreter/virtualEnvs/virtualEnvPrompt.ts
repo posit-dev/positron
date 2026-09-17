@@ -98,10 +98,7 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
         const sessions = await getActivePythonSessions();
         return sessions.some((session) => {
             const state = session.getRuntimeState();
-            if (
-                state === positron.RuntimeState.Uninitialized ||
-                state === positron.RuntimeState.Exited
-            ) {
+            if (state === positron.RuntimeState.Uninitialized || state === positron.RuntimeState.Exited) {
                 return false;
             }
             const extraData = session.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;

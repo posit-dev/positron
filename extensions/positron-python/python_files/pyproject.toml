@@ -16,6 +16,7 @@ ignore = [
     'testing_tools/adapter/pytest/_discovery.py',
     'testing_tools/adapter/pytest/_pytest_item.py',
     'tests/testing_tools/adapter/.data',
+    'tests/unittestadapter/.data',
     'tests/testing_tools/adapter/test___main__.py',
     'tests/testing_tools/adapter/test_discovery.py',
     'tests/testing_tools/adapter/test_functional.py',
