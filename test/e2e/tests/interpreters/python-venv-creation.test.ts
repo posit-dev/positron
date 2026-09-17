@@ -53,6 +53,12 @@ test.describe('Python Venv Auto-Creation', {
 			await openFolder('test-files/venv-creation-test');
 			await app.workbench.sessions.expectNoStartUpMessaging();
 
+			// The prompt is gated on resolving the active interpreter, which waits on
+			// full discovery -- `expectNoStartUpMessaging` returns well before that.
+			await app.workbench.quickaccess.runCommand('python.setInterpreter', { keepOpen: true });
+			await app.workbench.quickInput.waitForInterpreterDiscoveryToComplete({ timeout: 120000 });
+			await app.workbench.quickInput.closeQuickInput();
+
 			const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
 			await expect(toast).toBeVisible({ timeout: 60000 });
 			await app.workbench.toasts.clickButton('Yes', { notificationFilter: /requirements\.txt/ });
