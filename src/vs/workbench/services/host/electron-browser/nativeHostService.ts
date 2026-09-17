@@ -170,7 +170,7 @@ class WorkbenchHostService extends Disposable implements IHostService {
 
 	async moveTop(targetWindow: Window): Promise<void> {
 		// --- Start Positron ---
-		// macOS moveTop also reveals a hidden window.
+		// Raising a window Canvas mode hid on macOS also shows it.
 		if (!canImplicitlyFocusWindow(targetWindow)) {
 			return;
 		}

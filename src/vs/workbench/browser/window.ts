@@ -67,7 +67,9 @@ export abstract class BaseWindow extends Disposable {
 		const that = this;
 		targetWindow.HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions | undefined): void {
 			// --- Start Positron ---
-			// Focusing the iframe itself can also reveal its native window.
+			// Canvas mode hides the IDE window; focusing an element inside it
+			// (the group focus below, or the iframe itself) would reveal it.
+			// Skip the whole focus: an off-screen window has nothing to focus.
 			if (!canImplicitlyFocusWindow(getWindow(this))) {
 				return;
 			}

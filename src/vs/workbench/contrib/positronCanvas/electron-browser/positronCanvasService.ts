@@ -34,7 +34,7 @@ import { mergeCanvasGroupIntoIde } from '../browser/positronCanvasRestore.js';
 import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, PositronCanvasModeActiveContext } from '../common/positronCanvasMode.js';
 
 /** Posit Assistant's command to open a Canvas panel as an ordinary editor. */
-const CANVAS_ENSURE_COMMAND = 'posit-assistant.ensureCanvas';
+export const CANVAS_ENSURE_COMMAND = 'posit-assistant.ensureCanvas';
 
 /**
  * Cap on waiting for the assistant to produce a panel: the command settles
