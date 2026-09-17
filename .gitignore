@@ -46,6 +46,8 @@ pwb-version
 !.claude/settings.json
 .claude/skills/positron-qa-verify/output/
 demo-videos/
+# Demo specs are scratch: written to record a video, then thrown away
+test/e2e/demos/*.demo.test.ts
 # Often used for agent and personal notes
 /thoughts
 

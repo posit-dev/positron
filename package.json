@@ -63,6 +63,8 @@
     "gulp": "node --experimental-strip-types --max-old-space-size=8192 ./node_modules/gulp/bin/gulp.js",
     "electron": "node build/lib/electron.ts",
     "7z": "7z",
+    "demo:record": "node --experimental-strip-types test/e2e/demos/record-demo.ts",
+    "demo:postprocess": "node --experimental-strip-types test/e2e/demos/postprocess-demo-video.ts",
     "e2e": "npm run e2e-electron",
     "watch-e2e": "npm run --prefix test/e2e watch",
     "watch-e2ed": "deemon npm run watch-e2e",
