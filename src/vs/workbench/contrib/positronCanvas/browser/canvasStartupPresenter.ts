@@ -27,8 +27,6 @@ const LATE_COVERED_SELECTOR = '.notifications-toasts, .quick-input-widget';
 function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElement; release: () => void } {
 	const element = container.ownerDocument.createElement('div');
 	element.className = 'positron-canvas-startup-curtain';
-	element.setAttribute('role', 'status');
-	element.setAttribute('aria-live', 'polite');
 
 	// Prior inert values, restored on release: another component may own an
 	// element's inert state, and clobbering it to false would re-enable what
@@ -70,12 +68,57 @@ export interface ICurtainAction {
 	readonly run: () => void;
 }
 
-/** Renders the card shared by the curtain's loading and failure states. */
+/**
+ * Progress card: a polite, busy status region with a spinner. Whatever
+ * actions it carries are a way out, not a decision the user is asked for.
+ */
+export interface ICurtainLoadingSpec {
+	readonly state: 'loading';
+	readonly brandText: string;
+	readonly messageText: string;
+	readonly actions: readonly ICurtainAction[];
+}
+
+/**
+ * Failure card: the user must act, so it is a modal dialog labelled by its
+ * brand element (`brandId`) rather than a status update. Screen readers
+ * move to it.
+ */
+export interface ICurtainFailureSpec {
+	readonly state: 'failure';
+	readonly brandText: string;
+	readonly brandId: string;
+	readonly messageText: string;
+	readonly actions: readonly ICurtainAction[];
+}
+
+/** What a curtain shows; the state decides the card's ARIA role and live semantics. */
+export type CurtainCardSpec = ICurtainLoadingSpec | ICurtainFailureSpec;
+
+/**
+ * Renders the card shared by the curtain's loading and failure states and
+ * sets the curtain element's ARIA state to match, removing the attributes
+ * of the other state so a curtain can move between the two on one element.
+ */
 export function renderCurtainCard(
 	element: HTMLElement,
-	spec: { brandText: string; brandId?: string; messageText: string; spinner: boolean; actions: readonly ICurtainAction[] },
+	spec: CurtainCardSpec,
 	disposables: DisposableStore,
 ): { firstButton: Button | undefined } {
+	if (spec.state === 'loading') {
+		element.setAttribute('role', 'status');
+		element.setAttribute('aria-live', 'polite');
+		element.setAttribute('aria-busy', 'true');
+		element.removeAttribute('aria-modal');
+		element.removeAttribute('aria-labelledby');
+	} else {
+		element.setAttribute('role', 'dialog');
+		element.setAttribute('aria-modal', 'true');
+		element.setAttribute('aria-busy', 'false');
+		element.setAttribute('aria-labelledby', spec.brandId);
+		element.removeAttribute('aria-live');
+	}
+
 	const document = element.ownerDocument;
 	const card = document.createElement('div');
 	card.className = 'positron-canvas-startup-card';
@@ -83,12 +126,12 @@ export function renderCurtainCard(
 	const brand = document.createElement('div');
 	brand.className = 'positron-canvas-startup-brand';
 	brand.textContent = spec.brandText;
-	if (spec.brandId) {
+	if (spec.state === 'failure') {
 		brand.id = spec.brandId;
 	}
 	card.appendChild(brand);
 
-	if (spec.spinner) {
+	if (spec.state === 'loading') {
 		const spinner = document.createElement('div');
 		spinner.className = 'positron-canvas-startup-spinner';
 		spinner.setAttribute('role', 'progressbar');
@@ -192,19 +235,14 @@ class CanvasStartupCurtain extends Disposable {
 	}
 
 	private showLoading(): void {
-		// Loading announces itself politely, but stays cancellable: entry can
-		// take a while, and the user must not be trapped behind the curtain.
-		this.element.setAttribute('aria-busy', 'true');
-		this.element.setAttribute('role', 'status');
-		this.element.setAttribute('aria-live', 'polite');
-		this.element.removeAttribute('aria-modal');
-		this.element.removeAttribute('aria-labelledby');
+		// Loading stays cancellable: entry can take a while, and the user must
+		// not be trapped behind the curtain.
 		const actions = new DisposableStore();
 		this.actionDisposables.value = actions;
 		renderCurtainCard(this.element, {
+			state: 'loading',
 			brandText: localize('positron.canvas.loadingBrand', "Canvas"),
 			messageText: localize('positron.canvas.loadingMessage', "Loading Canvas..."),
-			spinner: true,
 			actions: [
 				{ label: localize('positron.canvas.openPositron', "Open Positron"), run: () => void this.openPositron() },
 			],
@@ -212,21 +250,13 @@ class CanvasStartupCurtain extends Disposable {
 	}
 
 	private showFailure(detail: string): void {
-		this.element.setAttribute('aria-busy', 'false');
-		// Failure needs the user to act, so it is a dialog rather than a
-		// status update: screen readers move focus to it.
-		this.element.setAttribute('role', 'dialog');
-		this.element.setAttribute('aria-modal', 'true');
-		this.element.removeAttribute('aria-live');
-		const brandId = 'positron-canvas-startup-failure-brand';
-		this.element.setAttribute('aria-labelledby', brandId);
 		const actions = new DisposableStore();
 		this.actionDisposables.value = actions;
 		const { firstButton } = renderCurtainCard(this.element, {
+			state: 'failure',
 			brandText: localize('positron.canvas.failureBrand', "Canvas could not start"),
-			brandId,
+			brandId: 'positron-canvas-startup-failure-brand',
 			messageText: detail,
-			spinner: false,
 			actions: [
 				{ label: localize('positron.canvas.retry', "Retry"), primary: true, run: () => void this.start() },
 				{ label: localize('positron.canvas.openPositron', "Open Positron"), run: () => void this.openPositron() },

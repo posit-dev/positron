@@ -28,40 +28,28 @@ export class CanvasSwitchCurtain extends Disposable {
 
 	/** Progress with no way out: every step underneath is in flight. */
 	showLoading(): void {
-		this.element.setAttribute('role', 'status');
-		this.element.setAttribute('aria-live', 'polite');
-		this.element.setAttribute('aria-busy', 'true');
-		this.element.removeAttribute('aria-modal');
-		this.element.removeAttribute('aria-labelledby');
 		const actions = new DisposableStore();
 		this.actions.value = actions;
 		renderCurtainCard(this.element, {
+			state: 'loading',
 			brandText: localize('positron.canvas.switchBrand', "Canvas"),
 			messageText: localize('positron.canvas.switchLoading', "Canvas is starting in new workspace"),
-			spinner: true,
 			actions: []
 		}, actions);
 	}
 
 	/**
 	 * The switch stopped and the user must choose: pick the transaction back
-	 * up where it stopped, or take the IDE. A dialog rather than a status so
-	 * screen readers move to it.
+	 * up where it stopped, or take the IDE.
 	 */
 	showFailure(detail: string, handlers: { readonly retry: () => void; readonly openPositron: () => void }): void {
-		const brandId = 'positron-canvas-switch-failure-brand';
-		this.element.setAttribute('role', 'dialog');
-		this.element.setAttribute('aria-modal', 'true');
-		this.element.setAttribute('aria-busy', 'false');
-		this.element.setAttribute('aria-labelledby', brandId);
-		this.element.removeAttribute('aria-live');
 		const actions = new DisposableStore();
 		this.actions.value = actions;
 		const { firstButton } = renderCurtainCard(this.element, {
+			state: 'failure',
 			brandText: localize('positron.canvas.switchFailureBrand', "Canvas could not switch workspaces"),
-			brandId,
+			brandId: 'positron-canvas-switch-failure-brand',
 			messageText: detail,
-			spinner: false,
 			actions: [
 				{ label: localize('positron.canvas.switchRetry', "Retry Canvas"), primary: true, run: handlers.retry },
 				{ label: localize('positron.canvas.openPositron', "Open Positron"), run: handlers.openPositron }
