@@ -352,6 +352,16 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
 
+  # The four Workbench lanes below run strictly one after another (Ubuntu ->
+  # Rocky -> openSUSE -> stable): the managed-credential shards all sign in with
+  # the same service-account TOTP secret, and overlapping sign-ins burn the same
+  # OTP window. The ordering lives in `needs`; a concurrency group would not
+  # work, since it holds only one pending entry and cancels the rest outright.
+  # Same shape as positron-builds' test-e2e-release.yml.
+  #
+  # The chained lanes check the build result explicitly rather than using
+  # `!failure()`: that would also fire when the lane ahead failed, and a failing
+  # lane should not stop the ones behind it. Cancelling the run still should.
   e2e-workbench:
     name: e2e
     needs: [build-workbench]
@@ -367,30 +377,14 @@ jobs:
       allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
-  e2e-workbench-stable:
-    name: e2e
-    needs: [build-workbench]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_stable) }}
-    uses: ./.github/workflows/test-e2e-workbench-linux.yml
-    secrets: inherit
-    with:
-      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
-      grep: "@:workbench"
-      display_name: "workbench-stable"
-      install_license: false
-      upload_logs: false
-      allow_soft_fail: false
-      install_mode: "ci-stable"
-      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
-
   # Same test set as the workbench lane, run against a Rocky Linux 9 container.
-  # A separate job so the two OSes run in parallel. `grep` is pinned to
-  # "@:workbench" rather than the run's grep input: @:workbench-rocky selects the
-  # lane, never individual tests, so no test carries it.
+  # `grep` is pinned to "@:workbench" rather than the run's grep input:
+  # @:workbench-rocky selects the lane, never individual tests, so no test
+  # carries it.
   e2e-workbench-rocky:
     name: e2e
-    needs: [build-workbench]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_rocky) }}
+    needs: [build-workbench, e2e-workbench]
+    if: ${{ !cancelled() && needs.build-workbench.result == 'success' && (github.event_name == 'schedule' || inputs.run_e2e_workbench_rocky) }}
     uses: ./.github/workflows/test-e2e-workbench-linux.yml
     secrets: inherit
     with:
@@ -410,8 +404,8 @@ jobs:
   # which is why there is no separate condition for it here.
   e2e-workbench-suse:
     name: e2e
-    needs: [build-workbench]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_suse) }}
+    needs: [build-workbench, e2e-workbench-rocky]
+    if: ${{ !cancelled() && needs.build-workbench.result == 'success' && (github.event_name == 'schedule' || inputs.run_e2e_workbench_suse) }}
     uses: ./.github/workflows/test-e2e-workbench-linux.yml
     secrets: inherit
     with:
@@ -422,6 +416,22 @@ jobs:
       install_license: false
       upload_logs: false
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  e2e-workbench-stable:
+    name: e2e
+    needs: [build-workbench, e2e-workbench-suse]
+    if: ${{ !cancelled() && needs.build-workbench.result == 'success' && (github.event_name == 'schedule' || inputs.run_e2e_workbench_stable) }}
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      grep: "@:workbench"
+      display_name: "workbench-stable"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
+      install_mode: "ci-stable"
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-pyrefly:
