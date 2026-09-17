@@ -27,6 +27,12 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 		return this.engagement?.windowId;
 	}
 
+	/**
+	 * Windows whose next reload must start in the IDE; each entry is spent
+	 * by the reload that reads it, or dropped when the window closes.
+	 */
+	private readonly pendingIdeRecovery = new Set<number>();
+
 	constructor(
 		@ILogService private readonly logService: ILogService,
 		@ILifecycleMainService private readonly lifecycleMainService: ILifecycleMainService
@@ -45,7 +51,13 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 					this.doRelease(windowId);
 				}
 			};
-			window.on('closed', releaseIfHeld);
+			window.on('closed', () => {
+				releaseIfHeld();
+				// A closed window never reloads; its pending recovery is moot.
+				if (this.pendingIdeRecovery.delete(windowId)) {
+					this.logService.trace(`[standalone mode] Dropped IDE recovery for closed window ${windowId}`);
+				}
+			});
 			window.webContents.on('did-navigate', releaseIfHeld);
 			window.webContents.on('render-process-gone', releaseIfHeld);
 			window.webContents.on('did-fail-load', (_e, errorCode, _description, _url, isMainFrame) => {
@@ -86,6 +98,25 @@ export class PositronStandaloneModeMainService extends Disposable implements IPo
 
 	async release(windowId: number): Promise<void> {
 		this.doRelease(windowId);
+	}
+
+	async requestIdeRecovery(windowId: number): Promise<void> {
+		this.pendingIdeRecovery.add(windowId);
+		this.logService.trace(`[standalone mode] Window ${windowId} will recover to the IDE on its next reload`);
+	}
+
+	async cancelIdeRecovery(windowId: number): Promise<void> {
+		if (this.pendingIdeRecovery.delete(windowId)) {
+			this.logService.trace(`[standalone mode] Window ${windowId} withdrew its IDE recovery`);
+		}
+	}
+
+	consumeIdeRecovery(windowId: number): boolean {
+		const pending = this.pendingIdeRecovery.delete(windowId);
+		if (pending) {
+			this.logService.trace(`[standalone mode] Window ${windowId} reloads into the IDE`);
+		}
+		return pending;
 	}
 
 	private doRelease(windowId: number): void {

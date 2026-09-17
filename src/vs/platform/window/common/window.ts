@@ -510,6 +510,13 @@ export interface INativeWindowConfiguration extends IWindowConfiguration, Native
 	 * while it is engaged elsewhere must not enter it itself.
 	 */
 	standaloneModeEngagedElsewhere?: boolean;
+	/**
+	 * Set by the main process for one reload after the renderer asked to
+	 * recover into the IDE (`requestIdeRecovery`); the startup decision then
+	 * declines Canvas whatever the stored flag or `canvas.openOnStartup`
+	 * say. Never set on a fresh open.
+	 */
+	recoverToIde?: boolean;
 	// --- End Positron ---
 
 	isSessionsWindow?: boolean;

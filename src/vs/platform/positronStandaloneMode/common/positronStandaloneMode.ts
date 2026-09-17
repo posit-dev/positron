@@ -28,6 +28,19 @@ export interface IPositronStandaloneModeState {
 
 	/** Give up the engagement. Only the holder's release changes anything. */
 	release(windowId: number): Promise<void>;
+
+	/**
+	 * Remember that this window's next reload must start in the IDE, whatever
+	 * the destination workspace's stored Canvas flag or `canvas.openOnStartup`
+	 * say. One use: the reload that carries it consumes it.
+	 */
+	requestIdeRecovery(windowId: number): Promise<void>;
+
+	/**
+	 * Withdraw a pending IDE recovery, for when the reload it was meant for
+	 * did not happen (an unload veto refused it).
+	 */
+	cancelIdeRecovery(windowId: number): Promise<void>;
 }
 
 export const IPositronStandaloneModeMainService = createDecorator<IPositronStandaloneModeMainService>('positronStandaloneModeMainService');
@@ -54,6 +67,13 @@ export interface IPositronStandaloneModeMainService extends IPositronStandaloneM
 	 * and `open` waits for the release, bounded by `EXTERNAL_OPEN_EXIT_WAIT`.
 	 */
 	handleExternalOpen(open: () => void, exitMode: (engagedWindowId: number, exitCommandId: string) => void): Promise<void>;
+
+	/**
+	 * Take the window's pending IDE recovery, if any: `true` once per
+	 * `requestIdeRecovery`, then `false` until the next request. Called by
+	 * the reload path while it builds the window configuration.
+	 */
+	consumeIdeRecovery(windowId: number): boolean;
 }
 
 /**

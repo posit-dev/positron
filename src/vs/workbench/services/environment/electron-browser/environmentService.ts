@@ -61,6 +61,12 @@ export interface INativeWorkbenchEnvironmentService extends IBrowserWorkbenchEnv
 	 * when set, this window must not enter the mode at startup.
 	 */
 	readonly standaloneModeEngagedElsewhere: boolean;
+
+	/**
+	 * Whether this window is the one reload a renderer asked to recover into
+	 * the IDE; when set, the window must not enter Canvas mode at startup.
+	 */
+	readonly recoverToIde: boolean;
 	// --- End Positron ---
 }
 
@@ -179,6 +185,10 @@ export class NativeWorkbenchEnvironmentService extends AbstractNativeEnvironment
 
 	get standaloneModeEngagedElsewhere(): boolean {
 		return this.configuration.standaloneModeEngagedElsewhere === true;
+	}
+
+	get recoverToIde(): boolean {
+		return this.configuration.recoverToIde === true;
 	}
 	// --- End Positron ---
 

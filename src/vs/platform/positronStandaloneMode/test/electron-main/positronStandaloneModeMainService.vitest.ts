@@ -232,6 +232,33 @@ describe('PositronStandaloneModeMainService', () => {
 		expect(service.isEngaged).toBe(true);
 	});
 
+	it('hands out a requested IDE recovery exactly once', async () => {
+		const service = build();
+		await service.requestIdeRecovery(7);
+
+		expect(service.consumeIdeRecovery(7)).toBe(true);
+		expect(service.consumeIdeRecovery(7)).toBe(false);
+	});
+
+	it('keeps IDE recovery per window and lets a cancel withdraw it', async () => {
+		const service = build();
+		await service.requestIdeRecovery(7);
+
+		expect(service.consumeIdeRecovery(8)).toBe(false);
+		await service.cancelIdeRecovery(7);
+		expect(service.consumeIdeRecovery(7)).toBe(false);
+	});
+
+	it('drops a pending IDE recovery when its window closes', async () => {
+		const service = build();
+		const window = createWindow(7);
+		await service.requestIdeRecovery(7);
+
+		window.close();
+
+		expect(service.consumeIdeRecovery(7)).toBe(false);
+	});
+
 	it('opens an external request only after the engaged window released', async () => {
 		const service = build();
 		await service.acquire(1, 'test.exit');

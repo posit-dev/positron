@@ -18,6 +18,7 @@ function signals(overrides: Partial<ICanvasStartSignals>): ICanvasStartSignals {
 		aiEnabled: true,
 		engagedElsewhere: false,
 		workspaceEligible: true,
+		recoveringToIde: false,
 		canvasFlag: false,
 		configuredOpenOnStartup: undefined,
 		storedIntent: false,
@@ -50,6 +51,14 @@ describe('shouldStartInCanvasMode', () => {
 		expect(shouldStartInCanvasMode(signals({ workspaceEligible: false, canvasFlag: true, configuredOpenOnStartup: true, storedIntent: true }))).toBe(false);
 		expect(shouldStartInCanvasMode(signals({ workspaceEligible: false, configuredOpenOnStartup: true }))).toBe(false);
 		expect(shouldStartInCanvasMode(signals({ workspaceEligible: false, storedIntent: true }))).toBe(false);
+	});
+
+	it('recovers to the IDE over the stored intent, the configured setting, and even a --canvas flag', () => {
+		// The recovery rides one reload after a failed Canvas folder switch;
+		// the destination's flag and setting must not boot it back into Canvas.
+		expect(shouldStartInCanvasMode(signals({ recoveringToIde: true, storedIntent: true }))).toBe(false);
+		expect(shouldStartInCanvasMode(signals({ recoveringToIde: true, configuredOpenOnStartup: true }))).toBe(false);
+		expect(shouldStartInCanvasMode(signals({ recoveringToIde: true, canvasFlag: true, configuredOpenOnStartup: true, storedIntent: true }))).toBe(false);
 	});
 
 	it('honors a fresh --canvas unconditionally once the vetoes pass', () => {

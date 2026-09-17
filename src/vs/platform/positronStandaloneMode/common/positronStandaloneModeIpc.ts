@@ -26,6 +26,14 @@ export class PositronStandaloneModeChannel implements IServerChannel {
 				const [windowId] = args as [number];
 				return await this.service.release(windowId) as T;
 			}
+			case 'requestIdeRecovery': {
+				const [windowId] = args as [number];
+				return await this.service.requestIdeRecovery(windowId) as T;
+			}
+			case 'cancelIdeRecovery': {
+				const [windowId] = args as [number];
+				return await this.service.cancelIdeRecovery(windowId) as T;
+			}
 		}
 		throw new Error(`Command not found: ${command}`);
 	}
@@ -48,5 +56,13 @@ export class PositronStandaloneModeChannelClient implements IPositronStandaloneM
 
 	release(windowId: number): Promise<void> {
 		return this.channel.call('release', [windowId]);
+	}
+
+	requestIdeRecovery(windowId: number): Promise<void> {
+		return this.channel.call('requestIdeRecovery', [windowId]);
+	}
+
+	cancelIdeRecovery(windowId: number): Promise<void> {
+		return this.channel.call('cancelIdeRecovery', [windowId]);
 	}
 }

@@ -1379,6 +1379,10 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		// mode was engaged elsewhere must not stay locked out across reloads
 		// after that engagement ended.
 		configuration.standaloneModeEngagedElsewhere = this.positronStandaloneModeMainService.isEngagedElsewhere(this.id);
+
+		// Carry a renderer's one-use "recover to the IDE" request into exactly
+		// this reload; consuming it here keeps a later reload from repeating it.
+		configuration.recoverToIde = this.positronStandaloneModeMainService.consumeIdeRecovery(this.id);
 		// --- End Positron ---
 
 		// Some configuration things get inherited if the window is being reloaded and we are

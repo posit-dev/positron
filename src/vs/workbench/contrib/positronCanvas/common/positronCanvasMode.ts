@@ -48,6 +48,14 @@ export interface ICanvasStartSignals {
 	readonly engagedElsewhere: boolean;
 	/** Whether the workspace has the shape Canvas requires; see `isCanvasWorkspaceEligible`. */
 	readonly workspaceEligible: boolean;
+	/**
+	 * Whether this boot is the one reload a renderer asked to recover into
+	 * the IDE (`INativeWorkbenchEnvironmentService.recoverToIde`), after a
+	 * Canvas folder switch failed half-way. Beats every entry signal so the
+	 * destination's stored flag or `canvas.openOnStartup` cannot boot the
+	 * window straight back into Canvas.
+	 */
+	readonly recoveringToIde: boolean;
 	/** Whether the window was opened with `--canvas`. */
 	readonly canvasFlag: boolean;
 	/**
@@ -63,13 +71,20 @@ export interface ICanvasStartSignals {
 /**
  * Whether a window should boot straight into Canvas mode. Three window-level
  * vetoes beat every entry signal: `ai.enabled` off, the mode engaged in
- * another window, and a workspace Canvas cannot present. Then precedence: a
- * fresh `--canvas` always wins; an explicitly configured
- * `canvas.openOnStartup` beats the stored intent in both directions; the
- * stored intent then makes "relaunch into whatever you quit in" true.
+ * another window, and a workspace Canvas cannot present. A one-use IDE
+ * recovery comes next: it only ever rides a reload, and the reload path
+ * deletes `--canvas` from the configuration, so checking it before
+ * `canvasFlag` costs nothing and keeps the flag's "fresh launch always wins"
+ * meaning intact. Then precedence: a fresh `--canvas` always wins; an
+ * explicitly configured `canvas.openOnStartup` beats the stored intent in
+ * both directions; the stored intent then makes "relaunch into whatever you
+ * quit in" true.
  */
 export function shouldStartInCanvasMode(signals: ICanvasStartSignals): boolean {
 	if (!signals.aiEnabled || signals.engagedElsewhere || !signals.workspaceEligible) {
+		return false;
+	}
+	if (signals.recoveringToIde) {
 		return false;
 	}
 	if (signals.canvasFlag) {
