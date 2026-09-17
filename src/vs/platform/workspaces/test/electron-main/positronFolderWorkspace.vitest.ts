@@ -14,11 +14,14 @@ import { INativeWindowConfiguration } from '../../../window/common/window.js';
 import { ICodeWindow } from '../../../window/electron-main/window.js';
 import { IWorkspaceIdentifier } from '../../../workspace/common/workspace.js';
 import { stubInterface } from '../../../../test/vitest/stubInterface.js';
-import { enterCanvasFolder, resolveCanvasFolder } from '../../electron-main/positronFolderWorkspace.js';
+import { enterCanvasFolder, ICanvasFolderFs, resolveCanvasFolder } from '../../electron-main/positronFolderWorkspace.js';
 import { getSingleFolderWorkspaceIdentifier } from '../../node/workspaces.js';
+
+const posixOnly = it.skipIf(process.platform === 'win32');
 
 describe('Canvas folder switch (main process)', () => {
 	let root: string;
+	let target: string;
 	let window: ICodeWindow;
 	let config: Pick<INativeWindowConfiguration, 'workspace' | 'backupPath' | 'extensionDevelopmentPath'>;
 	const registerFolderBackup = vi.fn(() => '/backup/new');
@@ -40,10 +43,24 @@ describe('Canvas folder switch (main process)', () => {
 		});
 	}
 
+	/** The identity an ordinary File > Open Folder would give `folder`. */
+	async function identityOf(folder: string) {
+		return getSingleFolderWorkspaceIdentifier(URI.file(folder), await fs.stat(folder));
+	}
+
+	/** The real filesystem, except that `realpath` rejects for `unreadable`. */
+	function fsUnreadableAt(unreadable: string): ICanvasFolderFs {
+		return {
+			stat: fs.stat,
+			realpath: path => path === unreadable ? Promise.reject(new Error('EACCES')) : fs.realpath(path)
+		};
+	}
+
 	beforeEach(async () => {
-		// Canonical: macOS's temp dir is a symlink, and identities compare canonical paths.
+		// Real path: macOS's temp dir is a symlink, and the tests below compare against physical paths.
 		root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), 'canvas-folder-switch-')));
-		await fs.mkdir(join(root, 'target'));
+		target = join(root, 'target');
+		await fs.mkdir(target);
 		window = await createWindow(1, root);
 		config = window.config!;
 	});
@@ -51,13 +68,24 @@ describe('Canvas folder switch (main process)', () => {
 	afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
 
 	describe('resolveCanvasFolder', () => {
-		it('returns the canonical identifier and changes nothing', async () => {
-			await fs.symlink(join(root, 'target'), join(root, 'link'));
+		it('returns the identifier of the path as given and changes nothing', async () => {
 			const before = { ...config };
-			const workspace = await resolveCanvasFolder(window, [window], URI.file(join(root, 'link')));
-			const canonical = URI.file(await fs.realpath(join(root, 'target')));
-			expect(workspace).toEqual(getSingleFolderWorkspaceIdentifier(canonical, await fs.stat(canonical.fsPath)));
+			await expect(resolveCanvasFolder(window, [window], URI.file(target))).resolves.toEqual({ workspace: await identityOf(target), physicalUri: URI.file(target) });
 			expect(config).toEqual(before);
+		});
+
+		posixOnly('keeps an alias as the identity and reports where it leads', async () => {
+			const alias = join(root, 'link');
+			await fs.symlink(target, alias);
+			await expect(resolveCanvasFolder(window, [window], URI.file(alias))).resolves.toEqual({ workspace: await identityOf(alias), physicalUri: URI.file(target) });
+		});
+
+		it('gives a trailing separator the same identifier as the bare path', async () => {
+			const [withSeparator, bare] = await Promise.all([
+				resolveCanvasFolder(window, [window], URI.file(target + '/')),
+				resolveCanvasFolder(window, [window], URI.file(target)),
+			]);
+			expect(withSeparator).toEqual(bare);
 		});
 
 		it.each([
@@ -70,12 +98,47 @@ describe('Canvas folder switch (main process)', () => {
 		});
 
 		it('rejects a folder already owned by another window', async () => {
-			const other = await createWindow(2, join(root, 'target'));
-			await expect(resolveCanvasFolder(window, [window, other], URI.file(join(root, 'target')))).rejects.toThrow('another Positron window');
+			const other = await createWindow(2, target);
+			await expect(resolveCanvasFolder(window, [window, other], URI.file(target))).rejects.toThrow('another Positron window');
+		});
+
+		posixOnly('rejects an alias of a folder another window owns on its real path', async () => {
+			const alias = join(root, 'link');
+			await fs.symlink(target, alias);
+			const other = await createWindow(2, target);
+			await expect(resolveCanvasFolder(window, [window, other], URI.file(alias))).rejects.toThrow('another Positron window');
+		});
+
+		posixOnly('rejects the real path of a folder another window owns through an alias', async () => {
+			const alias = join(root, 'link');
+			await fs.symlink(target, alias);
+			const other = await createWindow(2, alias);
+			await expect(resolveCanvasFolder(window, [window, other], URI.file(target))).rejects.toThrow('another Positron window');
 		});
 
 		it('accepts the folder the window itself already shows', async () => {
-			await expect(resolveCanvasFolder(window, [window], URI.file(root))).resolves.toEqual(window.openedWorkspace);
+			await expect(resolveCanvasFolder(window, [window], URI.file(root))).resolves.toEqual({ workspace: window.openedWorkspace, physicalUri: URI.file(root) });
+		});
+
+		posixOnly('returns the current identifier when the current folder is requested through an alias', async () => {
+			const alias = join(root, 'self');
+			await fs.symlink(root, alias);
+			await expect(resolveCanvasFolder(window, [window], URI.file(alias))).resolves.toEqual({ workspace: window.openedWorkspace, physicalUri: URI.file(root) });
+		});
+
+		it('skips a peer window whose folder cannot be read', async () => {
+			const unreadable = join(root, 'unreadable');
+			await fs.mkdir(unreadable);
+			const other = await createWindow(2, unreadable);
+			await expect(resolveCanvasFolder(window, [window, other], URI.file(target), fsUnreadableAt(unreadable))).resolves.toEqual({ workspace: await identityOf(target), physicalUri: URI.file(target) });
+		});
+
+		it('compares the current folder lexically when it cannot be read', async () => {
+			const results = await Promise.all([
+				resolveCanvasFolder(window, [window], URI.file(root), fsUnreadableAt(root)),
+				resolveCanvasFolder(window, [window], URI.file(target), fsUnreadableAt(root)),
+			]);
+			expect(results.map(r => r.workspace.id)).toEqual([window.openedWorkspace!.id, (await identityOf(target)).id]);
 		});
 
 		it.each<[string, Partial<ICodeWindow>]>([
@@ -85,7 +148,7 @@ describe('Canvas folder switch (main process)', () => {
 			['empty', { openedWorkspace: undefined }],
 		])('rejects when the window is %s', async (_name, overrides) => {
 			const unsuitable = await createWindow(3, root, overrides);
-			await expect(resolveCanvasFolder(unsuitable, [unsuitable], URI.file(join(root, 'target')))).rejects.toThrow('single-folder window');
+			await expect(resolveCanvasFolder(unsuitable, [unsuitable], URI.file(target))).rejects.toThrow('single-folder window');
 		});
 
 		it('rejects a missing window', async () => {
@@ -95,17 +158,16 @@ describe('Canvas folder switch (main process)', () => {
 
 	describe('enterCanvasFolder', () => {
 		it('commits the folder identity and a fresh backup home without focusing the window', async () => {
-			const result = await enterCanvasFolder(window, [window], backups, URI.file(join(root, 'target')));
-			const canonical = URI.file(await fs.realpath(join(root, 'target')));
-			expect(result.workspace).toEqual(getSingleFolderWorkspaceIdentifier(canonical, await fs.stat(canonical.fsPath)));
-			expect({ workspace: config.workspace, backupPath: config.backupPath }).toEqual({ workspace: result.workspace, backupPath: '/backup/new' });
-			expect(registerFolderBackup).toHaveBeenCalledWith({ folderUri: canonical, remoteAuthority: undefined });
+			const result = await enterCanvasFolder(window, [window], backups, URI.file(target));
+			expect(result).toEqual({ workspace: await identityOf(target), backupPath: '/backup/new' });
+			expect({ workspace: config.workspace, backupPath: config.backupPath }).toEqual(result);
+			expect(registerFolderBackup).toHaveBeenCalledWith({ folderUri: result.workspace.uri, remoteAuthority: undefined });
 			expect(window.focus).not.toHaveBeenCalled();
 		});
 
 		it('keeps extension development windows without a backup home', async () => {
 			config.extensionDevelopmentPath = ['/ext'];
-			const result = await enterCanvasFolder(window, [window], backups, URI.file(join(root, 'target')));
+			const result = await enterCanvasFolder(window, [window], backups, URI.file(target));
 			expect(result.backupPath).toBeUndefined();
 			expect(registerFolderBackup).not.toHaveBeenCalled();
 		});

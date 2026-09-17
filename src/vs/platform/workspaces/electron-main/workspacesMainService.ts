@@ -8,17 +8,23 @@ import { URI } from '../../../base/common/uri.js';
 import { IBackupMainService } from '../../backup/electron-main/backup.js';
 import { IWindowsMainService } from '../../windows/electron-main/windows.js';
 import { IEnterWorkspaceResult, IRecent, IRecentlyOpened, IWorkspaceFolderCreationData, IWorkspacesService } from '../common/workspaces.js';
-import { IWorkspaceIdentifier, ISingleFolderWorkspaceIdentifier } from '../../workspace/common/workspace.js';
+import { IWorkspaceIdentifier } from '../../workspace/common/workspace.js';
 import { IWorkspacesHistoryMainService } from './workspacesHistoryMainService.js';
 import { IWorkspacesManagementMainService } from './workspacesManagementMainService.js';
 import { IWorkspaceBackupInfo, IFolderBackupInfo } from '../../backup/common/backup.js';
 import { Event } from '../../../base/common/event.js';
 // --- Start Positron ---
 import { enterCanvasFolder, resolveCanvasFolder } from './positronFolderWorkspace.js';
-import { ICanvasFolderResult } from '../common/positronFolderWorkspace.js';
+import { ICanvasFolderResolution, ICanvasFolderResult, ICanvasFolderWorkspaceService } from '../common/positronFolderWorkspace.js';
 // --- End Positron ---
 
-export class WorkspacesMainService implements AddFirstParameterToFunctions<IWorkspacesService, Promise<unknown> /* only methods, not events */, number /* window ID */> {
+export class WorkspacesMainService implements AddFirstParameterToFunctions<IWorkspacesService, Promise<unknown> /* only methods, not events */, number /* window ID */>,
+	// --- Start Positron ---
+	// The Canvas folder switch rides on this channel; the clause keeps the
+	// main-process methods in step with the renderer-facing interface.
+	AddFirstParameterToFunctions<ICanvasFolderWorkspaceService, Promise<unknown>, number /* window ID */>
+// --- End Positron ---
+{
 
 	declare readonly _serviceBrand: undefined;
 
@@ -36,7 +42,7 @@ export class WorkspacesMainService implements AddFirstParameterToFunctions<IWork
 	// --- Start Positron ---
 	// Canvas folder switch (ICanvasFolderWorkspaceService), served on this
 	// channel so the renderer reaches it with its window id as context.
-	async resolveCanvasFolder(windowId: number, folder: URI): Promise<ISingleFolderWorkspaceIdentifier> {
+	async resolveCanvasFolder(windowId: number, folder: URI): Promise<ICanvasFolderResolution> {
 		return resolveCanvasFolder(this.windowsMainService.getWindowById(windowId), this.windowsMainService.getWindows(), folder);
 	}
 
