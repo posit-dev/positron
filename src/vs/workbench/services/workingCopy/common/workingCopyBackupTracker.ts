@@ -335,23 +335,103 @@ export abstract class WorkingCopyBackupTracker extends Disposable {
 	//#region Backup Restorer
 
 	protected readonly unrestoredBackups = new Set<IWorkingCopyIdentifier>();
-	protected readonly whenReady: Promise<void>;
+	// --- Start Positron ---
+	// `whenReady` is reassigned by `reinitializeBackups` when a Canvas folder
+	// switch re-homes the backup service in place.
+	// protected readonly whenReady: Promise<void>;
+	protected whenReady: Promise<void>;
+	// --- End Positron ---
 
 	private _isReady = false;
 	protected get isReady(): boolean { return this._isReady; }
 
 	private async resolveBackupsToRestore(): Promise<void> {
+		// --- Start Positron ---
+		// A `reinitializeBackups` that starts while this read is in flight
+		// bumps the generation; its inventory wins and this one is dropped.
+		const generation = this.inventoryGeneration;
+		// --- End Positron ---
 
 		// Wait for resolving backups until we are restored to reduce startup pressure
 		await this.lifecycleService.when(LifecyclePhase.Restored);
 
+		// --- Start Positron ---
+		// Read first, then publish only if no refresh superseded this read.
+		// Upstream:
+		// // Remember each backup that needs to restore
+		// for (const backup of await this.workingCopyBackupService.getBackups()) {
+		// 	this.unrestoredBackups.add(backup);
+		// }
+		//
+		// this._isReady = true;
+		const backups = await this.workingCopyBackupService.getBackups();
+		if (generation !== this.inventoryGeneration) {
+			return;
+		}
+
 		// Remember each backup that needs to restore
-		for (const backup of await this.workingCopyBackupService.getBackups()) {
+		for (const backup of backups) {
 			this.unrestoredBackups.add(backup);
 		}
 
 		this._isReady = true;
+		// --- End Positron ---
 	}
+
+	// --- Start Positron ---
+	// A Canvas folder switch re-homes the backup service in place
+	// (`WorkingCopyBackupService.reinitialize`). The inventory below was read
+	// once at startup against the old home, and on shutdown it is passed as
+	// the `except` list of the bulk discard, which deletes the whole (new)
+	// home when the list is empty. These two methods let the handoff suspend
+	// backup operations across the switch and re-read the inventory afterwards.
+
+	private inventoryGeneration = 0;
+
+	/**
+	 * Cancels pending backup operations and suspends the tracker for the
+	 * duration of a backup handoff. Working copy events are ignored until
+	 * `resume` is called.
+	 */
+	suspendForHandoff(): { resume: () => void } {
+		this.cancelBackupOperations();
+
+		return this.suspendBackupOperations();
+	}
+
+	/**
+	 * Re-reads the backup inventory after the backup service was re-homed.
+	 * The tracker is not ready (no discards on shutdown) until the new
+	 * inventory is published. Chained on the previous `whenReady` so a restore
+	 * that starts later waits for the refreshed inventory. Only the most
+	 * recent call publishes; a failed read is logged and leaves the tracker
+	 * not ready for the rest of the session.
+	 */
+	reinitializeBackups(): Promise<void> {
+		const generation = ++this.inventoryGeneration;
+		this._isReady = false;
+
+		this.whenReady = this.whenReady.catch(() => { }).then(async () => {
+			try {
+				const backups = await this.workingCopyBackupService.getBackups();
+				if (generation !== this.inventoryGeneration) {
+					return;
+				}
+
+				this.unrestoredBackups.clear();
+				for (const backup of backups) {
+					this.unrestoredBackups.add(backup);
+				}
+
+				this._isReady = true;
+			} catch (error) {
+				this.logService.error(`[backup tracker] failed to re-read backups after re-home, discards stay disabled`, error);
+			}
+		});
+
+		return this.whenReady;
+	}
+	// --- End Positron ---
 
 	protected async restoreBackups(handler: IWorkingCopyEditorHandler): Promise<void> {
 

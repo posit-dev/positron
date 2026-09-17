@@ -15,11 +15,11 @@ import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { IEditorGroupsService } from '../../../editor/common/editorGroupsService.js';
 import { EditorService } from '../../../editor/browser/editorService.js';
 import { IWorkingCopyBackupService } from '../../common/workingCopyBackup.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ensureNoDisposablesAreLeakedInTestSuite, toResource } from '../../../../../base/test/common/utils.js';
 import { IFilesConfigurationService } from '../../../filesConfiguration/common/filesConfigurationService.js';
 import { IWorkingCopyService } from '../../common/workingCopyService.js';
-import { ILogService } from '../../../../../platform/log/common/log.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { HotExitConfiguration } from '../../../../../platform/files/common/files.js';
 import { ShutdownReason, ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IFileDialogService, ConfirmResult, IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -37,14 +37,21 @@ import { IProgressService } from '../../../../../platform/progress/common/progre
 import { IWorkingCopyEditorService } from '../../common/workingCopyEditorService.js';
 import { TestContextService, TestMarkerService, TestWorkingCopy } from '../../../../test/common/workbenchTestServices.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
-import { IWorkingCopyBackup, WorkingCopyCapabilities } from '../../common/workingCopy.js';
+import { IWorkingCopyBackup, IWorkingCopyIdentifier, WorkingCopyCapabilities } from '../../common/workingCopy.js';
 import { Event, Emitter } from '../../../../../base/common/event.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { joinPath } from '../../../../../base/common/resources.js';
-import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { bufferToReadable, VSBuffer } from '../../../../../base/common/buffer.js';
 import { TestServiceAccessor, workbenchInstantiationService } from '../../../../test/electron-browser/workbenchTestServices.js';
 import { UriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentityService.js';
+// --- Start Positron ---
+import { DeferredPromise } from '../../../../../base/common/async.js';
+import { FileService } from '../../../../../platform/files/common/fileService.js';
+import { InMemoryFileSystemProvider } from '../../../../../platform/files/common/inMemoryFilesystemProvider.js';
+import { hashIdentifier, WorkingCopyBackupService } from '../../common/workingCopyBackupService.js';
+import { PositronBackupHandoffService } from '../../electron-browser/positronBackupHandoff.js';
+// --- End Positron ---
 
 suite('WorkingCopyBackupTracker (native)', function () {
 
@@ -77,6 +84,12 @@ suite('WorkingCopyBackupTracker (native)', function () {
 		}
 
 		get pendingBackupOperationCount(): number { return this.pendingBackupOperations.size; }
+
+		// --- Start Positron ---
+		override get isReady(): boolean { return super.isReady; }
+
+		get unrestoredBackupResources(): string[] { return Array.from(this.unrestoredBackups, backup => backup.resource.toString()); }
+		// --- End Positron ---
 
 		override dispose() {
 			super.dispose();
@@ -765,6 +778,223 @@ suite('WorkingCopyBackupTracker (native)', function () {
 			await cleanup();
 		}
 	});
+
+	// --- Start Positron ---
+	suite('Positron: backup handoff', () => {
+
+		// File-backed service so `reinitialize` really moves between homes
+		// (the shared test backup service has no backup path and runs in memory).
+		class HandoffBackupService extends WorkingCopyBackupService {
+
+			discardedAllBackups = false;
+
+			// Reads served ahead of the real inventory, in call order
+			readonly getBackupsQueue: (() => Promise<IWorkingCopyIdentifier[]>)[] = [];
+
+			override discardBackups(filter?: { except: IWorkingCopyIdentifier[] }): Promise<void> {
+				this.discardedAllBackups = true;
+
+				return super.discardBackups(filter);
+			}
+
+			override getBackups(): Promise<IWorkingCopyIdentifier[]> {
+				const next = this.getBackupsQueue.shift();
+
+				return next ? next() : super.getBackups();
+			}
+		}
+
+		const seed: IWorkingCopyIdentifier = { resource: URI.from({ scheme: Schemas.untitled, path: 'Untitled-1' }), typeId: '' };
+		const stale: IWorkingCopyIdentifier = { resource: URI.from({ scheme: Schemas.untitled, path: 'Stale' }), typeId: '' };
+
+		let homeA: URI;
+		let homeB: URI;
+		let seedUnderB: URI;
+		let fileService: FileService;
+
+		setup(async () => {
+			homeA = joinPath(backupHome, 'a');
+			homeB = joinPath(backupHome, 'b');
+			seedUnderB = joinPath(homeB, seed.resource.scheme, hashIdentifier(seed));
+
+			fileService = disposables.add(new FileService(new NullLogService()));
+			disposables.add(fileService.registerProvider(Schemas.inMemory, disposables.add(new InMemoryFileSystemProvider())));
+
+			await fileService.createFolder(homeA);
+			await fileService.createFolder(homeB);
+		});
+
+		function createService(): HandoffBackupService {
+			return disposables.add(new HandoffBackupService(homeA, fileService, new NullLogService()));
+		}
+
+		function createHandoff(service: HandoffBackupService): { accessor: TestServiceAccessor; tracker: TestWorkingCopyBackupTracker; handoff: PositronBackupHandoffService } {
+			const instantiationService = workbenchInstantiationService(undefined, disposables);
+			instantiationService.stub(IWorkingCopyBackupService, service);
+
+			const accessor = instantiationService.createInstance(TestServiceAccessor);
+			const tracker = disposables.add(instantiationService.createInstance(TestWorkingCopyBackupTracker));
+			const handoff = instantiationService.createInstance(PositronBackupHandoffService, () => tracker);
+
+			return { accessor, tracker, handoff };
+		}
+
+		async function seedBackupUnderB(service: HandoffBackupService): Promise<void> {
+			service.reinitialize(homeB);
+			await service.backup(seed, bufferToReadable(VSBuffer.fromString('seed')));
+			service.reinitialize(homeA);
+
+			assert.strictEqual(await fileService.exists(seedUnderB), true);
+		}
+
+		async function shutdownWithoutModified(accessor: TestServiceAccessor): Promise<void> {
+			const event = new TestBeforeShutdownEvent();
+			accessor.lifecycleService.fireBeforeShutdown(event);
+
+			await event.value;
+		}
+
+		function registerCleanSeedWorkingCopy(accessor: TestServiceAccessor): IDisposable {
+			return accessor.workingCopyService.registerWorkingCopy(disposables.add(new TestWorkingCopy(seed.resource, false, seed.typeId)));
+		}
+
+		test('diagnostic: reinitialize alone lets the no-modified shutdown delete the new home (the bug mechanism)', async () => {
+			const service = createService();
+			await seedBackupUnderB(service);
+			const { accessor, tracker } = createHandoff(service);
+			await tracker.waitForReady();
+
+			service.reinitialize(homeB);
+			await shutdownWithoutModified(accessor);
+
+			assert.strictEqual(await fileService.exists(seedUnderB), false);
+		});
+
+		test('rehome keeps the new home through source close and the no-modified shutdown', async () => {
+			const service = createService();
+			await seedBackupUnderB(service);
+			const { accessor, tracker, handoff } = createHandoff(service);
+			await tracker.waitForReady();
+
+			const registration = registerCleanSeedWorkingCopy(accessor);
+			await handoff.rehome(homeB, async () => registration.dispose());
+
+			assert.deepStrictEqual({
+				seedExists: await fileService.exists(seedUnderB),
+				inventory: tracker.unrestoredBackupResources,
+				isReady: tracker.isReady
+			}, {
+				seedExists: true,
+				inventory: [seed.resource.toString()],
+				isReady: true
+			});
+
+			await shutdownWithoutModified(accessor);
+
+			assert.strictEqual(await fileService.exists(seedUnderB), true);
+		});
+
+		test('rehome cancels a discard still pending against the source', async () => {
+			const service = createService();
+			await seedBackupUnderB(service);
+			const { accessor, tracker, handoff } = createHandoff(service);
+			await tracker.waitForReady();
+
+			registerCleanSeedWorkingCopy(accessor).dispose();
+			assert.strictEqual(tracker.pendingBackupOperationCount, 1);
+
+			await handoff.rehome(homeB, async () => { });
+
+			assert.deepStrictEqual({
+				seedExists: await fileService.exists(seedUnderB),
+				inventory: tracker.unrestoredBackupResources,
+				pending: tracker.pendingBackupOperationCount
+			}, {
+				seedExists: true,
+				inventory: [seed.resource.toString()],
+				pending: 0
+			});
+		});
+
+		test('reinitializeBackups: only the latest call publishes', async () => {
+			const service = createService();
+			const { tracker } = createHandoff(service);
+			await tracker.waitForReady();
+
+			const slowRead = new DeferredPromise<IWorkingCopyIdentifier[]>();
+			service.getBackupsQueue.push(() => slowRead.p, async () => [seed]);
+
+			const first = tracker.reinitializeBackups();
+			const second = tracker.reinitializeBackups();
+			assert.strictEqual(tracker.isReady, false);
+
+			await slowRead.complete([stale]);
+			await Promise.all([first, second]);
+
+			assert.deepStrictEqual({ inventory: tracker.unrestoredBackupResources, isReady: tracker.isReady }, { inventory: [seed.resource.toString()], isReady: true });
+		});
+
+		test('reinitializeBackups: a failed read leaves the tracker not ready and shutdown discards nothing', async () => {
+			const service = createService();
+			await seedBackupUnderB(service);
+			const { accessor, tracker } = createHandoff(service);
+			await tracker.waitForReady();
+
+			service.getBackupsQueue.push(() => Promise.reject(new Error('inventory read failed')));
+			await tracker.reinitializeBackups();
+
+			await shutdownWithoutModified(accessor);
+
+			assert.deepStrictEqual({ isReady: tracker.isReady, discardedAllBackups: service.discardedAllBackups }, { isReady: false, discardedAllBackups: false });
+		});
+
+		test('reinitializeBackups during the startup read: the startup inventory is not published', async () => {
+			const service = createService();
+			const startupRead = new DeferredPromise<IWorkingCopyIdentifier[]>();
+			service.getBackupsQueue.push(() => startupRead.p, async () => [seed]);
+			const { tracker } = createHandoff(service);
+
+			const refreshed = tracker.reinitializeBackups();
+			await startupRead.complete([stale]);
+			await refreshed;
+
+			assert.deepStrictEqual({ inventory: tracker.unrestoredBackupResources, isReady: tracker.isReady }, { inventory: [seed.resource.toString()], isReady: true });
+		});
+
+		test('rehome to the same home re-reads the inventory', async () => {
+			const service = createService();
+			const { tracker, handoff } = createHandoff(service);
+			await tracker.waitForReady();
+
+			await service.backup(seed, bufferToReadable(VSBuffer.fromString('seed')));
+			await handoff.rehome(homeA, async () => { });
+
+			assert.deepStrictEqual({ inventory: tracker.unrestoredBackupResources, isReady: tracker.isReady }, { inventory: [seed.resource.toString()], isReady: true });
+		});
+
+		test('rehome to an undefined home goes in-memory and publishes an empty inventory', async () => {
+			const service = createService();
+			const { tracker, handoff } = createHandoff(service);
+			await tracker.waitForReady();
+
+			await handoff.rehome(undefined, async () => { });
+
+			// Upstream `reinitialize(undefined)` swaps in an in-memory service it
+			// does not register; dispose it so the suite's leak check stays valid.
+			disposables.add((service as unknown as { impl: IDisposable }).impl);
+
+			assert.deepStrictEqual({
+				inMemory: service.toBackupResource(seed).path === hashIdentifier(seed), // the in-memory service keys by hash alone, the file-backed one by home path
+				inventory: tracker.unrestoredBackupResources,
+				isReady: tracker.isReady
+			}, {
+				inMemory: true,
+				inventory: [],
+				isReady: true
+			});
+		});
+	});
+	// --- End Positron ---
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 });

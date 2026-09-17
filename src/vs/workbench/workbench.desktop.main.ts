@@ -105,6 +105,7 @@ import './services/positronMemoryUsage/electron-browser/positronMemoryUsageElect
 import './services/positronHeadlessLanguageModel/electron-browser/headlessLanguageModelService.js';
 import './services/positronAiProvider/electron-browser/aiProviderService.js';
 import './services/positronLicense/electron-browser/positronAcademicLicenseService.js';
+import './services/workingCopy/electron-browser/positronBackupHandoff.js';
 // --- End Positron ---
 
 import { registerSingleton } from '../platform/instantiation/common/extensions.js';
