@@ -72,6 +72,11 @@ describe('CanvasFolderSwitcher', () => {
 				editors.splice(editors.indexOf(editor), 1);
 				return true;
 			}),
+			closeAllEditors: vi.fn().mockImplementation(() => {
+				calls.push(`${name}.closeAll`);
+				editors.length = 0;
+				return true;
+			}),
 			moveEditors: vi.fn(() => {
 				calls.push(`${name}.moveEditors`);
 				return true;
@@ -258,6 +263,7 @@ describe('CanvasFolderSwitcher', () => {
 			[
 			  "canvas.open(placeholder)",
 			  "canvas.close(Canvas)",
+			  "main.closeAll",
 			  "runtime.delete(R-id)",
 			  "extensions.stop",
 			  "storage.remove(positron.canvasMode.active)",

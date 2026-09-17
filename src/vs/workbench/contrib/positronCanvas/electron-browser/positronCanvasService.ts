@@ -20,6 +20,7 @@ import { POSITRON_STANDALONE_MODE_CHANNEL_NAME } from '../../../../platform/posi
 import { PositronStandaloneModeChannelClient } from '../../../../platform/positronStandaloneMode/common/positronStandaloneModeIpc.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
+import { keepAuxiliaryEditorParts } from '../../../browser/positronEditorPartsLayout.js';
 import { suppressImplicitWindowFocus } from '../../../browser/positronWindowFocus.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
@@ -537,6 +538,11 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// no tabs, so an unlocked group would let a file opened while Canvas
 		// has focus silently cover it.
 		group.lock(true);
+
+		// A folder switch swaps the workspace storage while this window is
+		// up; the editor parts must not answer by closing it and restoring
+		// the new folder's stale windows (positronEditorPartsLayout.ts).
+		disposables.add(keepAuxiliaryEditorParts());
 
 		// The window can also go away without anyone asking us (OS close
 		// button, renderer crash); the IDE window has to come back.

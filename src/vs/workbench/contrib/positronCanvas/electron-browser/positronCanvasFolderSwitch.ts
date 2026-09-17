@@ -213,6 +213,16 @@ export class CanvasFolderSwitcher {
 				await group.closeEditor(editor, { preserveFocus: true });
 			}
 
+			// Opening a folder starts from that folder's editors, not the
+			// last one's; the hidden IDE and any detached windows are emptied
+			// so the destination's own layout can take their place. Nothing
+			// here is dirty: the preflight refused otherwise.
+			for (const other of this.editorGroupsService.groups) {
+				if (other !== group) {
+					other.closeAllEditors({ excludeConfirming: true, force: true });
+				}
+			}
+
 			// Sessions start in the workspace folder, so the destination
 			// gets fresh ones. Each shutdown can be declined.
 			for (const session of [...this.runtimeSessionService.activeSessions]) {

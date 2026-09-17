@@ -95,8 +95,16 @@ storage closes, set on the destination once Canvas is back. Only local,
 single-folder, already-trusted destinations are accepted; trust is not
 prompted for because the prompt renders in the hidden IDE window.
 
-The IDE window stays hidden throughout, and the extension host restart makes
-the workbench focus elements inside it. `browser/positronWindowFocus.ts`
+Two upstream reflexes would undo the switch and are held off while Canvas
+presents. The editor parts treat an external change to their stored layout
+(which is what a workspace storage switch looks like) as "adopt this layout":
+close every auxiliary window, restore the new folder's saved ones. The Canvas
+window is an auxiliary window, so `browser/positronEditorPartsLayout.ts` lets
+the Canvas service ask `EditorParts` to leave auxiliary windows alone; the main
+part still adopts the new folder's own layout, and the switch empties the
+hidden IDE's editors first so the result matches a fresh open. The other
+reflex is focus: the IDE window stays hidden throughout, and the extension
+host restart makes the workbench focus elements inside it. `browser/positronWindowFocus.ts`
 suppresses the implicit "focus the window this element lives in" (and the
 macOS `moveTop`) for windows Canvas mode has hidden, so those focus calls do
 not reveal the IDE mid-switch.

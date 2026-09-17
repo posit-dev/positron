@@ -20,6 +20,7 @@ import { IStorageService, StorageScope } from '../../../../../platform/storage/c
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { shouldKeepAuxiliaryEditorParts } from '../../../../browser/positronEditorPartsLayout.js';
 import { EditorsOrder } from '../../../../common/editor.js';
 import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
@@ -157,6 +158,18 @@ describe('PositronCanvasService', () => {
 
 		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, hideWindow, showWindow, channelCall, focus, createAuxiliaryEditorPart };
 	}
+
+	it('keeps auxiliary editor windows through stored-layout changes only while presenting', async () => {
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service } = build({ auxiliaryGroups: [auxiliaryGroup] });
+		expect(shouldKeepAuxiliaryEditorParts()).toBe(false);
+
+		await service.enter();
+		expect(shouldKeepAuxiliaryEditorParts()).toBe(true);
+
+		await service.exit();
+		expect(shouldKeepAuxiliaryEditorParts()).toBe(false);
+	});
 
 	it('coalesces concurrent entries so the assistant is asked for one Canvas', async () => {
 		const created = new DeferredPromise<undefined>();
