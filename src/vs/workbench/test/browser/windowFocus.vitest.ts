@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { CodeWindow } from '../../../base/browser/window.js';
+import { stubInterface } from '../../../test/vitest/stubInterface.js';
 import { BaseWindow } from '../../browser/window.js';
 import { canImplicitlyFocusWindow, suppressImplicitWindowFocus } from '../../browser/positronWindowFocus.js';
 
@@ -23,7 +24,11 @@ describe('implicit element focus across windows', () => {
 			readonly ownerDocument = { defaultView: { window: target } };
 			focus() { elementFocus(); }
 		}
-		const target = { document: { visibilityState: 'visible', hasFocus: () => false }, focus, HTMLElement: TestElement } as unknown as CodeWindow;
+		const target = stubInterface<CodeWindow>({
+			document: stubInterface<Document>({ visibilityState: 'visible', hasFocus: () => false }),
+			focus,
+			HTMLElement: TestElement as unknown as CodeWindow['HTMLElement'],
+		});
 		const suppression = suppressed ? suppressImplicitWindowFocus(target) : undefined;
 		const instance = Object.assign(Object.create(BaseWindow.prototype), { hostService: { focus: nativeFocus }, environmentService: {} });
 		try {
@@ -38,12 +43,12 @@ describe('implicit element focus across windows', () => {
 	});
 
 	it('keeps suppression until every owner releases it', () => {
-		const target = {} as Window;
+		const target = stubInterface<Window>();
 		const first = suppressImplicitWindowFocus(target);
 		const second = suppressImplicitWindowFocus(target);
 		first.dispose();
 		expect(canImplicitlyFocusWindow(target)).toBe(false);
-		expect(canImplicitlyFocusWindow({} as Window)).toBe(true);
+		expect(canImplicitlyFocusWindow(stubInterface<Window>())).toBe(true);
 		second.dispose();
 		expect(canImplicitlyFocusWindow(target)).toBe(true);
 	});
