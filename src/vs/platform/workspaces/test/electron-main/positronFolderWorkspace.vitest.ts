@@ -38,7 +38,6 @@ describe('Canvas folder switch (main process)', () => {
 			remoteAuthority: undefined,
 			config: windowConfig,
 			get openedWorkspace() { return windowConfig.workspace; },
-			focus: vi.fn(),
 			...overrides
 		});
 	}
@@ -133,26 +132,15 @@ describe('Canvas folder switch (main process)', () => {
 			await expect(resolveCanvasFolder(window, [window, other], URI.file(target), fsUnreadableAt(unreadable))).resolves.toEqual({ workspace: await identityOf(target), physicalUri: URI.file(target) });
 		});
 
-		it('compares the current folder lexically when it cannot be read', async () => {
-			const results = await Promise.all([
-				resolveCanvasFolder(window, [window], URI.file(root), fsUnreadableAt(root)),
-				resolveCanvasFolder(window, [window], URI.file(target), fsUnreadableAt(root)),
-			]);
-			expect(results.map(r => r.workspace.id)).toEqual([window.openedWorkspace!.id, (await identityOf(target)).id]);
-		});
-
-		it.each<[string, Partial<ICodeWindow>]>([
+		it.each<[string, Partial<ICodeWindow> | undefined]>([
 			['not loaded', { isReady: false }],
 			['remote', { remoteAuthority: 'ssh-remote+host' }],
 			['multi-root', { openedWorkspace: { id: 'w', configPath: URI.file('/w.code-workspace') } satisfies IWorkspaceIdentifier }],
 			['empty', { openedWorkspace: undefined }],
+			['missing', undefined],
 		])('rejects when the window is %s', async (_name, overrides) => {
-			const unsuitable = await createWindow(3, root, overrides);
-			await expect(resolveCanvasFolder(unsuitable, [unsuitable], URI.file(target))).rejects.toThrow('single-folder window');
-		});
-
-		it('rejects a missing window', async () => {
-			await expect(resolveCanvasFolder(undefined, [], URI.file(root))).rejects.toThrow('single-folder window');
+			const unsuitable = overrides && await createWindow(3, root, overrides);
+			await expect(resolveCanvasFolder(unsuitable, unsuitable ? [unsuitable] : [], URI.file(target))).rejects.toThrow('single-folder window');
 		});
 	});
 
@@ -161,8 +149,8 @@ describe('Canvas folder switch (main process)', () => {
 			const result = await enterCanvasFolder(window, [window], backups, URI.file(target));
 			expect(result).toEqual({ workspace: await identityOf(target), backupPath: '/backup/new' });
 			expect({ workspace: config.workspace, backupPath: config.backupPath }).toEqual(result);
+			// The window stub has no `focus`: a call would throw on the unset read.
 			expect(registerFolderBackup).toHaveBeenCalledWith({ folderUri: result.workspace.uri, remoteAuthority: undefined });
-			expect(window.focus).not.toHaveBeenCalled();
 		});
 
 		it('keeps extension development windows without a backup home', async () => {

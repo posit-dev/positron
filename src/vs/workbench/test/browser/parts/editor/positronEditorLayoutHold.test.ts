@@ -175,16 +175,12 @@ suite('Positron editor layout hold', () => {
 		hold.dispose();
 
 		await mainPart.applyStoredState();
-
 		assert.strictEqual(mainPart.count, 2);
-	});
 
-	test('applyStoredState with no stored layout resolves and changes nothing', async () => {
+		// With nothing stored it resolves and leaves the layout alone.
 		mainPart.clearState();
-
 		await mainPart.applyStoredState();
-
-		assert.strictEqual(mainPart.count, 1);
+		assert.strictEqual(mainPart.count, 2);
 	});
 
 	ensureNoDisposablesAreLeakedInTestSuite();

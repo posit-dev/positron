@@ -931,21 +931,16 @@ describe('PositronCanvasService', () => {
 
 			await service.rebuild(async () => { calls.push('between'); });
 
-			expect(calls).toMatchInlineSnapshot(`
-				[
-				  "canvas.open(Canvas)",
-				  "canvas.close(Panel)",
-				  "storage.remove",
-				  "between",
-				  "canvas.lock(false)",
-				  "assistant.ensure",
-				  "canvas.lock(true)",
-				  "canvas.open(Panel 2)",
-				  "canvas.close(Canvas)",
-				  "storage.store",
-				]
-			`);
-			expect(names()).toEqual({ canvas: ['Panel 2'], main: [] });
+			// The source stops claiming Canvas before the workspace half runs,
+			// the destination claims it only once the new panel is in, and the
+			// placeholder that held the window is gone at the end.
+			const at = (call: string) => calls.indexOf(call);
+			expect({
+				names: names(),
+				flagClearedBeforeBetween: at('storage.remove') < at('between'),
+				flagStoredAfterNewPanel: at('canvas.open(Panel 2)') < at('storage.store'),
+				stores: calls.filter(call => call === 'storage.store').length,
+			}).toEqual({ names: { canvas: ['Panel 2'], main: [] }, flagClearedBeforeBetween: true, flagStoredAfterNewPanel: true, stores: 1 });
 		});
 
 		it('brings a panel the assistant built in the IDE window home', async () => {

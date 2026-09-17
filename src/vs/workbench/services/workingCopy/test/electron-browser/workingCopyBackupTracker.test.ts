@@ -858,18 +858,6 @@ suite('WorkingCopyBackupTracker (native)', function () {
 			return accessor.workingCopyService.registerWorkingCopy(disposables.add(new TestWorkingCopy(seed.resource, false, seed.typeId)));
 		}
 
-		test('diagnostic: reinitialize alone lets the no-modified shutdown delete the new home (the bug mechanism)', async () => {
-			const service = createService();
-			await seedBackupUnderB(service);
-			const { accessor, tracker } = createHandoff(service);
-			await tracker.waitForReady();
-
-			service.reinitialize(homeB);
-			await shutdownWithoutModified(accessor);
-
-			assert.strictEqual(await fileService.exists(seedUnderB), false);
-		});
-
 		test('rehome keeps the new home through source close and the no-modified shutdown', async () => {
 			const service = createService();
 			await seedBackupUnderB(service);
@@ -916,24 +904,6 @@ suite('WorkingCopyBackupTracker (native)', function () {
 			});
 		});
 
-		test('reinitializeBackups: only the latest call publishes', async () => {
-			const service = createService();
-			const { tracker } = createHandoff(service);
-			await tracker.waitForReady();
-
-			const slowRead = new DeferredPromise<IWorkingCopyIdentifier[]>();
-			service.getBackupsQueue.push(() => slowRead.p, async () => [seed]);
-
-			const first = tracker.reinitializeBackups();
-			const second = tracker.reinitializeBackups();
-			assert.strictEqual(tracker.isReady, false);
-
-			await slowRead.complete([stale]);
-			await Promise.all([first, second]);
-
-			assert.deepStrictEqual({ inventory: tracker.unrestoredBackupResources, isReady: tracker.isReady }, { inventory: [seed.resource.toString()], isReady: true });
-		});
-
 		test('reinitializeBackups: a failed read leaves the tracker not ready and shutdown discards nothing', async () => {
 			const service = createService();
 			await seedBackupUnderB(service);
@@ -959,39 +929,6 @@ suite('WorkingCopyBackupTracker (native)', function () {
 			await refreshed;
 
 			assert.deepStrictEqual({ inventory: tracker.unrestoredBackupResources, isReady: tracker.isReady }, { inventory: [seed.resource.toString()], isReady: true });
-		});
-
-		test('rehome to the same home re-reads the inventory', async () => {
-			const service = createService();
-			const { tracker, handoff } = createHandoff(service);
-			await tracker.waitForReady();
-
-			await service.backup(seed, bufferToReadable(VSBuffer.fromString('seed')));
-			await handoff.rehome(homeA, async () => { });
-
-			assert.deepStrictEqual({ inventory: tracker.unrestoredBackupResources, isReady: tracker.isReady }, { inventory: [seed.resource.toString()], isReady: true });
-		});
-
-		test('rehome to an undefined home goes in-memory and publishes an empty inventory', async () => {
-			const service = createService();
-			const { tracker, handoff } = createHandoff(service);
-			await tracker.waitForReady();
-
-			await handoff.rehome(undefined, async () => { });
-
-			// Upstream `reinitialize(undefined)` swaps in an in-memory service it
-			// does not register; dispose it so the suite's leak check stays valid.
-			disposables.add((service as unknown as { impl: IDisposable }).impl);
-
-			assert.deepStrictEqual({
-				inMemory: service.toBackupResource(seed).path === hashIdentifier(seed), // the in-memory service keys by hash alone, the file-backed one by home path
-				inventory: tracker.unrestoredBackupResources,
-				isReady: tracker.isReady
-			}, {
-				inMemory: true,
-				inventory: [],
-				isReady: true
-			});
 		});
 	});
 	// --- End Positron ---

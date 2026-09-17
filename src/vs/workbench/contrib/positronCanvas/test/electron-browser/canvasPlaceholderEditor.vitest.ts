@@ -9,6 +9,9 @@ import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { EditorExtensions, IEditorFactoryRegistry } from '../../../../common/editor.js';
 import { CanvasPlaceholderInput } from '../../browser/canvasPlaceholderEditor.js';
+// The contribution is where an editor serializer for the placeholder would be
+// registered; without it the registry below is trivially empty.
+import '../../electron-browser/positronCanvas.contribution.js';
 
 describe('CanvasPlaceholderInput', () => {
 	const disposables = ensureNoLeakedDisposables();

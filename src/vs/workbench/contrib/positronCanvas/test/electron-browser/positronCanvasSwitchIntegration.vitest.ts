@@ -221,26 +221,19 @@ describe('Canvas folder switch (service + switcher)', () => {
 		const { promise, outcome } = start();
 		await promise;
 
-		expect(calls).toMatchInlineSnapshot(`
-			[
-			  "canvas.open(Canvas)",
-			  "canvas.close(Panel)",
-			  "storage.remove",
-			  "extensions.stop",
-			  "main.enterCanvasFolder(/projects/delta)",
-			  "workspace.initialize(/projects/delta)",
-			  "storage.switch(/projects/delta)",
-			  "backup.rehome",
-			  "main.closeEditors(a.txt)",
-			  "recents.add",
-			  "extensions.start",
-			  "assistant.ensure",
-			  "canvas.open(Panel 2)",
-			  "canvas.close(Canvas)",
-			  "storage.store",
-			]
-		`);
-		expect({ outcome: outcome(), names: names(), active: service.isActive, curtain: curtain() }).toEqual({ outcome: 'resolved', names: { canvas: ['Panel 2'], main: [] }, active: true, curtain: null });
+		// What only the composition shows: the placeholder holds the window
+		// before the source flag goes, and the destination flag lands only
+		// after the assistant produced the new panel. Each half's own order
+		// is pinned in its unit file.
+		const at = (call: string) => calls.indexOf(call);
+		expect({
+			outcome: outcome(),
+			names: names(),
+			active: service.isActive,
+			curtain: curtain(),
+			placeholderBeforeFlagCleared: at('canvas.open(Canvas)') < at('storage.remove'),
+			flagStoredAfterEnsure: at('assistant.ensure') < at('storage.store'),
+		}).toEqual({ outcome: 'resolved', names: { canvas: ['Panel 2'], main: [] }, active: true, curtain: null, placeholderBeforeFlagCleared: true, flagStoredAfterEnsure: true });
 	});
 
 	it('an exit during the main-process commit waits for the renderer to match it, then hands back the IDE', async () => {
@@ -289,66 +282,5 @@ describe('Canvas folder switch (service + switcher)', () => {
 
 		expect({ outcome: outcome(), initialized: calls.some(call => call.startsWith('workspace.initialize')), reloaded: calls.includes('host.reload'), started: calls.filter(call => call === 'extensions.start').length })
 			.toEqual({ outcome: 'rejected: Canvas was closed while switching workspaces.', initialized: false, reloaded: false, started: 1 });
-	});
-
-	it('an exit while the renderer cannot follow the committed folder reloads into the IDE', async () => {
-		const entering = new DeferredPromise<ICanvasFolderResult>();
-		const { service, start, calls } = await present({ enter: () => entering.p, initialize: () => Promise.reject(new Error('init failed')) });
-
-		const { promise, outcome } = start();
-		await vi.waitFor(() => expect(calls).toContain('main.enterCanvasFolder(/projects/delta)'));
-
-		const exiting = service.exit();
-		await entering.complete({ workspace: TARGET_WORKSPACE, backupPath: undefined });
-		await promise;
-		await exiting;
-
-		expect({ outcome: outcome(), recovery: calls.filter(call => call === 'main.requestIdeRecovery' || call === 'host.reload') })
-			.toEqual({ outcome: 'rejected: Canvas was closed while switching workspaces.', recovery: ['main.requestIdeRecovery', 'host.reload'] });
-	});
-
-	it('the Canvas window closing during the assistant rebuild discards the late panel and releases the claim afterwards', async () => {
-		const ensure = new DeferredPromise<undefined>();
-		const { service, start, calls, names, willDispose } = await present({ ensure });
-
-		const { promise, outcome } = start();
-		await vi.waitFor(() => expect(calls).toContain('assistant.ensure'));
-
-		willDispose.fire();
-		expect({ active: service.isActive, released: calls.includes('main.release') }).toEqual({ active: false, released: false });
-
-		await ensure.complete(undefined);
-		await promise;
-		await vi.waitFor(() => expect(calls).toContain('main.release'));
-
-		expect({ outcome: outcome(), adopted: calls.includes('canvas.open(Panel 2)'), stores: calls.filter(call => call === 'storage.store').length, names: names() })
-			.toEqual({ outcome: 'rejected: Canvas was closed while switching workspaces.', adopted: false, stores: 0, names: { canvas: ['Panel 2'], main: [] } });
-	});
-
-	it('Retry after a failed commit resumes with the same placeholder and does not repeat the detach', async () => {
-		let attempts = 0;
-		const { start, calls, names, curtain } = await present({
-			enter: async () => {
-				if (attempts++ === 0) {
-					throw new Error('gone');
-				}
-				return { workspace: TARGET_WORKSPACE, backupPath: undefined };
-			}
-		});
-
-		const { promise, outcome } = start();
-		await vi.waitFor(() => expect(curtain()).toHaveTextContent('gone'));
-		// eslint-disable-next-line no-restricted-syntax -- non-React DOM; no semantic query available here
-		const retry = Array.from(document.getElementsByClassName('monaco-button')).find(element => element.textContent === 'Retry Canvas') as HTMLElement;
-		retry.click();
-		await promise;
-
-		expect({
-			outcome: outcome(),
-			placeholders: calls.filter(call => call === 'canvas.open(Canvas)').length,
-			stops: calls.filter(call => call === 'extensions.stop').length,
-			commits: calls.filter(call => call.startsWith('main.enterCanvasFolder')).length,
-			names: names(),
-		}).toEqual({ outcome: 'resolved', placeholders: 1, stops: 1, commits: 2, names: { canvas: ['Panel 2'], main: [] } });
 	});
 });

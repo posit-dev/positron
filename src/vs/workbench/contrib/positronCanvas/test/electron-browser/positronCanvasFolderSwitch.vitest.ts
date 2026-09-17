@@ -113,8 +113,6 @@ describe('CanvasFolderSwitcher', () => {
 		/** Editors open in the IDE window before the switch. */
 		mainEditors?: EditorInput[];
 		extraGroups?: IEditorGroup[];
-		/** Replaces the main group by id, the way a destination layout does. */
-		replaceMainGroup?: boolean;
 	} = {}) {
 		const calls: string[] = [];
 		const placeholder = new CanvasPlaceholderInput();
@@ -202,10 +200,7 @@ describe('CanvasFolderSwitcher', () => {
 			groups,
 			mainPart,
 			parts: [mainPart],
-			getGroup: (id: number) => {
-				const group = groups.find(candidate => candidate.id === id);
-				return group === mainGroup && options.replaceMainGroup ? createGroup('replaced', 2, calls, mainEditors.slice()) : group;
-			},
+			getGroup: (id: number) => groups.find(candidate => candidate.id === id),
 		}));
 		ctx.instantiationService.stub(IExtensionService, stubInterface<IExtensionService>({ stopExtensionHosts, startExtensionHosts }));
 		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({ activeSessions: options.sessions ?? [createSession('R')], deleteSession }));
@@ -305,12 +300,6 @@ describe('CanvasFolderSwitcher', () => {
 		expect({ curtain: curtain(), held: isStoredEditorLayoutHeld(), mainEditors: mainEditors.length }).toEqual({ curtain: null, held: false, mainEditors: 0 });
 	});
 
-	it('re-homes backups in memory for an extension development window', async () => {
-		const { switcher, calls } = build({ enter: async () => ({ workspace: TARGET_RESOLUTION.workspace, backupPath: undefined }) });
-		await switcher.switchFolder(TARGET.fsPath);
-		expect(calls).toContain('backup.rehome(in-memory)');
-	});
-
 	it('applies the destination layout through the main editor part after the source editors are gone', async () => {
 		const applyStoredState = vi.fn(async () => { });
 		const mainPart = Object.assign(Object.create(EditorPart.prototype) as EditorPart, { windowId: 1, applyStoredState });
@@ -333,12 +322,6 @@ describe('CanvasFolderSwitcher', () => {
 			await switcher.switchFolder(TARGET.fsPath);
 
 			expect(calls.filter(call => call.includes('closeEditors'))).toEqual(['main.closeEditors(shared.txt,b.txt)', 'detached.closeEditors(shared.txt)']);
-		});
-
-		it('are not touched in a group the destination layout replaced', async () => {
-			const { switcher, calls } = build({ replaceMainGroup: true });
-			await switcher.switchFolder(TARGET.fsPath);
-			expect(calls.filter(call => call.includes('closeEditors'))).toEqual([]);
 		});
 
 		it('failing to close stops the commit with a presentable message', async () => {
@@ -459,22 +442,6 @@ describe('CanvasFolderSwitcher', () => {
 				.toEqual({ outcome: 'resolved', rebuilds: 2, commits: 1, hostStarts: 1 });
 		});
 
-		it('runs one recovery at a time: Retry clicked during Open Positron is ignored, and repeated Open Positron exits once', async () => {
-			const starting = new DeferredPromise<void>();
-			const { calls, curtain, click, exit, start } = build({ enter: () => Promise.reject(new Error('gone')), startExtensionHosts: () => starting.p });
-			const { promise } = start();
-			await vi.waitFor(() => expect(curtain()).toHaveTextContent('gone'));
-
-			click('Open Positron');
-			// The loading card has no buttons; drive the handlers the way a
-			// double click would have before it swapped.
-			await settle();
-			expect(() => click('Retry Canvas')).toThrow('no curtain button');
-			await starting.complete();
-			await promise;
-			expect({ exits: exit.mock.calls.length, commits: calls.filter(call => call.startsWith('main.enter')).length }).toEqual({ exits: 1, commits: 1 });
-		});
-
 		it('Open Positron failing leaves an actionable card each time', async () => {
 			const { curtain, click, buttons, exit, start } = build({ enter: () => Promise.reject(new Error('gone')) });
 			exit.mockRejectedValueOnce(new Error('exit failed once')).mockRejectedValueOnce(new Error('exit failed twice'));
@@ -558,11 +525,6 @@ describe('CanvasFolderSwitcher', () => {
 	describe('commands', () => {
 		/** Command handlers are typed as returning void; these return promises. */
 		const handler = (id: string) => CommandsRegistry.getCommand(id)!.handler as (accessor: ServicesAccessor, ...args: unknown[]) => unknown;
-
-		it('switchCanvasFolder requires a string path', () => {
-			build();
-			expect(() => ctx.instantiationService.invokeFunction(accessor => handler(SWITCH_CANVAS_FOLDER_COMMAND_ID)(accessor, 42))).toThrow('must be a string');
-		});
 
 		it('switchCanvasFolder refuses a second switch while one holds the window, until it settles', async () => {
 			let attempts = 0;

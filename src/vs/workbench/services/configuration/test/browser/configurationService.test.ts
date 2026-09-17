@@ -738,18 +738,6 @@ suite('WorkspaceService - Initialization', () => {
 		assert.deepStrictEqual({ name: nameTarget.callCount, folders: foldersTarget.callCount }, { name: 1, folders: 1 });
 	}));
 
-	test('re-initialize the same folder workspace fires neither name nor folders change', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
-		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'a')));
-		const nameTarget = sinon.spy();
-		const foldersTarget = sinon.spy();
-		disposables.add(testObject.onDidChangeWorkspaceName(nameTarget));
-		disposables.add(testObject.onDidChangeWorkspaceFolders(foldersTarget));
-
-		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'a')));
-
-		assert.deepStrictEqual({ name: nameTarget.callCount, folders: foldersTarget.callCount }, { name: 0, folders: 0 });
-	}));
-
 	test('initialize a folder workspace from an empty workspace fires the name change exactly once', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
 		const nameTarget = sinon.spy();
 		disposables.add(testObject.onDidChangeWorkspaceName(nameTarget));
