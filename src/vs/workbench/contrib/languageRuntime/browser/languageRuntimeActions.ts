@@ -646,6 +646,7 @@ export const selectNewLanguageRuntime = async (
 		interpreterGroups.forEach(group => {
 			// Group runtimes by environment type
 			const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
+			const envTypeOrder = new Map<string, number>();
 			const allRuntimes = group.alternateRuntimes;
 
 			allRuntimes.forEach(runtime => {
@@ -655,9 +656,15 @@ export const selectNewLanguageRuntime = async (
 				}
 				runtimesByEnvType.get(envType)!.push(runtime);
 
+				const order = runtime.runtimeSourceOrder ?? Number.MAX_SAFE_INTEGER;
+				envTypeOrder.set(envType, Math.min(envTypeOrder.get(envType) ?? order, order));
 			});
 
-			const envTypes = Array.from(runtimesByEnvType.keys());
+			// Sort by the rank the extension gave each source, so e.g. system Pythons
+			// come last. Registration order is discovery order, which varies run to run.
+			// Unranked sources keep their registration order, after the ranked ones.
+			const envTypes = Array.from(runtimesByEnvType.keys())
+				.sort((a, b) => envTypeOrder.get(a)! - envTypeOrder.get(b)!);
 
 			// Sort runtimes by version (decreasing), then alphabetically
 			envTypes.forEach(envType => {
