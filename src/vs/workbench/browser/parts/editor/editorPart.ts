@@ -36,6 +36,9 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { EditorAreaFocusContext, EditorPartMaximizedEditorGroupContext, EditorPartMultipleEditorGroupsContext, EditorTabsVisibleContext, IsTopRightEditorGroupContext } from '../../../common/contextkeys.js';
 import { mainWindow } from '../../../../base/browser/window.js';
+// --- Start Positron ---
+import { isStoredEditorLayoutHeld } from '../../positronEditorPartsLayout.js';
+// --- End Positron ---
 
 /**
  * The width (in pixels) of the editor card border drawn on every side when the
@@ -1508,6 +1511,18 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 		};
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Apply the layout currently stored for this workspace, if any. Used by
+	 * the Canvas folder switch after it held the memento listener during a
+	 * storage switch.
+	 */
+	applyStoredState(): Promise<void> {
+		const state = this.loadState();
+		return state ? this.applyState(state) : Promise.resolve();
+	}
+	// --- End Positron ---
+
 	applyState(state: IEditorPartUIState | 'empty', options?: IEditorGroupViewOptions): Promise<void> {
 		if (state === 'empty') {
 			return this.doApplyEmptyState();
@@ -1610,6 +1625,14 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 	private onDidChangeMementoState(e: IStorageValueChangeEvent): void {
 		if (e.external && e.scope === StorageScope.WORKSPACE) {
 			this.reloadMemento(e.scope);
+
+			// --- Start Positron ---
+			// A Canvas folder switch swaps the workspace storage under this
+			// window and applies the destination layout itself afterwards.
+			if (isStoredEditorLayoutHeld()) {
+				return;
+			}
+			// --- End Positron ---
 
 			const state = this.loadState();
 			if (state) {

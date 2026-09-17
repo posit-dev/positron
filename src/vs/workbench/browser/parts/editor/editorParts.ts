@@ -31,7 +31,7 @@ import { mainWindow } from '../../../../base/browser/window.js';
 import { IModalEditorPartOptions } from '../../../../platform/editor/common/editor.js';
 import { EditorPartModalVisibleContext } from '../../../common/contextkeys.js';
 // --- Start Positron ---
-import { shouldKeepAuxiliaryEditorParts } from '../../positronEditorPartsLayout.js';
+import { isStoredEditorLayoutHeld } from '../../positronEditorPartsLayout.js';
 // --- End Positron ---
 
 interface IEditorPartsUIState {
@@ -555,12 +555,12 @@ export class EditorParts extends MultiWindowParts<EditorPart, IEditorPartsMement
 			this.reloadMemento(e.scope);
 
 			// --- Start Positron ---
-			// Canvas mode lives in an auxiliary window and switches folders by
-			// swapping the workspace storage underneath this window; applying
-			// the new folder's layout here would close that window and restore
-			// the folder's stale ones. The main part still adopts the folder's
-			// own layout through its own listener.
-			if (shouldKeepAuxiliaryEditorParts()) {
+			// Canvas mode lives in an auxiliary window. While a Canvas folder
+			// switch swaps the workspace storage underneath this window,
+			// applying the new folder's layout here would close that window
+			// and restore the folder's stale ones. The switch releases the
+			// hold once the storage switch has settled.
+			if (isStoredEditorLayoutHeld()) {
 				return;
 			}
 			// --- End Positron ---

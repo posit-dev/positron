@@ -679,10 +679,18 @@ suite('WorkspaceService - Initialization', () => {
 		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'b')));
 
 		assert.strictEqual(testObject.getValue('initialization.testSetting1'), 'userValue');
-		assert.strictEqual(target.callCount, 2);
-		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[1][0]).added.map(folder_1 => folder_1.uri.toString()), [joinPath(ROOT, 'b').toString()]);
-		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[1][0]).removed.map(folder_2 => folder_2.uri.toString()), [joinPath(ROOT, 'a').toString()]);
-		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[1][0]).changed, []);
+		// --- Start Positron ---
+		// A single-folder swap also fires the workspace name change (first).
+		// assert.strictEqual(target.callCount, 2);
+		// assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[1][0]).added.map(folder_1 => folder_1.uri.toString()), [joinPath(ROOT, 'b').toString()]);
+		// assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[1][0]).removed.map(folder_2 => folder_2.uri.toString()), [joinPath(ROOT, 'a').toString()]);
+		// assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[1][0]).changed, []);
+		assert.strictEqual(target.callCount, 3);
+		assert.deepStrictEqual(target.args[0], [undefined]);
+		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[2][0]).added.map(folder_1 => folder_1.uri.toString()), [joinPath(ROOT, 'b').toString()]);
+		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[2][0]).removed.map(folder_2 => folder_2.uri.toString()), [joinPath(ROOT, 'a').toString()]);
+		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[2][0]).changed, []);
+		// --- End Positron ---
 
 	}));
 
@@ -700,13 +708,57 @@ suite('WorkspaceService - Initialization', () => {
 		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'b')));
 
 		assert.strictEqual(testObject.getValue('initialization.testSetting1'), 'workspaceValue2');
-		assert.strictEqual(target.callCount, 3);
+		// --- Start Positron ---
+		// A single-folder swap also fires the workspace name change (after the configuration change).
+		// assert.strictEqual(target.callCount, 3);
+		// assert.deepStrictEqual([...(<IConfigurationChangeEvent>target.args[0][0]).affectedKeys], ['initialization.testSetting1']);
+		// assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[2][0]).added.map(folder_1 => folder_1.uri.toString()), [joinPath(ROOT, 'b').toString()]);
+		// assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[2][0]).removed.map(folder_2 => folder_2.uri.toString()), [joinPath(ROOT, 'a').toString()]);
+		// assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[2][0]).changed, []);
+		assert.strictEqual(target.callCount, 4);
 		assert.deepStrictEqual([...(<IConfigurationChangeEvent>target.args[0][0]).affectedKeys], ['initialization.testSetting1']);
-		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[2][0]).added.map(folder_1 => folder_1.uri.toString()), [joinPath(ROOT, 'b').toString()]);
-		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[2][0]).removed.map(folder_2 => folder_2.uri.toString()), [joinPath(ROOT, 'a').toString()]);
-		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[2][0]).changed, []);
+		assert.deepStrictEqual(target.args[1], [undefined]);
+		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[3][0]).added.map(folder_1 => folder_1.uri.toString()), [joinPath(ROOT, 'b').toString()]);
+		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[3][0]).removed.map(folder_2 => folder_2.uri.toString()), [joinPath(ROOT, 'a').toString()]);
+		assert.deepStrictEqual((<IWorkspaceFoldersChangeEvent>target.args[3][0]).changed, []);
+		// --- End Positron ---
 
 	}));
+
+	// --- Start Positron ---
+	test('initialize a folder workspace from another folder workspace fires the name change once', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'a')));
+		const nameTarget = sinon.spy();
+		const foldersTarget = sinon.spy();
+		disposables.add(testObject.onDidChangeWorkspaceName(nameTarget));
+		disposables.add(testObject.onDidChangeWorkspaceFolders(foldersTarget));
+
+		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'b')));
+
+		assert.deepStrictEqual({ name: nameTarget.callCount, folders: foldersTarget.callCount }, { name: 1, folders: 1 });
+	}));
+
+	test('re-initialize the same folder workspace fires neither name nor folders change', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'a')));
+		const nameTarget = sinon.spy();
+		const foldersTarget = sinon.spy();
+		disposables.add(testObject.onDidChangeWorkspaceName(nameTarget));
+		disposables.add(testObject.onDidChangeWorkspaceFolders(foldersTarget));
+
+		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'a')));
+
+		assert.deepStrictEqual({ name: nameTarget.callCount, folders: foldersTarget.callCount }, { name: 0, folders: 0 });
+	}));
+
+	test('initialize a folder workspace from an empty workspace fires the name change exactly once', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
+		const nameTarget = sinon.spy();
+		disposables.add(testObject.onDidChangeWorkspaceName(nameTarget));
+
+		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'a')));
+
+		assert.strictEqual(nameTarget.callCount, 1);
+	}));
+	// --- End Positron ---
 
 	(isMacintosh ? test.skip : test)('initialize a multi folder workspace from a folder workspacce triggers change events in the right order', () => runWithFakedTimers<void>({ useFakeTimers: true }, async () => {
 		await testObject.initialize(convertToWorkspacePayload(joinPath(ROOT, 'a')));

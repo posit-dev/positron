@@ -15,8 +15,8 @@ vi.mock('../../../base/browser/dom.js', async importOriginal => ({
 	hasAppFocus: () => true,
 }));
 
-describe('implicit element focus across windows', () => {
-	it.each([true, false])('respects explicit focus suppression: %s', suppressed => {
+describe('implicit window raise on element focus', () => {
+	it.each([true, false])('skips only the window raise when suppressed: %s', suppressed => {
 		const focus = vi.fn();
 		const nativeFocus = vi.fn();
 		const elementFocus = vi.fn();
@@ -30,13 +30,15 @@ describe('implicit element focus across windows', () => {
 			HTMLElement: TestElement as unknown as CodeWindow['HTMLElement'],
 		});
 		const suppression = suppressed ? suppressImplicitWindowFocus(target) : undefined;
+		// Bypass the constructor: the protected method under test is the only
+		// piece needed, and constructing a BaseWindow wants the full service stack.
 		const instance = Object.assign(Object.create(BaseWindow.prototype), { hostService: { focus: nativeFocus }, environmentService: {} });
 		try {
 			instance.enableWindowFocusOnElementFocus(target);
 			new TestElement().focus();
+			expect(elementFocus).toHaveBeenCalledTimes(1);
 			expect(focus).toHaveBeenCalledTimes(suppressed ? 0 : 1);
 			expect(nativeFocus).toHaveBeenCalledTimes(suppressed ? 0 : 1);
-			expect(elementFocus).toHaveBeenCalledTimes(suppressed ? 0 : 1);
 		} finally {
 			suppression?.dispose();
 		}

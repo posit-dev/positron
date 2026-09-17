@@ -5,16 +5,16 @@
 
 /// <reference types="vitest/globals" />
 
-import { keepAuxiliaryEditorParts, shouldKeepAuxiliaryEditorParts } from '../../browser/positronEditorPartsLayout.js';
+import { holdStoredEditorLayout, isStoredEditorLayoutHeld } from '../../browser/positronEditorPartsLayout.js';
 
-describe('keepAuxiliaryEditorParts', () => {
+describe('holdStoredEditorLayout', () => {
 	it('holds until every holder releases', () => {
-		expect(shouldKeepAuxiliaryEditorParts()).toBe(false);
-		const first = keepAuxiliaryEditorParts();
-		const second = keepAuxiliaryEditorParts();
+		expect(isStoredEditorLayoutHeld()).toBe(false);
+		const first = holdStoredEditorLayout();
+		const second = holdStoredEditorLayout();
 		first.dispose();
-		expect(shouldKeepAuxiliaryEditorParts()).toBe(true);
+		expect(isStoredEditorLayoutHeld()).toBe(true);
 		second.dispose();
-		expect(shouldKeepAuxiliaryEditorParts()).toBe(false);
+		expect(isStoredEditorLayoutHeld()).toBe(false);
 	});
 });

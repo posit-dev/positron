@@ -616,6 +616,15 @@ export class WorkspaceService extends Disposable implements IWorkbenchConfigurat
 			if (previousWorkspacePath && newWorkspacePath !== previousWorkspacePath || newState !== previousState) {
 				this._onDidChangeWorkspaceName.fire();
 			}
+			// --- Start Positron ---
+			// A single-folder swap in place (Canvas folder switch) changes the
+			// workspace name, which is the folder's basename, but upstream
+			// only re-fires the name event for a workspace file path or state
+			// change. Guarded on the upstream condition so it never doubles.
+			else if (newState === WorkbenchState.FOLDER && previousFolders[0]?.uri.toString() !== this.workspace.folders[0]?.uri.toString()) {
+				this._onDidChangeWorkspaceName.fire();
+			}
+			// --- End Positron ---
 
 			const folderChanges = this.compareFolders(previousFolders, this.workspace.folders);
 			if (folderChanges && (folderChanges.added.length || folderChanges.removed.length || folderChanges.changed.length)) {

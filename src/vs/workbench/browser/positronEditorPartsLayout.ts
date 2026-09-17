@@ -6,27 +6,30 @@
 import { IDisposable, toDisposable } from '../../base/common/lifecycle.js';
 
 /**
- * Holders asking the editor parts to keep their auxiliary windows when the
+ * Holders asking the editor parts to leave the live layout alone while the
  * stored editor layout changes underneath them.
  *
- * `EditorParts` treats an external change to its workspace-scoped layout as
- * "adopt this layout": it closes every auxiliary window and recreates the
- * stored ones. That is right for a window entering a workspace from nothing,
- * and wrong for Canvas mode, whose whole surface is an auxiliary window: a
- * Canvas folder switch swaps the workspace storage while that window must
- * stay up. The main editor part still adopts the folder's own layout.
+ * A Canvas folder switch swaps the workspace storage under a live window.
+ * Both editor-part memento listeners treat an external change to their
+ * workspace-scoped layout as "adopt the stored layout": `EditorParts` closes
+ * every auxiliary window and recreates the stored ones, and the main
+ * `EditorPart` rebuilds its groups from the stored grid. Under a switch that
+ * would close the Canvas window and race the switch's own cleanup of the
+ * source folder's editors. The switch holds this while `storageService.switch`
+ * runs and then applies the destination's main layout itself through
+ * `EditorPart.applyStoredState()`.
  */
 let holders = 0;
 
-/** Keep auxiliary editor windows through stored-layout changes until disposed. Nests. */
-export function keepAuxiliaryEditorParts(): IDisposable {
+/** Hold the live editor layout through stored-layout changes until disposed. Nests. */
+export function holdStoredEditorLayout(): IDisposable {
 	holders++;
 	return toDisposable(() => {
 		holders--;
 	});
 }
 
-/** Whether an externally changed editor layout must leave the auxiliary windows alone. */
-export function shouldKeepAuxiliaryEditorParts(): boolean {
+/** Whether an externally changed stored editor layout must not be applied right now. */
+export function isStoredEditorLayoutHeld(): boolean {
 	return holders > 0;
 }
