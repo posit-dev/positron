@@ -1775,6 +1775,7 @@ export default defineConfig(
 						'sinon-test',
 						// --- Start Positron ---
 						'vs/test/vitest/**', // Vitest infrastructure (builder, RTL helpers, disposable utils)
+						'vs/**/test/vitest/**', // Vitest-only fixtures shared by the tests next to them
 						// --- End Positron ---
 					]
 				},
@@ -2250,6 +2251,20 @@ export default defineConfig(
 						'vs/test/vitest/**',
 						'@testing-library/jest-dom/vitest',
 						'@testing-library/react',
+					]
+				},
+				{
+					// Vitest-only fixtures next to the tests that share them. The
+					// build skips this path segment (build/lib/compilation.ts and
+					// src/tsconfig.json), so they may use Vitest globals.
+					'target': 'src/vs/**/test/vitest/**',
+					'restrictions': [
+						'vs/nls.js',
+						'vs/base/**',
+						'vs/platform/**',
+						'vs/editor/**',
+						'vs/workbench/**',
+						'vs/test/vitest/**',
 					]
 				},
 				// --- End Positron ---

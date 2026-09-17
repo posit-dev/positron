@@ -5,178 +5,33 @@
 
 /// <reference types="vitest/globals" />
 
-import { CodeWindow, mainWindow } from '../../../../../base/browser/window.js';
+import { mainWindow } from '../../../../../base/browser/window.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { toDisposable } from '../../../../../base/common/lifecycle.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
-import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
-import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
-import { INativeHostService } from '../../../../../platform/native/common/native.js';
-import { IStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
-import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
+import { StorageScope } from '../../../../../platform/storage/common/storage.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { canImplicitlyFocusWindow } from '../../../../browser/positronWindowFocus.js';
-import { EditorsOrder } from '../../../../common/editor.js';
-import { EditorInput } from '../../../../common/editor/editorInput.js';
-import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
-import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
-import { IHostService } from '../../../../services/host/browser/host.js';
-import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
-import { ILifecycleService, WillShutdownEvent } from '../../../../services/lifecycle/common/lifecycle.js';
-import { IOverlayWebview } from '../../../webview/browser/webview.js';
+import { IAuxiliaryEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
 import { WebviewInput } from '../../../webviewPanel/browser/webviewEditorInput.js';
-import { CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE } from '../../common/positronCanvasMode.js';
-import { PositronCanvasService } from '../../electron-browser/positronCanvasService.js';
+import { CANVAS_MODE_STORAGE_KEY } from '../../common/positronCanvasMode.js';
+import { AUX_WINDOW_ID, canvasWorld, createCanvasPanel, createGroup, createPart, DETACHED_WINDOW_ID, ICanvasWorldOptions, IPresentOptions, presentCanvas } from '../vitest/canvasSwitchTestWorld.js';
 
 /** The command the assistant contributes to produce a Canvas panel. */
 const CANVAS_ENSURE_COMMAND = 'posit-assistant.ensureCanvas';
 
-/** Native window ids for the stubbed parts. */
-const MAIN_WINDOW_ID = 1;
-const AUX_WINDOW_ID = 1000;
-const DETACHED_WINDOW_ID = 2000;
-
 describe('PositronCanvasService', () => {
 	const ctx = createTestContainer().build();
 
+	const createCanvasEditor = (name?: string) => createCanvasPanel(ctx, name);
 	/**
-	 * A group whose editor list the test can rearrange.
-	 *
-	 * `editors` is tab order; `mruEditors` is what the group reports for
-	 * `EditorsOrder.MOST_RECENTLY_ACTIVE`, which is a different order whenever a
-	 * group holds more than one editor.
+	 * The service over a workbench whose groups the test controls. The
+	 * options are the shared world's; `auxiliaryGroups` are the groups, in
+	 * most-recently-active order, that live in a window of their own, and the
+	 * main part's group is always last, so a Canvas panel still in the IDE
+	 * window loses the MRU race.
 	 */
-	function createGroup(editors: WebviewInput[] = [], mruEditors: WebviewInput[] = editors): IEditorGroup {
-		const group = stubInterface<IEditorGroup>({
-			editors,
-			getEditors: (order: EditorsOrder) => order === EditorsOrder.MOST_RECENTLY_ACTIVE ? mruEditors : editors,
-			lock: vi.fn(),
-			focus: vi.fn(),
-			isActive: vi.fn().mockReturnValue(true),
-			isSticky: vi.fn().mockReturnValue(false),
-			getIndexOfEditor: vi.fn().mockReturnValue(0),
-			moveEditors: vi.fn().mockReturnValue(true),
-		});
-		return group;
-	}
-
-	function createPart(activeGroup: IEditorGroup, onWillDispose: Event<void> = Event.None, windowId = AUX_WINDOW_ID): IAuxiliaryEditorPart {
-		return stubInterface<IAuxiliaryEditorPart>({ activeGroup, onWillDispose, close: vi.fn(), windowId });
-	}
-
-	/** A Canvas panel, recognized by its contributed view type. */
-	function createCanvasEditor(name = 'Canvas'): WebviewInput {
-		const editor = new WebviewInput(
-			{ viewType: CANVAS_WEBVIEW_VIEW_TYPE, providedId: CANVAS_WEBVIEW_VIEW_TYPE, name, iconPath: undefined },
-			stubInterface<IOverlayWebview>({ state: undefined, dispose: vi.fn() }),
-			stubInterface<IThemeService>({ onDidColorThemeChange: Event.None }),
-		);
-		ctx.disposables.add(editor);
-		return editor;
-	}
-
-	/**
-	 * Wires the service up over a workbench whose groups the test controls.
-	 *
-	 * `auxiliaryGroups` are the groups, in most-recently-active order, that live
-	 * in a window of their own; the main part's group is always last, so a Canvas
-	 * panel still in the IDE window loses the MRU race.
-	 */
-	function build(options: {
-		auxiliaryGroups?: IEditorGroup[];
-		mainGroup?: IEditorGroup;
-		/** Parts beyond the main and Canvas ones, e.g. detached editor windows. */
-		extraParts?: IEditorPart[];
-		/** Report every auxiliary window as plain, without the locked-compact trait. */
-		plainAuxWindows?: boolean;
-		willShutdown?: boolean;
-		onWillDispose?: Event<void>;
-		executeCommand?: () => Promise<undefined>;
-		createAuxiliaryEditorPart?: IEditorGroupsService['createAuxiliaryEditorPart'];
-		acquireGranted?: boolean | Promise<boolean>;
-		/** Resolves whether the call hid a visible window; see INativeHostService. */
-		hideWindow?: (options?: { targetWindowId?: number }) => Promise<boolean>;
-		showWindow?: (options?: { targetWindowId?: number }) => Promise<void>;
-		reload?: () => Promise<void>;
-	} = {}) {
-		const auxiliaryGroups = options.auxiliaryGroups ?? [];
-		const mainGroup = options.mainGroup ?? createGroup();
-		const mainPart = createPart(mainGroup, Event.None, MAIN_WINDOW_ID);
-		const auxiliaryGroup = auxiliaryGroups.at(0);
-		const auxiliaryPart = createPart(auxiliaryGroup ?? createGroup(), options.onWillDispose ?? Event.None);
-
-		const parts = new Map<IEditorGroup, IEditorPart>(auxiliaryGroups.map(group => [group, auxiliaryPart]));
-		parts.set(mainGroup, mainPart);
-
-		const executeCommand = vi.fn(options.executeCommand ?? (() => Promise.resolve(undefined)));
-		const storageService = stubInterface<IStorageService>({ store: vi.fn(), remove: vi.fn() });
-		const mergeGroup = vi.fn().mockReturnValue(true);
-		const setPartHidden = vi.fn();
-		const hideWindow = vi.fn(options.hideWindow ?? (() => Promise.resolve(true)));
-		const showWindow = vi.fn(options.showWindow ?? (() => Promise.resolve()));
-		const createAuxiliaryEditorPart = vi.fn(options.createAuxiliaryEditorPart ?? (() => Promise.resolve(auxiliaryPart)));
-
-		ctx.instantiationService.stub(IEditorGroupsService, stubInterface<IEditorGroupsService>({
-			mainPart,
-			parts: [auxiliaryPart, ...(options.extraParts ?? []), mainPart],
-			groups: [...auxiliaryGroups, mainGroup],
-			getGroups: () => [...auxiliaryGroups, mainGroup],
-			getPart: (group: IEditorGroup) => parts.get(group) ?? mainPart,
-			mergeGroup,
-			createAuxiliaryEditorPart,
-		}));
-		// Every auxiliary window carries the dedicated locked-compact trait
-		// unless the test says otherwise. Each native window id gets its own
-		// `Window` object, so focus suppression can be told apart per window.
-		const auxiliaryWindows = new Map<number, CodeWindow>();
-		const auxiliaryWindowFor = (windowId: number) => {
-			let window = auxiliaryWindows.get(windowId);
-			if (!window) {
-				window = stubInterface<CodeWindow>();
-				auxiliaryWindows.set(windowId, window);
-			}
-			return window;
-		};
-		const canvasContainer = document.createElement('div');
-		ctx.instantiationService.stub(IAuxiliaryWindowService, stubInterface<IAuxiliaryWindowService>({
-			getWindow: (windowId: number) => stubInterface<IAuxiliaryWindow>({
-				window: auxiliaryWindowFor(windowId),
-				container: canvasContainer,
-				createState: () => options.plainAuxWindows === true ? {} : { lockCompact: true }
-			})
-		}));
-		ctx.instantiationService.stub(ICommandService, stubInterface<ICommandService>({ executeCommand }));
-		ctx.instantiationService.stub(IConfigurationService, stubInterface<IConfigurationService>({ getValue: () => true }));
-		ctx.instantiationService.stub(INativeHostService, stubInterface<INativeHostService>({ hideWindow, showWindow }));
-		const focus = vi.fn().mockResolvedValue(undefined);
-		const reload = vi.fn(options.reload ?? (() => Promise.resolve()));
-		ctx.instantiationService.stub(IHostService, stubInterface<IHostService>({ focus, reload }));
-		ctx.instantiationService.stub(IWorkbenchLayoutService, stubInterface<IWorkbenchLayoutService>({ setPartHidden }));
-		ctx.instantiationService.stub(IStorageService, storageService);
-		const willShutdownEmitter = ctx.disposables.add(new Emitter<WillShutdownEvent>());
-		ctx.instantiationService.stub(ILifecycleService, stubInterface<ILifecycleService>({ willShutdown: options.willShutdown === true, onWillShutdown: willShutdownEmitter.event }));
-		ctx.instantiationService.stub(ILogService, new NullLogService());
-		ctx.instantiationService.stub(IContextKeyService, new MockContextKeyService());
-		// The engagement channel: `acquire` grants unless the test says
-		// otherwise, `release` resolves. Recorded so tests can assert the
-		// claim's lifecycle against the mode transaction.
-		const channelCall = vi.fn().mockImplementation((command: string) =>
-			Promise.resolve(command === 'acquire' ? (options.acquireGranted ?? true) : undefined));
-		ctx.instantiationService.stub(IMainProcessService, stubInterface<IMainProcessService>({
-			getChannel: () => stubInterface<IChannel>({ call: channelCall })
-		}));
-
-		const service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronCanvasService));
-
-		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, hideWindow, showWindow, channelCall, focus, createAuxiliaryEditorPart, reload, willShutdownEmitter, auxiliaryWindowFor, canvasContainer };
-	}
+	const build = (options: ICanvasWorldOptions = {}) => canvasWorld(ctx, options);
 
 	it('coalesces concurrent entries so the assistant is asked for one Canvas', async () => {
 		const created = new DeferredPromise<undefined>();
@@ -845,86 +700,7 @@ describe('PositronCanvasService', () => {
 	});
 
 	describe('rebuild', () => {
-		/** A group whose editor list the rebuild rearranges, recording into `calls`. */
-		function createLiveGroup(name: string, calls: string[], editors: EditorInput[], id: number): IEditorGroup {
-			return stubInterface<IEditorGroup>({
-				id,
-				editors,
-				isLocked: true,
-				getEditors: () => editors,
-				lock: vi.fn((locked: boolean) => { calls.push(`${name}.lock(${locked})`); }),
-				focus: vi.fn(),
-				isActive: () => true,
-				isSticky: () => false,
-				getIndexOfEditor: (editor: EditorInput) => editors.indexOf(editor),
-				contains: (editor: EditorInput) => editors.includes(editor),
-				openEditor: vi.fn(async (editor: EditorInput) => {
-					calls.push(`${name}.open(${editor.getName()})`);
-					if (!editors.includes(editor)) {
-						editors.push(editor);
-					}
-					return undefined;
-				}),
-				closeEditor: vi.fn(async (editor: EditorInput) => {
-					calls.push(`${name}.close(${editor.getName()})`);
-					editors.splice(editors.indexOf(editor), 1);
-					return true;
-				}),
-				moveEditors: vi.fn(() => {
-					calls.push(`${name}.moveEditors`);
-					return true;
-				}),
-			});
-		}
-
-		/**
-		 * Canvas presenting a panel named "Panel" in its own window, with the
-		 * assistant producing "Panel 2" on the next ensure. The entry's own
-		 * ensure is the first call and produces nothing new.
-		 */
-		async function present(options: {
-			rebuildIn?: 'canvas' | 'main';
-			/** What the assistant does when asked for the rebuilt panel. */
-			ensure?: () => Promise<undefined>;
-			onWillDispose?: Event<void>;
-		} = {}) {
-			const calls: string[] = [];
-			const canvasEditors: EditorInput[] = [createCanvasEditor('Panel')];
-			const mainEditors: EditorInput[] = [];
-			const canvasGroup = createLiveGroup('canvas', calls, canvasEditors, 1);
-			const mainGroup = createLiveGroup('main', calls, mainEditors, 2);
-			let ensures = 0;
-			const built = build({
-				auxiliaryGroups: [canvasGroup],
-				mainGroup,
-				onWillDispose: options.onWillDispose,
-				executeCommand: async () => {
-					if (ensures++ === 0) {
-						return undefined;
-					}
-					calls.push('assistant.ensure');
-					if (options.ensure) {
-						return options.ensure();
-					}
-					(options.rebuildIn === 'main' ? mainEditors : canvasEditors).push(createCanvasEditor('Panel 2'));
-					return undefined;
-				},
-			});
-			expect(await built.service.enter()).toEqual({ entered: true });
-			calls.length = 0;
-			vi.mocked(built.storageService.store).mockImplementation(() => { calls.push('storage.store'); });
-			vi.mocked(built.storageService.remove).mockImplementation(() => { calls.push('storage.remove'); });
-			built.mergeGroup.mockImplementation(() => { calls.push('merge'); return true; });
-			const names = () => ({ canvas: canvasEditors.map(editor => editor.getName()), main: mainEditors.map(editor => editor.getName()) });
-			// The stub groups do not dispose what they close; a placeholder a
-			// test leaves behind on purpose is dropped here.
-			ctx.disposables.add(toDisposable(() => {
-				for (const editor of [...canvasEditors, ...mainEditors]) {
-					editor.dispose();
-				}
-			}));
-			return { ...built, calls, canvasGroup, mainGroup, canvasEditors, mainEditors, names };
-		}
+		const present = (options: IPresentOptions = {}) => presentCanvas(ctx, options);
 
 		it('takes the panel out, runs the workspace half, and puts a fresh panel back with the flag', async () => {
 			const { service, calls, names } = await present();
@@ -1048,9 +824,10 @@ describe('PositronCanvasService', () => {
 			expect(await outcome).toBeInstanceOf(CancellationError);
 			expect(await exiting).toBe(true);
 
-			// Exit's own teardown (intent, unlock, merge) runs only after the
-			// workspace half settled; the placeholder rides along and is dropped.
-			expect(calls.slice(calls.indexOf('between.cancelled'))).toEqual(['between.cancelled', 'storage.remove', 'canvas.lock(false)', 'merge', 'canvas.close(Canvas)']);
+			// Exit's own teardown (intent, reveal, unlock, merge, release) runs
+			// only after the workspace half settled; the placeholder rides
+			// along and is dropped.
+			expect(calls.slice(calls.indexOf('between.cancelled'))).toEqual(['between.cancelled', 'storage.remove', 'window.show', 'canvas.lock(false)', 'merge', 'canvas.close(Canvas)', 'main.release']);
 			expect({ names: names(), stores: calls.filter(call => call === 'storage.store'), active: service.isActive }).toEqual({ names: { canvas: [], main: [] }, stores: [], active: false });
 		});
 
@@ -1117,9 +894,8 @@ describe('PositronCanvasService', () => {
 
 	describe('reloadIntoIde', () => {
 		it('asks the main process for an IDE boot, clears the intent, and reports an accepted reload', async () => {
-			const auxiliaryGroup = createGroup([createCanvasEditor()]);
-			const built = build({ auxiliaryGroups: [auxiliaryGroup], reload: async () => { built.willShutdownEmitter.fire(stubInterface<WillShutdownEvent>()); } });
-			const { service, channelCall, storageService } = built;
+			// The world's default reload is an accepted one: it fires `onWillShutdown`.
+			const { service, channelCall, storageService } = build({ auxiliaryGroups: [createGroup([createCanvasEditor()])] });
 			await service.enter();
 
 			expect(await service.reloadIntoIde()).toBe(true);

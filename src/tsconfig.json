@@ -43,7 +43,8 @@
 	"exclude": [
 		"./vs/**/*.vitest.ts",
 		"./vs/**/*.vitest.tsx",
-		"./vs/test/vitest/**"
+		"./vs/test/vitest/**",
+		"./vs/**/test/vitest/**"
 	]
 	// --- End Positron ---
 }
