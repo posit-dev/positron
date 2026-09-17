@@ -9,9 +9,11 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
-import { IEditorGroup, IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
+import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
+import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
 import { TestEditorInput } from '../../../../test/browser/workbenchTestServices.js';
-import { mergeCanvasGroupIntoIde } from '../../browser/positronCanvasRestore.js';
+import { mergeCanvasGroupIntoIde, sweepRestoredCanvasWindows } from '../../browser/positronCanvasRestore.js';
+import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 
 describe('mergeCanvasGroupIntoIde', () => {
 	const disposables = ensureNoLeakedDisposables();
@@ -54,5 +56,37 @@ describe('mergeCanvasGroupIntoIde', () => {
 				options: { inactive: false, pinned: true, preserveFocus: undefined, sticky: false },
 			},
 		], target);
+	});
+});
+
+describe('sweepRestoredCanvasWindows', () => {
+	const logService = new NullLogService();
+
+	/** A restored auxiliary part whose window carries (or lacks) the Canvas trait. */
+	function createPart(editors: unknown[], compact: boolean) {
+		const group = stubInterface<IEditorGroup>({ editors: editors as IEditorGroup['editors'] });
+		const part = stubInterface<IAuxiliaryEditorPart>({ windowId: compact ? 1000 : 2000, getGroups: () => [group], close: vi.fn().mockReturnValue(true) });
+		return part;
+	}
+
+	function sweep(parts: IEditorPart[]) {
+		const mainPart = stubInterface<IEditorPart>({ windowId: 1 });
+		return sweepRestoredCanvasWindows({
+			auxiliaryWindowService: stubInterface<IAuxiliaryWindowService>({
+				getWindow: (windowId: number) => stubInterface<IAuxiliaryWindow>({ createState: () => windowId === 1000 ? { lockCompact: true } : {} })
+			}),
+			editorGroupsService: stubInterface<IEditorGroupsService>({ mainPart, parts: [mainPart, ...parts], whenRestored: Promise.resolve() }),
+			layoutService: stubInterface<IWorkbenchLayoutService>({ setPartHidden: vi.fn() }),
+			logService,
+		});
+	}
+
+	it('closes an empty compact window and leaves an empty plain one alone', async () => {
+		const compact = createPart([], true);
+		const plain = createPart([], false);
+
+		await sweep([compact, plain]);
+
+		expect({ compactClosed: vi.mocked(compact.close).mock.calls.length, plainClosed: vi.mocked(plain.close).mock.calls.length }).toEqual({ compactClosed: 1, plainClosed: 0 });
 	});
 });

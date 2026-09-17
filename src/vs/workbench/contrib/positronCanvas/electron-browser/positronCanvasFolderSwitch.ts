@@ -3,44 +3,45 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { raceTimeout } from '../../../../base/common/async.js';
+import { DeferredPromise } from '../../../../base/common/async.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
+import { CancellationError, isCancellationError } from '../../../../base/common/errors.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { isAbsolute } from '../../../../base/common/path.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { localize } from '../../../../nls.js';
-import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../platform/native/common/native.js';
-import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ISingleFolderWorkspaceIdentifier, IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { ICanvasFolderWorkspaceService } from '../../../../platform/workspaces/common/positronFolderWorkspace.js';
 import { isRecentFolder, IWorkspacesService } from '../../../../platform/workspaces/common/workspaces.js';
-import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
+import { EditorPart } from '../../../browser/parts/editor/editorPart.js';
+import { holdStoredEditorLayout } from '../../../browser/positronEditorPartsLayout.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { WorkspaceService } from '../../../services/configuration/browser/configurationService.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { INativeWorkbenchEnvironmentService } from '../../../services/environment/electron-browser/environmentService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { IHostService } from '../../../services/host/browser/host.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ITextEditorService } from '../../../services/textfile/common/textEditorService.js';
-import { IWorkingCopyBackupService } from '../../../services/workingCopy/common/workingCopyBackup.js';
-import { WorkingCopyBackupService } from '../../../services/workingCopy/common/workingCopyBackupService.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPositronBackupHandoffService } from '../../../services/workingCopy/electron-browser/positronBackupHandoff.js';
 import { IWorkingCopyService } from '../../../services/workingCopy/common/workingCopyService.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
+import { CanvasPlaceholderInput } from '../browser/canvasPlaceholderEditor.js';
 import { CanvasSwitchCurtain } from '../browser/canvasSwitchCurtain.js';
-import { CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE } from '../common/positronCanvasMode.js';
-import { CANVAS_ENSURE_COMMAND, IPositronCanvasService } from './positronCanvasService.js';
+import { isAuxiliaryEditorPart } from '../browser/positronCanvasRestore.js';
+import { IPositronCanvasService } from './positronCanvasService.js';
 
 /**
  * Experimental command seam for Posit Assistant's Canvas workspace picker;
@@ -50,23 +51,17 @@ import { CANVAS_ENSURE_COMMAND, IPositronCanvasService } from './positronCanvasS
 export const SWITCH_CANVAS_FOLDER_COMMAND_ID = 'positron.experimental.switchCanvasFolder';
 export const GET_CANVAS_FOLDERS_COMMAND_ID = 'positron.experimental.getCanvasFolders';
 
+/** The workspace half of a switch, in the order it runs and resumes. */
+type SwitchStep = 'detach' | 'commit' | 'restore';
+
 /**
- * Cap on waiting for the assistant to rebuild Canvas after the extension
- * hosts restarted: activation from cold plus the assistant's own 14s ensure
- * deadline.
+ * Development aid: `positron.experimental.failNextCanvasSwitchAt` with
+ * 'detach', 'commit' or 'restore' makes that step of the next switch fail
+ * once, so the failure card, Retry Canvas and Open Positron can be exercised
+ * live. Honoured by source builds only.
  */
-const CANVAS_REBUILD_TIMEOUT = 30_000;
-
-/** The Canvas panel being presented, and where. */
-interface IPresentedCanvas {
-	readonly group: IEditorGroup;
-	readonly window: IAuxiliaryWindow;
-	readonly editor: WebviewInput;
-}
-
-function isCanvasEditor(editor: EditorInput): editor is WebviewInput {
-	return editor instanceof WebviewInput && editor.providerId === CANVAS_WEBVIEW_VIEW_TYPE;
-}
+export const FAIL_NEXT_CANVAS_SWITCH_COMMAND_ID = 'positron.experimental.failNextCanvasSwitchAt';
+let injectedFailure: SwitchStep | undefined;
 
 /**
  * Switches the folder a Canvas window presents without leaving Canvas mode:
@@ -75,14 +70,17 @@ function isCanvasEditor(editor: EditorInput): editor is WebviewInput {
  *
  * Two halves. Everything that can refuse the switch runs first and changes
  * nothing, rejecting with a user-presentable message for the caller (the
- * assistant's picker) to show. Then a transaction of three steps runs behind
- * a curtain in the Canvas window: detach (close Canvas, shut runtimes and
- * extension hosts down), commit (the folder identity in main process,
- * workspace, storage, backups, recents) and restore (extension hosts back up,
- * Canvas rebuilt and moved home). A step failing stops the transaction where
- * it is; the curtain's Retry Canvas resumes from that step and Open Positron
- * hands the user the IDE in a consistent state. The caller cannot observe
- * failures past detach: its extension host is gone by then.
+ * assistant's picker) to show. Then a transaction runs behind a curtain in
+ * the Canvas window: the Canvas service takes its panel out and later asks
+ * the assistant for a new one (`IPositronCanvasService.rebuild`), and in
+ * between this class runs the workspace half in three resumable steps:
+ * detach (runtimes and extension hosts down), commit (folder identity in the
+ * main process, workspace, storage, editors, backups, recents) and restore
+ * (extension hosts back up). A step failing stops the transaction where it
+ * is; the curtain's Retry Canvas resumes from that step and Open Positron
+ * hands the user the IDE in a consistent state. The returned promise settles
+ * only when the curtain is down, so the command's caller and the in-flight
+ * guard see the transaction's real lifetime.
  */
 export class CanvasFolderSwitcher {
 
@@ -94,19 +92,15 @@ export class CanvasFolderSwitcher {
 		@IWorkspaceContextService contextService: IWorkspaceContextService,
 		@INativeWorkbenchEnvironmentService private readonly environmentService: INativeWorkbenchEnvironmentService,
 		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
-		@ITextEditorService private readonly textEditorService: ITextEditorService,
-		@IAuxiliaryWindowService private readonly auxiliaryWindowService: IAuxiliaryWindowService,
 		@IExtensionService private readonly extensionService: IExtensionService,
-		@ICommandService private readonly commandService: ICommandService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly storageService: IStorageService,
-		@IWorkingCopyBackupService private readonly workingCopyBackupService: IWorkingCopyBackupService,
+		@IPositronBackupHandoffService private readonly backupHandoff: IPositronBackupHandoffService,
 		@IWorkingCopyService private readonly workingCopyService: IWorkingCopyService,
 		@IWorkspaceTrustManagementService private readonly trustService: IWorkspaceTrustManagementService,
-		@IFileDialogService private readonly fileDialogService: IFileDialogService,
 		@IWorkspacesService private readonly workspacesService: IWorkspacesService,
-		@IHostService private readonly hostService: IHostService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@ILogService private readonly logService: ILogService,
 		@INativeHostService nativeHostService: INativeHostService,
 		@IMainProcessService mainProcessService: IMainProcessService
@@ -118,38 +112,43 @@ export class CanvasFolderSwitcher {
 	}
 
 	/**
-	 * @param folderPath absolute local path; when omitted the user picks one
-	 * in a native folder dialog over the Canvas window. Resolves without doing
-	 * anything when the pick is cancelled or names the current folder.
+	 * @param folderPath absolute local path. Resolves without doing anything
+	 * when it names the current folder; rejects with a presentable message
+	 * when the switch is refused or, after the Canvas window was taken over,
+	 * when the user leaves the failed transaction through Open Positron.
 	 */
-	async switchFolder(folderPath?: string): Promise<void> {
+	async switchFolder(folderPath: string): Promise<void> {
 		// Read live: `ai.enabled` toggles without a reload, and restoring
 		// Canvas asks the assistant for a panel.
 		if (this.configurationService.getValue<boolean>(AI_ENABLED_KEY) === false) {
 			throw new Error(localize('positron.canvas.switchAiDisabled', "Canvas is unavailable because AI features are disabled."));
 		}
-		const presented = this.findPresentedCanvas();
+		const container = this.canvasService.isActive ? this.canvasService.canvasContainer : undefined;
+		if (!container) {
+			throw new Error(localize('positron.canvas.switchNotPresenting', "Canvas is not open in its own window."));
+		}
 		const source = this.currentFolder();
 
-		if (folderPath !== undefined && !isAbsolute(folderPath)) {
+		if (!isAbsolute(folderPath)) {
 			throw new Error(localize('positron.canvas.switchAbsolute', "Canvas needs an absolute folder path to switch to."));
-		}
-		const requested = folderPath !== undefined ? URI.file(folderPath) : await this.pickFolder(source);
-		if (!requested) {
-			return;
 		}
 
 		// Main-process validation (exists, is a folder, not open in another
-		// window) also canonicalizes, so "same folder" is decided on identity.
-		const target = await this.folderService.resolveCanvasFolder(requested);
-		if (isEqual(target.uri, source)) {
+		// window) decides identity the way an ordinary open does, and
+		// separately reports the physical folder behind any symlink.
+		const { workspace, physicalUri } = await this.folderService.resolveCanvasFolder(URI.file(folderPath));
+		if (isEqual(workspace.uri, source)) {
 			return;
 		}
 
 		// Trust is decided per folder and the prompt renders in the hidden
 		// IDE window; an untrusted destination is refused rather than asked.
-		if (!(await this.trustService.getUriTrustInfo(target.uri)).trusted) {
-			throw new Error(localize('positron.canvas.switchUntrusted', "The folder {0} is not trusted. Open it in Positron first to trust it.", target.uri.fsPath));
+		// Checked on the logical path (what the workspace becomes) and on the
+		// physical one (what a symlink would otherwise let it dodge).
+		for (const uri of isEqual(workspace.uri, physicalUri) ? [workspace.uri] : [workspace.uri, physicalUri]) {
+			if (!(await this.trustService.getUriTrustInfo(uri)).trusted) {
+				throw new Error(localize('positron.canvas.switchUntrusted', "The folder {0} is not trusted. Open it in Positron first to trust it.", folderPath));
+			}
 		}
 
 		// Dirty editors would need a save prompt inside the hidden IDE, and
@@ -158,18 +157,13 @@ export class CanvasFolderSwitcher {
 			throw new Error(localize('positron.canvas.switchDirty', "Save or discard your unsaved changes before switching workspaces."));
 		}
 
-		await this.transition(presented, target);
-	}
-
-	private findPresentedCanvas(): IPresentedCanvas {
-		const group = this.canvasService.isActive ? this.canvasService.activeGroup : undefined;
-		const part = group && this.editorGroupsService.getPart(group);
-		const window = part && this.auxiliaryWindowService.getWindow(part.windowId);
-		const editor = group?.editors.find(isCanvasEditor);
-		if (!group || !window || !editor) {
-			throw new Error(localize('positron.canvas.switchNotPresenting', "Canvas is not open in its own window."));
+		// Shutting down a busy session asks whether to interrupt it, in the
+		// hidden IDE window; refuse instead of waiting behind the curtain.
+		for (const session of this.runtimeSessionService.activeSessions) {
+			this.requireIdle(session);
 		}
-		return { group, window, editor };
+
+		await this.transition(container, workspace);
 	}
 
 	private currentFolder(): URI {
@@ -179,20 +173,19 @@ export class CanvasFolderSwitcher {
 		return this.workspaceService.getWorkspace().folders[0].uri;
 	}
 
-	private async pickFolder(source: URI): Promise<URI | undefined> {
-		const picked = await this.fileDialogService.showOpenDialog({
-			title: localize('positron.canvas.switchPickTitle', "Open Canvas Workspace"),
-			defaultUri: source,
-			canSelectFiles: false,
-			canSelectFolders: true,
-			canSelectMany: false
-		});
-		return picked?.[0];
+	private requireIdle(session: ILanguageRuntimeSession): void {
+		if (session.getRuntimeState() === RuntimeState.Busy) {
+			throw new Error(localize('positron.canvas.switchBusySession', "The {0} session is busy. Wait for it to finish or interrupt it before switching workspaces.", session.dynState.sessionName));
+		}
 	}
 
-	private async transition({ group, window, editor }: IPresentedCanvas, target: ISingleFolderWorkspaceIdentifier): Promise<void> {
-		const curtain = new CanvasSwitchCurtain(window.container);
-		let placeholder: EditorInput | undefined;
+	private transition(container: HTMLElement, target: ISingleFolderWorkspaceIdentifier): Promise<void> {
+		const curtain = new CanvasSwitchCurtain(container);
+		const done = new DeferredPromise<void>();
+		const disposables = new DisposableStore();
+
+		/** Editors in the IDE and detached windows before the switch, by group. */
+		let sourceEditors: Map<IEditorGroup, EditorInput[]> | undefined;
 		let extensionHostsStopped = false;
 		/**
 		 * `partial` means the main process may hold the new identity while
@@ -200,33 +193,52 @@ export class CanvasFolderSwitcher {
 		 * an exit, recovers from.
 		 */
 		let commit: 'pending' | 'partial' | 'done' = 'pending';
+		let rebuildInFlight = false;
+		let recovering = false;
+		let lastError: unknown;
+		const steps: SwitchStep[] = ['detach', 'commit', 'restore'];
+		let next = 0;
+
+		const cancelledError = () => new Error(localize('positron.canvas.switchCancelled', "Canvas was closed while switching workspaces."));
+
+		/** Settles the transaction once; every later call is a no-op. */
+		const settle = (error?: unknown) => {
+			if (done.isSettled) {
+				return;
+			}
+			disposables.dispose();
+			curtain.dispose();
+			if (error === undefined) {
+				done.complete();
+			} else {
+				done.error(error);
+			}
+		};
+
+		const restartExtensionHosts = async () => {
+			if (extensionHostsStopped && !this.lifecycleService.willShutdown) {
+				await this.extensionService.startExtensionHosts();
+				extensionHostsStopped = false;
+			}
+		};
 
 		const detach = async () => {
-			// An empty group closes its window and takes Canvas mode with
-			// it; a placeholder keeps the window alive while Canvas is gone.
-			placeholder ??= this.textEditorService.createTextEditor({ resource: URI.from({ scheme: Schemas.untitled, path: 'canvas-workspace-switch' }) });
-			await group.openEditor(placeholder, { pinned: true, preserveFocus: true });
-			if (!group.contains(placeholder)) {
-				throw new Error(localize('positron.canvas.switchNoPlaceholder', "The Canvas window could not be prepared."));
-			}
-			if (group.contains(editor)) {
-				await group.closeEditor(editor, { preserveFocus: true });
-			}
-
-			// Opening a folder starts from that folder's editors, not the
-			// last one's; the hidden IDE and any detached windows are emptied
-			// so the destination's own layout can take their place. Nothing
-			// here is dirty: the preflight refused otherwise.
-			for (const other of this.editorGroupsService.groups) {
-				if (other !== group) {
-					other.closeAllEditors({ excludeConfirming: true, force: true });
-				}
-			}
+			this.throwInjectedFailure('detach');
+			sourceEditors ??= this.captureSourceEditors();
 
 			// Sessions start in the workspace folder, so the destination
-			// gets fresh ones. Each shutdown can be declined.
+			// gets fresh ones. Each shutdown can be declined; a busy one
+			// would prompt in the hidden IDE, so it is refused first.
 			for (const session of [...this.runtimeSessionService.activeSessions]) {
-				if (!await this.runtimeSessionService.deleteSession(session.sessionId)) {
+				this.requireIdle(session);
+				let deleted: boolean;
+				try {
+					deleted = await this.runtimeSessionService.deleteSession(session.sessionId);
+				} catch (cause) {
+					this.logService.error(`[canvas] Could not shut down the ${session.dynState.sessionName} session for the workspace switch`, cause);
+					throw new Error(localize('positron.canvas.switchSessionFailed', "The {0} session could not be shut down.", session.dynState.sessionName), { cause });
+				}
+				if (!deleted) {
 					throw new Error(localize('positron.canvas.switchSession', "Shutting down the {0} session was cancelled.", session.dynState.sessionName));
 				}
 			}
@@ -242,121 +254,221 @@ export class CanvasFolderSwitcher {
 		};
 
 		const commitFolder = async () => {
-			// The folder being left must stop claiming Canvas mode before
-			// its storage closes: a relaunch of it should open the IDE.
-			this.storageService.remove(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
+			this.throwInjectedFailure('commit');
 			// Atomic in the main process: it either holds the new identity
-			// from here on or refused and still holds the old one.
+			// from here on or refused and still holds the old one. Mirrors
+			// NativeWorkspaceEditingService.enterWorkspace for a folder.
 			const result = await this.folderService.enterCanvasFolder(target.uri);
 			commit = 'partial';
 			await this.workspaceService.initialize(result.workspace);
-			await this.storageService.switch(result.workspace, false);
-			if (this.workingCopyBackupService instanceof WorkingCopyBackupService) {
-				// Same derivation as the service's construction from the
-				// window configuration.
-				this.workingCopyBackupService.reinitialize(result.backupPath ? URI.file(result.backupPath).with({ scheme: this.environmentService.userRoamingDataHome.scheme }) : undefined);
+
+			// The storage switch saves the source's live layout, then
+			// swaps storage; both editor-part memento listeners would treat
+			// the swap as "adopt the stored layout" (closing the Canvas
+			// window among other things), so they are held and the
+			// destination's main layout is applied deliberately below.
+			const hold = holdStoredEditorLayout();
+			try {
+				await this.storageService.switch(result.workspace, false);
+			} finally {
+				hold.dispose();
 			}
+
+			// The source's editors close while backups still address the
+			// source and the tracker is suspended, then the backup home
+			// moves; nothing that happened in the source can touch the
+			// destination's backups.
+			const backupHome = result.backupPath ? URI.file(result.backupPath).with({ scheme: this.environmentService.userRoamingDataHome.scheme }) : undefined;
+			await this.backupHandoff.rehome(backupHome, () => this.closeSourceEditors(sourceEditors ?? new Map()));
+
+			const mainPart = this.editorGroupsService.mainPart;
+			if (mainPart instanceof EditorPart) {
+				await mainPart.applyStoredState();
+			}
+
 			await this.workspacesService.addRecentlyOpened([{ folderUri: result.workspace.uri }]);
 			commit = 'done';
 		};
 
 		const restore = async () => {
+			this.throwInjectedFailure('restore');
 			if (extensionHostsStopped) {
 				await this.extensionService.startExtensionHosts();
 				extensionHostsStopped = false;
 			}
+		};
 
-			// The assistant creates the panel in the active group. Unlocking
-			// lets that be this group, so the panel needs no second webview
-			// move; the lock is Canvas mode's and goes back either way.
-			group.focus();
-			const wasLocked = group.isLocked;
-			group.lock(false);
-			let ready: boolean | undefined;
+		const run: Record<SwitchStep, () => Promise<void>> = { detach, commit: commitFolder, restore };
+
+		/**
+		 * The workspace half, resumable from the failed step. On
+		 * cancellation it stops before the commit if the commit has not
+		 * started; a commit under way runs to the end so the renderer
+		 * matches what the main process now holds, or reloads if it cannot.
+		 */
+		const between = async (token: CancellationToken) => {
+			let failure: unknown;
 			try {
-				ready = await raceTimeout(this.commandService.executeCommand(CANVAS_ENSURE_COMMAND).then(() => true), CANVAS_REBUILD_TIMEOUT);
+				while (next < steps.length) {
+					if (token.isCancellationRequested && commit === 'pending') {
+						break;
+					}
+					await run[steps[next]]();
+					next++;
+				}
+			} catch (error) {
+				failure = error;
+			}
+			if (!token.isCancellationRequested) {
+				if (failure !== undefined) {
+					throw failure;
+				}
+				return;
+			}
+
+			// Canvas is leaving: the exit or window loss that cancelled us is
+			// waiting for this to settle before it hands back the IDE.
+			if (this.lifecycleService.willShutdown) {
+				// Nothing recovers during a quit; the renderer is going away.
+				throw new CancellationError();
+			}
+			if (failure !== undefined && commit === 'partial') {
+				// The main process holds the new folder and this renderer could
+				// not follow; the main process wins on reload. A refused reload
+				// leaves the failure to the card.
+				this.logService.error('[canvas] The workspace switch was cancelled with the main process holding the new folder; reloading', failure);
+				if (await this.canvasService.reloadIntoIde()) {
+					throw new CancellationError();
+				}
+				throw failure;
+			}
+			if (failure !== undefined) {
+				this.logService.error('[canvas] The workspace switch was cancelled after a step failed; handing back the IDE', failure);
+			}
+			await restartExtensionHosts();
+			throw new CancellationError();
+		};
+
+		const showFailure = (error: unknown) => {
+			lastError = error;
+			curtain.showFailure(toErrorMessage(error), {
+				retry: () => void runRecovery(advance),
+				openPositron: () => void runRecovery(openPositron)
+			});
+		};
+
+		const advance = async () => {
+			curtain.showLoading();
+			rebuildInFlight = true;
+			try {
+				await this.canvasService.rebuild(between);
+				settle();
+			} catch (error) {
+				if (isCancellationError(error)) {
+					this.logService.info(`[canvas] Switching the Canvas workspace to ${target.uri.fsPath} stopped: Canvas was closed`);
+					settle(cancelledError());
+					return;
+				}
+				this.logService.error(`[canvas] Switching the Canvas workspace to ${target.uri.fsPath} stopped at step ${Math.min(next + 1, steps.length)} of ${steps.length}`, error);
+				showFailure(error);
 			} finally {
-				group.lock(wasLocked);
+				rebuildInFlight = false;
 			}
-			if (!ready) {
-				throw new Error(localize('positron.canvas.switchNotReady', "Canvas did not finish starting in the new workspace."));
-			}
-
-			const rebuilt = this.findRebuiltCanvas(group, editor);
-			if (!rebuilt) {
-				throw new Error(localize('positron.canvas.switchNoPanel', "Canvas did not open in the new workspace."));
-			}
-			if (rebuilt.group !== group && !rebuilt.group.moveEditors(prepareMoveCopyEditors(rebuilt.group, [rebuilt.editor]), group)) {
-				throw new Error(localize('positron.canvas.switchNoMove', "Canvas could not return to its window."));
-			}
-			await group.openEditor(rebuilt.editor, { pinned: true, preserveFocus: true });
-			if (placeholder) {
-				await group.closeEditor(placeholder, { preserveFocus: true });
-				placeholder = undefined;
-			}
-
-			// The mode flag follows the folder: the destination now relaunches
-			// into Canvas, as the source did before `commitFolder` cleared it.
-			this.storageService.store(CANVAS_MODE_STORAGE_KEY, true, StorageScope.WORKSPACE, StorageTarget.MACHINE);
-			group.focus();
 		};
 
 		const openPositron = async () => {
+			curtain.showLoading();
 			if (commit === 'partial') {
 				// Renderer and main process may disagree about the folder;
 				// the main process wins on reload, so reload rather than exit.
-				// The flag is cleared for whichever storage is current so the
-				// reload lands in the IDE.
-				this.storageService.remove(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
-				await this.hostService.reload();
-				curtain.dispose();
-				return;
+				if (await this.canvasService.reloadIntoIde()) {
+					return;
+				}
+				throw new Error(localize('positron.canvas.switchReloadRefused', "Positron did not reload. Try again or retry the switch."));
 			}
-			if (extensionHostsStopped) {
-				await this.extensionService.startExtensionHosts();
-				extensionHostsStopped = false;
-			}
+			await restartExtensionHosts();
 			await this.canvasService.exit();
-			curtain.dispose();
+			settle(lastError ?? cancelledError());
 		};
 
-		const steps = [detach, commitFolder, restore];
-		let next = 0;
-		const advance = async (): Promise<void> => {
-			curtain.showLoading();
+		/** One recovery at a time; a failed one re-arms the card. */
+		const runRecovery = async (action: () => Promise<void>) => {
+			if (recovering || done.isSettled) {
+				return;
+			}
+			recovering = true;
 			try {
-				while (next < steps.length) {
-					await steps[next]();
-					next++;
-				}
-				curtain.dispose();
+				await action();
 			} catch (error) {
-				this.logService.error(`[canvas] Switching the Canvas workspace to ${target.uri.fsPath} stopped at step ${next + 1} of ${steps.length}`, error);
-				curtain.showFailure(toErrorMessage(error), {
-					retry: () => void advance(),
-					openPositron: () => void openPositron().catch(cause => {
-						this.logService.error('[canvas] Could not hand back the IDE after a failed workspace switch', cause);
-						curtain.showFailure(toErrorMessage(cause), { retry: () => void advance(), openPositron: () => void openPositron() });
-					})
-				});
+				this.logService.error('[canvas] Could not recover from the failed workspace switch', error);
+				showFailure(error);
+			} finally {
+				recovering = false;
 			}
 		};
-		await advance();
+
+		// Canvas leaving while the card is up (exit command, native close):
+		// a rebuild in flight settles the transaction itself; an idle card
+		// has nobody else to do it.
+		disposables.add(this.canvasService.onDidChangeActive(active => {
+			if (active || rebuildInFlight || recovering || done.isSettled) {
+				return;
+			}
+			restartExtensionHosts()
+				.catch(error => this.logService.error('[canvas] Could not restart the extension hosts after Canvas closed mid-switch', error))
+				.finally(() => settle(cancelledError()));
+		}));
+
+		void advance();
+		return done.p;
+	}
+
+	/** Every editor outside the Canvas window, by the group holding it. */
+	private captureSourceEditors(): Map<IEditorGroup, EditorInput[]> {
+		const captured = new Map<IEditorGroup, EditorInput[]>();
+		for (const group of this.editorGroupsService.groups) {
+			if (!group.editors.some(editor => editor instanceof CanvasPlaceholderInput)) {
+				captured.set(group, group.editors.slice());
+			}
+		}
+		return captured;
 	}
 
 	/**
-	 * The panel the assistant just produced: any Canvas panel other than the
-	 * one this switch closed, preferring one already in the Canvas group.
+	 * Opening a folder starts from that folder's editors, not the last
+	 * one's. Closes what the source had open, by group, so a destination
+	 * editor that shares an input with the source is never touched, then
+	 * lets detached windows left empty go.
 	 */
-	private findRebuiltCanvas(home: IEditorGroup, closed: WebviewInput): { group: IEditorGroup; editor: WebviewInput } | undefined {
-		const groups = [home, ...this.editorGroupsService.groups.filter(group => group !== home)];
-		for (const group of groups) {
-			const editor = group.editors.find((candidate): candidate is WebviewInput => candidate !== closed && !candidate.isDisposed() && isCanvasEditor(candidate));
-			if (editor) {
-				return { group, editor };
+	private async closeSourceEditors(sourceEditors: Map<IEditorGroup, EditorInput[]>): Promise<void> {
+		for (const [group, editors] of sourceEditors) {
+			// A group the destination's layout replaced is a different object.
+			if (this.editorGroupsService.getGroup(group.id) !== group) {
+				continue;
+			}
+			const open = editors.filter(editor => group.contains(editor));
+			if (open.length > 0 && !await group.closeEditors(open, { preserveFocus: true })) {
+				throw new Error(localize('positron.canvas.switchEditorsOpen', "An editor in the Positron window could not be closed."));
 			}
 		}
-		return undefined;
+		for (const part of this.editorGroupsService.parts) {
+			if (part === this.editorGroupsService.mainPart || !isAuxiliaryEditorPart(part)) {
+				continue;
+			}
+			if (part.groups.some(group => group.editors.some(editor => editor instanceof CanvasPlaceholderInput))) {
+				continue;
+			}
+			if (part.groups.every(group => group.count === 0)) {
+				part.close();
+			}
+		}
+	}
+
+	private throwInjectedFailure(step: SwitchStep): void {
+		if (injectedFailure === step && !this.environmentService.isBuilt) {
+			injectedFailure = undefined;
+			throw new Error(`Injected failure at the ${step} step (${FAIL_NEXT_CANVAS_SWITCH_COMMAND_ID})`);
+		}
 	}
 }
 
@@ -364,8 +476,8 @@ export class CanvasFolderSwitcher {
 let switching: Promise<void> | undefined;
 
 CommandsRegistry.registerCommand(SWITCH_CANVAS_FOLDER_COMMAND_ID, (accessor: ServicesAccessor, folderPath?: unknown): Promise<void> => {
-	if (folderPath !== undefined && typeof folderPath !== 'string') {
-		throw new Error(`${SWITCH_CANVAS_FOLDER_COMMAND_ID}: folderPath must be a string when given`);
+	if (typeof folderPath !== 'string') {
+		throw new Error(`${SWITCH_CANVAS_FOLDER_COMMAND_ID}: folderPath must be a string`);
 	}
 	if (switching) {
 		throw new Error(localize('positron.canvas.switchInProgress', "Canvas is already switching workspaces."));
@@ -375,6 +487,13 @@ CommandsRegistry.registerCommand(SWITCH_CANVAS_FOLDER_COMMAND_ID, (accessor: Ser
 		switching = undefined;
 	});
 	return switching;
+});
+
+CommandsRegistry.registerCommand(FAIL_NEXT_CANVAS_SWITCH_COMMAND_ID, (accessor: ServicesAccessor, step?: unknown): void => {
+	if (accessor.get(INativeWorkbenchEnvironmentService).isBuilt) {
+		return;
+	}
+	injectedFailure = step === 'detach' || step === 'commit' || step === 'restore' ? step : undefined;
 });
 
 /** Local folders from the recently opened list, most recent first, as paths. */

@@ -6,102 +6,84 @@
 /// <reference types="vitest/globals" />
 
 import { DeferredPromise } from '../../../../../base/common/async.js';
-import { Event } from '../../../../../base/common/event.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
+import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../../platform/native/common/native.js';
 import { IStorageService } from '../../../../../platform/storage/common/storage.js';
-import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 import { ISingleFolderWorkspaceIdentifier, IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
-import { IWorkspacesService } from '../../../../../platform/workspaces/common/workspaces.js';
+import { ICanvasFolderResolution } from '../../../../../platform/workspaces/common/positronFolderWorkspace.js';
+import { IRecentlyOpened, IWorkspacesService } from '../../../../../platform/workspaces/common/workspaces.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
+import { isStoredEditorLayoutHeld } from '../../../../browser/positronEditorPartsLayout.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
-import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { WorkspaceService } from '../../../../services/configuration/browser/configurationService.js';
-import { IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
+import { ICloseEditorsFilter, IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
 import { INativeWorkbenchEnvironmentService } from '../../../../services/environment/electron-browser/environmentService.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { IHostService } from '../../../../services/host/browser/host.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ITextEditorService } from '../../../../services/textfile/common/textEditorService.js';
-import { IWorkingCopyBackupService } from '../../../../services/workingCopy/common/workingCopyBackup.js';
+import { IPositronBackupHandoffService } from '../../../../services/workingCopy/electron-browser/positronBackupHandoff.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
-import { IOverlayWebview } from '../../../webview/browser/webview.js';
-import { WebviewInput } from '../../../webviewPanel/browser/webviewEditorInput.js';
-import { CANVAS_WEBVIEW_VIEW_TYPE } from '../../common/positronCanvasMode.js';
-import { CanvasFolderSwitcher } from '../../electron-browser/positronCanvasFolderSwitch.js';
+import { CanvasPlaceholderInput } from '../../browser/canvasPlaceholderEditor.js';
+import { CanvasFolderSwitcher, GET_CANVAS_FOLDERS_COMMAND_ID, SWITCH_CANVAS_FOLDER_COMMAND_ID } from '../../electron-browser/positronCanvasFolderSwitch.js';
 import { IPositronCanvasService } from '../../electron-browser/positronCanvasService.js';
 
 const SOURCE = URI.file('/projects/gamma');
 const TARGET = URI.file('/projects/delta');
 
 /** What the main process answers for `/projects/delta`. */
-const TARGET_IDENTIFIER: ISingleFolderWorkspaceIdentifier = { id: 'delta', uri: TARGET };
+const TARGET_RESOLUTION: ICanvasFolderResolution = { workspace: { id: 'delta', uri: TARGET }, physicalUri: TARGET };
 
 describe('CanvasFolderSwitcher', () => {
 	const ctx = createTestContainer().build();
 
+	function createEditor(name: string): EditorInput {
+		return stubInterface<EditorInput>({ getName: () => name, isDisposed: () => false });
+	}
+
 	/** A group whose editor list the switch rearranges, recording into `calls`. */
-	function createGroup(name: string, calls: string[], editors: EditorInput[] = []): IEditorGroup {
-		const group = stubInterface<IEditorGroup>({
+	function createGroup(name: string, id: number, calls: string[], editors: EditorInput[] = []): IEditorGroup {
+		return stubInterface<IEditorGroup>({
+			id,
 			editors,
-			isLocked: true,
-			lock: vi.fn(),
-			focus: vi.fn(),
-			// Read by the real `prepareMoveCopyEditors` when a panel is moved home.
-			isSticky: () => false,
-			isActive: (editor: EditorInput) => editors.at(-1) === editor,
-			getIndexOfEditor: (editor: EditorInput) => editors.indexOf(editor),
+			get count() { return editors.length; },
 			contains: (candidate: EditorInput) => editors.includes(candidate),
-			openEditor: vi.fn(async (editor: EditorInput) => {
-				calls.push(`${name}.open(${editor.getName()})`);
-				if (!editors.includes(editor)) {
-					editors.push(editor);
+			closeEditors: vi.fn(async (toClose: EditorInput[]) => {
+				calls.push(`${name}.closeEditors(${toClose.map(editor => editor.getName()).join(',')})`);
+				for (const editor of toClose) {
+					editors.splice(editors.indexOf(editor), 1);
 				}
-				return undefined;
-			}),
-			closeEditor: vi.fn(async (editor: EditorInput) => {
-				calls.push(`${name}.close(${editor.getName()})`);
-				editors.splice(editors.indexOf(editor), 1);
-				return true;
-			}),
-			closeAllEditors: vi.fn().mockImplementation(() => {
-				calls.push(`${name}.closeAll`);
-				editors.length = 0;
-				return true;
-			}),
-			moveEditors: vi.fn(() => {
-				calls.push(`${name}.moveEditors`);
 				return true;
 			}),
 		});
-		return group;
 	}
 
-	function createCanvasEditor(name: string): WebviewInput {
-		const editor = new WebviewInput(
-			{ viewType: CANVAS_WEBVIEW_VIEW_TYPE, providedId: CANVAS_WEBVIEW_VIEW_TYPE, name, iconPath: undefined },
-			stubInterface<IOverlayWebview>({ state: undefined, dispose: vi.fn() }),
-			stubInterface<IThemeService>({ onDidColorThemeChange: Event.None }),
-		);
-		ctx.disposables.add(editor);
-		return editor;
-	}
-
-	function createSession(name: string): ILanguageRuntimeSession {
-		return stubInterface<ILanguageRuntimeSession>({ sessionId: `${name}-id`, dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: name }) });
+	function createSession(name: string, state = RuntimeState.Idle): ILanguageRuntimeSession {
+		return stubInterface<ILanguageRuntimeSession>({
+			sessionId: `${name}-id`,
+			dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: name }),
+			getRuntimeState: () => state,
+		});
 	}
 
 	/**
 	 * A Canvas window presenting `gamma`, with every collaborator recording
-	 * the mutations it is asked for into `calls`, in order.
+	 * the mutations it is asked for into `calls`, in order. The Canvas
+	 * service is a stub whose `rebuild` swaps the panel for a placeholder,
+	 * runs the workspace half with a token the test controls, and then
+	 * "restores" the panel unless told to fail.
 	 */
 	function build(options: {
 		canvasActive?: boolean;
@@ -109,95 +91,133 @@ describe('CanvasFolderSwitcher', () => {
 		workbenchState?: WorkbenchState;
 		aiEnabled?: boolean;
 		hasDirty?: boolean;
-		trusted?: boolean;
+		/** URIs the trust service reports as untrusted. */
+		untrusted?: URI[];
 		/** What the main process answers for `resolveCanvasFolder`. */
-		resolve?: () => Promise<ISingleFolderWorkspaceIdentifier>;
+		resolve?: () => Promise<ICanvasFolderResolution>;
 		/** What the main process answers for `enterCanvasFolder`; called per attempt. */
 		enter?: () => Promise<{ workspace: ISingleFolderWorkspaceIdentifier; backupPath: string | undefined }>;
-		pick?: URI | undefined;
 		sessions?: ILanguageRuntimeSession[];
-		deleteSession?: () => Promise<boolean>;
+		deleteSession?: (sessionId: string) => Promise<boolean>;
 		stopExtensionHosts?: () => Promise<boolean>;
+		startExtensionHosts?: () => Promise<void>;
+		initialize?: () => Promise<void>;
 		switchStorage?: () => Promise<void>;
-		/** Runs when the assistant is asked to ensure Canvas; defaults to producing a panel in the Canvas group. */
-		ensureCanvas?: () => Promise<undefined>;
-		/** Where the assistant puts the rebuilt panel. */
-		rebuildIn?: 'canvas' | 'main';
+		/** Makes the Canvas half fail after the workspace half, once per value. */
+		restoreFailures?: string[];
+		/** Whether `reloadIntoIde` reports an accepted reload. */
+		reloadAccepted?: boolean;
+		willShutdown?: boolean;
+		/** The main editor part; an `EditorPart` gets its stored layout applied. */
+		mainPart?: IEditorPart;
+		/** Editors open in the IDE window before the switch. */
+		mainEditors?: EditorInput[];
+		extraGroups?: IEditorGroup[];
+		/** Replaces the main group by id, the way a destination layout does. */
+		replaceMainGroup?: boolean;
 	} = {}) {
 		const calls: string[] = [];
-		const canvasEditor = createCanvasEditor('Canvas');
-		const canvasEditors: EditorInput[] = [canvasEditor];
-		const mainEditors: EditorInput[] = [];
-		const canvasGroup = createGroup('canvas', calls, canvasEditors);
-		const mainGroup = createGroup('main', calls, mainEditors);
+		const placeholder = new CanvasPlaceholderInput();
+		ctx.disposables.add(placeholder);
+		const canvasEditors: EditorInput[] = [placeholder];
+		const mainEditors = options.mainEditors ?? [createEditor('a.txt'), createEditor('b.txt')];
+		const canvasGroup = createGroup('canvas', 1, calls, canvasEditors);
+		const mainGroup = createGroup('main', 2, calls, mainEditors);
+		const groups = [canvasGroup, mainGroup, ...(options.extraGroups ?? [])];
 		const container = document.createElement('div');
 		document.body.appendChild(container);
 		ctx.disposables.add({ dispose: () => container.remove() });
-		const placeholder = stubInterface<EditorInput>({ getName: () => 'placeholder', isDisposed: () => false });
 
-		const exit = vi.fn(async () => { calls.push('canvas.exit'); return true; });
-		const reload = vi.fn(async () => { calls.push('host.reload'); });
-		const initialize = vi.fn(async (workspace: ISingleFolderWorkspaceIdentifier) => { calls.push(`workspace.initialize(${workspace.uri.path})`); });
+		const cancellation = new CancellationTokenSource();
+		ctx.disposables.add(cancellation);
+		const activeChanges = ctx.disposables.add(new Emitter<boolean>());
+		const restoreFailures = [...(options.restoreFailures ?? [])];
+		const rebuild = vi.fn(async (between: (token: CancellationToken) => Promise<void>) => {
+			calls.push('canvas.rebuild');
+			await between(cancellation.token);
+			if (cancellation.token.isCancellationRequested) {
+				throw new CancellationError();
+			}
+			const failure = restoreFailures.shift();
+			if (failure) {
+				throw new Error(failure);
+			}
+			calls.push('canvas.restore');
+		});
+		const exit = vi.fn(async () => { calls.push('canvas.exit'); activeChanges.fire(false); return true; });
+		const reloadIntoIde = vi.fn(async () => { calls.push('canvas.reloadIntoIde'); return options.reloadAccepted ?? true; });
+		const initialize = vi.fn(async (workspace: ISingleFolderWorkspaceIdentifier) => {
+			calls.push(`workspace.initialize(${workspace.uri.path})`);
+			await options.initialize?.();
+		});
 		const storageSwitch = vi.fn(async (workspace: ISingleFolderWorkspaceIdentifier) => {
-			calls.push(`storage.switch(${workspace.uri.path})`);
+			calls.push(`storage.switch(${workspace.uri.path}) held=${isStoredEditorLayoutHeld()}`);
 			await options.switchStorage?.();
 		});
-		const storageRemove = vi.fn((key: string) => { calls.push(`storage.remove(${key})`); });
-		const storageStore = vi.fn((key: string, value: unknown) => { calls.push(`storage.store(${key}=${value})`); });
+		const rehome = vi.fn(async (home: URI | undefined, closeSource: () => Promise<void>) => {
+			calls.push(`backup.rehome(${home?.toString() ?? 'in-memory'})`);
+			await closeSource();
+		});
 		const deleteSession = vi.fn(async (sessionId: string) => {
 			calls.push(`runtime.delete(${sessionId})`);
-			return options.deleteSession ? options.deleteSession() : true;
+			return options.deleteSession ? options.deleteSession(sessionId) : true;
 		});
 		const stopExtensionHosts = vi.fn(async () => {
 			calls.push('extensions.stop');
 			return options.stopExtensionHosts ? options.stopExtensionHosts() : true;
 		});
-		const startExtensionHosts = vi.fn(async () => { calls.push('extensions.start'); });
-		const addRecentlyOpened = vi.fn(async () => { calls.push('recents.add'); });
-		const ensureCanvas = vi.fn(async () => {
-			calls.push('assistant.ensureCanvas');
-			if (options.ensureCanvas) {
-				return options.ensureCanvas();
-			}
-			(options.rebuildIn === 'main' ? mainEditors : canvasEditors).push(createCanvasEditor('Canvas 2'));
-			return undefined;
+		const startExtensionHosts = vi.fn(async () => {
+			calls.push('extensions.start');
+			await options.startExtensionHosts?.();
 		});
+		const addRecentlyOpened = vi.fn(async () => { calls.push('recents.add'); });
 		const channelCall = vi.fn(async (command: string, args: unknown[]) => {
 			switch (command) {
 				case 'resolveCanvasFolder':
-					return options.resolve ? options.resolve() : TARGET_IDENTIFIER;
+					return options.resolve ? options.resolve() : TARGET_RESOLUTION;
 				case 'enterCanvasFolder':
 					calls.push(`main.enterCanvasFolder(${(args[1] as URI).path})`);
-					return options.enter ? options.enter() : { workspace: TARGET_IDENTIFIER, backupPath: '/backups/delta' };
+					return options.enter ? options.enter() : { workspace: TARGET_RESOLUTION.workspace, backupPath: '/backups/delta' };
 				default:
 					throw new Error(`unexpected channel call ${command}`);
 			}
 		});
+		const mainPart = options.mainPart ?? stubInterface<IEditorPart>({ windowId: 1 });
 
-		ctx.instantiationService.stub(IPositronCanvasService, stubInterface<IPositronCanvasService>({ isActive: options.canvasActive ?? true, activeGroup: canvasGroup, exit }));
+		ctx.instantiationService.stub(IPositronCanvasService, stubInterface<IPositronCanvasService>({
+			isActive: options.canvasActive ?? true,
+			canvasContainer: container,
+			onDidChangeActive: activeChanges.event,
+			rebuild,
+			exit,
+			reloadIntoIde,
+		}));
 		ctx.instantiationService.stub(IWorkspaceContextService, stubInterface<WorkspaceService>({
 			getWorkbenchState: () => options.workbenchState ?? WorkbenchState.FOLDER,
 			getWorkspace: () => stubInterface<ReturnType<WorkspaceService['getWorkspace']>>({ folders: [stubInterface<ReturnType<WorkspaceService['getWorkspace']>['folders'][number]>({ uri: SOURCE })] }),
 			initialize,
 		}));
-		ctx.instantiationService.stub(INativeWorkbenchEnvironmentService, stubInterface<INativeWorkbenchEnvironmentService>({ remoteAuthority: options.remoteAuthority, userRoamingDataHome: URI.file('/roaming') }));
+		ctx.instantiationService.stub(INativeWorkbenchEnvironmentService, stubInterface<INativeWorkbenchEnvironmentService>({ remoteAuthority: options.remoteAuthority, userRoamingDataHome: URI.from({ scheme: 'vscode-userdata', path: '/roaming' }), isBuilt: true }));
 		ctx.instantiationService.stub(IEditorGroupsService, stubInterface<IEditorGroupsService>({
-			groups: [canvasGroup, mainGroup],
-			getPart: () => stubInterface<IEditorPart>({ windowId: 1000 }),
+			groups,
+			mainPart,
+			parts: [mainPart],
+			getGroup: (id: number) => {
+				const group = groups.find(candidate => candidate.id === id);
+				return group === mainGroup && options.replaceMainGroup ? createGroup('replaced', 2, calls, mainEditors.slice()) : group;
+			},
 		}));
-		ctx.instantiationService.stub(ITextEditorService, stubInterface<ITextEditorService>({ createTextEditor: vi.fn().mockReturnValue(placeholder) }));
-		ctx.instantiationService.stub(IAuxiliaryWindowService, stubInterface<IAuxiliaryWindowService>({ getWindow: () => stubInterface<IAuxiliaryWindow>({ container }) }));
 		ctx.instantiationService.stub(IExtensionService, stubInterface<IExtensionService>({ stopExtensionHosts, startExtensionHosts }));
-		ctx.instantiationService.stub(ICommandService, stubInterface<ICommandService>({ executeCommand: ensureCanvas }));
 		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({ activeSessions: options.sessions ?? [createSession('R')], deleteSession }));
-		ctx.instantiationService.stub(IStorageService, stubInterface<IStorageService>({ remove: storageRemove, store: storageStore, switch: storageSwitch }));
-		ctx.instantiationService.stub(IWorkingCopyBackupService, stubInterface<IWorkingCopyBackupService>({}));
+		ctx.instantiationService.stub(IStorageService, stubInterface<IStorageService>({ switch: storageSwitch }));
+		ctx.instantiationService.stub(IPositronBackupHandoffService, stubInterface<IPositronBackupHandoffService>({ rehome }));
 		ctx.instantiationService.stub(IWorkingCopyService, stubInterface<IWorkingCopyService>({ hasDirty: options.hasDirty ?? false }));
-		ctx.instantiationService.stub(IWorkspaceTrustManagementService, stubInterface<IWorkspaceTrustManagementService>({ getUriTrustInfo: async (uri: URI) => ({ uri, trusted: options.trusted ?? true }) }));
-		ctx.instantiationService.stub(IFileDialogService, stubInterface<IFileDialogService>({ showOpenDialog: async () => options.pick ? [options.pick] : undefined }));
+		ctx.instantiationService.stub(IWorkspaceTrustManagementService, stubInterface<IWorkspaceTrustManagementService>({
+			getUriTrustInfo: async (uri: URI) => ({ uri, trusted: !(options.untrusted ?? []).some(untrusted => untrusted.toString() === uri.toString()) })
+		}));
 		ctx.instantiationService.stub(IWorkspacesService, stubInterface<IWorkspacesService>({ addRecentlyOpened }));
-		ctx.instantiationService.stub(IHostService, stubInterface<IHostService>({ reload }));
 		ctx.instantiationService.stub(IConfigurationService, stubInterface<IConfigurationService>({ getValue: () => options.aiEnabled ?? true }));
+		ctx.instantiationService.stub(ILifecycleService, stubInterface<ILifecycleService>({ willShutdown: options.willShutdown ?? false }));
 		ctx.instantiationService.stub(ILogService, new NullLogService());
 		ctx.instantiationService.stub(INativeHostService, stubInterface<INativeHostService>({ windowId: 1 }));
 		ctx.instantiationService.stub(IMainProcessService, stubInterface<IMainProcessService>({ getChannel: () => stubInterface<IChannel>({ call: channelCall as IChannel['call'] }) }));
@@ -217,8 +237,22 @@ describe('CanvasFolderSwitcher', () => {
 			}
 			(button as HTMLElement).click();
 		};
-		return { switcher, calls, canvasGroup, mainGroup, canvasEditors, container, curtain, click, exit, reload, ensureCanvas, channelCall };
+		/** The curtain's buttons by label, `[]` while it is loading. */
+		// eslint-disable-next-line no-restricted-syntax -- non-React DOM; no semantic query available here
+		const buttons = () => Array.from(container.getElementsByClassName('monaco-button')).map(element => element.textContent);
+		/** Starts a switch and reports how its promise settled, `'pending'` until it does. */
+		const start = (folderPath = TARGET.fsPath) => {
+			let outcome: string = 'pending';
+			const promise = switcher.switchFolder(folderPath).then(() => { outcome = 'resolved'; }, (error: Error) => { outcome = `rejected: ${error.message}`; });
+			return { promise, outcome: () => outcome };
+		};
+		const cancel = () => cancellation.cancel();
+		const canvasGone = () => activeChanges.fire(false);
+		return { switcher, calls, canvasGroup, mainGroup, mainEditors, container, curtain, click, buttons, start, cancel, canvasGone, exit, reloadIntoIde, rebuild, channelCall, startExtensionHosts };
 	}
+
+	/** Lets queued microtasks run without advancing fake timers. */
+	const settle = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 
 	describe('refuses before anything changes', () => {
 		it.each([
@@ -226,8 +260,10 @@ describe('CanvasFolderSwitcher', () => {
 			['Canvas is not presenting', { canvasActive: false }, 'not open in its own window'],
 			['the window is remote', { remoteAuthority: 'ssh-remote+host' }, 'single-folder workspace'],
 			['the workspace is multi-root', { workbenchState: WorkbenchState.WORKSPACE }, 'single-folder workspace'],
-			['the destination is not trusted', { trusted: false }, 'not trusted'],
+			['the destination is not trusted', { untrusted: [TARGET] }, 'not trusted'],
+			['the folder behind a trusted alias is not trusted', { resolve: async () => ({ workspace: { id: 'link', uri: URI.file('/trusted/link') }, physicalUri: URI.file('/untrusted/delta') }), untrusted: [URI.file('/untrusted/delta')] }, 'not trusted'],
 			['there are unsaved changes', { hasDirty: true }, 'unsaved changes'],
+			['a runtime session is busy', { sessions: [createSession('R', RuntimeState.Busy)] }, 'session is busy'],
 			['the main process refuses the folder', { resolve: () => Promise.reject(new Error('The folder /projects/delta does not exist.')) }, 'does not exist'],
 		] satisfies [string, Parameters<typeof build>[0], string][])('when %s', async (_name, options, message) => {
 			const { switcher, calls, curtain } = build(options);
@@ -242,158 +278,333 @@ describe('CanvasFolderSwitcher', () => {
 		});
 	});
 
-	describe('does nothing', () => {
-		it('when the folder picker is cancelled', async () => {
-			const { switcher, calls } = build({ pick: undefined });
-			await switcher.switchFolder();
-			expect(calls).toEqual([]);
-		});
-
-		it('when the destination is the current folder', async () => {
-			const { switcher, calls } = build({ resolve: async () => ({ id: 'gamma', uri: SOURCE }) });
-			await switcher.switchFolder(SOURCE.fsPath);
-			expect(calls).toEqual([]);
-		});
+	it('does nothing when the destination is the current folder', async () => {
+		const { switcher, calls } = build({ resolve: async () => ({ workspace: { id: 'gamma', uri: SOURCE }, physicalUri: SOURCE }) });
+		await switcher.switchFolder(SOURCE.fsPath);
+		expect(calls).toEqual([]);
 	});
 
-	it('detaches, commits and restores in order, moving the Canvas mode flag with the folder', async () => {
-		const { switcher, calls, canvasGroup, curtain } = build({ pick: TARGET });
-		await switcher.switchFolder();
+	it('runs the workspace half inside the Canvas rebuild: hosts down, identity, storage under the layout hold, editors, backups, hosts up', async () => {
+		const { switcher, calls, curtain, mainEditors } = build();
+		await switcher.switchFolder(TARGET.fsPath);
 		expect(calls).toMatchInlineSnapshot(`
 			[
-			  "canvas.open(placeholder)",
-			  "canvas.close(Canvas)",
-			  "main.closeAll",
+			  "canvas.rebuild",
 			  "runtime.delete(R-id)",
 			  "extensions.stop",
-			  "storage.remove(positron.canvasMode.active)",
 			  "main.enterCanvasFolder(/projects/delta)",
 			  "workspace.initialize(/projects/delta)",
-			  "storage.switch(/projects/delta)",
+			  "storage.switch(/projects/delta) held=true",
+			  "backup.rehome(vscode-userdata:/backups/delta)",
+			  "main.closeEditors(a.txt,b.txt)",
 			  "recents.add",
 			  "extensions.start",
-			  "assistant.ensureCanvas",
-			  "canvas.open(Canvas 2)",
-			  "canvas.close(placeholder)",
-			  "storage.store(positron.canvasMode.active=true)",
+			  "canvas.restore",
 			]
 		`);
-		expect({ curtain: curtain(), editors: canvasGroup.editors.map(editor => editor.getName()), locked: canvasGroup.lock }).toMatchObject({ curtain: null, editors: ['Canvas 2'] });
-		expect(canvasGroup.lock).toHaveBeenNthCalledWith(1, false);
-		expect(canvasGroup.lock).toHaveBeenLastCalledWith(true);
+		expect({ curtain: curtain(), held: isStoredEditorLayoutHeld(), mainEditors: mainEditors.length }).toEqual({ curtain: null, held: false, mainEditors: 0 });
 	});
 
-	it('brings a panel the assistant built in the IDE window back to the Canvas window', async () => {
-		const { switcher, calls, mainGroup } = build({ rebuildIn: 'main' });
+	it('re-homes backups in memory for an extension development window', async () => {
+		const { switcher, calls } = build({ enter: async () => ({ workspace: TARGET_RESOLUTION.workspace, backupPath: undefined }) });
 		await switcher.switchFolder(TARGET.fsPath);
-		expect(calls.slice(calls.indexOf('assistant.ensureCanvas'))).toEqual([
-			'assistant.ensureCanvas',
-			'main.moveEditors',
-			'canvas.open(Canvas 2)',
-			'canvas.close(placeholder)',
-			'storage.store(positron.canvasMode.active=true)',
-		]);
-		expect(mainGroup.moveEditors).toHaveBeenCalledTimes(1);
+		expect(calls).toContain('backup.rehome(in-memory)');
+	});
+
+	it('applies the destination layout through the main editor part after the source editors are gone', async () => {
+		const applyStoredState = vi.fn(async () => { });
+		const mainPart = Object.assign(Object.create(EditorPart.prototype) as EditorPart, { windowId: 1, applyStoredState });
+		const { switcher, calls } = build({ mainPart });
+		applyStoredState.mockImplementation(async () => { calls.push('main.applyStoredState'); });
+
+		await switcher.switchFolder(TARGET.fsPath);
+
+		expect(calls.slice(calls.indexOf('main.closeEditors(a.txt,b.txt)'))).toEqual(['main.closeEditors(a.txt,b.txt)', 'main.applyStoredState', 'recents.add', 'extensions.start', 'canvas.restore']);
+	});
+
+	describe('source editors', () => {
+		it('are closed by the group that held them, so a destination group sharing an input is left alone', async () => {
+			const shared = createEditor('shared.txt');
+			const detachedGroup = createGroup('detached', 3, [], [shared]);
+			const { switcher, calls } = build({ mainEditors: [shared, createEditor('b.txt')], extraGroups: [detachedGroup] });
+			// The detached group records into its own list; swap in the shared recorder.
+			vi.mocked(detachedGroup.closeEditors).mockImplementation(async (toClose: EditorInput[] | ICloseEditorsFilter) => { calls.push(`detached.closeEditors(${(Array.isArray(toClose) ? toClose : []).map(editor => editor.getName()).join(',')})`); return true; });
+
+			await switcher.switchFolder(TARGET.fsPath);
+
+			expect(calls.filter(call => call.includes('closeEditors'))).toEqual(['main.closeEditors(shared.txt,b.txt)', 'detached.closeEditors(shared.txt)']);
+		});
+
+		it('are not touched in a group the destination layout replaced', async () => {
+			const { switcher, calls } = build({ replaceMainGroup: true });
+			await switcher.switchFolder(TARGET.fsPath);
+			expect(calls.filter(call => call.includes('closeEditors'))).toEqual([]);
+		});
+
+		it('failing to close stops the commit with a presentable message', async () => {
+			const { mainGroup, start, curtain, canvasGone } = build();
+			vi.mocked(mainGroup.closeEditors).mockResolvedValueOnce(false);
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('could not be closed'));
+			expect(outcome()).toBe('pending');
+			canvasGone();
+			await promise;
+		});
 	});
 
 	describe('when a step fails', () => {
-		it('stops before the folder changes when a runtime declines to shut down, and Open Positron exits Canvas', async () => {
-			const { switcher, calls, curtain, click, exit } = build({ deleteSession: async () => false });
-			await switcher.switchFolder(TARGET.fsPath);
-			expect(curtain()).toHaveTextContent('Shutting down the R session was cancelled.');
-			expect(calls).not.toContain('main.enterCanvasFolder(/projects/delta)');
+		it('a declined runtime shutdown stops before the folder changes; the promise waits for Open Positron and then rejects with the cause', async () => {
+			const { calls, curtain, click, exit, start } = build({ deleteSession: async () => false });
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('Shutting down the R session was cancelled.'));
+			expect({ committed: calls.some(call => call.startsWith('main.enterCanvasFolder')), outcome: outcome() }).toEqual({ committed: false, outcome: 'pending' });
 
 			click('Open Positron');
-			await vi.waitFor(() => expect(exit).toHaveBeenCalled());
-			expect(calls.slice(-1)).toEqual(['canvas.exit']);
-			expect(curtain()).toBeNull();
+			await promise;
+			expect({ outcome: outcome(), exits: exit.mock.calls.length, curtain: curtain(), started: calls.filter(call => call === 'extensions.start') })
+				.toEqual({ outcome: 'rejected: Shutting down the R session was cancelled.', exits: 1, curtain: null, started: [] });
 		});
 
-		it('restarts stopped extension hosts before handing back the IDE, and Retry Canvas resumes from the failed step', async () => {
+		it('a runtime shutdown that rejects is reported in words, not the raw error', async () => {
+			const { curtain, start, canvasGone } = build({ deleteSession: () => Promise.reject(new Error('Cannot delete session because it is disconnected.')) });
+			const { promise } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('The R session could not be shut down.'));
+			expect(curtain()).not.toHaveTextContent('Cannot delete');
+			canvasGone();
+			await promise;
+		});
+
+		it('a session that turned busy after preflight is refused instead of prompted for', async () => {
+			let state = RuntimeState.Idle;
+			const session = stubInterface<ILanguageRuntimeSession>({ sessionId: 'R-id', dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'R' }), getRuntimeState: () => state });
+			const { calls, curtain, start, canvasGone } = build({ sessions: [createSession('Python'), session], deleteSession: async () => { state = RuntimeState.Busy; return true; } });
+			const { promise } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('The R session is busy.'));
+			expect(calls.filter(call => call.startsWith('runtime.delete'))).toEqual(['runtime.delete(Python-id)']);
+			canvasGone();
+			await promise;
+		});
+
+		it('Retry Canvas resumes from the failed step and restarts the hosts it stopped', async () => {
 			let attempts = 0;
-			const { switcher, calls, curtain, click, exit } = build({
+			const { calls, curtain, click, exit, start } = build({
 				enter: async () => {
 					if (attempts++ === 0) {
 						throw new Error('The folder /projects/delta does not exist.');
 					}
-					return { workspace: TARGET_IDENTIFIER, backupPath: undefined };
+					return { workspace: TARGET_RESOLUTION.workspace, backupPath: undefined };
 				}
 			});
-			await switcher.switchFolder(TARGET.fsPath);
-			expect(curtain()).toHaveTextContent('does not exist');
-			expect(calls.filter(call => call.startsWith('storage.'))).toEqual(['storage.remove(positron.canvasMode.active)']);
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('does not exist'));
 
 			click('Retry Canvas');
-			await vi.waitFor(() => expect(curtain()).toBeNull());
+			await promise;
 			// Detach is not repeated; commit runs again from the top.
-			expect(calls.filter(call => call === 'extensions.stop' || call.startsWith('main.enterCanvasFolder'))).toEqual([
+			expect(calls.filter(call => call === 'extensions.stop' || call === 'canvas.rebuild' || call.startsWith('main.enterCanvasFolder'))).toEqual([
+				'canvas.rebuild',
 				'extensions.stop',
 				'main.enterCanvasFolder(/projects/delta)',
+				'canvas.rebuild',
 				'main.enterCanvasFolder(/projects/delta)',
 			]);
-			expect(calls.slice(-1)).toEqual(['storage.store(positron.canvasMode.active=true)']);
-			expect(exit).not.toHaveBeenCalled();
+			expect({ outcome: outcome(), exits: exit.mock.calls.length, curtain: curtain() }).toEqual({ outcome: 'resolved', exits: 0, curtain: null });
 		});
 
 		it('Open Positron after a main-process refusal restarts extensions and exits', async () => {
-			const { switcher, calls, click, exit } = build({ enter: () => Promise.reject(new Error('gone')) });
-			await switcher.switchFolder(TARGET.fsPath);
+			const { calls, click, curtain, start } = build({ enter: () => Promise.reject(new Error('gone')) });
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('gone'));
 
 			click('Open Positron');
-			await vi.waitFor(() => expect(exit).toHaveBeenCalled());
-			expect(calls.slice(-2)).toEqual(['extensions.start', 'canvas.exit']);
+			await promise;
+			expect({ tail: calls.slice(-2), outcome: outcome() }).toEqual({ tail: ['extensions.start', 'canvas.exit'], outcome: 'rejected: gone' });
 		});
 
-		it('reloads instead of exiting when the renderer stopped matching the committed folder', async () => {
-			const { switcher, calls, curtain, click, reload, exit } = build({ switchStorage: () => Promise.reject(new Error('storage locked')) });
-			await switcher.switchFolder(TARGET.fsPath);
-			expect(curtain()).toHaveTextContent('storage locked');
+		it('reloads into the IDE instead of exiting when the renderer stopped matching the committed folder', async () => {
+			const { calls, curtain, click, reloadIntoIde, exit, start, canvasGone } = build({ switchStorage: () => Promise.reject(new Error('storage locked')) });
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('storage locked'));
+			expect(isStoredEditorLayoutHeld()).toBe(false);
 
 			click('Open Positron');
-			await vi.waitFor(() => expect(reload).toHaveBeenCalled());
-			expect(calls.slice(-2)).toEqual(['storage.remove(positron.canvasMode.active)', 'host.reload']);
-			expect(exit).not.toHaveBeenCalled();
+			await vi.waitFor(() => expect(reloadIntoIde).toHaveBeenCalled());
+			await settle();
+			// The renderer is going away; nothing else runs.
+			expect({ exits: exit.mock.calls.length, outcome: outcome(), tail: calls.slice(-1) }).toEqual({ exits: 0, outcome: 'pending', tail: ['canvas.reloadIntoIde'] });
+			canvasGone();
+			await promise;
 		});
 
-		it('gives up on a Canvas that never reports ready, and Retry asks the assistant again', async () => {
-			vi.useFakeTimers();
-			try {
-				let stuck = true;
-				const { switcher, curtain, click, ensureCanvas, canvasGroup, canvasEditors } = build({
-					ensureCanvas: async () => {
-						if (stuck) {
-							return new DeferredPromise<undefined>().p;
-						}
-						canvasEditors.push(createCanvasEditor('Canvas 2'));
-						return undefined;
-					}
-				});
-				const switching = switcher.switchFolder(TARGET.fsPath);
-				await vi.advanceTimersByTimeAsync(30_000);
-				await switching;
-				expect(curtain()).toHaveTextContent('did not finish starting');
-				expect(canvasGroup.lock).toHaveBeenLastCalledWith(true);
+		it('a refused reload brings the failure card back with the lock still held', async () => {
+			const { curtain, click, buttons, start, canvasGone } = build({ switchStorage: () => Promise.reject(new Error('storage locked')), reloadAccepted: false });
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('storage locked'));
 
-				stuck = false;
-				click('Retry Canvas');
-				await vi.advanceTimersByTimeAsync(0);
-				await vi.waitFor(() => expect(curtain()).toBeNull());
-				expect(ensureCanvas).toHaveBeenCalledTimes(2);
-			} finally {
-				vi.useRealTimers();
-			}
+			click('Open Positron');
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('did not reload'));
+			expect({ buttons: buttons(), outcome: outcome() }).toEqual({ buttons: ['Retry Canvas', 'Open Positron'], outcome: 'pending' });
+			canvasGone();
+			await promise;
+		});
+
+		it('a Canvas half that fails after the workspace half is retried without replaying the workspace steps', async () => {
+			const { calls, curtain, click, start } = build({ restoreFailures: ['Canvas did not finish starting in the new workspace.'] });
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('did not finish starting'));
+
+			click('Retry Canvas');
+			await promise;
+			expect({ outcome: outcome(), rebuilds: calls.filter(call => call === 'canvas.rebuild').length, commits: calls.filter(call => call.startsWith('main.enter')).length, hostStarts: calls.filter(call => call === 'extensions.start').length })
+				.toEqual({ outcome: 'resolved', rebuilds: 2, commits: 1, hostStarts: 1 });
+		});
+
+		it('runs one recovery at a time: Retry clicked during Open Positron is ignored, and repeated Open Positron exits once', async () => {
+			const starting = new DeferredPromise<void>();
+			const { calls, curtain, click, exit, start } = build({ enter: () => Promise.reject(new Error('gone')), startExtensionHosts: () => starting.p });
+			const { promise } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('gone'));
+
+			click('Open Positron');
+			// The loading card has no buttons; drive the handlers the way a
+			// double click would have before it swapped.
+			await settle();
+			expect(() => click('Retry Canvas')).toThrow('no curtain button');
+			await starting.complete();
+			await promise;
+			expect({ exits: exit.mock.calls.length, commits: calls.filter(call => call.startsWith('main.enter')).length }).toEqual({ exits: 1, commits: 1 });
+		});
+
+		it('Open Positron failing leaves an actionable card each time', async () => {
+			const { curtain, click, buttons, exit, start } = build({ enter: () => Promise.reject(new Error('gone')) });
+			exit.mockRejectedValueOnce(new Error('exit failed once')).mockRejectedValueOnce(new Error('exit failed twice'));
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('gone'));
+
+			click('Open Positron');
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('exit failed once'));
+			click('Open Positron');
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('exit failed twice'));
+			expect(buttons()).toEqual(['Retry Canvas', 'Open Positron']);
+
+			click('Open Positron');
+			await promise;
+			expect(outcome()).toBe('rejected: exit failed twice');
 		});
 	});
 
-	it('does not touch the source folder flag until the transaction commits', async () => {
-		const { switcher, calls, curtain, click, exit } = build({ stopExtensionHosts: async () => false });
-		await switcher.switchFolder(TARGET.fsPath);
-		expect(curtain()).toHaveTextContent('declined to stop');
-		expect(calls.filter(call => call.startsWith('storage.'))).toEqual([]);
+	describe('when Canvas goes away', () => {
+		it('on an idle failure card: hosts come back, the curtain comes down, the promise rejects as cancelled', async () => {
+			const { calls, curtain, canvasGone, start } = build({ enter: () => Promise.reject(new Error('gone')) });
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('gone'));
 
-		click('Open Positron');
-		await vi.waitFor(() => expect(exit).toHaveBeenCalled());
-		// The stop was refused, so there is nothing to start again.
-		expect(calls.slice(-2)).toEqual(['extensions.stop', 'canvas.exit']);
+			canvasGone();
+			await promise;
+			expect({ outcome: outcome(), curtain: curtain(), tail: calls.slice(-1) }).toEqual({ outcome: 'rejected: Canvas was closed while switching workspaces.', curtain: null, tail: ['extensions.start'] });
+		});
+
+		it('during detach: the workspace half stops before the commit and the hosts come back', async () => {
+			const deleting = new DeferredPromise<boolean>();
+			const { calls, cancel, start } = build({ deleteSession: () => deleting.p });
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(calls).toContain('runtime.delete(R-id)'));
+
+			cancel();
+			await deleting.complete(true);
+			await promise;
+			expect({ outcome: outcome(), committed: calls.some(call => call.startsWith('main.enter')), tail: calls.slice(-2) })
+				.toEqual({ outcome: 'rejected: Canvas was closed while switching workspaces.', committed: false, tail: ['extensions.stop', 'extensions.start'] });
+		});
+
+		it('while the main process commits: the renderer finishes matching it, hosts come back, nothing reloads', async () => {
+			const entering = new DeferredPromise<{ workspace: ISingleFolderWorkspaceIdentifier; backupPath: string | undefined }>();
+			const { calls, cancel, reloadIntoIde, start } = build({ enter: () => entering.p });
+			const { promise, outcome } = start();
+			await vi.waitFor(() => expect(calls).toContain('main.enterCanvasFolder(/projects/delta)'));
+
+			cancel();
+			await entering.complete({ workspace: TARGET_RESOLUTION.workspace, backupPath: undefined });
+			await promise;
+			expect({ outcome: outcome(), reloads: reloadIntoIde.mock.calls.length, tail: calls.slice(-3) })
+				.toEqual({ outcome: 'rejected: Canvas was closed while switching workspaces.', reloads: 0, tail: ['main.closeEditors(a.txt,b.txt)', 'recents.add', 'extensions.start'] });
+		});
+
+		it('while the main process commits and the renderer then cannot follow: reload, so the main process wins', async () => {
+			const entering = new DeferredPromise<{ workspace: ISingleFolderWorkspaceIdentifier; backupPath: string | undefined }>();
+			const { calls, cancel, reloadIntoIde, start } = build({ enter: () => entering.p, initialize: () => Promise.reject(new Error('init failed')) });
+			const { promise } = start();
+			await vi.waitFor(() => expect(calls).toContain('main.enterCanvasFolder(/projects/delta)'));
+
+			cancel();
+			await entering.complete({ workspace: TARGET_RESOLUTION.workspace, backupPath: undefined });
+			await promise;
+			expect(reloadIntoIde).toHaveBeenCalledTimes(1);
+		});
+
+		it('during shutdown: nothing restarts and nothing reloads', async () => {
+			const entering = new DeferredPromise<{ workspace: ISingleFolderWorkspaceIdentifier; backupPath: string | undefined }>();
+			const { calls, cancel, reloadIntoIde, start } = build({ enter: () => entering.p, initialize: () => Promise.reject(new Error('init failed')), willShutdown: true });
+			const { promise } = start();
+			await vi.waitFor(() => expect(calls).toContain('main.enterCanvasFolder(/projects/delta)'));
+
+			cancel();
+			await entering.complete({ workspace: TARGET_RESOLUTION.workspace, backupPath: undefined });
+			await promise;
+			expect({ reloads: reloadIntoIde.mock.calls.length, started: calls.filter(call => call === 'extensions.start') }).toEqual({ reloads: 0, started: [] });
+		});
+	});
+
+	describe('commands', () => {
+		/** Command handlers are typed as returning void; these return promises. */
+		const handler = (id: string) => CommandsRegistry.getCommand(id)!.handler as (accessor: ServicesAccessor, ...args: unknown[]) => unknown;
+
+		it('switchCanvasFolder requires a string path', () => {
+			build();
+			expect(() => ctx.instantiationService.invokeFunction(accessor => handler(SWITCH_CANVAS_FOLDER_COMMAND_ID)(accessor, 42))).toThrow('must be a string');
+		});
+
+		it('switchCanvasFolder refuses a second switch while one holds the window, until it settles', async () => {
+			let attempts = 0;
+			const { curtain, click } = build({
+				enter: async () => {
+					if (attempts++ === 0) {
+						throw new Error('gone');
+					}
+					return { workspace: TARGET_RESOLUTION.workspace, backupPath: undefined };
+				}
+			});
+			// Take the transaction through the registered handler so the
+			// in-flight guard is the one under test.
+			const first = ctx.instantiationService.invokeFunction(accessor => handler(SWITCH_CANVAS_FOLDER_COMMAND_ID)(accessor, TARGET.fsPath) as Promise<void>).catch((error: Error) => error.message);
+			await vi.waitFor(() => expect(curtain()).toHaveTextContent('gone'));
+			expect(() => ctx.instantiationService.invokeFunction(accessor => handler(SWITCH_CANVAS_FOLDER_COMMAND_ID)(accessor, TARGET.fsPath))).toThrow('already switching');
+
+			click('Open Positron');
+			expect(await first).toBe('gone');
+			// Settled: the guard lets a later transaction through (this one
+			// runs the stubbed happy path to completion).
+			const second = ctx.instantiationService.invokeFunction(accessor => handler(SWITCH_CANVAS_FOLDER_COMMAND_ID)(accessor, TARGET.fsPath) as Promise<void>);
+			await expect(second).resolves.toBeUndefined();
+		});
+
+		it('getCanvasFolders lists local folders only, most recent first', async () => {
+			build();
+			ctx.instantiationService.stub(IWorkspacesService, stubInterface<IWorkspacesService>({
+				getRecentlyOpened: async () => stubInterface<IRecentlyOpened>({
+					workspaces: [
+						{ folderUri: URI.file('/projects/newest') },
+						{ workspace: { id: 'ws', configPath: URI.file('/projects/multi.code-workspace') } },
+						{ folderUri: URI.parse('vscode-remote://ssh-remote+host/home/user/remote') },
+						{ folderUri: URI.file('/projects/oldest') },
+					],
+					files: [],
+				}),
+			}));
+
+			const folders = await ctx.instantiationService.invokeFunction(accessor => handler(GET_CANVAS_FOLDERS_COMMAND_ID)(accessor) as Promise<string[]>);
+
+			expect(folders).toEqual([URI.file('/projects/newest').fsPath, URI.file('/projects/oldest').fsPath]);
+		});
 	});
 });

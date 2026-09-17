@@ -36,15 +36,21 @@ fixed workspace name):
   in the recently opened list, most recent first, as absolute paths. The
   assistant's picker lists these.
 - `positron.experimental.switchCanvasFolder` - plain command taking an
-  optional absolute folder path; without one it shows a native folder dialog
-  over the Canvas window. Switches the folder the Canvas window presents
+  absolute folder path. Switches the folder the Canvas window presents
   without leaving Canvas mode (`electron-browser/positronCanvasFolderSwitch.ts`).
   Refusals (not presenting, remote or multi-root window, missing or
-  non-folder path, folder open in another window, untrusted folder, unsaved
-  changes) reject before anything changes, with a message the assistant shows.
-  Past that point the assistant's extension host is restarted and cannot see
-  the result; failures are presented on a curtain in the Canvas window with
-  Retry Canvas and Open Positron.
+  non-folder path, folder open in another window, untrusted folder or
+  untrusted folder behind a symlink, unsaved changes, a busy runtime
+  session) reject before anything changes, with a message the assistant
+  shows. Past that point the assistant's extension host is restarted and
+  cannot see the result; failures are presented on a curtain in the Canvas
+  window with Retry Canvas and Open Positron, and the command's promise
+  settles only when that curtain comes down (resolved on success, rejected
+  with the failure once the user leaves through Open Positron, or with a
+  cancellation message when Canvas is closed mid-switch).
+- `positron.experimental.failNextCanvasSwitchAt` - development aid, source
+  builds only: `'detach' | 'commit' | 'restore'` makes that step of the
+  next switch fail once, to exercise the failure card by hand.
 
 Registered by Positron for its own UI and launch integration:
 
@@ -85,29 +91,51 @@ never offers a way out of Canvas mode besides the top bar's Open Positron.
 ## Switching folders inside Canvas
 
 A Canvas window can take on another local folder without leaving Canvas
-mode. The main process swaps the window's workspace identity in place
+mode. Two modules share the work. `PositronCanvasService.rebuild(between)`
+owns the Canvas half: it takes the panel out of the Canvas window (a
+read-only, never-serialized placeholder editor keeps the window alive), clears
+the stored Canvas mode flag for the folder being left, runs `between`, then
+asks the assistant for a fresh panel, moves it home, drops the placeholder and
+sets the flag on the destination. Each half is staged and resumable, so a
+retry after a failure picks up where it stopped. `CanvasFolderSwitcher` owns
+the workspace half inside `between`: runtimes and extension hosts down; the
+main process swaps the window's workspace identity in place
 (`platform/workspaces/electron-main/positronFolderWorkspace.ts`, reached over
-the `workspaces` channel); the renderer then re-initializes its workspace,
-storage and backups, restarts runtimes and extension hosts, and asks the
-assistant to rebuild Canvas in the same auxiliary window. The stored Canvas
-mode flag moves with the folder: cleared on the one being left before its
-storage closes, set on the destination once Canvas is back. Only local,
-single-folder, already-trusted destinations are accepted; trust is not
-prompted for because the prompt renders in the hidden IDE window.
+the `workspaces` channel, deciding identity the way an ordinary open does and
+using the physical path only to detect a folder already open through an
+alias); the renderer re-initializes its workspace and switches storage; the
+source's editors close; backups move home; the destination's saved main
+layout is applied; extension hosts come back up.
 
-Two upstream reflexes would undo the switch and are held off while Canvas
-presents. The editor parts treat an external change to their stored layout
-(which is what a workspace storage switch looks like) as "adopt this layout":
-close every auxiliary window, restore the new folder's saved ones. The Canvas
-window is an auxiliary window, so `browser/positronEditorPartsLayout.ts` lets
-the Canvas service ask `EditorParts` to leave auxiliary windows alone; the main
-part still adopts the new folder's own layout, and the switch empties the
-hidden IDE's editors first so the result matches a fresh open. The other
-reflex is focus: the IDE window stays hidden throughout, and the extension
-host restart makes the workbench focus elements inside it. `browser/positronWindowFocus.ts`
-suppresses the implicit "focus the window this element lives in" (and the
-macOS `moveTop`) for windows Canvas mode has hidden, so those focus calls do
-not reveal the IDE mid-switch.
+Ordering matters in that middle. The storage switch first saves the source's
+live editor layout, so the source's editors are still open then and A reopens
+as it was. Both editor-part memento listeners would treat the swap as "adopt
+the stored layout" (closing the Canvas window among other things), so
+`browser/positronEditorPartsLayout.ts` holds them off for exactly that call,
+and the switcher applies the destination's main layout itself afterwards
+(`EditorPart.applyStoredState`); the destination's saved auxiliary windows are
+not restored, the same choice the boot-time sweep makes. The source's editors
+are closed by the group that held them, so a destination editor sharing an
+input is never touched, and they close while backups still address the
+source and the backup tracker is suspended
+(`services/workingCopy/electron-browser/positronBackupHandoff.ts`), so nothing
+the source does can discard the destination's hot-exit backups; the tracker
+then re-inventories the new home so a later quit keeps them too.
+
+Exit and the native close button wait for an in-flight switch to settle
+before handing back the IDE or releasing the application-wide claim: the
+main-process identity commit cannot be cancelled, so the renderer finishes
+matching it (or reloads if it cannot) before anything else happens. Open
+Positron after a partial commit reloads through
+`PositronCanvasService.reloadIntoIde`, which asks the main process for a
+one-use "recover to the IDE" intent that the next boot honours ahead of the
+stored flag and `canvas.openOnStartup`.
+
+The IDE window stays hidden throughout, and the extension host restart makes
+the workbench focus elements inside it. `browser/positronWindowFocus.ts`
+suppresses the implicit "raise the window this element lives in" (and the
+macOS `moveTop`) for windows Canvas mode has hidden; the element focus itself
+still happens, so focus state inside the hidden IDE stays truthful.
 
 ## Workspace trust at boot
 

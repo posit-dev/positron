@@ -6,7 +6,7 @@
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
-import { GroupsOrder, IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { GroupsOrder, IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../services/editor/common/editorGroupsService.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
 import { CANVAS_WEBVIEW_VIEW_TYPE } from '../common/positronCanvasMode.js';
@@ -24,6 +24,11 @@ export function mergeCanvasGroupIntoIde(group: IEditorGroup, target: IEditorGrou
 		logService.error('[canvas] Could not merge the Canvas group into the IDE; moving its editors individually');
 		group.moveEditors(prepareMoveCopyEditors(group, group.editors.slice()), target);
 	}
+}
+
+/** Every part but the main one lives in an auxiliary window and can be closed. */
+export function isAuxiliaryEditorPart(part: IEditorPart): part is IAuxiliaryEditorPart {
+	return 'close' in part;
 }
 
 export interface ICanvasRestoreSweepServices {
@@ -56,7 +61,17 @@ export async function sweepRestoredCanvasWindows(services: ICanvasRestoreSweepSe
 		}
 		const groups = part.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE);
 		const editors = groups.flatMap(group => group.editors);
-		if (editors.length === 0 || !editors.every(editor => editor instanceof WebviewInput && editor.providerId === CANVAS_WEBVIEW_VIEW_TYPE)) {
+		if (editors.length === 0) {
+			// A Canvas window saved mid folder switch holds only the switch
+			// placeholder, which is never serialized; nothing to merge, and an
+			// empty compact window is not something restore should hand back.
+			logService.info('[canvas] Closing an empty restored Canvas window');
+			if (isAuxiliaryEditorPart(part)) {
+				part.close();
+			}
+			continue;
+		}
+		if (!editors.every(editor => editor instanceof WebviewInput && editor.providerId === CANVAS_WEBVIEW_VIEW_TYPE)) {
 			continue;
 		}
 		logService.info('[canvas] Merging a restored Canvas window back into the IDE: Canvas mode is not presenting it');

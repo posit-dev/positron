@@ -5,9 +5,11 @@
 
 /// <reference types="vitest/globals" />
 
-import { mainWindow } from '../../../../../base/browser/window.js';
+import { CodeWindow, mainWindow } from '../../../../../base/browser/window.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
+import { toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -20,13 +22,14 @@ import { IStorageService, StorageScope } from '../../../../../platform/storage/c
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { shouldKeepAuxiliaryEditorParts } from '../../../../browser/positronEditorPartsLayout.js';
+import { canImplicitlyFocusWindow } from '../../../../browser/positronWindowFocus.js';
 import { EditorsOrder } from '../../../../common/editor.js';
+import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
 import { IHostService } from '../../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
-import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
+import { ILifecycleService, WillShutdownEvent } from '../../../../services/lifecycle/common/lifecycle.js';
 import { IOverlayWebview } from '../../../webview/browser/webview.js';
 import { WebviewInput } from '../../../webviewPanel/browser/webviewEditorInput.js';
 import { CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE } from '../../common/positronCanvasMode.js';
@@ -69,9 +72,9 @@ describe('PositronCanvasService', () => {
 	}
 
 	/** A Canvas panel, recognized by its contributed view type. */
-	function createCanvasEditor(): WebviewInput {
+	function createCanvasEditor(name = 'Canvas'): WebviewInput {
 		const editor = new WebviewInput(
-			{ viewType: CANVAS_WEBVIEW_VIEW_TYPE, providedId: CANVAS_WEBVIEW_VIEW_TYPE, name: 'Canvas', iconPath: undefined },
+			{ viewType: CANVAS_WEBVIEW_VIEW_TYPE, providedId: CANVAS_WEBVIEW_VIEW_TYPE, name, iconPath: undefined },
 			stubInterface<IOverlayWebview>({ state: undefined, dispose: vi.fn() }),
 			stubInterface<IThemeService>({ onDidColorThemeChange: Event.None }),
 		);
@@ -101,6 +104,7 @@ describe('PositronCanvasService', () => {
 		/** Resolves whether the call hid a visible window; see INativeHostService. */
 		hideWindow?: (options?: { targetWindowId?: number }) => Promise<boolean>;
 		showWindow?: (options?: { targetWindowId?: number }) => Promise<void>;
+		reload?: () => Promise<void>;
 	} = {}) {
 		const auxiliaryGroups = options.auxiliaryGroups ?? [];
 		const mainGroup = options.mainGroup ?? createGroup();
@@ -122,16 +126,29 @@ describe('PositronCanvasService', () => {
 		ctx.instantiationService.stub(IEditorGroupsService, stubInterface<IEditorGroupsService>({
 			mainPart,
 			parts: [auxiliaryPart, ...(options.extraParts ?? []), mainPart],
+			groups: [...auxiliaryGroups, mainGroup],
 			getGroups: () => [...auxiliaryGroups, mainGroup],
 			getPart: (group: IEditorGroup) => parts.get(group) ?? mainPart,
 			mergeGroup,
 			createAuxiliaryEditorPart,
 		}));
 		// Every auxiliary window carries the dedicated locked-compact trait
-		// unless the test says otherwise.
+		// unless the test says otherwise. Each native window id gets its own
+		// `Window` object, so focus suppression can be told apart per window.
+		const auxiliaryWindows = new Map<number, CodeWindow>();
+		const auxiliaryWindowFor = (windowId: number) => {
+			let window = auxiliaryWindows.get(windowId);
+			if (!window) {
+				window = stubInterface<CodeWindow>();
+				auxiliaryWindows.set(windowId, window);
+			}
+			return window;
+		};
+		const canvasContainer = document.createElement('div');
 		ctx.instantiationService.stub(IAuxiliaryWindowService, stubInterface<IAuxiliaryWindowService>({
-			getWindow: () => stubInterface<IAuxiliaryWindow>({
-				window: mainWindow,
+			getWindow: (windowId: number) => stubInterface<IAuxiliaryWindow>({
+				window: auxiliaryWindowFor(windowId),
+				container: canvasContainer,
 				createState: () => options.plainAuxWindows === true ? {} : { lockCompact: true }
 			})
 		}));
@@ -139,10 +156,12 @@ describe('PositronCanvasService', () => {
 		ctx.instantiationService.stub(IConfigurationService, stubInterface<IConfigurationService>({ getValue: () => true }));
 		ctx.instantiationService.stub(INativeHostService, stubInterface<INativeHostService>({ hideWindow, showWindow }));
 		const focus = vi.fn().mockResolvedValue(undefined);
-		ctx.instantiationService.stub(IHostService, stubInterface<IHostService>({ focus }));
+		const reload = vi.fn(options.reload ?? (() => Promise.resolve()));
+		ctx.instantiationService.stub(IHostService, stubInterface<IHostService>({ focus, reload }));
 		ctx.instantiationService.stub(IWorkbenchLayoutService, stubInterface<IWorkbenchLayoutService>({ setPartHidden }));
 		ctx.instantiationService.stub(IStorageService, storageService);
-		ctx.instantiationService.stub(ILifecycleService, stubInterface<ILifecycleService>({ willShutdown: options.willShutdown === true }));
+		const willShutdownEmitter = ctx.disposables.add(new Emitter<WillShutdownEvent>());
+		ctx.instantiationService.stub(ILifecycleService, stubInterface<ILifecycleService>({ willShutdown: options.willShutdown === true, onWillShutdown: willShutdownEmitter.event }));
 		ctx.instantiationService.stub(ILogService, new NullLogService());
 		ctx.instantiationService.stub(IContextKeyService, new MockContextKeyService());
 		// The engagement channel: `acquire` grants unless the test says
@@ -156,20 +175,8 @@ describe('PositronCanvasService', () => {
 
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronCanvasService));
 
-		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, hideWindow, showWindow, channelCall, focus, createAuxiliaryEditorPart };
+		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, hideWindow, showWindow, channelCall, focus, createAuxiliaryEditorPart, reload, willShutdownEmitter, auxiliaryWindowFor, canvasContainer };
 	}
-
-	it('keeps auxiliary editor windows through stored-layout changes only while presenting', async () => {
-		const auxiliaryGroup = createGroup([createCanvasEditor()]);
-		const { service } = build({ auxiliaryGroups: [auxiliaryGroup] });
-		expect(shouldKeepAuxiliaryEditorParts()).toBe(false);
-
-		await service.enter();
-		expect(shouldKeepAuxiliaryEditorParts()).toBe(true);
-
-		await service.exit();
-		expect(shouldKeepAuxiliaryEditorParts()).toBe(false);
-	});
 
 	it('coalesces concurrent entries so the assistant is asked for one Canvas', async () => {
 		const created = new DeferredPromise<undefined>();
@@ -268,7 +275,7 @@ describe('PositronCanvasService', () => {
 			});
 
 			const entering = service.enter();
-			await vi.advanceTimersByTimeAsync(20_000);
+			await vi.advanceTimersByTimeAsync(30_000);
 
 			expect(await entering).toMatchObject({ entered: false, reason: 'no-panel' });
 		} finally {
@@ -803,5 +810,342 @@ describe('PositronCanvasService', () => {
 		// the panel gets a fresh dedicated window instead of being adopted.
 		expect(createAuxiliaryEditorPart).toHaveBeenCalledWith(expect.objectContaining({ lockCompact: true }));
 		expect(plainGroup.moveEditors).toHaveBeenCalled();
+	});
+	it('suppresses implicit focus for the IDE and hidden detached windows, never for the Canvas window', async () => {
+		const detachedPart = createPart(createGroup(), Event.None, DETACHED_WINDOW_ID);
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, auxiliaryWindowFor } = build({ auxiliaryGroups: [auxiliaryGroup], extraParts: [detachedPart] });
+		const suppression = () => ({
+			ide: !canImplicitlyFocusWindow(mainWindow),
+			detached: !canImplicitlyFocusWindow(auxiliaryWindowFor(DETACHED_WINDOW_ID)),
+			canvas: !canImplicitlyFocusWindow(auxiliaryWindowFor(AUX_WINDOW_ID)),
+		});
+
+		await service.enter();
+		expect(suppression()).toEqual({ ide: true, detached: true, canvas: false });
+
+		await service.exit();
+		expect(suppression()).toEqual({ ide: false, detached: false, canvas: false });
+	});
+
+	it('exposes the Canvas window container only while presenting, and announces both transitions', async () => {
+		const auxiliaryGroup = createGroup([createCanvasEditor()]);
+		const { service, canvasContainer } = build({ auxiliaryGroups: [auxiliaryGroup] });
+		const changes: boolean[] = [];
+		ctx.disposables.add(service.onDidChangeActive(active => changes.push(active)));
+
+		expect(service.canvasContainer).toBeUndefined();
+		await service.enter();
+		expect(service.canvasContainer).toBe(canvasContainer);
+		// A re-entry takes the window over again; it is not Canvas going away.
+		await service.enter();
+		await service.exit();
+
+		expect({ container: service.canvasContainer, changes }).toEqual({ container: undefined, changes: [true, true, false] });
+	});
+
+	describe('rebuild', () => {
+		/** A group whose editor list the rebuild rearranges, recording into `calls`. */
+		function createLiveGroup(name: string, calls: string[], editors: EditorInput[], id: number): IEditorGroup {
+			return stubInterface<IEditorGroup>({
+				id,
+				editors,
+				isLocked: true,
+				getEditors: () => editors,
+				lock: vi.fn((locked: boolean) => { calls.push(`${name}.lock(${locked})`); }),
+				focus: vi.fn(),
+				isActive: () => true,
+				isSticky: () => false,
+				getIndexOfEditor: (editor: EditorInput) => editors.indexOf(editor),
+				contains: (editor: EditorInput) => editors.includes(editor),
+				openEditor: vi.fn(async (editor: EditorInput) => {
+					calls.push(`${name}.open(${editor.getName()})`);
+					if (!editors.includes(editor)) {
+						editors.push(editor);
+					}
+					return undefined;
+				}),
+				closeEditor: vi.fn(async (editor: EditorInput) => {
+					calls.push(`${name}.close(${editor.getName()})`);
+					editors.splice(editors.indexOf(editor), 1);
+					return true;
+				}),
+				moveEditors: vi.fn(() => {
+					calls.push(`${name}.moveEditors`);
+					return true;
+				}),
+			});
+		}
+
+		/**
+		 * Canvas presenting a panel named "Panel" in its own window, with the
+		 * assistant producing "Panel 2" on the next ensure. The entry's own
+		 * ensure is the first call and produces nothing new.
+		 */
+		async function present(options: {
+			rebuildIn?: 'canvas' | 'main';
+			/** What the assistant does when asked for the rebuilt panel. */
+			ensure?: () => Promise<undefined>;
+			onWillDispose?: Event<void>;
+		} = {}) {
+			const calls: string[] = [];
+			const canvasEditors: EditorInput[] = [createCanvasEditor('Panel')];
+			const mainEditors: EditorInput[] = [];
+			const canvasGroup = createLiveGroup('canvas', calls, canvasEditors, 1);
+			const mainGroup = createLiveGroup('main', calls, mainEditors, 2);
+			let ensures = 0;
+			const built = build({
+				auxiliaryGroups: [canvasGroup],
+				mainGroup,
+				onWillDispose: options.onWillDispose,
+				executeCommand: async () => {
+					if (ensures++ === 0) {
+						return undefined;
+					}
+					calls.push('assistant.ensure');
+					if (options.ensure) {
+						return options.ensure();
+					}
+					(options.rebuildIn === 'main' ? mainEditors : canvasEditors).push(createCanvasEditor('Panel 2'));
+					return undefined;
+				},
+			});
+			expect(await built.service.enter()).toEqual({ entered: true });
+			calls.length = 0;
+			vi.mocked(built.storageService.store).mockImplementation(() => { calls.push('storage.store'); });
+			vi.mocked(built.storageService.remove).mockImplementation(() => { calls.push('storage.remove'); });
+			built.mergeGroup.mockImplementation(() => { calls.push('merge'); return true; });
+			const names = () => ({ canvas: canvasEditors.map(editor => editor.getName()), main: mainEditors.map(editor => editor.getName()) });
+			// The stub groups do not dispose what they close; a placeholder a
+			// test leaves behind on purpose is dropped here.
+			ctx.disposables.add(toDisposable(() => {
+				for (const editor of [...canvasEditors, ...mainEditors]) {
+					editor.dispose();
+				}
+			}));
+			return { ...built, calls, canvasGroup, mainGroup, canvasEditors, mainEditors, names };
+		}
+
+		it('takes the panel out, runs the workspace half, and puts a fresh panel back with the flag', async () => {
+			const { service, calls, names } = await present();
+
+			await service.rebuild(async () => { calls.push('between'); });
+
+			expect(calls).toMatchInlineSnapshot(`
+				[
+				  "canvas.open(Canvas)",
+				  "canvas.close(Panel)",
+				  "storage.remove",
+				  "between",
+				  "canvas.lock(false)",
+				  "assistant.ensure",
+				  "canvas.lock(true)",
+				  "canvas.open(Panel 2)",
+				  "canvas.close(Canvas)",
+				  "storage.store",
+				]
+			`);
+			expect(names()).toEqual({ canvas: ['Panel 2'], main: [] });
+		});
+
+		it('brings a panel the assistant built in the IDE window home', async () => {
+			const { service, calls, names } = await present({ rebuildIn: 'main' });
+
+			await service.rebuild(async () => { });
+
+			expect(calls.slice(calls.indexOf('assistant.ensure'))).toEqual([
+				'assistant.ensure',
+				'canvas.lock(true)',
+				'main.moveEditors',
+				'canvas.open(Panel 2)',
+				'canvas.close(Canvas)',
+				'storage.store',
+			]);
+			expect(names().canvas).toEqual(['Panel 2']);
+		});
+
+		it('keeps the window detached when the workspace half fails, and resumes without a second placeholder', async () => {
+			const { service, calls, names } = await present();
+
+			await expect(service.rebuild(async () => { throw new Error('commit failed'); })).rejects.toThrow('commit failed');
+			expect({ names: names(), stores: calls.filter(call => call === 'storage.store') }).toEqual({ names: { canvas: ['Canvas'], main: [] }, stores: [] });
+
+			await service.rebuild(async () => { calls.push('between again'); });
+
+			expect(calls.filter(call => call === 'canvas.open(Canvas)' || call === 'storage.remove' || call === 'between again')).toEqual(['canvas.open(Canvas)', 'storage.remove', 'between again']);
+			expect(names().canvas).toEqual(['Panel 2']);
+		});
+
+		it('fails when the panel will not close, and closes it on retry', async () => {
+			const { service, canvasGroup, calls, names } = await present();
+			vi.mocked(canvasGroup.closeEditor).mockResolvedValueOnce(false);
+
+			await expect(service.rebuild(async () => { })).rejects.toThrow('could not be closed');
+			expect(names().canvas).toEqual(['Panel', 'Canvas']);
+
+			await service.rebuild(async () => { calls.push('between'); });
+
+			// One placeholder for both attempts; the refused close left no trace.
+			expect(calls.filter(call => call.startsWith('canvas.open(Canvas)') || call === 'canvas.close(Panel)')).toEqual(['canvas.open(Canvas)', 'canvas.close(Panel)']);
+			expect(names().canvas).toEqual(['Panel 2']);
+		});
+
+		it('gives up on an assistant that never reports ready, restores the lock, and ignores a late panel', async () => {
+			vi.useFakeTimers();
+			try {
+				let late: DeferredPromise<undefined> | undefined;
+				const { service, calls, canvasEditors, names } = await present({
+					ensure: () => (late = new DeferredPromise<undefined>()).p,
+				});
+
+				const outcome = service.rebuild(async () => { }).catch((error: Error) => error.message);
+				await vi.advanceTimersByTimeAsync(30_000);
+				expect(await outcome).toBe('Canvas did not finish starting in the new workspace.');
+				expect(calls.slice(-1)).toEqual(['canvas.lock(true)']);
+
+				// The assistant finishing after the deadline changes nothing.
+				canvasEditors.push(createCanvasEditor('Late'));
+				await late!.complete(undefined);
+				await vi.advanceTimersByTimeAsync(0);
+
+				expect({ names: names(), stores: calls.filter(call => call === 'storage.store') }).toEqual({ names: { canvas: ['Canvas', 'Late'], main: [] }, stores: [] });
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it.each([
+			['the ensure command rejects', () => Promise.reject(new Error('no assistant'))],
+			['the ensure command produces no panel', () => Promise.resolve(undefined)],
+		])('reports that Canvas did not open when %s', async (_name, ensure) => {
+			const { service, calls } = await present({ ensure });
+
+			await expect(service.rebuild(async () => { })).rejects.toThrow('did not open');
+			expect(calls.filter(call => call === 'storage.store')).toEqual([]);
+		});
+
+		it('rejects while not presenting, or while an exit is in flight', async () => {
+			const { service } = build();
+			await expect(service.rebuild(async () => { })).rejects.toThrow('not open in its own window');
+
+			const presented = await present();
+			const exiting = presented.service.exit();
+			await expect(presented.service.rebuild(async () => { })).rejects.toThrow('busy');
+			await exiting;
+		});
+
+		it('exit cancels the workspace half and waits for it before handing the IDE back', async () => {
+			const gate = new DeferredPromise<void>();
+			const { service, calls, names } = await present();
+
+			const outcome = service.rebuild(async token => {
+				calls.push('between');
+				await gate.p;
+				calls.push(token.isCancellationRequested ? 'between.cancelled' : 'between.done');
+			}).catch(error => error);
+			await vi.waitFor(() => expect(calls).toContain('between'));
+
+			const exiting = service.exit();
+			await Promise.resolve();
+			expect(calls).not.toContain('merge');
+
+			await gate.complete();
+			expect(await outcome).toBeInstanceOf(CancellationError);
+			expect(await exiting).toBe(true);
+
+			// Exit's own teardown (intent, unlock, merge) runs only after the
+			// workspace half settled; the placeholder rides along and is dropped.
+			expect(calls.slice(calls.indexOf('between.cancelled'))).toEqual(['between.cancelled', 'storage.remove', 'canvas.lock(false)', 'merge', 'canvas.close(Canvas)']);
+			expect({ names: names(), stores: calls.filter(call => call === 'storage.store'), active: service.isActive }).toEqual({ names: { canvas: [], main: [] }, stores: [], active: false });
+		});
+
+		it('exit during the assistant rebuild discards the panel it produces', async () => {
+			const ensured = new DeferredPromise<undefined>();
+			const { service, calls, canvasEditors, names } = await present({ ensure: () => ensured.p });
+
+			const outcome = service.rebuild(async () => { }).catch(error => error);
+			await vi.waitFor(() => expect(calls).toContain('assistant.ensure'));
+
+			const exiting = service.exit();
+			canvasEditors.push(createCanvasEditor('Panel 2'));
+			await ensured.complete(undefined);
+
+			expect(await outcome).toBeInstanceOf(CancellationError);
+			expect(await exiting).toBe(true);
+			expect({ opened: calls.filter(call => call === 'canvas.open(Panel 2)'), stores: calls.filter(call => call === 'storage.store'), names: names() })
+				.toEqual({ opened: [], stores: [], names: { canvas: ['Panel 2'], main: [] } });
+		});
+
+		it('a lost window reveals the IDE at once but releases the claim only after the workspace half settles', async () => {
+			const willDispose = new Emitter<void>();
+			ctx.disposables.add(willDispose);
+			const gate = new DeferredPromise<void>();
+			const { service, calls, channelCall, showWindow } = await present({ onWillDispose: willDispose.event });
+
+			const outcome = service.rebuild(async () => {
+				calls.push('between');
+				await gate.p;
+			}).catch(error => error);
+			await vi.waitFor(() => expect(calls).toContain('between'));
+
+			willDispose.fire();
+			expect(service.isActive).toBe(false);
+			await vi.waitFor(() => expect(showWindow).toHaveBeenCalled());
+			expect(channelCall).not.toHaveBeenCalledWith('release', expect.anything());
+
+			await gate.complete();
+			expect(await outcome).toBeInstanceOf(CancellationError);
+			await vi.waitFor(() => expect(channelCall).toHaveBeenCalledWith('release', expect.anything()));
+		});
+
+		it('an entry issued during a rebuild waits for it', async () => {
+			const gate = new DeferredPromise<void>();
+			const { service, calls, executeCommand } = await present();
+
+			const rebuilding = service.rebuild(async () => {
+				calls.push('between');
+				await gate.p;
+			});
+			await vi.waitFor(() => expect(calls).toContain('between'));
+
+			const entering = service.enter();
+			await Promise.resolve();
+			// Entry's own ensure, the rebuild's ensure: nothing more yet.
+			expect(executeCommand).toHaveBeenCalledTimes(1);
+
+			await gate.complete();
+			await rebuilding;
+			expect(await entering).toEqual({ entered: true });
+			expect(service.isActive).toBe(true);
+		});
+	});
+
+	describe('reloadIntoIde', () => {
+		it('asks the main process for an IDE boot, clears the intent, and reports an accepted reload', async () => {
+			const auxiliaryGroup = createGroup([createCanvasEditor()]);
+			const built = build({ auxiliaryGroups: [auxiliaryGroup], reload: async () => { built.willShutdownEmitter.fire(stubInterface<WillShutdownEvent>()); } });
+			const { service, channelCall, storageService } = built;
+			await service.enter();
+
+			expect(await service.reloadIntoIde()).toBe(true);
+
+			const recovery = channelCall.mock.calls.map(([command]) => command).filter(command => command !== 'acquire');
+			expect({ recovery, cleared: vi.mocked(storageService.remove).mock.calls.length }).toEqual({ recovery: ['requestIdeRecovery'], cleared: 1 });
+		});
+
+		it('withdraws the IDE boot when the reload is refused', async () => {
+			vi.useFakeTimers();
+			try {
+				const { service, channelCall } = build({ reload: () => Promise.resolve() });
+
+				const reloading = service.reloadIntoIde();
+				await vi.advanceTimersByTimeAsync(2_000);
+
+				expect(await reloading).toBe(false);
+				expect(channelCall.mock.calls.map(([command]) => command)).toEqual(['requestIdeRecovery', 'cancelIdeRecovery']);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
 	});
 });

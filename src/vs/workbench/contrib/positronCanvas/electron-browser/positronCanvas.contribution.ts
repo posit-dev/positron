@@ -15,11 +15,15 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustEnablementService, IWorkspaceTrustManagementService, IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
+import { EditorExtensions } from '../../../common/editor.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
@@ -30,6 +34,7 @@ import { IWorkbenchLayoutService } from '../../../services/layout/browser/layout
 import { windowLogId } from '../../../services/log/common/logConstants.js';
 import { IOutputService } from '../../../services/output/common/output.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
+import { CanvasPlaceholderInput, CanvasPlaceholderPane } from '../browser/canvasPlaceholderEditor.js';
 import { CanvasStartupPresenter } from '../browser/canvasStartupPresenter.js';
 import { registerCanvasCommandLockdown } from '../browser/positronCanvasCommandLockdown.js';
 import { sweepRestoredCanvasWindows } from '../browser/positronCanvasRestore.js';
@@ -38,6 +43,13 @@ import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_OPEN_ON_STARTUP
 import { IPositronCanvasService, PositronCanvasService } from './positronCanvasService.js';
 
 registerSingleton(IPositronCanvasService, PositronCanvasService, InstantiationType.Delayed);
+
+// The read-only input that keeps the Canvas window alive while a folder
+// switch rebuilds its panel; see canvasPlaceholderEditor.ts.
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(CanvasPlaceholderPane, CanvasPlaceholderInput.EditorID, 'Canvas Placeholder'),
+	[new SyncDescriptor(CanvasPlaceholderInput)]
+);
 
 /**
  * Display label of Posit Assistant's output channel, matched at click time to
@@ -296,6 +308,7 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 			engagedElsewhere: environmentService.standaloneModeEngagedElsewhere,
 			workspaceEligible: isCanvasWorkspaceEligible(contextService.getWorkspace()),
 			canvasFlag: environmentService.args.canvas === true,
+			recoveringToIde: environmentService.recoverToIde,
 			configuredOpenOnStartup: setting.policyValue ?? setting.workspaceFolderValue ?? setting.workspaceValue ?? setting.userValue ?? setting.applicationValue,
 			storedIntent: storageService.getBoolean(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE, false)
 		};

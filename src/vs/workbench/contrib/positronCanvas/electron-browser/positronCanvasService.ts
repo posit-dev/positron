@@ -6,7 +6,9 @@
 import { getActiveWindow } from '../../../../base/browser/dom.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { raceTimeout } from '../../../../base/common/async.js';
-import { Event } from '../../../../base/common/event.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../base/common/errors.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -20,9 +22,9 @@ import { POSITRON_STANDALONE_MODE_CHANNEL_NAME } from '../../../../platform/posi
 import { PositronStandaloneModeChannelClient } from '../../../../platform/positronStandaloneMode/common/positronStandaloneModeIpc.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
-import { keepAuxiliaryEditorParts } from '../../../browser/positronEditorPartsLayout.js';
 import { suppressImplicitWindowFocus } from '../../../browser/positronWindowFocus.js';
 import { EditorsOrder } from '../../../common/editor.js';
+import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart, GroupsOrder } from '../../../services/editor/common/editorGroupsService.js';
 import { IHostService } from '../../../services/host/browser/host.js';
@@ -31,18 +33,27 @@ import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { dedicatedWindowOptions } from '../../positronEditorActions/browser/positronDedicatedWindow.js';
 import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
+import { CanvasPlaceholderInput } from '../browser/canvasPlaceholderEditor.js';
 import { mergeCanvasGroupIntoIde } from '../browser/positronCanvasRestore.js';
 import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, PositronCanvasModeActiveContext } from '../common/positronCanvasMode.js';
 
 /** Posit Assistant's command to open a Canvas panel as an ordinary editor. */
-export const CANVAS_ENSURE_COMMAND = 'posit-assistant.ensureCanvas';
+const CANVAS_ENSURE_COMMAND = 'posit-assistant.ensureCanvas';
 
 /**
- * Cap on waiting for the assistant to produce a panel: the command settles
- * within the assistant's own 14s ensure deadline, so this only adds headroom
- * for extension activation (which `executeCommand` blocks on unboundedly).
+ * Cap on waiting for the assistant to produce a panel. The command settles
+ * within the assistant's own 14s ensure deadline; the headroom is for
+ * extension activation, which `executeCommand` blocks on unboundedly and
+ * which starts from cold both at startup and after the extension host
+ * restart of a folder switch.
  */
-const CANVAS_ENSURE_TIMEOUT = 20_000;
+const CANVAS_ENSURE_TIMEOUT = 30_000;
+
+/**
+ * How long a reload request may take to start unloading this renderer before
+ * it is taken to have been refused (an unload veto).
+ */
+const RELOAD_VETO_GRACE = 2_000;
 
 /** The outcome of an entry retired because a newer exit request won. */
 const supersededOutcome: CanvasEntryOutcome = {
@@ -68,14 +79,46 @@ export interface IPositronCanvasService {
 	/** Whether Canvas is currently the only surface the user can see. */
 	readonly isActive: boolean;
 
-	/** The editor group owned by the visible Canvas window. */
-	readonly activeGroup: IEditorGroup | undefined;
+	/** Fires with the new value when Canvas starts or stops presenting. */
+	readonly onDidChangeActive: Event<boolean>;
+
+	/**
+	 * DOM container of the window presenting Canvas, for overlays drawn over
+	 * Canvas such as the folder switch curtain. Undefined when not presenting.
+	 */
+	readonly canvasContainer: HTMLElement | undefined;
 
 	/**
 	 * Hand the user back to the full IDE, moving the live conversation into
-	 * it. Resolves `true` only when it actually left Canvas mode.
+	 * it. Resolves `true` only when it actually left Canvas mode. Waits for
+	 * an in-flight `rebuild` to drain first, so the window is never handed
+	 * back while a transaction can still change it.
 	 */
 	exit(): Promise<boolean>;
+
+	/**
+	 * While presenting: close the Canvas panel but keep its window alive (a
+	 * read-only placeholder holds the locked group), clear the stored mode
+	 * intent, run `between`, then ask the assistant for a fresh panel, move
+	 * it into the Canvas window, drop the placeholder and set the intent
+	 * again. Staged: ownership of the placeholder is recorded before the
+	 * first mutation, and a rejected rebuild leaves the stage where it
+	 * stopped so that calling again resumes it. The token is cancelled by
+	 * `exit()`, by the Canvas window going away and by shutdown; `between`
+	 * is expected to settle after cancellation, and the rebuild then rejects
+	 * with a `CancellationError` without asking for a panel. Rejects with a
+	 * presentable message while an entry, exit or another rebuild is in
+	 * flight.
+	 */
+	rebuild(between: (token: CancellationToken) => Promise<void>): Promise<void>;
+
+	/**
+	 * Reload this window into the IDE, whatever the stored intent or the
+	 * openOnStartup setting says. Resolves `true` when the reload was
+	 * accepted (this renderer is going away) and `false` when it was
+	 * refused by an unload veto, after withdrawing the one-use intent.
+	 */
+	reloadIntoIde(): Promise<boolean>;
 }
 
 /** A Canvas panel and the group it currently lives in. */
@@ -84,11 +127,29 @@ interface ICanvasEditor {
 	readonly editor: WebviewInput;
 }
 
+/**
+ * A Canvas window with its panel taken out for a rebuild. `stage` is the
+ * last mutation that completed, so a retry resumes rather than repeats.
+ */
+interface IDetachedCanvas {
+	readonly placeholder: CanvasPlaceholderInput;
+	stage: 'allocated' | 'placeholder-open' | 'panel-closed' | 'ready';
+	/** The panel this rebuild closed; never adopted again. */
+	closed: WebviewInput | undefined;
+}
+
+function isCanvasPanel(editor: EditorInput): editor is WebviewInput {
+	return editor instanceof WebviewInput && editor.providerId === CANVAS_WEBVIEW_VIEW_TYPE;
+}
+
 export class PositronCanvasService extends Disposable implements IPositronCanvasService {
 
 	declare readonly _serviceBrand: undefined;
 
 	private readonly modeActiveContext: IContextKey<boolean>;
+
+	private readonly _onDidChangeActive = this._register(new Emitter<boolean>());
+	readonly onDidChangeActive = this._onDidChangeActive.event;
 
 	/**
 	 * Where the main process hears about the engagement; see
@@ -125,6 +186,17 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	 * this out first.
 	 */
 	private exiting: Promise<boolean> | undefined;
+
+	/**
+	 * In-flight `rebuild()` and the token that cancels it. Exit and window
+	 * loss cancel and then wait for it, so the transaction inside it has
+	 * settled before the window is handed back or the claim released.
+	 */
+	private rebuilding: Promise<void> | undefined;
+	private rebuildCancellation: CancellationTokenSource | undefined;
+
+	/** The Canvas window's panel taken out by a rebuild in progress or stalled. */
+	private detached: IDetachedCanvas | undefined;
 
 	/**
 	 * Identity of the newest entry attempt. An exit detaches an in-flight
@@ -226,14 +298,15 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	}
 
 	private async doEnter(): Promise<CanvasEntryOutcome> {
-		// Wait out an in-flight exit, but only an exit arriving after this
-		// call may retire the entry: capture the generation synchronously,
-		// past the in-flight exit's bump. No deadlock: exit never awaits an
-		// entry, and the hide-failure exit inside `doEnterEngaged` starts
-		// while this entry is already past this point.
+		// Wait out an in-flight exit or rebuild, but only an exit arriving
+		// after this call may retire the entry: capture the generation
+		// synchronously, past the in-flight exit's bump. No deadlock: exit
+		// never awaits an entry, a rebuild never starts one, and the
+		// hide-failure exit inside `doEnterEngaged` starts while this entry
+		// is already past this point.
 		const generationAtRequest = this.exitGeneration;
-		while (this.exiting) {
-			await this.exiting.catch(() => { });
+		while (this.exiting || this.rebuilding) {
+			await (this.exiting ?? this.rebuilding)?.then(() => undefined, () => undefined);
 		}
 		if (this.exitGeneration !== generationAtRequest) {
 			this.logService.info('[canvas] Abandoning entry: the user asked for the IDE again while the entry was queued behind an exit');
@@ -356,8 +429,10 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		return this.modeActiveContext.get() === true;
 	}
 
-	get activeGroup(): IEditorGroup | undefined {
-		return this.canvasGroup;
+	get canvasContainer(): HTMLElement | undefined {
+		const group = this.canvasGroup;
+		const part = group && this.editorGroupsService.getPart(group);
+		return part && this.auxiliaryWindowService.getWindow(part.windowId)?.container;
 	}
 
 	exit(): Promise<boolean> {
@@ -384,6 +459,12 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// starts fresh instead of coalescing onto a doomed promise.
 		this.exitGeneration++;
 		this.entering = undefined;
+
+		// A rebuild in flight is told to stop and then waited out: its
+		// transaction may hold a main-process call that cannot be cancelled,
+		// and the window must not be handed back, nor the claim released,
+		// while that call can still change the window's identity.
+		await this.drainRebuild();
 
 		const canvasGroup = this.canvasGroup;
 
@@ -413,6 +494,9 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 				this.layoutService.setPartHidden(false, Parts.EDITOR_PART);
 				this.editorGroupsService.mainPart.activeGroup.focus();
 			}
+
+			// A stalled rebuild's placeholder rode along with the merge.
+			await this.disposeDetached();
 		} finally {
 			// Released only after the reveal and merge: the main process
 			// treats the release as "exit complete" and lets a waiting
@@ -425,17 +509,206 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		return wasActive;
 	}
 
+	/** Cancel a rebuild in flight and wait for its transaction to settle. */
+	private async drainRebuild(): Promise<void> {
+		if (!this.rebuilding) {
+			return;
+		}
+		this.logService.info('[canvas] Waiting for the workspace switch in flight to stop');
+		this.rebuildCancellation?.cancel();
+		await this.rebuilding.then(() => undefined, () => undefined);
+	}
+
+	rebuild(between: (token: CancellationToken) => Promise<void>): Promise<void> {
+		if (this.entering || this.exiting || this.rebuilding) {
+			return Promise.reject(new Error(localize('positron.canvas.rebuildBusy', "Canvas is busy opening or closing; try again in a moment.")));
+		}
+		const group = this.canvasGroup;
+		if (!group) {
+			return Promise.reject(new Error(localize('positron.canvas.switchNotPresenting', "Canvas is not open in its own window.")));
+		}
+
+		const cancellation = new CancellationTokenSource();
+		this.rebuildCancellation = cancellation;
+		const rebuilding = this.doRebuild(group, between, cancellation.token).finally(() => {
+			if (this.rebuilding === rebuilding) {
+				this.rebuilding = undefined;
+				this.rebuildCancellation = undefined;
+			}
+			cancellation.dispose();
+		});
+		this.rebuilding = rebuilding;
+		return rebuilding;
+	}
+
+	private async doRebuild(group: IEditorGroup, between: (token: CancellationToken) => Promise<void>, token: CancellationToken): Promise<void> {
+		const generation = this.exitGeneration;
+		const superseded = () => token.isCancellationRequested || this.exitGeneration !== generation;
+
+		await this.detachPanel(group);
+		if (superseded()) {
+			throw new CancellationError();
+		}
+
+		await between(token);
+		if (superseded()) {
+			throw new CancellationError();
+		}
+
+		await this.restorePanel(group, superseded);
+	}
+
 	/**
-	 * The most recently active Canvas panel anywhere in the workbench.
-	 * The assistant's ensure command owns singleton-ness; this scan only finds
-	 * the ready panel that command selected or created.
+	 * Takes the Canvas panel out of its window, keeping the window alive.
+	 * Resumes from the recorded stage, so a retry never opens a second
+	 * placeholder or clears the intent twice.
 	 */
-	private findCanvasEditor(): ICanvasEditor | undefined {
+	private async detachPanel(group: IEditorGroup): Promise<void> {
+		const detached = this.detached ??= { placeholder: new CanvasPlaceholderInput(), stage: 'allocated', closed: undefined };
+
+		if (detached.stage === 'allocated') {
+			// An empty group closes its window and takes Canvas mode with
+			// it; the placeholder keeps the window alive while Canvas is gone.
+			await group.openEditor(detached.placeholder, { pinned: true, preserveFocus: true });
+			if (!group.contains(detached.placeholder)) {
+				throw new Error(localize('positron.canvas.switchNoPlaceholder', "The Canvas window could not be prepared."));
+			}
+			detached.stage = 'placeholder-open';
+		}
+
+		if (detached.stage === 'placeholder-open') {
+			for (const panel of group.editors.filter(isCanvasPanel)) {
+				if (!await group.closeEditor(panel, { preserveFocus: true })) {
+					throw new Error(localize('positron.canvas.switchPanelOpen', "The Canvas panel could not be closed."));
+				}
+				detached.closed = panel;
+			}
+			detached.stage = 'panel-closed';
+		}
+
+		if (detached.stage === 'panel-closed') {
+			// The folder being left must stop claiming Canvas mode before
+			// its storage closes: a relaunch of it should open the IDE.
+			this.setCanvasModeIntent(false);
+			detached.stage = 'ready';
+		}
+	}
+
+	/**
+	 * Asks the assistant for a fresh panel and puts the window back together
+	 * around it. Every step re-checks `superseded` after an await, so an
+	 * exit that lands mid-way stops it before it publishes the mode flag.
+	 */
+	private async restorePanel(group: IEditorGroup, superseded: () => boolean): Promise<void> {
+		const detached = this.detached;
+		if (!detached) {
+			throw new Error(localize('positron.canvas.switchNoPlaceholder', "The Canvas window could not be prepared."));
+		}
+
+		// The assistant creates the panel in the active group. Unlocking
+		// lets that be this group, so the panel needs no second webview
+		// move; the lock is Canvas mode's and goes back either way.
+		group.focus();
+		const wasLocked = group.isLocked;
+		group.lock(false);
+		let ensured: 'ready' | 'timeout' | 'failed';
+		try {
+			ensured = await this.runEnsureCommand();
+		} finally {
+			group.lock(wasLocked);
+		}
+		if (superseded()) {
+			throw new CancellationError();
+		}
+		if (ensured === 'timeout') {
+			throw new Error(localize('positron.canvas.switchNotReady', "Canvas did not finish starting in the new workspace."));
+		}
+
+		// A failed command, or one that produced nothing, are the same to
+		// the user; only the log tells them apart.
+		const rebuilt = ensured === 'ready' ? this.findCanvasEditor(detached.closed) : undefined;
+		if (!rebuilt) {
+			throw new Error(localize('positron.canvas.switchNoPanel', "Canvas did not open in the new workspace."));
+		}
+		if (rebuilt.group !== group && !rebuilt.group.moveEditors(prepareMoveCopyEditors(rebuilt.group, [rebuilt.editor]), group)) {
+			throw new Error(localize('positron.canvas.switchNoMove', "Canvas could not return to its window."));
+		}
+		await group.openEditor(rebuilt.editor, { pinned: true, preserveFocus: true });
+		if (superseded()) {
+			throw new CancellationError();
+		}
+
+		if (group.contains(detached.placeholder) && !await group.closeEditor(detached.placeholder, { preserveFocus: true })) {
+			throw new Error(localize('positron.canvas.switchPlaceholderOpen', "The Canvas window could not be cleaned up."));
+		}
+		// The group disposes an input it closed and holds nowhere else; a
+		// placeholder that was never adopted anywhere is ours to drop.
+		detached.placeholder.dispose();
+		this.detached = undefined;
+		if (superseded()) {
+			throw new CancellationError();
+		}
+
+		// The mode flag follows the folder: the destination now relaunches
+		// into Canvas, as the source did before `detachPanel` cleared it.
+		this.setCanvasModeIntent(true);
+		group.focus();
+	}
+
+	/**
+	 * Drop a stalled rebuild's placeholder wherever it ended up (its own
+	 * window, or the IDE after a merge), or dispose it if it never opened.
+	 */
+	private async disposeDetached(): Promise<void> {
+		const detached = this.detached;
+		if (!detached) {
+			return;
+		}
+		this.detached = undefined;
+		const holder = this.editorGroupsService.groups.find(group => group.contains(detached.placeholder));
+		if (holder) {
+			await holder.closeEditor(detached.placeholder, { preserveFocus: true });
+		}
+		detached.placeholder.dispose();
+	}
+
+	async reloadIntoIde(): Promise<boolean> {
+		const windowId = mainWindow.vscodeWindowId;
+		await this.standaloneModeChannel.requestIdeRecovery(windowId);
+		// Belt for the storage that is current right now; the one-use intent
+		// above is what decides the boot when the destination's storage
+		// still holds its own flag.
+		this.setCanvasModeIntent(false);
+
+		// A reload that is accepted unloads this renderer; one that an
+		// unload veto refused leaves it running, and the intent must not
+		// wait for some later reload.
+		const disposables = new DisposableStore();
+		try {
+			const unloading = new Promise<true>(resolve => disposables.add(this.lifecycleService.onWillShutdown(() => resolve(true))));
+			await this.hostService.reload();
+			const accepted = await raceTimeout(unloading, RELOAD_VETO_GRACE) === true;
+			if (!accepted) {
+				this.logService.warn('[canvas] The reload into the IDE was refused; withdrawing the one-use IDE recovery');
+				await this.standaloneModeChannel.cancelIdeRecovery(windowId);
+			}
+			return accepted;
+		} finally {
+			disposables.dispose();
+		}
+	}
+
+	/**
+	 * The most recently active Canvas panel anywhere in the workbench, other
+	 * than `exclude`. The assistant's ensure command owns singleton-ness;
+	 * this scan only finds the ready panel that command selected or created.
+	 */
+	private findCanvasEditor(exclude?: WebviewInput): ICanvasEditor | undefined {
 		const found: ICanvasEditor[] = [];
 
 		for (const group of this.editorGroupsService.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE)) {
 			for (const editor of group.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
-				if (editor instanceof WebviewInput && editor.providerId === CANVAS_WEBVIEW_VIEW_TYPE) {
+				if (isCanvasPanel(editor) && editor !== exclude && !editor.isDisposed()) {
 					found.push({ group, editor });
 				}
 			}
@@ -450,9 +723,14 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		return found.at(0);
 	}
 
-	private async ensureCanvasEditor(): Promise<ICanvasEditor | undefined> {
-		// `raceTimeout` resolves undefined on timeout and on completion (the
-		// command always resolves undefined); only the callback tells them apart.
+	/**
+	 * Runs the assistant's ensure command. `raceTimeout` resolves undefined
+	 * on timeout and on completion (the command always resolves undefined),
+	 * so only the callback tells them apart. A timeout is never followed by
+	 * a scan: a panel found then may be one the assistant's own readiness
+	 * deadline is about to dispose.
+	 */
+	private async runEnsureCommand(): Promise<'ready' | 'timeout' | 'failed'> {
 		let timedOut = false;
 
 		try {
@@ -466,16 +744,14 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			);
 		} catch (error) {
 			this.logService.error(`[canvas] ${CANVAS_ENSURE_COMMAND} failed`, error);
-			return undefined;
+			return 'failed';
 		}
 
-		// A timeout is a failure, never a panel to adopt: a scan would find a
-		// panel the assistant's own readiness deadline is about to dispose.
-		if (timedOut) {
-			return undefined;
-		}
+		return timedOut ? 'timeout' : 'ready';
+	}
 
-		return this.findCanvasEditor();
+	private async ensureCanvasEditor(): Promise<ICanvasEditor | undefined> {
+		return await this.runEnsureCommand() === 'ready' ? this.findCanvasEditor() : undefined;
 	}
 
 	/**
@@ -530,7 +806,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	 * arranges for the IDE to come back if it disappears, and focuses it.
 	 */
 	private adoptCanvasWindow(part: IEditorPart, group: IEditorGroup): void {
-		this.stopPresenting();
+		// Re-adoption by a re-entry is not Canvas going away.
+		this.stopPresenting(false);
 
 		const disposables = new DisposableStore();
 
@@ -539,22 +816,31 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// has focus silently cover it.
 		group.lock(true);
 
-		// A folder switch swaps the workspace storage while this window is
-		// up; the editor parts must not answer by closing it and restoring
-		// the new folder's stale windows (positronEditorPartsLayout.ts).
-		disposables.add(keepAuxiliaryEditorParts());
-
 		// The window can also go away without anyone asking us (OS close
 		// button, renderer crash); the IDE window has to come back.
 		disposables.add(Event.once(part.onWillDispose)(() => {
 			this.logService.info(`[canvas] The Canvas window (${part.windowId}) went away while presenting${this.lifecycleService.willShutdown ? ' during shutdown' : '; returning to the IDE'}`);
 
 			// Losing the window supersedes an in-flight entry the same way
-			// an exit does.
+			// an exit does, and stops a rebuild in flight.
 			this.exitGeneration++;
+			this.rebuildCancellation?.cancel();
+			const rebuilding = this.rebuilding;
 
 			this.stopPresenting();
-			this.releaseEngagement();
+
+			// The claim is released only once the transaction inside the
+			// rebuild has settled: an external open waiting on the release
+			// must not reuse a window whose identity is still changing.
+			const release = () => this.releaseEngagement();
+			if (rebuilding) {
+				rebuilding.then(release, release);
+			} else {
+				release();
+			}
+
+			// The placeholder went with the window; forget it either way.
+			this.disposeDetached().catch(error => this.logService.error('[canvas] Could not drop the switch placeholder after the Canvas window went away', error));
 
 			// The aux part is disposed during an ordinary quit too: clearing
 			// the intent there would erase the "quit in Canvas, relaunch into
@@ -569,6 +855,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		this.canvasWindow.value = disposables;
 		this.canvasGroup = group;
 		this.modeActiveContext.set(true);
+		this._onDidChangeActive.fire(true);
 		this.setCanvasModeIntent(true);
 		this.logService.info(`[canvas] Presenting Canvas in window ${part.windowId}`);
 
@@ -578,11 +865,18 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	/**
 	 * Forget the window we were presenting Canvas in. Does not touch the
 	 * group: this also runs while that window is being disposed.
+	 *
+	 * @param notify whether to announce the change; re-adoption passes false
+	 * because Canvas is not going away, it is being taken over again.
 	 */
-	private stopPresenting(): void {
+	private stopPresenting(notify = true): void {
+		const wasPresenting = this.canvasWindow.value !== undefined;
 		this.canvasWindow.clear();
 		this.canvasGroup = undefined;
 		this.modeActiveContext.set(false);
+		if (wasPresenting && notify) {
+			this._onDidChangeActive.fire(false);
+		}
 	}
 
 	/**
