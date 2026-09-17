@@ -66,3 +66,9 @@
 @keyframes positron-canvas-spin {
 	to { transform: rotate(360deg); }
 }
+
+@media (prefers-reduced-motion: reduce) {
+	.positron-canvas-startup-spinner {
+		animation: none;
+	}
+}

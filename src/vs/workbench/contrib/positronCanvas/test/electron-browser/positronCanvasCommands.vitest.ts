@@ -29,11 +29,22 @@ describe('positron.canvas command surface', () => {
 		]);
 	});
 
+	it('registers the experimental folder-switch seam the assistant picker consumes', () => {
+		const experimentalCommands = [...CommandsRegistry.getCommands().keys()]
+			.filter(id => id.startsWith('positron.experimental.') && id.includes('Canvas'))
+			.sort();
+
+		expect(experimentalCommands).toEqual([
+			'positron.experimental.getCanvasFolders',
+			'positron.experimental.switchCanvasFolder',
+		]);
+	});
+
 	it('leaves user-facing discovery to the Canvas-capable assistant', () => {
 		const canvasPaletteCommands = MenuRegistry.getMenuItems(MenuId.CommandPalette)
 			.filter(isIMenuItem)
 			.map(item => item.command.id)
-			.filter(id => id.startsWith('positron.canvas.'));
+			.filter(id => id.startsWith('positron.canvas.') || id.startsWith('positron.experimental.'));
 
 		expect(canvasPaletteCommands).toEqual(['positron.canvas.exit']);
 	});

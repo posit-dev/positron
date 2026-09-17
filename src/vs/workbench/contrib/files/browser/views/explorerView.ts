@@ -287,6 +287,8 @@ export class ExplorerView extends ViewPane implements IExplorerView {
 
 		this._register(this.contextService.onDidChangeWorkspaceName(setHeader));
 		// --- Start Positron ---
+		// A Canvas folder switch replaces the single root folder in place, which
+		// fires a folders change but no name change; the header is the folder name.
 		this._register(this.contextService.onDidChangeWorkspaceFolders(setHeader));
 		// --- End Positron ---
 		this._register(this.labelService.onDidChangeFormatters(setHeader));

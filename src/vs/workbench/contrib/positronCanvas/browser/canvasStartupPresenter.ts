@@ -64,14 +64,14 @@ function createCanvasCurtainElement(container: HTMLElement): { element: HTMLElem
 }
 
 /** One button on the curtain card. */
-interface ICurtainAction {
+export interface ICurtainAction {
 	readonly label: string;
 	readonly primary?: boolean;
 	readonly run: () => void;
 }
 
 /** Renders the card shared by the curtain's loading and failure states. */
-function renderCurtainCard(
+export function renderCurtainCard(
 	element: HTMLElement,
 	spec: { brandText: string; brandId?: string; messageText: string; spinner: boolean; actions: readonly ICurtainAction[] },
 	disposables: DisposableStore,
