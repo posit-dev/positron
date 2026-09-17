@@ -28,6 +28,9 @@ import { ILifecycleService, ShutdownReason } from '../services/lifecycle/common/
 import { IHostService } from '../services/host/browser/host.js';
 import { registerWindowDriver } from '../services/driver/browser/driver.js';
 import { CodeWindow, isAuxiliaryWindow, mainWindow } from '../../base/browser/window.js';
+// --- Start Positron ---
+import { canImplicitlyFocusWindow } from './positronWindowFocus.js';
+// --- End Positron ---
 import { createSingleCallFunction } from '../../base/common/functional.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 import { IWorkbenchEnvironmentService } from '../services/environment/common/environmentService.js';
@@ -63,6 +66,12 @@ export abstract class BaseWindow extends Disposable {
 
 		const that = this;
 		targetWindow.HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions | undefined): void {
+			// --- Start Positron ---
+			// Focusing the iframe itself can also reveal its native window.
+			if (!canImplicitlyFocusWindow(getWindow(this))) {
+				return;
+			}
+			// --- End Positron ---
 
 			// Ensure the window the element belongs to is focused
 			// in scenarios where auxiliary windows are present

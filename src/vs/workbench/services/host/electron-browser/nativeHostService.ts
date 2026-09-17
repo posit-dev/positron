@@ -21,6 +21,9 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { showBrowserToast } from '../browser/toasts.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+// --- Start Positron ---
+import { canImplicitlyFocusWindow } from '../../../browser/positronWindowFocus.js';
+// --- End Positron ---
 
 class WorkbenchNativeHostService extends NativeHostService {
 
@@ -166,6 +169,12 @@ class WorkbenchHostService extends Disposable implements IHostService {
 	}
 
 	async moveTop(targetWindow: Window): Promise<void> {
+		// --- Start Positron ---
+		// macOS moveTop also reveals a hidden window.
+		if (!canImplicitlyFocusWindow(targetWindow)) {
+			return;
+		}
+		// --- End Positron ---
 		if (getWindowsCount() <= 1) {
 			return; // does not apply when only one window is opened
 		}

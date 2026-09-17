@@ -286,6 +286,9 @@ export class ExplorerView extends ViewPane implements IExplorerView {
 		};
 
 		this._register(this.contextService.onDidChangeWorkspaceName(setHeader));
+		// --- Start Positron ---
+		this._register(this.contextService.onDidChangeWorkspaceFolders(setHeader));
+		// --- End Positron ---
 		this._register(this.labelService.onDidChangeFormatters(setHeader));
 		setHeader();
 	}

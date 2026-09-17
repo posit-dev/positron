@@ -8,11 +8,15 @@ import { URI } from '../../../base/common/uri.js';
 import { IBackupMainService } from '../../backup/electron-main/backup.js';
 import { IWindowsMainService } from '../../windows/electron-main/windows.js';
 import { IEnterWorkspaceResult, IRecent, IRecentlyOpened, IWorkspaceFolderCreationData, IWorkspacesService } from '../common/workspaces.js';
-import { IWorkspaceIdentifier } from '../../workspace/common/workspace.js';
+import { IWorkspaceIdentifier, ISingleFolderWorkspaceIdentifier } from '../../workspace/common/workspace.js';
 import { IWorkspacesHistoryMainService } from './workspacesHistoryMainService.js';
 import { IWorkspacesManagementMainService } from './workspacesManagementMainService.js';
 import { IWorkspaceBackupInfo, IFolderBackupInfo } from '../../backup/common/backup.js';
 import { Event } from '../../../base/common/event.js';
+// --- Start Positron ---
+import { enterCanvasFolder, resolveCanvasFolder } from './positronFolderWorkspace.js';
+import { ICanvasFolderResult } from '../common/positronFolderWorkspace.js';
+// --- End Positron ---
 
 export class WorkspacesMainService implements AddFirstParameterToFunctions<IWorkspacesService, Promise<unknown> /* only methods, not events */, number /* window ID */> {
 
@@ -28,6 +32,18 @@ export class WorkspacesMainService implements AddFirstParameterToFunctions<IWork
 	}
 
 	//#region Workspace Management
+
+	// --- Start Positron ---
+	// Canvas folder switch (ICanvasFolderWorkspaceService), served on this
+	// channel so the renderer reaches it with its window id as context.
+	async resolveCanvasFolder(windowId: number, folder: URI): Promise<ISingleFolderWorkspaceIdentifier> {
+		return resolveCanvasFolder(this.windowsMainService.getWindowById(windowId), this.windowsMainService.getWindows(), folder);
+	}
+
+	async enterCanvasFolder(windowId: number, folder: URI): Promise<ICanvasFolderResult> {
+		return enterCanvasFolder(this.windowsMainService.getWindowById(windowId), this.windowsMainService.getWindows(), this.backupMainService, folder);
+	}
+	// --- End Positron ---
 
 	async enterWorkspace(windowId: number, path: URI): Promise<IEnterWorkspaceResult | undefined> {
 		const window = this.windowsMainService.getWindowById(windowId);

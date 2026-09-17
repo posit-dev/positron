@@ -130,6 +130,7 @@ describe('PositronCanvasService', () => {
 		// unless the test says otherwise.
 		ctx.instantiationService.stub(IAuxiliaryWindowService, stubInterface<IAuxiliaryWindowService>({
 			getWindow: () => stubInterface<IAuxiliaryWindow>({
+				window: mainWindow,
 				createState: () => options.plainAuxWindows === true ? {} : { lockCompact: true }
 			})
 		}));

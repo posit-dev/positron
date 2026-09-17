@@ -20,6 +20,7 @@ import { POSITRON_STANDALONE_MODE_CHANNEL_NAME } from '../../../../platform/posi
 import { PositronStandaloneModeChannelClient } from '../../../../platform/positronStandaloneMode/common/positronStandaloneModeIpc.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
+import { suppressImplicitWindowFocus } from '../../../browser/positronWindowFocus.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart, GroupsOrder } from '../../../services/editor/common/editorGroupsService.js';
@@ -66,6 +67,9 @@ export interface IPositronCanvasService {
 	/** Whether Canvas is currently the only surface the user can see. */
 	readonly isActive: boolean;
 
+	/** The editor group owned by the visible Canvas window. */
+	readonly activeGroup: IEditorGroup | undefined;
+
 	/**
 	 * Hand the user back to the full IDE, moving the live conversation into
 	 * it. Resolves `true` only when it actually left Canvas mode.
@@ -103,6 +107,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 
 	/** Set while the IDE window has been put away on Canvas's behalf. */
 	private ideWindowHidden = false;
+	private readonly hiddenWindowFocus = this._register(new MutableDisposable<DisposableStore>());
 
 	/**
 	 * Auxiliary editor windows put away on Canvas's behalf, so exit re-shows
@@ -350,6 +355,10 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		return this.modeActiveContext.get() === true;
 	}
 
+	get activeGroup(): IEditorGroup | undefined {
+		return this.canvasGroup;
+	}
+
 	exit(): Promise<boolean> {
 		// Coalesce onto the exit in flight. Still an operative "I want the
 		// IDE": like `doExit()`, retire and detach any entry queued behind
@@ -590,6 +599,9 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// re-entry can reveal the IDE window on its way in, so skipping
 		// "already hidden" work would leave it behind Canvas.
 		this.ideWindowHidden = true;
+		const focusSuppression = new DisposableStore();
+		focusSuppression.add(suppressImplicitWindowFocus(mainWindow));
+		this.hiddenWindowFocus.value = focusSuppression;
 
 		// Hide rather than minimize: minimize animates the IDE into the dock
 		// beside the new Canvas window, which reads as two windows rather
@@ -607,6 +619,10 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 				continue;
 			}
 			this.hiddenAuxWindowIds.add(part.windowId);
+			const hiddenWindow = this.auxiliaryWindowService.getWindow(part.windowId)?.window;
+			if (hiddenWindow) {
+				focusSuppression.add(suppressImplicitWindowFocus(hiddenWindow));
+			}
 			auxWindowIds.push(part.windowId);
 			hides.push(this.nativeHostService.hideWindow({ targetWindowId: part.windowId }));
 		}
@@ -652,6 +668,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// retried by the next reveal instead of early-returning above.
 		await this.nativeHostService.showWindow({ targetWindowId: mainWindow.vscodeWindowId });
 		this.ideWindowHidden = false;
+		this.hiddenWindowFocus.clear();
 
 		// Exactly the windows entry hid, forgotten as each show lands. Only
 		// the main window's show may abort the reveal: an exit stopping here
