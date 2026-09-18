@@ -1778,6 +1778,21 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Queues code for execution and resolves as soon as it has been accepted,
+	 * without waiting for it to finish running. Rejects if the code could not be
+	 * queued (e.g. the interpreter failed to start), so those errors still reach
+	 * the caller.
+	 *
+	 * This is the path behind the `sendToConsole` frontend method: the code runs
+	 * in the same session that requested it, so waiting for completion (as
+	 * `executeCode` does) would deadlock that session, which stays busy until the
+	 * request returns.
+	 */
+	public async queueCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean): Promise<void> {
+		await this._proxy.$executeCode(languageId, extensionId, undefined, code, focus, allowIncomplete);
+	}
+
+	/**
 	 * Evaluate code silently and return a JSON-coerced result.
 	 *
 	 * @param languageId The language ID to evaluate in
