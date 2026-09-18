@@ -1287,6 +1287,14 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		// Only do this when running out of sources and not when running tests
 		if (!this.environmentMainService.isBuilt && !this.environmentMainService.extensionTestsLocationURI) {
 			this._register(new RunOnceScheduler(() => {
+				// --- Start Positron ---
+				// Dev-only path. A window presenting Canvas hides itself on
+				// purpose; showing it (with DevTools) here would undo Canvas mode
+				// on every source build that boots into Canvas within 10s.
+				if (this.positronStandaloneModeMainService.isEngaged && !this.positronStandaloneModeMainService.isEngagedElsewhere(this.id)) {
+					return;
+				}
+				// --- End Positron ---
 				if (this._win && !this._win.isVisible() && !this._win.isMinimized()) {
 					this._win.show();
 					this.focus({ mode: FocusMode.Force });
