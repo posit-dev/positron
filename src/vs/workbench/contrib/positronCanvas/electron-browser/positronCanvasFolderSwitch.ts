@@ -105,9 +105,11 @@ export class CanvasFolderSwitcher {
 		this.requireClean();
 
 		// Shutting down a busy session asks whether to interrupt it, in the
-		// covered IDE window; refuse instead of waiting behind the curtain.
+		// covered IDE window, and a session still starting or restarting
+		// would be dropped without its kernel being stopped; refuse both
+		// instead of waiting behind the curtain.
 		for (const session of this.runtimeSessionService.activeSessions) {
-			this.requireIdle(session);
+			this.requireSettled(session);
 		}
 
 		await this.canvasService.openFolderWithLoadingPresentation(stillPresenting => this.prepareAndOpen(target, folderPath, stillPresenting));
@@ -117,32 +119,43 @@ export class CanvasFolderSwitcher {
 	 * The half that runs behind the curtains. Sessions start in the
 	 * workspace folder, so the new folder gets fresh ones; the supervisor
 	 * would otherwise keep them across the load. Then the ordinary open.
+	 *
+	 * Sessions are read live, not from one snapshot: a runtime can finish
+	 * starting while an earlier shutdown is awaited, and the curtains block
+	 * the user, not background extension activity. Two passes over the live
+	 * list cover a session that arrived mid-deletion; anything still there
+	 * after that, or arriving during the final checks, refuses the load. A
+	 * refusal here is not a no-op: sessions already shut down stay down.
 	 */
 	private async prepareAndOpen(target: URI, folderPath: string, stillPresenting: () => boolean): Promise<void> {
-		for (const session of [...this.runtimeSessionService.activeSessions]) {
-			// Rechecked per session: an earlier shutdown can leave a
-			// dependent session busy.
-			this.requireIdle(session);
-			let deleted: boolean;
-			try {
-				deleted = await this.runtimeSessionService.deleteSession(session.sessionId);
-			} catch (cause) {
-				this.logService.error(`[canvas] Could not shut down the ${session.dynState.sessionName} session for the folder open`, cause);
-				throw new Error(localize('positron.canvas.switchSessionFailed', "The {0} session could not be shut down.", session.dynState.sessionName), { cause });
+		this.requireLive(stillPresenting);
+		for (let pass = 0; pass < 2 && this.runtimeSessionService.activeSessions.length > 0; pass++) {
+			for (const session of [...this.runtimeSessionService.activeSessions]) {
+				// Rechecked per session: an earlier shutdown can leave a
+				// dependent session busy.
+				this.requireSettled(session);
+				let deleted: boolean;
+				try {
+					deleted = await this.runtimeSessionService.deleteSession(session.sessionId);
+				} catch (cause) {
+					this.logService.error(`[canvas] Could not shut down the ${session.dynState.sessionName} session for the folder open`, cause);
+					throw new Error(localize('positron.canvas.switchSessionFailed', "The {0} session could not be shut down.", session.dynState.sessionName), { cause });
+				}
+				if (!deleted) {
+					throw new Error(localize('positron.canvas.switchSession', "Shutting down the {0} session was cancelled.", session.dynState.sessionName));
+				}
+				this.requireLive(stillPresenting);
 			}
-			if (!deleted) {
-				throw new Error(localize('positron.canvas.switchSession', "Shutting down the {0} session was cancelled.", session.dynState.sessionName));
-			}
-			this.requireLive(stillPresenting);
 		}
+		this.requireNoSessions();
 
 		// Preparation took time; the cheap checks again before the load.
-		this.requireLive(stillPresenting);
 		this.currentFolder();
 		this.requireClean();
 		const resolution = await this.folderService.resolveCanvasFolder(target);
 		await this.requireTrusted(resolution, folderPath);
 		this.requireLive(stillPresenting);
+		this.requireNoSessions();
 
 		await this.folderService.openCanvasFolder(target);
 	}
@@ -174,9 +187,27 @@ export class CanvasFolderSwitcher {
 		}
 	}
 
-	private requireIdle(session: ILanguageRuntimeSession): void {
-		if (session.getRuntimeState() === RuntimeState.Busy) {
+	/**
+	 * A session the shutdown can handle: idle or ready (shut down) or already
+	 * exited (removed). Busy would prompt in the covered IDE; every other
+	 * state (starting, restarting, exiting, offline, interrupting) is deleted
+	 * without its kernel being stopped, so it is refused until it settles.
+	 */
+	private requireSettled(session: ILanguageRuntimeSession): void {
+		const state = session.getRuntimeState();
+		if (state === RuntimeState.Busy) {
 			throw new Error(localize('positron.canvas.switchBusySession', "The {0} session is busy. Wait for it to finish or interrupt it before switching folders.", session.dynState.sessionName));
+		}
+		if (state !== RuntimeState.Idle && state !== RuntimeState.Ready && state !== RuntimeState.Exited) {
+			throw new Error(localize('positron.canvas.switchSessionUnsettled', "The {0} session is {1}. Wait for it to settle before switching folders.", session.dynState.sessionName, state));
+		}
+	}
+
+	/** No runtime session may still be running when the load is requested. */
+	private requireNoSessions(): void {
+		const remaining = this.runtimeSessionService.activeSessions.at(0);
+		if (remaining) {
+			throw new Error(localize('positron.canvas.switchSessionArrived', "The {0} session started while switching folders. Wait for it, then try again.", remaining.dynState.sessionName));
 		}
 	}
 

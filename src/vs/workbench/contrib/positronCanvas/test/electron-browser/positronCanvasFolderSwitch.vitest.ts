@@ -68,7 +68,7 @@ describe('CanvasFolderSwitcher', () => {
 	function build(options: IWorldOptions = {}) {
 		const calls: string[] = [];
 		const state = { canvasActive: options.canvasActive ?? true, presenting: true, willShutdown: options.willShutdown ?? false };
-		const sessions = options.sessions ?? [createSession('R')];
+		const sessions = [...(options.sessions ?? [createSession('R')])];
 		const untrusted = options.untrusted ?? [];
 
 		const channelCall = vi.fn().mockImplementation(async (command: string, args: unknown[]) => {
@@ -99,9 +99,14 @@ describe('CanvasFolderSwitcher', () => {
 		ctx.instantiationService.stub(INativeWorkbenchEnvironmentService, stubInterface<INativeWorkbenchEnvironmentService>({ remoteAuthority: options.remoteAuthority }));
 		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			get activeSessions() { return sessions; },
+			// A successful deletion leaves the live list, as the real service's does.
 			deleteSession: async (sessionId: string) => {
 				calls.push(`runtime.delete(${sessionId})`);
-				return options.deleteSession ? options.deleteSession(sessionId) : true;
+				const deleted = options.deleteSession ? await options.deleteSession(sessionId) : true;
+				if (deleted) {
+					sessions.splice(sessions.findIndex(session => session.sessionId === sessionId), 1);
+				}
+				return deleted;
 			}
 		}));
 		ctx.instantiationService.stub(IWorkingCopyService, stubInterface<IWorkingCopyService>({ hasDirty: options.hasDirty ?? false }));
@@ -117,7 +122,7 @@ describe('CanvasFolderSwitcher', () => {
 		}));
 
 		const switcher = ctx.instantiationService.createInstance(CanvasFolderSwitcher);
-		return { switcher, calls, state, channelCall };
+		return { switcher, calls, state, channelCall, sessions };
 	}
 
 	describe('refuses before anything changes', () => {
@@ -130,6 +135,8 @@ describe('CanvasFolderSwitcher', () => {
 			['the folder behind a trusted alias is not trusted', { resolve: async () => ({ workspace: { id: 'link', uri: URI.file('/trusted/link') }, physicalUri: URI.file('/untrusted/delta') }), untrusted: [URI.file('/untrusted/delta')] }, 'not trusted'],
 			['there are unsaved changes', { hasDirty: true }, 'unsaved changes'],
 			['a runtime session is busy', { sessions: [createSession('R', RuntimeState.Busy)] }, 'session is busy'],
+			['a runtime session is still starting', { sessions: [createSession('R', RuntimeState.Starting)] }, 'Wait for it to settle'],
+			['a runtime session is restarting', { sessions: [createSession('Python'), createSession('R', RuntimeState.Restarting)] }, 'The R session is restarting'],
 			['the main process refuses the folder', { resolve: () => Promise.reject(new Error('The folder /projects/delta does not exist.')) }, 'does not exist'],
 		] satisfies [string, IWorldOptions, string][])('when %s', async (_name, options, message) => {
 			const { switcher, calls } = build(options);
@@ -184,6 +191,33 @@ describe('CanvasFolderSwitcher', () => {
 			const { switcher, calls } = build({ sessions: [createSession('Python'), late], deleteSession: async () => { state = RuntimeState.Busy; return true; } });
 			await expect(switcher.switchFolder(TARGET.fsPath)).rejects.toThrow('The R session is busy.');
 			expect(calls).toEqual(['canvas.present', 'runtime.delete(Python-id)']);
+		});
+
+		it('a Canvas gone before the first shutdown stops before any session is touched', async () => {
+			const { switcher, calls, state } = build();
+			state.presenting = false;
+			await expect(switcher.switchFolder(TARGET.fsPath)).rejects.toThrow('closed while switching');
+			expect(calls).toEqual(['canvas.present']);
+		});
+
+		it('a session that arrives while another is shutting down is shut down too', async () => {
+			const { switcher, calls, sessions } = build({ deleteSession: async sessionId => { if (sessionId === 'R-id') { sessions.push(createSession('Julia')); } return true; } });
+			await switcher.switchFolder(TARGET.fsPath);
+			expect(calls).toEqual(['canvas.present', 'runtime.delete(R-id)', 'runtime.delete(Julia-id)', 'main.openCanvasFolder(/projects/delta)', 'canvas.accepted']);
+		});
+
+		it('sessions that keep arriving are refused after two passes, before the load', async () => {
+			let arrivals = 0;
+			const { switcher, calls, sessions } = build({ deleteSession: async () => { sessions.push(createSession(`New${++arrivals}`)); return true; } });
+			await expect(switcher.switchFolder(TARGET.fsPath)).rejects.toThrow('The New2 session started while switching folders');
+			expect(calls).toEqual(['canvas.present', 'runtime.delete(R-id)', 'runtime.delete(New1-id)']);
+		});
+
+		it('a session that arrives during the final checks is refused before the load', async () => {
+			let resolves = 0;
+			const world = build({ resolve: async () => { if (++resolves === 2) { world.sessions.push(createSession('Julia')); } return TARGET_RESOLUTION; } });
+			await expect(world.switcher.switchFolder(TARGET.fsPath)).rejects.toThrow('The Julia session started while switching folders');
+			expect(world.calls).toEqual(['canvas.present', 'runtime.delete(R-id)']);
 		});
 
 		it('a shutdown that begins during preparation stops before the load', async () => {
