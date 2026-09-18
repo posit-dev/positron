@@ -9,10 +9,10 @@ which side finds it convenient to act.
 
 ## The command seam
 
-The cross-repo subset below also lives in the assistant repo at
-`packages/positron/src/frontend-canvas/README.md`; change that subset in both
-places. Positron's full public namespace is pinned by
-`test/electron-browser/positronCanvasCommands.vitest.ts`.
+The cross-repo subset below is also documented in the assistant repo at
+`memory-bank/positronIntegration.md` (section "Switching folders from
+Canvas"); change that subset in both places. Positron's full public namespace
+is pinned by `test/electron-browser/positronCanvasCommands.vitest.ts`.
 
 Registered by Positron, called by the assistant:
 
@@ -35,9 +35,11 @@ fixed workspace name):
 - `positron.experimental.getCanvasFolders` - plain command; the local folders
   in the recently opened list, most recent first, as absolute paths. The
   assistant's picker lists these.
-- `positron.experimental.switchCanvasFolder` - plain command taking an
-  absolute folder path. Switches the folder the Canvas window presents
-  without leaving Canvas mode (`electron-browser/positronCanvasFolderSwitch.ts`).
+- `positron.experimental.switchCanvasFolder` - plain command taking a
+  folder path. The path is required and must be absolute; the command never
+  opens a folder dialog. The assistant shows its own folder dialog and passes
+  the chosen path. Switches the folder the Canvas window presents without
+  leaving Canvas mode (`electron-browser/positronCanvasFolderSwitch.ts`).
   Refusals (not presenting, remote or multi-root window, missing or
   non-folder path, folder open in another window, untrusted folder or
   untrusted folder behind a symlink, unsaved changes, a busy runtime
