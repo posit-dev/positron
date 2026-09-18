@@ -532,7 +532,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 				throw error;
 			}
 			this.folderOpenShutdownListeners.clear();
-			await this.restoreAfterFailedFolderOpen(ideShown, canvasPart.windowId, group, curtains, stillPresenting());
+			await this.restoreAfterFailedFolderOpen(ideShown, canvasPart.windowId, group, curtains, stillPresenting);
 			throw error;
 		}
 	}
@@ -540,24 +540,48 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	/**
 	 * Puts things back after a folder open failed with this window alive:
 	 * Canvas window back, IDE window away *before* its curtain comes down.
-	 * When Canvas went away during the preparation, the window loss already
-	 * returned the IDE; only the covers come off.
+	 * Ownership is read live: Canvas can be closed, exited, or the app quit
+	 * while each native call is in flight, and the window loss / exit path
+	 * that runs then owns the IDE window from that point. When Canvas is
+	 * gone, only the covers come off; when it went while the IDE was being
+	 * hidden, that hide is undone so a window survives; during a shutdown
+	 * nothing is touched and the covers stay up.
 	 */
-	private async restoreAfterFailedFolderOpen(ideShown: boolean, canvasWindowId: number, group: IEditorGroup, curtains: DisposableStore, canvasPresenting: boolean): Promise<void> {
-		if (canvasPresenting) {
-			try {
+	private async restoreAfterFailedFolderOpen(ideShown: boolean, canvasWindowId: number, group: IEditorGroup, curtains: DisposableStore, stillPresenting: () => boolean): Promise<void> {
+		const shuttingDown = () => this.lifecycleService.willShutdown;
+		try {
+			if (stillPresenting()) {
+				// Showing a window that no longer exists resolves too; the
+				// predicate, not the resolved show, says whether Canvas is back.
 				await this.nativeHostService.showWindow({ targetWindowId: canvasWindowId });
-				if (ideShown) {
-					await this.nativeHostService.hideWindow({ targetWindowId: mainWindow.vscodeWindowId });
-					this.ideWindowHidden = true;
-				}
-			} catch (error) {
-				// Whatever is visible stays visible.
-				this.logService.error('[canvas] Could not restore the Canvas window after the folder open failed', error);
 			}
+			if (ideShown && !shuttingDown() && stillPresenting()) {
+				const hidden = await this.nativeHostService.hideWindow({ targetWindowId: mainWindow.vscodeWindowId });
+				if (shuttingDown()) {
+					// The quit's teardown owns the windows now.
+				} else if (stillPresenting()) {
+					// `false` means the IDE window was already away or the hide
+					// was abandoned; only a hide this call made is ours to undo.
+					this.ideWindowHidden = hidden || this.ideWindowHidden;
+				} else if (hidden) {
+					// Canvas went away while the IDE was being put away, and its
+					// own reveal ran while the IDE was still visible: this hide
+					// took the only surviving window with it.
+					this.logService.info('[canvas] Canvas closed while the IDE was being put away after a failed folder open; showing the IDE again');
+					await this.nativeHostService.showWindow({ targetWindowId: mainWindow.vscodeWindowId });
+					this.ideWindowHidden = false;
+				}
+			}
+		} catch (error) {
+			// Whatever is visible stays visible.
+			this.logService.error('[canvas] Could not restore the Canvas window after the folder open failed', error);
+		}
+		if (shuttingDown()) {
+			this._register(curtains);
+			return;
 		}
 		curtains.dispose();
-		if (canvasPresenting) {
+		if (stillPresenting()) {
 			group.focus();
 		}
 	}

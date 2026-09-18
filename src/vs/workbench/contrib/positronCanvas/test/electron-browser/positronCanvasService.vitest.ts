@@ -906,6 +906,99 @@ describe('PositronCanvasService', () => {
 			expect(storageService.remove).not.toHaveBeenCalled();
 		});
 
+		describe('when Canvas goes away during the rollback itself', () => {
+			/** A rejecting open whose rollback pauses inside the native call for `pauseIn`. */
+			async function pausedRollback(pauseIn: 'show-canvas' | 'hide-main', onWillDispose?: Event<void>) {
+				const gate = new DeferredPromise<void>();
+				// Armed only once Canvas is presented: entry itself hides the IDE
+				// window, and the forward path shows it; the rollback's calls are
+				// the first Canvas show and the first IDE hide after that.
+				let armed = false;
+				const world = await presentAndBuild(() => Promise.reject(new Error('vetoed')), {
+					showWindow: async options => {
+						if (armed && pauseIn === 'show-canvas' && options?.targetWindowId === AUX_WINDOW_ID) {
+							await gate.p;
+						}
+					},
+					hideWindow: async options => {
+						if (armed && pauseIn === 'hide-main' && options?.targetWindowId === MAIN_WINDOW_ID) {
+							await gate.p;
+						}
+						return true;
+					},
+					onWillDispose,
+				});
+				armed = true;
+				const failing = world.service.openFolderWithLoadingPresentation(world.open);
+				failing.catch(() => { });
+				const pausedCall = pauseIn === 'show-canvas' ? `show(${AUX_WINDOW_ID})` : `hide(${MAIN_WINDOW_ID})`;
+				await vi.waitFor(() => expect(world.calls.some(call => call.startsWith(pausedCall) && world.calls.indexOf(call) >= 3)).toBe(true));
+				return { ...world, gate, failing };
+			}
+
+			it('a native close while Canvas is being shown leaves the returned IDE visible', async () => {
+				const willDispose = new Emitter<void>();
+				ctx.disposables.add(willDispose);
+				const { gate, failing, calls, mainContainer, auxContainer, service } = await pausedRollback('show-canvas', willDispose.event);
+
+				willDispose.fire();
+				await gate.complete();
+				await expect(failing).rejects.toThrow('vetoed');
+
+				expect(calls.filter(call => call.startsWith(`hide(${MAIN_WINDOW_ID})`))).toEqual([]);
+				expect({ main: covered(mainContainer), canvas: covered(auxContainer), active: service.isActive }).toEqual({ main: false, canvas: false, active: false });
+			});
+
+			it('an exit while Canvas is being shown leaves the IDE the exit revealed visible', async () => {
+				const { gate, failing, calls, mainContainer, service } = await pausedRollback('show-canvas');
+
+				const exited = service.exit();
+				await gate.complete();
+				await expect(failing).rejects.toThrow('vetoed');
+				expect(await exited).toBe(true);
+
+				expect(calls.filter(call => call.startsWith(`hide(${MAIN_WINDOW_ID})`))).toEqual([]);
+				expect({ main: covered(mainContainer), active: service.isActive }).toEqual({ main: false, active: false });
+			});
+
+			it('a close while the IDE is being hidden shows the IDE again', async () => {
+				const willDispose = new Emitter<void>();
+				ctx.disposables.add(willDispose);
+				const { gate, failing, calls, mainContainer, service } = await pausedRollback('hide-main', willDispose.event);
+
+				willDispose.fire();
+				await gate.complete();
+				await expect(failing).rejects.toThrow('vetoed');
+
+				const hideIndex = calls.findIndex(call => call.startsWith(`hide(${MAIN_WINDOW_ID})`));
+				expect(calls.slice(hideIndex + 1).some(call => call.startsWith(`show(${MAIN_WINDOW_ID})`))).toBe(true);
+				expect({ main: covered(mainContainer), active: service.isActive }).toEqual({ main: false, active: false });
+			});
+
+			it('a quit while Canvas is being shown restores nothing and keeps the covers up', async () => {
+				const { gate, failing, calls, lifecycle, mainContainer, auxContainer } = await pausedRollback('show-canvas');
+
+				lifecycle.willShutdown = true;
+				await gate.complete();
+				await expect(failing).rejects.toThrow('vetoed');
+
+				expect(calls.filter(call => call.startsWith(`hide(${MAIN_WINDOW_ID})`))).toEqual([]);
+				expect({ main: covered(mainContainer), canvas: covered(auxContainer) }).toEqual({ main: true, canvas: true });
+			});
+		});
+
+		it('does not count the IDE as put away when the rollback hide found it already gone', async () => {
+			const { service, open, calls } = await presentAndBuild(() => Promise.reject(new Error('vetoed')), {
+				hideWindow: async options => options?.targetWindowId !== MAIN_WINDOW_ID,
+			});
+			await expect(service.openFolderWithLoadingPresentation(open)).rejects.toThrow('vetoed');
+			calls.length = 0;
+
+			// A later exit has nothing of ours to re-show.
+			expect(await service.exit()).toBe(true);
+			expect(calls.filter(call => call.startsWith(`show(${MAIN_WINDOW_ID})`))).toEqual([]);
+		});
+
 		it('accepts a new request after a refused one', async () => {
 			const { service, open } = await presentAndBuild(async () => { });
 			await expect(service.openFolderWithLoadingPresentation(() => Promise.reject(new Error('refused')))).rejects.toThrow('refused');
