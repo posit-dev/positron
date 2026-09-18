@@ -39,14 +39,18 @@ export const GET_CANVAS_FOLDERS_COMMAND_ID = 'positron.experimental.getCanvasFol
  * Opens another folder in the Canvas window: an ordinary folder load into
  * this window, flagged so the new folder boots straight into Canvas.
  *
- * Two halves. Everything that can refuse the request runs first and changes
- * nothing, rejecting with a user-presentable message for the caller (the
- * assistant's picker) to show. Then, behind the Canvas service's loading
- * presentation, the runtime sessions are shut down (they belong to the
- * folder being left) and the main process is asked to load the folder. The
- * returned promise rejects while this window is alive; once the load is
- * accepted the document goes away, and the new folder's own startup owns
- * what happens next.
+ * Two halves. The initial preflight runs first and changes nothing: every
+ * refusal there rejects with a user-presentable message for the caller (the
+ * assistant's picker) to show, with sessions, storage and windows as they
+ * were. Then, behind the Canvas service's loading presentation, the runtime
+ * sessions are shut down one by one (they belong to the folder being left)
+ * and the main process is asked to load the folder. A refusal in this second
+ * half (a session that turned busy or arrived, a shutdown that failed or was
+ * declined, the folder changing, an unload veto) also rejects, and Canvas is
+ * put back as it was on screen, but the sessions already shut down stay shut
+ * down; the message names the session that stopped the request, not the
+ * ones already gone. Once the load is accepted the document goes away, and
+ * the new folder's own startup owns what happens next.
  */
 export class CanvasFolderSwitcher {
 
