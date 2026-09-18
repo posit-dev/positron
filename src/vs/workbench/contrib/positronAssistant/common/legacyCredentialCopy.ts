@@ -44,7 +44,6 @@ export interface LegacyCredentialCopyOptions {
 	readonly customEntryIds: readonly string[];
 	/** The catalog's resolved `positaiLogin.scope`. */
 	readonly positaiScope: string;
-	readonly now: number;
 	readonly generation: () => string;
 	readonly log: (level: 'info' | 'warn', message: string) => void;
 }
