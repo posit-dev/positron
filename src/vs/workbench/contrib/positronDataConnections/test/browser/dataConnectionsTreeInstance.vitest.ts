@@ -207,6 +207,9 @@ describe('DataConnectionsTreeInstance', () => {
 			onDidChangeProfiles: Event.None,
 			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeDiscoveredProfiles: Event.None,
+			// No reveal request is outstanding in these tests; the tree takes one on construction.
+			onDidRequestRevealConnection: Event.None,
+			takePendingRevealConnection: () => undefined,
 			getAllProfiles: () => [profile, ...discoveredProfiles],
 			getInstanceForProfile: () => liveInstance,
 			connect: async () => instance,
@@ -259,6 +262,9 @@ describe('DataConnectionsTreeInstance', () => {
 			onDidChangeProfiles: Event.None,
 			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeDiscoveredProfiles: Event.None,
+			// No reveal request is outstanding in these tests; the tree takes one on construction.
+			onDidRequestRevealConnection: Event.None,
+			takePendingRevealConnection: () => undefined,
 			getAllProfiles: () => profiles,
 			getInstanceForProfile: (profileId: string) => instances.get(profileId),
 			connect: async (profileId: string) => instances.get(profileId)!,

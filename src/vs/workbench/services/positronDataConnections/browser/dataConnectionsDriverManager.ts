@@ -91,6 +91,22 @@ export class DataConnectionsDriverManager extends Disposable implements IDataCon
 	}
 
 	/**
+	 * Activates the driver-providing extensions, so a caller that needs a driver outside the Data
+	 * Connections view can get one. Resolves once the activation event has been dispatched, at which
+	 * point the drivers of every extension registered against it have been registered (so a driver
+	 * still absent afterward is genuinely not installed, rather than not loaded yet).
+	 *
+	 * This is the deliberate opt-in the constructor's laziness leaves room for: nothing here runs at
+	 * startup, and a caller only reaches for this in response to the user doing something that is
+	 * about data connections -- opening a database file, say. The event is the same one the view
+	 * fires, so calling it does not load any extension the view wouldn't have.
+	 * @returns A promise that resolves when the driver extensions have activated.
+	 */
+	activateDrivers(): Promise<void> {
+		return this._extensionService.activateByEvent(DATA_CONNECTIONS_VIEW_ACTIVATION_EVENT);
+	}
+
+	/**
 	 * Gets all drivers.
 	 * @returns The array of drivers.
 	 */

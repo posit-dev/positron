@@ -26,6 +26,13 @@ export interface IDataConnectionsDriverManager {
 	readonly driversLoaded: boolean;
 
 	/**
+	 * Activates the driver-providing extensions. Drivers otherwise load lazily, when the Data
+	 * Connections view is first shown; a caller that needs a driver somewhere else asks for them
+	 * here. Resolves once the drivers of every extension that provides one have been registered.
+	 */
+	activateDrivers(): Promise<void>;
+
+	/**
 	 * Gets all drivers.
 	 * @return An array of all registered drivers.
 	 */
