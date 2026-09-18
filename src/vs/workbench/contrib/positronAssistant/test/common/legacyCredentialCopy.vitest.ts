@@ -49,6 +49,18 @@ describe('planLegacyCredentialCopy', () => {
 		}]);
 	});
 
+	it('copies a Foundry api key under its unchanged id', async () => {
+		const writes = await planLegacyCredentialCopy(source({
+			accounts: { 'ms-foundry': [{ id: 'u1', label: 'me' }] },
+			secrets: { 'apiKey-ms-foundry-u1': 'fk-1' },
+		}), options);
+
+		expect(writes.map(write => write.key)).toEqual([
+			extensionSecretKey(ASSISTANT_EXTENSION_ID, 'auth:ms-foundry:apikey'),
+		]);
+		expect(JSON.parse(writes[0].value)).toMatchObject({ source: 'api-key', apiKeyAuth: { apiKey: 'fk-1' } });
+	});
+
 	it('takes the first account with a secret and logs the rest', async () => {
 		const logged: string[] = [];
 		const writes = await planLegacyCredentialCopy(source({
