@@ -2370,6 +2370,12 @@ export abstract class DataGridInstance extends Disposable {
 			return;
 		}
 
+		// If there is no horizontal extent to scroll within, return. See scrollToCell, which
+		// guards the same arithmetic for the same reason.
+		if (this.layoutWidth <= 0) {
+			return;
+		}
+
 		// If the column isn't visible, scroll to it.
 		if (columnLayoutEntry.start < this._horizontalScrollOffset) {
 			await this.setHorizontalScrollOffset(columnLayoutEntry.start);

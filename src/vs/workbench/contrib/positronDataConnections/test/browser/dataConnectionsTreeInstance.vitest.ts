@@ -642,3 +642,156 @@ describe('DataConnectionsTreeInstance', () => {
 		}).toEqual({ expanded: false, expandState: 'collapsed' });
 	});
 });
+
+describe('DataConnectionsTreeInstance reveal', () => {
+	const ctx = createTestContainer().build();
+
+	// The tree's id for the single profile these tests use.
+	const ENTRY_ID = 'entry:conn-1';
+
+	const profile = createProfile();
+
+	// The service's nudge that a connection is waiting to be shown. The profile itself always comes
+	// from takePendingRevealConnection, so the two ways a tree can hear about a request -- being
+	// built while one is outstanding, and one arriving while it is alive -- run the same path.
+	const onDidRequestRevealConnection = new Emitter<void>();
+
+	/**
+	 * Builds a tree over one connected profile, with `pendingReveal` outstanding on its service.
+	 * The request is handed over the way the real service hands it over: once, to whoever asks
+	 * first. `requestReveal` puts a new one up and nudges the tree, standing in for a press of the
+	 * database file page's button while the pane is already open.
+	 */
+	function createTree({ pendingReveal, connected = true, profilesAbove = 0 }: {
+		pendingReveal?: string;
+		connected?: boolean;
+		profilesAbove?: number;
+	} = {}) {
+		let pending = pendingReveal;
+
+		const instance = stubInterface<IDataConnectionInstance>({
+			id: 'instance-1',
+			profileId: profile.id,
+			connectionHandle: stubInterface<IDataConnectionHandle>({
+				handle: 1,
+				getChildren: async () => [{
+					nodeHandle: 7,
+					name: 'flights',
+					kind: 'table',
+					hasGetChildren: false,
+					hasPreview: true,
+				}],
+			}),
+		});
+
+		// Connecting is what opening an entry does when it isn't live yet, which is the state the
+		// database file page's button finds a saved connection in.
+		let liveInstance = connected ? instance : undefined;
+		const connect = vi.fn(async () => {
+			liveInstance = instance;
+			return instance;
+		});
+
+		// The profile to reveal sits last, so a tree laid out shorter than its rows has to scroll
+		// to bring it into view.
+		const filler = Array.from({ length: profilesAbove },
+			(_, index) => createProfile({ id: `filler-${index}` }));
+
+		const service = stubInterface<IPositronDataConnectionsService>({
+			onDidChangeProfiles: Event.None,
+			onDidChangeInstances: Event.None,
+			onDidChangeDiscoveredProfiles: Event.None,
+			onDidRequestRevealConnection: onDidRequestRevealConnection.event,
+			takePendingRevealConnection: () => {
+				const taken = pending;
+				pending = undefined;
+				return taken;
+			},
+			getAllProfiles: () => [...filler, profile],
+			getInstanceForProfile: (profileId: string) => profileId === profile.id ? liveInstance : undefined,
+			connect,
+			cancelDisconnectWhenUnused: vi.fn(),
+		});
+
+		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
+			'workbench.tree.indent': 16,
+			'dataConnections.tree.indent': 0,
+		}));
+		ctx.disposables.add(tree);
+
+		// The tree asks the view rendering it to take keyboard focus, which is the part of a reveal
+		// that puts the arrow keys on the revealed row. Counted here because there is no view.
+		let focusRequests = 0;
+		ctx.disposables.add(tree.onDidRequestFocus(() => focusRequests++));
+
+		return {
+			tree,
+			connect,
+			focusRequested: () => focusRequests > 0,
+			requestReveal: (profileId: string) => {
+				pending = profileId;
+				onDidRequestRevealConnection.fire();
+			},
+		};
+	}
+
+	/** Waits for the connection to be open, selected, under the cursor, and holding focus. */
+	async function expectRevealed(
+		{ tree, focusRequested }: { tree: DataConnectionsTreeInstance; focusRequested: () => boolean }
+	) {
+		await vi.waitFor(() => expect({
+			expanded: tree.isExpanded(ENTRY_ID),
+			selected: tree.getSelectedNode()?.id,
+			cursor: tree.focusedId,
+			focusRequested: focusRequested(),
+		}).toEqual({
+			expanded: true,
+			selected: ENTRY_ID,
+			cursor: ENTRY_ID,
+			focusRequested: true,
+		}));
+	}
+
+	it('takes a reveal request outstanding when the tree is built', async () => {
+		// The pane is opened first and its tree is built a moment later, so a request made in
+		// between has nothing listening for it; the tree has to pick it up on the way up.
+		const revealed = createTree({ pendingReveal: 'conn-1' });
+
+		await expectRevealed(revealed);
+	});
+
+	it('reveals a connection requested while the tree is alive', async () => {
+		const revealed = createTree();
+		await revealed.tree.refresh();
+		expect(revealed.tree.isExpanded(ENTRY_ID)).toBe(false);
+
+		revealed.requestReveal('conn-1');
+
+		await expectRevealed(revealed);
+	});
+
+	it('connects a connection that is not live when it is revealed', async () => {
+		// The state the page's Open Data Connection button finds a saved connection in: known, but
+		// not open. Opening the entry is what connects it, which is what makes its tables browsable.
+		const revealed = createTree({ connected: false, pendingReveal: 'conn-1' });
+
+		await expectRevealed(revealed);
+
+		expect(revealed.connect).toHaveBeenCalledWith('conn-1');
+		expect(revealed.tree.visibleNodes.some(visible =>
+			visible.node.data.kind === 'dto' && visible.node.data.dto.name === 'flights')).toBe(true);
+	});
+
+	it('scrolls the revealed connection into view once the tree has been laid out', async () => {
+		// A reveal lands while the pane is still coming up, so the tree has no viewport to scroll
+		// within yet. The scroll has to wait for one rather than being dropped -- or, worse, being
+		// computed against a zero height, which scrolls the rows off the top.
+		const revealed = createTree({ pendingReveal: 'conn-1', profilesAbove: 30 });
+		await expectRevealed(revealed);
+		expect(revealed.tree.verticalScrollOffset).toBe(0);
+
+		await revealed.tree.setSize(300, 100);
+
+		await vi.waitFor(() => expect(revealed.tree.verticalScrollOffset).toBeGreaterThan(0));
+	});
+});
