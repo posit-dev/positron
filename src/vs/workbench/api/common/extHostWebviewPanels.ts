@@ -211,7 +211,7 @@ export class ExtHostWebviewPanels extends Disposable implements extHostProtocol.
 			viewColumn: typeConverters.ViewColumn.from(viewColumn),
 			preserveFocus: typeof showOptions === 'object' && !!showOptions.preserveFocus,
 			// --- Start Positron ---
-			// SPIKE: modal size control for positron#16082. Not yet reviewed/finalized.
+			// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
 			modal: typeof showOptions === 'object' ? showOptions.modal : undefined
 			// --- End Positron ---
 		};

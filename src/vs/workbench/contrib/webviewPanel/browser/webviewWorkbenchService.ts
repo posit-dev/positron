@@ -26,7 +26,7 @@ export interface IWebViewShowOptions {
 	readonly group?: IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE;
 	readonly preserveFocus?: boolean;
 	// --- Start Positron ---
-	// SPIKE: modal size control for positron#16082. Not yet reviewed/finalized.
+	// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
 	// Reuses IModalEditorPartOptions directly (narrowed to `size`, the only field reachable
 	// from an extension) rather than inventing a separate shape -- passed straight through to
 	// IEditorOptions.modal below with no reshaping needed.
@@ -294,7 +294,7 @@ export class WebviewEditorService extends Disposable implements IWebviewWorkbenc
 			// but make sure to restore the editor to fix https://github.com/microsoft/vscode/issues/79633
 			activation: showOptions.preserveFocus ? EditorActivation.RESTORE : undefined,
 			// --- Start Positron ---
-			// SPIKE: modal size control for positron#16082. Not yet reviewed/finalized.
+			// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
 			modal: showOptions.modal
 			// --- End Positron ---
 		}, showOptions.group);

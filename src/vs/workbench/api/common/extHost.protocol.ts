@@ -1027,7 +1027,7 @@ export interface WebviewPanelShowOptions {
 	readonly viewColumn?: EditorGroupColumn;
 	readonly preserveFocus?: boolean;
 	// --- Start Positron ---
-	// SPIKE: modal size control for positron#16082. Not yet reviewed/finalized.
+	// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
 	readonly modal?: Pick<IModalEditorPartOptions, 'size'>;
 	// --- End Positron ---
 }

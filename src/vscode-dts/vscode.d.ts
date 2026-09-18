@@ -11576,7 +11576,7 @@ declare module 'vscode' {
 			 */
 			readonly preserveFocus?: boolean;
 			// --- Start Positron ---
-			// SPIKE: modal size control for positron#16082. Not yet reviewed/finalized.
+			// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
 			/**
 			 * Options that only apply when `viewColumn` is {@link ViewColumn.Modal}.
 			 */

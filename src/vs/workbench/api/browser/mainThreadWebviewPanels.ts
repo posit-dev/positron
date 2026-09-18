@@ -160,7 +160,7 @@ export class MainThreadWebviewPanels extends Disposable implements extHostProtoc
 			preserveFocus: !!showOptions.preserveFocus,
 			group: targetGroup,
 			// --- Start Positron ---
-			// SPIKE: modal size control for positron#16082. Not yet reviewed/finalized.
+			// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
 			modal: showOptions.modal
 			// --- End Positron ---
 		} : {};
