@@ -86,8 +86,15 @@ export interface IPositronCanvasService {
 	 * alive, Canvas is brought back exactly as it was and the rejection is
 	 * passed on. Resolves when the load is under way; the caller cannot await
 	 * Canvas readiness in the new folder.
+	 *
+	 * `open` receives `stillPresenting`: whether the Canvas this request
+	 * started from is still the one on screen. It turns false on exit, on a
+	 * native close, and stays false across an exit followed by a re-entry
+	 * (`isActive` would read true again), so preparation checks it after
+	 * every await and stops rather than loading a folder into a Canvas the
+	 * user has since left and re-opened.
 	 */
-	openFolderWithLoadingPresentation(open: () => Promise<void>): Promise<void>;
+	openFolderWithLoadingPresentation(open: (stillPresenting: () => boolean) => Promise<void>): Promise<void>;
 }
 
 /** A Canvas panel and the group it currently lives in. */
@@ -441,7 +448,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		return wasActive;
 	}
 
-	openFolderWithLoadingPresentation(open: () => Promise<void>): Promise<void> {
+	openFolderWithLoadingPresentation(open: (stillPresenting: () => boolean) => Promise<void>): Promise<void> {
 		if (this.folderOpen) {
 			return Promise.reject(new Error(localize('positron.canvas.switchInProgress', "Canvas is already switching folders.")));
 		}
@@ -451,7 +458,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		return this.folderOpen;
 	}
 
-	private async doOpenFolder(open: () => Promise<void>): Promise<void> {
+	private async doOpenFolder(open: (stillPresenting: () => boolean) => Promise<void>): Promise<void> {
 		// Serialize behind an entry or exit in flight: their window moves
 		// and this one's must not interleave.
 		while (this.entering || this.exiting) {
@@ -518,7 +525,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 				throw cancelled();
 			}
 
-			await open();
+			await open(stillPresenting);
 
 			// Accepted: this document is on its way out. The curtains stay up
 			// until it goes; nothing here waits for the new folder.

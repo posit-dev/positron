@@ -110,7 +110,7 @@ export class CanvasFolderSwitcher {
 			this.requireIdle(session);
 		}
 
-		await this.canvasService.openFolderWithLoadingPresentation(() => this.prepareAndOpen(target, folderPath));
+		await this.canvasService.openFolderWithLoadingPresentation(stillPresenting => this.prepareAndOpen(target, folderPath, stillPresenting));
 	}
 
 	/**
@@ -118,7 +118,7 @@ export class CanvasFolderSwitcher {
 	 * workspace folder, so the new folder gets fresh ones; the supervisor
 	 * would otherwise keep them across the load. Then the ordinary open.
 	 */
-	private async prepareAndOpen(target: URI, folderPath: string): Promise<void> {
+	private async prepareAndOpen(target: URI, folderPath: string, stillPresenting: () => boolean): Promise<void> {
 		for (const session of [...this.runtimeSessionService.activeSessions]) {
 			// Rechecked per session: an earlier shutdown can leave a
 			// dependent session busy.
@@ -133,16 +133,16 @@ export class CanvasFolderSwitcher {
 			if (!deleted) {
 				throw new Error(localize('positron.canvas.switchSession', "Shutting down the {0} session was cancelled.", session.dynState.sessionName));
 			}
-			this.requireLive();
+			this.requireLive(stillPresenting);
 		}
 
 		// Preparation took time; the cheap checks again before the load.
-		this.requireLive();
+		this.requireLive(stillPresenting);
 		this.currentFolder();
 		this.requireClean();
 		const resolution = await this.folderService.resolveCanvasFolder(target);
 		await this.requireTrusted(resolution, folderPath);
-		this.requireLive();
+		this.requireLive(stillPresenting);
 
 		await this.folderService.openCanvasFolder(target);
 	}
@@ -180,12 +180,17 @@ export class CanvasFolderSwitcher {
 		}
 	}
 
-	/** Canvas still up and no shutdown under way; checked after every await. */
-	private requireLive(): void {
+	/**
+	 * The Canvas this request started from is still up and no shutdown is
+	 * under way; checked after every await. `stillPresenting` comes from the
+	 * Canvas service and, unlike `isActive`, stays false across an exit
+	 * followed by a re-entry.
+	 */
+	private requireLive(stillPresenting: () => boolean): void {
 		if (this.lifecycleService.willShutdown) {
 			throw new Error(localize('positron.canvas.switchShuttingDown', "Positron is shutting down."));
 		}
-		if (!this.canvasService.isActive) {
+		if (!stillPresenting()) {
 			throw new Error(localize('positron.canvas.switchCancelled', "Canvas was closed while switching folders."));
 		}
 	}

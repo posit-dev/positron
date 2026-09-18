@@ -67,7 +67,7 @@ describe('CanvasFolderSwitcher', () => {
 	 */
 	function build(options: IWorldOptions = {}) {
 		const calls: string[] = [];
-		const state = { canvasActive: options.canvasActive ?? true, willShutdown: options.willShutdown ?? false };
+		const state = { canvasActive: options.canvasActive ?? true, presenting: true, willShutdown: options.willShutdown ?? false };
 		const sessions = options.sessions ?? [createSession('R')];
 		const untrusted = options.untrusted ?? [];
 
@@ -86,9 +86,9 @@ describe('CanvasFolderSwitcher', () => {
 
 		ctx.instantiationService.stub(IPositronCanvasService, stubInterface<IPositronCanvasService>({
 			get isActive() { return state.canvasActive; },
-			openFolderWithLoadingPresentation: async (open: () => Promise<void>) => {
+			openFolderWithLoadingPresentation: async (open: (stillPresenting: () => boolean) => Promise<void>) => {
 				calls.push('canvas.present');
-				await open();
+				await open(() => state.presenting);
 				calls.push('canvas.accepted');
 			}
 		}));
@@ -193,7 +193,15 @@ describe('CanvasFolderSwitcher', () => {
 		});
 
 		it('a Canvas closed during preparation stops before the load', async () => {
-			const { switcher, calls, state } = build({ deleteSession: async () => { state.canvasActive = false; return true; } });
+			const { switcher, calls, state } = build({ deleteSession: async () => { state.presenting = false; state.canvasActive = false; return true; } });
+			await expect(switcher.switchFolder(TARGET.fsPath)).rejects.toThrow('closed while switching');
+			expect(calls).toEqual(['canvas.present', 'runtime.delete(R-id)']);
+		});
+
+		it('an exit followed by an immediate re-entry during preparation stops before the load', async () => {
+			// Canvas is active again, but it is not the Canvas this request
+			// started from; only the service's ownership predicate can tell.
+			const { switcher, calls, state } = build({ deleteSession: async () => { state.presenting = false; state.canvasActive = true; return true; } });
 			await expect(switcher.switchFolder(TARGET.fsPath)).rejects.toThrow('closed while switching');
 			expect(calls).toEqual(['canvas.present', 'runtime.delete(R-id)']);
 		});

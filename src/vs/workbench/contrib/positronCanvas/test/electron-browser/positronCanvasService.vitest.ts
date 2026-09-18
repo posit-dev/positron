@@ -816,7 +816,7 @@ describe('PositronCanvasService', () => {
 		 * `calls` together with whether each container was covered at the
 		 * time. `open` is the caller's preparation-and-open callback.
 		 */
-		async function presentAndBuild(open: () => Promise<void>, overrides: { hideWindow?: (options?: { targetWindowId?: number }) => Promise<boolean>; showWindow?: (options?: { targetWindowId?: number }) => Promise<void>; onWillDispose?: Event<void> } = {}) {
+		async function presentAndBuild(open: (stillPresenting: () => boolean) => Promise<void>, overrides: { hideWindow?: (options?: { targetWindowId?: number }) => Promise<boolean>; showWindow?: (options?: { targetWindowId?: number }) => Promise<void>; onWillDispose?: Event<void> } = {}) {
 			const calls: string[] = [];
 			const auxiliaryGroup = createGroup([createCanvasEditor()]);
 			const world = build({
@@ -834,9 +834,9 @@ describe('PositronCanvasService', () => {
 			expect(await world.service.enter()).toEqual({ entered: true });
 			calls.length = 0;
 			vi.mocked(auxiliaryGroup.focus).mockClear();
-			const openMock = vi.fn(async () => {
+			const openMock = vi.fn(async (stillPresenting: () => boolean) => {
 				calls.push(`open main=${covered(world.mainContainer) ? 'covered' : 'bare'} canvas=${covered(world.auxContainer) ? 'covered' : 'bare'}`);
-				await open();
+				await open(stillPresenting);
 			});
 			return { ...world, calls, auxiliaryGroup, open: openMock };
 		}
@@ -997,6 +997,20 @@ describe('PositronCanvasService', () => {
 			// A later exit has nothing of ours to re-show.
 			expect(await service.exit()).toBe(true);
 			expect(calls.filter(call => call.startsWith(`show(${MAIN_WINDOW_ID})`))).toEqual([]);
+		});
+
+		it('tells the preparation that an exit and immediate re-entry retired its Canvas, even though Canvas is active again', async () => {
+			const seen: { before: boolean; after: boolean; active: boolean }[] = [];
+			const world = await presentAndBuild(async stillPresenting => {
+				const before = stillPresenting();
+				await world.service.exit();
+				expect(await world.service.enter()).toEqual({ entered: true });
+				seen.push({ before, after: stillPresenting(), active: world.service.isActive });
+			});
+
+			await world.service.openFolderWithLoadingPresentation(world.open);
+
+			expect(seen).toEqual([{ before: true, after: false, active: true }]);
 		});
 
 		it('accepts a new request after a refused one', async () => {
