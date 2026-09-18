@@ -4,4 +4,3 @@
  *--------------------------------------------------------------------------------------------*/
 
 export { validateDatabricksApiKey } from './databricks';
-export { normalizeToV1Url } from './foundry';

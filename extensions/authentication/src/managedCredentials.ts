@@ -3,25 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import {
 	DATABRICKS_AUTH_PROVIDER_ID,
-	FOUNDRY_AUTH_PROVIDER_ID,
 	IS_RUNNING_ON_PWB,
 } from './constants';
-
-/**
- * Managed credentials provided by PWB extension via authentication provider.
- */
-export interface AuthTokenCredentialConfig {
-	readonly kind: 'auth-token';
-	readonly displayName: string;
-	readonly authProvider: {
-		readonly id: string;
-		readonly scopes: string[];
-	};
-	readonly validator: () => boolean;
-}
 
 /**
  * Managed credentials backed by an environment variable.
@@ -38,25 +23,7 @@ export interface EnvVarCredentialConfig {
 /**
  * Configuration for managed credentials on Posit Workbench.
  */
-export type ManagedCredentialConfig =
-	| AuthTokenCredentialConfig
-	| EnvVarCredentialConfig;
-
-/**
- * Foundry managed credentials configuration for Posit Workbench.
- */
-export const FOUNDRY_MANAGED_CREDENTIALS: AuthTokenCredentialConfig = {
-	kind: 'auth-token',
-	displayName: 'Foundry managed credentials',
-	authProvider: {
-		id: 'posit-workbench',
-		scopes: ['msfoundry'],
-	},
-	validator: () => {
-		const config = vscode.workspace.getConfiguration('posit.workbench.foundry');
-		return !!config.get<string>('endpoint', '');
-	},
-};
+export type ManagedCredentialConfig = EnvVarCredentialConfig;
 
 /**
  * Snowflake managed credentials configuration for Posit Workbench.
@@ -80,7 +47,6 @@ export const DATABRICKS_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
 
 /** Managed credentials by the auth provider ID they back. */
 const MANAGED_CREDENTIALS_BY_PROVIDER: ReadonlyMap<string, ManagedCredentialConfig> = new Map<string, ManagedCredentialConfig>([
-	[FOUNDRY_AUTH_PROVIDER_ID, FOUNDRY_MANAGED_CREDENTIALS],
 	['snowflake-cortex', SNOWFLAKE_MANAGED_CREDENTIALS],
 	[DATABRICKS_AUTH_PROVIDER_ID, DATABRICKS_MANAGED_CREDENTIALS],
 ]);
@@ -101,19 +67,8 @@ export function hasManagedCredentials(
 		return undefined;
 	}
 
-	switch (credentialConfig.kind) {
-		case 'auth-token': {
-			const ext = vscode.extensions.getExtension('rstudio.rstudio-workbench');
-			if (!ext?.isActive) {
-				return undefined;
-			}
-			return credentialConfig.validator() ? credentialConfig : undefined;
-		}
-		case 'env-var': {
-			const envValue = process.env[credentialConfig.envVar];
-			return envValue && credentialConfig.validator(envValue)
-				? credentialConfig
-				: undefined;
-		}
-	}
+	const envValue = process.env[credentialConfig.envVar];
+	return envValue && credentialConfig.validator(envValue)
+		? credentialConfig
+		: undefined;
 }
