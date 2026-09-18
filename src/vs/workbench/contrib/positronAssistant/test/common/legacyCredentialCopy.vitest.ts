@@ -25,7 +25,6 @@ function source(state: {
 const options = {
 	customEntryIds: [] as string[],
 	positaiScope: 'prism',
-	now: 1_700_000_000_000,
 	generation: () => 'gen-1',
 	log: () => { },
 };
