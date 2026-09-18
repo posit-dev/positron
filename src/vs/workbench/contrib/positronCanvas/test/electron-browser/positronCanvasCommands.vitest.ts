@@ -35,7 +35,6 @@ describe('positron.canvas command surface', () => {
 			.sort();
 
 		expect(experimentalCommands).toEqual([
-			'positron.experimental.failNextCanvasSwitchAt',
 			'positron.experimental.getCanvasFolders',
 			'positron.experimental.switchCanvasFolder',
 		]);

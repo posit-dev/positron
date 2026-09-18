@@ -55,15 +55,6 @@ export const GET_CANVAS_FOLDERS_COMMAND_ID = 'positron.experimental.getCanvasFol
 type SwitchStep = 'detach' | 'commit' | 'restore';
 
 /**
- * Development aid: `positron.experimental.failNextCanvasSwitchAt` with
- * 'detach', 'commit' or 'restore' makes that step of the next switch fail
- * once, so the failure card, Retry Canvas and Open Positron can be exercised
- * live. Honoured by source builds only.
- */
-export const FAIL_NEXT_CANVAS_SWITCH_COMMAND_ID = 'positron.experimental.failNextCanvasSwitchAt';
-let injectedFailure: SwitchStep | undefined;
-
-/**
  * Switches the folder a Canvas window presents without leaving Canvas mode:
  * the same native window and renderer take on a new workspace identity, and
  * the assistant rebuilds Canvas inside it.
@@ -223,7 +214,6 @@ export class CanvasFolderSwitcher {
 		};
 
 		const detach = async () => {
-			this.throwInjectedFailure('detach');
 			sourceEditors ??= this.captureSourceEditors();
 
 			// Sessions start in the workspace folder, so the destination
@@ -254,7 +244,6 @@ export class CanvasFolderSwitcher {
 		};
 
 		const commitFolder = async () => {
-			this.throwInjectedFailure('commit');
 			// Atomic in the main process: it either holds the new identity
 			// from here on or refused and still holds the old one. Mirrors
 			// NativeWorkspaceEditingService.enterWorkspace for a folder.
@@ -291,7 +280,6 @@ export class CanvasFolderSwitcher {
 		};
 
 		const restore = async () => {
-			this.throwInjectedFailure('restore');
 			if (extensionHostsStopped) {
 				await this.extensionService.startExtensionHosts();
 				extensionHostsStopped = false;
@@ -463,13 +451,6 @@ export class CanvasFolderSwitcher {
 			}
 		}
 	}
-
-	private throwInjectedFailure(step: SwitchStep): void {
-		if (injectedFailure === step && !this.environmentService.isBuilt) {
-			injectedFailure = undefined;
-			throw new Error(`Injected failure at the ${step} step (${FAIL_NEXT_CANVAS_SWITCH_COMMAND_ID})`);
-		}
-	}
 }
 
 /** In-flight switch, so a second request cannot interleave with the first. */
@@ -487,13 +468,6 @@ CommandsRegistry.registerCommand(SWITCH_CANVAS_FOLDER_COMMAND_ID, (accessor: Ser
 		switching = undefined;
 	});
 	return switching;
-});
-
-CommandsRegistry.registerCommand(FAIL_NEXT_CANVAS_SWITCH_COMMAND_ID, (accessor: ServicesAccessor, step?: unknown): void => {
-	if (accessor.get(INativeWorkbenchEnvironmentService).isBuilt) {
-		return;
-	}
-	injectedFailure = step === 'detach' || step === 'commit' || step === 'restore' ? step : undefined;
 });
 
 /** Local folders from the recently opened list, most recent first, as paths. */

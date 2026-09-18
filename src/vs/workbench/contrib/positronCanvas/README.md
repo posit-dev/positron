@@ -50,9 +50,6 @@ fixed workspace name):
   settles only when that curtain comes down (resolved on success, rejected
   with the failure once the user leaves through Open Positron, or with a
   cancellation message when Canvas is closed mid-switch).
-- `positron.experimental.failNextCanvasSwitchAt` - development aid, source
-  builds only: `'detach' | 'commit' | 'restore'` makes that step of the
-  next switch fail once, to exercise the failure card by hand.
 
 Registered by Positron for its own UI and launch integration:
 

@@ -351,7 +351,6 @@ function installWorld(ctx: TestContext, options: ICanvasWorldOptions) {
 	instantiationService.stub(INativeWorkbenchEnvironmentService, stubInterface<INativeWorkbenchEnvironmentService>({
 		remoteAuthority: options.remoteAuthority,
 		userRoamingDataHome: URI.from({ scheme: 'vscode-userdata', path: '/roaming' }),
-		isBuilt: true,
 	}));
 	instantiationService.stub(IExtensionService, stubInterface<IExtensionService>({ stopExtensionHosts, startExtensionHosts }));
 	instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({ activeSessions: options.sessions ?? [createSession('R')], deleteSession }));
