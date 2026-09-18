@@ -86,22 +86,17 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		[positronPlotsContext.positronPlotInstances, positronPlotsContext.selectedInstanceId]
 	);
 
-	// State to track metadata updates and trigger re-renders
-	const [metadataVersion, setMetadataVersion] = React.useState(0);
+	// Metadata updates (kind, name, origin) arrive asynchronously after a plot is
+	// registered and selected. The context counter below is bumped by a listener
+	// that usePositronPlotsState subscribes once at mount, so it cannot miss an
+	// update. A listener owned by this component and filtered on the selected
+	// plot id would: React re-runs effects after the commit that selects the new
+	// plot, so an update that lands in between is compared against the previous
+	// selection and dropped, and the memos below would never recompute.
+	const metadataVersion = positronPlotsContext.metadataVersion;
 
 	// State to track session name updates and trigger re-renders
 	const [sessionNameVersion, setSessionNameVersion] = React.useState(0);
-
-	// Listen for metadata updates from the plots service (service-level event)
-	useEffect(() => {
-		const disposable = services.positronPlotsService.onDidUpdatePlotMetadata((plotId) => {
-			// Only trigger re-render if the updated plot is the current one
-			if (plotId === positronPlotsContext.selectedInstanceId) {
-				setMetadataVersion(v => v + 1);
-			}
-		});
-		return () => disposable.dispose();
-	}, [services.positronPlotsService, positronPlotsContext.selectedInstanceId]);
 
 	// Listen for session name updates to update the displayed session name
 	useEffect(() => {
