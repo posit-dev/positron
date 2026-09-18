@@ -100,6 +100,7 @@ function toProviderData(provider: ResolvedProvider, aiConfig: IProviderMappingCo
 			endpoint: connection.endpoint,
 			customHeaders: connection.customHeaders,
 			aws: connection.aws,
+			azure: connection.azure,
 			googleCloud: connection.googleCloud,
 			snowflake: connection.snowflake,
 			databricks: connection.databricks,

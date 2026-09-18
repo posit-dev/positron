@@ -10,7 +10,7 @@ import { CancellationTokenSource } from '../../../../../base/common/cancellation
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IProviderCatalogChangeData, IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
-import { IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../../../../../platform/positronHeadlessLanguageModel/common/engine.js';
+import { ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { AiProviderServiceStatus, IAiProviderService } from '../../../positronAiProvider/common/aiProviderService.js';
 import { AuthenticationProviderInformation, AuthenticationSession, IAuthenticationService } from '../../../authentication/common/authentication.js';
@@ -55,12 +55,12 @@ function fakeEngine(options: {
 	models?: Record<string, IModelDescriptor[]>;
 	mappings?: IProviderMapping[];
 	getProviderMappings?: () => Promise<IProviderMapping[]>;
-	listModels?: (providerId: string) => Promise<IModelDescriptor[]>;
+	listModels?: (providerId: string, credentials: ICredentials) => Promise<IModelDescriptor[]>;
 	stream?: (request: IEngineChatRequest) => AsyncIterable<string>;
 } = {}): IHeadlessLanguageModelEngine {
 	return {
 		getProviderMappings: options.getProviderMappings ?? (async () => options.mappings ?? TEST_MAPPINGS),
-		listModels: options.listModels ?? (async (providerId: string) => options.models?.[providerId] ?? []),
+		listModels: options.listModels ?? (async (providerId: string, _credentials: ICredentials) => options.models?.[providerId] ?? []),
 		streamChat: (request: IEngineChatRequest) =>
 			options.stream ? options.stream(request) : AsyncIterableObject.fromArray(['ok']),
 	};
@@ -692,6 +692,43 @@ describe('HeadlessLanguageModelService', () => {
 
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
 			expect(result).toEqual({ available: false, reason: 'no-providers-configured' });
+		});
+	});
+
+	describe('Foundry in Entra mode', () => {
+		const foundryMapping: IProviderMapping = {
+			providerId: 'ms-foundry', authProviderId: 'ms-foundry', scopes: [], credentialType: 'apikey', configKey: 'ms-foundry',
+		};
+		const entra = { baseUrl: 'https://r.openai.azure.com/openai/v1', azure: { authMode: 'entra' as const, scope: 'https://cognitiveservices.azure.com/.default', tenantId: 't' } };
+
+		beforeEach(() => {
+			registeredAuthProviders = new Set(['ms-foundry']);
+			catalogSnapshot = new Map([['ms-foundry', provider('ms-foundry', entra)]]);
+		});
+
+		it('synthesizes an azure-entra credential from the catalog when there is no session', async () => {
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [foundryMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('ms-foundry', {
+				type: 'azure-entra', baseUrl: entra.baseUrl, scope: entra.azure.scope, tenantId: 't', customHeaders: undefined,
+			});
+		});
+
+		it('prefers a session over the Entra synthesis', async () => {
+			signedInAuthProviders.add('ms-foundry');
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [foundryMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('ms-foundry', expect.objectContaining({ type: 'apikey', apiKey: 'tok-ms-foundry' }));
+		});
+
+		it('synthesizes nothing without a base URL', async () => {
+			catalogSnapshot.set('ms-foundry', provider('ms-foundry', { azure: { authMode: 'entra', scope: 's' } }));
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [foundryMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).not.toHaveBeenCalled();
 		});
 	});
 });

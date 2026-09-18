@@ -18,6 +18,7 @@ export interface IResolvedConnectionData {
 	readonly endpoint?: string;
 	readonly customHeaders?: Record<string, string>;
 	readonly aws?: { readonly region?: string; readonly profile?: string };
+	readonly azure?: { readonly authMode?: 'apikey' | 'entra'; readonly scope?: string; readonly tenantId?: string };
 	readonly googleCloud?: { readonly project?: string; readonly location?: string };
 	readonly snowflake?: { readonly account?: string; readonly host?: string; readonly home?: string };
 	readonly databricks?: { readonly host?: string };
