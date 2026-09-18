@@ -18,17 +18,18 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../platform/native/common/native.js';
 import { POSITRON_STANDALONE_MODE_CHANNEL_NAME } from '../../../../platform/positronStandaloneMode/common/positronStandaloneMode.js';
 import { PositronStandaloneModeChannelClient } from '../../../../platform/positronStandaloneMode/common/positronStandaloneModeIpc.js';
-import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from '../../../../platform/storage/common/storage.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart, GroupsOrder } from '../../../services/editor/common/editorGroupsService.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
-import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';
+import { ILifecycleService, ShutdownReason } from '../../../services/lifecycle/common/lifecycle.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { dedicatedWindowOptions } from '../../positronEditorActions/browser/positronDedicatedWindow.js';
 import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
+import { createCanvasLoadingCurtain } from '../browser/canvasStartupPresenter.js';
 import { mergeCanvasGroupIntoIde } from '../browser/positronCanvasRestore.js';
 import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, PositronCanvasModeActiveContext } from '../common/positronCanvasMode.js';
 
@@ -71,6 +72,22 @@ export interface IPositronCanvasService {
 	 * it. Resolves `true` only when it actually left Canvas mode.
 	 */
 	exit(): Promise<boolean>;
+
+	/**
+	 * Presents "Canvas is loading another folder" while `open` runs. `open`
+	 * prepares this window and then asks the main process to load the other
+	 * folder into it through the ordinary open path; this method owns what
+	 * the user sees around that. Curtains go up over Canvas and the IDE, the
+	 * covered IDE window is shown and the Canvas window put away, then `open`
+	 * runs. Once the load is accepted this window's document goes away with
+	 * the curtains still up, and the stored Canvas intent for the folder
+	 * being left is cleared inside the shutdown state save so the old folder
+	 * relaunches into the IDE. If `open` rejects while this window is still
+	 * alive, Canvas is brought back exactly as it was and the rejection is
+	 * passed on. Resolves when the load is under way; the caller cannot await
+	 * Canvas readiness in the new folder.
+	 */
+	openFolderWithLoadingPresentation(open: () => Promise<void>): Promise<void>;
 }
 
 /** A Canvas panel and the group it currently lives in. */
@@ -133,6 +150,15 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	 * count and rechecks it after each await.
 	 */
 	private exitGeneration = 0;
+
+	/** In-flight `openFolderWithLoadingPresentation()`; one at a time. */
+	private folderOpen: Promise<void> | undefined;
+
+	/**
+	 * The shutdown bookkeeping of an accepted folder open. Kept until this
+	 * document goes away with the load; cleared when the open fails live.
+	 */
+	private readonly folderOpenShutdownListeners = this._register(new MutableDisposable<DisposableStore>());
 
 	constructor(
 		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
@@ -413,6 +439,127 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		}
 
 		return wasActive;
+	}
+
+	openFolderWithLoadingPresentation(open: () => Promise<void>): Promise<void> {
+		if (this.folderOpen) {
+			return Promise.reject(new Error(localize('positron.canvas.switchInProgress', "Canvas is already switching folders.")));
+		}
+		this.folderOpen = this.doOpenFolder(open).finally(() => {
+			this.folderOpen = undefined;
+		});
+		return this.folderOpen;
+	}
+
+	private async doOpenFolder(open: () => Promise<void>): Promise<void> {
+		// Serialize behind an entry or exit in flight: their window moves
+		// and this one's must not interleave.
+		while (this.entering || this.exiting) {
+			await (this.entering ?? this.exiting)?.then(() => { }, () => { });
+		}
+		const group = this.canvasGroup;
+		if (this.canvasWindow.value === undefined || !group) {
+			throw new Error(localize('positron.canvas.switchNotPresenting', "Canvas is not open in its own window."));
+		}
+		if (this.lifecycleService.willShutdown) {
+			throw new Error(localize('positron.canvas.switchShuttingDown', "Positron is shutting down."));
+		}
+
+		const generation = this.exitGeneration;
+		const stillPresenting = () => this.exitGeneration === generation && this.canvasWindow.value !== undefined;
+		const cancelled = () => new Error(localize('positron.canvas.switchCancelled', "Canvas was closed while switching folders."));
+		const canvasPart = this.editorGroupsService.getPart(group);
+		const canvasContainer = this.auxiliaryWindowService.getWindow(canvasPart.windowId)?.container;
+		const message = localize('positron.canvas.switchLoading', "Canvas is opening another folder...");
+
+		// Curtains first, before any window is shown: the Canvas window (what
+		// the user is looking at) and the IDE window the load will reveal.
+		const curtains = new DisposableStore();
+		if (canvasContainer) {
+			curtains.add(createCanvasLoadingCurtain(canvasContainer, message));
+		}
+		curtains.add(createCanvasLoadingCurtain(this.layoutService.mainContainer, message));
+
+		// The stored Canvas intent belongs to the folder being left. It is
+		// removed inside the accepted shutdown's state save, and only for a
+		// LOAD: a veto saves nothing, a Quit or Close in Canvas must keep the
+		// "relaunch into Canvas" record, and an ordinary flush is not a
+		// shutdown. `onBeforeShutdown` fires before the save; `onWillShutdown`
+		// would fire after the storage service's own listener has saved.
+		const listeners = new DisposableStore();
+		let shutdownReason: ShutdownReason | undefined;
+		listeners.add(this.lifecycleService.onBeforeShutdown(e => { shutdownReason = e.reason; }));
+		listeners.add(this.storageService.onWillSaveState(e => {
+			if (e.reason === WillSaveStateReason.SHUTDOWN && shutdownReason === ShutdownReason.LOAD) {
+				this.logService.info('[canvas] Leaving this folder for another one; it will relaunch into the IDE');
+				this.storageService.remove(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
+			}
+		}));
+		this.folderOpenShutdownListeners.value = listeners;
+
+		let ideShown = false;
+		try {
+			// The ordinary open focuses the target window early. Show it now,
+			// covered, and put Canvas away only once that landed, so there is
+			// always a visible window.
+			await this.nativeHostService.showWindow({ targetWindowId: mainWindow.vscodeWindowId });
+			this.ideWindowHidden = false;
+			ideShown = true;
+			if (!stillPresenting()) {
+				throw cancelled();
+			}
+			try {
+				await this.nativeHostService.hideWindow({ targetWindowId: canvasPart.windowId });
+			} catch (error) {
+				// Two covered windows beat an invisible application.
+				this.logService.error('[canvas] Could not put the Canvas window away for the folder open; continuing', error);
+			}
+			if (!stillPresenting()) {
+				throw cancelled();
+			}
+
+			await open();
+
+			// Accepted: this document is on its way out. The curtains stay up
+			// until it goes; nothing here waits for the new folder.
+			this.logService.info('[canvas] The folder open was accepted; this window is loading the other folder');
+			this._register(curtains);
+		} catch (error) {
+			if (this.lifecycleService.willShutdown) {
+				// Shutdown is under way (the accepted load, or a quit that
+				// arrived meanwhile); the document is going, restore nothing.
+				this._register(curtains);
+				throw error;
+			}
+			this.folderOpenShutdownListeners.clear();
+			await this.restoreAfterFailedFolderOpen(ideShown, canvasPart.windowId, group, curtains, stillPresenting());
+			throw error;
+		}
+	}
+
+	/**
+	 * Puts things back after a folder open failed with this window alive:
+	 * Canvas window back, IDE window away *before* its curtain comes down.
+	 * When Canvas went away during the preparation, the window loss already
+	 * returned the IDE; only the covers come off.
+	 */
+	private async restoreAfterFailedFolderOpen(ideShown: boolean, canvasWindowId: number, group: IEditorGroup, curtains: DisposableStore, canvasPresenting: boolean): Promise<void> {
+		if (canvasPresenting) {
+			try {
+				await this.nativeHostService.showWindow({ targetWindowId: canvasWindowId });
+				if (ideShown) {
+					await this.nativeHostService.hideWindow({ targetWindowId: mainWindow.vscodeWindowId });
+					this.ideWindowHidden = true;
+				}
+			} catch (error) {
+				// Whatever is visible stays visible.
+				this.logService.error('[canvas] Could not restore the Canvas window after the folder open failed', error);
+			}
+		}
+		curtains.dispose();
+		if (canvasPresenting) {
+			group.focus();
+		}
 	}
 
 	/**

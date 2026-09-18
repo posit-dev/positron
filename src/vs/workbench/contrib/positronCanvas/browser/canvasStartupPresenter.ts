@@ -5,7 +5,7 @@
 
 import { isHTMLElement } from '../../../../base/browser/dom.js';
 import { Button } from '../../../../base/browser/ui/button/button.js';
-import { Disposable, DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { defaultButtonStyles } from '../../../../platform/theme/browser/defaultStyles.js';
@@ -114,6 +114,30 @@ function renderCurtainCard(
 
 	element.replaceChildren(card);
 	return { firstButton };
+}
+
+/**
+ * A loading-only curtain: the startup curtain's look, ARIA state and inert
+ * handling with no controls and no state changes, for covering a window
+ * while an operation the user cannot cancel from here runs underneath
+ * (loading another folder into this window). Disposing it takes the curtain
+ * down and releases the covered children.
+ */
+export function createCanvasLoadingCurtain(container: HTMLElement, messageText: string): IDisposable {
+	const { element, release } = createCanvasCurtainElement(container);
+	element.setAttribute('aria-busy', 'true');
+	const disposables = new DisposableStore();
+	renderCurtainCard(element, {
+		brandText: localize('positron.canvas.loadingBrand', "Canvas"),
+		messageText,
+		spinner: true,
+		actions: [],
+	}, disposables);
+	return toDisposable(() => {
+		disposables.dispose();
+		release();
+		element.remove();
+	});
 }
 
 /** One interactive Canvas loading and failure curtain. */

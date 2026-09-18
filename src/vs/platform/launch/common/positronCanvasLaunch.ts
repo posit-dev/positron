@@ -108,3 +108,18 @@ export function selectCanvasLaunchWindow<T>(
 		? lastActiveWindow
 		: usedWindows.at(0);
 }
+
+/**
+ * The pre-workbench splash a window booting into Canvas is given: the cached
+ * colors and zoom, no layout. With layout the bootstrap paints an IDE
+ * skeleton (title bar, sidebar, panel) that the Canvas startup curtain then
+ * covers; without it the window shows a plain themed background until the
+ * curtain is up. A copy: the theme service hands out its cached splash and
+ * must keep the layout for ordinary windows.
+ */
+export function canvasWindowSplash<T extends { layoutInfo: unknown }>(splash: T | undefined, canvas: boolean | undefined): T | undefined {
+	if (!splash || canvas !== true) {
+		return splash;
+	}
+	return { ...splash, layoutInfo: undefined };
+}

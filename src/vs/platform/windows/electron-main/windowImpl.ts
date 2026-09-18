@@ -42,6 +42,7 @@ import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.j
 import { IStateService } from '../../state/node/state.js';
 // --- Start Positron ---
 import { IPositronStandaloneModeMainService } from '../../positronStandaloneMode/common/positronStandaloneMode.js';
+import { canvasWindowSplash } from '../../launch/common/positronCanvasLaunch.js';
 // --- End Positron ---
 import { IUserDataProfilesMainService } from '../../userDataProfile/electron-main/userDataProfile.js';
 import { ILoggerMainService } from '../../log/electron-main/loggerService.js';
@@ -1287,6 +1288,14 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		// Only do this when running out of sources and not when running tests
 		if (!this.environmentMainService.isBuilt && !this.environmentMainService.extensionTestsLocationURI) {
 			this._register(new RunOnceScheduler(() => {
+				// --- Start Positron ---
+				// Dev-only path. A window presenting Canvas hides itself on
+				// purpose; showing it (with DevTools) here would undo Canvas mode
+				// on every source build that boots into Canvas within 10s.
+				if (this.positronStandaloneModeMainService.isEngaged && !this.positronStandaloneModeMainService.isEngagedElsewhere(this.id)) {
+					return;
+				}
+				// --- End Positron ---
 				if (this._win && !this._win.isVisible() && !this._win.isMinimized()) {
 					this._win.show();
 					this.focus({ mode: FocusMode.Force });
@@ -1342,6 +1351,11 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		configuration.fullscreen = this.isFullScreen;
 		configuration.maximized = this._win.isMaximized();
 		configuration.partsSplash = this.themeMainService.getWindowSplash(configuration.workspace);
+		// --- Start Positron ---
+		// A window booting into Canvas paints a plain themed background rather
+		// than the cached IDE layout skeleton; see canvasWindowSplash.
+		configuration.partsSplash = canvasWindowSplash(configuration.partsSplash, configuration.canvas);
+		// --- End Positron ---
 		configuration.zoomLevel = this.getZoomLevel();
 		configuration.isCustomZoomLevel = typeof this.customZoomLevel === 'number';
 		if (configuration.isCustomZoomLevel && configuration.partsSplash) {
