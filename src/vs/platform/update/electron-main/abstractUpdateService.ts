@@ -761,6 +761,11 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 				this.logService.info('update#quitAndInstall(): quit was vetoed, restoring Ready state');
 				// --- Start Positron ---
 				await this.undoPrepareForQuitAndInstall().catch(err => this.logService.error('update#quitAndInstall(): failed to undo the install preparation', err));
+				// A veto puts the user back in the session indefinitely after they had already
+				// accepted the restart, and `setState(Ready)` re-arms the recurring overwrite
+				// check. Clear the once-per-quit guard so the *next* restart request re-checks the
+				// feed too; otherwise a build published after the veto would install stale.
+				this._hasCheckedForOverwriteOnQuit = false;
 				// --- End Positron ---
 				this.setState(readyState);
 				return;

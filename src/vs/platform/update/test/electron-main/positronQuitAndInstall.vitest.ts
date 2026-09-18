@@ -184,6 +184,8 @@ describe('AbstractUpdateService overwrite updates', () => {
 	let overwriteCheckIntervalMs: number;
 	/** The versions handed to the platform installer, in order. */
 	let installed: (string | undefined)[];
+	/** Whether the fake lifecycle service reports the quit as vetoed. */
+	let vetoQuit: boolean;
 
 	class TestUpdateService extends AbstractUpdateService {
 		protected override doCheckForUpdates(_explicit: boolean, pendingCommit?: string): void {
@@ -233,7 +235,7 @@ describe('AbstractUpdateService overwrite updates', () => {
 			when: () => new Promise<void>(() => { }),
 			quit: async () => {
 				calls.push('quit');
-				return false;
+				return vetoQuit;
 			}
 		});
 
@@ -279,6 +281,7 @@ describe('AbstractUpdateService overwrite updates', () => {
 		// Long enough that the interval never fires unless a test shortens it.
 		overwriteCheckIntervalMs = 60 * 60 * 1000;
 		installed = [];
+		vetoQuit = false;
 	});
 
 	describe('quitAndInstall', () => {
@@ -322,6 +325,30 @@ describe('AbstractUpdateService overwrite updates', () => {
 			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
 
 			expect(calls).toEqual(['quit', 'doQuitAndInstall']);
+			service.dispose();
+		});
+
+		it('re-checks on the next restart request after a vetoed quit', async () => {
+			// A veto leaves the user in the session after they had already accepted the restart, so
+			// the once-per-quit guard has to reset. Otherwise a build published during that window
+			// installs stale, which is the bug this whole flow exists to prevent.
+			vetoQuit = true;
+			const service = createService();
+			service.becomeReady();
+
+			// First click: the feed still advertises the pending version, so the quit goes ahead
+			// and is then vetoed.
+			await service.quitAndInstall();
+			await vi.waitFor(() => expect(service.state.type).toBe(StateType.Ready));
+			expect(calls).toEqual(['quit']);
+
+			// A newer build ships while the user stays in the vetoed session.
+			calls = [];
+			feedVersion = '2026.09.0-2';
+			await service.quitAndInstall();
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			expect(service.state.type).toBe(StateType.Overwriting);
 			service.dispose();
 		});
 
