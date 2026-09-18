@@ -12,8 +12,8 @@ export const LEGACY_AUTH_EXTENSION_ID = 'positron.authentication';
 /** The extension whose store receives them. */
 export const ASSISTANT_EXTENSION_ID = 'posit.assistant';
 
-/** The moved API-key providers; each is looked up in the legacy-ID table, `openai-compatible` never renamed. */
-const API_KEY_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'deepseek', 'openai-compatible'] as const;
+/** The API-key providers Assistant now owns; each is looked up in the legacy-ID table, `openai-compatible` never renamed. */
+const API_KEY_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'deepseek', 'openai-compatible', 'ms-foundry'] as const;
 
 const API_KEY_RENAMES: readonly { legacyId: string; providerId: string }[] = API_KEY_PROVIDER_IDS.map(
 	providerId => ({ legacyId: POSITRON_LEGACY_AUTH_PROVIDER_IDS[providerId] ?? providerId, providerId }),
