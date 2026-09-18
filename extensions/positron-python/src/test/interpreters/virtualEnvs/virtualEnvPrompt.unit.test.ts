@@ -35,7 +35,11 @@ suite('Virtual Environment Prompt', () => {
     }
 
     const envPath = 'path/to/interpreter';
-    const interpreter = { path: envPath, detailedDisplayName: 'Python 3.11' } as unknown as PythonEnvironment;
+    const interpreter = {
+        path: envPath,
+        detailedDisplayName: 'Python 3.11',
+        envPath: 'path/to/.venvA',
+    } as unknown as PythonEnvironment;
     const runtimeMetadata = {
         runtimeId: 'runtime-id',
         runtimeName: 'Python 3.11',
@@ -170,7 +174,59 @@ suite('Virtual Environment Prompt', () => {
 
         await environmentPrompt.handleNewEnvironment(envPath);
 
-        verify(appShell.showInformationMessage(Interpreters.environmentSessionPromptMessage, ...prompts)).once();
+        verify(
+            appShell.showInformationMessage(Interpreters.environmentSessionPromptMessage('.venvA'), ...prompts),
+        ).once();
+    });
+
+    test('Two environments sharing the same display name still get distinct messages', async () => {
+        const otherEnvPath = 'path/to/other/interpreter';
+        const otherInterpreter = {
+            path: otherEnvPath,
+            detailedDisplayName: interpreter.detailedDisplayName,
+            envPath: 'path/to/.venvB',
+        } as unknown as PythonEnvironment;
+        when(componentAdapter.getInterpreterDetails(otherEnvPath)).thenResolve(otherInterpreter);
+        when(pythonRuntimeManager.resolveRuntimeMetadataFromPath(otherEnvPath)).thenResolve(runtimeMetadata);
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve();
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+        await environmentPrompt.handleNewEnvironment(otherEnvPath);
+
+        verify(
+            appShell.showInformationMessage(Interpreters.environmentSessionPromptMessage('.venvA'), ...prompts),
+        ).once();
+        verify(
+            appShell.showInformationMessage(Interpreters.environmentSessionPromptMessage('.venvB'), ...prompts),
+        ).once();
+    });
+
+    test('Notification prefers envName over the env folder name', async () => {
+        when(componentAdapter.getInterpreterDetails(envPath)).thenResolve({
+            ...interpreter,
+            envName: 'my-env',
+        } as unknown as PythonEnvironment);
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve();
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(
+            appShell.showInformationMessage(Interpreters.environmentSessionPromptMessage('my-env'), ...prompts),
+        ).once();
+    });
+
+    test('Notification falls back to the interpreter path when no env name or path is available', async () => {
+        when(componentAdapter.getInterpreterDetails(envPath)).thenResolve({
+            path: envPath,
+            detailedDisplayName: interpreter.detailedDisplayName,
+        } as unknown as PythonEnvironment);
+        when(appShell.showInformationMessage(anything(), ...prompts)).thenResolve();
+
+        await environmentPrompt.handleNewEnvironment(envPath);
+
+        verify(
+            appShell.showInformationMessage(Interpreters.environmentSessionPromptMessage(envPath), ...prompts),
+        ).once();
     });
 
     test("'Start Session' starts the new environment", async () => {

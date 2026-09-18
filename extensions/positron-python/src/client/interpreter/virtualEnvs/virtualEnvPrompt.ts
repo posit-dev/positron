@@ -4,6 +4,7 @@
 import { inject, injectable } from 'inversify';
 // --- Start Positron ---
 // import { ConfigurationTarget, Disposable, Uri } from 'vscode';
+import * as path from 'path';
 import { Disposable, Uri } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
@@ -94,6 +95,23 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
     }
 
     // --- Start Positron ---
+    // A friendly, per-environment label for the prompt message: the environment's folder name
+    // (e.g. ".venvA"), falling back to its interpreter path. detailedDisplayName is not used here
+    // because two environments on the same Python version share it, and VS Code's notification
+    // service collapses notifications with identical message text, silently dropping the earlier
+    // prompt.
+    private getEnvironmentLabel(interpreter: PythonEnvironment): string {
+        if (interpreter.envName) {
+            return interpreter.envName;
+        }
+        if (interpreter.envPath) {
+            return path.basename(interpreter.envPath);
+        }
+        return interpreter.path;
+    }
+    // --- End Positron ---
+
+    // --- Start Positron ---
     private async hasRunningSession(pythonPath: string): Promise<boolean> {
         const sessions = await getActivePythonSessions();
         return sessions.some((session) => {
@@ -126,7 +144,7 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
         // --- Start Positron ---
         // const selection = await this.appShell.showInformationMessage(Interpreters.environmentPromptMessage, ...prompts);
         const selection = await this.appShell.showInformationMessage(
-            Interpreters.environmentSessionPromptMessage,
+            Interpreters.environmentSessionPromptMessage(this.getEnvironmentLabel(interpreter)),
             ...prompts,
         );
         // --- End Positron ---
