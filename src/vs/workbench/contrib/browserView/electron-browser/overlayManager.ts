@@ -33,8 +33,9 @@ const OVERLAY_DEFINITIONS: ReadonlyArray<{ className: string; type: BrowserOverl
 	// --- Start Positron ---
 	// { className: 'context-view', type: BrowserOverlayType.Unknown }
 	{ className: 'context-view', type: BrowserOverlayType.Unknown },
-	{ className: 'positron-modal-popup', type: BrowserOverlayType.Menu },
-	{ className: 'positron-modal-dialog-container', type: BrowserOverlayType.Dialog }
+	{ className: 'positron-modal-popup-container', type: BrowserOverlayType.Menu },
+	{ className: 'positron-modal-dialog-container', type: BrowserOverlayType.Dialog },
+	{ className: 'positron-dynamic-modal-dialog-box-container', type: BrowserOverlayType.Dialog }
 	// --- End Positron ---
 ];
 
