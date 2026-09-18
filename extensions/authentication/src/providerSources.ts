@@ -6,7 +6,6 @@
 import {
 	AWS_AUTH_PROVIDER_ID,
 	DATABRICKS_AUTH_PROVIDER_ID,
-	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 	SNOWFLAKE_AUTH_PROVIDER_ID,
 } from './constants';
 
@@ -37,11 +36,6 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		id: SNOWFLAKE_AUTH_PROVIDER_ID,
 		displayName: 'Snowflake Cortex',
 		catalogId: 'snowflake-cortex',
-	},
-	geap: {
-		id: GOOGLE_CLOUD_AUTH_PROVIDER_ID,
-		displayName: 'Gemini Enterprise Agent Platform',
-		catalogId: 'google-vertex',
 	},
 	databricks: {
 		id: DATABRICKS_AUTH_PROVIDER_ID,

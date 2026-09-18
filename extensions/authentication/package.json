@@ -12,7 +12,6 @@
 		"onStartupFinished",
 		"onAuthenticationRequest:bedrock",
 		"onAuthenticationRequest:snowflake-cortex",
-		"onAuthenticationRequest:google-vertex",
 		"onAuthenticationRequest:databricks",
 		"onCommand:authentication.migrateSettingsToProvidersJson"
 	],
@@ -20,8 +19,7 @@
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
 		"@aws-sdk/types": "^3.734.0",
-		"ai-config": "file:../../ai-lib/packages/ai-config",
-		"google-auth-library": "^9.15.1"
+		"ai-config": "file:../../ai-lib/packages/ai-config"
 	},
 	"devDependencies": {
 		"@types/node": "22.x"
@@ -35,10 +33,6 @@
 			{
 				"id": "snowflake-cortex",
 				"label": "Snowflake Cortex"
-			},
-			{
-				"id": "google-vertex",
-				"label": "Gemini Enterprise Agent Platform"
 			},
 			{
 				"id": "databricks",

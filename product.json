@@ -745,7 +745,6 @@
 			"posit.assistant"
 		],
 		"google-vertex": [
-			"positron.authentication",
 			"posit.assistant"
 		],
 		"databricks": [

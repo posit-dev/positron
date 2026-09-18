@@ -9,7 +9,6 @@ import {
 	AWS_AUTH_PROVIDER_ID,
 	CREDENTIAL_REFRESH_INTERVAL_MS,
 	DATABRICKS_AUTH_PROVIDER_ID,
-	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 	SNOWFLAKE_AUTH_PROVIDER_ID,
 } from './constants';
 import { AuthProvider } from './authProvider';
@@ -21,7 +20,6 @@ import {
 import { hasManagedCredentials } from './managedCredentials';
 import { resolveAwsChainInit } from './credentials/aws';
 import { createAwsSsoRecovery } from './awsRecovery';
-import { resolveGeapCredential } from './credentials/geap';
 import {
 	detectSnowflakeCredentials,
 	getSnowflakeConnectionsTomlPath,
@@ -146,7 +144,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	await registerAwsProvider(context);
 	await registerSnowflakeProvider(context);
-	await registerGeapProvider(context);
 	await registerDatabricksProvider(context);
 
 	// React to provider-catalog changes: drop sessions for providers disabled
@@ -279,36 +276,6 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 	registerAuthProvider(SNOWFLAKE_AUTH_PROVIDER_ID, provider);
 	await provider.resolveChainCredentials();
 	logger.info('Registered auth provider');
-}
-
-async function registerGeapProvider(
-	context: vscode.ExtensionContext,
-): Promise<void> {
-	const logger = new AuthProviderLogger('Gemini Enterprise Agent Platform');
-
-	const provider = new AuthProvider(
-		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', context,
-		undefined,
-		{
-			resolve: () => {
-				const googleCloud = getCachedProvider(PROVIDER_METADATA.geap.catalogId!)?.connection.googleCloud;
-				return resolveGeapCredential(googleCloud, logger);
-			},
-			refreshIntervalMs: CREDENTIAL_REFRESH_INTERVAL_MS,
-		}
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider,
-	);
-	registerAuthProvider(GOOGLE_CLOUD_AUTH_PROVIDER_ID, provider);
-
-	await provider.resolveChainCredentials();
-
-	logger.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
 }
 
 async function registerDatabricksProvider(
