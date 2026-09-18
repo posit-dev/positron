@@ -1749,7 +1749,11 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 				window,
 				options.windowToUse?.id,
 				() => this.lifecycleMainService.unload(window, UnloadReason.LOAD),
-				() => this.doOpenInBrowserWindow(window, configuration, options, defaultProfile)
+				() => this.doOpenInBrowserWindow(window, configuration, options, defaultProfile),
+				() => {
+					this.logService.error(`[canvas] Loading ${options.positronCanvasFolderOpen?.uri.fsPath} into window ${window.id} failed after its unload was accepted; reloading it into its current folder`);
+					window.reload();
+				}
 			);
 
 			return window;

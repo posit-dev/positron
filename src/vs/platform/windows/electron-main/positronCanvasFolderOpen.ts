@@ -78,18 +78,35 @@ export function rejectCanvasFolderOpenCollision(openConfig: IOpenConfiguration, 
  * way or has failed to start. `window` must be the window the request
  * targeted: anything else means the ordinary path fell back to a different
  * window, and the request rejects rather than loading into it.
+ *
+ * An accepted unload is not only permission: the window's workbench has
+ * shut down by the time it resolves. If `load` then fails before the new
+ * folder starts loading, the window is a shut-down document under a
+ * loading curtain with nobody left to present the failure. `recover`
+ * (an ordinary reload of the window into the folder it came from, as the
+ * IDE) runs in that case so the user gets a live window back; the request
+ * still rejects with the original error.
  */
 export async function loadCanvasFolderWindow(
 	window: ICanvasFolderOpenWindow | undefined,
 	expectedWindowId: number | undefined,
 	unload: () => Promise<boolean /* veto */>,
-	load: () => Promise<void>
+	load: () => Promise<void>,
+	recover: () => void
 ): Promise<void> {
 	if (!window || window.id !== expectedWindowId) {
 		throw sourceGone();
 	}
-	if (window.isReady && await unload()) {
+	const unloaded = window.isReady;
+	if (unloaded && await unload()) {
 		throw new Error(localize('positron.canvas.openVetoed', "Positron could not leave the current folder. Check for unsaved work or a task that is still running."));
 	}
-	await load();
+	try {
+		await load();
+	} catch (error) {
+		if (unloaded) {
+			recover();
+		}
+		throw error;
+	}
 }
