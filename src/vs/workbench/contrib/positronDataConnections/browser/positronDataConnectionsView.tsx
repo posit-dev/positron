@@ -167,8 +167,15 @@ export class PositronDataViewPane extends PositronViewPane implements IReactComp
 
 	//#region Public Overrides
 
-	override focus(): void {
-		super.focus();
+	/**
+	 * Drives focus into the view's content. Called by the base class's focus(), after it has
+	 * focused the pane itself and on the tick the pane actually takes focus -- which is why the
+	 * onFocused event is fired from here rather than from focus(): the tree answers it by focusing
+	 * its rows, and doing that any earlier would only be undone by the pane focusing itself a
+	 * moment later. Without this the pane keeps the focus, and the user gets a focus rectangle
+	 * around the whole view instead of a focused row.
+	 */
+	override focusElement(): void {
 		this._onFocusedEmitter.fire();
 	}
 

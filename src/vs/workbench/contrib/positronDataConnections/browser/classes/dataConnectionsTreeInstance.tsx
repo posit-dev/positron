@@ -9,6 +9,7 @@ import { ReactNode } from 'react';
 // Other dependencies.
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
 import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
+import { MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -79,7 +80,7 @@ const BREADCRUMB_GROUP_KINDS = new Set([
 	SCHEMAS_GROUP_KIND,
 ]);
 
-const entryNodeId = (profile: IDataConnectionProfile): string => `entry:${profile.id}`;
+const entryNodeId = (profileId: string): string => `entry:${profileId}`;
 
 /**
  * Builds the id for a DTO node. Scoped by the originating connection's numeric handle so DTOs
@@ -103,11 +104,11 @@ const dtoNodeId = (handle: IDataConnectionHandle, dto: IDataConnectionNodeDTO): 
  */
 export const reloadKey = (node: DataConnectionNode): string =>
 	node.kind === 'entry'
-		? entryNodeId(node.entry.profile)
+		? entryNodeId(node.entry.profile.id)
 		: JSON.stringify([node.dto.kind, node.dto.name]);
 
 const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => ({
-	id: entryNodeId(entry.profile),
+	id: entryNodeId(entry.profile.id),
 	data: { kind: 'entry', entry },
 	// Entries always show a twisty -- clicking it connects (or collapses, which may disconnect).
 	// Whether children exist is only knowable after the connect succeeds.
@@ -179,6 +180,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// be read by the row it was fetched for. See _breadcrumbNamespaceGroups and _takeLookAhead.
 	private readonly _lookAheadChildren = new Map<string, readonly IDataConnectionNodeDTO[]>();
 
+	// A scroll waiting for the grid to be laid out, held so a second reveal replaces the first
+	// rather than leaving two listeners racing to scroll to different rows. See
+	// _scrollToCursorWhenLaidOut.
+	private readonly _pendingScrollToCursor = this._register(new MutableDisposable());
+
 	constructor(
 		private readonly _service: IPositronDataConnectionsService,
 		private readonly _configurationService: IConfigurationService,
@@ -208,6 +214,15 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		this._register(this._service.onDidChangeInstances(refreshRoots));
 		this._register(this._service.onDidChangeDiscoveredProfiles(refreshRoots));
 
+		// Show a connection something outside the pane has put the user's attention on (the
+		// database file editor, after creating or opening one). Taken rather than listened for,
+		// because the request may well have been made while this tree was being built -- the pane
+		// is opened first and renders a moment later -- in which case there was nothing here to
+		// hear it. Both paths run the same take, so whichever gets there first honors it.
+		const revealRequested = () => { void this._revealRequestedConnection(); };
+		this._register(this._service.onDidRequestRevealConnection(revealRequested));
+		revealRequested();
+
 		// Track both indent settings live -- the workbench one matters even while this view's own is
 		// set, since clearing the latter back to 0 has to fall through to it. Indent takes effect
 		// without a reload everywhere else in the workbench, and a user dialing it in wants the tree
@@ -229,6 +244,81 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				void this.reloadAll();
 			}
 		}));
+	}
+
+	/**
+	 * Shows the connection the service has been asked to reveal, if there is one: selects its row
+	 * and opens it, which for an entry means connecting it and fetching what it holds. Nothing
+	 * happens when no request is outstanding, which is the usual case -- this runs once when the
+	 * tree is built as well as on every request.
+	 *
+	 * An entry the user already has open is left expanded as it is; the selection still moves to
+	 * it, which is the part that answers "where did my connection go".
+	 */
+	private async _revealRequestedConnection(): Promise<void> {
+		const profileId = this._service.takePendingRevealConnection();
+		if (profileId === undefined) {
+			return;
+		}
+
+		// The entry may not be among the rows yet: a connection saved a moment ago reaches this
+		// tree through a roots refresh, and a tree built just now has no rows at all until its
+		// first refresh. Either way, one refresh puts the saved profiles on screen.
+		const id = entryNodeId(profileId);
+		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
+			await this.refresh();
+		}
+
+		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
+			return;
+		}
+
+		// Expanding an entry is what opens its connection, so this is the "open" in the request.
+		// Failures surface on the row itself, the same as a user-driven expand.
+		if (!this.isExpanded(id)) {
+			await this.expand(id);
+		}
+
+		// Located after the expand, which inserts the rows the connection holds and so moves
+		// everything below it.
+		const rowIndex = this.visibleNodes.findIndex(visible => visible.node.id === id);
+		if (rowIndex === -1) {
+			return;
+		}
+
+		this.setCursorRow(rowIndex);
+		this.selectRow(rowIndex);
+		this._scrollToCursorWhenLaidOut();
+
+		// Put keyboard focus on the row, not merely the selection highlight: the user pressed a
+		// button elsewhere to get here, so this is where they are now, and the arrow keys should
+		// move from this row. Harmless if the tree already has focus.
+		this.requestFocus();
+	}
+
+	/**
+	 * Scrolls the cursor row into view, waiting for the grid to have a viewport if it doesn't yet.
+	 * A reveal routinely lands while the view is still coming up -- the pane is opened and the
+	 * grid is laid out a frame later -- and a grid with no height can't scroll anything into view,
+	 * so the scroll would otherwise be dropped and the row left below the fold.
+	 */
+	private _scrollToCursorWhenLaidOut(): void {
+		if (this.layoutHeight > 0) {
+			this._pendingScrollToCursor.clear();
+			void this.scrollToCursor();
+			return;
+		}
+
+		// onDidUpdate fires when the grid is sized, among many other times; the first one with a
+		// viewport is the one to scroll on, and the listener is done at that point.
+		this._pendingScrollToCursor.value = this.onDidUpdate(() => {
+			if (this.layoutHeight <= 0) {
+				return;
+			}
+
+			this._pendingScrollToCursor.clear();
+			void this.scrollToCursor();
+		});
 	}
 
 	/**
@@ -336,7 +426,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 */
 	private _dropClosedEntrySubtrees(entries: readonly DataConnectionEntry[]): void {
 		for (const entry of entries) {
-			const id = entryNodeId(entry.profile);
+			const id = entryNodeId(entry.profile.id);
 			if (entry.instance === undefined && this.hasLoadedChildren(id)) {
 				super.collapse(id);
 				this.dropLoadedChildren(id);
