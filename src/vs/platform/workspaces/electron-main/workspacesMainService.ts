@@ -13,8 +13,19 @@ import { IWorkspacesHistoryMainService } from './workspacesHistoryMainService.js
 import { IWorkspacesManagementMainService } from './workspacesManagementMainService.js';
 import { IWorkspaceBackupInfo, IFolderBackupInfo } from '../../backup/common/backup.js';
 import { Event } from '../../../base/common/event.js';
+// --- Start Positron ---
+import { IEnvironmentMainService } from '../../environment/electron-main/environmentMainService.js';
+import { ICanvasFolderResolution, ICanvasFolderWorkspaceService } from '../common/positronFolderWorkspace.js';
+import { openCanvasFolder, resolveCanvasFolder } from './positronFolderWorkspace.js';
+// --- End Positron ---
 
-export class WorkspacesMainService implements AddFirstParameterToFunctions<IWorkspacesService, Promise<unknown> /* only methods, not events */, number /* window ID */> {
+export class WorkspacesMainService implements AddFirstParameterToFunctions<IWorkspacesService, Promise<unknown> /* only methods, not events */, number /* window ID */>,
+	// --- Start Positron ---
+	// The Canvas folder open rides on this channel; the clause keeps the
+	// main-process methods in step with the renderer-facing interface.
+	AddFirstParameterToFunctions<ICanvasFolderWorkspaceService, Promise<unknown>, number /* window ID */>
+// --- End Positron ---
+{
 
 	declare readonly _serviceBrand: undefined;
 
@@ -22,12 +33,30 @@ export class WorkspacesMainService implements AddFirstParameterToFunctions<IWork
 		@IWorkspacesManagementMainService private readonly workspacesManagementMainService: IWorkspacesManagementMainService,
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
 		@IWorkspacesHistoryMainService private readonly workspacesHistoryMainService: IWorkspacesHistoryMainService,
-		@IBackupMainService private readonly backupMainService: IBackupMainService
+		@IBackupMainService private readonly backupMainService: IBackupMainService,
+		// --- Start Positron ---
+		@IEnvironmentMainService private readonly environmentMainService: IEnvironmentMainService
+		// --- End Positron ---
 	) {
 		this.onDidChangeRecentlyOpened = this.workspacesHistoryMainService.onDidChangeRecentlyOpened;
 	}
 
 	//#region Workspace Management
+
+	// --- Start Positron ---
+	// Canvas folder open (ICanvasFolderWorkspaceService), served on this
+	// channel so the renderer reaches it with its window id as context.
+	async resolveCanvasFolder(windowId: number, folder: URI): Promise<ICanvasFolderResolution> {
+		return resolveCanvasFolder(this.windowsMainService.getWindowById(windowId), this.windowsMainService.getWindows(), folder);
+	}
+
+	async openCanvasFolder(windowId: number, folder: URI): Promise<void> {
+		return openCanvasFolder(this.windowsMainService.getWindowById(windowId), this.windowsMainService.getWindows(), folder, {
+			args: this.environmentMainService.args,
+			open: openConfig => this.windowsMainService.open(openConfig)
+		});
+	}
+	// --- End Positron ---
 
 	async enterWorkspace(windowId: number, path: URI): Promise<IEnterWorkspaceResult | undefined> {
 		const window = this.windowsMainService.getWindowById(windowId);

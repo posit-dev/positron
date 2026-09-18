@@ -20,6 +20,7 @@ import { IThemeMainService } from '../../theme/electron-main/themeMainService.js
 import { AgentsWindowOpenSource, IOpenEmptyWindowOptions, IWindowOpenable, IWindowSettings, TitlebarStyle, WindowMinimumSize, hasNativeTitlebar, useNativeFullScreen, useWindowControlsOverlay, zoomLevelToZoomFactor } from '../../window/common/window.js';
 import { ICodeWindow, IWindowState, WindowMode, defaultWindowState } from '../../window/electron-main/window.js';
 // --- Start Positron ---
+import { ISingleFolderWorkspaceIdentifier } from '../../workspace/common/workspace.js';
 import { recolorDevIcon } from './devIconColorizer.js';
 // --- End Positron ---
 
@@ -119,6 +120,16 @@ export interface IOpenConfiguration extends IBaseOpenConfiguration {
 	readonly remoteAuthority?: string;
 	readonly forceProfile?: string;
 	readonly forceTempProfile?: boolean;
+	// --- Start Positron ---
+	/**
+	 * Set by a Canvas folder open (`ICanvasFolderWorkspaceService`): the
+	 * folder this request must load into `contextWindowId`, and nowhere
+	 * else. Opts the request into awaiting the window's unload (a veto
+	 * rejects the open) and refusing to fall back to another window.
+	 * Main-process-only metadata; never part of the window configuration.
+	 */
+	readonly positronCanvasFolderOpen?: ISingleFolderWorkspaceIdentifier;
+	// --- End Positron ---
 }
 
 export interface IOpenEmptyConfiguration extends IBaseOpenConfiguration { }
