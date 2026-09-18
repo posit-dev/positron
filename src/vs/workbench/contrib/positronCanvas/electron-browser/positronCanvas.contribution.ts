@@ -33,7 +33,7 @@ import { CanvasStartupPresenter } from '../browser/canvasStartupPresenter.js';
 import { registerCanvasCommandLockdown } from '../browser/positronCanvasCommandLockdown.js';
 import { sweepRestoredCanvasWindows } from '../browser/positronCanvasRestore.js';
 import { awaitWorkspaceTrustDecisionForCanvas } from '../browser/positronCanvasTrustGate.js';
-import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_OPEN_ON_STARTUP_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, ICanvasStartSignals, isCanvasWorkspaceEligible, PositronCanvasModeActiveContext, shouldStartInCanvasMode } from '../common/positronCanvasMode.js';
+import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_OPEN_ON_STARTUP_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, ICanvasStartSignals, isCanvasWorkspaceEligible, PositronCanvasModeActiveContext, shouldPresentCanvasStartup } from '../common/positronCanvasMode.js';
 import { IPositronCanvasService, PositronCanvasService } from './positronCanvasService.js';
 import './positronCanvasFolderSwitch.js';
 
@@ -301,8 +301,10 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 		};
 
 		// No await before this point: the curtain must be in the DOM before
-		// the workbench paints, or the IDE flashes first.
-		if (shouldStartInCanvasMode(signals)) {
+		// the workbench paints, or the IDE flashes first. An explicit ask
+		// that ai.enabled vetoes gets the curtain too; its entry fails into
+		// the curtain's failure card instead of a silent IDE.
+		if (shouldPresentCanvasStartup(signals)) {
 			this._register(instantiationService.createInstance(CanvasStartupBoot));
 			return;
 		}

@@ -11,7 +11,7 @@ import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurati
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IWorkspace, WorkspaceFolder } from '../../../../../platform/workspace/common/workspace.js';
-import { CANVAS_OPEN_ON_STARTUP_KEY, ICanvasStartSignals, isCanvasWorkspaceEligible, shouldStartInCanvasMode } from '../../common/positronCanvasMode.js';
+import { CANVAS_OPEN_ON_STARTUP_KEY, ICanvasStartSignals, isCanvasWorkspaceEligible, shouldPresentCanvasStartup, shouldStartInCanvasMode } from '../../common/positronCanvasMode.js';
 
 function signals(overrides: Partial<ICanvasStartSignals>): ICanvasStartSignals {
 	return {
@@ -31,6 +31,31 @@ function workspaceOf(...uris: URI[]): IWorkspace {
 		folders: uris.map((uri, index) => new WorkspaceFolder({ uri, name: `folder-${index}`, index }))
 	};
 }
+
+describe('shouldPresentCanvasStartup', () => {
+
+	it('puts the curtain up for an explicit --canvas that only ai.enabled vetoes, so the veto shows as a startup failure', () => {
+		expect(shouldPresentCanvasStartup(signals({ canvasFlag: true, aiEnabled: false }))).toBe(true);
+		expect(shouldStartInCanvasMode(signals({ canvasFlag: true, aiEnabled: false }))).toBe(false);
+	});
+
+	it('leaves an ai.enabled veto silent when nothing asked explicitly', () => {
+		expect(shouldPresentCanvasStartup(signals({ aiEnabled: false, storedIntent: true }))).toBe(false);
+		expect(shouldPresentCanvasStartup(signals({ aiEnabled: false, configuredOpenOnStartup: true }))).toBe(false);
+	});
+
+	it('keeps the other vetoes as notifications, not curtains', () => {
+		expect(shouldPresentCanvasStartup(signals({ canvasFlag: true, aiEnabled: false, engagedElsewhere: true }))).toBe(false);
+		expect(shouldPresentCanvasStartup(signals({ canvasFlag: true, aiEnabled: false, workspaceEligible: false }))).toBe(false);
+		expect(shouldPresentCanvasStartup(signals({ canvasFlag: true, engagedElsewhere: true }))).toBe(false);
+	});
+
+	it('otherwise agrees with shouldStartInCanvasMode', () => {
+		for (const overrides of [{ canvasFlag: true }, { storedIntent: true }, { configuredOpenOnStartup: true }, { configuredOpenOnStartup: false, storedIntent: true }, {}]) {
+			expect(shouldPresentCanvasStartup(signals(overrides))).toBe(shouldStartInCanvasMode(signals(overrides)));
+		}
+	});
+});
 
 describe('shouldStartInCanvasMode', () => {
 
