@@ -1753,6 +1753,13 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 				() => {
 					this.logService.error(`[canvas] Loading ${options.positronCanvasFolderOpen?.uri.fsPath} into window ${window.id} failed after its unload was accepted; reloading it into its current folder`);
 					window.reload();
+				},
+				() => {
+					const canLoad = !this.lifecycleMainService.quitRequested && !!window.win && !window.win.isDestroyed();
+					if (!canLoad) {
+						this.logService.info(`[canvas] Not loading ${options.positronCanvasFolderOpen?.uri.fsPath} into window ${window.id}: a quit or close took over its unload`);
+					}
+					return canLoad;
 				}
 			);
 

@@ -102,13 +102,14 @@ suite('Canvas folder open routing', () => {
 				unload: (veto: boolean) => async () => { calls.push('unload'); return veto; },
 				load: async () => { calls.push('load'); },
 				recover: () => { calls.push('recover'); },
+				alive: () => true,
 			};
 		}
 
 		test('awaits the unload and loads only once it was accepted', async () => {
-			const { calls, load, recover } = recorder();
+			const { calls, load, recover, alive } = recorder();
 			const unloadAnswer = new DeferredPromise<boolean>();
-			const loading = loadCanvasFolderWindow(window(1), 1, () => { calls.push('unload'); return unloadAnswer.p; }, load, recover);
+			const loading = loadCanvasFolderWindow(window(1), 1, () => { calls.push('unload'); return unloadAnswer.p; }, load, recover, alive);
 
 			// Pending unload: nothing loads, the promise stays open.
 			let settled = false;
@@ -122,40 +123,59 @@ suite('Canvas folder open routing', () => {
 		});
 
 		test('a veto rejects with a presentable message and never loads', async () => {
-			const { calls, unload, load, recover } = recorder();
-			await assert.rejects(loadCanvasFolderWindow(window(1), 1, unload(true), load, recover), /could not leave the current folder/);
+			const { calls, unload, load, recover, alive } = recorder();
+			await assert.rejects(loadCanvasFolderWindow(window(1), 1, unload(true), load, recover, alive), /could not leave the current folder/);
 			assert.deepStrictEqual(calls, ['unload']);
 		});
 
 		test('a window that is not ready needs no unload', async () => {
-			const { calls, unload, load, recover } = recorder();
-			await loadCanvasFolderWindow(window(1, { isReady: false }), 1, unload(true), load, recover);
+			const { calls, unload, load, recover, alive } = recorder();
+			await loadCanvasFolderWindow(window(1, { isReady: false }), 1, unload(true), load, recover, alive);
 			assert.deepStrictEqual(calls, ['load']);
 		});
 
 		test('a load that fails after the accepted unload reloads the window into its current folder and still rejects', async () => {
-			const { calls, unload, recover } = recorder();
-			await assert.rejects(loadCanvasFolderWindow(window(1), 1, unload(false), () => { calls.push('load'); return Promise.reject(new Error('profile store unavailable')); }, recover), /profile store unavailable/);
+			const { calls, unload, recover, alive } = recorder();
+			await assert.rejects(loadCanvasFolderWindow(window(1), 1, unload(false), () => { calls.push('load'); return Promise.reject(new Error('profile store unavailable')); }, recover, alive), /profile store unavailable/);
 			assert.deepStrictEqual(calls, ['unload', 'load', 'recover']);
 		});
 
 		test('a load that fails with no unload behind it has nothing to recover', async () => {
-			const { calls, unload, recover } = recorder();
-			await assert.rejects(loadCanvasFolderWindow(window(1, { isReady: false }), 1, unload(false), () => { calls.push('load'); return Promise.reject(new Error('backup home unavailable')); }, recover), /backup home unavailable/);
+			const { calls, unload, recover, alive } = recorder();
+			await assert.rejects(loadCanvasFolderWindow(window(1, { isReady: false }), 1, unload(false), () => { calls.push('load'); return Promise.reject(new Error('backup home unavailable')); }, recover, alive), /backup home unavailable/);
 			assert.deepStrictEqual(calls, ['load']);
 		});
 
-		test('propagates an unload that fails', async () => {
+		test('a quit requested before the unload skips the load once the shared unload resolves', async () => {
+			const { calls, unload, load, recover } = recorder();
+			await loadCanvasFolderWindow(window(1), 1, unload(false), load, recover, () => false);
+			assert.deepStrictEqual(calls, ['unload']);
+		});
+
+		test('a quit or close arriving during the pending unload skips the load', async () => {
 			const { calls, load, recover } = recorder();
-			await assert.rejects(loadCanvasFolderWindow(window(1), 1, () => Promise.reject(new Error('renderer gone')), load, recover), /renderer gone/);
+			const unloadAnswer = new DeferredPromise<boolean>();
+			let alive = true;
+			const loading = loadCanvasFolderWindow(window(1), 1, () => { calls.push('unload'); return unloadAnswer.p; }, load, recover, () => alive);
+			// The user quits while the renderer is still shutting down; main
+			// coalesces that quit onto this unload.
+			alive = false;
+			unloadAnswer.complete(false);
+			await loading;
+			assert.deepStrictEqual(calls, ['unload']);
+		});
+
+		test('propagates an unload that fails', async () => {
+			const { calls, load, recover, alive } = recorder();
+			await assert.rejects(loadCanvasFolderWindow(window(1), 1, () => Promise.reject(new Error('renderer gone')), load, recover, alive), /renderer gone/);
 			assert.deepStrictEqual(calls, []);
 		});
 
 		test('rejects before unloading when the ordinary path fell back to another window', async () => {
-			const { calls, unload, load, recover } = recorder();
-			await assert.rejects(loadCanvasFolderWindow(window(7), 1, unload(false), load, recover), /no longer available/);
-			await assert.rejects(loadCanvasFolderWindow(undefined, 1, unload(false), load, recover), /no longer available/);
-			await assert.rejects(loadCanvasFolderWindow(window(1), undefined, unload(false), load, recover), /no longer available/);
+			const { calls, unload, load, recover, alive } = recorder();
+			await assert.rejects(loadCanvasFolderWindow(window(7), 1, unload(false), load, recover, alive), /no longer available/);
+			await assert.rejects(loadCanvasFolderWindow(undefined, 1, unload(false), load, recover, alive), /no longer available/);
+			await assert.rejects(loadCanvasFolderWindow(window(1), undefined, unload(false), load, recover, alive), /no longer available/);
 			assert.deepStrictEqual(calls, []);
 		});
 	});

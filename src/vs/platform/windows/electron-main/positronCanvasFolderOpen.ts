@@ -86,13 +86,20 @@ export function rejectCanvasFolderOpenCollision(openConfig: IOpenConfiguration, 
  * (an ordinary reload of the window into the folder it came from, as the
  * IDE) runs in that case so the user gets a live window back; the request
  * still rejects with the original error.
+ *
+ * The unload is shared: a quit or window close requested while it is
+ * pending coalesces onto it and proceeds once it resolves. `canLoad`
+ * (no quit requested, native window still there) is asked after the
+ * unload resolves; when it says no, the load is skipped and the quit or
+ * close goes ahead, rather than navigating a window that is on its way out.
  */
 export async function loadCanvasFolderWindow(
 	window: ICanvasFolderOpenWindow | undefined,
 	expectedWindowId: number | undefined,
 	unload: () => Promise<boolean /* veto */>,
 	load: () => Promise<void>,
-	recover: () => void
+	recover: () => void,
+	canLoad: () => boolean
 ): Promise<void> {
 	if (!window || window.id !== expectedWindowId) {
 		throw sourceGone();
@@ -100,6 +107,9 @@ export async function loadCanvasFolderWindow(
 	const unloaded = window.isReady;
 	if (unloaded && await unload()) {
 		throw new Error(localize('positron.canvas.openVetoed', "Positron could not leave the current folder. Check for unsaved work or a task that is still running."));
+	}
+	if (!canLoad()) {
+		return;
 	}
 	try {
 		await load();
