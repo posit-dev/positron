@@ -183,7 +183,7 @@ export const ConnectedProviderView = (props: ConnectedProviderViewProps) => {
 						</div>
 					}
 					<EditRawConfigLink onClick={props.onEditRawConfig} />
-					<ProviderNotice source={current} />
+					<ProviderNotice provider={current.provider} />
 					{errorMessage && <div className='connect-provider-error'>{errorMessage}</div>}
 				</div>
 			}
