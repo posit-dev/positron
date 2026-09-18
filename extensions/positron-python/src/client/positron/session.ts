@@ -412,7 +412,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         // Use the bundled ipykernel if requested.
         const didUseBundledIpykernel = await this._addBundledIpykernelToPythonPath(interpreter, kernelSpec);
 
-        // If the bundled ipykernel was not used, proceed to install ipykernel for the interpreter.
+        // If the bundle was not used, check ipykernel in the selected environment.
         if (!didUseBundledIpykernel) {
             await this._installIpykernel(interpreter);
         }
@@ -422,14 +422,22 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         interpreter: PythonEnvironment,
         kernelSpec: JupyterKernelSpec,
     ): Promise<boolean> {
-        // Re-evaluate the ipykernel bundle paths for this interpreter at runtime.
-        // This ensures we use the correct paths based on the interpreter's actual architecture,
-        // rather than relying on potentially stale cached metadata (which may have been created
-        // with different bundle paths before an update).
-        const ipykernelBundle = await getIpykernelBundle(interpreter, this.serviceContainer);
+        const extraData = this.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
+        // Select a fresh bundle for this launch. Older hosts cannot consume bundle paths.
+        const ipykernelBundle: IpykernelBundle =
+            kernelSpec.startKernel && !extraData.embeddedInterpreter
+                ? { disabledReason: 'The host does not support bundled ipykernel' }
+                : await getIpykernelBundle(
+                      interpreter,
+                      this.serviceContainer,
+                      undefined,
+                      extraData.embeddedInterpreter,
+                  );
 
         // Update the cached bundle for use by other methods (e.g., _isUninstallBundledPackageCommand)
         this._ipykernelBundle = ipykernelBundle;
+        // Persist the selection so restored sessions also recognize bundled packages.
+        extraData.ipykernelBundle = ipykernelBundle;
 
         if (ipykernelBundle.disabledReason || !ipykernelBundle.paths) {
             traceInfo(`Not using bundled ipykernel. Reason: ${ipykernelBundle.disabledReason}`);
