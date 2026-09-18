@@ -70,11 +70,12 @@ describe('NewFolderFlowStateManager uv install', () => {
 
 	/**
 	 * Waits for the constructor's async initialization to settle so that assertions see the uv
-	 * state the flow would really open with.
+	 * state the flow would really open with. The first onUpdateInterpreterState fires once the
+	 * environment providers land, several awaits before uv detection answers, so wait on the uv
+	 * state itself rather than on that event.
 	 */
 	async function initialized(state: NewFolderFlowStateManager) {
-		await Event.toPromise(state.onUpdateInterpreterState);
-		await new Promise(resolve => setTimeout(resolve, 0));
+		await vi.waitFor(() => expect(state.isUvInstalled).toBeDefined());
 		return state;
 	}
 
