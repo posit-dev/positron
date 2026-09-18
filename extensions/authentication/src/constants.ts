@@ -33,7 +33,6 @@ export const VERTEX_DEFAULT_BASE_URL = 'https://aiplatform.googleapis.com';
 
 export const AWS_AUTH_PROVIDER_ID = 'bedrock';
 export const SNOWFLAKE_AUTH_PROVIDER_ID = 'snowflake-cortex';
-export const GOOGLE_CLOUD_AUTH_PROVIDER_ID = 'google-vertex';
 export const DATABRICKS_AUTH_PROVIDER_ID = 'databricks';
 
 export const DATABRICKS_OAUTH_SESSION_ID = 'databricks-oauth';
