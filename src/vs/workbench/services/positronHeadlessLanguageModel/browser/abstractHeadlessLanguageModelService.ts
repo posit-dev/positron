@@ -411,15 +411,35 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	 */
 	private async resolveCredential(mapping: IProviderMapping): Promise<ICredentials | undefined> {
 		const accessToken = await this.readAccessToken(mapping);
-		if (!accessToken) {
+		if (accessToken) {
+			const shaped = shapeCredentials(mapping.providerId, mapping, accessToken, this.credentialConfig());
+			// Shaping never emits azure-entra or local; both are built from the catalog, not from a session.
+			return shaped && shaped.type !== 'local' ? shaped : undefined;
+		}
+		return this.entraCredential(mapping.providerId);
+	}
+
+	/**
+	 * Foundry in Entra mode has no session: the bearer is minted per request by
+	 * the bridge's Foundry client from this credential, which carries no secret.
+	 * A session, when one exists, has already won above (on Workbench it is the
+	 * admin-delegated bearer).
+	 */
+	private entraCredential(providerId: string): ICredentials | undefined {
+		if (providerId !== 'ms-foundry') {
 			return undefined;
 		}
-		const shaped = shapeCredentials(mapping.providerId, mapping, accessToken, this.credentialConfig());
-		// The bridge also models local providers (Ollama, LM Studio) and Foundry's
-		// Entra credentials; the headless service never resolves either (no mapped
-		// provider is local-typed, and shaping never emits azure-entra), so both
-		// fall outside ICredentials and are dropped here.
-		return shaped && shaped.type !== 'local' && shaped.type !== 'azure-entra' ? shaped : undefined;
+		const connection = this._aiProviderService.getProvider(providerId)?.connection;
+		if (connection?.azure?.authMode !== 'entra' || !connection.azure.scope || !connection.baseUrl) {
+			return undefined;
+		}
+		return {
+			type: 'azure-entra',
+			baseUrl: connection.baseUrl,
+			scope: connection.azure.scope,
+			tenantId: connection.azure.tenantId,
+			customHeaders: connection.customHeaders,
+		};
 	}
 
 	/** Silent session lookup with scope fallback, matching the bridge's resolver. */
