@@ -454,7 +454,7 @@ const VERSIONED_HOSTS: Record<string, { bare: string; versioned: string }> = {
  * the bare public host, so a bare host never lands in providers.json (the layer
  * the catalog's read-side normalization doesn't touch). Conservative on purpose:
  * only an exact bare-host match is rewritten, so proxies and already-versioned
- * URLs pass through untouched. Foundry has its own Azure-specific normalization.
+ * URLs pass through untouched.
  */
 function normalizeSavedBaseUrl(catalogId: string, baseUrl: string): string {
 	const known = VERSIONED_HOSTS[catalogId];

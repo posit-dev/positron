@@ -9,7 +9,6 @@ import {
 	AWS_AUTH_PROVIDER_ID,
 	CREDENTIAL_REFRESH_INTERVAL_MS,
 	DATABRICKS_AUTH_PROVIDER_ID,
-	FOUNDRY_AUTH_PROVIDER_ID,
 	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 	SNOWFLAKE_AUTH_PROVIDER_ID,
 } from './constants';
@@ -17,10 +16,9 @@ import { AuthProvider } from './authProvider';
 import { registerAuthProvider, authProviders } from './authProviderRegistry';
 import { PROVIDER_METADATA } from './providerSources';
 import {
-	normalizeToV1Url,
 	validateDatabricksApiKey,
 } from './validation';
-import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { hasManagedCredentials } from './managedCredentials';
 import { resolveAwsChainInit } from './credentials/aws';
 import { createAwsSsoRecovery } from './awsRecovery';
 import { resolveGeapCredential } from './credentials/geap';
@@ -50,7 +48,6 @@ import {
 	saveCustomProviderModels,
 	saveAwsSettings,
 	saveDatabricksHost,
-	saveProviderBaseUrl,
 	saveSnowflakeAccount,
 } from './providerCatalog';
 
@@ -147,8 +144,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	);
 
-	registerFoundryProvider(context);
-
 	await registerAwsProvider(context);
 	await registerSnowflakeProvider(context);
 	await registerGeapProvider(context);
@@ -221,54 +216,6 @@ async function registerAwsProvider(
 	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider);
 	await provider.resolveChainCredentials();
 	logger.info('Registered auth provider');
-}
-
-function registerFoundryProvider(context: vscode.ExtensionContext): void {
-	const logger = new AuthProviderLogger('Microsoft Foundry');
-	const provider = new AuthProvider(
-		FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', context,
-		{
-			authProviderId: FOUNDRY_MANAGED_CREDENTIALS.authProvider.id,
-			scopes: FOUNDRY_MANAGED_CREDENTIALS.authProvider.scopes,
-			isAvailable: () => !!hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS),
-		}
-	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			FOUNDRY_AUTH_PROVIDER_ID, 'Microsoft Foundry', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider
-	);
-	registerAuthProvider(FOUNDRY_AUTH_PROVIDER_ID, provider);
-	logger.info('Registered auth provider');
-
-	// Forward Workbench session changes so consumers listening for
-	// ms-foundry events are notified when the managed token arrives.
-	context.subscriptions.push(
-		vscode.authentication.onDidChangeSessions((e) => {
-			if (e.provider.id === FOUNDRY_MANAGED_CREDENTIALS.authProvider.id) {
-				provider.fireSessionsChanged({ added: [], removed: [], changed: [] });
-			}
-		})
-	);
-
-	// Seed the Workbench-managed Foundry endpoint into the catalog so the
-	// provider reads it from providers.json like a user-configured base URL.
-	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
-		const endpoint = vscode.workspace
-			.getConfiguration('posit.workbench.foundry')
-			.get<string>('endpoint', '');
-		const catalogId = PROVIDER_METADATA.foundry.catalogId!;
-		if (endpoint) {
-			const normalized = normalizeToV1Url(endpoint);
-			if (getCachedProvider(catalogId)?.connection.baseUrl !== normalized) {
-				saveProviderBaseUrl(catalogId, normalized).then(undefined, err =>
-					logger.logOperationError('sync Foundry endpoint', err)
-				);
-			}
-		}
-	}
 }
 
 async function registerSnowflakeProvider(context: vscode.ExtensionContext): Promise<void> {

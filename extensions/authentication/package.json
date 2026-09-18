@@ -10,7 +10,6 @@
 	},
 	"activationEvents": [
 		"onStartupFinished",
-		"onAuthenticationRequest:ms-foundry",
 		"onAuthenticationRequest:bedrock",
 		"onAuthenticationRequest:snowflake-cortex",
 		"onAuthenticationRequest:google-vertex",
@@ -29,10 +28,6 @@
 	},
 	"contributes": {
 		"authentication": [
-			{
-				"id": "ms-foundry",
-				"label": "Microsoft Foundry"
-			},
 			{
 				"id": "bedrock",
 				"label": "AWS"

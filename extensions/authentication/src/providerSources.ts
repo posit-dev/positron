@@ -6,7 +6,6 @@
 import {
 	AWS_AUTH_PROVIDER_ID,
 	DATABRICKS_AUTH_PROVIDER_ID,
-	FOUNDRY_AUTH_PROVIDER_ID,
 	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 	SNOWFLAKE_AUTH_PROVIDER_ID,
 } from './constants';
@@ -33,11 +32,6 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		id: AWS_AUTH_PROVIDER_ID,
 		displayName: 'Amazon Bedrock',
 		catalogId: 'bedrock',
-	},
-	foundry: {
-		id: FOUNDRY_AUTH_PROVIDER_ID,
-		displayName: 'Microsoft Foundry',
-		catalogId: 'ms-foundry',
 	},
 	snowflake: {
 		id: SNOWFLAKE_AUTH_PROVIDER_ID,

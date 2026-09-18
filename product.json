@@ -722,7 +722,6 @@
 			"positron.next-edit-suggestions"
 		],
 		"ms-foundry": [
-			"positron.authentication",
 			"posit.assistant"
 		],
 		"bedrock": [

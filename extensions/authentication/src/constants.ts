@@ -32,7 +32,6 @@ export const DEEPSEEK_DEFAULT_BASE_URL = 'https://api.deepseek.com';
 export const VERTEX_DEFAULT_BASE_URL = 'https://aiplatform.googleapis.com';
 
 export const AWS_AUTH_PROVIDER_ID = 'bedrock';
-export const FOUNDRY_AUTH_PROVIDER_ID = 'ms-foundry';
 export const SNOWFLAKE_AUTH_PROVIDER_ID = 'snowflake-cortex';
 export const GOOGLE_CLOUD_AUTH_PROVIDER_ID = 'google-vertex';
 export const DATABRICKS_AUTH_PROVIDER_ID = 'databricks';
