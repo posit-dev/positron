@@ -35,6 +35,7 @@ import { sweepRestoredCanvasWindows } from '../browser/positronCanvasRestore.js'
 import { awaitWorkspaceTrustDecisionForCanvas } from '../browser/positronCanvasTrustGate.js';
 import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_OPEN_ON_STARTUP_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, ICanvasStartSignals, isCanvasWorkspaceEligible, PositronCanvasModeActiveContext, shouldStartInCanvasMode } from '../common/positronCanvasMode.js';
 import { IPositronCanvasService, PositronCanvasService } from './positronCanvasService.js';
+import './positronCanvasFolderSwitch.js';
 
 registerSingleton(IPositronCanvasService, PositronCanvasService, InstantiationType.Delayed);
 
