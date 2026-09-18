@@ -12,7 +12,7 @@ import { Emitter, Event } from '../../../base/common/event.js';
 import { FlowFormattedTextItem } from './components/flowFormattedText.js';
 import { LanguageIds, FolderTemplate } from '../../services/positronNewFolder/common/positronNewFolder.js';
 import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from './utilities/condaUtils.js';
-import { UvPythonVersionInfo, EMPTY_UV_PYTHON_VERSION_INFO } from './utilities/uvUtils.js';
+import { UvPythonVersionInfo, EMPTY_UV_PYTHON_VERSION_INFO, EnsureUvResult } from './utilities/uvUtils.js';
 import { URI } from '../../../base/common/uri.js';
 import { PositronReactServices } from '../../../base/browser/positronReactServices.js';
 
@@ -648,6 +648,23 @@ export class NewFolderFlowStateManager
 			uvPythonVersion: this._uvPythonVersion,
 			useRenv: this._useRenv,
 		} satisfies NewFolderFlowState;
+	}
+
+	/**
+	 * Installs uv via the Python extension, then refreshes the uv Python versions so that the
+	 * Python Environment step can offer them without leaving the flow.
+	 * @returns The result of the install. A declined install resolves with ok false and no error.
+	 */
+	async installUv(): Promise<EnsureUvResult> {
+		const result = await this._executeCommandSafe<EnsureUvResult>('python.ensureUvInstalled');
+		if (!result?.ok) {
+			return result ?? { ok: false };
+		}
+
+		// uv is now installed, so re-run the version fetch that was skipped when it wasn't.
+		await this._setUvPythonVersionInfo();
+		this._onUpdateInterpreterStateEmitter.fire();
+		return result;
 	}
 
 	/**

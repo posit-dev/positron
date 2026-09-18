@@ -602,7 +602,7 @@ export namespace CreateEnv {
         export const selectPythonPlaceHolder = l10n.t('Select a Python installation to create the virtual environment');
         // --- Start Positron ---
         // export const providerDescription = l10n.t('Creates a `.venv` virtual environment in the current workspace');
-        export const providerDescription = l10n.t('Select an existing interpreter for the new environment');
+        export const providerDescription = l10n.t('Use a Python version already installed');
         // --- End Positron ---
         export const error = l10n.t('Creating virtual environment failed with error.');
         export const tomlExtrasQuickPickTitle = l10n.t('Select optional dependencies to install from pyproject.toml');
@@ -635,7 +635,7 @@ export namespace CreateEnv {
         export const creating = l10n.t('Creating conda environment...');
         // --- Start Positron ---
         // export const providerDescription = l10n.t('Creates a `.conda` Conda environment in the current workspace');
-        export const providerDescription = l10n.t('Use conda to install a Python version for the new environment');
+        export const providerDescription = l10n.t('Use a Python version, downloaded by conda if needed');
         // --- End Positron ---
 
         export const recreate = l10n.t('Delete and Recreate');
@@ -651,9 +651,7 @@ export namespace CreateEnv {
 
     // --- Start Positron ---
     export namespace Uv {
-        export const providerDescription = l10n.t(
-            'Use uv to find a Python version locally (or install it if needed) for the new environment',
-        );
+        export const providerDescription = l10n.t('Use a Python version, downloaded by uv if needed');
         export const updatingUv = l10n.t('Updating uv...');
         export const updateUv = l10n.t('Update uv');
         export const proceedAnyway = l10n.t('Proceed Anyway');
