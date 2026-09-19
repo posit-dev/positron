@@ -51,26 +51,22 @@ function createFakeEditor(fileName: string, text = 'hello'): vscode.TextEditor &
 
 function createMethods(options: {
 	paneEditor?: vscode.TextEditor;
-	consoleEditor?: vscode.TextEditor;
-	activeConsoleSessionId?: string;
-	consoleFocused?: boolean;
+	/** Console input editors by session id. */
+	consoleEditors?: Record<string, vscode.TextEditor>;
+	/** The session whose console input was the most recently focused text editor, if any. */
+	consoleInputFocusedLastSessionId?: string;
 }) {
 	const editors = new class extends mock<ExtHostEditors>() {
 		override getActiveTextEditor(): vscode.TextEditor | undefined {
 			return options.paneEditor;
 		}
 	};
-	const contextKeys = new class extends mock<ExtHostContextKeyService>() {
-		override evaluateWhenClause(_whenClause: string): Promise<boolean> {
-			return Promise.resolve(options.consoleFocused ?? false);
-		}
-	};
 	const consoleService = new class extends mock<ExtHostConsoleService>() {
-		override get activeConsoleSessionId(): string | undefined {
-			return options.activeConsoleSessionId;
+		override getConsoleInputFocusedLastSessionId(): Promise<string | undefined> {
+			return Promise.resolve(options.consoleInputFocusedLastSessionId);
 		}
-		override get activeConsoleEditor(): vscode.TextEditor | undefined {
-			return options.consoleEditor;
+		override consoleEditorForSession(sessionId: string): vscode.TextEditor | undefined {
+			return options.consoleEditors?.[sessionId];
 		}
 	};
 
@@ -83,7 +79,7 @@ function createMethods(options: {
 		new (mock<ExtHostWorkspace>())(),
 		new (mock<ExtHostQuickOpen>())(),
 		new (mock<ExtHostCommands>())(),
-		contextKeys,
+		new (mock<ExtHostContextKeyService>())(),
 		consoleService,
 	);
 }
@@ -99,7 +95,11 @@ describe('ExtHostMethods', function () {
 
 		it('returns the editor pane context when there is no caller session id', async function () {
 			const paneEditor = createFakeEditor('/path/to/file.R');
-			const methods = createMethods({ paneEditor, activeConsoleSessionId: 'session-1', consoleFocused: true });
+			const methods = createMethods({
+				paneEditor,
+				consoleEditors: { 'session-r': createFakeEditor('inmemory://repl-r') },
+				consoleInputFocusedLastSessionId: 'session-r',
+			});
 
 			const context = await methods.lastActiveEditorContext();
 
@@ -107,51 +107,66 @@ describe('ExtHostMethods', function () {
 			expect(context?.id).toBeUndefined();
 		});
 
-		it('returns the console context when the caller session is the active console and it is focused', async function () {
-			const consoleEditor = createFakeEditor('inmemory://repl-r-session-1', 'x <- 1');
+		it('returns the console context when the caller session owns the last focused console input', async function () {
 			const paneEditor = createFakeEditor('/path/to/file.R');
 			const methods = createMethods({
 				paneEditor,
-				consoleEditor,
-				activeConsoleSessionId: 'session-1',
-				consoleFocused: true,
+				consoleEditors: { 'session-r': createFakeEditor('inmemory://repl-r', 'x <- 1') },
+				consoleInputFocusedLastSessionId: 'session-r',
 			});
 
-			const context = await methods.lastActiveEditorContext('session-1');
+			const context = await methods.lastActiveEditorContext('session-r');
 
 			expect(context?.document.path).toBe('');
 			expect(context?.id).toBe('#console');
 			expect(context?.contents).toEqual(['x <- 1']);
 		});
 
-		it('falls back to the editor pane when the caller session does not match the active console', async function () {
-			const consoleEditor = createFakeEditor('inmemory://repl-python-session-2');
+		it('falls back to the editor pane when another session owns the last focused console input', async function () {
+			// Regression test. Running code in the R console makes it the *active* console before
+			// the RPC arrives (`PositronConsoleService.executeCode` activates the instance even
+			// with `focus: false`), so the caller has to be compared against the console the user
+			// actually focused. Here the user clicked an editor and then the Python console, so an
+			// R-bound shortcut must report the editor, not either console.
 			const paneEditor = createFakeEditor('/path/to/file.R');
 			const methods = createMethods({
 				paneEditor,
-				consoleEditor,
-				activeConsoleSessionId: 'session-2',
-				consoleFocused: true,
+				consoleEditors: {
+					'session-r': createFakeEditor('inmemory://repl-r'),
+					'session-python': createFakeEditor('inmemory://repl-python'),
+				},
+				consoleInputFocusedLastSessionId: 'session-python',
 			});
 
-			// A different (e.g. background) session calls in while the Python console is active.
-			const context = await methods.lastActiveEditorContext('session-1');
+			const context = await methods.lastActiveEditorContext('session-r');
 
 			expect(context?.document.path).toBe('/path/to/file.R');
 			expect(context?.id).toBeUndefined();
 		});
 
-		it('falls back to the editor pane when the console does not have keyboard focus', async function () {
-			const consoleEditor = createFakeEditor('inmemory://repl-r-session-1');
+		it('falls back to the editor pane when a source editor was focused last', async function () {
 			const paneEditor = createFakeEditor('/path/to/file.R');
 			const methods = createMethods({
 				paneEditor,
-				consoleEditor,
-				activeConsoleSessionId: 'session-1',
-				consoleFocused: false,
+				consoleEditors: { 'session-r': createFakeEditor('inmemory://repl-r') },
+				consoleInputFocusedLastSessionId: undefined,
 			});
 
-			const context = await methods.lastActiveEditorContext('session-1');
+			const context = await methods.lastActiveEditorContext('session-r');
+
+			expect(context?.document.path).toBe('/path/to/file.R');
+			expect(context?.id).toBeUndefined();
+		});
+
+		it('falls back to the editor pane when the caller console has no editor yet', async function () {
+			// The console instance exists but its input widget has not mounted.
+			const paneEditor = createFakeEditor('/path/to/file.R');
+			const methods = createMethods({
+				paneEditor,
+				consoleInputFocusedLastSessionId: 'session-r',
+			});
+
+			const context = await methods.lastActiveEditorContext('session-r');
 
 			expect(context?.document.path).toBe('/path/to/file.R');
 			expect(context?.id).toBeUndefined();
@@ -162,8 +177,12 @@ describe('ExtHostMethods', function () {
 
 		it('edits the editor pane when there is no caller session id', async function () {
 			const paneEditor = createFakeEditor('/path/to/file.R');
-			const consoleEditor = createFakeEditor('inmemory://repl-r-session-1');
-			const methods = createMethods({ paneEditor, consoleEditor, activeConsoleSessionId: 'session-1', consoleFocused: true });
+			const consoleEditor = createFakeEditor('inmemory://repl-r');
+			const methods = createMethods({
+				paneEditor,
+				consoleEditors: { 'session-r': consoleEditor },
+				consoleInputFocusedLastSessionId: 'session-r',
+			});
 
 			await methods.modifyEditorLocations([new Range(0, 0, 0, 5)], ['x']);
 
@@ -171,15 +190,34 @@ describe('ExtHostMethods', function () {
 			expect(consoleEditor.editedRanges).toHaveLength(0);
 		});
 
-		it('edits the console editor when the console is the caller session and has focus', async function () {
+		it('edits the console editor when the caller session owns the last focused console input', async function () {
 			const paneEditor = createFakeEditor('/path/to/file.R');
-			const consoleEditor = createFakeEditor('inmemory://repl-r-session-1');
-			const methods = createMethods({ paneEditor, consoleEditor, activeConsoleSessionId: 'session-1', consoleFocused: true });
+			const consoleEditor = createFakeEditor('inmemory://repl-r');
+			const methods = createMethods({
+				paneEditor,
+				consoleEditors: { 'session-r': consoleEditor },
+				consoleInputFocusedLastSessionId: 'session-r',
+			});
 
-			await methods.modifyEditorLocations([new Range(0, 0, 0, 5)], ['x'], 'session-1');
+			await methods.modifyEditorLocations([new Range(0, 0, 0, 5)], ['x'], 'session-r');
 
 			expect(consoleEditor.editedRanges).toHaveLength(1);
 			expect(paneEditor.editedRanges).toHaveLength(0);
+		});
+
+		it('edits the editor pane when another session owns the last focused console input', async function () {
+			const paneEditor = createFakeEditor('/path/to/file.R');
+			const consoleEditor = createFakeEditor('inmemory://repl-r');
+			const methods = createMethods({
+				paneEditor,
+				consoleEditors: { 'session-r': consoleEditor },
+				consoleInputFocusedLastSessionId: 'session-python',
+			});
+
+			await methods.modifyEditorLocations([new Range(0, 0, 0, 5)], ['x'], 'session-r');
+
+			expect(paneEditor.editedRanges).toHaveLength(1);
+			expect(consoleEditor.editedRanges).toHaveLength(0);
 		});
 	});
 });

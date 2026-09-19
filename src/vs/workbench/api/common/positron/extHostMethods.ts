@@ -241,32 +241,29 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	 * console-aware RPC, or `undefined` if the caller should fall back to the last active editor
 	 * pane editor.
 	 *
-	 * Two conditions must both hold:
-	 * - the RPC identifies the calling kernel's session, and that session's console is the active
-	 *   console (a background call from a non-focused session's kernel, e.g. a different language,
-	 *   must not read or write into whatever console happens to be showing);
-	 * - the console input actually has keyboard focus, matching RStudio's semantics (console
-	 *   context iff the console input has focus; editor context when focus is in an editor, e.g.
-	 *   code sent with Cmd+Enter).
+	 * The console wins only when the RPC identifies a kernel session whose own console input was
+	 * the most recently focused text editor. That is deliberately "focused last" rather than
+	 * "focused now", matching RStudio: it reports the console whenever the last editor to take
+	 * focus was the console input, so the answer survives focus moving to something that is not
+	 * an editor at all (selecting text in the console output, clicking into the Variables pane).
 	 *
-	 * The focus check queries `positronConsoleInputFocused`, not the upstream editor's own
-	 * `textInputFocus`. `evaluateWhenClause()` resolves against a single, non-scoped context key
-	 * service on the main thread, which can't see `textInputFocus` -- that key is set per-instance
-	 * on each Monaco editor's own *scoped* context (`undefined` when queried from anywhere else).
-	 * `positronConsoleInputFocused` is bound directly to the shared service by the console input
-	 * component (`consoleInput.tsx`) for exactly this reason.
+	 * Note that the *active* console is not a usable stand-in for the focused one.
+	 * `PositronConsoleService.executeCode` activates the target console before the code runs,
+	 * even with `focus: false`, so by the time a kernel's RPC arrives the active console is
+	 * always the caller's own. Gating on it would let a click on the Python console authorize
+	 * returning the R console. `ConsoleInputFocusTracker` records which console was focused.
 	 */
 	private async activeConsoleEditorForCaller(callerSessionId: string | undefined): Promise<vscode.TextEditor | undefined> {
-		if (callerSessionId === undefined || this.consoleService.activeConsoleSessionId !== callerSessionId) {
+		if (callerSessionId === undefined) {
 			return undefined;
 		}
 
-		const consoleFocused = await this.contextKeys.evaluateWhenClause('positronConsoleInputFocused');
-		if (!consoleFocused) {
+		const focusedLastSessionId = await this.consoleService.getConsoleInputFocusedLastSessionId();
+		if (focusedLastSessionId !== callerSessionId) {
 			return undefined;
 		}
 
-		return this.consoleService.activeConsoleEditor;
+		return this.consoleService.consoleEditorForSession(callerSessionId);
 	}
 
 	/**

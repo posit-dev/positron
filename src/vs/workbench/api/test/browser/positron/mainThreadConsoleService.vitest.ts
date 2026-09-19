@@ -10,6 +10,8 @@ import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/com
 import { TestPositronConsoleInstance, TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { ProxyIdentifier } from '../../../../services/extensions/common/proxyIdentifier.js';
+import { Event } from '../../../../../base/common/event.js';
+import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { MainThreadConsoleService } from '../../../browser/positron/mainThreadConsoleService.js';
@@ -89,10 +91,22 @@ describe('MainThreadConsoleService (console editors)', () => {
 		extHostContext.set(MainPositronContext.MainThreadHiddenEditorManager, services.documentsAndEditors);
 	}
 
+	/**
+	 * The console input focus tracker watches every code editor in the window. These tests only
+	 * exercise the console editor channel, so no editors exist and none are ever focused.
+	 */
+	function createCodeEditorService(): ICodeEditorService {
+		return stubInterface<ICodeEditorService>({
+			onCodeEditorAdd: Event.None,
+			onCodeEditorRemove: Event.None,
+			listCodeEditors: () => [],
+		});
+	}
+
 	/** Constructs the service the way `ExtensionHostManager` does: named customer, then the rest. */
 	function createMainThreadConsoleService(): MainThreadConsoleService {
 		const extHostContext = createExtHostContext();
-		const service = new MainThreadConsoleService(extHostContext, consoleService);
+		const service = new MainThreadConsoleService(extHostContext, consoleService, createCodeEditorService());
 		registerHiddenEditorManager(extHostContext);
 		return service;
 	}
@@ -225,7 +239,7 @@ describe('MainThreadConsoleService (console editors)', () => {
 		calls = [];
 
 		const extHostContext = createExtHostContext();
-		const replayed = new MainThreadConsoleService(extHostContext, consoleService);
+		const replayed = new MainThreadConsoleService(extHostContext, consoleService, createCodeEditorService());
 		try {
 			// Nothing yet. The console input's document only reaches the extension host in the
 			// initial documents-and-editors delta, which the customer registering the hidden editor
@@ -255,7 +269,7 @@ describe('MainThreadConsoleService (console editors)', () => {
 		// customer loop swallows constructor errors, so an eager `getRaw` would silently leave this
 		// service's whole RPC channel (`$getConsoleWidth`, `$tryPasteText`, ...) unregistered.
 		expect(() => extHostContext.getRaw(MainPositronContext.MainThreadHiddenEditorManager)).toThrow();
-		mainThreadConsoleService = new MainThreadConsoleService(extHostContext, consoleService);
+		mainThreadConsoleService = new MainThreadConsoleService(extHostContext, consoleService, createCodeEditorService());
 		registerHiddenEditorManager(extHostContext);
 		await flushDeferredReplay();
 		calls = [];
