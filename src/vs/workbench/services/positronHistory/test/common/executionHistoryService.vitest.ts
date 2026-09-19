@@ -330,6 +330,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		throw new Error('Method not implemented.');
 	}
 
+	hasLanguageRuntimeProvider(languageId: string): boolean {
+		throw new Error('Method not implemented.');
+	}
+
 	hasAffiliatedRuntime(): boolean {
 		return false;
 	}

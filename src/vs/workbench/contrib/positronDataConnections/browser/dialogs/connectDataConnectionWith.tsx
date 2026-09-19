@@ -7,14 +7,16 @@
 import './connectDataConnectionWith.css';
 
 // React.
-import { PropsWithChildren, useRef, useState } from 'react';
+import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import Severity from '../../../../../base/common/severity.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
 import { showIncludeSecretsConfirmation } from './includeSecretsConfirmation.js';
+import { GGSQL_INSTALL_LABEL, isGgsqlKnownMissing, openGgsqlInstallPage, showGgsqlNotInstalled } from './ggsqlNotInstalled.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -57,6 +59,12 @@ export interface ConnectDataConnectionWithOptions {
 	// The available connection code variants, in preference order (first is the default). Generated
 	// with secret values omitted (the default, secret-free preview). Must be non-empty.
 	readonly variants: IDataConnectionCodeVariant[];
+
+	// Whether the caller already confirmed including secrets and `variants` already has them embedded
+	// (e.g. when the mechanism has no non-secret parameters, so a secret-free preview would be empty).
+	// Defaults to false. When true, the Include Secrets action starts disabled and Connect does not
+	// re-prompt.
+	readonly initialIncludeSecrets?: boolean;
 }
 
 /**
@@ -74,6 +82,7 @@ export const showConnectDataConnectionWith = (options: ConnectDataConnectionWith
 			connectionName={options.connectionName}
 			driver={options.driver}
 			generateSecretVariants={options.generateSecretVariants}
+			initialIncludeSecrets={options.initialIncludeSecrets ?? false}
 			languageId={options.languageId}
 			mechanismId={options.mechanismId}
 			profileId={options.profileId}
@@ -95,6 +104,9 @@ interface ConnectDataConnectionWithProps {
 	readonly profileId: string;
 	readonly generateSecretVariants: () => Promise<IDataConnectionCodeVariant[]>;
 	readonly variants: IDataConnectionCodeVariant[];
+	// Optional, like the equivalent field on ConnectDataConnectionWithOptions: a caller that has not
+	// already fetched secrets opens the dialog secret-free. Defaults to false.
+	readonly initialIncludeSecrets?: boolean;
 }
 
 /**
@@ -107,19 +119,42 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 
 	const editorRef = useRef<EditableCodeEditorWidget>(undefined!);
 
-	// Whether the connection's mechanism has any secret parameters (e.g. a password) whose values we
-	// keep out of the generated code unless the user opts in. Falls back to the first mechanism for
-	// pre-mechanisms profiles.
+	// Whether this connection actually has a secret to embed. Both halves are required: the
+	// mechanism's schema must declare a secret parameter (falling back to the first mechanism for
+	// pre-mechanisms profiles), and the profile must have a value stored for one of them. The schema
+	// alone is not enough -- an ODBC DSN or a Postgres trust-auth connection declares a password
+	// parameter and leaves it blank -- and treating those as having secrets makes Connect show a
+	// "this connection requires secrets" prompt that confirming cannot satisfy, because there is
+	// nothing to fetch.
 	const mechanism = resolveDataConnectionMechanism(props.driver.metadata, props.mechanismId);
-	const hasSecrets = mechanism?.parameters.some(isSecretParameter) ?? false;
+	const secretParameterIds = mechanism?.parameters.filter(isSecretParameter).map(parameter => parameter.id) ?? [];
+	const storedSecretIds = services.positronDataConnectionsService.getProfileSecretIds(props.profileId);
+	const hasSecrets = secretParameterIds.some(id => storedSecretIds.includes(id));
 
-	// Whether secret parameter values have been embedded in the generated code. Starts false; set
-	// once the user confirms the Include Secrets action. One-way: the dialog reopens secret-free.
-	const [includeSecrets, setIncludeSecrets] = useState(false);
+	// Whether secret parameter values have been embedded in the generated code. Starts from the
+	// caller's initialIncludeSecrets (true when the caller already had to fetch secrets to produce
+	// any preview at all); otherwise set once the user confirms the Include Secrets action, or
+	// confirms the equivalent prompt Connect shows when secrets are required and not yet included.
+	// One-way: the dialog reopens secret-free.
+	const [includeSecrets, setIncludeSecrets] = useState(props.initialIncludeSecrets ?? false);
 
 	// The connection code variants to display. Initialized with the secret-free variants generated
 	// by the caller; replaced with secret-bearing variants once the user includes secrets.
 	const [variants, setVariants] = useState(props.variants);
+
+	// Whether this code is ggsql and Positron has no ggsql runtime to run it in. Drives the notice
+	// above the code and makes Connect offer to install ggsql instead of failing. Re-checked when a
+	// runtime registers or the startup phase advances, so installing ggsql while the dialog is open
+	// clears the notice. Best-effort only -- there is no event for the tail of background discovery,
+	// so connectHandler re-checks at press time rather than trusting this.
+	const [ggsqlMissing, setGgsqlMissing] = useState(() => isGgsqlKnownMissing(services, props.languageId));
+	useEffect(() => {
+		const disposables = new DisposableStore();
+		const recheck = () => setGgsqlMissing(isGgsqlKnownMissing(services, props.languageId));
+		disposables.add(services.languageRuntimeService.onDidRegisterRuntime(recheck));
+		disposables.add(services.languageRuntimeService.onDidChangeRuntimeStartupPhase(recheck));
+		return () => disposables.dispose();
+	}, [services, props.languageId]);
 
 	// The currently-selected variant. Initialized from the profile's stored preference (falling back
 	// to the first/default variant when unset or stale). Variant ids are stable across
@@ -136,6 +171,29 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 		services.positronDataConnectionsService.setPreferredCodeVariant(props.profileId, props.languageId, variantId);
 	};
 
+	// Regenerates the variants with secrets embedded and applies them to component state, without
+	// prompting -- callers show whichever confirmation wording fits their context first. Returns the
+	// regenerated variants so a caller that needs the code immediately (Connect) does not have to
+	// wait for the state update to re-render, or undefined when generation produced nothing.
+	//
+	// An empty result means the secrets could not be read (secret storage unavailable, or the
+	// profile's stored values are gone). That leaves includeSecrets false, so the Include Secrets
+	// action stays available to retry and Connect will not run code that is missing the password it
+	// needs while reporting that secrets were included.
+	const applySecretVariants = async (): Promise<IDataConnectionCodeVariant[] | undefined> => {
+		const secretVariants = await props.generateSecretVariants();
+		if (secretVariants.length === 0) {
+			services.notificationService.error(localize(
+				'positron.connectDataConnectionWith.secretsUnavailable',
+				"Could not read this connection's stored secrets. The connection code is unchanged."
+			));
+			return undefined;
+		}
+		setVariants(secretVariants);
+		setIncludeSecrets(true);
+		return secretVariants;
+	};
+
 	const includeSecretsHandler = async () => {
 		// Warn before embedding secrets: the generated code can leak credentials into console
 		// history, the clipboard, or a saved script.
@@ -143,14 +201,7 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 		if (!confirmed) {
 			return;
 		}
-
-		// Regenerate the variants with secrets embedded. Keep the secret-free preview if generation
-		// yields nothing, but still mark secrets as included so the action isn't offered again.
-		const secretVariants = await props.generateSecretVariants();
-		if (secretVariants.length > 0) {
-			setVariants(secretVariants);
-		}
-		setIncludeSecrets(true);
+		await applySecretVariants();
 	};
 
 	const copyHandler = async () => {
@@ -195,7 +246,49 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 
 	const connectHandler = async () => {
 		// Acquire code before disposing of the renderer.
-		const code = editorRef.current.getCode();
+		let code = editorRef.current.getCode();
+
+		// There is no ggsql runtime to run this code in, so executing it would fail with an internal
+		// error about an unregistered runtime. Explain the real problem and offer the install page
+		// instead. This dialog stays open behind that one: the code is still worth copying or turning
+		// into a script, so this is a detour rather than a dead end. Checked here rather than trusting
+		// ggsqlMissing, which can lag behind the tail of runtime discovery.
+		if (isGgsqlKnownMissing(services, props.languageId)) {
+			setGgsqlMissing(true);
+			showGgsqlNotInstalled(services);
+			return;
+		}
+
+		// Whether the code on screen is still the code we generated. The preview editor is editable,
+		// so the user may have rewritten it -- including typing a password in themselves. Regenerating
+		// would overwrite that, so an edited buffer is run as-is and the secrets prompt is skipped:
+		// the prompt exists to fill in a secret that the generated code is missing, and once the user
+		// has taken the code over, we no longer know that it is missing anything.
+		const userEditedCode = code !== selectedVariant.code;
+
+		// Secrets are required for this code to actually connect, and the user has not opted in yet
+		// (via the Include Secrets action or a previous Connect attempt). Ask now rather than running
+		// code that is missing a password.
+		//
+		// The case where there was no secret-free preview to show at all (the mechanism's only
+		// parameters are secret) does not reach here: the caller prompts for that one before opening
+		// the dialog and passes initialIncludeSecrets, so includeSecrets already starts true. Do not
+		// remove that caller-side prompt on the assumption this branch covers it.
+		if (hasSecrets && !includeSecrets && !userEditedCode) {
+			const confirmed = await showIncludeSecretsConfirmation({ requiredForConnect: true });
+			if (!confirmed) {
+				// Stay in the dialog; the user declined to include the secrets Connect needs.
+				return;
+			}
+			const updatedVariants = await applySecretVariants();
+			if (!updatedVariants) {
+				// Stay in the dialog; applySecretVariants has already reported why. Connecting now
+				// would run code the user was just told would include secrets, without them.
+				return;
+			}
+			const updatedVariant = updatedVariants.find(variant => variant.id === selectedVariant.id) ?? updatedVariants[0];
+			code = updatedVariant.code;
+		}
 
 		props.renderer.dispose();
 
@@ -235,7 +328,25 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 	return (
 		<PositronDynamicModalDialog
 			content={
-				<div className={positronClassNames('connect-data-connection-with', { 'has-variants': showVariantSelector })}>
+				<div className={positronClassNames('connect-data-connection-with', { 'has-variants': showVariantSelector, 'has-notice': ggsqlMissing })}>
+					{ggsqlMissing &&
+						<div className='notice'>
+							<span className='codicon codicon-info' />
+							<span className='notice-text'>
+								{localize(
+									'positron.connectDataConnectionWith.ggsqlNotInstalled',
+									"ggsql is not installed. You can still copy this code or create a script for it."
+								)}
+							</span>
+							<Button
+								ariaLabel={localize('positron.connectDataConnectionWith.goToGgsqlSite', "Go to ggsql.org")}
+								className='notice-link'
+								onPressed={() => openGgsqlInstallPage(services)}
+							>
+								{GGSQL_INSTALL_LABEL}
+							</Button>
+						</div>
+					}
 					{showVariantSelector &&
 						<div className='library-header'>{variantGroupLabel}</div>
 					}

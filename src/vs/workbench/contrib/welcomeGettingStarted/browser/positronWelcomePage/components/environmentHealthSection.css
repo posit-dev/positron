@@ -4,10 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * Three surfaces, lightest to heaviest: the check rows take the card's own
- * background, each language header a wash on top of it, and the card's title bar
- * the strongest. Without that separation everything reads as one flat grey and
- * nothing tells you where a language begins.
+ * Two surfaces: the check rows take the card's own background, and each language
+ * header a wash on top of it. Without that separation everything reads as one
+ * flat grey and nothing tells you where a language begins.
  */
 .positron-welcome-page-environment-setup {
 	/* The card's text line box. */
@@ -16,6 +15,9 @@
 	--_item-line-height: 24px;
 
 	line-height: var(--_line-height);
+}
+
+.positron-welcome-page-environment-setup .environment-health-card {
 	background-color: var(--vscode-positronWelcome-environmentSetupBackground);
 	border: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
 	border-radius: 6px;
@@ -41,18 +43,14 @@
 
 .positron-welcome-page-environment-setup .environment-health-header {
 	align-items: center;
-	background-color: var(--vscode-positronWelcome-environmentSetupTitleBackground);
-	color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
-	padding: 8px 16px;
-	/* The progress line is positioned against this. */
-	position: relative;
+	margin-bottom: 8px;
 }
 
 /*
- * The recheck and settings buttons move as a pair: at the card's narrowest
+ * The recheck and settings buttons move as a pair: at the page's narrowest
  * widths there is not enough room beside the title for both, and wrapping
  * them individually would strand one button alone on its own line. This
  * wraps the pair below the title instead. No horizontal alignment is set
@@ -68,9 +66,13 @@
 	gap: 8px;
 }
 
-/* An h3 for structure only; the button inside it is what you see. */
+/*
+ * An h3 for structure only; the button inside it is what you see. The busy
+ * indicator is positioned against this.
+ */
 .positron-welcome-page-environment-setup .environment-health-group-heading {
 	margin: 0;
+	position: relative;
 }
 
 /*
@@ -93,29 +95,54 @@
 	-webkit-font-smoothing: antialiased;
 }
 
-.positron-welcome-page-environment-setup .environment-health-header-title,
 .positron-welcome-page-environment-setup .environment-health-group-name {
 	font-size: 13px;
 	font-weight: 600;
 	margin: 0;
 }
 
+/*
+ * The only heading on the page that shares a row with something else, so it is
+ * the only one with no bottom margin: in a flex row that margin is not collapsed,
+ * and it would make the title's box taller than its text and lift the text off
+ * centre against the buttons. `.environment-health-header` spaces the row from
+ * the card instead. The container chain is here to outrank the page-wide heading
+ * rule in positronWelcomePage.css.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
 .positron-welcome-page-environment-setup .environment-health-header-title {
 	flex: 1 1 auto;
+	margin: 0;
 }
 
 /*
- * gettingStarted.css sets every h2 in the container to 1.5em, weight 400 and
- * line-height: initial, so this selector repeats the container chain to win on
- * specificity and keep the title reading like the rest of the card.
+ * What the card collapses to when nothing needs attention. Same border and radius
+ * as the card, so the page does not appear to gain and lose a component: it is
+ * the same object, smaller. `position: relative` anchors the busy line.
  */
-.monaco-workbench .part.editor > .content .gettingStartedContainer
-.gettingStartedSlideCategories
-.positron-welcome-page-environment-setup .environment-health-header-title {
-	font-size: 13px;
-	font-weight: 600;
-	line-height: var(--_line-height);
-	margin: 0;
+.positron-welcome-page-environment-setup .environment-health-summary-row {
+	align-items: center;
+	border: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
+	border-radius: 6px;
+	display: flex;
+	gap: 8px;
+	overflow: hidden;
+	padding: 8px 16px;
+	position: relative;
+}
+
+/*
+ * `.codicon` is in the selector for the same reason the status icons below carry
+ * it: without it this ties with `.monaco-workbench .codicon` at two classes and
+ * the icon silently takes the workbench's colour instead of the pass colour.
+ */
+.positron-welcome-page-environment-setup .environment-health-summary-icon.codicon {
+	color: var(--vscode-positronWelcome-environmentSetupPassIcon);
+	flex: 0 0 auto;
+}
+
+.positron-welcome-page-environment-setup .environment-health-summary-label {
+	flex: 1 1 auto;
 }
 
 /*
@@ -137,20 +164,6 @@
 
 .positron-welcome-page-environment-setup .environment-health-group-chevron {
 	flex: 0 0 auto;
-}
-
-.positron-welcome-page-environment-setup .environment-health-group-footer {
-	align-items: baseline;
-	border-top: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
-	display: flex;
-	flex-wrap: wrap;
-	gap: 4px;
-	padding: 8px 16px;
-}
-
-.positron-welcome-page-environment-setup .environment-health-group-footer-text {
-	color: var(--vscode-descriptionForeground);
-	margin: 0;
 }
 
 .positron-welcome-page-environment-setup .environment-health-item-list {
@@ -224,10 +237,10 @@
 }
 
 /*
- * Overrides the slide-wide codicon margin from gettingStarted.css:295-297, which
- * targets .gettingStartedSlideCategories .codicon. This selector includes that
- * class so it outranks the upstream rule on specificity (9 classes vs 8), regardless
- * of stylesheet load order.
+ * Overrides the slide-wide codicon margin gettingStarted.css sets on
+ * `.gettingStartedSlideCategories .codicon`. This selector includes that class so
+ * it outranks the upstream rule on specificity (9 classes vs 8), regardless of
+ * stylesheet load order.
  */
 .monaco-workbench .part.editor > .content .gettingStartedContainer
 .gettingStartedSlideCategories
@@ -283,9 +296,9 @@
 .gettingStartedSlideCategories
 .positron-welcome-page-environment-setup {
 	/*
-	 * gettingStarted.css:232 sets white-space: nowrap on every li in this slide,
-	 * and the check rows are li. Without this the summary and detail cannot wrap
-	 * and run underneath the fix button instead of yielding to it.
+	 * gettingStarted.css sets white-space: nowrap on every li in this slide, and
+	 * the check rows are li. Without this the summary and detail cannot wrap and
+	 * run underneath the fix button instead of yielding to it.
 	 */
 	& .environment-health-item {
 		white-space: normal;
@@ -323,8 +336,8 @@
 	}
 
 	/*
-	 * The title bar's own controls: recheck, and the shortcut to the setting.
-	 * Icons rather than labelled buttons because a label here outweighed the fix
+	 * The header's own controls: recheck, and the shortcut to the setting. Icons
+	 * rather than labelled buttons because a label here outweighed the fix
 	 * buttons, which are the only thing in the card worth pressing.
 	 */
 	& .environment-health-header-button {
@@ -337,6 +350,12 @@
 		align-items: center;
 		background-color: transparent;
 		border: none;
+		/*
+		 * The same radius the action bar gives its icon buttons, so the hover fill
+		 * here is the same shape as every other icon button in the workbench. See
+		 * positronActionBar/browser/components/actionBarButton.css.
+		 */
+		border-radius: 4px;
 		color: inherit;
 		display: flex;
 		justify-content: center;
@@ -344,24 +363,18 @@
 		padding: 4px;
 	}
 
+	/*
+	 * The workbench's own icon-button hover, the same fill the action bar gives
+	 * its buttons. Along with the radius above, that makes these read as the
+	 * icon buttons they are.
+	 */
 	& .environment-health-header-button:hover:not(.disabled) {
-		background-color: var(--vscode-positronWelcome-environmentSetupTitleHoverBackground);
+		background-color: var(--vscode-toolbar-hoverBackground);
 	}
 
 	/* Recheck, while a check or a fix is running. Its tooltip says why. */
 	& .environment-health-header-button.disabled {
 		opacity: 0.5;
-	}
-
-	/*
-	 * The icon needs the colour named on it, not inherited from the button.
-	 * `.monaco-workbench .codicon` paints every codicon in the workbench
-	 * --vscode-icon-foreground, and a rule that targets the element beats a value
-	 * it would otherwise inherit, whatever the specificity. Same reason the
-	 * status icons name their colour rather than taking the row's.
-	 */
-	& .environment-health-header-button .codicon {
-		color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
 	}
 
 	& .environment-health-item-fix:hover:not(.disabled) {
@@ -416,6 +429,14 @@
 	}
 
 	/*
+	 * The first row is the card's top edge, so its divider would draw a rule
+	 * against nothing.
+	 */
+	& .environment-health-group:first-child .environment-health-group-header {
+		border-top: none;
+	}
+
+	/*
 	 * The row spans the card's full width, and the card clips overflow to keep
 	 * its rounded corners. The button's default focus ring draws outside its
 	 * edge with no offset, so on this row that means straddling the clipped
@@ -442,31 +463,13 @@
 		border-bottom-right-radius: 5px;
 	}
 
-	/*
-	 * Styled as a link although it is a button, because it navigates to the
-	 * Settings editor rather than changing anything on the page.
-	 */
-	& .environment-health-group-footer-link {
-		background: none;
-		border: none;
-		color: var(--vscode-textLink-foreground);
-		font-size: inherit;
-		margin: 0;
-		padding: 0;
-		text-align: left;
-	}
-
-	& .environment-health-group-footer-link:hover {
-		color: var(--vscode-textLink-activeForeground);
-		text-decoration: underline;
-	}
-
 }
 
 
 /*
- * Sits on the header's bottom edge rather than inside it, so starting a check
- * cannot change the header's height and shift the card. The bar travels rather
+ * Sits on the bottom edge of whatever row is busy -- a language header, or the
+ * collapsed summary row -- rather than inside it, so starting a check cannot
+ * change that row's height and shift what is below it. The bar travels rather
  * than filling, because the checks report no progress to show.
  */
 .positron-welcome-page-environment-setup .environment-health-progress {
@@ -478,14 +481,17 @@
 	right: 0;
 }
 
+/*
+ * The workbench's own progress colour, because the line sits on the same surface
+ * every other progress bar in the workbench does.
+ *
+ * On the last language header, collapsed, the card clips a few pixels off each
+ * end against its 6px radius. That is accepted. Insetting the line to the
+ * header's padding read as an underline of the text rather than a track.
+ */
 .positron-welcome-page-environment-setup .environment-health-progress::before {
 	animation: positron-environment-health-progress 2s linear infinite;
-	/*
-	 * The line sits on the title bar, and --vscode-progressBar-background is too
-	 * close to the bar's own colour to see against it. A bar's foreground and
-	 * background are a designed pair, so this contrasts by construction.
-	 */
-	background-color: var(--vscode-positronWelcome-environmentSetupTitleForeground);
+	background-color: var(--vscode-progressBar-background);
 	content: '';
 	display: block;
 	height: 100%;

@@ -91,7 +91,7 @@ export function createDuckDBDriver(
 		name: 'DuckDB',
 		description: vscode.l10n.t('Connect to a DuckDB database file'),
 		iconSvg,
-		supportedLanguageIds: ['python', 'r'],
+		supportedLanguageIds: ['python', 'r', 'ggsql'],
 		mechanisms: [
 			{
 				id: FILE_MECHANISM_ID,
@@ -196,6 +196,19 @@ export function createDuckDBDriver(
 							id: 'dbi',
 							label: 'DBI',
 							code: `library(DBI)\n\ncon <- ${dbConnect}\n`,
+						},
+					];
+				}
+				case 'ggsql': {
+					// ggsql connects via an `@connect` directive comment rather than executable code.
+					// Forward slashes keep the path portion a valid URI on Windows, where the resolved
+					// path uses backslashes.
+					const uriPath = resolveDatabasePath(databasePath).replace(/\\/g, '/');
+					return [
+						{
+							id: 'ggsql',
+							label: 'ggsql',
+							code: `-- @connect: duckdb://${uriPath}`,
 						},
 					];
 				}

@@ -12,7 +12,7 @@ import { MemoryLane } from './lanes.js';
 import { readProcessNames } from './positron-status.js';
 import { readProcessTree } from './process-tree.js';
 import { MemoryScenario } from './scenarios.js';
-import { ActivatedExtension, LabeledProcess, MemorySnapshot, RawProcess } from './types.js';
+import { ActivatedExtension, LabeledProcess, MemorySnapshot, ProcessRole, RawProcess } from './types.js';
 
 function median(values: number[]): number {
 	const sorted = [...values].sort((a, b) => a - b);
@@ -56,16 +56,30 @@ export function joinProcesses(
 		}
 	}
 
+	// Roles resolve top-down so a child can be attributed to its parent (the agent
+	// SDK runtime under agent-host). `raw` comes from buildTree, which is
+	// breadth-first from the root, but resolving in depth order here keeps that
+	// from being a silent dependency on caller ordering.
+	const roleByPid = new Map<number, { role: ProcessRole; labeled: boolean }>();
+	const nameOf = (pid: number): string | undefined => {
+		const reported = names.get(pid);
+		return reported === undefined ? undefined : normalizeProcessName(reported);
+	};
+	for (const proc of [...raw].sort((a, b) => depthOf(a.pid, byPid, rootPid) - depthOf(b.pid, byPid, rootPid))) {
+		roleByPid.set(proc.pid, resolveRole({
+			positronName: nameOf(proc.pid),
+			cmd: proc.cmd,
+			isRoot: proc.pid === rootPid,
+			parentRole: roleByPid.get(proc.ppid)?.role
+		}));
+	}
+
 	return raw.map(proc => {
 		// Normalized once, here, so the name the role rules see is the same one the
 		// report and the payload carry.
 		const reported = names.get(proc.pid);
-		const positronName = reported === undefined ? undefined : normalizeProcessName(reported);
-		const { role, labeled } = resolveRole({
-			positronName,
-			cmd: proc.cmd,
-			isRoot: proc.pid === rootPid
-		});
+		const positronName = nameOf(proc.pid);
+		const { role, labeled } = roleByPid.get(proc.pid)!;
 		// Preferred whenever Positron did not actually identify the process. That
 		// covers two cases: no name at all or a raw command line (Positron could
 		// not name it), and a generic wrapper name like `electron-nodejs (lsp.js)`,

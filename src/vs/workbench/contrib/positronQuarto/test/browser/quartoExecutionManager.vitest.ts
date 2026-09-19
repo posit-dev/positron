@@ -18,11 +18,12 @@ import { ILanguageService } from '../../../../../editor/common/languages/languag
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
 import { createModelServices } from '../../../../../editor/test/common/testTextModel.js';
-import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeService } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { QuartoExecutionManager, shouldSkipFirstCommandFinished } from '../../browser/quartoExecutionManager.js';
 import { PromptInputState, IPromptInputModel } from '../../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
+import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../../common/quartoTypes.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -138,7 +139,7 @@ describe('QuartoExecutionManager', () => {
 			stubInterface<IMissingPackagesPreflightService>({
 				confirmBeforeRun: () => Promise.resolve(true),
 			}),
-			asLanguageRuntimeService(['python', 'r']),
+			createTestRuntimeStartupService(['python', 'r']),
 		);
 		ctx.disposables.add(executionManager);
 	});
@@ -1366,7 +1367,7 @@ describe('QuartoExecutionManager', () => {
 				stubInterface<IMissingPackagesPreflightService>({
 					confirmBeforeRun: () => Promise.resolve(true),
 				}),
-				asLanguageRuntimeService(['python', 'r']),
+				createTestRuntimeStartupService(['python', 'r']),
 			);
 			ctx.disposables.add(executionManagerWithMock);
 
@@ -1470,7 +1471,7 @@ describe('QuartoExecutionManager', () => {
 				stubInterface<IMissingPackagesPreflightService>({
 					confirmBeforeRun: () => Promise.resolve(true),
 				}),
-				asLanguageRuntimeService(['python', 'r']),
+				createTestRuntimeStartupService(['python', 'r']),
 			);
 			ctx.disposables.add(localExecutionManager);
 
@@ -2008,20 +2009,6 @@ function asTerminalService(mock: MockTerminalService): ITerminalService {
 		// languages, so this branch is never exercised in this file.
 		getActiveOrCreateInstance: mock.getActiveOrCreateInstance.bind(mock) as unknown as ITerminalService['getActiveOrCreateInstance'],
 	});
-}
-
-/**
- * Build an ILanguageRuntimeService whose registeredRuntimes advertise a runtime
- * for each of the given language IDs. Used to decide which non-primary cell
- * languages are executable via the console.
- */
-function asLanguageRuntimeService(languageIds: string[]): ILanguageRuntimeService {
-	const registeredRuntimes = languageIds.map(languageId => ({
-		...TestLanguageRuntimeMetadata,
-		languageId,
-		runtimeId: `test.runtime.${languageId}`,
-	}));
-	return stubInterface<ILanguageRuntimeService>({ registeredRuntimes });
 }
 
 function asConsoleService(mock: RecordingConsoleService): IPositronConsoleService {

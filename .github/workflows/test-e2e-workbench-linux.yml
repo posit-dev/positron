@@ -93,6 +93,12 @@ jobs:
     runs-on: ubuntu-latest-8x
     strategy:
       fail-fast: false
+      # One shard at a time: the snowflake, databricks and azure shards all sign
+      # in with the same service-account TOTP secret, and parallel sign-ins
+      # collide on the OTP window. The lanes calling this workflow are chained
+      # with `needs` for the same reason. Mirrors positron-builds'
+      # test-e2e-workbench-ubuntu.yml.
+      max-parallel: 1
       matrix:
         shard: ${{ fromJSON(needs.shards.outputs.matrix) }}
 
@@ -103,6 +109,10 @@ jobs:
       POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
       WB_PASSWORD: ${{ secrets.WB_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
+      # Databricks workspace + PAT for the catalog-explorer suite, which types them into the
+      # Add Catalog Provider prompts. Same repo secrets the Linux desktop lanes export.
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
       HOME: /home/runner
       AWS_S3_BUCKET: positron-test-reports
       R_LIBS_SITE: /usr/local/lib/R/site-library

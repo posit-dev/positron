@@ -30,6 +30,19 @@ const PROCESS_ROLES: Record<ProcessRole, true> = {
 const isProcessRole = (value: string): value is ProcessRole => value in PROCESS_ROLES;
 
 /**
+ * The heap statuses the client knows about, kept beside its guard for the same
+ * reason `PROCESS_ROLES` is: a status added to `ExtensionHeapStatus` without
+ * being added here fails to compile.
+ */
+const EXTENSION_HEAP_STATUSES: Record<ExtensionHeapStatus, true> = {
+	ok: true, capture_failed: true, parse_failed: true,
+	unsupported_format: true, untrusted: true
+};
+
+const isExtensionHeapStatus = (value: string): value is ExtensionHeapStatus =>
+	value in EXTENSION_HEAP_STATUSES;
+
+/**
  * The memory endpoints sit beside the existing metrics ones on the same service,
  * so the host and the PROD/LOCAL split are derived from the shared constants
  * rather than restated. Restating them means a host change fixes metrics and
@@ -73,9 +86,25 @@ export type MemoryPayload = {
 	timestamp: string;
 	run_id: string;
 	branch: string;
+	/**
+	 * The checkout the harness ran from (`GITHUB_SHA`), not the build it measured.
+	 * The nightly workflow tests whichever build `latest-prerelease` resolves to,
+	 * which can trail this by days; `build_commit` below is the one to attribute a
+	 * memory change to.
+	 */
 	commit_sha: string;
 	app_version: string;
 	build_number: string;
+	/**
+	 * The VS Code release the build is based on, e.g. `1.134.0`, read from the
+	 * build's product.json. It changes exactly when an upstream merge ships, which
+	 * `app_version` (`2026.10.0` across both sides of a merge) does not show.
+	 * Optional and omitted rather than 'unknown', for the same reason as
+	 * `ark_version`: a marker drawn where it changes must not fire on a placeholder.
+	 */
+	vscode_version?: string;
+	/** The positron commit the build was made from, from the same product.json. */
+	build_commit?: string;
 	platform_os: string;
 	platform_version: string;
 	container_image: string;
@@ -231,6 +260,8 @@ export function buildPayload(snapshots: MemorySnapshot[], meta: RunMeta): Memory
 		commit_sha: meta.commitSha,
 		app_version: positronVersion?.positronVersion ?? 'unknown',
 		build_number: String(positronVersion?.buildNumber ?? 'unknown'),
+		vscode_version: positronVersion?.vscodeVersion,
+		build_commit: positronVersion?.commit,
 		platform_os: platformOs,
 		platform_version: platformVersion,
 		container_image: meta.containerImage,
@@ -343,6 +374,26 @@ export type BaselineResponse =
 			 */
 			processes: { process_name: string; process_role: string; cmd_basename?: string; pss_bytes: number }[];
 			extensions: { extension_id: string; activation_event: string | null }[];
+			/**
+			 * The baseline launch's per-extension heap partition, in the same shape
+			 * one entry of `MemoryPayload.launches` publishes.
+			 *
+			 * Optional for the same reason `cmd_basename` is, and for now more so:
+			 * the baseline route does not return this yet
+			 * (posit-dev/e2e-test-insights#263), so every baseline carries none
+			 * and the extension table leaves its Change column blank rather than
+			 * losing an otherwise usable baseline.
+			 *
+			 * `status` is typed as a plain string, not `ExtensionHeapStatus`: it is
+			 * validated below rather than cast, like `process_role` above.
+			 */
+			extension_heap?: {
+				status: string;
+				pid?: number;
+				reachable_bytes?: number;
+				unattributed_bytes?: number;
+				extensions?: { extension_id: string; retained_bytes: number }[];
+			};
 		};
 	};
 
@@ -357,6 +408,41 @@ export function baselineQuery(scenario: MemoryScenario, lane: MemoryLane, contai
 		scenario, branch: 'main', lane, container_image: containerImage
 	});
 	return `?${params.toString()}`;
+}
+
+/**
+ * The heap fields of a baseline snapshot, from the response's `extension_heap`.
+ *
+ * Absent key means the baseline predates the field, and nothing is set: the
+ * extension table reads an undefined breakdown as "no baseline to diff
+ * against" and leaves its Change column blank, which is right. An empty
+ * breakdown would instead diff every extension against zero and report the
+ * whole heap as tonight's growth.
+ */
+function baselineExtensionHeap(
+	heap: (BaselineResponse & { found: true })['snapshot']['extension_heap']
+): Pick<MemorySnapshot, 'extensionHeap' | 'extensionHeapStatus' | 'extensionHeapPid'> {
+	if (!heap || !isExtensionHeapStatus(heap.status)) {
+		return {};
+	}
+	const capture = { extensionHeapStatus: heap.status, ...(heap.pid === undefined ? {} : { extensionHeapPid: heap.pid }) };
+	// The numbers only ever accompany `ok`, and an `ok` missing them is the same
+	// contradiction `buildExtensionHeap` refuses to publish. Trust the status and
+	// drop the half-breakdown rather than filling the gaps with zeroes.
+	if (heap.status !== 'ok' || heap.reachable_bytes === undefined || heap.unattributed_bytes === undefined) {
+		return capture;
+	}
+	return {
+		...capture,
+		extensionHeap: {
+			reachableBytes: heap.reachable_bytes,
+			unattributedBytes: heap.unattributed_bytes,
+			extensions: (heap.extensions ?? []).map(e => ({
+				extensionId: e.extension_id,
+				retainedBytes: e.retained_bytes
+			}))
+		}
+	};
 }
 
 /**
@@ -416,7 +502,8 @@ export function baselineToSnapshot(body: BaselineResponse, scenario: MemoryScena
 			// Validated rather than cast, matching processRole above. `??` defends
 			// against absence but not against the wrong type.
 			activationEvent: typeof e.activation_event === 'string' ? e.activation_event : null
-		}))
+		})),
+		...baselineExtensionHeap(body.snapshot.extension_heap)
 	};
 }
 

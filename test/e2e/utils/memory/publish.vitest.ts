@@ -11,13 +11,27 @@ vi.mock('undici', () => ({
 	request: vi.fn()
 }));
 
+// One mutable object rather than a fresh mock per test: publish.ts reads the
+// fields at call time, so a test can delete one to model a build that did not
+// stamp it. Hoisted because vi.mock factories run before this file's body.
+const { buildUnderTest } = vi.hoisted(() => {
+	const build: { positronVersion: string; buildNumber: number; vscodeVersion?: string; commit?: string } = {
+		positronVersion: '2026.10.0',
+		buildNumber: 25,
+		vscodeVersion: '1.134.0',
+		commit: '13e0efe1234567890abcdef1234567890abcdef12'
+	};
+	return { buildUnderTest: build };
+});
+
 vi.mock('../metrics/metric-base.js', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('../metrics/metric-base.js')>();
 	return {
 		...actual,
 		CONNECT_API_KEY: 'fake-key-for-testing',
 		LOCAL_API_URL: 'http://localhost:3000/metrics',
-		PROD_API_URL: 'https://api.example.com/metrics'
+		PROD_API_URL: 'https://api.example.com/metrics',
+		positronVersion: buildUnderTest
 	};
 });
 
@@ -144,6 +158,41 @@ describe('buildPayload', () => {
 		const payload = buildPayload([snapshot], meta);
 		expect(payload.ark_version).toBeUndefined();
 		expect(JSON.parse(JSON.stringify(payload))).not.toHaveProperty('ark_version');
+	});
+
+	// The Positron version cannot place a build against the upstream merges, and
+	// commit_sha is the harness checkout, not the build. These two come from the
+	// build's own product.json, so a step change in the chart can be read against
+	// "which VS Code, which commit" without a trip through the resolve-build log.
+	describe('the build under test', () => {
+		afterEach(() => {
+			buildUnderTest.vscodeVersion = '1.134.0';
+			buildUnderTest.commit = '13e0efe1234567890abcdef1234567890abcdef12';
+		});
+
+		test('sends the VS Code version and the build commit at the payload root', () => {
+			const payload = buildPayload([snapshot], meta);
+			expect(payload.app_version).toBe('2026.10.0');
+			expect(payload.build_number).toBe('25');
+			expect(payload.vscode_version).toBe('1.134.0');
+			expect(payload.build_commit).toBe('13e0efe1234567890abcdef1234567890abcdef12');
+		});
+
+		test('keeps the build commit distinct from the harness commit', () => {
+			const payload = buildPayload([snapshot], meta);
+			expect(payload.commit_sha).toBe('abc123');
+			expect(payload.build_commit).not.toBe(payload.commit_sha);
+		});
+
+		// Same rule as ark_version: absent, never 'unknown', so a dashboard marker
+		// on "the value changed" cannot fire on a placeholder.
+		test('omits both entirely when the build did not stamp them', () => {
+			delete buildUnderTest.vscodeVersion;
+			delete buildUnderTest.commit;
+			const wire = JSON.parse(JSON.stringify(buildPayload([snapshot], meta)));
+			expect(wire).not.toHaveProperty('vscode_version');
+			expect(wire).not.toHaveProperty('build_commit');
+		});
 	});
 
 	test('still pins payload_version at 1 with both fields present', () => {
@@ -398,6 +447,81 @@ describe('baselineToSnapshot activation_event', () => {
 			}
 		} as BaselineResponse;
 		expect(baselineToSnapshot(body, 'idle')?.extensions[0].activationEvent).toBe('onStartupFinished');
+	});
+});
+
+describe('baselineToSnapshot extension_heap', () => {
+	// Typed off the response rather than asserted, so an unrecognized status is
+	// still a legal value here (the wire field is a plain string) while a
+	// misspelled key still fails to compile.
+	type BaselineExtensionHeap = NonNullable<(BaselineResponse & { found: true })['snapshot']['extension_heap']>;
+
+	const withHeap = (extension_heap: BaselineExtensionHeap): BaselineResponse => ({
+		found: true, ...baselineProvenance,
+		snapshot: {
+			tree_total_pss_bytes: 1, settle_ms: 1, processes: [], extensions: [],
+			extension_heap
+		}
+	});
+
+	test('maps an ok breakdown, so the extension table has something to diff against', () => {
+		const mapped = baselineToSnapshot(withHeap({
+			status: 'ok',
+			pid: 4242,
+			reachable_bytes: 300,
+			unattributed_bytes: 100,
+			extensions: [{ extension_id: 'posit.assistant', retained_bytes: 200 }]
+		}), 'idle');
+		expect(mapped?.extensionHeapStatus).toBe('ok');
+		expect(mapped?.extensionHeapPid).toBe(4242);
+		expect(mapped?.extensionHeap).toEqual({
+			reachableBytes: 300,
+			unattributedBytes: 100,
+			extensions: [{ extensionId: 'posit.assistant', retainedBytes: 200 }]
+		});
+	});
+
+	// A baseline stored before the API returned the field, which is every
+	// baseline until the route ships it. Undefined, not an empty breakdown: an
+	// empty one would diff every extension as a full-size gain.
+	test('leaves the breakdown undefined when the response carries no extension_heap', () => {
+		const mapped = baselineToSnapshot({
+			found: true, ...baselineProvenance,
+			snapshot: { tree_total_pss_bytes: 1, settle_ms: 1, processes: [], extensions: [] }
+		}, 'idle');
+		expect(mapped?.extensionHeap).toBeUndefined();
+		expect(mapped?.extensionHeapStatus).toBeUndefined();
+	});
+
+	test('keeps a failed status without inventing byte counts for it', () => {
+		const mapped = baselineToSnapshot(withHeap({
+			status: 'capture_failed'
+		}), 'idle');
+		expect(mapped?.extensionHeapStatus).toBe('capture_failed');
+		expect(mapped?.extensionHeap).toBeUndefined();
+	});
+
+	// The same rule the response's process_role gets: a value the server adds
+	// before the client knows it must not become an invalid union member that
+	// falls through every switch downstream.
+	test('drops a status the client does not know rather than passing it through', () => {
+		const mapped = baselineToSnapshot(withHeap({
+			status: 'quantum_failed'
+		}), 'idle');
+		expect(mapped?.extensionHeapStatus).toBeUndefined();
+		expect(mapped?.extensionHeap).toBeUndefined();
+	});
+
+	// `ok` with no numbers is a contradiction, the mirror of the one
+	// buildExtensionHeap refuses to publish. Trust the status, drop the
+	// half-breakdown: a partial one would diff against zeroes.
+	test('drops an ok breakdown whose numbers are missing', () => {
+		const mapped = baselineToSnapshot(withHeap({
+			status: 'ok',
+			extensions: [{ extension_id: 'posit.assistant', retained_bytes: 200 }]
+		}), 'idle');
+		expect(mapped?.extensionHeapStatus).toBe('ok');
+		expect(mapped?.extensionHeap).toBeUndefined();
 	});
 });
 

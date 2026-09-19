@@ -976,6 +976,10 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	runtimeShortName: string = 'Python (reticulate)';
 	runtimeVersion: string = '1.0';
 	runtimeSource: string = 'reticulate';
+	// This Python belongs to the R project the user already has open, so it outranks every
+	// interpreter merely installed on the machine, but not one the project itself provides.
+	// 135 falls between positron-python's Custom (130) and MicrosoftStore (140) ranks.
+	runtimeSourceOrder: number = 135;
 	languageVersion = '1.0';
 	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Manual;
 	sessionLocation: positron.LanguageRuntimeSessionLocation = positron.LanguageRuntimeSessionLocation.Workspace;

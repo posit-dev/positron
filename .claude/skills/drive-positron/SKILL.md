@@ -49,7 +49,8 @@ Tools they expect on `PATH`:
 | `node`, `npx` | all | `@playwright/cli` resolves from the repo's `node_modules` |
 | `curl` | `launch.sh`, `stop.sh` | CDP readiness and liveness probes |
 | `rsync` or `tar` | `launch.sh` | `rsync` preferred; `tar` is the fallback, and is what Git Bash has |
-| `jq` | `monaco-paste.sh` | not present in a bare Git Bash; install it separately |
+| `jq` | `monaco-paste.sh`, `quickpick-enum.sh` | not present in a bare Git Bash; install it separately |
+| `sqlite3` | `reseed.sh --list-keys` | optional; only used to print the seeded storage keys |
 | `cygpath` | `launch.sh` on Windows | ships with Git Bash |
 | `tasklist`, `powershell` | `launch.sh` on Windows | liveness check and the WMI launch below |
 
@@ -77,9 +78,6 @@ Run:
 
 ```bash
 .claude/skills/drive-positron/scripts/launch.sh -- \
-	--use-mock-keychain \
-	--disable-workspace-trust \
-	--skip-welcome \
 	--folder-uri file:///private/tmp/myworkspace
 ```
 
@@ -100,16 +98,30 @@ The launcher:
 - converts the profile paths for the native binary on Windows;
 - waits for CDP and verifies that the app remains alive before returning.
 
-### Required launch arguments
+### Arguments to pass yourself
+
+Everything before the `--` configures the launcher; everything after it is
+handed to the app. Putting a launcher argument after the `--` does not warn:
+the app ignores it and the launcher uses its default instead. Misplacing
+`--source-user-data-dir` this way copies the real `~/.positron-dev` profile.
 
 | Argument | Purpose |
 |---|---|
 | `--folder-uri file:///private/tmp/myworkspace` | Open a workspace reliably. Do not pass a bare positional folder: Positron may discard it. On macOS, use the canonical `/private/tmp` path rather than `/tmp`. On Windows the URI needs a drive letter, so build it with `cygpath -m`: `--folder-uri "file:///$(cygpath -m /tmp/myworkspace)"`. |
-| `--disable-workspace-trust` | Prevent a modal trust dialog from blocking automation when the seed profile has no trust state. |
+| `--log debug` | Recommended. At the default level the `[Runtime startup] Phase changed to ...` lines are absent, so runtime startup, discovery, and cache replay cannot be told apart from the log. |
+
+### Arguments the launcher supplies
+
+You do not pass these, and should not need to think about them:
+
+| Argument | Purpose |
+|---|---|
+| `--disable-workspace-trust` | Prevent a modal trust dialog from blocking automation when the seed profile has no trust state. Without it the app starts in restricted mode with extensions disabled, so interpreter discovery never runs and an empty picker looks like a product bug. |
 | `--use-mock-keychain` | Avoid using the per-user OS keychain from the disposable instance. A `GitHubLoginFailed` message in the log is expected. |
 | `--skip-welcome` | Keep the Welcome editor from receiving the initial focus. |
+| `--shared-data-dir` | Keep the disposable instance off the normal `~/.positron-shared` store. |
 
-The launcher supplies `--shared-data-dir` automatically, so the disposable instance does not use the normal `~/.positron-shared` store.
+Repeating one of the first three after `--` overrides the supplied copy. Pass `--no-default-app-args` before `--` to launch without any of them, which is only useful when the scenario under test is one of the behaviors they suppress, such as the workspace trust prompt itself.
 
 ## Protect the source profile
 
@@ -125,11 +137,36 @@ echo '{"positron.notebook.enabled": true}' \
 	> /tmp/positron-seed/User/settings.json
 ```
 
-Then launch with:
+Then launch with it before the `--`, since it is a launcher argument:
 
 ```bash
---source-user-data-dir /tmp/positron-seed
+.claude/skills/drive-positron/scripts/launch.sh \
+	--source-user-data-dir /tmp/positron-seed -- \
+	--folder-uri file:///private/tmp/myworkspace
 ```
+
+## Launch a second time with the state the first run wrote
+
+A fresh profile only exercises the cold-start path. Anything that depends on
+state from a previous run -- the runtime discovery cache, storage-backed
+migrations, the recently opened list -- is untested by a single launch, so a bug
+that only appears on the second launch cannot be seen at all.
+
+To carry the profile forward, stop the instance and turn its profile into a
+seed:
+
+```bash
+.claude/skills/drive-positron/scripts/reseed.sh \
+	--run-dir "$RUN_DIR" --seed /tmp/positron-warm-seed \
+	--cdp-port "$CDP_PORT" --list-keys
+```
+
+`reseed.sh` stops the instance without deleting its run directory, copies the
+profile database and settings into the seed, and prints the launch command for
+the warm run. The instance has to be stopped first: the running app holds
+`User/globalStorage/state.vscdb` open and a copy taken mid-write can be torn.
+
+It leaves the run directory in place, so still remove it during cleanup.
 
 ## Attach Playwright
 
@@ -144,6 +181,11 @@ npx @playwright/cli -s=positron snapshot
 
 Do not derive the session name from `$$`. Separate shell invocations receive different process IDs and would silently create different sessions.
 
+Run every `npx @playwright/cli` command from the repository root. From another
+working directory `npx` installs its own copy of the CLI, which keeps its
+sessions elsewhere and reports the attached session as `The browser 'NAME' is
+not open`.
+
 Common operations:
 
 ```bash
@@ -153,22 +195,46 @@ npx @playwright/cli -s=positron type "some text"
 npx @playwright/cli -s=positron press Enter
 npx @playwright/cli -s=positron resize 1600 1100
 npx @playwright/cli -s=positron eval '(() => document.title)()'
+npx @playwright/cli -s=positron console warning
 npx @playwright/cli -s=positron \
 	screenshot --filename="$PWD/shots/01.png"
 ```
 
 Use element references from the latest snapshot. Do not substitute screen coordinates, and use the positional `right` argument for a right-click.
 
-Filter a large snapshot when looking for a known control:
+Filter a large snapshot rather than piping the whole thing through `grep`. To
+read the tree around a known control, `find` returns only the matching nodes and
+their context:
 
 ```bash
-R=$(npx @playwright/cli -s=positron snapshot 2>&1 \
-	| grep -oE 'button "Run Cell" \[ref=e[0-9]+' \
-	| grep -oE 'e[0-9]+$' \
+npx @playwright/cli -s=positron find "Run Cell"
+```
+
+To capture a reference for a script, query the structured snapshot. Matching
+`role` and `name` avoids escaping a regexp over the YAML rendering:
+
+```bash
+R=$(npx @playwright/cli -s=positron --json snapshot \
+	| jq -r '.. | objects | select(.role == "button" and .name == "Run Cell") | .ref' \
 	| head -1)
 ```
 
-Take a screenshot early when the UI does not match expectations. A screenshot often reveals blocking dialogs, an unopened workspace, missing kernels, or focus in the wrong editor faster than DOM inspection.
+Take a screenshot early when the UI does not match expectations. Pass `--hires` when the detail being judged is finer than a CSS pixel. A screenshot often reveals blocking dialogs, an unopened workspace, missing kernels, or focus in the wrong editor faster than DOM inspection.
+
+To make a screenshot point at one control rather than leaving the reader to hunt
+for it in a full workbench, draw an overlay on the element first. `highlight
+--hide` clears every overlay on the page:
+
+```bash
+npx @playwright/cli -s=positron highlight e153
+npx @playwright/cli -s=positron \
+	screenshot --hires --filename="$PWD/shots/01.png"
+npx @playwright/cli -s=positron highlight --hide
+```
+
+`console` reads the renderer console, which is a separate source from the log
+file the launcher reports as `logFile`. It takes a minimum level and defaults to
+`info`.
 
 ### Enter text in Monaco
 
@@ -180,6 +246,24 @@ Do not use `type` or `fill` for notebook cell editors or chat inputs backed by M
 ```
 
 Use individual `press` operations when testing actual keyboard handling.
+
+### Read a whole quick pick
+
+Do not count `.monaco-list-row` elements and do not set `scrollTop`. Quick picks
+render only a window of rows and move it with a transform, so both report a
+short list without failing. Use:
+
+```bash
+.claude/skills/drive-positron/scripts/quickpick-enum.sh --session positron
+```
+
+It walks the picker with ArrowDown and prints
+`index|kind|label|description|detail|active` for every row, headings included,
+leaving the picker on the item it started from.
+
+Read `references/reading-ui-state.md` before trusting any other reading of a
+list, tree, or quick input widget. It covers the virtualization, the hidden
+widgets left behind by closed pickers, and how separators are rendered.
 
 ## Account for Positron behavior
 
@@ -248,6 +332,7 @@ This works on every platform. `pgrep -f "remote-debugging-port=$CDP_PORT"` is eq
 - **Attach reports `connect ECONNREFUSED`:** The application exited after opening CDP. Inspect the path reported as `logFile`.
 - **The log reports `listen EINVAL` or an IPC path longer than 103 characters:** The run-directory base is too long. Unset `$POSITRON_LAUNCH_TMP` or point it at a shorter directory. This affects macOS and Linux only; Windows uses named pipes and has no such limit.
 - **`rsync: command not found` (Windows):** You are on an older copy of `launch.sh`. The current script falls back to `tar` when `rsync` is absent.
+- **A command reports an error:** The CLI exits non-zero on a failed command, so check the exit status rather than matching on its output.
 - **Snapshot references disappear:** Look for a modal dialog with a screenshot, then take a new snapshot.
 - **A built-in extension does not load:** Compile extensions with:
 

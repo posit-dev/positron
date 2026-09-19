@@ -255,6 +255,19 @@ function renderPythonCode(connectionString: string): positron.ConnectionCodeVari
 	];
 }
 
+/**
+ * Renders a ggsql `@connect` directive. ggsql's ODBC reader (src/reader/odbc/mod.rs) strips the
+ * `odbc://` prefix and hands the rest to the driver manager verbatim, so the same connection
+ * string used to connect() and to render R/Python code works unchanged here.
+ */
+function renderGgsqlCode(connectionString: string): positron.ConnectionCodeVariant[] {
+	return [{
+		id: 'ggsql',
+		label: 'ggsql',
+		code: `-- @connect: odbc://${connectionString}`,
+	}];
+}
+
 // --- Driver construction ---
 
 /** What distinguishes one registered Positron driver from another. */
@@ -379,7 +392,7 @@ function createDriver(
 		name: options.name,
 		description: options.description,
 		iconSvg,
-		supportedLanguageIds: ['python', 'r'],
+		supportedLanguageIds: ['python', 'r', 'ggsql'],
 		mechanisms,
 
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
@@ -407,6 +420,8 @@ function createDriver(
 					return renderRCode(connectionString);
 				case 'python':
 					return renderPythonCode(connectionString);
+				case 'ggsql':
+					return renderGgsqlCode(connectionString);
 				default:
 					return [];
 			}

@@ -15,9 +15,12 @@ const INCLUDE_SECRETS_CONFIRMATION_WIDTH = 460;
 /**
  * Shows the Include Secrets confirmation dialog, warning the user that embedding secret values in
  * the generated connection code can expose them.
+ * @param options.requiredForConnect Whether this connection cannot be run in a console (or, for the
+ * "Connect With" menu, cannot even produce a code preview) without secrets, which uses stronger
+ * wording than the "Include Secrets" action's own optional opt-in.
  * @returns A promise that resolves to true if the user confirmed, or false if they cancelled.
  */
-export const showIncludeSecretsConfirmation = (): Promise<boolean> => {
+export const showIncludeSecretsConfirmation = (options?: { requiredForConnect?: boolean }): Promise<boolean> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer();
 
@@ -38,6 +41,7 @@ export const showIncludeSecretsConfirmation = (): Promise<boolean> => {
 		renderer.render(
 			<IncludeSecretsConfirmation
 				renderer={renderer}
+				requiredForConnect={options?.requiredForConnect ?? false}
 				onCancel={() => settle(false)}
 				onConfirm={() => settle(true)}
 			/>
@@ -50,6 +54,7 @@ export const showIncludeSecretsConfirmation = (): Promise<boolean> => {
  */
 interface IncludeSecretsConfirmationProps {
 	readonly renderer: PositronModalReactRenderer;
+	readonly requiredForConnect: boolean;
 	readonly onConfirm: () => void;
 	readonly onCancel: () => void;
 }
@@ -63,10 +68,15 @@ const IncludeSecretsConfirmation = (props: IncludeSecretsConfirmationProps) => {
 		<PositronDynamicModalDialog
 			content={
 				<div>
-					{localize(
-						'positron.includeSecretsConfirmation.detail',
-						"Passwords and other secrets will be written into the connection code. They may be exposed in console history, the clipboard, or any script you create from this code."
-					)}
+					{props.requiredForConnect
+						? localize(
+							'positron.includeSecretsConfirmation.detailRequired',
+							"This connection requires secrets, such as a password, to connect. They will be written into the connection code and may be exposed in console history, the clipboard, or any script you create from it."
+						)
+						: localize(
+							'positron.includeSecretsConfirmation.detail',
+							"Passwords and other secrets will be written into the connection code. They may be exposed in console history, the clipboard, or any script you create from this code."
+						)}
 				</div>
 			}
 			footer={

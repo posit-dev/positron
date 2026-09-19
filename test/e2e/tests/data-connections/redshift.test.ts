@@ -86,9 +86,9 @@ test.describe('Data Connections - Redshift', {
 		await dataConnections.openDataConnectionsView();
 		await dataConnections.clickAddConnection();
 		await dataConnections.selectProvider('Redshift');
-		// Redshift exposes a single connection mechanism (User & Password), so the flow advances
-		// straight to the configure step without a mechanism-selection dialog. SSL is left on (the
-		// default), which the serverless endpoint requires.
+		await dataConnections.selectConnectionMechanism('User & Password');
+
+		// SSL is left on (the default), which the serverless endpoint requires.
 		await dataConnections.fillConnectionInputs({
 			'Connection Name': connectionName,
 			'Host': host,

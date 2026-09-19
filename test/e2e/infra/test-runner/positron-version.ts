@@ -16,7 +16,23 @@ import { execSync } from 'child_process';
  * levels to the repo root; moving the file would silently change where that lands.
  */
 
-export type PositronVersion = { positronVersion: string; buildNumber: number };
+export type PositronVersion = {
+	positronVersion: string;
+	buildNumber: number;
+	/**
+	 * The VS Code release this build is based on (`1.134.0`), as the build stamped
+	 * it into product.json from package.json. Absent when the build did not stamp
+	 * it. It is what moves when an upstream merge lands, which the Positron version
+	 * does not show.
+	 */
+	vscodeVersion?: string;
+	/**
+	 * The posit-dev/positron commit the build was made from. Not the commit of
+	 * whatever checkout is running the tests: in the nightly memory workflow those
+	 * differ by days, and attributing a change to the wrong one is a dead end.
+	 */
+	commit?: string;
+};
 
 export function getPositronVersion(testCodePath = process.env.BUILD || ''): PositronVersion | null {
 	// Dev mode - use version script directly
@@ -95,7 +111,17 @@ function getVersionFromBuild(testCodePath: string): PositronVersion | null {
 			throw new Error('positronVersion not found in product.json.');
 		}
 
-		return { positronVersion, buildNumber };
+		// Omitted rather than '' so a consumer keying on "did it change" never sees
+		// a change from '' to a real version. The source-tree product.json has
+		// `"version": ""`; only the build pipeline fills it.
+		const version: PositronVersion = { positronVersion, buildNumber };
+		if (typeof productJson.version === 'string' && productJson.version) {
+			version.vscodeVersion = productJson.version;
+		}
+		if (typeof productJson.commit === 'string' && productJson.commit) {
+			version.commit = productJson.commit;
+		}
+		return version;
 	} catch (error) {
 		console.error('Error reading product.json:', error);
 		return null;

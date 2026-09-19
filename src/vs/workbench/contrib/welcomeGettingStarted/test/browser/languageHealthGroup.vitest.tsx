@@ -33,8 +33,8 @@ describe('LanguageHealthGroup', () => {
 
 	beforeEach(() => vi.clearAllMocks());
 
-	const render = (state: EnvironmentHealthState) =>
-		rtl.render(<LanguageHealthGroup busy={false} expandedByLanguage={overrides} health={{ language: 'r', label: 'R', state }} onRunFix={vi.fn()} />);
+	const render = (state: EnvironmentHealthState, busy = false) =>
+		rtl.render(<LanguageHealthGroup busy={busy} expandedByLanguage={overrides} health={{ language: 'r', label: 'R', state }} onRunFix={vi.fn()} />);
 
 	const header = () => screen.getByRole('button', { name: /^R/ });
 
@@ -54,6 +54,21 @@ describe('LanguageHealthGroup', () => {
 		render(passing);
 		expect(header()).toHaveAttribute('aria-expanded', 'false');
 		expect(screen.queryByRole('list')).not.toBeInTheDocument();
+	});
+
+	it('marks itself busy while its own check is running', () => {
+		// The indicator says a check is running, not how far along it is: the
+		// health check reports one result at the end and nothing before it. One
+		// per language, so it also says which language is working.
+		render(passing, true);
+		expect(screen.getByRole('group')).toHaveAttribute('aria-busy', 'true');
+		expect(screen.getByTestId('environment-health-group-progress')).toBeInTheDocument();
+	});
+
+	it('shows no indicator once its check has settled', () => {
+		render(passing);
+		expect(screen.getByRole('group')).not.toHaveAttribute('aria-busy', 'true');
+		expect(screen.queryByTestId('environment-health-group-progress')).not.toBeInTheDocument();
 	});
 
 	it('shows every check once opened, passes included', async () => {

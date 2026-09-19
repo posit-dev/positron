@@ -5,6 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
+import { bufferToStream, VSBuffer } from '../../../../base/common/buffer.js';
+import { TestConfigurationService } from '../../../configuration/test/common/testConfigurationService.js';
 import { NullLogService } from '../../../log/common/log.js';
 import { ILifecycleMainService } from '../../../lifecycle/electron-main/lifecycleMainService.js';
 import { IConfigurationService } from '../../../configuration/common/configuration.js';
@@ -19,7 +21,7 @@ import { IStateService } from '../../../state/node/state.js';
 import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { AbstractUpdateService } from '../../electron-main/abstractUpdateService.js';
-import { State, StateType } from '../../common/update.js';
+import { IUpdate, State, StateType, UpdateType } from '../../common/update.js';
 
 // The interfaces above come from `electron-main` files whose import chain pulls in the real
 // `electron` package, and requiring that package runs a postinstall shim that downloads the
@@ -156,5 +158,458 @@ describe('AbstractUpdateService quit-and-install hooks', () => {
 
 		expect(calls).toEqual([]);
 		service.dispose();
+	});
+});
+
+/**
+ * The overwrite flow is what makes "Restart to Update" install the version that is latest *at
+ * restart time* (posit-dev/positron#8284): `quitAndInstall()` re-checks the feed against the
+ * pending update, and when something newer exists it cancels the pending update, re-downloads,
+ * and postpones the quit. These tests pin that decision logic; the platform download pipelines
+ * are exercised manually.
+ */
+describe('AbstractUpdateService overwrite updates', () => {
+
+	const PENDING_VERSION = '2026.09.0-1';
+
+	/** Records the order of the interesting calls so a test can assert on the whole sequence. */
+	let calls: string[];
+	/** The version the fake release feed advertises. */
+	let feedVersion: string;
+	/** When true, `cancelPendingUpdate()` throws, simulating an installer that cannot be torn down. */
+	let cancelFails: boolean;
+	/** Whether the fake connection reports itself as metered. */
+	let metered: boolean;
+	/** How long a pending update waits before re-checking the feed; kept long unless a test wants it. */
+	let overwriteCheckIntervalMs: number;
+	/** The versions handed to the platform installer, in order. */
+	let installed: (string | undefined)[];
+	/** Whether the fake lifecycle service reports the quit as vetoed. */
+	let vetoQuit: boolean;
+
+	class TestUpdateService extends AbstractUpdateService {
+		protected override doCheckForUpdates(_explicit: boolean, pendingCommit?: string): void {
+			calls.push(`doCheckForUpdates(${pendingCommit})`);
+		}
+
+		protected override get overwriteCheckIntervalMs(): number {
+			return overwriteCheckIntervalMs;
+		}
+
+		protected override buildUpdateFeedUrl(): string | undefined { return undefined; }
+
+		protected override doQuitAndInstall(): void {
+			calls.push('doQuitAndInstall');
+			// The platform installs whatever the *current* state carries, which is the whole point
+			// of the overwrite flow, so record it rather than the version that was first pending.
+			installed.push(this.state.type === StateType.Restarting ? this.state.update.version : undefined);
+		}
+
+		protected override async cancelPendingUpdate(): Promise<void> {
+			calls.push('cancelPendingUpdate');
+			if (cancelFails) {
+				throw new Error('another instance is still running setup');
+			}
+		}
+
+		/** Points `isLatestVersion()` at the fake feed without running `initialize()`. */
+		setFeed(): void {
+			this.url = 'https://positron.example.com/releases.json';
+		}
+
+		/** The real service reaches Ready through the download/apply chain, which needs a network. */
+		becomeReady(update: string | IUpdate = PENDING_VERSION): void {
+			this.setFeed();
+			this.setState(State.Ready(typeof update === 'string' ? { version: update } : update, false, false));
+		}
+
+		/** Leaving Ready, e.g. because updates were disabled after the update was staged. */
+		backToIdle(): void {
+			this.setState(State.Idle(UpdateType.Archive));
+		}
+	}
+
+	function createService(options?: { updateMode?: string; positronVersion?: string; positronBuildNumber?: number }): TestUpdateService {
+		const lifecycleMainService = stubInterface<ILifecycleMainService>({
+			// Never resolves, so `initialize()` stays out of these tests.
+			when: () => new Promise<void>(() => { }),
+			quit: async () => {
+				calls.push('quit');
+				return vetoQuit;
+			}
+		});
+
+		const requestService = stubInterface<IRequestService>({
+			request: async () => ({
+				res: { statusCode: 200, headers: {} },
+				stream: bufferToStream(VSBuffer.fromString(JSON.stringify({
+					version: feedVersion,
+					url: 'https://positron.example.com/download'
+				})))
+			})
+		});
+
+		return new TestUpdateService(
+			lifecycleMainService,
+			new TestConfigurationService({ 'update.mode': options?.updateMode ?? 'default' }),
+			stubInterface<IEnvironmentMainService>({}),
+			requestService,
+			new NullLogService(),
+			stubInterface<ITelemetryService>({}),
+			stubInterface<IApplicationStorageMainService>({}),
+			stubInterface<IMeteredConnectionService>({
+				// A getter, so a test can flip `metered` after the service is built.
+				get isConnectionMetered() { return metered; }
+			}),
+			stubInterface<IProductService>({
+				positronVersion: options?.positronVersion ?? '2026.09.0',
+				positronBuildNumber: options?.positronBuildNumber ?? 1
+			}),
+			stubInterface<INativeHostMainService>({}),
+			stubInterface<IStateService>({}),
+			true /* supportsUpdateOverwrite */
+		);
+	}
+
+	ensureNoLeakedDisposables();
+
+	beforeEach(() => {
+		calls = [];
+		feedVersion = PENDING_VERSION;
+		cancelFails = false;
+		metered = false;
+		// Long enough that the interval never fires unless a test shortens it.
+		overwriteCheckIntervalMs = 60 * 60 * 1000;
+		installed = [];
+		vetoQuit = false;
+	});
+
+	describe('quitAndInstall', () => {
+
+		it('postpones the quit and restarts the update machinery when a newer version exists', async () => {
+			feedVersion = '2026.09.0-2';
+			const service = createService();
+			service.becomeReady();
+
+			await service.quitAndInstall();
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			expect(service.state.type).toBe(StateType.Overwriting);
+			service.dispose();
+		});
+
+		it('proceeds with the restart when the pending update is still the latest', async () => {
+			const service = createService();
+			service.becomeReady();
+
+			await service.quitAndInstall();
+			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
+
+			expect(calls).toEqual(['quit', 'doQuitAndInstall']);
+			service.dispose();
+		});
+
+		it('only checks for an overwrite once, so the second restart request goes through', async () => {
+			feedVersion = '2026.09.0-2';
+			const service = createService();
+			service.becomeReady();
+
+			// First click: postponed while the newer version is fetched.
+			await service.quitAndInstall();
+			expect(calls).toContain(`doCheckForUpdates(${PENDING_VERSION})`);
+
+			// The newer version reaches Ready; second click must restart, not re-check.
+			calls = [];
+			service.becomeReady();
+			await service.quitAndInstall();
+			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
+
+			expect(calls).toEqual(['quit', 'doQuitAndInstall']);
+			service.dispose();
+		});
+
+		it('re-checks on the next restart request after a vetoed quit', async () => {
+			// A veto leaves the user in the session after they had already accepted the restart, so
+			// the once-per-quit guard has to reset. Otherwise a build published during that window
+			// installs stale, which is the bug this whole flow exists to prevent.
+			vetoQuit = true;
+			const service = createService();
+			service.becomeReady();
+
+			// First click: the feed still advertises the pending version, so the quit goes ahead
+			// and is then vetoed.
+			await service.quitAndInstall();
+			await vi.waitFor(() => expect(service.state.type).toBe(StateType.Ready));
+			expect(calls).toEqual(['quit']);
+
+			// A newer build ships while the user stays in the vetoed session.
+			calls = [];
+			feedVersion = '2026.09.0-2';
+			await service.quitAndInstall();
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			expect(service.state.type).toBe(StateType.Overwriting);
+			service.dispose();
+		});
+
+		it('installs the version from the overwrite check, not the one that was first pending', async () => {
+			// The point of the whole flow: a build that shipped while the update sat pending is the
+			// one that gets installed.
+			const NEWER_VERSION = '2026.09.0-2';
+			feedVersion = NEWER_VERSION;
+			const service = createService();
+			service.becomeReady();
+
+			// First restart request: postponed while the newer version is fetched.
+			await service.quitAndInstall();
+			expect(service.state.type).toBe(StateType.Overwriting);
+
+			// The platform download pipeline lands the newer version in Ready.
+			service.becomeReady(NEWER_VERSION);
+
+			await service.quitAndInstall();
+			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
+
+			expect(installed).toEqual([NEWER_VERSION]);
+			service.dispose();
+		});
+
+		it('still overwrites on a metered connection, because the restart is an explicit action', async () => {
+			// Upstream defers the *automatic* overwrite check on a metered connection, but a user
+			// asking to restart is explicit and must still land on the latest version.
+			feedVersion = '2026.09.0-2';
+			metered = true;
+			const service = createService();
+			service.becomeReady();
+
+			await service.quitAndInstall();
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			expect(service.state.type).toBe(StateType.Overwriting);
+			service.dispose();
+		});
+
+		it('compares against the product version when the pending update has no version', async () => {
+			// On macOS, Electron's `update-downloaded` event maps the feed's release *notes* to
+			// `version`. Positron's feed has none, so a pending update can arrive with an empty
+			// version and only the product version set; the overwrite check must still run.
+			feedVersion = '2026.09.0-2';
+			const service = createService();
+			service.becomeReady({ version: '', productVersion: PENDING_VERSION });
+
+			await service.quitAndInstall();
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			expect(service.state.type).toBe(StateType.Overwriting);
+			service.dispose();
+		});
+
+		it('restarts into the pending update when there is no version at all to compare', async () => {
+			feedVersion = '2026.09.0-2';
+			const service = createService();
+			service.becomeReady({ version: '' });
+
+			await service.quitAndInstall();
+			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
+
+			// Nothing to compare, so no overwrite; the restart itself must still go through.
+			expect(calls).toEqual(['quit', 'doQuitAndInstall']);
+			service.dispose();
+		});
+
+		it('proceeds with the restart of the pending update when the cancel fails', async () => {
+			feedVersion = '2026.09.0-2';
+			cancelFails = true;
+			const service = createService();
+			service.becomeReady();
+
+			await service.quitAndInstall();
+			await vi.waitFor(() => expect(calls).toContain('doQuitAndInstall'));
+
+			expect(calls).toEqual(['cancelPendingUpdate', 'quit', 'doQuitAndInstall']);
+			service.dispose();
+		});
+	});
+
+	describe('automatic overwrite checks', () => {
+
+		// A pending update can sit in Ready for hours while a newer build ships, so the service
+		// re-checks the feed on an interval rather than waiting for the user to hit restart.
+
+		it('starts an overwrite when a newer version ships while an update is pending', async () => {
+			feedVersion = '2026.09.0-2';
+			overwriteCheckIntervalMs = 5;
+			const service = createService();
+			service.becomeReady();
+
+			await vi.waitFor(() => expect(service.state.type).toBe(StateType.Overwriting));
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			service.dispose();
+		});
+
+		it('leaves the pending update alone while the feed still advertises it', async () => {
+			overwriteCheckIntervalMs = 5;
+			const service = createService();
+			service.becomeReady();
+
+			// Several intervals' worth, so a check that wrongly fired has time to show up.
+			await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+			expect(calls).toEqual([]);
+			expect(service.state.type).toBe(StateType.Ready);
+			service.dispose();
+		});
+
+		it('defers the check on a metered connection, so no background download starts', async () => {
+			// Unlike the restart, which is explicit, this check is automatic: on a metered
+			// connection it must not spend the user's data re-downloading the update.
+			feedVersion = '2026.09.0-2';
+			metered = true;
+			overwriteCheckIntervalMs = 5;
+			const service = createService();
+			service.becomeReady();
+
+			await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+			expect(calls).toEqual([]);
+			expect(service.state.type).toBe(StateType.Ready);
+			service.dispose();
+		});
+
+		it('stops checking once the pending update is gone', async () => {
+			feedVersion = '2026.09.0-2';
+			overwriteCheckIntervalMs = 5;
+			const service = createService();
+			service.becomeReady();
+			service.backToIdle();
+
+			await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+			expect(calls).toEqual([]);
+			service.dispose();
+		});
+	});
+
+	describe('checkForUpdates while an update is pending', () => {
+
+		// Nothing newer can be found for the *installed* version once an update is pending, so the
+		// regular check is routed to the overwrite re-check instead of silently doing nothing.
+
+		it('re-checks the feed for a build newer than the pending update', async () => {
+			feedVersion = '2026.09.0-2';
+			const service = createService();
+			service.becomeReady();
+
+			await service.checkForUpdates(true);
+
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			expect(service.state.type).toBe(StateType.Overwriting);
+			service.dispose();
+		});
+
+		it('leaves the pending update alone when the feed still advertises it', async () => {
+			const service = createService();
+			service.becomeReady();
+
+			await service.checkForUpdates(true);
+
+			expect(calls).toEqual([]);
+			expect(service.state.type).toBe(StateType.Ready);
+			service.dispose();
+		});
+
+		it('defers a scheduled check on a metered connection but not an explicit one', async () => {
+			feedVersion = '2026.09.0-2';
+			metered = true;
+			const service = createService();
+			service.becomeReady();
+
+			await service.checkForUpdates(false);
+			expect(calls).toEqual([]);
+			expect(service.state.type).toBe(StateType.Ready);
+
+			await service.checkForUpdates(true);
+			expect(calls).toEqual(['cancelPendingUpdate', `doCheckForUpdates(${PENDING_VERSION})`]);
+			service.dispose();
+		});
+	});
+
+	describe('isLatestVersion', () => {
+
+		it('reports not latest when the feed is newer than the given version', async () => {
+			feedVersion = '2026.09.0-2';
+			const service = createService();
+			service.setFeed();
+
+			expect(await service.isLatestVersion(PENDING_VERSION)).toBe(false);
+			service.dispose();
+		});
+
+		it('reports latest when the feed matches the given version', async () => {
+			const service = createService();
+			service.setFeed();
+
+			expect(await service.isLatestVersion(PENDING_VERSION)).toBe(true);
+			service.dispose();
+		});
+
+		it('reports latest when the feed is older than the given version', async () => {
+			feedVersion = '2026.08.0-9';
+			const service = createService();
+			service.setFeed();
+
+			expect(await service.isLatestVersion(PENDING_VERSION)).toBe(true);
+			service.dispose();
+		});
+
+		it('compares against the installed version including the build number when no version is given', async () => {
+			// Same calver as the installed build, newer build number: exactly the daily-channel case.
+			feedVersion = '2026.09.0-2';
+			const service = createService({ positronVersion: '2026.09.0', positronBuildNumber: 1 });
+			service.setFeed();
+
+			expect(await service.isLatestVersion()).toBe(false);
+			service.dispose();
+		});
+
+		it('reports latest when the feed matches the installed version and build number', async () => {
+			feedVersion = '2026.09.0-1';
+			const service = createService({ positronVersion: '2026.09.0', positronBuildNumber: 1 });
+			service.setFeed();
+
+			expect(await service.isLatestVersion()).toBe(true);
+			service.dispose();
+		});
+
+		it('cannot answer when updates are disabled or the feed URL is not configured', async () => {
+			const disabled = createService({ updateMode: 'none' });
+			disabled.setFeed();
+			expect(await disabled.isLatestVersion(PENDING_VERSION)).toBeUndefined();
+			disabled.dispose();
+
+			const noFeed = createService();
+			expect(await noFeed.isLatestVersion(PENDING_VERSION)).toBeUndefined();
+			noFeed.dispose();
+		});
+
+		it('cannot answer on a metered connection, so no automatic check hits the network', async () => {
+			feedVersion = '2026.09.0-2';
+			metered = true;
+			const service = createService();
+			service.setFeed();
+
+			expect(await service.isLatestVersion(PENDING_VERSION)).toBeUndefined();
+			service.dispose();
+		});
+
+		it('cannot answer when the feed advertises an unparseable version', async () => {
+			feedVersion = 'not-a-version';
+			const service = createService();
+			service.setFeed();
+
+			expect(await service.isLatestVersion(PENDING_VERSION)).toBeUndefined();
+			service.dispose();
+		});
 	});
 });
