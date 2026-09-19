@@ -12,6 +12,27 @@ import { PositronBaseComm, PositronCommOptions } from './positronBaseComm.js';
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
 /**
+ * A help topic offered as an autocomplete suggestion.
+ */
+export interface HelpTopicSuggestion {
+	/**
+	 * The topic label shown to the user.
+	 */
+	label: string;
+
+	/**
+	 * The exact topic value used to open help.
+	 */
+	topic: string;
+
+	/**
+	 * Optional context such as the package containing the topic.
+	 */
+	detail?: string;
+
+}
+
+/**
  * Parameters for the ShowHelpTopic method.
  */
 export interface ShowHelpTopicParams {
@@ -19,6 +40,16 @@ export interface ShowHelpTopicParams {
 	 * The help topic to show
 	 */
 	topic: string;
+}
+
+/**
+ * Parameters for the SearchHelp method.
+ */
+export interface SearchHelpParams {
+	/**
+	 * The help query to search for
+	 */
+	query: string;
 }
 
 /**
@@ -76,7 +107,9 @@ export enum HelpFrontendEvent {
 }
 
 export enum HelpBackendRequest {
-	ShowHelpTopic = 'show_help_topic'
+	ShowHelpTopic = 'show_help_topic',
+	SearchHelp = 'search_help',
+	GetHelpTopics = 'get_help_topics'
 }
 
 export class PositronHelpComm extends PositronBaseComm {
@@ -103,6 +136,33 @@ export class PositronHelpComm extends PositronBaseComm {
 	 */
 	showHelpTopic(topic: string): Promise<boolean> {
 		return super.performRpc('show_help_topic', ['topic'], [topic]);
+	}
+
+	/**
+	 * Search the active interpreter's help system.
+	 *
+	 * Searches interpreter-wide help and displays the resulting page via a
+	 * Show Help notification.
+	 *
+	 * @param query The help query to search for
+	 *
+	 * @returns Whether the search results page was shown.
+	 */
+	searchHelp(query: string): Promise<boolean> {
+		return super.performRpc('search_help', ['query'], [query]);
+	}
+
+	/**
+	 * List help topics for autocomplete.
+	 *
+	 * Returns interpreter-wide help topics that can be offered as search
+	 * suggestions.
+	 *
+	 *
+	 * @returns Help topic suggestions.
+	 */
+	getHelpTopics(): Promise<Array<HelpTopicSuggestion>> {
+		return super.performRpc('get_help_topics', [], []);
 	}
 
 
