@@ -198,6 +198,10 @@ export class HandshakeSocket implements vscode.Disposable {
 	public static connect(socketPath: string, timeoutMs: number): Promise<KallichoreServerState> {
 		const handles = new PromiseHandles<KallichoreServerState>();
 
+		console.log(
+			`[HandshakeSocket] connect: starting cached-handshake retrieval from ` +
+			`${socketPath} (timeout ${timeoutMs}ms)`);
+
 		const socket = net.connect(socketPath);
 		let text = '';
 		socket.setEncoding('utf8');
@@ -205,6 +209,8 @@ export class HandshakeSocket implements vscode.Disposable {
 		socket.on('end', () => {
 			try {
 				handles.resolve(JSON.parse(text) as KallichoreServerState);
+				console.log(
+					`[HandshakeSocket] connect: cached handshake received from ${socketPath}`);
 			} catch (err) {
 				handles.reject(new Error(`Failed to parse handshake payload: ${err}`));
 			}

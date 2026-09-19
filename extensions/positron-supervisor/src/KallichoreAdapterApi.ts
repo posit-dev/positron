@@ -1170,7 +1170,15 @@ export class KCApi implements PositronSupervisorApi {
 		// succeeds even if our saved bearer token is stale; that lets us detect
 		// a stale connection here, before we make any authenticated calls that
 		// would fail with a confusing 401.
-		const status = await this._api.api.serverStatus();
+		this.log(`Requesting server status from ${connectionInfo} to verify reconnect target`);
+		let status: Awaited<ReturnType<typeof this._api.api.serverStatus>>;
+		try {
+			status = await this._api.api.serverStatus();
+			this.log(`Received server status from ${connectionInfo}`);
+		} catch (err) {
+			this.log(`serverStatus() request to ${connectionInfo} failed: ${summarizeError(err)}`);
+			throw err;
+		}
 
 		// If the server reports a different identity than the one we saved, the
 		// original server has gone away and something else is now answering at
