@@ -10,6 +10,8 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { ExtHostConsoleServiceShape, ExtHostPositronContext, IMainThreadHiddenEditorManager, MainPositronContext, MainThreadConsoleServiceShape } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
+import { ConsoleInputFocusTracker } from './consoleInputFocusTracker.js';
 import { MainThreadConsole } from './mainThreadConsole.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadConsoleService)
@@ -49,12 +51,23 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	 */
 	private readonly _hiddenEditorManager: Lazy<IMainThreadHiddenEditorManager>;
 
+	/**
+	 * Tracks which console input was the most recently focused text editor, which is how the
+	 * rstudioapi editor context shim decides whether the caller's own console is the active
+	 * document.
+	 */
+	private readonly _consoleInputFocusTracker: ConsoleInputFocusTracker;
+
 	constructor(
 		extHostContext: IExtHostContext,
-		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService
+		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
+		@ICodeEditorService codeEditorService: ICodeEditorService
 	) {
 		// Create the proxy for the extension host.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostConsoleService);
+
+		this._consoleInputFocusTracker = this._disposables.add(
+			new ConsoleInputFocusTracker(codeEditorService));
 
 		this._hiddenEditorManager = new Lazy(() =>
 			extHostContext.getRaw<IMainThreadHiddenEditorManager, IMainThreadHiddenEditorManager>(
@@ -224,6 +237,10 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		const store = new DisposableStore();
 		const editorId = `console-${sessionId}`;
 
+		// Tracked for as long as this editor is the console's input, so a focus on it is
+		// attributed to this session.
+		store.add(this._consoleInputFocusTracker.trackConsoleInput(sessionId, codeEditor));
+
 		const doRegister = (model: ITextModel) => {
 			const registration = store.add(this._hiddenEditorManager.value.registerHiddenTextEditor(editorId, codeEditor, model));
 
@@ -265,6 +282,10 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	}
 
 	// --- from extension host process
+
+	$getConsoleInputFocusedLastSessionId(): Promise<string | undefined> {
+		return Promise.resolve(this._consoleInputFocusTracker.lastFocusedConsoleSessionId);
+	}
 
 	$getConsoleWidth(): Promise<number> {
 		return Promise.resolve(this._positronConsoleService.getConsoleWidth());

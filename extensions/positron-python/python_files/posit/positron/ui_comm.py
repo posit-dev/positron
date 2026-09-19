@@ -93,6 +93,11 @@ class EditorContext(BaseModel):
         description="The selections in this text editor.",
     )
 
+    id: Optional[StrictStr] = Field(
+        default=None,
+        description="A stable identifier for the document, e.g. '#console' for the console",
+    )
+
 
 class TextDocument(BaseModel):
     """
