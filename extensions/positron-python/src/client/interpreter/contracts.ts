@@ -26,7 +26,10 @@ export interface IComponentAdapter {
     getRefreshPromise(options?: GetRefreshEnvironmentsOptions): Promise<void> | undefined;
     readonly onChanged: Event<PythonEnvironmentsChangedEvent>;
     // VirtualEnvPrompt
-    onDidCreate(resource: Resource, callback: () => void): Disposable;
+    // --- Start Positron ---
+    // onDidCreate(resource: Resource, callback: () => void): Disposable;
+    onDidCreate(resource: Resource, callback: (envPath: string) => void): Disposable;
+    // --- End Positron ---
     // IInterpreterLocatorService
     hasInterpreters(filter?: (e: PythonEnvironment) => Promise<boolean>): Promise<boolean>;
     getInterpreters(resource?: Uri, source?: PythonEnvSource[]): PythonEnvironment[];
