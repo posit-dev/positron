@@ -56,7 +56,8 @@ async function allowUvInstall(): Promise<boolean> {
 }
 
 /**
- * Installs uv using the official installer script.
+ * Runs the official uv installer script. The caller is responsible for getting consent
+ * first, so that nothing reports progress on an install the user has not agreed to.
  *
  * Note: This follows the official uv installation pattern (https://docs.astral.sh/uv/getting-started/installation/).
  * The scripts are fetched over HTTPS from astral.sh and executed directly. This is
@@ -65,13 +66,7 @@ async function allowUvInstall(): Promise<boolean> {
  *
  * @returns true if installation succeeded, false otherwise
  */
-async function installUv(): Promise<boolean> {
-    const allowInstall = await allowUvInstall();
-    if (!allowInstall) {
-        traceInfo('User declined uv installation');
-        return false;
-    }
-
+async function runUvInstaller(): Promise<boolean> {
     traceInfo('Installing uv...');
 
     try {
@@ -108,19 +103,26 @@ export type EnsureUvResult = { ok: true } | { ok: false; error?: string };
 /**
  * Makes sure uv is available, prompting for consent and installing it if it is not.
  *
- * @param onInstalling Called only when uv is actually missing and about to be
- *   installed, so callers can report progress without claiming to install uv that
- *   is already there.
+ * @param onInstalling Called only once uv is missing and the user has consented, so
+ *   callers can report progress without claiming to install uv that is already there,
+ *   or to be installing while the consent prompt is still on screen.
  */
 export async function ensureUvInstalled(onInstalling?: () => void): Promise<EnsureUvResult> {
     if (await isUvInstalled()) {
         return { ok: true };
     }
 
+    // Consent comes before the callback: while the prompt is up nothing is installing yet,
+    // and a caller that reported progress here would be claiming work the user has not agreed to.
+    if (!(await allowUvInstall())) {
+        traceInfo('User declined uv installation');
+        return { ok: false };
+    }
+
     onInstalling?.();
 
-    if (!(await installUv())) {
-        // User declined or installation failed - exit silently
+    if (!(await runUvInstaller())) {
+        // Installation failed - exit silently
         return { ok: false };
     }
 
@@ -134,6 +136,32 @@ export async function ensureUvInstalled(onInstalling?: () => void): Promise<Ensu
     }
 
     return { ok: true };
+}
+
+/**
+ * Like ensureUvInstalled, but shows an "Installing uv" notification for as long as the
+ * installer runs. Meant for callers that have no UI of their own for the install, such as
+ * the New Folder flow, which only learns the outcome once the command returns.
+ *
+ * The notification opens only after the user has consented, so nothing claims to be
+ * installing while the consent prompt is on screen. It is a notification rather than a
+ * window-level indicator because notification toasts render above Positron modal dialogs.
+ */
+export async function ensureUvInstalledWithProgress(): Promise<EnsureUvResult> {
+    let finishInstall: (() => void) | undefined;
+
+    const result = await ensureUvInstalled(() => {
+        const installing = new Promise<void>((resolve) => {
+            finishInstall = resolve;
+        });
+        vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Notification, title: InterpreterQuickPickList.UvInstall.installingUv },
+            () => installing,
+        );
+    });
+
+    finishInstall?.();
+    return result;
 }
 
 /**

@@ -39,6 +39,7 @@ import { getAvailablePythonVersions, isUvInstalled } from '../common/environment
 import { UV_PROVIDER_ID, UvCreationProvider } from './provider/uvCreationProvider';
 import {
     ensureUvInstalled,
+    ensureUvInstalledWithProgress,
     EnsureUvResult,
     installPythonViaUv,
     InstallPythonResult,
@@ -346,7 +347,7 @@ export async function registerCreateEnvironmentFeatures(
         registerCommand(Commands.Get_Uv_Python_Versions, async () => await getUvPythonVersions()),
         registerCommand(Commands.Ensure_Uv_Installed, async (): Promise<EnsureUvResult> => {
             try {
-                return await ensureUvInstalled();
+                return await ensureUvInstalledWithProgress();
             } catch (error) {
                 traceError(`ensureUvInstalled command failed: ${error}`);
                 return { ok: false, error: `${error}` };

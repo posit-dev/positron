@@ -8,6 +8,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import { anything, capture, when, reset, verify } from 'ts-mockito';
+import { ProgressLocation, ProgressOptions } from 'vscode';
 import { MultiStepAction } from '../../../../client/common/vscodeApis/windowApis';
 import * as fileUtils from '../../../../client/pythonEnvironments/common/externalDependencies';
 import * as logging from '../../../../client/logging';
@@ -25,6 +26,7 @@ import {
     installPythonViaUv,
     showUvInstallError,
     ensureUvInstalled,
+    ensureUvInstalledWithProgress,
 } from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import { mockedPositronNamespaces, mockedVSCodeNamespaces } from '../../../vscode-mock';
 import { Common, GlobalEnvironment, InterpreterQuickPickList } from '../../../../client/common/utils/localize';
@@ -106,6 +108,17 @@ suite('UV Python Installer Tests', () => {
             assert.deepStrictEqual(await ensureUvInstalled(), { ok: false });
         });
 
+        test('Declining the consent prompt does not report installing', async () => {
+            isUvInstalledStub.resolves(false);
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenReturn(Promise.resolve(undefined) as any);
+            const onInstalling = sinon.stub();
+
+            assert.deepStrictEqual(await ensureUvInstalled(onInstalling), { ok: false });
+            assert.strictEqual(onInstalling.called, false, 'nothing is installing until the user consents');
+        });
+
         test('Reports uv still being unreachable after a successful install', async () => {
             isUvInstalledStub.onFirstCall().resolves(false);
             isUvInstalledStub.onSecondCall().resolves(false);
@@ -131,6 +144,73 @@ suite('UV Python Installer Tests', () => {
 
             assert.deepStrictEqual(await ensureUvInstalled(onInstalling), { ok: true });
             assert.strictEqual(onInstalling.calledOnce, true);
+        });
+    });
+
+    suite('ensureUvInstalledWithProgress Tests', () => {
+        let isUvInstalledStub: sinon.SinonStub;
+
+        setup(() => {
+            isUvInstalledStub = sinon.stub(uv, 'isUvInstalled');
+            sinon.stub(uv, 'resetUvCache');
+            reset(mockedVSCodeNamespaces.window!);
+        });
+
+        function consent(choice: string | undefined) {
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenReturn(Promise.resolve(choice) as any);
+        }
+
+        test('Does not show progress when uv is already installed', async () => {
+            isUvInstalledStub.resolves(true);
+
+            assert.deepStrictEqual(await ensureUvInstalledWithProgress(), { ok: true });
+            verify(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).never();
+        });
+
+        test('Does not show progress when the user declines', async () => {
+            isUvInstalledStub.resolves(false);
+            consent(undefined);
+
+            assert.deepStrictEqual(await ensureUvInstalledWithProgress(), { ok: false });
+            verify(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).never();
+        });
+
+        test('Shows an "Installing uv" notification that lasts until the install finishes', async () => {
+            isUvInstalledStub.onFirstCall().resolves(false);
+            isUvInstalledStub.onSecondCall().resolves(true);
+            consent(InterpreterQuickPickList.UvInstall.confirmUvInstallYes);
+            let finishInstaller: (value: { stdout: string; stderr: string }) => void = () => undefined;
+            execStub.returns(
+                new Promise((resolve) => {
+                    finishInstaller = resolve;
+                }),
+            );
+
+            let progressSettled = false;
+            let progressOptions: ProgressOptions | undefined;
+            when(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).thenCall(
+                (options: ProgressOptions, task: any) => {
+                    progressOptions = options;
+                    return task({} as any, {} as any).then(() => {
+                        progressSettled = true;
+                    });
+                },
+            );
+
+            const pending = ensureUvInstalledWithProgress();
+            await new Promise((resolve) => setImmediate(resolve));
+            verify(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).once();
+            assert.strictEqual(progressSettled, false, 'progress stays open while the installer runs');
+
+            finishInstaller({ stdout: '', stderr: '' });
+            assert.deepStrictEqual(await pending, { ok: true });
+            await new Promise((resolve) => setImmediate(resolve));
+            assert.strictEqual(progressSettled, true, 'progress closes once the install finishes');
+
+            assert.strictEqual(progressOptions?.location, ProgressLocation.Notification);
+            assert.strictEqual(progressOptions?.title, InterpreterQuickPickList.UvInstall.installingUv);
         });
     });
 

@@ -61,7 +61,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	const [uvPythonVersionInfo, setUvPythonVersionInfo] = useState(context.uvPythonVersionInfo);
 	const [selectedUvPythonVersion, setSelectedUvPythonVersion] = useState(context.uvPythonVersion);
 	const [isUvInstalled, setIsUvInstalled] = useState(context.isUvInstalled);
-	const [installingUv, setInstallingUv] = useState(false);
+	const [uvInstallPending, setUvInstallPending] = useState(false);
 	const [uvInstallError, setUvInstallError] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
@@ -287,7 +287,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	// Handler for the Install uv button. On success, the flow state refreshes the uv Python
 	// versions and fires onUpdateInterpreterState, which repopulates the version dropdown.
 	const onInstallUv = async () => {
-		setInstallingUv(true);
+		setUvInstallPending(true);
 		setUvInstallError(undefined);
 		try {
 			const result = await context.installUv();
@@ -296,7 +296,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 				setUvInstallError(result.error);
 			}
 		} finally {
-			setInstallingUv(false);
+			setUvInstallPending(false);
 		}
 	};
 
@@ -316,20 +316,17 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						)}
 					</span>
 					<span aria-hidden='true' className='install-uv-separator'>&middot;</span>
+					{/* Inert while the request is out, but still labelled "Install uv": the request */}
+					{/* starts by asking the user to confirm, and nothing installs until they do. */}
 					<Button
-						ariaDisabled={installingUv}
+						ariaDisabled={uvInstallPending}
 						className='install-uv-button'
 						onPressed={onInstallUv}
 					>
-						{installingUv
-							? localize(
-								'pythonEnvironmentSubStep.feedback.installingUv',
-								"Installing uv..."
-							)
-							: localize(
-								'pythonEnvironmentSubStep.feedback.installUv',
-								"Install uv"
-							)}
+						{localize(
+							'pythonEnvironmentSubStep.feedback.installUv',
+							"Install uv"
+						)}
 					</Button>
 				</FlowFormattedText>
 			);

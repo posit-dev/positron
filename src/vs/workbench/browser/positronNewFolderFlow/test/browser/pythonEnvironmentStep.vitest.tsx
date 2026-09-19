@@ -156,6 +156,23 @@ describe('PythonEnvironmentStep uv install', () => {
 		expect(await installButton()).toBeInTheDocument();
 	});
 
+	it('does not claim to be installing while consent is still being asked', async () => {
+		const user = userEvent.setup();
+		// The command does not resolve until the consent prompt is answered, so an unresolved
+		// promise stands in for the moment that prompt is on screen.
+		let answerPrompt!: (result: unknown) => void;
+		renderUvStep(new Promise((resolve) => { answerPrompt = resolve; }));
+
+		await user.click(await installButton());
+
+		// Nothing is installing yet, so the button must not say it is; it is only inert because
+		// the question it raised is still open.
+		expect(screen.queryByRole('button', { name: 'Installing uv...' })).not.toBeInTheDocument();
+		expect(await installButton()).toHaveAttribute('aria-disabled', 'true');
+
+		answerPrompt({ ok: false });
+	});
+
 	it('reports why the install failed', async () => {
 		const user = userEvent.setup();
 		renderUvStep({ ok: false, error: 'uv was not found after installing it.' });
