@@ -41,28 +41,23 @@ const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
 const QUARTO_PATH_PATTERN = /\.(qmd|rmd)$/i;
 
 // The language ids core treats as Quarto, from `QUARTO_LANGUAGE_IDS` in its own
-// positronQuartoConfig.ts. An untitled Quarto document is known by its language
-// id alone: _Quarto: New Document_ opens it with `openTextDocument({ language })`,
-// which names it `untitled:Untitled-1`, with no extension to match on.
+// positronQuartoConfig.ts. An untitled Quarto document has no extension to match
+// on, so its language id is the only thing that names it.
 const QUARTO_LANGUAGE_IDS = ['quarto', 'rmd'];
 
 // Matches the path of a real notebook, which a Quarto session never has.
 const NOTEBOOK_PATH_PATTERN = /\.ipynb$/i;
 
-// Selector for the cells of every Quarto virtual notebook, used by the console
-// client. Matching the notebook's type keeps the cells of real notebooks
-// (.ipynb) out, since no other notebook carries this type. This covers `.Rmd`
-// documents as well as `.qmd` ones: core builds a hidden notebook for both. A
-// Quarto session names its own document's notebook instead; see
-// `PythonLsp._quartoCellsUri`.
+// The cells of every Quarto virtual notebook, for the console client. Matching
+// the notebook's type keeps real notebooks' (.ipynb) cells out, since no other
+// notebook carries this type. This covers `.Rmd` documents as well as `.qmd`
+// ones: core builds a hidden notebook for both. A Quarto session names its own
+// document's notebook instead; see `PythonLsp._quartoCellsUri`.
 const QUARTO_CELL_SELECTOR = {
     notebook: { notebookType: QUARTO_CELLS_NOTEBOOK_TYPE },
     language: 'python',
 };
 
-/**
- * The hidden Quarto notebook a URI is a cell of, if any.
- */
 function quartoNotebookOf(uri: vscode.Uri): vscode.NotebookDocument | undefined {
     if (uri.scheme !== 'vscode-notebook-cell') {
         return undefined;
@@ -77,22 +72,18 @@ function quartoNotebookOf(uri: vscode.Uri): vscode.NotebookDocument | undefined 
 /**
  * The ownership registry key for a hidden Quarto notebook.
  *
- * Core builds the hidden notebook with `sourceUri.with({ scheme: 'quarto-cells', ... })`,
- * which keeps the source's remote authority, and the RPC URI transformer rewrites only the
- * `file` and `vscode-remote` schemes, so that authority reaches us intact. A session derives
- * its own URI from `notebookUri`, which arrives here already transformed to a plain `file:`
- * URI with no authority. Dropping the authority on both sides is what makes the two agree in
- * a remote or web window; keying on the raw URI instead means ownership never matches there
- * and the console keeps answering for a document that has a session of its own.
+ * Core keeps the source's remote authority when it builds the notebook URI, and
+ * the RPC transformer rewrites only the `file` and `vscode-remote` schemes, so
+ * that authority survives the trip here. A session derives its own URI from a
+ * `notebookUri` that arrives already transformed to a plain `file:` URI.
+ * Dropping the authority on both sides is what makes the two agree in a remote
+ * or web window.
  */
 export function quartoCellsKey(notebookUri: vscode.Uri): string {
     return notebookUri.with({ authority: '' }).toString();
 }
 
-/**
- * Whether a URI is a Quarto cell that its document's own session serves, so
- * that the console client should decline it.
- */
+/** A Quarto cell whose document has a session of its own, which the console client declines. */
 function isOwnedQuartoCellUri(uri: vscode.Uri): boolean {
     const notebook = quartoNotebookOf(uri);
     return notebook !== undefined && hasQuartoCellsOwner(quartoCellsKey(notebook.uri));
@@ -101,20 +92,16 @@ function isOwnedQuartoCellUri(uri: vscode.Uri): boolean {
 /**
  * Whether a session's document is a Quarto document rather than a real notebook.
  *
- * Mirrors `isQuartoDocument` in core's positronQuartoConfig.ts: the path first,
- * then the language id of the open document, which is the only thing that names
- * an untitled Quarto document. Core builds a hidden notebook on the same rule,
- * so a narrower one here means a session whose cells core did build but that the
- * session does not know are its own.
+ * Mirrors `isQuartoDocument` in core's positronQuartoConfig.ts, which decides
+ * whether the document gets a hidden notebook at all: a narrower rule here leaves
+ * a session not knowing that cells core built are its own.
  *
- * The answer must not depend on timing, because the document selector is built
- * from it once, when the client is created. A restored session can reach us
- * before its document does, and an untitled document that is not open yet has
- * no language id to read. An untitled notebook is not shapeless though: core
- * names it `Untitled-N<ending>` and puts its type in the query, for example
- * `untitled:Untitled-1.ipynb?jupyter-notebook` (`notebookEditorModelResolverServiceImpl.ts`).
- * So an untitled URI that carries neither is a Quarto document. A wrong guess
- * here is caught later, when the claim finds no notebook of that name.
+ * The answer must not depend on timing, since the document selector is built from
+ * it once. An untitled document that has not opened yet has no language id to
+ * read, so it falls through to Quarto; that is safe because core gives an untitled
+ * notebook a file ending and a notebook type in its query, for example
+ * `untitled:Untitled-1.ipynb?jupyter-notebook`. A wrong guess is caught later,
+ * when the claim finds no notebook of that name.
  */
 function isQuartoDocumentUri(uri: vscode.Uri, openDocuments: readonly vscode.TextDocument[]): boolean {
     if (QUARTO_PATH_PATTERN.test(uri.path)) {
@@ -132,11 +119,9 @@ function isQuartoDocumentUri(uri: vscode.Uri, openDocuments: readonly vscode.Tex
  * session is not a Quarto session.
  *
  * Both the session's document selector and its ownership key derive from this, so
- * a wrong answer here makes every one of its providers decline and puts the
- * document back on the console client, which is the bug this rule exists to fix.
- *
- * Callers still resolve this lazily, so that a document which opens after the
- * session does gives the precise language-id answer rather than the fallback.
+ * a wrong answer makes every one of its providers decline and leaves the document
+ * on the console client. Callers resolve it lazily, so a document that opens after
+ * its session gets the language-id answer rather than the fallback.
  */
 export function quartoCellsUriFor(
     notebookUri: vscode.Uri | undefined,
@@ -207,15 +192,13 @@ export class PythonLsp implements vscode.Disposable {
     }
 
     /**
-     * The hidden notebook holding the cells of this session's Quarto document,
-     * when this is a Quarto session. Undefined for console sessions and for
-     * real notebook (.ipynb) sessions.
+     * The hidden notebook holding the cells of this session's Quarto document.
+     * Undefined for console sessions and for real notebook (.ipynb) sessions.
      *
-     * Resolved on first use rather than in the constructor, because an untitled
-     * Quarto document is known by the language id of its open text document and
-     * a restored session can reach us before that document does. The answer is
-     * kept once it is known, so a claim and the release that follows it always
-     * name the same notebook.
+     * Resolved on first use rather than in the constructor, because a restored
+     * session can reach us before the text document whose language id names an
+     * untitled Quarto file. Kept once known, so a claim and its release always name
+     * the same notebook.
      */
     private get _quartoCellsUri(): vscode.Uri | undefined {
         if (!this._resolvedQuartoCellsUri) {
@@ -227,12 +210,11 @@ export class PythonLsp implements vscode.Disposable {
     /**
      * Take ownership of this session's own Quarto cells, once they exist.
      *
-     * A claim is what makes the console client stand down, so claiming a
-     * notebook core never built would leave those cells with no server at all:
-     * this client's selector names a notebook that is not there, and the
-     * console client has already declined. Waiting for the notebook to appear
-     * keeps a wrong derivation down to "the console keeps answering", which is
-     * how things worked before a session could own anything.
+     * A claim is what makes the console client stand down, so claiming a notebook
+     * core never built would leave those cells with no server at all: this client's
+     * selector names a notebook that is not there, and the console client has already
+     * declined. Waiting for the notebook to appear keeps a wrong derivation down to
+     * "the console keeps answering".
      */
     private _claimOwnQuartoCells(): void {
         const quartoCellsUri = this._quartoCellsUri;
@@ -252,8 +234,7 @@ export class PythonLsp implements vscode.Disposable {
                 return;
             }
             waiting.dispose();
-            // The client may have stopped while we waited, and a stopped client
-            // cannot serve the cells it was about to claim.
+            // A client that stopped while we waited cannot serve these cells.
             if (this._state === LspState.running) {
                 claim();
             }
@@ -300,17 +281,15 @@ export class PythonLsp implements vscode.Disposable {
 
         // Matches the cells of this client's own notebook.
         //
-        // For a Quarto session that is the hidden notebook core builds for its
-        // document, named by type and path so that no other Quarto document's
-        // cells match: a session must only sync, and answer for, the document it
-        // belongs to. `pattern` is matched against the notebook's fsPath because
-        // the filter carries `notebookType`. For a real notebook (.ipynb) a cell
-        // URI carries the notebook's own path.
+        // Matches the cells of this client's own notebook and no other document's:
+        // a session must only sync, and answer for, what it belongs to. For a Quarto
+        // session that is the hidden notebook core builds for its document, where
+        // `pattern` matches the notebook's fsPath because the filter carries
+        // `notebookType`.
         //
         // `filterCells` below gates the same cells for a server that claims them
-        // through `notebookDocumentSync`. Without that capability the client
-        // syncs them as ordinary text documents and this selector is the only
-        // gate.
+        // through `notebookDocumentSync`. Without that capability the client syncs
+        // them as ordinary text documents and this selector is the only gate.
         const ownNotebookCellSelectors = this._quartoCellsUri
             ? [
                   {
@@ -351,11 +330,9 @@ export class PythonLsp implements vscode.Disposable {
                   // code blocks when inline output is disabled and
                   // no notebook LSP exists.
                   VDOC_SELECTOR,
-                  // Match Quarto virtual notebook cells. The console client
-                  // syncs these for every open Quarto document and serves the
-                  // ones whose document has no session of its own. Cells with a
-                  // session are declined at request time, see
-                  // `isOwnedQuartoCellUri`.
+                  // Quarto virtual notebook cells. This client syncs them for every
+                  // open Quarto document and serves the ones whose document has no
+                  // session of its own; see `isOwnedQuartoCellUri`.
                   QUARTO_CELL_SELECTOR,
               ];
 
@@ -363,15 +340,10 @@ export class PythonLsp implements vscode.Disposable {
         // produce diagnostics for each notebook.
         const ownNotebookUri = this._quartoCellsUri ?? notebookUri;
         this._clientOptions.notebookDocumentOptions = ownNotebookUri
-            ? // If this client belongs to a notebook, only include cells belonging to it. For a
-              // Quarto session that is the hidden notebook, not the .qmd the session was made for.
-              // Compared through `quartoCellsKey` because `notebookDocument.uri`, for a Quarto
-              // session, carries the source's remote authority (the `quarto-cells` scheme passes
-              // through the RPC URI transformer unchanged) while `ownNotebookUri` does not (it is
-              // derived from `notebookUri`, already transformed to a plain `file:` URI with no
-              // authority); a raw comparison would never match on a remote or web window, and the
-              // session would sync zero cells. A no-op for the real-notebook (.ipynb) case, where
-              // both sides are already authority-free.
+            ? // Only the cells of this client's own notebook. For a Quarto session
+              // that is the hidden notebook, not the .qmd the session was made for.
+              // Compared through `quartoCellsKey` because the two sides disagree
+              // about the remote authority; see that function.
               {
                   filterCells: (notebookDocument, cells) =>
                       quartoCellsKey(ownNotebookUri) === quartoCellsKey(notebookDocument.uri) ? cells : [],
@@ -411,7 +383,6 @@ export class PythonLsp implements vscode.Disposable {
                 if (document.uri.scheme === 'inmemory' && NOTEBOOK_REPL_PATTERN.test(document.uri.path)) {
                     return true;
                 }
-                // Console LSP: skip Quarto cells served by their own session
                 if (isOwnedQuartoCellUri(document.uri)) {
                     return true;
                 }
@@ -436,11 +407,10 @@ export class PythonLsp implements vscode.Disposable {
                         return;
                     }
                 }
-                // Console LSP: a Quarto cell with a session of its own gets its
-                // squiggles from that session only, which has run the chunks and
-                // knows what they defined. Publishing an empty set rather than
-                // dropping the publish clears what this client showed before the
-                // session started.
+                // A cell with a session of its own gets its squiggles from that
+                // session only, which has run the chunks. Publishing an empty set
+                // rather than dropping the publish clears what this client showed
+                // while it was still answering.
                 if (!notebookUri && isOwnedQuartoCellUri(uri)) {
                     next(uri, []);
                     return;
@@ -528,15 +498,11 @@ export class PythonLsp implements vscode.Disposable {
         };
 
         if (!notebookUri) {
-            // Console LSP: when a session claims a document's cells, drop the
-            // squiggles this client published for them. The server republishes
-            // only on the next edit, so without this the console's diagnostics,
-            // computed without the session's state, would sit beside the
-            // session's until then. We return early on release rather than
-            // asking this client to republish immediately: the cells briefly
-            // show no squiggles at all until the next edit, which is
-            // intentional, since a stale diagnostic from either side is worse
-            // than a momentary gap.
+            // When a session claims a document's cells, drop the squiggles this
+            // client published for them: the server republishes only on the next
+            // edit, so they would otherwise sit beside the session's. Release is
+            // not handled, so the cells show nothing until that next edit. A
+            // momentary gap beats a stale diagnostic from either side.
             this.activationDisposables.push(
                 onDidChangeQuartoCellsOwnership((quartoCellsUri, owned) => {
                     if (!owned) {
@@ -573,10 +539,8 @@ export class PythonLsp implements vscode.Disposable {
                             // Register Positron-specific LSP extension methods
                             this.registerPositronLspExtensions(this._client);
                         }
-                        // A Quarto session serves its own document's cells from
-                        // here on. Claimed at Running rather than at construction
-                        // so the console keeps answering while this server has
-                        // no cells yet.
+                        // Claimed at Running, not at construction, so the console keeps
+                        // answering while this server still has no cells.
                         this._claimOwnQuartoCells();
                         this._state = LspState.running;
                         break;
@@ -690,13 +654,11 @@ export class PythonLsp implements vscode.Disposable {
      * @param client The language client instance
      */
     private registerPositronLspExtensions(client: LanguageClient) {
-        // Which documents this client's providers answer for. A session must
-        // not answer for documents it never synced.
+        // Which documents this client's providers answer for. A session must not
+        // answer for documents it never synced.
         // - Console sessions: every Python document. Quarto cells served by
         //   their own session are declined at request time.
-        // - Quarto sessions: vdocs and the cells of their own document only.
-        // - Notebook sessions: vdocs and the cells of their own notebook only,
-        //   which a cell URI names through its notebook's path.
+        // - Quarto and notebook sessions: vdocs and their own cells only.
         const { notebookUri } = this._metadata;
         const ownCells: vscode.DocumentFilter | undefined = this._quartoCellsUri
             ? { language: 'python', notebookType: QUARTO_CELLS_NOTEBOOK_TYPE, pattern: this._quartoCellsUri.fsPath }

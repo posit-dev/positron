@@ -53,11 +53,8 @@ describe('Quarto cells ownership registry', () => {
 	});
 
 	it('frees the key after one release even though the same owner claimed it twice', () => {
-		// Set.add is idempotent, so a repeat claim from the same owner does not
-		// double-count and a single release still frees the key. A counter
-		// would have needed two releases to match, and would have left the key
-		// stranded as permanently owned after just one. This is the behavior
-		// that makes a set of owner ids the right structure, not a count.
+		// A set of owner ids, not a count: a repeat claim from the same owner
+		// must not need a second release to free the key.
 		claimQuartoCells(NOTEBOOK, OWNER_A);
 		claimQuartoCells(NOTEBOOK, OWNER_A);
 		releaseQuartoCells(NOTEBOOK, OWNER_A);
@@ -66,12 +63,10 @@ describe('Quarto cells ownership registry', () => {
 	});
 
 	it('stays owned when a stale release from one owner lands while another still holds the key', () => {
-		// Reproduces posit-dev/positron#15974's regression: close a titled .qmd
-		// and reopen it quickly, or restart its session. The new client reaches
-		// State.Running and claims before the old client's State.Stopped release
-		// lands. With a plain Set, that stale release dropped the new client's
-		// claim too, silently handing the document back to the console until the
-		// new client next cycled Stopped to Running.
+		// Close a titled .qmd and reopen it quickly, or restart its session: the
+		// new client reaches State.Running and claims before the old client's
+		// State.Stopped release lands. The stale release must not take the new
+		// claim with it.
 		claimQuartoCells(NOTEBOOK, OWNER_A);
 		claimQuartoCells(NOTEBOOK, OWNER_B);
 		releaseQuartoCells(NOTEBOOK, OWNER_A);
@@ -107,11 +102,10 @@ describe('Quarto cells ownership registry', () => {
 	});
 
 	it('notifies listeners once per change, not per call', () => {
-		// The console client clears its diagnostics on a claim. A repeated claim
-		// or a release of something never claimed is not a change. Nor is a
-		// second owner claiming a key another owner already holds, or the first
-		// owner's release while the second still holds it: the key's owned/unowned
-		// state has not changed either time.
+		// The console client clears its diagnostics on a claim, so an event has
+		// to mean the key's owned state really changed: not a repeat claim, not
+		// a release of something never claimed, and not an owner arriving or
+		// leaving while another still holds the key.
 		const events: [string, boolean][] = [];
 		const subscription = onDidChangeQuartoCellsOwnership((uri, owned) => {
 			events.push([uri, owned]);

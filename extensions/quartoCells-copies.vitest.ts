@@ -10,17 +10,14 @@ import * as path from 'path';
 
 // Extensions cannot share source, so a handful of modules are copied verbatim
 // between positron-r and positron-python. Each pair below must stay identical
-// modulo two known, legitimate differences: the extensions indent differently
-// (tabs in positron-r, four spaces in positron-python), and the vitest copy
-// imports its own extension's registry module under that extension's own file
-// name ('./quarto-cells' in positron-r, './quartoCells' in positron-python).
-// Both are normalized away before comparing; anything else that differs is
-// drift.
+// modulo two differences that are normalized away before comparing: the
+// extensions indent differently (tabs, four spaces), and each vitest copy
+// imports its own extension's registry module under that extension's file name.
+// Anything else that differs is drift.
 interface CopyPair {
 	readonly label: string;
 	readonly rCopy: string;
 	readonly pythonCopy: string;
-	/** Rewrites the Python copy's one legitimate difference back to the R copy's shape, so the rest of the comparison can be exact. */
 	readonly normalizePython?: (content: string) => string;
 }
 

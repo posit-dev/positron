@@ -331,12 +331,11 @@ export abstract class QuartoEmbeddedProvider {
 	 *
 	 * More than one client can be registered on a cell, and one of them may never
 	 * have synced the document: Ark answers "Can't find document" for those. A
-	 * rejection that escapes the caller's loop ends the whole request, so the
-	 * provider behind it, which does hold the document, is never asked. That is
-	 * how a single unhealthy server disables a feature for every server after it.
+	 * rejection that escaped this would end the whole request, leaving the
+	 * provider behind it, which does hold the document, unasked.
 	 *
 	 * Cancellation is the caller giving up on the whole request rather than one
-	 * provider failing its part of it, so it still propagates.
+	 * provider failing its part, so it still propagates.
 	 */
 	protected async _ask<T>(feature: string, request: () => ProviderResult<T>): Promise<T | undefined> {
 		try {
@@ -346,9 +345,8 @@ export abstract class QuartoEmbeddedProvider {
 			if (isCancellationError(error)) {
 				throw error;
 			}
-			// A provider that rejects once usually rejects every time, and for
-			// completion that is once per keystroke, so only the first of each
-			// failure is worth a warning. The repeats stay available at trace.
+			// A provider that rejects once usually rejects every time, which for
+			// completion is once per keystroke. Repeats go to trace instead.
 			const key = `${feature}:${toErrorMessage(error)}`;
 			if (this._reportedRejections.has(key)) {
 				if (this._tracing) {
