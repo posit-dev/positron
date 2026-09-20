@@ -159,13 +159,25 @@ async function provideStatementRangeFromAst(
  * A StatementRangeProvider implementation for Python
  */
 export class PythonStatementRangeProvider implements positron.StatementRangeProvider {
-    constructor(private readonly serviceContainer: IServiceContainer) {}
+    /**
+     * @param serviceContainer Resolves the interpreter and process services.
+     * @param shouldDecline Documents to answer `undefined` for, so that Positron
+     *   asks the next provider instead. The console client declines the Quarto
+     *   cells that a session of their own serves.
+     */
+    constructor(
+        private readonly serviceContainer: IServiceContainer,
+        private readonly shouldDecline?: (document: vscode.TextDocument) => boolean,
+    ) {}
 
     async provideStatementRange(
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken,
     ): Promise<positron.StatementRange | undefined> {
+        if (this.shouldDecline?.(document)) {
+            return undefined;
+        }
         // Try to use the AST to get the statement range, fall back to a simpler regex-based approach.
         try {
             return await provideStatementRangeFromAst(document, position, this.serviceContainer);
