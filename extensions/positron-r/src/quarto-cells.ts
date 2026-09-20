@@ -13,8 +13,10 @@
 // so it moves when a session starts and returns when it exits.
 //
 // Kept free of `vscode` imports so it can be unit tested directly. Copied per
-// extension, since extensions cannot share source;
-// `extensions/quartoCells-copies.vitest.ts` keeps the copies in step.
+// extension, and each copy holds a registry of its own: ownership is per
+// language, so an R session's claim must not silence the Python console client
+// for the same document's Python chunks.
+// `extensions/quartoCells-copies.vitest.ts` keeps the two copies in step.
 
 /**
  * The type core gives the hidden notebooks. No other notebook carries it, so a

@@ -8,10 +8,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Extensions cannot share source, so a handful of modules are copied verbatim
-// between positron-r and positron-python. Each pair below must stay identical
-// modulo the one difference normalized away before comparing: the extensions
-// indent differently, tabs against four spaces. Anything else is drift.
+// A handful of modules are copied verbatim between positron-r and
+// positron-python. Each pair below must stay identical modulo the one
+// difference normalized away before comparing: the extensions indent
+// differently, tabs against four spaces. Anything else is drift.
+//
+// Copied rather than shared because each extension needs a registry instance of
+// its own; see the header of positron-r/src/quarto-cells.ts. Sharing is
+// otherwise possible here, through a local `file:` package in the shape of
+// extensions/positron-data-explorer-protocol.
 //
 // This is also what covers the Python copy's behaviour. Only the R copy has
 // tests of its own; identical source plus this guard is what makes them hold
