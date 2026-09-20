@@ -1164,6 +1164,92 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		}).toEqual({ rejectingAsked: true, labels: ['from-answering'] });
 	});
 
+	// The four loops below share `_ask` with the two above, so these do not test
+	// it again. They test that each loop goes through it: a call site that asks
+	// its provider directly is the regression, and it looks like working code.
+
+	it('asks the next hover provider when the first rejects', async () => {
+		ctx.disposables.add(languageFeatures.hoverProvider.register({ language: 'r' }, {
+			provideHover: (): Hover => ({ contents: [{ value: 'from-answering' }] }),
+		} satisfies HoverProvider));
+		ctx.disposables.add(languageFeatures.hoverProvider.register({ language: 'r' }, {
+			provideHover: () => {
+				throw new Error("Can't find document");
+			},
+		} satisfies HoverProvider));
+		createFeatures();
+
+		const provider = languageFeatures.hoverProvider.ordered(sourceModel)[0];
+		const result = await provider.provideHover(sourceModel, IN_CELL, CancellationToken.None);
+
+		expect((result as Hover)?.contents).toEqual([{ value: 'from-answering' }]);
+	});
+
+	it('asks the next signature help provider when the first rejects', async () => {
+		ctx.disposables.add(languageFeatures.signatureHelpProvider.register({ language: 'r' }, {
+			provideSignatureHelp: (): SignatureHelpResult => ({
+				value: {
+					signatures: [{ label: 'from-answering', parameters: [] }],
+					activeSignature: 0,
+					activeParameter: 0,
+				},
+				dispose: () => { },
+			}),
+		} satisfies SignatureHelpProvider));
+		ctx.disposables.add(languageFeatures.signatureHelpProvider.register({ language: 'r' }, {
+			provideSignatureHelp: () => {
+				throw new Error("Can't find document");
+			},
+		} satisfies SignatureHelpProvider));
+		createFeatures();
+
+		const provider = languageFeatures.signatureHelpProvider.ordered(sourceModel)[0];
+		const result = await provider.provideSignatureHelp(
+			sourceModel, IN_CELL, CancellationToken.None,
+			{ triggerKind: 1, isRetrigger: false });
+
+		expect(result?.value.signatures[0].label).toBe('from-answering');
+	});
+
+	it('asks the next definition provider when the first rejects', async () => {
+		ctx.disposables.add(languageFeatures.definitionProvider.register({ language: 'r' }, {
+			provideDefinition: (): LocationLink[] => [{
+				uri: CELL_URI,
+				range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2 },
+			}],
+		} satisfies DefinitionProvider));
+		ctx.disposables.add(languageFeatures.definitionProvider.register({ language: 'r' }, {
+			provideDefinition: () => {
+				throw new Error("Can't find document");
+			},
+		} satisfies DefinitionProvider));
+		createFeatures();
+
+		const provider = languageFeatures.definitionProvider.ordered(sourceModel)[0];
+		const result = await provider.provideDefinition(sourceModel, IN_CELL, CancellationToken.None);
+
+		expect(result).toEqual([{
+			uri: SOURCE_URI,
+			range: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 2 },
+		}]);
+	});
+
+	it('asks the next help topic provider when the first rejects', async () => {
+		ctx.disposables.add(languageFeatures.helpTopicProvider.register({ language: 'r' }, {
+			provideHelpTopic: () => 'mean',
+		} satisfies HelpTopicProvider));
+		ctx.disposables.add(languageFeatures.helpTopicProvider.register({ language: 'r' }, {
+			provideHelpTopic: () => {
+				throw new Error("Can't find document");
+			},
+		} satisfies HelpTopicProvider));
+		createFeatures();
+
+		const provider = languageFeatures.helpTopicProvider.ordered(sourceModel)[0];
+
+		expect(await provider.provideHelpTopic(sourceModel, IN_CELL, CancellationToken.None)).toBe('mean');
+	});
+
 	it('warns once about a provider that rejects every request', async () => {
 		// A client that is rejecting usually rejects every request, and for
 		// completion that is one per keystroke, so warning each time would bury

@@ -10,15 +10,16 @@ import * as path from 'path';
 
 // Extensions cannot share source, so a handful of modules are copied verbatim
 // between positron-r and positron-python. Each pair below must stay identical
-// modulo two differences that are normalized away before comparing: the
-// extensions indent differently (tabs, four spaces), and each vitest copy
-// imports its own extension's registry module under that extension's file name.
-// Anything else that differs is drift.
+// modulo the one difference normalized away before comparing: the extensions
+// indent differently, tabs against four spaces. Anything else is drift.
+//
+// This is also what covers the Python copy's behaviour. Only the R copy has
+// tests of its own; identical source plus this guard is what makes them hold
+// for the Python one, without running a second, identical suite.
 interface CopyPair {
 	readonly label: string;
 	readonly rCopy: string;
 	readonly pythonCopy: string;
-	readonly normalizePython?: (content: string) => string;
 }
 
 const PAIRS: readonly CopyPair[] = [
@@ -26,12 +27,6 @@ const PAIRS: readonly CopyPair[] = [
 		label: 'quarto-cells.ts / quartoCells.ts',
 		rCopy: 'positron-r/src/quarto-cells.ts',
 		pythonCopy: 'positron-python/src/client/positron/quartoCells.ts',
-	},
-	{
-		label: 'quarto-cells.vitest.ts / quartoCells.vitest.ts',
-		rCopy: 'positron-r/src/quarto-cells.vitest.ts',
-		pythonCopy: 'positron-python/src/client/positron/quartoCells.vitest.ts',
-		normalizePython: content => content.replace("from './quartoCells'", "from './quarto-cells'"),
 	},
 ];
 
@@ -45,8 +40,7 @@ function readWithWidenedTabs(relativePath: string): string {
 }
 
 describe('quartoCells copies', () => {
-	it.each(PAIRS)('keeps the Python copy in step with the R copy: $label', ({ rCopy, pythonCopy, normalizePython }) => {
-		const python = readWithWidenedTabs(pythonCopy);
-		expect(normalizePython ? normalizePython(python) : python).toBe(readWithWidenedTabs(rCopy));
+	it.each(PAIRS)('keeps the Python copy in step with the R copy: $label', ({ rCopy, pythonCopy }) => {
+		expect(readWithWidenedTabs(pythonCopy)).toBe(readWithWidenedTabs(rCopy));
 	});
 });

@@ -9,15 +9,6 @@ import { IServiceContainer } from '../../client/ioc/types';
 import { PythonStatementRangeProvider } from '../../client/positron/statementRange';
 import { mock } from './utils';
 
-// A container whose only job is to prove it was never asked. The AST path
-// needs the interpreter service from it, so a declined document must return
-// before reaching in.
-const untouchedContainer = mock<IServiceContainer>({
-    get: () => {
-        throw new Error('the service container must not be used for a declined document');
-    },
-});
-
 const LINE = 'x = 1';
 const document = mock<vscode.TextDocument>({
     lineCount: 1,
@@ -26,29 +17,42 @@ const document = mock<vscode.TextDocument>({
 });
 
 suite('PythonStatementRangeProvider', () => {
-    test('returns undefined for a declined document without consulting the interpreter', async () => {
-        const provider = new PythonStatementRangeProvider(untouchedContainer, () => true);
+    // Resolving a statement range starts by asking the container for the
+    // interpreter, so whether the container was asked is what says whether the
+    // request got past the decline guard. It throws rather than resolving, so
+    // that neither test needs a real interpreter: the provider then falls back
+    // to its regex path, which is not what either test is about.
+    let askedForServices: boolean;
+    let serviceContainer: IServiceContainer;
 
-        const result = await provider.provideStatementRange(
-            document,
-            new vscode.Position(0, 0),
-            new vscode.CancellationTokenSource().token,
-        );
-
-        assert.strictEqual(result, undefined);
+    setup(() => {
+        askedForServices = false;
+        serviceContainer = mock<IServiceContainer>({
+            get: () => {
+                askedForServices = true;
+                throw new Error('no interpreter service in this test');
+            },
+        });
     });
 
-    test('answers a document its predicate accepts', async () => {
-        // The throwing container fails the AST path, which is what sends the
-        // provider down the regex fallback that answers here.
-        const provider = new PythonStatementRangeProvider(untouchedContainer, () => false);
-
-        const result = await provider.provideStatementRange(
+    function provideStatementRange(shouldDecline: boolean) {
+        const provider = new PythonStatementRangeProvider(serviceContainer, () => shouldDecline);
+        return provider.provideStatementRange(
             document,
             new vscode.Position(0, 0),
             new vscode.CancellationTokenSource().token,
         );
+    }
 
-        assert.strictEqual(result?.code, LINE);
+    test('returns undefined for a declined document, without starting the work', async () => {
+        const result = await provideStatementRange(true);
+
+        assert.deepStrictEqual({ result, askedForServices }, { result: undefined, askedForServices: false });
+    });
+
+    test('starts the work for a document its predicate accepts', async () => {
+        await provideStatementRange(false);
+
+        assert.strictEqual(askedForServices, true);
     });
 });
