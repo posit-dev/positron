@@ -96,7 +96,8 @@ The launcher:
 - uses a short run directory under `/tmp` by default;
 - assigns unique ports for CDP and the debug endpoints;
 - converts the profile paths for the native binary on Windows;
-- waits for CDP and verifies that the app remains alive before returning.
+- waits for CDP and verifies that the app remains alive before returning;
+- keeps the renderer painting while the window is covered by passing Chromium's `--disable-backgrounding-occluded-windows` and `--disable-renderer-backgrounding`. Without them a fully occluded window stops producing frames, so every `click` and element `screenshot` times out on Playwright's stability check while keyboard input and `eval` still work.
 
 ### Arguments to pass yourself
 

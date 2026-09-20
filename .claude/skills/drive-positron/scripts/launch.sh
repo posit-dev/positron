@@ -128,8 +128,11 @@ DEFAULT_APP_ARGS=1
 
 # Supplied by the launcher, not the caller: without --disable-workspace-trust a
 # fresh profile starts in restricted mode with extensions disabled, which reads
-# as missing functionality rather than as a launch problem.
-AUTOMATION_ARGS=(--use-mock-keychain --disable-workspace-trust --skip-welcome)
+# as missing functionality rather than as a launch problem. The two Chromium
+# switches keep the renderer painting when the window is fully covered; without
+# them Playwright's actionability checks wait for a frame that never comes.
+AUTOMATION_ARGS=(--use-mock-keychain --disable-workspace-trust --skip-welcome
+	--disable-backgrounding-occluded-windows --disable-renderer-backgrounding)
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
