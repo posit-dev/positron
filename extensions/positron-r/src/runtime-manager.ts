@@ -168,7 +168,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			{
 				rBinaryPath: metadataExtra.binpath,
 				rArchitecture: metadataExtra.arch,
-				packagerMetadata: metadataExtra.packagerMetadata
+				packagerMetadata: metadataExtra.packagerMetadata,
+				workingDirectory: sessionMetadata.workingDirectory
 			});
 		const session = new RSession(runtimeMetadata,
 			sessionMetadata,

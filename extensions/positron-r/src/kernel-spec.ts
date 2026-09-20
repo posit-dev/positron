@@ -15,6 +15,7 @@ import { EXTENSION_ROOT_DIR } from './constants';
 import { findCondaExe } from './provider-conda';
 import { PackagerMetadata, isPixiMetadata, isCondaMetadata, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { findPixiExe } from './provider-pixi';
+import { findProjectRProfile } from './project-profile';
 import { LOGGER } from './extension';
 
 /**
@@ -296,7 +297,8 @@ async function capturePixiEnvVars(
  * @param rHomePath The R_HOME path for the R version
  * @param runtimeName The (display) name of the runtime
  * @param sessionMode The mode in which to create the session
- * @param options Additional options: specifically, the R binary path, architecture, and conda environment path
+ * @param options Additional options: specifically, the R binary path, architecture, conda environment path,
+ *  and the working directory the session starts in
  *
  * @returns A JupyterKernelSpec definining the kernel's path, arguments, and
  *  metadata.
@@ -309,6 +311,7 @@ export async function createJupyterKernelSpec(
 		rBinaryPath?: string;
 		rArchitecture?: string;
 		packagerMetadata?: PackagerMetadata;
+		workingDirectory?: string;
 	}): Promise<JupyterKernelSpec> {
 
 	// Path to the kernel executable
@@ -399,6 +402,22 @@ export async function createJupyterKernelSpec(
 		if (packagerMetadata.library) {
 			env['R_LIBS'] = packagerMetadata.library;
 			LOGGER.info(`Using r-versions library paths: ${packagerMetadata.library}`);
+		}
+	}
+
+	// Notebook sessions start in the notebook's folder, where R doesn't find the
+	// `.Rprofile` of the project above it (e.g. the one activating renv or rv).
+	const workingDirectory = options?.workingDirectory;
+	const userControlsProfile = env['R_PROFILE_USER'] !== undefined ||
+		process.env['R_PROFILE_USER'] !== undefined ||
+		!!config.get<Array<string>>('extraArguments')?.some(arg => arg === '--vanilla' || arg === '--no-init-file');
+	if (workingDirectory && !userControlsProfile) {
+		const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(workingDirectory));
+		const projectProfile = workspaceFolder && findProjectRProfile(workingDirectory, workspaceFolder.uri.fsPath);
+		if (projectProfile) {
+			env['R_PROFILE_USER'] = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'project-profile.R');
+			env['POSITRON_R_PROJECT_PROFILE'] = projectProfile;
+			LOGGER.info(`Using project R profile '${projectProfile}' for session in '${workingDirectory}'`);
 		}
 	}
 

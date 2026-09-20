@@ -11,7 +11,7 @@ import * as fs from 'fs';
 export { closeAllEditors, openTextDocument } from './kit-vscode';
 export { pollForSuccess, assertSelectedEditor } from './kit-assertions';
 export { toDisposable, disposeAll, withDisposables, makeTempDir, retryRm } from './kit-disposables';
-export { startR, execute } from './kit-session';
+export { getPreferredR, startR, execute } from './kit-session';
 
 export function mock<T>(obj: Partial<T>): T {
 	return obj as T;

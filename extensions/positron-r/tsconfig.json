@@ -29,6 +29,10 @@
 		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
 		// "noUnusedParameters": true,	/* Report errors on unused parameters. */
 	},
+	"exclude": [
+		"src/**/*.vitest.ts",
+		"src/**/*.vitest.tsx"
+	],
 	"include": [
 		"src/**/*",
 		"../../src/positron-dts/positron.d.ts",

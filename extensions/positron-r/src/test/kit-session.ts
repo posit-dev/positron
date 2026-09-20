@@ -11,19 +11,18 @@ import { toDisposable } from './kit-disposables';
 import { ArkLsp } from '../lsp';
 import { currentTestName } from './mocha-setup';
 
-export async function startR(sessionName?: string): Promise<[RSession, vscode.Disposable, ArkLsp]> {
+// Waits to discover the preferred R runtime and returns it.
+export async function getPreferredR(): Promise<positron.LanguageRuntimeMetadata> {
 	// There doesn't seem to be a method that resolves when a language is
 	// both discovered and ready to be started
-	let info: positron.LanguageRuntimeMetadata;
-
 	const startTime = Date.now();
 	const timeout = 30000;
 
 	while (true) {
 		try {
-			info = await positron.runtime.getPreferredRuntime('r');
+			const info = await positron.runtime.getPreferredRuntime('r');
 			if (info) {
-				break;
+				return info;
 			}
 		} catch (_) {
 			// Try again
@@ -34,9 +33,13 @@ export async function startR(sessionName?: string): Promise<[RSession, vscode.Di
 		}
 		await delay(50);
 	}
+}
+
+export async function startR(sessionName?: string): Promise<[RSession, vscode.Disposable, ArkLsp]> {
+	const info = await getPreferredR();
 
 	sessionName = currentTestName ? `Test: ${currentTestName}` : sessionName || 'Tests';
-	const session = await positron.runtime.startLanguageRuntime(info!.runtimeId, sessionName) as RSession;
+	const session = await positron.runtime.startLanguageRuntime(info.runtimeId, sessionName) as RSession;
 	positron.runtime.focusSession(session.metadata.sessionId);
 
 	const lspReady = session.waitLsp();
