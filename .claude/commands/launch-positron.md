@@ -2,51 +2,48 @@
 
 Follow this exact sequence.
 
-Steps 1 and 2 are worktree preflight. A freshly created worktree can have an
-incomplete `node_modules`, and both variants surface later as the same useless
-message: `Error: tsgo exited with code 1` right after a line claiming `0 errors`.
-Check them up front instead of decoding that.
+Step 1 is worktree preflight. It matters when `node_modules` was copied or
+partially restored rather than installed by `npm install` (a worktree seeded
+from another checkout, an interrupted copy). `npm install` then reports "up to
+date" because the package directories exist, and the build fails later with
+the unhelpful `Error: tsgo exited with code 1` right after a line claiming
+`0 errors`.
 
-1. The tsgo native binary is actually present (`npm install` does NOT restore it -
-   npm sees the package directory and reports "up to date"):
+1. Confirm the TypeScript 7 compiler binary and the `ai-lib` build output are
+   present:
 
 	```bash
-	node -e "const{createRequire}=require('module'),p=require('path'),cp=require('child_process');const tsc=p.join(p.dirname(createRequire(process.cwd()+'/package.json').resolve('@typescript/native/package.json')),'bin','tsc');cp.execFileSync(process.execPath,[tsc,'--version'],{stdio:'inherit'})"
+	node node_modules/@typescript/native/bin/tsc --version
+	[ -d ai-lib/packages/ai-config/dist ] || npm run build:ai-lib
 	```
 
-	Expected: `Version 7.x.x`. If it throws `Executable not found: .../@typescript/typescript-<platform>-<arch>/lib/tsc`,
-	delete that package directory and reinstall it:
+	Expected: `Version 7.x.x`. If the first command throws instead, the
+	per-platform package that holds the binary is broken; delete it and
+	reinstall, then re-run the check:
 
 	```bash
 	rm -rf node_modules/@typescript/typescript-<platform>-<arch> && npm install
 	```
 
-2. The `ai-lib` workspace packages are built. Without their `dist/` output,
-   watch-client fails with `Cannot find module 'ai-config/node'` and friends:
-
-	```bash
-	[ -d ai-lib/packages/ai-config/dist ] || npm run build:ai-lib
-	```
-
-3. Check if daemons are running:
+2. Check if daemons are running:
 
 	```bash
 	npm run build-ps
 	```
 
-4. If daemons are missing or `stopped`, start them in background:
+3. If daemons are missing or `stopped`, start them in background:
 
 	```bash
 	npm run build-start
 	```
 
-5. Wait for daemons to finish compiling WITHOUT errors:
+4. Wait for daemons to finish compiling WITHOUT errors:
 
 	```bash
 	npm run build-check
 	```
 
-6. If `build-check` reports errors, do not trust them until you have re-run the
+5. If `build-check` reports errors, do not trust them until you have re-run the
    daemon that produced them. `build-check` replays the daemon's last compilation
    cycle, so it keeps showing errors from before a fix you just made. Restart that
    daemon and re-check:
@@ -57,7 +54,7 @@ Check them up front instead of decoding that.
 
 	Only errors that survive the restart are real. Fix them before launching.
 
-7. Launch Positron in the background (use run_in_background=true):
+6. Launch Positron in the background (use run_in_background=true):
 
 	```bash
 	./scripts/code.sh --use-inmemory-secretstorage
@@ -72,4 +69,4 @@ Check them up front instead of decoding that.
 	SecretStorage (GitHub sign-in, Assistant/Copilot tokens) needs re-authenticating
 	each launch. Drop the flag for a session where you need a sign-in to stick.
 
-8. IMMEDIATELY respond with a brief confirmation like "Positron launched in background" - do NOT wait for verification or monitor output.
+7. IMMEDIATELY respond with a brief confirmation like "Positron launched in background" - do NOT wait for verification or monitor output.
