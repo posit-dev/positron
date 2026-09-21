@@ -56,6 +56,17 @@ async function allowUvInstall(): Promise<boolean> {
 }
 
 /**
+ * Echoed by the installer command only when the script exits 0.
+ *
+ * `exec` resolves with stdout and stderr but not the exit status, and it rejects only when the
+ * process cannot be spawned, so a script that fails partway still resolves. The uv installer also
+ * writes its normal progress to stderr, so a non-empty stderr does not mean failure either. Adding
+ * a marker the shell prints only on success is what separates a real failure, such as an
+ * unwritable install directory, from a noisy success.
+ */
+export const UV_INSTALL_OK_MARKER = 'positron-uv-install-ok';
+
+/**
  * Runs the official uv installer script. The caller is responsible for getting consent
  * first, so that nothing reports progress on an install the user has not agreed to.
  *
@@ -70,16 +81,27 @@ async function runUvInstaller(): Promise<boolean> {
     traceInfo('Installing uv...');
 
     try {
+        let result;
         if (process.platform === 'win32') {
-            await exec('powershell', [
+            result = await exec('powershell', [
                 '-ExecutionPolicy',
                 'ByPass',
                 '-c',
-                'irm https://astral.sh/uv/install.ps1 | iex',
+                `$ErrorActionPreference = "Stop"; irm https://astral.sh/uv/install.ps1 | iex; Write-Output "${UV_INSTALL_OK_MARKER}"`,
             ]);
         } else {
-            await exec('sh', ['-c', 'curl -LsSf https://astral.sh/uv/install.sh | sh']);
+            result = await exec('sh', [
+                '-c',
+                `curl -LsSf https://astral.sh/uv/install.sh | sh && echo ${UV_INSTALL_OK_MARKER}`,
+            ]);
         }
+
+        // The marker is the only signal that the script exited 0; see its declaration.
+        if (!result.stdout.includes(UV_INSTALL_OK_MARKER)) {
+            traceError(`Failed to install uv: ${result.stderr?.trim() || result.stdout.trim()}`);
+            return false;
+        }
+
         traceInfo('uv installed successfully');
         // Clear caches so that subsequent calls detect the newly installed uv
         resetUvCache();
@@ -122,8 +144,10 @@ export async function ensureUvInstalled(onInstalling?: () => void): Promise<Ensu
     onInstalling?.();
 
     if (!(await runUvInstaller())) {
-        // Installation failed - exit silently
-        return { ok: false };
+        // The installer's own output went to the log, which the message points the user at. A
+        // failure here is not the same as uv landing somewhere unreachable, so it must not fall
+        // through to the "installed but could not be found" message below.
+        return { ok: false, error: InterpreterQuickPickList.UvInstall.uvInstallFailed };
     }
 
     // Verify uv is now reachable. The installer drops the binary at a known

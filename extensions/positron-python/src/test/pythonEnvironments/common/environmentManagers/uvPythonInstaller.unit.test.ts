@@ -27,6 +27,7 @@ import {
     showUvInstallError,
     ensureUvInstalled,
     ensureUvInstalledWithProgress,
+    UV_INSTALL_OK_MARKER,
 } from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import { mockedPositronNamespaces, mockedVSCodeNamespaces } from '../../../vscode-mock';
 import { Common, GlobalEnvironment, InterpreterQuickPickList } from '../../../../client/common/utils/localize';
@@ -125,12 +126,37 @@ suite('UV Python Installer Tests', () => {
             when(
                 mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
             ).thenReturn(Promise.resolve(InterpreterQuickPickList.UvInstall.confirmUvInstallYes) as any);
-            execStub.resolves({ stdout: '', stderr: '' });
+            execStub.resolves({ stdout: UV_INSTALL_OK_MARKER, stderr: '' });
 
             assert.deepStrictEqual(await ensureUvInstalled(), {
                 ok: false,
                 error: InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall,
             });
+        });
+
+        test('An installer that fails reports the failure rather than uv being unreachable', async () => {
+            isUvInstalledStub.resolves(false);
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenReturn(Promise.resolve(InterpreterQuickPickList.UvInstall.confirmUvInstallYes) as any);
+            // No marker: the script exited non-zero, which `exec` resolves rather than throws.
+            execStub.resolves({ stdout: '', stderr: 'mkdtemp failed: Permission denied' });
+
+            assert.deepStrictEqual(await ensureUvInstalled(), {
+                ok: false,
+                error: InterpreterQuickPickList.UvInstall.uvInstallFailed,
+            });
+        });
+
+        test('An installer that fails does not clear the uv cache', async () => {
+            isUvInstalledStub.resolves(false);
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenReturn(Promise.resolve(InterpreterQuickPickList.UvInstall.confirmUvInstallYes) as any);
+            execStub.resolves({ stdout: '', stderr: 'mkdtemp failed: Permission denied' });
+
+            await ensureUvInstalled();
+            assert.strictEqual((uv.resetUvCache as sinon.SinonStub).called, false);
         });
 
         test('A successful install reports ok and reports installing', async () => {
@@ -139,7 +165,7 @@ suite('UV Python Installer Tests', () => {
             when(
                 mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
             ).thenReturn(Promise.resolve(InterpreterQuickPickList.UvInstall.confirmUvInstallYes) as any);
-            execStub.resolves({ stdout: '', stderr: '' });
+            execStub.resolves({ stdout: UV_INSTALL_OK_MARKER, stderr: '' });
             const onInstalling = sinon.stub();
 
             assert.deepStrictEqual(await ensureUvInstalled(onInstalling), { ok: true });
@@ -204,7 +230,7 @@ suite('UV Python Installer Tests', () => {
             verify(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).once();
             assert.strictEqual(progressSettled, false, 'progress stays open while the installer runs');
 
-            finishInstaller({ stdout: '', stderr: '' });
+            finishInstaller({ stdout: UV_INSTALL_OK_MARKER, stderr: '' });
             assert.deepStrictEqual(await pending, { ok: true });
             await new Promise((resolve) => setImmediate(resolve));
             assert.strictEqual(progressSettled, true, 'progress closes once the install finishes');
@@ -616,7 +642,22 @@ suite('UV Python Installer Tests', () => {
             assert.strictEqual(result.error, 'Cancelled');
         });
 
-        test('Exits silently when uv installation fails or is declined', async () => {
+        test('Exits silently when the user declines the uv install', async () => {
+            // uv not installed initially
+            isUvInstalledStub.resolves(false);
+            // User dismisses the consent prompt.
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenResolve(undefined as any);
+
+            const result = await installPythonViaUv();
+
+            assert.strictEqual(result.success, false);
+            // Declining is a choice, not a failure, so it carries no error message.
+            assert.strictEqual(result.error, undefined);
+        });
+
+        test('Reports the failure when the uv installer fails', async () => {
             // uv not installed initially
             isUvInstalledStub.resolves(false);
             // uv install command fails
@@ -625,8 +666,7 @@ suite('UV Python Installer Tests', () => {
             const result = await installPythonViaUv();
 
             assert.strictEqual(result.success, false);
-            // Should not have an error message - exit silently
-            assert.strictEqual(result.error, undefined);
+            assert.strictEqual(result.error, InterpreterQuickPickList.UvInstall.uvInstallFailed);
         });
 
         test('Continues after uv installation even if PATH not updated in current process', async () => {
@@ -635,7 +675,7 @@ suite('UV Python Installer Tests', () => {
             // After install, uv is located (e.g. via its known install location)
             isUvInstalledStub.resolves(true);
             // uv install succeeds
-            execStub.onCall(0).resolves({ stdout: '' }); // uv install
+            execStub.onCall(0).resolves({ stdout: UV_INSTALL_OK_MARKER }); // uv install
             // After install, getAvailablePythonVersions returns versions
             getAvailablePythonVersionsStub.resolves([
                 { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },
@@ -659,7 +699,7 @@ suite('UV Python Installer Tests', () => {
         test('Returns actionable error when uv cannot be found after installation', async () => {
             // uv not installed initially, install command succeeds...
             isUvInstalledStub.onFirstCall().resolves(false);
-            execStub.resolves({ stdout: '' });
+            execStub.resolves({ stdout: UV_INSTALL_OK_MARKER });
             // ...but uv still cannot be located afterwards (e.g. installed outside any
             // known location and not on the current process PATH).
             isUvInstalledStub.resolves(false);
@@ -1100,7 +1140,7 @@ suite('UV Python Installer Tests', () => {
             // After install, uv is located (e.g. via its known install location)
             isUvInstalledStub.resolves(true);
             // uv install succeeds (sh command)
-            execStub.onCall(0).resolves({ stdout: '' });
+            execStub.onCall(0).resolves({ stdout: UV_INSTALL_OK_MARKER });
             // After install, getAvailablePythonVersions returns versions
             getAvailablePythonVersionsStub.resolves([
                 { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },

@@ -308,7 +308,9 @@ export namespace InterpreterQuickPickList {
         export const configureSuccess = (version: string) =>
             l10n.t('Virtual environment created with Python {0}', version);
         export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
-        export const uvInstallFailed = l10n.t('Failed to install uv');
+        export const uvInstallFailed = l10n.t(
+            'Failed to install uv. See the Python Language Pack output for details.',
+        );
         export const createVenvTitle = l10n.t('Create a Virtual Environment');
         export const createVenvPrompt = (version: string, workspaceFolder: string) =>
             l10n.t(
