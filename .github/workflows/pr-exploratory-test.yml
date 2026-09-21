@@ -1,0 +1,119 @@
+name: "Test: Exploratory (dispatch)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch to explore."
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+concurrency:
+  group: pr-exploratory-${{ inputs.ref }}
+  cancel-in-progress: true
+
+jobs:
+  explore:
+    name: explore
+    timeout-minutes: 90
+    runs-on: ubuntu-latest-8x
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      options: --user 0:0 --init
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+      HOME: /root
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      RETICULATE_PYTHON: /root/.venv/bin/python
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Resolve diff base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          # fetch-depth: 0 fetched all branches, so origin/main is present.
+          BASE=$(git merge-base origin/main HEAD)
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Diff base: $BASE"
+          git --no-pager diff "$BASE"...HEAD --stat
+
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v4
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'
+          DOCKER_CONFIG: /tmp/.docker
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: bash scripts/install-npm-parallel.sh
+
+      - name: Download binaries (Ark, Kallichore)
+        uses: ./.github/actions/download-binaries
+        with:
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
+
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Prelaunch
+        run: npm run prelaunch
+
+      - name: Set permissions on SUID sandbox helper
+        run: |
+          ELECTRON_ROOT=.build/electron
+          sudo chown root $ELECTRON_ROOT/chrome-sandbox
+          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+          stat $ELECTRON_ROOT/chrome-sandbox
+
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Prove the build is the branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d out || { echo "out/ missing -- compile did not run"; exit 1; }
+          echo "out/ present, $(find out -name '*.js' | wc -l) js files"
