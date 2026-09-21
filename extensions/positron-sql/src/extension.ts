@@ -381,8 +381,10 @@ class SqlSession implements vscode.Disposable {
 		switch (outcome.kind) {
 			case 'executed':
 				// Remembered so that a file whose driver offers both languages is asked once
-				// rather than every time no session happens to be in the foreground.
-				this._selection.setLanguage(document.uri, outcome.binding.languageId);
+				// rather than every time no session happens to be in the foreground. A file run in
+				// a SQL console remembers that the same way: it keeps going there while that
+				// console is open, without the console having to stay in the foreground.
+				this._selection.setLanguage(document.uri, outcome.languageId);
 				// Only for a statement the cursor was in. A selection is what the user chose to
 				// run, and moving off it would take their selection away.
 				if (target.advance) {
@@ -407,6 +409,16 @@ class SqlSession implements vscode.Disposable {
 				void vscode.window.showWarningMessage(vscode.l10n.t(
 					"Positron cannot open {0} inside a language session, so statements cannot be run against it.",
 					connection.name,
+				));
+				break;
+
+			case 'not-run':
+				// The SQL console the statement was headed for did not take it -- closed between
+				// the key press and the statement reaching it, most likely. Nothing ran, and
+				// nothing was quietly run somewhere else instead, which is the part worth saying.
+				void vscode.window.showWarningMessage(vscode.l10n.t(
+					"The {0} console did not take the statement, so it was not run.",
+					outcome.languageId,
 				));
 				break;
 
