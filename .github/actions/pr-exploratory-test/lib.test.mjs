@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -93,4 +93,24 @@ test('buildShotsBaseUrl trims exactly one trailing slash', () => {
 
 test('buildShotsBaseUrl returns empty string when no CDN base is configured', () => {
 	assert.equal(buildShotsBaseUrl(''), '');
+});
+
+test('parsePosIntEnv returns the parsed value for a valid positive integer string', () => {
+	assert.equal(parsePosIntEnv('MAX_TURNS', 200, '87'), 87);
+});
+
+test('parsePosIntEnv falls back to the default for an unset value', () => {
+	assert.equal(parsePosIntEnv('MAX_TURNS', 200, undefined), 200);
+});
+
+test('parsePosIntEnv falls back to the default for an empty string', () => {
+	assert.equal(parsePosIntEnv('MAX_TURNS', 200, ''), 200);
+});
+
+test('parsePosIntEnv falls back to the default for "0"', () => {
+	assert.equal(parsePosIntEnv('MAX_TURNS', 200, '0'), 200);
+});
+
+test('parsePosIntEnv falls back to the default for a non-numeric string', () => {
+	assert.equal(parsePosIntEnv('MAX_TURNS', 200, 'abc'), 200);
 });

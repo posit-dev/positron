@@ -39,4 +39,9 @@ runs:
           echo "upload-report-to-s3: source-dir resolved to an empty string. Refusing to upload; this would otherwise become 'aws s3 cp \"/.\" ...' and ship the container root filesystem." >&2
           exit 1
         fi
-        aws s3 cp "$SOURCE_DIR/." s3://positron-test-reports/${{ inputs.report-dir }} --recursive
+        REPORT_DIR="${{ inputs.report-dir }}"
+        if [[ -z "$REPORT_DIR" ]]; then
+          echo "upload-report-to-s3: report-dir resolved to an empty string. Refusing to upload; this would otherwise ship to the bucket root." >&2
+          exit 1
+        fi
+        aws s3 cp "$SOURCE_DIR/." "s3://positron-test-reports/$REPORT_DIR" --recursive

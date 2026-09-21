@@ -9,7 +9,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl } from './lib.mjs';
+import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -20,9 +20,12 @@ const BRANCH = mustEnv('BRANCH');
 const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
-const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200);
+const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
+// Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
+// glibc on Linux): action.yml installs @anthropic-ai/claude-code globally
+// and passes the resolved path here.
 const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
 // Fails fast with a named error instead of letting the SDK surface an opaque
 // auth error when a 1Password resolution comes back empty.
@@ -37,16 +40,19 @@ function mustEnv(name) {
 	return v;
 }
 
-function parsePosIntEnv(name, fallback) {
-	const raw = process.env[name];
-	if (raw === undefined || raw === '') { return fallback; }
-	const n = Number(raw);
-	if (!Number.isInteger(n) || n <= 0) {
-		console.warn(`[exploratory] WARN: invalid ${name}=${raw}, falling back to default ${fallback}`);
-		return fallback;
-	}
-	return n;
+// Base overrides always apply; the screenshot-linking override is appended
+// only when a CDN base URL is actually configured, so an empty
+// REPORT_BASE_URL never puts an unusable "published at ``" sentence into the
+// prompt (see buildShotsBaseUrl in lib.mjs).
+const CI_OVERRIDES = [
+	'**You are the tester.** Ignore "Run it in a subagent". Do not delegate; do the exploring yourself.',
+	`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
+	'**Do NOT clean up.** Do not run `stop.sh`, do not close the Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded.',
+];
+if (REPORT_BASE_URL) {
+	CI_OVERRIDES.push(`**Link screenshots with their public URL.** The run directory is published at \`${REPORT_BASE_URL}\`. Where the skill says to cite a shot as \`[shots/<file>](shots/<file>)\`, write \`[shots/<file>](${REPORT_BASE_URL}/shots/<file>)\` instead, and embed with \`![](${REPORT_BASE_URL}/shots/<file>)\`. A relative path is unreachable to anyone reading the report outside this container.`);
 }
+const CI_OVERRIDES_LIST = CI_OVERRIDES.map((text, i) => `${i + 1}. ${text}`).join('\n');
 
 const CI_TAIL = `
 
@@ -54,12 +60,9 @@ const CI_TAIL = `
 
 # CI run
 
-You are running inside a GitHub Actions container. Three overrides to the skill above:
+You are running inside a GitHub Actions container. ${CI_OVERRIDES.length} override${CI_OVERRIDES.length === 1 ? '' : 's'} to the skill above:
 
-1. **You are the tester.** Ignore "Run it in a subagent". Do not delegate; do the exploring yourself.
-2. **Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.
-3. **Do NOT clean up.** Do not run \`stop.sh\`, do not close the Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded.
-4. **Link screenshots with their public URL.** The run directory is published at \`${REPORT_BASE_URL}\`. Where the skill says to cite a shot as \`[shots/<file>](shots/<file>)\`, write \`[shots/<file>](${REPORT_BASE_URL}/shots/<file>)\` instead, and embed with \`![](${REPORT_BASE_URL}/shots/<file>)\`. A relative path is unreachable to anyone reading the report outside this container.
+${CI_OVERRIDES_LIST}
 
 Positron is already launched and a Playwright session named \`positron\` is already attached to it on CDP port ${CDP_PORT}. Do not launch it again. Drive it from the repository root at \`${REPO_ROOT}\` with:
 
@@ -117,6 +120,11 @@ async function main() {
 			allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
 			permissionMode: 'bypassPermissions',
 			maxTurns: MAX_TURNS,
+			// Extended thinking is disabled. With thinking on (the adaptive
+			// default), cancelling a parallel tool-call batch corrupts the
+			// in-flight thinking blocks and wedges the session with a repeating
+			// 400 ("thinking blocks ... cannot be modified", claude-code#63192).
+			// The report is built from text blocks only, so no output is lost.
 			thinking: { type: 'disabled' },
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},

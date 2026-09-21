@@ -43,14 +43,6 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - name: Load secret
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
-
       - name: Resolve diff base
         id: base
         shell: bash
@@ -139,7 +131,7 @@ jobs:
           mkdir -p /tmp/exploratory-workspace
           echo "# scratch" > /tmp/exploratory-workspace/README.md
 
-      - name: Prove the build is the branch
+      - name: Check compiled output exists
         shell: bash
         run: |
           set -euo pipefail
@@ -157,11 +149,10 @@ jobs:
         run: |
           set -euo pipefail
           echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
-          echo "REPORT_BASE_URL=https://d38p2avprg8il3.cloudfront.net/$REPORT_DIR" >> "$GITHUB_ENV"
+          echo "REPORT_BASE_URL=${REPORT_URL%/index.html}" >> "$GITHUB_ENV"
           mkdir -p /tmp/exploratory-run/shots
 
       - name: Launch Positron
-        id: launch
         shell: bash
         run: |
           set -euo pipefail
@@ -177,9 +168,6 @@ jobs:
             --password-store=basic)
           echo "$LAUNCH_JSON"
           echo "CDP_PORT=$(echo "$LAUNCH_JSON" | jq -r .cdpPort)" >> "$GITHUB_ENV"
-          echo "RUN_DIR=$(echo "$LAUNCH_JSON" | jq -r .runDir)" >> "$GITHUB_ENV"
-          echo "POSITRON_LOG=$(echo "$LAUNCH_JSON" | jq -r .logFile)" >> "$GITHUB_ENV"
-          echo "POSITRON_PID=$(echo "$LAUNCH_JSON" | jq -r .pid)" >> "$GITHUB_ENV"
 
       - name: Attach Playwright
         shell: bash
@@ -193,6 +181,14 @@ jobs:
           npx @playwright/cli -s=positron screenshot --filename="$EXPLORE_DIR/attach-proof.png"
           test -s "$EXPLORE_DIR/attach-proof.png" || { echo "screenshot empty"; exit 1; }
 
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
       - name: Explore
         uses: ./.github/actions/pr-exploratory-test
         with:
@@ -205,6 +201,18 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
 
+      - name: Stage publishable run directory
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/exploratory-publish
+          mkdir -p /tmp/exploratory-publish
+          if [ -d /tmp/exploratory-run ]; then
+            cp -a /tmp/exploratory-run/. /tmp/exploratory-publish/
+            rm -f /tmp/exploratory-publish/actions.log
+          fi
+
       - name: Upload run directory to S3
         id: s3-upload
         if: always()
@@ -213,10 +221,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
-          source-dir: /tmp/exploratory-run
+          source-dir: /tmp/exploratory-publish
 
       - name: Warn if S3 upload failed
-        if: always() && steps.s3-upload.outcome == 'failure'
+        if: always() && steps.s3-upload.outcome != 'success'
         shell: bash
         run: |
           set -euo pipefail

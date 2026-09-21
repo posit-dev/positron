@@ -42,14 +42,29 @@ export function buildCostRecord(message) {
 /**
  * Normalize the CDN base URL used to link screenshots, trimming a trailing
  * slash so `${base}/shots/<file>` never doubles up on `//`. Empty input
- * (no CDN configured) passes through as empty, which callers use to fall
- * back to a relative link instead of a broken absolute one.
+ * passes through unchanged (still an empty string); callers must check for
+ * that themselves and omit any absolute-link instruction rather than embed
+ * an empty URL.
  */
 export function buildShotsBaseUrl(reportBaseUrl) {
 	if (!reportBaseUrl) {
 		return '';
 	}
 	return reportBaseUrl.endsWith('/') ? reportBaseUrl.slice(0, -1) : reportBaseUrl;
+}
+
+/**
+ * Parse a positive-integer env var. Falls back to `fallback` (with a logged
+ * warning) for unset, empty, NaN, non-integer, or non-positive values.
+ */
+export function parsePosIntEnv(name, fallback, rawValue) {
+	if (rawValue === undefined || rawValue === '') { return fallback; }
+	const n = Number(rawValue);
+	if (!Number.isInteger(n) || n <= 0) {
+		console.warn(`[exploratory] WARN: invalid ${name}=${rawValue}, falling back to default ${fallback}`);
+		return fallback;
+	}
+	return n;
 }
 
 /** One-line footer for the step summary. */
