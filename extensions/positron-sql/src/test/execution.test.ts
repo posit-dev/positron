@@ -14,6 +14,7 @@ import {
 	consoleSessionFor,
 	ExecutionApi,
 	holdsVariable,
+	sqlConsoleLanguages,
 	StatementRunner,
 } from '../execution';
 import { ConnectionRef } from '../schema';
@@ -74,6 +75,68 @@ suite('chooseLanguage', () => {
 	test('a driver that generates no connection code has no language at all', () => {
 		// Its connections can be browsed in the pane, but there is no way to hand one to a session.
 		assert.deepStrictEqual(chooseLanguage([], 'r', 'r'), { kind: 'none' });
+	});
+
+	test('a SQL console in front of the user takes the statement', () => {
+		// It speaks the file's own language. Someone working in one who runs a statement means it,
+		// on the same terms as someone working in an R console.
+		assert.deepStrictEqual(
+			chooseLanguage(['python', 'r'], 'ggsql', 'r', ['ggsql']),
+			{ kind: 'language', languageId: 'ggsql' },
+		);
+	});
+
+	test('a SQL console needs no support from the driver', () => {
+		// Nothing about that route goes through the driver: there is no connection code to
+		// generate, so a driver that generates none is no obstacle to it.
+		assert.deepStrictEqual(
+			chooseLanguage([], 'ggsql', undefined, ['ggsql']),
+			{ kind: 'language', languageId: 'ggsql' },
+		);
+	});
+
+	test('a file last run in a SQL console keeps going there', () => {
+		assert.deepStrictEqual(
+			chooseLanguage(['python', 'r'], undefined, 'ggsql', ['ggsql']),
+			{ kind: 'language', languageId: 'ggsql' },
+		);
+	});
+
+	test('the session in front of the user still wins over a remembered SQL console', () => {
+		assert.deepStrictEqual(
+			chooseLanguage(['python', 'r'], 'r', 'ggsql', ['ggsql']),
+			{ kind: 'language', languageId: 'r' },
+		);
+	});
+
+	test('a SQL console is not offered as an answer to the question', () => {
+		// It is reached by working in one or by having run this file in one, both of which say
+		// something about what the user meant. A third entry in the pick says nothing, and names a
+		// route that ignores the connection the pick is about.
+		assert.deepStrictEqual(
+			chooseLanguage(['python', 'r'], undefined, undefined, ['ggsql']),
+			{ kind: 'ask', candidates: ['python', 'r'] },
+		);
+	});
+});
+
+suite('sqlConsoleLanguages', () => {
+
+	test('a language with a console open is available', () => {
+		assert.deepStrictEqual(sqlConsoleLanguages([session('gg', 'ggsql')]), ['ggsql']);
+	});
+
+	test('a language with no session is not, so nothing is started on the user\'s behalf', () => {
+		// The file names a connection a new kernel would not be connected to, and the user pressed
+		// a key meaning "run this", not "open a session".
+		assert.deepStrictEqual(sqlConsoleLanguages([session('r-session', 'r')]), []);
+	});
+
+	test('a notebook session does not count', () => {
+		assert.deepStrictEqual(
+			sqlConsoleLanguages([session('nb', 'ggsql', positron.LanguageRuntimeSessionMode.Notebook)]),
+			[],
+		);
 	});
 });
 
@@ -382,6 +445,84 @@ suite('StatementRunner', () => {
 		assert.strictEqual(calls.connectedWith[0]?.languageId, 'python');
 	});
 
+	test('a SQL console in front of the user runs the statement as the user wrote it', async () => {
+		// It parses SQL itself and holds its own connection, so there is nothing to bind and no
+		// query code for the driver to write.
+		const { runner, calls } = harness(inGgsqlConsole());
+
+		const outcome = await runner.run(await document(), CONNECTION, 'SELECT 1', undefined);
+
+		assert.strictEqual(outcome.kind, 'executed');
+		assert.deepStrictEqual(calls.executed, [{
+			languageId: 'ggsql',
+			sessionId: 'ggsql-session',
+			code: 'SELECT 1',
+		}]);
+		assert.deepStrictEqual(calls.connectedWith, []);
+		assert.deepStrictEqual(calls.registered, []);
+		assert.deepStrictEqual(calls.picked, []);
+		assert.deepStrictEqual(calls.asked, []);
+	});
+
+	test('a SQL console run is what the file remembers', async () => {
+		const { runner } = harness(inGgsqlConsole());
+
+		const outcome = await runner.run(await document(), CONNECTION, 'SELECT 1', undefined);
+
+		assert.strictEqual(outcome.kind === 'executed' && outcome.languageId, 'ggsql');
+	});
+
+	test('a file last run in a SQL console goes back to it without it being in front', async () => {
+		const { runner, calls } = harness({
+			foreground: undefined,
+			sessions: [session('ggsql-session', 'ggsql'), session('r-session', 'r')],
+		});
+
+		await runner.run(await document(), CONNECTION, 'SELECT 1', 'ggsql');
+
+		assert.deepStrictEqual(calls.executed, [{
+			languageId: 'ggsql',
+			sessionId: 'ggsql-session',
+			code: 'SELECT 1',
+		}]);
+	});
+
+	test('a remembered SQL console that has since closed falls back to the connection', async () => {
+		// Nothing is started on the user's behalf, so the run goes the ordinary way: into the
+		// session that is actually open, through the connection the file names.
+		const { runner, calls } = harness();
+
+		await runner.run(await document(), CONNECTION, 'SELECT 1', 'ggsql');
+
+		assert.deepStrictEqual(calls.executed, [{
+			languageId: 'r',
+			sessionId: 'r-session',
+			code: 'DBI::dbGetQuery(con, "SELECT 1")',
+		}]);
+	});
+
+	test('a SQL console that will not take the statement is reported, not run around', async () => {
+		// Closed between the key press and the statement reaching it. Falling back to the ordinary
+		// route would connect this database into an R session instead, which is not what working in
+		// a SQL console asked for; an exception would be reported as a failed keypress.
+		const { runner } = harness({
+			...inGgsqlConsole(),
+			executeCode: () => Promise.reject(new Error('no console instance for that session')),
+		});
+
+		const outcome = await runner.run(await document(), CONNECTION, 'SELECT 1', undefined);
+
+		assert.deepStrictEqual(outcome, { kind: 'not-run', languageId: 'ggsql' });
+	});
+
+	/** The fixture with a ggsql console open and in front of the user, beside the R session. */
+	function inGgsqlConsole() {
+		return {
+			foreground: session('ggsql-session', 'ggsql'),
+			sessions: [session('ggsql-session', 'ggsql'), session('r-session', 'r')],
+		};
+	}
+
 	/**
 	 * A runner over a stubbed Positron. The fixture is an R session that already holds this
 	 * connection as `con`, which is the case that must not prompt; each option replaces one part of
@@ -399,6 +540,8 @@ suite('StatementRunner', () => {
 		queryCode?: string;
 		foreground?: positron.BaseLanguageRuntimeSession;
 		sessions?: positron.BaseLanguageRuntimeSession[];
+		/** What submitting the code does, for the case where the console does not take it. */
+		executeCode?: () => Thenable<unknown>;
 	} = {}) {
 		const held: positron.DataConnectionBinding = {
 			profileId: TEST_PROFILE,
@@ -462,7 +605,11 @@ suite('StatementRunner', () => {
 			},
 			settle: async (languageId, sessionId) => { calls.settled.push({ languageId, sessionId }); },
 			executeCode: async (languageId, code, sessionId) => {
+				if (options.executeCode) {
+					return options.executeCode();
+				}
 				calls.executed.push({ languageId, sessionId, code });
+				return undefined;
 			},
 			pickLanguage: async candidates => {
 				calls.asked.push(candidates);
