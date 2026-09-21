@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -102,6 +102,17 @@
 /* When summary is on right, right column needs space for action bar */
 .data-explorer-panel .data-explorer.summary-on-right .right-column {
 	grid-template-rows: [summary-row-action-bar] 36px [data-grid] 1fr [end-rows];
+}
+
+/*
+ * While the summary panel is still loading it has no action bar -- there is nothing yet to sort or
+ * filter -- so whichever column holds it gives the row back. The panel's grid then starts at the
+ * top of the column, level with the data grid beside it, which is what lines their two progress
+ * indicators up with each other.
+ */
+.data-explorer-panel .data-explorer.summary-on-left.summary-loading .left-column,
+.data-explorer-panel .data-explorer.summary-on-right.summary-loading .right-column {
+	grid-template-rows: [data-grid] 1fr [end-rows];
 }
 
 .data-explorer-panel .data-explorer .right-column .data-grid-container {

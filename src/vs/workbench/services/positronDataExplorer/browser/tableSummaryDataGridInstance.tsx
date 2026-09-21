@@ -86,6 +86,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	private _initialLoadComplete = false;
 
+	/**
+	 * Whether the layout entries have been applied, which is what tells the panel it knows how many
+	 * rows it has -- one per column of the table -- and so has something it can lay out.
+	 */
+	private _layoutEntriesApplied = false;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -209,6 +215,16 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	get rows() {
 		return this._tableSummaryCache.columns;
+	}
+
+	/**
+	 * Gets a value which indicates whether the panel does not yet know enough to lay itself out
+	 * correctly. It has one row per column of the table, so it can't lay out until it knows how many
+	 * columns there are -- which on a slow backend means waiting on the table's shape, or on the
+	 * search that stands in for it while a search or a sort is applied.
+	 */
+	override get loading() {
+		return !this._layoutEntriesApplied;
 	}
 
 	/**
@@ -468,6 +484,16 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Returns a value which indicates whether the backend was asked for the specified column's
+	 * profile and did not deliver it, so nothing further is on its way for that column.
+	 * @param columnIndex The column index.
+	 * @returns A value which indicates whether the column's profile failed to load.
+	 */
+	columnProfileFailed(columnIndex: number) {
+		return this._tableSummaryCache.columnProfileFailed(columnIndex);
+	}
+
+	/**
 	 * Gets the column profile null percent for the specified column index.
 	 * @param columnIndex The column index.
 	 * @returns The column profile null percent for the specified column index
@@ -705,6 +731,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._rowLayoutManager.setEntries(combinedEntries.length, undefined, combinedEntries);
 		}
 
+		// The panel now knows how many rows it has, which is everything it needs to lay itself out.
+		// Until this point it has nothing it can paint, so it shows a progress indicator instead.
+		const layoutEntriesWereApplied = this._layoutEntriesApplied;
+		this._layoutEntriesApplied = true;
+
 		// Ensures the user is not scrolled off the screen
 		// For example: this can happen if the user is scrolled to the end of the table,
 		// adds a search filter, which results in a single entry. We need to reset the
@@ -713,6 +744,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._verticalScrollOffset = 0;
 		} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
 			this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+		}
+
+		// Announce coming out of the progress indicator ourselves rather than leaving it to the
+		// cache update that normally follows: a table with no columns has no rows to fetch, so
+		// fetchData returns without touching the cache and the indicator would turn forever.
+		if (!layoutEntriesWereApplied) {
+			this.fireOnDidUpdateEvent();
 		}
 	}
 

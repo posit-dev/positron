@@ -56,6 +56,29 @@ export const DataExplorer = () => {
 	const [columnsWidth, setColumnsWidth] = useState(0);
 	const [animateColumnsWidth, setAnimateColumnsWidth] = useState(false);
 	const [columnsCollapsed, setColumnsCollapsed] = useState(context.instance.isSummaryCollapsed);
+	const [summaryLoading, setSummaryLoading] = useState(
+		() => context.instance.tableSchemaDataGridInstance.loading
+	);
+
+	// Track whether the summary panel has anything to show yet. Until it does it paints a progress
+	// indicator, and there is nothing for its action bar to sort or filter -- so the action bar and
+	// the row it occupies both come away, which is also what keeps the panel's indicator level with
+	// the data grid's rather than 36px below it.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Pick up where the instance stands now, in case it changed before this ran, and follow it
+		// from here.
+		const summaryInstance = context.instance.tableSchemaDataGridInstance;
+		setSummaryLoading(summaryInstance.loading);
+		disposableStore.add(summaryInstance.onDidUpdate(() =>
+			setSummaryLoading(summaryInstance.loading)
+		));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [context.instance.tableSchemaDataGridInstance]);
 
 	// Dynamic column width layout.
 	useLayoutEffect(() => {
@@ -327,7 +350,8 @@ export const DataExplorer = () => {
 			className={positronClassNames(
 				'data-explorer',
 				{ 'summary-on-left': layout === PositronDataExplorerLayout.SummaryOnLeft },
-				{ 'summary-on-right': layout === PositronDataExplorerLayout.SummaryOnRight }
+				{ 'summary-on-right': layout === PositronDataExplorerLayout.SummaryOnRight },
+				{ 'summary-loading': summaryLoading }
 			)}
 		>
 			<div ref={columnNameExemplarRef} className='column-name-exemplar' />
@@ -335,7 +359,7 @@ export const DataExplorer = () => {
 			<div ref={sortIndexExemplarRef} className='sort-index-exemplar' />
 
 			<div ref={leftColumnRef} className='left-column'>
-				{layout === PositronDataExplorerLayout.SummaryOnLeft &&
+				{layout === PositronDataExplorerLayout.SummaryOnLeft && !summaryLoading &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
@@ -375,7 +399,7 @@ export const DataExplorer = () => {
 				<div className='collapsed-right-spacer' />
 			}
 			<div ref={rightColumnRef} className='right-column'>
-				{layout !== PositronDataExplorerLayout.SummaryOnLeft &&
+				{layout !== PositronDataExplorerLayout.SummaryOnLeft && !summaryLoading &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>

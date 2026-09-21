@@ -146,9 +146,12 @@ export class TableDataCache extends Disposable {
 	private _rows = 0;
 
 	/**
-	 * Flag if table has row labels
+	 * Whether the table has row labels, or undefined until the table's shape has been read. The
+	 * three states are distinct to callers: a labeled table's labels are fetched separately and
+	 * arrive later, an unlabeled table's row numbers are known immediately, and until the shape has
+	 * been read neither is true.
 	 */
-	private _hasRowLabels = false;
+	private _hasRowLabels: boolean | undefined;
 
 	/**
 	 * Gets or sets the column width calculators.
@@ -706,14 +709,23 @@ export class TableDataCache extends Disposable {
 	/**
 	 * Gets the row label for the specified row index.
 	 * @param rowIndex The row index.
-	 * @returns The row label for the specified column index.
+	 * @returns The row label for the specified row index, or undefined if it isn't known yet.
 	 */
-	getRowLabel(rowIndex: number) {
-		if (this._hasRowLabels) {
-			return this._rowLabelCache.get(rowIndex) ?? `...`;
-		} else {
-			return `${rowIndex}`;
+	getRowLabel(rowIndex: number): string | undefined {
+		// The table's shape hasn't been read, so whether the rows are labeled isn't known yet.
+		// Answering with the row number would be a guess that a labeled table then replaces.
+		if (this._hasRowLabels === undefined) {
+			return undefined;
 		}
+
+		// A labeled table's labels are fetched separately, so this one may not have arrived yet.
+		if (this._hasRowLabels) {
+			return this._rowLabelCache.get(rowIndex);
+		}
+
+		// An unlabeled table's rows are identified by their number, which is known for every row
+		// as soon as the shape is.
+		return `${rowIndex}`;
 	}
 
 	/**

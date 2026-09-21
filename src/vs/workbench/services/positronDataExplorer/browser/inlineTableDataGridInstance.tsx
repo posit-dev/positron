@@ -14,6 +14,7 @@ import { DataExplorerClientInstance } from '../../languageRuntime/common/languag
 import { InvalidateCacheFlags, TableDataCache } from '../common/tableDataCache.js';
 import { PositronDataExplorerColumn } from './positronDataExplorerColumn.js';
 import { TableDataCell } from './components/tableDataCell.js';
+import { TableDataCellPlaceholder } from './components/tableDataCellPlaceholder.js';
 import { TableDataRowHeader } from './components/tableDataRowHeader.js';
 import { BackendState, ExportFormat } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/columnSortKey.js';
@@ -305,14 +306,12 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 	 * @returns The cell value.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
+		// Either one missing means the cache hasn't loaded this part of the table yet, so stand in
+		// for the value rather than leaving the cell blank.
 		const column = this.column(columnIndex);
-		if (!column) {
-			return undefined;
-		}
-
 		const dataCell = this._tableDataCache.getDataCell(columnIndex, rowIndex);
-		if (!dataCell) {
-			return undefined;
+		if (!column || !dataCell) {
+			return <TableDataCellPlaceholder />;
 		}
 
 		return (

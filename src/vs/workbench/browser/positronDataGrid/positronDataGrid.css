@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -25,4 +25,30 @@
 
 .data-grid:focus-visible {
 	outline: none !important;
+}
+
+/*
+ * Placeholder bar standing in for a value the grid is still loading -- a column name, a row label.
+ * Where it is used sizes and positions it; the pulse and the color live here so that every one of
+ * them reads as the same thing.
+ */
+.data-grid-loading-placeholder {
+	height: 6px;
+	opacity: 0.2;
+	border-radius: 3px;
+	/* Inherits the surrounding foreground, so the bar sits correctly in light and dark themes. */
+	background-color: currentColor;
+	animation: data-grid-loading-placeholder-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes data-grid-loading-placeholder-pulse {
+	0% { opacity: 0.1; }
+	50% { opacity: 0.25; }
+	100% { opacity: 0.1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.data-grid-loading-placeholder {
+		animation: none;
+	}
 }

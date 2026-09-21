@@ -1,0 +1,62 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Centered in the waffle, spanning its header and waffle tracks. The header tracks are min-content
+ * and there are no headers while the grid is loading, so they collapse and this covers the whole
+ * of the grid.
+ *
+ * Fading in from nothing rather than appearing the instant the grid has nothing to paint. The
+ * ease-in curve spends its first frames very near zero, so a table that opens promptly -- a local
+ * DuckDB, PostgreSQL or SQLite -- is already painted before there is anything to see, and only a
+ * table that keeps us waiting is announced. Same shape as the cell placeholders, which fade in for
+ * the same reason.
+ */
+.data-grid-loading-indicator {
+	opacity: 0;
+	display: grid;
+	place-items: center;
+	grid-row: headers / end-waffle;
+	grid-column: headers / end-waffle;
+	animation: data-grid-loading-indicator-fade-in 150ms ease-in forwards;
+}
+
+@keyframes data-grid-loading-indicator-fade-in {
+	to {
+		opacity: 1;
+	}
+}
+
+/*
+ * The mark draws in roughly 17 of the viewBox's 24 units -- the dot's top edge down to the ring's
+ * bottom -- so a 52px box puts about 36px of it on screen. Turning at the same rate as the status
+ * bar indicator, which is the same mark: the grid says it is working, and the status bar goes on
+ * saying it after the grid has filled in.
+ */
+.data-grid-loading-indicator .spinner {
+	width: 52px;
+	height: 52px;
+	color: var(--vscode-descriptionForeground);
+	animation: data-grid-loading-indicator-spin 1.5s linear infinite;
+}
+
+@keyframes data-grid-loading-indicator-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/*
+ * As with the cell placeholders: the fade stays, being a cross-fade rather than movement, and only
+ * the part that repeats for as long as the wait lasts comes away. What is left is the mark itself,
+ * held still. It is a mark the user reads as waiting wherever it appears, so the grid goes on
+ * saying it is working without turning.
+ */
+@media (prefers-reduced-motion: reduce) {
+	.data-grid-loading-indicator .spinner {
+		opacity: 0.6;
+		animation: none;
+	}
+}

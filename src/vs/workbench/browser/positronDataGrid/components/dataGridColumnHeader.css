@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -92,6 +92,25 @@
 
 .data-grid-column-header .content .title-description .title .whitespace {
 	opacity: 50%;
+}
+
+/*
+ * Placeholder bars standing in for the column name and type while the schema is loading. They take
+ * the vertical rhythm of the two text lines they stand in for, so the header doesn't reflow when
+ * the real values arrive.
+ */
+
+.data-grid-column-header .content .title-description.loading {
+	display: grid;
+	grid-gap: 4px;
+}
+
+.data-grid-column-header .content .title-description .title-placeholder {
+	width: min(96px, 100%);
+}
+
+.data-grid-column-header .content .title-description .description-placeholder {
+	width: min(48px, 100%);
 }
 
 .data-grid-column-header .content .title-description .description {

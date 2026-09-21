@@ -10,7 +10,7 @@ import './tableDataRowHeader.css';
  * TableDataRowHeaderProps interface.
  */
 interface TableDataRowHeaderProps {
-	value: string;
+	value?: string;
 }
 
 /**
@@ -19,6 +19,13 @@ interface TableDataRowHeaderProps {
  * @returns The rendered component.
  */
 export const TableDataRowHeader = (props: TableDataRowHeaderProps) => {
+	// The label isn't known yet -- either the table's shape hasn't been read, or the table is
+	// labeled and this label hasn't arrived. Stand in for it with the same placeholder bar the
+	// column headers use, so a loading grid reads as loading along both of its edges.
+	if (props.value === undefined) {
+		return <div className='data-grid-loading-placeholder label-placeholder' />;
+	}
+
 	// Render.
 	return (
 		<div className='text'>

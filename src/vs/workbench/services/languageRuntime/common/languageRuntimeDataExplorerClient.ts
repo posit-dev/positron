@@ -27,6 +27,19 @@ export interface TableSchemaSearchResult {
 	columns: Array<ColumnSchema>;
 }
 
+/**
+ * How long to wait for a batch of column profiles before giving up on it.
+ *
+ * Deliberately generous. Computing histograms and frequency tables over a slow table or view --- a
+ * large remote database view, a lazily evaluated frame --- can legitimately take minutes, and the
+ * summary panel has nothing to show for those columns until it finishes. The cases this used to be
+ * guarding against are handled properly elsewhere now: a runtime that goes away settles its pending
+ * requests when the comm closes, and a user who scrolls to different columns cancels the request
+ * through its cancellation token. What is left for this to catch is a backend that accepts a
+ * request and then never answers it, so it only has to be short enough to not be forever.
+ */
+const COLUMN_PROFILE_TIMEOUT = 300_000;
+
 export enum DataExplorerClientStatus {
 	Idle,
 	Computing,
@@ -235,6 +248,12 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Register the onDidClose event handler.
 		this._register(this._backendClient.onDidClose(() => {
+			// Nothing is going to answer the requests that are still outstanding, so settle them
+			// rather than leaving their callers awaiting a result that cannot arrive. Without this
+			// the only thing that ever frees them is their own timeout, which is why that timeout
+			// can afford to be as generous as a slow backend needs.
+			this.rejectAsyncTasks(new Error('The data explorer backend was closed'));
+
 			this.setStatus(DataExplorerClientStatus.Disconnected);
 			this._onDidCloseEmitter.fire();
 		}));
@@ -278,10 +297,30 @@ export class DataExplorerClientInstance extends Disposable {
 		// Call the base class's dispose method.
 		super.dispose();
 
+		// Settle anything the close handler above didn't, so no caller is left awaiting a result
+		// from a client that no longer exists.
+		this.rejectAsyncTasks(new Error('The data explorer backend was disposed'));
+
 		// Dispose of the close emitter. We need to do this after calling the
 		// base class's dispose method so that the `onDidClose` event can be fired
 		// and handled during disposal.
 		this._onDidCloseEmitter.dispose();
+	}
+
+	/**
+	 * Rejects every outstanding asynchronous backend task.
+	 * @param error The error to reject them with.
+	 */
+	private rejectAsyncTasks(error: Error): void {
+		// Take the tasks and clear the map first, so that a rejection handler that runs
+		// synchronously cannot see a task that is already on its way out.
+		const asyncTasks = [...this._asyncTasks.values()];
+		this._asyncTasks.clear();
+		for (const asyncTask of asyncTasks) {
+			if (!asyncTask.isSettled) {
+				asyncTask.error(error);
+			}
+		}
 	}
 
 	//#endregion Constructor & Dispose
@@ -530,10 +569,7 @@ export class DataExplorerClientInstance extends Disposable {
 				this._asyncTasks.set(callbackId, promise);
 				await this._backendClient.getColumnProfiles(callbackId, profiles, this._profileFormatOptions);
 
-				const timeout = 60000;
-
-				// Don't leave unfulfilled promise indefinitely; reject after one minute
-				// for now just in case
+				// Don't leave an unfulfilled promise indefinitely.
 				const timeoutHandle = setTimeout(() => {
 					// If the promise has already been resolved, do nothing.
 					if (promise.isSettled) {
@@ -541,10 +577,10 @@ export class DataExplorerClientInstance extends Disposable {
 					}
 
 					// Otherwise, reject the promise and remove it from the list of pending RPCs.
-					const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
+					const timeoutSeconds = Math.round(COLUMN_PROFILE_TIMEOUT / 100) / 10;  // round to 1 decimal place
 					promise.error(new Error(`get_column_profiles timed out after ${timeoutSeconds} seconds`));
 					this._asyncTasks.delete(callbackId);
-				}, timeout);
+				}, COLUMN_PROFILE_TIMEOUT);
 
 				// On cancellation, settle this request with an empty result and drop the pending RPC
 				// so the caller stops waiting. A late event for this callbackId is ignored.

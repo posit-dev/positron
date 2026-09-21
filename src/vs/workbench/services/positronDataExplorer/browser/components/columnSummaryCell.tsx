@@ -59,6 +59,12 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const ColumnSparkline = () => {
 		// Determines whether a sparkline is expected for this column type
 		const shouldShowSparkline = () => {
+			// A column the backend did not profile has no sparkline on its way, so it renders
+			// nothing at all rather than a loading placeholder for work that is over.
+			if (props.instance.columnProfileFailed(props.columnIndex)) {
+				return false;
+			}
+
 			switch (props.columnSchema.type_display) {
 				case ColumnDisplayType.Floating:
 				case ColumnDisplayType.Integer:
@@ -256,7 +262,13 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			// Get the null count for this column
 			const nullCount = props.instance.getColumnProfileNullCount(props.columnIndex);
 
-			if (nullPercent === undefined || nullCount === undefined) {
+			if (props.instance.columnProfileFailed(props.columnIndex)) {
+				// Nothing is still being calculated for this column, so saying so would be wrong.
+				return nls.localize(
+					'positron.missingValues.unavailable',
+					'Missing values could not be calculated'
+				);
+			} else if (nullPercent === undefined || nullCount === undefined) {
 				return nls.localize(
 					'positron.missingValues.calculating',
 					'Calculating...'

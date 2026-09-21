@@ -141,9 +141,9 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Determine whether the column is selected.
 	const selected = (columnSelectionState & ColumnSelectionState.Selected) !== 0;
 
-	// Render the column title. An undefined column means the schema hasn't been read yet, so
-	// render nothing. The <empty> placeholder is reserved for columns whose name really is empty,
-	// which can only be determined once the schema has arrived.
+	// Render the column title. An undefined column means the schema hasn't been read yet. The
+	// <empty> placeholder is reserved for columns whose name really is empty, which can only be
+	// determined once the schema has arrived.
 	const renderedColumn = props.column && renderLeadingTrailingWhitespace(props.column.name);
 
 	// Render.
@@ -185,20 +185,29 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					paddingRight: context.instance.horizontalCellPadding
 				}}
 			>
-				<div className='title-description'>
-					<div
-						ref={titleRef}
-						className='title'
-						role='presentation'
-						onMouseLeave={titleMouseLeave}
-						onMouseOver={titleMouseOver}
-					>
-						{renderedColumn}
+				{props.column ?
+					<div className='title-description'>
+						<div
+							ref={titleRef}
+							className='title'
+							role='presentation'
+							onMouseLeave={titleMouseLeave}
+							onMouseOver={titleMouseOver}
+						>
+							{renderedColumn}
+						</div>
+						{props.column.description &&
+							<div className='description' role='presentation'>{props.column.description}</div>
+						}
+					</div> :
+					// The schema for this column hasn't arrived. Stand in for the name and the type
+					// with placeholder bars of the shape they will take, so the header reads as
+					// loading instead of as an empty header, and nothing shifts when they arrive.
+					<div className='title-description loading' role='presentation'>
+						<div className='data-grid-loading-placeholder title-placeholder' />
+						<div className='data-grid-loading-placeholder description-placeholder' />
 					</div>
-					{props.column?.description &&
-						<div className='description' role='presentation'>{props.column.description}</div>
-					}
-				</div>
+				}
 				{columnSortKey &&
 					<div className='sort-indicator'>
 						<div
@@ -214,15 +223,18 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 						<div className='sort-index'>{columnSortKey.sortIndex + 1}</div>
 					</div>
 				}
-				<Button
-					ref={sortingButtonRef}
-					className='sort-button'
-					mouseTrigger={MouseTrigger.MouseDown}
-					tabIndex={-1}
-					onPressed={dropdownPressed}
-				>
-					<div className='codicon codicon-positron-vertical-ellipsis' style={{ fontSize: 18 }} />
-				</Button>
+				{/* Until the schema arrives, the menu can't sort or filter by this column, so it isn't offered -- a lone dropdown button over a nameless header reads as broken. */}
+				{props.column &&
+					<Button
+						ref={sortingButtonRef}
+						className='sort-button'
+						mouseTrigger={MouseTrigger.MouseDown}
+						tabIndex={-1}
+						onPressed={dropdownPressed}
+					>
+						<div className='codicon codicon-positron-vertical-ellipsis' style={{ fontSize: 18 }} />
+					</Button>
+				}
 			</div>
 			{context.instance.columnResize &&
 				<VerticalSplitter
