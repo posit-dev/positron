@@ -43,6 +43,14 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
       - name: Resolve diff base
         id: base
         shell: bash
@@ -54,6 +62,11 @@ jobs:
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "Diff base: $BASE"
           git --no-pager diff "$BASE"...HEAD --stat
+          {
+            echo "diff_stat<<DIFFEOF"
+            git --no-pager diff "$BASE"...HEAD --stat
+            echo "DIFFEOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Restore caches
         id: restore-caches
@@ -155,29 +168,37 @@ jobs:
           echo "POSITRON_LOG=$(echo "$LAUNCH_JSON" | jq -r .logFile)" >> "$GITHUB_ENV"
           echo "POSITRON_PID=$(echo "$LAUNCH_JSON" | jq -r .pid)" >> "$GITHUB_ENV"
 
-      - name: Prove CDP attach and drive one action
+      - name: Attach Playwright
         shell: bash
         run: |
           set -euo pipefail
           npx @playwright/cli -s=positron attach --cdp=http://127.0.0.1:"$CDP_PORT"
           npx @playwright/cli -s=positron resize 1600 1100
-          TITLE=$(npx @playwright/cli -s=positron eval '(() => document.title)()')
-          echo "document.title = $TITLE"
-          test -n "$TITLE" || { echo "document.title is empty"; exit 1; }
-          npx @playwright/cli -s=positron snapshot > /tmp/launch-proof/snapshot.txt
-          LINES=$(wc -l < /tmp/launch-proof/snapshot.txt)
-          echo "snapshot line count: $LINES"
-          test "$LINES" -gt 50 || { echo "snapshot has too few lines (possible modal or blank window)"; exit 1; }
-          npx @playwright/cli -s=positron screenshot --filename=/tmp/launch-proof/01-workbench.png
-          test -s /tmp/launch-proof/01-workbench.png || { echo "screenshot empty"; exit 1; }
-          # screenshot is human-verified for workbench, not a dialog
 
-      - name: Upload launch proof
+      - name: Allocate run directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
+          mkdir -p /tmp/exploratory-run/shots
+
+      - name: Explore
+        uses: ./.github/actions/pr-exploratory-test
+        with:
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          work-dir: ${{ env.EXPLORE_DIR }}
+          cdp-port: ${{ env.CDP_PORT }}
+          branch: ${{ inputs.ref }}
+          diff-stat: ${{ steps.base.outputs.diff_stat }}
+          base-sha: ${{ steps.base.outputs.base }}
+          head-sha: ${{ steps.base.outputs.head }}
+
+      - name: Upload run directory
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: exploratory-launch-proof
+          name: exploratory-run
           path: |
-            /tmp/launch-proof
-            /tmp/positron-dev-launch/*/code.log
+            ${{ env.EXPLORE_DIR }}
+            ${{ env.POSITRON_LOG }}
           if-no-files-found: warn
