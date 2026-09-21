@@ -46,6 +46,8 @@ pwb-version
 !.claude/settings.json
 .claude/skills/positron-qa-verify/output/
 demo-videos/
+# Demo specs are scratch: written to record a video, then thrown away
+test/e2e/demos/*.demo.test.ts
 # Often used for agent and personal notes
 /thoughts
 
@@ -104,4 +106,6 @@ dist
 # deleting them in the background. Present while rebuild.sh runs, and left
 # behind if a run is interrupted before the deletion finishes.
 .rebuild-trash.*
+# Posit Assistant plans, which are local working notes rather than repo content
+.posit/assistant/plans/
 # --- End Positron ---

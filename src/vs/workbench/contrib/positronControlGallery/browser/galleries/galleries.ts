@@ -5,5 +5,6 @@
 
 // Side-effect imports. Each module registers a ControlGalleryEntry into the registry at
 // load time. Adding a new control's harness is a single-line addition here.
+import './positronActionBarControlsGallery.js';
 import './positronListGallery.js';
 import './positronTreeGallery.js';

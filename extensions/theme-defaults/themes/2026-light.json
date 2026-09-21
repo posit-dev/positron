@@ -5,7 +5,7 @@
 	"type": "light",
 	"colors": {
 		"foreground": "#202020",
-		"disabledForeground": "#BBBBBB",
+		"disabledForeground": "#CCCCCC",
 		"errorForeground": "#ad0707",
 		"descriptionForeground": "#606060",
 		"icon.foreground": "#606060",

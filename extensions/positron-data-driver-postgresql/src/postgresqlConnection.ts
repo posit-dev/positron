@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { readFileSync } from 'fs';
-import { Client } from 'pg';
+import type { Client } from 'pg';
 import * as positron from 'positron';
 import { ConnectionOptions } from 'tls';
 import { PostgreSQLClient } from './postgresqlClient.js';
@@ -123,6 +123,40 @@ function withConnectionStringDatabase(connectionString: string, database: string
 }
 
 /**
+ * Builds the underlying pg client from the connection config, optionally scoped to a specific
+ * database. A connection string is parsed and applied by the pg client itself (including SSL);
+ * otherwise the client is built from the individual fields. TCP keepalive is enabled so an idle
+ * socket stays warm and a dead peer is detected quickly.
+ *
+ * pg is imported here rather than at the top of the module so that loading it is paid for by the
+ * first connection attempt, not by activating the extension. The Data Connections pane activates
+ * every driver at once, and a user who never opens a PostgreSQL connection should never pay to load
+ * pg.
+ *
+ * Exported for unit tests, which assert the lazy import yields a constructible client.
+ */
+export async function buildPgClient(config: PostgreSQLConnectionConfig, database?: string): Promise<Client> {
+	const { Client } = await import('pg');
+	// Keep the socket warm across idle gaps and let the OS detect a dead peer quickly.
+	const keepAlive = { keepAlive: true, keepAliveInitialDelayMillis: KEEP_ALIVE_INITIAL_DELAY_MS };
+	if (config.kind === 'connectionString') {
+		const connectionString = database !== undefined
+			? withConnectionStringDatabase(config.connectionString, database)
+			: config.connectionString;
+		return new Client({ connectionString, ...keepAlive });
+	}
+	return new Client({
+		host: config.host,
+		port: config.port,
+		user: config.user,
+		password: config.password,
+		database: database ?? config.database,
+		ssl: buildSslConfig(config),
+		...keepAlive,
+	});
+}
+
+/**
  * Describes what a connection targets, for error messages and logging. A connection string is
  * never shown, because it can embed a password; a socket-directory host (or no host) means a
  * local-socket connection; otherwise the host:port is reported.
@@ -204,33 +238,7 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresC
 	 * the same config on reconnect.
 	 */
 	private _buildClient(database?: string): PostgreSQLClient {
-		return new PostgreSQLClient(() => this._buildPgClient(database));
-	}
-
-	/**
-	 * Builds the underlying pg client from the connection config, optionally scoped to a specific
-	 * database. A connection string is parsed and applied by the pg client itself (including SSL);
-	 * otherwise the client is built from the individual fields. TCP keepalive is enabled so an idle
-	 * socket stays warm and a dead peer is detected quickly.
-	 */
-	private _buildPgClient(database?: string): Client {
-		// Keep the socket warm across idle gaps and let the OS detect a dead peer quickly.
-		const keepAlive = { keepAlive: true, keepAliveInitialDelayMillis: KEEP_ALIVE_INITIAL_DELAY_MS };
-		if (this._config.kind === 'connectionString') {
-			const connectionString = database !== undefined
-				? withConnectionStringDatabase(this._config.connectionString, database)
-				: this._config.connectionString;
-			return new Client({ connectionString, ...keepAlive });
-		}
-		return new Client({
-			host: this._config.host,
-			port: this._config.port,
-			user: this._config.user,
-			password: this._config.password,
-			database: database ?? this._config.database,
-			ssl: buildSslConfig(this._config),
-			...keepAlive,
-		});
+		return new PostgreSQLClient(() => buildPgClient(this._config, database));
 	}
 
 	/**
