@@ -76,6 +76,18 @@ up `@:tag` inside backticked prose.
 `options: --user 0:0 --init`, GHCR credentials from `POSITRON_GITHUB_RO_USER` /
 `POSITRON_GITHUB_RO_PAT`. Needs `needs: gate` and `needs.gate.outputs.ok == 'true'`.
 
+Permissions must be declared explicitly. The job writes reactions and comments,
+and an `issue_comment` workflow does not get those by default:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+```
+
+This mirrors PETE's `run` job.
+
 `concurrency: pr-exploratory-${{ github.event.issue.number }}`, `cancel-in-progress: true`.
 
 `timeout-minutes: 90`. Budget is roughly 16 min of build worst-case plus up to
@@ -86,7 +98,9 @@ Steps, in order:
 
 1. `eyes` reaction on the triggering comment (first, so it lands before the slow
    steps). Capture the reaction id for the finalize step.
-2. Resolve PR head SHA via `gh api repos/.../pulls/<n>`.
+2. Resolve both SHAs from one `gh api repos/.../pulls/<n>` call: `.head.sha`
+   and `.base.sha`. Use `.base.sha`, not current `main`, as the diff base, or the
+   diff picks up everything merged since the PR was opened.
 3. Post the initial "running" comment with the marker `<!-- exploratory-test -->`.
 4. Checkout PR head, `fetch-depth: 0`, `submodules: recursive`,
    `persist-credentials: false`.
@@ -103,8 +117,11 @@ Steps, in order:
 10. `gen-report-dir` to allocate `REPORT_DIR` and `REPORT_URL`.
 11. Run the agent (`run.mjs`).
 12. Upload the run directory to S3, upload it as an artifact, and upsert the
-    result comment. All `if: always()`.
-13. Finalize reaction: `rocket` on success, `confused` otherwise.
+    result comment. All `if: always()`. If the S3 upload fails, set a flag and
+    have the comment step omit the image links and the Report link rather than
+    emit CDN URLs that 404. The artifact link still carries the shots.
+13. Finalize reaction: `rocket` only when the agent finished on its own. A
+    partial run (turn cap or timeout) and a hard failure both get `confused`.
 
 ## Build, not artifact reuse
 
@@ -142,19 +159,24 @@ is what v1's SKILL.md already directs the tester to use. Do not use
 `test/e2e/infra`. The two are unrelated code paths, and `drive-positron`'s
 one-bash-call-per-action interface is the one an agent in a harness wants.
 
+`drive-positron` is a live local skill, not a frozen copy. If its CLI surface
+changes, the CI tail that teaches the agent how to invoke it has to change with
+it. Treat an interface change there as a change to this workflow.
+
 ### `launch.sh` is not forked
 
-`scripts/launch.sh` is already a hand-maintained fork of
-`.agents/skills/launch/scripts/launch.sh` that does not inherit upstream fixes.
-A second fork for CI would be the wrong direction. Two gaps, both closed without
-touching the file:
+`.claude/skills/drive-positron/scripts/launch.sh` is already a hand-maintained
+fork of `.agents/skills/launch/scripts/launch.sh` that does not inherit upstream
+fixes. A second fork for CI would be the wrong direction. Two gaps, both closed
+without touching the file. Line numbers below refer to
+`.claude/skills/drive-positron/scripts/launch.sh`.
 
-**No source profile.** `launch.sh:122` seeds from `$POSITRON_DEV_USER_DATA_DIR`
+**No source profile.** Line 122 seeds from `$POSITRON_DEV_USER_DATA_DIR`
 or `~/.positron-dev` and exits if neither exists. CI has neither. Pass
 `--source-user-data-dir /tmp/positron-seed` (a launcher argument, so before the
 `--`) after writing a minimal seed, exactly as SKILL.md documents.
 
-**No container handling.** `launch.sh` contains no `--no-sandbox`, no
+**No container handling.** The script contains no `--no-sandbox`, no
 `--disable-dev-shm-usage`, no swiftshader flags, and never sets `DISPLAY`. By
 contrast `test/e2e/infra/playwrightElectron.ts:33-47` adds all of these when it
 detects Docker. Since everything after the `--` is passed to the app, CI supplies
@@ -162,14 +184,20 @@ them there:
 
 ```
 --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader \
---enable-unsafe-swiftshader --disable-gpu-compositing
+--enable-unsafe-swiftshader --disable-gpu-compositing --password-store=basic
 ```
+
+`--password-store=basic` is not optional. The CI image has no OS keyring
+backend, and without it Electron pops an "An OS keyring couldn't be identified"
+modal that intercepts all input. See the comment at
+`test/e2e/infra/playwrightElectron.ts:40-47`. Omitting it produces a hang that
+looks exactly like a product bug.
 
 `DISPLAY` comes from `setup-xvfb` via the job environment, which `launch.sh`
 inherits.
 
 This section is reasoned from `playwrightElectron.ts` and is UNPROVEN. Nobody has
-run `launch.sh` inside a root container. Validating it is the first implementation
+run the script inside a root container. Validating it is the first implementation
 task, ahead of any agent work.
 
 ### Seeding the profile
@@ -329,14 +357,21 @@ v1's table is `| # | Finding | Impact | Caused by change |`. Add `Type` with
 values `regression`, `bug`, or `papercut`. It is a different axis from
 `Caused by change`: a bug the change caused is not necessarily a regression of
 previously working behavior. Add the column to v1's SKILL.md so local and CI
-reports stay identical.
+reports stay identical, with this decision rule so runs classify consistently:
+
+- `regression` -- behavior that used to work is now broken.
+- `bug` -- new or changed behavior that never worked correctly.
+- `papercut` -- a pre-existing rough edge the change neither introduced nor
+  worsened.
 
 ### Screenshots
 
 Upload the run directory to the `positron-test-reports` S3 bucket using
 `AWS_TEST_REPORTS_ROLE`, the same role `upload-report-to-s3` uses. That action
-hardcodes `aws s3 cp playwright-report/.`, so either generalize it or use a
-direct `aws s3 cp` of the run directory.
+hardcodes `aws s3 cp playwright-report/.`. Generalize it: add an optional
+`source-dir` input defaulting to `playwright-report`, so every existing caller
+keeps its current behavior unchanged and this workflow passes the run directory.
+A second copy of the same upload logic is the worse option.
 
 Once on S3 the shots are served publicly from
 `https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/`, and GitHub renders them
@@ -375,19 +410,25 @@ team-only rather than collaborator-level.
 | `.github/actions/pr-exploratory-test/run.mjs` | new |
 | `.github/actions/pr-exploratory-test/package.json` | new |
 | `.claude/skills/exploratory-testing/SKILL.md` | new (v1, checked in; `Type` column added) |
-| `.github/actions/upload-report-to-s3/action.yml` | maybe generalized |
+| `.github/actions/upload-report-to-s3/action.yml` | modified (optional `source-dir` input) |
 
 ## Implementation order
 
 1. Prove `launch.sh` starts Positron in the `positron-ubuntu24` container as root
    under Xvfb, driven by `npx @playwright/cli`. Everything else depends on this
    and none of it is proven. Do this as a `workflow_dispatch` scratch workflow
-   before writing any of the rest.
+   before writing any of the rest. Done means all three: CDP attach succeeds, at
+   least one driven action lands (open a file, type in the console), and a
+   screenshot taken through `drive-positron` is visible in the workflow
+   artifacts. A process that merely starts is not done.
 2. Check v1's SKILL.md into `.claude/skills/exploratory-testing/`, with the `Type`
    column added.
 3. Build the action and `run.mjs` against a fixed PR number, still on
    `workflow_dispatch`.
-4. Add the `gate` job and the `issue_comment` trigger.
+4. Add the `gate` job and the `issue_comment` trigger. Delete the scratch
+   workflow in the same change, so no stale `workflow_dispatch` entry is left in
+   the Actions UI. Steps 1 through 3 stay on `workflow_dispatch`; step 4 is the
+   single cutover.
 5. Add S3 upload and the CDN-linked comment.
 6. Calibrate `maxTurns` over several real runs.
 
