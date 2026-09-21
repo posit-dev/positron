@@ -13,7 +13,6 @@ export default defineConfig({
 			'test/e2e/**/*.vitest.{ts,tsx}',
 			// Built-in extensions opt in per file; only modules that do not import
 			// `vscode` can be loaded here.
-			'extensions/open-remote-ssh/**/*.vitest.{ts,tsx}',
 			'extensions/**/*.vitest.{ts,tsx}'
 		],
 		environment: 'happy-dom',

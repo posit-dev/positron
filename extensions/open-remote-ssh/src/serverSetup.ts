@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -74,7 +74,7 @@ async function probeSshEnvironment(conn: SSHConnection, logger: Log): Promise<Ss
 			// license permits, so name the platform and the restriction together.
 			vscode.window.showWarningMessage(
 				vscode.l10n.t(
-					'Connected to a {0} environment. The Positron license prohibits embedding, installing, or executing Positron within a managed SaaS compute environment provided by a third party. Installing Positron on standard virtual machines or self-managed Kubernetes clusters, where you retain full administrative control over the OS and runtime environment, is permitted.',
+					'Connected to a {0} environment. This is a violation of the Positron license, which prohibits embedding, installing, or executing Positron within a managed SaaS compute environment provided by a third party (like Databricks). Embedding, installing, or executing Positron on self-managed physical hardware, virtual machines, or compute clusters and grids, where you retain full administrative control over the OS and runtime environment, is permitted.',
 					SSH_ENVIRONMENT_LABELS[environment]
 				)
 			);

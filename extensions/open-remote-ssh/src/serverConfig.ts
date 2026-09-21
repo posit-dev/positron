@@ -9,7 +9,6 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as fs from 'fs';
-import * as https from 'https';
 import * as path from 'path';
 
 /**
@@ -32,35 +31,40 @@ function isBuilt(): boolean {
 }
 
 /**
- * The version of the latest daily build, which a dev instance borrows to
- * download a server. Returns undefined if the manifest can't be read.
+ * The latest daily build a dev instance borrows to download a server.
  */
-async function getDailyVersion(): Promise<string | undefined> {
-	return new Promise<string | undefined>(resolve => {
-		const request = https.get(DAILY_RELEASES_URL, response => {
-			if (response.statusCode !== 200) {
-				response.resume();
-				resolve(undefined);
-				return;
-			}
-			let body = '';
-			response.setEncoding('utf8');
-			response.on('data', chunk => body += chunk);
-			response.on('end', () => {
-				try {
-					const version = JSON.parse(body).version;
-					resolve(typeof version === 'string' ? version : undefined);
-				} catch {
-					resolve(undefined);
-				}
-			});
-		});
-		request.on('error', () => resolve(undefined));
-		request.setTimeout(5000, () => {
-			request.destroy();
-			resolve(undefined);
-		});
-	});
+interface IDailyRelease {
+	/** The daily's Positron version, e.g. '2026.10.0-70'. */
+	version: string;
+	/** The commit the daily was built from, which keys the server install directory. */
+	commit: string;
+}
+
+/**
+ * Reads the latest daily build from the release manifest. Returns undefined if
+ * the manifest can't be read or doesn't name both a version and a commit, since
+ * borrowing one without the other would install a server under a key that
+ * doesn't identify it.
+ *
+ * The timeout is a deadline for the whole request, not an inactivity timeout,
+ * so a response that is aborted after its headers or trickles in indefinitely
+ * still settles: `getVSCodeServerConfig` is awaited on the connection path, and
+ * a hang there stops the connection with no error and no log line.
+ */
+async function getDailyRelease(): Promise<IDailyRelease | undefined> {
+	try {
+		const response = await fetch(DAILY_RELEASES_URL, { signal: AbortSignal.timeout(5000) });
+		if (!response.ok) {
+			return undefined;
+		}
+		const { version, commit } = await response.json() as { version?: unknown; commit?: unknown };
+		if (typeof version !== 'string' || typeof commit !== 'string') {
+			return undefined;
+		}
+		return { version, commit };
+	} catch {
+		return undefined;
+	}
 }
 
 let vscodeProductJson: any;
@@ -91,22 +95,29 @@ export async function getVSCodeServerConfig(): Promise<IServerConfig> {
 	// A dev instance has no server of its own on the CDN: its build number is 0,
 	// so the version it derives was never published, and it has no quality to
 	// name a directory to look in. Borrow the latest daily build instead, so a
-	// dev instance can still connect to a remote host. If the daily version
+	// dev instance can still connect to a remote host. If the daily release
 	// can't be read, fall through to the local values and let the install script
 	// report that no server is available.
+	//
+	// The daily's commit is borrowed along with its version: the commit keys the
+	// server install directory on the remote, and a source build has none, so
+	// every daily would otherwise install over the same `bin/undefined` and a
+	// newer daily would reuse a stale server.
 	let version = `${positron.version}-${positron.buildNumber}`;
+	let commit = productJson.commit;
 	let quality = productJson.quality;
 	if (!isBuilt()) {
-		const dailyVersion = await getDailyVersion();
-		if (dailyVersion) {
-			version = dailyVersion;
+		const daily = await getDailyRelease();
+		if (daily) {
+			version = daily.version;
+			commit = daily.commit;
 			quality = DAILY_QUALITY;
 		}
 	}
 
 	return {
 		version,
-		commit: productJson.commit,
+		commit,
 		quality,
 		release: productJson.release,
 		serverApplicationName: customServerBinaryName || productJson.serverApplicationName,
