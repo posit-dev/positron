@@ -40,7 +40,9 @@
         "build",
         "out",
         "tmp",
-        "pythonExtensionApi"
+        "pythonExtensionApi",
+        "src/**/*.vitest.ts",
+        "src/**/*.vitest.tsx"
     ],
     "include": [
         "src/*",

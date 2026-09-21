@@ -42,6 +42,13 @@ export class RInputBoundaryProvider implements positron.InputBoundaryProvider {
 		private readonly _client: LanguageClient,
 	) { }
 
+	/**
+	 * No stopped-client check here, unlike the statement range and help topic
+	 * providers. Quarto's caller reads a nullish answer as "these boundaries are
+	 * malformed, execute the whole range" and stops asking, while it reads a
+	 * rejection as "ask the next provider", so declining would be worse than
+	 * rejecting (`quartoExecutionManager._getCodeFragmentsFromInputBoundaryProvider`).
+	 */
 	async provideInputBoundaries(
 		document: vscode.TextDocument,
 		range: vscode.Range,
