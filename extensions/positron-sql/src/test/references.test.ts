@@ -80,6 +80,24 @@ suite('resolveReferences', () => {
 		);
 	});
 
+	test('a column in a clause after the select is judged against its tables', () => {
+		// `ORDER BY` hangs off the query rather than off the select inside it, so until the select
+		// handed its tables up these were in a scope reading from nothing and went unjudged.
+		assert.deepStrictEqual(
+			judge('SELECT total FROM orders ORDER BY quantity', SCHEMA),
+			['column total: resolved', 'table orders: resolved', 'column quantity: unknown'],
+		);
+	});
+
+	test('an ORDER BY referring back to a select alias is not an unknown column', () => {
+		// `t` is a name the statement made up, not a column of orders. Ordinary SQL, and the case
+		// that judging `ORDER BY` at all would otherwise have started flagging.
+		assert.deepStrictEqual(
+			judge('SELECT total AS t FROM orders ORDER BY t', SCHEMA),
+			['column total: resolved', 'table orders: resolved'],
+		);
+	});
+
 	test('matching is case insensitive', () => {
 		assert.deepStrictEqual(
 			judge('SELECT TOTAL FROM ORDERS', SCHEMA),

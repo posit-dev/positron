@@ -104,6 +104,12 @@ export function resolveReferences(analysis: Analysis, schema: SchemaIndex): Refe
 				continue;
 			}
 			candidates = [table];
+		} else if (scope.unresolvable.has(fold(column.name))) {
+			// A name the statement made up rather than read from a table: the alias of a select
+			// item that an `ORDER BY` refers back to, or a CTE. Looking one up in the schema finds
+			// nothing, and saying so would flag `SELECT total AS t FROM orders ORDER BY t`, which
+			// is ordinary SQL.
+			continue;
 		} else if (scope.opaque || scope.tables.length === 0) {
 			continue;
 		} else {
