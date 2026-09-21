@@ -298,7 +298,7 @@ interface ScopeEntry {
 	readonly table: SqlTable;
 }
 
-/** The known tables the statement under the cursor reads from. */
+/** The known tables the cursor can see from where it is. */
 function tablesInScope(
 	analyzer: SqlAnalyzer,
 	schema: SchemaIndex,
@@ -311,7 +311,10 @@ function tablesInScope(
 	// identifier does not cost the statement its tables; see `probeText`.
 	const probe = cursor.quoted ? probeText(text, cursor, offset) : { text, offset };
 	const entries: ScopeEntry[] = [];
-	for (const source of analyzer.sources(probe.text, dialect, probe.offset)) {
+	// Scoped to where the cursor is rather than to everything the statement mentions: the select
+	// after a `WITH` reads from the CTE, not from the tables the CTE reads from, and offering
+	// those columns there would be offering names that are errors.
+	for (const source of analyzer.sources(probe.text, dialect, probe.offset).sources) {
 		for (const table of resolveSource(schema, source)) {
 			entries.push({ alias: source.alias, table });
 		}
