@@ -1,6 +1,11 @@
 name: "Test: Exploratory (dispatch)"
 
 on:
+  # Experiment-only: the workflow is not on main yet, so workflow_dispatch is
+  # not registered. A push trigger runs from the branch it is pushed to.
+  push:
+    branches:
+      - "midleman/exp-ab-*"
   workflow_dispatch:
     inputs:
       ref:
@@ -14,7 +19,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: pr-exploratory-${{ inputs.ref }}
+  group: pr-exploratory-${{ inputs.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -38,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref_name }}
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
@@ -195,7 +200,7 @@ jobs:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
-          branch: ${{ inputs.ref }}
+          branch: ${{ inputs.ref || github.ref_name }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
