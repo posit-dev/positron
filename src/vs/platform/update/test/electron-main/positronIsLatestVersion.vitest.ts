@@ -101,7 +101,9 @@ describe('AbstractUpdateService isLatestVersion', () => {
 			new NullLogService(),
 			stubInterface<ITelemetryService>({}),
 			stubInterface<IApplicationStorageMainService>({}),
-			stubInterface<IMeteredConnectionService>({}),
+			// `isLatestVersion()` skips the check outright on a metered connection; these tests are
+			// about the comparison, so keep the connection unmetered.
+			stubInterface<IMeteredConnectionService>({ isConnectionMetered: false }),
 			stubInterface<IProductService>({ positronVersion: '2026.10.0', positronBuildNumber: 53 }),
 			stubInterface<INativeHostMainService>({}),
 			stubInterface<IStateService>({}),

@@ -15,7 +15,9 @@ import { InterpreterInfoJson } from '.';
  * - Windows: 'AMD64' or 'ARM64' (normalized to lowercase)
  * - Linux: 'aarch64' or 'x86_64'
  */
-export function getArchitectureFromInfo(raw: InterpreterInfoJson): Architecture {
+export function getArchitectureFromInfo(
+    raw: Partial<Pick<InterpreterInfoJson, 'architecture' | 'is64Bit'>>,
+): Architecture {
     if (raw.architecture) {
         const normalized = raw.architecture.toLowerCase();
         if (normalized === 'arm64' || normalized === 'aarch64') {
@@ -27,6 +29,10 @@ export function getArchitectureFromInfo(raw: InterpreterInfoJson): Architecture 
         if (normalized === 'x86' || normalized === 'i386' || normalized === 'i686') {
             return Architecture.x86;
         }
+    }
+    // Embedded interpreters omit bitness, so leave an unrecognized architecture unknown.
+    if (raw.is64Bit === undefined) {
+        return Architecture.Unknown;
     }
     // Fall back to is64Bit for backward compatibility
     return raw.is64Bit ? Architecture.x64 : Architecture.x86;

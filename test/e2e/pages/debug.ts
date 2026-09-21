@@ -170,6 +170,24 @@ export class Debug {
 		});
 	}
 
+	/**
+	 * Action: Stop the active debug session and wait for the paused thread to
+	 * leave the Call Stack view (the session node itself stays listed). Runs
+	 * the command by id through the driver: notebook debug sessions do not show
+	 * the floating toolbar, and the command palette fuzzy-matches a command id
+	 * to the wrong entry.
+	 *
+	 * Call this before closing a notebook that is paused in the debugger: a
+	 * kernel paused at a breakpoint acknowledges the shutdown request but does
+	 * not exit, so the session lingers and Positron reports a shutdown timeout.
+	 */
+	async stop(): Promise<void> {
+		await test.step('Debug: Stop', async () => {
+			await this.code.driver.executeCommand('workbench.action.debug.stop');
+			await expect(this.callStack.getByText(/Paused/)).toHaveCount(0, { timeout: 15000 });
+		});
+	}
+
 	async getStack(): Promise<IStackFrame[]> {
 		const stackLocators = await this.code.driver.currentPage.locator(STACK_FRAME).all();
 
