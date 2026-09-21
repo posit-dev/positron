@@ -114,13 +114,34 @@ async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: 
 	return installed;
 }
 
+/**
+ * Surface the mismatched list to CI so the nightly workflow bumps only the
+ * affected extensions instead of every entry in product.json. Called on every
+ * path that ends the wait, so partial drift is never dropped on the floor.
+ */
+function recordMismatches(mismatched: Set<string>) {
+	if (!process.env.GITHUB_ACTIONS || mismatched.size === 0) {
+		return;
+	}
+	const outDir = 'test-logs';
+	fs.mkdirSync(outDir, { recursive: true });
+	fs.writeFileSync(
+		path.join(outDir, 'mismatched-extensions.txt'),
+		Array.from(mismatched).join(' ')
+	);
+}
+
 async function waitForExtensions(
 	extensions: { fullName: string; shortName: string; version: string }[],
 	extensionsPath: string,
 	runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>,
 	containerName?: string,
 	mismatchGraceMs: number = 60_000, // wait up to 1 minute for mismatches to self-resolve
-	installGraceMs: number = 90_000 // wait up to 90s for everything to land on disk
+	// Sized against the test.slow() budget (6 minutes), not against a typical
+	// run, which resolves on the first poll. The Workbench and Jupyter projects
+	// poll through one `docker exec` per extension per iteration, so a bound
+	// tight enough for Electron would turn a slow container into a failure.
+	installGraceMs: number = 240_000
 ) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
@@ -161,6 +182,10 @@ async function waitForExtensions(
 
 		if (missing.size > 0) {
 			if (Date.now() >= installDeadline) {
+				// Hand over whatever drift we did observe before bailing out, or
+				// the nightly loses a real bump PR for the other extensions and
+				// posts a bare failure instead.
+				recordMismatches(mismatched);
 				throw new Error(
 					`Bootstrap extensions never installed after ${Math.round(installGraceMs / 1000)}s: ${Array.from(missing).join(', ')}`
 				);
@@ -202,16 +227,7 @@ async function waitForExtensions(
 		console.log('\n👉 Run script and commit changes:');
 		console.log(`   ./scripts/update-extensions.sh ${Array.from(mismatched).join(' ')}\n`);
 
-		// Surface the mismatched list to CI so the nightly workflow bumps only
-		// the affected extensions instead of every entry in product.json.
-		if (process.env.GITHUB_ACTIONS) {
-			const outDir = 'test-logs';
-			fs.mkdirSync(outDir, { recursive: true });
-			fs.writeFileSync(
-				path.join(outDir, 'mismatched-extensions.txt'),
-				Array.from(mismatched).join(' ')
-			);
-		}
+		recordMismatches(mismatched);
 
 		if (process.env.EXTENSIONS_FAIL_ON_MISMATCH === 'true') {
 			throw new Error('Some extensions were installed with mismatched versions (after grace period). Please check the logs above.');

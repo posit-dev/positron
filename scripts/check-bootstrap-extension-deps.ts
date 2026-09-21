@@ -185,9 +185,15 @@ function compareSemver(a: string, b: string): number {
 // by itself would therefore let a mislabelled dev build outrank the newest
 // stable version and get pinned.
 function selectLatestVersion(versions: IPackageVersion[]): IPackageVersion | undefined {
-	const stable = versions.filter(v =>
+	// Drop entries without a usable version string before anything reads one.
+	// splitVersion and compareSemver both call String.split, so a single
+	// malformed entry would otherwise throw and take the whole check down with
+	// exit code 2 -- which also skips the auto-update job for the night. The
+	// caller already reports a missing version as a warning.
+	const usable = versions.filter(v => typeof v.version === 'string' && v.version.length > 0);
+	const stable = usable.filter(v =>
 		v.pre_release !== true && splitVersion(v.version).prerelease.length === 0);
-	const candidates = stable.length > 0 ? stable : versions;
+	const candidates = stable.length > 0 ? stable : usable;
 	// A missing or unparsable published_at sorts oldest rather than poisoning the
 	// comparator with NaN, which would leave the order arbitrary.
 	const publishedAt = (v: IPackageVersion) => Date.parse(v.published_at ?? '') || 0;

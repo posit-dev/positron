@@ -154,10 +154,16 @@ get_extension_info() {
 		# downgrades the pin. published_at only breaks exact ties. (P3M does not
 		# guarantee versions are returned in sorted order, so some explicit
 		# ordering is required.)
+		#
+		# Entries without a usable version string are dropped up front. Both
+		# is_release_version and semver_key call split(), which errors on null,
+		# so one malformed entry would otherwise abort the whole run under
+		# `set -e` without naming the extension.
 		local selected
 		selected=$(echo "$response" | jq -c "$JQ_SEMVER_KEY"'
-			(.versions | map(select(.pre_release != true and (.version | is_release_version)))) as $stable
-			| (if ($stable | length) > 0 then $stable else .versions end)
+			(.versions | map(select((.version | type) == "string" and (.version | length) > 0))) as $usable
+			| ($usable | map(select(.pre_release != true and (.version | is_release_version)))) as $stable
+			| (if ($stable | length) > 0 then $stable else $usable end)
 			| sort_by((.version | semver_key), .published_at) | reverse | .[0] // {}')
 		EXTENSION_VERSION=$(echo "$selected" | jq -r '.version // empty')
 		EXTENSION_TARGET_PLATFORM=$(echo "$selected" | jq -r '.target_platform // empty')
@@ -168,8 +174,11 @@ get_extension_info() {
 		EXTENSION_TARGET_PLATFORM=$(echo "$response" | grep -o '"target_platform":"[^\"]*"' | head -1 | cut -d'"' -f4)
 	fi
 
+	# Report failure rather than falling through with an empty version, which
+	# downstream would feed to jq (an error) or treat as a real version.
 	if [[ -z "$EXTENSION_VERSION" ]]; then
 		echo -e "${RED}Error: Could not determine latest version${NC}" >&2
+		return 1
 	fi
 }
 
@@ -246,9 +255,7 @@ update_product_json() {
 
 	if command -v jq >/dev/null 2>&1; then
 		# Get current version and hash values
-		local extension_info=$(jq --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" '
-			[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)] | .[0] // empty
-		' "$product_json")
+		local extension_info=$(find_extension_entry "$product_json" "$publisher" "$name")
 
 		if [[ -n "$extension_info" && "$extension_info" != "null" ]]; then
 			current_version=$(echo "$extension_info" | jq -r '.version // empty')
@@ -308,19 +315,23 @@ update_product_json() {
 	fi
 }
 
+# Locate a bootstrap extension entry in product.json, matched either by
+# publisher/name or by the combined "publisher.name" id. Empty when absent.
+find_extension_entry() {
+	local product_json="$1" publisher="$2" name="$3"
+
+	jq --arg pub "$publisher" --arg nm "$name" --arg id "${publisher}.${name}" '
+		[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)] | .[0] // empty
+	' "$product_json"
+}
+
 # Read the version currently pinned in product.json, or empty when absent.
 get_pinned_version() {
-	local product_json="$1" publisher="$2" name="$3"
-	local extension_id="${publisher}.${name}"
-
 	if ! command -v jq >/dev/null 2>&1; then
 		return 0
 	fi
 
-	jq -r --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" '
-		[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)]
-		| .[0].version // empty
-	' "$product_json"
+	find_extension_entry "$@" | jq -r '.version // empty'
 }
 
 # True when $1 is a strictly lower version than $2, using the same precedence
@@ -343,9 +354,7 @@ should_download() {
 	fi
 
 	local extension_id="${publisher}.${name}"
-	local extension_info=$(jq --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" '
-		[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)] | .[0] // empty
-	' "$product_json")
+	local extension_info=$(find_extension_entry "$product_json" "$publisher" "$name")
 
 	if [[ -z "$extension_info" || "$extension_info" == "null" ]]; then
 		echo -e "${RED}Error: Extension $extension_id not found in product.json${NC}" >&2
@@ -397,7 +406,12 @@ process_extension() {
 			TARGET_PLATFORM=""
 		fi
 	else
-		get_extension_info "$PUBLISHER" "$NAME"
+		# Skip this extension rather than aborting under `set -e`, so one bad
+		# API response does not cost the run every other pending bump.
+		if ! get_extension_info "$PUBLISHER" "$NAME"; then
+			echo -e "${YELLOW}Skipping $extension_id: could not resolve a latest version${NC}" >&2
+			return 0
+		fi
 		VERSION="$EXTENSION_VERSION"
 		TARGET_PLATFORM="$EXTENSION_TARGET_PLATFORM"
 		echo "Latest version: $VERSION"
@@ -410,8 +424,14 @@ process_extension() {
 	local pinned
 	pinned=$(get_pinned_version "$PRODUCT_JSON" "$PUBLISHER" "$NAME")
 	if [[ "$ALLOW_DOWNGRADE" != true && -n "$pinned" ]] && is_version_lower "$VERSION" "$pinned"; then
-		echo -e "${YELLOW}Refusing to downgrade $extension_id: pinned $pinned is newer than resolved $VERSION${NC}" >&2
+		local refusal="Refusing to downgrade $extension_id: pinned $pinned is newer than resolved $VERSION"
+		echo -e "${YELLOW}${refusal}${NC}" >&2
 		echo -e "${YELLOW}Re-run with --allow-downgrade if the rollback is intentional.${NC}" >&2
+		# Without this the nightly reports only "No changes to product.json" and
+		# Slack posts a failure with no stated cause.
+		if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+			printf -- '- %s\n' "$refusal" >> "$GITHUB_STEP_SUMMARY"
+		fi
 		return 0
 	fi
 
