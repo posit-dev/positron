@@ -7,12 +7,14 @@
 import { ReactNode } from 'react';
 
 // Other dependencies.
+import { localize } from '../../../../../nls.js';
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
 import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
 import { MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY } from '../positronDataConnectionsConfiguration.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
@@ -188,6 +190,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	constructor(
 		private readonly _service: IPositronDataConnectionsService,
 		private readonly _configurationService: IConfigurationService,
+		private readonly _notificationService: INotificationService,
 	) {
 		super({
 			rowHeight: ROW_HEIGHT,
@@ -450,23 +453,40 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * A namespace group that kept its row is answered from what the look-ahead already fetched for
 	 * it, so opening it costs nothing rather than repeating that query.
+	 *
+	 * A failure here is also reported as a notification, alongside the tree's own error-twisty
+	 * treatment: that twisty's message is a native `title` tooltip, easy to miss and only visible on
+	 * hover, so a user who clicks to expand a broken connection would otherwise have no indication
+	 * anything went wrong short of opening the driver's own output channel. The error is rethrown
+	 * unchanged so the base class still records it -- the twisty stays the fallback, the notification
+	 * is what actually gets seen.
 	 */
 	private async _fetchChildrenForNode(
 		node: TreeNode<DataConnectionNode>
 	): Promise<readonly TreeNode<DataConnectionNode>[]> {
-		const data = node.data;
-		switch (data.kind) {
-			case 'entry': {
-				const instance = data.entry.instance
-					?? await this._service.connect(data.entry.profile.id);
-				const dtos = await instance.connectionHandle.getChildren();
-				return this._breadcrumbNamespaceGroups(dtos, instance.connectionHandle);
+		try {
+			const data = node.data;
+			switch (data.kind) {
+				case 'entry': {
+					const instance = data.entry.instance
+						?? await this._service.connect(data.entry.profile.id);
+					const dtos = await instance.connectionHandle.getChildren();
+					return this._breadcrumbNamespaceGroups(dtos, instance.connectionHandle);
+				}
+				case 'dto': {
+					const dtos = this._takeLookAhead(node.id)
+						?? await data.handle.nodeGetChildren(data.dto.nodeHandle);
+					return this._breadcrumbNamespaceGroups(dtos, data.handle);
+				}
 			}
-			case 'dto': {
-				const dtos = this._takeLookAhead(node.id)
-					?? await data.handle.nodeGetChildren(data.dto.nodeHandle);
-				return this._breadcrumbNamespaceGroups(dtos, data.handle);
-			}
+		} catch (error) {
+			this._notificationService.error(localize(
+				'positron.dataConnections.expandFailed',
+				"Could not expand '{0}': {1}",
+				node.data.kind === 'entry' ? node.data.entry.profile.connectionName : node.data.dto.name,
+				error instanceof Error ? error.message : String(error)
+			));
+			throw error;
 		}
 	}
 

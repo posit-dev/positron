@@ -9,6 +9,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -180,7 +181,9 @@ describe('DataConnectionsTreeInstance', () => {
 		configurationService = new TestConfigurationService({
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
-		})
+		}),
+		// Set to make the service's connect() reject, standing in for a driver that fails to open.
+		connectError?: Error
 	) {
 		// One leaf under the connection, so a test has a real non-entry node to act on. Its node id is
 		// DTO_ID below.
@@ -201,6 +204,8 @@ describe('DataConnectionsTreeInstance', () => {
 		// as the interface, where they are plain functions rather than mocks).
 		const disconnect = vi.fn(async () => { });
 		const disconnectWhenUnused = vi.fn();
+		const notificationError = vi.fn<INotificationService['error']>();
+		const notificationService = stubInterface<INotificationService>({ error: notificationError });
 
 		let liveInstance = connected ? instance : undefined;
 		const service = stubInterface<IPositronDataConnectionsService>({
@@ -212,13 +217,13 @@ describe('DataConnectionsTreeInstance', () => {
 			takePendingRevealConnection: () => undefined,
 			getAllProfiles: () => [profile, ...discoveredProfiles],
 			getInstanceForProfile: () => liveInstance,
-			connect: async () => instance,
+			connect: connectError ? async () => { throw connectError; } : async () => instance,
 			disconnect,
 			disconnectWhenUnused,
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
-		const tree = new DataConnectionsTreeInstance(service, configurationService);
+		const tree = new DataConnectionsTreeInstance(service, configurationService, notificationService);
 		ctx.disposables.add(tree);
 
 		const setConnected = (nowConnected: boolean) => {
@@ -226,7 +231,7 @@ describe('DataConnectionsTreeInstance', () => {
 			onDidChangeInstances.fire(nowConnected ? [instance] : []);
 		};
 
-		return { tree, service, getChildren, setConnected, disconnect, disconnectWhenUnused };
+		return { tree, service, getChildren, setConnected, disconnect, disconnectWhenUnused, notificationError };
 	}
 
 	/**
@@ -243,6 +248,8 @@ describe('DataConnectionsTreeInstance', () => {
 		showSingleSchema = false
 	) {
 		const nodeGetChildren = vi.fn(async (nodeHandle: number) => childrenOf(nodeHandle));
+		const notificationError = vi.fn<INotificationService['error']>();
+		const notificationService = stubInterface<INotificationService>({ error: notificationError });
 
 		// One instance per profile, each with its own connection handle, so node ids stay distinct
 		// across connections the way they do in the real service.
@@ -275,9 +282,9 @@ describe('DataConnectionsTreeInstance', () => {
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
 			'dataConnections.tree.showSingleSchema': showSingleSchema,
-		}));
+		}), notificationService);
 		ctx.disposables.add(tree);
-		return { tree, nodeGetChildren };
+		return { tree, nodeGetChildren, notificationError };
 	}
 
 	/** A node DTO, defaulting to an expandable, non-previewable one. */
@@ -641,6 +648,42 @@ describe('DataConnectionsTreeInstance', () => {
 			expandState: tree.visibleNodes[0].expandState,
 		}).toEqual({ expanded: false, expandState: 'collapsed' });
 	});
+
+	it('reports a notification when connecting an entry fails, alongside the tree\'s own error state', async () => {
+		const connectError = new Error('boom');
+		const { tree, notificationError } = createTree(false, [], undefined, connectError);
+		await tree.refresh();
+
+		await tree.expand(ENTRY_ID);
+
+		expect({
+			notified: notificationError.mock.calls,
+			expandState: tree.visibleNodes[0].expandState,
+		}).toEqual({
+			notified: [['Could not expand \'Test Connection\': boom']],
+			expandState: 'error',
+		});
+	});
+
+	it('reports a notification when fetching a node\'s children fails, alongside the tree\'s own error state', async () => {
+		const nodeError = new Error('boom');
+		const { tree, notificationError } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+			nodeHandle => { if (nodeHandle === 1) { throw nodeError; } return []; }
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		await tree.expand('dto:1:1');
+
+		expect({
+			notified: notificationError.mock.calls,
+			expandState: tree.visibleNodes[1].expandState,
+		}).toEqual({
+			notified: [['Could not expand \'Tables\': boom']],
+			expandState: 'error',
+		});
+	});
 });
 
 describe('DataConnectionsTreeInstance reveal', () => {
@@ -716,7 +759,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
-		}));
+		}), stubInterface<INotificationService>({ error: vi.fn() }));
 		ctx.disposables.add(tree);
 
 		// The tree asks the view rendering it to take keyboard focus, which is the part of a reveal
