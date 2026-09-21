@@ -106,12 +106,19 @@ Steps, in order:
    display for it. We launch outside Playwright, so we need it.
 5. `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
 6. Write the minimal seed profile (see "Seeding the profile").
-7. `gen-report-dir` to allocate `REPORT_DIR` and `REPORT_URL`.
+7. `.github/actions/gen-report-dir` to allocate `REPORT_DIR`, with
+   `skip-summary: true`. Two things about this existing action matter here:
+   it appends its own "Playwright Report" line to the step summary unless that
+   input is set, and its `REPORT_URL` output is hardcoded to end in
+   `/index.html`, which our run directory does not contain. Use `REPORT_DIR`
+   and build the report link as `<bucket>/$REPORT_DIR/report.md`. Do not use
+   `REPORT_URL`.
 8. Run the agent (`run.mjs`).
 9. Upload the run directory to S3 and upload it as an artifact. `if: always()`.
 
 The diff base is `git merge-base origin/main HEAD`. No PR is involved, and none
-is looked up.
+is looked up. `fetch-depth: 0` in step 1 fetches all branches, so `origin/main`
+resolves in the container; a shallow checkout would silently break this.
 
 ## Build, not artifact reuse
 
@@ -383,6 +390,7 @@ Phase 2 changes this materially. See its section below.
 | `.github/actions/pr-exploratory-test/action.yml` | new |
 | `.github/actions/pr-exploratory-test/run.mjs` | new |
 | `.github/actions/pr-exploratory-test/package.json` | new |
+| `.github/actions/pr-exploratory-test/package-lock.json` | new (required by `npm ci`) |
 | `.claude/skills/exploratory-testing/SKILL.md` | new (v1, checked in; `Type` column added) |
 | `.github/actions/upload-report-to-s3/action.yml` | modified (optional `source-dir` input) |
 
@@ -487,6 +495,11 @@ Each is gated on `github.event_name == 'issue_comment'`.
 - Last, `if: always()`: finalize the reaction. `rocket` only when the agent
   finished on its own. A partial run (turn cap or timeout) and a hard failure
   both get `confused`.
+
+`cancel-in-progress: true` means a second `/test` kills the first run before its
+finalize step, leaving the first comment's `eyes` reaction set forever. Accepted
+for v1: the second run's comment upsert overwrites the same comment body, so the
+result is current even though the stale reaction is not.
 
 ### The comment
 
