@@ -177,8 +177,16 @@ function compareSemver(a: string, b: string): number {
 // the ordering -- a publisher can ship a backport after a newer release (Meta
 // published pyrefly 1.2.1 two days after 1.3.1), so ordering by publish date
 // would audit the wrong manifest. published_at only breaks exact ties.
+//
+// A candidate has to clear both the pre_release flag and its own version
+// string. p3m's flag is not trustworthy on its own -- debugpy's 2024.11.0-dev
+// is served with "pre_release": false -- and the comparator alone only settles
+// X-dev against X, not against an older genuine release. Filtering on the flag
+// by itself would therefore let a mislabelled dev build outrank the newest
+// stable version and get pinned.
 function selectLatestVersion(versions: IPackageVersion[]): IPackageVersion | undefined {
-	const stable = versions.filter(v => v.pre_release !== true);
+	const stable = versions.filter(v =>
+		v.pre_release !== true && splitVersion(v.version).prerelease.length === 0);
 	const candidates = stable.length > 0 ? stable : versions;
 	// A missing or unparsable published_at sorts oldest rather than poisoning the
 	// comparator with NaN, which would leave the order arbitrary.

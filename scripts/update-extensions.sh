@@ -44,6 +44,7 @@ ALLOW_DOWNGRADE=false
 # and a shorter set sorts lower, which jq's array ordering gives us directly.
 # The core is padded to a fixed width so 1.2 and 1.2.0 compare equal.
 JQ_SEMVER_KEY='
+	def is_release_version: (split("+")[0] | test("-") | not);
 	def semver_key:
 		(split("+")[0] | split("-")) as $parts
 		| ((($parts[0] | split(".") | map(tonumber? // 0)) + [0,0,0,0])[0:4]) as $core
@@ -138,8 +139,13 @@ get_extension_info() {
 	if command -v jq >/dev/null 2>&1; then
 		# Pick the highest *stable* release by semver. Open VSX marks prerelease
 		# builds with "pre_release": true (e.g. pyrefly's 1.1.900x dev builds),
-		# and those must not be bootstrapped as if they were releases. Fall back
-		# to all versions if the extension only publishes prereleases.
+		# and those must not be bootstrapped as if they were releases. The flag
+		# alone is not enough: p3m serves debugpy's 2024.11.0-dev with
+		# "pre_release": false, and semver only ranks that below 2024.11.0, not
+		# below an older genuine release -- so a mislabelled dev build could
+		# outrank the newest stable version. Require both the flag and a version
+		# string with no prerelease suffix, and fall back to all versions only
+		# when that leaves nothing.
 		# Select a single entry so version and target_platform stay consistent.
 		#
 		# Order by semver, not publish date: a publisher can ship a backport
@@ -150,7 +156,7 @@ get_extension_info() {
 		# ordering is required.)
 		local selected
 		selected=$(echo "$response" | jq -c "$JQ_SEMVER_KEY"'
-			(.versions | map(select(.pre_release != true))) as $stable
+			(.versions | map(select(.pre_release != true and (.version | is_release_version)))) as $stable
 			| (if ($stable | length) > 0 then $stable else .versions end)
 			| sort_by((.version | semver_key), .published_at) | reverse | .[0] // {}')
 		EXTENSION_VERSION=$(echo "$selected" | jq -r '.version // empty')
