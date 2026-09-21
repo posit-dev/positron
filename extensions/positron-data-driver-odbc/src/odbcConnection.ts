@@ -19,8 +19,11 @@ let nextConnectionId = 1;
  * The case worth special-casing is the driver manager being absent: on macOS and Linux the binding
  * links against unixODBC, and without it every connection fails at dlopen with a message about a
  * missing shared library, which reads as a Positron bug rather than a missing prerequisite.
- * Everything else is passed through -- ODBC drivers report their own diagnostics, and those are
- * more specific than anything this layer could substitute.
+ *
+ * Three more of the driver manager's own diagnostics are rewritten, for the same reason: they
+ * describe the machine's ODBC configuration rather than the database, and the raw text names a
+ * shared object and a dlopen failure, which reads as a Positron fault. Diagnostics from the
+ * database driver itself are still passed through untouched.
  */
 export function describeConnectError(error: unknown): string {
 	const odbcError = error as OdbcError;
@@ -37,7 +40,30 @@ export function describeConnectError(error: unknown): string {
 		}
 	}
 
-	return odbcError?.message ?? String(error);
+	const message = odbcError?.message ?? String(error);
+
+	// The library the configuration names is not on disk. Usually a versioned path left behind by
+	// an upgrade: Homebrew's psqlodbc writes its Cellar path into the ini files, and every
+	// `brew upgrade` deletes the directory that path points at.
+	const missingLibrary = /Can't open lib '(?<libraryPath>[^']*)'\s*:\s*file not found/i.exec(message);
+	if (missingLibrary?.groups?.libraryPath) {
+		return `This data source uses an ODBC driver that is not installed at ${missingLibrary.groups.libraryPath}. Reinstall the driver, or correct the path in your odbcinst.ini or odbc.ini.`;
+	}
+
+	// The library is on disk but will not load: built for another architecture, or missing a
+	// dependency of its own. Which of those it is comes only from the driver manager's own text,
+	// so that is kept and the path is named ahead of it. Must come after the check above, whose
+	// message this pattern also matches.
+	const unloadableLibrary = /Can't open lib '(?<libraryPath>[^']*)'/i.exec(message);
+	if (unloadableLibrary?.groups?.libraryPath) {
+		return `The ODBC driver at ${unloadableLibrary.groups.libraryPath} could not be loaded: ${message}`;
+	}
+
+	if (/Data source name not found/i.test(message)) {
+		return 'No ODBC data source or driver by that name is configured on this computer. Check the name, or define the data source in your odbc.ini.';
+	}
+
+	return message;
 }
 
 /**
