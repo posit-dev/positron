@@ -137,6 +137,20 @@ describe('getProviderMappings', () => {
 			{ providerId: 'team-snow', authProviderId: 'custom-providers', scopes: ['team-snow'], credentialType: 'apikey', configKey: 'team-snow', structuredBaseUrl: 'snowflake' },
 		]);
 	});
+
+	it('adds a local mapping for each built-in local provider and each custom entry of a local kind', async () => {
+		const engine = new HeadlessLanguageModelEngine(new NullLogService(), catalogOf([
+			{ id: 'ollama', enabled: true, connection: { endpoint: 'http://localhost:11434' } },
+			{ id: 'lmstudio', enabled: false, connection: { endpoint: 'http://localhost:1234/v1' } },
+			{ id: 'lab-ollama', enabled: true, clientKind: 'ollama', connection: { endpoint: 'http://gpu-box:11434' }, custom: true },
+		]));
+		const mappings = await engine.getProviderMappings();
+		expect(mappings.filter(m => m.credentialType === 'local')).toEqual([
+			{ providerId: 'ollama', scopes: [], credentialType: 'local', configKey: 'ollama' },
+			{ providerId: 'lmstudio', scopes: [], credentialType: 'local', configKey: 'lmstudio' },
+			{ providerId: 'lab-ollama', scopes: [], credentialType: 'local', configKey: 'lab-ollama' },
+		]);
+	});
 });
 
 describe('registry follows the catalog', () => {
