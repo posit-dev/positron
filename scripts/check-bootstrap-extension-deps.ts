@@ -102,20 +102,73 @@ async function assertBuiltinCarveOutIsAccurate(): Promise<void> {
 	}
 }
 
-// Compares two versions by numeric segment. A trailing prerelease identifier is
-// ignored and unparsable segments count as 0, so an odd version string orders
-// predictably instead of poisoning the comparator with NaN.
+// SemVer 2.0 precedence. This is the shared contract with semver_key in
+// scripts/update-extensions.sh; keep the two in step.
+//
+// Prerelease identifiers cannot be discarded: p3m serves versions such as
+// debugpy's 2024.11.0-dev with "pre_release": false, so they survive the stable
+// filter and reach this comparator. Stripping the suffix would make
+// 2024.11.0-dev and 2024.11.0 compare equal and let a -dev build win the
+// published_at tiebreak and get pinned. Build metadata is ignored per spec, and
+// must be stripped before the core is parsed or "3+linux" reads as 0 and
+// silently lowers the version.
+//
+// The core is normalised to a fixed width so 1.2 and 1.2.0 compare equal in
+// both implementations rather than differing on array length.
+const CORE_SEGMENTS = 4;
+
+function splitVersion(version: string): { core: number[]; prerelease: string[] } {
+	const [core, ...prerelease] = version.split('+')[0].split('-');
+	const parts = core.split('.').map(part => Number(part) || 0);
+	return {
+		core: Array.from({ length: CORE_SEGMENTS }, (_, i) => parts[i] ?? 0),
+		prerelease: prerelease.length > 0 ? prerelease.join('-').split('.') : []
+	};
+}
+
+// Numeric identifiers compare numerically and rank below alphanumeric ones; a
+// smaller set of identifiers ranks lower when all preceding ones match.
+function comparePrerelease(a: string[], b: string[]): number {
+	for (let i = 0; i < Math.max(a.length, b.length); i++) {
+		const left = a[i];
+		const right = b[i];
+		if (left === undefined) {
+			return -1;
+		}
+		if (right === undefined) {
+			return 1;
+		}
+		const leftNumeric = /^\d+$/.test(left);
+		const rightNumeric = /^\d+$/.test(right);
+		if (leftNumeric !== rightNumeric) {
+			return leftNumeric ? -1 : 1;
+		}
+		if (leftNumeric) {
+			const diff = Number(left) - Number(right);
+			if (diff !== 0) {
+				return diff;
+			}
+		} else if (left !== right) {
+			return left < right ? -1 : 1;
+		}
+	}
+	return 0;
+}
+
 function compareSemver(a: string, b: string): number {
-	const parse = (v: string) => v.split('-')[0].split('.').map(part => Number(part) || 0);
-	const left = parse(a);
-	const right = parse(b);
-	for (let i = 0; i < Math.max(left.length, right.length); i++) {
-		const diff = (left[i] ?? 0) - (right[i] ?? 0);
+	const left = splitVersion(a);
+	const right = splitVersion(b);
+	for (let i = 0; i < CORE_SEGMENTS; i++) {
+		const diff = left.core[i] - right.core[i];
 		if (diff !== 0) {
 			return diff;
 		}
 	}
-	return 0;
+	// A release outranks any prerelease of the same core version.
+	if (left.prerelease.length === 0 || right.prerelease.length === 0) {
+		return (right.prerelease.length === 0 ? 0 : 1) - (left.prerelease.length === 0 ? 0 : 1);
+	}
+	return comparePrerelease(left.prerelease, right.prerelease);
 }
 
 // Picks the version a bootstrap bump would land on: the highest stable release
@@ -123,7 +176,7 @@ function compareSemver(a: string, b: string): number {
 // those. Mirrors get_extension_info in scripts/update-extensions.sh, including
 // the ordering -- a publisher can ship a backport after a newer release (Meta
 // published pyrefly 1.2.1 two days after 1.3.1), so ordering by publish date
-// would audit the wrong manifest. published_at only breaks ties.
+// would audit the wrong manifest. published_at only breaks exact ties.
 function selectLatestVersion(versions: IPackageVersion[]): IPackageVersion | undefined {
 	const stable = versions.filter(v => v.pre_release !== true);
 	const candidates = stable.length > 0 ? stable : versions;

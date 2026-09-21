@@ -31,6 +31,29 @@ VSIX_DIR="./vsix-cache"
 PROCESS_ALL=false
 ALLOW_DOWNGRADE=false
 
+# SemVer 2.0 precedence as a jq sort key, shared by the latest-version selector
+# and the downgrade guard. This is the shared contract with compareSemver in
+# scripts/check-bootstrap-extension-deps.ts; keep the two in step.
+#
+# Build metadata is dropped before the core is parsed, or "3+linux" reads as 0
+# and silently lowers the version. A release sorts above any prerelease of the
+# same core (the 1 vs 0 rank), which matters because p3m serves versions such
+# as debugpy's 2024.11.0-dev with "pre_release": false: they survive the stable
+# filter, and without this a -dev build could outrank its own release. Within a
+# prerelease, numeric identifiers sort below alphanumeric ones ([0,n] vs [1,s])
+# and a shorter set sorts lower, which jq's array ordering gives us directly.
+# The core is padded to a fixed width so 1.2 and 1.2.0 compare equal.
+JQ_SEMVER_KEY='
+	def semver_key:
+		(split("+")[0] | split("-")) as $parts
+		| ((($parts[0] | split(".") | map(tonumber? // 0)) + [0,0,0,0])[0:4]) as $core
+		| ($parts[1:]) as $pre
+		| if ($pre | length) == 0 then [$core, 1, []]
+			else [$core, 0, ($pre | join("-") | split(".")
+				| map(if test("^[0-9]+$") then [0, tonumber] else [1, .] end))]
+			end;
+'
+
 # Help function
 show_help() {
 	cat << EOF
@@ -122,15 +145,14 @@ get_extension_info() {
 		# Order by semver, not publish date: a publisher can ship a backport
 		# after a newer release (Meta published pyrefly 1.2.1 two days after
 		# 1.3.1), and sorting by published_at then picks it and silently
-		# downgrades the pin. published_at only breaks ties between entries that
-		# parse to the same version. (P3M does not guarantee versions are
-		# returned in sorted order, so some explicit ordering is required.)
+		# downgrades the pin. published_at only breaks exact ties. (P3M does not
+		# guarantee versions are returned in sorted order, so some explicit
+		# ordering is required.)
 		local selected
-		selected=$(echo "$response" | jq -c '
-			def semver: (.version | split("-")[0] | split(".") | map(tonumber? // 0));
+		selected=$(echo "$response" | jq -c "$JQ_SEMVER_KEY"'
 			(.versions | map(select(.pre_release != true))) as $stable
 			| (if ($stable | length) > 0 then $stable else .versions end)
-			| sort_by(semver, .published_at) | reverse | .[0] // {}')
+			| sort_by((.version | semver_key), .published_at) | reverse | .[0] // {}')
 		EXTENSION_VERSION=$(echo "$selected" | jq -r '.version // empty')
 		EXTENSION_TARGET_PLATFORM=$(echo "$selected" | jq -r '.target_platform // empty')
 
@@ -295,13 +317,11 @@ get_pinned_version() {
 	' "$product_json"
 }
 
-# True when $1 is a strictly lower semver than $2. A trailing prerelease
-# identifier is ignored and unparsable segments count as 0, matching the
-# ordering used to select the latest version.
+# True when $1 is a strictly lower version than $2, using the same precedence
+# as the latest-version selector so the guard cannot disagree with it.
 is_version_lower() {
-	jq -e -n --arg a "$1" --arg b "$2" '
-		def semver: (split("-")[0] | split(".") | map(tonumber? // 0));
-		($a | semver) < ($b | semver)
+	jq -e -n --arg a "$1" --arg b "$2" "$JQ_SEMVER_KEY"'
+		($a | semver_key) < ($b | semver_key)
 	' >/dev/null
 }
 
