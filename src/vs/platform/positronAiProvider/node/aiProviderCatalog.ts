@@ -104,6 +104,7 @@ function toProviderData(provider: ResolvedProvider, aiConfig: IProviderMappingCo
 			googleCloud: connection.googleCloud,
 			snowflake: connection.snowflake,
 			databricks: connection.databricks,
+			positaiLogin: connection.positaiLogin,
 		},
 		models: provider.models,
 		custom: builtin ? undefined : true,

@@ -7,6 +7,7 @@
 
 import * as fs from 'fs';
 import * as os from 'os';
+import type { ResolvedConnection } from 'ai-config/node';
 import { NullLogService } from '../../../log/common/log.js';
 import { join } from '../../../../base/common/path.js';
 import { AiProviderCatalog } from '../../node/aiProviderCatalog.js';
@@ -42,6 +43,27 @@ describe('AiProviderCatalog', () => {
 		const anthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
 		expect({ enabled: anthropic.enabled, baseUrl: anthropic.connection.baseUrl })
 			.toEqual({ enabled: false, baseUrl: 'https://proxy.example/v1' });
+	});
+
+	// Every mirrored connection field must be copied by the production mapper.
+	// `protocol` and `endpoints` are deliberately not mirrored (no renderer reads them).
+	type MirroredConnectionKeys = Exclude<keyof ResolvedConnection, 'protocol' | 'endpoints'>;
+	const mirroredKeys: Record<MirroredConnectionKeys, true> = {
+		baseUrl: true, endpoint: true, customHeaders: true, aws: true, azure: true,
+		googleCloud: true, snowflake: true, databricks: true, positaiLogin: true,
+	};
+
+	it('publishes every mirrored connection field, including positaiLogin', async () => {
+		const configPath = join(dir, 'providers.json');
+		fs.writeFileSync(configPath, JSON.stringify({
+			version: 1,
+			providers: { positai: { positaiLogin: { host: 'login.example' } } },
+		}));
+		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
+		const positai = (await catalog.getCatalog()).find(p => p.id === 'positai')!;
+		expect(positai.connection.positaiLogin?.host).toBe('login.example');
+		// The mapper assigns every key, so absent fields are present as undefined.
+		expect(Object.keys(positai.connection).sort()).toEqual(Object.keys(mirroredKeys).sort());
 	});
 
 	it('carries a custom entry\'s clientKind but omits it for a built-in', async () => {
