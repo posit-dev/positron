@@ -79,6 +79,12 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			setRenderMarker(generateUuid());
 		}));
 
+		// Add the onDidRequestFocus event handler. The waffle is the grid's focusable element, so
+		// this is where an instance's request for focus is answered.
+		disposableStore.add(context.instance.onDidRequestFocus(() => {
+			dataGridWaffleRef.current?.focus();
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, [services.configurationService, context.instance]);
