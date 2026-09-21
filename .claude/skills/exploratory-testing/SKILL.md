@@ -41,12 +41,8 @@ of the arguments the launcher supplies: without `--disable-workspace-trust` the
 app starts in restricted mode with extensions disabled, so interpreter
 discovery never runs and an empty picker looks like a bug.
 
-Every tool call is a turn, and every turn re-sends the whole context, so turn
-count drives cost far more than output size. A run made of single Playwright
-commands each returning a line or two is the pattern to avoid. Batch
-independent steps into one call -- act, act, then snapshot. Capture
-screenshots freely, since writing a file is free. Reading one back is the most
-expensive thing you can do: an image costs about 2,500 tokens at 1600x1100,
+Capture screenshots freely, since writing a file is free. Reading one back is
+the most expensive thing you can do: an image costs about 2,500 tokens at 1600x1100,
 scales with area, and is paid again on every call after it. So read one only
 when no grep of an accessibility snapshot or a log can answer the question,
 which is rare. A screenshot you never read is still good evidence for the
