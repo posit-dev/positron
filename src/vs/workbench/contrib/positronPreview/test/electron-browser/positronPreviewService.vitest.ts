@@ -28,4 +28,58 @@ describe('Positron - Preview Service', () => {
 		storageService.store(STORAGE_KEY, 'someUnknownValue', StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		expect(previewService.getDefaultOpenTarget()).toBe(PreviewOpenTarget.Browser);
 	});
+
+	it('retains and navigates Viewer output history', () => {
+		const historyState = () => ({
+			previewIds: previewService.previewWebviews.map(preview => preview.previewId),
+			activePreviewId: previewService.activePreviewWebviewId,
+			canSelectPrevious: previewService.canSelectPreviousPreview,
+			canSelectNext: previewService.canSelectNextPreview,
+		});
+
+		previewService.openHtmlString('first', '<p>First</p>', 'First');
+		previewService.openHtmlString('second', '<p>Second</p>', 'Second');
+		const newestState = historyState();
+
+		previewService.selectPreviousPreview();
+		const previousState = historyState();
+
+		previewService.selectNextPreview();
+		const nextState = historyState();
+
+		previewService.clearAllPreviews();
+		const clearedState = historyState();
+
+		expect({
+			newestState,
+			previousState,
+			nextState,
+			clearedState,
+		}).toEqual({
+			newestState: {
+				previewIds: ['first', 'second'],
+				activePreviewId: 'second',
+				canSelectPrevious: true,
+				canSelectNext: false,
+			},
+			previousState: {
+				previewIds: ['first', 'second'],
+				activePreviewId: 'first',
+				canSelectPrevious: false,
+				canSelectNext: true,
+			},
+			nextState: {
+				previewIds: ['first', 'second'],
+				activePreviewId: 'second',
+				canSelectPrevious: true,
+				canSelectNext: false,
+			},
+			clearedState: {
+				previewIds: [],
+				activePreviewId: '',
+				canSelectPrevious: false,
+				canSelectNext: false,
+			},
+		});
+	});
 });

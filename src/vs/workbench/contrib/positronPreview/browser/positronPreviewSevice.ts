@@ -129,6 +129,28 @@ export interface IPositronPreviewService {
 
 	set activePreviewWebviewId(id: string);
 
+	/**
+	 * Whether there is a preview before the active preview in the Viewer
+	 * history.
+	 */
+	get canSelectPreviousPreview(): boolean;
+
+	/**
+	 * Whether there is a preview after the active preview in the Viewer
+	 * history.
+	 */
+	get canSelectNextPreview(): boolean;
+
+	/**
+	 * Selects the preview before the active preview, if there is one.
+	 */
+	selectPreviousPreview(): void;
+
+	/**
+	 * Selects the preview after the active preview, if there is one.
+	 */
+	selectNextPreview(): void;
+
 	openEditor(uri: URI, title?: string): Promise<void>;
 
 	editorWebview(editorId: string): PreviewWebview | undefined;
