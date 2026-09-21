@@ -28,6 +28,20 @@ function writeConfig(configPath: string, providers: Record<string, unknown>): vo
 	fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers }));
 }
 
+/**
+ * Captures the levels applyPwbPositAIDefault logs at. Injected rather than
+ * stubbed: the module-level `log` wraps a real output channel.
+ */
+function makeLogger() {
+	const entries: { level: string; message: string }[] = [];
+	const record = (level: string) => (message: string) => { entries.push({ level, message }); };
+	return {
+		entries,
+		logger: { debug: record('debug'), info: record('info'), warn: record('warn') },
+		messages: (level: string) => entries.filter(e => e.level === level).map(e => e.message),
+	};
+}
+
 suite('applyPwbPositAIDefault', () => {
 	let dir: string;
 	let configPath: string;
@@ -53,31 +67,44 @@ suite('applyPwbPositAIDefault', () => {
 	test('does nothing when default already applied', async () => {
 		const { context, globalState } = makeContext();
 		globalState.set('positAI.pwbDefaultApplied', true);
+		const { logger, messages } = makeLogger();
 
-		await applyPwbPositAIDefault(context, true, { configPath });
+		await applyPwbPositAIDefault(context, true, { configPath }, logger);
 
 		assert.strictEqual(fs.existsSync(configPath), false);
+		// Debug, not info: this branch runs on every launch after the first.
+		assert.match(messages('debug').join('\n'), /applied on an earlier run/);
+		assert.deepStrictEqual(messages('info'), []);
 	});
 
 	test('disables positai in providers.json on first PWB run', async () => {
 		const { context, globalState } = makeContext();
+		const { logger, messages } = makeLogger();
 
-		await applyPwbPositAIDefault(context, true, { configPath });
+		await applyPwbPositAIDefault(context, true, { configPath }, logger);
 
 		const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 		assert.strictEqual(config.providers.positai.enabled, false);
 		assert.strictEqual(globalState.get('positAI.pwbDefaultApplied'), true);
+		const info = messages('info').join('\n');
+		assert.match(info, /applied the Posit Workbench default/);
+		assert.ok(info.includes(configPath), `expected the info log to name ${configPath}, got: ${info}`);
 	});
 
 	test('does not clobber an explicit enabled value in providers.json', async () => {
 		const { context, globalState } = makeContext();
 		writeConfig(configPath, { positai: { enabled: true } });
+		const { logger, messages } = makeLogger();
 
-		await applyPwbPositAIDefault(context, true, { configPath });
+		await applyPwbPositAIDefault(context, true, { configPath }, logger);
 
 		const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 		assert.strictEqual(config.providers.positai.enabled, true);
 		assert.strictEqual(globalState.get('positAI.pwbDefaultApplied'), true);
+		const info = messages('info').join('\n');
+		assert.match(info, /already set/);
+		assert.doesNotMatch(info, /applied the Posit Workbench default/);
+		assert.ok(info.includes(configPath), `expected the info log to name ${configPath}, got: ${info}`);
 	});
 
 	test('marks as applied even when the write fails', async () => {
@@ -87,10 +114,16 @@ suite('applyPwbPositAIDefault', () => {
 		const blocker = path.join(dir, 'blocker');
 		fs.writeFileSync(blocker, 'not a directory');
 		const unwritablePath = path.join(blocker, 'providers.json');
+		const { logger, messages } = makeLogger();
 
-		await applyPwbPositAIDefault(context, true, { configPath: unwritablePath });
+		await applyPwbPositAIDefault(context, true, { configPath: unwritablePath }, logger);
 
 		assert.strictEqual(fs.existsSync(unwritablePath), false);
 		assert.strictEqual(globalState.get('positAI.pwbDefaultApplied'), true);
+		const warnings = messages('warn').join('\n');
+		assert.ok(
+			warnings.includes(unwritablePath),
+			`expected the warning to name ${unwritablePath}, got: ${warnings}`
+		);
 	});
 });

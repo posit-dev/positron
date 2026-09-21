@@ -212,6 +212,7 @@ export async function initProviderCatalog(
 	const { watchResolvedProviderCatalog } = await import('ai-config/node');
 	cache = toMap(await loadCatalog(options));
 	userConfig = await loadUserConfig(options);
+	await logDisabledProviders(options);
 
 	watcher = watchResolvedProviderCatalog(
 		// Serialized: the handler has to read the user layer before applying,
@@ -234,6 +235,33 @@ export async function initProviderCatalog(
 		}
 	);
 	context.subscriptions.push({ dispose: () => watcher?.dispose() });
+}
+
+/**
+ * Logs which providers resolved to `enabled: false` at startup, and where the
+ * user's providers.json lives. Answers "why is this provider missing" from the
+ * log alone.
+ *
+ * Reports the *resolved* value only. Which layer disabled a provider -- the
+ * enforced environment channel or the user's file -- lives in ai-config's
+ * internal `resolveEnabled` and isn't exposed, so full provenance needs an
+ * upstream change there. Tracked as a follow-up.
+ *
+ * Because of that, this names providers.json without telling the reader that
+ * editing it will re-enable anything: the sealed enforced overlay
+ * (POSIT_AI_PROVIDERS_ENFORCED) outranks the user layer, so under an admin pin
+ * that advice would send them to edit a file whose value is already ignored.
+ */
+async function logDisabledProviders(options: ProviderCatalogOptions): Promise<void> {
+	const disabled = [...cache.values()].filter(provider => !provider.enabled).map(provider => provider.id);
+	if (disabled.length === 0) {
+		return;
+	}
+	const configPath = await resolveProvidersConfigPath(options);
+	log.info(
+		`Disabled providers: ${disabled.join(', ')}. The user providers.json is ${configPath}; `
+		+ 'an enforced admin policy, where one is set, overrides that file.'
+	);
 }
 
 /** Synchronous read over the cached catalog; undefined before init. */
@@ -415,6 +443,21 @@ export async function refreshProviderCatalog(options?: ProviderCatalogOptions): 
 
 function effectiveOptions(override?: ProviderCatalogOptions): ProviderCatalogOptions {
 	return override ?? currentOptions ?? {};
+}
+
+/**
+ * The providers.json path these helpers read and write: the `configPath`
+ * override when a test supplies one, otherwise ai-config's real location. Kept
+ * here so callers that only need the path for a message don't have to import
+ * ai-config themselves.
+ */
+export async function resolveProvidersConfigPath(options?: ProviderCatalogOptions): Promise<string> {
+	const configPath = effectiveOptions(options).configPath;
+	if (configPath) {
+		return configPath;
+	}
+	const { PROVIDERS_CONFIG_PATH } = await import('ai-config/node');
+	return PROVIDERS_CONFIG_PATH;
 }
 
 /** All providers these helpers write are built-ins, so their blocks are `BuiltinProviderBlock`. */
@@ -631,21 +674,29 @@ export async function saveDatabricksHost(
 /**
  * Writes providers.<id>.enabled, then refreshes the cache. With `onlyIfUnset`,
  * leaves an already-set `enabled` value untouched.
+ *
+ * Returns whether the value was written: false means `onlyIfUnset` found an
+ * existing `enabled` and left it alone. Callers that report what they did to
+ * the user's file need that distinction, which the write itself doesn't
+ * surface.
  */
 export async function saveProviderEnabled(
 	catalogId: string,
 	enabled: boolean,
 	onlyIfUnset: boolean,
 	options?: ProviderCatalogOptions
-): Promise<void> {
+): Promise<boolean> {
 	const opts = effectiveOptions(options);
+	let wrote = false;
 	await mutate(providers => {
 		const block = providers[catalogId] ?? {};
 		if (onlyIfUnset && block.enabled !== undefined) {
 			return;
 		}
 		providers[catalogId] = { ...block, enabled };
+		wrote = true;
 	}, opts);
+	return wrote;
 }
 
 // ---------------------------------------------------------------------------
