@@ -55,6 +55,8 @@ export interface IProviderMapping {
 	readonly credentialType: 'apikey' | 'oauth' | 'aws-credentials' | 'google-cloud';
 	/** Config namespace for apikey `baseUrl`/`customHeaders` (mirrors the bridge's overrides). */
 	readonly configKey: string;
+	/** Derive the base URL from structured connection fields instead of `baseUrl` (Snowflake account/host, Databricks host). */
+	readonly structuredBaseUrl?: 'snowflake' | 'databricks';
 }
 
 /** A single message in a request's history (shared by the public surface and the engine). */

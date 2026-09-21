@@ -44,6 +44,20 @@ describe('AiProviderCatalog', () => {
 			.toEqual({ enabled: false, baseUrl: 'https://proxy.example/v1' });
 	});
 
+	it('carries a custom entry\'s clientKind but omits it for a built-in', async () => {
+		const configPath = join(dir, 'providers.json');
+		fs.writeFileSync(configPath, JSON.stringify({
+			version: 1,
+			providers: { custom: { 'my-gateway': { type: 'openai-compatible', baseUrl: 'https://gw.example/v1' } } },
+		}));
+		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
+		const providers = await catalog.getCatalog();
+		const custom = providers.find(p => p.id === 'my-gateway')!;
+		expect(custom.clientKind).toBe('openai-compatible');
+		const anthropic = providers.find(p => p.id === 'anthropic')!;
+		expect(anthropic.clientKind).toBeUndefined();
+	});
+
 	it('reads model policy from the file and emits model-policy change events', async () => {
 		const configPath = join(dir, 'providers.json');
 		fs.writeFileSync(configPath, JSON.stringify({

@@ -87,6 +87,9 @@ export interface IResolvedProviderData {
 	/** Present, and true, only for a provider from a custom providers.json entry. */
 	readonly custom?: boolean;
 
+	/** A custom entry's declared `type`, which selects its client implementation; absent for built-ins. */
+	readonly clientKind?: string;
+
 	/**
 	 * Dotted names of the connection fields whose resolved value differs from
 	 * ai-config's built-in default for this provider, e.g. 'baseUrl' or

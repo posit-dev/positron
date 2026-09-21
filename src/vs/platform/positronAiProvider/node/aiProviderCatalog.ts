@@ -107,6 +107,7 @@ function toProviderData(provider: ResolvedProvider, aiConfig: IProviderMappingCo
 		},
 		models: provider.models,
 		custom: builtin ? undefined : true,
+		clientKind: builtin ? undefined : provider.clientKind,
 		customizedConnection: customizedConnectionFields(
 			connection,
 			builtin ? aiConfig.PROVIDER_CONNECTION_DEFAULTS[provider.id] : undefined,
