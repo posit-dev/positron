@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -55,4 +55,24 @@ test('renderCostFooter reports cost, turns against the cap, and wall clock', () 
 test('renderCostFooter degrades gracefully with no result message', () => {
 	const footer = renderCostFooter({ total_cost_usd: null, num_turns: null, duration_ms: null }, 200);
 	assert.match(footer, /unknown/);
+});
+
+test('resolveReport prefers a non-empty report.md over scraped chat text, verbatim', () => {
+	const fileReport = '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from file | bug |';
+	const messages = ['# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from chat | bug |'];
+	assert.equal(resolveReport(fileReport, messages), fileReport);
+});
+
+test('resolveReport falls back to pickReport when report.md is missing (null)', () => {
+	const messages = ['thinking', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from chat | bug |'];
+	assert.match(resolveReport(null, messages), /from chat/);
+});
+
+test('resolveReport falls back to pickReport when report.md is empty or whitespace-only', () => {
+	const messages = ['# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from chat | bug |'];
+	assert.match(resolveReport('   \n', messages), /from chat/);
+});
+
+test('resolveReport returns null when the file is absent and no message looks like a report', () => {
+	assert.equal(resolveReport(null, ['hello', 'still working']), null);
 });

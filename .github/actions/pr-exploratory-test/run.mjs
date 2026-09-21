@@ -9,7 +9,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { pickReport, buildCostRecord, renderCostFooter } from './lib.mjs';
+import { resolveReport, buildCostRecord, renderCostFooter } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -20,9 +20,12 @@ const BRANCH = mustEnv('BRANCH');
 const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
-const MAX_TURNS = Number(process.env.MAX_TURNS || '200');
+const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200);
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
+// Fails fast with a named error instead of letting the SDK surface an opaque
+// auth error when a 1Password resolution comes back empty.
+mustEnv('ANTHROPIC_API_KEY');
 
 function mustEnv(name) {
 	const v = process.env[name];
@@ -31,6 +34,17 @@ function mustEnv(name) {
 		process.exit(1);
 	}
 	return v;
+}
+
+function parsePosIntEnv(name, fallback) {
+	const raw = process.env[name];
+	if (raw === undefined || raw === '') { return fallback; }
+	const n = Number(raw);
+	if (!Number.isInteger(n) || n <= 0) {
+		console.warn(`[exploratory] WARN: invalid ${name}=${raw}, falling back to default ${fallback}`);
+		return fallback;
+	}
+	return n;
 }
 
 const CI_TAIL = `
@@ -111,10 +125,12 @@ async function main() {
 			const textBlocks = content.filter(b => b.type === 'text').map(b => b.text);
 			const toolUses = content.filter(b => b.type === 'tool_use').map(b => `${b.name}(${JSON.stringify(b.input).slice(0, 200)})`);
 			if (textBlocks.length) {
-				assistantMessages.push(textBlocks.join('\n'));
+				const joined = textBlocks.join('\n');
+				assistantMessages.push(joined);
+				console.log(`[turn ${turnCount}] assistant text (${joined.length} chars):\n${joined.slice(0, 1000)}${joined.length > 1000 ? '\n...(truncated)' : ''}`);
 			}
 			if (toolUses.length) {
-				console.log(`[turn ${turnCount}] ${toolUses.join(' | ')}`);
+				console.log(`[turn ${turnCount}] tool calls: ${toolUses.join(' | ')}`);
 			}
 		} else if (message.type === 'result') {
 			cost = buildCostRecord(message);
@@ -124,14 +140,27 @@ async function main() {
 
 	writeFileSync(join(WORK_DIR, 'cost.json'), JSON.stringify(cost, null, 2));
 
+	// The agent was told to write report.md itself; that file is authoritative
+	// when present. Only fall back to scraping chat text if it is missing or
+	// empty, and never overwrite a report that came from the file.
+	let fileReport = null;
+	try {
+		fileReport = readFileSync(join(WORK_DIR, 'report.md'), 'utf8');
+	} catch {
+		// Expected when the agent never wrote the file; resolveReport falls
+		// back to scraping chat text.
+	}
+
 	const footer = renderCostFooter(cost, MAX_TURNS);
-	const report = pickReport(assistantMessages);
+	const report = resolveReport(fileReport, assistantMessages);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
 
 	let summary;
 	if (report) {
 		summary = `## Exploratory test\n\n${report}\n\n${footer}\n`;
-		writeFileSync(join(WORK_DIR, 'report.md'), report);
+		if (!(typeof fileReport === 'string' && fileReport.trim().length > 0)) {
+			writeFileSync(join(WORK_DIR, 'report.md'), report);
+		}
 	} else if (partial) {
 		summary = `## Exploratory test: partial run\n\nThe agent hit the ${MAX_TURNS}-turn cap before writing a report. \`actions.log\` and any screenshots captured so far are in the artifact.\n\n${footer}\n`;
 	} else {

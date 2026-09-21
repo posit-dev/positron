@@ -16,6 +16,18 @@ export function pickReport(messages) {
 	return null;
 }
 
+/**
+ * Prefer the report the agent wrote to report.md; scrape chat text with
+ * pickReport only when that file is missing or empty. A report that came
+ * from the file is authoritative and must never be replaced by a scrape.
+ */
+export function resolveReport(fileReportContent, messages) {
+	if (typeof fileReportContent === 'string' && fileReportContent.trim().length > 0) {
+		return fileReportContent;
+	}
+	return pickReport(messages);
+}
+
 /** Flatten the SDK result message into the record written to cost.json. */
 export function buildCostRecord(message) {
 	return {

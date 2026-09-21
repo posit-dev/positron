@@ -138,7 +138,6 @@ jobs:
           echo '{}' > /tmp/positron-seed/User/settings.json
           mkdir -p /tmp/exploratory-workspace
           echo "# scratch" > /tmp/exploratory-workspace/README.md
-          mkdir -p /tmp/launch-proof
 
       - name: Prove the build is the branch
         shell: bash
@@ -168,19 +167,24 @@ jobs:
           echo "POSITRON_LOG=$(echo "$LAUNCH_JSON" | jq -r .logFile)" >> "$GITHUB_ENV"
           echo "POSITRON_PID=$(echo "$LAUNCH_JSON" | jq -r .pid)" >> "$GITHUB_ENV"
 
-      - name: Attach Playwright
-        shell: bash
-        run: |
-          set -euo pipefail
-          npx @playwright/cli -s=positron attach --cdp=http://127.0.0.1:"$CDP_PORT"
-          npx @playwright/cli -s=positron resize 1600 1100
-
       - name: Allocate run directory
         shell: bash
         run: |
           set -euo pipefail
           echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
           mkdir -p /tmp/exploratory-run/shots
+
+      - name: Attach Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx @playwright/cli -s=positron attach --cdp=http://127.0.0.1:"$CDP_PORT"
+          npx @playwright/cli -s=positron resize 1600 1100
+          TITLE=$(npx @playwright/cli -s=positron eval '(() => document.title)()')
+          echo "document.title = $TITLE"
+          test -n "$TITLE" || { echo "document.title is empty"; exit 1; }
+          npx @playwright/cli -s=positron screenshot --filename="$EXPLORE_DIR/attach-proof.png"
+          test -s "$EXPLORE_DIR/attach-proof.png" || { echo "screenshot empty"; exit 1; }
 
       - name: Explore
         uses: ./.github/actions/pr-exploratory-test
@@ -199,6 +203,6 @@ jobs:
         with:
           name: exploratory-run
           path: |
-            ${{ env.EXPLORE_DIR }}
-            ${{ env.POSITRON_LOG }}
+            /tmp/exploratory-run
+            /tmp/positron-dev-launch/*/code.log
           if-no-files-found: warn
