@@ -259,6 +259,26 @@ is lost. Two mitigations, both required:
 - `run.mjs` must detect a max-turns termination and post a "partial run" comment
   pointing at `actions.log` and the uploaded shots, rather than reporting success.
 
+## Cost accounting
+
+The SDK's `result` message already carries everything needed: `total_cost_usd`,
+`usage.input_tokens`, `usage.output_tokens`, `num_turns`, and `duration_ms`.
+`run.mjs` handles that message anyway to collect the final report, so recording
+this costs no extra call and no instrumentation.
+
+`analyze.mjs:527` logs the same fields today but only to the console, where they
+are buried in job logs and cannot be compared across runs. Do better here:
+
+1. Write `cost.json` into the run directory, so it ships with both the S3 upload
+   and the artifact and stays retrievable after the job logs age out.
+2. Append a footer line to the PR comment: cost, turns used against the cap, and
+   wall clock.
+3. Append the same line to the step summary.
+
+`num_turns` is the calibration input for `maxTurns`. Recording it per run is what
+turns the 200 estimate into a measurement, and it is the mechanism implementation
+step 6 depends on.
+
 ## Cleanup is inverted in CI
 
 v1 and `drive-positron` both state that cleanup is not optional. In CI it is not
@@ -374,7 +394,11 @@ team-only rather than collaborator-level.
 ## Open questions
 
 - What is the real turn cost of a CI run? 200 is an estimate from local action
-  counts, not a measurement.
+  counts, not a measurement. The `num_turns` field recorded per "Cost accounting"
+  answers this after a handful of runs.
+- Should per-run cost be aggregated anywhere beyond the PR comment and the
+  artifact? The e2e-test-insights webhook the analyzer posts to is the obvious
+  candidate, but that is a separate integration and is out of scope for v1.
 - Does the agent need a scaffolded workspace, and if so what is in it? v1 says the
   representative case is a populated workspace with warm state, not a fresh
   profile, but a CI run always starts cold. A second launch via `reseed.sh` would
