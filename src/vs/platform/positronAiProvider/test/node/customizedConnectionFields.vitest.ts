@@ -23,9 +23,14 @@ describe('customizedConnectionFields', () => {
 			{
 				baseUrl: 'https://gateway.example.corp',
 				googleCloud: { location: 'us-central1', project: 'my-project' },
+				azure: { authMode: 'entra', scope: 'https://cognitiveservices.azure.com/.default' },
 			},
-			{ baseUrl: 'https://gateway.posit.ai', googleCloud: { location: 'us-central1' } },
-		)).toEqual(['baseUrl', 'googleCloud.project']);
+			{
+				baseUrl: 'https://gateway.posit.ai',
+				googleCloud: { location: 'us-central1' },
+				azure: { authMode: 'apikey', scope: 'https://cognitiveservices.azure.com/.default' },
+			},
+		)).toEqual(['baseUrl', 'googleCloud.project', 'azure.authMode']);
 	});
 
 	it('reports every set field for a provider with no defaults, e.g. a custom entry', () => {

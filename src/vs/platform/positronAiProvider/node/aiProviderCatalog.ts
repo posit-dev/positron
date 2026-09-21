@@ -146,6 +146,7 @@ export function customizedConnectionFields(
 		googleCloud: [connection.googleCloud, defaults?.googleCloud],
 		snowflake: [connection.snowflake, defaults?.snowflake],
 		databricks: [connection.databricks, defaults?.databricks],
+		azure: [connection.azure, defaults?.azure],
 	};
 	for (const [group, [values, defaultValues]] of Object.entries(groups)) {
 		for (const [name, value] of Object.entries(values ?? {})) {
