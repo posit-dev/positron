@@ -39,6 +39,19 @@ export function buildCostRecord(message) {
 	};
 }
 
+/**
+ * Normalize the CDN base URL used to link screenshots, trimming a trailing
+ * slash so `${base}/shots/<file>` never doubles up on `//`. Empty input
+ * (no CDN configured) passes through as empty, which callers use to fall
+ * back to a relative link instead of a broken absolute one.
+ */
+export function buildShotsBaseUrl(reportBaseUrl) {
+	if (!reportBaseUrl) {
+		return '';
+	}
+	return reportBaseUrl.endsWith('/') ? reportBaseUrl.slice(0, -1) : reportBaseUrl;
+}
+
 /** One-line footer for the step summary. */
 export function renderCostFooter(cost, maxTurns) {
 	const dollars = typeof cost.total_cost_usd === 'number'

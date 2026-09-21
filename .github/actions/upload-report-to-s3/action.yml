@@ -11,6 +11,10 @@ inputs:
     description: "The optional working directory to run the command in"
     required: false
     default: ""
+  source-dir:
+    description: "Directory to upload. Defaults to the Playwright report directory."
+    required: false
+    default: "playwright-report"
 
 runs:
   using: "composite"
@@ -30,4 +34,4 @@ runs:
         if [[ -n "$WORKDIR" ]]; then
           cd "$WORKDIR"
         fi
-        aws s3 cp playwright-report/. s3://positron-test-reports/${{ inputs.report-dir }} --recursive
+        aws s3 cp "${{ inputs.source-dir }}/." s3://positron-test-reports/${{ inputs.report-dir }} --recursive

@@ -9,7 +9,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveReport, buildCostRecord, renderCostFooter } from './lib.mjs';
+import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -21,6 +21,7 @@ const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200);
+const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
 // Fails fast with a named error instead of letting the SDK surface an opaque
@@ -58,6 +59,7 @@ You are running inside a GitHub Actions container. Three overrides to the skill 
 1. **You are the tester.** Ignore "Run it in a subagent". Do not delegate; do the exploring yourself.
 2. **Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.
 3. **Do NOT clean up.** Do not run \`stop.sh\`, do not close the Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded.
+4. **Link screenshots with their public URL.** The run directory is published at \`${REPORT_BASE_URL}\`. Where the skill says to cite a shot as \`[shots/<file>](shots/<file>)\`, write \`[shots/<file>](${REPORT_BASE_URL}/shots/<file>)\` instead, and embed with \`![](${REPORT_BASE_URL}/shots/<file>)\`. A relative path is unreachable to anyone reading the report outside this container.
 
 Positron is already launched and a Playwright session named \`positron\` is already attached to it on CDP port ${CDP_PORT}. Do not launch it again. Drive it from the repository root at \`${REPO_ROOT}\` with:
 

@@ -167,11 +167,18 @@ jobs:
           echo "POSITRON_LOG=$(echo "$LAUNCH_JSON" | jq -r .logFile)" >> "$GITHUB_ENV"
           echo "POSITRON_PID=$(echo "$LAUNCH_JSON" | jq -r .pid)" >> "$GITHUB_ENV"
 
+      - name: Allocate report dir
+        uses: ./.github/actions/gen-report-dir
+        with:
+          identifier: exploratory
+          skip-summary: "true"
+
       - name: Allocate run directory
         shell: bash
         run: |
           set -euo pipefail
           echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
+          echo "REPORT_BASE_URL=https://d38p2avprg8il3.cloudfront.net/$REPORT_DIR" >> "$GITHUB_ENV"
           mkdir -p /tmp/exploratory-run/shots
 
       - name: Attach Playwright
@@ -196,6 +203,16 @@ jobs:
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
+          report-base-url: ${{ env.REPORT_BASE_URL }}
+
+      - name: Upload run directory to S3
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          source-dir: ${{ env.EXPLORE_DIR }}
 
       - name: Upload run directory
         if: always()

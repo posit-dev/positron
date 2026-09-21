@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -75,4 +75,22 @@ test('resolveReport falls back to pickReport when report.md is empty or whitespa
 
 test('resolveReport returns null when the file is absent and no message looks like a report', () => {
 	assert.equal(resolveReport(null, ['hello', 'still working']), null);
+});
+
+test('buildShotsBaseUrl passes through a base URL with no trailing slash', () => {
+	assert.equal(
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'),
+		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+	);
+});
+
+test('buildShotsBaseUrl trims exactly one trailing slash', () => {
+	assert.equal(
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu/'),
+		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+	);
+});
+
+test('buildShotsBaseUrl returns empty string when no CDN base is configured', () => {
+	assert.equal(buildShotsBaseUrl(''), '');
 });
