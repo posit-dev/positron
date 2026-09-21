@@ -183,10 +183,11 @@ jobs:
 Run: `npm run precommit -- .github/workflows/pr-exploratory-test.yml`
 Expected: PASS. If `actionlint` is wired into the hook it will also parse the YAML.
 
-Sanity-check the YAML parses:
+Sanity-check the YAML parses. Use the repo's own `js-yaml` -- `pyyaml` is not
+installed in this environment, so a `python3 -c "import yaml"` check cannot run:
 
-Run: `python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/pr-exploratory-test.yml'))" && echo OK`
-Expected: `OK`
+Run: `node -e "const y=require('js-yaml'),f=require('fs');const d=y.load(f.readFileSync('.github/workflows/pr-exploratory-test.yml','utf8'));console.log('steps:',d.jobs.explore.steps.length)"`
+Expected: `steps: 11`
 
 - [ ] **Step 3: Commit and open a PR**
 
