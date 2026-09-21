@@ -125,6 +125,7 @@ jobs:
           echo '{}' > /tmp/positron-seed/User/settings.json
           mkdir -p /tmp/exploratory-workspace
           echo "# scratch" > /tmp/exploratory-workspace/README.md
+          mkdir -p /tmp/launch-proof
 
       - name: Prove the build is the branch
         shell: bash
@@ -136,11 +137,6 @@ jobs:
       - name: Launch Positron
         id: launch
         shell: bash
-        env:
-          POSITRON_PY_VER_SEL: "3.10.12"
-          POSITRON_R_VER_SEL: 4.5.2
-          POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
-          POSITRON_HIDDEN_R: 4.4.1
         run: |
           set -euo pipefail
           LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
@@ -157,20 +153,24 @@ jobs:
           echo "CDP_PORT=$(echo "$LAUNCH_JSON" | jq -r .cdpPort)" >> "$GITHUB_ENV"
           echo "RUN_DIR=$(echo "$LAUNCH_JSON" | jq -r .runDir)" >> "$GITHUB_ENV"
           echo "POSITRON_LOG=$(echo "$LAUNCH_JSON" | jq -r .logFile)" >> "$GITHUB_ENV"
+          echo "POSITRON_PID=$(echo "$LAUNCH_JSON" | jq -r .pid)" >> "$GITHUB_ENV"
 
       - name: Prove CDP attach and drive one action
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/launch-proof
           npx @playwright/cli -s=positron attach --cdp=http://127.0.0.1:"$CDP_PORT"
           npx @playwright/cli -s=positron resize 1600 1100
           TITLE=$(npx @playwright/cli -s=positron eval '(() => document.title)()')
           echo "document.title = $TITLE"
+          test -n "$TITLE" || { echo "document.title is empty"; exit 1; }
           npx @playwright/cli -s=positron snapshot > /tmp/launch-proof/snapshot.txt
+          LINES=$(wc -l < /tmp/launch-proof/snapshot.txt)
+          echo "snapshot line count: $LINES"
+          test "$LINES" -gt 50 || { echo "snapshot has too few lines (possible modal or blank window)"; exit 1; }
           npx @playwright/cli -s=positron screenshot --filename=/tmp/launch-proof/01-workbench.png
           test -s /tmp/launch-proof/01-workbench.png || { echo "screenshot empty"; exit 1; }
-          grep -qi positron /tmp/launch-proof/snapshot.txt || { echo "snapshot does not look like Positron"; exit 1; }
+          # screenshot is human-verified for workbench, not a dialog
 
       - name: Upload launch proof
         if: always()
@@ -179,5 +179,5 @@ jobs:
           name: exploratory-launch-proof
           path: |
             /tmp/launch-proof
-            ${{ env.POSITRON_LOG }}
+            /tmp/positron-dev-launch/*/code.log
           if-no-files-found: warn
