@@ -5,34 +5,25 @@
 
 /// <reference types="vitest/globals" />
 
-import type { ProviderCatalogChange, ResolvedConnection, ResolvedProvider } from 'ai-config/node';
-import type { IProviderCatalogChangeData, IResolvedConnectionData, IResolvedModelsData, IResolvedProviderData } from '../../common/aiProviderCatalog.js';
+import type { ProviderCatalogChange, ResolvedProvider } from 'ai-config/node';
+import type { IProviderCatalogChangeData, IResolvedModelsData, IResolvedProviderData } from '../../common/aiProviderCatalog.js';
 
 // Compile-time guard that the hand-mirrored IPC types stay assignable from the
 // ai-config types they mirror at the pinned commit. One-directional: the mirror
 // is a deliberate reduced view, so a rename/retype of a mirrored field fails the
 // typecheck rather than drifting silently.
 //
-// Drift in an all-optional field (ModelOverride) is not detectable this way:
-// optional-only types stay mutually assignable whatever their field names, and
-// excess-property checking applies only to fresh literals. Required fields are
-// what this guard actually pins, which covers CustomModel and the change flags.
+// Drift in an all-optional field (ModelOverride, connection) is not detectable
+// this way: optional-only types stay mutually assignable whatever their field
+// names, and excess-property checking applies only to fresh literals. Required
+// fields are what this guard actually pins, which covers CustomModel and the
+// change flags. Connection field parity (every field the production mapper
+// must copy, including positaiLogin) is asserted through AiProviderCatalog's
+// own tests instead, which go through the real toProviderData.
 
-const _connection = (c: ResolvedConnection): IResolvedConnectionData => ({
-	baseUrl: c.baseUrl,
-	endpoint: c.endpoint,
-	customHeaders: c.customHeaders,
-	aws: c.aws,
-	googleCloud: c.googleCloud,
-	snowflake: c.snowflake,
-	databricks: c.databricks,
-	positaiLogin: c.positaiLogin,
-});
-
-const _provider = (p: ResolvedProvider): IResolvedProviderData => ({
+const _provider = (p: ResolvedProvider): Omit<IResolvedProviderData, 'connection'> => ({
 	id: p.id,
 	enabled: p.enabled,
-	connection: _connection(p.connection),
 	models: p.models && _models(p.models),
 });
 
@@ -52,6 +43,6 @@ const _change = (change: ProviderCatalogChange): Omit<IProviderCatalogChangeData
 
 describe('aiProviderCatalog shape guard', () => {
 	it('mirrors ai-config types (compile-time assertion)', () => {
-		expect([_connection, _provider, _models, _change]).toHaveLength(4);
+		expect([_provider, _models, _change]).toHaveLength(3);
 	});
 });
