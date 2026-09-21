@@ -35,6 +35,17 @@ import { ConnectionRef } from './schema';
  * Only step 3 can be skipped, and only when the answer is yes. Step 4 cannot be guessed here: the
  * connection object is a DBI connection, a SQLAlchemy engine or a DBAPI connection depending on
  * which library the user connected with, and the three are queried differently.
+ *
+ * One route skips all four. A console can speak SQL itself -- ggsql's does, being a SQL superset
+ * with a kernel of its own -- and a session like that holds its own connection rather than a
+ * variable in a workspace. There is nothing to bind and nothing to generate: the statement as the
+ * user wrote it is the code that runs. So a SQL console in front of the user takes the statement
+ * directly; see {@link SQL_CONSOLE_LANGUAGE_IDS}.
+ *
+ * What that route does not do is decide which database the statement reaches. The connection the
+ * file is written against is what the editor's completions and diagnostics are scoped to, and a SQL
+ * console runs against whatever it is itself connected to. The two agree only where the user has
+ * made them agree, which is why the log says which session took the statement.
  */
 
 /**
@@ -133,10 +144,18 @@ export function positronExecutionApi(): ExecutionApi {
  * be arguing.
  */
 export type ExecutionOutcome =
-	| { readonly kind: 'executed'; readonly binding: positron.DataConnectionBinding; readonly code: string }
+	| {
+		readonly kind: 'executed';
+		/** The language it ran in, which is what the file then remembers. */
+		readonly languageId: string;
+		/** The connection it ran through. A SQL console run has none: it ran through its own. */
+		readonly binding?: positron.DataConnectionBinding;
+		readonly code: string;
+	}
 	| { readonly kind: 'cancelled' }
 	| { readonly kind: 'no-connection' }
 	| { readonly kind: 'no-language' }
+	| { readonly kind: 'not-run'; readonly languageId: string }
 	| { readonly kind: 'connect-failed'; readonly binding: positron.DataConnectionBinding }
 	| { readonly kind: 'no-query-code'; readonly binding: positron.DataConnectionBinding };
 
@@ -176,43 +195,95 @@ export type LanguageChoice =
 	| { readonly kind: 'none' };
 
 /**
+ * Languages whose consoles run SQL as it stands.
+ *
+ * A console for one of these is a SQL runtime in its own right: it parses the statement itself and
+ * holds its own connection, so there is no connection code to run, no variable to bind and no query
+ * code for a driver to generate. What the user wrote is what runs.
+ *
+ * Today that is ggsql, a SQL superset whose extension registers a kernel under the `ggsql`
+ * language id. A list rather than one id because nothing here is about ggsql in particular: any
+ * language whose console executes SQL as written belongs in it.
+ */
+export const SQL_CONSOLE_LANGUAGE_IDS: readonly string[] = ['ggsql'];
+
+/** Whether a language's consoles run SQL as it stands. See {@link SQL_CONSOLE_LANGUAGE_IDS}. */
+export function isSqlConsoleLanguage(languageId: string): boolean {
+	return SQL_CONSOLE_LANGUAGE_IDS.includes(languageId);
+}
+
+/**
+ * The SQL-console languages a console session is open for.
+ *
+ * Read from what is running rather than from what is registered, and the difference is the point: a
+ * statement goes to a SQL console the user already has, and never starts a kernel on their behalf.
+ * Starting one would answer a question nobody asked -- the file names a connection that kernel is
+ * not connected to, and the user pressed a key meaning "run this", not "open a session".
+ *
+ * Pure, so the routing decision can be pinned down without a session behind it.
+ *
+ * @param active Every session currently running.
+ */
+export function sqlConsoleLanguages(
+	active: readonly positron.BaseLanguageRuntimeSession[],
+): string[] {
+	return SQL_CONSOLE_LANGUAGE_IDS.filter(languageId =>
+		active.some(session => isConsoleFor(session, languageId)));
+}
+
+/**
  * The language to run a connection's statements in.
  *
  * The session in front of the user wins whenever it can. Someone working in an R console who runs
  * a statement means that console: it holds their other objects, its output is what they are
  * reading, and sending the result to a Python session they cannot see would be a surprise even
- * though it would work.
+ * though it would work. A SQL console in front of them means the same thing, and wins on the same
+ * terms -- without the driver having to support anything, since that route does not go through the
+ * driver at all.
  *
- * Only when the foreground session cannot be used -- there is none, or it speaks a language the
- * driver has no connection code for -- does anything else decide. Then a language the file has
+ * Only when the foreground session cannot be used -- there is none, or it speaks a language neither
+ * the driver nor a SQL console offers -- does anything else decide. Then a language the file has
  * been run in before, then the driver's only choice if it has one, and only after all of those is
  * the user asked. Asking is last because the answer is nearly always obvious from what is already
  * open, and a question with an obvious answer is one the user has to dismiss.
+ *
+ * A SQL console is never among the candidates the question offers. It is reached by working in one
+ * or by having run this file in one before, both of which say something about what the user meant;
+ * listing it in a pick would put a third answer in front of every user who has ggsql installed, for
+ * a route that ignores the connection the pick's title names.
  *
  * Pure, and the whole rule.
  *
  * @param supported The languages the driver can generate connection code for.
  * @param foregroundLanguageId The language of the session in front of the user, if there is one.
  * @param remembered The language this file was run in before, if it has been.
+ * @param sqlConsoles The SQL-console languages with a session open; see {@link sqlConsoleLanguages}.
  */
 export function chooseLanguage(
 	supported: readonly string[],
 	foregroundLanguageId: string | undefined,
 	remembered: string | undefined,
+	sqlConsoles: readonly string[] = [],
 ): LanguageChoice {
-	if (supported.length === 0) {
-		// A driver that generates no connection code: its connections can be browsed in the pane,
-		// but there is no way to hand one to a session.
-		return { kind: 'none' };
+	if (foregroundLanguageId && sqlConsoles.includes(foregroundLanguageId)) {
+		return { kind: 'language', languageId: foregroundLanguageId };
 	}
 	if (foregroundLanguageId && supported.includes(foregroundLanguageId)) {
 		return { kind: 'language', languageId: foregroundLanguageId };
+	}
+	if (remembered && sqlConsoles.includes(remembered)) {
+		return { kind: 'language', languageId: remembered };
 	}
 	if (remembered && supported.includes(remembered)) {
 		return { kind: 'language', languageId: remembered };
 	}
 	if (supported.length === 1) {
 		return { kind: 'language', languageId: supported[0] };
+	}
+	if (supported.length === 0) {
+		// A driver that generates no connection code, and no SQL console to fall back on: its
+		// connections can be browsed in the pane, but there is no way to hand one to a session.
+		return { kind: 'none' };
 	}
 	return { kind: 'ask', candidates: supported };
 }
@@ -372,7 +443,13 @@ export class StatementRunner {
 			return { kind: 'no-connection' };
 		}
 
-		const languageId = await this._chooseLanguage(summary, remembered);
+		// One snapshot of what is running, shared by every question that asks about a session. Taken
+		// once so that the language chosen and the session it runs in are answers about the same
+		// moment: choosing ggsql because its console is open and then finding it is not there would
+		// be a contradiction this could have avoided asking for.
+		const sessions = await this._sessions();
+
+		const languageId = await this._chooseLanguage(summary, remembered, sessions);
 		if (!languageId) {
 			// Either the driver offers no language, or the user dismissed the pick. The two read
 			// the same from here; `chooseLanguage` is what told them apart.
@@ -381,7 +458,12 @@ export class StatementRunner {
 				: { kind: 'cancelled' };
 		}
 
-		const bound = await this._bind(summary, languageId);
+		if (isSqlConsoleLanguage(languageId)) {
+			// The console speaks SQL itself, so steps 3 and 4 have nothing to do.
+			return this._runInSqlConsole(document, languageId, query, sessions);
+		}
+
+		const bound = await this._bind(summary, languageId, sessions);
 		if (bound.kind !== 'bound') {
 			return bound;
 		}
@@ -397,19 +479,60 @@ export class StatementRunner {
 		this._log.info(`Running a statement from ${document.uri.toString(true)} against`
 			+ ` ${summary.name} as '${binding.variableName}' in session ${binding.sessionId}.`);
 		await this._api.executeCode(languageId, code, binding.sessionId, document.uri);
-		return { kind: 'executed', binding, code };
+		return { kind: 'executed', languageId, binding, code };
+	}
+
+	/**
+	 * The SQL console route: the statement as the user wrote it, sent to a console that speaks SQL.
+	 *
+	 * Nothing is bound and nothing is generated -- see the note at the top of this file. What the
+	 * statement runs against is whatever that console is connected to, which need not be the
+	 * connection the file names, so the log records which session took it: a result from an
+	 * unexpected database is otherwise a puzzle with nothing to trace it back with.
+	 */
+	private async _runInSqlConsole(
+		document: vscode.TextDocument,
+		languageId: string,
+		query: string,
+		sessions: Sessions,
+	): Promise<ExecutionOutcome> {
+		// Never undefined: the language got here by having a console in this same snapshot, and
+		// this looks in that snapshot. Reported rather than asserted, because the alternative to
+		// reporting it is an exception out of a keypress.
+		const sessionId = consoleSessionFor(languageId, sessions.foreground, sessions.active);
+		if (!sessionId) {
+			this._log.warn(`No ${languageId} console is running, so the statement from`
+				+ ` ${document.uri.toString(true)} was not run.`);
+			return { kind: 'not-run', languageId };
+		}
+
+		this._log.info(`Running a statement from ${document.uri.toString(true)} in ${languageId}`
+			+ ` session ${sessionId}, against whatever that session is connected to.`);
+		try {
+			await this._api.executeCode(languageId, query, sessionId, document.uri);
+		} catch (error) {
+			// Submitting resolves once the console has taken the code, so a rejection means it
+			// never got there -- the session closed between the keypress and here, most likely.
+			// Left as a warning rather than thrown: this is a keypress, and an exception out of
+			// one is reported as a failed command with a stack trace in it.
+			this._log.warn(`The ${languageId} session ${sessionId} did not take the statement`
+				+ ` from ${document.uri.toString(true)}: ${error}`);
+			return { kind: 'not-run', languageId };
+		}
+		return { kind: 'executed', languageId, code: query };
 	}
 
 	/** Step 2: which language, asking only when nothing else has said. */
 	private async _chooseLanguage(
 		summary: positron.DataConnectionSummary,
 		remembered: string | undefined,
+		sessions: Sessions,
 	): Promise<string | undefined> {
-		const foreground = await this._api.getForegroundSession();
 		const choice = chooseLanguage(
 			summary.supportedLanguageIds,
-			foreground?.runtimeMetadata.languageId,
+			sessions.foreground?.runtimeMetadata.languageId,
 			remembered,
+			sqlConsoleLanguages(sessions.active),
 		);
 		switch (choice.kind) {
 			case 'language':
@@ -443,8 +566,9 @@ export class StatementRunner {
 	private async _bind(
 		summary: positron.DataConnectionSummary,
 		languageId: string,
+		sessions: Sessions,
 	): Promise<BindOutcome> {
-		const sessionId = await this._sessionFor(languageId);
+		const sessionId = consoleSessionFor(languageId, sessions.foreground, sessions.active);
 		const session = sessionId ? await this._readSession(sessionId) : undefined;
 
 		if (session) {
@@ -552,13 +676,13 @@ export class StatementRunner {
 		}
 	}
 
-	/** The console session to run in, if one is running for the language. */
-	private async _sessionFor(languageId: string): Promise<string | undefined> {
+	/** What is running, read once per run. See the call in {@link run}. */
+	private async _sessions(): Promise<Sessions> {
 		const [foreground, active] = await Promise.all([
 			this._api.getForegroundSession(),
 			this._api.getActiveSessions(),
 		]);
-		return consoleSessionFor(languageId, foreground, active);
+		return { foreground, active };
 	}
 
 	/**
@@ -587,6 +711,12 @@ type BindOutcome =
 	| { readonly kind: 'bound'; readonly binding: positron.DataConnectionBinding }
 	| { readonly kind: 'cancelled' }
 	| { readonly kind: 'connect-failed'; readonly binding: positron.DataConnectionBinding };
+
+/** The sessions a run reasons about: the one in front of the user, and all of them. */
+interface Sessions {
+	readonly foreground: positron.BaseLanguageRuntimeSession | undefined;
+	readonly active: readonly positron.BaseLanguageRuntimeSession[];
+}
 
 /** A session's variables and the connections Positron recorded in it, read together. */
 interface SessionContents {
