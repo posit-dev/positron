@@ -29,7 +29,11 @@ freezegun
 namedpipe; platform_system == "Windows"
 
 # typing for Django files
-django-stubs
+# --- Start Positron ---
+# django-stubs 6.1.1 resolves `objects` through a ModelBase.__getattr__ overload
+# that pyright 1.1.308 mishandles. Unpin when we bump pyright.
+django-stubs<6.1.1
+# --- End Positron ---
 
 coverage
 pytest-cov

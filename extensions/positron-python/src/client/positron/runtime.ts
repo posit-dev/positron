@@ -21,7 +21,7 @@ import {
     getEnvLocationHeuristic,
     isVersionSupported,
 } from '../interpreter/configuration/environmentTypeComparer';
-import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
+import { EmbeddedPythonInterpreter, getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import {
     ModuleMetadata,
     moduleMetadataMap,
@@ -45,6 +45,8 @@ export interface PythonRuntimeExtraData {
     pythonPath: string;
     ipykernelBundle?: IpykernelBundle;
     externallyManaged?: boolean;
+    /** The interpreter already loaded in the host process. */
+    embeddedInterpreter?: EmbeddedPythonInterpreter;
     supported?: boolean;
     /** Module metadata for interpreters discovered via environment modules */
     moduleMetadata?: PythonModuleMetadata;
