@@ -86,13 +86,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		[positronPlotsContext.positronPlotInstances, positronPlotsContext.selectedInstanceId]
 	);
 
-	// Metadata updates (kind, name, origin) arrive asynchronously after a plot is
-	// registered and selected. The context counter below is bumped by a listener
-	// that usePositronPlotsState subscribes once at mount, so it cannot miss an
-	// update. A listener owned by this component and filtered on the selected
-	// plot id would: React re-runs effects after the commit that selects the new
-	// plot, so an update that lands in between is compared against the previous
-	// selection and dropped, and the memos below would never recompute.
+	// Bumped by the plots context when plot metadata (kind, name, origin)
+	// changes, so the memos below recompute.
 	const metadataVersion = positronPlotsContext.metadataVersion;
 
 	// State to track session name updates and trigger re-renders
