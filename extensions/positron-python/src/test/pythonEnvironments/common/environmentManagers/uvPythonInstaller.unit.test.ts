@@ -226,6 +226,35 @@ suite('UV Python Installer Tests', () => {
             verify(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).never();
         });
 
+        test('Shows the failure with a way to reach the logs', async () => {
+            // The step that called this can only say that the install failed, so the notification
+            // is what carries the route to the reason.
+            isUvInstalledStub.resolves(false);
+            consent(InterpreterQuickPickList.UvInstall.confirmUvInstallYes);
+            execStub.resolves({ stdout: '', stderr: 'mkdtemp failed: Permission denied' });
+            when(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).thenResolve(undefined);
+
+            assert.deepStrictEqual(await ensureUvInstalledWithProgress(), {
+                ok: false,
+                error: InterpreterQuickPickList.UvInstall.uvInstallFailed,
+            });
+            verify(
+                mockedVSCodeNamespaces.window!.showErrorMessage(
+                    InterpreterQuickPickList.UvInstall.uvInstallFailed,
+                    Common.showLogs,
+                ),
+            ).once();
+        });
+
+        test('Declining shows no error notification', async () => {
+            // Declining is a choice, not a failure, so nothing should be reported.
+            isUvInstalledStub.resolves(false);
+            consent(undefined);
+
+            assert.deepStrictEqual(await ensureUvInstalledWithProgress(), { ok: false });
+            verify(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).never();
+        });
+
         test('Shows an "Installing uv" notification that lasts until the install finishes', async () => {
             isUvInstalledStub.onFirstCall().resolves(false);
             isUvInstalledStub.onSecondCall().resolves(true);

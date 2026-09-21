@@ -180,6 +180,14 @@ export async function ensureUvInstalledWithProgress(): Promise<EnsureUvResult> {
     });
 
     finishInstall?.();
+
+    // The step below this only has room to say that the install failed. The notification is what
+    // carries the way to find out why, through its Show logs button, which is why the flow does not
+    // have to grow a log affordance of its own. A declined install has no error and shows nothing.
+    if (!result.ok && result.error) {
+        await showUvInstallError(result.error);
+    }
+
     return result;
 }
 
