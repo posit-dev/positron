@@ -246,6 +246,22 @@ suite('UV Python Installer Tests', () => {
             ).once();
         });
 
+        test('Returns without waiting for the failure notification to be dismissed', async () => {
+            // The notification lives until the user dismisses it. Waiting on it would leave the
+            // step that called this showing an install that has already finished.
+            isUvInstalledStub.resolves(false);
+            consent(InterpreterQuickPickList.UvInstall.confirmUvInstallYes);
+            execStub.resolves({ stdout: '', stderr: 'mkdtemp failed: Permission denied' });
+            when(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).thenReturn(
+                new Promise(() => undefined) as any,
+            );
+
+            assert.deepStrictEqual(await ensureUvInstalledWithProgress(), {
+                ok: false,
+                error: InterpreterQuickPickList.UvInstall.uvInstallFailed,
+            });
+        });
+
         test('Declining shows no error notification', async () => {
             // Declining is a choice, not a failure, so nothing should be reported.
             isUvInstalledStub.resolves(false);
