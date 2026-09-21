@@ -484,13 +484,31 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Returns a value which indicates whether the backend was asked for the specified column's
-	 * profile and did not deliver it, so nothing further is on its way for that column.
-	 * @param columnIndex The column index.
-	 * @returns A value which indicates whether the column's profile failed to load.
+	 * Gets a value which indicates whether the backend failed to compute column profiles, so no
+	 * column will get a summary until the user retries.
 	 */
-	columnProfileFailed(columnIndex: number) {
-		return this._tableSummaryCache.columnProfileFailed(columnIndex);
+	get columnProfilesFailed() {
+		return this._tableSummaryCache.columnProfilesFailed;
+	}
+
+	/**
+	 * Gets a value which indicates whether a retry of the column profiles is running.
+	 */
+	get columnProfilesRetrying() {
+		return this._tableSummaryCache.columnProfilesRetrying;
+	}
+
+	/**
+	 * Retries the column profiles for the columns currently in view after a failure.
+	 */
+	async retryColumnProfiles(): Promise<void> {
+		await this._tableSummaryCache.retryColumnProfiles(
+			this._rowLayoutManager.getLayoutIndexes(
+				this.verticalScrollOffset,
+				this.layoutHeight,
+				OVERSCAN_FACTOR
+			)
+		);
 	}
 
 	/**

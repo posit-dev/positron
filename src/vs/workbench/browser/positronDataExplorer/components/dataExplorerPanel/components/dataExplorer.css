@@ -115,6 +115,29 @@
 	grid-template-rows: [data-grid] 1fr [end-rows];
 }
 
+/*
+ * The notice the summary panel shows when its summaries could not be calculated gets a row of its
+ * own, only while there is a notice to show. A fixed height rather than min-content: the column
+ * itself is a min-content track in the panel's grid, and an intrinsically sized row inside an
+ * intrinsically sized column resolves against an indefinite width, which made the row grow to
+ * several times the notice's real height.
+ */
+.data-explorer-panel .data-explorer.summary-on-left.summary-showing-notice .left-column,
+.data-explorer-panel .data-explorer.summary-on-right.summary-showing-notice .right-column {
+	grid-template-rows: [summary-row-action-bar] 36px [summary-notice] 36px [data-grid] 1fr [end-rows];
+}
+
+/*
+ * The notice is placed from here rather than from its own stylesheet, next to the row it goes in.
+ * The line names it is placed against are defined above, so the two have to be read together to
+ * make sense, and a placement that referred to names from another file is how the notice ended up
+ * outside the row that had been carved for it.
+ */
+.data-explorer-panel .data-explorer .left-column > .summary-profiles-notice,
+.data-explorer-panel .data-explorer .right-column > .summary-profiles-notice {
+	grid-row: summary-notice / span 1;
+}
+
 .data-explorer-panel .data-explorer .right-column .data-grid-container {
 	/* min-height: 0 allows the data grid to shrink properly when the panel is resized */
 	min-height: 0;

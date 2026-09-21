@@ -59,9 +59,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const ColumnSparkline = () => {
 		// Determines whether a sparkline is expected for this column type
 		const shouldShowSparkline = () => {
-			// A column the backend did not profile has no sparkline on its way, so it renders
-			// nothing at all rather than a loading placeholder for work that is over.
-			if (props.instance.columnProfileFailed(props.columnIndex)) {
+			// With profiles failed there is no sparkline on its way, so the slot renders nothing at
+			// all rather than a loading placeholder for work that is over.
+			if (props.instance.columnProfilesFailed) {
 				return false;
 			}
 
@@ -262,7 +262,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			// Get the null count for this column
 			const nullCount = props.instance.getColumnProfileNullCount(props.columnIndex);
 
-			if (props.instance.columnProfileFailed(props.columnIndex)) {
+			if (props.instance.columnProfilesFailed) {
 				// Nothing is still being calculated for this column, so saying so would be wrong.
 				return nls.localize(
 					'positron.missingValues.unavailable',

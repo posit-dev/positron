@@ -30,15 +30,20 @@ export interface TableSchemaSearchResult {
 /**
  * How long to wait for a batch of column profiles before giving up on it.
  *
- * Deliberately generous. Computing histograms and frequency tables over a slow table or view --- a
- * large remote database view, a lazily evaluated frame --- can legitimately take minutes, and the
- * summary panel has nothing to show for those columns until it finishes. The cases this used to be
- * guarding against are handled properly elsewhere now: a runtime that goes away settles its pending
- * requests when the comm closes, and a user who scrolls to different columns cancels the request
- * through its cancellation token. What is left for this to catch is a backend that accepts a
- * request and then never answers it, so it only has to be short enough to not be forever.
+ * Bounded above and below by two other numbers rather than picked for its own sake. Below, it
+ * wants headroom over the budget GetDataValues is given: summaries are ambient, so they should not
+ * outrank the grid, but a batch of histograms over a remote source is more work than a page of
+ * cells and deserves more than the same allowance. Above, it has to leave room for a whole pass.
+ * Chunks are issued one after another and hold the client's pending-task count up while they run,
+ * and updateBackendState gives that count 30 seconds to clear -- so a per-chunk budget large
+ * enough for two slow chunks to exceed that would break backend state refreshes to buy summaries.
+ *
+ * Fifteen seconds sits between the two, and short of where a wait stops reading as work in
+ * progress. The same budget applies to a retry: a longer one there would buy the slow-but-working
+ * sources a second chance by making someone who has already waited once wait considerably longer
+ * again, with nothing to show for it if it fails.
  */
-const COLUMN_PROFILE_TIMEOUT = 300_000;
+const COLUMN_PROFILE_TIMEOUT = 15_000;
 
 export enum DataExplorerClientStatus {
 	Idle,

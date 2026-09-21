@@ -100,11 +100,28 @@ export class TableSummaryCache extends Disposable {
 	private readonly _columnProfileCache = new Map<number, ColumnProfileResult>();
 
 	/**
-	 * The column indexes whose profile the backend was asked for and did not deliver -- it timed
-	 * out, errored, or went away. Tracked so that the summary panel can tell "still coming" from
-	 * "not coming", and stop showing a loading placeholder for a column that will never fill in.
+	 * Whether the backend was asked for column profiles and did not deliver them -- it timed out,
+	 * errored, or went away.
+	 *
+	 * Deliberately a property of the whole panel rather than of the columns that happened to be in
+	 * the failing batch. Some data sources simply cannot compute these summaries; a backend that
+	 * spent five minutes failing to profile eight columns will not do better with the next eight,
+	 * and a column left merely uncached is re-requested the moment it scrolls back into view, which
+	 * on such a source means waiting all over again and never settling. So one failure stops the
+	 * pass and puts the panel into a state it stays in until the user retries or the data changes
+	 * underneath it.
 	 */
-	private readonly _failedColumnProfiles = new Set<number>();
+	private _columnProfilesFailed = false;
+
+	/**
+	 * Whether a retry of the column profiles the user asked for is running.
+	 *
+	 * The summary panel keeps its notice row for the length of this, which is not only so the user
+	 * can see the retry happening. Dropping the row would resize the data grid below it, and a
+	 * resize fetches data, and that fetch would start a profile pass of its own -- cancelling the
+	 * retry partway and restarting its clock. Standing still is what lets the retry run its course.
+	 */
+	private _columnProfilesRetrying = false;
 
 	/**
 	 * The onDidUpdate event emitter.
@@ -158,6 +175,21 @@ export class TableSummaryCache extends Disposable {
 		return this._rows;
 	}
 
+	/**
+	 * Gets a value which indicates whether the backend failed to compute column profiles, so none
+	 * of the columns will get a summary until the user retries.
+	 */
+	get columnProfilesFailed() {
+		return this._columnProfilesFailed;
+	}
+
+	/**
+	 * Gets a value which indicates whether a retry of the column profiles is running.
+	 */
+	get columnProfilesRetrying() {
+		return this._columnProfilesRetrying;
+	}
+
 	//#endregion Public Properties
 
 	//#region Public Events
@@ -198,6 +230,13 @@ export class TableSummaryCache extends Disposable {
 		// token) so expanding a column neither cancels that pass nor is cancelled by it.
 		this._expandedColumns.add(columnIndex);
 		this._onDidUpdateEmitter.fire();
+
+		// Don't ask a backend that has already failed at this. Expanding still works -- the column
+		// opens and shows what the schema gave us -- it just doesn't start another long wait.
+		if (this._columnProfilesFailed) {
+			return;
+		}
+
 		await this.loadColumnProfiles([columnIndex], CancellationToken.None);
 	}
 
@@ -254,7 +293,10 @@ export class TableSummaryCache extends Disposable {
 			if (updateDescriptor.invalidateCache) {
 				this._columnSchemaCache.clear();
 				this._columnProfileCache.clear();
-				this._failedColumnProfiles.clear();
+
+				// The data underneath has changed, so the backend deserves another chance at
+				// profiling it -- this may be a different table entirely.
+				this._columnProfilesFailed = false;
 			}
 
 			// Cache the column schema that was returned.
@@ -277,8 +319,13 @@ export class TableSummaryCache extends Disposable {
 				? visibleIndices
 				: visibleIndices.filter(index => !this._columnProfileCache.has(index));
 
-			// Load the column profiles as a fresh cancelable pass.
-			await this.updateColumnProfileCache(profileIndices);
+			// Load the column profiles as a fresh cancelable pass, unless this backend has already
+			// shown it cannot compute them. Scrolling must not keep asking a source that failed:
+			// every pass would cost another timeout and put the columns back to looking like they
+			// were loading. Getting out of this state is the user's call, through retryColumnProfiles.
+			if (!this._columnProfilesFailed) {
+				await this.updateColumnProfileCache(profileIndices);
+			}
 
 			// Schedule trimming the cache if we didn't already invalidate the cache and we have
 			// column indices to keep. We don't want to schedule a trim if columnIndices is empty
@@ -353,13 +400,26 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * Returns a value which indicates whether the backend was asked for the specified column's
-	 * profile and did not deliver it.
-	 * @param columnIndex The column index.
-	 * @returns A value which indicates whether the column's profile failed to load.
+	 * Retries loading the column profiles for the specified column indices after a failure.
+	 * @param columnIndices The column indices to load profiles for.
 	 */
-	columnProfileFailed(columnIndex: number) {
-		return this._failedColumnProfiles.has(columnIndex);
+	async retryColumnProfiles(columnIndices: number[]): Promise<void> {
+		if (!this._columnProfilesFailed) {
+			return;
+		}
+
+		// Trade the failed state for the retrying one. Both keep the panel's notice row, so the row
+		// does not come and go underneath the retry and resize the grid below it.
+		this._columnProfilesFailed = false;
+		this._columnProfilesRetrying = true;
+		this._onDidUpdateEmitter.fire();
+
+		try {
+			await this.updateColumnProfileCache(columnIndices);
+		} finally {
+			this._columnProfilesRetrying = false;
+			this._onDidUpdateEmitter.fire();
+		}
 	}
 
 	//#endregion Public Methods
@@ -388,13 +448,6 @@ export class TableSummaryCache extends Disposable {
 	 * @param token The cancellation token for this load.
 	 */
 	private async loadColumnProfiles(columnIndices: number[], token: CancellationToken) {
-		// These columns are being asked for again, so they are no longer columns the backend
-		// declined to profile. Clearing the marks up front puts them back to loading, which is what
-		// they now are: a retry is in progress and may well succeed.
-		for (const columnIndex of columnIndices) {
-			this._failedColumnProfiles.delete(columnIndex);
-		}
-
 		// Determne whether histograms and frequency tables are supported.
 		const histogramSupported = this.isHistogramSupported();
 		const frequencyTableSupported = this.isFrequencyTableSupported();
@@ -511,16 +564,13 @@ export class TableSummaryCache extends Disposable {
 			try {
 				results = await this._dataExplorerClientInstance.getColumnProfiles(chunk, token);
 			} catch (error) {
-				// A chunk that fails takes only its own columns down with it. Letting it unwind the
-				// loop, as it used to, meant one slow column denied every column after it in the
-				// window a summary -- and left them all showing a loading placeholder for work that
-				// had already been abandoned.
-				console.error('Failed to load a chunk of column profiles:', error);
-				for (const columnRequest of chunk) {
-					this._failedColumnProfiles.add(columnRequest.column_index);
-				}
+				// Take the whole panel down with this chunk and stop. Trying the chunks after it
+				// would cost another timeout apiece to reach the same conclusion, and leaving their
+				// columns merely uncached would have them re-requested on the next scroll.
+				console.error('Failed to load column profiles:', error);
+				this._columnProfilesFailed = true;
 				this._onDidUpdateEmitter.fire();
-				continue;
+				return;
 			}
 
 			// If the pass was cancelled while awaiting, drop the results (cancellation resolves the
@@ -532,7 +582,6 @@ export class TableSummaryCache extends Disposable {
 			// Cache the column profiles that were returned.
 			for (let j = 0; j < results.length && j < chunk.length; j++) {
 				this._columnProfileCache.set(chunk[j].column_index, results[j]);
-				this._failedColumnProfiles.delete(chunk[j].column_index);
 			}
 
 			// Fire the onDidUpdate event so the just-loaded columns render.
@@ -606,13 +655,6 @@ export class TableSummaryCache extends Disposable {
 			}
 		}
 
-		// Trim the failed column profiles. A column scrolled out of the window is asked for again
-		// when it comes back, so there is no reason to go on remembering that it failed.
-		for (const columnIndex of this._failedColumnProfiles) {
-			if (!columnIndices.has(columnIndex)) {
-				this._failedColumnProfiles.delete(columnIndex);
-			}
-		}
 	}
 
 	//#endregion Private Methods
