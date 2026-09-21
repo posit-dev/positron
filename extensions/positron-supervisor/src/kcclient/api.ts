@@ -340,6 +340,10 @@ export interface McpWorkspaceRegistration {
      * The TCP port the MCP listener should bind. Used only when the listener isn\'t running yet, and ignored when the port is unavailable.
      */
     'preferred_port'?: number;
+    /**
+     * A bearer token the server issued for this workspace before. Supplying it again keeps the token agents are configured with valid across a restart of the server, which holds no state of its own. Omit it to have the server issue one, and ignored unless it is well formed.
+     */
+    'token'?: string;
     'capabilities'?: McpWorkspaceCapabilities;
 }
 export interface McpWorkspaceStatus {

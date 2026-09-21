@@ -21,7 +21,7 @@ import { KallichoreInstances } from './KallichoreInstances.js';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
-import { CONFIGURE_AGENT_COMMAND, autoConfigureClaudeCode, configureAgent, promptToEnable } from './McpAgentConfig.js';
+import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
 
 /**
@@ -334,7 +334,8 @@ export class KCApi implements PositronSupervisorApi {
 			state => saveMcpState(_context.workspaceState, state),
 			() => this._sessions.map(session => session.metadata.sessionId),
 			mcpFeatureEnabled,
-			() => autoConfigureClaudeCode(_context, message => this.log(message)));
+			connection => onMcpRegistered(_context, connection, message => this.log(message)),
+			() => removeConfiguredAgents(_context, message => this.log(message)));
 		this._disposables.push(this._mcp);
 
 		// Offer the same registration to the editor itself, so chat extensions
@@ -377,7 +378,7 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
-			return configureAgent(this._mcp.connection, agentId);
+			return configureAgent(this._context, this._mcp.connection, agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the

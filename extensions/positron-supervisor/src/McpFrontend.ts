@@ -39,27 +39,37 @@ const MCP_STATE_KEY = 'positron-supervisor.mcp.workspace';
 
 /**
  * What is remembered between registrations, so that a re-registered workspace
- * keeps the endpoint URL agents are configured with.
+ * keeps the endpoint URL and token agents are configured with.
+ *
+ * The supervisor keeps none of this: its workspace registry lives in memory, so
+ * everything an agent's configuration depends on has to outlive the process
+ * that issued it, or every supervisor restart hands agents a URL that no longer
+ * resolves and a token that no longer authenticates.
  */
 export interface McpFrontendState {
 	/**
-	 * The workspace ID the supervisor issued. Re-registering with it recovers
-	 * the same token from the server that issued it, and gives a new server the
-	 * same ID back so the endpoint URL does not move.
+	 * The workspace ID the supervisor issued. Giving a new server the same ID
+	 * back means the endpoint URL does not move.
 	 */
 	workspaceId?: string;
 
 	/** The port the listener was last bound to. */
 	port?: number;
+
+	/**
+	 * The bearer token the supervisor issued. Handed back on every
+	 * registration, which is what keeps an agent configured with it working
+	 * after the supervisor it was issued by has gone.
+	 */
+	token?: string;
 }
 
 /**
  * Read the MCP identity saved for this workspace.
  *
  * It lives in workspace state rather than beside the supervisor's own state,
- * because the endpoint URL agents are configured with is built from the
- * workspace ID and the port. Both have to outlive the supervisor process that
- * issued them, or every restart hands agents a URL that no longer resolves.
+ * because an agent's configuration outlives any one supervisor process: the
+ * same place holds the supervisor's own bearer token, for the same reason.
  *
  * @param memento The workspace state.
  */
@@ -146,8 +156,12 @@ export class McpFrontend implements vscode.Disposable {
 	 * @param _enabled Whether the feature is turned on. Read on every sync
 	 *  rather than cached, since both switches apply without a reload and
 	 *  `ai.enabled` can be enforced by a Workbench administrator at any time.
-	 * @param _onRegistered Called once the endpoint is live, for work that
-	 *  should not point agents at a listener that does not exist yet.
+	 * @param _onRegistered Called with the registration once the endpoint is
+	 *  live, for work that should not point agents at a listener that does not
+	 *  exist yet.
+	 * @param _onDeregistered Called once the endpoint is gone, for work that
+	 *  should not outlive it -- the entries agents were configured with, which
+	 *  name an endpoint that no longer answers.
 	 * @param _processEnv The extension host's environment, which the agents
 	 *  extensions spawn inherit.
 	 * @param _storageUri The extension's global storage, where the connection
@@ -161,7 +175,8 @@ export class McpFrontend implements vscode.Disposable {
 		private readonly _saveState: (state: McpFrontendState) => Thenable<void>,
 		private readonly _sessionIds: () => string[],
 		private readonly _enabled: () => boolean = mcpFeatureEnabled,
-		private readonly _onRegistered: () => void = () => { },
+		private readonly _onRegistered: (connection: McpConnection) => void = () => { },
+		private readonly _onDeregistered: () => void = () => { },
 		private readonly _processEnv: NodeJS.ProcessEnv = process.env,
 	) {
 		this._disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
@@ -301,10 +316,12 @@ export class McpFrontend implements vscode.Disposable {
 	 * The port to ask the supervisor for, so an agent's configured URL stays
 	 * valid across restarts. An explicit setting wins; otherwise we ask for the
 	 * port we were last given.
+	 *
+	 * @param saved The state left by the previous registration.
 	 */
-	private preferredPort(): number | undefined {
+	private preferredPort(saved: McpFrontendState): number | undefined {
 		const configured = vscode.workspace.getConfiguration().get<number>(MCP_PORT_KEY);
-		return configured || this._loadState().port;
+		return configured || saved.port;
 	}
 
 	/** The body of {@link sync}, run one at a time. */
@@ -331,10 +348,16 @@ export class McpFrontend implements vscode.Disposable {
 	 */
 	private async register(): Promise<void> {
 		const displayName = vscode.workspace.name ?? vscode.l10n.t("Empty Workspace");
+		const saved = this._loadState();
 		const response = await this._api!.registerMcpWorkspace({
-			workspace_id: this._loadState().workspaceId,
+			workspace_id: saved.workspaceId,
 			display_name: displayName,
-			preferred_port: this.preferredPort(),
+			preferred_port: this.preferredPort(saved),
+			// Asking to keep the token we already have is what makes the
+			// endpoint's credential survive a supervisor restart. A server too
+			// old to understand the field, or one that finds it malformed,
+			// issues a token of its own and we adopt that instead.
+			token: saved.token,
 			capabilities: { commands: true },
 		});
 
@@ -344,12 +367,12 @@ export class McpFrontend implements vscode.Disposable {
 			headersPath: mcpHeadersPath(this._storageUri, workspaceId),
 		};
 		this.setConnection(connection);
-		await this._saveState({ workspaceId, port });
+		await this._saveState({ workspaceId, port, token });
 		await this.publishEnvironment(connection);
 		this._log(`Registered MCP workspace ${workspaceId}; agents can connect at ${url}, ` +
 			`or read ${mcpDescriptorPath(this._storageUri, workspaceId)}`);
 		this.openChannel(workspaceId);
-		this._onRegistered();
+		this._onRegistered(connection);
 	}
 
 	/**
@@ -365,9 +388,10 @@ export class McpFrontend implements vscode.Disposable {
 		this.setConnection(undefined);
 		this.closeChannel();
 		await this.clearEnvironment(connection);
-		// The saved identity is left alone: deregistration invalidates the token
-		// behind the workspace ID, but turning the feature back on should hand
-		// agents the URL they were already configured with.
+		this._onDeregistered();
+		// The saved identity is left alone: deregistration drops the workspace
+		// from the supervisor, but turning the feature back on should hand
+		// agents the URL and token they were already configured with.
 		if (!connection) {
 			return;
 		}

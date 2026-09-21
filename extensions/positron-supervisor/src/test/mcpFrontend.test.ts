@@ -62,28 +62,38 @@ class FakeMemento implements vscode.Memento {
 /**
  * Stand-in for the supervisor's workspace registry, issuing one token per
  * workspace ID the way `kcserver` does: re-registering a known ID hands back
- * the token it was first given, and an ID it has never seen is honored with a
- * token of its own. The real server mints an ID from the display name plus a
- * random suffix, so the counter is seedable: a registry standing in for a new
- * server process cannot mint the ID its predecessor issued.
+ * the token it was first given, a caller that supplies a token it was issued
+ * before keeps it, and anything else is given a token of its own. The real
+ * server mints an ID from the display name plus a random suffix, so the counter
+ * is seedable: a registry standing in for a new server process cannot mint the
+ * ID its predecessor issued, and holds none of its tokens.
  */
 class FakeRegistry implements McpRegistrationApi {
 	readonly registrations: McpWorkspaceRegistration[] = [];
 	readonly deregistrations: string[] = [];
 	private readonly _tokens = new Map<string, string>();
+	private _nextToken: number;
 
-	constructor(private readonly _port = 39000, private _nextId = 1) { }
+	/**
+	 * @param _port The port the listener is bound to.
+	 * @param _nextId Where the ID and token counters start. Seeded so a
+	 *  registry standing in for a successor process cannot mint what its
+	 *  predecessor issued, which is the whole reason a caller hands a token
+	 *  back.
+	 */
+	constructor(private readonly _port = 39000, private _nextId = 1) {
+		this._nextToken = _nextId;
+	}
 
 	async registerMcpWorkspace(
 		registration: McpWorkspaceRegistration
 	): Promise<{ data: McpWorkspace }> {
 		this.registrations.push(registration);
 		const workspaceId = registration.workspace_id ?? `workspace-${this._nextId++}`;
-		let token = this._tokens.get(workspaceId);
-		if (!token) {
-			token = `token-${workspaceId}`;
-			this._tokens.set(workspaceId, token);
-		}
+		const token = registration.token ??
+			this._tokens.get(workspaceId) ??
+			`token-${this._nextToken++}`;
+		this._tokens.set(workspaceId, token);
 		const port = registration.preferred_port || this._port;
 		return {
 			// Each workspace gets an endpoint of its own, as `kcserver` issues.
@@ -119,6 +129,8 @@ interface Harness {
 	setEnabled(enabled: boolean): void;
 	/** How many times the post-registration hook has run. */
 	registrations: number;
+	/** How many times the post-deregistration hook has run. */
+	deregistrations: number;
 }
 
 /**
@@ -144,6 +156,7 @@ function createHarness(
 		registry,
 		memento,
 		registrations: 0,
+		deregistrations: 0,
 		setEnabled: (value: boolean) => { enabled = value; },
 		frontend: new McpFrontend(
 			storageUri,
@@ -154,6 +167,7 @@ function createHarness(
 			() => [],
 			() => enabled,
 			() => { harness.registrations++; },
+			() => { harness.deregistrations++; },
 			processEnv),
 	};
 	return harness;
@@ -215,21 +229,21 @@ suite('McpFrontend', () => {
 					workspaceId: 'workspace-1',
 					displayName: vscode.workspace.name ?? 'Empty Workspace',
 					port: 39000,
-					token: 'token-workspace-1',
+					token: 'token-1',
 					url: 'http://127.0.0.1:39000/mcp/w/workspace-1',
 					headersPath: mcpHeadersPath(harness.storageUri, 'workspace-1'),
 				},
-				saved: { workspaceId: 'workspace-1', port: 39000 },
+				saved: { workspaceId: 'workspace-1', port: 39000, token: 'token-1' },
 				variables: {
 					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-					[MCP_TOKEN_ENV_VAR]: 'token-workspace-1',
+					[MCP_TOKEN_ENV_VAR]: 'token-1',
 				},
 				hasDescription: true,
 				processEnv: {
 					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-					[MCP_TOKEN_ENV_VAR]: 'token-workspace-1',
+					[MCP_TOKEN_ENV_VAR]: 'token-1',
 				},
-				headers: { Authorization: 'Bearer token-workspace-1' },
+				headers: { Authorization: 'Bearer token-1' },
 			});
 	});
 
@@ -249,8 +263,8 @@ suite('McpFrontend', () => {
 				url,
 				// Resolved, for the wrapper scripts and proxies that read this
 				// file precisely because they inherit no environment.
-				token: 'token-workspace-1',
-				headers: { Authorization: 'Bearer token-workspace-1' },
+				token: 'token-1',
+				headers: { Authorization: 'Bearer token-1' },
 				// Interpolated, so this block can be copied into a
 				// configuration that is committed or shared.
 				mcpServers: {
@@ -331,37 +345,66 @@ suite('McpFrontend', () => {
 				ids: harness.registry.registrations.map(r => r.workspace_id),
 				token: harness.frontend.connection?.token,
 			},
-			{ ids: [undefined, 'workspace-1'], token: 'token-workspace-1' });
+			{ ids: [undefined, 'workspace-1'], token: 'token-1' });
 	});
 
-	test('keeps the endpoint URL when a new supervisor takes over', async () => {
+	test('keeps the endpoint URL and token when a new supervisor takes over', async () => {
 		const harness = createHarness();
 		await harness.frontend.attach(harness.registry);
-		const before = harness.frontend.connection?.url;
 
 		// The supervisor process exits and Positron starts another one, with an
-		// empty registry that mints IDs the old one could not have issued. The
-		// saved ID has to survive it: the endpoint URL names the workspace, so
-		// an agent holding the old URL -- Codex writes it into its
-		// configuration, and a terminal that outlived the supervisor still
-		// exports it -- is refused by a server that no longer has that
-		// workspace.
+		// empty registry that mints IDs and tokens the old one could not have
+		// issued. Both halves of the endpoint have to survive it, because both
+		// outlive the process that issued them: an agent's configuration names
+		// the URL, or names the variables a terminal that outlived the
+		// supervisor still exports, and a server that has neither the workspace
+		// nor its token refuses the connection.
 		const successor = new FakeRegistry(39000, 2);
 		await harness.frontend.attach(successor);
 
 		assert.deepStrictEqual(
 			{
-				before,
-				after: harness.frontend.connection?.url,
-				published: harness.environment.variables.get(MCP_URL_ENV_VAR),
+				url: harness.frontend.connection?.url,
+				token: harness.frontend.connection?.token,
+				publishedUrl: harness.environment.variables.get(MCP_URL_ENV_VAR),
+				publishedToken: harness.environment.variables.get(MCP_TOKEN_ENV_VAR),
 				requested: successor.registrations[0].workspace_id,
+				handedBack: successor.registrations[0].token,
 			},
 			{
-				before: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-				after: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-				published: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+				url: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+				token: 'token-1',
+				publishedUrl: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+				publishedToken: 'token-1',
 				requested: 'workspace-1',
+				handedBack: 'token-1',
 			});
+	});
+
+	test('adopts a token of the server\'s when it has none to hand back', async () => {
+		const harness = createHarness();
+
+		// A server too old to honor the field, or one that finds it malformed,
+		// issues a token of its own; the window follows the server rather than
+		// holding a credential the endpoint will not accept.
+		await harness.frontend.attach({
+			registerMcpWorkspace: async () => ({
+				data: {
+					workspace_id: 'workspace-1',
+					token: 'issued-by-the-server',
+					port: 39000,
+					url: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+				},
+			}),
+			deregisterMcpWorkspace: () => Promise.resolve(),
+		});
+
+		assert.deepStrictEqual(
+			{
+				token: harness.frontend.connection?.token,
+				saved: savedState(harness).token,
+			},
+			{ token: 'issued-by-the-server', saved: 'issued-by-the-server' });
 	});
 
 	test('turning the feature off deregisters and clears the published environment', async () => {
@@ -392,7 +435,7 @@ suite('McpFrontend', () => {
 				headers: undefined,
 				descriptor: undefined,
 				indexed: [],
-				saved: { workspaceId: 'workspace-1', port: 39000 },
+				saved: { workspaceId: 'workspace-1', port: 39000, token: 'token-1' },
 			});
 	});
 
@@ -450,6 +493,20 @@ suite('McpFrontend', () => {
 				registered: registered.registrations,
 			},
 			{ disabled: 0, failed: 0, registered: 1 });
+	});
+
+	test('runs the post-deregistration hook when the feature goes off', async () => {
+		const harness = createHarness();
+		await harness.frontend.attach(harness.registry);
+		harness.setEnabled(false);
+
+		await harness.frontend.sync();
+
+		// Entries an agent was configured with name an endpoint that has just
+		// stopped answering, so taking them away belongs here and nowhere else.
+		assert.deepStrictEqual(
+			{ registrations: harness.registrations, deregistrations: harness.deregistrations },
+			{ registrations: 1, deregistrations: 1 });
 	});
 });
 

@@ -10,14 +10,18 @@ import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-import { MCP_AGENTS, McpAgent, findMcpAgent, mergeAgentConfig } from './McpAgents';
-import { MCP_ENABLED_KEY } from './McpFrontend';
 import {
-	MCP_SERVER_NAME,
-	MCP_TOKEN_ENV_VAR,
-	MCP_URL_ENV_VAR,
-	McpConnection,
-} from './mcpConnection';
+	MCP_AGENTS,
+	McpAgent,
+	McpCliInstall,
+	McpFileInstall,
+	findMcpAgent,
+	mergeAgentConfig,
+	pinsEndpoint,
+	unmergeAgentConfig,
+} from './McpAgents';
+import { MCP_ENABLED_KEY } from './McpFrontend';
+import { McpConnection } from './mcpConnection';
 import { summarizeError } from './util';
 
 /** Runs a command without a shell, rejecting on a non-zero exit. */
@@ -33,30 +37,54 @@ export const CONFIGURE_AGENT_COMMAND = 'positron.mcp.configureAgent';
 const ENABLE_PROMPT_SHOWN_KEY = 'positron-supervisor.mcp.enablePromptShown';
 
 /**
- * Remembers that this workspace's Claude Code configuration has been written,
- * so a user who removes the server again does not get it back.
+ * Remembers which harnesses Positron has written into. Kept in workspace state,
+ * because that is the scope of what was written: the entry names this
+ * workspace's endpoint, and Claude Code's is keyed by this workspace's
+ * directory.
  */
-const AUTO_CONFIGURED_KEY = 'positron-supervisor.mcp.claudeCodeConfigured';
+const CONFIGURED_AGENTS_KEY = 'positron-supervisor.mcp.configuredAgents';
 
-/** Adds Positron to the configuration Claude Code keeps for a directory. */
-export const CLAUDE_MCP_ADD_ARGS = [
-	'mcp', 'add',
-	'--transport', 'http',
-	'--scope', 'local',
-	MCP_SERVER_NAME,
-	`\${${MCP_URL_ENV_VAR}}`,
-	'--header', `Authorization: Bearer \${${MCP_TOKEN_ENV_VAR}}`,
-];
+/** The harness configured for a user who only turned the feature on. */
+const AUTO_CONFIGURED_AGENT_ID = 'claude-code';
 
 /**
- * Adds Positron to a coding agent's configuration.
+ * One harness Positron has written into, and what it was told.
  *
+ * Recorded so an entry can be put right when the endpoint moves and taken away
+ * when the feature is turned off. Without it every folder a user ever opened
+ * keeps a Positron server its agent reports as broken, which is what the
+ * entries look like from outside this window.
+ */
+interface ConfiguredAgent {
+	/** The harness's {@link McpAgent.id}. */
+	id: string;
+
+	/** The endpoint the entry was written with. */
+	url: string;
+}
+
+/** Where an installed entry landed, for the message that says so. */
+interface InstallResult {
+	/** The location, as it is shown to the user. */
+	description: string;
+
+	/** The file Positron wrote, when it wrote one rather than running a CLI. */
+	file?: vscode.Uri;
+}
+
+/**
+ * Adds Positron to a coding agent's configuration, replacing any entry of ours
+ * already there so that running it again is a repair rather than a second
+ * entry.
+ *
+ * @param context The extension context, which remembers what we configure.
  * @param connection The live MCP registration, or undefined when the feature
  *  is off.
  * @param agentId The harness to configure. Omitted when the user ran the
  *  command from the palette, in which case they are asked to pick one.
  */
 export async function configureAgent(
+	context: vscode.ExtensionContext,
 	connection: McpConnection | undefined,
 	agentId?: string,
 ): Promise<void> {
@@ -70,46 +98,179 @@ export async function configureAgent(
 		return;
 	}
 
-	const target = agentConfigUri(agent);
-	if (!target) {
-		await vscode.window.showErrorMessage(vscode.l10n.t(
-			"Open a folder before adding Positron to {0}; the configuration is written into the workspace.",
-			agent.label));
-		return;
-	}
-
-	let existing: string | undefined;
+	let result: InstallResult;
 	try {
-		existing = new TextDecoder().decode(await vscode.workspace.fs.readFile(target));
-	} catch {
-		// The file does not exist yet, which is the common case.
-	}
-
-	let contents: string;
-	try {
-		contents = mergeAgentConfig(agent, existing, connection);
+		result = await installAgent(agent, connection);
 	} catch (err) {
-		// Refuse rather than overwrite a file we could not understand.
-		await vscode.window.showErrorMessage(vscode.l10n.t(
-			"Could not update {0}: {1}",
-			target.fsPath,
-			summarizeError(err)));
+		await vscode.window.showErrorMessage(summarizeError(err));
 		return;
 	}
-
-	await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(contents));
+	await recordConfiguredAgent(context, agent, connection);
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(
 		vscode.l10n.t(
 			"Added Positron to {0} in {1}. Open a new terminal, or reload the window if {0} runs as an extension, so it picks up the connection.",
 			agent.label,
-			agent.scope === 'workspace' ? vscode.workspace.asRelativePath(target) : target.fsPath),
-		open);
+			result.description),
+		...(result.file ? [open] : []));
 
-	if (choice === open) {
-		await vscode.window.showTextDocument(target);
+	if (choice === open && result.file) {
+		await vscode.window.showTextDocument(result.file);
 	}
+}
+
+/**
+ * Bring the harnesses we have configured in line with a registration that has
+ * just been issued, and configure Claude Code if this is the first one.
+ *
+ * Runs after a registration succeeds, so we never point an agent at an endpoint
+ * that is not listening yet. Reports its own failures rather than raising them:
+ * registration is complete by the time it runs, and nothing waits on it.
+ *
+ * @param context The extension context, which remembers what we configure.
+ * @param connection The live MCP registration.
+ * @param log Writes a line to the Kernel Supervisor output channel.
+ */
+export async function onMcpRegistered(
+	context: vscode.ExtensionContext,
+	connection: McpConnection,
+	log: (message: string) => void,
+): Promise<void> {
+	try {
+		await autoConfigureClaudeCode(context, connection, log);
+		await refreshConfiguredAgents(context, connection, log);
+	} catch (err) {
+		log(`Could not update the configured coding agents: ${summarizeError(err)}`);
+	}
+}
+
+/**
+ * Adds Positron to Claude Code's configuration for this workspace, so that
+ * turning the feature on is all a user has to do.
+ *
+ * The entry goes in Claude Code's own configuration for the directory rather
+ * than the workspace's `.mcp.json`: it stays out of the user's repository, and
+ * it needs no approval on first use, since a user who enabled the feature has
+ * already said yes.
+ *
+ * No other harness has an equivalent per-project scope, so the rest keep to
+ * {@link configureAgent}: writing a global configuration would follow the user
+ * into projects that have nothing to do with Positron.
+ *
+ * @param context The extension context, which remembers what we configure.
+ * @param connection The live MCP registration.
+ * @param log Writes a line to the Kernel Supervisor output channel.
+ */
+async function autoConfigureClaudeCode(
+	context: vscode.ExtensionContext,
+	connection: McpConnection,
+	log: (message: string) => void,
+): Promise<void> {
+	const agent = findMcpAgent(AUTO_CONFIGURED_AGENT_ID);
+	if (!agent) {
+		return;
+	}
+
+	// Configured once per workspace: a user who removes the entry again does
+	// not get it back.
+	if (loadConfiguredAgents(context).some(record => record.id === agent.id)) {
+		return;
+	}
+
+	// Nothing is recorded when there is no folder or no CLI, so installing
+	// Claude Code later still gets it configured.
+	if (!fileWorkspaceFolder() || !installExecutable(agent)) {
+		return;
+	}
+
+	try {
+		const { description } = await installAgent(agent, connection);
+		log(`Configured ${agent.label} to use Positron's MCP server in ${description}`);
+	} catch (err) {
+		log(`Could not configure ${agent.label}: ${summarizeError(err)}`);
+		return;
+	}
+	await recordConfiguredAgent(context, agent, connection);
+}
+
+/**
+ * Rewrite the entries that name an endpoint which has since moved.
+ *
+ * The harnesses that expand a variable for the endpoint need nothing: the
+ * environment they read it from is republished on every registration. The rest
+ * hold a URL, and a port Positron asked for is only a preference -- something
+ * else may hold it by the time we ask again -- so an entry written weeks ago
+ * can point at nothing.
+ *
+ * @param context The extension context, which remembers what we configure.
+ * @param connection The live MCP registration.
+ * @param log Writes a line to the Kernel Supervisor output channel.
+ */
+async function refreshConfiguredAgents(
+	context: vscode.ExtensionContext,
+	connection: McpConnection,
+	log: (message: string) => void,
+): Promise<void> {
+	const records = loadConfiguredAgents(context);
+	let changed = false;
+	for (const record of records) {
+		const agent = findMcpAgent(record.id);
+		if (!agent || !pinsEndpoint(agent) || record.url === connection.url) {
+			continue;
+		}
+		try {
+			await installAgent(agent, connection);
+		} catch (err) {
+			log(`Could not update ${agent.label}'s MCP entry: ${summarizeError(err)}`);
+			continue;
+		}
+		record.url = connection.url;
+		changed = true;
+		log(`Updated ${agent.label}'s MCP entry; the endpoint is now ${connection.url}`);
+	}
+	if (changed) {
+		await saveConfiguredAgents(context, records);
+	}
+}
+
+/**
+ * Take Positron out of every harness we wrote into.
+ *
+ * Runs when the feature is turned off. An entry we leave behind is not inert:
+ * it names an endpoint that is no longer listening and a variable that is no
+ * longer published, so the harness reports a broken server every time it
+ * starts in this directory.
+ *
+ * @param context The extension context, which remembers what we configure.
+ * @param log Writes a line to the Kernel Supervisor output channel.
+ */
+export async function removeConfiguredAgents(
+	context: vscode.ExtensionContext,
+	log: (message: string) => void,
+): Promise<void> {
+	const records = loadConfiguredAgents(context);
+	if (records.length === 0) {
+		return;
+	}
+
+	// A harness whose entry we could not remove stays on the list, so turning
+	// the feature off again retries it.
+	const kept: ConfiguredAgent[] = [];
+	for (const record of records) {
+		const agent = findMcpAgent(record.id);
+		if (!agent) {
+			continue;
+		}
+		try {
+			await uninstallAgent(agent);
+			log(`Removed Positron from ${agent.label}`);
+		} catch (err) {
+			log(`Could not remove Positron from ${agent.label}: ${summarizeError(err)}`);
+			kept.push(record);
+		}
+	}
+	await saveConfiguredAgents(context, kept);
 }
 
 /**
@@ -135,70 +296,12 @@ export function detectAgent(agent: McpAgent): boolean {
  */
 export function agentCliCommand(
 	executable: string,
-	args: string[],
+	args: readonly string[],
 ): { command: string; args: string[] } {
 	if (/\.(cmd|bat)$/i.test(executable)) {
 		return { command: 'cmd.exe', args: ['/c', executable, ...args] };
 	}
-	return { command: executable, args };
-}
-
-/**
- * Adds Positron to Claude Code's configuration for this workspace, so that
- * turning the feature on is all a user has to do.
- *
- * The entry goes in Claude Code's own project-local configuration rather than
- * the workspace's `.mcp.json`: it stays out of the user's repository, and it
- * needs no approval on first use, since a user who enabled the feature has
- * already said yes. Runs once per workspace, after a registration succeeds, so
- * we never point an agent at an endpoint that is not listening.
- *
- * No other harness has an equivalent per-project scope, so the rest keep to
- * {@link configureAgent}: writing a global configuration would follow the user
- * into projects that have nothing to do with Positron.
- *
- * @param context The extension context, which remembers the workspaces we have
- *  configured.
- * @param log Writes a line to the Kernel Supervisor output channel.
- */
-export async function autoConfigureClaudeCode(
-	context: vscode.ExtensionContext,
-	log: (message: string) => void,
-): Promise<void> {
-	if (context.workspaceState.get<boolean>(AUTO_CONFIGURED_KEY)) {
-		return;
-	}
-
-	// Claude Code keys the configuration by directory, so there has to be one,
-	// on a filesystem the CLI shares with us.
-	const folder = vscode.workspace.workspaceFolders?.[0];
-	if (folder?.uri.scheme !== 'file') {
-		return;
-	}
-
-	// Leave the workspace unmarked when the CLI is missing, so installing it
-	// later still gets it configured.
-	const executable = resolveOnPath('claude');
-	if (!executable) {
-		return;
-	}
-
-	const { command, args } = agentCliCommand(executable, CLAUDE_MCP_ADD_ARGS);
-	try {
-		await execFileAsync(command, args, { cwd: folder.uri.fsPath });
-		log(`Configured Claude Code to use Positron's MCP server in ${folder.uri.fsPath}`);
-	} catch (err) {
-		// Claude Code fails when the server is already configured, which means
-		// there is nothing to do. Anything else leaves the workspace unmarked
-		// so that the next registration tries again.
-		const message = summarizeError(err);
-		if (!message.includes('already exists')) {
-			log(`Could not configure Claude Code: ${message}`);
-			return;
-		}
-	}
-
-	await context.workspaceState.update(AUTO_CONFIGURED_KEY, true);
+	return { command: executable, args: [...args] };
 }
 
 /**
@@ -239,6 +342,141 @@ export async function promptToEnable(context: vscode.ExtensionContext): Promise<
 }
 
 /**
+ * Write Positron's entry into a harness's configuration.
+ *
+ * @param agent The harness being configured.
+ * @param connection The live MCP registration.
+ * @returns Where the entry landed.
+ * @throws An error whose message is fit to show the user.
+ */
+async function installAgent(agent: McpAgent, connection: McpConnection): Promise<InstallResult> {
+	return agent.install.kind === 'cli'
+		? installViaCli(agent, agent.install)
+		: installViaFile(agent, agent.install, connection);
+}
+
+/** Add the entry by running the harness's CLI. */
+async function installViaCli(agent: McpAgent, install: McpCliInstall): Promise<InstallResult> {
+	const folder = fileWorkspaceFolder();
+	if (!folder) {
+		throw new Error(vscode.l10n.t(
+			"Open a folder before adding Positron to {0}, which keeps a configuration per directory.",
+			agent.label));
+	}
+	const executable = resolveOnPath(install.executable);
+	if (!executable) {
+		throw new Error(vscode.l10n.t(
+			"Could not find {0} on the path. Install it, then run this command again.",
+			install.executable));
+	}
+
+	// Remove any entry of ours first: the CLI refuses to add a server that is
+	// already there, and one written by an older Positron may be wrong rather
+	// than merely present.
+	try {
+		await runAgentCli(executable, install.remove, folder);
+	} catch {
+		// There was nothing of ours to remove, which is the common case.
+	}
+	await runAgentCli(executable, install.add, folder);
+
+	return { description: vscode.workspace.asRelativePath(folder) };
+}
+
+/** Add the entry by editing the harness's configuration file. */
+async function installViaFile(
+	agent: McpAgent,
+	install: McpFileInstall,
+	connection: McpConnection,
+): Promise<InstallResult> {
+	const target = agentConfigUri(install);
+	if (!target) {
+		throw new Error(vscode.l10n.t(
+			"Open a folder before adding Positron to {0}; the configuration is written into the workspace.",
+			agent.label));
+	}
+
+	const existing = await readFileIfPresent(target);
+	let contents: string;
+	try {
+		contents = mergeAgentConfig(install, existing, connection);
+	} catch (err) {
+		// Refuse rather than overwrite a file we could not understand.
+		throw new Error(vscode.l10n.t(
+			"Could not update {0}: {1}",
+			target.fsPath,
+			summarizeError(err)));
+	}
+	await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(contents));
+
+	return {
+		description: install.scope === 'workspace'
+			? vscode.workspace.asRelativePath(target)
+			: target.fsPath,
+		file: target,
+	};
+}
+
+/**
+ * Take Positron's entry out of a harness's configuration, leaving the rest of
+ * it as it was.
+ *
+ * @param agent The harness to clear.
+ * @throws An error when a configuration file could not be rewritten, so the
+ *  harness stays on the list and is tried again.
+ */
+async function uninstallAgent(agent: McpAgent): Promise<void> {
+	if (agent.install.kind === 'cli') {
+		const folder = fileWorkspaceFolder();
+		const executable = installExecutable(agent);
+		if (!folder || !executable) {
+			// The CLI is gone, and with it the configuration it kept.
+			return;
+		}
+		try {
+			await runAgentCli(executable, agent.install.remove, folder);
+		} catch {
+			// The CLI reports an entry that is not there as a failure, and it
+			// is the only authority on a configuration it owns, so there is
+			// nothing to tell apart and nothing left to try.
+		}
+		return;
+	}
+
+	const target = agentConfigUri(agent.install);
+	const existing = target && await readFileIfPresent(target);
+	if (!target || existing === undefined) {
+		return;
+	}
+	const contents = unmergeAgentConfig(agent.install, existing);
+	if (contents !== existing) {
+		await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(contents));
+	}
+}
+
+/**
+ * Run a harness's CLI in a workspace folder.
+ *
+ * @param executable The full path to the CLI.
+ * @param args The arguments to pass to it.
+ * @param folder The directory to run in, which is what the CLI keys its
+ *  configuration by.
+ */
+async function runAgentCli(
+	executable: string,
+	args: readonly string[],
+	folder: vscode.Uri,
+): Promise<void> {
+	const command = agentCliCommand(executable, args);
+	await execFileAsync(command.command, command.args, { cwd: folder.fsPath });
+}
+
+/** The harness's CLI, when its row installs through one and it is on the path. */
+function installExecutable(agent: McpAgent): string | undefined {
+	return agent.install.kind === 'cli' ? resolveOnPath(agent.install.executable) : undefined;
+}
+
+/**
  * Asks which harness to configure, offering the installed ones first.
  *
  * The ones we cannot find are still offered: a user who is about to install one
@@ -262,20 +500,75 @@ async function pickAgent(): Promise<McpAgent | undefined> {
 	return choice?.agent;
 }
 
+/** The harnesses Positron has written into, in the order they were configured. */
+function loadConfiguredAgents(context: vscode.ExtensionContext): ConfiguredAgent[] {
+	return context.workspaceState.get<ConfiguredAgent[]>(CONFIGURED_AGENTS_KEY) ?? [];
+}
+
+function saveConfiguredAgents(
+	context: vscode.ExtensionContext,
+	records: ConfiguredAgent[],
+): Thenable<void> {
+	return context.workspaceState.update(CONFIGURED_AGENTS_KEY, records);
+}
+
+/**
+ * Remember what a harness was told, replacing what we knew about it, so that
+ * configuring one twice leaves one record rather than two.
+ *
+ * @param context The extension context.
+ * @param agent The harness that was configured.
+ * @param connection The registration its entry was written with.
+ */
+function recordConfiguredAgent(
+	context: vscode.ExtensionContext,
+	agent: McpAgent,
+	connection: McpConnection,
+): Thenable<void> {
+	const records = loadConfiguredAgents(context).filter(record => record.id !== agent.id);
+	records.push({ id: agent.id, url: connection.url });
+	return saveConfiguredAgents(context, records);
+}
+
 /**
  * The file a harness's row points at.
  *
- * @param agent The harness being configured.
+ * @param install The file install being written.
  * @returns The file, or undefined when a workspace-scoped harness has no
  *  workspace to write into.
  */
-function agentConfigUri(agent: McpAgent): vscode.Uri | undefined {
-	const segments = agent.configPath();
-	if (agent.scope === 'global') {
+function agentConfigUri(install: McpFileInstall): vscode.Uri | undefined {
+	const segments = install.configPath();
+	if (install.scope === 'global') {
 		return vscode.Uri.file(path.join(...segments));
 	}
+	const folder = fileWorkspaceFolder();
+	return folder && vscode.Uri.joinPath(folder, ...segments);
+}
+
+/**
+ * The workspace folder a harness's configuration belongs to: the first one, on
+ * a filesystem the agent shares with us.
+ *
+ * @returns The folder, or undefined when there is none we can write into.
+ */
+function fileWorkspaceFolder(): vscode.Uri | undefined {
 	const folder = vscode.workspace.workspaceFolders?.[0];
-	return folder && vscode.Uri.joinPath(folder.uri, ...segments);
+	return folder?.uri.scheme === 'file' ? folder.uri : undefined;
+}
+
+/**
+ * Read a file, treating one that is not there as nothing rather than an error.
+ *
+ * @param file The file to read.
+ * @returns The contents, or undefined when the file does not exist.
+ */
+async function readFileIfPresent(file: vscode.Uri): Promise<string | undefined> {
+	try {
+		return new TextDecoder().decode(await vscode.workspace.fs.readFile(file));
+	} catch {
+		return undefined;
+	}
 }
 
 /**
