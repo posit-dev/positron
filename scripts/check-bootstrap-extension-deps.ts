@@ -102,9 +102,28 @@ async function assertBuiltinCarveOutIsAccurate(): Promise<void> {
 	}
 }
 
-// Picks the version a bootstrap bump would land on: the most recently published
-// stable release, falling back to prereleases for an extension that only
-// publishes those. Mirrors get_extension_info in scripts/update-extensions.sh.
+// Compares two versions by numeric segment. A trailing prerelease identifier is
+// ignored and unparsable segments count as 0, so an odd version string orders
+// predictably instead of poisoning the comparator with NaN.
+function compareSemver(a: string, b: string): number {
+	const parse = (v: string) => v.split('-')[0].split('.').map(part => Number(part) || 0);
+	const left = parse(a);
+	const right = parse(b);
+	for (let i = 0; i < Math.max(left.length, right.length); i++) {
+		const diff = (left[i] ?? 0) - (right[i] ?? 0);
+		if (diff !== 0) {
+			return diff;
+		}
+	}
+	return 0;
+}
+
+// Picks the version a bootstrap bump would land on: the highest stable release
+// by semver, falling back to prereleases for an extension that only publishes
+// those. Mirrors get_extension_info in scripts/update-extensions.sh, including
+// the ordering -- a publisher can ship a backport after a newer release (Meta
+// published pyrefly 1.2.1 two days after 1.3.1), so ordering by publish date
+// would audit the wrong manifest. published_at only breaks ties.
 function selectLatestVersion(versions: IPackageVersion[]): IPackageVersion | undefined {
 	const stable = versions.filter(v => v.pre_release !== true);
 	const candidates = stable.length > 0 ? stable : versions;
@@ -113,7 +132,7 @@ function selectLatestVersion(versions: IPackageVersion[]): IPackageVersion | und
 	const publishedAt = (v: IPackageVersion) => Date.parse(v.published_at ?? '') || 0;
 	return candidates
 		.slice()
-		.sort((a, b) => publishedAt(b) - publishedAt(a))[0];
+		.sort((a, b) => compareSemver(b.version, a.version) || publishedAt(b) - publishedAt(a))[0];
 }
 
 function buildIssueBody(id: string, version: string, pinnedVersion: string, blockedDependencies: string[]): string {

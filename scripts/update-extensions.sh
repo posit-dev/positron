@@ -29,6 +29,7 @@ EXTENSION_IDS=()
 SPECIFIC_VERSION=""
 VSIX_DIR="./vsix-cache"
 PROCESS_ALL=false
+ALLOW_DOWNGRADE=false
 
 # Help function
 show_help() {
@@ -47,6 +48,7 @@ show_help() {
 		--all                 Process all bootstrap extensions from product.json (same as providing no extension IDs)
 		--version <ver>       Use specific version instead of latest
 		--vsix-dir <path>     Directory to cache VSIX files (default: ./vsix-cache)
+		--allow-downgrade     Permit lowering a pinned version (refused by default)
 		--help                Show this help message
 
 	EXAMPLES:
@@ -111,17 +113,24 @@ get_extension_info() {
 	EXTENSION_TARGET_PLATFORM=""
 
 	if command -v jq >/dev/null 2>&1; then
-		# Pick the most recently published *stable* release. Open VSX marks
-		# prerelease builds with "pre_release": true (e.g. pyrefly's 1.1.900x dev
-		# builds), and those must not be bootstrapped as if they were releases.
-		# Fall back to all versions if the extension only publishes prereleases.
+		# Pick the highest *stable* release by semver. Open VSX marks prerelease
+		# builds with "pre_release": true (e.g. pyrefly's 1.1.900x dev builds),
+		# and those must not be bootstrapped as if they were releases. Fall back
+		# to all versions if the extension only publishes prereleases.
 		# Select a single entry so version and target_platform stay consistent.
-		# (P3M does not guarantee versions are returned in sorted order.)
+		#
+		# Order by semver, not publish date: a publisher can ship a backport
+		# after a newer release (Meta published pyrefly 1.2.1 two days after
+		# 1.3.1), and sorting by published_at then picks it and silently
+		# downgrades the pin. published_at only breaks ties between entries that
+		# parse to the same version. (P3M does not guarantee versions are
+		# returned in sorted order, so some explicit ordering is required.)
 		local selected
 		selected=$(echo "$response" | jq -c '
+			def semver: (.version | split("-")[0] | split(".") | map(tonumber? // 0));
 			(.versions | map(select(.pre_release != true))) as $stable
 			| (if ($stable | length) > 0 then $stable else .versions end)
-			| sort_by(.published_at) | reverse | .[0] // {}')
+			| sort_by(semver, .published_at) | reverse | .[0] // {}')
 		EXTENSION_VERSION=$(echo "$selected" | jq -r '.version // empty')
 		EXTENSION_TARGET_PLATFORM=$(echo "$selected" | jq -r '.target_platform // empty')
 
@@ -271,6 +280,31 @@ update_product_json() {
 	fi
 }
 
+# Read the version currently pinned in product.json, or empty when absent.
+get_pinned_version() {
+	local product_json="$1" publisher="$2" name="$3"
+	local extension_id="${publisher}.${name}"
+
+	if ! command -v jq >/dev/null 2>&1; then
+		return 0
+	fi
+
+	jq -r --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" '
+		[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)]
+		| .[0].version // empty
+	' "$product_json"
+}
+
+# True when $1 is a strictly lower semver than $2. A trailing prerelease
+# identifier is ignored and unparsable segments count as 0, matching the
+# ordering used to select the latest version.
+is_version_lower() {
+	jq -e -n --arg a "$1" --arg b "$2" '
+		def semver: (split("-")[0] | split(".") | map(tonumber? // 0));
+		($a | semver) < ($b | semver)
+	' >/dev/null
+}
+
 # Check if we need to download and update
 should_download() {
 	local product_json="$1"
@@ -341,6 +375,18 @@ process_extension() {
 		VERSION="$EXTENSION_VERSION"
 		TARGET_PLATFORM="$EXTENSION_TARGET_PLATFORM"
 		echo "Latest version: $VERSION"
+	fi
+
+	# Never walk a pin backwards on our own. A publisher can ship a backport
+	# after a newer release and p3m serves both, so a resolution that is stale
+	# by semver would otherwise open a downgrade PR unnoticed. Applies to
+	# --version too, so a typo cannot quietly roll a bootstrap extension back.
+	local pinned
+	pinned=$(get_pinned_version "$PRODUCT_JSON" "$PUBLISHER" "$NAME")
+	if [[ "$ALLOW_DOWNGRADE" != true && -n "$pinned" ]] && is_version_lower "$VERSION" "$pinned"; then
+		echo -e "${YELLOW}Refusing to downgrade $extension_id: pinned $pinned is newer than resolved $VERSION${NC}" >&2
+		echo -e "${YELLOW}Re-run with --allow-downgrade if the rollback is intentional.${NC}" >&2
+		return 0
 	fi
 
 	# Check if we actually need to download
@@ -422,6 +468,9 @@ parse_args() {
 			--vsix-dir)
 				shift
 				VSIX_DIR="$1"
+				;;
+			--allow-downgrade)
+				ALLOW_DOWNGRADE=true
 				;;
 			--help)
 				show_help

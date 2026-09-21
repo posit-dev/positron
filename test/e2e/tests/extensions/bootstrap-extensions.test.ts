@@ -11,9 +11,14 @@ test.use({
 	suiteId: __filename
 });
 
-const OPTIONAL_MISSING_EXTENSIONS = new Set<string>([
-	'meta.pyrefly',
-]);
+// Extensions allowed to be absent rather than stalling the wait below. pyrefly
+// is blocked from installing by settingsSkipPyrefly.json unless ALLOW_PYREFLY is
+// set, so outside a pyrefly-enabled run it can never appear. When it is enabled
+// this set is empty, which is what lets the nightly check detect pyrefly drift
+// the same way it detects every other bootstrap extension.
+const OPTIONAL_MISSING_EXTENSIONS = new Set<string>(
+	process.env.ALLOW_PYREFLY === 'true' ? [] : ['meta.pyrefly']
+);
 
 
 test.describe('Bootstrap Extensions', {
@@ -27,6 +32,11 @@ test.describe('Bootstrap Extensions', {
 	});
 
 	test('Verify All Bootstrap extensions are installed', async function ({ options, runDockerCommand }, testInfo) {
+		// Installing every bootstrap extension (pyrefly alone is ~14 MB) does not
+		// reliably fit the default 2 minute budget alongside the two grace periods
+		// below, and this check is not measuring latency.
+		test.slow();
+
 		const extensions = readProductJson();
 		const projectName = testInfo.project.name;
 		const isDockerProject = projectName === 'e2e-workbench' || projectName === 'e2e-jupyter';
@@ -109,12 +119,16 @@ async function waitForExtensions(
 	extensionsPath: string,
 	runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>,
 	containerName?: string,
-	mismatchGraceMs: number = 60_000 // wait up to 1 minute for mismatches to self-resolve
+	mismatchGraceMs: number = 60_000, // wait up to 1 minute for mismatches to self-resolve
+	installGraceMs: number = 90_000 // wait up to 90s for everything to land on disk
 ) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
 
-	// Phase 1: wait for all to be installed (mismatches are noted, but we continue)
+	// Phase 1: wait for all to be installed (mismatches are noted, but we continue).
+	// Bounded so an extension that never installs fails with the list below rather
+	// than spinning until the test timeout reports only that the test was slow.
+	const installDeadline = Date.now() + installGraceMs;
 	while (missing.size > 0) {
 		const installed = await getInstalledExtensions(extensionsPath, runDockerCommand, containerName);
 
@@ -146,6 +160,11 @@ async function waitForExtensions(
 		}
 
 		if (missing.size > 0) {
+			if (Date.now() >= installDeadline) {
+				throw new Error(
+					`Bootstrap extensions never installed after ${Math.round(installGraceMs / 1000)}s: ${Array.from(missing).join(', ')}`
+				);
+			}
 			console.log(`⏳ Still waiting on: ${Array.from(missing).join(', ')}`);
 			await sleep(1000);
 		}
