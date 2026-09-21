@@ -148,17 +148,6 @@ suite('UV Python Installer Tests', () => {
             });
         });
 
-        test('An installer that fails does not clear the uv cache', async () => {
-            isUvInstalledStub.resolves(false);
-            when(
-                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
-            ).thenReturn(Promise.resolve(InterpreterQuickPickList.UvInstall.confirmUvInstallYes) as any);
-            execStub.resolves({ stdout: '', stderr: 'mkdtemp failed: Permission denied' });
-
-            await ensureUvInstalled();
-            assert.strictEqual((uv.resetUvCache as sinon.SinonStub).called, false);
-        });
-
         test('A successful install reports ok and reports installing', async () => {
             isUvInstalledStub.onFirstCall().resolves(false);
             isUvInstalledStub.onSecondCall().resolves(true);

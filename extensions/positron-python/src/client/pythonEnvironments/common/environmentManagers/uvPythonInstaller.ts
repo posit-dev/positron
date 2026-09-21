@@ -56,13 +56,9 @@ async function allowUvInstall(): Promise<boolean> {
 }
 
 /**
- * Echoed by the installer command only when the script exits 0.
- *
- * `exec` resolves with stdout and stderr but not the exit status, and it rejects only when the
- * process cannot be spawned, so a script that fails partway still resolves. The uv installer also
- * writes its normal progress to stderr, so a non-empty stderr does not mean failure either. Adding
- * a marker the shell prints only on success is what separates a real failure, such as an
- * unwritable install directory, from a noisy success.
+ * Echoed by the installer command only when the script exits 0. `exec` reports neither the exit
+ * status nor a usable error, since it rejects only when the process cannot be spawned and the
+ * installer writes its normal progress to stderr, so this marker is the only signal of success.
  */
 export const UV_INSTALL_OK_MARKER = 'positron-uv-install-ok';
 
@@ -81,22 +77,19 @@ async function runUvInstaller(): Promise<boolean> {
     traceInfo('Installing uv...');
 
     try {
-        let result;
-        if (process.platform === 'win32') {
-            result = await exec('powershell', [
-                '-ExecutionPolicy',
-                'ByPass',
-                '-c',
-                `$ErrorActionPreference = "Stop"; irm https://astral.sh/uv/install.ps1 | iex; Write-Output "${UV_INSTALL_OK_MARKER}"`,
-            ]);
-        } else {
-            result = await exec('sh', [
-                '-c',
-                `curl -LsSf https://astral.sh/uv/install.sh | sh && echo ${UV_INSTALL_OK_MARKER}`,
-            ]);
-        }
+        const result =
+            process.platform === 'win32'
+                ? await exec('powershell', [
+                      '-ExecutionPolicy',
+                      'ByPass',
+                      '-c',
+                      `$ErrorActionPreference = "Stop"; irm https://astral.sh/uv/install.ps1 | iex; Write-Output "${UV_INSTALL_OK_MARKER}"`,
+                  ])
+                : await exec('sh', [
+                      '-c',
+                      `curl -LsSf https://astral.sh/uv/install.sh | sh && echo ${UV_INSTALL_OK_MARKER}`,
+                  ]);
 
-        // The marker is the only signal that the script exited 0; see its declaration.
         if (!result.stdout.includes(UV_INSTALL_OK_MARKER)) {
             traceError(`Failed to install uv: ${result.stderr?.trim() || result.stdout.trim()}`);
             return false;
@@ -144,9 +137,8 @@ export async function ensureUvInstalled(onInstalling?: () => void): Promise<Ensu
     onInstalling?.();
 
     if (!(await runUvInstaller())) {
-        // The installer's own output went to the log, which the message points the user at. A
-        // failure here is not the same as uv landing somewhere unreachable, so it must not fall
-        // through to the "installed but could not be found" message below.
+        // Not the same as uv landing somewhere unreachable, so this must not fall through to the
+        // "installed but could not be found" message below.
         return { ok: false, error: InterpreterQuickPickList.UvInstall.uvInstallFailed };
     }
 

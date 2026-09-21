@@ -271,8 +271,7 @@ describe('useModalDialogKeyboard', () => {
 
 	/**
 	 * Opens a stand-in for a modal message box and returns a function that closes it. The real one
-	 * is created by the dialog service outside React, as a sibling of the dialog rather than a
-	 * child, so the test builds it the same way.
+	 * is created outside React, as a sibling of the dialog, so the test builds it the same way.
 	 */
 	function openModalMessageBox() {
 		const modalBlock = document.createElement('div');

@@ -83,17 +83,11 @@ function isFromQuickPick(target: EventTarget | null): boolean {
 }
 
 /**
- * Whether a modal message box is open over the dialog.
+ * Whether a modal message box is open over the dialog. This hook listens in the capture phase, so
+ * without this it acts first and Escape cancels the dialog instead of just the message box.
  *
- * A modal message box, such as the one raised by `showInformationMessage` with `modal: true`,
- * renders above a Positron dialog and handles its own keys: Escape dismisses the message box and
- * Enter activates its default button. This hook listens for keydowns on the window in the capture
- * phase, so without this it acts on the keystroke first, and Escape cancels the dialog underneath
- * and discards whatever the user had entered when only the message box was meant to close.
- *
- * Presence is what matters here rather than the event target, unlike a reparented quick pick: the
- * message box is modal, so while one is open no keystroke belongs to the dialog beneath it,
- * wherever focus happens to be.
+ * Presence is what matters rather than the event target, unlike a reparented quick pick: the
+ * message box is modal, so no keystroke belongs to the dialog beneath it wherever focus sits.
  *
  * @param dialogBox An element in the dialog's document.
  */
