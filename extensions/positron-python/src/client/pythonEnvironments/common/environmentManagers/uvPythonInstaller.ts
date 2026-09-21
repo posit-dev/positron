@@ -83,7 +83,10 @@ async function runUvInstaller(): Promise<boolean> {
                       '-ExecutionPolicy',
                       'ByPass',
                       '-c',
-                      `$ErrorActionPreference = "Stop"; irm https://astral.sh/uv/install.ps1 | iex; Write-Output "${UV_INSTALL_OK_MARKER}"`,
+                      // `$?` reports whether the install succeeded without making non-terminating
+                      // errors fatal, which setting $ErrorActionPreference would, failing installs
+                      // that used to work.
+                      `irm https://astral.sh/uv/install.ps1 | iex; if ($?) { Write-Output "${UV_INSTALL_OK_MARKER}" }`,
                   ])
                 : await exec('sh', [
                       '-c',

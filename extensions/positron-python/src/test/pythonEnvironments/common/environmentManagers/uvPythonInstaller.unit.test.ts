@@ -83,11 +83,25 @@ suite('UV Python Installer Tests', () => {
 
     suite('ensureUvInstalled Tests', () => {
         let isUvInstalledStub: sinon.SinonStub;
+        let platformDescriptor: PropertyDescriptor | undefined;
 
         setup(() => {
             isUvInstalledStub = sinon.stub(uv, 'isUvInstalled');
             sinon.stub(uv, 'resetUvCache');
+            platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
         });
+
+        teardown(() => {
+            if (platformDescriptor) {
+                Object.defineProperty(process, 'platform', platformDescriptor);
+            }
+        });
+
+        function consentToInstall() {
+            when(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).thenReturn(Promise.resolve(InterpreterQuickPickList.UvInstall.confirmUvInstallYes) as any);
+        }
 
         test('Already installed does not prompt or report installing', async () => {
             isUvInstalledStub.resolves(true);
@@ -146,6 +160,26 @@ suite('UV Python Installer Tests', () => {
                 ok: false,
                 error: InterpreterQuickPickList.UvInstall.uvInstallFailed,
             });
+        });
+
+        test('The Windows installer command asks for the success marker', async () => {
+            // Only this marker distinguishes success from failure, and a Windows install cannot be
+            // exercised here, so a command that stopped emitting it would fail every install
+            // silently.
+            Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+            isUvInstalledStub.onFirstCall().resolves(false);
+            isUvInstalledStub.onSecondCall().resolves(true);
+            consentToInstall();
+            execStub.resolves({ stdout: UV_INSTALL_OK_MARKER, stderr: '' });
+
+            assert.deepStrictEqual(await ensureUvInstalled(), { ok: true });
+
+            const [file, args] = execStub.firstCall.args;
+            assert.strictEqual(file, 'powershell');
+            assert.ok(
+                (args as string[])[3].includes(`Write-Output "${UV_INSTALL_OK_MARKER}"`),
+                'the PowerShell command must echo the success marker',
+            );
         });
 
         test('A successful install reports ok and reports installing', async () => {
