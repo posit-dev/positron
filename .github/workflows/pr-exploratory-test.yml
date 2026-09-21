@@ -116,6 +116,16 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Install jq
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Not in the container image. launch.sh output parsing below needs
+          # it, and so do monaco-paste.sh, quickpick-enum.sh, and the snapshot
+          # recipe the agent follows from the drive-positron skill.
+          sudo apt-get update && sudo apt-get install -y jq
+          jq --version
+
       - name: Setup Xvfb
         uses: ./.github/actions/setup-xvfb
 
@@ -167,7 +177,11 @@ jobs:
             --disable-gpu-compositing \
             --password-store=basic)
           echo "$LAUNCH_JSON"
-          echo "CDP_PORT=$(echo "$LAUNCH_JSON" | jq -r .cdpPort)" >> "$GITHUB_ENV"
+          CDP_PORT=$(echo "$LAUNCH_JSON" | jq -r .cdpPort)
+          test -n "$CDP_PORT" && test "$CDP_PORT" != "null" || {
+            echo "cdpPort missing from launch.sh output"; exit 1;
+          }
+          echo "CDP_PORT=$CDP_PORT" >> "$GITHUB_ENV"
 
       - name: Attach Playwright
         shell: bash
