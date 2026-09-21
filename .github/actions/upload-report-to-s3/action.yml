@@ -34,4 +34,9 @@ runs:
         if [[ -n "$WORKDIR" ]]; then
           cd "$WORKDIR"
         fi
-        aws s3 cp "${{ inputs.source-dir }}/." s3://positron-test-reports/${{ inputs.report-dir }} --recursive
+        SOURCE_DIR="${{ inputs.source-dir }}"
+        if [[ -z "$SOURCE_DIR" ]]; then
+          echo "upload-report-to-s3: source-dir resolved to an empty string. Refusing to upload; this would otherwise become 'aws s3 cp \"/.\" ...' and ship the container root filesystem." >&2
+          exit 1
+        fi
+        aws s3 cp "$SOURCE_DIR/." s3://positron-test-reports/${{ inputs.report-dir }} --recursive

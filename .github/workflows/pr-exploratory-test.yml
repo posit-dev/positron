@@ -146,6 +146,20 @@ jobs:
           test -d out || { echo "out/ missing -- compile did not run"; exit 1; }
           echo "out/ present, $(find out -name '*.js' | wc -l) js files"
 
+      - name: Allocate report dir
+        uses: ./.github/actions/gen-report-dir
+        with:
+          identifier: exploratory
+          skip-summary: "true"
+
+      - name: Allocate run directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
+          echo "REPORT_BASE_URL=https://d38p2avprg8il3.cloudfront.net/$REPORT_DIR" >> "$GITHUB_ENV"
+          mkdir -p /tmp/exploratory-run/shots
+
       - name: Launch Positron
         id: launch
         shell: bash
@@ -166,20 +180,6 @@ jobs:
           echo "RUN_DIR=$(echo "$LAUNCH_JSON" | jq -r .runDir)" >> "$GITHUB_ENV"
           echo "POSITRON_LOG=$(echo "$LAUNCH_JSON" | jq -r .logFile)" >> "$GITHUB_ENV"
           echo "POSITRON_PID=$(echo "$LAUNCH_JSON" | jq -r .pid)" >> "$GITHUB_ENV"
-
-      - name: Allocate report dir
-        uses: ./.github/actions/gen-report-dir
-        with:
-          identifier: exploratory
-          skip-summary: "true"
-
-      - name: Allocate run directory
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
-          echo "REPORT_BASE_URL=https://d38p2avprg8il3.cloudfront.net/$REPORT_DIR" >> "$GITHUB_ENV"
-          mkdir -p /tmp/exploratory-run/shots
 
       - name: Attach Playwright
         shell: bash
@@ -206,13 +206,21 @@ jobs:
           report-base-url: ${{ env.REPORT_BASE_URL }}
 
       - name: Upload run directory to S3
+        id: s3-upload
         if: always()
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
-          source-dir: ${{ env.EXPLORE_DIR }}
+          source-dir: /tmp/exploratory-run
+
+      - name: Warn if S3 upload failed
+        if: always() && steps.s3-upload.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload run directory
         if: always()
