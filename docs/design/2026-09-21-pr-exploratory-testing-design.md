@@ -1,4 +1,4 @@
-# PR-triggered exploratory testing (`/test`)
+# Exploratory testing in CI
 
 Status: design, not yet implemented
 Date: 2026-09-21
@@ -62,117 +62,56 @@ harness -- is settled in phase 1, where a failure costs nobody a PR comment.
 
 ## Architecture
 
-One workflow, `.github/workflows/pr-exploratory-test.yml`, with two triggers:
+Everything below describes phase 1. It is a complete system on its own. Phase 2
+is additive and is specified in its own section at the end.
+
+One workflow, `.github/workflows/pr-exploratory-test.yml`, one job:
 
 ```
-workflow_dispatch  ------------------->  explore  ->  step summary + artifact + S3
-issue_comment  ->  gate  ------------->  explore  ->  the above, plus comment upsert
+workflow_dispatch  ->  explore  ->  step summary + artifact + S3
 ```
 
-`explore` is trigger-agnostic. It takes a head ref, a base SHA, and a run
-directory, and it produces a report. Everything that differs between the two
-triggers lives in the thin layer on either side of it: the `gate` job before,
-and the comment steps after. Those comment steps are individually gated on
-`github.event_name == 'issue_comment'`.
+`explore` is trigger-agnostic by construction: it takes a head ref, a base SHA,
+and a run directory, and produces a report. Nothing in it knows how it was
+invoked. That is what lets phase 2 bolt a trigger and an output path onto it
+without touching the build, launch, drive, or report steps.
 
-### The `gate` job runs only for `/test`
-
-`workflow_dispatch` is already restricted to accounts with write access to the
-repo. That is GitHub enforcing the same thing the membership gate enforces, for
-free, which is why phase 1 needs no gate job, no GitHub App token, and no
-`POSITRON_PROJECTS_*` secrets.
-
-### Job 1: `gate` (phase 2 only)
-
-Copied from `pr-test-checker.yml`'s gate job, unchanged in substance.
-
-- Cheap event-shape prefilter in `if:`: `github.event.issue.pull_request != null`
-  and the comment body starts with `/test`.
-- Mints a short-lived token from the "Positron Projects" GitHub App
-  (`POSITRON_PROJECTS_CLIENT_ID` + `POSITRON_PROJECTS_PEM`) scoped to `posit-dev`,
-  which carries `Members: read`.
-- Requires `orgs/posit-dev/teams/positron-dev/memberships/<user>` to report
-  `state == "active"` for BOTH the commenter and the PR author.
-- Fails closed: any token or API error yields `ok=false` and nothing runs.
-- `permissions: {}`. Checks out no code.
-
-A blocked caller currently gets silence: the `eyes` reaction lives in `explore`,
-which never starts. PETE behaves the same way. Accept it for v1 rather than
-granting the gate job write access purely to post a rejection, which would
-hand comment-write permission to the one job that runs for every PR comment on
-the repo.
-
-Use `startsWith` on the trimmed comment body, not `contains`. `pr-build-dmg.yml`
-uses `contains(body, '/dmg')`, which fires on any comment that merely mentions
-the command. This is the same over-matching class as `pr-tags-parse.sh` picking
-up `@:tag` inside backticked prose.
-
-### Job 2: `explore`
+### The `explore` job
 
 `runs-on: ubuntu-latest-8x`, container `ghcr.io/posit-dev/positron-ubuntu24:24.18.0`,
 `options: --user 0:0 --init`, GHCR credentials from `POSITRON_GITHUB_RO_USER` /
-`POSITRON_GITHUB_RO_PAT`. Gated on `needs.gate.outputs.ok == 'true' ||
-github.event_name == 'workflow_dispatch'`, with `needs: gate` and the gate job
-itself skipped on dispatch.
+`POSITRON_GITHUB_RO_PAT`.
 
-Permissions must be declared explicitly. An `issue_comment` workflow does not
-get comment writes by default:
+`permissions: contents: read`. Phase 1 writes nothing back to GitHub.
 
-```yaml
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-```
+`concurrency: pr-exploratory-${{ github.ref }}`, `cancel-in-progress: true`.
 
-This mirrors PETE's `run` job. Phase 1 only needs `contents: read`; the wider
-set arrives with phase 2. Declaring it at the job level is fine either way,
-since on dispatch nothing uses it.
-
-`concurrency`, keyed to whichever trigger fired:
-`pr-exploratory-${{ github.event.issue.number || github.ref }}`,
-`cancel-in-progress: true`.
+Inputs: `ref`, the branch to test.
 
 `timeout-minutes: 90`. Budget is roughly 16 min of build worst-case plus up to
 about 60 min of driving, with headroom. This is the real cost backstop; the turn
 cap is a secondary guard.
 
-Steps, in order. Steps marked (c) run only when `github.event_name ==
-'issue_comment'`:
+Steps, in order:
 
-1. (c) `eyes` reaction on the triggering comment (first, so it lands before the
-   slow steps). Capture the reaction id for the finalize step.
-2. Resolve the head and the diff base.
-   - On `issue_comment`: one `gh api repos/.../pulls/<n>` call gives both
-     `.head.sha` and `.base.sha`. Use `.base.sha`, not current `main`, or the
-     diff picks up everything merged since the PR was opened.
-   - On `workflow_dispatch`: the head is the dispatched ref. The base is
-     `git merge-base origin/main HEAD`, which is the same commit `.base.sha`
-     names. No PR number is involved, and none is looked up.
-3. (c) Post the initial "running" comment with the marker `<!-- exploratory-test -->`.
-4. Checkout the head ref, `fetch-depth: 0`, `submodules: recursive`,
+1. Checkout the head ref, `fetch-depth: 0`, `submodules: recursive`,
    `persist-credentials: false`.
-5. Load secrets from 1Password: `ANTHROPIC_KEY` at `op://Positron/Anthropic/credential`.
-6. The build steps lifted from `test-e2e-ubuntu.yml`, in its order:
+2. Load secrets from 1Password: `ANTHROPIC_KEY` at `op://Positron/Anthropic/credential`.
+3. The build steps lifted from `test-e2e-ubuntu.yml`, in its order:
    `restore-build-caches`, `install-npm-parallel.sh` (gated on cache miss),
    `download-binaries`, e2e deps, `npm exec -- npm-run-all -p compile "electron x64"`,
    `npm run prelaunch`, SUID `chrome-sandbox`, `setup-test-env`.
-7. `.github/actions/setup-xvfb` for `DISPLAY=:10` and a shared dbus session bus.
+4. `.github/actions/setup-xvfb` for `DISPLAY=:10` and a shared dbus session bus.
    `test-e2e-ubuntu.yml` does not use this action, because Playwright manages the
    display for it. We launch outside Playwright, so we need it.
-8. `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
-9. Write the minimal seed profile (see "Seeding the profile").
-10. `gen-report-dir` to allocate `REPORT_DIR` and `REPORT_URL`.
-11. Run the agent (`run.mjs`).
-12. Upload the run directory to S3 and upload it as an artifact. `if: always()`.
-13. (c) Upsert the result comment. `if: always()`. If the S3 upload failed, omit
-    the image links and the Report link rather than emit CDN URLs that 404. The
-    artifact link still carries the shots.
-14. (c) Finalize reaction: `rocket` only when the agent finished on its own. A
-    partial run (turn cap or timeout) and a hard failure both get `confused`.
+5. `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
+6. Write the minimal seed profile (see "Seeding the profile").
+7. `gen-report-dir` to allocate `REPORT_DIR` and `REPORT_URL`.
+8. Run the agent (`run.mjs`).
+9. Upload the run directory to S3 and upload it as an artifact. `if: always()`.
 
-On dispatch the run ends at step 12, and the step summary written by `run.mjs`
-is the whole report surface.
+The diff base is `git merge-base origin/main HEAD`. No PR is involved, and none
+is looked up.
 
 ## Build, not artifact reuse
 
@@ -194,7 +133,7 @@ build/run split, with 1-day retention.
 
 Producing the artifact ourselves is worse, not better: 14 min to build plus 7 min
 to consume is ~21 min against ~11.5 min for the all-in-one. The split pays only
-when one build amortizes across many shards, which a single `/test` job does not.
+when one build amortizes across many shards, which a single run does not.
 
 Downloading main's artifact instead is the one option that must be rejected
 outright. v1's SKILL.md warns that a run against main "yields a clean report
@@ -335,8 +274,9 @@ is lost. Two mitigations, both required:
 - v1 already instructs the tester to append to `actions.log` as it goes and to
   copy evidence into `shots/` at capture time, so a truncated run still leaves
   artifacts.
-- `run.mjs` must detect a max-turns termination and post a "partial run" comment
-  pointing at `actions.log` and the uploaded shots, rather than reporting success.
+- `run.mjs` must detect a max-turns termination and report a "partial run"
+  pointing at `actions.log` and the uploaded shots, rather than reporting
+  success. Phase 2 surfaces the same state in the comment and the reaction.
 
 ## Cost accounting
 
@@ -350,13 +290,12 @@ are buried in job logs and cannot be compared across runs. Do better here:
 
 1. Write `cost.json` into the run directory, so it ships with both the S3 upload
    and the artifact and stays retrievable after the job logs age out.
-2. Append a footer line to the PR comment: cost, turns used against the cap, and
-   wall clock.
-3. Append the same line to the step summary.
+2. Append a footer line to the step summary: cost, turns used against the cap,
+   and wall clock. Phase 2 repeats that line in the comment.
 
 `num_turns` is the calibration input for `maxTurns`. Recording it per run is what
 turns the 200 estimate into a measurement, and it is the mechanism implementation
-step 6 depends on.
+step 5 depends on.
 
 ## Cleanup is inverted in CI
 
@@ -376,38 +315,21 @@ scaffolding workspaces.
 
 ## Output
 
-### The step summary is the base surface
+### The step summary
 
 `run.mjs` writes the triage table, the full report, and the cost footer to
-`$GITHUB_STEP_SUMMARY` on every run, both triggers. Screenshots do not render
-there (the analyzer's prompt says so outright), so the summary links to the S3
-report for those. This is phase 1's entire output, and it stays unchanged in
-phase 2 as the durable copy.
+`$GITHUB_STEP_SUMMARY`. Screenshots do not render there (the analyzer's prompt
+says so outright), so the summary links to the S3 report for those. This is
+phase 1's entire output, and it stays unchanged in phase 2 as the durable copy.
 
-### The comment (phase 2)
-
-One comment, upserted in place via the marker `<!-- exploratory-test -->`, using
-the mechanic in `scripts/pr-e2e-comment.sh` (which uses `<!-- PR Tags -->`).
-Deliberately unlike `pr-build-dmg.yml`, which posts a second comment rather than
-editing the first.
-
-Body:
+The table:
 
 ```
-<!-- exploratory-test -->
 ### Exploratory test: <N> findings
 
 | # | Finding | Type | Impact | Caused by change |
 |---|---------|------|--------|------------------|
 | 1 | <short claim> | regression | 1 in 3 accepts silently do nothing | yes |
-
-<details><summary>Full report</summary>
-
-... full report body, images embedded from the CDN ...
-
-</details>
-
-[Run](<run url>) | [Report](<cdn url>)
 ```
 
 ### The `Type` column is new
@@ -433,36 +355,25 @@ keeps its current behavior unchanged and this workflow passes the run directory.
 A second copy of the same upload logic is the worse option.
 
 Once on S3 the shots are served publicly from
-`https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/`, and GitHub renders them
-inline in the PR comment. This requires the report step to emit CDN URLs instead
-of relative `shots/<file>` links. v1 is emphatic that shots must be real links
-rather than backticked paths; the CDN form satisfies that and additionally
-renders.
+`https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/`. The report step must emit
+those CDN URLs rather than relative `shots/<file>` links. v1 is emphatic that
+shots be real links rather than backticked paths, and only the CDN form is
+reachable by someone reading the report outside the container.
 
 Step summaries cannot render images at all (the analyzer's prompt says so
-outright), so the step summary keeps the text report only. The artifact upload
-stays as a backup.
+outright), so in phase 1 the summary carries the text report and links out to
+the S3 report for the shots. The artifact upload is the backup copy. Phase 2
+gets image rendering for free, since a PR comment does display the CDN URLs
+inline.
 
 ## Security model
 
 Phase 1 has nothing to defend. `workflow_dispatch` is restricted to write-access
 accounts, and a branch in this repo that a write-access account chose to test is
-code we already trust.
+code we already trust. No GitHub App token, no `POSITRON_PROJECTS_*` secrets, no
+membership check, and no write permission on the repo.
 
-Phase 2 is where the exposure appears. `issue_comment` runs in base-repo context with full secrets even for fork PRs.
-This job compiles and executes PR head code with `OP_SERVICE_ACCOUNT_TOKEN`, the
-Anthropic key, and the GHCR PAT in scope.
-
-PETE defends this two ways: the membership gate, and a two-tree checkout where
-the base branch runs the action and the PR head is mounted as read-only data.
-**The second layer is unavailable to us.** We must build and run the PR's code;
-that is the entire point. So the membership gate is the whole defense.
-
-It is a strong one. Requiring the PR author, not just the commenter, to be an
-active `positron-dev` member means an outside contributor cannot get their code
-executed by baiting a member into commenting `/test`. This is an accepted,
-documented tradeoff rather than an oversight, and it is the reason the command is
-team-only rather than collaborator-level.
+Phase 2 changes this materially. See its section below.
 
 ## Files
 
@@ -475,8 +386,8 @@ team-only rather than collaborator-level.
 | `.claude/skills/exploratory-testing/SKILL.md` | new (v1, checked in; `Type` column added) |
 | `.github/actions/upload-report-to-s3/action.yml` | modified (optional `source-dir` input) |
 
-Phase 1 needs all of these except the gate job and the comment steps, both of
-which live inside the workflow file.
+Phase 2 adds no files. The gate job and the comment steps both live inside the
+existing workflow file.
 
 ## Implementation order
 
@@ -509,8 +420,117 @@ cheap to answer now and expensive to unwind later.
 
 ### Phase 2: `/test`
 
-6. Add the `gate` job, the `issue_comment` trigger, and the `(c)` steps. No
-   change to `explore`'s build, launch, drive, or report steps.
+6. Add the `gate` job, the `issue_comment` trigger, and the comment steps, as
+   specified in the next section. No change to `explore`'s build, launch,
+   drive, or report steps.
+
+## Phase 2: the `/test` PR trigger
+
+Additive. Nothing in the sections above changes.
+
+### Trigger and flow
+
+Add `issue_comment: [created]` alongside `workflow_dispatch`:
+
+```
+workflow_dispatch  ------------------->  explore  ->  summary + artifact + S3
+issue_comment  ->  gate  ------------->  explore  ->  the above, plus a comment
+```
+
+`explore` gains `needs: gate` and runs on `needs.gate.outputs.ok == 'true' ||
+github.event_name == 'workflow_dispatch'`, with the gate job skipped on
+dispatch. Its permissions widen to `contents: read`, `pull-requests: write`,
+`issues: write`, mirroring PETE's `run` job. Its concurrency key becomes
+`pr-exploratory-${{ github.event.issue.number || github.ref }}`.
+
+On `issue_comment` the head and base come from one `gh api repos/.../pulls/<n>`
+call: `.head.sha` and `.base.sha`. Use `.base.sha`, not current `main`, or the
+diff picks up everything merged since the PR was opened. This replaces the
+`merge-base` derivation, which stays in force on dispatch.
+
+### The `gate` job
+
+Copied from `pr-test-checker.yml`'s gate job, unchanged in substance.
+
+- Cheap event-shape prefilter in `if:`: `github.event.issue.pull_request != null`
+  and the comment body starts with `/test`.
+- Mints a short-lived token from the "Positron Projects" GitHub App
+  (`POSITRON_PROJECTS_CLIENT_ID` + `POSITRON_PROJECTS_PEM`) scoped to `posit-dev`,
+  which carries `Members: read`.
+- Requires `orgs/posit-dev/teams/positron-dev/memberships/<user>` to report
+  `state == "active"` for BOTH the commenter and the PR author.
+- Fails closed: any token or API error yields `ok=false` and nothing runs.
+- `permissions: {}`. Checks out no code.
+
+A blocked caller currently gets silence: the `eyes` reaction lives in `explore`,
+which never starts. PETE behaves the same way. Accept it for v1 rather than
+granting the gate job write access purely to post a rejection, which would
+hand comment-write permission to the one job that runs for every PR comment on
+the repo.
+
+Use `startsWith` on the trimmed comment body, not `contains`. `pr-build-dmg.yml`
+uses `contains(body, '/dmg')`, which fires on any comment that merely mentions
+the command. This is the same over-matching class as `pr-tags-parse.sh` picking
+up `@:tag` inside backticked prose.
+
+### The added steps
+
+Each is gated on `github.event_name == 'issue_comment'`.
+
+- Before the build: `eyes` reaction on the triggering comment, first so it lands
+  ahead of the slow steps. Capture the reaction id.
+- Before the build: post the "running" comment carrying the marker and the run
+  link.
+- After the upload, `if: always()`: upsert the result comment. If the S3 upload
+  failed, omit the image links and the Report link rather than emit CDN URLs
+  that 404; the artifact link still carries the shots.
+- Last, `if: always()`: finalize the reaction. `rocket` only when the agent
+  finished on its own. A partial run (turn cap or timeout) and a hard failure
+  both get `confused`.
+
+### The comment
+
+One comment, upserted in place via the marker `<!-- exploratory-test -->`, using
+the mechanic in `scripts/pr-e2e-comment.sh` (which uses `<!-- PR Tags -->`).
+Deliberately unlike `pr-build-dmg.yml`, which posts a second comment rather than
+editing the first.
+
+```
+<!-- exploratory-test -->
+### Exploratory test: <N> findings
+
+| # | Finding | Type | Impact | Caused by change |
+|---|---------|------|--------|------------------|
+| 1 | <short claim> | regression | 1 in 3 accepts silently do nothing | yes |
+
+<details><summary>Full report</summary>
+
+... full report body, images embedded from the CDN ...
+
+</details>
+
+[Run](<run url>) | [Report](<cdn url>)
+```
+
+Unlike the step summary, a PR comment renders the CDN images inline, so this is
+where the screenshots actually show up.
+
+### Security model for phase 2
+
+`issue_comment` runs in base-repo context with full secrets even for fork PRs.
+This job compiles and executes PR head code with `OP_SERVICE_ACCOUNT_TOKEN`, the
+Anthropic key, and the GHCR PAT in scope.
+
+PETE defends this two ways: the membership gate, and a two-tree checkout where
+the base branch runs the action and the PR head is mounted as read-only data.
+**The second layer is unavailable to us.** We must build and run the PR's code;
+that is the entire point. So the membership gate is the whole defense.
+
+It is a strong one. Requiring the PR author, not just the commenter, to be an
+active `positron-dev` member means an outside contributor cannot get their code
+executed by baiting a member into commenting `/test`. This is an accepted,
+documented tradeoff rather than an oversight, and it is the reason the command is
+team-only rather than collaborator-level.
 
 ## Open questions
 
@@ -527,6 +547,8 @@ cheap to answer now and expensive to unwind later.
 - Should `/test` accept an argument to focus the run (`/test notebooks`)? Not in
   v1. Note that the dispatch path gets this nearly for free as a second input,
   so phase 1 may answer whether it is wanted before phase 2 has to decide.
-- Does phase 2 earn its keep? Phase 1 is a complete system. If hand-triggered
-  runs turn out to be rare or the reports noisy, the right move is to stop at
-  phase 1 rather than wire the trigger that makes them public.
+- Does phase 2 earn its keep? Phase 1 is expected to be valuable on its own --
+  the skill has been earning its keep locally, and phase 1 is that same workflow
+  with CI doing the setup. The open part is whether the reports are good enough
+  to put in front of a PR author unprompted. Phase 1 answers that before phase 2
+  makes it public.
