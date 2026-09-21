@@ -5,10 +5,20 @@
 
 /// <reference types="vitest/globals" />
 
-import { Event } from '../../../../base/common/event.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IAiProviderCatalog, IResolvedModelsData, IResolvedProviderData } from '../../../positronAiProvider/common/aiProviderCatalog.js';
-import { applyModelPolicy } from '../../node/headlessLanguageModelEngine.js';
+import { NullLogService } from '../../../log/common/log.js';
+import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedModelsData, IResolvedProviderData } from '../../../positronAiProvider/common/aiProviderCatalog.js';
+import { applyModelPolicy, HeadlessLanguageModelEngine } from '../../node/headlessLanguageModelEngine.js';
+
+async function collect(stream: AsyncIterable<string>): Promise<string> {
+	let text = '';
+	for await (const chunk of stream) {
+		text += chunk;
+	}
+	return text;
+}
 
 /** A discovered model as the bridge reports it: identity plus the capabilities ai-config resolves against. */
 function model(id: string, name: string, vendor = 'Anthropic') {
@@ -29,6 +39,14 @@ function catalog(models: IResolvedModelsData | undefined, id = 'anthropic'): IAi
 	return {
 		onDidChangeCatalog: Event.None,
 		getCatalog: () => Promise.resolve([provider]),
+		getConfigFileUri: () => Promise.resolve(URI.file('/providers.json')),
+	};
+}
+
+function catalogOf(providers: IResolvedProviderData[], onDidChangeCatalog: Event<IProviderCatalogChangeData> = Event.None): IAiProviderCatalog {
+	return {
+		onDidChangeCatalog,
+		getCatalog: () => Promise.resolve(providers),
 		getConfigFileUri: () => Promise.resolve(URI.file('/providers.json')),
 	};
 }
@@ -101,4 +119,42 @@ describe('applyModelPolicy', () => {
 
 		expect(resolved.map(m => m.id)).toEqual(['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-5']);
 	});
+});
+
+describe('getProviderMappings', () => {
+	it('adds one aggregate mapping per custom entry after the built-ins', async () => {
+		const engine = new HeadlessLanguageModelEngine(new NullLogService(), catalogOf([
+			{ id: 'anthropic', enabled: true, connection: {} },
+			{ id: 'my-gateway', enabled: true, clientKind: 'openai-compatible', connection: {}, custom: true },
+			{ id: 'team-snow', enabled: true, clientKind: 'snowflake', connection: {}, custom: true },
+			{ id: 'local-llm', enabled: true, clientKind: 'ollama', connection: {}, custom: true },
+			{ id: 'no-kind', enabled: true, connection: {}, custom: true },
+		]));
+		const mappings = await engine.getProviderMappings();
+		expect(mappings.find(m => m.providerId === 'anthropic')).toBeDefined();
+		expect(mappings.filter(m => m.authProviderId === 'custom-providers')).toEqual([
+			{ providerId: 'my-gateway', authProviderId: 'custom-providers', scopes: ['my-gateway'], credentialType: 'apikey', configKey: 'my-gateway' },
+			{ providerId: 'team-snow', authProviderId: 'custom-providers', scopes: ['team-snow'], credentialType: 'apikey', configKey: 'team-snow', structuredBaseUrl: 'snowflake' },
+		]);
+	});
+});
+
+describe('registry follows the catalog', () => {
+	it('lists a custom entry added after first use', async () => {
+		const changed = new Emitter<IProviderCatalogChangeData>();
+		let entries: IResolvedProviderData[] = [{ id: 'anthropic', enabled: true, connection: {} }];
+		const engine = new HeadlessLanguageModelEngine(new NullLogService(), {
+			onDidChangeCatalog: changed.event,
+			getCatalog: () => Promise.resolve(entries),
+			getConfigFileUri: () => Promise.resolve(URI.file('/providers.json')),
+		});
+		await engine.listModels('my-gateway', { type: 'apikey', apiKey: 'k', baseUrl: 'http://127.0.0.1:1' });
+		entries = [...entries, { id: 'my-gateway', enabled: true, clientKind: 'openai-compatible', connection: {}, custom: true }];
+		changed.fire({ catalog: [], enabledChanged: true, connectionChanged: false, modelsChanged: false });
+		// A stream request no longer fails at the registry-lookup boundary (the
+		// specific error the pre-rebuild registry would throw), proving the
+		// registry rebuilt rather than serving its stale first-use snapshot.
+		const stream = engine.streamChat({ providerId: 'my-gateway', modelId: 'm', systemPrompt: 's', messages: [{ role: 'user', content: 'hi' }], credentials: { type: 'apikey', apiKey: 'k', baseUrl: 'http://127.0.0.1:1' } }, CancellationToken.None);
+		await expect(collect(stream)).resolves.not.toThrow();
+	}, 15_000);
 });

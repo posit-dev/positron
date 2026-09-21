@@ -121,9 +121,13 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 
 		// Availability also depends on the resolved provider catalog the credential
 		// shaping reads (base URLs, custom headers, AWS region/profile, Snowflake
-		// host/account), on each provider's enabled state, and on model policy.
+		// host/account), on each provider's enabled state, and on model policy. A
+		// custom entry can appear, disappear, or change kind on any of these, so
+		// the mappings (built from the catalog, not just the built-in table) are
+		// dropped alongside the cached listing.
 		this._register(this._aiProviderService.onDidChangeProviders(e => {
 			if (e.enabledChanged || e.connectionChanged || e.modelsChanged) {
+				this._mappings.clear();
 				this._invalidate();
 			}
 		}));
@@ -356,7 +360,7 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		const relevant = mappings.filter(mapping =>
 			registered.has(mapping.authProviderId) && this._aiProviderService.isEnabled(mapping.providerId));
 
-		// Read-only credential lookup across every registered mapped provider.
+		// Read-only credential lookup across every registered mapped built-in or custom entry.
 		const credentialed = (await Promise.all(relevant.map(async mapping => {
 			const credentials = await this.resolveCredential(mapping);
 			return credentials ? { providerId: mapping.providerId, credentials } : undefined;
@@ -471,14 +475,8 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	}
 
 	/**
-	 * The connection-reading half supplied to the bridge's `shapeCredentials`,
-	 * backed by the resolved provider catalog. `shapeCredentials` owns which
-	 * value each provider needs (including the AWS `us-east-1` default); this
-	 * only resolves a target to its provider's `connection`. `bedrock` /
-	 * `snowflake-cortex` are bridge-vocabulary catalog ids for the two providers
-	 * whose connection details are keyed by provider rather than `configKey`;
-	 * they stay hardcoded because these mappings only ever cover built-ins
-	 * (`MAPPED_PROVIDER_IDS`), never a `providers.custom` entry.
+	 * The connection-reading half of `shapeCredentials`, resolving each target to
+	 * its own provider's connection.
 	 */
 	private credentialConfig(): CredentialConfig {
 		const connectionFor = (target: CredentialConfigTarget) =>
@@ -486,12 +484,12 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		return {
 			getBaseUrl: target => connectionFor(target)?.baseUrl || undefined,
 			getCustomHeaders: target => connectionFor(target)?.customHeaders,
-			getAws: () => this._aiProviderService.getProvider('bedrock')?.connection.aws,
-			getSnowflake: () => {
-				const snowflake = this._aiProviderService.getProvider('snowflake-cortex')?.connection.snowflake;
+			getAws: target => connectionFor(target)?.aws,
+			getSnowflake: target => {
+				const snowflake = connectionFor(target)?.snowflake;
 				return snowflake && { host: snowflake.host, account: snowflake.account };
 			},
-			getDatabricks: () => this._aiProviderService.getProvider('databricks')?.connection.databricks,
+			getDatabricks: target => connectionFor(target)?.databricks,
 		};
 	}
 }
