@@ -1701,6 +1701,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	/**
 	 * Get code content for a specific range in the document.
+	 *
+	 * Normalize line endings so the boundary provider's line-by-line parse (and
+	 * the local split in `_getCodeFragmentsFromBoundaries`) see clean LF input.
+	 * On a CRLF document every split line otherwise keeps its trailing carriage
+	 * return, and a fragment that ends in a bare CR is a syntax error to R.
 	 */
 	private async _getCodeInRange(documentUri: URI, range: Range): Promise<string | undefined> {
 		try {
@@ -1709,7 +1714,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				return undefined;
 			}
 
-			return textModel.getValueInRange(range);
+			return textModel.getValueInRange(range).replace(/\r\n?/g, '\n');
 		} catch (error) {
 			this._logService.warn(`[QuartoExecutionManager] Failed to get code in range:`, error);
 			return undefined;
