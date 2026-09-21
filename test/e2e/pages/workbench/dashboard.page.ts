@@ -15,6 +15,8 @@ export class DashboardPage {
 	get newSessionButton() { return this.code.driver.currentPage.getByRole('button', { name: 'New Session', exact: true }).first(); }
 	get positronProButton() { return this.code.driver.currentPage.getByRole('tab', { name: 'Positron Pro' }); }
 	get sessionNameInput() { return this.code.driver.currentPage.getByRole('textbox', { name: 'Session Name' }); }
+	// Shown in place of table rows once the user has no projects left to list.
+	get noProjectsHeading() { return this.code.driver.currentPage.getByRole('heading', { name: 'No projects' }); }
 	// Anchor on the table row: the project name renders as a link while a session runs but as a
 	// button once it is gone, so neither a link role nor a fixed `.locator('..')` climb out of it
 	// survives both states. A leaked session can leave two rows for one project, hence `.first()`.
@@ -144,10 +146,21 @@ export class DashboardPage {
 			// no longer launch; quitSession no-ops when nothing is running.
 			await this.quitSession(projectName);
 
+			// Quit is asynchronous, and the dashboard settles into one of two states once the
+			// session is gone. For user1 the project row survives and offers "Create new session".
+			// For the Azure JIT user (rstudio-ide-test) a project with no session is not listed at
+			// all, so the table empties into the "No projects" state and that button never appears.
+			// Wait for whichever appears and act on it, rather than asserting on the row alone.
 			const startNewSessionButton = this.projectNewSessionButton(projectName);
-			await expect(startNewSessionButton).toBeVisible();
-			await startNewSessionButton.click();
-			await this.launchButton.click();
+			await expect(startNewSessionButton.or(this.noProjectsHeading).first()).toBeVisible({ timeout: 30000 });
+
+			if (await startNewSessionButton.isVisible()) {
+				await startNewSessionButton.click();
+				await this.launchButton.click();
+			} else {
+				this.code.logger.log(`Project '${projectName}' was not listed after quitting its session; creating it again`);
+				await this.createNewProject(projectName, context, managedCredentials);
+			}
 		}
 	}
 

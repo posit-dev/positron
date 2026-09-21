@@ -63,7 +63,7 @@ export class LinuxUpdateService extends AbstractUpdateService {
 		// --- End Positron ---
 		this.setState(State.CheckingForUpdates(explicit));
 
-		this.requestService.request({ url, callSite: 'updateService.linux.checkForUpdates' }, CancellationToken.None)
+		this.requestService.request({ url, disableCache: true, callSite: 'updateService.linux.checkForUpdates' }, CancellationToken.None)
 			.then<IUpdate | null>(asJson)
 			.then(update => {
 				// If updates were disabled mid-check, ignore the result so we don't leave the Disabled state.
