@@ -36,6 +36,22 @@ export const test = base.extend<NotebooksPositronTestFixtures, NotebooksPositron
 	],
 });
 
-test.afterEach(async function ({ hotKeys }) {
+test.afterEach(async function ({ hotKeys, sessions }) {
+	// A focused notebook makes its kernel session the foreground session, so read
+	// it before closing. Notebook session ids carry a `-notebook-` marker (see
+	// generateNewSessionId in runtimeSession.ts); a console id means the notebook
+	// either had no kernel or was not focused, and there is nothing to wait for.
+	const foregroundSessionId = await sessions.getForegroundSessionId();
+
 	await hotKeys.closeAllEditors();
+
+	// Closing a notebook shuts its session down asynchronously and the shutdown
+	// outlives this hook. Until the session is gone, a new untitled notebook is
+	// given the same `Untitled-1.ipynb` URI, binds to the exiting session, and
+	// selecting a kernel never starts a fresh one; see
+	// https://github.com/posit-dev/positron/issues/16129.
+	// Remove this wait once that is fixed.
+	if (foregroundSessionId?.includes('-notebook-')) {
+		await sessions.expectSessionToBeGone(foregroundSessionId);
+	}
 });

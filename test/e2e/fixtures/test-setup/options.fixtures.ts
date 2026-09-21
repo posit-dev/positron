@@ -11,6 +11,7 @@ import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Bro
 import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
 import { shouldUseCustomTracing } from './reporting.fixtures.js';
+import { resolveTraceSnapshots } from './trace-snapshots.js';
 import { isMemoryScenario } from '../../utils/memory/scenarios.js';
 import { GC_TARGETS } from '../../utils/memory/gc.js';
 
@@ -75,7 +76,7 @@ export function OptionsFixture() {
 			browser,
 			tracing: true,
 			customTracing: shouldUseCustomTracing(workerInfo.project),
-			snapshots,
+			snapshots: resolveTraceSnapshots(snapshots),
 			quality: Quality.Dev,
 			version,
 			// --- Start Positron ---

@@ -336,3 +336,60 @@ describe('PositronDataGrid pinned band clipping', () => {
 		`);
 	});
 });
+
+describe('DataGridInstance scrolling before layout', () => {
+	const ctx = createTestContainer().build();
+
+	// A row far enough down that bringing it into view has to scroll.
+	const TARGET_ROW = 30;
+
+	function newGrid(): TestDataGridInstance {
+		const instance = new TestDataGridInstance();
+		ctx.disposables.add(instance);
+		return instance;
+	}
+
+	it('does not scroll a grid that has no viewport yet', async () => {
+		// A grid is laid out a frame after it mounts, so anything that reveals a row in a view
+		// that is still coming up finds both axes at zero. Every entry reads as past the end of a
+		// zero-length axis, so scrolling to one used to move the content out of the viewport that
+		// arrived a moment later -- and nothing clamped it back, leaving the grid scrolled past
+		// its own content and looking empty. All three entry points are guarded.
+		const instance = newGrid();
+
+		await instance.scrollToCell(0, TARGET_ROW);
+		await instance.scrollToRow(TARGET_ROW);
+		await instance.scrollToColumn(COLUMNS - 1);
+
+		expect({
+			horizontal: instance.horizontalScrollOffset,
+			vertical: instance.verticalScrollOffset,
+		}).toEqual({ horizontal: 0, vertical: 0 });
+	});
+
+	it('scrolls the axis that has an extent when the other one does not', async () => {
+		// A collapsed view pane keeps its width and loses its height, so the two axes are
+		// independently zero -- which is why each is guarded on its own rather than the pair being
+		// dropped whenever either is missing.
+		const instance = newGrid();
+		await instance.setSize(VIEWPORT_WIDTH, 0);
+
+		await instance.scrollToCell(COLUMNS - 1, TARGET_ROW);
+
+		// The last column scrolls to the maximum offset; the rows stay put.
+		expect({
+			horizontal: instance.horizontalScrollOffset,
+			vertical: instance.verticalScrollOffset,
+		}).toEqual({ horizontal: (COLUMNS * COLUMN_WIDTH) - VIEWPORT_WIDTH, vertical: 0 });
+	});
+
+	it('scrolls the row into view once the grid has been laid out', async () => {
+		const instance = newGrid();
+		await instance.setSize(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+
+		await instance.scrollToCell(0, TARGET_ROW);
+
+		// The row's end, less the viewport, brings it flush with the bottom edge.
+		expect(instance.verticalScrollOffset).toBe(((TARGET_ROW + 1) * ROW_HEIGHT) - VIEWPORT_HEIGHT);
+	});
+});
