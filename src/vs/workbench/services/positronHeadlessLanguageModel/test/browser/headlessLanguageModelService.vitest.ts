@@ -695,6 +695,54 @@ describe('HeadlessLanguageModelService', () => {
 		});
 	});
 
+	describe('custom entries', () => {
+		const customMapping: IProviderMapping = {
+			providerId: 'team-aws', authProviderId: 'custom-providers', scopes: ['team-aws'],
+			credentialType: 'aws-credentials', configKey: 'team-aws',
+		};
+
+		beforeEach(() => {
+			registeredAuthProviders = new Set(['custom-providers']);
+		});
+
+		it('reads the aggregate session with the entry name as scope and shapes it from the entry\'s own connection', async () => {
+			catalogSnapshot = new Map([
+				['bedrock', provider('bedrock', { aws: { region: 'us-east-1' } })],
+				['team-aws', { ...provider('team-aws', { aws: { region: 'eu-west-1', profile: 'team' } }), custom: true, clientKind: 'aws' }],
+			]);
+			getSessions.mockImplementationOnce(async (id: string) =>
+				id === 'custom-providers'
+					? [{ ...session('custom-providers'), accessToken: JSON.stringify({ accessKeyId: 'AK', secretAccessKey: 'SK' }) }]
+					: []);
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [customMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('team-aws', expect.objectContaining({ type: 'aws-credentials', region: 'eu-west-1', profile: 'team' }));
+		});
+
+		it('recomputes mappings after a catalog change so a new custom entry is picked up', async () => {
+			let mappings: IProviderMapping[] = [];
+			const getProviderMappings = vi.fn(async () => mappings);
+			const service = createService(fakeEngine({ getProviderMappings }));
+			await service.getAvailableModels();
+			mappings = [customMapping];
+			catalogChangeEmitter.fire(catalogChange({ enabledChanged: true }));
+			await service.getAvailableModels();
+			expect(getProviderMappings).toHaveBeenCalledTimes(2);
+		});
+
+		it('derives a custom Snowflake base URL from the entry\'s account', async () => {
+			const snowMapping: IProviderMapping = { providerId: 'team-snow', authProviderId: 'custom-providers', scopes: ['team-snow'], credentialType: 'apikey', configKey: 'team-snow', structuredBaseUrl: 'snowflake' };
+			catalogSnapshot = new Map([['team-snow', { ...provider('team-snow', { snowflake: { account: 'acme-xy12345' } }), custom: true, clientKind: 'snowflake' }]]);
+			signedInAuthProviders.add('custom-providers');
+			sessionTokenOverrides.set('custom-providers', 'pat-token');
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [snowMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('team-snow', expect.objectContaining({ type: 'apikey', baseUrl: expect.stringContaining('acme-xy12345') }));
+		});
+	});
+
 	describe('Foundry in Entra mode', () => {
 		const foundryMapping: IProviderMapping = {
 			providerId: 'ms-foundry', authProviderId: 'ms-foundry', scopes: [], credentialType: 'apikey', configKey: 'ms-foundry',
