@@ -358,7 +358,8 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		// registered, so this loses nothing.
 		const registered = new Set(this._authService.getProviderIds());
 		const relevant = mappings.filter(mapping =>
-			registered.has(mapping.authProviderId) && this._aiProviderService.isEnabled(mapping.providerId));
+			(mapping.credentialType === 'local' || (mapping.authProviderId !== undefined && registered.has(mapping.authProviderId)))
+			&& this._aiProviderService.isEnabled(mapping.providerId));
 
 		// Read-only credential lookup across every registered mapped built-in or custom entry.
 		const credentialed = (await Promise.all(relevant.map(async mapping => {
@@ -414,10 +415,23 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	 * `shapeCredentials`, so it stays in lockstep with the assistant path.
 	 */
 	private async resolveCredential(mapping: IProviderMapping): Promise<ICredentials | undefined> {
-		const accessToken = await this.readAccessToken(mapping);
+		if (mapping.credentialType === 'local') {
+			const endpoint = this._aiProviderService.getProvider(mapping.providerId)?.connection.endpoint;
+			return endpoint ? { type: 'local', endpoint } : undefined;
+		}
+		const authProviderId = mapping.authProviderId;
+		if (!authProviderId) {
+			return undefined;
+		}
+		const accessToken = await this.readAccessToken(authProviderId, mapping.scopes, mapping.fallbackScopes);
 		if (accessToken) {
-			const shaped = shapeCredentials(mapping.providerId, mapping, accessToken, this.credentialConfig());
-			// Shaping never emits azure-entra or local; both are built from the catalog, not from a session.
+			const credentialType = mapping.credentialType;
+			const shaped = shapeCredentials(
+				mapping.providerId,
+				{ ...mapping, authProviderId, credentialType },
+				accessToken,
+				this.credentialConfig(),
+			);
 			return shaped && shaped.type !== 'local' ? shaped : undefined;
 		}
 		return this.entraCredential(mapping.providerId);
@@ -447,11 +461,15 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	}
 
 	/** Silent session lookup with scope fallback, matching the bridge's resolver. */
-	private async readAccessToken(mapping: IProviderMapping): Promise<string | undefined> {
-		let sessions = await this.tryGetSessions(mapping.authProviderId, [...mapping.scopes]);
-		if (sessions.length === 0 && mapping.fallbackScopes) {
-			for (const fallback of mapping.fallbackScopes) {
-				sessions = await this.tryGetSessions(mapping.authProviderId, [...fallback]);
+	private async readAccessToken(
+		authProviderId: string,
+		scopes: readonly string[],
+		fallbackScopes: readonly (readonly string[])[] | undefined,
+	): Promise<string | undefined> {
+		let sessions = await this.tryGetSessions(authProviderId, [...scopes]);
+		if (sessions.length === 0 && fallbackScopes) {
+			for (const fallback of fallbackScopes) {
+				sessions = await this.tryGetSessions(authProviderId, [...fallback]);
 				if (sessions.length > 0) {
 					break;
 				}

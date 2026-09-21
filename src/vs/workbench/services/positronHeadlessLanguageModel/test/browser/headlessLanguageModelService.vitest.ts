@@ -145,7 +145,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	beforeEach(() => {
 		signedInAuthProviders = new Set();
-		registeredAuthProviders = new Set(TEST_MAPPINGS.map(mapping => mapping.authProviderId));
+		registeredAuthProviders = new Set(TEST_MAPPINGS.map(mapping => mapping.authProviderId).filter((id): id is string => id !== undefined));
 		throwingAuthProviders = new Set();
 		// The built-in mappings' providers are enabled with no connection overrides
 		// by default; individual tests replace this snapshot for shaping/enablement.
@@ -740,6 +740,33 @@ describe('HeadlessLanguageModelService', () => {
 			const service = createService(fakeEngine({ mappings: [snowMapping], listModels }));
 			await service.getAvailableModels();
 			expect(listModels).toHaveBeenCalledWith('team-snow', expect.objectContaining({ type: 'apikey', baseUrl: expect.stringContaining('acme-xy12345') }));
+		});
+	});
+
+	describe('local providers', () => {
+		const ollamaMapping: IProviderMapping = { providerId: 'ollama', scopes: [], credentialType: 'local', configKey: 'ollama' };
+
+		beforeEach(() => {
+			registeredAuthProviders = new Set();
+		});
+
+		it('builds a local credential from the catalog endpoint with no auth provider registered', async () => {
+			catalogSnapshot = new Map([['ollama', provider('ollama', { endpoint: 'http://localhost:11434' })]]);
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [ollamaMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('ollama', { type: 'local', endpoint: 'http://localhost:11434' });
+		});
+
+		it('skips a disabled local provider and one with no endpoint', async () => {
+			catalogSnapshot = new Map([
+				['ollama', provider('ollama', { endpoint: 'http://localhost:11434' }, false)],
+				['lmstudio', provider('lmstudio', {})],
+			]);
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [ollamaMapping, { ...ollamaMapping, providerId: 'lmstudio', configKey: 'lmstudio' }], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).not.toHaveBeenCalled();
 		});
 	});
 
