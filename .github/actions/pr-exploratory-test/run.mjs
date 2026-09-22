@@ -118,7 +118,13 @@ async function main() {
 			cwd: REPO_ROOT,
 			systemPrompt,
 			allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
-			permissionMode: 'bypassPermissions',
+			// No permissionMode: 'bypassPermissions'. The CLI refuses
+			// --dangerously-skip-permissions under euid 0 and the job container
+			// runs as root, so it exited 1 before doing any work. The
+			// allowedTools list above is what actually grants the tools.
+			// Forward the CLI's stderr: without it the SDK discards it and a
+			// refusal to start is indistinguishable from a crash.
+			stderr: data => process.stderr.write(`[claude-code stderr] ${data}`),
 			maxTurns: MAX_TURNS,
 			// Extended thinking is disabled. With thinking on (the adaptive
 			// default), cancelling a parallel tool-call batch corrupts the
