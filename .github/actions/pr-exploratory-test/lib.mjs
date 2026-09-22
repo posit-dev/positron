@@ -148,3 +148,29 @@ export function annotateFindingsTable(report, verdicts) {
 	}
 	return lines.join('\n');
 }
+
+/**
+ * True when the report has a findings table with at least one numbered row.
+ *
+ * A run that found nothing has nothing to verify, and asking anyway produced a
+ * page of prose auditing claims nobody disputed.
+ */
+export function hasFindings(report) {
+	if (typeof report !== 'string') {
+		return false;
+	}
+	const lines = report.split('\n');
+	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
+	if (header === -1) {
+		return false;
+	}
+	for (let i = header + 2; i < lines.length; i++) {
+		if (!lines[i].startsWith('|')) {
+			return false;
+		}
+		if (/^\|\s*\d+\s*\|/.test(lines[i])) {
+			return true;
+		}
+	}
+	return false;
+}

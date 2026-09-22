@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -168,4 +168,15 @@ test('annotateFindingsTable leaves a report it cannot parse untouched', () => {
 	const noTable = '# Report\n\n## Findings\n\nNo findings.\n';
 	assert.equal(annotateFindingsTable(noTable, parseVerdicts('VERDICTS: 1=CONFIRMED')), noTable);
 	assert.equal(annotateFindingsTable(TABLE, new Map()), TABLE);
+});
+
+test('hasFindings distinguishes a populated table from an empty one', () => {
+	assert.equal(hasFindings(TABLE), true);
+	assert.equal(hasFindings('## Findings\n\nNo findings.\n'), false);
+	assert.equal(hasFindings([
+		'| # | Finding | Severity |',
+		'|---|---------|----------|',
+		'| - | none | - |',
+	].join('\n')), false);
+	assert.equal(hasFindings(null), false);
 });

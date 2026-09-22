@@ -9,7 +9,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable } from './lib.mjs';
+import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -142,7 +142,13 @@ async function verifyReport(report) {
 		'',
 		'It is read to annotate the findings table, so use only CONFIRMED, FALSE POSITIVE or UNRESOLVED, and number the findings as the table does.',
 		'',
-		'After that line, give one short block per finding with the three answers and the verdict, then a one-line overall conclusion. Do not write any files.',
+		'Then keep it short. The table column is what a reviewer reads; this section is for what the column cannot say.',
+		'',
+		'- A finding you CONFIRM gets one line: what convinced you.',
+		'- A finding you dispute or cannot resolve gets a short paragraph: the evidence that contradicts it, or what is missing.',
+		'- End with one line naming anything the report claimed but could not have checked, or `No process issues.`',
+		'',
+		'No preamble, no restating the finding, no summary of the report. Do not write any files.',
 	].join('\n');
 
 	const chunks = [];
@@ -286,7 +292,9 @@ async function main() {
 		// Verification runs against report.md on disk, so it has to come after
 		// the fallback write above.
 		let verdicts = null;
-		if (VERIFY_ENABLED) {
+		if (VERIFY_ENABLED && !hasFindings(report)) {
+			console.log('[verify] skipped: the report has no findings to verify');
+		} else if (VERIFY_ENABLED) {
 			try {
 				verdicts = await verifyReport(report);
 			} catch (err) {
