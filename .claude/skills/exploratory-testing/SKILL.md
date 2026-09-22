@@ -182,6 +182,17 @@ to test and the least representative one; warm start, a populated workspace,
 and cached state are the common cases and are where this has found its worst
 behavior.
 
+Manufacture the state you need. A feature that only appears when something is
+missing, stale, or failing cannot be tested on a machine where it is present,
+fresh, and working -- so make it missing: move a binary off PATH, reload the
+window so a cached probe re-runs, point a host at 0.0.0.0. Scale what you
+touch to what you can put back. In a disposable environment -- a CI container,
+a VM you own -- machine-wide changes are fine. On someone's real machine, stay
+in the profile, the workspace, and the settings; if the state is reachable
+only by changing the machine itself, say so and drop it rather than doing it.
+Restore what you changed, and record both the change and the restore in Run
+setup.
+
 Look for a second code path that consumes the same data. When one consumer is
 correct and another is wrong, you have localized the bug instead of just
 observing it.
@@ -203,7 +214,9 @@ you cannot, write that you did not rather than leaving the axis unstated.
 Desktop and web differ this way by construction, so a finding from one is not
 yet a finding about the other.
 
-Abandon dead ends and say you did. A settings path that needs a reload, or a
-mechanism only reachable in a dev build or an admin deployment, is the test
-environment showing rather than a finding. Note it as dropped and move on; do
-not grind on one broken interaction.
+Abandon dead ends and say you did. But tell a dead end from a door: a reload,
+a moved binary, or a blocked host is often the only way into the state under
+test, and dropping it means the feature ships untested. What is genuinely the
+test environment showing is a mechanism reachable only in a dev build or an
+admin deployment. Note that as dropped and move on; do not grind on one broken
+interaction.
