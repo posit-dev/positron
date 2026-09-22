@@ -93,27 +93,29 @@ export type ColumnProfilesFailure = 'calculation' | 'disconnected' | 'paused';
  *
  * Field by field rather than by spreading, because a result carries only the profiles its own
  * request asked for and says nothing at all about the others -- but how it says nothing differs by
- * backend, some omitting the field and some sending it as null. Spreading would let the second
- * kind erase a profile the first pass had already fetched.
+ * backend, some omitting the field and some sending it as null. The Python backend builds its
+ * result through pydantic and serializes every field, so a request for null counts alone comes
+ * back declaring a null histogram; DuckDB omits the key entirely.
+ *
+ * Every field is rebuilt through `??` for that reason, including when there is nothing to merge
+ * with. That is what puts the two backends' ways of saying nothing into one shape on the way into
+ * the cache -- a null becomes undefined -- so that everything downstream can ask whether a profile
+ * is there by testing for undefined and get the same answer whichever backend answered.
  * @param existing What is already cached for the column, if anything.
  * @param incoming The result that just arrived.
- * @returns The combined profile.
+ * @returns The combined profile, with absent profiles undefined rather than null.
  */
 function mergeColumnProfile(
 	existing: ColumnProfileResult | undefined,
 	incoming: ColumnProfileResult
 ): ColumnProfileResult {
-	if (!existing) {
-		return incoming;
-	}
-
 	return {
-		null_count: incoming.null_count ?? existing.null_count,
-		summary_stats: incoming.summary_stats ?? existing.summary_stats,
-		small_histogram: incoming.small_histogram ?? existing.small_histogram,
-		large_histogram: incoming.large_histogram ?? existing.large_histogram,
-		small_frequency_table: incoming.small_frequency_table ?? existing.small_frequency_table,
-		large_frequency_table: incoming.large_frequency_table ?? existing.large_frequency_table,
+		null_count: incoming.null_count ?? existing?.null_count,
+		summary_stats: incoming.summary_stats ?? existing?.summary_stats,
+		small_histogram: incoming.small_histogram ?? existing?.small_histogram,
+		large_histogram: incoming.large_histogram ?? existing?.large_histogram,
+		small_frequency_table: incoming.small_frequency_table ?? existing?.small_frequency_table,
+		large_frequency_table: incoming.large_frequency_table ?? existing?.large_frequency_table,
 	};
 }
 

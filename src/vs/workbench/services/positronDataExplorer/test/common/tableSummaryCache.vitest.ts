@@ -25,6 +25,16 @@ import {
 const HISTOGRAM = { bin_edges: ['0', '1'], bin_counts: [1], quantiles: [] };
 
 /**
+ * A profile result as a backend that serializes its whole model sends one: every field present,
+ * and the ones it was not asked to compute reported as null rather than left out. This is not
+ * `ColumnProfileResult`, whose absent fields are undefined, and the difference is the point --
+ * anything reading these results has to treat the two the same way.
+ */
+type SerializedColumnProfileResult = {
+	[K in keyof ColumnProfileResult]: ColumnProfileResult[K] | null;
+};
+
+/**
  * Builds a getColumnProfiles implementation that charges the given number of milliseconds per
  * column, but only for the detail pass -- null counts come out of an aggregate the batch runs
  * anyway, and charging for them would measure the wrong pass. Requires faked Date.
@@ -248,6 +258,38 @@ describe('TableSummaryCache', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it('asks for profiles a backend reported as null rather than omitting', async () => {
+		getSupportedFeatures.mockReturnValue(backendState(10_000, true).supported_features);
+
+		// The Python backend builds its result through pydantic and serializes every field, so a
+		// request for null counts alone comes back declaring a null histogram. Read as "already
+		// have it", that would stop the detail pass ever asking for one.
+		getColumnProfiles.mockImplementation(
+			async (requests: ColumnProfileRequest[]): Promise<SerializedColumnProfileResult[]> =>
+				respondToProfileRequests(requests).map(result => ({
+					null_count: null,
+					summary_stats: null,
+					small_histogram: null,
+					large_histogram: null,
+					small_frequency_table: null,
+					large_frequency_table: null,
+					...result,
+				}))
+		);
+
+		await cache.update({ invalidateCache: true, columnIndices: [0, 1] });
+
+		expect({
+			requestSizes: getColumnProfiles.mock.calls.map(call => (call[0] as ColumnProfileRequest[]).length),
+			nullCount: cache.getColumnProfile(1)?.null_count,
+			histogram: cache.getColumnProfile(1)?.small_histogram !== undefined,
+		}).toEqual({
+			requestSizes: [2, 1, 1],
+			nullCount: 1,
+			histogram: true,
+		});
 	});
 
 	it('keeps a profile fetched by one pass when the other pass answers', async () => {
