@@ -39,9 +39,9 @@ jobs:
       # still worth reading.
       fail-fast: false
       matrix:
-        model: ${{ (inputs.model || 'sonnet') == 'both'
+        model: ${{ (inputs.model || 'opus') == 'both'
           && fromJSON('["opus","sonnet"]')
-          || fromJSON(format('["{0}"]', inputs.model || 'sonnet')) }}
+          || fromJSON(format('["{0}"]', inputs.model || 'opus')) }}
     timeout-minutes: 90
     runs-on: ubuntu-latest-8x
     container:
