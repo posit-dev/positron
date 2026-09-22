@@ -96,7 +96,12 @@ The shape, and only this shape:
 ## Coverage
 
 ### Verified
+
+| Scenario | Result |
+
 ### Not exercised
+
+| Scenario | Reason |
 
 ## Run details
 
@@ -124,12 +129,41 @@ reader who sees a low finding count cannot otherwise tell a clean run from one
 that never rendered the feature. Each surface named there reappears under
 Coverage with the reason it was out of reach.
 
-`## Coverage` holds what you exercised and what you did not. Under `Verified`,
-what you found correct, which is what stops the next session re-litigating it;
-a line reporting that something did *not* happen must say which surface you
-checked and when, and each such claim stands alone rather than being folded
-into a rate. Under `Not exercised`, both the surfaces you could not reach and
-the threads you abandoned, each with its reason.
+`## Coverage` holds what you exercised and what you did not, as two tables.
+Two columns each, and resist a third: a `Status` column reading `passed` on
+every row of a table headed `Verified` says nothing, and the heavier the table
+the less of it gets read.
+
+`Verified` answers what you exercised and what happened.
+
+```
+| Scenario | Result |
+|---|---|
+| <a few words> | <what happened, and [shots/<file>](shots/<file>) when you have one> |
+```
+
+The shot link belongs in the `Result` cell. A verified claim nobody can check
+is worth little, and this table is where the reader checks it. A cell reporting
+that something did *not* happen says which surface you checked and when, and
+each such claim stands alone rather than being folded into a rate.
+
+`Not exercised` answers why not, and covers both the surfaces you could not
+reach and the threads you abandoned. Every scenario named on the
+`**Not exercised:**` line at the top appears here.
+
+```
+| Scenario | Reason |
+|---|---|
+| <a few words> | <why it was out of reach, in a phrase> |
+```
+
+Some gaps deserve a sentence a cell cannot hold: a mechanism you did not test
+that probably shares a fault with one you did, say. Put that under the table
+rather than crushing it into `Reason`.
+
+```
+> **Follow-up:** <what is worth checking, and why this run could not>
+```
 
 `## Run details` goes last because nobody needs it until they try to reproduce
 something: the branch and how you proved the build matches it, how the app was
