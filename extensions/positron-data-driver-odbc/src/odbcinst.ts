@@ -383,7 +383,7 @@ function buildDrivers(
  * Both separators are checked whatever platform this runs on, because a Windows registry snapshot
  * is parsed on the developer's machine and in CI as readily as on Windows.
  */
-function isLibraryPath(value: string): boolean {
+export function isLibraryPath(value: string): boolean {
 	return path.posix.isAbsolute(value) || path.win32.isAbsolute(value);
 }
 
@@ -405,7 +405,7 @@ function isLibraryPath(value: string): boolean {
  * trailing version doesn't change why this can't be existence-checked against the current
  * directory, so it is matched too.
  */
-function looksLikeLibraryFilename(value: string): boolean {
+export function looksLikeLibraryFilename(value: string): boolean {
 	return /\.(so(\.\d+)*|dylib|dll)$/i.test(value);
 }
 

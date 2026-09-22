@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
 import * as positron from 'positron';
 import { OdbcDialect } from './odbcDatabases';
+import { isLibraryPath, looksLikeLibraryFilename } from './odbcinst';
 import { redactConnectionString } from './odbcConnectionString';
 import { IOdbcDataExplorerHost, ODBC_DATA_EXPLORER_PROVIDER_ID } from './odbcDataExplorerRpcHandler';
 import { createRootNodes, fetchTables, IOdbcPreviewHost, OdbcTableRef } from './odbcNodes';
@@ -20,15 +22,20 @@ let nextConnectionId = 1;
  * links against unixODBC, and without it every connection fails at dlopen with a message about a
  * missing shared library, which reads as a Positron bug rather than a missing prerequisite.
  *
- * Three more of the driver manager's own diagnostics are rewritten, for the same reason: they
- * describe the machine's ODBC configuration rather than the database, and the raw text names a
- * shared object and a dlopen failure, which reads as a Positron fault. Diagnostics from the
- * database driver itself are still passed through untouched.
+ * The driver manager's diagnostics about loading a driver or finding a data source are rewritten
+ * too, for the same reason: they describe the machine's ODBC configuration rather than the
+ * database, and the raw text names a shared object and a dlopen failure, which reads as a Positron
+ * fault. Diagnostics from the database driver itself are still passed through untouched.
  *
  * @param error The failure the worker reported.
  * @param platform The platform whose driver manager produced it. Only tests pass this.
+ * @param exists Whether a path exists. Only tests pass this.
  */
-export function describeConnectError(error: unknown, platform: NodeJS.Platform = process.platform): string {
+export function describeConnectError(
+	error: unknown,
+	platform: NodeJS.Platform = process.platform,
+	exists: (filePath: string) => boolean = fs.existsSync
+): string {
 	const odbcError = error as OdbcError;
 
 	if (odbcError?.driverManagerMissing) {
@@ -45,21 +52,31 @@ export function describeConnectError(error: unknown, platform: NodeJS.Platform =
 
 	const message = odbcError?.message ?? String(error);
 
-	// The library the configuration names is not on disk. Usually a versioned path left behind by
-	// an upgrade: Homebrew's psqlodbc writes its Cellar path into the ini files, and every
-	// `brew upgrade` deletes the directory that path points at.
-	const missingLibrary = /Can't open lib '(?<libraryPath>[^']*)'\s*:\s*file not found/i.exec(message);
-	if (missingLibrary?.groups?.libraryPath) {
-		return `This data source uses an ODBC driver that is not installed at ${missingLibrary.groups.libraryPath}. Reinstall the driver, or correct the path in your odbcinst.ini or odbc.ini.`;
-	}
+	// unixODBC loads a driver through libltdl, which reports "file not found" for every load
+	// failure, including a library that is on disk but will not load. So the reason it gives says
+	// nothing, and what the quoted value is decides the message instead.
+	const cannotOpen = /Can't open lib '(?<library>[^']*)'\s*(?::\s*(?<reason>.*))?/i.exec(message);
+	const library = cannotOpen?.groups?.library;
+	if (library) {
+		// A driver name nothing is registered under. unixODBC falls back to loading the name itself
+		// as a library, so a mistyped `Driver=` in a connection string arrives here.
+		if (!isLibraryPath(library) && !looksLikeLibraryFilename(library)) {
+			return `No ODBC driver named '${library}' is registered on this computer. Check the driver name, or register the driver in your odbcinst.ini.`;
+		}
 
-	// The library is on disk but will not load: built for another architecture, or missing a
-	// dependency of its own. Which of those it is comes only from the driver manager's own text,
-	// so that is kept and the path is named ahead of it. Must come after the check above, whose
-	// message this pattern also matches.
-	const unloadableLibrary = /Can't open lib '(?<libraryPath>[^']*)'/i.exec(message);
-	if (unloadableLibrary?.groups?.libraryPath) {
-		return `The ODBC driver at ${unloadableLibrary.groups.libraryPath} could not be loaded: ${message}`;
+		// The library is not on disk. Usually a versioned path left behind by an upgrade: Homebrew's
+		// psqlodbc writes its Cellar path into the ini files, and every `brew upgrade` deletes the
+		// directory that path points at.
+		if (isLibraryPath(library) && !exists(library)) {
+			return `This data source uses an ODBC driver that is not installed at ${library}. Reinstall the driver, or correct the path in your odbcinst.ini or odbc.ini.`;
+		}
+
+		// On disk, or a bare filename left to the dynamic linker, and it did not load: built for
+		// another architecture, or missing a library of its own. A driver manager that says which
+		// has its reason kept; libltdl's "file not found" is left out, since it is not true.
+		const reason = cannotOpen?.groups?.reason?.trim();
+		const detail = reason && !/^file not found$/i.test(reason) ? ` (${reason})` : '';
+		return `The ODBC driver at ${library} could not be loaded${detail}. The driver may be built for a different architecture than this computer, or a library it depends on may be missing.`;
 	}
 
 	// Windows reports this too, but keeps its data sources in the registry rather than odbc.ini.
