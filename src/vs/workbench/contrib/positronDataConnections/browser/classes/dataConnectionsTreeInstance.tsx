@@ -333,7 +333,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		if (node !== undefined) {
 			this._service.cancelDisconnectWhenUnused(node.entry.profile.id);
 		}
+		const fetches = !this.isExpanded(id) && !this.hasLoadedChildren(id);
 		await super.expand(id);
+		if (fetches) {
+			this._notifyIfFailed(id);
+		}
 		await this._expandBreadcrumbed();
 	}
 
@@ -350,7 +354,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 */
 	override async reload(id: string): Promise<void> {
 		this._lookAheadChildren.clear();
+		const fetches = this.isExpanded(id) && !this.isRefreshing(id);
 		await super.reload(id);
+		if (fetches) {
+			this._notifyIfFailed(id);
+		}
 	}
 
 	/**
@@ -454,40 +462,54 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * A namespace group that kept its row is answered from what the look-ahead already fetched for
 	 * it, so opening it costs nothing rather than repeating that query.
 	 *
-	 * A failure here is also reported as a notification, alongside the tree's own error-twisty
-	 * treatment: that twisty's message is a native `title` tooltip, easy to miss and only visible on
-	 * hover, so a user who clicks to expand a broken connection would otherwise have no indication
-	 * anything went wrong short of opening the driver's own output channel. The error is rethrown
-	 * unchanged so the base class still records it -- the twisty stays the fallback, the notification
-	 * is what actually gets seen.
+	 * Failures are not reported from here. The base also calls this while restoring a reload's
+	 * expansion, where a failed branch is deliberately left collapsed rather than shown as an error;
+	 * see _notifyIfFailed for where failures are reported.
 	 */
 	private async _fetchChildrenForNode(
 		node: TreeNode<DataConnectionNode>
 	): Promise<readonly TreeNode<DataConnectionNode>[]> {
-		try {
-			const data = node.data;
-			switch (data.kind) {
-				case 'entry': {
-					const instance = data.entry.instance
-						?? await this._service.connect(data.entry.profile.id);
-					const dtos = await instance.connectionHandle.getChildren();
-					return this._breadcrumbNamespaceGroups(dtos, instance.connectionHandle);
-				}
-				case 'dto': {
-					const dtos = this._takeLookAhead(node.id)
-						?? await data.handle.nodeGetChildren(data.dto.nodeHandle);
-					return this._breadcrumbNamespaceGroups(dtos, data.handle);
-				}
+		const data = node.data;
+		switch (data.kind) {
+			case 'entry': {
+				const instance = data.entry.instance
+					?? await this._service.connect(data.entry.profile.id);
+				const dtos = await instance.connectionHandle.getChildren();
+				return this._breadcrumbNamespaceGroups(dtos, instance.connectionHandle);
 			}
-		} catch (error) {
-			this._notificationService.error(localize(
-				'positron.dataConnections.expandFailed',
-				"Could not expand '{0}': {1}",
-				node.data.kind === 'entry' ? node.data.entry.profile.connectionName : node.data.dto.name,
-				error instanceof Error ? error.message : String(error)
-			));
-			throw error;
+			case 'dto': {
+				const dtos = this._takeLookAhead(node.id)
+					?? await data.handle.nodeGetChildren(data.dto.nodeHandle);
+				return this._breadcrumbNamespaceGroups(dtos, data.handle);
+			}
 		}
+	}
+
+	/**
+	 * Reports a node's fetch failure as a notification, if the fetch that just ran left the node in
+	 * the error state. The error twisty's message is a native `title` tooltip, easy to miss and only
+	 * visible on hover, so without this a user whose connection fails to open would see no sign of
+	 * it short of the driver's own output channel.
+	 *
+	 * Called only after a fetch this tree's own expand or reload ran for the node, never from the
+	 * shared fetch, so there is one notification per row that turns into an error: the failed
+	 * descendants a reload's restore leaves collapsed stay silent until the user expands them.
+	 *
+	 * @param id The node whose fetch just completed.
+	 */
+	private _notifyIfFailed(id: string): void {
+		const error = this.getError(id);
+		const node = this.visibleNodes.find(visible => visible.node.id === id)?.node;
+		if (error === undefined || node === undefined) {
+			return;
+		}
+
+		this._notificationService.error(localize(
+			'positron.dataConnections.expandFailed',
+			"Could not expand '{0}': {1}",
+			node.data.kind === 'entry' ? node.data.entry.profile.connectionName : node.data.dto.name,
+			error instanceof Error ? error.message : String(error)
+		));
 	}
 
 	/**

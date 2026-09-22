@@ -684,6 +684,52 @@ describe('DataConnectionsTreeInstance', () => {
 			expandState: 'error',
 		});
 	});
+
+	it('reports a connection that fails on Refresh once, however many times Refresh is pressed', async () => {
+		const { tree, getChildren, notificationError } = createTree();
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		// The server has gone away since the connection opened. Pressing Refresh again while the
+		// first is running joins it, so it must not add a second notification for the same failure.
+		getChildren.mockRejectedValue(new Error('server gone'));
+		await Promise.all([tree.reloadAll(), tree.reloadAll()]);
+
+		expect({
+			notified: notificationError.mock.calls,
+			expandState: tree.visibleNodes[0].expandState,
+		}).toEqual({
+			notified: [['Could not expand \'Test Connection\': server gone']],
+			expandState: 'error',
+		});
+	});
+
+	it('does not notify for a branch that fails while a reload restores it, leaving it collapsed', async () => {
+		// The base leaves a restored branch that fails collapsed and unloaded rather than in the error
+		// state, so the user sees no error on it until they expand it themselves. A notification here
+		// would report an error the tree is not showing.
+		let tablesFail = false;
+		const { tree, notificationError } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+			nodeHandle => {
+				if (nodeHandle === 1 && tablesFail) {
+					throw new Error('boom');
+				}
+				return [];
+			}
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+		await tree.expand('dto:1:1');
+
+		tablesFail = true;
+		await tree.reloadAll();
+
+		expect({
+			notified: notificationError.mock.calls,
+			tablesExpanded: tree.isExpanded('dto:1:1'),
+		}).toEqual({ notified: [], tablesExpanded: false });
+	});
 });
 
 describe('DataConnectionsTreeInstance reveal', () => {
