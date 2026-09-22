@@ -94,8 +94,6 @@ Drive the pre-launched instance from the repository root at \`${REPO_ROOT}\` wit
 \`\`\`bash
 npx @playwright/cli -s=positron snapshot
 \`\`\`
-
-Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full command surface before driving.
 `;
 
 async function main() {

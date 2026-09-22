@@ -31,15 +31,9 @@ If you are that subagent, do the exploring yourself. Do not delegate again.
 
 ## Drive the app
 
-Use `.claude/skills/drive-positron` from the Positron checkout. It owns
-launching, Playwright, known Positron behaviors, and cleanup. Do not restate
-or reimplement any of it.
-
-Pass whatever its launch section says is yours to pass, and put launcher
-arguments before the `--`; everything after it goes to the app. Do not opt out
-of the arguments the launcher supplies: without `--disable-workspace-trust` the
-app starts in restricted mode with extensions disabled, so interpreter
-discovery never runs and an empty picker looks like a bug.
+Drive the workbench with `playwright-cli`. Launch and cleanup scripts live in
+`.claude/skills/drive-positron/scripts/`; read their usage headers if you need
+them.
 
 Every tool call is a turn, and every turn re-sends the whole context, so turn
 count drives cost far more than output size. A run made of single Playwright
@@ -70,9 +64,9 @@ evidence under `shots/` beside it. Cite a shot as a real link,
 working: a backticked path renders as code the reader cannot open. Never
 write into an existing run directory; each run keeps its own so earlier
 findings survive.
-Copy evidence into `shots/` as you capture it, not at the end: drive-positron's
-cleanup deletes the run directory your screenshots were written to, and a report
-linking deleted files is not verifiable.
+Copy evidence into `shots/` as you capture it, not at the end: cleanup deletes
+the run directory your screenshots were written to, and a report linking
+deleted files is not verifiable.
 
 Write the report with Bash, as one quoted heredoc:
 `cat > "$RUN/report.md" <<'REPORT'`. Quoting the delimiter passes backticks and
