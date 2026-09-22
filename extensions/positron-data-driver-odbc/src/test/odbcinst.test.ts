@@ -281,24 +281,26 @@ suite('discoverOdbcConfiguration (unix)', () => {
 		);
 	});
 
-	test('keeps a data source whose driver is a bare library filename, since it may resolve through the driver manager\'s own search path', () => {
-		// Unlike a driver name, a bare library filename (no directory component) can be handed
-		// straight to dlopen(), which resolves it against LD_LIBRARY_PATH or the dynamic linker's
-		// cache without ever being registered in odbcinst.ini. Dropping it here would be exactly the
-		// false positive isLibraryPath's own doc comment says to avoid.
+	test('drops a data source whose driver is braced or a bare library filename, since unixODBC loads neither', () => {
+		// unixODBC looks a DSN's Driver value up as a driver name exactly as written, unless it is
+		// an absolute path. A braced name (connection-string syntax) or a bare library filename
+		// matches no section, and connecting fails with IM002, even when the library exists.
 		const config = discoverOdbcConfiguration(createTestHost({
 			env: { ODBCSYSINI: '/etc' },
 			files: {
 				'/etc/odbcinst.ini': '[PostgreSQL Unicode]\nDriver = /usr/lib/psqlodbcw.so\n',
 				'/etc/odbc.ini': [
-					'[MySQL]',
-					'Driver = libmyodbc8a.so',
-					'Servername = localhost',
+					'[Braced]',
+					'Driver = {PostgreSQL Unicode}',
 					'',
-					// Still dropped: "Never Installed" doesn't look like a library filename, so it is
-					// held to the ordinary unregistered-driver rule.
-					'[Unknown Driver Name]',
-					'Driver = Never Installed',
+					'[Bare Library]',
+					'Driver = psqlodbcw.so',
+					'',
+					'[Versioned Soname]',
+					'Driver = libodbcpsql.so.2',
+					'',
+					'[Pagila]',
+					'Driver = PostgreSQL Unicode',
 				].join('\n'),
 			},
 			existingPaths: ['/usr/lib/psqlodbcw.so'],
@@ -307,30 +309,13 @@ suite('discoverOdbcConfiguration (unix)', () => {
 		assert.deepStrictEqual(
 			{ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns },
 			{
-				dsns: ['MySQL'],
-				skipped: [{ name: 'Unknown Driver Name', reason: 'unregistered-driver', detail: 'Never Installed' }],
+				dsns: ['Pagila'],
+				skipped: [
+					{ name: 'Bare Library', reason: 'unregistered-driver', detail: 'psqlodbcw.so' },
+					{ name: 'Braced', reason: 'unregistered-driver', detail: '{PostgreSQL Unicode}' },
+					{ name: 'Versioned Soname', reason: 'unregistered-driver', detail: 'libodbcpsql.so.2' },
+				],
 			}
-		);
-	});
-
-	test('keeps a data source whose driver is a versioned soname', () => {
-		// Linux shared libraries routinely carry a version suffix after the extension
-		// (libodbcpsql.so.2), which is still a bare filename handed to dlopen -- the version number
-		// doesn't change why this can't be existence-checked against the current directory. A driver
-		// file has to be readable here, or the sawDriverConfig escape hatch would keep this DSN for
-		// an unrelated reason and the test would pass without exercising the regex at all.
-		const config = discoverOdbcConfiguration(createTestHost({
-			env: { ODBCSYSINI: '/etc' },
-			files: {
-				'/etc/odbcinst.ini': '[PostgreSQL Unicode]\nDriver = /usr/lib/psqlodbcw.so\n',
-				'/etc/odbc.ini': '[Pagila]\nDriver = libodbcpsql.so.2\nServername = localhost\n',
-			},
-			existingPaths: ['/usr/lib/psqlodbcw.so'],
-		}));
-
-		assert.deepStrictEqual(
-			{ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns },
-			{ dsns: ['Pagila'], skipped: [] }
 		);
 	});
 

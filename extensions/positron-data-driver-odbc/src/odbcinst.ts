@@ -375,10 +375,8 @@ function buildDrivers(
 /**
  * Whether a DSN's `Driver` value names a library file rather than an odbcinst.ini section.
  *
- * Only an absolute path counts. A bare `libmyodbc.so` is left to the name lookup instead -- see
- * looksLikeLibraryFilename for why that lookup treats it differently from an ordinary driver name.
- * Calling it a relative path here and existence-checking it against the current directory would
- * drop a DSN that works.
+ * Only an absolute path counts. unixODBC treats any other DSN `Driver` value as a driver name, a
+ * bare `libmyodbc.so` included, so that is how findDsnDriverProblem looks it up.
  *
  * Both separators are checked whatever platform this runs on, because a Windows registry snapshot
  * is parsed on the developer's machine and in CI as readily as on Windows.
@@ -388,22 +386,16 @@ export function isLibraryPath(value: string): boolean {
 }
 
 /**
- * Whether a bare (non-absolute) Driver value looks like a shared-library filename rather than an
- * odbcinst.ini section name, judging by extension alone.
+ * Whether a bare (non-absolute) value looks like a shared-library filename rather than an ODBC
+ * driver name, judging by extension alone. An odbcinst.ini section is essentially never named
+ * "something.so", so the extension is enough to tell them apart.
  *
- * unixODBC hands a value shaped like this straight to dlopen(), which resolves a bare filename
- * against the dynamic linker's own search path (LD_LIBRARY_PATH, ld.so.cache) with no odbcinst.ini
- * registration at all. This module has no way to reproduce that search, so a value with a library
- * extension is left alone rather than flagged as an unregistered driver name -- the same bias
- * toward keeping a DSN as everywhere else in findDsnDriverProblem.
+ * unixODBC hands a library value to dlopen(), which resolves a bare filename against the dynamic
+ * linker's own search path (LD_LIBRARY_PATH, ld.so.cache). This module has no way to reproduce that
+ * search, so whether such a library exists cannot be checked here.
  *
- * Extension alone, not a full path check: an odbcinst.ini section is essentially never named
- * "something.so", so treating one as a library filename by mistake only makes a DSN wrongly kept,
- * never wrongly dropped.
- *
- * A `.so` may carry a version suffix (`libodbcpsql.so.2`), the usual Linux soname convention; that
- * trailing version doesn't change why this can't be existence-checked against the current
- * directory, so it is matched too.
+ * A `.so` may carry a version suffix (`libodbcpsql.so.2`), the usual Linux soname convention, so
+ * that is matched too.
  */
 export function looksLikeLibraryFilename(value: string): boolean {
 	return /\.(so(\.\d+)*|dylib|dll)$/i.test(value);
@@ -452,8 +444,7 @@ function findDriverSection(
  * naming an uninstalled driver is reported as the missing library rather than as an unknown name.
  * @param sawDriverConfig Whether any driver is registered in what was read. When none is, an
  * unrecognized name says more about our search path than about the DSN: see SYSTEM_CONFIG_DIRS on
- * why unixODBC's SYSCONFDIR can sit outside it. An unrecognized value shaped like a library
- * filename is left alone regardless -- see looksLikeLibraryFilename.
+ * why unixODBC's SYSCONFDIR can sit outside it.
  * @returns The reason to drop the DSN, or undefined to keep it.
  */
 function findDsnDriverProblem(
@@ -469,22 +460,18 @@ function findDsnDriverProblem(
 		return undefined;
 	}
 
-	// Connection strings brace a driver name and ini files normally do not, but accept either.
-	const value = declared.replace(/^\{(?<inner>.*)\}$/, '$<inner>');
-
-	if (isLibraryPath(value)) {
-		return host.exists(value) ? undefined : { reason: 'missing-library', detail: value };
+	if (isLibraryPath(declared)) {
+		return host.exists(declared) ? undefined : { reason: 'missing-library', detail: declared };
 	}
 
-	const section = findDriverSection(driverSections, value);
+	const section = findDriverSection(driverSections, declared);
 	if (section === undefined) {
-		return sawDriverConfig && !looksLikeLibraryFilename(value)
-			? { reason: 'unregistered-driver', detail: value }
-			: undefined;
+		return sawDriverConfig ? { reason: 'unregistered-driver', detail: declared } : undefined;
 	}
 
-	// Only an absolute path can be existence-checked; a registered driver naming its own library by
-	// a bare filename is trusted the same way a DSN naming one directly is (see isLibraryPath).
+	// Only an absolute path can be existence-checked. A registered driver naming its own library by
+	// a bare filename is trusted, since unixODBC does load that one, through the dynamic linker's
+	// search path (see looksLikeLibraryFilename).
 	const libraryPath = section['driver'];
 	if (libraryPath !== undefined && isLibraryPath(libraryPath) && !host.exists(libraryPath)) {
 		return { reason: 'missing-library', detail: libraryPath };
