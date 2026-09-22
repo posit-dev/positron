@@ -329,7 +329,8 @@ describe('QuartoExecutionManager', () => {
 			testId: string,
 			codeLines: string[],
 			boundaries: IInputBoundary[],
-			expectedFragments: string[]
+			expectedFragments: string[],
+			eol: '\n' | '\r\n' = '\n'
 		): Promise<{ requestedCode: string | undefined; providerCalls: number; executedCode: string[] }> {
 			const documentUri = URI.file(`/${testId}.qmd`);
 			const cell: QuartoCodeCell = {
@@ -353,7 +354,7 @@ describe('QuartoExecutionManager', () => {
 			mockDocumentModelService.setMockModel(mockModel);
 			mockEditorService.getValueInRangeCallback = (range: unknown) => {
 				const r = range as { startLineNumber: number; endLineNumber: number };
-				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join(eol);
 			};
 
 			let requestedCode: string | undefined;
@@ -885,6 +886,34 @@ describe('QuartoExecutionManager', () => {
 			expect(result.providerCalls).toBe(1);
 			expect(result.requestedCode).toBe('1\n)\n2');
 			expect(result.executedCode).toEqual(expectedFragments);
+		});
+
+		it('strips carriage returns from fragments split out of a CRLF document', async () => {
+			const codeLines = [
+				'options(max.print = 5000)',
+				'runif(5000)',
+			];
+			const expectedFragments = [
+				'options(max.print = 5000)',
+				'runif(5000)',
+			];
+
+			const result = await executeRCellWithBoundaries(
+				'test-r-crlf',
+				codeLines,
+				[
+					{ range: { start: 0, end: 1 }, kind: 'complete' },
+					{ range: { start: 1, end: 2 }, kind: 'complete' },
+				],
+				expectedFragments,
+				'\r\n'
+			);
+
+			// A fragment ending in a bare carriage return is a syntax error to R,
+			// which is what broke multi-statement R cells on Windows.
+			expect(result.executedCode).toEqual(expectedFragments);
+			expect(result.providerCalls).toBe(1);
+			expect(result.requestedCode).toBe('options(max.print = 5000)\nrunif(5000)');
 		});
 
 		it('filters out text/plain when text/html is present (DataFrame case)', async () => {
