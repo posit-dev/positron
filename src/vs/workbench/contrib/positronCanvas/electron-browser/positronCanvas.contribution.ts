@@ -31,7 +31,7 @@ import { IOutputService } from '../../../services/output/common/output.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { CanvasStartupPresenter } from '../browser/canvasStartupPresenter.js';
 import { registerCanvasCommandLockdown } from '../browser/positronCanvasCommandLockdown.js';
-import { sweepRestoredCanvasWindows } from '../browser/positronCanvasRestore.js';
+import { holdRestoredAuxiliaryWindows, sweepRestoredCanvasWindows } from '../browser/positronCanvasRestore.js';
 import { awaitWorkspaceTrustDecisionForCanvas } from '../browser/positronCanvasTrustGate.js';
 import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_OPEN_ON_STARTUP_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, ICanvasStartSignals, isCanvasWorkspaceEligible, PositronCanvasModeActiveContext, shouldPresentCanvasStartup } from '../common/positronCanvasMode.js';
 import { IPositronCanvasService, PositronCanvasService } from './positronCanvasService.js';
@@ -173,6 +173,18 @@ class CanvasStartupBoot extends Disposable {
 		@ILogService private readonly logService: ILogService
 	) {
 		super();
+
+		// Layout restore brings the workspace's detached windows back natively
+		// visible (a Canvas window quit in Canvas mode among them, blank until
+		// the assistant resolves it) while the curtain covers only the main
+		// window. Hold them until restore is done; entry shows the one it
+		// adopts, exit and Open Positron re-show the rest.
+		this._register(holdRestoredAuxiliaryWindows(
+			this.auxiliaryWindowService,
+			this.editorGroupsService,
+			windowId => this.canvasService.holdRestoredWindow(windowId),
+			this.logService
+		));
 
 		const presenter = this._register(new CanvasStartupPresenter(
 			this.layoutService.mainContainer,

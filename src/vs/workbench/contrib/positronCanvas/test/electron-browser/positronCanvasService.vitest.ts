@@ -810,6 +810,51 @@ describe('PositronCanvasService', () => {
 		expect(plainGroup.moveEditors).toHaveBeenCalled();
 	});
 
+	describe('holdRestoredWindow', () => {
+		it('puts a restored window away and shows it again before the IDE is hidden when entry adopts it as the Canvas window', async () => {
+			const auxiliaryGroup = createGroup([createCanvasEditor()]);
+			const { service, hideWindow, showWindow } = build({ auxiliaryGroups: [auxiliaryGroup] });
+
+			await service.holdRestoredWindow(AUX_WINDOW_ID);
+			expect(hideWindow).toHaveBeenCalledWith({ targetWindowId: AUX_WINDOW_ID });
+
+			expect(await service.enter()).toEqual({ entered: true });
+
+			const shownCanvas = showWindow.mock.calls.findIndex(call => call[0]?.targetWindowId === AUX_WINDOW_ID);
+			const hiddenIde = hideWindow.mock.calls.findIndex(call => call[0]?.targetWindowId === MAIN_WINDOW_ID);
+			expect(shownCanvas).toBeGreaterThanOrEqual(0);
+			expect(showWindow.mock.invocationCallOrder[shownCanvas]).toBeLessThan(hideWindow.mock.invocationCallOrder[hiddenIde]);
+		});
+
+		it('keeps a held detached window on the re-show list when the entry finds it already hidden, so exit brings it back', async () => {
+			const auxiliaryGroup = createGroup([createCanvasEditor()]);
+			const detachedPart = createPart(createGroup(), Event.None, DETACHED_WINDOW_ID);
+			const { service, showWindow } = build({
+				auxiliaryGroups: [auxiliaryGroup],
+				extraParts: [detachedPart],
+				// The hold already put the detached window away: the entry's own hide finds nothing to do.
+				hideWindow: async options => options?.targetWindowId !== DETACHED_WINDOW_ID,
+			});
+
+			await service.holdRestoredWindow(DETACHED_WINDOW_ID);
+			expect(await service.enter()).toEqual({ entered: true });
+			showWindow.mockClear();
+
+			expect(await service.exit()).toBe(true);
+
+			expect(showWindow).toHaveBeenCalledWith({ targetWindowId: DETACHED_WINDOW_ID });
+		});
+
+		it('re-shows held windows when startup recovery exits without ever presenting', async () => {
+			const { service, showWindow } = build();
+			await service.holdRestoredWindow(DETACHED_WINDOW_ID);
+
+			expect(await service.exit()).toBe(false);
+
+			expect(showWindow).toHaveBeenCalledWith({ targetWindowId: DETACHED_WINDOW_ID });
+		});
+	});
+
 	describe('openFolderWithLoadingPresentation', () => {
 		/**
 		 * A presenting Canvas whose native calls record, in order, into

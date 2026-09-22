@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
@@ -24,6 +25,28 @@ export function mergeCanvasGroupIntoIde(group: IEditorGroup, target: IEditorGrou
 		logService.error('[canvas] Could not merge the Canvas group into the IDE; moving its editors individually');
 		group.moveEditors(prepareMoveCopyEditors(group, group.editors.slice()), target);
 	}
+}
+
+/**
+ * Holds (see `IPositronCanvasService.holdRestoredWindow`) every auxiliary
+ * window opened from now until layout restore completes: exactly the windows
+ * `EditorParts.restoreState` brings back, which appear natively visible
+ * while the startup curtain covers only the main window. Stops listening at
+ * `whenRestored`, before Canvas entry may open a window of its own, and on
+ * dispose. Call from the Canvas startup boot before restore begins.
+ */
+export function holdRestoredAuxiliaryWindows(
+	auxiliaryWindowService: Pick<IAuxiliaryWindowService, 'onDidOpenAuxiliaryWindow'>,
+	editorGroupsService: Pick<IEditorGroupsService, 'whenRestored'>,
+	hold: (windowId: number) => Promise<void>,
+	logService: ILogService
+): IDisposable {
+	const disposables = new DisposableStore();
+	disposables.add(auxiliaryWindowService.onDidOpenAuxiliaryWindow(({ window }) => {
+		hold(window.window.vscodeWindowId).catch(error => logService.error('[canvas] Could not hold a restored window', error));
+	}));
+	editorGroupsService.whenRestored.then(() => disposables.dispose(), () => disposables.dispose());
+	return disposables;
 }
 
 export interface ICanvasRestoreSweepServices {

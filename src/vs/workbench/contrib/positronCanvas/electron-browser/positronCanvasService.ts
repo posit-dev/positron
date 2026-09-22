@@ -95,6 +95,18 @@ export interface IPositronCanvasService {
 	 * user has since left and re-opened.
 	 */
 	openFolderWithLoadingPresentation(open: (stillPresenting: () => boolean) => Promise<void>): Promise<void>;
+
+	/**
+	 * Puts away an auxiliary window that layout restore brought back while
+	 * this window boots into Canvas. Restore recreates the workspace's
+	 * detached windows natively visible, and the startup curtain covers only
+	 * the main window, so a restored Canvas window (blank until the assistant
+	 * resolves it) or a floating editor would sit on screen before Canvas is
+	 * up. A held window is treated like any window Canvas mode puts away:
+	 * entry shows it if it becomes the Canvas window, exit and startup
+	 * recovery re-show it otherwise.
+	 */
+	holdRestoredWindow(windowId: number): Promise<void>;
 }
 
 /** A Canvas panel and the group it currently lives in. */
@@ -735,6 +747,14 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		this.setCanvasModeIntent(true);
 		this.logService.info(`[canvas] Presenting Canvas in window ${part.windowId}`);
 
+		// A restored window held for startup is now the Canvas window: show
+		// it. Issued before the IDE hide that follows adoption, on the same
+		// channel, so there is a visible window throughout.
+		if (this.hiddenAuxWindowIds.delete(part.windowId)) {
+			this.nativeHostService.showWindow({ targetWindowId: part.windowId })
+				.catch(error => this.logService.error(`[canvas] Could not show the restored Canvas window ${part.windowId}`, error));
+		}
+
 		group.focus();
 	}
 
@@ -761,6 +781,20 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		}
 	}
 
+	async holdRestoredWindow(windowId: number): Promise<void> {
+		this.logService.info(`[canvas] Holding restored window ${windowId} while booting into Canvas`);
+		// Recorded before the hide lands, like the entry's own hides; a hide
+		// that resolves false found the window already away, and a later
+		// re-show of a visible window is harmless.
+		this.hiddenAuxWindowIds.add(windowId);
+		try {
+			await this.nativeHostService.hideWindow({ targetWindowId: windowId });
+		} catch (error) {
+			this.hiddenAuxWindowIds.delete(windowId);
+			this.logService.error(`[canvas] Could not hold restored window ${windowId}; leaving it visible`, error);
+		}
+	}
+
 	private async hideIdeWindow(canvasWindowId: number): Promise<void> {
 		this.logService.info('[canvas] Hiding the IDE window behind Canvas');
 
@@ -779,11 +813,15 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		// Canvas is the sole surface: detached editor windows go away too.
 		// Recorded before the hide lands, so a rejected hide leaves a window
 		// the next reveal harmlessly re-shows rather than one that stays lost.
+		// A window already held for startup (`holdRestoredWindow`) stays
+		// recorded whatever this hide reports: it is ours to re-show.
 		const auxWindowIds: number[] = [];
+		const heldBefore: boolean[] = [];
 		for (const part of this.editorGroupsService.parts) {
 			if (part === this.editorGroupsService.mainPart || part.windowId === canvasWindowId) {
 				continue;
 			}
+			heldBefore.push(this.hiddenAuxWindowIds.has(part.windowId));
 			this.hiddenAuxWindowIds.add(part.windowId);
 			auxWindowIds.push(part.windowId);
 			hides.push(this.nativeHostService.hideWindow({ targetWindowId: part.windowId }));
@@ -800,10 +838,10 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 		}
 
 		// A hide that resolved false found its window already put away by the
-		// user; exit must not bring it back.
+		// user; exit must not bring it back. Unless Canvas put it away itself.
 		for (let i = 0; i < auxWindowIds.length; i++) {
 			const result = results[i + 1];
-			if (result.status === 'fulfilled' && result.value === false) {
+			if (result.status === 'fulfilled' && result.value === false && !heldBefore[i]) {
 				this.hiddenAuxWindowIds.delete(auxWindowIds[i]);
 			}
 		}
