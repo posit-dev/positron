@@ -306,6 +306,25 @@ suite('UV Python Installer Tests', () => {
             assert.strictEqual(progressOptions?.location, ProgressLocation.Notification);
             assert.strictEqual(progressOptions?.title, InterpreterQuickPickList.UvInstall.installingUv);
         });
+
+        test('Closes the "Installing uv" notification when the install throws', async () => {
+            isUvInstalledStub.onFirstCall().resolves(false);
+            isUvInstalledStub.onSecondCall().rejects(new Error('spawn ENOMEM'));
+            consent(InterpreterQuickPickList.UvInstall.confirmUvInstallYes);
+            execStub.resolves({ stdout: UV_INSTALL_OK_MARKER, stderr: '' });
+
+            let progressSettled = false;
+            when(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).thenCall(
+                (_options: ProgressOptions, task: any) =>
+                    task({} as any, {} as any).then(() => {
+                        progressSettled = true;
+                    }),
+            );
+
+            await assert.rejects(ensureUvInstalledWithProgress(), /spawn ENOMEM/);
+            await new Promise((resolve) => setImmediate(resolve));
+            assert.strictEqual(progressSettled, true, 'progress closes even though the install threw');
+        });
     });
 
     suite('getAvailablePythonVersions Tests', () => {

@@ -169,17 +169,25 @@ export async function ensureUvInstalled(onInstalling?: () => void): Promise<Ensu
 export async function ensureUvInstalledWithProgress(): Promise<EnsureUvResult> {
     let finishInstall: (() => void) | undefined;
 
-    const result = await ensureUvInstalled(() => {
-        const installing = new Promise<void>((resolve) => {
-            finishInstall = resolve;
+    let result: EnsureUvResult;
+    try {
+        result = await ensureUvInstalled(() => {
+            const installing = new Promise<void>((resolve) => {
+                finishInstall = resolve;
+            });
+            vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: InterpreterQuickPickList.UvInstall.installingUv,
+                },
+                () => installing,
+            );
         });
-        vscode.window.withProgress(
-            { location: vscode.ProgressLocation.Notification, title: InterpreterQuickPickList.UvInstall.installingUv },
-            () => installing,
-        );
-    });
-
-    finishInstall?.();
+    } finally {
+        // In a finally so a throw after the notification opened still closes it, rather than
+        // leaving it claiming an install is running until the window is reloaded.
+        finishInstall?.();
+    }
 
     // The step below this only has room to say that the install failed. The notification is what
     // carries the way to find out why, through its Show logs button, which is why the flow does not
