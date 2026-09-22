@@ -5,15 +5,17 @@ inputs:
     description: "Anthropic API key (resolved from 1Password by the caller)"
     required: true
   work-dir:
-    description: "Run directory for report.md, actions.log, shots/ and cost.json"
-    required: true
+    description: "Run directory for report.md, actions.log, shots/ and cost.json; not needed in gate mode"
+    required: false
+    default: ""
   repo-root:
     description: "Repository root the agent drives from"
     required: false
     default: ""
   cdp-port:
-    description: "CDP port of the already-launched Positron"
-    required: true
+    description: "CDP port of the already-launched Positron; not needed in gate mode"
+    required: false
+    default: ""
   branch:
     description: "Branch under test"
     required: true
@@ -39,10 +41,10 @@ inputs:
     description: "Public CDN base URL the run directory is published under"
     required: false
     default: ""
-  enable-gate:
-    description: "Let a pre-flight pass decline the run when the change cannot be exercised here"
+  mode:
+    description: "gate (read the diff and rule on it) or explore (the full run)"
     required: false
-    default: "false"
+    default: "explore"
 runs:
   using: composite
   steps:
@@ -70,7 +72,7 @@ runs:
         echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
         claude --version
 
-    - name: Explore with Claude Agent SDK
+    - name: Run the Agent SDK
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
@@ -91,5 +93,4 @@ runs:
         # absent: it defaults on, a job-level env var still reaches it for
         # debugging, and verification is what makes an unattended report worth
         # trusting, so it is not a dispatch-time choice.
-        GATE: ${{ inputs.enable-gate }}
-      run: node run.mjs
+      run: node ${{ inputs.mode == 'gate' && 'gate.mjs' || 'run.mjs' }}

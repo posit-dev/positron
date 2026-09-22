@@ -32,8 +32,66 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Runs before anything is built. The explore job needs a compile, an Xvfb, a
+  # launch and a Playwright attach; a change this pass declines should not pay
+  # for twenty minutes of 8-core runner first. One gate serves every matrix leg.
+  gate:
+    name: gate
+    if: ${{ inputs.enable_gate }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      testable: ${{ steps.gate.outputs.testable }}
+      reason: ${{ steps.gate.outputs.reason }}
+      cost: ${{ steps.gate.outputs.cost }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve diff base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=$(git merge-base origin/main HEAD)
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo "diff_stat<<DIFFEOF"
+            git --no-pager diff "$BASE"...HEAD --stat
+            echo "DIFFEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Rule on the change
+        id: gate
+        uses: ./.github/actions/pr-exploratory-test
+        with:
+          mode: gate
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          branch: ${{ inputs.ref || github.ref_name }}
+          diff-stat: ${{ steps.base.outputs.diff_stat }}
+          base-sha: ${{ steps.base.outputs.base }}
+          head-sha: ${{ steps.base.outputs.head }}
+
   explore:
     name: explore (${{ matrix.model }})
+    needs: [gate]
+    # always(): the gate is skipped when it is off, and a skipped need would
+    # otherwise skip this job too. Only an explicit false stops the run.
+    if: ${{ always() && needs.gate.outputs.testable != 'false' }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -244,7 +302,6 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
-          enable-gate: ${{ inputs.enable_gate || false }}
 
       - name: Stage publishable run directory
         if: always()
