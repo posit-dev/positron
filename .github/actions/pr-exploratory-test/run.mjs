@@ -29,6 +29,10 @@ const VERIFY_ENABLED = process.env.VERIFY !== 'false';
 const GATE_MODEL = process.env.GATE_MODEL || 'sonnet';
 const GATE_MAX_TURNS = parsePosIntEnv('GATE_MAX_TURNS', 30, process.env.GATE_MAX_TURNS);
 const GATE_ENABLED = process.env.GATE !== 'false';
+// The gate and the verification each bill separately; the footer reports all
+// three, so their cost records outlive the functions that produce them.
+let gateCost = buildCostRecord(null);
+let verifyCost = buildCostRecord(null);
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
@@ -161,8 +165,9 @@ async function gateChange() {
 				chunks.push(text);
 			}
 		} else if (message.type === 'result') {
-			console.log(`[gate] result: ${JSON.stringify(buildCostRecord(message))}`);
-			writeFileSync(join(WORK_DIR, 'gate-cost.json'), JSON.stringify(buildCostRecord(message), null, 2));
+			gateCost = buildCostRecord(message);
+			console.log(`[gate] result: ${JSON.stringify(gateCost)}`);
+			writeFileSync(join(WORK_DIR, 'gate-cost.json'), JSON.stringify(gateCost, null, 2));
 		}
 	}
 	return parseGate(chunks.join('\n'));
@@ -234,8 +239,9 @@ async function verifyReport(report) {
 				chunks.push(text);
 			}
 		} else if (message.type === 'result') {
-			console.log(`[verify] result: ${JSON.stringify(buildCostRecord(message))}`);
-			writeFileSync(join(WORK_DIR, 'verify-cost.json'), JSON.stringify(buildCostRecord(message), null, 2));
+			verifyCost = buildCostRecord(message);
+			console.log(`[verify] result: ${JSON.stringify(verifyCost)}`);
+			writeFileSync(join(WORK_DIR, 'verify-cost.json'), JSON.stringify(verifyCost, null, 2));
 		}
 	}
 	return chunks.length ? chunks[chunks.length - 1] : null;
@@ -367,7 +373,10 @@ async function main() {
 		// back to scraping chat text.
 	}
 
-	const footer = renderCostFooter(cost, MAX_TURNS);
+	const footer = renderCostFooter(cost, MAX_TURNS, [
+		{ label: 'gate', cost: gateCost },
+		{ label: 'verify', cost: verifyCost },
+	]);
 	const report = resolveReport(fileReport, assistantMessages);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
 

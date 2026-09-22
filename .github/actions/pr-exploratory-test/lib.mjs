@@ -75,7 +75,7 @@ export function parsePosIntEnv(name, fallback, rawValue) {
 }
 
 /** One-line footer for the step summary. */
-export function renderCostFooter(cost, maxTurns) {
+export function renderCostFooter(cost, maxTurns, passes = []) {
 	const dollars = typeof cost.total_cost_usd === 'number'
 		? `$${cost.total_cost_usd.toFixed(2)}`
 		: 'unknown cost';
@@ -85,7 +85,23 @@ export function renderCostFooter(cost, maxTurns) {
 	const clock = typeof cost.duration_ms === 'number'
 		? `${Math.round(cost.duration_ms / 60000)}m`
 		: 'unknown duration';
-	return `_${dollars} | ${turns} | ${clock}_`;
+	const lines = [`_explore: ${dollars} | ${turns} | ${clock}_`];
+	// The explore pass is not the whole bill once a gate and a verification run
+	// either side of it. A footer that reports only the middle one understates
+	// what the run cost, and the gap grows as passes are added.
+	let total = typeof cost.total_cost_usd === 'number' ? cost.total_cost_usd : null;
+	for (const pass of passes) {
+		if (!pass || typeof pass.cost?.total_cost_usd !== 'number') {
+			continue;
+		}
+		const t = typeof pass.cost.num_turns === 'number' ? ` | ${pass.cost.num_turns} turns` : '';
+		lines.push(`_${pass.label}: $${pass.cost.total_cost_usd.toFixed(2)}${t}_`);
+		total = total === null ? pass.cost.total_cost_usd : total + pass.cost.total_cost_usd;
+	}
+	if (lines.length > 1 && total !== null) {
+		lines.push(`_total: $${total.toFixed(2)}_`);
+	}
+	return lines.join('\n');
 }
 
 /**

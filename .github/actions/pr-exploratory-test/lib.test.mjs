@@ -201,3 +201,22 @@ test('parseGate returns null when it cannot tell, so the run proceeds', () => {
 	assert.equal(parseGate('GATE: maybe?'), null);
 	assert.equal(parseGate(null), null);
 });
+
+test('renderCostFooter adds a line per extra pass and a total', () => {
+	const footer = renderCostFooter({ total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 }, 200, [
+		{ label: 'gate', cost: { total_cost_usd: 0.01, num_turns: 3 } },
+		{ label: 'verify', cost: { total_cost_usd: 0.48, num_turns: 24 } },
+	]);
+	assert.match(footer, /explore: \$2\.52 \| 67\/200 turns/);
+	assert.match(footer, /gate: \$0\.01 \| 3 turns/);
+	assert.match(footer, /verify: \$0\.48 \| 24 turns/);
+	assert.match(footer, /total: \$3\.01/);
+});
+
+test('renderCostFooter omits passes that did not run, and the total with them', () => {
+	const footer = renderCostFooter({ total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 }, 200, [
+		{ label: 'verify', cost: { total_cost_usd: null } },
+	]);
+	assert.doesNotMatch(footer, /verify/);
+	assert.doesNotMatch(footer, /total/);
+});
