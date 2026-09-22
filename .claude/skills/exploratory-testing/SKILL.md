@@ -111,7 +111,7 @@ labels on their own lines rather than headings, because two lines do not need a
 section competing with `## Findings`.
 
 `Result` is one sentence and answers one question: does the change do what it
-is meant to. "The install offer works end to end" is the whole job. Do not
+is meant to, in the terms a user would use. One clause is usually enough. Do not
 name a finding, retell its mechanism, or list what you verified. The table sits
 directly below you and Coverage is a screen further down; a reader who wants
 either will be there in a second, and a summary of something two lines away is
@@ -156,12 +156,13 @@ usability, visual, or polish problem. Read it off the impact phrase rather than
 picking it alongside: if the phrase does not justify the label to someone who
 knows nothing else, the label is wrong.
 
-Anchor the three so the middle does not swallow everything. Telling a user to
-restart when nothing was installed and a restart cannot help is `major`: the
-advice cannot work and the workflow never completes. Offering a Python version
-that fails at Create is `moderate`. A link that wraps onto two lines is
-`minor`. Caught between two, let the impact phrase decide; caution is not a
-tiebreaker, and a bug rated down reads as one nobody has to fix.
+Anchor the three so the middle does not swallow everything. Telling the user
+to take an action that cannot fix their problem is `major`: the advice does not
+work and the task never completes. Offering a choice that fails when they take
+it is `moderate`, because they can still get there another way. A control that
+wraps onto two lines is `minor`. Caught between two, let the impact phrase
+decide; caution is not a tiebreaker, and a bug rated down reads as one nobody
+has to fix.
 
 `Impact` is the user consequence in a phrase, and only that: "blocks
 completion", "silently creates no environment". Not the rate, which
