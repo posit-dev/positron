@@ -127,6 +127,13 @@ usability, visual, or polish problem. Read it off the impact phrase rather than
 picking it alongside: if the phrase does not justify the label to someone who
 knows nothing else, the label is wrong.
 
+Anchor the three so the middle does not swallow everything. Telling a user to
+restart when nothing was installed and a restart cannot help is `major`: the
+advice cannot work and the workflow never completes. Offering a Python version
+that fails at Create is `moderate`. A link that wraps onto two lines is
+`minor`. Caught between two, let the impact phrase decide; caution is not a
+tiebreaker, and a bug rated down reads as one nobody has to fix.
+
 `Impact` is the user consequence in a phrase, and only that: "blocks
 completion", "silently creates no environment". Not the rate, which
 `Reproduction` holds, and not a scale, because "High" tells a reader nothing.
