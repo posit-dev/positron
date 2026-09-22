@@ -8,23 +8,15 @@ import {
 	MCP_AGENTS,
 	McpFileInstall,
 	findMcpAgent,
+	mcpLaunch,
 	mergeAgentConfig,
 	mergeTomlConfig,
-	pinsEndpoint,
 	unmergeAgentConfig,
 	unmergeTomlConfig,
 } from '../McpAgents';
-import { McpConnection } from '../mcpConnection';
 
-/** A registration with the shape the merges read: a URL and a headers file. */
-const CONNECTION: McpConnection = {
-	workspaceId: 'my-project-2458p3',
-	displayName: 'my-project',
-	port: 39000,
-	token: 'secret',
-	url: 'http://127.0.0.1:39000/mcp/w/my-project-2458p3',
-	headersPath: '/storage/mcp/headers/my-project-2458p3.json',
-};
+/** The command line that starts the bridge, as a registration would build it. */
+const LAUNCH = mcpLaunch('/opt/positron/kcserver', '/storage/mcp');
 
 /** The file install of the row under test, which the table is required to have. */
 function fileInstall(id: string): McpFileInstall {
@@ -35,33 +27,30 @@ function fileInstall(id: string): McpFileInstall {
 }
 
 suite('mergeAgentConfig', () => {
-	test('writes Gemini its own dialect, where naming httpUrl is what picks the transport', () => {
-		// The endpoint and token are left as variables Gemini expands, so the
-		// file holds no secret and stays correct across a restart that moves
-		// the port.
+	test('writes Gemini a command line, which names no port and no token', () => {
 		assert.deepStrictEqual(
-			JSON.parse(mergeAgentConfig(fileInstall('gemini'), undefined, CONNECTION)),
+			JSON.parse(mergeAgentConfig(fileInstall('gemini'), undefined, LAUNCH)),
 			{
 				mcpServers: {
 					positron: {
-						httpUrl: '${POSITRON_MCP_URL}',
-						headers: { Authorization: 'Bearer ${POSITRON_MCP_TOKEN}' },
+						command: '/opt/positron/kcserver',
+						args: ['mcp-stdio', '--connections', '/storage/mcp'],
 					},
 				},
 			});
 	});
 
-	test('writes Codex the endpoint and a headers command, since it expands neither', () => {
-		// Codex does not expand variables, so the endpoint is written out. The
-		// token is not written at all: Codex runs the command and reads the
-		// header from its output, which is what keeps it working when the
-		// token behind the endpoint is reissued.
+	test('writes Codex a command line, and tells it to pass on the endpoint', () => {
+		// Codex gives a server only an allowlist of its environment, so a Codex
+		// started from a Positron terminal would otherwise hide the endpoint
+		// the bridge reads first.
 		assert.strictEqual(
-			mergeAgentConfig(fileInstall('codex'), undefined, CONNECTION),
+			mergeAgentConfig(fileInstall('codex'), undefined, LAUNCH),
 			[
 				'[mcp_servers.positron]',
-				'url = "http://127.0.0.1:39000/mcp/w/my-project-2458p3"',
-				`http_headers_helper = "cat '/storage/mcp/headers/my-project-2458p3.json'"`,
+				'command = "/opt/positron/kcserver"',
+				'args = ["mcp-stdio", "--connections", "/storage/mcp"]',
+				'env_vars = ["POSITRON_MCP_URL", "POSITRON_MCP_TOKEN"]',
 				'',
 			].join('\n'));
 	});
@@ -72,7 +61,7 @@ suite('mergeAgentConfig', () => {
 			someOtherSetting: true,
 		});
 
-		const merged = JSON.parse(mergeAgentConfig(fileInstall('gemini'), existing, CONNECTION));
+		const merged = JSON.parse(mergeAgentConfig(fileInstall('gemini'), existing, LAUNCH));
 
 		assert.deepStrictEqual(
 			{ servers: Object.keys(merged.mcpServers).sort(), other: merged.someOtherSetting },
@@ -80,7 +69,7 @@ suite('mergeAgentConfig', () => {
 	});
 
 	test('rejects a file it cannot parse rather than overwriting it', () => {
-		assert.throws(() => mergeAgentConfig(fileInstall('gemini'), '{ this is not JSON', CONNECTION));
+		assert.throws(() => mergeAgentConfig(fileInstall('gemini'), '{ this is not JSON', LAUNCH));
 	});
 
 	test('gives every row a unique id, a way to detect it, and a way to install it', () => {
@@ -89,14 +78,11 @@ suite('mergeAgentConfig', () => {
 				row.id,
 				!!(row.detect.executable || row.detect.extensionId),
 				row.install.kind,
-				// Only an entry naming the endpoint itself can be left pointing
-				// at a port that has moved, and so needs rewriting.
-				pinsEndpoint(row),
 			]),
 			[
-				['claude-code', true, 'cli', false],
-				['codex', true, 'file', true],
-				['gemini', true, 'file', false],
+				['claude-code', true, 'cli'],
+				['codex', true, 'file'],
+				['gemini', true, 'file'],
 			]);
 	});
 });
@@ -106,7 +92,7 @@ suite('unmergeAgentConfig', () => {
 		const existing = mergeAgentConfig(
 			fileInstall('gemini'),
 			JSON.stringify({ mcpServers: { other: { command: 'other-server' } }, ui: 'dark' }),
-			CONNECTION);
+			LAUNCH);
 
 		assert.deepStrictEqual(
 			JSON.parse(unmergeAgentConfig(fileInstall('gemini'), existing)),
@@ -115,14 +101,14 @@ suite('unmergeAgentConfig', () => {
 
 	test('takes our table out of a TOML file, round-tripping what we wrote', () => {
 		const original = 'model = "gpt-5"\n';
-		const merged = mergeAgentConfig(fileInstall('codex'), original, CONNECTION);
+		const merged = mergeAgentConfig(fileInstall('codex'), original, LAUNCH);
 
 		assert.strictEqual(unmergeAgentConfig(fileInstall('codex'), merged), original);
 	});
 });
 
 suite('mergeTomlConfig', () => {
-	const ENTRY = { url: 'http://127.0.0.1:39000/mcp/w/w-1', http_headers_helper: 'cat /h.json' };
+	const ENTRY = { command: '/opt/positron/kcserver', args: ['mcp-stdio'] };
 
 	test('appends to a file that has no entry of ours, leaving the rest alone', () => {
 		assert.strictEqual(
@@ -131,8 +117,8 @@ suite('mergeTomlConfig', () => {
 				'model = "gpt-5"',
 				'',
 				'[mcp_servers.positron]',
-				'url = "http://127.0.0.1:39000/mcp/w/w-1"',
-				'http_headers_helper = "cat /h.json"',
+				'command = "/opt/positron/kcserver"',
+				'args = ["mcp-stdio"]',
 				'',
 			].join('\n'));
 	});
@@ -155,8 +141,8 @@ suite('mergeTomlConfig', () => {
 				'model = "gpt-5"',
 				'',
 				'[mcp_servers.positron]',
-				'url = "http://127.0.0.1:39000/mcp/w/w-1"',
-				'http_headers_helper = "cat /h.json"',
+				'command = "/opt/positron/kcserver"',
+				'args = ["mcp-stdio"]',
 				'',
 				'[mcp_servers.other]',
 				'command = "other-server"',
@@ -166,8 +152,8 @@ suite('mergeTomlConfig', () => {
 
 	test('quotes a Windows path, whose separators TOML would otherwise escape', () => {
 		assert.ok(
-			mergeTomlConfig(undefined, 'mcp_servers', { http_headers_helper: 'type "C:\\h.json"' })
-				.includes('http_headers_helper = "type \\"C:\\\\h.json\\""'));
+			mergeTomlConfig(undefined, 'mcp_servers', { command: 'C:\\Positron\\kcserver.exe' })
+				.includes('command = "C:\\\\Positron\\\\kcserver.exe"'));
 	});
 
 	test('writes nested headers as an inline table rather than as JSON', () => {

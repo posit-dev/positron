@@ -5,7 +5,10 @@
 
 import * as assert from 'assert';
 import { agentCliCommand } from '../McpAgentConfig';
-import { McpCliInstall, findMcpAgent } from '../McpAgents';
+import { McpCliInstall, findMcpAgent, mcpLaunch } from '../McpAgents';
+
+/** The command line that starts the bridge. */
+const LAUNCH = mcpLaunch('/opt/positron/kcserver', '/storage/mcp');
 
 /** The install of the row that is configured by running its CLI. */
 function cliInstall(id: string): McpCliInstall {
@@ -16,18 +19,20 @@ function cliInstall(id: string): McpCliInstall {
 }
 
 suite('agentCliCommand', () => {
-	test('runs the CLI directly, naming no port and no token', () => {
+	test('runs the CLI directly, adding the bridge, which names no port and no token', () => {
 		assert.deepStrictEqual(
-			agentCliCommand('/usr/local/bin/claude', cliInstall('claude-code').add),
+			agentCliCommand('/usr/local/bin/claude', cliInstall('claude-code').add(LAUNCH)),
 			{
 				command: '/usr/local/bin/claude',
 				args: [
 					'mcp', 'add',
-					'--transport', 'http',
 					'--scope', 'local',
 					'positron',
-					'${POSITRON_MCP_URL}',
-					'--header', 'Authorization: Bearer ${POSITRON_MCP_TOKEN}',
+					// Everything after this is the server's command line, not
+					// options for the CLI.
+					'--',
+					'/opt/positron/kcserver',
+					'mcp-stdio', '--connections', '/storage/mcp',
 				],
 			});
 	});
@@ -41,7 +46,7 @@ suite('agentCliCommand', () => {
 	});
 
 	test('runs a Windows batch launcher under cmd, which cannot be spawned directly', () => {
-		const { command, args } = agentCliCommand('C:\\bin\\claude.CMD', cliInstall('claude-code').add);
+		const { command, args } = agentCliCommand('C:\\bin\\claude.CMD', cliInstall('claude-code').add(LAUNCH));
 
 		assert.deepStrictEqual(
 			{ command, first: args.slice(0, 2) },

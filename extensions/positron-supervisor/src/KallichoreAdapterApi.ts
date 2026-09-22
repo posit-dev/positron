@@ -23,6 +23,8 @@ import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
 import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
+import { McpLaunch, mcpLaunch } from './McpAgents.js';
+import { mcpConnectionsDirectory } from './mcpConnection.js';
 
 /**
  * The environment variable naming a handshake-broker socket. In web/server
@@ -334,7 +336,7 @@ export class KCApi implements PositronSupervisorApi {
 			state => saveMcpState(_context.workspaceState, state),
 			() => this._sessions.map(session => session.metadata.sessionId),
 			mcpFeatureEnabled,
-			connection => onMcpRegistered(_context, connection, message => this.log(message)),
+			() => onMcpRegistered(_context, () => this.mcpLaunch(), message => this.log(message)),
 			() => removeConfiguredAgents(_context, message => this.log(message)));
 		this._disposables.push(this._mcp);
 
@@ -378,7 +380,7 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
-			return configureAgent(this._context, this._mcp.connection, agentId);
+			return configureAgent(this._context, this._mcp.connection, () => this.mcpLaunch(), agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the
@@ -1845,6 +1847,18 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Dispose of any other disposables
 		this._disposables.forEach(disposable => disposable.dispose());
+	}
+
+	/**
+	 * The command line an agent runs to start Positron's MCP server: this
+	 * supervisor binary's stdio bridge.
+	 *
+	 * @throws An error if the server binary cannot be found.
+	 */
+	private mcpLaunch(): McpLaunch {
+		return mcpLaunch(
+			this.getKallichorePath(),
+			mcpConnectionsDirectory(this._context.globalStorageUri));
 	}
 
 	/**

@@ -16,7 +16,7 @@ function connection(token: string): McpConnection {
 		port: 39000,
 		token,
 		url: 'http://127.0.0.1:39000/mcp/w/demo-1',
-		headersPath: '/tmp/demo-1.json',
+		folders: [],
 	};
 }
 

@@ -12,7 +12,6 @@ import {
 	MCP_URL_ENV_VAR,
 	McpConnection,
 	mcpDescriptorPath,
-	mcpHeadersPath,
 	removeConnectionFiles,
 	writeConnectionFiles,
 } from './mcpConnection';
@@ -186,6 +185,8 @@ export class McpFrontend implements vscode.Disposable {
 				this.sync();
 			}
 		}));
+		this._disposables.push(vscode.workspace.onDidChangeWorkspaceFolders(() =>
+			this.updateFolders()));
 	}
 
 	/**
@@ -370,8 +371,7 @@ export class McpFrontend implements vscode.Disposable {
 
 		const { workspace_id: workspaceId, token, port, url } = response.data;
 		const connection: McpConnection = {
-			workspaceId, displayName, token, port, url,
-			headersPath: mcpHeadersPath(this._storageUri, workspaceId),
+			workspaceId, displayName, token, port, url, folders: workspaceFolderPaths(),
 		};
 		this.setConnection(connection);
 		await this._saveState({ workspaceId, port, token });
@@ -380,6 +380,22 @@ export class McpFrontend implements vscode.Disposable {
 			`or read ${mcpDescriptorPath(this._storageUri, workspaceId)}`);
 		this.openChannel(workspaceId);
 		this._onRegistered(connection);
+	}
+
+	/**
+	 * Republish the connection files when folders are added to or removed from
+	 * the workspace, since the stdio bridge finds a workspace by its folders.
+	 */
+	private async updateFolders(): Promise<void> {
+		if (!this._connection) {
+			return;
+		}
+		this._connection.folders = workspaceFolderPaths();
+		try {
+			await writeConnectionFiles(this._storageUri, this._connection);
+		} catch (err) {
+			this._log(`Could not update the MCP connection files: ${summarizeError(err)}`);
+		}
 	}
 
 	/**
@@ -436,11 +452,9 @@ export class McpFrontend implements vscode.Disposable {
 	/**
 	 * Publish the endpoint and token to the environments agents are started
 	 * from: integrated terminals, and the extension host process, whose
-	 * environment is inherited by the processes extensions spawn. An agent run
-	 * by an extension rather than typed into a terminal -- Codex in its own
-	 * panel, say -- has no other way to reach them, and its configuration names
-	 * the token by variable precisely so it is not written to disk. Agents that
-	 * inherit neither read the files written alongside; see
+	 * environment is inherited by the processes extensions spawn. The stdio
+	 * bridge agents start reads these first; an agent that inherits neither
+	 * falls back to the files written alongside, see
 	 * {@link writeConnectionFiles}.
 	 *
 	 * Agents read these at startup, so a terminal or an extension host that
@@ -457,9 +471,9 @@ export class McpFrontend implements vscode.Disposable {
 		try {
 			await writeConnectionFiles(this._storageUri, connection);
 		} catch (err) {
-			// The environments above still carry the token, so terminals keep
-			// working; only the agents reading a file are affected, and
-			// configuring one of those fails loudly when it is missing.
+			// The environments above still carry the token, so agents started
+			// from a terminal keep working; only those that find the workspace
+			// by its folders are affected.
 			this._log(`Could not write the MCP connection files: ${summarizeError(err)}`);
 		}
 	}
@@ -485,6 +499,17 @@ export class McpFrontend implements vscode.Disposable {
 			}
 		}
 	}
+}
+
+/**
+ * The workspace's folders that an agent on this machine can be working in.
+ *
+ * @returns Their paths.
+ */
+function workspaceFolderPaths(): string[] {
+	return (vscode.workspace.workspaceFolders ?? [])
+		.filter(folder => folder.uri.scheme === 'file')
+		.map(folder => folder.uri.fsPath);
 }
 
 /**

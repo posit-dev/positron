@@ -10,46 +10,31 @@ import {
 	MCP_SERVER_NAME,
 	MCP_TOKEN_ENV_VAR,
 	MCP_URL_ENV_VAR,
-	McpConnection,
 } from './mcpConnection';
 
 /**
- * How a harness spells an HTTP MCP server. Every harness records the same three
- * facts -- where the servers live, what the endpoint is called, and what the
- * transport is called -- under names of its own.
+ * How an agent starts Positron's MCP server: `kcserver mcp-stdio`, which finds
+ * the workspace the agent is working in and relays to its endpoint. The command
+ * line names no port and no token, so an entry written with it stays correct
+ * across supervisor restarts; it only has to be rewritten when the binary or
+ * the connections directory moves.
  */
-export interface McpDialect {
-	/** The file's format, which decides how an entry is merged into it. */
-	readonly format: 'json' | 'toml';
-
-	/** What the servers live under: `mcpServers`, `servers`, `mcp_servers`. */
-	readonly serversKey: string;
-
-	/** What the endpoint is called: `url`, `httpUrl`, `serverUrl`. */
-	readonly urlKey: string;
-
-	/**
-	 * What the transport is called and how it is spelled -- `http`,
-	 * `streamable-http`, `streamableHttp` -- for the harnesses that ask for it.
-	 * Omitted by the ones that infer it from the endpoint's key.
-	 */
-	readonly transport?: { readonly key: string; readonly value: string };
+export interface McpLaunch {
+	readonly command: string;
+	readonly args: readonly string[];
 }
 
-/** How a harness is handed the workspace's bearer token. */
-export type TokenDelivery =
-	/**
-	 * The harness expands `${VAR}` in its configuration, so the file names
-	 * neither the token nor the port: it is safe to commit and survives a
-	 * restart that moves the endpoint.
-	 */
-	| { readonly kind: 'env' }
-	/**
-	 * The harness runs a command that prints its headers, configured under
-	 * `key`. The endpoint is written out as well, since a harness that will not
-	 * expand a variable for the token will not expand one for the URL either.
-	 */
-	| { readonly kind: 'command'; readonly key: string };
+/**
+ * The command line that starts the MCP bridge.
+ *
+ * @param kcserverPath The supervisor binary, which doubles as the bridge.
+ * @param connectionsDirectory Where the connection files the bridge reads to
+ *  find a workspace are kept.
+ * @returns The launch to write into an agent's configuration.
+ */
+export function mcpLaunch(kcserverPath: string, connectionsDirectory: string): McpLaunch {
+	return { command: kcserverPath, args: ['mcp-stdio', '--connections', connectionsDirectory] };
+}
 
 /** A harness Positron adds itself to by editing a configuration file. */
 export interface McpFileInstall {
@@ -65,9 +50,14 @@ export interface McpFileInstall {
 	 */
 	readonly configPath: () => readonly string[];
 
-	readonly dialect: McpDialect;
+	/** The file's format, which decides how an entry is merged into it. */
+	readonly format: 'json' | 'toml';
 
-	readonly tokenDelivery: TokenDelivery;
+	/** What the servers live under: `mcpServers`, `mcp_servers`. */
+	readonly serversKey: string;
+
+	/** Fields the harness needs in the entry beyond the command line. */
+	readonly extraFields?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -81,7 +71,7 @@ export interface McpCliInstall {
 	readonly executable: string;
 
 	/** Arguments that write Positron's entry. */
-	readonly add: readonly string[];
+	readonly add: (launch: McpLaunch) => readonly string[];
 
 	/** Arguments that take it out again. */
 	readonly remove: readonly string[];
@@ -123,13 +113,13 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 		install: {
 			kind: 'cli',
 			executable: 'claude',
-			add: [
+			add: launch => [
 				'mcp', 'add',
-				'--transport', 'http',
 				'--scope', 'local',
 				MCP_SERVER_NAME,
-				`\${${MCP_URL_ENV_VAR}}`,
-				'--header', `Authorization: Bearer \${${MCP_TOKEN_ENV_VAR}}`,
+				'--',
+				launch.command,
+				...launch.args,
 			],
 			remove: ['mcp', 'remove', MCP_SERVER_NAME, '--scope', 'local'],
 		},
@@ -138,11 +128,10 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 		id: 'codex',
 		label: 'Codex',
 		detect: { executable: 'codex', extensionId: 'openai.chatgpt' },
-		// Codex reads one configuration and has no per-project scope, so a file
-		// in the workspace would be ignored. That is also why this is a command
-		// the user runs rather than something done for them: the entry follows
-		// Codex into projects that have nothing to do with Positron, where the
-		// endpoint refuses it rather than answering for the wrong workspace.
+		// Codex reads one configuration and has no per-project scope, which the
+		// bridge copes with by finding the workspace from the directory Codex
+		// runs in. That is also why this is a command the user runs rather than
+		// something done for them: the entry follows Codex everywhere.
 		install: {
 			kind: 'file',
 			scope: 'global',
@@ -150,22 +139,26 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 				process.env.CODEX_HOME || path.join(os.homedir(), '.codex'),
 				'config.toml',
 			],
-			dialect: { format: 'toml', serversKey: 'mcp_servers', urlKey: 'url' },
-			tokenDelivery: { kind: 'command', key: 'http_headers_helper' },
+			format: 'toml',
+			serversKey: 'mcp_servers',
+			// Codex hands a server only an allowlist of its environment, so a
+			// Codex started from a Positron terminal has to be told to pass the
+			// endpoint on.
+			extraFields: { env_vars: [MCP_URL_ENV_VAR, MCP_TOKEN_ENV_VAR] },
 		},
 	},
 	{
 		id: 'gemini',
 		label: 'Gemini CLI',
 		detect: { executable: 'gemini', extensionId: 'google.gemini-cli-vscode-ide-companion' },
+		// The user's settings rather than the workspace's: the entry names
+		// paths on this machine, which do not belong in a repository.
 		install: {
 			kind: 'file',
-			scope: 'workspace',
-			configPath: () => ['.gemini', 'settings.json'],
-			// `httpUrl` is Gemini's streamable HTTP endpoint; naming it is what
-			// selects the transport, so there is nothing else to say.
-			dialect: { format: 'json', serversKey: 'mcpServers', urlKey: 'httpUrl' },
-			tokenDelivery: { kind: 'env' },
+			scope: 'global',
+			configPath: () => [os.homedir(), '.gemini', 'settings.json'],
+			format: 'json',
+			serversKey: 'mcpServers',
 		},
 	},
 ];
@@ -181,61 +174,17 @@ export function findMcpAgent(id: string): McpAgent | undefined {
 }
 
 /**
- * Whether a harness's entry names the endpoint itself, and so has to be
- * rewritten when the endpoint moves. The harnesses that expand a variable for
- * it need nothing: the environment they read is republished on every
- * registration.
- *
- * @param agent The harness to test.
- * @returns True when the entry holds a URL rather than a variable.
- */
-export function pinsEndpoint(agent: McpAgent): boolean {
-	return agent.install.kind === 'file' && agent.install.tokenDelivery.kind === 'command';
-}
-
-/**
- * The command a harness runs to get the workspace's `Authorization` header.
- *
- * The output has to be a JSON object of headers -- exactly what Positron writes
- * into the file -- so printing the file is the whole job. The command runs
- * through the platform's shell, which is why Windows gets `type` rather than
- * `cat`.
- *
- * @param headersPath The file Positron wrote the header to.
- * @returns The shell command line.
- */
-export function headersHelperCommand(headersPath: string): string {
-	return os.platform() === 'win32'
-		? `type "${headersPath}"`
-		: `cat '${headersPath.replace(/'/g, `'\\''`)}'`;
-}
-
-/**
  * The server entry to write, in the harness's own vocabulary.
  *
  * @param install The file install being written.
- * @param connection The live MCP registration.
+ * @param launch The command line that starts the bridge.
  * @returns The fields of the entry, in the order they should be written.
  */
 export function mcpServerEntry(
 	install: McpFileInstall,
-	connection: McpConnection,
+	launch: McpLaunch,
 ): Record<string, unknown> {
-	const { dialect, tokenDelivery } = install;
-	const entry: Record<string, unknown> = {};
-	if (dialect.transport) {
-		entry[dialect.transport.key] = dialect.transport.value;
-	}
-	if (tokenDelivery.kind === 'env') {
-		entry[dialect.urlKey] = `\${${MCP_URL_ENV_VAR}}`;
-		entry.headers = { Authorization: `Bearer \${${MCP_TOKEN_ENV_VAR}}` };
-	} else {
-		// The workspace ID and port in the URL are the ones Positron asks the
-		// supervisor to reuse, so writing it out still survives a restart.
-		entry[dialect.urlKey] = connection.url;
-		entry[tokenDelivery.key] = headersHelperCommand(connection.headersPath);
-	}
-	return entry;
+	return { command: launch.command, args: [...launch.args], ...install.extraFields };
 }
 
 /**
@@ -244,18 +193,18 @@ export function mcpServerEntry(
  *
  * @param install The file install being written.
  * @param existing The current contents of the file, if it exists.
- * @param connection The live MCP registration.
+ * @param launch The command line that starts the bridge.
  * @returns The contents to write.
  */
 export function mergeAgentConfig(
 	install: McpFileInstall,
 	existing: string | undefined,
-	connection: McpConnection,
+	launch: McpLaunch,
 ): string {
-	const entry = mcpServerEntry(install, connection);
-	return install.dialect.format === 'json'
-		? mergeJsonConfig(existing, install.dialect.serversKey, entry)
-		: mergeTomlConfig(existing, install.dialect.serversKey, entry);
+	const entry = mcpServerEntry(install, launch);
+	return install.format === 'json'
+		? mergeJsonConfig(existing, install.serversKey, entry)
+		: mergeTomlConfig(existing, install.serversKey, entry);
 }
 
 /**
@@ -267,9 +216,9 @@ export function mergeAgentConfig(
  * @returns The contents to write.
  */
 export function unmergeAgentConfig(install: McpFileInstall, existing: string): string {
-	return install.dialect.format === 'json'
-		? unmergeJsonConfig(existing, install.dialect.serversKey)
-		: unmergeTomlConfig(existing, install.dialect.serversKey);
+	return install.format === 'json'
+		? unmergeJsonConfig(existing, install.serversKey)
+		: unmergeTomlConfig(existing, install.serversKey);
 }
 
 /**
@@ -379,9 +328,13 @@ export function unmergeTomlConfig(existing: string, serversKey: string): string 
 
 /**
  * A value as TOML spells it: basic strings, so a Windows path's backslashes
- * survive, and inline tables for the nested headers a harness may ask for.
+ * survive, arrays for a command's arguments, and inline tables for anything
+ * nested a harness may ask for.
  */
 function tomlValue(value: unknown): string {
+	if (Array.isArray(value)) {
+		return `[${value.map(tomlValue).join(', ')}]`;
+	}
 	if (typeof value !== 'object' || value === null) {
 		return JSON.stringify(value);
 	}

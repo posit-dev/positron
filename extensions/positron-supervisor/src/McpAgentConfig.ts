@@ -15,9 +15,9 @@ import {
 	McpAgent,
 	McpCliInstall,
 	McpFileInstall,
+	McpLaunch,
 	findMcpAgent,
 	mergeAgentConfig,
-	pinsEndpoint,
 	unmergeAgentConfig,
 } from './McpAgents';
 import { AI_ENABLED_KEY, MCP_ENABLED_KEY } from './McpFrontend';
@@ -38,9 +38,7 @@ const ENABLE_PROMPT_SHOWN_KEY = 'positron-supervisor.mcp.enablePromptShown';
 
 /**
  * Remembers which harnesses Positron has written into. Kept in workspace state,
- * because that is the scope of what was written: the entry names this
- * workspace's endpoint, and Claude Code's is keyed by this workspace's
- * directory.
+ * because Claude Code's entry is keyed by this workspace's directory.
  */
 const CONFIGURED_AGENTS_KEY = 'positron-supervisor.mcp.configuredAgents';
 
@@ -50,17 +48,20 @@ const AUTO_CONFIGURED_AGENT_ID = 'claude-code';
 /**
  * One harness Positron has written into, and what it was told.
  *
- * Recorded so an entry can be put right when the endpoint moves and taken away
- * when the feature is turned off. Without it every folder a user ever opened
- * keeps a Positron server its agent reports as broken, which is what the
- * entries look like from outside this window.
+ * Recorded so an entry can be put right when the bridge moves -- a Positron
+ * update in a versioned install directory, say -- and taken away when the
+ * feature is turned off.
  */
 interface ConfiguredAgent {
 	/** The harness's {@link McpAgent.id}. */
 	id: string;
 
-	/** The endpoint the entry was written with. */
-	url: string;
+	/**
+	 * The command line the entry was written with. Absent from records written
+	 * before agents were configured to start the bridge, whose entries are
+	 * rewritten on the next registration.
+	 */
+	launch?: McpLaunch;
 }
 
 /** Where an installed entry landed, for the message that says so. */
@@ -80,12 +81,14 @@ interface InstallResult {
  * @param context The extension context, which remembers what we configure.
  * @param connection The live MCP registration, or undefined when the feature
  *  is off.
+ * @param launch The command line that starts the bridge.
  * @param agentId The harness to configure. Omitted when the user ran the
  *  command from the palette, in which case they are asked to pick one.
  */
 export async function configureAgent(
 	context: vscode.ExtensionContext,
 	connection: McpConnection | undefined,
+	launch: () => McpLaunch,
 	agentId?: string,
 ): Promise<void> {
 	if (!connection) {
@@ -99,18 +102,20 @@ export async function configureAgent(
 	}
 
 	let result: InstallResult;
+	let written: McpLaunch;
 	try {
-		result = await installAgent(agent, connection);
+		written = launch();
+		result = await installAgent(agent, written);
 	} catch (err) {
 		await vscode.window.showErrorMessage(summarizeError(err));
 		return;
 	}
-	await recordConfiguredAgent(context, agent, connection);
+	await recordConfiguredAgent(context, agent, written);
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(
 		vscode.l10n.t(
-			"Added Positron to {0} in {1}. Open a new terminal, or reload the window if {0} runs as an extension, so it picks up the connection.",
+			"Added Positron to {0} in {1}. Restart {0} so it picks up the change.",
 			agent.label,
 			result.description),
 		...(result.file ? [open] : []));
@@ -124,22 +129,23 @@ export async function configureAgent(
  * Bring the harnesses we have configured in line with a registration that has
  * just been issued, and configure Claude Code if this is the first one.
  *
- * Runs after a registration succeeds, so we never point an agent at an endpoint
- * that is not listening yet. Reports its own failures rather than raising them:
+ * Runs after a registration succeeds, so an agent configured here finds the
+ * workspace listening. Reports its own failures rather than raising them:
  * registration is complete by the time it runs, and nothing waits on it.
  *
  * @param context The extension context, which remembers what we configure.
- * @param connection The live MCP registration.
+ * @param launch The command line that starts the bridge.
  * @param log Writes a line to the Kernel Supervisor output channel.
  */
 export async function onMcpRegistered(
 	context: vscode.ExtensionContext,
-	connection: McpConnection,
+	launch: () => McpLaunch,
 	log: (message: string) => void,
 ): Promise<void> {
 	try {
-		await autoConfigureClaudeCode(context, connection, log);
-		await refreshConfiguredAgents(context, connection, log);
+		const current = launch();
+		await autoConfigureClaudeCode(context, current, log);
+		await refreshConfiguredAgents(context, current, log);
 	} catch (err) {
 		log(`Could not update the configured coding agents: ${summarizeError(err)}`);
 	}
@@ -159,12 +165,12 @@ export async function onMcpRegistered(
  * into projects that have nothing to do with Positron.
  *
  * @param context The extension context, which remembers what we configure.
- * @param connection The live MCP registration.
+ * @param launch The command line that starts the bridge.
  * @param log Writes a line to the Kernel Supervisor output channel.
  */
 async function autoConfigureClaudeCode(
 	context: vscode.ExtensionContext,
-	connection: McpConnection,
+	launch: McpLaunch,
 	log: (message: string) => void,
 ): Promise<void> {
 	const agent = findMcpAgent(AUTO_CONFIGURED_AGENT_ID);
@@ -185,49 +191,46 @@ async function autoConfigureClaudeCode(
 	}
 
 	try {
-		const { description } = await installAgent(agent, connection);
+		const { description } = await installAgent(agent, launch);
 		log(`Configured ${agent.label} to use Positron's MCP server in ${description}`);
 	} catch (err) {
 		log(`Could not configure ${agent.label}: ${summarizeError(err)}`);
 		return;
 	}
-	await recordConfiguredAgent(context, agent, connection);
+	await recordConfiguredAgent(context, agent, launch);
 }
 
 /**
- * Rewrite the entries that name an endpoint which has since moved.
+ * Rewrite the entries whose command line has since moved.
  *
- * The harnesses that expand a variable for the endpoint need nothing: the
- * environment they read it from is republished on every registration. The rest
- * hold a URL, and a port Positron asked for is only a preference -- something
- * else may hold it by the time we ask again -- so an entry written weeks ago
- * can point at nothing.
+ * An entry names the supervisor binary, which moves when Positron is updated in
+ * a versioned install directory, and when a developer switches between builds.
  *
  * @param context The extension context, which remembers what we configure.
- * @param connection The live MCP registration.
+ * @param launch The command line that starts the bridge.
  * @param log Writes a line to the Kernel Supervisor output channel.
  */
 async function refreshConfiguredAgents(
 	context: vscode.ExtensionContext,
-	connection: McpConnection,
+	launch: McpLaunch,
 	log: (message: string) => void,
 ): Promise<void> {
 	const records = loadConfiguredAgents(context);
 	let changed = false;
 	for (const record of records) {
 		const agent = findMcpAgent(record.id);
-		if (!agent || !pinsEndpoint(agent) || record.url === connection.url) {
+		if (!agent || sameLaunch(record.launch, launch)) {
 			continue;
 		}
 		try {
-			await installAgent(agent, connection);
+			await installAgent(agent, launch);
 		} catch (err) {
 			log(`Could not update ${agent.label}'s MCP entry: ${summarizeError(err)}`);
 			continue;
 		}
-		record.url = connection.url;
+		record.launch = launch;
 		changed = true;
-		log(`Updated ${agent.label}'s MCP entry; the endpoint is now ${connection.url}`);
+		log(`Updated ${agent.label}'s MCP entry to start ${launch.command}`);
 	}
 	if (changed) {
 		await saveConfiguredAgents(context, records);
@@ -237,10 +240,8 @@ async function refreshConfiguredAgents(
 /**
  * Take Positron out of every harness we wrote into.
  *
- * Runs when the feature is turned off. An entry we leave behind is not inert:
- * it names an endpoint that is no longer listening and a variable that is no
- * longer published, so the harness reports a broken server every time it
- * starts in this directory.
+ * Runs when the feature is turned off, so that agents stop offering the user
+ * tools that can only report that Positron is not reachable.
  *
  * @param context The extension context, which remembers what we configure.
  * @param log Writes a line to the Kernel Supervisor output channel.
@@ -287,8 +288,7 @@ export function detectAgent(agent: McpAgent): boolean {
 
 /**
  * How to invoke an agent CLI without going through a shell. Windows cannot
- * execute a batch launcher directly, so those run under `cmd.exe`, which leaves
- * `${...}` alone: it expands `%VAR%`.
+ * execute a batch launcher directly, so those run under `cmd.exe`.
  *
  * @param executable The full path to the CLI.
  * @param args The arguments to pass to it.
@@ -349,21 +349,36 @@ export async function promptToEnable(context: vscode.ExtensionContext): Promise<
 }
 
 /**
+ * Whether two command lines are the same.
+ *
+ * @param a A recorded command line, if one was recorded.
+ * @param b The current one.
+ */
+function sameLaunch(a: McpLaunch | undefined, b: McpLaunch): boolean {
+	return !!a && a.command === b.command &&
+		a.args.length === b.args.length && a.args.every((arg, i) => arg === b.args[i]);
+}
+
+/**
  * Write Positron's entry into a harness's configuration.
  *
  * @param agent The harness being configured.
- * @param connection The live MCP registration.
+ * @param launch The command line that starts the bridge.
  * @returns Where the entry landed.
  * @throws An error whose message is fit to show the user.
  */
-async function installAgent(agent: McpAgent, connection: McpConnection): Promise<InstallResult> {
+async function installAgent(agent: McpAgent, launch: McpLaunch): Promise<InstallResult> {
 	return agent.install.kind === 'cli'
-		? installViaCli(agent, agent.install)
-		: installViaFile(agent, agent.install, connection);
+		? installViaCli(agent, agent.install, launch)
+		: installViaFile(agent, agent.install, launch);
 }
 
 /** Add the entry by running the harness's CLI. */
-async function installViaCli(agent: McpAgent, install: McpCliInstall): Promise<InstallResult> {
+async function installViaCli(
+	agent: McpAgent,
+	install: McpCliInstall,
+	launch: McpLaunch,
+): Promise<InstallResult> {
 	const folder = fileWorkspaceFolder();
 	if (!folder) {
 		throw new Error(vscode.l10n.t(
@@ -385,7 +400,7 @@ async function installViaCli(agent: McpAgent, install: McpCliInstall): Promise<I
 	} catch {
 		// There was nothing of ours to remove, which is the common case.
 	}
-	await runAgentCli(executable, install.add, folder);
+	await runAgentCli(executable, install.add(launch), folder);
 
 	return { description: vscode.workspace.asRelativePath(folder) };
 }
@@ -394,7 +409,7 @@ async function installViaCli(agent: McpAgent, install: McpCliInstall): Promise<I
 async function installViaFile(
 	agent: McpAgent,
 	install: McpFileInstall,
-	connection: McpConnection,
+	launch: McpLaunch,
 ): Promise<InstallResult> {
 	const target = agentConfigUri(install);
 	if (!target) {
@@ -406,7 +421,7 @@ async function installViaFile(
 	const existing = await readFileIfPresent(target);
 	let contents: string;
 	try {
-		contents = mergeAgentConfig(install, existing, connection);
+		contents = mergeAgentConfig(install, existing, launch);
 	} catch (err) {
 		// Refuse rather than overwrite a file we could not understand.
 		throw new Error(vscode.l10n.t(
@@ -525,15 +540,15 @@ function saveConfiguredAgents(
  *
  * @param context The extension context.
  * @param agent The harness that was configured.
- * @param connection The registration its entry was written with.
+ * @param launch The command line its entry was written with.
  */
 function recordConfiguredAgent(
 	context: vscode.ExtensionContext,
 	agent: McpAgent,
-	connection: McpConnection,
+	launch: McpLaunch,
 ): Thenable<void> {
 	const records = loadConfiguredAgents(context).filter(record => record.id !== agent.id);
-	records.push({ id: agent.id, url: connection.url });
+	records.push({ id: agent.id, launch });
 	return saveConfiguredAgents(context, records);
 }
 

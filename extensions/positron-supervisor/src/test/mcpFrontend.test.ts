@@ -23,7 +23,6 @@ import {
 	McpConnectionDescriptor,
 	McpConnectionIndex,
 	mcpDescriptorPath,
-	mcpHeadersPath,
 	mcpIndexPath,
 } from '../mcpConnection';
 
@@ -178,9 +177,11 @@ function readJson<T>(file: string): T | undefined {
 	return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : undefined;
 }
 
-/** What the frontend has left in the file agents read the header from. */
-function headersFile(harness: Harness, workspaceId: string): unknown {
-	return readJson(mcpHeadersPath(harness.storageUri, workspaceId));
+/** The folders of the workspace the tests run in, as the frontend reports them. */
+function folders(): string[] {
+	return (vscode.workspace.workspaceFolders ?? [])
+		.filter(folder => folder.uri.scheme === 'file')
+		.map(folder => folder.uri.fsPath);
 }
 
 /** The descriptor the frontend has left for a workspace. */
@@ -220,9 +221,6 @@ suite('McpFrontend', () => {
 				// Agents an extension spawns, such as Codex in its own panel,
 				// inherit the extension host's environment and nothing else.
 				processEnv: harness.processEnv,
-				// Codex's own extension spawns it with neither, so it is
-				// pointed at a file instead.
-				headers: headersFile(harness, 'workspace-1'),
 			},
 			{
 				connection: {
@@ -231,7 +229,7 @@ suite('McpFrontend', () => {
 					port: 39000,
 					token: 'token-1',
 					url: 'http://127.0.0.1:39000/mcp/w/workspace-1',
-					headersPath: mcpHeadersPath(harness.storageUri, 'workspace-1'),
+					folders: folders(),
 				},
 				saved: { workspaceId: 'workspace-1', port: 39000, token: 'token-1' },
 				variables: {
@@ -243,7 +241,6 @@ suite('McpFrontend', () => {
 					[MCP_URL_ENV_VAR]: 'http://127.0.0.1:39000/mcp/w/workspace-1',
 					[MCP_TOKEN_ENV_VAR]: 'token-1',
 				},
-				headers: { Authorization: 'Bearer token-1' },
 			});
 	});
 
@@ -265,6 +262,8 @@ suite('McpFrontend', () => {
 				// file precisely because they inherit no environment.
 				token: 'token-1',
 				headers: { Authorization: 'Bearer token-1' },
+				// What the stdio bridge finds a workspace by.
+				folders: folders(),
 				// Interpolated, so this block can be copied into a
 				// configuration that is committed or shared.
 				mcpServers: {
@@ -299,6 +298,7 @@ suite('McpFrontend', () => {
 				port: 39000,
 				url: 'http://127.0.0.1:39000/mcp/w/workspace-2',
 				descriptor: mcpDescriptorPath(first.storageUri, 'workspace-2'),
+				folders: folders(),
 			});
 		assert.deepStrictEqual(
 			Object.keys(indexFile(first)!.workspaces).sort(),
@@ -420,7 +420,6 @@ suite('McpFrontend', () => {
 				deregistrations: harness.registry.deregistrations,
 				variables: harness.environment.variables.size,
 				processEnv: harness.processEnv,
-				headers: headersFile(harness, 'workspace-1'),
 				descriptor: descriptorFile(harness, 'workspace-1'),
 				indexed: Object.keys(indexFile(harness)!.workspaces),
 				// The identity is kept so that re-enabling the feature hands
@@ -432,7 +431,6 @@ suite('McpFrontend', () => {
 				deregistrations: ['workspace-1'],
 				variables: 0,
 				processEnv: {},
-				headers: undefined,
 				descriptor: undefined,
 				indexed: [],
 				saved: { workspaceId: 'workspace-1', port: 39000, token: 'token-1' },

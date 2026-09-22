@@ -37,10 +37,10 @@ export interface McpConnection {
 	url: string;
 
 	/**
-	 * The file holding the `Authorization` header for {@link token}, for agents
-	 * that read their headers from a command rather than an environment.
+	 * The workspace's folders, by which the stdio bridge finds the workspace
+	 * an agent is working in.
 	 */
-	headersPath: string;
+	folders: string[];
 }
 
 /**
@@ -72,6 +72,7 @@ export interface McpConnectionDescriptor {
 	url: string;
 	token: string;
 	headers: Record<string, string>;
+	folders: string[];
 	mcpServers: Record<string, McpServerConfig>;
 }
 
@@ -83,6 +84,9 @@ export interface McpIndexEntry {
 
 	/** The descriptor holding this workspace's token. */
 	descriptor: string;
+
+	/** The workspace's folders, so a reader can find it by directory. */
+	folders: string[];
 }
 
 /**
@@ -113,6 +117,7 @@ export function connectionDescriptor(connection: McpConnection): McpConnectionDe
 		url: connection.url,
 		token: connection.token,
 		headers: authorizationHeader(connection.token),
+		folders: connection.folders,
 		mcpServers: {
 			[MCP_SERVER_NAME]: {
 				title: 'Positron',
@@ -129,13 +134,24 @@ export function connectionDescriptor(connection: McpConnection): McpConnectionDe
 }
 
 /**
+ * The directory holding the index and descriptors, which the stdio bridge is
+ * pointed at.
+ *
+ * @param storageUri The extension's global storage directory.
+ * @returns The path to the directory.
+ */
+export function mcpConnectionsDirectory(storageUri: vscode.Uri): string {
+	return path.join(storageUri.fsPath, 'mcp');
+}
+
+/**
  * The file listing every workspace registered on this machine.
  *
  * @param storageUri The extension's global storage directory.
  * @returns The path to the index.
  */
 export function mcpIndexPath(storageUri: vscode.Uri): string {
-	return path.join(storageUri.fsPath, 'mcp', 'connections.json');
+	return path.join(mcpConnectionsDirectory(storageUri), 'connections.json');
 }
 
 /**
@@ -150,25 +166,8 @@ export function mcpDescriptorPath(storageUri: vscode.Uri, workspaceId: string): 
 }
 
 /**
- * The file an agent reads the workspace's `Authorization` header from.
- *
- * Agents Positron does not launch -- Codex running in its own extension, say --
- * do not inherit the environment the token is otherwise published in, and Codex
- * refuses to write a secret of its own into the configuration it shares between
- * projects. A file it is pointed at is the remaining way to hand it one, and it
- * has to hold nothing but headers, which is why this is not the descriptor.
- *
- * @param storageUri The extension's global storage directory.
- * @param workspaceId The workspace ID the supervisor issued.
- * @returns The path to the headers file.
- */
-export function mcpHeadersPath(storageUri: vscode.Uri, workspaceId: string): string {
-	return path.join(storageUri.fsPath, 'mcp', 'headers', fileName(workspaceId));
-}
-
-/**
  * Write everything a registration publishes to disk: the workspace's
- * descriptor, the headers file, and the index that leads to them.
+ * descriptor and the index that leads to it.
  *
  * Kept in the extension's global storage rather than beside the workspace,
  * where it would be committed, and owner-only, since the descriptor holds a
@@ -184,7 +183,6 @@ export async function writeConnectionFiles(
 	await writeJsonFile(
 		mcpDescriptorPath(storageUri, connection.workspaceId),
 		connectionDescriptor(connection));
-	await writeJsonFile(connection.headersPath, authorizationHeader(connection.token));
 	await writeIndex(storageUri);
 }
 
@@ -199,18 +197,17 @@ export async function removeConnectionFiles(
 	connection: McpConnection,
 ): Promise<void> {
 	await fs.rm(mcpDescriptorPath(storageUri, connection.workspaceId), { force: true });
-	await fs.rm(connection.headersPath, { force: true });
 	await writeIndex(storageUri);
 }
 
-/** The header an agent presents, which is both written out and served. */
+/** The header an agent presents. */
 function authorizationHeader(token: string): Record<string, string> {
 	return { Authorization: `Bearer ${token}` };
 }
 
 /** Where the per-workspace descriptors live. */
 function descriptorDirectory(storageUri: vscode.Uri): string {
-	return path.join(storageUri.fsPath, 'mcp', 'workspaces');
+	return path.join(mcpConnectionsDirectory(storageUri), 'workspaces');
 }
 
 /**
@@ -253,6 +250,7 @@ async function writeIndex(storageUri: vscode.Uri): Promise<void> {
 				port: descriptor.port,
 				url: descriptor.url,
 				descriptor: descriptorPath,
+				folders: descriptor.folders ?? [],
 			};
 		} catch {
 			// A descriptor we cannot read is left out rather than making the
