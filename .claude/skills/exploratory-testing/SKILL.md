@@ -92,7 +92,7 @@ The shape, and only this shape:
 
 `<branch>` | `<short sha>`
 
-**Result:** <one sentence: does the change do what it is meant to>
+**Result:** <one sentence: what the change now does for a user>
 **Not exercised:** <surfaces the change touches that you did not reach, or `none`>
 
 ## Findings
@@ -124,13 +124,17 @@ One `#` heading, and it is the report. `Result` and `Not exercised` are bold
 labels on their own lines rather than headings, because two lines do not need a
 section competing with `## Findings`.
 
-`Result` is one sentence and answers one question: does the change do what it
-is meant to, in the terms a user would use. One clause is usually enough. Do not
-name a finding, retell its mechanism, or list what you verified. The table sits
-directly below you and Coverage is a screen further down; a reader who wants
-either will be there in a second, and a summary of something two lines away is
-just the same text twice. What no table can say is that the feature works, so
-say that and stop.
+`Result` is one sentence saying what the change now does for a user, in the
+terms they would use. Write it as a statement, never as an answer: the reader
+cannot see a question, so a line opening with "Yes", "Mostly" or "Partly"
+leaves them holding an adverb and nothing else. Where the change falls short,
+say what it does and where it stops, still as a statement.
+
+One clause is usually enough. Do not name a finding, retell its mechanism, or
+list what you verified: the table sits directly below this line and Coverage is
+a screen further down, and a summary of something two lines away is the same
+text twice. What no table can say is that the feature works, so say that and
+stop.
 
 Write both lines every time. `**Not exercised:** none` is a claim that you
 reached everything the change touches, and making you write it is the point: a
