@@ -76,6 +76,10 @@ jobs:
       # into the modal alongside SNOWFLAKE_API_KEY (loaded from 1Password below). The
       # Linux lanes set this from the same secret for the data-connections suite.
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      # Login + password for the catalog-explorer Snowflake case, which writes them into a
+      # connections.toml for the provider. Same secrets the Linux lanes export.
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
       LANG: "en_US.UTF-8"
     steps:
       - uses: actions/checkout@v7
@@ -291,7 +295,14 @@ jobs:
       # errors), and the `dot -V` check makes a broken install fail at this step
       # rather than half an hour later as an unexplained screenshot diff in the
       # graphviz plot tests.
+      #
+      # Skipped on Intel. Homebrew dropped x86_64 bottles in September 2026, so
+      # `brew install graphviz` now compiles graphviz and ~20 dependencies from
+      # source (rust alone takes 40 minutes) and then fails anyway because the
+      # netpbm formula fetches over svn before subversion is installed. The two
+      # graphviz plot tests skip themselves on darwin/x64 to match.
       - name: Setup Graphviz
+        if: ${{ inputs.arch != 'x64' }}
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 10

@@ -111,12 +111,9 @@ wb_os_key_arch() {
 	esac
 }
 
-# Init-script / package-manager family. Doubles as the name of the
-# extras/init.d/<family> directory the Workbench package ships (verified against
-# the real packages: debian, redhat and suse all exist), which is what the
-# installer copies into /etc/init.d on the two OSes whose package installs
-# systemd units instead. Branching the installer on the family rather than on the
-# OS is what keeps a third OS from adding a third arm to every case statement.
+# Package-manager family (apt / dnf / zypper), which is what the installer's
+# per-OS steps actually branch on. Branching on the family rather than on the OS
+# is what keeps a third OS from adding a third arm to every case statement.
 wb_os_family() {
 	case "${1:-}" in
 		ubuntu24)   printf debian ;;
