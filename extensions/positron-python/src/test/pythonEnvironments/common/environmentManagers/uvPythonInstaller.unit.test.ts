@@ -148,6 +148,29 @@ suite('UV Python Installer Tests', () => {
             });
         });
 
+        test('Logs where the installer put uv, the only record of it when the probe cannot find it', async () => {
+            const traceInfoStub = sinon.stub(logging, 'traceInfo');
+            isUvInstalledStub.onFirstCall().resolves(false);
+            isUvInstalledStub.onSecondCall().resolves(false);
+            consentToInstall();
+            // The installer writes its progress, the install directory among it, to stderr.
+            execStub.resolves({
+                stdout: UV_INSTALL_OK_MARKER,
+                stderr: "installing to /tmp/uv-elsewhere\neverything's installed",
+            });
+
+            await ensureUvInstalled();
+
+            // "uv was installed but could not be found." sends the user to the logs, so the
+            // directory the installer chose has to be there for them to find.
+            const logged = traceInfoStub
+                .getCalls()
+                .map((call) => call.args.join(' '))
+                .join('\n');
+            assert.ok(logged.includes('/tmp/uv-elsewhere'), `install directory missing from: ${logged}`);
+            assert.ok(!logged.includes(UV_INSTALL_OK_MARKER), "the success marker is ours, not the installer's");
+        });
+
         test('An installer that fails reports the failure rather than uv being unreachable', async () => {
             isUvInstalledStub.resolves(false);
             when(

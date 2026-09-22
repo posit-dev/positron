@@ -104,7 +104,15 @@ async function runUvInstaller(): Promise<boolean> {
             return false;
         }
 
-        traceInfo('uv installed successfully');
+        // The installer names the directory it wrote to, and that is the only record of where uv
+        // went. Logged on success as well as failure so that "uv was installed but could not be
+        // found." has something behind its Show logs button: the binary is on disk somewhere the
+        // known-location probe does not reach, and this says where.
+        const installerOutput = [result.stderr, result.stdout.replace(UV_INSTALL_OK_MARKER, '')]
+            .map((output) => output?.trim())
+            .filter((output) => output)
+            .join('\n');
+        traceInfo(`uv installed successfully${installerOutput ? `:\n${installerOutput}` : ''}`);
         // Clear caches so that subsequent calls detect the newly installed uv
         resetUvCache();
         return true;
