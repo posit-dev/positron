@@ -89,30 +89,57 @@ The report, in this order:
    the next session re-litigating it. A line reporting that something did
    *not* happen must say which surface you checked and when, and each such
    claim stands alone: do not combine several into a rate.
-4. "Dropped": threads you abandoned, and why.
+4. "Dropped": threads you abandoned, and why. Every surface named on the
+   "Not reached" line appears here with its reason.
 5. "Run setup": branch under test, how the app was launched, scaffolding you
    created and removed, local noise you ignored. It goes last because nobody
    needs it until they try to reproduce something.
 
 Return a two or three line summary and nothing else; the report is the
-deliverable. Lead with how many findings the change under test caused. Any such
-count, in the summary or in the report, counts `Caused by change: yes` only and
+deliverable. Lead with how many findings the change under test introduced. Any
+such count, in the summary or in the report, counts `Introduced? yes` only and
 must agree with the blocks.
 
 ```
-| # | Finding | Type | Impact | Caused by change |
-|---|---------|------|--------|------------------|
-| 1 | <short claim> | regression | <how often, how bad, in a phrase> | yes |
+| # | Finding | Severity | Impact | Introduced? | Reproduction |
+|---|---------|----------|--------|-------------|--------------|
+| 1 | <short claim> | major | <the user consequence, in a phrase> | yes | 3 of 3 |
 ```
 
-Impact is a phrase, not a scale: "1 in 3 accepts silently do nothing" tells a
-reader something, "High" does not.
+Directly under the table, before the findings, say what you never got to:
 
-`Type` is `regression`, `bug`, or `papercut`. A `regression` is behavior that
-used to work and is now broken. A `bug` is new or changed behavior that never
-worked correctly. A `papercut` is a pre-existing rough edge the change neither
-introduced nor worsened. It is a different axis from `Caused by change`: a bug
-the change caused is not necessarily a regression.
+```
+**Not reached:** <surfaces the change touches that you did not exercise, and why>
+```
+
+An empty table means the change is clean only when that line is empty too. A
+run that found nothing and a run that never reached the feature produce the
+same count, and the reader cannot tell them apart from the bottom of the
+report, so put the difference where the count is. Name the same surfaces again
+under "Dropped" with the detail.
+
+Each column answers one question and nothing else.
+
+`Severity` is `major`, `moderate`, or `minor`. A `major` finding blocks or
+materially breaks an important user workflow. A `moderate` one leaves the
+workflow usable but meaningfully wrong or disruptive. A `minor` one is a small
+usability, visual, or polish problem. Read it off the impact phrase rather than
+picking it alongside: if the phrase does not justify the label to someone who
+knows nothing else, the label is wrong.
+
+`Impact` is the user consequence in a phrase, and only that: "blocks
+completion", "silently creates no environment". Not the rate, which
+`Reproduction` holds, and not a scale, because "High" tells a reader nothing.
+
+`Introduced?` is `yes`, `no`, or `unclear`: did this change create the problem?
+A change that merely exposes an existing defect, or shifts timing so an
+existing race now fires, is `unclear`, and the Cause line says which.
+
+`Reproduction` is how often you saw it, `<N> of <M>`, matching the finding block.
+
+There is no tag for a regression any more. When behavior that used to work is
+now broken, put it in the claim itself -- "X no longer Y" -- because that is
+what decides whether a reader reverts or fixes forward.
 
 Append every action to `actions.log` in the run directory as you take it, with
 a timestamp, including the ones that feel incidental: a window reload, a
@@ -128,7 +155,7 @@ Use this block for every finding; do not substitute a schema of your own.
 ```
 ## Finding N: <one-line claim>
 
-<confirmed | unproven> | reproduced <N> of <M> attempts | Caused by change: <yes | no | unclear>
+<confirmed | unproven> | reproduced <N> of <M> attempts | Introduced: <yes | no | unclear>
 
 <Two sentences a reader can follow without knowing the code: what they hit,
 and why it matters. Symbol names belong under Cause, not here.>
@@ -158,8 +185,8 @@ the code pointers>
 Always give the rate, even when it is 5 of 5. "Every time" and "one time in
 three" are different bugs to whoever picks this up, and `confirmed` alone does
 not separate them. `unproven` means you saw it but could not reproduce it, which
-is 0 of M. Whether the change caused it is a separate axis and sits beside the
-tag; do not fold the two together.
+is 0 of M. Whether the change introduced it is a separate axis and sits
+beside the tag; do not fold the two together.
 
 Keep the blank lines; they are part of the format. Labels packed together with
 no blank line between them render as one run-on paragraph, and a step indented
@@ -174,7 +201,7 @@ suspect is not evidence, it is where to look, so it goes in Cause.
 Report genuine problems only. A finding a human cannot verify from its artifacts
 is wasted work, so prefer one finding with a timestamped log excerpt over three
 without. A proven bug belongs in the report even if the change under test did
-not cause it; that is what `Caused by change: no` is for.
+not introduce it; that is what `Introduced? no` is for.
 
 Do not file GitHub issues and do not make a merge call. The person decides what
 is real.
