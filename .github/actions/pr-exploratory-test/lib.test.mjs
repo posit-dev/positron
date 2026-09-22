@@ -59,14 +59,14 @@ test('buildCostRecord tolerates a result message missing usage', () => {
 });
 
 test('renderCostFooter reports cost, turns against the cap, and wall clock', () => {
-	const footer = renderCostFooter({ total_cost_usd: 1.2, num_turns: 87, duration_ms: 1500000 }, 200);
+	const footer = renderCostFooter([{ label: 'explore', main: true, cost: { total_cost_usd: 1.2, num_turns: 87, duration_ms: 1500000 } }], 200);
 	assert.match(footer, /\$1\.20/);
 	assert.match(footer, /87\/200 turns/);
 	assert.match(footer, /25m/);
 });
 
 test('renderCostFooter degrades gracefully with no result message', () => {
-	const footer = renderCostFooter({ total_cost_usd: null, num_turns: null, duration_ms: null }, 200);
+	const footer = renderCostFooter([{ label: 'explore', main: true, cost: { total_cost_usd: null, num_turns: null, duration_ms: null } }], 200);
 	assert.match(footer, /unknown/);
 });
 
@@ -202,21 +202,25 @@ test('parseGate returns null when it cannot tell, so the run proceeds', () => {
 	assert.equal(parseGate(null), null);
 });
 
-test('renderCostFooter adds a line per extra pass and a total', () => {
-	const footer = renderCostFooter({ total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 }, 200, [
+test('renderCostFooter renders passes in the order they ran, then a total', () => {
+	const footer = renderCostFooter([
 		{ label: 'gate', cost: { total_cost_usd: 0.01, num_turns: 3 } },
+		{ label: 'explore', main: true, cost: { total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 } },
 		{ label: 'verify', cost: { total_cost_usd: 0.48, num_turns: 24 } },
-	]);
-	assert.match(footer, /explore: \$2\.52 \| 67\/200 turns/);
-	assert.match(footer, /gate: \$0\.01 \| 3 turns/);
-	assert.match(footer, /verify: \$0\.48 \| 24 turns/);
-	assert.match(footer, /total: \$3\.01/);
+	], 200);
+	const lines = footer.split('\n');
+	assert.match(lines[0], /gate: \$0\.01 \| 3 turns/);
+	assert.match(lines[1], /explore: \$2\.52 \| 67\/200 turns \| 16m/);
+	assert.match(lines[2], /verify: \$0\.48 \| 24 turns/);
+	assert.match(lines[3], /total: \$3\.01/);
 });
 
 test('renderCostFooter omits passes that did not run, and the total with them', () => {
-	const footer = renderCostFooter({ total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 }, 200, [
+	const footer = renderCostFooter([
+		{ label: 'gate', cost: { total_cost_usd: null } },
+		{ label: 'explore', main: true, cost: { total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 } },
 		{ label: 'verify', cost: { total_cost_usd: null } },
-	]);
-	assert.doesNotMatch(footer, /verify/);
-	assert.doesNotMatch(footer, /total/);
+	], 200);
+	assert.doesNotMatch(footer, /gate|verify|total/);
+	assert.match(footer, /explore: \$2\.52/);
 });

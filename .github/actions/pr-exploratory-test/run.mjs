@@ -373,10 +373,12 @@ async function main() {
 		// back to scraping chat text.
 	}
 
-	const footer = renderCostFooter(cost, MAX_TURNS, [
+	// In the order they ran, so the footer reads as the run did.
+	const footer = renderCostFooter([
 		{ label: 'gate', cost: gateCost },
+		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: verifyCost },
-	]);
+	], MAX_TURNS);
 	const report = resolveReport(fileReport, assistantMessages);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
 

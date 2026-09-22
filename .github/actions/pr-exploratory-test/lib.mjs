@@ -75,30 +75,31 @@ export function parsePosIntEnv(name, fallback, rawValue) {
 }
 
 /** One-line footer for the step summary. */
-export function renderCostFooter(cost, maxTurns, passes = []) {
-	const dollars = typeof cost.total_cost_usd === 'number'
-		? `$${cost.total_cost_usd.toFixed(2)}`
-		: 'unknown cost';
-	const turns = typeof cost.num_turns === 'number'
-		? `${cost.num_turns}/${maxTurns} turns`
-		: 'unknown turns';
-	const clock = typeof cost.duration_ms === 'number'
-		? `${Math.round(cost.duration_ms / 60000)}m`
-		: 'unknown duration';
-	const lines = [`_explore: ${dollars} | ${turns} | ${clock}_`];
-	// The explore pass is not the whole bill once a gate and a verification run
-	// either side of it. A footer that reports only the middle one understates
-	// what the run cost, and the gap grows as passes are added.
-	let total = typeof cost.total_cost_usd === 'number' ? cost.total_cost_usd : null;
+export function renderCostFooter(passes, maxTurns) {
+	const lines = [];
+	let total = null;
 	for (const pass of passes) {
-		if (!pass || typeof pass.cost?.total_cost_usd !== 'number') {
+		const c = pass?.cost;
+		if (!c || typeof c.total_cost_usd !== 'number') {
+			// A pass that did not run has nothing to bill and no line.
 			continue;
 		}
-		const t = typeof pass.cost.num_turns === 'number' ? ` | ${pass.cost.num_turns} turns` : '';
-		lines.push(`_${pass.label}: $${pass.cost.total_cost_usd.toFixed(2)}${t}_`);
-		total = total === null ? pass.cost.total_cost_usd : total + pass.cost.total_cost_usd;
+		const bits = [`$${c.total_cost_usd.toFixed(2)}`];
+		if (typeof c.num_turns === 'number') {
+			// Only the explore pass has a cap worth watching; showing one for
+			// the others invites reading a limit nobody is near.
+			bits.push(pass.main ? `${c.num_turns}/${maxTurns} turns` : `${c.num_turns} turns`);
+		}
+		if (pass.main && typeof c.duration_ms === 'number') {
+			bits.push(`${Math.round(c.duration_ms / 60000)}m`);
+		}
+		lines.push(`_${pass.label}: ${bits.join(' | ')}_`);
+		total = (total === null ? 0 : total) + c.total_cost_usd;
 	}
-	if (lines.length > 1 && total !== null) {
+	if (lines.length === 0) {
+		return '_cost unknown_';
+	}
+	if (lines.length > 1) {
 		lines.push(`_total: $${total.toFixed(2)}_`);
 	}
 	return lines.join('\n');
