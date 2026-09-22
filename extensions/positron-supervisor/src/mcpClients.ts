@@ -13,10 +13,11 @@ import { MCP_AGENTS } from './McpAgents';
  * such as `claude-code` or `codex-mcp-client`, so the harnesses Positron knows
  * are shown under their proper names.
  *
- * @param client The connected client.
+ * @param client The agent, as a connected client or an execution's
+ *  attribution names it.
  * @returns The agent's name, fit to show the user.
  */
-export function agentLabel(client: McpClient): string {
+export function agentLabel(client: Pick<McpClient, 'name'>): string {
 	const name = client.name;
 	if (!name) {
 		return vscode.l10n.t("Unknown agent");

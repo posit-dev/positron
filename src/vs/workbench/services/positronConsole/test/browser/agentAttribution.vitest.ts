@@ -171,6 +171,27 @@ describe('PositronConsoleInstance agent attribution', () => {
 			.toEqual(['External agent']);
 	});
 
+	it('drops announced code that was discarded before it ran', () => {
+		const { instance, session } = createInstance(disposables);
+
+		for (const id of ['agent-exec-1', 'agent-exec-2', 'agent-exec-3']) {
+			session.receiveExecutionRequestedMessage({
+				parent_id: id,
+				code: id,
+				attribution: CLAUDE_CODE_ATTRIBUTION,
+			});
+		}
+		// The second starting means the first will never run; the third is
+		// still waiting its turn.
+		session.receiveInputMessage({ parent_id: 'agent-exec-2', code: 'agent-exec-2' });
+
+		expect(inputItems(instance).map(item => ({ code: item.code, state: item.state })))
+			.toEqual([
+				{ code: 'agent-exec-2', state: ActivityItemInputState.Executing },
+				{ code: 'agent-exec-3', state: ActivityItemInputState.Provisional },
+			]);
+	});
+
 	it('follows the busy state of an agent execution', () => {
 		const { instance, session } = createInstance(disposables);
 
@@ -216,5 +237,26 @@ describe('PositronConsoleInstance agent attribution', () => {
 				attribution: CLAUDE_CODE_ATTRIBUTION,
 			},
 		]);
+	});
+
+	it('shows agent evaluations but keeps them out of the console history', () => {
+		const { instance, session } = createInstance(disposables);
+
+		const executed: ILanguageRuntimeCodeExecutedEvent[] = [];
+		disposables.add(instance.onDidExecuteCode(event => executed.push(event)));
+
+		session.receiveExecutionRequestedMessage({
+			parent_id: 'agent-eval-1',
+			code: 'nrow(mtcars)',
+			attribution: {
+				source: 'agent',
+				metadata: { ...CLAUDE_CODE_ATTRIBUTION.metadata, tool: 'evaluate_code' },
+			},
+		});
+
+		expect({
+			shown: inputItems(instance).map(item => item.code),
+			executed: executed.length,
+		}).toEqual({ shown: ['nrow(mtcars)'], executed: 0 });
 	});
 });

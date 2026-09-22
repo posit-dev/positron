@@ -48,13 +48,6 @@ export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
 export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
 
 /**
- * The TCP port the MCP server should bind on the loopback interface. Zero (the
- * default) lets the supervisor reuse the port it last used, or pick a free one.
- * Set it when an agent's configuration needs a fixed URL.
- */
-export const MCP_PORT_KEY = 'ai.mcp.port';
-
-/**
  * Whether the status bar shows the coding agents connected to this window's
  * sessions. Off by default; the agents are always listed in the kernel
  * supervisor's Quick Pick.

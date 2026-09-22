@@ -10,10 +10,8 @@ import WebSocket from 'ws';
 import { McpClient } from './kcclient/api';
 import { createWebSocket } from './NamedPipeHttpAgent';
 import { budgetCommandResult } from './mcpCommandResult';
+import { checkCommandArgs } from './mcpCommandArgs';
 import { summarizeError } from './util';
-
-/** The console history setting the supervisor reports to agents. */
-const HISTORY_API_ENABLED_KEY = 'console.historyApiEnabled';
 
 /**
  * The request the supervisor's `get_plot` tool sends for the Plots pane's
@@ -59,7 +57,6 @@ interface CommandRequest {
 	command_id: string;
 	args: unknown[];
 	agent: { name?: string; version?: string };
-	deadline_ms: number;
 }
 
 /**
@@ -227,8 +224,7 @@ export class McpFrontendChannel implements vscode.Disposable {
 
 	/**
 	 * Announce ourselves: the command catalog, the sessions we hold, the one
-	 * agents should target by default, and whether they may read console
-	 * history.
+	 * agents should target by default, and whether the user is looking at us.
 	 */
 	private async sayHello(): Promise<void> {
 		const [commands, foreground] = await Promise.all([
@@ -241,8 +237,6 @@ export class McpFrontendChannel implements vscode.Disposable {
 			commands,
 			session_ids: this._sessionIds(),
 			foreground_session_id: foreground?.metadata.sessionId,
-			history_api_enabled: vscode.workspace.getConfiguration()
-				.get<boolean>(HISTORY_API_ENABLED_KEY) === true,
 			focused: vscode.window.state.focused,
 		});
 	}
@@ -329,6 +323,21 @@ export class McpFrontendChannel implements vscode.Disposable {
 				// A data URI, which would not survive the command result budget.
 				const uri = await positron.ai.getCurrentPlotUri();
 				this.send({ kind: 'command_reply', id: request.id, ok: true, result: uri ?? null });
+				return;
+			}
+			// A command that is not in the catalog is left for the call below
+			// to report.
+			const command = (await this.readCatalog()).find(c => c.id === request.command_id);
+			const invalid = command && checkCommandArgs(command.args, request.args);
+			if (invalid) {
+				this._log(`MCP command '${request.command_id}' for ${agent} was refused: ${invalid}`);
+				this.send({
+					kind: 'command_reply',
+					id: request.id,
+					ok: false,
+					reason: 'invalid-args',
+					message: invalid,
+				});
 				return;
 			}
 			const result = await positron.ai.validateAndExecuteCommand(

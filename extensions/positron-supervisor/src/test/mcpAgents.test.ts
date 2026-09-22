@@ -155,12 +155,6 @@ suite('mergeTomlConfig', () => {
 			mergeTomlConfig(undefined, 'mcp_servers', { command: 'C:\\Positron\\kcserver.exe' })
 				.includes('command = "C:\\\\Positron\\\\kcserver.exe"'));
 	});
-
-	test('writes nested headers as an inline table rather than as JSON', () => {
-		assert.ok(
-			mergeTomlConfig(undefined, 'mcp_servers', { headers: { Authorization: 'Bearer x' } })
-				.includes('headers = { Authorization = "Bearer x" }'));
-	});
 });
 
 suite('unmergeTomlConfig', () => {

@@ -40,13 +40,9 @@ export function mcpLaunch(kcserverPath: string, connectionsDirectory: string): M
 export interface McpFileInstall {
 	readonly kind: 'file';
 
-	/** Which of the harness's configurations the entry belongs in. */
-	readonly scope: 'workspace' | 'global';
-
 	/**
-	 * The configuration file, as path segments: relative to the workspace root
-	 * for a `workspace` harness, absolute for a `global` one. A function
-	 * because a global location can be moved by the environment.
+	 * The user's configuration file, as absolute path segments. A function
+	 * because the environment can move it.
 	 */
 	readonly configPath: () => readonly string[];
 
@@ -134,7 +130,6 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 		// something done for them: the entry follows Codex everywhere.
 		install: {
 			kind: 'file',
-			scope: 'global',
 			configPath: () => [
 				process.env.CODEX_HOME || path.join(os.homedir(), '.codex'),
 				'config.toml',
@@ -155,7 +150,6 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 		// paths on this machine, which do not belong in a repository.
 		install: {
 			kind: 'file',
-			scope: 'global',
 			configPath: () => [os.homedir(), '.gemini', 'settings.json'],
 			format: 'json',
 			serversKey: 'mcpServers',
@@ -180,7 +174,7 @@ export function findMcpAgent(id: string): McpAgent | undefined {
  * @param launch The command line that starts the bridge.
  * @returns The fields of the entry, in the order they should be written.
  */
-export function mcpServerEntry(
+function mcpServerEntry(
 	install: McpFileInstall,
 	launch: McpLaunch,
 ): Record<string, unknown> {
@@ -229,7 +223,7 @@ export function unmergeAgentConfig(install: McpFileInstall, existing: string): s
  * @param entry The entry from {@link mcpServerEntry}.
  * @returns The contents to write.
  */
-export function mergeJsonConfig(
+function mergeJsonConfig(
 	existing: string | undefined,
 	serversKey: string,
 	entry: Record<string, unknown>,
@@ -247,7 +241,7 @@ export function mergeJsonConfig(
  * @param serversKey The object the servers live under.
  * @returns The contents to write.
  */
-export function unmergeJsonConfig(existing: string, serversKey: string): string {
+function unmergeJsonConfig(existing: string, serversKey: string): string {
 	const config: Record<string, unknown> = JSON.parse(existing);
 	const servers = config[serversKey] as Record<string, unknown> | undefined;
 	delete servers?.[MCP_SERVER_NAME];
@@ -328,17 +322,8 @@ export function unmergeTomlConfig(existing: string, serversKey: string): string 
 
 /**
  * A value as TOML spells it: basic strings, so a Windows path's backslashes
- * survive, arrays for a command's arguments, and inline tables for anything
- * nested a harness may ask for.
+ * survive, and arrays for a command's arguments.
  */
 function tomlValue(value: unknown): string {
-	if (Array.isArray(value)) {
-		return `[${value.map(tomlValue).join(', ')}]`;
-	}
-	if (typeof value !== 'object' || value === null) {
-		return JSON.stringify(value);
-	}
-	const fields = Object.entries(value as Record<string, unknown>)
-		.map(([key, field]) => `${key} = ${tomlValue(field)}`);
-	return `{ ${fields.join(', ')} }`;
+	return Array.isArray(value) ? `[${value.map(tomlValue).join(', ')}]` : JSON.stringify(value);
 }

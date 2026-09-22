@@ -1246,6 +1246,14 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	private _externalExecutionLabels: Map<string, string> = new Map<string, string>();
 
 	/**
+	 * Announced external executions the runtime has not yet echoed, in the
+	 * order they were announced. The supervisor runs executions in the order
+	 * it receives them, so any still here when a later one starts were
+	 * discarded -- by an interrupt, say -- and will never run.
+	 */
+	private _announcedExecutionIds: string[] = [];
+
+	/**
 	 * Queue of pending code fragments waiting to be executed.
 	 */
 	private _pendingCodeQueue: IPendingCodeFragment[] = [];
@@ -2950,6 +2958,32 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	}
 
 	/**
+	 * Removes the provisional inputs of announced executions that were
+	 * discarded before they could run.
+	 *
+	 * @param startedId The execution whose code the runtime has just echoed.
+	 */
+	private dropDiscardedExecutions(startedId: string) {
+		const index = this._announcedExecutionIds.indexOf(startedId);
+		const discarded = index < 0 ?
+			this._announcedExecutionIds :
+			this._announcedExecutionIds.slice(0, index);
+		this._announcedExecutionIds = index < 0 ? [] : this._announcedExecutionIds.slice(index + 1);
+		for (const id of discarded) {
+			const activity = this._runtimeItemActivities.get(id);
+			if (activity) {
+				this._runtimeItems.splice(this._runtimeItems.indexOf(activity), 1);
+				this._runtimeItemActivities.delete(id);
+			}
+			this._externalExecutionIds.delete(id);
+			this._externalExecutionLabels.delete(id);
+		}
+		if (discarded.length > 0) {
+			this._onDidChangeRuntimeItemsEmitter.fire();
+		}
+	}
+
+	/**
 	 * Marks the Input activity item that matches the given parent ID as busy or
 	 * not busy.
 	 *
@@ -3315,6 +3349,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				);
 			}
 
+			this.dropDiscardedExecutions(languageRuntimeMessageInput.parent_id);
+
 			// Add or update the runtime item activity.
 			this.addOrUpdateRuntimeItemActivity(
 				languageRuntimeMessageInput.parent_id,
@@ -3377,6 +3413,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// Track the execution so the Console's busy state and executing
 			// indicator follow it, as they do for our own submissions.
 			this._externalExecutionIds.add(message.parent_id);
+			this._announcedExecutionIds.push(message.parent_id);
 
 			// Show the code right away, provisionally. The runtime does not
 			// echo it until the kernel picks it up, which can be a while when
@@ -3398,8 +3435,10 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 
 			// Report the execution so it reaches the Console's history and any
 			// onDidExecuteCode consumer, just like code we submitted ourselves.
+			// An agent's evaluation is shown but, like the kernel's own
+			// history, leaves the Console's history alone.
 			const languageId = this.session?.runtimeMetadata?.languageId;
-			if (languageId) {
+			if (languageId && message.attribution.metadata?.tool !== 'evaluate_code') {
 				this._onDidExecuteCodeEmitter.fire({
 					executionId: message.parent_id,
 					sessionId: this.sessionId,

@@ -154,10 +154,12 @@ function parseResponse(body: string): JsonRpcResponse | undefined {
 		return JSON.parse(trimmed);
 	}
 	for (const line of trimmed.split('\n')) {
-		if (!line.startsWith('data:')) {
+		const data = line.startsWith('data:') ? line.slice('data:'.length).trim() : '';
+		// The stream opens with a priming event that carries no data.
+		if (!data) {
 			continue;
 		}
-		const message = JSON.parse(line.slice('data:'.length).trim()) as JsonRpcResponse;
+		const message = JSON.parse(data) as JsonRpcResponse;
 		if (message.result !== undefined || message.error !== undefined) {
 			return message;
 		}

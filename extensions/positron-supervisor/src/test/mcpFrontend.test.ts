@@ -244,36 +244,26 @@ suite('McpFrontend', () => {
 			});
 	});
 
-	test('writes a connection descriptor a client can convert to its own dialect', async () => {
+	test('writes a connection descriptor for the stdio bridge', async () => {
 		const harness = createHarness();
 
 		await harness.frontend.attach(harness.registry);
 
-		const url = 'http://127.0.0.1:39000/mcp/w/workspace-1';
+		const { lastActive, ...descriptor } = descriptorFile(harness, 'workspace-1')!;
 		assert.deepStrictEqual(
-			descriptorFile(harness, 'workspace-1'),
+			{ descriptor, lastActive: !isNaN(Date.parse(lastActive)) },
 			{
-				version: 1,
-				workspaceId: 'workspace-1',
-				displayName: vscode.workspace.name ?? 'Empty Workspace',
-				port: 39000,
-				url,
-				// Resolved, for the wrapper scripts and proxies that read this
-				// file precisely because they inherit no environment.
-				token: 'token-1',
-				headers: { Authorization: 'Bearer token-1' },
-				// What the stdio bridge finds a workspace by.
-				folders: folders(),
-				// Interpolated, so this block can be copied into a
-				// configuration that is committed or shared.
-				mcpServers: {
-					positron: {
-						title: 'Positron',
-						type: 'streamable-http',
-						url,
-						headers: { Authorization: 'Bearer ${env:POSITRON_MCP_TOKEN}' },
-					},
+				descriptor: {
+					version: 1,
+					workspaceId: 'workspace-1',
+					displayName: vscode.workspace.name ?? 'Empty Workspace',
+					port: 39000,
+					url: 'http://127.0.0.1:39000/mcp/w/workspace-1',
+					token: 'token-1',
+					// What the stdio bridge finds a workspace by.
+					folders: folders(),
 				},
+				lastActive: true,
 			});
 	});
 
@@ -294,11 +284,11 @@ suite('McpFrontend', () => {
 		assert.deepStrictEqual(
 			indexFile(first)!.workspaces['workspace-2'],
 			{
-				displayName: vscode.workspace.name ?? 'Empty Workspace',
-				port: 39000,
-				url: 'http://127.0.0.1:39000/mcp/w/workspace-2',
 				descriptor: mcpDescriptorPath(first.storageUri, 'workspace-2'),
 				folders: folders(),
+				// The bridge prefers the more recent of two workspaces that
+				// list the same folder.
+				lastActive: descriptorFile(second, 'workspace-2')!.lastActive,
 			});
 		assert.deepStrictEqual(
 			Object.keys(indexFile(first)!.workspaces).sort(),

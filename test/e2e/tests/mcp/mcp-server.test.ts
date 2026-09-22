@@ -56,6 +56,7 @@ test.describe('MCP Server', {
 			'interrupt_session',
 			'list_positron_commands',
 			'run_positron_command',
+			'get_plot',
 		]));
 
 		const sessions = await agent.callTool('list_sessions');
@@ -70,9 +71,40 @@ test.describe('MCP Server', {
 		// The user sees what the agent ran, labelled with who ran it, followed
 		// by its output.
 		await app.workbench.console.waitForConsoleContents('print("hello from the agent")');
-		await app.workbench.console.waitForConsoleContents('hello from the agent');
+		await app.workbench.console.waitForConsoleContents('hello from the agent', { exact: true });
 		await expect(app.code.driver.currentPage.locator('.activity-input .attribution'))
-			.toContainText('claude-code');
+			.toContainText('Claude Code');
+	});
+
+	test('Python - The console is busy while agent code runs, and the agent can interrupt it', async function ({ app, python }) {
+		const agent = await connectAgent(app);
+
+		const running = agent.callTool('execute_code', {
+			code: 'import time; time.sleep(30)',
+			timeout_s: 60,
+		});
+		await app.workbench.console.waitForExecutionStarted();
+
+		const interrupted = await agent.callTool('interrupt_session');
+		expect(interrupted.isError).not.toBe(true);
+
+		// The interrupted cell ends in an error, and the console goes idle.
+		expect((await running).isError).toBe(true);
+		await app.workbench.console.waitForExecutionComplete();
+	});
+
+	test('Python - An agent can look at the current plot', async function ({ app, python }) {
+		const agent = await connectAgent(app);
+
+		const drawn = await agent.callTool('execute_code', {
+			code: 'import matplotlib.pyplot as plt\nplt.plot([1, 2, 3])\nplt.show()',
+		});
+		expect(drawn.isError).not.toBe(true);
+		await app.workbench.plots.waitForCurrentPlot();
+
+		const plot = await agent.callTool('get_plot');
+		expect(plot.isError).not.toBe(true);
+		expect(plot.content.find(block => block.type === 'image')?.mimeType).toMatch(/^image\//);
 	});
 
 	test('Python - Silent evaluation returns a value to the agent', async function ({ app, python }) {
@@ -88,12 +120,19 @@ test.describe('MCP Server', {
 		tag: [tags.ARK]
 	}, async function ({ app, r }) {
 		const agent = await connectAgent(app);
+		// The agent targets the foreground session, which Positron reports as
+		// the R console takes over from Python.
+		await expect(async () => {
+			const listed = await agent.callTool('list_sessions');
+			const sessions = listed.structuredContent?.sessions as { language: string; is_foreground: boolean }[];
+			expect(sessions.find(session => session.is_foreground)?.language).toBe('R');
+		}, 'R session in the foreground').toPass({ timeout: 15000 });
 
 		const result = await agent.callTool('execute_code', { code: 'cat("hello from R\\n")' });
 
 		expect(result.isError).not.toBe(true);
 		expect(toolResultText(result)).toContain('hello from R');
-		await app.workbench.console.waitForConsoleContents('hello from R');
+		await app.workbench.console.waitForConsoleContents('hello from R', { exact: true });
 	});
 
 	test('Positron commands are searchable and runnable', async function ({ app, python }) {

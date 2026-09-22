@@ -533,7 +533,7 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 		throw new Error('Method not implemented.');
 	}
 
-	execute(_code: string, _id: string, _mode: any, _errorBehavior: any): Promise<void> {
+	execute(_code: string, _id: string, _mode: any, _errorBehavior: any): void {
 		throw new Error('Method not implemented.');
 	}
 

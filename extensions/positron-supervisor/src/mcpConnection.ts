@@ -17,7 +17,7 @@ export const MCP_URL_ENV_VAR = 'POSITRON_MCP_URL';
 export const MCP_TOKEN_ENV_VAR = 'POSITRON_MCP_TOKEN';
 
 /** The version stamped into the files below, so a reader can tell the shape. */
-export const MCP_DESCRIPTOR_VERSION = 1;
+const MCP_DESCRIPTOR_VERSION = 1;
 
 /** A live MCP registration: everything an agent needs in order to connect. */
 export interface McpConnection {
@@ -44,25 +44,8 @@ export interface McpConnection {
 }
 
 /**
- * An MCP server as a client's configuration file spells it, in the shape
- * [SEP-2633](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2633)
- * proposes for `mcp.json`.
- */
-export interface McpServerConfig {
-	title: string;
-	type: 'streamable-http';
-	url: string;
-	headers: Record<string, string>;
-}
-
-/**
- * The connection descriptor written for a registered workspace: the endpoint
- * and credential in every form a client is likely to ask for.
- *
- * The flat fields are for anything reading this file directly -- a wrapper
- * script, a proxy, a harness Positron has never heard of -- and {@link
- * mcpServers} is for anything that wants a client configuration, which it can
- * be converted into by renaming keys rather than by understanding Positron.
+ * The connection descriptor written for a registered workspace: its endpoint
+ * and credential, for the stdio bridge and anything else that reads it.
  */
 export interface McpConnectionDescriptor {
 	version: number;
@@ -71,22 +54,28 @@ export interface McpConnectionDescriptor {
 	port: number;
 	url: string;
 	token: string;
-	headers: Record<string, string>;
 	folders: string[];
-	mcpServers: Record<string, McpServerConfig>;
+
+	/**
+	 * When a window of the workspace last registered or took focus, as an ISO
+	 * 8601 UTC timestamp, which sorts chronologically as text.
+	 */
+	lastActive: string;
 }
 
 /** One workspace as the index lists it. */
 export interface McpIndexEntry {
-	displayName: string;
-	port: number;
-	url: string;
-
 	/** The descriptor holding this workspace's token. */
 	descriptor: string;
 
 	/** The workspace's folders, so a reader can find it by directory. */
 	folders: string[];
+
+	/**
+	 * When the workspace was last active, so a reader can prefer the one the
+	 * user is working in when two list the same folder.
+	 */
+	lastActive: string;
 }
 
 /**
@@ -108,7 +97,7 @@ export interface McpConnectionIndex {
  * @param connection The live registration.
  * @returns The descriptor to write.
  */
-export function connectionDescriptor(connection: McpConnection): McpConnectionDescriptor {
+function connectionDescriptor(connection: McpConnection): McpConnectionDescriptor {
 	return {
 		version: MCP_DESCRIPTOR_VERSION,
 		workspaceId: connection.workspaceId,
@@ -116,20 +105,8 @@ export function connectionDescriptor(connection: McpConnection): McpConnectionDe
 		port: connection.port,
 		url: connection.url,
 		token: connection.token,
-		headers: authorizationHeader(connection.token),
 		folders: connection.folders,
-		mcpServers: {
-			[MCP_SERVER_NAME]: {
-				title: 'Positron',
-				type: 'streamable-http',
-				url: connection.url,
-				// The one field that is interpolated rather than resolved, so
-				// this block can be copied into a configuration that is
-				// committed or shared. A reader that has no environment to
-				// expand it from uses `headers` above instead.
-				headers: { Authorization: `Bearer \${env:${MCP_TOKEN_ENV_VAR}}` },
-			},
-		},
+		lastActive: new Date().toISOString(),
 	};
 }
 
@@ -167,7 +144,8 @@ export function mcpDescriptorPath(storageUri: vscode.Uri, workspaceId: string): 
 
 /**
  * Write everything a registration publishes to disk: the workspace's
- * descriptor and the index that leads to it.
+ * descriptor and the index that leads to it. Writing marks the workspace as
+ * the most recently active.
  *
  * Kept in the extension's global storage rather than beside the workspace,
  * where it would be committed, and owner-only, since the descriptor holds a
@@ -198,11 +176,6 @@ export async function removeConnectionFiles(
 ): Promise<void> {
 	await fs.rm(mcpDescriptorPath(storageUri, connection.workspaceId), { force: true });
 	await writeIndex(storageUri);
-}
-
-/** The header an agent presents. */
-function authorizationHeader(token: string): Record<string, string> {
-	return { Authorization: `Bearer ${token}` };
 }
 
 /** Where the per-workspace descriptors live. */
@@ -246,11 +219,9 @@ async function writeIndex(storageUri: vscode.Uri): Promise<void> {
 			const descriptor: McpConnectionDescriptor =
 				JSON.parse(await fs.readFile(descriptorPath, 'utf8'));
 			workspaces[descriptor.workspaceId] = {
-				displayName: descriptor.displayName,
-				port: descriptor.port,
-				url: descriptor.url,
 				descriptor: descriptorPath,
 				folders: descriptor.folders ?? [],
+				lastActive: descriptor.lastActive,
 			};
 		} catch {
 			// A descriptor we cannot read is left out rather than making the

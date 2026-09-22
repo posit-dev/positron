@@ -16,6 +16,7 @@ import { JupyterClearOutput } from './jupyter/JupyterClearOutput';
 import { JupyterErrorReply } from './jupyter/JupyterErrorReply';
 import { JupyterStreamOutput } from './jupyter/JupyterStreamOutput';
 import { KernelExecutionRequestedMessage } from './ws/KernelMessage.js';
+import { agentLabel } from './mcpClients.js';
 import { JupyterInputRequest } from './jupyter/JupyterInputRequest';
 import { createUniqueId, isEnumMember } from './util.js';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
@@ -194,7 +195,10 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 			attribution: {
 				source: positron.CodeAttributionSource.Agent,
 				metadata: {
-					agentName: data.attribution.agent_name,
+					// The Console labels the code with this, so it is the
+					// agent's proper name rather than the one it reports.
+					agentName: data.attribution.agent_name &&
+						agentLabel({ name: data.attribution.agent_name }),
 					agentVersion: data.attribution.agent_version,
 					tool: data.attribution.tool,
 				},

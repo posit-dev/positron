@@ -354,12 +354,6 @@ export interface McpWorkspace {
      */
     'url': string;
 }
-export interface McpWorkspaceCapabilities {
-    /**
-     * Whether the workspace\'s windows can broker Positron commands over their channels
-     */
-    'commands': boolean;
-}
 export interface McpWorkspaceRegistration {
     /**
      * A previously issued workspace ID. Omit to have the server generate one from the display name.
@@ -377,7 +371,6 @@ export interface McpWorkspaceRegistration {
      * A bearer token the server issued for this workspace before. Supplying it again keeps the token agents are configured with valid across a restart of the server, which holds no state of its own. Omit it to have the server issue one, and ignored unless it is well formed.
      */
     'token'?: string;
-    'capabilities'?: McpWorkspaceCapabilities;
 }
 export interface McpWorkspaceStatus {
     'id': string;

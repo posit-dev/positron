@@ -389,7 +389,7 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
-			return configureAgent(this._context, this._mcp.connection, () => this.mcpLaunch(), agentId);
+			return configureAgent(this._context, () => this.mcpLaunch(), agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the

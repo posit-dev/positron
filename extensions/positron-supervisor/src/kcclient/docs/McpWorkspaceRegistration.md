@@ -9,7 +9,6 @@ Name | Type | Description | Notes
 **display_name** | **string** | A human-readable name for the workspace, normally the folder the user has open. Shown in logs and status, and used to build the workspace ID. | [default to undefined]
 **preferred_port** | **number** | The TCP port the MCP listener should bind. Used only when the listener isn\&#39;t running yet, and ignored when the port is unavailable. | [optional] [default to undefined]
 **token** | **string** | A bearer token the server issued for this workspace before. Supplying it again keeps the token agents are configured with valid across a restart of the server, which holds no state of its own. Omit it to have the server issue one, and ignored unless it is well formed. | [optional] [default to undefined]
-**capabilities** | [**McpWorkspaceCapabilities**](McpWorkspaceCapabilities.md) |  | [optional] [default to undefined]
 
 ## Example
 
@@ -21,7 +20,6 @@ const instance: McpWorkspaceRegistration = {
     display_name,
     preferred_port,
     token,
-    capabilities,
 };
 ```
 

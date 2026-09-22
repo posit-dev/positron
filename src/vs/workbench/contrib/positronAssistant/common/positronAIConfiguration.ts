@@ -10,7 +10,7 @@ import {
 	IConfigurationRegistry,
 } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { AI_ENABLED_KEY, MCP_ENABLED_KEY, MCP_PORT_KEY, MCP_STATUS_BAR_KEY, NEW_PROVIDER_MODAL_KEY } from './positronAIConfigurationKeys.js';
+import { AI_ENABLED_KEY, MCP_ENABLED_KEY, MCP_STATUS_BAR_KEY, NEW_PROVIDER_MODAL_KEY } from './positronAIConfigurationKeys.js';
 
 // Re-exported so existing importers do not have to move. New callers outside
 // the workbench (e.g. the extension host) should import the keys module
@@ -48,18 +48,6 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.ai.mcp.enabled',
 				"Let external coding agents run code in this window's Python and R sessions, and run Positron commands, through the kernel supervisor's MCP server. The server listens on the loopback interface only, and agents must present a token that Positron publishes into its integrated terminals. Chat extensions running in this window find the server on their own, as does Claude Code in each workspace you open; for other agents, run the _Add to_ commands. Turning this off takes Positron back out of the agent configurations it wrote."
-			),
-			scope: ConfigurationScope.WINDOW,
-			tags: ['experimental'],
-		},
-		[MCP_PORT_KEY]: {
-			type: 'number',
-			default: 0,
-			minimum: 0,
-			maximum: 65535,
-			markdownDescription: localize(
-				'positron.ai.mcp.port',
-				"The port the MCP server listens on. Leave at `0` to reuse the last port used, or pick a free one. Set a fixed port when an agent's configuration needs a stable URL."
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],

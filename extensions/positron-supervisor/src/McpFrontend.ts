@@ -28,9 +28,6 @@ export const AI_ENABLED_KEY = 'ai.enabled';
 /** Whether this window offers its sessions and commands to external agents. */
 export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
 
-/** The port the MCP listener should prefer, or 0 to let the server choose. */
-export const MCP_PORT_KEY = 'ai.mcp.port';
-
 /** Whether the status bar shows the connected coding agents. */
 export const MCP_STATUS_BAR_KEY = 'ai.mcp.statusBar';
 
@@ -56,7 +53,10 @@ export interface McpFrontendState {
 	 */
 	workspaceId?: string;
 
-	/** The port the listener was last bound to. */
+	/**
+	 * The port the listener was last bound to, asked for again so that a
+	 * hand-configured agent's URL survives a supervisor restart.
+	 */
 	port?: number;
 
 	/**
@@ -190,13 +190,17 @@ export class McpFrontend implements vscode.Disposable {
 	) {
 		this._disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
 			if (event.affectsConfiguration(AI_ENABLED_KEY) ||
-				event.affectsConfiguration(MCP_ENABLED_KEY) ||
-				event.affectsConfiguration(MCP_PORT_KEY)) {
+				event.affectsConfiguration(MCP_ENABLED_KEY)) {
 				this.sync();
 			}
 		}));
 		this._disposables.push(vscode.workspace.onDidChangeWorkspaceFolders(() =>
-			this.updateFolders()));
+			this.updateConnectionFiles()));
+		this._disposables.push(vscode.window.onDidChangeWindowState(state => {
+			if (state.focused) {
+				this.updateConnectionFiles();
+			}
+		}));
 	}
 
 	/**
@@ -337,30 +341,14 @@ export class McpFrontend implements vscode.Disposable {
 	/**
 	 * Replace the current registration and announce it.
 	 *
-	 * Compares tokens so that a re-registration that recovers the same identity
-	 * -- reconnecting to the supervisor we were already registered with -- does
-	 * not look like a change to anyone following the endpoint.
-	 *
 	 * @param connection The new registration, or undefined when giving one up.
 	 */
 	private setConnection(connection: McpConnection | undefined): void {
-		if (this._connection?.token === connection?.token) {
+		if (this._connection === connection) {
 			return;
 		}
 		this._connection = connection;
 		this._onDidChangeConnection.fire();
-	}
-
-	/**
-	 * The port to ask the supervisor for, so an agent's configured URL stays
-	 * valid across restarts. An explicit setting wins; otherwise we ask for the
-	 * port we were last given.
-	 *
-	 * @param saved The state left by the previous registration.
-	 */
-	private preferredPort(saved: McpFrontendState): number | undefined {
-		const configured = vscode.workspace.getConfiguration().get<number>(MCP_PORT_KEY);
-		return configured || saved.port;
 	}
 
 	/** The body of {@link sync}, run one at a time. */
@@ -372,16 +360,9 @@ export class McpFrontend implements vscode.Disposable {
 			await this.deregister();
 			return;
 		}
-		if (this._connection) {
-			const configured = vscode.workspace.getConfiguration().get<number>(MCP_PORT_KEY);
-			if (!configured || configured === this._connection.port) {
-				return;
-			}
-			// The user asked for a port we are not listening on, so give the
-			// registration up and take a new one at the port they named.
-			await this.deregister();
+		if (!this._connection) {
+			await this.register();
 		}
-		await this.register();
 	}
 
 	/**
@@ -397,13 +378,12 @@ export class McpFrontend implements vscode.Disposable {
 		const response = await this._api!.registerMcpWorkspace({
 			workspace_id: saved.workspaceId,
 			display_name: displayName,
-			preferred_port: this.preferredPort(saved),
+			preferred_port: saved.port,
 			// Asking to keep the token we already have is what makes the
 			// endpoint's credential survive a supervisor restart. A server too
 			// old to understand the field, or one that finds it malformed,
 			// issues a token of its own and we adopt that instead.
 			token: saved.token,
-			capabilities: { commands: true },
 		});
 
 		const { workspace_id: workspaceId, token, port, url } = response.data;
@@ -421,9 +401,11 @@ export class McpFrontend implements vscode.Disposable {
 
 	/**
 	 * Republish the connection files when folders are added to or removed from
-	 * the workspace, since the stdio bridge finds a workspace by its folders.
+	 * the workspace, since the stdio bridge finds a workspace by its folders,
+	 * and when the window takes focus, since the bridge prefers the workspace
+	 * used most recently when two list the same folder.
 	 */
-	private async updateFolders(): Promise<void> {
+	private async updateConnectionFiles(): Promise<void> {
 		if (!this._connection) {
 			return;
 		}

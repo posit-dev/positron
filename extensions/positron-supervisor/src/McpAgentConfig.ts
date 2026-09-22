@@ -20,15 +20,14 @@ import {
 	mergeAgentConfig,
 	unmergeAgentConfig,
 } from './McpAgents';
-import { AI_ENABLED_KEY, MCP_ENABLED_KEY } from './McpFrontend';
-import { McpConnection } from './mcpConnection';
+import { AI_ENABLED_KEY, MCP_ENABLED_KEY, mcpFeatureEnabled } from './McpFrontend';
 import { summarizeError } from './util';
 
 /** Runs a command without a shell, rejecting on a non-zero exit. */
 const execFileAsync = promisify(execFile);
 
 /** Where the MCP server is documented. */
-export const MCP_DOCS_URL = 'https://positron.posit.co/mcp-server';
+const MCP_DOCS_URL = 'https://positron.posit.co/mcp-server';
 
 /** Command that adds the server to a coding agent's configuration. */
 export const CONFIGURE_AGENT_COMMAND = 'positron.mcp.configureAgent';
@@ -79,19 +78,16 @@ interface InstallResult {
  * entry.
  *
  * @param context The extension context, which remembers what we configure.
- * @param connection The live MCP registration, or undefined when the feature
- *  is off.
  * @param launch The command line that starts the bridge.
  * @param agentId The harness to configure. Omitted when the user ran the
  *  command from the palette, in which case they are asked to pick one.
  */
 export async function configureAgent(
 	context: vscode.ExtensionContext,
-	connection: McpConnection | undefined,
 	launch: () => McpLaunch,
 	agentId?: string,
 ): Promise<void> {
-	if (!connection) {
+	if (!mcpFeatureEnabled()) {
 		await warnNotRunning();
 		return;
 	}
@@ -280,7 +276,7 @@ export async function removeConfiguredAgents(
  * @param agent The harness to look for.
  * @returns True when the CLI is on the path or the extension is present.
  */
-export function detectAgent(agent: McpAgent): boolean {
+function detectAgent(agent: McpAgent): boolean {
 	const { executable, extensionId } = agent.detect;
 	return (!!executable && !!resolveOnPath(executable)) ||
 		(!!extensionId && !!vscode.extensions.getExtension(extensionId));
@@ -370,7 +366,7 @@ function sameLaunch(a: McpLaunch | undefined, b: McpLaunch): boolean {
 async function installAgent(agent: McpAgent, launch: McpLaunch): Promise<InstallResult> {
 	return agent.install.kind === 'cli'
 		? installViaCli(agent, agent.install, launch)
-		: installViaFile(agent, agent.install, launch);
+		: installViaFile(agent.install, launch);
 }
 
 /** Add the entry by running the harness's CLI. */
@@ -407,17 +403,10 @@ async function installViaCli(
 
 /** Add the entry by editing the harness's configuration file. */
 async function installViaFile(
-	agent: McpAgent,
 	install: McpFileInstall,
 	launch: McpLaunch,
 ): Promise<InstallResult> {
 	const target = agentConfigUri(install);
-	if (!target) {
-		throw new Error(vscode.l10n.t(
-			"Open a folder before adding Positron to {0}; the configuration is written into the workspace.",
-			agent.label));
-	}
-
 	const existing = await readFileIfPresent(target);
 	let contents: string;
 	try {
@@ -431,12 +420,7 @@ async function installViaFile(
 	}
 	await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(contents));
 
-	return {
-		description: install.scope === 'workspace'
-			? vscode.workspace.asRelativePath(target)
-			: target.fsPath,
-		file: target,
-	};
+	return { description: target.fsPath, file: target };
 }
 
 /**
@@ -466,8 +450,8 @@ async function uninstallAgent(agent: McpAgent): Promise<void> {
 	}
 
 	const target = agentConfigUri(agent.install);
-	const existing = target && await readFileIfPresent(target);
-	if (!target || existing === undefined) {
+	const existing = await readFileIfPresent(target);
+	if (existing === undefined) {
 		return;
 	}
 	const contents = unmergeAgentConfig(agent.install, existing);
@@ -556,16 +540,10 @@ function recordConfiguredAgent(
  * The file a harness's row points at.
  *
  * @param install The file install being written.
- * @returns The file, or undefined when a workspace-scoped harness has no
- *  workspace to write into.
+ * @returns The file.
  */
-function agentConfigUri(install: McpFileInstall): vscode.Uri | undefined {
-	const segments = install.configPath();
-	if (install.scope === 'global') {
-		return vscode.Uri.file(path.join(...segments));
-	}
-	const folder = fileWorkspaceFolder();
-	return folder && vscode.Uri.joinPath(folder, ...segments);
+function agentConfigUri(install: McpFileInstall): vscode.Uri {
+	return vscode.Uri.file(path.join(...install.configPath()));
 }
 
 /**
