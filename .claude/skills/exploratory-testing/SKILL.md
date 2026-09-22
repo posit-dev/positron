@@ -81,19 +81,58 @@ report file outright ("Subagents should return findings as text, not write
 report files"), and because the report is the deliverable, that guard costs the
 run its entire output.
 
-The report, in this order:
+Outcome first, evidence second, execution detail last. A reviewer who reads
+only the title block, the findings table, and Coverage should know where the
+change stands.
 
-1. Title, then a triage table with one line per finding.
-2. The findings, worst first.
-3. "Verified working": what you exercised and found correct. It is what stops
-   the next session re-litigating it. A line reporting that something did
-   *not* happen must say which surface you checked and when, and each such
-   claim stands alone: do not combine several into a rate.
-4. "Dropped": threads you abandoned, and why. Every surface named on the
-   "Not reached" line appears here with its reason.
-5. "Run setup": branch under test, how the app was launched, scaffolding you
-   created and removed, local noise you ignored. It goes last because nobody
-   needs it until they try to reproduce something.
+The shape, and only this shape:
+
+```
+# Exploratory test: <what you tested>
+
+`<branch>` | `<short sha>`
+
+**Result:** <one or two sentences>
+**Not exercised:** <surfaces the change touches that you did not reach, or `none`>
+
+## Findings
+
+<the table, then one `### N. <claim>` block per finding, worst first>
+
+## Coverage
+
+### Verified
+### Not exercised
+
+## Run details
+
+### Change under test
+### Environment
+### State manipulation
+### Branch verification
+```
+
+One `#` heading, and it is the report. `Result` and `Not exercised` are bold
+labels on their own lines rather than headings, because two sentences do not
+need a section competing with `## Findings`.
+
+Write both lines every time. `**Not exercised:** none` is a claim that you
+reached everything the change touches, and making you write it is the point: a
+reader who sees a low finding count cannot otherwise tell a clean run from one
+that never rendered the feature. Each surface named there reappears under
+Coverage with the reason it was out of reach.
+
+`## Coverage` holds what you exercised and what you did not. Under `Verified`,
+what you found correct, which is what stops the next session re-litigating it;
+a line reporting that something did *not* happen must say which surface you
+checked and when, and each such claim stands alone rather than being folded
+into a rate. Under `Not exercised`, both the surfaces you could not reach and
+the threads you abandoned, each with its reason.
+
+`## Run details` goes last because nobody needs it until they try to reproduce
+something: the branch and how you proved the build matches it, how the app was
+launched and which instances you started, the state you manufactured and
+restored, and the local noise you ignored.
 
 Return a two or three line summary and nothing else; the report is the
 deliverable. Lead with how many findings the change under test introduced. Any
@@ -103,20 +142,8 @@ must agree with the blocks.
 ```
 | # | Finding | Severity | Impact | Introduced? | Reproduction |
 |---|---------|----------|--------|-------------|--------------|
-| 1 | <short claim> | major | <the user consequence, in a phrase> | yes | 3 of 3 |
+| 1 | <short claim> | major | <the user consequence, in a phrase> | yes | 3/3 |
 ```
-
-Directly under the table, before the findings, say what you never got to:
-
-```
-**Not reached:** <surfaces the change touches that you did not exercise, and why>
-```
-
-An empty table means the change is clean only when that line is empty too. A
-run that found nothing and a run that never reached the feature produce the
-same count, and the reader cannot tell them apart from the bottom of the
-report, so put the difference where the count is. Name the same surfaces again
-under "Dropped" with the detail.
 
 Each column answers one question and nothing else.
 
@@ -146,7 +173,7 @@ existing defect, or shifts timing so an existing race now fires. It is not a
 hedge. You have read the diff by this point, so writing `unclear` over code you
 watched arrive hands the author a reason to skip the finding.
 
-`Reproduction` is how often you saw it, `<N> of <M>`, matching the finding block.
+`Reproduction` is how often you saw it, `<N>/<M>`, matching the finding block.
 
 There is no tag for a regression any more. When behavior that used to work is
 now broken, put it in the claim itself -- "X no longer Y" -- because that is
@@ -164,9 +191,9 @@ setup. Keep the claim under about twelve words.
 Use this block for every finding; do not substitute a schema of your own.
 
 ```
-## Finding N: <one-line claim>
+### N. <concise claim>
 
-<confirmed | unproven> | reproduced <N> of <M> attempts | Introduced: <yes | no | unclear>
+> **Confirmed** | Reproduced **<N>/<M>** | **Introduced by this change**
 
 <Two sentences a reader can follow without knowing the code: what they hit,
 and why it matters. Symbol names belong under Cause, not here.>
@@ -193,11 +220,17 @@ Write "shipped defaults" when it needs none.>
 the code pointers>
 ```
 
-Always give the rate, even when it is 5 of 5. "Every time" and "one time in
-three" are different bugs to whoever picks this up, and `confirmed` alone does
-not separate them. `unproven` means you saw it but could not reproduce it, which
-is 0 of M. Whether the change introduced it is a separate axis and sits
-beside the tag; do not fold the two together.
+The heading carries a short claim, not the whole defect: the body is there to
+explain it. The line under it is a status strip, and a blockquote so it reads
+as metadata rather than sinking into the prose. Its third slot is
+`**Introduced by this change**`, `**Pre-existing**`, or `**Origin unclear**`,
+matching the table's `Introduced?` without repeating its wording.
+
+Always give the rate, even when it is 5/5. "Every time" and "one time in three"
+are different bugs to whoever picks this up, and `Confirmed` alone does not
+separate them. `Unproven` means you saw it but could not reproduce it, which is
+0/M. Whether the change introduced it is a separate axis and sits beside the
+tag; do not fold the two together.
 
 Keep the blank lines; they are part of the format. Labels packed together with
 no blank line between them render as one run-on paragraph, and a step indented
