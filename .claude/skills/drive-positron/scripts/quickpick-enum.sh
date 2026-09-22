@@ -45,6 +45,13 @@
 
 set -u
 
+# Call the repo's playwright-cli directly: npx resolves the same package but
+# costs about a second per invocation. Located from this script, not from $PWD.
+PW_CLI=("$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)/node_modules/.bin/playwright-cli")
+if [[ ! -x "${PW_CLI[0]}" ]]; then
+	PW_CLI=(npx @playwright/cli)
+fi
+
 MAX=500
 JSON=0
 PW_SESSION_OVERRIDE=""
@@ -200,7 +207,7 @@ JSEOF
 )
 JS="${JS//__MAX__/$MAX}"
 
-RAW=$(npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} eval "$JS" 2>&1) || {
+RAW=$("${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} eval "$JS" 2>&1) || {
 	echo "quickpick-enum.sh: @playwright/cli eval failed" >&2
 	echo "$RAW" >&2
 	exit 1
