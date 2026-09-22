@@ -109,12 +109,15 @@ The shape, and only this shape:
 
 | Scenario | Reason |
 
-## Run details
+<details>
+<summary>Run details</summary>
 
 ### Change under test
 ### Environment
 ### State manipulation
 ### Branch verification
+
+</details>
 ```
 
 One `#` heading, and it is the report. `Result` and `Not exercised` are bold
@@ -171,10 +174,16 @@ rather than crushing it into `Reason`.
 > **Follow-up:** <what is worth checking, and why this run could not>
 ```
 
-`## Run details` goes last because nobody needs it until they try to reproduce
+Run details goes last because nobody needs it until they try to reproduce
 something: the branch and how you proved the build matches it, how the app was
 launched and which instances you started, the state you manufactured and
 restored, and the local noise you ignored.
+
+It is the one section that collapses. Wrap it in `<details>` with a `Run
+details` summary, and keep a blank line after `<summary>` and before
+`</details>` or the markdown inside renders as literal text. Nothing else
+collapses: a finding's body is the evidence its table row is asking you to
+believe, and evidence behind a click gets read as an assertion.
 
 Return a two or three line summary and nothing else; the report is the
 deliverable. Lead with how many findings the change under test introduced. Any
