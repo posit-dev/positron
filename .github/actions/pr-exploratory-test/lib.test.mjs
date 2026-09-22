@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -179,4 +179,25 @@ test('hasFindings distinguishes a populated table from an empty one', () => {
 		'| - | none | - |',
 	].join('\n')), false);
 	assert.equal(hasFindings(null), false);
+});
+
+test('parseGate reads a bail-out with its blocker', () => {
+	const g = parseGate('prose\nGATE: NOT TESTABLE - the server side is unreleased (kallichore#77)\nmore');
+	assert.equal(g.testable, false);
+	assert.match(g.reason, /unreleased/);
+});
+
+test('parseGate reads a pass', () => {
+	assert.equal(parseGate('GATE: TESTABLE').testable, true);
+});
+
+test('parseGate refuses a bail-out with no stated blocker', () => {
+	assert.equal(parseGate('GATE: NOT TESTABLE'), null);
+	assert.equal(parseGate('GATE: NOT TESTABLE -   '), null);
+});
+
+test('parseGate returns null when it cannot tell, so the run proceeds', () => {
+	assert.equal(parseGate('no gate line'), null);
+	assert.equal(parseGate('GATE: maybe?'), null);
+	assert.equal(parseGate(null), null);
 });

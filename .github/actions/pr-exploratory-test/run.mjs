@@ -9,7 +9,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings } from './lib.mjs';
+import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -26,6 +26,9 @@ const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
 const VERIFY_MODEL = process.env.VERIFY_MODEL || 'sonnet';
 const VERIFY_MAX_TURNS = parsePosIntEnv('VERIFY_MAX_TURNS', 60, process.env.VERIFY_MAX_TURNS);
 const VERIFY_ENABLED = process.env.VERIFY !== 'false';
+const GATE_MODEL = process.env.GATE_MODEL || 'sonnet';
+const GATE_MAX_TURNS = parsePosIntEnv('GATE_MAX_TURNS', 30, process.env.GATE_MAX_TURNS);
+const GATE_ENABLED = process.env.GATE !== 'false';
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
@@ -105,6 +108,67 @@ Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full comman
 `;
 
 /**
+ * Decides, before the expensive run, whether this change can be exercised here.
+ *
+ * Bails only on a blocker it can name: a dependency that is not released, a
+ * code path this platform never runs, a diff with nothing user-visible in it.
+ * Awkward is not the same as impossible -- a cached probe or a binary on PATH
+ * is the job, and a run that talked itself out of that found nothing at all.
+ *
+ * Fails open. An unparseable answer, a missing line, or a thrown error all mean
+ * explore anyway: a gate whose own bugs skip runs is worse than no gate.
+ */
+async function gateChange() {
+	const prompt = [
+		'Decide whether a change is worth exploratory testing in this environment, and answer in one line.',
+		'',
+		`Repository: \`${REPO_ROOT}\`. See the change with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA}\` and its commit messages with \`git -C ${REPO_ROOT} log ${BASE_SHA}..${HEAD_SHA}\`.`,
+		'',
+		'This runs in a Linux container with a built Positron, Python and R available, and no network restrictions. There is no Windows, no macOS, and no access to external services that are not already reachable.',
+		'',
+		'Answer NOT TESTABLE only when you can name the blocker:',
+		'- a dependency the change needs is not released or not pinned here, so the new behavior cannot run;',
+		'- the changed code path only runs on a platform this container is not;',
+		'- the diff changes nothing a user can observe (a refactor, a comment, tests or docs only).',
+		'',
+		'Awkward is not the same as impossible. A tool that has to be removed, a cache that has to be cleared, a window that has to be reloaded, a host that has to be blocked: that is the work, not a reason to decline it. If you are unsure, answer TESTABLE.',
+		'',
+		'Reply with exactly one line and nothing else:',
+		'',
+		'GATE: TESTABLE',
+		'',
+		'or',
+		'',
+		'GATE: NOT TESTABLE - <the blocker, in one sentence>',
+	].join('\n');
+
+	const chunks = [];
+	for await (const message of query({
+		prompt,
+		options: {
+			model: GATE_MODEL,
+			cwd: REPO_ROOT,
+			allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
+			maxTurns: GATE_MAX_TURNS,
+			thinking: { type: 'disabled' },
+			stderr: data => process.stderr.write(`[gate stderr] ${data}`),
+			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
+		},
+	})) {
+		if (message.type === 'assistant') {
+			const text = (message.message?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+			if (text) {
+				chunks.push(text);
+			}
+		} else if (message.type === 'result') {
+			console.log(`[gate] result: ${JSON.stringify(buildCostRecord(message))}`);
+			writeFileSync(join(WORK_DIR, 'gate-cost.json'), JSON.stringify(buildCostRecord(message), null, 2));
+		}
+	}
+	return parseGate(chunks.join('\n'));
+}
+
+/**
  * Re-reads the finished report with a fresh agent that never drove the app.
  *
  * The reporting agent cannot audit itself: one run wrote "shipped defaults" on
@@ -179,6 +243,34 @@ async function verifyReport(report) {
 
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
+
+	if (GATE_ENABLED) {
+		let gate = null;
+		try {
+			gate = await gateChange();
+		} catch (err) {
+			// Fail open: a broken gate must not cost a legitimate run.
+			console.error(`[gate] failed, exploring anyway: ${err}`);
+		}
+		if (gate && !gate.testable) {
+			const skipped = [
+				`# Exploratory test: not run`,
+				'',
+				`\`${BRANCH}\` | \`${HEAD_SHA.slice(0, 10)}\``,
+				'',
+				`**Not tested:** ${gate.reason}`,
+				'',
+				'A cheap pass read the diff before exploring and found nothing it could exercise here. Re-run with `GATE=false` to explore anyway.',
+				'',
+			].join('\n');
+			writeFileSync(join(WORK_DIR, 'report.md'), skipped);
+			if (STEP_SUMMARY) {
+				appendFileSync(STEP_SUMMARY, skipped);
+			}
+			console.log(skipped);
+			return;
+		}
+	}
 
 	const systemPrompt = readFileSync(SKILL_PATH, 'utf8') + CI_TAIL;
 

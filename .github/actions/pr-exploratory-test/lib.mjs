@@ -174,3 +174,32 @@ export function hasFindings(report) {
 	}
 	return false;
 }
+
+/**
+ * Parses the gate agent's machine-readable line.
+ *
+ * Expects `GATE: TESTABLE` or `GATE: NOT TESTABLE - <reason>`.
+ *
+ * Returns null when the line is absent or unparseable, which callers treat as
+ * "explore anyway". A gate that fails closed would turn its own bugs into
+ * silently skipped runs.
+ */
+export function parseGate(text) {
+	if (typeof text !== 'string') {
+		return null;
+	}
+	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('GATE:'));
+	if (!line) {
+		return null;
+	}
+	const rest = line.slice(line.indexOf(':') + 1).trim();
+	if (/^NOT\s+TESTABLE/i.test(rest)) {
+		const reason = rest.replace(/^NOT\s+TESTABLE\s*[-:]?\s*/i, '').trim();
+		// A bail-out with no stated blocker is an excuse, not a decision.
+		return reason ? { testable: false, reason } : null;
+	}
+	if (/^TESTABLE/i.test(rest)) {
+		return { testable: true, reason: rest.replace(/^TESTABLE\s*[-:]?\s*/i, '').trim() };
+	}
+	return null;
+}
