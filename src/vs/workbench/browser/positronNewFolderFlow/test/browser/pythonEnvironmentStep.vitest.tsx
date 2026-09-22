@@ -91,16 +91,20 @@ describe('PythonEnvironmentStep uv install', () => {
 	 * stub is per-test because what the install resolves with is the variable under test.
 	 * @param ensureUvInstalled What the 'python.ensureUvInstalled' command resolves with.
 	 */
-	function renderUvStep(ensureUvInstalled: unknown) {
+	function renderUvStep(ensureUvInstalled: unknown, providers = [UV_PROVIDER]) {
 		let uvInstalled = false;
 		const executeCommand = vi.fn(async (commandId: string) => {
 			switch (commandId) {
 				case 'python.getCreateEnvironmentProviders':
-					return [UV_PROVIDER];
+					return providers;
 				case 'python.isUvInstalled':
 					return uvInstalled;
 				case 'python.getUvPythonVersions':
 					return { versions: ['3.13', '3.12'] };
+				case 'python.isCondaInstalled':
+					return true;
+				case 'python.getCondaPythonVersions':
+					return { preferred: '3.11', versions: ['3.11'] };
 				case 'python.ensureUvInstalled':
 					// The real command only reports ok once uv is on disk, so mirror that here.
 					uvInstalled = (ensureUvInstalled as { ok?: boolean })?.ok === true;
@@ -118,6 +122,17 @@ describe('PythonEnvironmentStep uv install', () => {
 	}
 
 	const installButton = () => screen.findByRole('button', { name: 'Install uv' });
+
+	/** Picks a provider from the Environment Creation dropdown by its name. */
+	async function selectProvider(user: ReturnType<typeof userEvent.setup>, name: string) {
+		// The dropdown is labelled with the provider it currently shows, whichever that is; the
+		// only other button in the sub step is "Install uv".
+		const dropdown = within(envCreationSubStep()).getByRole('button', { name: /environment$/ });
+		await user.click(dropdown);
+		// The popup entries have no role of their own, and their names repeat the descriptions
+		// already on the dropdown, so the title is what tells them apart.
+		await user.click(await screen.findByText(name, { selector: '.dropdown-entry-title' }));
+	}
 
 	it('offers to install uv, next to the provider that needs it, instead of dead-ending', async () => {
 		renderUvStep({ ok: true });
@@ -171,6 +186,22 @@ describe('PythonEnvironmentStep uv install', () => {
 		expect(await installButton()).toHaveAttribute('aria-disabled', 'true');
 
 		answerPrompt({ ok: false });
+	});
+
+	it('drops the failure message when the provider changes, since nothing was attempted there', async () => {
+		const user = userEvent.setup();
+		renderUvStep({ ok: false, error: 'Failed to install uv.' }, [UV_PROVIDER, CONDA_PROVIDER]);
+
+		await user.click(await installButton());
+		expect(await screen.findByText('Failed to install uv.')).toBeInTheDocument();
+
+		await selectProvider(user, 'Conda');
+		await selectProvider(user, 'uv');
+
+		// The message is left over from the previous visit, so it blames this one for a failure
+		// it never had, and hides the real state: uv is simply not installed.
+		expect(await screen.findByText('uv is not installed')).toBeInTheDocument();
+		expect(screen.queryByText('Failed to install uv.')).not.toBeInTheDocument();
 	});
 
 	it('reports why the install failed', async () => {

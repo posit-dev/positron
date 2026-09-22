@@ -107,6 +107,13 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [envSetupType, envProviderId, envProviders, context]);
 
+	// Clear the install error when the provider or setup type changes. The error describes an
+	// attempt made for the provider selected at the time, so on any other selection it reports a
+	// failure that did not happen there.
+	useEffect(() => {
+		setUvInstallError(undefined);
+	}, [envProviderId, envSetupType]);
+
 	// Utility functions.
 	// At least one interpreter is available.
 	const interpretersAvailable = () => {
