@@ -47,9 +47,8 @@ export async function createUvVenv(
     progress.report({
         message: CreateEnv.Venv.creating,
     });
-    // Ask the probe where uv is instead of spawning the bare name. uv installed during this
-    // session sits in ~/.local/bin, which is not on the PATH the extension host was launched
-    // with, so the bare name fails with ENOENT on exactly the install this flow just performed.
+    // Not the bare name: a uv installed this session sits in ~/.local/bin, off the extension
+    // host's PATH, so spawning `uv` would ENOENT on the install this flow just performed.
     const command = await getUvCommand();
     if (command === undefined) {
         throw new Error('Could not find the uv executable. See Output > Python for more info.');

@@ -358,10 +358,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	// Construct the feedback message for the interpreter step.
 	const interpreterStepFeedback = () => {
 		if (!interpretersLoading() && !interpretersAvailable()) {
-			// A missing uv or conda is already reported next to the provider dropdown above, and the
-			// disabled dropdown below names the blocker. Checked before the new-environment branch,
-			// which returns unconditionally and would otherwise blame a missing provider instead.
-			if (context.usesUvEnv || context.usesCondaEnv) {
+			// Exactly what providerInstallWarning() already reports above. Checked before the
+			// new-environment branch, which returns unconditionally and would otherwise blame a
+			// missing provider instead.
+			if ((context.usesUvEnv && isUvInstalled === false) ||
+				(context.usesCondaEnv && isCondaInstalled === false)) {
 				return undefined;
 			}
 
