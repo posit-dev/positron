@@ -384,6 +384,7 @@ async function main() {
 		// Verification runs against report.md on disk, so it has to come after
 		// the fallback write above.
 		let verdicts = null;
+		let verifyFailed = false;
 		if (VERIFY_ENABLED && !hasFindings(report)) {
 			console.log('[verify] skipped: the report has no findings to verify');
 		} else if (VERIFY_ENABLED) {
@@ -393,6 +394,7 @@ async function main() {
 				// A failed verification must not cost the run its report. Say so
 				// in the summary rather than dropping it silently.
 				console.error(`[verify] failed: ${err}`);
+				verifyFailed = true;
 				verdicts = `_Verification did not complete: ${err}. The findings above are unreviewed._`;
 			}
 		}
@@ -401,8 +403,16 @@ async function main() {
 		// section below carries the reasoning. Annotation is best effort and
 		// never removes a row, because a wrong FALSE POSITIVE that deleted a
 		// real finding would be invisible to everyone.
+		// Collapsed, and last: the Verified column is what a reviewer reads, and
+		// this is the reasoning behind it. A failed pass stays open, because
+		// "these findings are unreviewed" is not a detail to hide behind a
+		// click. The blank lines around the markdown are load bearing.
+		const preamble = 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.';
+		const section = verifyFailed
+			? `## Verification\n\n${verdicts}\n`
+			: `<details>\n<summary>Verification details</summary>\n\n${preamble}\n\n${verdicts}\n\n</details>\n`;
 		const reviewed = verdicts
-			? `${annotateFindingsTable(report, parseVerdicts(verdicts))}\n\n## Verification\n\nA second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.\n\n${verdicts}\n`
+			? `${annotateFindingsTable(report, parseVerdicts(verdicts))}\n\n${section}`
 			: report;
 		if (verdicts) {
 			writeFileSync(join(WORK_DIR, 'report.md'), reviewed);
