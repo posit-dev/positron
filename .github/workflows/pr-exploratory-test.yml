@@ -16,8 +16,8 @@ on:
           - opus
           - sonnet
           - both
-      disable_gate:
-        description: "Explore even if the pre-flight pass judges the change untestable here"
+      enable_gate:
+        description: "Let a pre-flight pass decline the run when the change cannot be exercised here"
         required: false
         default: false
         type: boolean
@@ -244,7 +244,7 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
-          disable-gate: ${{ inputs.disable_gate || false }}
+          enable-gate: ${{ inputs.enable_gate || false }}
 
       - name: Stage publishable run directory
         if: always()

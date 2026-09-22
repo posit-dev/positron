@@ -39,8 +39,8 @@ inputs:
     description: "Public CDN base URL the run directory is published under"
     required: false
     default: ""
-  disable-gate:
-    description: "Explore even if the pre-flight pass judges the change untestable here"
+  enable-gate:
+    description: "Let a pre-flight pass decline the run when the change cannot be exercised here"
     required: false
     default: "false"
 runs:
@@ -91,5 +91,5 @@ runs:
         # absent: it defaults on, a job-level env var still reaches it for
         # debugging, and verification is what makes an unattended report worth
         # trusting, so it is not a dispatch-time choice.
-        GATE: ${{ inputs.disable-gate == 'true' && 'false' || 'true' }}
+        GATE: ${{ inputs.enable-gate }}
       run: node run.mjs

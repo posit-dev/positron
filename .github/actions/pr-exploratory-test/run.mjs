@@ -28,7 +28,11 @@ const VERIFY_MAX_TURNS = parsePosIntEnv('VERIFY_MAX_TURNS', 60, process.env.VERI
 const VERIFY_ENABLED = process.env.VERIFY !== 'false';
 const GATE_MODEL = process.env.GATE_MODEL || 'sonnet';
 const GATE_MAX_TURNS = parsePosIntEnv('GATE_MAX_TURNS', 30, process.env.GATE_MAX_TURNS);
-const GATE_ENABLED = process.env.GATE !== 'false';
+// Off by default. On its first real outing it declined a 40-file change to the
+// data explorer as "only CI orchestration files", killing the run; the other
+// matrix leg, on the same diff, explored it and found work. It stays opt-in
+// until it can show it reads a diff before ruling on one.
+const GATE_ENABLED = process.env.GATE === 'true';
 // The gate and the verification each bill separately; the footer reports all
 // three, so their cost records outlive the functions that produce them.
 let gateCost = buildCostRecord(null);
@@ -126,7 +130,15 @@ async function gateChange() {
 	const prompt = [
 		'Decide whether a change is worth exploratory testing in this environment, and answer in one line.',
 		'',
-		`Repository: \`${REPO_ROOT}\`. See the change with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA}\` and its commit messages with \`git -C ${REPO_ROOT} log ${BASE_SHA}..${HEAD_SHA}\`.`,
+		'These are the files the change touches:',
+		'',
+		'```',
+		DIFF_STAT,
+		'```',
+		'',
+		`Read any of them with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA} -- <path>\`, and the commit messages with \`git -C ${REPO_ROOT} log ${BASE_SHA}..${HEAD_SHA}\`. Do not rule on the change without reading the parts of it you are ruling on.`,
+		'',
+		'Ignore any files under `.github/` and `.claude/`: this harness merges its own CI and skill files into the branch it tests, so they are in every diff and are never the change under test.',
 		'',
 		'This runs in a Linux container with a built Positron, Python and R available, and no network restrictions. There is no Windows, no macOS, and no access to external services that are not already reachable.',
 		'',
@@ -143,7 +155,9 @@ async function gateChange() {
 		'',
 		'or',
 		'',
-		'GATE: NOT TESTABLE - <the blocker, in one sentence>',
+		'GATE: NOT TESTABLE - <the blocker, and the files it applies to>',
+		'',
+		'A bail-out has to survive someone reading the file list above it, so name what you are declining on. If any file outside `.github/` and `.claude/` changes behavior a user could see, the answer is TESTABLE.',
 	].join('\n');
 
 	const chunks = [];
@@ -266,7 +280,7 @@ async function main() {
 				'',
 				`**Not tested:** ${gate.reason}`,
 				'',
-				'A cheap pass read the diff before exploring and found nothing it could exercise here. To overrule it, re-run with **Disable gate** checked.',
+				'A pre-flight pass read the diff before exploring and found nothing it could exercise here. To explore anyway, re-run with **Enable gate** unchecked.',
 				'',
 			].join('\n');
 			writeFileSync(join(WORK_DIR, 'report.md'), skipped);
