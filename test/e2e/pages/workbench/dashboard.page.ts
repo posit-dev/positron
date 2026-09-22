@@ -310,7 +310,9 @@ export class DashboardPage {
 		}
 
 		// Wait for OAuth to complete and widget to reach its final state
-		// Use expect.toPass to handle the race between widget state updates
+		// Use expect.toPass to handle the race between widget state updates. The budget matches the
+		// Databricks flow above: after the Okta SAML round trip, Workbench still has to exchange the
+		// code for a token before the widget flips to Enabled, which took longer than 15s in CI.
 		await expect(async () => {
 			// Check if already enabled - if so, we're done
 			const isEnabled = await enabledWidget.isVisible().catch(() => false);
@@ -329,7 +331,7 @@ export class DashboardPage {
 
 			// Verify it's now enabled
 			await expect(enabledWidget).toBeVisible({ timeout: 2000 });
-		}).toPass({ timeout: 15000 });
+		}).toPass({ timeout: 30000 });
 
 		this.code.logger.log('Snowflake OAuth setup complete');
 	}
