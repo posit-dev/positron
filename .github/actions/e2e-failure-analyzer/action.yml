@@ -157,6 +157,12 @@ runs:
           mkdir -p "$OUT"
           echo "::group::Process e2e job $JOB_ID ($JOB_NAME) -> $DIR_NAME"
 
+          # Record which GH job produced this evidence bundle. analyze.mjs joins
+          # on it to attach the job's workflow-step outcomes (e.g. "Install R
+          # failed before the tests ran") to these specific test failures,
+          # instead of re-deriving the link from the sanitized directory name.
+          jq -n --arg id "$JOB_ID" --arg name "$JOB_NAME" '{id: ($id | tonumber), name: $name}' > "$OUT/job.json"
+
           # Resolve REPORT_DIR from the job's logs. The workflow logs both an
           # unresolved template line (REPORT_DIR="...-${IDENTIFIER}-${OS_SUFFIX}")
           # and the expanded value. Skip the template, capture the first concrete
