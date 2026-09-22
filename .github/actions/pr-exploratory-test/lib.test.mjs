@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -126,4 +126,46 @@ test('parsePosIntEnv falls back to the default for "0"', () => {
 
 test('parsePosIntEnv falls back to the default for a non-numeric string', () => {
 	assert.equal(parsePosIntEnv('MAX_TURNS', 200, 'abc'), 200);
+});
+
+const TABLE = [
+	'# Exploratory test: something',
+	'',
+	'## Findings',
+	'',
+	'| # | Finding | Severity | Impact | Introduced? | Reproduction |',
+	'|---|---------|----------|--------|-------------|--------------|',
+	'| 1 | first claim | major | blocks completion | yes | 3/3 |',
+	'| 2 | second claim | minor | cosmetic | yes | 2/2 |',
+	'',
+	'### 1. first claim',
+].join('\n');
+
+test('parseVerdicts reads the machine-readable line', () => {
+	const v = parseVerdicts('preamble\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nprose');
+	assert.equal(v.get(1), 'confirmed');
+	assert.equal(v.get(2), 'disputed');
+});
+
+test('parseVerdicts returns empty when the line is absent', () => {
+	assert.equal(parseVerdicts('no verdict line here').size, 0);
+	assert.equal(parseVerdicts(null).size, 0);
+});
+
+test('annotateFindingsTable adds a verdict per row', () => {
+	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE'));
+	assert.match(out, /\| # \| Finding \| Severity \| Impact \| Introduced\? \| Reproduction \| Verified \|/);
+	assert.match(out, /\| 1 \| first claim .* \| confirmed \|/);
+	assert.match(out, /\| 2 \| second claim .* \| disputed \|/);
+});
+
+test('annotateFindingsTable marks rows the verifier did not rule on', () => {
+	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED'));
+	assert.match(out, /\| 2 \| second claim .* \| - \|/);
+});
+
+test('annotateFindingsTable leaves a report it cannot parse untouched', () => {
+	const noTable = '# Report\n\n## Findings\n\nNo findings.\n';
+	assert.equal(annotateFindingsTable(noTable, parseVerdicts('VERDICTS: 1=CONFIRMED')), noTable);
+	assert.equal(annotateFindingsTable(TABLE, new Map()), TABLE);
 });

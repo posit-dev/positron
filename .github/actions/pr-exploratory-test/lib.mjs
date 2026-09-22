@@ -87,3 +87,64 @@ export function renderCostFooter(cost, maxTurns) {
 		: 'unknown duration';
 	return `_${dollars} | ${turns} | ${clock}_`;
 }
+
+/**
+ * Parses the verifier's machine-readable verdict line.
+ *
+ * Expects `VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE` anywhere in the text.
+ * Returns a Map of finding number to a short word for the table cell.
+ */
+export function parseVerdicts(text) {
+	const out = new Map();
+	if (typeof text !== 'string') {
+		return out;
+	}
+	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
+	if (!line) {
+		return out;
+	}
+	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
+		const m = part.trim().match(/^(\d+)\s*=\s*(.+)$/);
+		if (!m) {
+			continue;
+		}
+		const verdict = m[2].trim().toUpperCase();
+		const word = verdict.startsWith('CONFIRMED') ? 'confirmed'
+			: verdict.startsWith('FALSE') ? 'disputed'
+				: verdict.startsWith('UNRESOLVED') ? 'unresolved'
+					: null;
+		if (word) {
+			out.set(Number(m[1]), word);
+		}
+	}
+	return out;
+}
+
+/**
+ * Appends a `Verified` column to the findings table.
+ *
+ * Best effort by design: the table is written by an agent, and its shape has
+ * drifted before. Anything unexpected returns the report untouched so a
+ * cosmetic column can never cost the report its findings. The verdicts are
+ * appended in full below regardless, so nothing is lost when this bails.
+ */
+export function annotateFindingsTable(report, verdicts) {
+	if (typeof report !== 'string' || !(verdicts instanceof Map) || verdicts.size === 0) {
+		return report;
+	}
+	const lines = report.split('\n');
+	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
+	if (header === -1 || !/^\|[\s:|-]+\|$/.test(lines[header + 1] || '')) {
+		return report;
+	}
+	lines[header] = `${lines[header].replace(/\s*$/, '')} Verified |`;
+	lines[header + 1] = `${lines[header + 1].replace(/\s*$/, '')}---|`;
+	for (let i = header + 2; i < lines.length; i++) {
+		if (!lines[i].startsWith('|')) {
+			break;
+		}
+		const n = Number((lines[i].match(/^\|\s*(\d+)\s*\|/) || [])[1]);
+		lines[i] = `${lines[i].replace(/\s*$/, '')} ${verdicts.get(n) || '-'} |`;
+	}
+	return lines.join('\n');
+}

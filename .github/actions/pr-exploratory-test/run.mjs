@@ -9,7 +9,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv } from './lib.mjs';
+import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -136,7 +136,13 @@ async function verifyReport(report) {
 		'',
 		'Also flag any place where the report asserts a check it could not have performed as described.',
 		'',
-		'Return one short block per finding with the three answers and the verdict, then a one-line overall conclusion. Do not write any files.',
+		'Start your reply with a single machine-readable line, exactly this shape, one entry per finding in the table:',
+		'',
+		'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE',
+		'',
+		'It is read to annotate the findings table, so use only CONFIRMED, FALSE POSITIVE or UNRESOLVED, and number the findings as the table does.',
+		'',
+		'After that line, give one short block per finding with the three answers and the verdict, then a one-line overall conclusion. Do not write any files.',
 	].join('\n');
 
 	const chunks = [];
@@ -291,8 +297,12 @@ async function main() {
 			}
 		}
 
+		// The column is what a reviewer scanning the table actually sees; the
+		// section below carries the reasoning. Annotation is best effort and
+		// never removes a row, because a wrong FALSE POSITIVE that deleted a
+		// real finding would be invisible to everyone.
 		const reviewed = verdicts
-			? `${report}\n\n## Verification\n\nA second agent re-read this report with the repository but without driving the app. Advisory only: nothing above was changed.\n\n${verdicts}\n`
+			? `${annotateFindingsTable(report, parseVerdicts(verdicts))}\n\n## Verification\n\nA second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.\n\n${verdicts}\n`
 			: report;
 		if (verdicts) {
 			writeFileSync(join(WORK_DIR, 'report.md'), reviewed);
