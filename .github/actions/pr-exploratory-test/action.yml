@@ -39,6 +39,10 @@ inputs:
     description: "Public CDN base URL the run directory is published under"
     required: false
     default: ""
+  disable-gate:
+    description: "Explore even if the pre-flight pass judges the change untestable here"
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -82,4 +86,10 @@ runs:
         MODEL: ${{ inputs.model }}
         MAX_TURNS: ${{ inputs.max-turns }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}
+        # run.mjs reads GATE directly; without it here the gate can decline a
+        # run and leave the caller no way to overrule it. VERIFY is deliberately
+        # absent: it defaults on, a job-level env var still reaches it for
+        # debugging, and verification is what makes an unattended report worth
+        # trusting, so it is not a dispatch-time choice.
+        GATE: ${{ inputs.disable-gate == 'true' && 'false' || 'true' }}
       run: node run.mjs

@@ -266,7 +266,7 @@ async function main() {
 				'',
 				`**Not tested:** ${gate.reason}`,
 				'',
-				'A cheap pass read the diff before exploring and found nothing it could exercise here. Re-run with `GATE=false` to explore anyway.',
+				'A cheap pass read the diff before exploring and found nothing it could exercise here. To overrule it, re-run with **Disable gate** checked.',
 				'',
 			].join('\n');
 			writeFileSync(join(WORK_DIR, 'report.md'), skipped);

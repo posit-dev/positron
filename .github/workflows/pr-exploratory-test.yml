@@ -1,4 +1,4 @@
-name: "Test: Exploratory (dispatch)"
+name: "Test: Exploratory"
 
 on:
   workflow_dispatch:
@@ -16,6 +16,11 @@ on:
           - opus
           - sonnet
           - both
+      disable_gate:
+        description: "Explore even if the pre-flight pass judges the change untestable here"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -239,6 +244,7 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
+          disable-gate: ${{ inputs.disable_gate || false }}
 
       - name: Stage publishable run directory
         if: always()
