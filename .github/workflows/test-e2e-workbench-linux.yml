@@ -168,8 +168,13 @@ jobs:
           SNOWFLAKE_ACCOUNT: "op://Positron/Snowflake-WB-Auto/account"
           SNOWFLAKE_CLIENT_ID: "op://Positron/Snowflake-WB-Auto/client-id"
           SNOWFLAKE_CLIENT_SECRET: "op://Positron/Snowflake-WB-Auto/client-secret"
-          SNOWFLAKE_USERNAME: "op://Positron/Snowflake-WB-Auto/username"
-          SNOWFLAKE_PASSWORD: "op://Positron/Snowflake-WB-Auto/password"
+          # Login for the catalog-explorer Snowflake case, which writes them into a connections.toml.
+          # The password is a programmatic access token on the shared IDE service account (Snowflake
+          # retired the legacy SVC_WORKBENCH_TEST_USER on 2026-09-22). It expires 2027-09-22; rotate
+          # it in Snowflake and update the 1Password field. The Session Credentials widget itself
+          # signs in through Okta with the IDE_SERVICE_ACCOUNT_* values above.
+          SNOWFLAKE_USERNAME: "op://Positron/RStudioIDE_Service_Account/snowflake-login-name"
+          SNOWFLAKE_PASSWORD: "op://Positron/RStudioIDE_Service_Account/snowflake-pat"
           AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET: "op://Positron/RStudioIDE_Service_Account/azure-service-principal-client-secret"
           WORKBENCH_LICENSE: "op://Positron/Workbench-lic-WB-Auto/notesPlain"
           CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto/notesPlain"
