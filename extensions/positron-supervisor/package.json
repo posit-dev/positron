@@ -160,6 +160,12 @@
 				"shortTitle": "%command.showRunningSupervisors.title%"
 			},
 			{
+				"command": "positron.supervisor.showCurrentSupervisor",
+				"category": "%command.positron.supervisor.category%",
+				"title": "%command.showCurrentSupervisor.title%",
+				"shortTitle": "%command.showCurrentSupervisor.title%"
+			},
+			{
 				"command": "positron.supervisor.reconnectSession",
 				"category": "%command.positron.supervisor.category%",
 				"title": "%command.reconnectSession.title%",

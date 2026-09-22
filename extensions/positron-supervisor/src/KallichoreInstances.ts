@@ -140,22 +140,7 @@ export class KallichoreInstances {
 					lastSeen: Date.now()
 				};
 				survivors.push(refreshedRecord);
-
-				const inspection: SupervisorInspectionResult = { record: refreshedRecord };
-				try {
-					inspection.api = this.createApi(record.state);
-					// Fetch status/configuration in parallel to keep the progress UI responsive.
-					const [status, configuration] = await Promise.all([
-						inspection.api.serverStatus({ timeout: 3000 }).then(response => response.data),
-						inspection.api.getServerConfiguration({ timeout: 3000 }).then(response => response.data).catch(() => undefined)
-					]);
-					inspection.status = status;
-					inspection.configuration = configuration;
-				} catch (err) {
-					inspection.error = summarizeAxiosError(err);
-				}
-
-				liveResults.push(inspection);
+				liveResults.push(await this.inspect(refreshedRecord));
 				// Record progress after both process validation and status probe complete.
 				progress.report({ increment, message: record.workspaceName ?? vscode.l10n.t("Empty Workspace") });
 			}
@@ -185,6 +170,46 @@ export class KallichoreInstances {
 	}
 
 	/**
+	 * Presents the inspection picker for the supervisor serving this window.
+	 *
+	 * @returns A promise that resolves after the inspection UI has been dismissed.
+	 */
+	public static async showCurrentSupervisor(): Promise<void> {
+		const state = await this.getStoredSupervisorState();
+		if (!state || !this.isProcessAlive(state.server_pid)) {
+			await vscode.window.showInformationMessage(vscode.l10n.t("No kernel supervisor is running for this workspace."));
+			return;
+		}
+
+		const stored = (await this.getStoredInstances()).find(instance => this.matchesInstance(instance.state, state));
+		const record = stored ?? { workspaceName: vscode.workspace.name, state, lastSeen: Date.now() };
+		await this.showSessions(await this.inspect(record));
+	}
+
+	/**
+	 * Probes a supervisor for its status and configuration.
+	 *
+	 * @param record The supervisor record to probe.
+	 * @returns The inspection result; errors are captured rather than thrown.
+	 */
+	private static async inspect(record: StoredKallichoreInstance): Promise<SupervisorInspectionResult> {
+		const inspection: SupervisorInspectionResult = { record };
+		try {
+			inspection.api = this.createApi(record.state);
+			// Fetch status/configuration in parallel to keep the progress UI responsive.
+			const [status, configuration] = await Promise.all([
+				inspection.api.serverStatus({ timeout: 3000 }).then(response => response.data),
+				inspection.api.getServerConfiguration({ timeout: 3000 }).then(response => response.data).catch(() => undefined)
+			]);
+			inspection.status = status;
+			inspection.configuration = configuration;
+		} catch (err) {
+			inspection.error = summarizeAxiosError(err);
+		}
+		return inspection;
+	}
+
+	/**
 	 * Retrieves and displays the session list for a single supervisor in a modal dialog.
 	 *
 	 * @param result The inspected supervisor metadata.
@@ -208,13 +233,14 @@ export class KallichoreInstances {
 		const workspaceUri = this.parseWorkspaceUri(result.record);
 		const items: SupervisorSessionQuickPickItem[] = [];
 		const sessionCount = sessions ? sessions.sessions.length : result.status?.sessions;
+		const isCurrentWindow = await this.isCurrentWindow(result.record);
 
 		items.push({
 			label: vscode.l10n.t("Actions"),
 			kind: vscode.QuickPickItemKind.Separator
 		});
 
-		if (workspaceUri && result.record.workspaceName) {
+		if (!isCurrentWindow && workspaceUri && result.record.workspaceName) {
 			items.push({
 				label: `$(folder) ${vscode.l10n.t("Open Workspace '{0}'", result.record.workspaceName)}`,
 				detail: vscode.l10n.t("Open the workspace in a new window"),
@@ -229,7 +255,7 @@ export class KallichoreInstances {
 			action: 'showLogs'
 		});
 
-		if (result.status?.mcp?.active && await this.isCurrentWindow(result.record)) {
+		if (result.status?.mcp?.active && isCurrentWindow) {
 			items.push({
 				label: `$(plug) ${vscode.l10n.t("Copy MCP Connection Details")}`,
 				detail: vscode.l10n.t("Copy the endpoint and token an external agent needs"),
