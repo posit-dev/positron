@@ -24,12 +24,15 @@ let nextConnectionId = 1;
  * describe the machine's ODBC configuration rather than the database, and the raw text names a
  * shared object and a dlopen failure, which reads as a Positron fault. Diagnostics from the
  * database driver itself are still passed through untouched.
+ *
+ * @param error The failure the worker reported.
+ * @param platform The platform whose driver manager produced it. Only tests pass this.
  */
-export function describeConnectError(error: unknown): string {
+export function describeConnectError(error: unknown, platform: NodeJS.Platform = process.platform): string {
 	const odbcError = error as OdbcError;
 
 	if (odbcError?.driverManagerMissing) {
-		switch (process.platform) {
+		switch (platform) {
 			case 'darwin':
 				return 'The unixODBC driver manager is not installed. Install it with "brew install unixodbc" and try again.';
 			case 'win32':
@@ -59,8 +62,11 @@ export function describeConnectError(error: unknown): string {
 		return `The ODBC driver at ${unloadableLibrary.groups.libraryPath} could not be loaded: ${message}`;
 	}
 
+	// Windows reports this too, but keeps its data sources in the registry rather than odbc.ini.
 	if (/Data source name not found/i.test(message)) {
-		return 'No ODBC data source or driver by that name is configured on this computer. Check the name, or define the data source in your odbc.ini.';
+		return platform === 'win32'
+			? 'No ODBC data source or driver by that name is configured on this computer. Check the name, or add the data source in ODBC Data Source Administrator (64-bit).'
+			: 'No ODBC data source or driver by that name is configured on this computer. Check the name, or define the data source in your odbc.ini.';
 	}
 
 	return message;
