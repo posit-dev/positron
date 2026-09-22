@@ -26,34 +26,11 @@
 	align-items: center;
 	line-height: normal;
 	justify-content: center;
-	color: var(--vscode-descriptionForeground);
 	animation: table-data-cell-placeholder-fade-in 250ms ease-in forwards;
-}
-
-.data-grid-row-cell .content .table-data-cell-placeholder .mark {
-	animation: table-data-cell-placeholder-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes table-data-cell-placeholder-fade-in {
 	to {
 		opacity: 1;
-	}
-}
-
-@keyframes table-data-cell-placeholder-pulse {
-	0% { opacity: 0.25; }
-	50% { opacity: 0.8; }
-	100% { opacity: 0.25; }
-}
-
-/*
- * The fade stays: it is a cross-fade rather than movement, and it is what keeps the mark from
- * flickering, which is a behavior rather than a flourish. Only the pulse -- the part that repeats
- * for as long as the wait lasts -- gives way to a steady opacity.
- */
-@media (prefers-reduced-motion: reduce) {
-	.data-grid-row-cell .content .table-data-cell-placeholder .mark {
-		opacity: 0.6;
-		animation: none;
 	}
 }

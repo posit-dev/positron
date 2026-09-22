@@ -79,38 +79,25 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 		/**
 		 * SparklineLoadingIndicator component.
-		 * Displays a subtle loading animation while data is being computed.
+		 *
+		 * Stands in for a sparkline still being computed with the same ellipsis the data grid uses
+		 * for a cell still being loaded, rather than with a bar drawn in the null-percent graph's
+		 * fill. A bar of that weight and color reads as a datum -- a very wide, very flat one --
+		 * and a reader has no way to tell it from a real result until it is replaced. The ellipsis
+		 * cannot be mistaken for a measurement.
+		 *
+		 * It keeps the sparkline's box so nothing shifts when the real one arrives.
 		 */
 		const SparklineLoadingIndicator = () => {
 			return (
 				<div
-					className='column-sparkline'
+					className='column-sparkline loading-sparkline'
 					style={{
 						width: SPARKLINE_WIDTH,
 						height: SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT
 					}}
 				>
-					<svg
-						className='vector-histogram loading-sparkline'
-						shapeRendering='crispEdges'
-						viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT}`}
-					>
-						<g>
-							<rect className='x-axis'
-								height={SPARKLINE_X_AXIS_HEIGHT}
-								width={SPARKLINE_WIDTH}
-								x={0}
-								y={SPARKLINE_HEIGHT - SPARKLINE_X_AXIS_HEIGHT}
-							/>
-							<rect className='loading-indicator'
-								height={SPARKLINE_HEIGHT * 0.3}
-								rx={2}
-								width={SPARKLINE_WIDTH * 0.8}
-								x={SPARKLINE_WIDTH * 0.1}
-								y={SPARKLINE_HEIGHT * 0.5}
-							/>
-						</g>
-					</svg>
+					<div aria-hidden='true' className='data-grid-loading-mark codicon codicon-ellipsis' />
 				</div>
 			);
 		};

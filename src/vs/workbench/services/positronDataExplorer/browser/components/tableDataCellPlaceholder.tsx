@@ -17,16 +17,17 @@ import './tableDataCellPlaceholder.css';
  * @returns The rendered component.
  */
 export const TableDataCellPlaceholder = () => {
-	// Render. The mark is the ellipsis the summary panel already uses for a value it is still
-	// computing, pulsing here so that a grid waiting on a slow data source reads as working. It is
-	// centered rather than following the column's alignment, because it isn't a value.
+	// Render. The mark is the ellipsis the summary panel uses for a value it is still computing,
+	// and it is shared with it -- see data-grid-loading-mark -- so the two sides of the Data
+	// Explorer agree. It is centered rather than following the column's alignment, because it
+	// isn't a value.
 	//
 	// Two elements because there are two animations that both want the opacity: the container fades
 	// the whole thing in once, and the mark inside pulses for as long as it is there. Nesting them
 	// multiplies the two rather than letting the later one win.
 	return (
 		<div className='table-data-cell-placeholder'>
-			<span className='mark'>&#x22ef;</span>
+			<div aria-hidden='true' className='data-grid-loading-mark codicon codicon-ellipsis' />
 		</div>
 	);
 };
