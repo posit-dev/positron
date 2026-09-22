@@ -15,6 +15,12 @@ import { summarizeError } from './util';
 /** The console history setting the supervisor reports to agents. */
 const HISTORY_API_ENABLED_KEY = 'console.historyApiEnabled';
 
+/**
+ * The request the supervisor's `get_plot` tool sends for the Plots pane's
+ * current plot. Mirrors `CURRENT_PLOT_COMMAND` in kcserver's MCP handler.
+ */
+const CURRENT_PLOT_COMMAND = 'positron.mcp.getCurrentPlot';
+
 /** How long to wait before the first reconnect attempt. */
 const RECONNECT_DELAY_MS = 1000;
 
@@ -319,6 +325,12 @@ export class McpFrontendChannel implements vscode.Disposable {
 		const agent = request.agent.name ?? 'unknown agent';
 		const started = Date.now();
 		try {
+			if (request.command_id === CURRENT_PLOT_COMMAND) {
+				// A data URI, which would not survive the command result budget.
+				const uri = await positron.ai.getCurrentPlotUri();
+				this.send({ kind: 'command_reply', id: request.id, ok: true, result: uri ?? null });
+				return;
+			}
 			const result = await positron.ai.validateAndExecuteCommand(
 				request.command_id, request.args);
 			const elapsed = Date.now() - started;
