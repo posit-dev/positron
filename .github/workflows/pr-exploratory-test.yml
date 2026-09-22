@@ -7,6 +7,15 @@ on:
         description: "Branch to explore."
         required: true
         type: string
+      model:
+        description: "Model to explore with. 'both' runs opus and sonnet in parallel."
+        required: false
+        default: "opus"
+        type: choice
+        options:
+          - opus
+          - sonnet
+          - both
 
 permissions:
   id-token: write
@@ -19,7 +28,15 @@ concurrency:
 
 jobs:
   explore:
-    name: explore
+    name: explore (${{ matrix.model }})
+    strategy:
+      # One model failing should not cancel the other; a partial comparison is
+      # still worth reading.
+      fail-fast: false
+      matrix:
+        model: ${{ (inputs.model || 'opus') == 'both'
+          && fromJSON('["opus","sonnet"]')
+          || fromJSON(format('["{0}"]', inputs.model || 'opus')) }}
     timeout-minutes: 90
     runs-on: ubuntu-latest-8x
     container:
@@ -151,7 +168,7 @@ jobs:
       - name: Allocate report dir
         uses: ./.github/actions/gen-report-dir
         with:
-          identifier: exploratory
+          identifier: exploratory-${{ matrix.model }}
           skip-summary: "true"
 
       - name: Allocate run directory
@@ -214,6 +231,7 @@ jobs:
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
+          model: ${{ matrix.model }}
 
       - name: Stage publishable run directory
         if: always()
@@ -248,7 +266,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: exploratory-run
+          name: exploratory-run-${{ matrix.model }}
           path: |
             /tmp/exploratory-run
             /tmp/positron-dev-launch/*/code.log
