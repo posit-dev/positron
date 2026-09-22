@@ -234,6 +234,18 @@ export async function isUvEnvironment(interpreterPath: string): Promise<boolean>
 }
 
 /**
+ * The command to spawn uv with, as located by the probe: either `uv` when it is on PATH, or an
+ * absolute path when it is only in one of the known install locations. Callers that shell out to
+ * uv must use this rather than the bare string, or they fail with ENOENT against a uv installed
+ * during this session, which lands outside the PATH the extension host was launched with.
+ * @returns The command, or undefined when no uv could be found.
+ */
+export async function getUvCommand(): Promise<string | undefined> {
+    const uvUtils = await UvUtils.getUvUtils();
+    return uvUtils?.command;
+}
+
+/**
  * Checks if uv is installed.
  * @returns {boolean} Returns true if uv is installed.
  */
