@@ -806,6 +806,51 @@ export class Sessions {
 	}
 
 	/**
+	 * Helper: Get the id of the foreground session, or undefined when there is
+	 * none. Reads through the smoke-test metadata command, so this also returns
+	 * undefined on external servers, where that command is not registered.
+	 *
+	 * A focused notebook makes its kernel session the foreground session, so this
+	 * is how a test can learn which session a notebook is bound to.
+	 */
+	async getForegroundSessionId(): Promise<string | undefined> {
+		if (this.isExternalServer()) {
+			return undefined;
+		}
+		const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
+			'_positron.session.getMetadata'
+		);
+		return metadata?.id;
+	}
+
+	/**
+	 * Verify: The session has exited. Polls the smoke-test metadata command until
+	 * the session is either gone from the runtime session service or reports the
+	 * 'exited' state; both mean the service has released its notebook URI. No-op
+	 * on external servers, where the command is not registered.
+	 *
+	 * Use this after closing a notebook so its kernel session is really gone
+	 * before the next test opens a notebook that may be given the same URI.
+	 */
+	async expectSessionToBeGone(sessionId: string, { timeout = 15000 }: { timeout?: number } = {}): Promise<void> {
+		if (this.isExternalServer()) {
+			return;
+		}
+		await test.step(`Expect session to be gone: ${sessionId}`, async () => {
+			await expect.poll(async () => {
+				const metadata = await this.code.driver.executeCommand<SessionMetaData | undefined>(
+					'_positron.session.getMetadata',
+					sessionId
+				);
+				return metadata?.state ?? 'gone';
+			}, {
+				message: `Session ${sessionId} did not exit within ${timeout}ms`,
+				timeout,
+			}).toMatch(/^(gone|exited)$/);
+		});
+	}
+
+	/**
 	 * Helper: Read session metadata by opening the console info popup and
 	 * scraping its fields. Used on external servers where the smoke-test command
 	 * is not registered. Selects the target session's tab first when more than
