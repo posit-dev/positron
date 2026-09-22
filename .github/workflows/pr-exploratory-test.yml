@@ -154,7 +154,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/positron-seed/User
-          echo '{}' > /tmp/positron-seed/User/settings.json
+          # window.dialogStyle defaults to native, and a native message box is a
+          # separate OS window: invisible to CDP screenshots and unclickable by
+          # the driver, so the extension host waits on it forever. A run hit that
+          # and filed the stuck button as a major product defect. launch.sh sets
+          # this too, but only on branches carrying that change, so pin it here
+          # where the harness controls it.
+          printf '{ "window.dialogStyle": "custom", "files.simpleDialog.enable": true }\n' \
+            > /tmp/positron-seed/User/settings.json
           mkdir -p /tmp/exploratory-workspace
           echo "# scratch" > /tmp/exploratory-workspace/README.md
 
