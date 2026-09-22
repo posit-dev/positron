@@ -5,7 +5,7 @@ on:
   # not registered. A push trigger runs from the branch it is pushed to.
   push:
     branches:
-      - "midleman/exp-ab-*"
+      - "midleman/exp-*"
   workflow_dispatch:
     inputs:
       ref:
