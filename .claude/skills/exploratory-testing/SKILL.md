@@ -93,6 +93,7 @@ The shape, and only this shape:
 `<branch>` | `<short sha>`
 
 **Result:** <one sentence: what the change now does for a user>
+**Tested:** <what you exercised, in a phrase>, <N> scenarios
 **Not exercised:** <surfaces the change touches that you did not reach, or `none`>
 
 ## Findings
@@ -136,7 +137,14 @@ a screen further down, and a summary of something two lines away is the same
 text twice. What no table can say is that the feature works, so say that and
 stop.
 
-Write both lines every time. `**Not exercised:** none` is a claim that you
+`Tested` is the scope you covered and how much of it: the surfaces you drove,
+in a phrase, then the number of scenarios. The count is the row count of your
+`Verified` table, so a reader can check it against the table rather than take
+it on trust. It is there because nothing else at the top says how much work
+stands behind the verdict, and no findings after three scenarios means
+something very different from no findings after twenty.
+
+Write all three lines every time. `**Not exercised:** none` is a claim that you
 reached everything the change touches, and making you write it is the point: a
 reader who sees a low finding count cannot otherwise tell a clean run from one
 that never rendered the feature. Each surface named there reappears under
@@ -291,9 +299,12 @@ tag; do not fold the two together.
 Keep the blank lines; they are part of the format. Labels packed together with
 no blank line between them render as one run-on paragraph, and a step indented
 under a label is swallowed by that paragraph too. Steps go at the left margin as
-a real numbered list. Embed every image a finding cites with
-`![](shots/<file>)`, clearest first, so the reader sees them without opening
-anything.
+a real numbered list.
+
+Embed one image with `![](shots/<file>)`: the single shot that shows the failure
+best. Cite the rest as links under Evidence. Four screenshots of nearly the same
+screen push everything below them off the page, and a reader who wants the
+second one will open it.
 
 Evidence holds only what proves the behavior happened. A path to the code you
 suspect is not evidence, it is where to look, so it goes in Cause.
