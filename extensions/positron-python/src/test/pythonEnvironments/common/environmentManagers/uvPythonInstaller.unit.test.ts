@@ -182,6 +182,31 @@ suite('UV Python Installer Tests', () => {
             );
         });
 
+        test('The POSIX installer command keeps a failed download from printing the marker', async () => {
+            // A piped command reported the downstream shell's status, which is 0 on the empty
+            // stdin a failed curl leaves, so a failed download printed the marker and the flow
+            // told the user uv had installed but could not be found.
+            Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+            isUvInstalledStub.onFirstCall().resolves(false);
+            isUvInstalledStub.onSecondCall().resolves(true);
+            consentToInstall();
+            execStub.resolves({ stdout: UV_INSTALL_OK_MARKER, stderr: '' });
+
+            assert.deepStrictEqual(await ensureUvInstalled(), { ok: true });
+
+            const [file, args] = execStub.firstCall.args;
+            assert.strictEqual(file, 'sh');
+            const command = (args as string[])[1];
+            assert.ok(
+                !/install\.sh\s*\|/.test(command),
+                'the installer script must be downloaded to a file, not piped into a shell',
+            );
+            assert.ok(
+                command.includes('curl -LsSf https://astral.sh/uv/install.sh -o "$script" &&'),
+                'the marker must be reachable only when curl succeeded',
+            );
+        });
+
         test('A successful install reports ok and reports installing', async () => {
             isUvInstalledStub.onFirstCall().resolves(false);
             isUvInstalledStub.onSecondCall().resolves(true);

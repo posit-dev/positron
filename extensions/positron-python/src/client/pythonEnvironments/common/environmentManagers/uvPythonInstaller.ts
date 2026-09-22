@@ -90,7 +90,13 @@ async function runUvInstaller(): Promise<boolean> {
                   ])
                 : await exec('sh', [
                       '-c',
-                      `curl -LsSf https://astral.sh/uv/install.sh | sh && echo ${UV_INSTALL_OK_MARKER}`,
+                      // Downloaded to a file rather than piped into `sh`, so a failed download is
+                      // fatal to the marker: piped, the status is the downstream shell's, which
+                      // exits 0 on empty stdin. `pipefail` and PIPESTATUS are out, since /bin/sh
+                      // is dash on some Linux distros.
+                      `script="$(mktemp)" && trap 'rm -f "$script"' EXIT && ` +
+                          `curl -LsSf https://astral.sh/uv/install.sh -o "$script" && ` +
+                          `sh "$script" && echo ${UV_INSTALL_OK_MARKER}`,
                   ]);
 
         if (!result.stdout.includes(UV_INSTALL_OK_MARKER)) {
