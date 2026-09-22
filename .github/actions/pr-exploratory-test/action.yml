@@ -45,7 +45,12 @@ runs:
     - name: Set up Node
       uses: actions/setup-node@v6
       with:
-        node-version: "20"
+        # Track the repo's .nvmrc. On Node 20 the agent's shell could not run
+        # launch.sh, because build/lib/preLaunch.ts is TypeScript and Node 20
+        # cannot load it, so a cold start meant patching the launcher first.
+        # The workflow's own launch step never hit this: it runs under the
+        # container's Node, not the one this action installs.
+        node-version-file: .nvmrc
 
     - name: Install action dependencies
       shell: bash
