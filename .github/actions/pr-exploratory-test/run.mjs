@@ -47,7 +47,7 @@ function mustEnv(name) {
 const CI_OVERRIDES = [
 	'**You are the tester.** Ignore "Run it in a subagent". Do not delegate; do the exploring yourself.',
 	`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
-	'**Do NOT clean up.** Do not run `stop.sh`, do not close the Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded.',
+	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
 ];
 if (REPORT_BASE_URL) {
 	CI_OVERRIDES.push(`**Link screenshots with their public URL.** The run directory is published at \`${REPORT_BASE_URL}\`. Where the skill says to cite a shot as \`[shots/<file>](shots/<file>)\`, write \`[shots/<file>](${REPORT_BASE_URL}/shots/<file>)\` instead, and embed with \`![](${REPORT_BASE_URL}/shots/<file>)\`. A relative path is unreachable to anyone reading the report outside this container.`);
@@ -64,7 +64,11 @@ You are running inside a GitHub Actions container. ${CI_OVERRIDES.length} overri
 
 ${CI_OVERRIDES_LIST}
 
-Positron is already launched and a Playwright session named \`positron\` is already attached to it on CDP port ${CDP_PORT}. Do not launch it again. Drive it from the repository root at \`${REPO_ROOT}\` with:
+Positron is already launched and a Playwright session named \`positron\` is attached to it on CDP port ${CDP_PORT}. Use it for anything the running app can show you.
+
+When you need a state the running app cannot reach -- a tool absent at startup, a cold cache, a fresh profile -- launch your own instance rather than bending this one. \`launch.sh\` picks free ports and its own run directory, so it runs alongside this one safely. Attach it under a different session name and leave the \`positron\` session alone. Stop the instances you launched once you are done with them; never stop this one. Record any instance you launched in Run setup.
+
+Drive the pre-launched instance from the repository root at \`${REPO_ROOT}\` with:
 
 \`\`\`bash
 npx @playwright/cli -s=positron snapshot
