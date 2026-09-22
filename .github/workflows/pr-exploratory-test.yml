@@ -219,6 +219,10 @@ jobs:
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
+          # Experiment: the skill claims Sonnet is not good enough for
+          # discovery. This arm tests that claim; everything else matches
+          # midleman/exp-ab-batch.
+          model: sonnet
 
       - name: Stage publishable run directory
         if: always()
