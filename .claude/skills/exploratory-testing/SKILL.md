@@ -132,8 +132,12 @@ completion", "silently creates no environment". Not the rate, which
 `Reproduction` holds, and not a scale, because "High" tells a reader nothing.
 
 `Introduced?` is `yes`, `no`, or `unclear`: did this change create the problem?
-A change that merely exposes an existing defect, or shifts timing so an
-existing race now fires, is `unclear`, and the Cause line says which.
+Settle it from the diff, not from how certain you feel. Either the line you
+blame is in the diff or it predates the change, and Cause says which. Keep
+`unclear` for the cases the diff genuinely cannot settle: the change exposes an
+existing defect, or shifts timing so an existing race now fires. It is not a
+hedge. You have read the diff by this point, so writing `unclear` over code you
+watched arrive hands the author a reason to skip the finding.
 
 `Reproduction` is how often you saw it, `<N> of <M>`, matching the finding block.
 
