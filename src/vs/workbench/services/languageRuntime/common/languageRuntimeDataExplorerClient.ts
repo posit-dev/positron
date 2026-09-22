@@ -33,17 +33,27 @@ export interface TableSchemaSearchResult {
  * Bounded above and below by two other numbers rather than picked for its own sake. Below, it
  * wants headroom over the budget GetDataValues is given: summaries are ambient, so they should not
  * outrank the grid, but a batch of histograms over a remote source is more work than a page of
- * cells and deserves more than the same allowance. Above, it has to leave room for a whole pass.
- * Chunks are issued one after another and hold the client's pending-task count up while they run,
- * and updateBackendState gives that count 30 seconds to clear -- so a per-chunk budget large
- * enough for two slow chunks to exceed that would break backend state refreshes to buy summaries.
+ * cells and deserves more than the same allowance. Above, chunks hold the client's pending-task
+ * count up while they run and getBackendState(true) gives that count 30 seconds to clear, so a
+ * budget generous enough for two slow chunks to exceed it would make opening the import dialog or
+ * Convert to Code report a timeout in order to buy summaries.
  *
- * Fifteen seconds sits between the two, and short of where a wait stops reading as work in
- * progress. The same budget applies to a retry: a longer one there would buy the slow-but-working
- * sources a second chance by making someone who has already waited once wait considerably longer
- * again, with nothing to show for it if it fails.
+ * Ten seconds sits between the two, and short of where a wait stops reading as work in progress.
+ * A pass gives up after the first chunk to exceed it rather than spending it again on the chunks
+ * behind it, so this is what an unresponsive source costs once, not once per chunk.
+ *
+ * What this mostly governs now is the probe -- the one column a pass asks about before it knows
+ * anything about the source. Chunks after it are sized to land near a third of this, so one can
+ * only reach the timeout by coming in three times slower than the chunk before it, and this is the
+ * headroom for that rather than the budget they are aiming at. Ten seconds is also about as long
+ * as a single column is worth waiting for: a source that cannot produce one in that time will not
+ * produce the next twenty any faster.
+ *
+ * The same budget covers a retry. Nobody wants to wait longer than this for summaries, whether or
+ * not they asked -- and a retry no longer needs the extra room, now that chunks size themselves to
+ * what a column costs on the source rather than betting a fixed eight of them will fit.
  */
-const COLUMN_PROFILE_TIMEOUT = 15_000;
+const COLUMN_PROFILE_TIMEOUT = 10_000;
 
 export enum DataExplorerClientStatus {
 	Idle,
@@ -408,8 +418,14 @@ export class DataExplorerClientInstance extends Disposable {
 			() => DATA_EXPLORER_DISCONNECTED_STATE
 		);
 
-		this.cachedBackendState = await this._backendPromise;
-		this._backendPromise = undefined;
+		// Clear the in-flight promise however it settles. Clearing it only on success would leave a
+		// rejected promise in the field for the life of the client, and the early return above
+		// hands that same rejection to every later caller -- so nothing could ever retry the state.
+		try {
+			this.cachedBackendState = await this._backendPromise;
+		} finally {
+			this._backendPromise = undefined;
+		}
 
 		if (this.cachedBackendState.connected === false) {
 			// Halt more requests from going out
@@ -735,7 +751,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 	private async runBackendTask<Type, F extends () => Promise<Type>,
 		Alt extends () => Type>(task: F, disconnectedResult: Alt) {
-		if (this.status === DataExplorerClientStatus.Disconnected) {
+		if (this.isDisconnected()) {
 			return disconnectedResult();
 		}
 		this._numPendingTasks += 1;
@@ -744,10 +760,30 @@ export class DataExplorerClientInstance extends Disposable {
 			return await task();
 		} finally {
 			this._numPendingTasks -= 1;
-			if (this._numPendingTasks === 0) {
+
+			// Idle means "connected, with nothing outstanding", so it can't follow Disconnected.
+			// Closing the comm rejects the outstanding tasks and sets Disconnected synchronously,
+			// then their continuations land here as microtasks -- and without this guard the last
+			// one to drain would return the client to Idle and let requests go to a closed comm.
+			if (this._numPendingTasks === 0 && !this.isDisconnected()) {
 				this.setStatus(DataExplorerClientStatus.Idle);
 			}
 		}
+	}
+
+	/**
+	 * Determines whether the comm behind this client has closed, which is the end of the line: no
+	 * request made after it will reach a backend.
+	 *
+	 * A method rather than a comparison written where it is needed, because the status is read both
+	 * before a task runs and again after it, and reading it twice is the entire point. Written out
+	 * as `this.status === ...` the second read is narrowed away by the first, and the check that
+	 * matters -- the one after the await, where the status may well have changed -- is compiled as
+	 * though its answer were already known.
+	 * @returns true if the client is disconnected; otherwise, false.
+	 */
+	private isDisconnected(): boolean {
+		return this.status === DataExplorerClientStatus.Disconnected;
 	}
 
 	private setStatus(status: DataExplorerClientStatus) {

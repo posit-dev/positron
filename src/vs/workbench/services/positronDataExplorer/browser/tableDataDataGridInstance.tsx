@@ -398,7 +398,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override rowHeader(rowIndex: number) {
 		return (
-			<TableDataRowHeader value={this._tableDataCache.getRowLabel(rowIndex)} />
+			<TableDataRowHeader
+				unavailable={this._tableDataCache.rowLabelsLoadFailed}
+				value={this._tableDataCache.getRowLabel(rowIndex)}
+			/>
 		);
 	}
 
@@ -431,11 +434,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
 		// Get the column and the data cell. Either one missing means the cache hasn't loaded this
 		// part of the table yet -- the schema for the column, or the value itself -- so stand in for
-		// the value rather than leaving the cell blank.
+		// the value rather than leaving the cell blank. Whether that load is still coming decides
+		// which way the placeholder reads: a cell the last fetch failed to deliver is not one the
+		// grid is working on, and marking it as though it were is the wait that never ends.
 		const column = this.column(columnIndex);
 		const dataCell = this._tableDataCache.getDataCell(columnIndex, rowIndex);
 		if (!column || !dataCell) {
-			return <TableDataCellPlaceholder />;
+			return <TableDataCellPlaceholder unavailable={this._tableDataCache.dataLoadFailed} />;
 		}
 
 		// Return the TableDataCell.

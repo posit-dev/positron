@@ -87,3 +87,22 @@
 		animation: none;
 	}
 }
+
+/*
+ * The same two stand-ins, for a value that is not being loaded: the grid asked for it, was given
+ * nothing, and has nothing outstanding. They keep the shape and the color of their loading
+ * counterparts, because they still say "a value belongs here", and drop the pulse, because a pulse
+ * is the grid reporting work in progress and there is none. Holding at the dim end of the pulse
+ * rather than at its bright one is the other half of that: settled, and quieter than a wait.
+ */
+.data-grid-unavailable-placeholder {
+	height: 6px;
+	opacity: 0.1;
+	border-radius: 3px;
+	background-color: currentColor;
+}
+
+.data-grid-unavailable-mark {
+	opacity: 0.25;
+	color: var(--vscode-descriptionForeground);
+}

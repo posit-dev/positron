@@ -249,17 +249,21 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			// Get the null count for this column
 			const nullCount = props.instance.getColumnProfileNullCount(props.columnIndex);
 
-			if (props.instance.columnProfilesFailed) {
-				// Nothing is still being calculated for this column, so saying so would be wrong.
-				return nls.localize(
-					'positron.missingValues.unavailable',
-					'Missing values could not be calculated'
-				);
-			} else if (nullPercent === undefined || nullCount === undefined) {
-				return nls.localize(
-					'positron.missingValues.calculating',
-					'Calculating...'
-				);
+			if (nullPercent === undefined || nullCount === undefined) {
+				// Nothing to report yet. Which of the two that is depends on whether anything is
+				// still working on it: a failed pass stops before the columns behind it, so a
+				// column can be left without a count while others around it have one. Asking about
+				// this column's own figures first is what keeps the tooltip from contradicting the
+				// percentage displayed beside it.
+				return props.instance.columnProfilesFailed ?
+					nls.localize(
+						'positron.missingValues.unavailable',
+						'Missing values could not be calculated'
+					) :
+					nls.localize(
+						'positron.missingValues.calculating',
+						'Calculating...'
+					);
 			} else if (nullPercent === 0) {
 				return nls.localize(
 					'positron.missingValues.none',

@@ -60,8 +60,11 @@ export const DataExplorer = () => {
 	const [summaryLoading, setSummaryLoading] = useState(
 		() => context.instance.tableSchemaDataGridInstance.loading
 	);
-	const [summaryProfilesFailed, setSummaryProfilesFailed] = useState(
-		() => context.instance.tableSchemaDataGridInstance.columnProfilesFailed
+	const [summaryProfilesFailure, setSummaryProfilesFailure] = useState(
+		() => context.instance.tableSchemaDataGridInstance.columnProfilesFailure
+	);
+	const [summaryProfilesPartial, setSummaryProfilesPartial] = useState(
+		() => context.instance.tableSchemaDataGridInstance.columnProfilesPartial
 	);
 	const [summaryProfilesRetrying, setSummaryProfilesRetrying] = useState(
 		() => context.instance.tableSchemaDataGridInstance.columnProfilesRetrying
@@ -71,7 +74,7 @@ export const DataExplorer = () => {
 	// stays put for as long as a retry of them is running. It has to survive the retry rather than
 	// come and go with the message: taking the row away would resize the grid below it, and that
 	// resize starts a profile load of its own, which cancels the retry partway.
-	const summaryNotice = summaryProfilesFailed || summaryProfilesRetrying;
+	const summaryNotice = summaryProfilesFailure !== undefined || summaryProfilesRetrying;
 
 	// Track whether the summary panel has anything to show yet, and whether its summary statistics
 	// failed to compute. Until the panel has anything it paints a progress indicator, and there is
@@ -87,7 +90,8 @@ export const DataExplorer = () => {
 		const summaryInstance = context.instance.tableSchemaDataGridInstance;
 		const readSummaryInstance = () => {
 			setSummaryLoading(summaryInstance.loading);
-			setSummaryProfilesFailed(summaryInstance.columnProfilesFailed);
+			setSummaryProfilesFailure(summaryInstance.columnProfilesFailure);
+			setSummaryProfilesPartial(summaryInstance.columnProfilesPartial);
 			setSummaryProfilesRetrying(summaryInstance.columnProfilesRetrying);
 		};
 		readSummaryInstance();
@@ -384,7 +388,9 @@ export const DataExplorer = () => {
 				}
 				{layout === PositronDataExplorerLayout.SummaryOnLeft && summaryNotice &&
 					<SummaryProfilesNotice
+						failure={summaryProfilesFailure}
 						instance={context.instance.tableSchemaDataGridInstance}
+						partial={summaryProfilesPartial}
 						retrying={summaryProfilesRetrying}
 					/>
 				}
@@ -430,7 +436,9 @@ export const DataExplorer = () => {
 				}
 				{layout !== PositronDataExplorerLayout.SummaryOnLeft && summaryNotice &&
 					<SummaryProfilesNotice
+						failure={summaryProfilesFailure}
 						instance={context.instance.tableSchemaDataGridInstance}
+						partial={summaryProfilesPartial}
 						retrying={summaryProfilesRetrying}
 					/>
 				}
