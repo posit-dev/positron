@@ -288,6 +288,39 @@ export const InterruptMode = {
 export type InterruptMode = typeof InterruptMode[keyof typeof InterruptMode];
 
 
+/**
+ * An agent connected to a workspace through the stdio bridge
+ */
+export interface McpClient {
+    /**
+     * Identifies the client within its workspace
+     */
+    'id': number;
+    /**
+     * The agent\'s name, from the MCP clientInfo
+     */
+    'name'?: string;
+    /**
+     * The agent\'s version, from the MCP clientInfo
+     */
+    'version'?: string;
+    /**
+     * The process ID of the bridge
+     */
+    'pid'?: number;
+    /**
+     * The bridge\'s working directory, normally the agent\'s
+     */
+    'working_directory'?: string;
+    /**
+     * The session the client is running inside, for a client in a kernel
+     */
+    'session_id'?: string;
+    /**
+     * When the client connected
+     */
+    'connected_at': string;
+}
 export interface McpStatus {
     /**
      * Whether the MCP listener is running
@@ -353,6 +386,10 @@ export interface McpWorkspaceStatus {
      * Whether any of the workspace\'s windows is currently connected
      */
     'connected': boolean;
+    /**
+     * The agents connected to the workspace through the stdio bridge
+     */
+    'clients': Array<McpClient>;
 }
 export interface ModelError {
     'code': string;
@@ -1095,7 +1132,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working.
+         * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working. The server keeps no state across restarts, so a caller that wants the token to outlive the server supplies the one it was issued before.
          * @summary Register a Positron workspace with the MCP server
          * @param {McpWorkspaceRegistration} mcpWorkspaceRegistration 
          * @param {*} [options] Override http request option.
@@ -1490,7 +1527,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working.
+         * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working. The server keeps no state across restarts, so a caller that wants the token to outlive the server supplies the one it was issued before.
          * @summary Register a Positron workspace with the MCP server
          * @param {McpWorkspaceRegistration} mcpWorkspaceRegistration 
          * @param {*} [options] Override http request option.
@@ -1716,7 +1753,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.newSession(newSession, options).then((request) => request(axios, basePath));
         },
         /**
-         * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working.
+         * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working. The server keeps no state across restarts, so a caller that wants the token to outlive the server supplies the one it was issued before.
          * @summary Register a Positron workspace with the MCP server
          * @param {McpWorkspaceRegistration} mcpWorkspaceRegistration 
          * @param {*} [options] Override http request option.
@@ -1936,7 +1973,7 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
-     * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working.
+     * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working. The server keeps no state across restarts, so a caller that wants the token to outlive the server supplies the one it was issued before.
      * @summary Register a Positron workspace with the MCP server
      * @param {McpWorkspaceRegistration} mcpWorkspaceRegistration 
      * @param {*} [options] Override http request option.

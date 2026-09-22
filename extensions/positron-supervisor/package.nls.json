@@ -37,5 +37,6 @@
 	"command.positron.mcp.category": "Positron MCP",
 	"command.copyConnectionDetails.title": "Copy Connection Details",
 	"command.configureAgent.title": "Add to Coding Agent",
+	"command.showConnectedAgents.title": "Show Connected Agents",
 	"mcp.positronSessions.label": "Positron Sessions"
 }

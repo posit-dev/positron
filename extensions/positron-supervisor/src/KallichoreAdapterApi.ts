@@ -25,6 +25,7 @@ import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnabl
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
 import { McpLaunch, mcpLaunch } from './McpAgents.js';
 import { mcpConnectionsDirectory } from './mcpConnection.js';
+import { McpClientsStatusBar, SHOW_CONNECTED_AGENTS_COMMAND, showConnectedAgents } from './McpClientsStatusBar.js';
 
 /**
  * The environment variable naming a handshake-broker socket. In web/server
@@ -346,6 +347,10 @@ export class KCApi implements PositronSupervisorApi {
 		this._disposables.push(mcpDefinitions);
 		this._disposables.push(vscode.lm.registerMcpServerDefinitionProvider(
 			MCP_DEFINITION_PROVIDER_ID, mcpDefinitions));
+
+		// Show which coding agents are connected, so code arriving in the
+		// console from an agent is never a surprise.
+		this._disposables.push(new McpClientsStatusBar(this._mcp));
 		positron.runtime.emitPerfMark('initializing');
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
@@ -377,6 +382,10 @@ export class KCApi implements PositronSupervisorApi {
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(COPY_MCP_DETAILS_COMMAND, () => {
 			return this._mcp.copyConnectionDetails();
+		}));
+
+		this._context.subscriptions.push(vscode.commands.registerCommand(SHOW_CONNECTED_AGENTS_COMMAND, () => {
+			return showConnectedAgents(this._mcp.clients);
 		}));
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {

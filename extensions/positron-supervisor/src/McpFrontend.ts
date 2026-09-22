@@ -5,8 +5,9 @@
 
 import * as vscode from 'vscode';
 
-import { McpWorkspace, McpWorkspaceRegistration, McpStatus } from './kcclient/api';
+import { McpClient, McpWorkspace, McpWorkspaceRegistration, McpStatus } from './kcclient/api';
 import { McpFrontendChannel } from './McpFrontendChannel';
+import { describeClient } from './mcpClients';
 import {
 	MCP_TOKEN_ENV_VAR,
 	MCP_URL_ENV_VAR,
@@ -29,6 +30,9 @@ export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
 
 /** The port the MCP listener should prefer, or 0 to let the server choose. */
 export const MCP_PORT_KEY = 'ai.mcp.port';
+
+/** Whether the status bar shows the connected coding agents. */
+export const MCP_STATUS_BAR_KEY = 'ai.mcp.statusBar';
 
 /** Command that puts the MCP endpoint and token on the clipboard. */
 export const COPY_MCP_DETAILS_COMMAND = 'positron.mcp.copyConnectionDetails';
@@ -130,6 +134,12 @@ export class McpFrontend implements vscode.Disposable {
 	/** Fires when {@link connection} is issued, replaced, or given up. */
 	private readonly _onDidChangeConnection = new vscode.EventEmitter<void>();
 
+	/** The agents connected to this workspace, as the supervisor last said. */
+	private _clients: McpClient[] = [];
+
+	/** Fires when {@link clients} changes. */
+	private readonly _onDidChangeClients = new vscode.EventEmitter<void>();
+
 	/** The supervisor API, once a supervisor is available. */
 	private _api: McpRegistrationApi | undefined;
 
@@ -205,6 +215,17 @@ export class McpFrontend implements vscode.Disposable {
 	public readonly onDidChangeConnection: vscode.Event<void> = this._onDidChangeConnection.event;
 
 	/**
+	 * The agents connected to this workspace through the stdio bridge, oldest
+	 * first. Empty while the frontend channel is closed.
+	 */
+	public get clients(): readonly McpClient[] {
+		return this._clients;
+	}
+
+	/** Fires whenever {@link clients} changes. */
+	public readonly onDidChangeClients: vscode.Event<void> = this._onDidChangeClients.event;
+
+	/**
 	 * Point the frontend at a supervisor that has just started or been
 	 * reconnected to, and bring registration in line with the settings.
 	 *
@@ -252,6 +273,21 @@ export class McpFrontend implements vscode.Disposable {
 		if (!status.active) {
 			return vscode.l10n.t("MCP: off");
 		}
+		const connected = status.workspaces
+			.reduce((count, workspace) => count + (workspace.clients?.length ?? 0), 0);
+		if (connected === 1) {
+			return vscode.l10n.t(
+				"MCP: 127.0.0.1:{0} • {1} agent requests • 1 agent connected",
+				status.port,
+				status.request_count);
+		}
+		if (connected > 1) {
+			return vscode.l10n.t(
+				"MCP: 127.0.0.1:{0} • {1} agent requests • {2} agents connected",
+				status.port,
+				status.request_count,
+				connected);
+		}
 		return vscode.l10n.t(
 			"MCP: 127.0.0.1:{0} • {1} agent requests",
 			status.port,
@@ -293,6 +329,7 @@ export class McpFrontend implements vscode.Disposable {
 	public dispose() {
 		this.closeChannel();
 		this._onDidChangeConnection.dispose();
+		this._onDidChangeClients.dispose();
 		this._disposables.forEach(disposable => disposable.dispose());
 		this._disposables.length = 0;
 	}
@@ -435,7 +472,8 @@ export class McpFrontend implements vscode.Disposable {
 		try {
 			const target = this._channelTarget(workspaceId);
 			this._channel = new McpFrontendChannel(
-				target.uri, target.headers, this._log, this._sessionIds);
+				target.uri, target.headers, this._log, this._sessionIds,
+				clients => this.setClients(clients));
 		} catch (err) {
 			// The registration itself is live, so let it stand; only the
 			// command catalog and agents' command requests are lost.
@@ -447,6 +485,29 @@ export class McpFrontend implements vscode.Disposable {
 	private closeChannel(): void {
 		this._channel?.dispose();
 		this._channel = undefined;
+		this.setClients([]);
+	}
+
+	/**
+	 * Adopt the supervisor's list of connected agents, logging who arrived and
+	 * who left.
+	 *
+	 * @param clients The agents now connected, oldest first.
+	 */
+	private setClients(clients: McpClient[]): void {
+		const before = new Set(this._clients.map(client => client.id));
+		const after = new Set(clients.map(client => client.id));
+		for (const client of clients.filter(client => !before.has(client.id))) {
+			this._log(`${describeClient(client)} connected to this workspace's MCP server`);
+		}
+		for (const client of this._clients.filter(client => !after.has(client.id))) {
+			this._log(`${describeClient(client)} disconnected from this workspace's MCP server`);
+		}
+		if (before.size === after.size && [...after].every(id => before.has(id))) {
+			return;
+		}
+		this._clients = clients;
+		this._onDidChangeClients.fire();
 	}
 
 	/**

@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import WebSocket from 'ws';
 
+import { McpClient } from './kcclient/api';
 import { createWebSocket } from './NamedPipeHttpAgent';
 import { budgetCommandResult } from './mcpCommandResult';
 import { summarizeError } from './util';
@@ -55,8 +56,18 @@ interface CommandRequest {
 	deadline_ms: number;
 }
 
+/**
+ * The agents connected to the workspace, sent when the channel opens and
+ * whenever one connects or disconnects. Mirrors `ClientsChanged` in
+ * `kcshared::mcp_frontend`.
+ */
+interface ClientsChanged {
+	kind: 'clients_changed';
+	clients: McpClient[];
+}
+
 /** Messages the supervisor sends over the channel. */
-type ServerFrontendMessage = CommandRequest;
+type ServerFrontendMessage = CommandRequest | ClientsChanged;
 
 /**
  * Connects this window to the supervisor's MCP server over a WebSocket,
@@ -97,12 +108,16 @@ export class McpFrontendChannel implements vscode.Disposable {
 	 * @param _sessionIds The sessions this window holds. Read on every send
 	 *  rather than cached, so a channel that opens long after the window did
 	 *  still reports the sessions it already has.
+	 * @param _onClientsChanged Called with the agents connected to the
+	 *  workspace whenever the supervisor reports them, and with none when the
+	 *  channel closes, since the list can no longer be vouched for.
 	 */
 	constructor(
 		private readonly _uri: string,
 		private readonly _headers: { [key: string]: string },
 		private readonly _log: (message: string) => void,
 		private readonly _sessionIds: () => string[],
+		private readonly _onClientsChanged: (clients: McpClient[]) => void = () => { },
 	) {
 		this._disposables.push(positron.runtime.onDidChangeForegroundSession(sessionId => {
 			this.send({ kind: 'foreground_changed', session_id: sessionId });
@@ -178,6 +193,7 @@ export class McpFrontendChannel implements vscode.Disposable {
 				return;
 			}
 			this._socket = undefined;
+			this._onClientsChanged([]);
 			this.scheduleReconnect();
 		};
 	}
@@ -282,6 +298,9 @@ export class McpFrontendChannel implements vscode.Disposable {
 		switch (message.kind) {
 			case 'command_request':
 				this.runCommand(message);
+				break;
+			case 'clients_changed':
+				this._onClientsChanged(message.clients);
 				break;
 			default:
 				// A newer supervisor may send frames we don't know; ignore them

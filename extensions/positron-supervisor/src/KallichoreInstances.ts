@@ -12,6 +12,7 @@ import { ActiveSession, DefaultApi, ServerConfiguration, ServerStatus, SessionLi
 import { summarizeAxiosError } from './util';
 import { KALLICHORE_STATE_KEY } from './KallichoreAdapterApi.js';
 import { COPY_MCP_DETAILS_COMMAND, McpFrontend } from './McpFrontend.js';
+import { agentQuickPickItem } from './mcpClients.js';
 
 /**
  * Snapshot of a running Kallichore supervisor persisted in global storage.
@@ -263,6 +264,27 @@ export class KallichoreInstances {
 				detail: error,
 				alwaysShow: true
 			});
+		}
+
+		const mcp = result.status?.mcp;
+		if (mcp?.active) {
+			items.push({
+				label: vscode.l10n.t("Coding Agents"),
+				kind: vscode.QuickPickItemKind.Separator
+			});
+			// One supervisor can serve several workspaces, so name each
+			// agent's workspace when there is more than one.
+			const namesWorkspaces = mcp.workspaces.length > 1;
+			const agents = mcp.workspaces.flatMap(workspace => (workspace.clients ?? []).map(client =>
+				agentQuickPickItem(client, namesWorkspaces ? workspace.display_name : undefined)));
+			if (agents.length > 0) {
+				items.push(...agents);
+			} else {
+				items.push({
+					label: `$(circle-large-outline) ${vscode.l10n.t("No coding agents are connected.")}`,
+					alwaysShow: true
+				});
+			}
 		}
 
 		const selection = await vscode.window.showQuickPick<SupervisorSessionQuickPickItem>(items, {

@@ -509,11 +509,17 @@ suite('McpFrontend', () => {
 });
 
 suite('McpFrontend.describeStatus', () => {
-	test('describes an active, inactive, and unknown MCP server', () => {
+	test('describes an active, busy, inactive, and unknown MCP server', () => {
 		assert.deepStrictEqual(
 			[
 				McpFrontend.describeStatus({
 					active: true, port: 39000, request_count: 7, workspaces: []
+				}),
+				McpFrontend.describeStatus({
+					active: true, port: 39000, request_count: 7, workspaces: [{
+						id: 'workspace-1', display_name: 'project', connected: true,
+						clients: [{ id: 1, connected_at: '2026-09-22T10:00:00Z' }],
+					}],
 				}),
 				McpFrontend.describeStatus({
 					active: false, port: 0, request_count: 0, workspaces: []
@@ -522,6 +528,7 @@ suite('McpFrontend.describeStatus', () => {
 			],
 			[
 				'MCP: 127.0.0.1:39000 • 7 agent requests',
+				'MCP: 127.0.0.1:39000 • 7 agent requests • 1 agent connected',
 				'MCP: off',
 				undefined,
 			]);

@@ -53,3 +53,10 @@ export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
  * Set it when an agent's configuration needs a fixed URL.
  */
 export const MCP_PORT_KEY = 'ai.mcp.port';
+
+/**
+ * Whether the status bar shows the coding agents connected to this window's
+ * sessions. Off by default; the agents are always listed in the kernel
+ * supervisor's Quick Pick.
+ */
+export const MCP_STATUS_BAR_KEY = 'ai.mcp.statusBar';

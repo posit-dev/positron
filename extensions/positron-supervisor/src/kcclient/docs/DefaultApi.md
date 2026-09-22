@@ -758,7 +758,7 @@ No authorization required
 # **registerMcpWorkspace**
 > McpWorkspace registerMcpWorkspace(mcpWorkspaceRegistration)
 
-Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working.
+Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working. The server keeps no state across restarts, so a caller that wants the token to outlive the server supplies the one it was issued before.
 
 ### Example
 
