@@ -68,6 +68,27 @@ Positron is already launched and a Playwright session named \`positron\` is atta
 
 When you need a state the running app cannot reach -- a tool absent at startup, a cold cache, a fresh profile -- launch your own instance rather than bending this one. \`launch.sh\` picks free ports and its own run directory, so it runs alongside this one safely. Attach it under a different session name and leave the \`positron\` session alone. Stop the instances you launched once you are done with them; never stop this one. Record any instance you launched in Run setup.
 
+## Cold start
+
+\`npm run prelaunch\` already ran in this job. \`launch.sh\` runs it again and it is the slow part, so strip it once and reuse the result:
+
+\`\`\`bash
+sed 's#node build/lib/preLaunch.ts#true#' \\
+  .claude/skills/drive-positron/scripts/launch.sh > /tmp/launch-cold.sh
+chmod +x /tmp/launch-cold.sh
+\`\`\`
+
+To make a tool read as absent, drop its directory from PATH for the new process rather than moving the binary on disk -- nothing to restore afterwards:
+
+\`\`\`bash
+COLD_PATH=$(echo "$PATH" | sed -e 's#:/root/.local/bin##' -e 's#:/root/.venv/bin##')
+env PATH="$COLD_PATH" /tmp/launch-cold.sh --source-user-data-dir /tmp/positron-seed -- <app args>
+\`\`\`
+
+Attach the result under its own session name and stop it with \`stop.sh --cdp-port <port>\` when you are done with it.
+
+The Python extension caches uv and conda detection for the extension host's lifetime, and reloading the window does not restart the extension host. A fresh instance is the only reliable way to make one of those tools read as absent.
+
 Drive the pre-launched instance from the repository root at \`${REPO_ROOT}\` with:
 
 \`\`\`bash
