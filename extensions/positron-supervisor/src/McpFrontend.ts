@@ -181,7 +181,8 @@ export class McpFrontend implements vscode.Disposable {
 	) {
 		this._disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
 			if (event.affectsConfiguration(AI_ENABLED_KEY) ||
-				event.affectsConfiguration(MCP_ENABLED_KEY)) {
+				event.affectsConfiguration(MCP_ENABLED_KEY) ||
+				event.affectsConfiguration(MCP_PORT_KEY)) {
 				this.sync();
 			}
 		}));
@@ -334,7 +335,13 @@ export class McpFrontend implements vscode.Disposable {
 			return;
 		}
 		if (this._connection) {
-			return;
+			const configured = vscode.workspace.getConfiguration().get<number>(MCP_PORT_KEY);
+			if (!configured || configured === this._connection.port) {
+				return;
+			}
+			// The user asked for a port we are not listening on, so give the
+			// registration up and take a new one at the port they named.
+			await this.deregister();
 		}
 		await this.register();
 	}
@@ -409,9 +416,15 @@ export class McpFrontend implements vscode.Disposable {
 		if (!this._channelTarget) {
 			return;
 		}
-		const target = this._channelTarget(workspaceId);
-		this._channel = new McpFrontendChannel(
-			target.uri, target.headers, this._log, this._sessionIds);
+		try {
+			const target = this._channelTarget(workspaceId);
+			this._channel = new McpFrontendChannel(
+				target.uri, target.headers, this._log, this._sessionIds);
+		} catch (err) {
+			// The registration itself is live, so let it stand; only the
+			// command catalog and agents' command requests are lost.
+			this._log(`Could not open the MCP frontend channel: ${summarizeError(err)}`);
+		}
 	}
 
 	/** Close the channel, leaving the registration itself in place. */
@@ -461,7 +474,15 @@ export class McpFrontend implements vscode.Disposable {
 		delete this._processEnv[MCP_URL_ENV_VAR];
 		delete this._processEnv[MCP_TOKEN_ENV_VAR];
 		if (connection) {
-			await removeConnectionFiles(this._storageUri, connection);
+			try {
+				await removeConnectionFiles(this._storageUri, connection);
+			} catch (err) {
+				// Leaving stale files behind is better than leaving the
+				// endpoint registered, which is what aborting here would do:
+				// the token would keep authenticating after the user turned
+				// the feature off.
+				this._log(`Could not remove the MCP connection files: ${summarizeError(err)}`);
+			}
 		}
 	}
 }

@@ -475,6 +475,7 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	readonly onDidEncounterStartupFailure = new Emitter<any>().event;
 	readonly onDidCreateClientInstance = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessageClearOutput = new Emitter<any>().event;
+	readonly onDidReceiveRuntimeMessageExecutionRequested = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessagePrompt = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeClientEvent = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessagePromptConfig = new Emitter<void>().event;
@@ -532,7 +533,7 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 		throw new Error('Method not implemented.');
 	}
 
-	execute(_code: string, _id: string, _mode: any, _errorBehavior: any): void {
+	execute(_code: string, _id: string, _mode: any, _errorBehavior: any): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 

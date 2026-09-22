@@ -20,7 +20,7 @@ import {
 	pinsEndpoint,
 	unmergeAgentConfig,
 } from './McpAgents';
-import { MCP_ENABLED_KEY } from './McpFrontend';
+import { AI_ENABLED_KEY, MCP_ENABLED_KEY } from './McpFrontend';
 import { McpConnection } from './mcpConnection';
 import { summarizeError } from './util';
 
@@ -306,13 +306,20 @@ export function agentCliCommand(
 
 /**
  * Offers to turn the feature on, once per user, when an agent that can use it
- * is installed. Does nothing when the feature is already on, when no agent is
- * installed, or when the offer has been made before.
+ * is installed. Does nothing when AI features are off, when the feature is
+ * already on, when no agent is installed, or when the offer has been made
+ * before.
  *
  * @param context The extension context, which remembers that we have asked.
  */
 export async function promptToEnable(context: vscode.ExtensionContext): Promise<void> {
 	const config = vscode.workspace.getConfiguration();
+	// The main AI switch sits above the feature's own switch, and an
+	// administrator can enforce it off, so there is nothing to offer when it
+	// is off.
+	if (config.get<boolean>(AI_ENABLED_KEY) !== true) {
+		return;
+	}
 	if (config.get<boolean>(MCP_ENABLED_KEY) !== false) {
 		return;
 	}

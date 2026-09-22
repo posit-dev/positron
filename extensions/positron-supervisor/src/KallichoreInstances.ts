@@ -655,13 +655,6 @@ export class KallichoreInstances {
 	}
 
 	/**
-	 * Determines whether the supervisor is associated with the currently open workspace.
-	 *
-	 * @param record The stored supervisor record to evaluate.
-	 * @param currentPid The PID of the supervisor connected to this window, if any.
-	 * @returns  True if the supervisor is tied to the current window, false otherwise.
-	 */
-	/**
 	 * Whether a supervisor record describes the supervisor serving this window.
 	 * Only that supervisor's MCP registration belongs to us, so only its
 	 * connection details are ours to hand out.
@@ -673,6 +666,13 @@ export class KallichoreInstances {
 		return this.isCurrentWindowSupervisor(record, await this.getCurrentWindowSupervisorPid());
 	}
 
+	/**
+	 * Determines whether the supervisor is associated with the currently open workspace.
+	 *
+	 * @param record The stored supervisor record to evaluate.
+	 * @param currentPid The PID of the supervisor connected to this window, if any.
+	 * @returns True if the supervisor is tied to the current window, false otherwise.
+	 */
 	private static isCurrentWindowSupervisor(record: StoredKallichoreInstance, currentPid: number | undefined): boolean {
 		if (currentPid === undefined || !record.state.server_pid) {
 			return false;
