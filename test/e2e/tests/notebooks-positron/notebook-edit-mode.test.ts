@@ -140,5 +140,13 @@ test.describe('Notebook Edit Mode', {
 		await notebooksPositron.selectCellAtIndex(0);
 		await keyboard.press('Alt+Shift+Enter');
 		await debug.expectDebugVariablePaneVisible();
+
+		// End the debug session before the shared afterEach closes the notebook.
+		// A kernel paused at a breakpoint never exits after the shutdown request
+		// (https://github.com/posit-dev/positron/issues/16133), so the notebook
+		// session would linger past the hook's wait for it. Stopping resumes the
+		// paused cell; wait for it to finish (order 3).
+		await debug.stop();
+		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 3 }, { index: 1, order: 2 }]);
 	});
 });
