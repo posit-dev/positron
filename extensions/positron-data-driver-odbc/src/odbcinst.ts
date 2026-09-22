@@ -288,16 +288,14 @@ function discoverUnix(host: IOdbcConfigHost): OdbcConfiguration {
 
 	readInto(driverSections, paths.systemDrivers, 'system');
 	readInto(driverSections, paths.userDrivers, 'user');
-
-	// Captured before the DSN files are read, since `sources` goes on to collect those too. What
-	// matters here is only whether a driver file was found at all.
-	const sawDriverConfig = sources.length > 0;
-
 	readInto(dsnSections, paths.systemDsns, 'system');
 	readInto(dsnSections, paths.userDsns, 'user');
 
+	// Whether any driver is registered, not whether a driver file was readable: unixODBC installs
+	// commonly ship an empty odbcinst.ini, or one holding only [ODBC], which says no more about the
+	// driver manager's real configuration than finding no file at all.
 	const drivers = buildDrivers(host, driverSections);
-	const { dsns, skipped } = buildDsns(host, dsnSections, driverSections, sawDriverConfig);
+	const { dsns, skipped } = buildDsns(host, dsnSections, driverSections, driverSections.size > 0);
 
 	return { drivers, dsns, skippedDsns: skipped, sources };
 }
@@ -452,7 +450,7 @@ function findDriverSection(
  * @param dsn The DSN's attributes, keys already lowercased.
  * @param driverSections Every odbcinst.ini section, before buildDrivers dropped any, so a DSN
  * naming an uninstalled driver is reported as the missing library rather than as an unknown name.
- * @param sawDriverConfig Whether any driver configuration was actually read. When none was, an
+ * @param sawDriverConfig Whether any driver is registered in what was read. When none is, an
  * unrecognized name says more about our search path than about the DSN: see SYSTEM_CONFIG_DIRS on
  * why unixODBC's SYSCONFDIR can sit outside it. An unrecognized value shaped like a library
  * filename is left alone regardless -- see looksLikeLibraryFilename.

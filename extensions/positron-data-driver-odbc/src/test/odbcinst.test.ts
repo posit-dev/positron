@@ -194,6 +194,24 @@ suite('discoverOdbcConfiguration (unix)', () => {
 		);
 	});
 
+	test('keeps a data source naming an unknown driver when the driver file registers no drivers', () => {
+		// Homebrew's unixODBC and many distro packages create an empty odbcinst.ini, and one can
+		// hold only driver-manager settings under [ODBC]. Either way no driver is registered, so an
+		// unrecognized name says as little as it does when no driver file exists.
+		const discover = (odbcinst: string) => discoverOdbcConfiguration(createTestHost({
+			env: { ODBCSYSINI: '/etc' },
+			files: {
+				'/etc/odbcinst.ini': odbcinst,
+				'/etc/odbc.ini': '[Pagila]\nDriver = PostgreSQL Unicode\nServername = localhost\n',
+			},
+		}));
+
+		assert.deepStrictEqual(
+			[discover(''), discover('[ODBC]\nTrace = No\n')].map(config => ({ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns })),
+			[{ dsns: ['Pagila'], skipped: [] }, { dsns: ['Pagila'], skipped: [] }]
+		);
+	});
+
 	test('reads drivers and DSNs, drops entries whose library is gone, and lets user entries win', () => {
 		const config = discoverOdbcConfiguration(createTestHost({
 			env: { ODBCSYSINI: '/etc' },
