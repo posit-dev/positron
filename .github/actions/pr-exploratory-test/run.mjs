@@ -198,7 +198,11 @@ async function main() {
 
 	let summary;
 	if (report) {
-		summary = `## Exploratory test\n\n${report}\n\n${footer}\n`;
+		// The report opens with its own "# Exploratory test: ..." heading, so a
+		// wrapper heading here would render two titles. The partial and
+		// no-report branches below still need one: they have no report to
+		// supply it.
+		summary = `${report}\n\n${footer}\n`;
 		if (!(typeof fileReport === 'string' && fileReport.trim().length > 0)) {
 			writeFileSync(join(WORK_DIR, 'report.md'), report);
 		}
