@@ -21,6 +21,11 @@ const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
+// The verify pass never drives the app, so it needs far fewer turns than the
+// run it checks; two trial passes used 22 and 26 tool calls.
+const VERIFY_MODEL = process.env.VERIFY_MODEL || 'sonnet';
+const VERIFY_MAX_TURNS = parsePosIntEnv('VERIFY_MAX_TURNS', 60, process.env.VERIFY_MAX_TURNS);
+const VERIFY_ENABLED = process.env.VERIFY !== 'false';
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
@@ -98,6 +103,67 @@ npx @playwright/cli -s=positron snapshot
 
 Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full command surface before driving.
 `;
+
+/**
+ * Re-reads the finished report with a fresh agent that never drove the app.
+ *
+ * The reporting agent cannot audit itself: one run wrote "shipped defaults" on
+ * the Only under line and described the fake HOME it had just introduced in the
+ * same sentence, then filed the resulting hang as a major defect. A separate
+ * agent asked what the setup could explain and found the cause in launch.sh in
+ * about 80k tokens, under one percent of what the run itself reads.
+ *
+ * Read-only and advisory. Verdicts are appended, never applied: a pass that can
+ * delete findings can bury real ones where nobody sees it happen.
+ */
+async function verifyReport(report) {
+	const prompt = [
+		'You are verifying an exploratory-testing report written by a different agent. Decide, for each finding, whether it is a genuine product defect. Be adversarial: the report is a claim, not evidence.',
+		'',
+		`Report: \`${join(WORK_DIR, 'report.md')}\``,
+		`The reporting agent's own action log, with timestamps: \`${join(WORK_DIR, 'actions.log')}\``,
+		`Repository: \`${REPO_ROOT}\`. Read files at a ref with \`git show <ref>:<path>\`. Do not modify anything.`,
+		'',
+		`See the change under test with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA}\`.`,
+		'',
+		'For EACH finding, answer these three questions explicitly:',
+		'',
+		"1. Does the code support the report's stated cause hypothesis? Read the files it names and quote the lines that confirm or contradict it.",
+		'2. Could anything the reporting agent did to its own test environment produce the reported symptom? Read the action log and Run details for how it set the machine up, then ask whether that setup, rather than the product, explains what it saw.',
+		'3. Is the `Introduced?` value consistent with the diff? A defect in code the diff did not touch is not introduced by this change, though it may be newly reachable because of it.',
+		'',
+		'Then give a verdict per finding: CONFIRMED, FALSE POSITIVE, or UNRESOLVED (say what evidence is missing).',
+		'',
+		'Also flag any place where the report asserts a check it could not have performed as described.',
+		'',
+		'Return one short block per finding with the three answers and the verdict, then a one-line overall conclusion. Do not write any files.',
+	].join('\n');
+
+	const chunks = [];
+	for await (const message of query({
+		prompt,
+		options: {
+			model: VERIFY_MODEL,
+			cwd: REPO_ROOT,
+			allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
+			maxTurns: VERIFY_MAX_TURNS,
+			thinking: { type: 'disabled' },
+			stderr: data => process.stderr.write(`[verify stderr] ${data}`),
+			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
+		},
+	})) {
+		if (message.type === 'assistant') {
+			const text = (message.message?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+			if (text) {
+				chunks.push(text);
+			}
+		} else if (message.type === 'result') {
+			console.log(`[verify] result: ${JSON.stringify(buildCostRecord(message))}`);
+			writeFileSync(join(WORK_DIR, 'verify-cost.json'), JSON.stringify(buildCostRecord(message), null, 2));
+		}
+	}
+	return chunks.length ? chunks[chunks.length - 1] : null;
+}
 
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
@@ -207,10 +273,31 @@ async function main() {
 		// wrapper heading here would render two titles. The partial and
 		// no-report branches below still need one: they have no report to
 		// supply it.
-		summary = `${report}\n\n${footer}\n`;
 		if (!(typeof fileReport === 'string' && fileReport.trim().length > 0)) {
 			writeFileSync(join(WORK_DIR, 'report.md'), report);
 		}
+
+		// Verification runs against report.md on disk, so it has to come after
+		// the fallback write above.
+		let verdicts = null;
+		if (VERIFY_ENABLED) {
+			try {
+				verdicts = await verifyReport(report);
+			} catch (err) {
+				// A failed verification must not cost the run its report. Say so
+				// in the summary rather than dropping it silently.
+				console.error(`[verify] failed: ${err}`);
+				verdicts = `_Verification did not complete: ${err}. The findings above are unreviewed._`;
+			}
+		}
+
+		const reviewed = verdicts
+			? `${report}\n\n## Verification\n\nA second agent re-read this report with the repository but without driving the app. Advisory only: nothing above was changed.\n\n${verdicts}\n`
+			: report;
+		if (verdicts) {
+			writeFileSync(join(WORK_DIR, 'report.md'), reviewed);
+		}
+		summary = `${reviewed}\n\n${footer}\n`;
 	} else if (partial) {
 		summary = `## Exploratory test: partial run\n\nThe agent hit the ${MAX_TURNS}-turn cap before writing a report. \`actions.log\` and any screenshots captured so far are in the artifact.\n\n${footer}\n`;
 	} else {
