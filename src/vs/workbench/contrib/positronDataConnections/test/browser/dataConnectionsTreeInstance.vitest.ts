@@ -275,6 +275,7 @@ describe('DataConnectionsTreeInstance', () => {
 			getAllProfiles: () => profiles,
 			getInstanceForProfile: (profileId: string) => instances.get(profileId),
 			connect: async (profileId: string) => instances.get(profileId)!,
+			disconnect: vi.fn(async () => { }),
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
@@ -729,6 +730,27 @@ describe('DataConnectionsTreeInstance', () => {
 			notified: notificationError.mock.calls,
 			tablesExpanded: tree.isExpanded('dto:1:1'),
 		}).toEqual({ notified: [], tablesExpanded: false });
+	});
+
+	it('does not notify for a fetch the user abandoned by disconnecting', async () => {
+		// Disconnecting kills the handle the fetch is running against, so the fetch rejects after the
+		// row it was for has already left the tree. Reporting that would name a row that is gone,
+		// for a failure the user caused on purpose.
+		const { tree, nodeGetChildren, notificationError } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+			() => []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		let rejectTables: (error: Error) => void = () => { };
+		nodeGetChildren.mockReturnValueOnce(new Promise((_, reject) => { rejectTables = reject; }));
+		const expanding = tree.expand('dto:1:1');
+		await tree.disconnectEntry(ENTRY_ID);
+		rejectTables(new Error('connection handle is closed'));
+		await expanding;
+
+		expect(notificationError.mock.calls).toEqual([]);
 	});
 });
 
