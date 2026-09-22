@@ -279,8 +279,10 @@ async function main() {
 		// back to scraping chat text.
 	}
 
-	// In the order they ran. The gate bills in its own job, so it is not here.
-	const footer = renderCostFooter([
+	// Lazy: verifyCost is not filled in until the verification below has run, and
+	// rendering this eagerly left the verify line and the total out of every
+	// footer. In the order they ran; the gate bills in its own job.
+	const footer = () => renderCostFooter([
 		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: verifyCost },
 	], MAX_TURNS);
@@ -330,14 +332,14 @@ async function main() {
 		const reviewed = verdicts
 			? `${annotateFindingsTable(report, parseVerdicts(verdicts))}\n\n${section}`
 			: report;
-		if (verdicts) {
-			writeFileSync(join(WORK_DIR, 'report.md'), reviewed);
-		}
-		summary = `${reviewed}\n\n${footer}\n`;
+		summary = `${reviewed}\n\n${footer()}\n`;
+		// Written with the footer: report.md is published to the CDN on its own,
+		// where the step summary's copy of the cost is not reachable.
+		writeFileSync(join(WORK_DIR, 'report.md'), summary);
 	} else if (partial) {
-		summary = `## Exploratory test: partial run\n\nThe agent hit the ${MAX_TURNS}-turn cap before writing a report. \`actions.log\` and any screenshots captured so far are in the artifact.\n\n${footer}\n`;
+		summary = `## Exploratory test: partial run\n\nThe agent hit the ${MAX_TURNS}-turn cap before writing a report. \`actions.log\` and any screenshots captured so far are in the artifact.\n\n${footer()}\n`;
 	} else {
-		summary = `## Exploratory test: no report\n\nThe agent produced no report. Check the action logs.\n\n${footer}\n`;
+		summary = `## Exploratory test: no report\n\nThe agent produced no report. Check the action logs.\n\n${footer()}\n`;
 	}
 
 	if (STEP_SUMMARY) {
