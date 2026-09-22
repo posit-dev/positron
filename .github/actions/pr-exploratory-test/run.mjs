@@ -134,7 +134,11 @@ async function main() {
 
 	const assistantMessages = [];
 	let cost = buildCostRecord(null);
-	let turnCount = 0;
+	// Counts assistant messages, which is not what maxTurns limits: the SDK's
+	// own num_turns runs about 40% lower (155 messages to 90 turns on one run,
+	// 238 to 142 on another). Labelled "msg" so a live log cannot be read as
+	// approaching the cap.
+	let messageCount = 0;
 
 	for await (const message of query({
 		prompt: userPrompt,
@@ -161,17 +165,17 @@ async function main() {
 		},
 	})) {
 		if (message.type === 'assistant') {
-			turnCount++;
+			messageCount++;
 			const content = message.message?.content || [];
 			const textBlocks = content.filter(b => b.type === 'text').map(b => b.text);
 			const toolUses = content.filter(b => b.type === 'tool_use').map(b => `${b.name}(${JSON.stringify(b.input).slice(0, 200)})`);
 			if (textBlocks.length) {
 				const joined = textBlocks.join('\n');
 				assistantMessages.push(joined);
-				console.log(`[turn ${turnCount}] assistant text (${joined.length} chars):\n${joined.slice(0, 1000)}${joined.length > 1000 ? '\n...(truncated)' : ''}`);
+				console.log(`[msg ${messageCount}] assistant text (${joined.length} chars):\n${joined.slice(0, 1000)}${joined.length > 1000 ? '\n...(truncated)' : ''}`);
 			}
 			if (toolUses.length) {
-				console.log(`[turn ${turnCount}] tool calls: ${toolUses.join(' | ')}`);
+				console.log(`[msg ${messageCount}] tool calls: ${toolUses.join(' | ')}`);
 			}
 		} else if (message.type === 'result') {
 			cost = buildCostRecord(message);
