@@ -34,7 +34,14 @@ export function buildCostRecord(message) {
 		total_cost_usd: message?.total_cost_usd ?? null,
 		num_turns: message?.num_turns ?? null,
 		duration_ms: message?.duration_ms ?? null,
+		// input_tokens counts only the uncached input, which for a long run is a
+		// small fraction of what is actually sent: a 142-turn run reported
+		// 11,706. The cache reads are the context re-sent on every turn, and
+		// they are what total_cost_usd is mostly paying for, so record them
+		// too or the cost cannot be decomposed after the fact.
 		input_tokens: message?.usage?.input_tokens ?? null,
+		cache_read_input_tokens: message?.usage?.cache_read_input_tokens ?? null,
+		cache_creation_input_tokens: message?.usage?.cache_creation_input_tokens ?? null,
 		output_tokens: message?.usage?.output_tokens ?? null,
 	};
 }
