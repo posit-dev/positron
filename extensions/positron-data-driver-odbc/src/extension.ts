@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { createNodeConfigHost } from './odbcConfigHost';
 import { OdbcDataExplorerRpcHandler } from './odbcDataExplorerRpcHandler';
 import { createOdbcDrivers } from './odbcDriver';
-import { discoverOdbcConfiguration, IOdbcConfigHost, resolveUnixConfigPaths } from './odbcinst';
+import { discoverOdbcConfiguration, IOdbcConfigHost, isSameConfiguration, OdbcConfiguration, resolveUnixConfigPaths } from './odbcinst';
 
 /**
  * Activates the extension by discovering the machine's ODBC configuration and registering a driver
@@ -34,6 +34,11 @@ export function activate(context: vscode.ExtensionContext) {
 	// shutdown and would accumulate a stale registration on every reload.
 	let registrations: vscode.Disposable[] = [];
 
+	// What the current registrations were built from, to tell a real change from a file event that
+	// changed nothing. Re-registering disposes every open ODBC connection, so it happens only when
+	// the drivers or data sources actually changed.
+	let registered: OdbcConfiguration | undefined;
+
 	/**
 	 * Rebuilds the registered drivers from the machine's current ODBC configuration.
 	 *
@@ -48,11 +53,16 @@ export function activate(context: vscode.ExtensionContext) {
 	 * machine with a broken ODBC entry reaches that path.
 	 */
 	const register = (log: boolean) => {
+		const config = discoverOdbcConfiguration(host);
+		if (registered !== undefined && isSameConfiguration(registered, config)) {
+			logger.info('ODBC drivers and data sources are unchanged; keeping the open connections.');
+			return;
+		}
+		registered = config;
+
 		for (const registration of registrations) {
 			registration.dispose();
 		}
-
-		const config = discoverOdbcConfiguration(host);
 
 		if (log || config.skippedDsns.length > 0) {
 			logger.info(`Discovered ${config.drivers.length} ODBC driver(s) and ${config.dsns.length} data source(s) from: ${config.sources.join(', ') || '(no configuration found)'}`);
@@ -116,7 +126,7 @@ function watchConfiguration(
 		const watcher = vscode.workspace.createFileSystemWatcher(
 			new vscode.RelativePattern(vscode.Uri.file(path.dirname(filePath)), path.basename(filePath)));
 		const reload = () => {
-			logger.info(`ODBC configuration changed (${filePath}); reloading drivers.`);
+			logger.info(`ODBC configuration file changed (${filePath}).`);
 			onChange();
 		};
 		watcher.onDidCreate(reload);

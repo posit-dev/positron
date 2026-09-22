@@ -259,6 +259,26 @@ export function discoverOdbcConfiguration(host: IOdbcConfigHost): OdbcConfigurat
 	return host.platform === 'win32' ? discoverWindows(host) : discoverUnix(host);
 }
 
+/**
+ * Whether two discoveries found the same drivers and data sources, and dropped the same ones.
+ *
+ * `sources` is left out on purpose. It lists every file that could be read, so an ini file that
+ * appears empty changes it without changing anything that can be connected to. unixODBC creates
+ * an empty `~/.odbc.ini` on the first connection attempt when there is none, and treating that as
+ * a change would re-register the drivers and break the connection that caused it.
+ *
+ * @param a One discovery.
+ * @param b The other.
+ * @returns True when re-registering the drivers for `b` would change nothing `a` registered.
+ */
+export function isSameConfiguration(a: OdbcConfiguration, b: OdbcConfiguration): boolean {
+	// Both sides are built by the same code in the same order, so a structural comparison of the
+	// serialized form is exact.
+	const connectable = (config: OdbcConfiguration) =>
+		JSON.stringify({ drivers: config.drivers, dsns: config.dsns, skippedDsns: config.skippedDsns });
+	return connectable(a) === connectable(b);
+}
+
 function discoverUnix(host: IOdbcConfigHost): OdbcConfiguration {
 	const paths = resolveUnixConfigPaths(host);
 	const sources: string[] = [];

@@ -7,6 +7,7 @@ import * as assert from 'assert';
 import {
 	discoverOdbcConfiguration,
 	IOdbcConfigHost,
+	isSameConfiguration,
 	OdbcRegistrySnapshot,
 	parseIni,
 	resolveUnixConfigPaths,
@@ -359,6 +360,36 @@ suite('discoverOdbcConfiguration (unix)', () => {
 		assert.deepStrictEqual(
 			{ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns },
 			{ dsns: ['Pagila'], skipped: [] }
+		);
+	});
+});
+
+suite('isSameConfiguration', () => {
+	test('ignores a file that appears empty, and sees any change to what can be connected to', () => {
+		// The reported case: unixODBC creates an empty ~/.odbc.ini on the first connection attempt,
+		// and re-registering for it broke the connection that had just opened.
+		const odbcinst = '[PostgreSQL Unicode]\nDriver = /usr/lib/psqlodbcw.so\n';
+		const odbc = '[Pagila]\nDriver = PostgreSQL Unicode\nServername = localhost\n';
+		const discover = (files: Record<string, string>, existingPaths = ['/usr/lib/psqlodbcw.so']) =>
+			discoverOdbcConfiguration(createTestHost({ env: { ODBCSYSINI: '/etc' }, home: '/home/brian', files, existingPaths }));
+
+		const before = discover({ '/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': odbc });
+
+		assert.deepStrictEqual(
+			{
+				emptyUserFileCreated: isSameConfiguration(before, discover({
+					'/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': odbc, '/home/brian/.odbc.ini': '',
+				})),
+				dataSourceAdded: isSameConfiguration(before, discover({
+					'/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': `${odbc}\n[Other]\nDriver = PostgreSQL Unicode\n`,
+				})),
+				dataSourceEdited: isSameConfiguration(before, discover({
+					'/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': odbc.replace('localhost', 'db.example.com'),
+				})),
+				driverLibraryRemoved: isSameConfiguration(before, discover(
+					{ '/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': odbc }, [])),
+			},
+			{ emptyUserFileCreated: true, dataSourceAdded: false, dataSourceEdited: false, driverLibraryRemoved: false }
 		);
 	});
 });
