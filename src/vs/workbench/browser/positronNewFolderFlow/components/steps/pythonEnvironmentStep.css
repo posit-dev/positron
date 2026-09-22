@@ -12,6 +12,14 @@
 	gap: 8px;
 }
 
+.positron-modal-dialog-box .flow-step .install-uv-separator,
+.positron-modal-dialog-box .flow-step .install-uv-button {
+	/* The row holds a message this step does not control the length of. Left shrinkable, the
+	separator and the link give way before the message wraps, splitting the link across lines. */
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
 .positron-modal-dialog-box .flow-step .install-uv-separator {
 	/* Overrides the 2px flex gap the warning row uses, which crowds a separator. */
 	margin: 0 3px;

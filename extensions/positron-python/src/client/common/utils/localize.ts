@@ -292,9 +292,9 @@ export namespace InterpreterQuickPickList {
 
     export namespace UvInstall {
         export const noVersionsAvailable = l10n.t('No Python versions available for installation');
-        export const uvNotFoundAfterInstall = l10n.t(
-            'uv was installed but could not be found. Please restart Positron and try installing Python again.',
-        );
+        // Short enough to sit on one line beside the New Folder flow's "Install uv" link, which
+        // shows this in place of its "uv is not installed" notice.
+        export const uvNotFoundAfterInstall = l10n.t('uv was installed but could not be found. Restart Positron.');
         export const alreadyInstalledSeparator = l10n.t('Already installed');
         export const selectVersion = l10n.t('Select a Python version to install');
         export const selectVersionTitle = l10n.t('Install Python via uv');
