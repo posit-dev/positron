@@ -10,7 +10,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderReportHtml } from './html.mjs';
-import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary } from './lib.mjs';
+import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -291,6 +291,12 @@ async function main() {
 	], MAX_TURNS);
 	const report = resolveReport(fileReport, assistantMessages);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
+	// Read by the workflow to choose the final reaction and the PR comment.
+	// Written before anything below can exit, so a run with no report still
+	// says why.
+	if (process.env.GITHUB_OUTPUT) {
+		appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${runOutcome({ report, numTurns: cost.num_turns, maxTurns: MAX_TURNS })}\n`);
+	}
 
 	// What goes in report.md, and what goes in the job summary. They used to be
 	// the same string: the summary is a signpost now, and the report is the
