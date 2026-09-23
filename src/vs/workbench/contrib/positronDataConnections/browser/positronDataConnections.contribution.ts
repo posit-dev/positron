@@ -13,13 +13,11 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY } from './positronDataConnectionsConfiguration.js';
+import { registerDatabaseFileEditor } from './editor/databaseFileEditor.contribution.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY, POSITRON_DATA_CONNECTIONS_VIEW_ID } from './positronDataConnectionsConfiguration.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
-
-// The Positron data connections view ID.
-const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
 
 // Register the configuration setting.
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
@@ -150,3 +148,7 @@ registerWorkbenchContribution2(
 	PositronDataConnectionsContribution,
 	WorkbenchPhase.BlockStartup,
 );
+
+// Register the database file editor, which opens a database file (e.g. `.duckdb`, `.sqlite`) to a
+// page offering to create a data connection to it. Gated on the same feature flag, from inside.
+registerDatabaseFileEditor();

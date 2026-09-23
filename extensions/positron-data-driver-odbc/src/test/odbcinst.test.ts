@@ -7,6 +7,7 @@ import * as assert from 'assert';
 import {
 	discoverOdbcConfiguration,
 	IOdbcConfigHost,
+	isSameConfiguration,
 	OdbcRegistrySnapshot,
 	parseIni,
 	resolveUnixConfigPaths,
@@ -125,6 +126,93 @@ suite('resolveUnixConfigPaths', () => {
 });
 
 suite('discoverOdbcConfiguration (unix)', () => {
+	test('drops a data source whose ODBC driver cannot be resolved, and reports why', () => {
+		const config = discoverOdbcConfiguration(createTestHost({
+			env: { ODBCSYSINI: '/etc' },
+			home: '/home/brian',
+			files: {
+				'/etc/odbcinst.ini': [
+					'[PostgreSQL Unicode]',
+					'Driver = /usr/lib/psqlodbcw.so',
+					'',
+					// Registered, but its library is gone, so buildDrivers already drops it. A DSN
+					// naming it has to go for the same reason, and is reported as the missing
+					// library rather than as an unknown name.
+					'[Stale Driver]',
+					'Driver = /opt/homebrew/Cellar/psqlodbc/16.00.0000/lib/psqlodbcw.so',
+				].join('\n'),
+				'/etc/odbc.ini': [
+					// What Homebrew's psqlodbc writes: a Driver pointing straight at a versioned
+					// Cellar path, which the next `brew upgrade` deletes.
+					'[PostgreSQL Driver]',
+					'Driver = /opt/homebrew/Cellar/psqlodbc/16.00.0000/lib/psqlodbcw.so',
+					'',
+					'[By Stale Name]',
+					'Driver = Stale Driver',
+					'',
+					'[By Unknown Name]',
+					'Driver = Never Installed',
+					'',
+					// Kept: the name resolves case-insensitively, as ODBC compares it.
+					'[Pagila]',
+					'Driver = postgresql unicode',
+					'Servername = localhost',
+					'',
+					// Kept: no Driver key, so there is nothing to rule out.
+					'[Driverless]',
+					'Servername = elsewhere',
+				].join('\n'),
+			},
+			existingPaths: ['/usr/lib/psqlodbcw.so'],
+		}));
+
+		assert.deepStrictEqual(
+			{ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns },
+			{
+				dsns: ['Driverless', 'Pagila'],
+				skipped: [
+					{ name: 'By Stale Name', reason: 'missing-library', detail: '/opt/homebrew/Cellar/psqlodbc/16.00.0000/lib/psqlodbcw.so' },
+					{ name: 'By Unknown Name', reason: 'unregistered-driver', detail: 'Never Installed' },
+					{ name: 'PostgreSQL Driver', reason: 'missing-library', detail: '/opt/homebrew/Cellar/psqlodbc/16.00.0000/lib/psqlodbcw.so' },
+				],
+			}
+		);
+	});
+
+	test('keeps a data source naming an unknown driver when no driver file was readable', () => {
+		// unixODBC bakes its SYSCONFDIR in at compile time, so the odbcinst.ini the driver manager
+		// reads can sit somewhere SYSTEM_CONFIG_DIRS never looks. Having found none of them says
+		// nothing about whether the driver exists, and hiding the DSN there would take away a data
+		// source that works.
+		const config = discoverOdbcConfiguration(createTestHost({
+			env: { ODBCSYSINI: '/etc' },
+			files: { '/etc/odbc.ini': '[Pagila]\nDriver = PostgreSQL Unicode\nServername = localhost\n' },
+		}));
+
+		assert.deepStrictEqual(
+			{ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns },
+			{ dsns: ['Pagila'], skipped: [] }
+		);
+	});
+
+	test('keeps a data source naming an unknown driver when the driver file registers no drivers', () => {
+		// Homebrew's unixODBC and many distro packages create an empty odbcinst.ini, and one can
+		// hold only driver-manager settings under [ODBC]. Either way no driver is registered, so an
+		// unrecognized name says as little as it does when no driver file exists.
+		const discover = (odbcinst: string) => discoverOdbcConfiguration(createTestHost({
+			env: { ODBCSYSINI: '/etc' },
+			files: {
+				'/etc/odbcinst.ini': odbcinst,
+				'/etc/odbc.ini': '[Pagila]\nDriver = PostgreSQL Unicode\nServername = localhost\n',
+			},
+		}));
+
+		assert.deepStrictEqual(
+			[discover(''), discover('[ODBC]\nTrace = No\n')].map(config => ({ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns })),
+			[{ dsns: ['Pagila'], skipped: [] }, { dsns: ['Pagila'], skipped: [] }]
+		);
+	});
+
 	test('reads drivers and DSNs, drops entries whose library is gone, and lets user entries win', () => {
 		const config = discoverOdbcConfiguration(createTestHost({
 			env: { ODBCSYSINI: '/etc' },
@@ -193,9 +281,153 @@ suite('discoverOdbcConfiguration (unix)', () => {
 			{ drivers: [], dsns: [], sources: [] }
 		);
 	});
+
+	test('drops a data source whose driver is braced or a bare library filename, since unixODBC loads neither', () => {
+		// unixODBC looks a DSN's Driver value up as a driver name exactly as written, unless it is
+		// an absolute path. A braced name (connection-string syntax) or a bare library filename
+		// matches no section, and connecting fails with IM002, even when the library exists.
+		const config = discoverOdbcConfiguration(createTestHost({
+			env: { ODBCSYSINI: '/etc' },
+			files: {
+				'/etc/odbcinst.ini': '[PostgreSQL Unicode]\nDriver = /usr/lib/psqlodbcw.so\n',
+				'/etc/odbc.ini': [
+					'[Braced]',
+					'Driver = {PostgreSQL Unicode}',
+					'',
+					'[Bare Library]',
+					'Driver = psqlodbcw.so',
+					'',
+					'[Versioned Soname]',
+					'Driver = libodbcpsql.so.2',
+					'',
+					'[Pagila]',
+					'Driver = PostgreSQL Unicode',
+				].join('\n'),
+			},
+			existingPaths: ['/usr/lib/psqlodbcw.so'],
+		}));
+
+		assert.deepStrictEqual(
+			{ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns },
+			{
+				dsns: ['Pagila'],
+				skipped: [
+					{ name: 'Bare Library', reason: 'unregistered-driver', detail: 'psqlodbcw.so' },
+					{ name: 'Braced', reason: 'unregistered-driver', detail: '{PostgreSQL Unicode}' },
+					{ name: 'Versioned Soname', reason: 'unregistered-driver', detail: 'libodbcpsql.so.2' },
+				],
+			}
+		);
+	});
+
+	test('keeps a data source whose registered driver is itself a bare library filename', () => {
+		// A minimal odbcinst.ini can register a driver by bare filename rather than an absolute
+		// path, relying on the driver manager's own search path the same way a DSN's Driver value
+		// can. The DSN names the driver by its section name, so this exercises the *other*
+		// existence check in findDsnDriverProblem: the one against the resolved section's own
+		// Driver value, not the DSN's.
+		const config = discoverOdbcConfiguration(createTestHost({
+			env: { ODBCSYSINI: '/etc' },
+			files: {
+				'/etc/odbcinst.ini': '[PostgreSQL Unicode]\nDriver = libpsqlodbcw.so\n',
+				'/etc/odbc.ini': '[Pagila]\nDriver = PostgreSQL Unicode\nServername = localhost\n',
+			},
+		}));
+
+		assert.deepStrictEqual(
+			{ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns },
+			{ dsns: ['Pagila'], skipped: [] }
+		);
+	});
+
+	test('prefers a user-registered driver over a stale system one of the same name in different case', () => {
+		// Case-insensitive matching (below) means these two sections are "the same" driver, but a
+		// Map keyed on the exact section text keeps them as two distinct entries -- the user file's
+		// differently-cased re-registration does not overwrite the system one's Map key the way a
+		// same-case override would. The lookup has to break the tie itself, in the user's favor, to
+		// honor the shadowing every other precedence check in this module already gives it.
+		const config = discoverOdbcConfiguration(createTestHost({
+			env: { ODBCSYSINI: '/etc' },
+			home: '/home/brian',
+			files: {
+				'/etc/odbcinst.ini': '[PostgreSQL Unicode]\nDriver = /gone/stale.so\n',
+				'/home/brian/.odbcinst.ini': '[postgresql unicode]\nDriver = /usr/lib/psqlodbcw.so\n',
+				'/etc/odbc.ini': '[Pagila]\nDriver = PostgreSQL Unicode\nServername = localhost\n',
+			},
+			existingPaths: ['/usr/lib/psqlodbcw.so'],
+		}));
+
+		assert.deepStrictEqual(
+			{ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns },
+			{ dsns: ['Pagila'], skipped: [] }
+		);
+	});
+});
+
+suite('isSameConfiguration', () => {
+	test('ignores a file that appears empty, and sees any change to what can be connected to', () => {
+		// The reported case: unixODBC creates an empty ~/.odbc.ini on the first connection attempt,
+		// and re-registering for it broke the connection that had just opened.
+		const odbcinst = '[PostgreSQL Unicode]\nDriver = /usr/lib/psqlodbcw.so\n';
+		const odbc = '[Pagila]\nDriver = PostgreSQL Unicode\nServername = localhost\n';
+		const discover = (files: Record<string, string>, existingPaths = ['/usr/lib/psqlodbcw.so']) =>
+			discoverOdbcConfiguration(createTestHost({ env: { ODBCSYSINI: '/etc' }, home: '/home/brian', files, existingPaths }));
+
+		const before = discover({ '/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': odbc });
+
+		assert.deepStrictEqual(
+			{
+				emptyUserFileCreated: isSameConfiguration(before, discover({
+					'/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': odbc, '/home/brian/.odbc.ini': '',
+				})),
+				dataSourceAdded: isSameConfiguration(before, discover({
+					'/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': `${odbc}\n[Other]\nDriver = PostgreSQL Unicode\n`,
+				})),
+				dataSourceEdited: isSameConfiguration(before, discover({
+					'/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': odbc.replace('localhost', 'db.example.com'),
+				})),
+				driverLibraryRemoved: isSameConfiguration(before, discover(
+					{ '/etc/odbcinst.ini': odbcinst, '/etc/odbc.ini': odbc }, [])),
+			},
+			{ emptyUserFileCreated: true, dataSourceAdded: false, dataSourceEdited: false, driverLibraryRemoved: false }
+		);
+	});
 });
 
 suite('discoverOdbcConfiguration (windows)', () => {
+	test('drops a DSN whose driver library is gone, whether named or pointed at directly', () => {
+		// Also the guard on isLibraryPath: these paths are Windows-shaped but the suite runs on
+		// whatever the developer or CI lane is, so a bare path.isAbsolute would call them relative
+		// on macOS and Linux and keep every one of these DSNs.
+		const config = discoverOdbcConfiguration(createTestHost({
+			platform: 'win32',
+			existingPaths: ['C:\\Windows\\System32\\psqlodbc35w.dll'],
+			registry: {
+				drivers: {
+					'PostgreSQL Unicode(x64)': { Driver: 'C:\\Windows\\System32\\psqlodbc35w.dll' },
+					'Removed Driver': { Driver: 'C:\\Program Files\\Gone\\gone.dll' },
+				},
+				systemDsns: {
+					Good: { Driver: 'PostgreSQL Unicode(x64)', Server: 'shared.example.com' },
+					Stale: { Driver: 'Removed Driver', Server: 'stale.example.com' },
+					Direct: { Driver: 'C:\\Program Files\\Gone\\gone.dll' },
+				},
+				userDsns: {},
+			},
+		}));
+
+		assert.deepStrictEqual(
+			{ dsns: config.dsns.map(dsn => dsn.name), skipped: config.skippedDsns },
+			{
+				dsns: ['Good'],
+				skipped: [
+					{ name: 'Direct', reason: 'missing-library', detail: 'C:\\Program Files\\Gone\\gone.dll' },
+					{ name: 'Stale', reason: 'missing-library', detail: 'C:\\Program Files\\Gone\\gone.dll' },
+				],
+			}
+		);
+	});
+
 	test('reads the registry snapshot and lets user DSNs shadow system DSNs', () => {
 		const config = discoverOdbcConfiguration(createTestHost({
 			platform: 'win32',

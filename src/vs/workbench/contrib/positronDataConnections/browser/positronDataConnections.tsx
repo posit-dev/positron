@@ -25,7 +25,7 @@ export const PositronDataConnections = (props: PositronDataConnectionsProps) => 
 	// Render.
 	return (
 		<div className='positron-data-connections'>
-			<DataConnectionsPanel />
+			<DataConnectionsPanel reactComponentContainer={props.reactComponentContainer} />
 		</div>
 	);
 };

@@ -453,7 +453,10 @@ function createDriver(
 				// expansion state in the pane) from session to session.
 				id: `odbc-dsn:${dsn.name}`,
 				name: dsn.name,
-				description: summarizeDsn(dsn),
+				// A DSN that declares no endpoint is a stub: a package installer wrote the section
+				// and nothing ever filled it in. Saying so is the difference between a row the user
+				// can tell is unconfigured and one that reads exactly like a working connection.
+				description: summarizeDsn(dsn) ?? vscode.l10n.t('No server configured'),
 				mechanismId: DSN_MECHANISM_ID,
 				parameters: { dsn: dsn.name },
 			}));

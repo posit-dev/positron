@@ -12,7 +12,7 @@
 //     [--last N] [--screenshots N] [--cleanup] [--title <string>] [--test-id <string>]
 //
 // <S3_URL> is a Playwright HTML report base URL, e.g.:
-//   https://d38p2avprg8il3.cloudfront.net/playwright-report-<run>-<attempt>-<id>-<os>/
+//   https://d38p2avprg8il3.cloudfront.net/playwright-report-<run>-<attempt>-<id>-<os>-<arch>/
 //
 // Options:
 //   --report-url <url>   CloudFront base URL of the Playwright HTML report (required)

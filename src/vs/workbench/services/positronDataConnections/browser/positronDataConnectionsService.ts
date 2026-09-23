@@ -95,6 +95,14 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Fires when data connection instances change.
 	private readonly _onDidChangeInstancesEmitter = this._register(new Emitter<IDataConnectionInstance[]>());
 
+	// Fires when a connection should be shown in the Data Connections pane.
+	private readonly _onDidRequestRevealConnectionEmitter = this._register(new Emitter<void>());
+
+	// The profile the pane has been asked to show and has not shown yet. Held because the pane's
+	// tree is built as the pane renders, so a request made while the pane was still opening has no
+	// tree to hear it; the tree takes this when it is built. Cleared by takePendingRevealConnection.
+	private _pendingRevealConnection?: string;
+
 	// Ephemeral profiles for the connections drivers report as already configured on this machine.
 	// Rebuilt whenever the registered drivers change and never persisted; see
 	// _refreshDiscoveredProfiles.
@@ -169,6 +177,34 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	// Fires when the discovered data connections change.
 	readonly onDidChangeDiscoveredProfiles: Event<IDataConnectionProfile[]> = this._onDidChangeDiscoveredProfilesEmitter.event;
+
+	// Fires when a connection should be shown in the Data Connections pane.
+	readonly onDidRequestRevealConnection: Event<void> = this._onDidRequestRevealConnectionEmitter.event;
+
+	/**
+	 * Asks the Data Connections pane to show a connection. See
+	 * {@link IPositronDataConnectionsService.revealConnection}.
+	 * @param profileId The id of the profile to show.
+	 */
+	revealConnection(profileId: string): void {
+		// The request is recorded, then announced: the announcement is only a nudge, and whoever
+		// acts on it reads the profile from takePendingRevealConnection. That way a tree that is
+		// still being built when this is called -- which hears nothing -- takes the same request on
+		// the way up, and the request is cleared exactly once, by whichever of the two honors it.
+		this._pendingRevealConnection = profileId;
+		this._onDidRequestRevealConnectionEmitter.fire();
+	}
+
+	/**
+	 * Takes the outstanding reveal request, if there is one. See
+	 * {@link IPositronDataConnectionsService.takePendingRevealConnection}.
+	 * @returns The id of the profile to show, or undefined if no request is outstanding.
+	 */
+	takePendingRevealConnection(): string | undefined {
+		const profileId = this._pendingRevealConnection;
+		this._pendingRevealConnection = undefined;
+		return profileId;
+	}
 
 	/**
 	 * Gets the connections drivers report as already configured on this machine, as ephemeral

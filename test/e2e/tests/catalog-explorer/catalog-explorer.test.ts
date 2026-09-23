@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 import { test, expect, tags } from '../_test.setup';
 
 // Host directory the Snowflake case writes connections.toml to. Created at module scope (once per
@@ -94,6 +94,29 @@ test.describe('Catalog Explorer', {
 		await expect(section).toHaveAttribute('aria-expanded', 'true');
 	}
 
+	/**
+	 * Scroll the virtualized Catalog Explorer tree until `row` is rendered.
+	 *
+	 * The tree renders only the rows that fit the section, so a row below the fold is absent from
+	 * the DOM and no wait would ever find it. Wheels to the top, then down in steps; when a pass
+	 * reaches the end without finding the row, the rows are still loading, so it starts over from
+	 * the top rather than leaving the tree stranded at the bottom. Gives up at `timeout`, leaving
+	 * the caller's assertion to report the row as missing.
+	 */
+	async function revealTreeRow(page: Page, tree: Locator, row: Locator, timeout = 60000): Promise<void> {
+		// Enough wheel steps to cover well over a hundred rows before restarting the pass.
+		const stepsPerPass = 40;
+		const deadline = Date.now() + timeout;
+		while (await row.count() === 0 && Date.now() < deadline) {
+			await tree.hover();
+			await page.mouse.wheel(0, -100000);
+			for (let i = 0; i < stepsPerPass && await row.count() === 0; i++) {
+				await page.mouse.wheel(0, 200);
+				await page.waitForTimeout(100);
+			}
+		}
+	}
+
 	test('Verify Basic Databricks Catalog Explorer functionality', async function ({ app, python }) {
 
 		await expandCatalogExplorerSection(app.code.driver.currentPage);
@@ -138,7 +161,9 @@ test.describe('Catalog Explorer', {
 		// The Snowflake provider takes no credentials interactively; it lists the named connections
 		// in connections.toml and authenticates with whatever the chosen entry holds. The
 		// authenticator is set explicitly because the provider defaults to externalbrowser, which
-		// would launch a real browser for an Okta sign-in and stall the run.
+		// would launch a real browser for an Okta sign-in and stall the run. The password is the
+		// IDE service account's programmatic access token, which Snowflake accepts wherever a
+		// password is expected.
 		const connectionsFile = path.join(snowflakeHome, 'connections.toml');
 		fs.writeFileSync(connectionsFile, [
 			`[${snowflakeConnectionName}]`,
@@ -185,7 +210,14 @@ test.describe('Catalog Explorer', {
 		// authenticated. The extension's own auth timeout is 30s; leave room for it plus the first
 		// metadata query.
 		await expect(tree.locator('.label-name').filter({ hasText: 'Snowflake' })).toBeVisible();
-		await expect(tree.locator('.label-name').filter({ hasText: snowflakeDatabase })).toBeVisible({ timeout: 60000 });
+
+		// The service account's role sees several dozen databases, listed alphabetically, and the
+		// section shows only a few rows (see afterEach), so the one asserted on sits below the fold
+		// where the virtualized tree does not render it at all. Scroll it into the rendered range
+		// before asserting on it.
+		const databaseRow = tree.locator('.label-name').filter({ hasText: snowflakeDatabase });
+		await revealTreeRow(app.code.driver.currentPage, tree, databaseRow);
+		await expect(databaseRow).toBeVisible();
 
 	});
 });

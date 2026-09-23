@@ -1,8 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import type * as vscode from 'vscode';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { ExtHostDocuments } from '../extHostDocuments.js';
@@ -11,6 +12,7 @@ import { ExtHostQuickOpen } from '../extHostQuickOpen.js';
 import { ExtHostCommands } from '..//extHostCommands.js';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs.js';
 import { ExtHostContextKeyService } from '../positron/extHostContextKeyService.js';
+import { ExtHostConsoleService } from '../positron/extHostConsoleService.js';
 import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime.js';
 import { UiFrontendRequest, EditorContext, Range as UIRange } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { JsonRpcErrorCode } from '../../../services/languageRuntime/common/positronBaseComm.js';
@@ -47,13 +49,19 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		private readonly workspace: ExtHostWorkspace,
 		private readonly quickOpen: ExtHostQuickOpen,
 		private readonly commands: ExtHostCommands,
-		private readonly contextKeys: ExtHostContextKeyService
+		private readonly contextKeys: ExtHostContextKeyService,
+		private readonly consoleService: ExtHostConsoleService
 	) {
 	}
 
 	// Parses arguments and calls relevant method. Does not throw, returns
 	// JSON-RPC error responses instead.
-	async call(extensionId: string, method: UiFrontendRequest, params: Record<string, any>): Promise<JsonRpcResponse> {
+	//
+	// `callerSessionId`, when provided, identifies the kernel session that originated the RPC (set
+	// by the UI-comm bridge in `KallichoreSession.onCommRequest()`). It gates console-aware
+	// behavior in `lastActiveEditorContext()` / `modifyEditorLocations()` to the calling kernel's
+	// own console; direct callers with no session id fall back to editor-pane behavior.
+	async call(extensionId: string, method: UiFrontendRequest, params: Record<string, any>, callerSessionId?: string): Promise<JsonRpcResponse> {
 		try {
 			if (!Object.values(UiFrontendRequest).includes(method)) {
 				return <JsonRpcError>{
@@ -73,7 +81,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					if (params && Object.keys(params).length > 0) {
 						return newInvalidParamsError(method);
 					}
-					result = await this.lastActiveEditorContext();
+					result = await this.lastActiveEditorContext(callerSessionId);
 					break;
 				}
 				case UiFrontendRequest.ModifyEditorSelections: {
@@ -85,7 +93,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					const sel = params.selections as UIRange[];
 					const selections = sel.map(s =>
 						new Range(s.start.line, s.start.character, s.end.line, s.end.character));
-					result = await this.modifyEditorLocations(selections, params.values as string[]);
+					result = await this.modifyEditorLocations(selections, params.values as string[], callerSessionId);
 					break;
 				}
 				case UiFrontendRequest.WorkspaceFolder: {
@@ -198,12 +206,71 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		}
 	}
 
-	async lastActiveEditorContext(): Promise<EditorContext | null> {
-		const editor = this.editors.getActiveTextEditor();
+	async lastActiveEditorContext(callerSessionId?: string): Promise<EditorContext | null> {
+		const consoleEditor = await this.activeConsoleEditorForCaller(callerSessionId);
+		const editor = consoleEditor ?? this.editors.getActiveTextEditor();
 		if (!editor) {
 			return null;
 		}
 
+		// RStudio parity: the console's document has no real path, and is identified by `'#console'`
+		// (the real `inmemory://` URI would leak an implementation detail).
+		return this.editorContextFromTextEditor(
+			editor,
+			consoleEditor ? { path: '', id: '#console' } : undefined);
+	}
+
+	async modifyEditorLocations(locations: Range[], values: string[], callerSessionId?: string): Promise<null> {
+		const consoleEditor = await this.activeConsoleEditorForCaller(callerSessionId);
+		const editor = consoleEditor ?? this.editors.getActiveTextEditor();
+		if (!editor) {
+			return null;
+		}
+
+		editor.edit(editBuilder => {
+			locations.map((location, i) => {
+				editBuilder.replace(location, values[i]);
+			});
+		});
+
+		return null;
+	}
+
+	/**
+	 * Resolves the console editor that should be treated as "the active document" for a
+	 * console-aware RPC, or `undefined` if the caller should fall back to the last active editor
+	 * pane editor.
+	 *
+	 * The console wins only when the RPC identifies a kernel session whose own console input was
+	 * the most recently focused text editor. That is deliberately "focused last" rather than
+	 * "focused now", matching RStudio: it reports the console whenever the last editor to take
+	 * focus was the console input, so the answer survives focus moving to something that is not
+	 * an editor at all (selecting text in the console output, clicking into the Variables pane).
+	 *
+	 * Note that the *active* console is not a usable stand-in for the focused one.
+	 * `PositronConsoleService.executeCode` activates the target console before the code runs,
+	 * even with `focus: false`, so by the time a kernel's RPC arrives the active console is
+	 * always the caller's own. Gating on it would let a click on the Python console authorize
+	 * returning the R console. `ConsoleInputFocusTracker` records which console was focused.
+	 */
+	private async activeConsoleEditorForCaller(callerSessionId: string | undefined): Promise<vscode.TextEditor | undefined> {
+		if (callerSessionId === undefined) {
+			return undefined;
+		}
+
+		const focusedLastSessionId = await this.consoleService.getConsoleInputFocusedLastSessionId();
+		if (focusedLastSessionId !== callerSessionId) {
+			return undefined;
+		}
+
+		return this.consoleService.consoleEditorForSession(callerSessionId);
+	}
+
+	/**
+	 * Assembles an `EditorContext` from a `vscode.TextEditor`, optionally overriding the reported
+	 * document path and context id (used for the console editor, which has no real on-disk path).
+	 */
+	private editorContextFromTextEditor(editor: vscode.TextEditor, overrides?: { path?: string; id?: string }): EditorContext {
 		// The selections in this text editor. The primary selection is always at index 0.
 		//
 		// The gymnastics here are so that we return character positions with respect to
@@ -250,7 +317,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 		return {
 			document: {
-				path: editor.document.fileName,
+				path: overrides?.path ?? editor.document.fileName,
 				eol: eolSequence,
 				is_closed: editor.document.isClosed,
 				is_dirty: editor.document.isDirty,
@@ -262,23 +329,9 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			contents: lines,
 			// The primary selection in this text editor. Shorthand for `TextEditor.selections[0]`.
 			selection: selections[0],
-			selections: selections
+			selections: selections,
+			id: overrides?.id
 		};
-	}
-
-	async modifyEditorLocations(locations: Range[], values: string[]): Promise<null> {
-		const editor = this.editors.getActiveTextEditor();
-		if (!editor) {
-			return null;
-		}
-
-		editor.edit(editBuilder => {
-			locations.map((location, i) => {
-				editBuilder.replace(location, values[i]);
-			});
-		});
-
-		return null;
 	}
 
 	async workspaceFolder(): Promise<string | null> {

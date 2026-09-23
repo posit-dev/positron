@@ -97,7 +97,7 @@ Adding the alias is a shared-config change affecting every extension test, so ag
 
 Those options come from `src/tsconfig.json`, not from the extension's own. The program checks at `strict: true, target: es2024`, while, for example, `positron-dev-containers` builds at `strict: false, target: es2018`. A green `check-ts` therefore does not prove the file would compile under the extension's tsconfig -- which is fine, because step 1 excludes it from that build on purpose. Just don't read it as coverage of the extension's real build settings.
 
-Sharing code across extensions isn't possible (each compiles under its own tsconfig), so a helper needed by several is copied per extension. When that happens, add a guard that the copies stay identical -- see `extensions/serverDownloadUrl-copies.vitest.ts`.
+Sharing code across extensions is possible through a local `file:` package, as `extensions/positron-data-explorer-protocol` does for about ten driver extensions; it costs a small `package.json` and `tsconfig.json` plus registration in `build/npm/dirs.ts`, `build/gulpfile.extensions.ts`, and `build/lib/extensions.ts`. When a helper is copied per extension instead, add a guard that the copies stay identical -- see `extensions/serverDownloadUrl-copies.vitest.ts`.
 
 ## The Builder
 

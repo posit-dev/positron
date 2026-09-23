@@ -7,6 +7,7 @@ import { expect, BrowserContext } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
 import { completeDatabricksOktaSignIn } from '../../utils/databricksOAuth.js';
+import { completeOktaSignIn } from '../../utils/oktaSignIn.js';
 
 export class DashboardPage {
 	get title() { return this.code.driver.currentPage.getByRole('link', { name: 'Workbench projects' }); }
@@ -264,40 +265,54 @@ export class DashboardPage {
 
 		this.code.logger.log('Setting up Snowflake OAuth...');
 
-		const snowflakeUsername = process.env.SNOWFLAKE_USERNAME!;
-		const snowflakePassword = process.env.SNOWFLAKE_PASSWORD!;
-
-		// Click Snowflake sign in - opens OAuth in new tab
+		// Click Snowflake sign in - opens Snowflake's login page in a new tab
 		const snowflakeWidget = page.locator('[aria-label*="Snowflake"]').first();
 		const [oauthPage] = await Promise.all([
 			context.waitForEvent('page'),
 			snowflakeWidget.click(),
 		]);
 
-		// Wait for Snowflake login page to load
-		await oauthPage.waitForLoadState('networkidle');
+		// Snowflake shows its native username/password form first, but the account federates to
+		// Okta and the shared IDE service account has no Snowflake password, so take the SSO hop.
+		// From there the flow is the same Okta sign-in the other providers drive and lives in the
+		// shared helper. What is Snowflake-specific is the tail: an "Allow" consent screen that may
+		// appear the first time a client is authorized, then the redirect to Workbench's callback.
+		const oktaButton = oauthPage.getByRole('button', { name: /sign in using okta/i })
+			.or(oauthPage.getByText(/sign in using okta/i));
+		await expect(oktaButton.first()).toBeVisible({ timeout: 15000 });
+		await oktaButton.first().click();
 
-		// Enter Snowflake credentials
-		await oauthPage.fill('[autocomplete="username"]', snowflakeUsername);
-		await oauthPage.fill('[autocomplete="current-password"]', snowflakePassword);
+		const reachedCallback = await completeOktaSignIn(oauthPage, {
+			logger: this.code.logger,
+			label: 'Workbench/Snowflake',
+			afterOtp: async signInPage => {
+				const allowButton = signInPage.getByRole('button', { name: 'Allow' });
+				try {
+					await expect(allowButton).toBeVisible({ timeout: 8000 });
+					await allowButton.click();
+					this.code.logger.log('Clicked Snowflake "Allow" authorization button');
+				} catch {
+					this.code.logger.log('No Snowflake "Allow" button shown, proceeding...');
+				}
+				await signInPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 20000 });
+			},
+		});
 
-		// Click sign in button
-		const signInButton = oauthPage.getByRole('button', { name: 'Sign In' }).nth(1);
-		await expect(signInButton).toBeVisible({ timeout: 10000 });
-		await signInButton.click();
-
-		// Check for "Allow" authorization button (may appear on first OAuth flow)
-		const allowButton = oauthPage.getByRole('button', { name: 'Allow' });
 		try {
-			await allowButton.waitFor({ timeout: 5000 });
-			await allowButton.click();
-			this.code.logger.log('Clicked "Allow" authorization button');
+			if (reachedCallback) {
+				await oauthPage.waitForTimeout(2000);
+			}
+			if (!oauthPage.isClosed()) {
+				await oauthPage.close();
+			}
 		} catch {
-			this.code.logger.log('No "Allow" button found, proceeding...');
+			this.code.logger.log('Snowflake OAuth page closed or timed out (may be expected)');
 		}
 
 		// Wait for OAuth to complete and widget to reach its final state
-		// Use expect.toPass to handle the race between widget state updates
+		// Use expect.toPass to handle the race between widget state updates. The budget matches the
+		// Databricks flow above: after the Okta SAML round trip, Workbench still has to exchange the
+		// code for a token before the widget flips to Enabled, which took longer than 15s in CI.
 		await expect(async () => {
 			// Check if already enabled - if so, we're done
 			const isEnabled = await enabledWidget.isVisible().catch(() => false);
@@ -316,7 +331,7 @@ export class DashboardPage {
 
 			// Verify it's now enabled
 			await expect(enabledWidget).toBeVisible({ timeout: 2000 });
-		}).toPass({ timeout: 15000 });
+		}).toPass({ timeout: 30000 });
 
 		this.code.logger.log('Snowflake OAuth setup complete');
 	}

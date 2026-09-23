@@ -13,7 +13,7 @@ This workflow complements automated tests; it does not replace them. Add an appr
 Do not use this workflow to hand a persistent Positron instance to a person:
 
 - the profile is deleted during cleanup;
-- native file dialogs are replaced with quick input;
+- native file dialogs and modal message boxes are replaced with in-app equivalents;
 - no watch process recompiles subsequent source edits.
 
 Use the `launch-positron` command for that case.
@@ -46,7 +46,7 @@ Tools they expect on `PATH`:
 
 | Tool | Used by | Notes |
 |---|---|---|
-| `node`, `npx` | all | `@playwright/cli` resolves from the repo's `node_modules` |
+| `node`, `npx` | all | the scripts call `node_modules/.bin/playwright-cli` directly and fall back to `npx @playwright/cli` |
 | `curl` | `launch.sh`, `stop.sh` | CDP readiness and liveness probes |
 | `rsync` or `tar` | `launch.sh` | `rsync` preferred; `tar` is the fallback, and is what Git Bash has |
 | `jq` | `monaco-paste.sh`, `quickpick-enum.sh` | not present in a bare Git Bash; install it separately |
@@ -96,7 +96,8 @@ The launcher:
 - uses a short run directory under `/tmp` by default;
 - assigns unique ports for CDP and the debug endpoints;
 - converts the profile paths for the native binary on Windows;
-- waits for CDP and verifies that the app remains alive before returning.
+- waits for CDP and verifies that the app remains alive before returning;
+- keeps the renderer painting while the window is covered by passing Chromium's `--disable-backgrounding-occluded-windows` and `--disable-renderer-backgrounding`. Without them a fully occluded window stops producing frames, so every `click` and element `screenshot` times out on Playwright's stability check while keyboard input and `eval` still work.
 
 ### Arguments to pass yourself
 
@@ -125,7 +126,7 @@ Repeating one of the first three after `--` overrides the supplied copy. Pass `-
 
 ## Protect the source profile
 
-The launcher reads the source profile with a one-way `rsync` into the run directory. It does not use `--delete`, and it applies `files.simpleDialog.enable` only to the disposable copy.
+The launcher reads the source profile with a one-way `rsync` into the run directory. It does not use `--delete`, and it applies `files.simpleDialog.enable` and `window.dialogStyle` only to the disposable copy.
 
 It excludes lock files, sockets, singleton state, caches, logs, and workspace storage so the copied profile can run alongside a normal development instance.
 
@@ -173,48 +174,58 @@ It leaves the run directory in place, so still remove it during cleanup.
 Use a literal session name and reuse it for every command:
 
 ```bash
-npx @playwright/cli -s=positron \
+./node_modules/.bin/playwright-cli -s=positron \
 	attach --cdp=http://127.0.0.1:"$CDP_PORT"
 
-npx @playwright/cli -s=positron snapshot
+./node_modules/.bin/playwright-cli -s=positron snapshot
 ```
 
 Do not derive the session name from `$$`. Separate shell invocations receive different process IDs and would silently create different sessions.
 
-Run every `npx @playwright/cli` command from the repository root. From another
-working directory `npx` installs its own copy of the CLI, which keeps its
-sessions elsewhere and reports the attached session as `The browser 'NAME' is
-not open`.
+Run every command from the repository root, and call the binary directly rather
+than through `npx`. It is the same package `npx` resolves to there, but `npx`
+re-resolves it every invocation and costs about a second each time. From another
+working directory `npx` also installs its own copy, which keeps its sessions
+elsewhere and reports the attached session as `The browser 'NAME' is not open`.
 
 Common operations:
 
 ```bash
-npx @playwright/cli -s=positron click e153
-npx @playwright/cli -s=positron click e980 right
-npx @playwright/cli -s=positron type "some text"
-npx @playwright/cli -s=positron press Enter
-npx @playwright/cli -s=positron resize 1600 1100
-npx @playwright/cli -s=positron eval '(() => document.title)()'
-npx @playwright/cli -s=positron console warning
-npx @playwright/cli -s=positron \
+./node_modules/.bin/playwright-cli -s=positron click e153
+./node_modules/.bin/playwright-cli -s=positron click e980 right
+./node_modules/.bin/playwright-cli -s=positron type "some text"
+./node_modules/.bin/playwright-cli -s=positron press Enter
+./node_modules/.bin/playwright-cli -s=positron resize 1600 1100
+./node_modules/.bin/playwright-cli -s=positron eval '(() => document.title)()'
+./node_modules/.bin/playwright-cli -s=positron console warning
+./node_modules/.bin/playwright-cli -s=positron \
 	screenshot --filename="$PWD/shots/01.png"
 ```
 
 Use element references from the latest snapshot. Do not substitute screen coordinates, and use the positional `right` argument for a right-click.
+
+`click` also takes a selector. Selectors must be unique, or Playwright's strict
+mode fails the step: `button:has-text("Install uv")` also matches a dropdown
+reading "Install uv to select a Python version", where `.install-uv-button` does
+not.
+
+Snapshot a subtree, not the page: a bare `snapshot` renders the whole workbench,
+about 250 lines of YAML, where the ref of the dialog you are in returns a dozen.
+Once a flow's container has a ref, keep reusing it.
 
 Filter a large snapshot rather than piping the whole thing through `grep`. To
 read the tree around a known control, `find` returns only the matching nodes and
 their context:
 
 ```bash
-npx @playwright/cli -s=positron find "Run Cell"
+./node_modules/.bin/playwright-cli -s=positron find "Run Cell"
 ```
 
 To capture a reference for a script, query the structured snapshot. Matching
 `role` and `name` avoids escaping a regexp over the YAML rendering:
 
 ```bash
-R=$(npx @playwright/cli -s=positron --json snapshot \
+R=$(./node_modules/.bin/playwright-cli -s=positron --json snapshot \
 	| jq -r '.. | objects | select(.role == "button" and .name == "Run Cell") | .ref' \
 	| head -1)
 ```
@@ -226,10 +237,10 @@ for it in a full workbench, draw an overlay on the element first. `highlight
 --hide` clears every overlay on the page:
 
 ```bash
-npx @playwright/cli -s=positron highlight e153
-npx @playwright/cli -s=positron \
+./node_modules/.bin/playwright-cli -s=positron highlight e153
+./node_modules/.bin/playwright-cli -s=positron \
 	screenshot --hires --filename="$PWD/shots/01.png"
-npx @playwright/cli -s=positron highlight --hide
+./node_modules/.bin/playwright-cli -s=positron highlight --hide
 ```
 
 `console` reads the renderer console, which is a separate source from the log
@@ -278,6 +289,8 @@ widgets left behind by closed pickers, and how separators are rendered.
 
 - Allow interpreter discovery and marketplace extension installation to finish before concluding that a kernel is unavailable.
 - Set `positron.notebook.enabled` to `true` in the workspace or seed profile when testing the Positron notebook editor.
+- Modal message boxes are clickable because the launcher forces `window.dialogStyle: "custom"`. Without it Electron draws a native dialog that CDP can neither see nor dismiss, and the blocked renderer looks like a hung app. Judge such a dialog's wording from this path but not its appearance; a real user sees the native one.
+- Two things are called a modal. `.positron-modal-dialog-box`, which the `Modals` page object matches, is Positron's own React modal such as the New Folder flow. A `showInformationMessage(..., { modal: true })` raised from inside it is the upstream `.monaco-dialog-box`, which that page object will not find.
 - Expect selectors to change. Prefer the maintained page objects under `test/e2e/pages/` when locating Positron controls; otherwise take a fresh snapshot.
 
 ## Use upstream debugging guidance
@@ -303,10 +316,15 @@ Read `.agents/skills/launch/SKILL.md` when you need:
 Always stop the disposable instance; Positron can retain several gigabytes of memory.
 
 ```bash
-npx @playwright/cli -s=positron close
+./node_modules/.bin/playwright-cli -s=positron close
 .claude/skills/drive-positron/scripts/stop.sh \
 	--cdp-port "$CDP_PORT" --run-dir "$RUN_DIR"
 ```
+
+Run `stop.sh` in its own command, after you have confirmed that every
+screenshot or file you need exists. A command that fails earlier in the same
+chain, such as an element screenshot that times out, cannot be retried once the
+instance is gone.
 
 `stop.sh` signals the process that owns the CDP port, waits for the port to stop answering, forces the stop if it does not, and then removes the run directory. It exits non-zero if the instance is still reachable, so a silent failure to clean up is not possible.
 
