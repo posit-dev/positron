@@ -17,8 +17,10 @@ import * as commandApis from '../../../client/common/vscodeApis/commandApis';
 // --- Start Positron ---
 // import { Commands } from '../../../client/common/constants';
 // import { Common, CreateEnv } from '../../../client/common/utils/localize';
-import { Common } from '../../../client/common/utils/localize';
+import { Common, CreateEnv } from '../../../client/common/utils/localize';
 import * as autoCreateVenv from '../../../client/pythonEnvironments/creation/provider/autoCreateVenv';
+import * as autoCreateLockFileEnv from '../../../client/pythonEnvironments/creation/provider/autoCreateLockFileEnv';
+import { IPythonRuntimeManager } from '../../../client/positron/manager';
 // --- End Positron ---
 
 suite('Create Environment Trigger', () => {
@@ -38,6 +40,12 @@ suite('Create Environment Trigger', () => {
     // --- Start Positron ---
     let autoCreateVenvWithDepsStub: sinon.SinonStub;
     let hasShownCreateEnvModalStub: sinon.SinonStub;
+    let hasUvLockStub: sinon.SinonStub;
+    let hasPixiLockStub: sinon.SinonStub;
+    let hasPixiEnvStub: sinon.SinonStub;
+    let autoSyncUvEnvStub: sinon.SinonStub;
+    let autoInstallPixiEnvStub: sinon.SinonStub;
+    const pythonRuntimeManager = {} as IPythonRuntimeManager;
     // --- End Positron ---
 
     const workspace1 = {
@@ -78,6 +86,16 @@ suite('Create Environment Trigger', () => {
         autoCreateVenvWithDepsStub.resolves(undefined);
         hasShownCreateEnvModalStub = sinon.stub(triggerUtils, 'hasShownCreateEnvModal');
         hasShownCreateEnvModalStub.returns(false);
+        hasUvLockStub = sinon.stub(triggerUtils, 'hasUvLock');
+        hasUvLockStub.resolves(false);
+        hasPixiLockStub = sinon.stub(triggerUtils, 'hasPixiLock');
+        hasPixiLockStub.resolves(false);
+        hasPixiEnvStub = sinon.stub(commonUtils, 'hasPixiEnv');
+        hasPixiEnvStub.resolves(false);
+        autoSyncUvEnvStub = sinon.stub(autoCreateLockFileEnv, 'autoSyncUvEnv');
+        autoSyncUvEnvStub.resolves(undefined);
+        autoInstallPixiEnvStub = sinon.stub(autoCreateLockFileEnv, 'autoInstallPixiEnv');
+        autoInstallPixiEnvStub.resolves(undefined);
         // --- End Positron ---
     });
 
@@ -298,6 +316,147 @@ suite('Create Environment Trigger', () => {
         await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
 
         sinon.assert.notCalled(showInformationMessageStub);
+    });
+
+    test('Should show uv sync prompt when uv.lock exists and no venv: user clicks create', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(false);
+        hasPrefixCondaEnvStub.resolves(false);
+        hasKnownFilesStub.resolves(false);
+        isGlobalPythonSelectedStub.resolves(true);
+        hasUvLockStub.resolves(true);
+        showInformationMessageStub.resolves(Common.bannerLabelYes);
+
+        await triggerCreateEnvironmentCheck(
+            CreateEnvironmentCheckKind.Workspace,
+            workspace1.uri,
+            undefined,
+            pythonRuntimeManager,
+        );
+
+        sinon.assert.calledOnceWithExactly(
+            showInformationMessageStub,
+            CreateEnv.Trigger.uvSyncMessage,
+            Common.bannerLabelYes,
+            Common.notNow,
+            Common.doNotShowAgain,
+        );
+        sinon.assert.calledOnceWithExactly(autoSyncUvEnvStub, workspace1, pythonRuntimeManager);
+        sinon.assert.notCalled(autoCreateVenvWithDepsStub);
+        sinon.assert.notCalled(autoInstallPixiEnvStub);
+    });
+
+    test('Should not show uv sync prompt when a venv already exists', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(true);
+        hasPrefixCondaEnvStub.resolves(false);
+        hasRequirementFilesStub.resolves(false);
+        hasKnownFilesStub.resolves(false);
+        isGlobalPythonSelectedStub.resolves(true);
+        hasUvLockStub.resolves(true);
+
+        await triggerCreateEnvironmentCheck(
+            CreateEnvironmentCheckKind.Workspace,
+            workspace1.uri,
+            undefined,
+            pythonRuntimeManager,
+        );
+
+        sinon.assert.notCalled(showInformationMessageStub);
+        sinon.assert.notCalled(autoSyncUvEnvStub);
+    });
+
+    test('Should show pixi install prompt when pixi.lock exists and no pixi env: user clicks create', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(false);
+        hasPrefixCondaEnvStub.resolves(false);
+        hasKnownFilesStub.resolves(false);
+        isGlobalPythonSelectedStub.resolves(true);
+        hasPixiLockStub.resolves(true);
+        hasPixiEnvStub.resolves(false);
+        showInformationMessageStub.resolves(Common.bannerLabelYes);
+
+        await triggerCreateEnvironmentCheck(
+            CreateEnvironmentCheckKind.Workspace,
+            workspace1.uri,
+            undefined,
+            pythonRuntimeManager,
+        );
+
+        sinon.assert.calledOnceWithExactly(
+            showInformationMessageStub,
+            CreateEnv.Trigger.pixiInstallMessage,
+            Common.bannerLabelYes,
+            Common.notNow,
+            Common.doNotShowAgain,
+        );
+        sinon.assert.calledOnceWithExactly(autoInstallPixiEnvStub, workspace1, pythonRuntimeManager);
+        sinon.assert.notCalled(autoCreateVenvWithDepsStub);
+        sinon.assert.notCalled(autoSyncUvEnvStub);
+    });
+
+    test('Should not show pixi install prompt when a pixi env already exists', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(false);
+        hasPrefixCondaEnvStub.resolves(false);
+        hasRequirementFilesStub.resolves(false);
+        hasKnownFilesStub.resolves(false);
+        isGlobalPythonSelectedStub.resolves(true);
+        hasPixiLockStub.resolves(true);
+        hasPixiEnvStub.resolves(true);
+
+        await triggerCreateEnvironmentCheck(
+            CreateEnvironmentCheckKind.Workspace,
+            workspace1.uri,
+            undefined,
+            pythonRuntimeManager,
+        );
+
+        sinon.assert.notCalled(showInformationMessageStub);
+        sinon.assert.notCalled(autoInstallPixiEnvStub);
+    });
+
+    test('pixi.lock presence suppresses the legacy pip-based prompt entirely', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(false);
+        hasPrefixCondaEnvStub.resolves(false);
+        hasKnownFilesStub.resolves(false);
+        hasPixiLockStub.resolves(true);
+        hasPixiEnvStub.resolves(true); // pixi branch skipped because a pixi env already exists
+        hasRequirementFilesStub.resolves(true); // would otherwise satisfy the legacy trigger
+        isGlobalPythonSelectedStub.resolves(true);
+
+        await triggerCreateEnvironmentCheck(
+            CreateEnvironmentCheckKind.Workspace,
+            workspace1.uri,
+            undefined,
+            pythonRuntimeManager,
+        );
+
+        sinon.assert.notCalled(showInformationMessageStub);
+    });
+
+    test('Without a runtime manager, lock file branches are skipped and legacy logic still runs', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(false);
+        hasPrefixCondaEnvStub.resolves(false);
+        hasKnownFilesStub.resolves(false);
+        hasUvLockStub.resolves(true);
+        hasRequirementFilesStub.resolves(true);
+        isGlobalPythonSelectedStub.resolves(true);
+        showInformationMessageStub.resolves(Common.bannerLabelYes);
+
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+
+        sinon.assert.notCalled(autoSyncUvEnvStub);
+        sinon.assert.calledOnceWithExactly(
+            showInformationMessageStub,
+            sinon.match.string,
+            Common.bannerLabelYes,
+            Common.notNow,
+            Common.doNotShowAgain,
+        );
+        sinon.assert.calledOnce(autoCreateVenvWithDepsStub);
     });
     // --- End Positron ---
 });
