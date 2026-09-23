@@ -516,3 +516,14 @@ test('parseReport takes the chips from the header, not from anywhere backticked'
 	// header as if it were the commit.
 	assert.deepEqual(r.chips, []);
 });
+
+test('renderReportHtml counts each coverage table on its own heading', () => {
+	const html = renderReportHtml(FULL);
+	assert.match(html, /<h3 class="cov-title">Exercised<span class="cov-n"> &middot; 3<\/span><\/h3>/);
+	assert.match(html, /<h3 class="cov-title">Not exercised<span class="cov-n"> &middot; 1<\/span><\/h3>/);
+	// The section label carries nothing beside it any more, and neither count is
+	// written as a phrase or in brackets.
+	assert.match(html, /<div class="section-head"><h2 class="section-label">Coverage<\/h2><\/div>/);
+	assert.doesNotMatch(html, /\d+ exercised/);
+	assert.doesNotMatch(html, /Exercised \(/);
+});

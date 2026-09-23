@@ -408,6 +408,7 @@ a.shot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .cov-group{display:flex;flex-direction:column;gap:10px}
 .cov-group.gap{margin-top:12px}
 h3.cov-title{margin:0;font-size:14px;font-weight:600;color:var(--body)}
+.cov-title .cov-n{font-weight:400;color:var(--faint)}
 .cov-dot{width:8px;height:8px;margin-top:7px;border-radius:50%}
 .cov-dot.pass{background:var(--pass-fill)}
 .cov-dot.issue{background:var(--moderate-dot)}

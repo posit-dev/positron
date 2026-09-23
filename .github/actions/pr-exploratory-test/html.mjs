@@ -239,10 +239,11 @@ function renderCoverage(report) {
 	if (!exercised.length && !notExercised.length) {
 		return '';
 	}
-	const aside = [
-		exercised.length && `${exercised.length} exercised`,
-		notExercised.length && `${notExercised.length} not exercised`,
-	].filter(Boolean).join(' &middot; ');
+	// Each count sits on the heading of the table it counts, rather than as one
+	// combined line beside the section label: a reader looking at a table should
+	// not have to carry a number down from the top to know how long it is. The
+	// label stays primary and the count trails it, quiet.
+	const count = n => `<span class="cov-n"> &middot; ${n}</span>`;
 
 	const exercisedRows = exercised.map(row => {
 		const reference = row.shot
@@ -261,7 +262,7 @@ function renderCoverage(report) {
 
 	const exercisedBlock = exercised.length
 		? `<div class="cov-group">
-<h3 class="cov-title">Exercised</h3>
+<h3 class="cov-title">Exercised${count(exercised.length)}</h3>
 <div class="panel">
 <div class="row row-head coverage-grid"><span></span><span>Scenario</span><span>Result</span><span>Screenshot</span></div>
 ${exercisedRows}
@@ -280,7 +281,7 @@ ${exercisedRows}
 
 	const notBlock = notExercised.length
 		? `<div class="cov-group gap">
-<h3 class="cov-title">Not exercised</h3>
+<h3 class="cov-title">Not exercised${count(notExercised.length)}</h3>
 <div class="panel dashed">
 <div class="row row-head coverage-grid"><span></span><span>Scenario</span><span class="cov-reason">Reason</span></div>
 ${notRows}
@@ -289,7 +290,7 @@ ${notRows}
 		: '';
 
 	return `<section id="coverage" class="section">
-<div class="section-head"><h2 class="section-label">Coverage</h2>${aside ? `<span class="aside">${aside}</span>` : ''}</div>
+<div class="section-head"><h2 class="section-label">Coverage</h2></div>
 ${report.scopeHtml ? `<p class="card-summary">${report.scopeHtml}</p>` : ''}
 ${exercisedBlock}
 ${notBlock}
