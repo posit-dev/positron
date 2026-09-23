@@ -303,3 +303,58 @@ export function renderStepSummary(markdown, baseUrl) {
 	}
 	return `${lines.join('\n')}\n`;
 }
+
+/** Finds the one PR comment this workflow owns, so a re-run edits it in place. */
+export const COMMENT_MARKER = '<!-- exploratory-test -->';
+
+// Comments posted with the job's GITHUB_TOKEN are authored by this account.
+const COMMENT_BOT = 'github-actions[bot]';
+
+/**
+ * How the explore pass ended. `partial` wins over a written report: a run cut
+ * off at the turn cap covered less than it meant to, and a reviewer should
+ * know that before trusting a short findings list.
+ */
+export function runOutcome({ report, numTurns, maxTurns }) {
+	if (typeof numTurns === 'number' && numTurns >= maxTurns) {
+		return 'partial';
+	}
+	return report ? 'complete' : 'no-report';
+}
+
+/**
+ * The body of the PR comment. The same signpost as the job summary, plus the
+ * head it tested: a push after `/test` makes the result stale, and the SHA is
+ * how a reader tells.
+ *
+ * `state` is a runOutcome value, `running`, or empty when the agent never ran
+ * (the build failed first).
+ */
+export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha }) {
+	const target = headSha ? `\`${headSha.slice(0, 7)}\`` : 'the PR head';
+	const run = `[Run](${runUrl})`;
+	if (state === 'running') {
+		return `${COMMENT_MARKER}\n### Exploratory test\n\nRunning against ${target}. ${run}\n`;
+	}
+	if (markdown && (state === 'complete' || state === 'partial')) {
+		const note = state === 'partial'
+			? '\n_Partial run: the agent hit the turn cap, so coverage is incomplete._\n'
+			: '';
+		return `${COMMENT_MARKER}\n### Exploratory test on ${target}\n\n${renderStepSummary(markdown, baseUrl)}${note}\n${run}\n`;
+	}
+	const reason = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
+		: state === 'no-report' ? 'The agent finished without writing a report.'
+			: 'The run failed before the agent produced a report.';
+	return `${COMMENT_MARKER}\n### Exploratory test on ${target}: no report\n\n${reason} ${run}\n`;
+}
+
+/** The id of the last comment this workflow posted, or null. */
+export function findMarkerCommentId(comments) {
+	let id = null;
+	for (const c of comments ?? []) {
+		if (c?.user?.login === COMMENT_BOT && typeof c.body === 'string' && c.body.includes(COMMENT_MARKER)) {
+			id = c.id;
+		}
+	}
+	return id;
+}
