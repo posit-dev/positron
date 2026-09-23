@@ -250,8 +250,8 @@ export function renderStepSummary(markdown, baseUrl) {
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
-		lines.push(`\u{1F50D} **[Exploratory Test Report](${baseUrl}/index.html)**`);
-		lines.push(`\u{1F916} **[Agent Report](${baseUrl}/report.md)**`);
+		lines.push(`\u{1F50D} [Exploratory Test Report](${baseUrl}/index.html)`);
+		lines.push(`\u{1F916} [Agent Report](${baseUrl}/report.md)`);
 	} else {
 		lines.push('The report and its screenshots are in the workflow artifact.');
 	}

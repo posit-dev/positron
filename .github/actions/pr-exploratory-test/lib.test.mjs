@@ -256,6 +256,8 @@ test('renderStepSummary is a tally and two links, and nothing else', () => {
 	assert.doesNotMatch(summary, /Observed|a claim/);
 	// The links say what they are, and the cost is on the report's Run tile.
 	assert.doesNotMatch(summary, /interactive report|structured Markdown/);
+	// Only the tally is bold; the links carry their own weight as links.
+	assert.doesNotMatch(summary, /\*\*\[|\]\([^)]*\)\*\*/);
 	assert.doesNotMatch(summary, /\$|turns|explore|verify|total/);
 	assert.equal(summary.trim().split('\n').filter(Boolean).length, 3);
 });
