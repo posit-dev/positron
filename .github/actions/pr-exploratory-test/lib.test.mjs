@@ -247,25 +247,27 @@ const SUMMARY_MD = [
 	'**Observed:** it broke.',
 ].join('\n');
 
-test('renderStepSummary leads with the tally and links out, not the report', () => {
-	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run', '_total: $3.75_');
+test('renderStepSummary is a tally and two links, and nothing else', () => {
+	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run');
 	assert.match(summary, /^\*\*5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
 	assert.match(summary, /\[Exploratory Test Report\]\(https:\/\/cdn\.example\/run\/index\.html\)/);
 	assert.match(summary, /\[Agent Report\]\(https:\/\/cdn\.example\/run\/report\.md\)/);
-	assert.match(summary, /_total: \$3\.75_/);
 	// The body of the report belongs on its own page, not pasted in here.
-	assert.doesNotMatch(summary, /Observed/);
-	assert.doesNotMatch(summary, /a claim/);
+	assert.doesNotMatch(summary, /Observed|a claim/);
+	// The links say what they are, and the cost is on the report's Run tile.
+	assert.doesNotMatch(summary, /interactive report|structured Markdown/);
+	assert.doesNotMatch(summary, /\$|turns|explore|verify|total/);
+	assert.equal(summary.trim().split('\n').filter(Boolean).length, 3);
 });
 
 test('renderStepSummary counts the table when the report wrote up no blocks', () => {
 	// Only finding 1 has a block; the severities all come from the table.
-	assert.match(renderStepSummary(SUMMARY_MD, '', ''), /\*\*5 findings/);
+	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*5 findings/);
 });
 
 test('renderStepSummary omits a breakdown it cannot read', () => {
 	const md = '# T\n\n`b` | `s`\n\n## Findings\n\n| # | Finding |\n|---|---|\n| 1 | a claim |\n';
-	const summary = renderStepSummary(md, 'https://cdn.example/run', '');
+	const summary = renderStepSummary(md, 'https://cdn.example/run');
 	// No Severity column, so no severity is claimed -- and never "1 minor".
 	assert.match(summary, /^\*\*1 finding\*\*$/m);
 	assert.doesNotMatch(summary, /minor/);
@@ -273,11 +275,11 @@ test('renderStepSummary omits a breakdown it cannot read', () => {
 
 test('renderStepSummary says so when there is nothing to report', () => {
 	const md = '# T\n\n`b` | `s`\n\n## Findings\n\nNo findings.\n';
-	assert.match(renderStepSummary(md, 'https://cdn.example/run', ''), /\*\*No findings\*\*/);
+	assert.match(renderStepSummary(md, 'https://cdn.example/run'), /\*\*No findings\*\*/);
 });
 
 test('renderStepSummary points at the artifact when nothing was published', () => {
-	const summary = renderStepSummary(SUMMARY_MD, '', '');
+	const summary = renderStepSummary(SUMMARY_MD, '');
 	// A dead link is worse than no link.
 	assert.doesNotMatch(summary, /\]\(/);
 	assert.match(summary, /workflow artifact/);

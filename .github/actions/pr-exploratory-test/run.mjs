@@ -352,7 +352,7 @@ async function main() {
 		} catch (err) {
 			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
 		}
-		summary = renderStepSummary(reportMarkdown, REPORT_BASE_URL, footer());
+		summary = renderStepSummary(reportMarkdown, REPORT_BASE_URL);
 	} else if (partial) {
 		summary = `## Exploratory test: partial run\n\nThe agent hit the ${MAX_TURNS}-turn cap before writing a report. \`actions.log\` and any screenshots captured so far are in the artifact.\n\n${footer()}\n`;
 	} else {

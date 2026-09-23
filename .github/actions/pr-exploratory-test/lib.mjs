@@ -234,8 +234,12 @@ export function parseGate(text) {
  * `baseUrl` is the published run directory. Without one -- a local run, or an
  * upload that failed -- the links are omitted rather than written dead, and the
  * summary says where the report actually is.
+ *
+ * Nothing else belongs here. The links say what they are, and the cost of the
+ * run is on the report's own Run tile; repeating either on the job page is a
+ * second thing to read before getting to the one that matters.
  */
-export function renderStepSummary(markdown, baseUrl, footer) {
+export function renderStepSummary(markdown, baseUrl) {
 	const { findingCount, severityCounts } = parseReport(markdown);
 	const breakdown = ['major', 'moderate', 'minor']
 		.filter(severity => severityCounts[severity] > 0)
@@ -246,13 +250,10 @@ export function renderStepSummary(markdown, baseUrl, footer) {
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
-		lines.push(`\u{1F50D} **[Exploratory Test Report](${baseUrl}/index.html)** \u2014 interactive report`);
-		lines.push(`\u{1F916} **[Agent Report](${baseUrl}/report.md)** \u2014 structured Markdown`);
+		lines.push(`\u{1F50D} **[Exploratory Test Report](${baseUrl}/index.html)**`);
+		lines.push(`\u{1F916} **[Agent Report](${baseUrl}/report.md)**`);
 	} else {
 		lines.push('The report and its screenshots are in the workflow artifact.');
-	}
-	if (footer) {
-		lines.push('', footer);
 	}
 	return `${lines.join('\n')}\n`;
 }
