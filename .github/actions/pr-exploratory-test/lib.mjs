@@ -333,7 +333,7 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, mod
 	const title = model ? `Exploratory test (${model})` : 'Exploratory test';
 	const run = `[Run](${runUrl})`;
 	if (state === 'running') {
-		return `${COMMENT_MARKER}\n### ${title}\n\nRunning${model ? ` with ${model}` : ''} against ${target}. ${run}\n`;
+		return `${COMMENT_MARKER}\n### ${title}\n\nRunning against ${target}. ${run}\n`;
 	}
 	if (markdown && (state === 'complete' || state === 'partial')) {
 		const note = state === 'partial'
