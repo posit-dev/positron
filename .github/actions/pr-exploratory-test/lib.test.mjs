@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -223,4 +223,62 @@ test('renderCostFooter omits passes that did not run, and the total with them', 
 	], 200);
 	assert.doesNotMatch(footer, /gate|verify|total/);
 	assert.match(footer, /explore: \$2\.52/);
+});
+
+const SUMMARY_MD = [
+	'# Exploratory test: something',
+	'',
+	'`branch/name` | `abc1234`',
+	'',
+	'**Result:** It works.',
+	'',
+	'## Findings',
+	'',
+	'| # | Finding | Severity |',
+	'|---|---------|----------|',
+	'| 1 | a claim | major |',
+	'| 2 | b claim | moderate |',
+	'| 3 | c claim | moderate |',
+	'| 4 | d claim | minor |',
+	'| 5 | e claim | minor |',
+	'',
+	'### Finding 1: a claim',
+	'',
+	'**Observed:** it broke.',
+].join('\n');
+
+test('renderStepSummary leads with the tally and links out, not the report', () => {
+	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run', '_total: $3.75_');
+	assert.match(summary, /^\*\*5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
+	assert.match(summary, /\[Exploratory Test Report\]\(https:\/\/cdn\.example\/run\/index\.html\)/);
+	assert.match(summary, /\[Agent Report\]\(https:\/\/cdn\.example\/run\/report\.md\)/);
+	assert.match(summary, /_total: \$3\.75_/);
+	// The body of the report belongs on its own page, not pasted in here.
+	assert.doesNotMatch(summary, /Observed/);
+	assert.doesNotMatch(summary, /a claim/);
+});
+
+test('renderStepSummary counts the table when the report wrote up no blocks', () => {
+	// Only finding 1 has a block; the severities all come from the table.
+	assert.match(renderStepSummary(SUMMARY_MD, '', ''), /\*\*5 findings/);
+});
+
+test('renderStepSummary omits a breakdown it cannot read', () => {
+	const md = '# T\n\n`b` | `s`\n\n## Findings\n\n| # | Finding |\n|---|---|\n| 1 | a claim |\n';
+	const summary = renderStepSummary(md, 'https://cdn.example/run', '');
+	// No Severity column, so no severity is claimed -- and never "1 minor".
+	assert.match(summary, /^\*\*1 finding\*\*$/m);
+	assert.doesNotMatch(summary, /minor/);
+});
+
+test('renderStepSummary says so when there is nothing to report', () => {
+	const md = '# T\n\n`b` | `s`\n\n## Findings\n\nNo findings.\n';
+	assert.match(renderStepSummary(md, 'https://cdn.example/run', ''), /\*\*No findings\*\*/);
+});
+
+test('renderStepSummary points at the artifact when nothing was published', () => {
+	const summary = renderStepSummary(SUMMARY_MD, '', '');
+	// A dead link is worse than no link.
+	assert.doesNotMatch(summary, /\]\(/);
+	assert.match(summary, /workflow artifact/);
 });

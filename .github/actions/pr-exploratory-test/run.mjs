@@ -10,7 +10,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderReportHtml } from './html.mjs';
-import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings } from './lib.mjs';
+import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -290,6 +290,10 @@ async function main() {
 	const report = resolveReport(fileReport, assistantMessages);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
 
+	// What goes in report.md, and what goes in the job summary. They used to be
+	// the same string: the summary is a signpost now, and the report is the
+	// thing it points at.
+	let reportMarkdown = null;
 	let summary;
 	if (report) {
 		// The report opens with its own "# Exploratory test: ..." heading, so a
@@ -333,19 +337,20 @@ async function main() {
 		const reviewed = verdicts
 			? `${annotateFindingsTable(report, parseVerdicts(verdicts))}\n\n${section}`
 			: report;
-		summary = `${reviewed}\n\n${footer()}\n`;
+		reportMarkdown = `${reviewed}\n\n${footer()}\n`;
 		// Written with the footer: report.md is published to the CDN on its own,
 		// where the step summary's copy of the cost is not reachable.
-		writeFileSync(join(WORK_DIR, 'report.md'), summary);
+		writeFileSync(join(WORK_DIR, 'report.md'), reportMarkdown);
 		// index.html is what the published run directory's URL already points at,
 		// and a rendered page is easier to read than raw markdown with absolute
 		// image URLs in it. The markdown stays: the verification pass reads it,
 		// and a file you can grep is worth keeping.
 		try {
-			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(summary));
+			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown));
 		} catch (err) {
 			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
 		}
+		summary = renderStepSummary(reportMarkdown, REPORT_BASE_URL, footer());
 	} else if (partial) {
 		summary = `## Exploratory test: partial run\n\nThe agent hit the ${MAX_TURNS}-turn cap before writing a report. \`actions.log\` and any screenshots captured so far are in the artifact.\n\n${footer()}\n`;
 	} else {
@@ -355,7 +360,9 @@ async function main() {
 	if (STEP_SUMMARY) {
 		appendFileSync(STEP_SUMMARY, summary);
 	}
-	console.log(summary);
+	// The full report still goes to the action log. It is the one copy that
+	// survives an artifact upload or a CDN publish that did not happen.
+	console.log(reportMarkdown ?? summary);
 
 	if (!report) {
 		process.exit(1);

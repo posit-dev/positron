@@ -592,11 +592,21 @@ export function parseReport(markdown) {
 		? result.replace(/\*\*/g, '')
 		: result;
 
+	// A run can report findings in the table without a block for each, or the
+	// other way round, so the count is the union. The breakdown reads the table,
+	// which is where severity is written: counting the blocks meant a report
+	// that listed five findings and wrote up none showed no severities at all.
+	const numbers = new Set([...byNumber.keys(), ...findings.map(f => f.n)]);
+	const findingCount = numbers.size;
 	const severityCounts = { major: 0, moderate: 0, minor: 0 };
-	for (const f of findings) { severityCounts[f.severity]++; }
-	// A run can report findings without a block for each; count the table too so
-	// the tile never understates.
-	const findingCount = Math.max(findings.length, byNumber.size);
+	for (const n of numbers) {
+		const severity = String(byNumber.get(n)?.severity ?? '').trim().toLowerCase();
+		// Only the three known words count, so a missing column leaves the
+		// breakdown empty rather than reporting every finding as minor.
+		if (severity in severityCounts) {
+			severityCounts[severity]++;
+		}
+	}
 
 	return {
 		title,

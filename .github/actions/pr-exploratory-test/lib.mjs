@@ -6,6 +6,8 @@
 // Pure helpers for run.mjs, kept separate so they can be unit tested without
 // the Agent SDK or a live container.
 
+import { parseReport } from './report-parse.mjs';
+
 /** Pick the latest assistant message that looks like the report. */
 export function pickReport(messages) {
 	for (let i = messages.length - 1; i >= 0; i--) {
@@ -219,4 +221,38 @@ export function parseGate(text) {
 		return { testable: true, reason: rest.replace(/^TESTABLE\s*[-:]?\s*/i, '').trim() };
 	}
 	return null;
+}
+
+/**
+ * Renders the job's step summary.
+ *
+ * The whole report used to be pasted here, which made a reviewer scroll a
+ * screenful of repro steps and log excerpts inside a page that cannot show a
+ * screenshot properly. The report has its own rendered page now, so this is a
+ * signpost: the verdict, and where to read the rest.
+ *
+ * `baseUrl` is the published run directory. Without one -- a local run, or an
+ * upload that failed -- the links are omitted rather than written dead, and the
+ * summary says where the report actually is.
+ */
+export function renderStepSummary(markdown, baseUrl, footer) {
+	const { findingCount, severityCounts } = parseReport(markdown);
+	const breakdown = ['major', 'moderate', 'minor']
+		.filter(severity => severityCounts[severity] > 0)
+		.map(severity => `${severityCounts[severity]} ${severity}`);
+	const tally = findingCount > 0
+		? [`${findingCount} finding${findingCount === 1 ? '' : 's'}`, ...breakdown].join(' \u00b7 ')
+		: 'No findings';
+
+	const lines = [`**${tally}**`, ''];
+	if (baseUrl) {
+		lines.push(`\u{1F50D} **[Exploratory Test Report](${baseUrl}/index.html)** \u2014 interactive report`);
+		lines.push(`\u{1F916} **[Agent Report](${baseUrl}/report.md)** \u2014 structured Markdown`);
+	} else {
+		lines.push('The report and its screenshots are in the workflow artifact.');
+	}
+	if (footer) {
+		lines.push('', footer);
+	}
+	return `${lines.join('\n')}\n`;
 }
