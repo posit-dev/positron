@@ -330,7 +330,8 @@ export function runOutcome({ report, numTurns, maxTurns }) {
  */
 export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, model }) {
 	const target = headSha ? `\`${headSha.slice(0, 7)}\`` : 'the PR head';
-	const title = model ? `Exploratory test (${model})` : 'Exploratory test';
+	// Product names: "Opus", not the lowercase /test argument.
+	const title = model ? `Exploratory test (${model[0].toUpperCase()}${model.slice(1)})` : 'Exploratory test';
 	const run = `[Run](${runUrl})`;
 	if (state === 'running') {
 		return `${COMMENT_MARKER}\n### ${title}\n\nRunning against ${target}. ${run}\n`;
