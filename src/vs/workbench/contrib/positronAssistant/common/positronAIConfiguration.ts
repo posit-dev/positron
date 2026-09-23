@@ -57,7 +57,7 @@ configurationRegistry.registerConfiguration({
 			default: false,
 			markdownDescription: localize(
 				'positron.ai.mcp.statusBar',
-				"Show the coding agents connected to this window's sessions in the status bar. Connected agents are always listed in the kernel supervisor details."
+				"Show the coding agents connected to this window's sessions in the status bar.
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],
