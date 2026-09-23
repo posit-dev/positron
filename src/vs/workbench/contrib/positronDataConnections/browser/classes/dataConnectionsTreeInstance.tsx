@@ -7,12 +7,14 @@
 import { ReactNode } from 'react';
 
 // Other dependencies.
+import { localize } from '../../../../../nls.js';
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
 import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
 import { MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY } from '../positronDataConnectionsConfiguration.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
@@ -188,6 +190,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	constructor(
 		private readonly _service: IPositronDataConnectionsService,
 		private readonly _configurationService: IConfigurationService,
+		private readonly _notificationService: INotificationService,
 	) {
 		super({
 			rowHeight: ROW_HEIGHT,
@@ -330,7 +333,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		if (node !== undefined) {
 			this._service.cancelDisconnectWhenUnused(node.entry.profile.id);
 		}
+		const fetches = !this.isExpanded(id) && !this.hasLoadedChildren(id);
 		await super.expand(id);
+		if (fetches) {
+			this._notifyIfFailed(id);
+		}
 		await this._expandBreadcrumbed();
 	}
 
@@ -347,7 +354,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 */
 	override async reload(id: string): Promise<void> {
 		this._lookAheadChildren.clear();
+		const fetches = this.isExpanded(id) && !this.isRefreshing(id);
 		await super.reload(id);
+		if (fetches) {
+			this._notifyIfFailed(id);
+		}
 	}
 
 	/**
@@ -450,6 +461,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * A namespace group that kept its row is answered from what the look-ahead already fetched for
 	 * it, so opening it costs nothing rather than repeating that query.
+	 *
+	 * Failures are not reported from here. The base also calls this while restoring a reload's
+	 * expansion, where a failed branch is deliberately left collapsed rather than shown as an error;
+	 * see _notifyIfFailed for where failures are reported.
 	 */
 	private async _fetchChildrenForNode(
 		node: TreeNode<DataConnectionNode>
@@ -468,6 +483,33 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				return this._breadcrumbNamespaceGroups(dtos, data.handle);
 			}
 		}
+	}
+
+	/**
+	 * Reports a node's fetch failure as a notification, if the fetch that just ran left the node in
+	 * the error state. The error twisty's message is a native `title` tooltip, easy to miss and only
+	 * visible on hover, so without this a user whose connection fails to open would see no sign of
+	 * it short of the driver's own output channel.
+	 *
+	 * Called only after a fetch this tree's own expand or reload ran for the node, never from the
+	 * shared fetch, so there is one notification per row that turns into an error: the failed
+	 * descendants a reload's restore leaves collapsed stay silent until the user expands them.
+	 *
+	 * @param id The node whose fetch just completed.
+	 */
+	private _notifyIfFailed(id: string): void {
+		const error = this.getError(id);
+		const node = this.visibleNodes.find(visible => visible.node.id === id)?.node;
+		if (error === undefined || node === undefined) {
+			return;
+		}
+
+		this._notificationService.error(localize(
+			'positron.dataConnections.expandFailed',
+			"Could not expand '{0}': {1}",
+			node.data.kind === 'entry' ? node.data.entry.profile.connectionName : node.data.dto.name,
+			error instanceof Error ? error.message : String(error)
+		));
 	}
 
 	/**
