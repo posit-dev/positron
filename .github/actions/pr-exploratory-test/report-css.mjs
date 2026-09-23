@@ -400,10 +400,12 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 .repro-group{display:flex;flex-direction:column;gap:4px}
 .repro-group.steps{margin-top:4px}
 .repro-label{font-size:12px;font-weight:600;color:var(--body)}
-/* Between muted and body: these are instructions to follow, so they must not
-   read as the faded metadata the old Start line did. */
-.preconditions{margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--secondary)}
-.preconditions li{margin:0 0 2px;padding-left:0}
+/* Set exactly as the steps are -- 14px, the same indent, the same spacing --
+   because they are read the same way. Only the marker and the slightly lighter
+   tone separate them, so the two groups read as one list of instructions in two
+   parts rather than a caption above a list. */
+.preconditions{margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:var(--secondary)}
+.preconditions li{margin:0 0 8px;padding-left:4px}
 .preconditions li:last-child{margin-bottom:0}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
 
