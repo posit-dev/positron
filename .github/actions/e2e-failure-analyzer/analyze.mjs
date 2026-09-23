@@ -77,9 +77,47 @@ function discoverProjectDirs(workDir) {
 		if (!statSync(full).isDirectory()) { continue; }
 		if (!name.startsWith('e2e-')) { continue; }
 		const result = readJsonIfExists(join(full, 'result.json'));
-		if (result) { out.push({ project: name, dir: full, result }); }
+		// job.json is written by the s3 path, which processes one GH job per
+		// directory and so can name the job exactly. The blob path shards one
+		// project across several jobs and writes none -- matchJobsToProject()
+		// falls back to name matching there.
+		if (result) { out.push({ project: name, dir: full, result, job: readJsonIfExists(join(full, 'job.json')) }); }
 	}
 	return out;
+}
+
+/**
+ * Sanitize a job name the way action.yml's s3 path names its output directory,
+ * so a project directory can be matched back to the job that produced it.
+ */
+function sanitizeJobName(name) {
+	const slug = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+	return slug.startsWith('e2e-') ? slug : `e2e-${slug}`;
+}
+
+/**
+ * Find the failed job(s) behind a project directory, best-effort.
+ *
+ * Exact when the directory carries a job.json (s3 path). Otherwise falls back to
+ * the directory-naming rule, then to a shard-suffix match -- the blob path
+ * shards a project across jobs named like "e2e-electron-1".
+ *
+ * The fallbacks stay deliberately strict. A loose substring match would happily
+ * tie the blob path's `e2e-windows` project to the unrelated `e2e / electron-win`
+ * job and then assert that project's tests ran on a broken setup, which is worse
+ * than not matching: an unmatched project is still fully covered by the
+ * run-level "Job setup step failures" section, which names every affected job.
+ */
+function matchJobsToProject({ project, job }, runInfo) {
+	const jobs = runInfo?.failedJobs || [];
+	if (job?.id) {
+		const exact = jobs.filter(j => String(j.id) === String(job.id));
+		if (exact.length) { return exact; }
+	}
+	return jobs.filter(j => {
+		const slug = sanitizeJobName(j.name);
+		return slug === project || slug.startsWith(`${project}-`);
+	});
 }
 
 function renderRunHeader(runInfo) {
@@ -100,16 +138,120 @@ function renderNonE2eFailures(runInfo) {
 	if (failed.length === 0) { return '(none)'; }
 	const logs = runInfo?.nonE2eJobLogs || {};
 	return failed.map(j => {
+		// All three buckets: a non-e2e job's steps are only positioned relative to
+		// a test step when it happens to have one (e.g. "Run unit tests"), so most
+		// of these land in failedUnpositioned.
+		const steps = [
+			...(j.steps?.failedBeforeTest || []),
+			...(j.steps?.failedUnpositioned || []),
+			...(j.steps?.failedAfterTest || []),
+		]
+			.map(st => `#${st.number} "${st.name}"`)
+			.join(', ');
+		const stepLine = steps ? `\n  Failed steps: ${steps}` : '';
 		const excerpt = logs[j.id] ? `\n  Excerpt:\n${indent(String(logs[j.id]).slice(0, 2000), '    ')}` : '';
-		return `- Job ${j.id}: ${j.name}${excerpt}`;
+		return `- Job ${j.id}: ${j.name}${stepLine}${excerpt}`;
 	}).join('\n');
 }
 
-function renderProjectFailures(projects, historyMap) {
+/**
+ * Render the workflow-step evidence: which failed jobs ran their tests anyway
+ * after a SETUP step failed.
+ *
+ * GitHub keeps a job going past a failed step whenever the later steps carry
+ * their own `if:` conditions, so a job can install R, fail, and still run the
+ * whole R suite against a broken runtime. Neither the job conclusion nor the
+ * Playwright report distinguishes that from a product regression -- the step
+ * conclusions are the only place it shows up, which is why this section is
+ * rendered before any test evidence.
+ */
+function renderJobSetupFailures(runInfo, projects) {
+	// e2e jobs only: a non-e2e job has no test step to position failures against,
+	// and its own log digest is rendered in the next section.
+	const jobs = (runInfo?.failedJobs || []).filter(j => j.isE2e && j.steps);
+	if (jobs.length === 0) { return '(no step data available for this run)'; }
+
+	// project dir -> the job(s) that produced it, so the model can tie a broken
+	// setup step to the exact evidence bundle below.
+	const dirsByJobId = new Map();
+	for (const p of projects) {
+		for (const j of matchJobsToProject(p, runInfo)) {
+			if (!dirsByJobId.has(j.id)) { dirsByJobId.set(j.id, []); }
+			dirsByJobId.get(j.id).push(p.project);
+		}
+	}
+
+	// Jobs with no identifiable test step (shard aggregators whose only step is a
+	// "Check test results" gate). Their failed steps cannot be ordered against a
+	// test run, so they are reported as-is rather than as setup failures.
+	const unpositioned = jobs
+		.filter(j => j.steps.failedUnpositioned?.length)
+		.map(j => `${j.name}: ${j.steps.failedUnpositioned.map(st => `#${st.number} "${st.name}"`).join(', ')}`);
+	const unpositionedNote = unpositioned.length
+		? ['', '', 'Failed steps in jobs with no identifiable test step (usually a shard-aggregator job\'s results gate -- a consequence of the shard failures, not a cause):',
+			...unpositioned.map(l => `- ${l}`)].join('\n')
+		: '';
+
+	const affected = jobs.filter(j => j.steps.failedBeforeTest?.length);
+	if (affected.length === 0) {
+		const checked = jobs.map(j => j.name).join(', ');
+		return `(none -- every failed job's setup steps completed before its test step ran. Checked: ${checked})${unpositionedNote}`;
+	}
+
+	const out = [
+		'The jobs below kept running after a SETUP step failed, so their tests ran',
+		'against an incomplete environment. Their test failures are environment',
+		'defects until proven otherwise -- see the rubric section "Check the job\'s',
+		'own setup steps before blaming the product".',
+		'',
+	];
+	for (const j of affected) {
+		const s = j.steps;
+		const dirs = dirsByJobId.get(j.id) || [];
+		out.push(`- Job: ${j.name} (id ${j.id})`);
+		out.push(`  Evidence bundle: ${dirs.length ? dirs.join(', ') : '(could not be matched to a project directory)'}`);
+		// A SKIPPED test step is its own finding: the shard's tests never ran at
+		// all, so this run's coverage is incomplete rather than something having
+		// regressed -- and there will be no evidence bundle to explain it.
+		out.push(`  Test step: ${s.testStep ? `#${s.testStep.number} "${s.testStep.name}" -- ${s.testStep.conclusion}${s.testStep.conclusion === 'skipped' ? ' (its tests NEVER RAN: report this as missing coverage caused by the setup failure, not as a test failure)' : ''}` : '(not identified -- the failed steps below could not be placed relative to the test run)'}`);
+		out.push(`  FAILED before the tests ran:`);
+		for (const st of s.failedBeforeTest) {
+			out.push(`    - #${st.number} "${st.name}"`);
+			if (st.log) { out.push(indent(st.log, '        ')); }
+		}
+		if (s.skippedAfterFailure?.length) {
+			// GitHub never reports WHY a step was skipped, so this mixes fallout
+			// from the failure above with ordinary matrix/`if` skips. Say so.
+			out.push(`  Skipped after that failure (the API does not say why -- some are fallout, some are ordinary matrix/\`if\` skips): ${s.skippedAfterFailure.map(st => `#${st.number} "${st.name}"`).join(', ')}`);
+		}
+		if (s.failedAfterTest?.length) {
+			out.push(`  Failed after the tests ran (post-processing, e.g. report upload): ${s.failedAfterTest.map(st => `#${st.number} "${st.name}"`).join(', ')}`);
+		}
+	}
+	const clean = jobs
+		.filter(j => !j.steps.failedBeforeTest?.length && !j.steps.failedUnpositioned?.length)
+		.map(j => j.name);
+	if (clean.length) {
+		out.push('');
+		out.push(`Failed jobs whose setup DID complete (so their failures are not explained by this): ${clean.join(', ')}`);
+	}
+	return out.join('\n') + unpositionedNote;
+}
+
+function renderProjectFailures(projects, historyMap, runInfo) {
 	if (projects.length === 0) { return '(no e2e projects)'; }
 	const out = [];
-	for (const { project, result } of projects) {
+	for (const p of projects) {
+		const { project, result } = p;
 		out.push(`### Project: ${project}`);
+		// Repeat the setup warning at the project header: the model reads this
+		// section per-failure, and the run-level section is easy to lose track of
+		// once it is deep in one project's screenshots and traces.
+		const brokenSetup = matchJobsToProject(p, runInfo)
+			.flatMap(j => (j.steps?.failedBeforeTest || []).map(st => `#${st.number} "${st.name}"`));
+		if (brokenSetup.length) {
+			out.push(`**SETUP FAILED for this project's job before its tests ran: ${brokenSetup.join(', ')}.** Every failure below inherits that doubt -- see "Job setup step failures" above and the rubric.`);
+		}
 		const finalFailures = result.failures || [];
 		const allAttempts = result.failedTests || [];
 		out.push(`Hard failures (failed all retries): ${finalFailures.length}`);
@@ -391,10 +533,13 @@ Report structure:
 
 List every HARD failure as a row (severity is always "hard" in this table). Keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard by definition -- include them as rows with the job name as the test name. Do NOT put flaky tests in this table.
 
+Read the input's \`## Job setup step failures\` section FIRST and let it settle the root cause before you open any screenshot or trace. A test in a job whose setup failed does not get the same row as the same test in a job whose setup was clean -- give them separate rows with their separate root causes.
+
 ## Detailed Analysis
 
 For each distinct HARD failure (or group), provide:
 - **<test name>** (<platform>) -- <root cause category>
+  - Setup: <include this line ONLY when the failure's job had a pre-test setup step failure; name the step and what it was installing. Omit the line entirely otherwise -- do not write "setup ok">
   - Evidence: <1-2 sentences citing what the screenshot/trace/page snapshot shows>
   - Commit: <relevant changed files, or "no related changes">
   - History: <history line, or "no data available">
@@ -462,6 +607,9 @@ async function main() {
 		renderRunHeader(runInfo),
 		repoRootLine,
 		'',
+		'## Job setup step failures (read this before the test evidence)',
+		renderJobSetupFailures(runInfo, projects),
+		'',
 		'## Non-e2e job failures',
 		renderNonE2eFailures(runInfo),
 		'',
@@ -469,7 +617,7 @@ async function main() {
 		renderHistorySummary(history, historyMap),
 		'',
 		'## E2E project failures',
-		renderProjectFailures(projects, historyMap),
+		renderProjectFailures(projects, historyMap, runInfo),
 		'',
 		'---',
 		'Analyze the failures above. Read all referenced screenshots in parallel before writing the report. Output the final markdown report as instructed.',

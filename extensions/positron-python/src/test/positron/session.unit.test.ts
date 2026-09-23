@@ -6,6 +6,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as path from 'path';
 import { interfaces } from 'inversify';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
@@ -263,6 +264,36 @@ suite('Python Runtime Session', () => {
 
         // Should try to use ipykernel from the environment.
         sinon.assert.called(installerSpy.isProductVersionCompatible);
+    });
+
+    test('Start: custom launchers without embedded interpreter information use the project kernel', async () => {
+        kernelSpec.startKernel = async () => {};
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console, { paths: ['/previous/bundle'] });
+        await session.start();
+        assert.strictEqual(session.runtimeMetadata.extraRuntimeData.ipykernelBundle.paths, undefined);
+        sinon.assert.notCalled(envVarsServiceSpy.appendPythonPath);
+        sinon.assert.calledOnce(installerSpy.isProductVersionCompatible);
+    });
+
+    test('Start: selects the bundle for Python embedded in a host', async () => {
+        kernelSpec.startKernel = async () => {};
+        const executionFactory = sinon.spy(serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory));
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        session.runtimeMetadata.extraRuntimeData.embeddedInterpreter = {
+            version: { major: 3, minor: 14 },
+            implementation: 'cpython',
+            architecture: 'arm64',
+        };
+        await session.start();
+
+        const bundle = session.runtimeMetadata.extraRuntimeData.ipykernelBundle;
+        assert.deepStrictEqual(
+            { architecture: bundle.architecture, version: path.basename(bundle.paths[0]) },
+            { architecture: Architecture.arm64, version: 'cp314' },
+        );
+        sinon.assert.callCount(envVarsServiceSpy.appendPythonPath, 3);
+        sinon.assert.notCalled(installerSpy.isProductVersionCompatible);
+        sinon.assert.notCalled(executionFactory.create);
     });
 
     test('Start: retries interpreter resolution after a refresh when the first resolve fails', async () => {

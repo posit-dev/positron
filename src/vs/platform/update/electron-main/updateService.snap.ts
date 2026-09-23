@@ -167,6 +167,9 @@ abstract class AbstractUpdateService implements IUpdateService {
 	resetTelemetryId(): void {
 		// no-op for snap
 	}
+	async _stageUpdateFromFeed(_feedUrl: string): Promise<void> {
+		// no-op for snap
+	}
 	// --- End Positron ---
 }
 

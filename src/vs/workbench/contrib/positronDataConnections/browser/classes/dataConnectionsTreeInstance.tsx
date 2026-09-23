@@ -7,11 +7,14 @@
 import { ReactNode } from 'react';
 
 // Other dependencies.
+import { localize } from '../../../../../nls.js';
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
 import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
+import { MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY } from '../positronDataConnectionsConfiguration.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
@@ -79,7 +82,7 @@ const BREADCRUMB_GROUP_KINDS = new Set([
 	SCHEMAS_GROUP_KIND,
 ]);
 
-const entryNodeId = (profile: IDataConnectionProfile): string => `entry:${profile.id}`;
+const entryNodeId = (profileId: string): string => `entry:${profileId}`;
 
 /**
  * Builds the id for a DTO node. Scoped by the originating connection's numeric handle so DTOs
@@ -103,11 +106,11 @@ const dtoNodeId = (handle: IDataConnectionHandle, dto: IDataConnectionNodeDTO): 
  */
 export const reloadKey = (node: DataConnectionNode): string =>
 	node.kind === 'entry'
-		? entryNodeId(node.entry.profile)
+		? entryNodeId(node.entry.profile.id)
 		: JSON.stringify([node.dto.kind, node.dto.name]);
 
 const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => ({
-	id: entryNodeId(entry.profile),
+	id: entryNodeId(entry.profile.id),
 	data: { kind: 'entry', entry },
 	// Entries always show a twisty -- clicking it connects (or collapses, which may disconnect).
 	// Whether children exist is only knowable after the connect succeeds.
@@ -179,9 +182,15 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// be read by the row it was fetched for. See _breadcrumbNamespaceGroups and _takeLookAhead.
 	private readonly _lookAheadChildren = new Map<string, readonly IDataConnectionNodeDTO[]>();
 
+	// A scroll waiting for the grid to be laid out, held so a second reveal replaces the first
+	// rather than leaving two listeners racing to scroll to different rows. See
+	// _scrollToCursorWhenLaidOut.
+	private readonly _pendingScrollToCursor = this._register(new MutableDisposable());
+
 	constructor(
 		private readonly _service: IPositronDataConnectionsService,
 		private readonly _configurationService: IConfigurationService,
+		private readonly _notificationService: INotificationService,
 	) {
 		super({
 			rowHeight: ROW_HEIGHT,
@@ -208,6 +217,15 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		this._register(this._service.onDidChangeInstances(refreshRoots));
 		this._register(this._service.onDidChangeDiscoveredProfiles(refreshRoots));
 
+		// Show a connection something outside the pane has put the user's attention on (the
+		// database file editor, after creating or opening one). Taken rather than listened for,
+		// because the request may well have been made while this tree was being built -- the pane
+		// is opened first and renders a moment later -- in which case there was nothing here to
+		// hear it. Both paths run the same take, so whichever gets there first honors it.
+		const revealRequested = () => { void this._revealRequestedConnection(); };
+		this._register(this._service.onDidRequestRevealConnection(revealRequested));
+		revealRequested();
+
 		// Track both indent settings live -- the workbench one matters even while this view's own is
 		// set, since clearing the latter back to 0 has to fall through to it. Indent takes effect
 		// without a reload everywhere else in the workbench, and a user dialing it in wants the tree
@@ -232,6 +250,81 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	}
 
 	/**
+	 * Shows the connection the service has been asked to reveal, if there is one: selects its row
+	 * and opens it, which for an entry means connecting it and fetching what it holds. Nothing
+	 * happens when no request is outstanding, which is the usual case -- this runs once when the
+	 * tree is built as well as on every request.
+	 *
+	 * An entry the user already has open is left expanded as it is; the selection still moves to
+	 * it, which is the part that answers "where did my connection go".
+	 */
+	private async _revealRequestedConnection(): Promise<void> {
+		const profileId = this._service.takePendingRevealConnection();
+		if (profileId === undefined) {
+			return;
+		}
+
+		// The entry may not be among the rows yet: a connection saved a moment ago reaches this
+		// tree through a roots refresh, and a tree built just now has no rows at all until its
+		// first refresh. Either way, one refresh puts the saved profiles on screen.
+		const id = entryNodeId(profileId);
+		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
+			await this.refresh();
+		}
+
+		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
+			return;
+		}
+
+		// Expanding an entry is what opens its connection, so this is the "open" in the request.
+		// Failures surface on the row itself, the same as a user-driven expand.
+		if (!this.isExpanded(id)) {
+			await this.expand(id);
+		}
+
+		// Located after the expand, which inserts the rows the connection holds and so moves
+		// everything below it.
+		const rowIndex = this.visibleNodes.findIndex(visible => visible.node.id === id);
+		if (rowIndex === -1) {
+			return;
+		}
+
+		this.setCursorRow(rowIndex);
+		this.selectRow(rowIndex);
+		this._scrollToCursorWhenLaidOut();
+
+		// Put keyboard focus on the row, not merely the selection highlight: the user pressed a
+		// button elsewhere to get here, so this is where they are now, and the arrow keys should
+		// move from this row. Harmless if the tree already has focus.
+		this.requestFocus();
+	}
+
+	/**
+	 * Scrolls the cursor row into view, waiting for the grid to have a viewport if it doesn't yet.
+	 * A reveal routinely lands while the view is still coming up -- the pane is opened and the
+	 * grid is laid out a frame later -- and a grid with no height can't scroll anything into view,
+	 * so the scroll would otherwise be dropped and the row left below the fold.
+	 */
+	private _scrollToCursorWhenLaidOut(): void {
+		if (this.layoutHeight > 0) {
+			this._pendingScrollToCursor.clear();
+			void this.scrollToCursor();
+			return;
+		}
+
+		// onDidUpdate fires when the grid is sized, among many other times; the first one with a
+		// viewport is the one to scroll on, and the listener is done at that point.
+		this._pendingScrollToCursor.value = this.onDidUpdate(() => {
+			if (this.layoutHeight <= 0) {
+				return;
+			}
+
+			this._pendingScrollToCursor.clear();
+			void this.scrollToCursor();
+		});
+	}
+
+	/**
 	 * Tree-semantic expand. Expanding a connected entry means the user wants the connection again, so
 	 * it cancels any pending close a previous collapse left behind.
 	 */
@@ -240,7 +333,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		if (node !== undefined) {
 			this._service.cancelDisconnectWhenUnused(node.entry.profile.id);
 		}
+		const fetches = !this.isExpanded(id) && !this.hasLoadedChildren(id);
 		await super.expand(id);
+		if (fetches) {
+			this._notifyIfFailed(id);
+		}
 		await this._expandBreadcrumbed();
 	}
 
@@ -257,7 +354,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 */
 	override async reload(id: string): Promise<void> {
 		this._lookAheadChildren.clear();
+		const fetches = this.isExpanded(id) && !this.isRefreshing(id);
 		await super.reload(id);
+		if (fetches) {
+			this._notifyIfFailed(id);
+		}
 	}
 
 	/**
@@ -336,7 +437,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 */
 	private _dropClosedEntrySubtrees(entries: readonly DataConnectionEntry[]): void {
 		for (const entry of entries) {
-			const id = entryNodeId(entry.profile);
+			const id = entryNodeId(entry.profile.id);
 			if (entry.instance === undefined && this.hasLoadedChildren(id)) {
 				super.collapse(id);
 				this.dropLoadedChildren(id);
@@ -360,6 +461,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * A namespace group that kept its row is answered from what the look-ahead already fetched for
 	 * it, so opening it costs nothing rather than repeating that query.
+	 *
+	 * Failures are not reported from here. The base also calls this while restoring a reload's
+	 * expansion, where a failed branch is deliberately left collapsed rather than shown as an error;
+	 * see _notifyIfFailed for where failures are reported.
 	 */
 	private async _fetchChildrenForNode(
 		node: TreeNode<DataConnectionNode>
@@ -378,6 +483,33 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				return this._breadcrumbNamespaceGroups(dtos, data.handle);
 			}
 		}
+	}
+
+	/**
+	 * Reports a node's fetch failure as a notification, if the fetch that just ran left the node in
+	 * the error state. The error twisty's message is a native `title` tooltip, easy to miss and only
+	 * visible on hover, so without this a user whose connection fails to open would see no sign of
+	 * it short of the driver's own output channel.
+	 *
+	 * Called only after a fetch this tree's own expand or reload ran for the node, never from the
+	 * shared fetch, so there is one notification per row that turns into an error: the failed
+	 * descendants a reload's restore leaves collapsed stay silent until the user expands them.
+	 *
+	 * @param id The node whose fetch just completed.
+	 */
+	private _notifyIfFailed(id: string): void {
+		const error = this.getError(id);
+		const node = this.visibleNodes.find(visible => visible.node.id === id)?.node;
+		if (error === undefined || node === undefined) {
+			return;
+		}
+
+		this._notificationService.error(localize(
+			'positron.dataConnections.expandFailed',
+			"Could not expand '{0}': {1}",
+			node.data.kind === 'entry' ? node.data.entry.profile.connectionName : node.data.dto.name,
+			error instanceof Error ? error.message : String(error)
+		));
 	}
 
 	/**

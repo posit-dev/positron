@@ -133,21 +133,27 @@ class ComponentAdapter implements IComponentAdapter {
     // For use in VirtualEnvironmentPrompt.activate()
 
     // Call callback if an environment gets created within the resource provided.
-    public onDidCreate(resource: Resource, callback: () => void): vscode.Disposable {
+    // --- Start Positron ---
+    // Locator events store the executable path in different fields: `envPath` for the JS locator and
+    // `new.executable.filename` for the native locator. The callback receives that path instead of
+    // taking no arguments.
+    public onDidCreate(resource: Resource, callback: (envPath: string) => void): vscode.Disposable {
         const workspaceFolder = resource ? vscode.workspace.getWorkspaceFolder(resource) : undefined;
-        return this.api.onChanged((e) => {
-            if (!workspaceFolder || !e.searchLocation) {
+        return this.api.onChanged((e: PythonEnvCollectionChangedEvent & { envPath?: string }) => {
+            if (!workspaceFolder || !e.searchLocation || e.type !== FileChangeType.Created) {
+                return;
+            }
+            const envPath = e.envPath ?? e.new?.executable.filename;
+            if (!envPath) {
                 return;
             }
             traceVerbose(`Received event ${JSON.stringify(e)} file change event`);
-            if (
-                e.type === FileChangeType.Created &&
-                isParentPath(e.searchLocation.fsPath, workspaceFolder.uri.fsPath)
-            ) {
-                callback();
+            if (isParentPath(envPath, workspaceFolder.uri.fsPath)) {
+                callback(envPath);
             }
         });
     }
+    // --- End Positron ---
 
     // Implements IInterpreterHelper
     public async getInterpreterInformation(pythonPath: string): Promise<Partial<PythonEnvironment> | undefined> {

@@ -439,6 +439,11 @@ jobs:
         uses: ./.github/actions/gen-report-dir
         with:
           identifier: ${{ inputs.project }}
+          # This job runs on a fixed `macos-latest` runner, so its own
+          # runner.arch is not the arch under test. test-full-suite.yml calls this
+          # workflow twice with the same `project` and only `arch` differing, so
+          # without this the two runs' reports overwrite each other in S3.
+          arch: ${{ inputs.arch }}
 
       - name: Download all blob reports
         uses: actions/download-artifact@v8

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, test } from 'vitest';
-import { resolveTraceSnapshots } from './reporting.fixtures.js';
+import { resolveTraceSnapshots } from './trace-snapshots.js';
 
 describe('resolveTraceSnapshots', () => {
 	test('stays off when tracing snapshots are disabled, whatever is requested', () => {

@@ -29,6 +29,31 @@ EXTENSION_IDS=()
 SPECIFIC_VERSION=""
 VSIX_DIR="./vsix-cache"
 PROCESS_ALL=false
+ALLOW_DOWNGRADE=false
+
+# SemVer 2.0 precedence as a jq sort key, shared by the latest-version selector
+# and the downgrade guard. This is the shared contract with compareSemver in
+# scripts/check-bootstrap-extension-deps.ts; keep the two in step.
+#
+# Build metadata is dropped before the core is parsed, or "3+linux" reads as 0
+# and silently lowers the version. A release sorts above any prerelease of the
+# same core (the 1 vs 0 rank), which matters because p3m serves versions such
+# as debugpy's 2024.11.0-dev with "pre_release": false: they survive the stable
+# filter, and without this a -dev build could outrank its own release. Within a
+# prerelease, numeric identifiers sort below alphanumeric ones ([0,n] vs [1,s])
+# and a shorter set sorts lower, which jq's array ordering gives us directly.
+# The core is padded to a fixed width so 1.2 and 1.2.0 compare equal.
+JQ_SEMVER_KEY='
+	def is_release_version: (split("+")[0] | test("-") | not);
+	def semver_key:
+		(split("+")[0] | split("-")) as $parts
+		| ((($parts[0] | split(".") | map(tonumber? // 0)) + [0,0,0,0])[0:4]) as $core
+		| ($parts[1:]) as $pre
+		| if ($pre | length) == 0 then [$core, 1, []]
+			else [$core, 0, ($pre | join("-") | split(".")
+				| map(if test("^[0-9]+$") then [0, tonumber] else [1, .] end))]
+			end;
+'
 
 # Help function
 show_help() {
@@ -47,6 +72,7 @@ show_help() {
 		--all                 Process all bootstrap extensions from product.json (same as providing no extension IDs)
 		--version <ver>       Use specific version instead of latest
 		--vsix-dir <path>     Directory to cache VSIX files (default: ./vsix-cache)
+		--allow-downgrade     Permit lowering a pinned version (refused by default)
 		--help                Show this help message
 
 	EXAMPLES:
@@ -111,17 +137,34 @@ get_extension_info() {
 	EXTENSION_TARGET_PLATFORM=""
 
 	if command -v jq >/dev/null 2>&1; then
-		# Pick the most recently published *stable* release. Open VSX marks
-		# prerelease builds with "pre_release": true (e.g. pyrefly's 1.1.900x dev
-		# builds), and those must not be bootstrapped as if they were releases.
-		# Fall back to all versions if the extension only publishes prereleases.
+		# Pick the highest *stable* release by semver. Open VSX marks prerelease
+		# builds with "pre_release": true (e.g. pyrefly's 1.1.900x dev builds),
+		# and those must not be bootstrapped as if they were releases. The flag
+		# alone is not enough: p3m serves debugpy's 2024.11.0-dev with
+		# "pre_release": false, and semver only ranks that below 2024.11.0, not
+		# below an older genuine release -- so a mislabelled dev build could
+		# outrank the newest stable version. Require both the flag and a version
+		# string with no prerelease suffix, and fall back to all versions only
+		# when that leaves nothing.
 		# Select a single entry so version and target_platform stay consistent.
-		# (P3M does not guarantee versions are returned in sorted order.)
+		#
+		# Order by semver, not publish date: a publisher can ship a backport
+		# after a newer release (Meta published pyrefly 1.2.1 two days after
+		# 1.3.1), and sorting by published_at then picks it and silently
+		# downgrades the pin. published_at only breaks exact ties. (P3M does not
+		# guarantee versions are returned in sorted order, so some explicit
+		# ordering is required.)
+		#
+		# Entries without a usable version string are dropped up front. Both
+		# is_release_version and semver_key call split(), which errors on null,
+		# so one malformed entry would otherwise abort the whole run under
+		# `set -e` without naming the extension.
 		local selected
-		selected=$(echo "$response" | jq -c '
-			(.versions | map(select(.pre_release != true))) as $stable
-			| (if ($stable | length) > 0 then $stable else .versions end)
-			| sort_by(.published_at) | reverse | .[0] // {}')
+		selected=$(echo "$response" | jq -c "$JQ_SEMVER_KEY"'
+			(.versions | map(select((.version | type) == "string" and (.version | length) > 0))) as $usable
+			| ($usable | map(select(.pre_release != true and (.version | is_release_version)))) as $stable
+			| (if ($stable | length) > 0 then $stable else $usable end)
+			| sort_by((.version | semver_key), .published_at) | reverse | .[0] // {}')
 		EXTENSION_VERSION=$(echo "$selected" | jq -r '.version // empty')
 		EXTENSION_TARGET_PLATFORM=$(echo "$selected" | jq -r '.target_platform // empty')
 
@@ -131,8 +174,11 @@ get_extension_info() {
 		EXTENSION_TARGET_PLATFORM=$(echo "$response" | grep -o '"target_platform":"[^\"]*"' | head -1 | cut -d'"' -f4)
 	fi
 
+	# Report failure rather than falling through with an empty version, which
+	# downstream would feed to jq (an error) or treat as a real version.
 	if [[ -z "$EXTENSION_VERSION" ]]; then
 		echo -e "${RED}Error: Could not determine latest version${NC}" >&2
+		return 1
 	fi
 }
 
@@ -209,9 +255,7 @@ update_product_json() {
 
 	if command -v jq >/dev/null 2>&1; then
 		# Get current version and hash values
-		local extension_info=$(jq --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" '
-			[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)] | .[0] // empty
-		' "$product_json")
+		local extension_info=$(find_extension_entry "$product_json" "$publisher" "$name")
 
 		if [[ -n "$extension_info" && "$extension_info" != "null" ]]; then
 			current_version=$(echo "$extension_info" | jq -r '.version // empty')
@@ -271,6 +315,33 @@ update_product_json() {
 	fi
 }
 
+# Locate a bootstrap extension entry in product.json, matched either by
+# publisher/name or by the combined "publisher.name" id. Empty when absent.
+find_extension_entry() {
+	local product_json="$1" publisher="$2" name="$3"
+
+	jq --arg pub "$publisher" --arg nm "$name" --arg id "${publisher}.${name}" '
+		[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)] | .[0] // empty
+	' "$product_json"
+}
+
+# Read the version currently pinned in product.json, or empty when absent.
+get_pinned_version() {
+	if ! command -v jq >/dev/null 2>&1; then
+		return 0
+	fi
+
+	find_extension_entry "$@" | jq -r '.version // empty'
+}
+
+# True when $1 is a strictly lower version than $2, using the same precedence
+# as the latest-version selector so the guard cannot disagree with it.
+is_version_lower() {
+	jq -e -n --arg a "$1" --arg b "$2" "$JQ_SEMVER_KEY"'
+		($a | semver_key) < ($b | semver_key)
+	' >/dev/null
+}
+
 # Check if we need to download and update
 should_download() {
 	local product_json="$1"
@@ -283,9 +354,7 @@ should_download() {
 	fi
 
 	local extension_id="${publisher}.${name}"
-	local extension_info=$(jq --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" '
-		[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)] | .[0] // empty
-	' "$product_json")
+	local extension_info=$(find_extension_entry "$product_json" "$publisher" "$name")
 
 	if [[ -z "$extension_info" || "$extension_info" == "null" ]]; then
 		echo -e "${RED}Error: Extension $extension_id not found in product.json${NC}" >&2
@@ -337,10 +406,33 @@ process_extension() {
 			TARGET_PLATFORM=""
 		fi
 	else
-		get_extension_info "$PUBLISHER" "$NAME"
+		# Skip this extension rather than aborting under `set -e`, so one bad
+		# API response does not cost the run every other pending bump.
+		if ! get_extension_info "$PUBLISHER" "$NAME"; then
+			echo -e "${YELLOW}Skipping $extension_id: could not resolve a latest version${NC}" >&2
+			return 0
+		fi
 		VERSION="$EXTENSION_VERSION"
 		TARGET_PLATFORM="$EXTENSION_TARGET_PLATFORM"
 		echo "Latest version: $VERSION"
+	fi
+
+	# Never walk a pin backwards on our own. A publisher can ship a backport
+	# after a newer release and p3m serves both, so a resolution that is stale
+	# by semver would otherwise open a downgrade PR unnoticed. Applies to
+	# --version too, so a typo cannot quietly roll a bootstrap extension back.
+	local pinned
+	pinned=$(get_pinned_version "$PRODUCT_JSON" "$PUBLISHER" "$NAME")
+	if [[ "$ALLOW_DOWNGRADE" != true && -n "$pinned" ]] && is_version_lower "$VERSION" "$pinned"; then
+		local refusal="Refusing to downgrade $extension_id: pinned $pinned is newer than resolved $VERSION"
+		echo -e "${YELLOW}${refusal}${NC}" >&2
+		echo -e "${YELLOW}Re-run with --allow-downgrade if the rollback is intentional.${NC}" >&2
+		# Without this the nightly reports only "No changes to product.json" and
+		# Slack posts a failure with no stated cause.
+		if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+			printf -- '- %s\n' "$refusal" >> "$GITHUB_STEP_SUMMARY"
+		fi
+		return 0
 	fi
 
 	# Check if we actually need to download
@@ -422,6 +514,9 @@ parse_args() {
 			--vsix-dir)
 				shift
 				VSIX_DIR="$1"
+				;;
+			--allow-downgrade)
+				ALLOW_DOWNGRADE=true
 				;;
 			--help)
 				show_help

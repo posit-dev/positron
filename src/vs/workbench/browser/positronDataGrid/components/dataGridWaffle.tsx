@@ -18,6 +18,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { DataGridCornerTopLeft } from './dataGridCornerTopLeft.js';
 import { DataGridColumnHeaders } from './dataGridColumnHeaders.js';
+import { DataGridLoadingIndicator } from './dataGridLoadingIndicator.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { DataGridScrollbarCorner } from './dataGridScrollbarCorner.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
@@ -79,6 +80,12 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			setRenderMarker(generateUuid());
 		}));
 
+		// Add the onDidRequestFocus event handler. The waffle is the grid's focusable element, so
+		// this is where an instance's request for focus is answered.
+		disposableStore.add(context.instance.onDidRequestFocus(() => {
+			dataGridWaffleRef.current?.focus();
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, [services.configurationService, context.instance]);
@@ -107,9 +114,15 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		// with the data grid's automatic layout feature, which relies on knowing when the size of the data grid
 		// waffle changes. See https://github.com/posit-dev/positron/issues/8695. Using `requestAnimationFrame`
 		// ensures that the initial size of the data grid waffle is set when the component is mounted.
-		DOM.getWindow(dataGridWaffleRef.current).requestAnimationFrame(async () =>
-			await setSize(dataGridWaffleRef.current.offsetWidth, dataGridWaffleRef.current.offsetHeight)
-		);
+		// The frame can arrive after the component has been unmounted -- closing the editor, or a
+		// render error tearing the tree down -- by which point the ref has been cleared and there is
+		// nothing left to measure.
+		DOM.getWindow(dataGridWaffleRef.current).requestAnimationFrame(async () => {
+			if (!dataGridWaffleRef.current) {
+				return;
+			}
+			await setSize(dataGridWaffleRef.current.offsetWidth, dataGridWaffleRef.current.offsetHeight);
+		});
 
 		// If automatic layout isn't enabled, return.
 		if (!context.instance.automaticLayout) {
@@ -670,6 +683,17 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		return () => element.removeEventListener('wheel', onWheel);
 	}, [context.instance]);
 
+	// Whether the grid doesn't know enough to lay itself out yet. While this is true it paints an
+	// indeterminate progress indicator in place of its headers, corners and scrollbars. The
+	// alternative is to paint them from a guess at the column widths and then correct them, which
+	// shifts every column once the real widths arrive -- the wait reads better than the shift does.
+	//
+	// The rows container below stays mounted either way, empty while loading because the layout
+	// entries it draws from are. It has to be: the main effect above hands its ref to the font
+	// configuration watcher on mount, and not rendering it left that ref undefined, which threw
+	// there and took the whole data explorer down with it.
+	const loading = context.instance.loading;
+
 	// Get the column descriptors and row descriptors.
 	const columnDescriptors = context.instance.getColumnDescriptors(
 		context.instance.horizontalScrollOffset,
@@ -719,6 +743,14 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		);
 	}
 
+	// Whether any column header is being painted. The top-left corner is header chrome rather than
+	// data, so it belongs on screen exactly when the header band is. Gating it on the column count
+	// the data source reports instead let the two disagree: the headers come from the layout
+	// entries, so a count that hadn't caught up left the header band with a notch where the corner
+	// should be. An empty data set has no column descriptors, so it still gets no corner.
+	const columnHeadersPainted = columnDescriptors.pinnedColumnDescriptors.length > 0 ||
+		columnDescriptors.unpinnedColumnDescriptors.length > 0;
+
 	// Scrollbars are absolutely-positioned siblings overlapping the column headers, row headers,
 	// and rows. These custom properties carry the scrollbar thickness when each scrollbar
 	// enabled (otherwise zero), and descendants use them in clip-path so nothing paints underneath
@@ -733,6 +765,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	return (
 		<div
 			ref={dataGridWaffleRef}
+			aria-busy={loading || undefined}
 			className='data-grid-waffle'
 			role='grid'
 			style={waffleStyle}
@@ -741,73 +774,77 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			onFocus={() => context.instance.setFocused(true)}
 			onKeyDown={keyDownHandler}
 		>
-			{context.instance.columnHeaders && context.instance.rowHeaders && context.instance.columns !== 0 &&
-				<DataGridCornerTopLeft
-					onClick={async () => {
-						await context.instance.setScrollOffsets(0, 0);
-					}}
-				/>
-			}
-			{context.instance.columnHeaders &&
-				<DataGridColumnHeaders
-					columnDescriptors={columnDescriptors}
-					height={context.instance.columnHeadersHeight}
-					width={width - context.instance.rowHeadersWidth}
-				/>
-			}
-			{context.instance.rowHeaders &&
-				<DataGridRowHeaders
-					height={height - context.instance.columnHeadersHeight}
-					rowDescriptors={rowDescriptors}
-				/>
-			}
-			{context.instance.horizontalScrollbar &&
-				<DataGridScrollbar
-					bothScrollbarsVisible={
-						context.instance.horizontalScrollbar && context.instance.verticalScrollbar
+			{!loading &&
+				<>
+					{context.instance.columnHeaders && context.instance.rowHeaders && columnHeadersPainted &&
+						<DataGridCornerTopLeft
+							onClick={async () => {
+								await context.instance.setScrollOffsets(0, 0);
+							}}
+						/>
 					}
-					containerHeight={height}
-					containerWidth={width}
-					layoutSize={context.instance.layoutWidth}
-					maximumScrollOffset={() => context.instance.maximumHorizontalScrollOffset}
-					orientation='horizontal'
-					pageSize={context.instance.pageWidth}
-					scrollOffset={context.instance.horizontalScrollOffset}
-					scrollSize={context.instance.scrollWidth}
-					scrollbarThickness={context.instance.scrollbarThickness}
-					onDidChangeScrollOffset={async scrollOffset => {
-						await context.instance.setHorizontalScrollOffset(scrollOffset);
-					}}
-				/>
-			}
-			{context.instance.verticalScrollbar &&
-				<DataGridScrollbar
-					bothScrollbarsVisible={
-						context.instance.horizontalScrollbar && context.instance.verticalScrollbar
+					{context.instance.columnHeaders &&
+						<DataGridColumnHeaders
+							columnDescriptors={columnDescriptors}
+							height={context.instance.columnHeadersHeight}
+							width={width - context.instance.rowHeadersWidth}
+						/>
 					}
-					containerHeight={height}
-					containerWidth={width}
-					layoutSize={context.instance.layoutHeight}
-					maximumScrollOffset={() => context.instance.maximumVerticalScrollOffset}
-					orientation='vertical'
-					pageSize={context.instance.pageHeight}
-					scrollOffset={context.instance.verticalScrollOffset}
-					scrollSize={context.instance.scrollHeight}
-					scrollbarThickness={context.instance.scrollbarThickness}
-					onDidChangeScrollOffset={async scrollOffset => {
-						await context.instance.setVerticalScrollOffset(scrollOffset);
-					}}
-				/>
-			}
-			{context.instance.horizontalScrollbar && context.instance.verticalScrollbar &&
-				<DataGridScrollbarCorner
-					onClick={async () => {
-						await context.instance.setScrollOffsets(
-							context.instance.maximumHorizontalScrollOffset,
-							context.instance.maximumVerticalScrollOffset
-						);
-					}}
-				/>
+					{context.instance.rowHeaders &&
+						<DataGridRowHeaders
+							height={height - context.instance.columnHeadersHeight}
+							rowDescriptors={rowDescriptors}
+						/>
+					}
+					{context.instance.horizontalScrollbar &&
+						<DataGridScrollbar
+							bothScrollbarsVisible={
+								context.instance.horizontalScrollbar && context.instance.verticalScrollbar
+							}
+							containerHeight={height}
+							containerWidth={width}
+							layoutSize={context.instance.layoutWidth}
+							maximumScrollOffset={() => context.instance.maximumHorizontalScrollOffset}
+							orientation='horizontal'
+							pageSize={context.instance.pageWidth}
+							scrollOffset={context.instance.horizontalScrollOffset}
+							scrollSize={context.instance.scrollWidth}
+							scrollbarThickness={context.instance.scrollbarThickness}
+							onDidChangeScrollOffset={async scrollOffset => {
+								await context.instance.setHorizontalScrollOffset(scrollOffset);
+							}}
+						/>
+					}
+					{context.instance.verticalScrollbar &&
+						<DataGridScrollbar
+							bothScrollbarsVisible={
+								context.instance.horizontalScrollbar && context.instance.verticalScrollbar
+							}
+							containerHeight={height}
+							containerWidth={width}
+							layoutSize={context.instance.layoutHeight}
+							maximumScrollOffset={() => context.instance.maximumVerticalScrollOffset}
+							orientation='vertical'
+							pageSize={context.instance.pageHeight}
+							scrollOffset={context.instance.verticalScrollOffset}
+							scrollSize={context.instance.scrollHeight}
+							scrollbarThickness={context.instance.scrollbarThickness}
+							onDidChangeScrollOffset={async scrollOffset => {
+								await context.instance.setVerticalScrollOffset(scrollOffset);
+							}}
+						/>
+					}
+					{context.instance.horizontalScrollbar && context.instance.verticalScrollbar &&
+						<DataGridScrollbarCorner
+							onClick={async () => {
+								await context.instance.setScrollOffsets(
+									context.instance.maximumHorizontalScrollOffset,
+									context.instance.maximumVerticalScrollOffset
+								);
+							}}
+						/>
+					}
+				</>
 			}
 			<div
 				ref={dataGridRowsRef}
@@ -828,6 +865,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					{dataGridRows}
 				</div>
 			</div>
+			{/* Last, so that it paints over the (empty) rows container rather than under it. */}
+			{loading && <DataGridLoadingIndicator />}
 		</div>
 	);
 });

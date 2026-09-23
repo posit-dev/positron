@@ -38,6 +38,7 @@ import { AbstractUpdateService, createUpdateURL, getUpdateRequestHeaders, Update
 import { getRelaunchArguments } from './updateRelaunchArguments.js';
 import { getWin32UpdateType } from './win32UpdateType.js';
 // --- Start Positron ---
+import { hasUpdate } from '../common/positronVersion.js';
 import { IStateService } from '../../state/node/state.js';
 import { ICodeWindow } from '../../window/electron-main/window.js';
 import { IWindowsMainService } from '../../windows/electron-main/windows.js';
@@ -130,16 +131,14 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		// --- End Positron ---
 	) {
 		// --- Start Positron ---
-		// The final argument is `supportsUpdateOverwrite`, and it is `false` rather than upstream's
-		// `true` so that `setState()` never arms the five-minute overwrite check. When that check
-		// fires and the feed really has moved past the staged update, it cancels the pending update
-		// and leaves it hanging: `cancelPendingUpdate()` clears `availableUpdate` and the state
-		// leaves `Ready`, so a later "Restart to Update" is declined by both `quitAndInstall()` and
-		// `handleRelaunch()` and falls through to a plain relaunch that installs nothing.
-		//
-		// Disarming it is deliberate and temporary. Re-arm this to `true` in the change that makes
-		// the overwrite path install the newer update instead of dropping it.
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, telemetryService, applicationStorageMainService, meteredConnectionService, productService, nativeHostMainService, stateService, false);
+		// The final argument is `supportsUpdateOverwrite`. It is back to upstream's `true`, which arms
+		// the five-minute overwrite check in `setState()`, now that the overwrite round installs the
+		// newer update instead of dropping the staged one. #16083 set this to `false` because
+		// `cancelPendingUpdate()` cleared `availableUpdate` and left `Ready`, so the check could strand
+		// a pending update that "Restart to Update" then declined to install. `restorePendingUpdate()`
+		// closes that hole: every overwrite round ends either staging the newer build or putting the
+		// pending one back, flag file included.
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, telemetryService, applicationStorageMainService, meteredConnectionService, productService, nativeHostMainService, stateService, true);
 		// --- End Positron ---
 
 		this.readyMutexName = `${productService.win32MutexName}-ready`;
@@ -154,7 +153,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			return false; // we cannot apply an update and restart with different args
 		}
 
-		if (this.state.type !== StateType.Ready || !this.availableUpdate) {
+		// --- Start Positron ---
+		// Dev update testing never downloads an installer, so `availableUpdate` is unset; still
+		// handle the relaunch, so `doQuitAndInstall()` can log which version it would have used.
+		// if (this.state.type !== StateType.Ready || !this.availableUpdate) {
+		if (this.state.type !== StateType.Ready || (!this.availableUpdate && !this.devUpdateTesting)) {
+			// --- End Positron ---
 			return false; // we only handle the relaunch when we have a pending update
 		}
 
@@ -321,9 +325,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	}
 	// --- End Positron ---
 
-	// Unused for Positron
 	protected doCheckForUpdates(explicit: boolean, pendingCommit?: string): void {
-		// Positron doesn't use these parameters for checking for updates
+		// --- Start Positron ---
+		// In Positron this runs only for the overwrite path (`checkForOverwriteUpdates`); the
+		// regular check flow goes through `AbstractUpdateService.checkForUpdates` -> `updateAvailable`.
+		// Positron resolves the feed from the release channel, so it needs neither the quality
+		// gate nor the commit/internalOrg URL parameters.
 		// if (!this.quality) {
 		// 	return;
 		// }
@@ -332,6 +339,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		// const background = !explicit && !internalOrg;
 		// const url = this.buildUpdateFeedUrl(this.quality, pendingCommit ?? this.productService.commit!, { background, internalOrg });
 		const url = this.buildUpdateFeedUrl(this.getUpdateChannel());
+		// --- End Positron ---
 
 		// Only set CheckingForUpdates if we're not already in Overwriting state
 		if (this.state.type !== StateType.Overwriting) {
@@ -344,8 +352,14 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const token = cts.token;
 
 		const headers = getUpdateRequestHeaders(this.productService.version);
-		const promise = this.requestService.request({ url, headers, callSite: 'updateService.win32.checkForUpdates' }, token)
-			.then<IUpdate | null>(asJson)
+		const promise = this.requestService.request({ url, headers, disableCache: true, callSite: 'updateService.win32.checkForUpdates' }, token)
+			// --- Start Positron ---
+			// .then<IUpdate | null>(asJson)
+			.then<IUpdate | null>(async context => {
+				const update = await asJson<IUpdate>(context);
+				return update && this.withProductVersion(update);
+			})
+			// --- End Positron ---
 			.then(update => {
 				const updateType = getUpdateType();
 
@@ -353,30 +367,82 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 					return Promise.resolve(null);
 				}
 
-				if (!update || !update.url || !update.version || !update.productVersion) {
+				// --- Start Positron ---
+				// Positron's feed has no `productVersion`; `version` is the calver.
+				// if (!update || !update.url || !update.version || !update.productVersion) {
+				if (!update || !update.url || !update.version) {
+					// --- End Positron ---
 					// If we were checking for an overwrite update and found nothing newer,
 					// restore the Ready state with the pending update
 					if (this.state.type === StateType.Overwriting) {
-						this._overwrite = false;
-						this.setState(State.Ready(this.state.update, this.state.explicit, false));
+						// --- Start Positron ---
+						// this._overwrite = false;
+						// this.setState(State.Ready(this.state.update, this.state.explicit, false));
+						// Say so: the overwrite round ends by re-staging the same pending update it
+						// started with, which is indistinguishable in the logs from a successful
+						// overwrite unless the reason is written down.
+						this.logService.info('update#doCheckForUpdates - the overwrite check got no usable update from the feed, keeping the pending update', update);
+						return this.restorePendingUpdate(this.state.update, this.state.explicit).then(() => null);
+						// --- End Positron ---
 					} else {
 						this.setState(State.Idle(updateType, undefined, explicit || undefined));
 					}
 					return Promise.resolve(null);
 				}
 
+				// --- Start Positron ---
+				// Positron's feed always returns the latest release rather than answering "no
+				// content" for an up-to-date version like upstream's server does. If the feed no
+				// longer advertises anything newer than the pending update (a race with the
+				// `isLatestVersion` pre-check in `checkForOverwriteUpdates`), restore Ready
+				// instead of downloading the same installer again.
+				if (this.state.type === StateType.Overwriting && pendingCommit && !hasUpdate(update, pendingCommit)) {
+					this.logService.info(`update#doCheckForUpdates - the overwrite check found ${update.version}, which is not newer than the pending ${pendingCommit}; keeping the pending update`);
+					return this.restorePendingUpdate(this.state.update, this.state.explicit).then(() => null);
+				}
+				// --- End Positron ---
+
+				// --- Start Positron ---
+				// The version actually being staged, so a later log can be matched against what
+				// ends up installed. Especially for the overwrite round, where a wrong answer here
+				// is the difference between installing the newest build and re-installing the
+				// pending one.
+				this.logService.info(`update#doCheckForUpdates - staging ${update.version}${pendingCommit ? ` over the pending ${pendingCommit}` : ''}`);
+				// --- End Positron ---
+
+				// --- Start Positron ---
+				// A source build has no Inno install to hand an installer to, so walk the simulated
+				// download instead. This also has to come before the `UpdateType.Archive` branch
+				// below, which a source build always lands in for want of `unins000.exe` and which
+				// would abandon the overwrite flow at `AvailableForDownload`.
+				if (this.devUpdateTesting) {
+					this.simulateStagedUpdate(update, explicit);
+					return Promise.resolve(null);
+				}
+				// --- End Positron ---
+
 				if (updateType === UpdateType.Archive) {
 					this.setState(State.AvailableForDownload(update));
 					return Promise.resolve(null);
 				}
 
-				// When connection is metered and this is not an explicit check,
-				// show update is available but don't start downloading
+				// --- Start Positron ---
+				// Positron has not adopted upstream's deferred-*download* machinery
+				// (`deferAutomaticDownload()` / `resumeAutomaticUpdates()`), which parks the
+				// download and resumes it once the connection is no longer metered. Instead we
+				// surface the update and leave the download to an explicit user action. Upstream
+				// also calls `deferAutomaticDownload()` again further down, before writing the
+				// temp file, and guards the resulting `undefined` package path with
+				// `!packagePath`; both are absent below for the same reason.
+				// if (this.deferAutomaticDownload(update, explicit)) {
+				// 	return Promise.resolve(null);
+				// }
 				if (!explicit && this.meteredConnectionService.isConnectionMetered) {
 					this.logService.info('update#doCheckForUpdates - update available but skipping download because connection is metered');
 					this.setState(State.AvailableForDownload(update));
 					return Promise.resolve(null);
 				}
+				// --- End Positron ---
 
 				const startTime = Date.now();
 				this.setState(State.Downloading(update, explicit, this._overwrite, 0, undefined, startTime));
@@ -434,7 +500,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 						if (fastUpdatesEnabled && this.productService.target === 'user') {
 							this.doApplyUpdate();
 						} else {
-							this.setState(State.Ready(update, false, false));
+							this.setState(State.Ready(update, explicit, this._overwrite));
 						}
 					});
 				});
@@ -454,10 +520,14 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				// If we were checking for an overwrite update and it failed,
 				// restore the Ready state with the pending update
 				if (this.state.type === StateType.Overwriting) {
-					this._overwrite = false;
-					this.setState(State.Ready(this.state.update, this.state.explicit, false));
+					// --- Start Positron ---
+					// this._overwrite = false;
+					// this.setState(State.Ready(this.state.update, this.state.explicit, false));
+					return this.restorePendingUpdate(this.state.update, this.state.explicit);
+					// --- End Positron ---
 				} else {
 					this.setState(State.Idle(getUpdateType(), message));
+					return;
 				}
 			});
 
@@ -473,13 +543,81 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			cts.dispose();
 		});
 	}
-	// --- End Positron ---
 
 	// --- Start Positron ---
 	protected override updateAvailable(update: IUpdate): void {
 		// Notify about updates for now. Do not download or install them.
-		if (!this.enableAutoUpdate) {
+		// Dev update testing simulates the staging, so it runs whether or not auto-update is on:
+		// there is nothing for a download page to install from a source build either.
+		if (!this.enableAutoUpdate && !this.devUpdateTesting) {
 			this.setState(State.AvailableForDownload(update));
+			return;
+		}
+
+		this.stageUpdate(update);
+	}
+
+	/**
+	 * Developer hook: download and stage the build advertised by an arbitrary feed document as
+	 * the pending update. The channel feed is left alone, so the pending update's next re-check
+	 * compares against the real latest release and the overwrite flow runs end to end without
+	 * waiting for two builds to publish.
+	 */
+	override async _stageUpdateFromFeed(feedUrl: string): Promise<void> {
+		this.logService.info('update#_stageUpdateFromFeed - staging the update advertised by', feedUrl);
+
+		// Allowed from Ready as well, replacing the pending update: the regular check runs 30
+		// seconds after launch, so by the time a tester reaches the command something is usually
+		// already staged.
+		if (this.state.type !== StateType.Idle && this.state.type !== StateType.Ready) {
+			this.logService.warn('update#_stageUpdateFromFeed - ignored, the update service is neither idle nor holding a pending update', this.state.type);
+			return;
+		}
+
+		if (this.state.type === StateType.Ready) {
+			try {
+				await this.cancelPendingUpdate();
+			} catch (err) {
+				this.logService.error('update#_stageUpdateFromFeed - failed to cancel the pending update', err);
+				return;
+			}
+		}
+
+		this._overwrite = false;
+		this.setState(State.CheckingForUpdates(true));
+
+		try {
+			const headers = getUpdateRequestHeaders(this.productService.version);
+			const context = await this.requestService.request({ url: feedUrl, headers, disableCache: true, callSite: 'updateService.win32._stageUpdateFromFeed' }, CancellationToken.None);
+			const update = await asJson<IUpdate>(context);
+			if (!update || !update.url || !update.version) {
+				this.logService.warn('update#_stageUpdateFromFeed - the feed does not advertise an update', update);
+				this.setState(State.Idle(getUpdateType()));
+				return;
+			}
+			this.stageUpdate(update);
+		} catch (err) {
+			this.logService.error('update#_stageUpdateFromFeed - failed to fetch the feed', err);
+			this.setState(State.Idle(getUpdateType(), String(err)));
+		}
+	}
+
+	/**
+	 * Positron's feed carries no `productVersion`, but the update notification and the release
+	 * notes link both bail without one, so fill it in from the calver the feed does carry.
+	 */
+	private withProductVersion(update: IUpdate): IUpdate {
+		return update.productVersion ? update : { ...update, productVersion: update.version };
+	}
+
+	/** Downloads the installer for `update` into the cache and lands in `Ready` (or applies it in the background). */
+	private stageUpdate(update: IUpdate): void {
+		update = this.withProductVersion(update);
+
+		// A source build cannot install what it downloads, and a mock feed's `url` points at
+		// nothing, so walk the simulated download instead.
+		if (this.devUpdateTesting) {
+			this.simulateStagedUpdate(update, false);
 			return;
 		}
 
@@ -515,6 +653,56 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				}
 			});
 		});
+	}
+	// --- End Positron ---
+
+	// --- Start Positron ---
+	/**
+	 * Puts back a pending update that `cancelPendingUpdate()` tore down for an overwrite check that
+	 * turned out to have nothing newer to install.
+	 *
+	 * Restoring `Ready` on its own is not enough: `cancelPendingUpdate()` clears `availableUpdate`
+	 * and deletes the flag file the waiting installer relaunches from, so the next "Restart to
+	 * Update" would fall through `doQuitAndInstall()`'s `availableUpdate` guard and relaunch without
+	 * installing anything. The downloaded installer itself survives cancellation, so re-stage it the
+	 * same way the download path does.
+	 */
+	private async restorePendingUpdate(update: IUpdate, explicit: boolean): Promise<void> {
+		this.logService.info('update#restorePendingUpdate: re-staging the pending update', update.version);
+		this._overwrite = false;
+
+		// Dev update testing downloaded nothing, so there is no installer to re-stage and no flag
+		// file to rewrite; the simulated pending update is whole as soon as `Ready` is back.
+		if (this.devUpdateTesting) {
+			this.setState(State.Ready(update, explicit, false));
+			return;
+		}
+
+		try {
+			const packagePath = await this.getUpdatePackagePath(update.version);
+
+			if (await pfs.Promises.exists(packagePath)) {
+				this.availableUpdate = { packagePath };
+				this.setState(State.Downloaded(update, explicit, false));
+
+				const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
+				if (fastUpdatesEnabled && this.productService.target === 'user') {
+					// Rewrites the flag file that `cancelPendingUpdate()` deleted and ends in `Ready`.
+					await this.doApplyUpdate();
+				} else {
+					this.setState(State.Ready(update, explicit, false));
+				}
+				return;
+			}
+
+			this.logService.warn('update#restorePendingUpdate: the downloaded installer is gone, dropping to Idle');
+		} catch (err) {
+			this.logService.error('update#restorePendingUpdate: failed to restore the pending update', err);
+		}
+
+		// Advertising no update is better than a `Ready` one that cannot be installed; the next check
+		// downloads it again.
+		this.setState(State.Idle(getUpdateType()));
 	}
 	// --- End Positron ---
 
@@ -554,20 +742,6 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const cancelFilePath = path.join(cachePath, `cancel.flag`);
 		const progressFilePath = path.join(cachePath, `update-progress`);
 
-		// --- Start Positron ---
-		// Point Electron's `appUpdate` path at the same directory we pass as `/sessionend`. Upstream
-		// closed microsoft/vscode#264571 ("session-ending.flag is not present") with a commit whose
-		// only relevant change was this call, which implies a native writer that puts the flag in
-		// `appUpdate`. Upstream only does it under `win32VersionedUpdate`, which Positron does not
-		// set, so Positron has never pointed that writer anywhere useful. Done here rather than in
-		// `initialize()` because `setPath` throws unless the directory already exists, and because
-		// this is exactly when the flag starts to matter: an installer is about to wait on it.
-		try {
-			app.setPath('appUpdate', cachePath);
-		} catch (err) {
-			this.logService.warn('update#doApplyUpdate: failed to set the appUpdate path', err);
-		}
-		// --- End Positron ---
 		this.availableUpdate.updateFilePath = path.join(cachePath, `CodeSetup-${this.productService.quality}-${update.version}.flag`);
 		this.availableUpdate.cancelFilePath = cancelFilePath;
 
@@ -805,6 +979,18 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	// --- End Positron ---
 
 	protected override doQuitAndInstall(): void {
+		// --- Start Positron ---
+		// A source build has nothing staged, so there is no installer to spawn. Log the version the
+		// real install would have used instead: this is the evidence that a restart installs
+		// whatever was latest at restart time, not the version that was pending when the update was
+		// first found.
+		if (this.devUpdateTesting) {
+			const update = (this.state.type === StateType.Ready || this.state.type === StateType.Restarting) ? this.state.update : undefined;
+			this.logService.info('update#doQuitAndInstall - dev update testing, would install', update?.productVersion, update?.version);
+			return;
+		}
+		// --- End Positron ---
+
 		if ((this.state.type !== StateType.Ready && this.state.type !== StateType.Restarting) || !this.availableUpdate) {
 			return;
 		}

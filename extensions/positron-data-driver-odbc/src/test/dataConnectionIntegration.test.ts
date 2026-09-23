@@ -30,7 +30,7 @@ suite('Data Connection Integration', () => {
 		assert.ok(odbc, 'the generic ODBC driver should be registered');
 		assert.deepStrictEqual(
 			{ name: odbc.name, languages: odbc.supportedLanguageIds },
-			{ name: 'ODBC', languages: ['python', 'r'] }
+			{ name: 'ODBC', languages: ['python', 'r', 'ggsql'] }
 		);
 	});
 

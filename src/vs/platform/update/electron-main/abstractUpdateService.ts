@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
-import { CancelablePromise, IntervalTimer, Throttler, timeout } from '../../../base/common/async.js';
+import { CancelablePromise, createCancelablePromise, IntervalTimer, Throttler, timeout } from '../../../base/common/async.js';
 import { CancellationToken, CancellationTokenSource } from '../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../base/common/errors.js';
 import { Emitter, Event } from '../../../base/common/event.js';
@@ -45,6 +45,15 @@ import { buildReleaseNotesUrl, buildUpdateUrl, mergeActiveLanguageRecord, parseA
 export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
 	return `${productService.updateUrl}/${channel}/${platform}`;
 }
+
+/** How long each simulated download state is held during dev update testing. */
+const DEV_STAGING_STATE_DURATION = 3000;
+
+/**
+ * How long the overwrite re-check waits for the feed before keeping the pending update. Short
+ * because the check also runs on the way into a restart the user has already accepted.
+ */
+const OVERWRITE_CHECK_TIMEOUT = 2000;
 //--- End Positron ---
 
 /**
@@ -101,6 +110,11 @@ function isCancellableState(type: StateType): boolean {
 	}
 }
 
+interface IInternalUpdateState {
+	readonly state: State;
+	readonly deferred: boolean;
+}
+
 export abstract class AbstractUpdateService extends Disposable implements IUpdateService {
 
 	declare readonly _serviceBrand: undefined;
@@ -117,16 +131,14 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	private static readonly TELEMETRY_ID_KEY = 'telemetry.anonymousId';
 	private static readonly ACTIVE_LANGUAGES_KEY = 'update.activeLanguages';
 	private static readonly ACTIVE_LANGUAGES_MAX_AGE_DAYS = 7;
+	/** The in-flight simulated download, if any; see `simulateStagedUpdate`. */
+	private readonly devStagingSimulation = this._register(new MutableDisposable<IDisposable>());
 	// --- End Positron ---
 
-	private _state: State = State.Uninitialized;
+	private _state: IInternalUpdateState = { state: State.Uninitialized, deferred: false };
 	protected _overwrite: boolean = false;
-	// --- Start Positron ---
-	// These variables are from upstream but not currently used in Positron
-	// @ts-ignore - unused but kept for upstream compatibility
 	private _hasCheckedForOverwriteOnQuit: boolean = false;
 	private readonly overwriteUpdatesCheckInterval = this._register(new IntervalTimer());
-	// --- End Positron ---
 	private _internalOrg: string | undefined = undefined;
 
 	/** Disabled for a non-reversible reason (e.g. not built, missing config); ignores `update.mode` changes. */
@@ -142,31 +154,37 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	readonly onStateChange: Event<State> = this._onStateChange.event;
 
 	get state(): State {
-		return this._state;
+		return this._state.state;
 	}
 
-	protected setState(state: State): void {
+	protected setState(state: State, options?: { deferred?: boolean }): void {
 		if (state.type === StateType.Updating) {
 			this.logService.trace('update#setState', state.type);
 		} else {
 			this.logService.info('update#setState', state.type);
 		}
-		this._state = state;
+		this._state = { state, deferred: options?.deferred ?? false };
 		this._onStateChange.fire(state);
 
 		// Clear transient one-time properties from Idle state after delivering the event.
 		// This prevents new windows from seeing stale error/notAvailable messages.
 		if (state.type === StateType.Idle && (state.error || state.notAvailable)) {
-			this._state = State.Idle(state.updateType);
+			this._state = { state: State.Idle(state.updateType), deferred: false };
 		}
 
-		// Schedule 5-minute checks when in Ready state and overwrite is supported
+		// Schedule recurring checks when in Ready state and overwrite is supported
 		if (this.supportsUpdateOverwrite) {
 			if (state.type === StateType.Ready) {
-				this.overwriteUpdatesCheckInterval.cancelAndSet(() => this.checkForOverwriteUpdates(), 5 * 60 * 1000);
+				this.overwriteUpdatesCheckInterval.cancelAndSet(() => this.checkForOverwriteUpdates(), this.overwriteCheckIntervalMs);
 			} else {
 				this.overwriteUpdatesCheckInterval.cancel();
 			}
+		}
+	}
+
+	private setDeferred(deferred: boolean): void {
+		if (this._state.deferred !== deferred) {
+			this._state = { ...this._state, deferred };
 		}
 	}
 
@@ -261,7 +279,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			const reason = policyDisablesUpdates ? DisablementReason.Policy : DisablementReason.ManuallyDisabled;
 
 			// Skip if already disabled for this reason, so a repeated write or policy refresh is a no-op.
-			if (this._state.type === StateType.Disabled && this._state.reason === reason) {
+			if (this.state.type === StateType.Disabled && this.state.reason === reason) {
 				return;
 			}
 
@@ -276,7 +294,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 		// Auto-updates don't work in dev, so when running unbuilt we disable update checking
 		// only if auto-update is enabled; when it's off we still allow manual/explicit checks.
-		if (!this.environmentMainService.isBuilt && this.enableAutoUpdate) {
+		if (!this.environmentMainService.isBuilt && this.enableAutoUpdate && !this.devUpdateTesting) {
 			this.setState(State.Disabled(DisablementReason.NotBuilt));
 			return; // updates are never enabled when running out of sources
 		}
@@ -295,7 +313,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		}
 
 		// Move to Idle so one-time platform init (which may resume a pending update) can act; it requires Idle.
-		if (this._state.type === StateType.Disabled || this._state.type === StateType.Uninitialized) {
+		if (this.state.type === StateType.Disabled || this.state.type === StateType.Uninitialized) {
 			this.setState(State.Idle(this.getUpdateType()));
 		}
 
@@ -316,7 +334,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		this.scheduler.clear();
 
 		// Show a transient Cancelling state only when there is in-flight or pending work to tear down.
-		if (isCancellableState(this._state.type)) {
+		if (isCancellableState(this.state.type)) {
 			this.setState(State.Cancelling);
 		}
 
@@ -374,6 +392,73 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		}
 
 		return process.env.POSITRON_UPDATE_CHANNEL ?? persistedUpdateChannel;
+	}
+
+	/**
+	 * Whether a source build has been deliberately configured to check for updates.
+	 *
+	 * `quality` is empty in the repo's product.json, so the only way an unbuilt Positron has one is
+	 * through the gitignored `product.overrides.json`, which is a dev-only opt-in. That same file is
+	 * where an older `positronVersion` / `positronBuildNumber` goes, so the feed's latest release
+	 * looks like an update instead of being older than the unreleased calver a source build carries.
+	 *
+	 * Checking is all this enables: the flow stops at `AvailableForDownload`, which opens the
+	 * download page rather than installing anything.
+	 */
+	protected get devUpdateTesting(): boolean {
+		return !this.environmentMainService.isBuilt && !!this.productService.quality;
+	}
+
+	/**
+	 * How often a pending update re-checks the feed, so that a restart installs whatever is latest
+	 * at restart time. Shortened for dev update testing, where waiting five minutes for each attempt
+	 * makes the overwrite flow impractical to exercise by hand.
+	 */
+	protected get overwriteCheckIntervalMs(): number {
+		return this.devUpdateTesting ? 30 * 1000 : 5 * 60 * 1000;
+	}
+
+	/**
+	 * Reads the current state type behind a call, so that checking it in one place does not narrow
+	 * `this.state` for the checks that follow.
+	 */
+	private isCurrentState(type: StateType): boolean {
+		return this.state.type === type;
+	}
+
+	/**
+	 * Stands in for the platform's download pipeline, which a source build cannot use: macOS is
+	 * unsigned so Electron's auto-updater refuses it, and Windows has no Inno install to hand an
+	 * installer to. Walks the same states a real download does so the pending-update UI and the
+	 * `Ready` -> `Overwriting` -> `Ready` flow can be exercised by hand; nothing is downloaded and
+	 * a restart will not install anything.
+	 *
+	 * The states are held for a few seconds each, because a real download is not instant and a
+	 * flow that jumps straight to `Ready` never renders the states a tester needs to look at.
+	 */
+	protected simulateStagedUpdate(update: IUpdate, explicit: boolean): void {
+		this.logService.info('update#simulateStagedUpdate - dev update testing, staging update without downloading it', update.version);
+		this.setState(State.Downloading(update, explicit, this._overwrite));
+
+		const promise = createCancelablePromise(async token => {
+			await timeout(DEV_STAGING_STATE_DURATION, token);
+			// Anything that moved the state on in the meantime (a cancel, or updates being
+			// disabled) wins; do not drag it back to a staged update.
+			if (!this.isCurrentState(StateType.Downloading)) {
+				return;
+			}
+			this.setState(State.Downloaded(update, explicit, this._overwrite));
+
+			await timeout(DEV_STAGING_STATE_DURATION, token);
+			if (!this.isCurrentState(StateType.Downloaded)) {
+				return;
+			}
+			this.setState(State.Ready(update, explicit, this._overwrite));
+		});
+
+		// Cancels a simulation still in flight, so a second check cannot race the first to Ready.
+		this.devStagingSimulation.value = toDisposable(() => promise.cancel());
+		promise.catch(() => { /* cancelled, or the service went away */ });
 	}
 	// --- End Positron ---
 
@@ -484,6 +569,16 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	}
 
 	async checkForUpdates(explicit: boolean): Promise<void> {
+		// With an update already pending there is nothing to find for the installed version, but
+		// the pending update itself may have been superseded. Route the check to the overwrite
+		// re-check, so "Check for Updates" (and the scheduled check) can pick up a newer build
+		// instead of doing nothing until the next interval or a restart.
+		if (this.state.type === StateType.Ready && this.supportsUpdateOverwrite) {
+			this.logService.info('update#checkForUpdates - an update is pending, checking whether a newer one is available');
+			await this.checkForOverwriteUpdates(explicit);
+			return;
+		}
+
 		const includeLanguages = this.configurationService.getValue<boolean>('update.primaryLanguageReporting');
 		const includeAnonymousId = this.configurationService.getValue<boolean>('update.anonymousUsageReporting');
 
@@ -507,7 +602,7 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 
 		this.logService.debug('update#checkForUpdates, url =', releaseMetadataUrl);
 
-		this.requestService.request({ url: releaseMetadataUrl, callSite: 'update.checkForUpdates' }, CancellationToken.None)
+		this.requestService.request({ url: releaseMetadataUrl, disableCache: true, callSite: 'update.checkForUpdates' }, CancellationToken.None)
 			.then<IUpdate | null>(asJson)
 			.catch(err => {
 				this.logService.trace('update#checkForUpdates, update request did not return valid update metadata:', err.message);
@@ -634,6 +729,16 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 			return Promise.resolve(undefined);
 		}
 
+		if (this.supportsUpdateOverwrite && !this._hasCheckedForOverwriteOnQuit) {
+			this._hasCheckedForOverwriteOnQuit = true;
+			const didOverwrite = await this.checkForOverwriteUpdates(true);
+
+			if (didOverwrite) {
+				this.logService.info('update#quitAndInstall(): overwrite update detected, postponing quitAndInstall');
+				return;
+			}
+		}
+
 		// Remember the Ready state so we can restore it if the quit is vetoed
 		const readyState = this.state;
 
@@ -656,6 +761,11 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 				this.logService.info('update#quitAndInstall(): quit was vetoed, restoring Ready state');
 				// --- Start Positron ---
 				await this.undoPrepareForQuitAndInstall().catch(err => this.logService.error('update#quitAndInstall(): failed to undo the install preparation', err));
+				// A veto puts the user back in the session indefinitely after they had already
+				// accepted the restart, and `setState(Ready)` re-arms the recurring overwrite
+				// check. Clear the once-per-quit guard so the *next* restart request re-checks the
+				// feed too; otherwise a build published after the veto would install stale.
+				this._hasCheckedForOverwriteOnQuit = false;
 				// --- End Positron ---
 				this.setState(readyState);
 				return;
@@ -669,30 +779,77 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	}
 
 	private async checkForOverwriteUpdates(explicit: boolean = false): Promise<boolean> {
-		if (this._state.type !== StateType.Ready) {
+		if (this.state.type !== StateType.Ready) {
 			return false;
 		}
 
-		const pendingUpdateCommit = this._state.update.version;
+		if (this.deferOverwriteCheckIfMetered(explicit)) {
+			return false;
+		}
+
+		this.setDeferred(false);
+		// --- Start Positron ---
+		// Electron's `update-downloaded` event maps its release *notes* to `version`, which is
+		// where upstream's server puts the commit. Positron's feed has no notes, so `version` can
+		// arrive empty; the product version carries the same calver and works as the baseline.
+		// const pendingUpdateCommit = this.state.update.version;
+		const pendingUpdateCommit = this.state.update.version || this.state.update.productVersion;
 
 		if (!pendingUpdateCommit || pendingUpdateCommit === 'unknown') {
+			// Say so: a silent return here hid a pending update that was never re-checked.
+			this.logService.info('update#checkForOverwriteUpdates - skipping, the pending update has no version to compare against', this.state.update);
 			return false;
 		}
+		// --- End Positron ---
 
 		let isLatest: boolean | undefined;
+		// --- Start Positron ---
+		// Tracked so the log can tell "the feed says there is nothing newer" apart from "we never
+		// got an answer": both leave `isLatest` unusable, but only one of them means the pending
+		// update really is the newest build.
+		let timedOut = false;
+		// --- End Positron ---
 
+		const cts = new CancellationTokenSource();
 		try {
-			const cts = new CancellationTokenSource();
-			const timeoutPromise = timeout(2000).then(() => { cts.cancel(); return undefined; });
-			isLatest = await Promise.race([this.isLatestVersion(pendingUpdateCommit, cts.token), timeoutPromise]);
-			cts.dispose();
+			const timeoutPromise = timeout(OVERWRITE_CHECK_TIMEOUT, cts.token).then(() => { timedOut = true; cts.cancel(); return undefined; });
+			isLatest = await Promise.race([this.doIsLatestVersion(pendingUpdateCommit, cts.token), timeoutPromise]);
 		} catch (error) {
 			this.logService.warn('update#checkForOverwriteUpdates(): failed to check for updates, proceeding with restart');
 			this.logService.warn(error);
 			return false;
+		} finally {
+			cts.dispose(true);
 		}
 
-		if (isLatest === false && this._state.type === StateType.Ready) {
+		// --- Start Positron ---
+		// Report the outcome. Upstream returns silently here, which left the far more common
+		// outcomes ("nothing newer" and "could not tell") indistinguishable in the logs from the
+		// check never having run at all.
+		if (isLatest === true) {
+			this.logService.info(`update#checkForOverwriteUpdates - nothing newer than the pending ${pendingUpdateCommit}, keeping it`);
+			return false;
+		}
+
+		if (isLatest === undefined) {
+			this.logService.info(timedOut
+				? `update#checkForOverwriteUpdates - the check for something newer than the pending ${pendingUpdateCommit} timed out after ${OVERWRITE_CHECK_TIMEOUT}ms, keeping it`
+				: `update#checkForOverwriteUpdates - could not determine whether the pending ${pendingUpdateCommit} is still the latest, keeping it`);
+			return false;
+		}
+
+		if (!this.isCurrentState(StateType.Ready)) {
+			this.logService.info('update#checkForOverwriteUpdates - a newer update is available, but the update state changed to', this.state.type);
+			return false;
+		}
+
+		// if (isLatest === false && this.state.type === StateType.Ready) {
+		if (isLatest === false) {
+			// --- End Positron ---
+			if (this.deferOverwriteCheckIfMetered(explicit)) {
+				return false;
+			}
+
 			this.logService.info('update#readyStateCheck: newer update available, restarting update machinery');
 
 			try {
@@ -703,8 +860,12 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 				return false;
 			}
 
+			if (this.deferOverwriteCheckIfMetered(explicit)) {
+				return false;
+			}
+
 			this._overwrite = true;
-			this.setState(State.Overwriting(this._state.update, explicit));
+			this.setState(State.Overwriting(this.state.update, explicit));
 			this.doCheckForUpdates(explicit, pendingUpdateCommit);
 			return true;
 		}
@@ -712,7 +873,26 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		return false;
 	}
 
+	private deferOverwriteCheckIfMetered(explicit: boolean): boolean {
+		if (explicit || !this.meteredConnectionService.isConnectionMetered) {
+			return false;
+		}
+
+		this.setDeferred(true);
+		this.logService.info('update#checkForOverwriteUpdates - deferring overwrite because connection is metered');
+		return true;
+	}
+
 	async isLatestVersion(commit?: string, token: CancellationToken = CancellationToken.None): Promise<boolean | undefined> {
+		if (this.meteredConnectionService.isConnectionMetered) {
+			this.logService.info('update#isLatestVersion - skipping automatic check because connection is metered');
+			return undefined;
+		}
+
+		return this.doIsLatestVersion(commit, token);
+	}
+
+	protected async doIsLatestVersion(commit?: string, token: CancellationToken = CancellationToken.None): Promise<boolean | undefined> {
 		// --- Start Positron ---
 		// Reports whether a build is the newest one the feed offers, defaulting to the running
 		// build. `checkForOverwriteUpdates()` passes the build it has already staged, so that a
@@ -721,13 +901,16 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		// cancel a staged update or suppress startup telemetry.
 		//
 		// `commit` keeps upstream's parameter name and signature. Positron's feed is versioned
-		// rather than commit-addressed, so callers pass a `<version>-<build>` string.
+		// rather than commit-addressed, so callers pass a `<version>-<build>` string. Unlike
+		// upstream's update server, which answers 204 when the given commit is already the latest,
+		// Positron's feed is a static JSON document that always describes the latest release, so
+		// "latest" is decided client-side by comparing the feed against that baseline.
 		//
 		// As long as updates are enabled, we check the update URL
 		const mode = this.configurationService.getValue<'none' | 'manual' | 'start' | 'default'>('update.mode');
 
 		if (mode === 'none') {
-			return false;
+			return undefined;
 		}
 
 		// The constructor returns early (leaving `this.url` undefined) when
@@ -742,22 +925,30 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		// Compare against the full `<version>-<build>` string. `compare()` treats a missing build
 		// number as "equal", so passing the bare version reports every same-month daily as the
 		// same build, and `hasUpdate()` is then false for an update that really is newer.
-		const compareAgainst = commit ?? this.currentVersion;
+		const baseline = commit ?? this.currentVersion;
 
 		// Awaited inside the `try`, not returned from it: a returned promise settles after the
 		// block has exited, so a failed request, unparseable JSON, or the `hasUpdate()` throw on a
 		// malformed version would reject instead of reporting the unknown answer promised above.
 		try {
-			const context = await this.requestService.request({ url: this.url, callSite: 'update.poll' }, CancellationToken.None);
+			// `disableCache` because the channel feed is a static JSON document served without
+			// `Cache-Control`, so Chromium's HTTP cache (this runs on `net.request`) is free to
+			// pick its own freshness lifetime and answer from disk. That silently pinned this
+			// check to whatever the feed said the last time it was fetched, which is how a
+			// pending build kept looking like the latest one after a newer build had published.
+			const context = await this.requestService.request({ url: this.url, disableCache: true, callSite: 'update.poll' }, token);
 			const update = await asJson<IUpdate>(context);
 
 			if (!update || !update.version) {
+				this.logService.info('update#isLatestVersion - the feed does not advertise a version', update);
 				return undefined;
 			}
 
 			// `hasUpdate()` answers the opposite question: it is true when the feed has
-			// something newer, which is exactly when `compareAgainst` is *not* the latest.
-			return !hasUpdate(update, compareAgainst);
+			// something newer, which is exactly when `baseline` is *not* the latest.
+			const isLatest = !hasUpdate(update, baseline);
+			this.logService.info(`update#isLatestVersion - the feed advertises ${update.version}, baseline is ${baseline}: ${isLatest ? 'nothing newer' : 'a newer build is available'}`);
+			return isLatest;
 		} catch (error) {
 			this.logService.error('update#isLatestVersion(): failed to check for updates');
 			this.logService.error(error);
@@ -769,6 +960,17 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 	async _applySpecificUpdate(packagePath: string): Promise<void> {
 		// noop
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Developer hook: stage the build advertised by an arbitrary feed document as the pending
+	 * update, so the overwrite flow can be exercised against the real channel feed without
+	 * waiting for two builds to publish. Platforms that can stage an update override this.
+	 */
+	async _stageUpdateFromFeed(feedUrl: string): Promise<void> {
+		this.logService.warn('update#_stageUpdateFromFeed - not supported on this platform', feedUrl);
+	}
+	// --- End Positron ---
 
 	async setInternalOrg(internalOrg: string | undefined): Promise<void> {
 		if (this._internalOrg === internalOrg) {

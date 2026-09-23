@@ -204,6 +204,14 @@ test/unit/reporter.js
 .claude/skills/triage-e2e-test/scripts/test/record-diagnosis.test.js
 .claude/skills/triage-e2e-test/scripts/triage-history.js
 .github/actions/e2e-failure-analyzer/analyze.mjs
+.github/actions/pr-exploratory-test/lib.mjs
+.github/actions/pr-exploratory-test/lib.test.mjs
+.github/actions/pr-exploratory-test/gate.mjs
+.github/actions/pr-exploratory-test/html.mjs
+.github/actions/pr-exploratory-test/report-css.mjs
+.github/actions/pr-exploratory-test/report-parse.mjs
+.github/actions/pr-exploratory-test/report.test.mjs
+.github/actions/pr-exploratory-test/run.mjs
 .github/actions/pr-test-checker/analyze.mjs
 .github/scripts/release-screenshots/compare-and-report.mjs
 .github/scripts/release-screenshots/compare-and-report.test.mjs

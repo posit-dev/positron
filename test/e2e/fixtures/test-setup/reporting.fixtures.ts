@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import path = require('path');
 import archiver from 'archiver';
 import * as playwright from '@playwright/test';
-import { Application, TraceSnapshots } from '../../infra';
+import { Application } from '../../infra';
 
 export interface AttachScreenshotsToReportOptions {
 	app: Application;
@@ -300,37 +300,6 @@ export function shouldUseCustomTracing(project: playwright.FullProject): boolean
 	const isCommandLineRun = !!process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
 	// Use Playwright's built-in tracing only for browser-based runs (extension, UI mode).
 	return !(project.use.browserName && !isCommandLineRun);
-}
-
-/**
- * Resolve the `snapshots` option passed to `tracing.start()`.
- *
- * DOM snapshots are always on when tracing snapshots are enabled; aria and
- * screen snapshots are opt-in via `PW_TRACE_SNAPSHOTS` (a comma-separated list
- * of `aria` and/or `screen`). Both grow the trace and slow the run -- aria
- * roughly doubles action duration, screen is several times worse -- so CI never
- * pays for them and a debugging session asks for them explicitly.
- */
-export function resolveTraceSnapshots(snapshots: boolean, env: NodeJS.ProcessEnv = process.env): TraceSnapshots {
-	if (!snapshots) {
-		return false;
-	}
-
-	const requested = (env.PW_TRACE_SNAPSHOTS ?? '')
-		.split(',')
-		.map(token => token.trim().toLowerCase())
-		.filter(token => token.length > 0);
-
-	const unknown = requested.filter(token => token !== 'aria' && token !== 'screen');
-	if (unknown.length > 0) {
-		throw new Error(`PW_TRACE_SNAPSHOTS: unrecognized value(s) ${unknown.join(', ')}. Expected a comma-separated list of: aria, screen.`);
-	}
-
-	if (requested.length === 0) {
-		return true;
-	}
-
-	return { dom: true, aria: requested.includes('aria'), screen: requested.includes('screen') };
 }
 
 export function TracingFixture() {
