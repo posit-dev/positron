@@ -107,15 +107,19 @@ const BODY_CSS = `
 		.card details { margin: 12px 0; }
 		.card summary { cursor: pointer; font-weight: 600; color: #374151; padding: 6px 0; }
 		.card h2 { margin-top: 20px; }
-		.card h3 { font-size: 1.1rem; font-weight: 600; color: #111827; margin: 28px 0 10px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
-		.card h3:first-of-type { border-top: none; padding-top: 0; }
+		.card h3 { font-size: 1rem; font-weight: 600; color: #111827; margin: 18px 0 8px; }
+		/* A section heading sits right under its h2's rule; another rule there reads as an empty band. */
+		.card h2 + h3 { margin-top: 12px; }
+		.card h3.finding { font-size: 1.1rem; margin: 28px 0 10px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
+		.card h3.finding:first-of-type { border-top: none; padding-top: 0; }
 		@media (prefers-color-scheme: dark) {
 			.card th { border-bottom-color: #374151; }
 			.card td { border-bottom-color: #1f2937; }
 			.card code, .card pre { background: #111827; }
 			.card blockquote { background: #111827; border-left-color: #374151; color: #9ca3af; }
 			.card summary { color: #e5e7eb; }
-			.card h3 { color: #f3f4f6; border-top-color: #1f2937; }
+			.card h3 { color: #f3f4f6; }
+			.card h3.finding { border-top-color: #1f2937; }
 			li.shot .cap { color: #9ca3af; }
 		}`;
 
@@ -152,7 +156,18 @@ function shotRenderer() {
 	const renderer = new marked.Renderer();
 	const listitem = renderer.listitem.bind(renderer);
 	const image = renderer.image.bind(renderer);
+	const heading = renderer.heading.bind(renderer);
 	return Object.assign(renderer, {
+		// Only a finding's heading gets the rule above it. Coverage's Verified and
+		// Not exercised are h3 as well, and giving those a top border put one rule
+		// directly under the Coverage h2's own, with a dead gap between them.
+		heading(...args) {
+			const html = heading(...args);
+			return /^<h3[^>]*>Finding\s/.test(html)
+				? html.replace('<h3', '<h3 class="finding"')
+				: html;
+		},
+
 		// The one image a finding embeds is its hero: chosen as the shot that
 		// shows the failure best, and meant to be seen without a click. It was
 		// also the only image on the page you could not open full size, which is

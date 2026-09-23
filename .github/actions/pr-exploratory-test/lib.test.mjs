@@ -337,3 +337,16 @@ test('renderReportHtml makes the embedded hero image openable and caps its heigh
 	const linked = (html.match(/<a [^>]*><img /g) || []).length;
 	assert.equal(total, linked);
 });
+
+test('renderReportHtml rules a finding heading but not a section heading', () => {
+	const md = [
+		'# T', '', '`b` | `s`', '',
+		'## Findings', '', '### Finding 1: a claim', '', 'body', '',
+		'## Coverage', '', '### Verified', '', '| a | b |', '|---|---|', '| c | d |',
+	].join('\n');
+	const html = renderReportHtml(md);
+	assert.match(html, /<h3 class="finding">Finding 1: a claim<\/h3>/);
+	// Verified sits under the Coverage rule; a second rule there reads as an empty band.
+	assert.match(html, /<h3>Verified<\/h3>/);
+	assert.equal((html.match(/<h3 class="finding"/g) || []).length, 1);
+});
