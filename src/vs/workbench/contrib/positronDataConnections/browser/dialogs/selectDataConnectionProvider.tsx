@@ -7,16 +7,44 @@
 import './selectDataConnectionProvider.css';
 
 // React.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { IDataConnectionDriver, IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+
+/**
+ * The width the dialog box is drawn at. Matches the Configure LLM Providers modal, whose row
+ * layout this list mirrors: a name and a one-line description need the room a card grid did not.
+ */
+const MODAL_WIDTH = 600;
+
+/**
+ * The height of the provider list area. Passed as both the minimum and the maximum, so the dialog
+ * is one fixed size: a short list leaves empty space below it and a long one scrolls, but the box
+ * never resizes. That is deliberate. The list arrives asynchronously -- extensions register their
+ * drivers after the dialog mounts -- and the dialog centers itself once, on mount. A box sized to
+ * its content would be centered against an empty list and then grow downward off the bottom of a
+ * short window.
+ *
+ * Six rows. Eight drivers ship by default, so the stock list scrolls: the height is chosen for the
+ * proportions of the box rather than to fit any particular list, and no list is short enough to be
+ * worth sizing to -- a machine with ODBC drivers configured registers more than the eight anyway.
+ *
+ * Sized so the list never ends on a sliver of the row below: six 36px rows and their five 20px
+ * gaps, plus the list's 4px top padding and a closing 20px that matches a gap, is 340px of list;
+ * the content area scrolls its own 16px top padding with the content, so the height that shows
+ * exactly that much is 340 - 16. The seventh row begins precisely at the fold and is entirely out
+ * of sight.
+ *
+ * Every term above is a whole row, so this only holds while a row is exactly 36px. Both the icon
+ * plate and the name/description stack are pinned to that height in the CSS -- change either and
+ * this number has to move with it.
+ */
+const LIST_CONTENT_HEIGHT = 324;
 
 /**
  * SelectDataConnectionProviderProps interface.
@@ -25,13 +53,16 @@ interface SelectDataConnectionProviderProps {
 	// The renderer.
 	renderer: PositronModalReactRenderer;
 
-	// Called when the user selects a driver and clicks Next.
+	// Called when the user picks a driver.
 	onNext: (selectedDriver: IDataConnectionDriver) => void;
 }
 
 /**
  * SelectDataConnectionProvider component.
- * Displays a dialog with a grid of driver cards that the user can click to select.
+ * Displays a dialog with a vertical list of driver rows, each with its own Connect button that
+ * advances the flow. Modeled on the Configure LLM Providers modal: the row itself is not
+ * clickable, and there is no footer -- the row's button is the action, and the title bar's close
+ * button dismisses the dialog.
  * @param props The component properties.
  * @returns The rendered component.
  */
@@ -42,47 +73,25 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 	// Get the data connections service from the React services context.
 	const { positronDataConnectionsService } = usePositronReactServicesContext();
 
-	// Refs.
-	const gridContainerRef = useRef<HTMLDivElement>(undefined!);
-
-	// Map of driver card keys to their <label> elements, populated by the label ref callback below.
-	// Used by scrollToFocusedDriverCard to look up a card by key without reaching into the DOM.
-	const driverCardRefs = useRef<Map<string, HTMLLabelElement>>(new Map());
-
 	// State.
 	const [drivers, setDrivers] = useState<IDataConnectionDriverMetadata[]>([]);
-	const [selectedDriverId, setSelectedDriverId] = useState<string | undefined>(undefined);
 	const [showError, setShowError] = useState(false);
 
 	// Load the registered drivers and listen for changes.
 	useEffect(() => {
-		// // DEBUG: register clones of each real driver with unique IDs so the grid has enough cards
-		// // to exercise scrolling/layout. Each clone is a real registered driver, so onNext ->
-		// // driverManager.getDriver(id) resolves and the configure step opens normally. registerDriver
-		// // is keyed by id, so re-mounting the dialog just replaces existing clones instead of
-		// // compounding. Remove before committing.
-		// const cloneCount = 12;
-		// for (const d of positronDataConnectionsService.driverManager.getDrivers().filter(d => !d.id.includes('-clone-'))) {
-		// 	for (let i = 0; i < cloneCount; i++) {
-		// 		const cloneId = `${d.id}-clone-${i}`;
-		// 		positronDataConnectionsService.driverManager.registerDriver({
-		// 			...d,
-		// 			id: cloneId,
-		// 			metadata: { ...d.metadata, id: cloneId, name: `${d.metadata.name} ${i + 1}` },
-		// 		});
-		// 	}
-		// }
-
-		// Sorts driver metadata alphabetically by display name so the provider grid has a stable,
+		// Sorts driver metadata alphabetically by display name so the provider list has a stable,
 		// predictable order regardless of the order drivers registered in.
 		const byName = (metadata: IDataConnectionDriverMetadata[]) => [...metadata].sort((a, b) => a.name.localeCompare(b.name));
 
 		// Set the initial list of drivers.
 		setDrivers(byName(positronDataConnectionsService.driverManager.getDrivers().map(d => d.metadata)));
 
-		// Listen for changes to the registered drivers and update the list accordingly.
+		// Listen for changes to the registered drivers and update the list accordingly. The error
+		// below is about a driver that was in the list and is not in the registry; a new list makes
+		// that message stale no matter which way the registration went, so retire it here.
 		const disposable = positronDataConnectionsService.driverManager.onDidChangeDrivers(updatedDrivers => {
 			setDrivers(byName(updatedDrivers.map(d => d.metadata)));
+			setShowError(false);
 		});
 
 		// Clean up the listener when the component is unmounted.
@@ -97,52 +106,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 		renderer.dispose();
 	}, [renderer]);
 
-	/**
-	 * Scrolls the grid container to keep the focused driver card visible with proper padding.
-	 * @param driverCardKey The `${driver.id}-${index}` key of the driver card to scroll into view.
-	 */
-	const scrollToFocusedDriverCard = useCallback((driverCardKey: string) => {
-		// Look up the card and the container. If either is missing, do nothing.
-		const targetDriverCard = driverCardRefs.current.get(driverCardKey);
-		const container = gridContainerRef.current;
-		if (!targetDriverCard || !container) {
-			return;
-		}
-
-		// The browser's native focus auto-scroll walks every scrollable ancestor of the focused
-		// radio input and scrolls each one. We want only the grid container to scroll, so reset
-		// scrollTop/scrollLeft on every ancestor above the grid container. (`overflow: hidden`
-		// boxes like the dialog box also accept programmatic scrolling, so they get caught up in
-		// this too.) Done first so our own scroll math below sees a clean slate.
-		for (let parent = container.parentElement; parent; parent = parent.parentElement) {
-			if (parent.scrollTop !== 0) {
-				parent.scrollTop = 0;
-			}
-			if (parent.scrollLeft !== 0) {
-				parent.scrollLeft = 0;
-			}
-		}
-
-		// Calculate the top and bottom of the target card relative to the container.
-		const padding = 8;
-		const cardRect = targetDriverCard.getBoundingClientRect();
-		const containerRect = container.getBoundingClientRect();
-		const borderTop = container.clientTop;
-		const cardTop = cardRect.top - containerRect.top - borderTop + container.scrollTop;
-		const cardBottom = cardTop + targetDriverCard.offsetHeight;
-
-		// If the top of the card is above the visible area of the container, scroll up to show it with padding.
-		// If the bottom of the card is below the visible area of the container, scroll down to show it with padding.
-		if (cardTop - padding < container.scrollTop) {
-			container.scrollTop = cardTop - padding;
-		} else if (cardBottom + padding > container.scrollTop + container.clientHeight) {
-			container.scrollTop = cardBottom + padding - container.clientHeight;
-		}
-	}, []);
-
-	// Resolves the given driver id and advances to the next step. Takes the id explicitly (rather than
-	// reading selectedDriverId) so callers like double-click can advance in the same tick they select,
-	// without waiting for the selection state update to flush.
+	// Resolves the given driver id and advances to the next step.
 	const proceedWithDriver = useCallback((driverId: string) => {
 		// Get the driver. This can't fail. If it does, something is very wrong.
 		const driver = positronDataConnectionsService.driverManager.getDriver(driverId);
@@ -156,96 +120,67 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 		onNext(driver);
 	}, [onNext, positronDataConnectionsService.driverManager]);
 
-	// Next handler.
-	const nextHandler = useCallback(() => {
-		// If no driver is selected, set the show error flag and do not proceed to the next step.
-		if (!selectedDriverId) {
-			setShowError(true);
-			return;
-		}
-
-		proceedWithDriver(selectedDriverId);
-	}, [selectedDriverId, proceedWithDriver]);
-
 	// Render.
 	return (
 		<PositronDynamicModalDialog
 			content={
 				<div className='select-data-connection-provider'>
-					<div className={positronClassNames(
-						'driver-grid-clip',
-						{ 'error': showError }
-					)}>
-						<div ref={gridContainerRef} className='driver-grid-container' role='radiogroup'>
-							{drivers.length === 0 ? (
-								// No drivers registered yet; extensions providing them may still be loading.
-								<div className='driver-grid-placeholder'>
-									{localize(
-										'positron.selectDataConnectionProvider.loadingProviders',
-										"Loading providers..."
-									)}
-								</div>
-							) : (
-								<div className='driver-grid'>
-									{drivers.map((driver, index) => {
-										const driverCardKey = `${driver.id}-${index}`;
-										const driverCardId = `data-connection-driver-card-${driverCardKey}`;
-										return (
-											<label
-												key={driverCardKey}
-												ref={element => {
-													if (element) {
-														driverCardRefs.current.set(driverCardKey, element);
-													} else {
-														driverCardRefs.current.delete(driverCardKey);
-													}
-												}}
-												className={positronClassNames(
-													'driver-card',
-													{ 'selected': selectedDriverId === driver.id }
-												)}
-												htmlFor={driverCardId}
-												onDoubleClick={() => {
-													// Double-click selects the driver and advances, mirroring Next.
-													setSelectedDriverId(driver.id);
-													setShowError(false);
-													proceedWithDriver(driver.id);
-												}}
-											>
-												<input
-													checked={selectedDriverId === driver.id}
-													className='driver-card-input'
-													id={driverCardId}
-													name='data-connection-driver'
-													type='radio'
-													value={driver.id}
-													onChange={() => {
-														setSelectedDriverId(driver.id);
-														setShowError(false);
-													}}
-													onFocus={() => scrollToFocusedDriverCard(driverCardKey)}
-												/>
-												<div className='driver-card-badge'>
-													<img alt='' className='driver-card-icon' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
-												</div>
-												<div className='driver-card-name'>{driver.name}</div>
-											</label>
-										);
-									})}
-								</div>
+					{/*
+						role='alert' so a screen reader announces this the moment it appears. A
+						failed Connect gives no other feedback -- the dialog stays where it is and
+						focus stays on the button -- and the message renders above the list, away
+						from that focus, so nothing would otherwise carry it to a screen reader.
+					*/}
+					{showError &&
+						<div className='provider-list-error' role='alert'>
+							{localize(
+								'positron.selectDataConnectionProvider.providerUnavailable',
+								"That provider is no longer available."
 							)}
 						</div>
-					</div>
+					}
+					{drivers.length === 0 ? (
+						// No drivers registered yet; extensions providing them may still be loading.
+						<div className='provider-list-placeholder'>
+							{localize(
+								'positron.selectDataConnectionProvider.loadingProviders',
+								"Loading providers..."
+							)}
+						</div>
+					) : (
+						drivers.map(driver => (
+							<div key={driver.id} className='provider-row'>
+								<div className='provider-row-icon'>
+									<img alt='' className='provider-row-logo' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
+								</div>
+								<div className='provider-row-text'>
+									<div className='provider-row-name'>{driver.name}</div>
+									{driver.description &&
+										<div className='provider-row-desc'>{driver.description}</div>
+									}
+								</div>
+								<div className='provider-row-actions'>
+									<button
+										aria-label={localize(
+											'positron.selectDataConnectionProvider.connectTo',
+											"Connect to {0}",
+											driver.name
+										)}
+										className='provider-row-action'
+										type='button'
+										onClick={() => proceedWithDriver(driver.id)}
+									>
+										<span aria-hidden='true' className='codicon codicon-add' />
+										{localize('positron.selectDataConnectionProvider.connect', "Connect")}
+									</button>
+								</div>
+							</div>
+						))
+					)}
 				</div>
 			}
-			footer={
-				<TwoButtonFooter
-					primaryButtonTitle={localize('positron.selectDataConnectionProvider.next', "Next")}
-					secondaryButtonTitle={localize('positron.selectDataConnectionProvider.cancel', "Cancel")}
-					onPrimaryButton={nextHandler}
-					onSecondaryButton={cancelHandler}
-				/>
-			}
+			contentMaxHeight={LIST_CONTENT_HEIGHT}
+			contentMinHeight={LIST_CONTENT_HEIGHT}
 			renderer={props.renderer}
 			title={localize(
 				'positron.selectDataConnectionProvider.title',
@@ -255,7 +190,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 				'positron.selectDataConnectionProvider.selectProvider',
 				"Select a provider"
 			)}
-			width={492}
+			width={MODAL_WIDTH}
 			onCancel={cancelHandler}
 		/>
 	);

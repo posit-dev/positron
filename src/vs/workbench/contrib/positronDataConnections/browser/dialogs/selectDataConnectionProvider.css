@@ -3,125 +3,144 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.select-data-connection-provider .driver-grid-placeholder {
-	padding: 8px;
+/*
+	The provider list. Mirrors the Configure LLM Providers modal's row layout so the two
+	provider-picking dialogs read as one surface. Scrolling is the dialog's: the content area
+	already clips and scrolls at the max height the dialog is given, so the list itself is a plain
+	flex column and the browser's native focus scrolling works without help.
+*/
+/*
+	Row rhythm. A row is exactly as tall as its 36px icon plate (see the text block below), so the
+	visible gap between two plates is this gap and nothing else. The 4px of padding here rides on
+	top of the content area's own 16px to put the same 20px above the first plate and below the
+	last, rather than leaving the leading space larger than the gaps.
+*/
+.select-data-connection-provider {
+	gap: 20px;
+	display: flex;
+	padding: 4px 0;
+	flex-direction: column;
+}
+
+/* Both messages take the row's horizontal padding so their text lines up with the row names. */
+.select-data-connection-provider .provider-list-placeholder {
+	padding: 0 8px;
 	color: var(--vscode-descriptionForeground);
 }
 
-.select-data-connection-provider .driver-grid-clip {
-	overflow: hidden;
-	border-radius: 6px;
-	border: 1px solid var(--vscode-widget-border);
-}
-
-.select-data-connection-provider .driver-grid-clip.error {
-	border-color: var(--vscode-errorForeground);
-}
-
-.select-data-connection-provider .driver-grid-container {
-	/* Two rows: 8px (top padding) + 110px (row 1) + 8px (gap) + 110px (row 2) + 8px (bottom padding) = 244px */
-	height: 244px;
-	overflow-y: auto;
-}
-
-.select-data-connection-provider .driver-grid-container::-webkit-scrollbar {
-	/* Sneaks a thin scrollbar into the 8px gap. */
-	width: 5px;
-}
-
-.select-data-connection-provider .driver-grid-container::-webkit-scrollbar-thumb {
-	background: var(--vscode-scrollbarSlider-background);
-}
-
-.select-data-connection-provider .driver-grid-container::-webkit-scrollbar-thumb:hover {
-	background: var(--vscode-scrollbarSlider-hoverBackground);
-}
-
-.select-data-connection-provider .driver-grid {
-	gap: 8px;
-	padding: 8px;
-	display: grid;
-	align-content: start;
-	grid-template-rows: repeat(2, 110px);
-	grid-template-columns: repeat(3, 142px);
-}
-
-.select-data-connection-provider .driver-card {
-	gap: 8px;
-	display: flex;
-	font: inherit;
-	color: inherit;
+.select-data-connection-provider .provider-list-error {
+	padding: 0 8px;
 	font-size: 12px;
-	cursor: pointer;
-	padding: 16px 8px;
-	border-radius: 6px;
-	align-items: center;
-	flex-direction: column;
-	background: transparent;
-	justify-content: center;
-	/* box-sizing: border-box; */
-	border: 1px solid var(--vscode-widget-border);
-}
-
-.select-data-connection-provider .driver-card:hover {
-	background: var(--vscode-list-hoverBackground);
-}
-
-.select-data-connection-provider .driver-card.selected {
-	border-color: var(--vscode-focusBorder);
-	color: var(--vscode-list-activeSelectionForeground);
-	background: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-errorForeground);
 }
 
 /*
-	Visually hide the radio input. The label is the visible click/focus surface; pulling the focus
-	ring up to the label keeps the visible focus indicator on the card.
+	Provider row. Only the action button is interactive, so the row has no hover state and no
+	vertical padding: the spacing is the list's gap. min-height holds the row at plate height for a
+	driver that reports no description.
+
+	Named `provider-row` rather than the obvious `driver-list-item`: the old Connections pane's
+	driver list (positronConnections/.../listDriversState.css) declares that class unscoped, so it
+	is live in the workbench stylesheet for anything that uses the name. Scoping wins on specificity
+	for the properties redeclared below, but anything that rule sets and this one does not -- its
+	`cursor: pointer` above all -- would still leak through.
 */
-.select-data-connection-provider .driver-card-input {
-	width: 1px;
-	height: 1px;
-	padding: 0;
-	margin: -1px;
-	overflow: hidden;
-	position: absolute;
-	white-space: nowrap;
-	clip: rect(0, 0, 0, 0);
-	border: 0;
-}
-
-.select-data-connection-provider .driver-card:has(.driver-card-input:focus-visible) {
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: 1px;
-}
-
-.select-data-connection-provider .driver-card-badge {
-	width: 48px;
-	height: 48px;
+.select-data-connection-provider .provider-row {
+	gap: 10px;
 	display: flex;
-	border-radius: 8px;
+	padding: 0 8px;
+	min-height: 36px;
+	text-align: left;
+	align-items: center;
+}
+
+/*
+	Rounded-square provider avatar. The LLM modal backs its monochrome icons with the widget
+	background; driver logos are full color and several are dark, so they keep the near-white
+	plate they had on the card grid to stay legible in a dark theme.
+*/
+.select-data-connection-provider .provider-row-icon {
+	width: 36px;
+	height: 36px;
+	display: flex;
+	flex-shrink: 0;
+	border-radius: 6px;
 	align-items: center;
 	justify-content: center;
-	border: 1px solid rgba(128, 128, 128, 0.2);
-}
-
-.vs-light .select-data-connection-provider .driver-card-badge {
 	background: #f8f8f8;
+	/*
+		The border has to sit inside the 36px. There is no global border-box reset here, so the
+		default content-box would make the plate 38px and the row with it, putting the row pitch
+		two pixels off the height LIST_CONTENT_HEIGHT is counted in.
+	*/
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 }
 
-.vs-dark .select-data-connection-provider .driver-card-badge {
-	background: #f8f8f8;
-}
-
-.select-data-connection-provider .driver-card-icon {
-	width: 32px;
-	height: 32px;
+.select-data-connection-provider .provider-row-logo {
+	width: 22px;
+	height: 22px;
 	object-fit: contain;
 }
 
-.select-data-connection-provider .driver-card-name {
-	max-width: 100%;
+/*
+	The name and description stack to exactly 36px (18 + 2 + 16), the height of the icon plate
+	beside them. The line heights are explicit because the inherited one is a unitless multiple of
+	the workbench font size, which left the text block a fraction taller than the plate and put an
+	uneven half pixel above and below every row.
+*/
+.select-data-connection-provider .provider-row-text {
+	gap: 2px;
+	flex: 1;
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+}
+
+.select-data-connection-provider .provider-row-name {
 	overflow: hidden;
-	text-align: center;
+	font-weight: 600;
+	line-height: 18px;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+}
+
+.select-data-connection-provider .provider-row-desc {
+	font-size: 12px;
+	overflow: hidden;
+	line-height: 16px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Action button */
+.select-data-connection-provider .provider-row-actions {
+	flex-shrink: 0;
+}
+
+.select-data-connection-provider .provider-row-action {
+	gap: 4px;
+	cursor: pointer;
+	font-size: 12px;
+	padding: 3px 10px;
+	border-radius: 4px;
+	align-items: center;
+	display: inline-flex;
+	color: var(--vscode-button-secondaryForeground);
+	background-color: var(--vscode-button-secondaryBackground);
+	border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+}
+
+.select-data-connection-provider .provider-row-action .codicon {
+	font-size: 14px;
+}
+
+.select-data-connection-provider .provider-row-action:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.select-data-connection-provider .provider-row-action:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
 }
