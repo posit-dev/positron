@@ -17,6 +17,7 @@ import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
 import './contrib/cellTags/actions.js';
 import './AssistantPanel/notebookSuggestionsConfig.js';
+import './positronNotebookAgentCommands.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { getImageOutputName, openImageOutputInNewTab, saveImageOutput } from '../common/imageOutputUtils.js';
