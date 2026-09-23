@@ -326,3 +326,14 @@ test('renderReportHtml falls back to the filename when a shot has no caption', (
 	const html = renderReportHtml(md);
 	assert.match(html, /<div class="cap">shots\/02\.png<\/div>/);
 });
+
+test('renderReportHtml makes the embedded hero image openable and caps its height', () => {
+	const md = '# T\n\n`b` | `s`\n\n## Findings\n\n![](https://cdn.example/shots/hero.png)\n';
+	const html = renderReportHtml(md);
+	assert.match(html, /<a class="hero" href="https:\/\/cdn\.example\/shots\/hero\.png" target="_blank"/);
+	assert.match(html, /a\.hero img \{[^}]*max-height: 420px/);
+	// Every image on the page opens full size: none is left bare.
+	const total = (html.match(/<img /g) || []).length;
+	const linked = (html.match(/<a [^>]*><img /g) || []).length;
+	assert.equal(total, linked);
+});

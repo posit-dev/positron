@@ -92,6 +92,10 @@ const BODY_CSS = `
 		.card td { border-bottom: 1px solid #f3f4f6; vertical-align: top; }
 		.card td:first-child, .card th:first-child { padding-left: 0; }
 		.card img { max-width: 100%; border: 1px solid #e5e7eb; border-radius: 4px; margin: 8px 0; }
+		/* Capped so a tall screenshot does not push the repro steps below the fold. */
+		a.hero { display: inline-block; }
+		a.hero img { max-height: 420px; width: auto; transition: border-color 0.15s; }
+		a.hero:hover img { border-color: #6b7280; }
 		li.shot { list-style: none; display: inline-block; width: 260px; vertical-align: top; margin: 0 14px 14px 0; }
 		li.shot img { width: 100%; margin: 0; display: block; transition: border-color 0.15s; }
 		li.shot a:hover img { border-color: #6b7280; }
@@ -147,7 +151,17 @@ const SHOT = /^<a href="([^"]+\.(?:png|jpe?g|gif|webp))"[^>]*>([^<]*)<\/a>\s*(?:
 function shotRenderer() {
 	const renderer = new marked.Renderer();
 	const listitem = renderer.listitem.bind(renderer);
+	const image = renderer.image.bind(renderer);
 	return Object.assign(renderer, {
+		// The one image a finding embeds is its hero: chosen as the shot that
+		// shows the failure best, and meant to be seen without a click. It was
+		// also the only image on the page you could not open full size, which is
+		// backwards for the one people most want to read the text in.
+		image(...args) {
+			const html = image(...args);
+			const src = (/src="([^"]+)"/.exec(html) || [])[1];
+			return src ? `<a class="hero" href="${src}" target="_blank" rel="noreferrer">${html}</a>` : html;
+		},
 		listitem(...args) {
 			const html = listitem(...args);
 			const inner = html.replace(/^<li>/, '').replace(/<\/li>\n?$/, '').trim();
