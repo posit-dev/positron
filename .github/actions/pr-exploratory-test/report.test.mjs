@@ -556,7 +556,7 @@ test('renderReportHtml signs off with a mark, not a cost line', () => {
 test('renderReportHtml links the signature to the skill that wrote the report', () => {
 	const html = renderReportHtml(FULL);
 	// The arrow says the link leaves the page, so it has to go somewhere.
-	assert.match(html, /<a class="sig-link" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/main\/\.claude\/skills\/exploratory-testing\/SKILL\.md" target="_blank" rel="noreferrer">exploratory-test &#8599;<\/a>/);
+	assert.match(html, /<a class="sig-link" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/main\/\.claude\/skills\/exploratory-test\/SKILL\.md" target="_blank" rel="noreferrer">exploratory-test &#8599;<\/a>/);
 	// The placeholder it replaced is gone.
 	assert.doesNotMatch(html, /data-skill-url/);
 });
@@ -801,4 +801,121 @@ test('renderReportHtml writes tile legends as plain text in bar order', () => {
 	assert.doesNotMatch(tiles, /class="key"/);
 	assert.match(tiles, /<span class="legend-item"><b>1<\/b> major<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> minor<\/span>/);
 	assert.match(tiles, /<b>2<\/b> pass<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> issues<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> not run/);
+});
+
+test('renderReportHtml treats a placeholder Not exercised row as an empty list', () => {
+	for (const cell of ['none', 'N/A', '-', '\u2014', '*None.*']) {
+		const src = md([
+			'## Coverage', '', '### Exercised', '',
+			'| Scenario | Result | Screenshot |', '|---|---|---|',
+			'| pandas frame | fine | |',
+			'| polars frame | broke (Finding 1) | |',
+			'', '### Not exercised', '',
+			'| Scenario | Reason |', '|---|---|',
+			`| ${cell} | |`,
+		].join('\n'));
+		const r = parseReport(src);
+		assert.deepEqual(r.coverage.notExercised, [], cell);
+		assert.equal(r.scenarios.notRun, 0, cell);
+		const html = renderReportHtml(src);
+		assert.match(html, /<h3 class="cov-title">Not exercised<\/h3>\n<p class="cov-empty">Everything in scope was exercised\.<\/p>/, cell);
+		// A zero count gets no bar segment and no legend item.
+		const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
+		assert.doesNotMatch(tiles, /not run|notrun-bar/, cell);
+	}
+});
+
+test('renderReportHtml styles the Reason header like every other column header', () => {
+	const html = renderReportHtml(FULL);
+	assert.match(html, /<span class="cov-head-scenario">Scenario<\/span><span class="cov-head-reason">Reason<\/span>/);
+});
+
+/** The text of finding `n`'s copyable prompt block. */
+function promptText(html, n) {
+	const m = new RegExp(`<script type="text/plain" id="prompt-f${n}">([\\s\\S]*?)</script>`).exec(html);
+	return m ? m[1] : null;
+}
+
+test('renderReportHtml writes each finding as an agent prompt, from the parsed fields', () => {
+	const html = renderReportHtml(FULL, { base: '/runs/r1', diff: 'aaaa1111...bbbb2222' });
+	assert.equal(promptText(html, 1), [
+		'## Finding 1 — Major',
+		'',
+		'A longer claim.',
+		'',
+		'Status: Confirmed',
+		'Reproduced: 3/3',
+		'Introduced by this change: Yes',
+		'',
+		'### Impact',
+		'Blocks completion',
+		'',
+		'### Observed',
+		'It spun forever.',
+		'',
+		'### Expected',
+		'It should have stopped.',
+		'',
+		'### Preconditions',
+		'A console with pandas',
+		'',
+		'### Reproduction',
+		'1. Run the thing.',
+		'2. Wait 15 s.',
+		'',
+		'### Evidence',
+		'- https://cdn.example/shots/01-stuck.png — The spinner, 60 s later',
+		'- /runs/r1/logs/app.log — [123:INFO:CONSOLE] "RPC timed out after 5 seconds" (Repeated twice)',
+		'',
+		'### Likely cause (hypothesis, not verified)',
+		'The timeout was cut to 10 s.',
+		'',
+		'### Context',
+		'Branch: branch/name',
+		'Commit: abc1234',
+		'Diff: aaaa1111...bbbb2222',
+		'',
+		'Please investigate this finding using the repository and the evidence above.',
+	].join('\n'));
+	// One button per card, last in the meta row, pointing at its own block.
+	assert.match(html, /<span class="group context">[\s\S]*?<\/span><button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg class="cp-ico"[\s\S]*?<\/button><\/div>/);
+	assert.match(html, /document\.querySelectorAll\('\.cp-btn'\)/);
+});
+
+test('renderReportHtml leaves empty prompt sections out', () => {
+	const html = renderReportHtml(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Observed:** it broke.',
+	].join('\n')));
+	const text = promptText(html, 1);
+	assert.match(text, /### Observed\nIt broke\./);
+	assert.doesNotMatch(text, /### (Impact|Expected|Preconditions|Reproduction|Evidence|Likely cause)/);
+	// No range was given, so Context names only what the header carries.
+	assert.match(text, /### Context\nBranch: branch\/name\nCommit: abc1234\n\nPlease investigate/);
+});
+
+test('renderReportHtml renders no prompt buttons, blocks or script when agent prompts are off', () => {
+	const html = renderReportHtml(FULL, { agentPrompts: false });
+	assert.doesNotMatch(html, /cp-btn"|text\/plain|querySelectorAll\('\.cp-btn'\)/);
+});
+
+test('renderReportHtml greens only the check beside Confirmed in the findings table', () => {
+	const html = renderReportHtml(FULL);
+	assert.match(html, /<span class="status"><svg class="status-check" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2"/);
+	assert.doesNotMatch(html, /<span class="status"><svg[^>]*currentColor/);
+	assert.match(html, /\.status\{[^}]*color:var\(--body\)/);
+	assert.match(html, /\.status-check\{stroke:var\(--pass-fill\)\}/);
+});
+
+test('renderReportHtml points the tile arrow straight down', () => {
+	const html = renderReportHtml(FULL);
+	assert.match(html, /class="tile-arrow"[^>]*><path d="M8 3\.5v9"><\/path><path d="M4\.5 9l3\.5 3\.5L11\.5 9"><\/path><\/svg>/);
+	assert.doesNotMatch(html, /M5 5l6 6/);
+});
+
+test('renderReportHtml mutes the Show all row and only recolours it on hover', () => {
+	const html = renderReportHtml(FULL);
+	assert.match(html, /\.cov-more\{[^}]*color:var\(--muted\);cursor:pointer;transition:color \.15s ease\}/);
+	assert.match(html, /\.cov-more:hover\{color:var\(--link\)\}/);
 });

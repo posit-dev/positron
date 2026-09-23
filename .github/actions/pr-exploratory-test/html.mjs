@@ -14,13 +14,19 @@
 
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
-import { parseReport, escapeHtml } from './report-parse.mjs';
+import { resolve as resolvePath } from 'node:path';
+import { parseReport, escapeHtml, safeUrl } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 
 const ICON = {
-	// Down-right, not a download arrow: it says "moves you within this page".
-	arrow: '<svg class="tile-arrow" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l6 6"></path><path d="M11 6v5H6"></path></svg>',
+	// Straight down with no tray under it: "jump down the page", not "download".
+	arrow: '<svg class="tile-arrow" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9"></path><path d="M4.5 9l3.5 3.5L11.5 9"></path></svg>',
 	check: size => `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>`,
+	// The check alone carries the green, so its stroke comes from CSS rather than
+	// currentColor, which is the body-coloured word beside it.
+	statusCheck: '<svg class="status-check" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
+	sparkle: '<svg class="cp-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3c.35 2.7 1.8 4.15 4.5 4.5-2.7.35-4.15 1.8-4.5 4.5-.35-2.7-1.8-4.15-4.5-4.5 2.7-.35 4.15-1.8 4.5-4.5z"></path><path d="M12.5 1.25c.13 1.05.8 1.72 1.85 1.85-1.05.13-1.72.8-1.85 1.85-.13-1.05-.8-1.72-1.85-1.85 1.05-.13 1.72-.8 1.85-1.85z"></path></svg>',
+	copied: '<svg class="cp-ok" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	down: '<svg class="cov-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>',
 	chevron: '<svg class="chev" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 4.5-4.5 4.5"></path></svg>',
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
@@ -35,7 +41,7 @@ const SEVERITY_LABEL = { major: 'Major', moderate: 'Moderate', minor: 'Minor' };
 // because the skill is the documentation: it is the brief the agent followed,
 // so it answers what a reader of the report would actually ask. Valid once the
 // skill is on main; a report published before then links a page that 404s.
-const SKILL_URL = 'https://github.com/posit-dev/positron/blob/main/.claude/skills/exploratory-testing/SKILL.md';
+const SKILL_URL = 'https://github.com/posit-dev/positron/blob/main/.claude/skills/exploratory-test/SKILL.md';
 
 function pill(severity) {
 	return `<span class="pill sev-${severity}"><span class="dot"></span>${SEVERITY_LABEL[severity]}</span>`;
@@ -172,7 +178,7 @@ function renderFindingsList(report) {
 	const rows = report.findings.map(f => {
 		const word = f.verified ?? (f.confirmed ? f.confirmed.toLowerCase() : null);
 		const status = word === 'confirmed'
-			? `<span class="status">${ICON.check(14)}Confirmed</span>`
+			? `<span class="status">${ICON.statusCheck}Confirmed</span>`
 			: word
 				? `<span class="status muted">${word[0].toUpperCase()}${word.slice(1)}</span>`
 				: '<span class="status muted"></span>';
@@ -232,7 +238,87 @@ function renderEvidence(items, n) {
 		+ `<div class="shots n${columns}">${tiles}</div></div>`;
 }
 
-function renderFindingCard(f) {
+/** `/a/b`, `~/x` and URLs stand as written; anything else is relative to `base`. */
+function absolutePath(p, base) {
+	if (!base || /^([a-z][a-z0-9+.-]*:|\/|~)/i.test(p)) {
+		return p;
+	}
+	return /^https?:\/\//i.test(base)
+		? new URL(p, base.endsWith('/') ? base : `${base}/`).href
+		: resolvePath(base, p);
+}
+
+/**
+ * A link whose URL the card would refuse keeps its words and loses the URL
+ * here too, so the copied prompt carries nothing the page would not render.
+ */
+function safeLinks(text) {
+	return String(text ?? '').replace(/(!?)\[([^\]]*)\]\(([^)\s]+)\)/g,
+		(whole, bang, label, url) => (safeUrl(url) ? whole : label));
+}
+
+/**
+ * The finding as a Markdown prompt an agent can be handed, from the same parsed
+ * fields the card renders. A section with nothing in it is left out rather than
+ * printed as an empty heading.
+ */
+export function buildAgentPrompt(f, report, options = {}) {
+	const base = options.base;
+	const t = f.text;
+	const word = f.verified ?? f.confirmed ?? '';
+	const introduced = { new: 'Yes', 'pre-existing': 'No' }[f.origin.kind] ?? 'Not checked';
+	const title = capitalize(safeLinks(/[.!?]$/.test(f.title) ? f.title : `${f.title}.`));
+	const out = [`## Finding ${f.n} \u2014 ${SEVERITY_LABEL[f.severity]}`, '', title, ''];
+	const status = [
+		word && `Status: ${word[0].toUpperCase()}${word.slice(1)}`,
+		f.reproduced && `Reproduced: ${f.reproduced}`,
+		`Introduced by this change: ${introduced}`,
+	].filter(Boolean);
+	out.push(...status, '');
+	const section = (heading, body) => {
+		if (body) {
+			out.push(`### ${heading}`, safeLinks(body), '');
+		}
+	};
+	section('Impact', t.impact);
+	section('Observed', capitalize(t.observed));
+	section('Expected', capitalize(t.expected));
+	section('Preconditions', t.preconditions.length === 1
+		? t.preconditions[0]
+		: t.preconditions.map(p => `- ${p}`).join('\n'));
+	// A step's own block stays under its number.
+	section('Reproduction', t.steps.map((step, i) => `${i + 1}. ${step.replace(/\n/g, '\n   ')}`).join('\n'));
+	section('Evidence', f.evidence.map(e => {
+		if (e.kind === 'shot') {
+			return `- ${absolutePath(e.src, base)} \u2014 ${e.caption}`;
+		}
+		if (e.kind === 'log') {
+			const quote = /["\u201c\u201d]/.test(e.quote) ? e.quote : `\u201c${e.quote}\u201d`;
+			return `- ${absolutePath(e.path, base)} \u2014 ${quote}${e.note ? ` (${capitalize(e.note)})` : ''}`;
+		}
+		return `- ${e.text}`;
+	}).join('\n'));
+	section('Likely cause (hypothesis, not verified)', capitalize(t.cause));
+	const [branch, sha] = report.chips;
+	section('Context', [branch && `Branch: ${branch}`, sha && `Commit: ${sha}`, options.diff && `Diff: ${options.diff}`]
+		.filter(Boolean).join('\n'));
+	out.push('Please investigate this finding using the repository and the evidence above.');
+	return out.join('\n');
+}
+
+function renderCopyButton(f) {
+	return `<button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f${f.n}" aria-label="Copy prompt for an agent: finding ${f.n}">`
+		+ `${ICON.sparkle}${ICON.copied}</button>`;
+}
+
+function renderPromptBlock(f, report, options) {
+	// Raw text inside a script element: only a closing tag can end it early.
+	const text = buildAgentPrompt(f, report, options).replace(/<\/(script)/gi, '<\\/$1');
+	return `<script type="text/plain" id="prompt-f${f.n}">${text}</script>`;
+}
+
+function renderFindingCard(f, report, options) {
+	const prompts = options.agentPrompts !== false;
 	const origin = `<span class="origin ${f.origin.kind}">${escapeHtml(f.origin.label)}</span>`;
 	const context = [origin];
 	if (f.confirmed === 'Confirmed' || f.verified === 'confirmed') {
@@ -249,6 +335,7 @@ function renderFindingCard(f) {
 		+ `<span class="group identity"><span class="who">Finding ${f.n}</span>${pill(f.severity)}</span>`
 		+ '<span class="rule" aria-hidden="true"></span>'
 		+ `<span class="group context">${contextHtml}</span>`
+		+ (prompts ? renderCopyButton(f) : '')
 		+ '</div>';
 
 	const head = `<header>${meta}`
@@ -256,8 +343,10 @@ function renderFindingCard(f) {
 		+ (f.summaryHtml ? `<p class="card-summary">${f.summaryHtml}</p>` : '')
 		+ '</header>';
 
+	const promptBlock = prompts ? renderPromptBlock(f, report, options) : '';
+
 	if (f.proseHtml) {
-		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${head}<div class="card-prose">${f.proseHtml}</div></article>`;
+		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${head}<div class="card-prose">${f.proseHtml}</div>${promptBlock}</article>`;
 	}
 
 	const observedExpected = (f.observedHtml || f.expectedHtml)
@@ -293,6 +382,7 @@ ${observedExpected}
 ${repro}
 ${renderEvidence(f.evidence, f.n)}
 ${cause}
+${promptBlock}
 </article>`;
 }
 
@@ -371,11 +461,18 @@ ${visible < ordered.length ? `<label for="cov-all" class="cov-more"><span class=
 		? `<div class="cov-group gap">
 <h3 class="cov-title">Not exercised${count(notExercised.length)}</h3>
 <div class="panel dashed">
-<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span class="cov-reason">Reason</span></div>
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span class="cov-head-reason">Reason</span></div>
 ${notRows}
 </div>
 </div>`
-		: '';
+		// An empty list keeps its heading, so the reader sees it was checked
+		// rather than wondering whether it was left out.
+		: report.coverage.notExercisedListed
+			? `<div class="cov-group gap">
+<h3 class="cov-title">Not exercised</h3>
+<p class="cov-empty">Everything in scope was exercised.</p>
+</div>`
+			: '';
 
 	return `<section id="coverage" class="section">
 <div class="section-head"><h2 class="section-label">Coverage</h2></div>
@@ -509,6 +606,19 @@ stops[(i+(e.shiftKey?-1:1)+stops.length)%stops.length].focus();}});
 }
 })();`;
 
+// One handler for every copy button. Only a copy that worked says "Copied".
+const COPY_SCRIPT = `document.querySelectorAll('.cp-btn').forEach(function(b){var t;
+b.addEventListener('click',function(){var el=document.getElementById(b.dataset.prompt);if(!el){return;}
+var text=el.textContent.trim();
+function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
+t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip='Copy prompt for agent';},2000);}
+// A frame that blocks the clipboard API can still allow execCommand.
+function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
+else{fallback();}});});`;
+
 /**
  * Renders the report markdown as a self-contained HTML page.
  *
@@ -516,8 +626,12 @@ stops[(i+(e.shiftKey?-1:1)+stops.length)%stops.length].focus();}});
  * header, tiles and whatever sections were recognised, and any finding the
  * parser could not break down keeps its prose.
  */
-export function renderReportHtml(markdown) {
+export function renderReportHtml(markdown, options = {}) {
 	const report = parseReport(markdown);
+	// Off for teams whose AI policy does not allow it: no buttons, no prompt
+	// blocks and no script. `base` makes relative evidence paths absolute, and
+	// `diff` is the `<base>...<head>` range the prompt's Context names.
+	const prompts = options.agentPrompts !== false && report.findings.length > 0;
 	const chips = report.chips.map(c => `<code>${escapeHtml(c)}</code>`).join('');
 
 	return `<!DOCTYPE html>
@@ -551,7 +665,7 @@ ${renderTiles(report)}
 
 ${renderFindingsList(report)}
 
-${report.findings.map(renderFindingCard).join('\n\n')}
+${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
 ${renderCoverage(report)}
 
@@ -573,7 +687,7 @@ ${renderSignature()}
 <a class="to-top tip" href="#top" data-tip="Back to top" aria-label="Back to top" tabindex="-1">${ICON.up}</a>
 </div>
 <script>${PAGE_SCRIPT}</script>
-</body>
+${prompts ? `<script>${COPY_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
 }

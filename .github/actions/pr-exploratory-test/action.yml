@@ -1,5 +1,5 @@
 name: "PR Exploratory Test"
-description: "Run the exploratory-testing skill against a launched Positron via the Claude Agent SDK."
+description: "Run the exploratory-test skill against a launched Positron via the Claude Agent SDK."
 inputs:
   anthropic-api-key:
     description: "Anthropic API key (resolved from 1Password by the caller)"
@@ -14,7 +14,7 @@ inputs:
     default: ""
   skill-path:
     description: >
-      SKILL.md for the exploratory-testing skill. Defaults to the copy in
+      SKILL.md for the exploratory-test skill. Defaults to the copy in
       repo-root, which is only right when the branch under test already carries
       the skill. Point it at the harness checkout so the run uses the version
       the workflow was dispatched from, not whatever the branch happens to have.
@@ -49,6 +49,10 @@ inputs:
     description: "Public CDN base URL the run directory is published under"
     required: false
     default: ""
+  agent-prompts:
+    description: "Give each finding in the HTML report a button that copies it as a prompt for an agent. Set to 'false' where AI policy does not allow it."
+    required: false
+    default: "true"
   mode:
     description: "gate (read the diff and rule on it) or explore (the full run)"
     required: false
@@ -87,7 +91,7 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         WORK_DIR: ${{ inputs.work-dir }}
         REPO_ROOT: ${{ inputs.repo-root || github.workspace }}
-        SKILL_PATH: ${{ inputs.skill-path || format('{0}/.claude/skills/exploratory-testing/SKILL.md', inputs.repo-root || github.workspace) }}
+        SKILL_PATH: ${{ inputs.skill-path || format('{0}/.claude/skills/exploratory-test/SKILL.md', inputs.repo-root || github.workspace) }}
         CDP_PORT: ${{ inputs.cdp-port }}
         BRANCH: ${{ inputs.branch }}
         DIFF_STAT: ${{ inputs.diff-stat }}
@@ -96,6 +100,7 @@ runs:
         MODEL: ${{ inputs.model }}
         MAX_TURNS: ${{ inputs.max-turns }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}
+        AGENT_PROMPTS: ${{ inputs.agent-prompts }}
         # run.mjs reads GATE directly; without it here the gate can decline a
         # run and leave the caller no way to overrule it. VERIFY is deliberately
         # absent: it defaults on, a job-level env var still reaches it for

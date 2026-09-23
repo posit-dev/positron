@@ -100,6 +100,8 @@ const PROFESSIONAL = `
 	--tip-border: #E7E4DC;
 	--tip-text: #3D4148;
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
+	--cp-rest: #C4C0B6;
+	--cp-hover-bg: #F6F5F1;
 
 	--totop-bg: #FFFFFF;
 	--totop-border: #E7E4DC;
@@ -210,6 +212,8 @@ const PARTY = `
 	--tip-border: #5B4F92;
 	--tip-text: #F5F1FF;
 	--tip-shadow: none;
+	--cp-rest: #4E4580;
+	--cp-hover-bg: #2A2250;
 
 	--totop-bg: #1E1838;
 	--totop-border: #342A5C;
@@ -341,8 +345,8 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 /* Exercised collapses past its first rows. A checkbox, so it works without script. */
 .cov-toggle{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
 .cov-toggle:not(:checked)~.cov-extra{display:none !important}
-.cov-more{display:flex;align-items:center;gap:6px;padding:11px 20px;font-size:13px;font-weight:500;color:var(--link);cursor:pointer;transition:background-color .15s ease,color .15s ease}
-.cov-more:hover{background:var(--thead);color:var(--link-hover)}
+.cov-more{display:flex;align-items:center;gap:6px;padding:11px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:color .15s ease}
+.cov-more:hover{color:var(--link)}
 .cov-toggle:focus-visible~.cov-more{outline:2px solid var(--focus);outline-offset:-2px;border-radius:0 0 12px 12px}
 .cov-less{display:none}
 .cov-toggle:checked~.cov-more .cov-all{display:none}
@@ -370,7 +374,8 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .finding-cell .claim .n{font-family:var(--mono);color:var(--faint);margin-right:8px}
 .finding-cell .impact{font-size:13px;color:var(--muted)}
 .rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
-.status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--pass-text)}
+.status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
+.status-check{stroke:var(--pass-fill)}
 .status.muted{color:var(--muted)}
 
 /* Finding cards */
@@ -396,6 +401,16 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .meta .confirmed{display:inline-flex;align-items:baseline;gap:4px;color:var(--muted);font-weight:400}
 .meta .confirmed svg{align-self:center;color:var(--pass-text)}
 .meta .reproduced{color:var(--faint-rate)}
+.cp-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
+.card:hover .cp-btn{color:var(--muted)}
+/* Scoped under .card so they outrank the card-hover colour above. */
+.card .cp-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
+.card .cp-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
+.cp-btn:hover::after,.cp-btn:focus-visible::after,.cp-btn.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
+.cp-btn .cp-ok{display:none}
+.cp-btn.is-copied{color:var(--pass-fill) !important}
+.cp-btn.is-copied .cp-ok{display:block}
+.cp-btn.is-copied .cp-ico{display:none}
 
 h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.3;color:var(--ink)}
 .card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:var(--measure)}
@@ -483,7 +498,9 @@ h3.cov-title{margin:0;font-size:14px;font-weight:600;color:var(--body)}
 .cov-head-scenario{padding-left:23px}
 .panel.dashed .cov-head-scenario{padding-left:22px}
 .cov-result{color:var(--body)}
-.cov-reason{color:var(--body);grid-column:span 2}
+.cov-reason{color:var(--body)}
+.cov-reason,.cov-head-reason{grid-column:span 2}
+.cov-empty{margin:0;font-size:13px;color:var(--muted)}
 .ref{font-family:var(--mono);font-size:11.5px;color:var(--ref)}
 a.ref:hover{color:var(--ref-hover)}
 .ref.none{color:var(--em-dash);font-size:12px;font-family:var(--sans)}
@@ -588,7 +605,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.two{grid-template-columns:minmax(0,1fr);gap:16px}
 	.row{grid-template-columns:minmax(0,1fr) !important;gap:8px}
 	.row-head{display:none}
-	.cov-reason{grid-column:auto}
+	.cov-reason,.cov-head-reason{grid-column:auto}
 	.shots,.shots.n3{grid-template-columns:repeat(2,minmax(0,1fr))}
 	.shots.n1{grid-template-columns:minmax(0,1fr)}
 	.lb{padding:12px}

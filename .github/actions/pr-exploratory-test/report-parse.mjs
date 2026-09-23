@@ -150,6 +150,15 @@ function readTable(lines, start) {
 	return { header, rows, end: i };
 }
 
+/**
+ * A cell that says "nothing here" instead of naming something: `none`, `n/a`,
+ * a dash, or blank. A row whose scenario is one of these is not a scenario.
+ */
+function isPlaceholder(text) {
+	const t = String(text ?? '').replace(/[*_`]/g, '').trim().replace(/\.$/, '').toLowerCase();
+	return ['', 'none', 'n/a', 'na', '-', '\u2013', '\u2014'].includes(t);
+}
+
 /** Finds the first table whose header row matches `test`. */
 function findTable(lines, test, from = 0, to = lines.length) {
 	for (let i = from; i < to; i++) {
@@ -696,6 +705,13 @@ export function parseReport(markdown) {
 			}
 		}
 
+		// The starting state and the configuration line are both answers to
+		// "what has to be true before step 1", so they render as one list.
+		const preconditions = [parsed.reproStart, parsed.preconditions]
+			.map(t => String(t ?? '').trim())
+			.filter(t => t && !isDefaultsOnly(t))
+			.map(sentenceCase);
+
 		return {
 			n: start.n,
 			title: start.claim,
@@ -711,12 +727,7 @@ export function parseReport(markdown) {
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
-			// The starting state and the configuration line are both answers to
-			// "what has to be true before step 1", so they render as one list.
-			preconditions: [parsed.reproStart, parsed.preconditions]
-				.map(t => String(t ?? '').trim())
-				.filter(t => t && !isDefaultsOnly(t))
-				.map(t => inline(sentenceCase(t))),
+			preconditions: preconditions.map(t => inline(t)),
 			// A step that runs to more than one line carries a block of its own --
 			// the source to paste, usually -- so it is parsed as block markdown.
 			steps: parsed.steps.map(lines => (lines.length > 1
@@ -729,6 +740,16 @@ export function parseReport(markdown) {
 					: { ...e, textHtml: inline(sentenceCase(e.text)) })),
 			causeHtml: parsed.cause ? inline(parsed.cause) : '',
 			hero: parsed.hero,
+			// The same fields as plain markdown, for the copyable agent prompt: built
+			// from this parse rather than the rendered card, so the two cannot disagree.
+			text: {
+				impact: row['impact'] ? sentenceCase(row['impact']) : '',
+				observed: parsed.observed ?? '',
+				expected: parsed.expected ?? '',
+				preconditions,
+				steps: parsed.steps.map(lines => lines.join('\n')),
+				cause: parsed.cause ?? '',
+			},
 			// Nothing recognisable in the body: render it as prose rather than
 			// showing an empty card.
 			proseHtml: parsed.matched === 0 ? block(bodyLines.join('\n')) : '',
@@ -754,7 +775,7 @@ export function parseReport(markdown) {
 		? null
 		: findTable(lines, h => h.includes('scenario'), notExercisedHeading, coverageTo);
 
-	const exercised = (exercisedTable?.rows ?? []).map(row => {
+	const exercised = (exercisedTable?.rows ?? []).filter(row => !isPlaceholder(row['scenario'])).map(row => {
 		const raw = row['result'] ?? '';
 		// A Screenshot column is authoritative; without one the link is still
 		// inside the sentence, where reports used to put it.
@@ -764,7 +785,7 @@ export function parseReport(markdown) {
 		let shot = split.shot;
 		if (column) {
 			const link = /\[([^\]]*)\]\(([^)]+)\)/.exec(column);
-			const raw = link ? link[2] : (column === '-' || column === '\u2014' ? '' : column);
+			const raw = link ? link[2] : (isPlaceholder(column) ? '' : column);
 			const href = safeUrl(raw);
 			if (href) { shot = { href, label: basename(href) }; }
 		}
@@ -776,7 +797,7 @@ export function parseReport(markdown) {
 		};
 	});
 
-	const notExercised = (notExercisedTable?.rows ?? []).map(row => ({
+	const notExercised = (notExercisedTable?.rows ?? []).filter(row => !isPlaceholder(row['scenario'])).map(row => ({
 		scenarioHtml: inline(row['scenario'] ?? ''),
 		reasonHtml: inline(sentenceCase(row['reason'] ?? row._cells?.[1] ?? '')),
 	}));
@@ -824,7 +845,9 @@ export function parseReport(markdown) {
 		findings,
 		severityCounts,
 		findingCount,
-		coverage: { exercised, notExercised },
+		// Whether the report wrote a Not exercised heading at all, so an empty
+		// one can say so rather than vanish.
+		coverage: { exercised, notExercised, notExercisedListed: notExercisedHeading !== -1 },
 		scenarios: {
 			exercised: exercised.length,
 			pass: exercised.filter(r => !r.finding).length,

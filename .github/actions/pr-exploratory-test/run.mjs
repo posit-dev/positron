@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Drives the Claude Agent SDK to run the exploratory-testing skill against a
+// Drives the Claude Agent SDK to run the exploratory-test skill against a
 // Positron instance already launched and attached by the workflow.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
@@ -27,6 +27,8 @@ const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
 const VERIFY_MODEL = process.env.VERIFY_MODEL || 'sonnet';
 const VERIFY_MAX_TURNS = parsePosIntEnv('VERIFY_MAX_TURNS', 60, process.env.VERIFY_MAX_TURNS);
 const VERIFY_ENABLED = process.env.VERIFY !== 'false';
+// Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
+const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
 // The verification bills separately from the explore pass, so its cost record
 // outlives the function that produces it.
 let verifyCost = buildCostRecord(null);
@@ -58,6 +60,7 @@ const CI_OVERRIDES = [
 	`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
 	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
 	`**Keep the logs of any instance you launch.** \`stop.sh\` takes the run directory with it, and \`code.log\` is the only record of what the app did. Copy it to \`${WORK_DIR}/logs/<cdp-port>-code.log\` before you stop that instance. A finding whose log was deleted cannot be checked by the person reading the report, and the container is destroyed at job end anyway, so there is nothing to tidy up for.`,
+	'**Do not render the report.** Skip the skill\'s `render.mjs` step; the workflow renders `index.html` itself once verification has been added.',
 ];
 if (REPORT_BASE_URL) {
 	CI_OVERRIDES.push(`**Link screenshots with their public URL.** The run directory is published at \`${REPORT_BASE_URL}\`. Where the skill says to cite a shot as \`[shots/<file>](shots/<file>)\`, write \`[shots/<file>](${REPORT_BASE_URL}/shots/<file>)\` instead, and embed with \`![](${REPORT_BASE_URL}/shots/<file>)\`. A relative path is unreachable to anyone reading the report outside this container.`);
@@ -124,7 +127,7 @@ Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full comman
 // handed its text, so that it reads the same bytes the reviewer will.
 async function verifyReport() {
 	const prompt = [
-		'You are verifying an exploratory-testing report written by a different agent. Decide, for each finding, whether it is a genuine product defect. Be adversarial: the report is a claim, not evidence.',
+		'You are verifying an exploratory-test report written by a different agent. Decide, for each finding, whether it is a genuine product defect. Be adversarial: the report is a claim, not evidence.',
 		'',
 		`Report: \`${join(WORK_DIR, 'report.md')}\``,
 		`The reporting agent's own action log, with timestamps: \`${join(WORK_DIR, 'actions.log')}\``,
@@ -348,7 +351,12 @@ async function main() {
 		// image URLs in it. The markdown stays: the verification pass reads it,
 		// and a file you can grep is worth keeping.
 		try {
-			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown));
+			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown, {
+				agentPrompts: AGENT_PROMPTS,
+				// Evidence in the prompt has to open from wherever it is pasted.
+				base: REPORT_BASE_URL || WORK_DIR,
+				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
+			}));
 		} catch (err) {
 			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
 		}

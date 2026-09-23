@@ -1,5 +1,5 @@
 ---
-name: exploratory-testing
+name: exploratory-test
 description: "Explore a running Positron instance as a real user to find genuine problems in a change you just made. Use when asked to exploratorily test, QA, manually test, or poke at a branch, PR, or feature through the real UI. This is discovery testing against the live app to find bugs, NOT writing automated tests; use author-e2e-tests or author-vitest-tests for that. Worth its cost for a user-visible behavior change, not for a refactor or a typo fix. Only runs when a person invokes it explicitly."
 disable-model-invocation: true
 ---
@@ -23,9 +23,17 @@ The brief is the only context the agent has, so make it self-contained: the
 checkout path, the branch and how to see the diff, what the change is meant to
 do as a user would describe it, and the blast radius you are nervous about.
 State intent and risk; do not state what you expect to work.
+Include the absolute path to the report renderer, resolved from this skill's
+base directory: `<base>/../../../.github/actions/pr-exploratory-test/render.mjs`.
+The branch under test may predate it, so the agent cannot find it from there.
 
 Running it in a subagent keeps screenshots, snapshots, and dead ends out of the
 session you are working in.
+
+When the agent finishes, put its run on the report's Run tile, as CI does. The
+completion notice carries `duration_ms` and `tool_uses`; re-render with them:
+`node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses>`.
+The agent cannot do this itself, because it does not see its own totals.
 
 If you are that subagent, do the exploring yourself. Do not delegate again.
 
@@ -64,7 +72,7 @@ scaffolding workspaces you created.
 ## Report
 
 Write findings to a fresh run directory,
-`~/.claude/skills/exploratory-testing/output/<YYYYMMDDTHHMMSS>/report.md`, with
+`~/.claude/skills/exploratory-test/output/<YYYYMMDDTHHMMSS>/report.md`, with
 evidence under `shots/` beside it. Cite a shot as a real link,
 `[shots/<file>](shots/<file>)`, every time you name one, here and in Verified
 working: a backticked path renders as code the reader cannot open. Never
@@ -80,6 +88,12 @@ Write the report with Bash, as one quoted heredoc:
 report file outright ("Subagents should return findings as text, not write
 report files"), and because the report is the deliverable, that guard costs the
 run its entire output.
+
+Then render it, so the reader gets the same page CI publishes:
+`node <render.mjs from your brief> "$RUN/report.md"`. It writes `index.html`
+beside the report and prints its path; give that path in your summary. If it
+fails, say so and point at `report.md` instead: the markdown is still the
+report.
 
 Outcome first, evidence second, execution detail last. A reviewer who reads
 only the title block, the findings table, and Coverage should know where the

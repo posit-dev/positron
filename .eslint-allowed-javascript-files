@@ -212,6 +212,7 @@ test/unit/reporter.js
 .github/actions/pr-exploratory-test/report-parse.mjs
 .github/actions/pr-exploratory-test/report.test.mjs
 .github/actions/pr-exploratory-test/run.mjs
+.github/actions/pr-exploratory-test/render.mjs
 .github/actions/pr-test-checker/analyze.mjs
 .github/scripts/release-screenshots/compare-and-report.mjs
 .github/scripts/release-screenshots/compare-and-report.test.mjs

@@ -67,7 +67,7 @@ jobs:
           path: .harness
           sparse-checkout: |
             .github/actions
-            .claude/skills/exploratory-testing
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -102,7 +102,7 @@ jobs:
           # gate mode does not read the skill, but the harness copy is the one
           # this job means either way; leaving it to default would quietly point
           # at the branch under test the day gate mode does read it.
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
+          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/SKILL.md
           branch: ${{ inputs.ref || github.ref_name }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
@@ -180,7 +180,7 @@ jobs:
           path: .harness
           sparse-checkout: |
             .github/actions
-            .claude/skills/exploratory-testing
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -355,7 +355,7 @@ jobs:
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
+          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/SKILL.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
           branch: ${{ inputs.ref }}
