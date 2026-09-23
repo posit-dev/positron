@@ -554,12 +554,12 @@ test('renderReportHtml signs off with a mark, not a cost line', () => {
 	assert.match(html.slice(0, html.indexOf('<footer')), /explore \$3\.12/);
 });
 
-test('renderReportHtml does not invent a URL for the skill', () => {
+test('renderReportHtml links the signature to the skill that wrote the report', () => {
 	const html = renderReportHtml(FULL);
-	// The hook is there to wire one up; until then the name is not a link that
-	// goes nowhere.
-	assert.match(html, /<a class="sig-link" data-skill-url="">/);
-	assert.doesNotMatch(html, /sig-link[^>]*href/);
+	// The arrow says the link leaves the page, so it has to go somewhere.
+	assert.match(html, /<a class="sig-link" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/main\/\.claude\/skills\/exploratory-testing\/SKILL\.md" target="_blank" rel="noreferrer">exploratory-test &#8599;<\/a>/);
+	// The placeholder it replaced is gone.
+	assert.doesNotMatch(html, /data-skill-url/);
 });
 
 test('renderReportHtml keeps the signature legible without animation', () => {

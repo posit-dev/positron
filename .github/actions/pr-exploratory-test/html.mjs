@@ -30,6 +30,12 @@ const ICON = {
 
 const SEVERITY_LABEL = { major: 'Major', moderate: 'Moderate', minor: 'Minor' };
 
+// The skill that writes these reports. A source link rather than a docs page,
+// because the skill is the documentation: it is the brief the agent followed,
+// so it answers what a reader of the report would actually ask. Valid once the
+// skill is on main; a report published before then links a page that 404s.
+const SKILL_URL = 'https://github.com/posit-dev/positron/blob/main/.claude/skills/exploratory-testing/SKILL.md';
+
 function pill(severity) {
 	return `<span class="pill sev-${severity}"><span class="dot"></span>${SEVERITY_LABEL[severity]}</span>`;
 }
@@ -337,15 +343,13 @@ ${report.verification.bodyHtml}
  * cost of the run is on the Run tile, where it is one figure among the others;
  * repeating it here ended the page on an invoice.
  *
- * No URL is invented for the skill. `data-skill-url` is the hook to wire one up
- * later, and until there is one the name is not a link at all rather than a
- * link that goes nowhere.
+ * The name links to the skill that wrote the report. The arrow says the link
+ * leaves the page, so it has to actually go somewhere; the `data-skill-url`
+ * placeholder the reference carries is gone now that there is a real URL.
  */
-function renderSignature(skillUrl = '') {
+function renderSignature(skillUrl = SKILL_URL) {
 	const name = 'exploratory-test &#8599;';
-	const link = skillUrl
-		? `<a class="sig-link" href="${escapeHtml(skillUrl)}" data-skill-url="${escapeHtml(skillUrl)}" target="_blank" rel="noreferrer">${name}</a>`
-		: `<a class="sig-link" data-skill-url="">${name}</a>`;
+	const link = `<a class="sig-link" href="${escapeHtml(skillUrl)}" target="_blank" rel="noreferrer">${name}</a>`;
 
 	// A top-down bug: a solid body, six hairline legs and two feelers.
 	const bug = '<svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">'
