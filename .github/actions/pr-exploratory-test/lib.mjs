@@ -325,23 +325,25 @@ export function runOutcome({ report, numTurns, maxTurns }) {
  * how a reader tells.
  *
  * `state` is a runOutcome value, `running`, or empty when the agent never ran
- * (the build failed first).
+ * (the build failed first). `model` is the /test argument; naming it makes a
+ * typo that fell back to the default visible.
  */
-export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha }) {
+export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, model }) {
 	const target = headSha ? `\`${headSha.slice(0, 7)}\`` : 'the PR head';
+	const title = model ? `Exploratory test (${model})` : 'Exploratory test';
 	const run = `[Run](${runUrl})`;
 	if (state === 'running') {
-		return `${COMMENT_MARKER}\n### Exploratory test\n\nRunning against ${target}. ${run}\n`;
+		return `${COMMENT_MARKER}\n### Exploratory test\n\nRunning${model ? ` with ${model}` : ''} against ${target}. ${run}\n`;
 	}
 	if (markdown && (state === 'complete' || state === 'partial')) {
 		const note = state === 'partial'
 			? '\n_Partial run: the agent hit the turn cap, so coverage is incomplete._\n'
 			: '';
-		return `${COMMENT_MARKER}\n### Exploratory test on ${target}\n\n${renderStepSummary(markdown, baseUrl)}${note}\n${run}\n`;
+		return `${COMMENT_MARKER}\n### ${title} on ${target}\n\n${renderStepSummary(markdown, baseUrl)}${note}\n${run}\n`;
 	}
 	const reason = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
 		: state === 'no-report' ? 'The agent finished without writing a report.'
 			: 'The run failed before the agent produced a report.';
-	return `${COMMENT_MARKER}\n### Exploratory test on ${target}: no report\n\n${reason} ${run}\n`;
+	return `${COMMENT_MARKER}\n### ${title} on ${target}: no report\n\n${reason} ${run}\n`;
 }
 

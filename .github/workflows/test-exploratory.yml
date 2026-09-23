@@ -60,6 +60,7 @@ jobs:
       ok: ${{ steps.check.outputs.ok }}
       head_sha: ${{ steps.check.outputs.head_sha }}
       head_ref: ${{ steps.check.outputs.head_ref }}
+      model: ${{ steps.check.outputs.model }}
     steps:
       - name: Mint org-scoped App token
         id: app-token
@@ -91,6 +92,15 @@ jobs:
             exit 0
           fi
 
+          # Optional second word picks the model. Only the literal names pass;
+          # anything else runs the default, and the comment names the model so
+          # a typo is visible.
+          arg=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { print tolower($2); exit }')
+          case "$arg" in
+            opus|sonnet) model=$arg ;;
+            *) model=opus ;;
+          esac
+
           # Active member: 200 {"state":"active"}. Non-member: 404, empty
           # stdout. Pending invite: "pending", which does not count.
           is_member() {
@@ -121,9 +131,10 @@ jobs:
           {
             echo "head_sha=$(jq -r '.head.sha' <<<"$pr")"
             echo "head_ref=$(jq -r '.head.ref' <<<"$pr")"
+            echo "model=$model"
             echo "ok=true"
           } >> "$GITHUB_OUTPUT"
-          echo "Membership gate: ok"
+          echo "Membership gate: ok (model=$model)"
 
   # Decides whether the change is worth testing, before anything is built. Not
   # to be confused with `membership`, which decides who may run this at all.
@@ -266,6 +277,7 @@ jobs:
         with:
           mode: comment
           comment-state: running
+          model: ${{ needs.membership.outputs.model }}
           pr-number: ${{ github.event.issue.number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.membership.outputs.head_sha }}
@@ -301,8 +313,9 @@ jobs:
         # Every branch is a literal. Building the JSON with format() put a
         # dispatch input inside the document it was about to parse, which only
         # held because `type: choice` happens to constrain the value.
-        model: ${{ (inputs.model || 'opus') == 'both' && fromJSON('["opus","sonnet"]')
-          || (inputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+        # On a comment, membership's model is already checked to opus or sonnet.
+        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'both' && fromJSON('["opus","sonnet"]')
+          || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
           || fromJSON('["opus"]') }}
     timeout-minutes: 90
     runs-on: ubuntu-latest-8x
@@ -595,7 +608,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
-          name: exploratory-run-opus
+          name: exploratory-run-${{ needs.membership.outputs.model }}
           path: /tmp/run-artifact
 
       # The artifact root is the common parent of what matched, so the run dir
@@ -616,6 +629,7 @@ jobs:
         with:
           mode: comment
           comment-state: result
+          model: ${{ needs.membership.outputs.model }}
           # Empty when ack could not post; comment mode then posts a new one.
           comment-id: ${{ needs.ack.outputs.comment_id }}
           outcome: ${{ needs.explore.outputs.outcome }}

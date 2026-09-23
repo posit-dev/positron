@@ -411,3 +411,14 @@ test('renderPrComment leaves the SHA out rather than print an empty one', () => 
 	assert.doesNotMatch(body, /``/);
 });
 
+
+test('renderPrComment names the model in every state, so a /test typo is visible', () => {
+	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /Running with sonnet against `abc1234`/);
+	assert.match(renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /^### Exploratory test \(sonnet\) on `abc1234`$/m);
+	assert.match(renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'opus' }), /^### Exploratory test \(opus\) on `abc1234`: no report$/m);
+});
+
+test('renderPrComment leaves the model out when none is given', () => {
+	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /Running against `abc1234`/);
+	assert.doesNotMatch(renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /\(\)/);
+});
