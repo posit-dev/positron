@@ -149,6 +149,12 @@ run_extension_suite npm run test-extension -- -l positron-data-driver-pins
 kill_app
 
 echo
+echo "### Positron ODBC data connection tests"
+echo
+run_extension_suite npm run test-extension -- -l positron-data-driver-odbc
+kill_app
+
+echo
 echo "### Positron Zed tests"
 echo
 run_extension_suite npm run test-extension -- -l positron-zed
