@@ -26,9 +26,9 @@ on:
         required: false
         default: false
         type: boolean
-  # `/test` on a PR. Runs from main's copy of this file with full secrets, and
-  # the explore job builds and executes the PR's code, so the membership job is
-  # the entire defence. See its comment.
+  # `/test` (or `/exploratory-test`) on a PR. Runs from main's copy of this
+  # file with full secrets, and the explore job builds and executes the PR's
+  # code, so the membership job is the entire defence. See its comment.
   issue_comment:
     types: [created]
 
@@ -54,7 +54,8 @@ jobs:
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request != null &&
-      startsWith(github.event.comment.body, '/test')
+      (startsWith(github.event.comment.body, '/test') ||
+        startsWith(github.event.comment.body, '/exploratory-test'))
     runs-on: ubuntu-latest
     # Reads membership with the App token below and the PR with GITHUB_TOKEN.
     # No write access on the one job that runs for every matching comment,
@@ -91,9 +92,10 @@ jobs:
 
           # The prefilter matched a prefix, so "/testing" got this far. Only the
           # exact command counts: the first word of the first non-blank line.
+          # /exploratory-test is an alias that matches the skill's name.
           # Web UI comments use CRLF, so drop the CR or "/test\r" never matches.
           first=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { print $1; exit }')
-          if [ "$first" != "/test" ]; then
+          if [ "$first" != "/test" ] && [ "$first" != "/exploratory-test" ]; then
             echo "Not a /test command (first word: '$first')"
             exit 0
           fi
