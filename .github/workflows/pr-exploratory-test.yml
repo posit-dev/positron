@@ -53,19 +53,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # The checkout above is the branch under test. This harness -- the action
-      # and the skill that drives it -- is not part of that branch: a PR cut
-      # before this landed does not contain it, and `./.github/actions/...`
-      # would resolve into a tree that has no such directory. Take it from the
-      # ref the workflow was dispatched from instead, so the run is always
-      # driven by this version rather than by whatever the branch carries.
+      # The checkout above is the branch under test, and it is the code this job
+      # builds and drives. It is not where the job's own tooling comes from.
+      # `./.github/actions/...` resolves against the workspace root, so every
+      # local action would be whichever version that branch happens to carry:
+      # missing entirely for one this branch adds, and stale for one it changes.
+      # Take the actions and the skill from the ref the workflow was dispatched
+      # from, so a run is driven by this version whatever it is pointed at.
       - name: Check out the harness
         uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           path: .harness
           sparse-checkout: |
-            .github/actions/pr-exploratory-test
+            .github/actions
             .claude/skills/exploratory-testing
           sparse-checkout-cone-mode: false
           persist-credentials: false
@@ -165,19 +166,20 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      # The checkout above is the branch under test. This harness -- the action
-      # and the skill that drives it -- is not part of that branch: a PR cut
-      # before this landed does not contain it, and `./.github/actions/...`
-      # would resolve into a tree that has no such directory. Take it from the
-      # ref the workflow was dispatched from instead, so the run is always
-      # driven by this version rather than by whatever the branch carries.
+      # The checkout above is the branch under test, and it is the code this job
+      # builds and drives. It is not where the job's own tooling comes from.
+      # `./.github/actions/...` resolves against the workspace root, so every
+      # local action would be whichever version that branch happens to carry:
+      # missing entirely for one this branch adds, and stale for one it changes.
+      # Take the actions and the skill from the ref the workflow was dispatched
+      # from, so a run is driven by this version whatever it is pointed at.
       - name: Check out the harness
         uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           path: .harness
           sparse-checkout: |
-            .github/actions/pr-exploratory-test
+            .github/actions
             .claude/skills/exploratory-testing
           sparse-checkout-cone-mode: false
           persist-credentials: false
@@ -201,7 +203,7 @@ jobs:
 
       - name: Restore caches
         id: restore-caches
-        uses: ./.github/actions/restore-build-caches
+        uses: ./.harness/.github/actions/restore-build-caches
 
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
@@ -228,7 +230,7 @@ jobs:
           command: bash scripts/install-npm-parallel.sh
 
       - name: Download binaries (Ark, Kallichore)
-        uses: ./.github/actions/download-binaries
+        uses: ./.harness/.github/actions/download-binaries
         with:
           cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
                          steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
@@ -250,7 +252,7 @@ jobs:
           stat $ELECTRON_ROOT/chrome-sandbox
 
       - name: Setup E2E Test Environment
-        uses: ./.github/actions/setup-test-env
+        uses: ./.harness/.github/actions/setup-test-env
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -266,7 +268,7 @@ jobs:
           jq --version
 
       - name: Setup Xvfb
-        uses: ./.github/actions/setup-xvfb
+        uses: ./.harness/.github/actions/setup-xvfb
 
       - name: Alter AppArmor restrictions
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
@@ -295,7 +297,7 @@ jobs:
           echo "out/ present, $(find out -name '*.js' | wc -l) js files"
 
       - name: Allocate report dir
-        uses: ./.github/actions/gen-report-dir
+        uses: ./.harness/.github/actions/gen-report-dir
         with:
           identifier: exploratory-${{ matrix.model }}
           skip-summary: "true"
@@ -379,7 +381,7 @@ jobs:
         id: s3-upload
         if: always()
         continue-on-error: true
-        uses: ./.github/actions/upload-report-to-s3
+        uses: ./.harness/.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
