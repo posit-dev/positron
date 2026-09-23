@@ -480,10 +480,16 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .sg-bang{left:66px;color:var(--sig-bang);animation:sg-bang 7s ease infinite}
 .sg-pop{position:absolute;left:60px;bottom:6px;color:var(--sig-ok);filter:var(--sig-ok-glow);opacity:0;animation:sg-pop 7s ease infinite}
 @keyframes sg-bug{0%{transform:translateX(0px) translateY(0px) rotate(90deg);opacity:0}4%{opacity:1}14%{transform:translateX(40px) translateY(0px) rotate(90deg)}20%{transform:translateX(32px) translateY(0px) rotate(-90deg)}30%,57%{transform:translateX(60px) translateY(0px) rotate(90deg)}59%{transform:translateX(60px) translateY(-9px) rotate(90deg)}61%{transform:translateX(60px) translateY(0px) rotate(90deg)}62%{transform:translateX(60px) translateY(-2px) rotate(90deg)}63%{transform:translateX(60px) translateY(0px) rotate(90deg);opacity:1}65%,100%{transform:translateX(60px) translateY(0px) rotate(90deg);opacity:0}}
-@keyframes sg-mag{0%,6%{transform:translateX(-26px);opacity:0}12%{opacity:1}34%{transform:translateX(58px)}46%,52%{transform:translateX(114px)}58%,64%{transform:translateX(57px);opacity:1}76%,100%{transform:translateX(32px);opacity:0}}
+@keyframes sg-mag{0%,6%{transform:translateX(-26px);opacity:0}12%{opacity:1}34%{transform:translateX(58px)}46%,52%{transform:translateX(114px)}58%,64%{transform:translateX(57px);opacity:1}66%,100%{transform:translateX(57px);opacity:0}}
 @keyframes sg-q{0%,45%{opacity:0;transform:translateY(4px) scale(.6)}47%{opacity:1;transform:translateY(-1px) scale(1.25)}49%,52%{opacity:1;transform:translateY(0) scale(1)}54%,100%{opacity:0}}
 @keyframes sg-bang{0%,57%{opacity:0;transform:translateY(4px) scale(.6)}59%{opacity:1;transform:translateY(-1px) scale(1.25)}61%,64%{opacity:1;transform:translateY(0) scale(1)}66%,100%{opacity:0}}
 @keyframes sg-pop{0%,65%{opacity:0;transform:scale(.4)}69%{opacity:1;transform:scale(1.2)}72%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+/* The magnifier leaves as the check arrives, in place, rather than drifting
+   back down the line while it fades. The check is the answer to the question it
+   was asking, so once the check is there the magnifier has nothing left to do
+   and lingering read as though it were still looking. This is the one beat that
+   departs from report-reference-*.html. */
+
 /* Reduced motion keeps the punchline and drops the performance: the line and
    the check, which is what the mark is actually saying. */
 @media (prefers-reduced-motion:reduce){
