@@ -309,7 +309,7 @@ a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
 .findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 110px}
-.coverage-grid{grid-template-columns:28px minmax(0,5fr) minmax(0,7fr) 200px}
+.coverage-grid{grid-template-columns:minmax(0,5fr) minmax(0,7fr) 200px}
 .right{text-align:right}
 
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
@@ -409,11 +409,18 @@ a.shot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .cov-group.gap{margin-top:12px}
 h3.cov-title{margin:0;font-size:14px;font-weight:600;color:var(--body)}
 .cov-title .cov-n{font-weight:400;color:var(--faint)}
-.cov-dot{width:8px;height:8px;margin-top:7px;border-radius:50%}
+/* The status dot sits inside the scenario cell, not in a column of its own: it
+   belongs to that scenario. The gap is a little wider than bullet-list spacing
+   so it reads as a status marker, and the top margin centres it on the first
+   line so a scenario that wraps keeps its dot beside line one. */
+.cov-scenario{display:flex;align-items:flex-start;gap:13px;color:var(--ink)}
+.cov-dot{flex:none;width:8px;height:8px;margin-top:7px;border-radius:50%}
 .cov-dot.pass{background:var(--pass-fill)}
 .cov-dot.issue{background:var(--moderate-dot)}
 .cov-dot.none{width:7px;height:7px;background:var(--dot-neutral)}
-.cov-scenario{color:var(--ink)}
+/* Indented by the dot plus the gap, so the label starts where the text does. */
+.cov-head-scenario{padding-left:21px}
+.panel.dashed .cov-head-scenario{padding-left:20px}
 .cov-result{color:var(--body)}
 .cov-reason{color:var(--body);grid-column:span 2}
 .ref{font-family:var(--mono);font-size:11.5px;color:var(--ref)}

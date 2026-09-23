@@ -252,9 +252,12 @@ function renderCoverage(report) {
 		const result = row.finding
 			? `${row.resultHtml} &middot; <a href="#f${row.finding}">Finding ${row.finding}</a>`
 			: row.resultHtml;
+		// The dot lives in the scenario cell rather than a column of its own, so
+		// it reads as that scenario's status instead of as a first field.
 		return '<div class="row coverage-grid">'
+			+ '<span class="cov-scenario">'
 			+ `<span class="cov-dot ${row.finding ? 'issue' : 'pass'}" aria-hidden="true"></span>`
-			+ `<span class="cov-scenario">${row.scenarioHtml}</span>`
+			+ `<span>${row.scenarioHtml}</span></span>`
 			+ `<span class="cov-result">${result}</span>`
 			+ reference
 			+ '</div>';
@@ -264,7 +267,7 @@ function renderCoverage(report) {
 		? `<div class="cov-group">
 <h3 class="cov-title">Exercised${count(exercised.length)}</h3>
 <div class="panel">
-<div class="row row-head coverage-grid"><span></span><span>Scenario</span><span>Result</span><span>Screenshot</span></div>
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span>Screenshot</span></div>
 ${exercisedRows}
 </div>
 </div>`
@@ -274,8 +277,9 @@ ${exercisedRows}
 	// the rows above. Coverage says what happened; this says what is outside the
 	// run, so its dot is neutral: it means "no result", not a bad one.
 	const notRows = notExercised.map(row => '<div class="row coverage-grid">'
+		+ '<span class="cov-scenario">'
 		+ '<span class="cov-dot none" aria-hidden="true"></span>'
-		+ `<span class="cov-scenario">${row.scenarioHtml}</span>`
+		+ `<span>${row.scenarioHtml}</span></span>`
 		+ `<span class="cov-reason">${row.reasonHtml}</span>`
 		+ '</div>').join('\n');
 
@@ -283,7 +287,7 @@ ${exercisedRows}
 		? `<div class="cov-group gap">
 <h3 class="cov-title">Not exercised${count(notExercised.length)}</h3>
 <div class="panel dashed">
-<div class="row row-head coverage-grid"><span></span><span>Scenario</span><span class="cov-reason">Reason</span></div>
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span class="cov-reason">Reason</span></div>
 ${notRows}
 </div>
 </div>`

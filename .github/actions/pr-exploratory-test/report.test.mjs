@@ -527,3 +527,15 @@ test('renderReportHtml counts each coverage table on its own heading', () => {
 	assert.doesNotMatch(html, /\d+ exercised/);
 	assert.doesNotMatch(html, /Exercised \(/);
 });
+
+test('renderReportHtml puts the status dot inside the scenario cell', () => {
+	const html = renderReportHtml(FULL);
+	// The dot belongs to the scenario, so it is not a grid column of its own and
+	// the header indents its label to where the text starts instead.
+	assert.match(html, /<span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"><\/span><span>/);
+	assert.match(html, /<span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"><\/span><span>/);
+	assert.match(html, /<span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"><\/span><span>/);
+	assert.match(html, /<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario<\/span>/);
+	assert.doesNotMatch(html, /coverage-grid"><span><\/span>/);
+	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,5fr\) minmax\(0,7fr\) 200px\}/);
+});
