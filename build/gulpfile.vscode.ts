@@ -28,7 +28,7 @@ import minimist from 'minimist';
 import { compileBuildWithoutManglingTask, compileBuildWithManglingTask } from './gulpfile.compile.ts';
 import { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask, compileCopilotExtensionBuildTask } from './gulpfile.extensions.ts';
 // --- Start Positron ---
-import { checkPathLengths } from './lib/positron-check-path-lengths.ts';
+import { checkPackagedTree } from './lib/positron-check-path-lengths.ts';
 // Do not import copyCodiconsTask. Positron maintains a custom codicon.ttf in the repo that
 // includes Positron-specific icons. Copying from the npm package would overwrite these.
 // import { copyCodiconsTask } from './lib/compilation.ts';
@@ -814,14 +814,15 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 // --- Start Positron ---
 /**
  * Fails the build when the packaged tree holds a path that is too long for a
- * Windows per-user install or auto-update.
+ * Windows per-user install or auto-update, or when an extension ships more files
+ * than its budget.
  *
  * This task runs for every platform, because the extension dependency trees that
- * own the longest paths are the same everywhere. The first build of any platform
- * therefore finds a regression, and not the next Windows release. See
- * posit-dev/positron#14702.
+ * own the longest paths and the most files are the same everywhere. The first
+ * build of any platform therefore finds a regression, and not the next Windows
+ * release. See posit-dev/positron#14702 and posit-dev/positron#16025.
  */
-function checkPathLengthsTask(platform: string, destinationFolderName: string) {
+function checkPackagedTreeTask(platform: string, destinationFolderName: string) {
 	const outputDir = path.join(path.dirname(root), destinationFolderName);
 
 	return async () => {
@@ -830,8 +831,9 @@ function checkPathLengthsTask(platform: string, destinationFolderName: string) {
 		const appRoot = platform === 'darwin'
 			? path.join(outputDir, `${product.nameLong}.app`, 'Contents')
 			: path.join(outputDir, util.getVersionedResourcesFolder(platform, commit!));
+		const extensionsDir = platform === 'darwin' ? 'Resources/app/extensions' : 'resources/app/extensions';
 
-		checkPathLengths(appRoot);
+		checkPackagedTree(appRoot, extensionsDir);
 	};
 }
 // --- End Positron ---
@@ -887,7 +889,7 @@ BUILD_TARGETS.forEach(buildTarget => {
 			// --- Start Positron ---
 			// prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName)
 			prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName),
-			checkPathLengthsTask(platform, destinationFolderName)
+			checkPackagedTreeTask(platform, destinationFolderName)
 			// --- End Positron ---
 		];
 
