@@ -45,7 +45,8 @@ export function safeUrl(url) {
 	if (/^[a-z][a-z0-9+.-]*:/i.test(cleaned)) {
 		return /^(?:https?|mailto):/i.test(cleaned) ? cleaned : null;
 	}
-	// No scheme at all, so it is a relative path.
+	// No scheme, so a relative path. `//host/x` also lands here and resolves to
+	// the page's scheme, which is https and already allowed.
 	return cleaned;
 }
 
@@ -277,21 +278,24 @@ export function parseSeverity(value) {
 }
 
 /**
- * Parses one `_explore: $3.12 | 77/200 turns | 26m_` footer line.
+ * Parses one `_explore: Opus 5.5 | $3.12 | 77/200 turns | 26m_` footer line.
+ * Reports written before the model was recorded have no model bit.
  */
 function parseCostLine(line) {
 	const m = /^_([a-z]+):\s*(.*?)_$/.exec(line.trim());
 	if (!m) {
 		return null;
 	}
-	const pass = { label: m[1], cost: null, turns: null, maxTurns: null, duration: null };
+	const pass = { label: m[1], model: null, cost: null, turns: null, maxTurns: null, duration: null };
 	for (const bit of m[2].split('|').map(b => b.trim())) {
 		const money = /^\$([\d.]+)$/.exec(bit);
 		if (money) { pass.cost = `$${money[1]}`; continue; }
 		const turns = /^(\d+)(?:\/(\d+))?\s*turns$/.exec(bit);
 		if (turns) { pass.turns = turns[1]; pass.maxTurns = turns[2] ?? null; continue; }
-		const time = /^([\dhms.]+)$/.exec(bit);
-		if (time) { pass.duration = time[1]; }
+		// `<1m` is how a pass under half a minute is written.
+		const time = /^(<?[\dhms.]+)$/.exec(bit);
+		if (time) { pass.duration = time[1]; continue; }
+		if (bit) { pass.model = bit; }
 	}
 	return pass;
 }

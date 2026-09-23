@@ -42,6 +42,9 @@ const PROFESSIONAL = `
 	--pass-text: #2F7A4F;
 	--pass-bg: #E8F3EC;
 	--notrun: #E2DFD7;
+	--notrun-bar: #DAD6CD;
+	--stage-1: #5E646C;
+	--stage-2: #CFCAC0;
 
 	--observed-bg: #FBF5F3;
 	--observed-rule: #D8654F;
@@ -148,6 +151,9 @@ const PARTY = `
 	--pass-text: #4BE8B0;
 	--pass-bg: #17352C;
 	--notrun: #3A3068;
+	--notrun-bar: #4A3F7A;
+	--stage-1: #5CE1E6;
+	--stage-2: #6E64A8;
 
 	--observed-bg: #2A1733;
 	--observed-rule: #FF4F81;
@@ -313,22 +319,34 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 .tile-figure{display:flex;align-items:baseline;gap:6px}
 .tile-figure .unit{font-size:14px;color:var(--muted)}
 .tile-bar{display:flex;gap:3px;height:6px}
-.tile-bar span{border-radius:3px}
-.tile-note{display:flex;gap:16px;white-space:nowrap;font-size:12px;color:var(--muted);line-height:1.6;font-family:var(--mono)}
-.tile-note.stack{display:block}
+.tile-bar span{min-width:6px;border-radius:3px}
+.tile-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:var(--sans);font-size:13px;line-height:1.5;color:var(--muted)}
+.legend-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.legend-item .key{width:8px;height:8px;border-radius:2px;flex:none}
+.legend-item b{font-weight:600;color:var(--body)}
 
 /* Section labels */
 .section{display:flex;flex-direction:column;gap:14px;scroll-margin-top:24px}
 .section-label{margin:0;font-family:var(--label-font);font-size:13px;font-weight:var(--label-weight);letter-spacing:var(--label-ls);text-transform:uppercase;color:var(--label-color)}
 .section-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
-.section-head .aside{font-size:13px;color:var(--muted)}
 
 /* Grid tables: findings list, coverage, not exercised */
 /* Panels carry no shadow in either theme: the Party offset shadow marks a card
    or a tile, and putting one on a full-width table read as a second surface. */
-.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.panel{position:relative;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .row{display:grid;gap:16px;padding:16px 20px;border-bottom:1px solid var(--hairline);align-items:start;color:inherit;text-decoration:none}
 .row:last-child{border-bottom:0}
+/* Exercised collapses past its first rows. A checkbox, so it works without script. */
+.cov-toggle{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.cov-toggle:not(:checked)~.cov-extra{display:none !important}
+.cov-more{display:flex;align-items:center;gap:6px;padding:11px 20px;font-size:13px;font-weight:500;color:var(--link);cursor:pointer;transition:background-color .15s ease,color .15s ease}
+.cov-more:hover{background:var(--thead);color:var(--link-hover)}
+.cov-toggle:focus-visible~.cov-more{outline:2px solid var(--focus);outline-offset:-2px;border-radius:0 0 12px 12px}
+.cov-less{display:none}
+.cov-toggle:checked~.cov-more .cov-all{display:none}
+.cov-toggle:checked~.cov-more .cov-less{display:inline}
+.cov-chev{transition:transform .15s ease}
+.cov-toggle:checked~.cov-more .cov-chev{transform:rotate(180deg)}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
@@ -484,6 +502,12 @@ a.ref:hover{color:var(--ref-hover)}
 .fold-body p:last-child{margin-bottom:0}
 .fold-part{display:flex;flex-direction:column;gap:4px}
 .fold-part .fold-label{font-size:12px;font-weight:600;color:var(--muted)}
+.agents-table{display:flex;flex-direction:column;max-width:480px}
+.agents-row{display:grid;grid-template-columns:90px 110px 70px 1fr;gap:12px;padding:6px 0;border-bottom:1px solid var(--hairline);font-size:14px;line-height:1.5;color:var(--body)}
+.agents-row.agents-head{padding:0 0 4px;font-size:12px;color:var(--muted)}
+.agents-row.agents-total{border-bottom:0;color:var(--ink);font-weight:500}
+.agents-row .num{font-family:var(--mono);font-size:13px}
+.agents-row .muted{color:var(--muted);font-weight:400}
 .verdicts{display:flex;flex-wrap:wrap;gap:8px}
 .verdict{font-family:var(--mono);font-size:12px;padding:3px 8px;border-radius:6px;background:var(--pass-bg);color:var(--pass-text)}
 .verdict.disputed{background:var(--major-bg);color:var(--major-text)}
@@ -558,6 +582,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 @media (max-width:820px){
 	:root{--gutter:16px}
 	.tiles{grid-template-columns:minmax(0,1fr)}
+	.agents-row{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) auto auto;gap:10px}
 	.two{grid-template-columns:minmax(0,1fr);gap:16px}
 	.row{grid-template-columns:minmax(0,1fr) !important;gap:8px}
 	.row-head{display:none}

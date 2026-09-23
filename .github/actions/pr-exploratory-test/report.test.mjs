@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseReport, safeUrl } from './report-parse.mjs';
-import { renderReportHtml } from './html.mjs';
+import { renderReportHtml, visibleExercisedCount } from './html.mjs';
 
 /** A minimal report with one of everything the template lays out. */
 function md(...body) {
@@ -113,7 +113,7 @@ const FOLDS = [
 	'',
 	'</details>',
 	'',
-	'_explore: $3.12 | 77/200 turns | 26m_',
+	'_explore: Opus 5.5 | $3.12 | 77/200 turns | 26m_',
 	'_verify: $0.63 | 31 turns | 5m_',
 	'_total: $3.75 | 31m_',
 ].join('\n');
@@ -387,7 +387,7 @@ test('renderReportHtml renders a run with no findings and no issues', () => {
 	assert.doesNotMatch(html, /id="findings"/);
 	assert.match(html, /<div class="tile-num">0<\/div>/);
 	// One scenario, all passing: no issue segment and no not-run segment.
-	assert.match(html, /<span>1 pass<\/span>/);
+	assert.match(html, /<b>1<\/b> pass/);
 	assert.doesNotMatch(html, /issues/);
 	assert.doesNotMatch(html, /not run/);
 });
@@ -537,7 +537,6 @@ test('renderReportHtml puts the status dot inside the scenario cell', () => {
 	assert.match(html, /<span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"><\/span><span>/);
 	assert.match(html, /<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario<\/span>/);
 	assert.doesNotMatch(html, /coverage-grid"><span><\/span>/);
-	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,5fr\) minmax\(0,7fr\) 200px\}/);
 });
 
 test('renderReportHtml signs off with a mark, not a cost line', () => {
@@ -551,7 +550,7 @@ test('renderReportHtml signs off with a mark, not a cost line', () => {
 	assert.doesNotMatch(footer, /\$\d|turns|tokens/);
 	assert.doesNotMatch(html, /footer class="cost"/);
 	// The tile still carries it.
-	assert.match(html.slice(0, html.indexOf('<footer')), /explore \$3\.12/);
+	assert.match(html.slice(0, html.indexOf('<footer')), /\$3\.12/);
 });
 
 test('renderReportHtml links the signature to the skill that wrote the report', () => {
@@ -709,4 +708,88 @@ test('renderReportHtml puts the whole run on the Run tile', () => {
 	// Both figures cover both passes; the duration used to be the explore
 	// pass's while the cost beside it was the total.
 	assert.match(tile, /<span class="tile-num">31m<\/span><span class="unit">\$3\.75<\/span>/);
+});
+
+test('parseReport reads the model off a footer line, and a line without one', () => {
+	const { cost } = parseReport(FULL);
+	assert.equal(cost.passes[0].model, 'Opus 5.5');
+	assert.equal(cost.passes[0].cost, '$3.12');
+	// Reports written before the model was recorded still parse.
+	assert.equal(cost.passes[1].model, null);
+	assert.equal(cost.passes[1].turns, '31');
+});
+
+test('parseReport reads a pass shorter than a minute', () => {
+	const { cost } = parseReport('# t\n\n_verify: Sonnet 5 | $0.02 | 3 turns | <1m_');
+	assert.equal(cost.passes[0].duration, '<1m');
+	assert.equal(cost.passes[0].model, 'Sonnet 5');
+});
+
+test('renderReportHtml keys the Run tile by model and sizes stages by cost', () => {
+	const html = renderReportHtml(FULL);
+	const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
+	assert.match(tiles, /flex:312 1 0;background:var\(--stage-1\)/);
+	assert.match(tiles, /flex:63 1 0;background:var\(--stage-2\)/);
+	assert.match(tiles, /<b>Opus 5\.5<\/b> explore/);
+	// No model on record: the role alone.
+	assert.match(tiles, /<span>verify<\/span>/);
+	// Turn counts live in the Agents table, not on the tile.
+	assert.doesNotMatch(tiles, /turns|77/);
+});
+
+test('renderReportHtml opens Run details with the Agents table', () => {
+	const html = renderReportHtml(FULL);
+	assert.match(html, /<span class="hint">Agents, /);
+	const agents = html.slice(html.indexOf('<div class="fold-part agents">'));
+	assert.match(agents, /<span>Explore<\/span><span>Opus 5\.5<\/span><span class="num">\$3\.12<\/span><span class="num muted">77 of 200<\/span>/);
+	assert.match(agents, /<span class="num muted">31<\/span>/);
+	assert.match(agents, /<span>Total<\/span><span class="muted">31m elapsed<\/span><span class="num">\$3\.75<\/span><span class="num muted">108<\/span>/);
+});
+
+test('renderReportHtml gives a report with only cost lines a Run details fold', () => {
+	const html = renderReportHtml('# t\n\n_explore: $1.00 | 5/200 turns | 2m_');
+	assert.match(html, /<details id="run-details">/);
+	assert.match(html, /<a class="tile tip" href="#run-details"/);
+});
+
+test('visibleExercisedCount shows findings plus 4 passes, at least 6, all at 8 or fewer', () => {
+	const rows = (findings, passes) => [
+		...Array.from({ length: findings }, (_, i) => ({ finding: i + 1 })),
+		...Array.from({ length: passes }, () => ({ finding: null })),
+	];
+	assert.equal(visibleExercisedCount(rows(2, 6)), 8);
+	assert.equal(visibleExercisedCount(rows(1, 17)), 6);
+	assert.equal(visibleExercisedCount(rows(0, 18)), 6);
+	assert.equal(visibleExercisedCount(rows(5, 13)), 9);
+	assert.equal(visibleExercisedCount(rows(9, 1)), 10);
+});
+
+test('renderReportHtml puts finding rows first and collapses the passes past the first 4', () => {
+	const pass = n => `| pass ${n} | fine | |`;
+	const html = renderReportHtml(md([
+		'## Coverage', '', '### Exercised', '',
+		'| Scenario | Result | Screenshot |', '|---|---|---|',
+		...[1, 2, 3, 4, 5].map(pass),
+		'| second hit | broke (Finding 2) | |',
+		...[6, 7, 8].map(pass),
+		'| first hit | broke (Finding 1) | |',
+		...[9, 10].map(pass),
+		'', '### Not exercised', '',
+		'| Scenario | Reason |', '|---|---|',
+		...Array.from({ length: 12 }, (_, i) => `| skip ${i} | later |`),
+	].join('\n')));
+	const order = [...html.matchAll(/<span>((?:pass|first|second) [^<]*)<\/span>/g)].map(m => m[1]);
+	assert.deepEqual(order.slice(0, 7), ['first hit', 'second hit', 'pass 1', 'pass 2', 'pass 3', 'pass 4', 'pass 5']);
+	assert.equal((html.slice(html.indexOf('<body')).match(/cov-extra/g) || []).length, 6);
+	assert.match(html, /<h3 class="cov-title">Exercised<span class="cov-n"> &middot; 12<\/span>/);
+	assert.match(html, /<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all 12 exercised scenarios">/);
+	assert.match(html, /<label for="cov-all" class="cov-more"><span class="cov-all">Show all 12 exercised scenarios<\/span><span class="cov-less">Show fewer<\/span>/);
+	// Not exercised never collapses, however long.
+	const not = html.slice(html.indexOf('Not exercised'));
+	assert.doesNotMatch(not, /cov-extra|cov-toggle/);
+});
+
+test('renderReportHtml shows a short Exercised table in full with no toggle', () => {
+	const html = renderReportHtml(FULL);
+	assert.doesNotMatch(html.slice(html.indexOf('<body')), /cov-toggle|cov-extra/);
 });
