@@ -609,7 +609,8 @@ stops[(i+(e.shiftKey?-1:1)+stops.length)%stops.length].focus();}});
 // One handler for every copy button. Only a copy that worked says "Copied".
 const COPY_SCRIPT = `document.querySelectorAll('.cp-btn').forEach(function(b){var t;
 b.addEventListener('click',function(){var el=document.getElementById(b.dataset.prompt);if(!el){return;}
-var text=el.textContent.trim();
+// Undo renderPromptBlock's escape of the closing script tag, or the paste carries it.
+var text=el.textContent.trim().replace(/<\\\\\\/(?=script)/gi,'</');
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip='Copy prompt for agent';},2000);}
 // A frame that blocks the clipboard API can still allow execCommand.

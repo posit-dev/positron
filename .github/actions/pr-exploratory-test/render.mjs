@@ -51,8 +51,9 @@ if (flags['duration-ms']) {
 		minutes === 0 ? '<1m' : `${minutes}m`,
 	].filter(Boolean);
 	const footer = `_explore: ${bits.join(' | ')}_`;
-	// Re-rendering must not stack a second footer under the first.
-	const body = markdown.split('\n').filter(l => !/^_[a-z]+:.*_$/.test(l.trim())).join('\n').trimEnd();
+	// Re-rendering must not stack a second footer under the first; only the
+	// labels a footer is written with, so a body line like `_note: x_` survives.
+	const body = markdown.split('\n').filter(l => !/^_(explore|verify|total):.*_$/.test(l.trim())).join('\n').trimEnd();
 	markdown = `${body}\n\n${footer}\n`;
 	writeFileSync(input, markdown);
 }

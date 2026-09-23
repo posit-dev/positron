@@ -895,6 +895,28 @@ test('renderReportHtml leaves empty prompt sections out', () => {
 	assert.match(text, /### Context\nBranch: branch\/name\nCommit: abc1234\n\nPlease investigate/);
 });
 
+test('renderReportHtml copies a prompt mentioning </script> as written, not as escaped', () => {
+	const html = renderReportHtml(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Observed:** the tag `</script>` ended the block.',
+	].join('\n')));
+	const block = promptText(html, 1);
+	assert.doesNotMatch(block, /<\/script/i);
+	// Run the copy handler's own unescape over the block, as the page does.
+	const [, pattern, flags, replacement] = /var text=el\.textContent\.trim\(\)\.replace\(\/(.+?)\/([a-z]*),'([^']*)'\);/.exec(html);
+	assert.match(block.replace(new RegExp(pattern, flags), replacement), /The tag `<\/script>` ended the block/);
+});
+
+test('renderReportHtml emits inline scripts that parse, cut where the HTML parser cuts them', () => {
+	const html = renderReportHtml(FULL);
+	const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script[\s/>]/gi)].map(m => m[1]);
+	assert.ok(scripts.length >= 2);
+	for (const src of scripts) {
+		assert.doesNotThrow(() => new Function(src));
+	}
+});
+
 test('renderReportHtml renders no prompt buttons, blocks or script when agent prompts are off', () => {
 	const html = renderReportHtml(FULL, { agentPrompts: false });
 	assert.doesNotMatch(html, /cp-btn"|text\/plain|querySelectorAll\('\.cp-btn'\)/);
