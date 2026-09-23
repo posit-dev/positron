@@ -54,65 +54,111 @@ function tile(href, tipText, inner) {
 function bar(segments) {
 	const parts = segments
 		.filter(s => s.count > 0)
-		.map(s => `<span style="flex-grow:${s.count};background:${s.color}"></span>`)
+		.map(s => `<span style="flex:${s.count} 1 0;background:${s.color}"></span>`)
 		.join('');
 	return parts ? `<div class="tile-bar">${parts}</div>` : '';
+}
+
+/** One keyed item per segment, so the bar can be read without a hover. */
+function legend(items) {
+	const parts = items
+		.filter(i => i.strong || i.word)
+		.map(i => `<span class="legend-item"><span class="key" style="background:${i.color}"></span>`
+			+ `<span>${i.strong ? `<b>${escapeHtml(String(i.strong))}</b> ` : ''}${escapeHtml(i.word ?? '')}</span></span>`)
+		.join('');
+	return parts ? `<div class="tile-legend">${parts}</div>` : '';
+}
+
+function hasCost(report) {
+	return report.cost.passes.length > 0;
+}
+
+function stageColor(i) {
+	return `var(--stage-${Math.min(i, 1) + 1})`;
+}
+
+function dollars(text) {
+	const n = Number(String(text ?? '').replace(/[^\d.]/g, ''));
+	return Number.isFinite(n) ? n : 0;
 }
 
 function renderTiles(report) {
 	const { severityCounts: sev, scenarios, cost } = report;
 	const hasFindings = report.findings.length > 0 || report.findingCount > 0;
 	const hasCoverage = scenarios.exercised > 0 || scenarios.notRun > 0;
-	const hasRun = Boolean(report.runDetails && report.runDetails.length);
+	const hasRun = Boolean(report.runDetails && report.runDetails.length) || hasCost(report);
 
-	const findingsNote = [
-		sev.major && `${sev.major} major`,
-		sev.moderate && `${sev.moderate} moderate`,
-		sev.minor && `${sev.minor} minor`,
-	].filter(Boolean).map(t => `<span>${t}</span>`).join('');
-
+	const findingSegments = [
+		{ count: sev.major, color: 'var(--major-dot)', word: 'major' },
+		{ count: sev.moderate, color: 'var(--moderate-dot)', word: 'moderate' },
+		{ count: sev.minor, color: 'var(--minor-dot)', word: 'minor' },
+	].filter(s => s.count > 0);
 	const findingsTile = tile(hasFindings ? '#findings' : null, 'Jump to Findings',
 		'<div class="tile-label">Findings</div>'
 		+ `<div class="tile-num">${report.findingCount}</div>`
-		+ bar([
-			{ count: sev.major, color: 'var(--major-dot)' },
-			{ count: sev.moderate, color: 'var(--moderate-dot)' },
-			{ count: sev.minor, color: 'var(--minor-dot)' },
-		])
-		+ (findingsNote ? `<div class="tile-note">${findingsNote}</div>` : ''));
+		+ bar(findingSegments)
+		+ legend(findingSegments.map(s => ({ ...s, strong: s.count }))));
 
 	// Deliberately "Jump to Coverage", not "Jump to Scenarios": the tooltip is
 	// where the reader learns these numbers summarise the Coverage section.
-	const scenariosNote = [
-		scenarios.pass && `${scenarios.pass} pass`,
-		scenarios.issues && `${scenarios.issues} issues`,
-		scenarios.notRun && `${scenarios.notRun} not run`,
-	].filter(Boolean).map(t => `<span>${t}</span>`).join('');
-
+	const scenarioSegments = [
+		{ count: scenarios.pass, color: 'var(--pass-fill)', word: 'pass' },
+		{ count: scenarios.issues, color: 'var(--moderate-dot)', word: 'issues' },
+		{ count: scenarios.notRun, color: 'var(--notrun-bar)', word: 'not run' },
+	].filter(s => s.count > 0);
 	const scenariosTile = tile(hasCoverage ? '#coverage' : null, 'Jump to Coverage',
 		'<div class="tile-label">Scenarios</div>'
 		+ `<div class="tile-figure"><span class="tile-num">${scenarios.exercised}</span><span class="unit">exercised</span></div>`
-		+ bar([
-			{ count: scenarios.pass, color: 'var(--pass-fill)' },
-			{ count: scenarios.issues, color: 'var(--moderate-dot)' },
-			{ count: scenarios.notRun, color: 'var(--notrun)' },
-		])
-		+ (scenariosNote ? `<div class="tile-note">${scenariosNote}</div>` : ''));
+		+ bar(scenarioSegments)
+		+ legend(scenarioSegments.map(s => ({ ...s, strong: s.count }))));
 
-	const runLines = cost.passes.map(p => {
-		const bits = [p.cost, p.turns && (p.maxTurns ? `${p.turns}/${p.maxTurns} turns` : `${p.turns} turns`)]
-			.filter(Boolean).join(' &middot; ');
-		return `${p.label} ${bits}`;
-	}).join('<br>');
-
+	// Sized by cost, the one number the stages share a unit for.
+	const stages = cost.passes.map((p, i) => ({
+		count: Math.round(dollars(p.cost) * 100),
+		color: stageColor(i),
+		strong: p.model,
+		word: p.label,
+	}));
 	const headline = cost.duration ?? cost.total ?? '&mdash;';
 	const beside = cost.duration && cost.total ? `<span class="unit">${cost.total}</span>` : '';
 	const runTile = tile(hasRun ? '#run-details' : null, 'Jump to Run details',
 		'<div class="tile-label">Run</div>'
 		+ `<div class="tile-figure"><span class="tile-num">${headline}</span>${beside}</div>`
-		+ (runLines ? `<div class="tile-note stack">${runLines}</div>` : ''));
+		+ bar(stages)
+		+ legend(stages));
 
 	return `<section class="tiles">${findingsTile}${scenariosTile}${runTile}</section>`;
+}
+
+function capitalize(text) {
+	return text ? text[0].toUpperCase() + text.slice(1) : text;
+}
+
+function renderAgents(report) {
+	const { passes, total, duration } = report.cost;
+	if (!passes.length) {
+		return '';
+	}
+	const cell = (text, cls) => `<span${cls ? ` class="${cls}"` : ''}>${escapeHtml(text ?? '')}</span>`;
+	const rows = passes.map(p => '<div class="agents-row">'
+		+ cell(capitalize(p.label))
+		+ cell(p.model ?? '\u2014')
+		+ cell(p.cost, 'num')
+		+ cell(p.turns == null ? '' : (p.maxTurns ? `${p.turns} of ${p.maxTurns}` : String(p.turns)), 'num muted')
+		+ '</div>');
+	const turns = passes.every(p => p.turns == null)
+		? '' : String(passes.reduce((sum, p) => sum + (Number(p.turns) || 0), 0));
+	const totalRow = passes.length > 1 || total
+		? '<div class="agents-row agents-total">'
+			+ cell('Total')
+			+ cell(duration ? `${duration} elapsed` : '', 'muted')
+			+ cell(total ?? '', 'num')
+			+ cell(turns, 'num muted')
+			+ '</div>'
+		: '';
+	return '<div class="fold-part agents"><div class="fold-label">Agents</div><div class="agents-table">'
+		+ '<div class="agents-row agents-head"><span>Stage</span><span>Model</span><span>Cost</span><span>Turns</span></div>'
+		+ rows.join('') + totalRow + '</div></div>';
 }
 
 function renderFindingsList(report) {
@@ -315,11 +361,11 @@ ${notBlock}
 
 function renderFolds(report) {
 	const folds = [];
-	if (report.runDetails && report.runDetails.length) {
-		const hint = report.runDetails.slice(0, 3)
-			.map((s, i) => (i === 0 ? s.title : s.title.toLowerCase()))
-			.join(', ');
-		const body = report.runDetails
+	const details = report.runDetails ?? [];
+	if (details.length || hasCost(report)) {
+		const titles = [...(hasCost(report) ? ['Agents'] : []), ...details.map(s => s.title)];
+		const hint = titles.map((t, i) => (i === 0 ? t : t.toLowerCase())).join(', ');
+		const body = renderAgents(report) + details
 			.map(s => `<div class="fold-part"><div class="fold-label">${escapeHtml(s.title)}</div>${s.html}</div>`)
 			.join('');
 		folds.push(`<details id="run-details">

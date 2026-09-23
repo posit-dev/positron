@@ -45,7 +45,34 @@ export function buildCostRecord(message) {
 		cache_read_input_tokens: message?.usage?.cache_read_input_tokens ?? null,
 		cache_creation_input_tokens: message?.usage?.cache_creation_input_tokens ?? null,
 		output_tokens: message?.usage?.output_tokens ?? null,
+		// The Run tile names the model, and the alias the job asked for ("opus")
+		// says nothing about which one answered.
+		model: mainModel(message?.modelUsage),
 	};
+}
+
+/** The model that billed most in a pass; a pass can call a small one on the side. */
+function mainModel(modelUsage) {
+	let best = null;
+	for (const [id, usage] of Object.entries(modelUsage ?? {})) {
+		const cost = typeof usage?.costUSD === 'number' ? usage.costUSD : 0;
+		if (!best || cost > best.cost) {
+			best = { id, cost };
+		}
+	}
+	return best?.id ?? null;
+}
+
+/** `claude-opus-5-5` reads `Opus 5.5`. An id it does not recognise passes through. */
+export function modelDisplayName(id) {
+	if (!id) {
+		return null;
+	}
+	const m = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[[^\]]*\])?$/.exec(id);
+	if (!m) {
+		return id;
+	}
+	return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`;
 }
 
 /**
@@ -94,6 +121,10 @@ export function renderCostFooter(passes, maxTurns) {
 			continue;
 		}
 		const bits = [`$${c.total_cost_usd.toFixed(2)}`];
+		const model = modelDisplayName(c.model);
+		if (model) {
+			bits.unshift(model);
+		}
 		if (typeof c.num_turns === 'number') {
 			// Only the explore pass has a cap worth watching; showing one for
 			// the others invites reading a limit nobody is near.
