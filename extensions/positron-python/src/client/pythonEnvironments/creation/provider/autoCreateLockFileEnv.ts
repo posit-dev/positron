@@ -15,31 +15,39 @@ import { getVenvExecutable, showPositronErrorMessageWithLogs } from '../common/c
 import { withProgress, showWarningMessage } from '../../../common/vscodeApis/windowApis';
 import { launch } from '../../../common/vscodeApis/browserApis';
 import { ensureUvInstalled, showUvInstallError } from '../../common/environmentManagers/uvPythonInstaller';
-import { getPixi, Pixi } from '../../common/environmentManagers/pixi';
+import { Pixi } from '../../common/environmentManagers/pixi';
 import { isWindows } from '../../../common/utils/platform';
 import { IPythonRuntimeManager } from '../../../positron/manager';
 
 const PIXI_INSTALL_DOCS_URL = 'https://pixi.sh/latest/installation/';
 
-async function runToolCommand(
+/**
+ * Runs `command` in `cwd`, logging its output. Rejects with the output on a non-zero exit.
+ */
+export async function runToolCommand(
     command: string,
     args: string[],
     cwd: string,
-    progress: CreateEnvironmentProgress,
     token?: CancellationToken,
 ): Promise<void> {
-    progress.report({ message: CreateEnv.Venv.creating });
     const deferred = createDeferred<void>();
+    const outputLines: string[] = [];
     traceLog('Running: ', [command, ...args]);
     const { proc, out, dispose } = execObservable(command, args, { mergeStdOutErr: true, token, cwd });
 
     out.subscribe(
-        (value) => traceLog(value.out.split(/\r?\n/g).join(os.EOL).trimEnd()),
+        (value) => {
+            const output = value.out.split(/\r?\n/g).join(os.EOL);
+            outputLines.push(output);
+            traceLog(output.trimEnd());
+        },
         (error) => deferred.reject(error),
         () => {
             dispose();
             if (proc?.exitCode !== 0) {
-                deferred.reject(`${command} ${args.join(' ')} failed with exitCode: ${proc?.exitCode}`);
+                const message = `${command} ${args.join(' ')} failed with exitCode: ${proc?.exitCode}`;
+                const detail = outputLines.join('').trimEnd();
+                deferred.reject(detail ? `${message}\n${detail}` : message);
             } else {
                 deferred.resolve();
             }
@@ -50,7 +58,31 @@ async function runToolCommand(
 
 /**
  * Runs `uv sync` at the workspace root and selects the resulting `.venv` as the active
- * runtime. Installs uv first (with consent) if it is not already available.
+ * runtime. Returns whether it succeeded.
+ */
+export async function syncUvEnv(
+    workspace: WorkspaceFolder,
+    pythonRuntimeManager: IPythonRuntimeManager,
+): Promise<boolean> {
+    return withProgress(
+        { location: ProgressLocation.Notification, title: CreateEnv.statusTitle, cancellable: true },
+        async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
+            progress.report({ message: CreateEnv.Venv.creating });
+            try {
+                await runToolCommand('uv', ['sync'], workspace.uri.fsPath, token);
+                await pythonRuntimeManager.selectLanguageRuntimeFromPath(getVenvExecutable(workspace), true);
+                return true;
+            } catch (error) {
+                traceError('CreateEnv Trigger - Error running uv sync: ', error);
+                return false;
+            }
+        },
+    );
+}
+
+/**
+ * Installs uv first (with consent) if it is not already available, then syncs the
+ * workspace's uv.lock environment.
  */
 export async function autoSyncUvEnv(
     workspace: WorkspaceFolder,
@@ -64,18 +96,9 @@ export async function autoSyncUvEnv(
         return;
     }
 
-    await withProgress(
-        { location: ProgressLocation.Notification, title: CreateEnv.statusTitle, cancellable: true },
-        async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
-            try {
-                await runToolCommand('uv', ['sync'], workspace.uri.fsPath, progress, token);
-                await pythonRuntimeManager.selectLanguageRuntimeFromPath(getVenvExecutable(workspace), true);
-            } catch (error) {
-                traceError('CreateEnv Trigger - Error running uv sync: ', error);
-                await showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
-            }
-        },
-    );
+    if (!(await syncUvEnv(workspace, pythonRuntimeManager))) {
+        await showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
+    }
 }
 
 async function resolvePixiPythonPath(pixi: Pixi, cwd: string): Promise<string | undefined> {
@@ -88,28 +111,31 @@ async function resolvePixiPythonPath(pixi: Pixi, cwd: string): Promise<string | 
 }
 
 /**
+ * Tells the user pixi is needed for this project and points at pixi's install docs;
+ * there is no automated installer for pixi.
+ */
+export async function showPixiNotInstalledWarning(): Promise<void> {
+    const choice = await showWarningMessage(CreateEnv.Trigger.pixiNotInstalledMessage, Common.learnMore);
+    if (choice === Common.learnMore) {
+        launch(PIXI_INSTALL_DOCS_URL);
+    }
+}
+
+/**
  * Runs `pixi install` at the workspace root and selects the resulting default environment
- * as the active runtime. If pixi itself is not installed, points the user at pixi's install
- * docs instead -- there is no automated installer for pixi.
+ * as the active runtime.
  */
 export async function autoInstallPixiEnv(
     workspace: WorkspaceFolder,
+    pixi: Pixi,
     pythonRuntimeManager: IPythonRuntimeManager,
 ): Promise<void> {
-    const pixi = await getPixi();
-    if (!pixi) {
-        const choice = await showWarningMessage(CreateEnv.Trigger.pixiNotInstalledMessage, Common.learnMore);
-        if (choice === Common.learnMore) {
-            launch(PIXI_INSTALL_DOCS_URL);
-        }
-        return;
-    }
-
     await withProgress(
         { location: ProgressLocation.Notification, title: CreateEnv.statusTitle, cancellable: true },
         async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
+            progress.report({ message: CreateEnv.Venv.creating });
             try {
-                await runToolCommand(pixi.command, ['install'], workspace.uri.fsPath, progress, token);
+                await runToolCommand(pixi.command, ['install'], workspace.uri.fsPath, token);
                 const pythonPath = await resolvePixiPythonPath(pixi, workspace.uri.fsPath);
                 if (pythonPath) {
                     await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath, true);

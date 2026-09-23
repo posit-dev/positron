@@ -49,22 +49,6 @@ export async function hasPyprojectToml(workspace: WorkspaceFolder): Promise<bool
     return installable;
 }
 
-export async function hasUvLock(workspace: WorkspaceFolder): Promise<boolean> {
-    const found = await fsapi.pathExists(path.join(workspace.uri.fsPath, 'uv.lock'));
-    if (found) {
-        traceVerbose(`Found uv.lock: ${workspace.uri.fsPath}`);
-    }
-    return found;
-}
-
-export async function hasPixiLock(workspace: WorkspaceFolder): Promise<boolean> {
-    const found = await fsapi.pathExists(path.join(workspace.uri.fsPath, 'pixi.lock'));
-    if (found) {
-        traceVerbose(`Found pixi.lock: ${workspace.uri.fsPath}`);
-    }
-    return found;
-}
-
 // --- End Positron ---
 export async function hasKnownFiles(workspace: WorkspaceFolder): Promise<boolean> {
     const filePaths: string[] = [

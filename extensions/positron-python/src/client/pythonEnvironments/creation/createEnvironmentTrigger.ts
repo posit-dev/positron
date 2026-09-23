@@ -12,15 +12,15 @@ import {
     // --- Start Positron ---
     hasPyprojectToml,
     hasShownCreateEnvModal,
-    hasUvLock,
-    hasPixiLock,
     // --- End Positron ---
     isGlobalPythonSelected,
     shouldPromptToCreateEnv,
     isCreateEnvWorkspaceCheckNotRun,
     disableCreateEnvironmentTrigger,
 } from './common/createEnvTriggerUtils';
-import { getWorkspaceFolder } from '../../common/vscodeApis/workspaceApis';
+// --- Start Positron ---
+import { getConfiguration, getWorkspaceFolder } from '../../common/vscodeApis/workspaceApis';
+// --- End Positron ---
 import { traceError, traceInfo, traceVerbose } from '../../logging';
 import { hasPrefixCondaEnv, hasPixiEnv, hasVenv } from './common/commonUtils';
 import { showInformationMessage } from '../../common/vscodeApis/windowApis';
@@ -40,8 +40,11 @@ import {
     describeDepFiles,
     describeTool,
 } from './provider/autoCreateVenv';
-import { autoSyncUvEnv, autoInstallPixiEnv } from './provider/autoCreateLockFileEnv';
+import { autoSyncUvEnv, autoInstallPixiEnv, showPixiNotInstalledWarning } from './provider/autoCreateLockFileEnv';
 import { IPythonRuntimeManager } from '../../positron/manager';
+import { getPixi } from '../common/environmentManagers/pixi';
+import * as path from 'path';
+import * as fsapi from '../../common/platform/fs-paths';
 // --- End Positron ---
 
 export enum CreateEnvironmentCheckKind {
@@ -61,6 +64,10 @@ export interface CreateEnvironmentTriggerOptions {
 }
 
 // --- Start Positron ---
+// Set once in registerCreateEnvironmentTriggers, which runs during activation before any
+// check. The manager is a singleton, so every later check (including reruns) reads the same one.
+let pythonRuntimeManager: IPythonRuntimeManager;
+
 /**
  * Shows the auto-create notification and dispatches on the user's response. Shared by the
  * legacy pip-based trigger and the uv.lock/pixi.lock triggers below, which only differ in
@@ -97,12 +104,7 @@ async function showAutoCreatePrompt(message: string, onYes: () => Promise<void>)
 }
 // --- End Positron ---
 
-async function createEnvironmentCheckForWorkspace(
-    uri: Uri,
-    // --- Start Positron ---
-    pythonRuntimeManager?: IPythonRuntimeManager,
-    // --- End Positron ---
-): Promise<void> {
+async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
     const workspace = getWorkspaceFolder(uri);
     if (!workspace) {
         traceInfo(`CreateEnv Trigger - Workspace not found for ${uri.fsPath}`);
@@ -132,28 +134,33 @@ async function createEnvironmentCheckForWorkspace(
         hasPyprojectToml(workspace),
         hasKnownFiles(workspace),
         isGlobalPythonSelected(workspace).then((isGlobal) => !isGlobal),
-        hasUvLock(workspace),
-        hasPixiLock(workspace),
+        fsapi.pathExists(path.join(workspace.uri.fsPath, 'uv.lock')),
+        fsapi.pathExists(path.join(workspace.uri.fsPath, 'pixi.lock')),
         hasPixiEnv(workspace),
     ]);
 
     // uv.lock and pixi.lock name an authoritative tool for recreating the exact locked
     // environment, so ask about that tool specifically instead of falling through to the
-    // generic pip-based trigger below, which wouldn't honor the lock file.
-    if (pythonRuntimeManager) {
-        if (uvLockExists && !venvExists && !condaExists && !nonGlobalPython) {
-            await showAutoCreatePrompt(CreateEnv.Trigger.uvSyncMessage, () =>
-                autoSyncUvEnv(workspace, pythonRuntimeManager),
-            );
-            return;
-        }
+    // generic pip-based trigger below, which wouldn't honor the lock file. uv may download a
+    // Python, so python.allowUvPythonInstall gates the uv prompt as it does elsewhere.
+    const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
+    if (uvLockExists && allowUvPythonInstall && !venvExists && !condaExists && !nonGlobalPython) {
+        await showAutoCreatePrompt(CreateEnv.Trigger.uvSyncMessage, () =>
+            autoSyncUvEnv(workspace, pythonRuntimeManager),
+        );
+        return;
+    }
 
-        if (pixiLockExists && !pixiEnvExists && !nonGlobalPython) {
+    if (pixiLockExists && !pixiEnvExists && !nonGlobalPython) {
+        const pixi = await getPixi();
+        if (pixi) {
             await showAutoCreatePrompt(CreateEnv.Trigger.pixiInstallMessage, () =>
-                autoInstallPixiEnv(workspace, pythonRuntimeManager),
+                autoInstallPixiEnv(workspace, pixi, pythonRuntimeManager),
             );
-            return;
+        } else {
+            await showPixiNotInstalledWarning();
         }
+        return;
     }
 
     const hasDepFiles = hasReqs || hasPyproject;
@@ -163,12 +170,8 @@ async function createEnvironmentCheckForWorkspace(
         !hasDepFiles ||
         knownFiles ||
         nonGlobalPython ||
-        // A pixi-managed project (an existing pixi env answers for pixi.lock the way venvExists/
-        // condaExists answer for the other managers) shouldn't fall through to the wrong,
-        // pip-based prompt below. uv.lock does not need the same guard: whenever it's present,
-        // the branch above either already handled it or was skipped for a reason (venvExists/
-        // condaExists/nonGlobalPython) that independently skips this prompt too.
-        (pythonRuntimeManager !== undefined && pixiLockExists);
+        // A pixi project with an existing pixi env shouldn't get the pip-based prompt below.
+        pixiLockExists;
     // --- End Positron ---
 
     if (skipPrompt) {
@@ -183,53 +186,38 @@ async function createEnvironmentCheckForWorkspace(
     const toolLabel = describeTool(ctx);
 
     await showAutoCreatePrompt(CreateEnv.Trigger.autoCreateMessage(depFilesLabel, toolLabel), async () => {
-        await autoCreateVenvWithDeps(workspace, ctx);
+        await autoCreateVenvWithDeps(workspace, ctx, undefined, pythonRuntimeManager);
     });
     // --- End Positron ---
 }
 
-function runOnceWorkspaceCheck(
-    uri: Uri,
-    options: CreateEnvironmentTriggerOptions = {},
-    // --- Start Positron ---
-    pythonRuntimeManager?: IPythonRuntimeManager,
-    // --- End Positron ---
-): Promise<void> {
+function runOnceWorkspaceCheck(uri: Uri, options: CreateEnvironmentTriggerOptions = {}): Promise<void> {
     if (isCreateEnvWorkspaceCheckNotRun() || options?.force) {
-        return createEnvironmentCheckForWorkspace(uri, pythonRuntimeManager);
+        return createEnvironmentCheckForWorkspace(uri);
     }
     sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'already-ran' });
     traceVerbose('CreateEnv Trigger - skipping this because it was already run');
     return Promise.resolve();
 }
 
-async function createEnvironmentCheckForFile(
-    uri: Uri,
-    options?: CreateEnvironmentTriggerOptions,
-    // --- Start Positron ---
-    pythonRuntimeManager?: IPythonRuntimeManager,
-    // --- End Positron ---
-): Promise<void> {
+async function createEnvironmentCheckForFile(uri: Uri, options?: CreateEnvironmentTriggerOptions): Promise<void> {
     if (await fileContainsInlineDependencies(uri)) {
         // TODO: Handle create environment for each file here.
         // pending acceptance of PEP-722/PEP-723
 
         // For now we do the same thing as for workspace.
-        await runOnceWorkspaceCheck(uri, options, pythonRuntimeManager);
+        await runOnceWorkspaceCheck(uri, options);
     }
 
     // If the file does not have any inline dependencies, then we do the same thing
     // as for workspace.
-    await runOnceWorkspaceCheck(uri, options, pythonRuntimeManager);
+    await runOnceWorkspaceCheck(uri, options);
 }
 
 export async function triggerCreateEnvironmentCheck(
     kind: CreateEnvironmentCheckKind,
     uri: Resource,
     options?: CreateEnvironmentTriggerOptions,
-    // --- Start Positron ---
-    pythonRuntimeManager?: IPythonRuntimeManager,
-    // --- End Positron ---
 ): Promise<void> {
     if (!uri) {
         sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'no-uri' });
@@ -239,9 +227,9 @@ export async function triggerCreateEnvironmentCheck(
 
     if (shouldPromptToCreateEnv()) {
         if (kind === CreateEnvironmentCheckKind.File) {
-            await createEnvironmentCheckForFile(uri, options, pythonRuntimeManager);
+            await createEnvironmentCheckForFile(uri, options);
         } else {
-            await runOnceWorkspaceCheck(uri, options, pythonRuntimeManager);
+            await runOnceWorkspaceCheck(uri, options);
         }
     } else {
         sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'turned-off' });
@@ -253,30 +241,25 @@ export function triggerCreateEnvironmentCheckNonBlocking(
     kind: CreateEnvironmentCheckKind,
     uri: Resource,
     options?: CreateEnvironmentTriggerOptions,
-    // --- Start Positron ---
-    pythonRuntimeManager?: IPythonRuntimeManager,
-    // --- End Positron ---
 ): void {
     // The Event loop for Node.js runs functions with setTimeout() with lower priority than setImmediate.
     // This is done to intentionally avoid blocking anything that the user wants to do.
-    setTimeout(() => triggerCreateEnvironmentCheck(kind, uri, options, pythonRuntimeManager).ignoreErrors(), 0);
+    setTimeout(() => triggerCreateEnvironmentCheck(kind, uri, options).ignoreErrors(), 0);
 }
 
 export function registerCreateEnvironmentTriggers(
     disposables: Disposable[],
     // --- Start Positron ---
-    pythonRuntimeManager: IPythonRuntimeManager,
+    runtimeManager: IPythonRuntimeManager,
     // --- End Positron ---
 ): void {
+    // --- Start Positron ---
+    pythonRuntimeManager = runtimeManager;
+    // --- End Positron ---
     disposables.push(
         registerCommand(Commands.Create_Environment_Check, (file: Resource) => {
             sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'as-command' });
-            triggerCreateEnvironmentCheckNonBlocking(
-                CreateEnvironmentCheckKind.File,
-                file,
-                { force: true },
-                pythonRuntimeManager,
-            );
+            triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file, { force: true });
         }),
     );
 }

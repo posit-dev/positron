@@ -19,6 +19,7 @@ import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../../constants';
 import {
     autoSyncUvEnv,
     autoInstallPixiEnv,
+    showPixiNotInstalledWarning,
 } from '../../../../client/pythonEnvironments/creation/provider/autoCreateLockFileEnv';
 import { IPythonRuntimeManager } from '../../../../client/positron/manager';
 import { Common } from '../../../../client/common/utils/localize';
@@ -60,9 +61,9 @@ suite('Auto Create Lock File Env', () => {
         showWarningMessageStub = sinon.stub(windowApis, 'showWarningMessage');
         launchStub = sinon.stub(browserApis, 'launch');
         selectLanguageRuntimeFromPathStub = sinon.stub();
-        runtimeManager = ({
+        runtimeManager = {
             selectLanguageRuntimeFromPath: selectLanguageRuntimeFromPathStub,
-        } as unknown) as IPythonRuntimeManager;
+        } as unknown as IPythonRuntimeManager;
     });
 
     teardown(() => {
@@ -114,32 +115,25 @@ suite('Auto Create Lock File Env', () => {
         });
     });
 
-    suite('autoInstallPixiEnv', () => {
-        let getPixiStub: sinon.SinonStub;
-
-        setup(() => {
-            getPixiStub = sinon.stub(pixiModule, 'getPixi');
-        });
-
-        test('pixi not installed: shows warning with Learn More, does not run pixi install', async () => {
-            getPixiStub.resolves(undefined);
-            showWarningMessageStub.resolves(undefined);
-
-            await autoInstallPixiEnv(workspace, runtimeManager);
-
-            sinon.assert.notCalled(execObservableStub);
-            sinon.assert.notCalled(selectLanguageRuntimeFromPathStub);
-        });
-
-        test('pixi not installed: clicking Learn More opens the install docs', async () => {
-            getPixiStub.resolves(undefined);
+    suite('showPixiNotInstalledWarning', () => {
+        test('clicking Learn More opens the install docs', async () => {
             showWarningMessageStub.resolves(Common.learnMore);
 
-            await autoInstallPixiEnv(workspace, runtimeManager);
+            await showPixiNotInstalledWarning();
 
             sinon.assert.calledOnce(launchStub);
         });
 
+        test('dismissing does not open the install docs', async () => {
+            showWarningMessageStub.resolves(undefined);
+
+            await showPixiNotInstalledWarning();
+
+            sinon.assert.notCalled(launchStub);
+        });
+    });
+
+    suite('autoInstallPixiEnv', () => {
         test('pixi installed: runs pixi install and selects the default environment interpreter', async () => {
             const pixi = {
                 command: 'pixi',
@@ -147,10 +141,9 @@ suite('Auto Create Lock File Env', () => {
                     environments_info: [{ name: 'default', prefix: '/proj/.pixi/envs/default' }],
                 }),
             };
-            getPixiStub.resolves(pixi);
             stubSuccessfulExec();
 
-            await autoInstallPixiEnv(workspace, runtimeManager);
+            await autoInstallPixiEnv(workspace, pixi as unknown as pixiModule.Pixi, runtimeManager);
 
             sinon.assert.calledOnce(execObservableStub);
             const [command, args, options] = execObservableStub.firstCall.args;
@@ -172,10 +165,9 @@ suite('Auto Create Lock File Env', () => {
                     environments_info: [{ name: 'default', prefix: '/proj/.pixi/envs/default' }],
                 }),
             };
-            getPixiStub.resolves(pixi);
             stubFailingExec();
 
-            await autoInstallPixiEnv(workspace, runtimeManager);
+            await autoInstallPixiEnv(workspace, pixi as unknown as pixiModule.Pixi, runtimeManager);
 
             sinon.assert.notCalled(selectLanguageRuntimeFromPathStub);
         });
@@ -185,10 +177,9 @@ suite('Auto Create Lock File Env', () => {
                 command: 'pixi',
                 getPixiInfo: sinon.stub().resolves({ environments_info: [] }),
             };
-            getPixiStub.resolves(pixi);
             stubSuccessfulExec();
 
-            await autoInstallPixiEnv(workspace, runtimeManager);
+            await autoInstallPixiEnv(workspace, pixi as unknown as pixiModule.Pixi, runtimeManager);
 
             sinon.assert.notCalled(selectLanguageRuntimeFromPathStub);
         });

@@ -128,12 +128,7 @@ export async function activateFeatures(ext: ExtensionState, _components: Compone
     const workspaceService = ext.legacyIOC.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     const firstFolder = workspaceService.workspaceFolders?.[0];
     if (firstFolder) {
-        triggerCreateEnvironmentCheckNonBlocking(
-            CreateEnvironmentCheckKind.Workspace,
-            firstFolder.uri,
-            undefined,
-            pythonRuntimeManager,
-        );
+        triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.Workspace, firstFolder.uri);
     }
     // --- End Positron ---
     const executionHelper = ext.legacyIOC.serviceContainer.get<ICodeExecutionHelper>(ICodeExecutionHelper);
