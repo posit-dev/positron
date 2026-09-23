@@ -732,7 +732,7 @@ test('renderReportHtml keys the Run tile by model and sizes stages by cost', () 
 	assert.match(tiles, /flex:63 1 0;background:var\(--stage-2\)/);
 	assert.match(tiles, /<b>Opus 5\.5<\/b> explore/);
 	// No model on record: the role alone.
-	assert.match(tiles, /<span>verify<\/span>/);
+	assert.match(tiles, /<span class="legend-item">verify<\/span>/);
 	// Turn counts live in the Agents table, not on the tile.
 	assert.doesNotMatch(tiles, /turns|77/);
 });
@@ -792,4 +792,13 @@ test('renderReportHtml puts finding rows first and collapses the passes past the
 test('renderReportHtml shows a short Exercised table in full with no toggle', () => {
 	const html = renderReportHtml(FULL);
 	assert.doesNotMatch(html.slice(html.indexOf('<body')), /cov-toggle|cov-extra/);
+});
+
+test('renderReportHtml writes tile legends as plain text in bar order', () => {
+	const html = renderReportHtml(FULL);
+	const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
+	// No colour keys: each item names what it counts, split by a quiet middot.
+	assert.doesNotMatch(tiles, /class="key"/);
+	assert.match(tiles, /<span class="legend-item"><b>1<\/b> major<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> minor<\/span>/);
+	assert.match(tiles, /<b>2<\/b> pass<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> issues<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> not run/);
 });
