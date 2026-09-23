@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, modelDisplayName, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary } from './lib.mjs';
+import { pickReport, buildCostRecord, modelDisplayName, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, COMMENT_MARKER, runOutcome, renderPrComment } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -336,4 +336,90 @@ test('renderCostFooter leads a pass with its model when one is known', () => {
 		{ label: 'explore', main: true, cost: { total_cost_usd: 1.2, num_turns: 25, duration_ms: 360000, model: 'claude-opus-5-5' } },
 	], 200);
 	assert.match(footer, /_explore: Opus 5\.5 \| \$1\.20 \| 25\/200 turns \| 6m_/);
+});
+
+test('runOutcome is complete when a report was written inside the turn cap', () => {
+	assert.equal(runOutcome({ report: '# r', numTurns: 90, maxTurns: 200 }), 'complete');
+});
+
+test('runOutcome is partial at the turn cap, report or not', () => {
+	assert.equal(runOutcome({ report: '# r', numTurns: 200, maxTurns: 200 }), 'partial');
+	assert.equal(runOutcome({ report: null, numTurns: 200, maxTurns: 200 }), 'partial');
+});
+
+test('runOutcome is no-report when the agent stopped early without one', () => {
+	assert.equal(runOutcome({ report: null, numTurns: 12, maxTurns: 200 }), 'no-report');
+	// An SDK that never reported turns is not a partial run.
+	assert.equal(runOutcome({ report: null, numTurns: null, maxTurns: 200 }), 'no-report');
+});
+
+const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
+const SHA = 'abc1234def5678';
+
+test('renderPrComment carries the marker in every state', () => {
+	for (const state of ['running', 'complete', 'partial', 'no-report', '']) {
+		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
+		assert.match(body, /\[Run\]\(https:\/\/github\.com\/posit-dev\/positron\/actions\/runs\/1\)/);
+	}
+});
+
+test('renderPrComment names the head it tested, so a stale result reads as stale', () => {
+	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	assert.match(body, /`abc1234`/);
+	assert.doesNotMatch(body, /abc1234def/);
+});
+
+test('renderPrComment on a finished run is the job summary signpost, not the report', () => {
+	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	assert.ok(body.includes(renderStepSummary(SUMMARY_MD, 'https://cdn.example/run').trim()));
+	assert.doesNotMatch(body, /Observed|a claim|<details>/);
+});
+
+test('renderPrComment omits CDN links when the upload failed', () => {
+	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	assert.doesNotMatch(body, /cdn\.example|index\.html|report\.md/);
+	assert.match(body, /workflow artifact/);
+});
+
+test('renderPrComment flags a partial run that still wrote a report', () => {
+	const body = renderPrComment({ state: 'partial', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	assert.match(body, /\*\*5 findings/);
+	assert.match(body, /turn cap/);
+});
+
+test('renderPrComment says the run failed when the agent never ran', () => {
+	// The build broke, so there is no outcome and no report. The "running"
+	// comment must still be replaced with something true.
+	const body = renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	assert.match(body, /failed before/);
+	assert.doesNotMatch(body, /[Rr]unning against/);
+});
+
+test('renderPrComment explains a missing report per outcome', () => {
+	assert.match(renderPrComment({ state: 'partial', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /turn cap before writing a report/);
+	assert.match(renderPrComment({ state: 'no-report', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /without writing a report/);
+});
+
+test('renderPrComment running state links the run and names the head', () => {
+	const body = renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	assert.match(body, /Running against `abc1234`/);
+});
+
+test('renderPrComment leaves the SHA out rather than print an empty one', () => {
+	const body = renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' });
+	assert.doesNotMatch(body, /``/);
+});
+
+
+test('renderPrComment names the model in every state, so a /test typo is visible', () => {
+	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /^Running against `abc1234`\./m);
+	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /^### Exploratory test \(Sonnet\)$/m);
+	assert.match(renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /^### Exploratory test \(Sonnet\) on `abc1234`$/m);
+	assert.match(renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'opus' }), /^### Exploratory test \(Opus\) on `abc1234`: no report$/m);
+});
+
+test('renderPrComment leaves the model out when none is given', () => {
+	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /Running against `abc1234`/);
+	assert.doesNotMatch(renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /\(\)/);
 });
