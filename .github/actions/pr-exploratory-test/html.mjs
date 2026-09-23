@@ -84,9 +84,18 @@ const REPORT_CSS = `
  * one builds its own cards rather than rendering prose.
  */
 const BODY_CSS = `
-		.header .summary { margin-top: 12px; }
-		.header .summary .line { margin: 4px 0; line-height: 1.45; }
-		.header .summary strong { color: #fff; }
+		/* The hero: eyebrow, title, meta, a rule, then the outcome. Nothing else. */
+		.header { padding: 28px 32px 30px; }
+		.header .eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.7rem; color: #9ca3af; margin-bottom: 14px; }
+		.header h1 { font-size: 1.45rem; line-height: 1.3; font-weight: 600; max-width: 34em; margin: 0 0 10px; }
+		.header .meta { color: #9ca3af; font-size: 0.85rem; }
+		.header .meta code { background: none; color: #9ca3af; padding: 0; }
+		.header .summary { margin-top: 26px; padding-top: 24px; border-top: 1px solid #374151; }
+		.header .tally .count { font-size: 1.6rem; font-weight: 600; color: #fff; line-height: 1.1; }
+		.header .tally .breakdown { margin-top: 5px; font-size: 0.85rem; color: #9ca3af; }
+		.header .lead { margin: 18px 0 0; font-size: 1rem; line-height: 1.55; color: #e5e7eb; max-width: 44em; }
+		/* Coverage sits under the hero, quiet, outside the dark area. */
+		.coverage { color: #6b7280; font-size: 0.85rem; line-height: 1.5; margin: 0 4px 14px; max-width: 60em; }
 		.card table { margin: 8px 0 16px; }
 		.card th { border-bottom: 1px solid #e5e7eb; font-weight: 600; }
 		.card td { border-bottom: 1px solid #f3f4f6; vertical-align: top; }
@@ -121,6 +130,7 @@ const BODY_CSS = `
 			.card h3 { color: #f3f4f6; }
 			.card h3.finding { border-top-color: #1f2937; }
 			li.shot .cap { color: #9ca3af; }
+			.coverage { color: #9ca3af; }
 		}`;
 
 function escapeHtml(text) {
@@ -192,6 +202,44 @@ function shotRenderer() {
 	});
 }
 
+/**
+ * Counts the findings table's rows and severities.
+ *
+ * Derived rather than asked for: the agent already wrote the table, and a
+ * second field restating it is one more thing to phrase softly. This cannot
+ * drift from the rows it counts.
+ */
+function tallyFindings(lines) {
+	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
+	if (header === -1) {
+		return null;
+	}
+	const cols = lines[header].split('|').map(c => c.trim().toLowerCase());
+	const severityCol = cols.indexOf('severity');
+	const counts = new Map();
+	let rows = 0;
+	for (let i = header + 2; i < lines.length && lines[i].startsWith('|'); i++) {
+		if (!/^\|\s*\d+\s*\|/.test(lines[i])) {
+			continue;
+		}
+		rows++;
+		const cells = lines[i].split('|').map(c => c.trim());
+		const severity = (cells[severityCol] || '').toLowerCase();
+		if (severity) {
+			counts.set(severity, (counts.get(severity) || 0) + 1);
+		}
+	}
+	if (rows === 0) {
+		return null;
+	}
+	const order = ['major', 'moderate', 'minor'];
+	const breakdown = order
+		.filter(s => counts.has(s))
+		.map(s => `${counts.get(s)} ${s}`)
+		.join(' &middot; ');
+	return { rows, breakdown };
+}
+
 export function renderReportHtml(markdown) {
 	const lines = String(markdown ?? '').split('\n');
 	const titleIndex = lines.findIndex(l => l.startsWith('# '));
@@ -210,9 +258,43 @@ export function renderReportHtml(markdown) {
 			summaryIndexes.push(i);
 		}
 	});
-	const summary = summaryIndexes
-		.map(i => `<div class="line">${marked.parseInline(lines[i].trim())}</div>`)
-		.join('\n\t\t');
+	// The hero is an executive summary, not a home for every label. Tested and
+	// Not exercised move out of it: Coverage carries them in full further down,
+	// and repeating them here in compressed prose is what made the top dense.
+	const parts = summaryIndexes.map(i => {
+		const raw = lines[i].trim();
+		const label = (/^\*\*([^*]+):\*\*/.exec(raw) || [])[1] || '';
+		const value = raw.replace(/^\*\*[^*]+:\*\*\s*/, '');
+		return { label, value };
+	});
+	const result = parts.find(p => /^result$/i.test(p.label));
+	const tested = parts.find(p => /^tested$/i.test(p.label));
+	const notExercised = parts.find(p => /^not exercised$/i.test(p.label));
+	const tally = tallyFindings(lines);
+
+	// A run that found nothing and a run that never reached the feature both
+	// report zero. The Not exercised list belongs in Coverage, but its count
+	// stays next to the tally so the difference is visible from the top.
+	const gaps = notExercised && !/^\s*none\.?\s*$/i.test(notExercised.value)
+		? notExercised.value.split(/;|,(?![^(]*\))/).filter(x => x.trim()).length
+		: 0;
+	const headline = tally
+		? `${tally.rows} finding${tally.rows === 1 ? '' : 's'}`
+		: 'No findings';
+	const detail = [tally && tally.breakdown, gaps ? `${gaps} not exercised` : '']
+		.filter(Boolean).join(' &middot; ');
+
+	const summary = [
+		`<div class="tally"><div class="count">${headline}</div>`
+			+ (detail ? `<div class="breakdown">${detail}</div>` : '') + '</div>',
+		result ? `<p class="lead">${marked.parseInline(result.value)}</p>` : '',
+	].filter(Boolean).join('\n\t\t');
+
+	// One quiet line under the hero, outside the dark area.
+	const coverage = tested
+		? `<div class="coverage">${marked.parseInline(tested.value)}</div>`
+		: '';
+
 	const dropped = new Set([titleIndex, metaIndex, ...summaryIndexes]);
 	const body = lines
 		.filter((_, i) => !dropped.has(i))
@@ -229,10 +311,12 @@ export function renderReportHtml(markdown) {
 <body>
 <div class="container">
 	<div class="header">
-		<h1>${escapeHtml(title)}</h1>
+		<div class="eyebrow">Exploratory test</div>
+		<h1>${escapeHtml(title.replace(/^Exploratory test:\s*/i, ''))}</h1>
 		<div class="meta">${marked.parseInline(meta)}</div>
 		${summary ? `<div class="summary">\n\t\t${summary}\n\t\t</div>` : ''}
 	</div>
+	${coverage}
 	<div class="card">
 ${marked.parse(body, { renderer: shotRenderer() })}
 	</div>

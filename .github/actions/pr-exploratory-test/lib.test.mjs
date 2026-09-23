@@ -249,31 +249,45 @@ const REPORT_MD = [
 
 test('renderReportHtml lifts the title and meta into the header, once', () => {
 	const html = renderReportHtml(REPORT_MD);
-	assert.match(html, /<h1>Exploratory test: something<\/h1>/);
+	// "Exploratory test:" becomes the eyebrow, so the h1 carries only the subject.
+	assert.match(html, /<div class="eyebrow">Exploratory test<\/div>/);
+	assert.match(html, /<h1>something<\/h1>/);
 	assert.match(html, /<div class="meta">.*branch\/name.*<\/div>/);
-	// The title must not also appear as an h1 in the body.
 	assert.equal((html.match(/<h1>/g) || []).length, 1);
 });
 
-test('renderReportHtml gives each summary label its own line in the header', () => {
+test('renderReportHtml puts the outcome in the hero and coverage below it', () => {
 	const md = [
-		'# T',
-		'',
-		'`b` | `s`',
-		'',
+		'# T', '', '`b` | `s`', '',
 		'**Result:** it works.',
 		'**Tested:** two things, 2 scenarios',
-		'**Not exercised:** none',
+		'**Not exercised:** a surface; another surface',
 		'',
-		'## Findings',
-		'',
-		'No findings.',
+		'## Findings', '',
+		'| # | Finding | Severity | Verified |',
+		'|---|---------|----------|----------|',
+		'| 1 | a claim | major | confirmed |',
+		'| 2 | b claim | minor | confirmed |',
 	].join('\n');
 	const html = renderReportHtml(md);
-	// Three separate lines, not one folded paragraph.
-	assert.equal((html.match(/<div class="line">/g) || []).length, 3);
-	// And they are in the header, not repeated in the body.
-	assert.doesNotMatch(html.slice(html.indexOf('class="card"')), /Not exercised:/);
+	const hero = html.slice(html.indexOf('<div class="header">'), html.indexOf('<div class="coverage">'));
+	// The hero carries the count and the outcome, and nothing else.
+	assert.match(hero, /<div class="count">2 findings<\/div>/);
+	assert.match(hero, /1 major/);
+	assert.match(hero, /<p class="lead">it works\.<\/p>/);
+	// Tested moves out of the dark header; Not exercised leaves as a count only.
+	assert.doesNotMatch(hero, /two things/);
+	assert.doesNotMatch(hero, /another surface/);
+	assert.match(hero, /2 not exercised/);
+	assert.match(html, /<div class="coverage">two things, 2 scenarios<\/div>/);
+});
+
+test('renderReportHtml says "No findings" when the table is empty', () => {
+	const md = '# T\n\n`b` | `s`\n\n**Result:** clean.\n**Not exercised:** none\n\n## Findings\n\nNo findings.\n';
+	const html = renderReportHtml(md);
+	assert.match(html, /<div class="count">No findings<\/div>/);
+	// "none" is not a gap, so no count is shown beside it.
+	assert.doesNotMatch(html, /not exercised<\/div>/);
 });
 
 test('renderReportHtml leaves bold labels inside the body alone', () => {
