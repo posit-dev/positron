@@ -1,0 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Centered in the cell, and fading in from nothing rather than appearing at a fixed moment. The
+ * ease-in curve is what keeps ordinary scrolling from flickering: it spends its first frames very
+ * near zero, so a cell whose value arrives quickly -- a local DuckDB, PostgreSQL or SQLite, which
+ * is most of the time -- is gone again before there is anything to see, while a cell still waiting
+ * after a couple of hundred milliseconds is fully marked.
+ *
+ * A ramp rather than a delay because it scales itself: with a delay, one number has to be longer
+ * than every fast round trip and shorter than the point at which a slow one starts feeling
+ * unacknowledged, and there isn't always such a number. The ramp needs no such choice -- how
+ * visible the mark gets is just how long the wait ran.
+ *
+ * Two animated elements per cell, on opacity alone, which the compositor handles without laying out
+ * or painting again. A full viewport is on the order of 200 cells -- the row and column descriptors
+ * cover the viewport itself, with no overscan -- so this stays cheap even on a large display.
+ */
+.data-grid-row-cell .content .table-data-cell-placeholder {
+	opacity: 0;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	line-height: normal;
+	justify-content: center;
+	animation: table-data-cell-placeholder-fade-in 250ms ease-in forwards;
+}
+
+@keyframes table-data-cell-placeholder-fade-in {
+	to {
+		opacity: 1;
+	}
+}

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -25,4 +25,84 @@
 
 .data-grid:focus-visible {
 	outline: none !important;
+}
+
+/*
+ * Placeholder bar standing in for a value the grid is still loading -- a column name, a row label.
+ * Where it is used sizes and positions it; the pulse and the color live here so that every one of
+ * them reads as the same thing.
+ */
+.data-grid-loading-placeholder {
+	height: 6px;
+	opacity: 0.2;
+	border-radius: 3px;
+	/* Inherits the surrounding foreground, so the bar sits correctly in light and dark themes. */
+	background-color: currentColor;
+	animation: data-grid-loading-placeholder-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes data-grid-loading-placeholder-pulse {
+	0% { opacity: 0.1; }
+	50% { opacity: 0.25; }
+	100% { opacity: 0.1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.data-grid-loading-placeholder {
+		animation: none;
+	}
+}
+
+/*
+ * Ellipsis standing in for a value being computed rather than fetched -- a cell's value, a column's
+ * summary statistic, its sparkline. Where it is used positions it; the color and pulse live here so
+ * that every one of them reads as the same thing.
+ *
+ * Drawn as a codicon rather than set as a character, and that is the whole point of it. A data grid
+ * cell is set in the editor font and the summary panel beside it in the workbench font, so the same
+ * character comes out at a different size and weight on each side of the Data Explorer -- pinning
+ * the font size does not fix it, because the typefaces differ. The codicon font is the same
+ * everywhere, so the mark is identical wherever it lands, which is what it should be: it is chrome
+ * reporting that the grid is working, not a value set in the text around it.
+ */
+.data-grid-loading-mark {
+	color: var(--vscode-descriptionForeground);
+	animation: data-grid-loading-mark-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes data-grid-loading-mark-pulse {
+	0% { opacity: 0.25; }
+	50% { opacity: 0.8; }
+	100% { opacity: 0.25; }
+}
+
+/*
+ * The fade that brings the mark in is kept where it is used: it is a cross-fade rather than
+ * movement, and it is what keeps the mark from flickering. Only the pulse, the part that repeats
+ * for as long as the wait lasts, gives way to a steady opacity.
+ */
+@media (prefers-reduced-motion: reduce) {
+	.data-grid-loading-mark {
+		opacity: 0.6;
+		animation: none;
+	}
+}
+
+/*
+ * The same two stand-ins, for a value that is not being loaded: the grid asked for it, was given
+ * nothing, and has nothing outstanding. They keep the shape and the color of their loading
+ * counterparts, because they still say "a value belongs here", and drop the pulse, because a pulse
+ * is the grid reporting work in progress and there is none. Holding at the dim end of the pulse
+ * rather than at its bright one is the other half of that: settled, and quieter than a wait.
+ */
+.data-grid-unavailable-placeholder {
+	height: 6px;
+	opacity: 0.1;
+	border-radius: 3px;
+	background-color: currentColor;
+}
+
+.data-grid-unavailable-mark {
+	opacity: 0.25;
+	color: var(--vscode-descriptionForeground);
 }

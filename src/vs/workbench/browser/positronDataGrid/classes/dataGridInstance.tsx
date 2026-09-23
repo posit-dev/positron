@@ -1252,6 +1252,17 @@ export abstract class DataGridInstance extends Disposable {
 	abstract get rows(): number;
 
 	/**
+	 * Gets a value which indicates whether the grid does not yet know enough to lay itself out
+	 * correctly. While this is true the grid paints an indeterminate progress indicator instead of
+	 * its headers, corners and rows, rather than painting them from information it would have to
+	 * guess at and then correct. Grids whose layout information arrives asynchronously override
+	 * this; for the rest, there is never a moment when it isn't known.
+	 */
+	get loading(): boolean {
+		return false;
+	}
+
+	/**
 	 * Gets the scroll width.
 	 */
 	get scrollWidth() {

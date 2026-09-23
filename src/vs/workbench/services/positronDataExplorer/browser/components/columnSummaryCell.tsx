@@ -59,6 +59,12 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const ColumnSparkline = () => {
 		// Determines whether a sparkline is expected for this column type
 		const shouldShowSparkline = () => {
+			// With profiles failed there is no sparkline on its way, so the slot renders nothing at
+			// all rather than a loading placeholder for work that is over.
+			if (props.instance.columnProfilesFailed) {
+				return false;
+			}
+
 			switch (props.columnSchema.type_display) {
 				case ColumnDisplayType.Floating:
 				case ColumnDisplayType.Integer:
@@ -73,38 +79,25 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 		/**
 		 * SparklineLoadingIndicator component.
-		 * Displays a subtle loading animation while data is being computed.
+		 *
+		 * Stands in for a sparkline still being computed with the same ellipsis the data grid uses
+		 * for a cell still being loaded, rather than with a bar drawn in the null-percent graph's
+		 * fill. A bar of that weight and color reads as a datum -- a very wide, very flat one --
+		 * and a reader has no way to tell it from a real result until it is replaced. The ellipsis
+		 * cannot be mistaken for a measurement.
+		 *
+		 * It keeps the sparkline's box so nothing shifts when the real one arrives.
 		 */
 		const SparklineLoadingIndicator = () => {
 			return (
 				<div
-					className='column-sparkline'
+					className='column-sparkline loading-sparkline'
 					style={{
 						width: SPARKLINE_WIDTH,
 						height: SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT
 					}}
 				>
-					<svg
-						className='vector-histogram loading-sparkline'
-						shapeRendering='crispEdges'
-						viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT}`}
-					>
-						<g>
-							<rect className='x-axis'
-								height={SPARKLINE_X_AXIS_HEIGHT}
-								width={SPARKLINE_WIDTH}
-								x={0}
-								y={SPARKLINE_HEIGHT - SPARKLINE_X_AXIS_HEIGHT}
-							/>
-							<rect className='loading-indicator'
-								height={SPARKLINE_HEIGHT * 0.3}
-								rx={2}
-								width={SPARKLINE_WIDTH * 0.8}
-								x={SPARKLINE_WIDTH * 0.1}
-								y={SPARKLINE_HEIGHT * 0.5}
-							/>
-						</g>
-					</svg>
+					<div aria-hidden='true' className='data-grid-loading-mark codicon codicon-ellipsis' />
 				</div>
 			);
 		};
@@ -257,10 +250,20 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			const nullCount = props.instance.getColumnProfileNullCount(props.columnIndex);
 
 			if (nullPercent === undefined || nullCount === undefined) {
-				return nls.localize(
-					'positron.missingValues.calculating',
-					'Calculating...'
-				);
+				// Nothing to report yet. Which of the two that is depends on whether anything is
+				// still working on it: a failed pass stops before the columns behind it, so a
+				// column can be left without a count while others around it have one. Asking about
+				// this column's own figures first is what keeps the tooltip from contradicting the
+				// percentage displayed beside it.
+				return props.instance.columnProfilesFailed ?
+					nls.localize(
+						'positron.missingValues.unavailable',
+						'Missing values could not be calculated'
+					) :
+					nls.localize(
+						'positron.missingValues.calculating',
+						'Calculating...'
+					);
 			} else if (nullPercent === 0) {
 				return nls.localize(
 					'positron.missingValues.none',

@@ -7,7 +7,7 @@ import { isContiguous } from './utils.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
-import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { DataExplorerClientInstance, DataExplorerClientStatus } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
@@ -146,9 +146,28 @@ export class TableDataCache extends Disposable {
 	private _rows = 0;
 
 	/**
-	 * Flag if table has row labels
+	 * Whether the table has row labels, or undefined until the table's shape has been read. The
+	 * three states are distinct to callers: a labeled table's labels are fetched separately and
+	 * arrive later, an unlabeled table's row numbers are known immediately, and until the shape has
+	 * been read neither is true.
 	 */
-	private _hasRowLabels = false;
+	private _hasRowLabels: boolean | undefined;
+
+	/**
+	 * Whether the last attempt to load cell values came back with nothing to show for it. Cells the
+	 * grid asked for are then uncached with nothing on the way, which reads the same as one still
+	 * loading unless the grid is told the difference -- so this is what stops it from marking them
+	 * as in progress forever. Cleared by the next attempt that does deliver.
+	 */
+	private _dataLoadFailed = false;
+
+	/**
+	 * Whether the last attempt to load row labels came back with nothing to show for it. Separate
+	 * from the cell values because the two are fetched separately and one can fail without the
+	 * other: a table can show all of its data down to the last cell and still not know what to call
+	 * its rows.
+	 */
+	private _rowLabelsLoadFailed = false;
 
 	/**
 	 * Gets or sets the column width calculators.
@@ -215,6 +234,22 @@ export class TableDataCache extends Disposable {
 	 */
 	get rows() {
 		return this._rows;
+	}
+
+	/**
+	 * Gets a value which indicates whether the last attempt to load cell values delivered nothing,
+	 * so a cell that isn't cached has nothing on the way either.
+	 */
+	get dataLoadFailed() {
+		return this._dataLoadFailed;
+	}
+
+	/**
+	 * Gets a value which indicates whether the last attempt to load row labels delivered nothing,
+	 * so a row whose label isn't cached has nothing on the way either.
+	 */
+	get rowLabelsLoadFailed() {
+		return this._rowLabelsLoadFailed;
 	}
 
 	//#endregion Public Properties
@@ -581,6 +616,13 @@ export class TableDataCache extends Disposable {
 			// Get the data values
 			const tableData = await this._dataExplorerClientInstance.getDataValues(columnSelections);
 
+			// Record whether that attempt is going to yield anything. A client whose comm has
+			// closed answers rather than rejects -- with an empty result -- so a disconnect never
+			// reaches the catch below and has to be recognized here instead. Asking for nothing
+			// isn't a failure: every cell in the window was already cached.
+			this._dataLoadFailed = columnSelections.length > 0 &&
+				this._dataExplorerClientInstance.status === DataExplorerClientStatus.Disconnected;
+
 			// Update the data column cache.
 			for (let column = 0; column < tableData.columns.length; column++) {
 				// Get the column selection.
@@ -631,6 +673,11 @@ export class TableDataCache extends Disposable {
 			if (rowLabels) {
 				try {
 					const tableRowLabels = await this._dataExplorerClientInstance.getRowLabels(rowLabels);
+
+					// Labels were asked for, so an empty answer is one that cannot be rendered --
+					// and it is how a closed comm answers, without rejecting.
+					this._rowLabelsLoadFailed = tableRowLabels.row_labels[0].length === 0;
+
 					for (let row = 0; row < tableRowLabels.row_labels[0].length; row++) {
 						// Set the row index.
 						let rowIndex: number;
@@ -646,8 +693,10 @@ export class TableDataCache extends Disposable {
 						this._rowLabelCache.set(rowIndex, tableRowLabels.row_labels[0][row]);
 					}
 				} catch (error) {
-					// Log and continue; the cell data above is already loaded.
+					// Log and continue; the cell data above is already loaded. The headers stop
+					// reading as loading, though -- these labels are not coming.
 					console.error('Failed to load table row labels:', error);
+					this._rowLabelsLoadFailed = true;
 				}
 			}
 
@@ -677,6 +726,11 @@ export class TableDataCache extends Disposable {
 			// Log and swallow. Rethrowing would skip draining the pending descriptor below, which
 			// would stall scroll-driven updates after a failed backend request.
 			console.error('Failed to update the table data cache:', error);
+
+			// Nothing was cached for this window, so the cells in it have nothing on the way. They
+			// stop reading as loading until an attempt gets further than this one did.
+			this._dataLoadFailed = true;
+			this._onDidUpdateEmitter.fire();
 		} finally {
 			// Clear the updating flag.
 			this._updating = false;
@@ -706,14 +760,23 @@ export class TableDataCache extends Disposable {
 	/**
 	 * Gets the row label for the specified row index.
 	 * @param rowIndex The row index.
-	 * @returns The row label for the specified column index.
+	 * @returns The row label for the specified row index, or undefined if it isn't known yet.
 	 */
-	getRowLabel(rowIndex: number) {
-		if (this._hasRowLabels) {
-			return this._rowLabelCache.get(rowIndex) ?? `...`;
-		} else {
-			return `${rowIndex}`;
+	getRowLabel(rowIndex: number): string | undefined {
+		// The table's shape hasn't been read, so whether the rows are labeled isn't known yet.
+		// Answering with the row number would be a guess that a labeled table then replaces.
+		if (this._hasRowLabels === undefined) {
+			return undefined;
 		}
+
+		// A labeled table's labels are fetched separately, so this one may not have arrived yet.
+		if (this._hasRowLabels) {
+			return this._rowLabelCache.get(rowIndex);
+		}
+
+		// An unlabeled table's rows are identified by their number, which is known for every row
+		// as soon as the shape is.
+		return `${rowIndex}`;
 	}
 
 	/**
