@@ -212,7 +212,8 @@ test('renderCostFooter renders passes in the order they ran, then a total', () =
 	assert.match(lines[0], /gate: \$0\.01 \| 3 turns/);
 	assert.match(lines[1], /explore: \$2\.52 \| 67\/200 turns \| 16m/);
 	assert.match(lines[2], /verify: \$0\.48 \| 24 turns/);
-	assert.match(lines[3], /total: \$3\.01/);
+	// The total covers every pass in money and in time.
+	assert.match(lines[3], /total: \$3\.01 \| 16m/);
 });
 
 test('renderCostFooter omits passes that did not run, and the total with them', () => {
@@ -285,4 +286,26 @@ test('renderStepSummary points at the artifact when nothing was published', () =
 	// A dead link is worse than no link.
 	assert.doesNotMatch(summary, /\]\(/);
 	assert.match(summary, /workflow artifact/);
+});
+
+test('renderCostFooter totals the time as well as the money', () => {
+	const footer = renderCostFooter([
+		{ label: 'explore', main: true, cost: { total_cost_usd: 0.99, num_turns: 20, duration_ms: 408211 } },
+		{ label: 'verify', cost: { total_cost_usd: 0.31, num_turns: 14, duration_ms: 75643 } },
+	], 200);
+	// 6.8m of exploring and 1.3m of verifying is an 8m run, not a 7m one.
+	assert.match(footer, /_explore: \$0\.99 \| 20\/200 turns \| 7m_/);
+	assert.match(footer, /_verify: \$0\.31 \| 14 turns \| 1m_/);
+	assert.match(footer, /_total: \$1\.30 \| 8m_/);
+});
+
+test('renderCostFooter does not report a pass that ran as taking no time', () => {
+	const footer = renderCostFooter([
+		{ label: 'explore', main: true, cost: { total_cost_usd: 0.10, num_turns: 2, duration_ms: 20000 } },
+		{ label: 'verify', cost: { total_cost_usd: 0.05, num_turns: 1, duration_ms: 9000 } },
+	], 200);
+	// Rounding to minutes turned forty seconds of work into "0m".
+	assert.doesNotMatch(footer, /\b0m\b/);
+	assert.match(footer, /_explore: \$0\.10 \| 2\/200 turns \| <1m_/);
+	assert.match(footer, /_total: \$0\.15 \| <1m_/);
 });

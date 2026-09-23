@@ -114,8 +114,8 @@ const FOLDS = [
 	'</details>',
 	'',
 	'_explore: $3.12 | 77/200 turns | 26m_',
-	'_verify: $0.63 | 31 turns_',
-	'_total: $3.75_',
+	'_verify: $0.63 | 31 turns | 5m_',
+	'_total: $3.75 | 31m_',
 ].join('\n');
 
 const FULL = md(FINDINGS, COVERAGE, FOLDS);
@@ -284,7 +284,8 @@ test('parseReport splits Run details into its subsections and reads the verdicts
 test('parseReport reads each cost pass and the total', () => {
 	const { cost } = parseReport(FULL);
 	assert.equal(cost.total, '$3.75');
-	assert.equal(cost.duration, '26m');
+	// The run took 31 minutes; 26 of them were the explore pass.
+	assert.equal(cost.duration, '31m');
 	assert.deepEqual(cost.passes.map(p => p.label), ['explore', 'verify']);
 	assert.equal(cost.passes[0].maxTurns, '200');
 });
@@ -700,4 +701,12 @@ test('parseReport widens a step fence past the source nested inside it', () => {
 	assert.match(step, /Text right after close\.[\s\S]*<\/code><\/pre>/);
 	assert.doesNotMatch(step, /<\/code><\/pre>[\s\S]*Text right after close/);
 	assert.equal(r.findings[0].steps.length, 2);
+});
+
+test('renderReportHtml puts the whole run on the Run tile', () => {
+	const html = renderReportHtml(FULL);
+	const tile = html.slice(html.indexOf('<div class="tile-label">Run</div>'));
+	// Both figures cover both passes; the duration used to be the explore
+	// pass's while the cost beside it was the total.
+	assert.match(tile, /<span class="tile-num">31m<\/span><span class="unit">\$3\.75<\/span>/);
 });

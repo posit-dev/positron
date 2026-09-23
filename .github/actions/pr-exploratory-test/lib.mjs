@@ -77,9 +77,16 @@ export function parsePosIntEnv(name, fallback, rawValue) {
 }
 
 /** One-line footer for the step summary. */
+function minutes(ms) {
+	const m = Math.round(ms / 60000);
+	// A pass that took forty seconds did happen; "0m" reads as though it did not.
+	return m === 0 ? '<1m' : `${m}m`;
+}
+
 export function renderCostFooter(passes, maxTurns) {
 	const lines = [];
 	let total = null;
+	let elapsed = 0;
 	for (const pass of passes) {
 		const c = pass?.cost;
 		if (!c || typeof c.total_cost_usd !== 'number') {
@@ -92,8 +99,9 @@ export function renderCostFooter(passes, maxTurns) {
 			// the others invites reading a limit nobody is near.
 			bits.push(pass.main ? `${c.num_turns}/${maxTurns} turns` : `${c.num_turns} turns`);
 		}
-		if (pass.main && typeof c.duration_ms === 'number') {
-			bits.push(`${Math.round(c.duration_ms / 60000)}m`);
+		if (typeof c.duration_ms === 'number') {
+			bits.push(minutes(c.duration_ms));
+			elapsed += c.duration_ms;
 		}
 		lines.push(`_${pass.label}: ${bits.join(' | ')}_`);
 		total = (total === null ? 0 : total) + c.total_cost_usd;
@@ -102,7 +110,14 @@ export function renderCostFooter(passes, maxTurns) {
 		return '_cost unknown_';
 	}
 	if (lines.length > 1) {
-		lines.push(`_total: $${total.toFixed(2)}_`);
+		// The total covers every pass, in money and in time. Reporting the cost
+		// of both passes beside the duration of one made the two figures on the
+		// Run tile describe different runs.
+		const bits = [`$${total.toFixed(2)}`];
+		if (elapsed > 0) {
+			bits.push(minutes(elapsed));
+		}
+		lines.push(`_total: ${bits.join(' | ')}_`);
 	}
 	return lines.join('\n');
 }

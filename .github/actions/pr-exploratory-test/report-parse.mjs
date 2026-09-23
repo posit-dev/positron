@@ -829,6 +829,12 @@ export function parseReport(markdown) {
 		},
 		runDetails,
 		verification,
-		cost: { passes: billed, total: total?.cost ?? null, duration: main?.duration ?? null },
+		// The total's duration covers every pass. Falling back to the main pass
+		// only matters for a report written before the total carried one.
+		cost: {
+			passes: billed,
+			total: total?.cost ?? null,
+			duration: total?.duration ?? main?.duration ?? null,
+		},
 	};
 }
