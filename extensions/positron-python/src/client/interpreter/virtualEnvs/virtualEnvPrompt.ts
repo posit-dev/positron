@@ -36,17 +36,17 @@ const doNotDisplayPromptStateKey = 'MESSAGE_KEY_FOR_VIRTUAL_ENV';
 export class VirtualEnvironmentPrompt implements IExtensionActivationService {
     public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
 
+    // --- Start Positron ---
+    // Dropped IInterpreterHelper, IPythonPathUpdaterServiceManager, and IInterpreterService: unused
+    // now that we start a console session instead of updating pythonPath.
     constructor(
         @inject(IPersistentStateFactory) private readonly persistentStateFactory: IPersistentStateFactory,
         @inject(IDisposableRegistry) private readonly disposableRegistry: Disposable[],
         @inject(IApplicationShell) private readonly appShell: IApplicationShell,
         @inject(IComponentAdapter) private readonly pyenvs: IComponentAdapter,
-        // --- Start Positron ---
-        // Dropped IInterpreterHelper, IPythonPathUpdaterServiceManager, and IInterpreterService: unused
-        // now that we start a console session instead of updating pythonPath.
         @inject(IPythonRuntimeManager) private readonly pythonRuntimeManager: IPythonRuntimeManager,
-        // --- End Positron ---
     ) {}
+    // --- End Positron ---
 
     public async activate(resource: Uri): Promise<void> {
         // --- Start Positron ---
