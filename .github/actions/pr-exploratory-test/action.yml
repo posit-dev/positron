@@ -79,9 +79,9 @@ outputs:
 runs:
   using: composite
   steps:
-    # Comment mode runs on the container's Node, which already ran npm ci in
-    # this job, and never calls the SDK. Skipping setup-node also keeps it off
-    # the PR checkout's .nvmrc, which a failed checkout would not have.
+    # Comment mode runs in the ack and report jobs on the runner's own Node and
+    # never calls the SDK. Those jobs check out only the harness, so there is
+    # no .nvmrc for setup-node to read.
     - name: Set up Node
       if: inputs.mode != 'comment'
       uses: actions/setup-node@v6

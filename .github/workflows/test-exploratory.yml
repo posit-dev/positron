@@ -51,12 +51,15 @@ jobs:
       github.event.issue.pull_request != null &&
       startsWith(github.event.comment.body, '/test')
     runs-on: ubuntu-latest
-    # Reads membership with the App token below, not GITHUB_TOKEN. No write
-    # access on the one job that runs for every matching comment, which is
-    # also why a blocked caller gets silence rather than a rejection comment.
-    permissions: {}
+    # Reads membership with the App token below and the PR with GITHUB_TOKEN.
+    # No write access on the one job that runs for every matching comment,
+    # which is also why a blocked caller gets silence rather than a rejection.
+    permissions:
+      pull-requests: read
     outputs:
       ok: ${{ steps.check.outputs.ok }}
+      head_sha: ${{ steps.check.outputs.head_sha }}
+      head_ref: ${{ steps.check.outputs.head_ref }}
     steps:
       - name: Mint org-scoped App token
         id: app-token
@@ -70,6 +73,8 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
           BODY: ${{ github.event.comment.body }}
           COMMENTER: ${{ github.event.comment.user.login }}
           PR_AUTHOR: ${{ github.event.issue.user.login }}
@@ -94,12 +99,31 @@ jobs:
             [ "$state" = "active" ]
           }
 
-          if is_member "$COMMENTER" && is_member "$PR_AUTHOR"; then
-            echo "ok=true" >> "$GITHUB_OUTPUT"
-            echo "Membership gate: ok"
-          else
+          if ! is_member "$COMMENTER" || ! is_member "$PR_AUTHOR"; then
             echo "Membership gate: blocked (commenter=$COMMENTER, author=$PR_AUTHOR)"
+            exit 0
           fi
+
+          # Authoring a PR is not controlling its head: a fork's owner can push
+          # after a member comments. Only an open PR whose head is in this repo,
+          # where pushing already takes write access. Pin the SHA here, so a
+          # later push does not change what explore checks out.
+          if ! pr=$(GH_TOKEN="$REPO_TOKEN" gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"); then
+            echo "Membership gate: could not read PR #${PR_NUMBER}"
+            exit 0
+          fi
+          state=$(jq -r '.state' <<<"$pr")
+          head_repo=$(jq -r '.head.repo.full_name' <<<"$pr")
+          if [ "$state" != "open" ] || [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "Membership gate: blocked (state=$state, head repo=$head_repo)"
+            exit 0
+          fi
+          {
+            echo "head_sha=$(jq -r '.head.sha' <<<"$pr")"
+            echo "head_ref=$(jq -r '.head.ref' <<<"$pr")"
+            echo "ok=true"
+          } >> "$GITHUB_OUTPUT"
+          echo "Membership gate: ok"
 
   # Decides whether the change is worth testing, before anything is built. Not
   # to be confused with `membership`, which decides who may run this at all.
@@ -197,6 +221,51 @@ jobs:
             printf '\n_gate: $%s_\n' "${COST:-?}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # The write half of a /test, split from explore so the job that runs PR code
+  # never holds a write token. Runs alongside explore, so the commenter sees
+  # the run was picked up before the slow build.
+  ack:
+    name: ack
+    needs: [membership]
+    if: needs.membership.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      reaction_id: ${{ steps.react.outputs.reaction_id }}
+    steps:
+      - name: Acknowledge /test
+        id: react
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          REACTION_ID=$(gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content=eyes --jq '.id' 2>/dev/null) || echo "Failed to add reaction (non-fatal)"
+          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Post running comment
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: running
+          pr-number: ${{ github.event.issue.number }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ needs.membership.outputs.head_sha }}
+
   explore:
     name: explore (${{ matrix.model }})
     needs: [worthiness, membership]
@@ -215,13 +284,11 @@ jobs:
     concurrency:
       group: pr-exploratory-${{ github.event.issue.number || inputs.ref }}-${{ matrix.model }}
       cancel-in-progress: true
-    # Job-level permissions replace the workflow's, so repeat those too.
-    permissions:
-      id-token: write
-      contents: read
-      packages: read
-      pull-requests: write
-      issues: write
+    # Read-only on purpose: this job runs PR code and an agent with a shell, and
+    # GITHUB_TOKEN is in their environment. ack and report do the writing.
+    outputs:
+      outcome: ${{ steps.explore.outputs.outcome }}
+      report_base_url: ${{ steps.s3-upload.outcome == 'success' && steps.rundir.outputs.report_base_url || '' }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -249,35 +316,10 @@ jobs:
       R_LIBS_USER: /usr/local/lib/R/site-library
       RETICULATE_PYTHON: /root/.venv/bin/python
     steps:
-      # First, so the commenter sees it was picked up before the slow steps.
-      - name: Acknowledge /test
-        id: ack
-        if: github.event_name == 'issue_comment'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          COMMENT_ID: ${{ github.event.comment.id }}
-        run: |
-          REACTION_ID=$(gh api --method POST \
-            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
-            -f content=eyes --jq '.id' 2>/dev/null) || echo "Failed to add reaction (non-fatal)"
-          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
-
-      - name: Resolve PR head
-        id: pr
-        if: github.event_name == 'issue_comment'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
-            --jq '"head_sha=\(.head.sha)\nhead_ref=\(.head.ref)"' >> "$GITHUB_OUTPUT"
-
-      # By SHA, not branch name: a fork's branch is not in this repo, and a push
-      # after the comment should not change what gets tested.
+      # The SHA membership pinned, so a push after the gate is not tested.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || steps.pr.outputs.head_sha }}
+          ref: ${{ inputs.ref || needs.membership.outputs.head_sha }}
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
@@ -299,17 +341,6 @@ jobs:
             .claude/skills/exploratory-testing
           sparse-checkout-cone-mode: false
           persist-credentials: false
-
-      - name: Post running comment
-        if: github.event_name == 'issue_comment'
-        continue-on-error: true
-        uses: ./.harness/.github/actions/pr-exploratory-test
-        with:
-          mode: comment
-          comment-state: running
-          pr-number: ${{ github.event.issue.number }}
-          github-token: ${{ github.token }}
-          head-sha: ${{ steps.pr.outputs.head_sha }}
 
       - name: Resolve diff base
         id: base
@@ -430,11 +461,13 @@ jobs:
           skip-summary: "true"
 
       - name: Allocate run directory
+        id: rundir
         shell: bash
         run: |
           set -euo pipefail
           echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
           echo "REPORT_BASE_URL=${REPORT_URL%/index.html}" >> "$GITHUB_ENV"
+          echo "report_base_url=${REPORT_URL%/index.html}" >> "$GITHUB_OUTPUT"
           mkdir -p /tmp/exploratory-run/shots
 
       - name: Launch Positron
@@ -486,7 +519,7 @@ jobs:
           skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
-          branch: ${{ inputs.ref || steps.pr.outputs.head_ref }}
+          branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -522,23 +555,6 @@ jobs:
           set -euo pipefail
           echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
 
-      # always(): a failed build must still replace "running" with the truth.
-      # Links only when the upload succeeded, so the comment never points at a
-      # CDN page that 404s; the run link still reaches the artifact.
-      - name: Post result comment
-        if: always() && github.event_name == 'issue_comment'
-        continue-on-error: true
-        uses: ./.harness/.github/actions/pr-exploratory-test
-        with:
-          mode: comment
-          comment-state: result
-          outcome: ${{ steps.explore.outputs.outcome }}
-          work-dir: ${{ env.EXPLORE_DIR }}
-          report-base-url: ${{ steps.s3-upload.outcome == 'success' && env.REPORT_BASE_URL || '' }}
-          pr-number: ${{ github.event.issue.number }}
-          github-token: ${{ github.token }}
-          head-sha: ${{ steps.pr.outputs.head_sha }}
-
       - name: Upload run directory
         if: always()
         uses: actions/upload-artifact@v7
@@ -549,17 +565,69 @@ jobs:
             /tmp/positron-dev-launch/*/code.log
           if-no-files-found: warn
 
+  # Replaces "running" with the result and swaps the reaction. A separate job
+  # for the same reason as ack. always(): a failed build must still replace
+  # "running" with the truth.
+  report:
+    name: report
+    needs: [membership, ack, explore]
+    if: always() && needs.membership.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download run directory
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: exploratory-run-opus
+          path: /tmp/run-artifact
+
+      # The artifact root is the common parent of what matched, so the run dir
+      # is nested when code.log was uploaded too and at the root when it was not.
+      - name: Locate run directory
+        run: |
+          if [ -d /tmp/run-artifact/exploratory-run ]; then
+            echo "WORK_DIR=/tmp/run-artifact/exploratory-run" >> "$GITHUB_ENV"
+          else
+            echo "WORK_DIR=/tmp/run-artifact" >> "$GITHUB_ENV"
+          fi
+
+      # Links only when the upload succeeded, so the comment never points at a
+      # CDN page that 404s; the run link still reaches the artifact.
+      - name: Post result comment
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: result
+          outcome: ${{ needs.explore.outputs.outcome }}
+          work-dir: ${{ env.WORK_DIR }}
+          report-base-url: ${{ needs.explore.outputs.report_base_url }}
+          pr-number: ${{ github.event.issue.number }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ needs.membership.outputs.head_sha }}
+
       # rocket only when the agent finished on its own. A partial run (turn
-      # cap) and a hard failure both get confused. A second /test cancelling
-      # this run never reaches here, leaving eyes on the first comment:
-      # accepted, since the upserted comment is still current.
+      # cap) and a hard failure both get confused.
       - name: Finalize reaction
-        if: always() && github.event_name == 'issue_comment' && steps.ack.outputs.reaction_id != ''
+        if: needs.ack.outputs.reaction_id != ''
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
-          REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
-          OUTCOME: ${{ steps.explore.outputs.outcome }}
+          REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
+          OUTCOME: ${{ needs.explore.outputs.outcome }}
         run: |
           gh api --method DELETE \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
