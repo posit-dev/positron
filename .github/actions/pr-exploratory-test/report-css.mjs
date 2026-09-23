@@ -108,9 +108,9 @@ const PROFESSIONAL = `
 
 	--switch-bg: #FFFFFF;
 	--switch-border: #E7E4DC;
-	--switch-on-bg: #ECE9E2;
+	--switch-on-bg: #F6F5F1;
 	--switch-on-icon: #2B2F35;
-	--switch-on-shadow: inset 0 0 0 1px #DCD7CC;
+	--switch-on-shadow: inset 0 0 0 1px #E7E4DC;
 	--switch-off-icon: #6F747B;
 	--switch-off-hover-icon: #2B2F35;
 	--switch-off-hover-bg: transparent;
