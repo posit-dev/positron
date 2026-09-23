@@ -303,3 +303,26 @@ test('renderReportHtml survives a report with no title', () => {
 	assert.match(html, /<h1>Exploratory test<\/h1>/);
 	assert.match(html, /just prose/);
 });
+
+test('renderReportHtml turns an evidence screenshot into a captioned thumbnail', () => {
+	const md = [
+		'# T', '', '`b` | `s`', '', '## Findings', '',
+		'**Evidence**', '',
+		'- [shots/01-stuck.png](https://cdn.example/shots/01-stuck.png) -- the spinner, 60s later',
+		'- `logs/app.log` -- `RPC timed out after 5 seconds`',
+	].join('\n');
+	const html = renderReportHtml(md);
+	assert.match(html, /<li class="shot">/);
+	assert.match(html, /<img src="https:\/\/cdn\.example\/shots\/01-stuck\.png"/);
+	assert.match(html, /target="_blank"/);
+	assert.match(html, /<div class="cap">the spinner, 60s later<\/div>/);
+	// The log bullet is not an image and stays an ordinary list item.
+	assert.match(html, /<li><code>logs\/app\.log<\/code>/);
+	assert.equal((html.match(/<li class="shot">/g) || []).length, 1);
+});
+
+test('renderReportHtml falls back to the filename when a shot has no caption', () => {
+	const md = '# T\n\n`b` | `s`\n\n## Findings\n\n- [shots/02.png](https://cdn.example/shots/02.png)\n';
+	const html = renderReportHtml(md);
+	assert.match(html, /<div class="cap">shots\/02\.png<\/div>/);
+});

@@ -92,6 +92,10 @@ const BODY_CSS = `
 		.card td { border-bottom: 1px solid #f3f4f6; vertical-align: top; }
 		.card td:first-child, .card th:first-child { padding-left: 0; }
 		.card img { max-width: 100%; border: 1px solid #e5e7eb; border-radius: 4px; margin: 8px 0; }
+		li.shot { list-style: none; display: inline-block; width: 260px; vertical-align: top; margin: 0 14px 14px 0; }
+		li.shot img { width: 100%; margin: 0; display: block; transition: border-color 0.15s; }
+		li.shot a:hover img { border-color: #6b7280; }
+		li.shot .cap { font-size: 0.82rem; color: #6b7280; margin-top: 5px; line-height: 1.35; }
 		.card blockquote { margin: 8px 0; padding: 5px 12px; border-left: 3px solid #d1d5db; color: #6b7280; background: #f9fafb; font-size: 0.9rem; }
 		.card code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
 		.card pre { background: #f3f4f6; padding: 10px; border-radius: 4px; overflow-x: auto; }
@@ -108,6 +112,7 @@ const BODY_CSS = `
 			.card blockquote { background: #111827; border-left-color: #374151; color: #9ca3af; }
 			.card summary { color: #e5e7eb; }
 			.card h3 { color: #f3f4f6; border-top-color: #1f2937; }
+			li.shot .cap { color: #9ca3af; }
 		}`;
 
 function escapeHtml(text) {
@@ -126,6 +131,38 @@ function escapeHtml(text) {
  * not appear twice. `<details>` survives because marked passes raw HTML
  * through, which is what keeps Run details and Verification collapsed.
  */
+/**
+ * Turns an Evidence bullet that links a screenshot into a thumbnail.
+ *
+ * Evidence reads `- [shots/x.png](url) -- what it shows`, which renders as a
+ * row of blue filenames: a reader has to open each one to find out which is
+ * worth looking at. As a thumbnail with its caption underneath, the picture
+ * does that job, and the link still opens the full size.
+ *
+ * Bullets that are not images -- a log path and a quoted line -- are left as
+ * ordinary list items.
+ */
+const SHOT = /^<a href="([^"]+\.(?:png|jpe?g|gif|webp))"[^>]*>([^<]*)<\/a>\s*(?:--|-)?\s*([\s\S]*)$/;
+
+function shotRenderer() {
+	const renderer = new marked.Renderer();
+	const listitem = renderer.listitem.bind(renderer);
+	return Object.assign(renderer, {
+		listitem(...args) {
+			const html = listitem(...args);
+			const inner = html.replace(/^<li>/, '').replace(/<\/li>\n?$/, '').trim();
+			const match = SHOT.exec(inner);
+			if (!match) {
+				return html;
+			}
+			const [, href, label, caption] = match;
+			return `<li class="shot"><a href="${href}" target="_blank" rel="noreferrer">`
+				+ `<img src="${href}" alt="${escapeHtml(label)}" loading="lazy"></a>`
+				+ `<div class="cap">${caption.trim() || escapeHtml(label)}</div></li>\n`;
+		},
+	});
+}
+
 export function renderReportHtml(markdown) {
 	const lines = String(markdown ?? '').split('\n');
 	const titleIndex = lines.findIndex(l => l.startsWith('# '));
@@ -168,7 +205,7 @@ export function renderReportHtml(markdown) {
 		${summary ? `<div class="summary">\n\t\t${summary}\n\t\t</div>` : ''}
 	</div>
 	<div class="card">
-${marked.parse(body)}
+${marked.parse(body, { renderer: shotRenderer() })}
 	</div>
 </div>
 </body>
