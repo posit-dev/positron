@@ -287,9 +287,10 @@ and why it matters. Symbol names belong under Cause, not here.>
 
 **Expected:** <what should have happened>
 
-**Only under:** <any non-default configuration this needs, and what happened
-under the shipped default: reproduces, does not reproduce, or not checked.
-Write "shipped defaults" when it needs none.>
+**Configuration:** <what this needs to happen, and what happened under the
+default: reproduces, does not reproduce, or not checked. Write "default
+settings" when it needs nothing special, and say there how you manufactured
+any state the repro depends on.>
 
 **Evidence**
 
@@ -367,8 +368,11 @@ product. A launcher that forces a setting, a web server standing in for the
 desktop app, a seeded profile: each puts the app in a state most users are not
 in, and a finding reachable only there is a narrower bug than it looks. So
 before you rank a finding, find the configuration axis it sits on and say where
-it lands on the "Only under" line. Re-check it under the shipped default; if
-you cannot, write that you did not rather than leaving the axis unstated.
+it lands on the `Configuration` line. Re-check it under the default; if you
+cannot, write that you did not rather than leaving the axis unstated. Write the
+line so it reads as a statement either way: "default settings" when the bug
+needs nothing, "only with X" when it does. Never "only under default
+settings", which says the opposite of what it means.
 Desktop and web differ this way by construction, so a finding from one is not
 yet a finding about the other.
 

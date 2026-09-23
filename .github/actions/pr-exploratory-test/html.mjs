@@ -219,11 +219,11 @@ function renderFindingCard(f) {
 
 	// Text only: every screenshot, including the one the report embedded here,
 	// now sits under Evidence.
-	const repro = (f.reproStartHtml || f.steps.length || f.onlyUnderHtml)
+	const repro = (f.reproStartHtml || f.steps.length || f.configurationHtml)
 		? '<div class="repro"><div class="sub">Reproduce</div>'
 		+ (f.reproStartHtml ? `<p class="repro-start">Start: ${f.reproStartHtml}</p>` : '')
 		+ (f.steps.length ? `<ol class="repro-steps">${f.steps.map(s => `<li>${s}</li>`).join('')}</ol>` : '')
-		+ (f.onlyUnderHtml ? `<p class="only-under"><strong>Only under</strong> ${f.onlyUnderHtml}</p>` : '')
+		+ (f.configurationHtml ? `<p class="config-line"><strong>Configuration</strong> ${f.configurationHtml}</p>` : '')
 		+ '</div>'
 		: '';
 

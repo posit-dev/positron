@@ -48,7 +48,7 @@ const FINDINGS = [
 	'',
 	'**Expected:** it should have stopped.',
 	'',
-	'**Only under:** shipped defaults.',
+	'**Configuration:** default settings.',
 	'',
 	'**Evidence**',
 	'',
@@ -177,7 +177,7 @@ test('parseReport breaks a finding into its labelled parts', () => {
 	const f = parseReport(FULL).findings[0];
 	assert.match(f.observedHtml, /it spun forever/);
 	assert.match(f.expectedHtml, /it should have stopped/);
-	assert.match(f.onlyUnderHtml, /shipped defaults/);
+	assert.match(f.configurationHtml, /default settings/);
 	assert.match(f.reproStartHtml, /a console with pandas/);
 	assert.equal(f.steps.length, 2);
 	assert.match(f.causeHtml, /timeout was cut to 10 s/);
@@ -568,4 +568,57 @@ test('renderReportHtml keeps the signature legible without animation', () => {
 	assert.match(html, /@media \(prefers-reduced-motion:reduce\)\{\s*\.sg \*\{animation:none !important\}/);
 	assert.match(html, /\.sg-pop\{opacity:1\}/);
 	assert.match(html, /\.sg-bug,\.sg-mag,\.sg-q,\.sg-bang\{opacity:0 !important\}/);
+});
+
+test('parseReport still reads the label reports were published with', () => {
+	// "Only under" was renamed because it read backwards in the case that
+	// actually occurs; reports already on the CDN still use it.
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Only under:** shipped defaults.',
+	].join('\n')));
+	assert.match(r.findings[0].configurationHtml, /shipped defaults/);
+});
+
+test('renderReportHtml labels the configuration line so it reads either way', () => {
+	const html = renderReportHtml(FULL);
+	assert.match(html, /<strong>Configuration<\/strong> default settings\./);
+	// The old label said the opposite of what it meant.
+	assert.doesNotMatch(html, /Only under/);
+});
+
+test('parseReport keeps a step that carries a code block, and the steps after it', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'One sentence of summary.',
+		'',
+		'**Repro** -- starting state: a notebook open',
+		'',
+		'1. Add a markdown cell with this source:',
+		'   ```',
+		'   <div class="alert">',
+		'',
+		'   **Tip:** text',
+		'',
+		'   </div>',
+		'   ```',
+		'2. Render the cell.',
+		'3. Click **Show Details**.',
+		'',
+		'**Observed:** it broke.',
+	].join('\n')));
+	const f = r.findings[0];
+	assert.equal(f.steps.length, 3);
+	// The block belongs to step 1 rather than ending the list.
+	assert.match(f.steps[0], /<pre><code>/);
+	assert.match(f.steps[0], /&lt;div class=&quot;alert&quot;&gt;/);
+	assert.match(f.steps[1], /Render the cell/);
+	assert.match(f.steps[2], /Show Details/);
+	// Everything after the fence used to fall through into the summary.
+	assert.equal(f.summaryHtml, 'One sentence of summary.');
+	assert.match(f.observedHtml, /it broke/);
 });

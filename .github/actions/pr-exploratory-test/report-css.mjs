@@ -386,8 +386,8 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 .repro{display:flex;flex-direction:column;gap:10px;max-width:720px;margin-top:8px}
 .repro-start{font-size:13px;line-height:1.55;color:var(--muted)}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
-.only-under{font-size:13px;line-height:1.55;color:var(--muted);padding-top:4px}
-.only-under strong{color:var(--body);font-weight:600}
+.config-line{font-size:13px;line-height:1.55;color:var(--muted);padding-top:4px}
+.config-line strong{color:var(--body);font-weight:600}
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
 figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}

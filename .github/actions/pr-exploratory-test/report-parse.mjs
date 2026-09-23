@@ -180,6 +180,11 @@ function readLabelled(lines, start) {
 	return { text: out.join(' ').trim(), end: lines.length };
 }
 
+/** Strips the indent a numbered list puts on a step's continuation lines. */
+function dedent(line) {
+	return line.replace(/^\s{1,4}/, '');
+}
+
 /** `**Label:** rest` -> the label, lowercased, or null. */
 function labelOf(line) {
 	const m = /^\*\*([^*]+?)\*\*/.exec(line.trim());
@@ -304,7 +309,7 @@ function parseFindingBody(lines) {
 	const out = {
 		status: { confirmed: null, reproduced: null, origin: null },
 		summary: [],
-		observed: '', expected: '', onlyUnder: '',
+		observed: '', expected: '', configuration: '',
 		reproStart: '', steps: [],
 		evidence: [],
 		cause: '',
@@ -347,19 +352,57 @@ function parseFindingBody(lines) {
 			const start = /(?:--|\u2014|-)\s*starting state:\s*([\s\S]*)$/i.exec(trimmed);
 			out.reproStart = start ? start[1].trim() : '';
 			out.matched++;
-			for (let j = i + 1; j < lines.length; j++) {
-				const step = lines[j].trim();
-				if (!step) { continue; }
-				const numbered = /^\d+\.\s+([\s\S]*)$/.exec(step);
-				if (!numbered) { i = j - 1; break; }
-				out.steps.push(numbered[1]);
-				i = j;
+			// A step is its numbered line plus everything indented under it, which
+			// is how a step that shows the source to paste is written. Stopping at
+			// the first line that was not itself numbered dropped the code block
+			// and then fed the remaining steps into the summary, so a finding's
+			// opening paragraph ended with "2. Render the cell. 3. Click Show
+			// Details."
+			let step = null;
+			let fenced = false;
+			let j = i + 1;
+			for (; j < lines.length; j++) {
+				const raw = lines[j];
+				const text = raw.trim();
+				const indented = /^\s{2,}\S/.test(raw);
+				const numbered = /^\d+\.\s+([\s\S]*)$/.exec(text);
+
+				if (fenced) {
+					if (/^(?:```|~~~)/.test(text)) { fenced = false; }
+					step.push(dedent(raw));
+					continue;
+				}
+				if (numbered && !indented) {
+					step = [numbered[1]];
+					out.steps.push(step);
+					continue;
+				}
+				if (step && indented) {
+					if (/^(?:```|~~~)/.test(text)) { fenced = true; }
+					step.push(dedent(raw));
+					continue;
+				}
+				// A blank line belongs to the step only when the block continues
+				// under it; otherwise it ends the list.
+				if (!text && step && /^\s{2,}\S/.test(lines[j + 1] ?? '')) {
+					step.push('');
+					continue;
+				}
+				if (!text) { continue; }
+				break;
 			}
+			i = j - 1;
 			continue;
 		}
-		if (label === 'observed' || label === 'expected' || label === 'only under') {
+		// `Only under` is what reports called this before it was renamed. It read
+		// backwards in the case that actually occurs -- "Only under shipped
+		// defaults" says a bug avoidable by changing a setting -- but reports
+		// already published still use it.
+		if (label === 'observed' || label === 'expected'
+			|| label === 'configuration' || label === 'only under') {
 			const { text, end } = readLabelled(lines, i);
-			out[label === 'only under' ? 'onlyUnder' : label] = text;
+			const key = label === 'observed' || label === 'expected' ? label : 'configuration';
+			out[key] = text;
 			out.matched++;
 			i = end - 1;
 			continue;
@@ -595,9 +638,13 @@ export function parseReport(markdown) {
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
-			onlyUnderHtml: parsed.onlyUnder ? inline(parsed.onlyUnder) : '',
+			configurationHtml: parsed.configuration ? inline(parsed.configuration) : '',
 			reproStartHtml: parsed.reproStart ? inline(parsed.reproStart) : '',
-			steps: parsed.steps.map(inline),
+			// A step that runs to more than one line carries a block of its own --
+			// the source to paste, usually -- so it is parsed as block markdown.
+			steps: parsed.steps.map(lines => (lines.length > 1
+				? block(lines.join('\n'))
+				: inline(lines[0] ?? ''))),
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'
 				? { ...e, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
 				: e.kind === 'log'
