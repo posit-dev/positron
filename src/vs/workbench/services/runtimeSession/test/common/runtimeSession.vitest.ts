@@ -649,6 +649,10 @@ describe('Positron - RuntimeSessionService', () => {
 
 		// The runtime should remain unregistered.
 		expect(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId)).toBe(undefined);
+
+		// A later attempt must not wait on the failed attempt's start promise.
+		manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => metadata);
+		await autoStartSession(unregisteredRuntime);
 	});
 
 	it('auto start console does nothing if automatic startup is disabled', async () => {
