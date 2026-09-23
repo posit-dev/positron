@@ -81,6 +81,13 @@ const PROFESSIONAL = `
 	--major-card-shadow: none;
 	--focus: #2F5F8A;
 
+	--sig-bug: #6A6F76;
+	--sig-bug-glow: none;
+	--sig-medium: #6A6F76;
+	--sig-bang: #A12C1F;
+	--sig-ok: #2F7A4F;
+	--sig-ok-glow: none;
+
 	--lb-backdrop: rgba(28,31,35,.72);
 	--lb-shadow: 0 12px 40px rgba(28,31,35,.18);
 
@@ -178,6 +185,13 @@ const PARTY = `
 	--tile-shadow: 6px 6px 0 #0B0719;
 	--major-card-shadow: 0 0 0 1px #FF4F81, 0 0 32px rgba(255,79,129,0.18);
 	--focus: #5CE1E6;
+
+	--sig-bug: #FF6AC1;
+	--sig-bug-glow: drop-shadow(0 0 3px rgba(255,106,193,.6));
+	--sig-medium: #C4BCEB;
+	--sig-bang: #FF6AC1;
+	--sig-ok: #5CE1E6;
+	--sig-ok-glow: drop-shadow(0 0 4px rgba(92,225,230,.75));
 
 	--lb-backdrop: rgba(10,7,25,.84);
 	--lb-shadow: 8px 8px 0 #0B0719;
@@ -448,7 +462,35 @@ a.ref:hover{color:var(--ref-hover)}
 .verdict.disputed{background:var(--major-bg);color:var(--major-text)}
 .verdict.unresolved{background:var(--minor-bg);color:var(--minor-text)}
 
-footer.cost{display:flex;flex-wrap:wrap;gap:6px 20px;font-family:var(--mono);font-size:12px;color:var(--faint)}
+/* A maker's mark, not a section: a bug is found, looked at and fixed, in the
+   time it takes to notice it. The run's cost lives on the Run tile; repeating
+   it here made the page end on an invoice. */
+footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;padding:56px 0 8px}
+.sig p{margin:0;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.sig-link{color:var(--muted);text-decoration:none}
+.sig-link:hover{color:var(--link);text-decoration:underline}
+
+.sg{position:relative;width:180px;height:40px}
+.sg-line{position:absolute;left:0;right:0;bottom:3px;border-bottom:1.5px dotted var(--divider)}
+.sg-bug{position:absolute;left:0;bottom:5px;display:block;width:16px;height:14px;color:var(--sig-bug);filter:var(--sig-bug-glow);opacity:0;animation:sg-bug 7s ease-in-out infinite}
+.sg-bug svg{display:block}
+.sg-mag{position:absolute;left:0;bottom:3px;color:var(--sig-medium);opacity:0;animation:sg-mag 7s ease-in-out infinite}
+.sg-q,.sg-bang{position:absolute;bottom:22px;font-family:var(--mono);font-size:12px;font-weight:500;opacity:0}
+.sg-q{left:124px;color:var(--sig-medium);animation:sg-q 7s ease infinite}
+.sg-bang{left:66px;color:var(--sig-bang);animation:sg-bang 7s ease infinite}
+.sg-pop{position:absolute;left:60px;bottom:6px;color:var(--sig-ok);filter:var(--sig-ok-glow);opacity:0;animation:sg-pop 7s ease infinite}
+@keyframes sg-bug{0%{transform:translateX(0px) translateY(0px) rotate(90deg);opacity:0}4%{opacity:1}14%{transform:translateX(40px) translateY(0px) rotate(90deg)}20%{transform:translateX(32px) translateY(0px) rotate(-90deg)}30%,57%{transform:translateX(60px) translateY(0px) rotate(90deg)}59%{transform:translateX(60px) translateY(-9px) rotate(90deg)}61%{transform:translateX(60px) translateY(0px) rotate(90deg)}62%{transform:translateX(60px) translateY(-2px) rotate(90deg)}63%{transform:translateX(60px) translateY(0px) rotate(90deg);opacity:1}65%,100%{transform:translateX(60px) translateY(0px) rotate(90deg);opacity:0}}
+@keyframes sg-mag{0%,6%{transform:translateX(-26px);opacity:0}12%{opacity:1}34%{transform:translateX(58px)}46%,52%{transform:translateX(114px)}58%,64%{transform:translateX(57px);opacity:1}76%,100%{transform:translateX(32px);opacity:0}}
+@keyframes sg-q{0%,45%{opacity:0;transform:translateY(4px) scale(.6)}47%{opacity:1;transform:translateY(-1px) scale(1.25)}49%,52%{opacity:1;transform:translateY(0) scale(1)}54%,100%{opacity:0}}
+@keyframes sg-bang{0%,57%{opacity:0;transform:translateY(4px) scale(.6)}59%{opacity:1;transform:translateY(-1px) scale(1.25)}61%,64%{opacity:1;transform:translateY(0) scale(1)}66%,100%{opacity:0}}
+@keyframes sg-pop{0%,65%{opacity:0;transform:scale(.4)}69%{opacity:1;transform:scale(1.2)}72%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+/* Reduced motion keeps the punchline and drops the performance: the line and
+   the check, which is what the mark is actually saying. */
+@media (prefers-reduced-motion:reduce){
+	.sg *{animation:none !important}
+	.sg-pop{opacity:1}
+	.sg-bug,.sg-mag,.sg-q,.sg-bang{opacity:0 !important}
+}
 
 /* Lightbox. The thumbnail is a real link to the raw image, so without
    JavaScript clicking it still shows the full size; the script intercepts and
