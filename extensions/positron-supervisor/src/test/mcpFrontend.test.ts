@@ -371,6 +371,35 @@ suite('McpFrontend', () => {
 			});
 	});
 
+	test('a registration with a supervisor that has been replaced does not stand in for the new one', async () => {
+		const harness = createHarness();
+		let asked!: () => void;
+		const inFlight = new Promise<void>(resolve => { asked = resolve; });
+		let answer!: () => void;
+		const answered = new Promise<void>(resolve => { answer = resolve; });
+		const stale = new FakeRegistry();
+		const slow: McpRegistrationApi = {
+			registerMcpWorkspace: async registration => {
+				asked();
+				await answered;
+				return stale.registerMcpWorkspace(registration);
+			},
+			deregisterMcpWorkspace: workspaceId => stale.deregisterMcpWorkspace(workspaceId),
+		};
+		const successor = new FakeRegistry(39000, 2);
+
+		// The first supervisor answers only after a new one has taken over.
+		const first = harness.frontend.attach(slow);
+		await inFlight;
+		const second = harness.frontend.attach(successor);
+		answer();
+		await Promise.all([first, second]);
+
+		assert.deepStrictEqual(
+			{ stale: stale.registrations.length, successor: successor.registrations.length },
+			{ stale: 1, successor: 1 });
+	});
+
 	test('adopts a token of the server\'s when it has none to hand back', async () => {
 		const harness = createHarness();
 

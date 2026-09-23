@@ -3,15 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { Application } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
-import { McpTestClient, toolResultText } from './helpers/mcp-client';
+import { McpStdioClient, McpTestClient, toolResultText } from './helpers/mcp-client';
+
+/** Where Positron writes Codex's configuration, in place of the user's own. */
+const CODEX_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-codex-'));
 
 test.use({
 	suiteId: __filename,
 	// The MCP server is off by default while the feature is experimental, and
 	// the setting is read live, so it is written before the app starts.
 	extraSettings: { 'ai.enabled': true, 'ai.mcp.enabled': true },
+	extraEnv: { CODEX_HOME },
 });
 
 /**
@@ -41,6 +48,33 @@ async function connectAgent(app: Application): Promise<McpTestClient> {
 	const client = new McpTestClient(url, token, 'claude-code');
 	await client.initialize();
 	return client;
+}
+
+/**
+ * Adds Positron to Codex's configuration the way a user does, and reads back
+ * the command line it wrote.
+ *
+ * @param app The running application.
+ * @returns The command and arguments Codex would start the server with.
+ */
+async function configureCodex(app: Application): Promise<{ command: string; args: string[] }> {
+	await app.workbench.quickaccess.runCommand('positron.mcp.configureAgent', { keepOpen: true });
+	await app.workbench.quickInput.waitForQuickInputOpened();
+	await app.workbench.quickInput.type('Codex');
+	await app.workbench.quickInput.selectQuickInputElementContaining('Codex');
+
+	const configPath = path.join(CODEX_HOME, 'config.toml');
+	let config = '';
+	await expect(async () => {
+		config = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+		expect(config).toContain('mcp-stdio');
+	}, 'Codex configured').toPass({ timeout: 15000 });
+
+	// The values are written as JSON strings and arrays, which TOML shares.
+	return {
+		command: JSON.parse(config.match(/^command = (?<value>.+)$/m)!.groups!.value),
+		args: JSON.parse(config.match(/^args = (?<value>.+)$/m)!.groups!.value),
+	};
 }
 
 test.describe('MCP Server', {
@@ -163,5 +197,36 @@ test.describe('MCP Server', {
 		await expect(impostor.initialize()).rejects.toThrow(/401/);
 		// The real client is unaffected.
 		expect(await agent.listTools()).toContain('execute_code');
+	});
+});
+
+test.describe('MCP Server over stdio', {
+	tag: [tags.MCP, tags.CONSOLE, tags.SESSIONS]
+}, () => {
+	test('Python - An agent Positron configured runs code over stdio', async function ({ app, python }) {
+		// Wait for the workspace to be registered, which is what writes the
+		// files the bridge finds it by.
+		await connectAgent(app);
+		const { command, args } = await configureCodex(app);
+
+		// Without the variables a Positron terminal exports, the bridge has
+		// to find the workspace from the directory the agent runs in.
+		const env = { ...process.env };
+		delete env.POSITRON_MCP_URL;
+		delete env.POSITRON_MCP_TOKEN;
+		const agent = new McpStdioClient(command, args, app.workspacePathOrFolder, env, 'codex');
+		try {
+			await agent.initialize();
+			expect(await agent.listTools()).toContain('execute_code');
+
+			const result = await agent.callTool('execute_code', {
+				code: 'print("hello over stdio")',
+			});
+			expect(result.isError).not.toBe(true);
+			expect(toolResultText(result)).toContain('hello over stdio');
+			await app.workbench.console.waitForConsoleContents('hello over stdio', { exact: true });
+		} finally {
+			agent.close();
+		}
 	});
 });
