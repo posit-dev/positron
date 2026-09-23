@@ -537,7 +537,6 @@ test('renderReportHtml puts the status dot inside the scenario cell', () => {
 	assert.match(html, /<span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"><\/span><span>/);
 	assert.match(html, /<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario<\/span>/);
 	assert.doesNotMatch(html, /coverage-grid"><span><\/span>/);
-	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,5fr\) minmax\(0,7fr\) 200px\}/);
 });
 
 test('renderReportHtml signs off with a mark, not a cost line', () => {

@@ -45,7 +45,8 @@ export function safeUrl(url) {
 	if (/^[a-z][a-z0-9+.-]*:/i.test(cleaned)) {
 		return /^(?:https?|mailto):/i.test(cleaned) ? cleaned : null;
 	}
-	// No scheme at all, so it is a relative path.
+	// No scheme, so a relative path. `//host/x` also lands here and resolves to
+	// the page's scheme, which is https and already allowed.
 	return cleaned;
 }
 

@@ -321,7 +321,6 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 .section{display:flex;flex-direction:column;gap:14px;scroll-margin-top:24px}
 .section-label{margin:0;font-family:var(--label-font);font-size:13px;font-weight:var(--label-weight);letter-spacing:var(--label-ls);text-transform:uppercase;color:var(--label-color)}
 .section-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
-.section-head .aside{font-size:13px;color:var(--muted)}
 
 /* Grid tables: findings list, coverage, not exercised */
 /* Panels carry no shadow in either theme: the Party offset shadow marks a card
