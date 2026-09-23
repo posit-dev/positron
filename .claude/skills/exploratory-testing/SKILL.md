@@ -104,7 +104,7 @@ The shape, and only this shape:
 
 ### Verified
 
-| Scenario | Result |
+| Scenario | Result | Screenshot |
 
 ### Not exercised
 
@@ -137,6 +137,14 @@ a screen further down, and a summary of something two lines away is the same
 text twice. What no table can say is that the feature works, so say that and
 stop.
 
+When `Result` runs to two sentences, put `**` around the one a reader must not
+miss -- usually the one saying where the change falls short. It renders as the
+emphasised clause of the report's opening paragraph. You are the only one who
+watched the run, so you are the only one who can say which clause is the point;
+nothing downstream can work it out from the text. Mark one sentence, never the
+whole line: emphasis covering everything emphasises nothing, and the renderer
+drops it. A single-sentence `Result` needs no mark.
+
 `Tested` is the scope you covered and how much of it: the surfaces you drove,
 in a phrase, then the number of scenarios. The count is the row count of your
 `Verified` table, so a reader can check it against the table rather than take
@@ -151,22 +159,29 @@ that never rendered the feature. Each surface named there reappears under
 Coverage with the reason it was out of reach.
 
 `## Coverage` holds what you exercised and what you did not, as two tables.
-Two columns each, and resist a third: a `Status` column reading `passed` on
+Resist any column that restates another: a `Status` column reading `passed` on
 every row of a table headed `Verified` says nothing, and the heavier the table
 the less of it gets read.
 
-`Verified` answers what you exercised and what happened.
+`Verified` answers what you exercised, what happened, and where to check it.
 
 ```
-| Scenario | Result |
-|---|---|
-| <a few words> | <what happened, and [shots/<file>](shots/<file>) when you have one> |
+| Scenario | Result | Screenshot |
+|---|---|---|
+| <a few words> | <what happened> | [shots/<file>](shots/<file>) |
 ```
 
-The shot link belongs in the `Result` cell. A verified claim nobody can check
-is worth little, and this table is where the reader checks it. A cell reporting
-that something did *not* happen says which surface you checked and when, and
-each such claim stands alone rather than being folded into a rate.
+The shot goes in its own cell, and the cell is left empty when you have none.
+A verified claim nobody can check is worth little, and this table is where the
+reader checks it; a column of filenames can be scanned down for the row you
+want, which the same links buried mid-sentence could not be. Keep `Result` to
+what happened. A cell reporting that something did *not* happen says which
+surface you checked and when, and each such claim stands alone rather than
+being folded into a rate.
+
+When a row is how you found a finding, end `Result` with `(finding N)`. That is
+what links the row to the finding it produced, and it is why a scenario that
+hit a problem still belongs in this table rather than being moved out of it.
 
 `Not exercised` answers why not, and covers both the surfaces you could not
 reach and the threads you abandoned. Every scenario named on the
@@ -179,12 +194,10 @@ reach and the threads you abandoned. Every scenario named on the
 ```
 
 Some gaps deserve a sentence a cell cannot hold: a mechanism you did not test
-that probably shares a fault with one you did, say. Put that under the table
-rather than crushing it into `Reason`.
-
-```
-> **Follow-up:** <what is worth checking, and why this run could not>
-```
+that probably shares a fault with one you did, say. Say it in that row's
+`Reason` rather than adding a section for it. There is no follow-up block: a
+list of what a different run might check is not a finding and not coverage, and
+it read as a third kind of result nobody could act on.
 
 Run details goes last because nobody needs it until they try to reproduce
 something: the branch and how you proved the build matches it, how the app was
@@ -252,7 +265,10 @@ reproducing on the reader's machine. Write the steps as a person using the app
 would, not as you drove it: launch flags and scratch paths belong in Run
 setup. Keep the claim under about twelve words.
 
-Use this block for every finding; do not substitute a schema of your own.
+Use this block for every finding; do not substitute a schema of your own. Keep
+the heading exactly this shape. `N` is the row number from the table, and it is
+what ties the block to that row and to any Coverage row ending `(finding N)`,
+so a heading that renumbers or drops it breaks those links.
 
 ```
 ### Finding N: <concise claim>
