@@ -38,19 +38,15 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
 
     constructor(
         @inject(IPersistentStateFactory) private readonly persistentStateFactory: IPersistentStateFactory,
-        // --- Start Positron ---
-        // @inject(IInterpreterHelper) private readonly helper: IInterpreterHelper,
-        // @inject(IPythonPathUpdaterServiceManager)
-        // private readonly pythonPathUpdaterService: IPythonPathUpdaterServiceManager,
-        // --- End Positron ---
         @inject(IDisposableRegistry) private readonly disposableRegistry: Disposable[],
         @inject(IApplicationShell) private readonly appShell: IApplicationShell,
         @inject(IComponentAdapter) private readonly pyenvs: IComponentAdapter,
         // --- Start Positron ---
-        // @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
+        // Dropped IInterpreterHelper, IPythonPathUpdaterServiceManager, and IInterpreterService: unused
+        // now that we start a console session instead of updating pythonPath.
         @inject(IPythonRuntimeManager) private readonly pythonRuntimeManager: IPythonRuntimeManager,
+        // --- End Positron ---
     ) {}
-    // --- End Positron ---
 
     public async activate(resource: Uri): Promise<void> {
         // --- Start Positron ---
@@ -62,27 +58,12 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
 
     @traceDecoratorError('Error in event handler for detection of new environment')
     // --- Start Positron ---
-    // protected async handleNewEnvironment(resource: Uri): Promise<void> {
+    // Takes the created environment's path instead of the activation resource, skips environments that
+    // already have a running console session, and starts a session directly instead of updating pythonPath.
     protected async handleNewEnvironment(envPath: string): Promise<void> {
-        // --- End Positron ---
         if (isCreatingEnvironment()) {
             return;
         }
-        // --- Start Positron ---
-        // const interpreters = await this.pyenvs.getWorkspaceVirtualEnvInterpreters(resource);
-        // const interpreter =
-        //     Array.isArray(interpreters) && interpreters.length > 0
-        //         ? this.helper.getBestInterpreter(interpreters)
-        //         : undefined;
-        // if (!interpreter) {
-        //     return;
-        // }
-        // const currentInterpreter = await this.interpreterService.getActiveInterpreter(resource);
-        // if (currentInterpreter?.id === interpreter.id) {
-        //     traceVerbose('New environment has already been selected');
-        //     return;
-        // }
-        // await this.notifyUser(interpreter, resource);
         if (await this.hasRunningSession(envPath)) {
             return;
         }
@@ -91,8 +72,8 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
             return;
         }
         await this.notifyUser(interpreter);
-        // --- End Positron ---
     }
+    // --- End Positron ---
 
     // --- Start Positron ---
     // A friendly, per-environment label for the prompt message: the environment's folder name
@@ -126,9 +107,10 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
     // --- End Positron ---
 
     // --- Start Positron ---
-    // protected async notifyUser(interpreter: PythonEnvironment, resource: Uri): Promise<void> {
+    // Drops the unused `resource` param, swaps the Yes/No/Ignore prompt for one that names the
+    // environment and offers to start a session, and starts the session directly instead of updating
+    // pythonPath.
     protected async notifyUser(interpreter: PythonEnvironment): Promise<void> {
-        // --- End Positron ---
         const notificationPromptEnabled = this.persistentStateFactory.createWorkspacePersistentState(
             doNotDisplayPromptStateKey,
             true,
@@ -136,18 +118,12 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
         if (!notificationPromptEnabled.value) {
             return;
         }
-        // --- Start Positron ---
-        // const prompts = [Common.bannerLabelYes, Common.bannerLabelNo, Common.doNotShowAgain];
         const prompts = [Interpreters.startSession, Common.notNow, Common.doNotShowAgain];
-        // --- End Positron ---
         const telemetrySelections: ['Yes', 'No', 'Ignore'] = ['Yes', 'No', 'Ignore'];
-        // --- Start Positron ---
-        // const selection = await this.appShell.showInformationMessage(Interpreters.environmentPromptMessage, ...prompts);
         const selection = await this.appShell.showInformationMessage(
             Interpreters.environmentSessionPromptMessage(this.getEnvironmentLabel(interpreter)),
             ...prompts,
         );
-        // --- End Positron ---
         sendTelemetryEvent(EventName.PYTHON_INTERPRETER_ACTIVATE_ENVIRONMENT_PROMPT, undefined, {
             selection: selection ? telemetrySelections[prompts.indexOf(selection)] : undefined,
         });
@@ -155,19 +131,12 @@ export class VirtualEnvironmentPrompt implements IExtensionActivationService {
             return;
         }
         if (selection === prompts[0]) {
-            // --- Start Positron ---
-            // await this.pythonPathUpdaterService.updatePythonPath(
-            //     interpreter.path,
-            //     ConfigurationTarget.WorkspaceFolder,
-            //     'ui',
-            //     resource,
-            // );
             await this.startSession(interpreter);
-            // --- End Positron ---
         } else if (selection === prompts[2]) {
             await notificationPromptEnabled.updateValue(false);
         }
     }
+    // --- End Positron ---
 
     // --- Start Positron ---
     private async startSession(interpreter: PythonEnvironment): Promise<void> {
