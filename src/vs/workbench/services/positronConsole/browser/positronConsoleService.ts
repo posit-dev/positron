@@ -2965,10 +2965,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 */
 	private dropDiscardedExecutions(startedId: string) {
 		const index = this._announcedExecutionIds.indexOf(startedId);
-		const discarded = index < 0 ?
-			this._announcedExecutionIds :
-			this._announcedExecutionIds.slice(0, index);
-		this._announcedExecutionIds = index < 0 ? [] : this._announcedExecutionIds.slice(index + 1);
+		if (index < 0) {
+			return;
+		}
+		const discarded = this._announcedExecutionIds.slice(0, index);
+		this._announcedExecutionIds = this._announcedExecutionIds.slice(index + 1);
 		for (const id of discarded) {
 			const activity = this._runtimeItemActivities.get(id);
 			if (activity) {

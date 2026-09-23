@@ -12,6 +12,8 @@ docs/Error.md
 docs/ExecuteOutput.md
 docs/ExecuteReply.md
 docs/ExecuteRequest.md
+docs/ExecutionError.md
+docs/ExecutionHistoryEntry.md
 docs/ExecutionQueue.md
 docs/InterruptMode.md
 docs/McpClient.md

@@ -12,19 +12,22 @@ import { JupyterRequest } from './JupyterRequest';
 
 export class ExecuteRequest extends JupyterRequest<JupyterExecuteRequest, JupyterExecuteResult> {
 	private readonly _cellId?: string;
+	private readonly _attributionSource?: string;
 
-	constructor(readonly requestId: string, req: JupyterExecuteRequest, cellId?: string) {
+	constructor(readonly requestId: string, req: JupyterExecuteRequest, cellId?: string, attributionSource?: string) {
 		super(JupyterMessageType.ExecuteRequest, req, JupyterMessageType.ExecuteResult, JupyterChannel.Shell);
 		this._cellId = cellId;
+		this._attributionSource = attributionSource;
 	}
 	protected override createMsgId(): string {
 		return this.requestId;
 	}
 	protected override get metadata(): any {
-		if (this._cellId) {
-			return { cellId: this._cellId };
-		}
-		return {};
+		return {
+			...(this._cellId ? { cellId: this._cellId } : {}),
+			// Read by the supervisor to record where the code came from.
+			...(this._attributionSource ? { attribution: { source: this._attributionSource } } : {}),
+		};
 	}
 }
 

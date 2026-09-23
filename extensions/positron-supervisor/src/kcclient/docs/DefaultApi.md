@@ -13,6 +13,7 @@ All URIs are relative to *http://localhost*
 |[**executeCode**](#executecode) | **POST** /sessions/{session_id}/execute | Execute code and return results|
 |[**getServerConfiguration**](#getserverconfiguration) | **GET** /server_configuration | Get the server configuration|
 |[**getSession**](#getsession) | **GET** /sessions/{session_id} | Get session details|
+|[**getSessionHistory**](#getsessionhistory) | **GET** /sessions/{session_id}/history | Get the session\&#39;s execution history|
 |[**interruptSession**](#interruptsession) | **POST** /sessions/{session_id}/interrupt | Interrupt session|
 |[**killSession**](#killsession) | **POST** /sessions/{session_id}/kill | Force quit session|
 |[**listSessions**](#listsessions) | **GET** /sessions | List active sessions|
@@ -495,6 +496,59 @@ No authorization required
 |-------------|-------------|------------------|
 |**200** | Session details |  -  |
 |**400** | Failed to get session |  -  |
+|**404** | Session not found |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **getSessionHistory**
+> Array<ExecutionHistoryEntry> getSessionHistory()
+
+Returns the executions the session has run, oldest first. Only the most recent 100 are kept.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let sessionId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.getSessionHistory(
+    sessionId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **sessionId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**Array<ExecutionHistoryEntry>**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Execution history |  -  |
+|**401** | Unauthorized |  -  |
 |**404** | Session not found |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

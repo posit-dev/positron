@@ -97,6 +97,10 @@ export interface ActiveSession {
      * The path to the Unix domain socket used to send/receive data from the session, if applicable
      */
     'socket_path'?: string;
+    /**
+     * The last few executions the session ran, oldest first. The full history is available from the session\'s history endpoint.
+     */
+    'history'?: Array<ExecutionHistoryEntry>;
 }
 
 
@@ -258,6 +262,53 @@ export interface ExecuteRequest {
      * Maximum number of seconds to wait for execution to complete. If not specified, the request will block indefinitely until execution finishes.
      */
     'timeout_seconds'?: number;
+}
+/**
+ * The error an execution raised
+ */
+export interface ExecutionError {
+    /**
+     * The error\'s name, such as its exception class
+     */
+    'name': string;
+    /**
+     * The error message
+     */
+    'message': string;
+    /**
+     * The traceback, one frame or line per item
+     */
+    'traceback': Array<string>;
+}
+/**
+ * Code a session ran and what it produced. Input and output are clipped to a few kilobytes each, keeping their beginning and end.
+ */
+export interface ExecutionHistoryEntry {
+    /**
+     * The code that was run
+     */
+    'input': string;
+    /**
+     * The text the code produced: standard output and error, displays, and the result, in the order they arrived
+     */
+    'output': string;
+    'error'?: ExecutionError;
+    /**
+     * A Unix timestamp in milliseconds indicating when the code was sent to the kernel
+     */
+    'timestamp': number;
+    /**
+     * What submitted the code, when known, such as \'agent\', \'interactive\', or \'script\'
+     */
+    'source'?: string;
+    /**
+     * The name of the agent that submitted the code, when it was an agent
+     */
+    'agent'?: string;
+    /**
+     * Whether any part of the entry was clipped
+     */
+    'truncated': boolean;
 }
 /**
  * The execution queue for a session
@@ -957,6 +1008,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Returns the executions the session has run, oldest first. Only the most recent 100 are kept.
+         * @summary Get the session\'s execution history
+         * @param {string} sessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getSessionHistory: async (sessionId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sessionId' is not null or undefined
+            assertParamExists('getSessionHistory', 'sessionId', sessionId)
+            const localVarPath = `/sessions/{session_id}/history`
+                .replace(`{${"session_id"}}`, encodeURIComponent(String(sessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Interrupt session
          * @param {string} sessionId 
@@ -1456,6 +1541,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Returns the executions the session has run, oldest first. Only the most recent 100 are kept.
+         * @summary Get the session\'s execution history
+         * @param {string} sessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getSessionHistory(sessionId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ExecutionHistoryEntry>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getSessionHistory(sessionId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getSessionHistory']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Interrupt session
          * @param {string} sessionId 
@@ -1697,6 +1795,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.getSession(sessionId, options).then((request) => request(axios, basePath));
         },
         /**
+         * Returns the executions the session has run, oldest first. Only the most recent 100 are kept.
+         * @summary Get the session\'s execution history
+         * @param {string} sessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getSessionHistory(sessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<ExecutionHistoryEntry>> {
+            return localVarFp.getSessionHistory(sessionId, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Interrupt session
          * @param {string} sessionId 
@@ -1909,6 +2017,17 @@ export class DefaultApi extends BaseAPI {
      */
     public getSession(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).getSession(sessionId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns the executions the session has run, oldest first. Only the most recent 100 are kept.
+     * @summary Get the session\'s execution history
+     * @param {string} sessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public getSessionHistory(sessionId: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getSessionHistory(sessionId, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

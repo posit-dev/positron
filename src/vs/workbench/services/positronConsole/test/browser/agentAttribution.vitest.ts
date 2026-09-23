@@ -192,6 +192,23 @@ describe('PositronConsoleInstance agent attribution', () => {
 			]);
 	});
 
+	it('keeps announced code when an unrelated execution starts', () => {
+		const { instance, session } = createInstance(disposables);
+
+		session.receiveExecutionRequestedMessage({
+			parent_id: 'agent-exec-1',
+			code: 'agent-exec-1',
+			attribution: CLAUDE_CODE_ATTRIBUTION,
+		});
+		session.receiveInputMessage({ parent_id: 'user-exec-1', code: 'user-exec-1' });
+
+		expect(inputItems(instance).map(item => ({ code: item.code, state: item.state })))
+			.toEqual([
+				{ code: 'agent-exec-1', state: ActivityItemInputState.Provisional },
+				{ code: 'user-exec-1', state: ActivityItemInputState.Executing },
+			]);
+	});
+
 	it('follows the busy state of an agent execution', () => {
 		const { instance, session } = createInstance(disposables);
 

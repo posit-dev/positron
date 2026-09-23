@@ -867,11 +867,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
 
-		// `cellId` is passed separately as Jupyter message metadata (not as
-		// part of the request body), following the JupyterLab/ipykernel
-		// convention. Ark uses this for breakpoint injection to identify
-		// notebook cell executions.
-		const { cellId, ...positronMetadata } = executionMetadata ?? {};
+		// `cellId` and `attributionSource` are passed separately as Jupyter
+		// message metadata (not as part of the request body), following the
+		// JupyterLab/ipykernel convention. Ark uses `cellId` for breakpoint
+		// injection to identify notebook cell executions; the supervisor
+		// records `attributionSource` in the session's execution history.
+		const { cellId, attributionSource, ...positronMetadata } = executionMetadata ?? {};
 
 		// If a code location or execution metadata is provided, include it in the request
 		if (codeLocation || Object.keys(positronMetadata).length > 0) {
@@ -895,7 +896,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// other statement without a value. For `Unprocessed` code the
 		// completeness check above already established acceptance (rejecting on
 		// incomplete/cancelled). The reply is logged out of band.
-		const execute = new ExecuteRequest(id, request, cellId as string);
+		const execute = new ExecuteRequest(id, request, cellId as string, attributionSource as string);
 		this.sendRequest(execute).then((reply) => {
 			this.log(`Execution result: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
 		}).catch((err) => {

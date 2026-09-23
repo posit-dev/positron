@@ -709,7 +709,12 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 			}
 		}
 
-		return this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation, undefined, executionMetadata);
+		// The supervisor records where code came from in the session's history.
+		const metadata = attribution ?
+			{ ...executionMetadata, attributionSource: attribution.source } :
+			executionMetadata;
+
+		return this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation, undefined, metadata);
 	}
 
 	getExecutionCodeLocation(executionId: string): ICodeLocation | undefined {
