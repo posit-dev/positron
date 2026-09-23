@@ -92,7 +92,12 @@ export class PackageManager {
 			case 'snowflake':
 				return /you may need to restart the kernel to use updated packages/;
 			default:
-				return action === 'install' ? /Installing|Downloading|Fetched/ : /Removing|Uninstalling/;
+				// `install.packages()` prints "Installing package into ..." only when the session has
+				// more than one library path. On a single-library setup (Windows CI since rig 0.10.0,
+				// where packages land in the system library) the first thing it prints is the
+				// download itself, so also accept "trying URL". `remove.packages()` prints its
+				// "Removing package from ..." header unconditionally.
+				return action === 'install' ? /Installing|Downloading|Fetched|trying URL/ : /Removing|Uninstalling/;
 		}
 	}
 }
