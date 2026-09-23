@@ -235,6 +235,7 @@ jobs:
       pull-requests: write
     outputs:
       reaction_id: ${{ steps.react.outputs.reaction_id }}
+      comment_id: ${{ steps.running.outputs.comment-id }}
     steps:
       - name: Acknowledge /test
         id: react
@@ -256,7 +257,10 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # One comment per /test, under the command that asked for it. report
+      # turns it into this run's result; earlier runs' results stay put.
       - name: Post running comment
+        id: running
         continue-on-error: true
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
@@ -565,7 +569,7 @@ jobs:
             /tmp/positron-dev-launch/*/code.log
           if-no-files-found: warn
 
-  # Replaces "running" with the result and swaps the reaction. A separate job
+  # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
   # for the same reason as ack. always(): a failed build must still replace
   # "running" with the truth.
   report:
@@ -612,6 +616,8 @@ jobs:
         with:
           mode: comment
           comment-state: result
+          # Empty when ack could not post; comment mode then posts a new one.
+          comment-id: ${{ needs.ack.outputs.comment_id }}
           outcome: ${{ needs.explore.outputs.outcome }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.explore.outputs.report_base_url }}

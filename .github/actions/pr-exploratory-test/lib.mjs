@@ -304,11 +304,8 @@ export function renderStepSummary(markdown, baseUrl) {
 	return `${lines.join('\n')}\n`;
 }
 
-/** Finds the one PR comment this workflow owns, so a re-run edits it in place. */
+/** Labels this workflow's PR comments. Each /test run owns its own comment. */
 export const COMMENT_MARKER = '<!-- exploratory-test -->';
-
-// Comments posted with the job's GITHUB_TOKEN are authored by this account.
-const COMMENT_BOT = 'github-actions[bot]';
 
 /**
  * How the explore pass ended. `partial` wins over a written report: a run cut
@@ -348,13 +345,3 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha }) {
 	return `${COMMENT_MARKER}\n### Exploratory test on ${target}: no report\n\n${reason} ${run}\n`;
 }
 
-/** The id of the last comment this workflow posted, or null. */
-export function findMarkerCommentId(comments) {
-	let id = null;
-	for (const c of comments ?? []) {
-		if (c?.user?.login === COMMENT_BOT && typeof c.body === 'string' && c.body.includes(COMMENT_MARKER)) {
-			id = c.id;
-		}
-	}
-	return id;
-}

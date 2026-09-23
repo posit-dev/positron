@@ -53,7 +53,7 @@ inputs:
     required: false
     default: ""
   mode:
-    description: "gate (read the diff and rule on it), explore (the full run), or comment (post or update the /test PR comment)"
+    description: "gate (read the diff and rule on it), explore (the full run), or comment (post or edit a /test run's PR comment)"
     required: false
     default: "explore"
   comment-state:
@@ -72,10 +72,17 @@ inputs:
     description: "Comment mode: token with issues: write"
     required: false
     default: ""
+  comment-id:
+    description: "Comment mode: the comment to edit; empty posts a new one"
+    required: false
+    default: ""
 outputs:
   outcome:
     description: "Explore mode: complete, partial or no-report; empty if the run crashed"
     value: ${{ steps.agent.outputs.outcome }}
+  comment-id:
+    description: "Comment mode: the id of the comment posted or edited"
+    value: ${{ steps.agent.outputs.comment_id }}
 runs:
   using: composite
   steps:
@@ -129,6 +136,7 @@ runs:
         OUTCOME: ${{ inputs.outcome }}
         PR_NUMBER: ${{ inputs.pr-number }}
         GH_TOKEN: ${{ inputs.github-token }}
+        COMMENT_ID: ${{ inputs.comment-id }}
         # run.mjs reads GATE directly; without it here the gate can decline a
         # run and leave the caller no way to overrule it. VERIFY is deliberately
         # absent: it defaults on, a job-level env var still reaches it for

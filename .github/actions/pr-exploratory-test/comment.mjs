@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Posts or edits the single PR comment for a `/test` run. The body comes from
+// Posts or edits the PR comment for one `/test` run. The body comes from
 // renderPrComment in lib.mjs; this file is only the GitHub I/O around it.
 
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { findMarkerCommentId, renderPrComment, buildShotsBaseUrl } from './lib.mjs';
+import { renderPrComment, buildShotsBaseUrl } from './lib.mjs';
 
 const API = 'https://api.github.com';
 
@@ -29,26 +29,18 @@ async function gh(fetchImpl, token, path, init = {}) {
 }
 
 /**
- * Edits the comment carrying the marker, or creates one. Reads every page: the
- * API serves at most 100 comments a page, and missing ours on page two would
- * post a duplicate.
+ * Edits the comment this run posted, or posts one. Each /test owns a comment,
+ * so the running comment becomes that run's result and earlier runs' results
+ * stay where they were.
  */
-export async function upsertComment({ fetchImpl, token, repo, prNumber, body }) {
-	const comments = [];
-	for (let page = 1; ; page++) {
-		const batch = await gh(fetchImpl, token, `/repos/${repo}/issues/${prNumber}/comments?per_page=100&page=${page}`);
-		comments.push(...batch);
-		if (batch.length < 100) {
-			break;
-		}
+export async function postOrEditComment({ fetchImpl, token, repo, prNumber, commentId, body }) {
+	const payload = { body: JSON.stringify({ body }) };
+	if (commentId) {
+		await gh(fetchImpl, token, `/repos/${repo}/issues/comments/${commentId}`, { method: 'PATCH', ...payload });
+		return { action: 'updated', id: Number(commentId) };
 	}
-	const id = findMarkerCommentId(comments);
-	if (id !== null) {
-		await gh(fetchImpl, token, `/repos/${repo}/issues/comments/${id}`, { method: 'PATCH', body: JSON.stringify({ body }) });
-		return 'updated';
-	}
-	await gh(fetchImpl, token, `/repos/${repo}/issues/${prNumber}/comments`, { method: 'POST', body: JSON.stringify({ body }) });
-	return 'created';
+	const created = await gh(fetchImpl, token, `/repos/${repo}/issues/${prNumber}/comments`, { method: 'POST', ...payload });
+	return { action: 'created', id: created.id };
 }
 
 function readReport(workDir) {
@@ -72,14 +64,18 @@ async function main() {
 		runUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
 		headSha: process.env.HEAD_SHA || '',
 	});
-	const result = await upsertComment({
+	const { action, id } = await postOrEditComment({
 		fetchImpl: fetch,
 		token: process.env.GH_TOKEN,
 		repo: process.env.GITHUB_REPOSITORY,
 		prNumber: process.env.PR_NUMBER,
+		commentId: process.env.COMMENT_ID || '',
 		body,
 	});
-	console.log(`[comment] ${result} (${state || 'failed'})`);
+	if (process.env.GITHUB_OUTPUT) {
+		appendFileSync(process.env.GITHUB_OUTPUT, `comment_id=${id}\n`);
+	}
+	console.log(`[comment] ${action} ${id} (${state || 'failed'})`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

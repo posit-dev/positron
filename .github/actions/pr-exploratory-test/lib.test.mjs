@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, modelDisplayName, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, COMMENT_MARKER, runOutcome, renderPrComment, findMarkerCommentId } from './lib.mjs';
+import { pickReport, buildCostRecord, modelDisplayName, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, COMMENT_MARKER, runOutcome, renderPrComment } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -411,20 +411,3 @@ test('renderPrComment leaves the SHA out rather than print an empty one', () => 
 	assert.doesNotMatch(body, /``/);
 });
 
-test('findMarkerCommentId picks the bot comment carrying the marker', () => {
-	const comments = [
-		{ id: 1, user: { login: 'someone' }, body: 'hello' },
-		{ id: 2, user: { login: 'github-actions[bot]' }, body: `${COMMENT_MARKER}\n### Exploratory test` },
-	];
-	assert.equal(findMarkerCommentId(comments), 2);
-});
-
-test('findMarkerCommentId ignores a human quoting the marker', () => {
-	const comments = [{ id: 3, user: { login: 'someone' }, body: `pasting this: ${COMMENT_MARKER}` }];
-	assert.equal(findMarkerCommentId(comments), null);
-});
-
-test('findMarkerCommentId ignores other bot comments', () => {
-	const comments = [{ id: 4, user: { login: 'github-actions[bot]' }, body: '<!-- PR Tags -->\n**E2E Tests**' }];
-	assert.equal(findMarkerCommentId(comments), null);
-});
