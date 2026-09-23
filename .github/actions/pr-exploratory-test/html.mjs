@@ -219,14 +219,18 @@ function renderFindingCard(f) {
 
 	// Text only: every screenshot, including the one the report embedded here,
 	// now sits under Evidence.
-	const repro = (f.reproStartHtml || f.steps.length || f.preconditionsHtml)
-		? '<div class="repro"><div class="sub">Reproduce</div>'
-		// Both lines say what has to be true before step 1, so they sit together
-		// above the steps rather than one before and one after them.
-		+ (f.reproStartHtml ? `<p class="repro-start">Start: ${f.reproStartHtml}</p>` : '')
-		+ (f.preconditionsHtml ? `<p class="config-line"><strong>Preconditions</strong> ${f.preconditionsHtml}</p>` : '')
-		+ (f.steps.length ? `<ol class="repro-steps">${f.steps.map(s => `<li>${s}</li>`).join('')}</ol>` : '')
-		+ '</div>'
+	// Setup first, then actions, each under its own label: a reader can see what
+	// they need before they start without reading to find where it stops.
+	const preconditions = f.preconditions.length
+		? '<div class="repro-group"><div class="repro-label">Preconditions</div>'
+		+ `<ul class="preconditions">${f.preconditions.map(p => `<li>${p}</li>`).join('')}</ul></div>`
+		: '';
+	const steps = f.steps.length
+		? '<div class="repro-group steps"><div class="repro-label">Steps</div>'
+		+ `<ol class="repro-steps">${f.steps.map(s => `<li>${s}</li>`).join('')}</ol></div>`
+		: '';
+	const repro = (preconditions || steps)
+		? `<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`
 		: '';
 
 	const cause = f.causeHtml

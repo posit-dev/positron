@@ -19,6 +19,7 @@ const PROFESSIONAL = `
 	--muted: #6A6F76;
 	--faint: #8A8F96;
 	--faint-rate: #7A7F86;
+	--secondary: #4F535A;
 	--dot-neutral: #CFCAC0;
 	--sep: #B8B4AA;
 	--divider: #CFCAC0;
@@ -124,6 +125,7 @@ const PARTY = `
 	--muted: #9D95C6;
 	--faint: #8A82B8;
 	--faint-rate: #8A82B8;
+	--secondary: #B8B0DE;
 	--dot-neutral: #4E4580;
 	--sep: #5B4F92;
 	--divider: #4A3F7A;
@@ -266,7 +268,7 @@ img{max-width:100%}
 .eyebrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;color:var(--muted);padding-right:80px;min-height:36px}
 .eyebrow .kicker{text-transform:uppercase;letter-spacing:var(--eyebrow-ls);font-weight:var(--eyebrow-weight);color:var(--eyebrow-color);font-family:var(--label-font)}
 .eyebrow .bullet{width:3px;height:3px;border-radius:50%;background:var(--sep)}
-h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line-height:1.22;letter-spacing:-0.01em;color:var(--ink);max-width:820px}
+h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line-height:1.22;letter-spacing:-0.01em;color:var(--ink);max-width:var(--measure)}
 .lead{font-size:16px;line-height:1.6;color:var(--body);max-width:var(--measure)}
 .lead strong{color:var(--ink);font-weight:600}
 
@@ -392,10 +394,18 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
    column. Screenshots all live under Evidence, which answers "show me that it
    happened"; a featured shot here meant the same image appeared twice. */
 .repro{display:flex;flex-direction:column;gap:10px;max-width:var(--measure);margin-top:8px}
-.repro-start{font-size:13px;line-height:1.55;color:var(--muted)}
+/* What must be true first, then what to do: two labelled groups so a reader can
+   tell setup from actions at a glance instead of reading a paragraph to find
+   where one ends. */
+.repro-group{display:flex;flex-direction:column;gap:4px}
+.repro-group.steps{margin-top:4px}
+.repro-label{font-size:12px;font-weight:600;color:var(--body)}
+/* Between muted and body: these are instructions to follow, so they must not
+   read as the faded metadata the old Start line did. */
+.preconditions{margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--secondary)}
+.preconditions li{margin:0 0 2px;padding-left:0}
+.preconditions li:last-child{margin-bottom:0}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
-.config-line{font-size:13px;line-height:1.55;color:var(--muted);max-width:var(--measure)}
-.config-line strong{color:var(--body);font-weight:600}
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
 figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}

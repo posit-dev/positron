@@ -294,7 +294,10 @@ and why it matters. Symbol names belong under Cause, not here.>
 **Preconditions:** <what this needs to happen, and what happened under the
 default: reproduces, does not reproduce, or not checked. Write "default
 settings" when it needs nothing special, and say there how you manufactured
-any state the repro depends on.>
+any state the repro depends on. Write it every time even when the answer is
+nothing: a blank line cannot tell a reader "needs nothing" apart from "never
+checked". The report drops a line that says only "default settings", so
+stating the obvious costs the reader nothing.>
 
 1. <step>
 2. <step>
@@ -380,7 +383,10 @@ desktop app, a seeded profile: each puts the app in a state most users are not
 in, and a finding reachable only there is a narrower bug than it looks. So
 before you rank a finding, find the configuration axis it sits on and say where
 it lands on the `Preconditions` line. Re-check it under the default; if you
-cannot, write that you did not rather than leaving the axis unstated. Write the
+cannot, write that you did not rather than leaving the axis unstated. Keep it
+to a sentence or two: it renders as a bullet above the steps, beside the
+starting state, and a paragraph there buries the one thing a reader needs
+before they begin. Write the
 line so it reads as a statement either way: "default settings" when the bug
 needs nothing, "only with X" when it does. Never "only under default
 settings", which says the opposite of what it means.

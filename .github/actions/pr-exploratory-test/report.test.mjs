@@ -177,8 +177,7 @@ test('parseReport breaks a finding into its labelled parts', () => {
 	const f = parseReport(FULL).findings[0];
 	assert.match(f.observedHtml, /it spun forever/);
 	assert.match(f.expectedHtml, /it should have stopped/);
-	assert.match(f.preconditionsHtml, /default settings/);
-	assert.match(f.reproStartHtml, /a console with pandas/);
+	assert.deepEqual(f.preconditions, ['A console with pandas']);
 	assert.equal(f.steps.length, 2);
 	assert.match(f.causeHtml, /timeout was cut to 10 s/);
 	assert.equal(f.proseHtml, '');
@@ -581,19 +580,39 @@ test('parseReport still reads the labels reports were published with', () => {
 			'', '### Finding 1: a claim', '',
 			`**${label}:** shipped defaults.`,
 		].join('\n')));
-		assert.match(r.findings[0].preconditionsHtml, /shipped defaults/, label);
+		// "Shipped defaults" alone is the absence of a condition, so it is not
+		// printed -- but it still parses, and a qualified one still shows.
+		assert.deepEqual(r.findings[0].preconditions, [], label);
 	}
 });
 
-test('renderReportHtml puts the preconditions above the steps', () => {
+test('renderReportHtml labels the setup and the actions separately', () => {
 	const html = renderReportHtml(FULL);
-	assert.match(html, /<strong>Preconditions<\/strong> default settings\./);
-	// "Only under" said the opposite of what it meant in the common case.
-	assert.doesNotMatch(html, /Only under/);
-	// Both lines say what has to be true before step 1, so both precede them.
 	const repro = html.slice(html.indexOf('<div class="repro">'));
-	assert.ok(repro.indexOf('repro-start') < repro.indexOf('config-line'));
-	assert.ok(repro.indexOf('config-line') < repro.indexOf('<ol'));
+	assert.match(repro, /<div class="repro-label">Preconditions<\/div><ul class="preconditions">/);
+	assert.match(repro, /<div class="repro-label">Steps<\/div>/);
+	// Setup before actions, and neither of the phrasings this replaced.
+	assert.ok(repro.indexOf('Preconditions') < repro.indexOf('>Steps<'));
+	assert.doesNotMatch(html, /Only under|Start:/);
+});
+
+test('renderReportHtml drops a preconditions list that says only "defaults"', () => {
+	const build = value => renderReportHtml(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro** -- starting state: ', '',
+		`**Preconditions:** ${value}`, '',
+		'1. Do the thing.',
+	].join('\n')));
+	// Nothing to say, so no label and no empty list to read past.
+	const bare = build('Shipped defaults.');
+	assert.doesNotMatch(bare, /Preconditions/);
+	assert.match(bare, /<div class="repro-label">Steps<\/div>/);
+	// Qualified, so it earns its line.
+	const qualified = build('Shipped defaults. Slowness is manufactured with a slow hash.');
+	assert.match(qualified, /<div class="repro-label">Preconditions<\/div>/);
+	assert.match(qualified, /Slowness is manufactured/);
 });
 
 test('parseReport keeps a step that carries a code block, and the steps after it', () => {
@@ -651,7 +670,7 @@ test('parseReport reads the preconditions line above or below the steps', () => 
 		// A label between Repro and the steps used to look like the end of the
 		// list and take both steps with it.
 		assert.equal(r.findings[0].steps.length, 2);
-		assert.match(r.findings[0].preconditionsHtml, /default settings/);
+		assert.deepEqual(r.findings[0].preconditions, ['A notebook open']);
 		assert.match(r.findings[0].observedHtml, /it broke/);
 	}
 });

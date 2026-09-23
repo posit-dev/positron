@@ -180,6 +180,22 @@ function readLabelled(lines, start) {
 	return { text: out.join(' ').trim(), end: lines.length };
 }
 
+/**
+ * A precondition that says nothing but "defaults" is not a precondition.
+ *
+ * The skill makes the agent state where the finding sits on the configuration
+ * axis every time, which is worth keeping: a blank there could mean "needs
+ * nothing" or "never checked". But once written, "Shipped defaults." on its own
+ * is the absence of a condition, and printing it as a bullet asks the reader to
+ * take in a line that tells them nothing. The same line qualified by how the
+ * state was manufactured does tell them something, so it stays.
+ */
+const DEFAULTS_ONLY = /^(?:(?:the\s+)?(?:shipped|stock|product)\s+defaults?|defaults?|default\s+settings?|none)\s*[.!]?$/i;
+
+export function isDefaultsOnly(text) {
+	return DEFAULTS_ONLY.test(String(text ?? '').trim());
+}
+
 /** Strips the indent a numbered list puts on a step's continuation lines. */
 function dedent(line) {
 	return line.replace(/^\s{1,4}/, '');
@@ -691,8 +707,12 @@ export function parseReport(markdown) {
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
-			preconditionsHtml: parsed.preconditions ? inline(parsed.preconditions) : '',
-			reproStartHtml: parsed.reproStart ? inline(parsed.reproStart) : '',
+			// The starting state and the configuration line are both answers to
+			// "what has to be true before step 1", so they render as one list.
+			preconditions: [parsed.reproStart, parsed.preconditions]
+				.map(t => String(t ?? '').trim())
+				.filter(t => t && !isDefaultsOnly(t))
+				.map(t => inline(sentenceCase(t))),
 			// A step that runs to more than one line carries a block of its own --
 			// the source to paste, usually -- so it is parsed as block markdown.
 			steps: parsed.steps.map(lines => (lines.length > 1
