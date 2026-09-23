@@ -21,17 +21,86 @@ on:
         required: false
         default: false
         type: boolean
+  # `/test` on a PR. Runs from main's copy of this file with full secrets, and
+  # the explore job builds and executes the PR's code, so the membership job is
+  # the entire defence. See its comment.
+  issue_comment:
+    types: [created]
 
 permissions:
   id-token: write
   contents: read
   packages: read
 
-concurrency:
-  group: pr-exploratory-${{ inputs.ref }}
-  cancel-in-progress: true
-
 jobs:
+  # Decides who may run this. Not to be confused with `worthiness`, which
+  # decides whether a change is worth testing.
+  #
+  # issue_comment runs in base-repo context with full secrets, even for fork
+  # PRs, and explore compiles and runs the PR head. PETE also mounts the PR
+  # read-only; that layer is not available here, since running the PR's code is
+  # the point. So BOTH the commenter and the PR author must be active
+  # positron-dev members: an outsider cannot bait a member into commenting
+  # `/test` on their PR. Fails closed on any error.
+  membership:
+    name: membership
+    # Cheap prefilter so ordinary comments do not start a runner. startsWith,
+    # not contains: contains fires on a comment that merely mentions /test.
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/test')
+    runs-on: ubuntu-latest
+    # Reads membership with the App token below, not GITHUB_TOKEN. No write
+    # access on the one job that runs for every matching comment, which is
+    # also why a blocked caller gets silence rather than a rejection comment.
+    permissions: {}
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - name: Mint org-scoped App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          owner: posit-dev
+
+      - name: Check command and membership
+        id: check
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BODY: ${{ github.event.comment.body }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          PR_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          set -uo pipefail
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+
+          # The prefilter matched a prefix, so "/testing" got this far. Only the
+          # exact command counts: the first word of the first non-blank line.
+          # Web UI comments use CRLF, so drop the CR or "/test\r" never matches.
+          first=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { print $1; exit }')
+          if [ "$first" != "/test" ]; then
+            echo "Not a /test command (first word: '$first')"
+            exit 0
+          fi
+
+          # Active member: 200 {"state":"active"}. Non-member: 404, empty
+          # stdout. Pending invite: "pending", which does not count.
+          is_member() {
+            local state
+            state=$(gh api "orgs/posit-dev/teams/positron-dev/memberships/$1" --jq '.state' 2>/dev/null)
+            [ "$state" = "active" ]
+          }
+
+          if is_member "$COMMENTER" && is_member "$PR_AUTHOR"; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "Membership gate: ok"
+          else
+            echo "Membership gate: blocked (commenter=$COMMENTER, author=$PR_AUTHOR)"
+          fi
+
   # Decides whether the change is worth testing, before anything is built. Not
   # to be confused with `membership`, which decides who may run this at all.
   # The explore job needs a compile, an Xvfb, a launch and a Playwright attach;
@@ -130,10 +199,29 @@ jobs:
 
   explore:
     name: explore (${{ matrix.model }})
-    needs: [worthiness]
-    # always(): the worthiness pass is skipped when it is off, and a skipped need
-    # would otherwise skip this job too. Only an explicit false stops the run.
-    if: ${{ always() && needs.worthiness.outputs.testable != 'false' }}
+    needs: [worthiness, membership]
+    # always(): both needs are skipped on some path (worthiness when off,
+    # membership on dispatch), and a skipped need would otherwise skip this job.
+    # On a comment, only an explicit ok=true from membership runs it, so a
+    # failed or cancelled membership job runs nothing.
+    if: >-
+      ${{ always() &&
+      needs.worthiness.outputs.testable != 'false' &&
+      (github.event_name == 'workflow_dispatch' || needs.membership.outputs.ok == 'true') }}
+    # Job-level, not workflow-level: every comment on every PR starts a run of
+    # this workflow, and a workflow-level group would let any of them cancel an
+    # in-flight /test. Per model, so the two legs of `both` do not cancel each
+    # other.
+    concurrency:
+      group: pr-exploratory-${{ github.event.issue.number || inputs.ref }}-${{ matrix.model }}
+      cancel-in-progress: true
+    # Job-level permissions replace the workflow's, so repeat those too.
+    permissions:
+      id-token: write
+      contents: read
+      packages: read
+      pull-requests: write
+      issues: write
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -161,9 +249,35 @@ jobs:
       R_LIBS_USER: /usr/local/lib/R/site-library
       RETICULATE_PYTHON: /root/.venv/bin/python
     steps:
+      # First, so the commenter sees it was picked up before the slow steps.
+      - name: Acknowledge /test
+        id: ack
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          REACTION_ID=$(gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content=eyes --jq '.id' 2>/dev/null) || echo "Failed to add reaction (non-fatal)"
+          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve PR head
+        id: pr
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            --jq '"head_sha=\(.head.sha)\nhead_ref=\(.head.ref)"' >> "$GITHUB_OUTPUT"
+
+      # By SHA, not branch name: a fork's branch is not in this repo, and a push
+      # after the comment should not change what gets tested.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || steps.pr.outputs.head_sha }}
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
@@ -185,6 +299,17 @@ jobs:
             .claude/skills/exploratory-testing
           sparse-checkout-cone-mode: false
           persist-credentials: false
+
+      - name: Post running comment
+        if: github.event_name == 'issue_comment'
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: running
+          pr-number: ${{ github.event.issue.number }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ steps.pr.outputs.head_sha }}
 
       - name: Resolve diff base
         id: base
@@ -354,13 +479,14 @@ jobs:
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Explore
+        id: explore
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
-          branch: ${{ inputs.ref }}
+          branch: ${{ inputs.ref || steps.pr.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -396,6 +522,23 @@ jobs:
           set -euo pipefail
           echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
 
+      # always(): a failed build must still replace "running" with the truth.
+      # Links only when the upload succeeded, so the comment never points at a
+      # CDN page that 404s; the run link still reaches the artifact.
+      - name: Post result comment
+        if: always() && github.event_name == 'issue_comment'
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: result
+          outcome: ${{ steps.explore.outputs.outcome }}
+          work-dir: ${{ env.EXPLORE_DIR }}
+          report-base-url: ${{ steps.s3-upload.outcome == 'success' && env.REPORT_BASE_URL || '' }}
+          pr-number: ${{ github.event.issue.number }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ steps.pr.outputs.head_sha }}
+
       - name: Upload run directory
         if: always()
         uses: actions/upload-artifact@v7
@@ -405,3 +548,23 @@ jobs:
             /tmp/exploratory-run
             /tmp/positron-dev-launch/*/code.log
           if-no-files-found: warn
+
+      # rocket only when the agent finished on its own. A partial run (turn
+      # cap) and a hard failure both get confused. A second /test cancelling
+      # this run never reaches here, leaving eyes on the first comment:
+      # accepted, since the upserted comment is still current.
+      - name: Finalize reaction
+        if: always() && github.event_name == 'issue_comment' && steps.ack.outputs.reaction_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
+          OUTCOME: ${{ steps.explore.outputs.outcome }}
+        run: |
+          gh api --method DELETE \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
+            || echo "Failed to remove eyes reaction (non-fatal)"
+          if [ "$OUTCOME" = "complete" ]; then FINAL=rocket; else FINAL=confused; fi
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
