@@ -84,6 +84,9 @@ const REPORT_CSS = `
  * one builds its own cards rather than rendering prose.
  */
 const BODY_CSS = `
+		.header .summary { margin-top: 12px; }
+		.header .summary .line { margin: 4px 0; line-height: 1.45; }
+		.header .summary strong { color: #fff; }
 		.card table { margin: 8px 0 16px; }
 		.card th { border-bottom: 1px solid #e5e7eb; font-weight: 600; }
 		.card td { border-bottom: 1px solid #f3f4f6; vertical-align: top; }
@@ -128,8 +131,23 @@ export function renderReportHtml(markdown) {
 	// The line under the title is `<branch>` | `<sha>`; it belongs in the header.
 	const metaIndex = lines.findIndex((l, i) => i > titleIndex && l.trim().startsWith('`'));
 	const meta = metaIndex === -1 ? '' : lines[metaIndex].trim();
+	// Result, Tested and Not exercised sit on consecutive lines with no blank
+	// line between them, which markdown folds into one paragraph: three labels
+	// running into each other mid-sentence. They are the summary, so lift them
+	// into the header and give each its own line.
+	const firstSection = lines.findIndex(l => l.startsWith('## '));
+	const summaryIndexes = [];
+	lines.forEach((line, i) => {
+		if (i > titleIndex && (firstSection === -1 || i < firstSection) && /^\*\*[^*]+:\*\*/.test(line.trim())) {
+			summaryIndexes.push(i);
+		}
+	});
+	const summary = summaryIndexes
+		.map(i => `<div class="line">${marked.parseInline(lines[i].trim())}</div>`)
+		.join('\n\t\t');
+	const dropped = new Set([titleIndex, metaIndex, ...summaryIndexes]);
 	const body = lines
-		.filter((_, i) => i !== titleIndex && i !== metaIndex)
+		.filter((_, i) => !dropped.has(i))
 		.join('\n');
 
 	return `<!DOCTYPE html>
@@ -145,6 +163,7 @@ export function renderReportHtml(markdown) {
 	<div class="header">
 		<h1>${escapeHtml(title)}</h1>
 		<div class="meta">${marked.parseInline(meta)}</div>
+		${summary ? `<div class="summary">\n\t\t${summary}\n\t\t</div>` : ''}
 	</div>
 	<div class="card">
 ${marked.parse(body)}

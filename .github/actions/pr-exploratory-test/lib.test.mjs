@@ -255,6 +255,35 @@ test('renderReportHtml lifts the title and meta into the header, once', () => {
 	assert.equal((html.match(/<h1>/g) || []).length, 1);
 });
 
+test('renderReportHtml gives each summary label its own line in the header', () => {
+	const md = [
+		'# T',
+		'',
+		'`b` | `s`',
+		'',
+		'**Result:** it works.',
+		'**Tested:** two things, 2 scenarios',
+		'**Not exercised:** none',
+		'',
+		'## Findings',
+		'',
+		'No findings.',
+	].join('\n');
+	const html = renderReportHtml(md);
+	// Three separate lines, not one folded paragraph.
+	assert.equal((html.match(/<div class="line">/g) || []).length, 3);
+	// And they are in the header, not repeated in the body.
+	assert.doesNotMatch(html.slice(html.indexOf('class="card"')), /Not exercised:/);
+});
+
+test('renderReportHtml leaves bold labels inside the body alone', () => {
+	const md = '# T\n\n`b` | `s`\n\n## Findings\n\n**Observed:** a thing\n**Expected:** another\n';
+	const html = renderReportHtml(md);
+	// Past the first section these are finding fields, not the summary.
+	assert.equal((html.match(/<div class="line">/g) || []).length, 0);
+	assert.match(html.slice(html.indexOf('class="card"')), /Observed:/);
+});
+
 test('renderReportHtml renders tables and passes details through', () => {
 	const html = renderReportHtml(REPORT_MD);
 	assert.match(html, /<table>/);
