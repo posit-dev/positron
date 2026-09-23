@@ -21,6 +21,7 @@ const ICON = {
 	// Down-right, not a download arrow: it says "moves you within this page".
 	arrow: '<svg class="tile-arrow" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l6 6"></path><path d="M11 6v5H6"></path></svg>',
 	check: size => `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>`,
+	down: '<svg class="cov-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>',
 	chevron: '<svg class="chev" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 4.5-4.5 4.5"></path></svg>',
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
 	up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5"></path><path d="M4 7.5l4-4 4 4"></path></svg>',
@@ -292,6 +293,18 @@ ${cause}
 </article>`;
 }
 
+/**
+ * How many Exercised rows show before the toggle: every finding row, then the
+ * first 4 passes, never fewer than 6. A table of 8 or fewer shows in full.
+ */
+export function visibleExercisedCount(rows) {
+	if (rows.length <= 8) {
+		return rows.length;
+	}
+	const findings = rows.filter(r => r.finding).length;
+	return Math.min(rows.length, Math.max(6, findings + 4));
+}
+
 function renderCoverage(report) {
 	const { exercised, notExercised } = report.coverage;
 	if (!exercised.length && !notExercised.length) {
@@ -303,7 +316,15 @@ function renderCoverage(report) {
 	// label stays primary and the count trails it, quiet.
 	const count = n => `<span class="cov-n"> &middot; ${n}</span>`;
 
-	const exercisedRows = exercised.map(row => {
+	// Finding rows first, in finding order, then passes as they ran. Sort is
+	// stable, so rows citing the same finding keep their run order.
+	const ordered = [
+		...exercised.filter(r => r.finding).sort((a, b) => a.finding - b.finding),
+		...exercised.filter(r => !r.finding),
+	];
+	const visible = visibleExercisedCount(ordered);
+
+	const exercisedRows = ordered.map((row, i) => {
 		const reference = row.shot
 			? `<a class="ref" href="${escapeHtml(row.shot.href)}" target="_blank" rel="noreferrer">${escapeHtml(row.shot.label)}</a>`
 			: '<span class="ref none">&mdash;</span>';
@@ -312,7 +333,7 @@ function renderCoverage(report) {
 			: row.resultHtml;
 		// The dot lives in the scenario cell rather than a column of its own, so
 		// it reads as that scenario's status instead of as a first field.
-		return '<div class="row coverage-grid">'
+		return `<div class="row coverage-grid${i < visible ? '' : ' cov-extra'}">`
 			+ '<span class="cov-scenario">'
 			+ `<span class="cov-dot ${row.finding ? 'issue' : 'pass'}" aria-hidden="true"></span>`
 			+ `<span>${row.scenarioHtml}</span></span>`
@@ -326,7 +347,9 @@ function renderCoverage(report) {
 <h3 class="cov-title">Exercised${count(exercised.length)}</h3>
 <div class="panel">
 <div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span>Screenshot</span></div>
+${visible < ordered.length ? `<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all ${ordered.length} exercised scenarios">` : ''}
 ${exercisedRows}
+${visible < ordered.length ? `<label for="cov-all" class="cov-more"><span class="cov-all">Show all ${ordered.length} exercised scenarios</span><span class="cov-less">Show fewer</span>${ICON.down}</label>` : ''}
 </div>
 </div>`
 		: '';

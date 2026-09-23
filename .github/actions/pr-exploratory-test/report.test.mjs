@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseReport, safeUrl } from './report-parse.mjs';
-import { renderReportHtml } from './html.mjs';
+import { renderReportHtml, visibleExercisedCount } from './html.mjs';
 
 /** A minimal report with one of everything the template lays out. */
 function md(...body) {
@@ -750,4 +750,46 @@ test('renderReportHtml gives a report with only cost lines a Run details fold', 
 	const html = renderReportHtml('# t\n\n_explore: $1.00 | 5/200 turns | 2m_');
 	assert.match(html, /<details id="run-details">/);
 	assert.match(html, /<a class="tile tip" href="#run-details"/);
+});
+
+test('visibleExercisedCount shows findings plus 4 passes, at least 6, all at 8 or fewer', () => {
+	const rows = (findings, passes) => [
+		...Array.from({ length: findings }, (_, i) => ({ finding: i + 1 })),
+		...Array.from({ length: passes }, () => ({ finding: null })),
+	];
+	assert.equal(visibleExercisedCount(rows(2, 6)), 8);
+	assert.equal(visibleExercisedCount(rows(1, 17)), 6);
+	assert.equal(visibleExercisedCount(rows(0, 18)), 6);
+	assert.equal(visibleExercisedCount(rows(5, 13)), 9);
+	assert.equal(visibleExercisedCount(rows(9, 1)), 10);
+});
+
+test('renderReportHtml puts finding rows first and collapses the passes past the first 4', () => {
+	const pass = n => `| pass ${n} | fine | |`;
+	const html = renderReportHtml(md([
+		'## Coverage', '', '### Exercised', '',
+		'| Scenario | Result | Screenshot |', '|---|---|---|',
+		...[1, 2, 3, 4, 5].map(pass),
+		'| second hit | broke (Finding 2) | |',
+		...[6, 7, 8].map(pass),
+		'| first hit | broke (Finding 1) | |',
+		...[9, 10].map(pass),
+		'', '### Not exercised', '',
+		'| Scenario | Reason |', '|---|---|',
+		...Array.from({ length: 12 }, (_, i) => `| skip ${i} | later |`),
+	].join('\n')));
+	const order = [...html.matchAll(/<span>((?:pass|first|second) [^<]*)<\/span>/g)].map(m => m[1]);
+	assert.deepEqual(order.slice(0, 7), ['first hit', 'second hit', 'pass 1', 'pass 2', 'pass 3', 'pass 4', 'pass 5']);
+	assert.equal((html.slice(html.indexOf('<body')).match(/cov-extra/g) || []).length, 6);
+	assert.match(html, /<h3 class="cov-title">Exercised<span class="cov-n"> &middot; 12<\/span>/);
+	assert.match(html, /<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all 12 exercised scenarios">/);
+	assert.match(html, /<label for="cov-all" class="cov-more"><span class="cov-all">Show all 12 exercised scenarios<\/span><span class="cov-less">Show fewer<\/span>/);
+	// Not exercised never collapses, however long.
+	const not = html.slice(html.indexOf('Not exercised'));
+	assert.doesNotMatch(not, /cov-extra|cov-toggle/);
+});
+
+test('renderReportHtml shows a short Exercised table in full with no toggle', () => {
+	const html = renderReportHtml(FULL);
+	assert.doesNotMatch(html.slice(html.indexOf('<body')), /cov-toggle|cov-extra/);
 });

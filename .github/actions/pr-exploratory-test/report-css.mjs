@@ -333,9 +333,20 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 /* Grid tables: findings list, coverage, not exercised */
 /* Panels carry no shadow in either theme: the Party offset shadow marks a card
    or a tile, and putting one on a full-width table read as a second surface. */
-.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.panel{position:relative;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .row{display:grid;gap:16px;padding:16px 20px;border-bottom:1px solid var(--hairline);align-items:start;color:inherit;text-decoration:none}
 .row:last-child{border-bottom:0}
+/* Exercised collapses past its first rows. A checkbox, so it works without script. */
+.cov-toggle{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.cov-toggle:not(:checked)~.cov-extra{display:none !important}
+.cov-more{display:flex;align-items:center;gap:6px;padding:11px 20px;font-size:13px;font-weight:500;color:var(--link);cursor:pointer;transition:background-color .15s ease,color .15s ease}
+.cov-more:hover{background:var(--thead);color:var(--link-hover)}
+.cov-toggle:focus-visible~.cov-more{outline:2px solid var(--focus);outline-offset:-2px;border-radius:0 0 12px 12px}
+.cov-less{display:none}
+.cov-toggle:checked~.cov-more .cov-all{display:none}
+.cov-toggle:checked~.cov-more .cov-less{display:inline}
+.cov-chev{transition:transform .15s ease}
+.cov-toggle:checked~.cov-more .cov-chev{transform:rotate(180deg)}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
