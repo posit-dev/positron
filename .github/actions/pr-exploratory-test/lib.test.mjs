@@ -5,6 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { renderReportHtml } from './html.mjs';
 import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
@@ -223,4 +224,53 @@ test('renderCostFooter omits passes that did not run, and the total with them', 
 	], 200);
 	assert.doesNotMatch(footer, /gate|verify|total/);
 	assert.match(footer, /explore: \$2\.52/);
+});
+
+const REPORT_MD = [
+	'# Exploratory test: something',
+	'',
+	'`branch/name` | `abc1234`',
+	'',
+	'**Result:** It works.',
+	'',
+	'## Findings',
+	'',
+	'| # | Finding | Verified |',
+	'|---|---------|----------|',
+	'| 1 | a claim | confirmed |',
+	'',
+	'<details>',
+	'<summary>Run details</summary>',
+	'',
+	'the details',
+	'',
+	'</details>',
+].join('\n');
+
+test('renderReportHtml lifts the title and meta into the header, once', () => {
+	const html = renderReportHtml(REPORT_MD);
+	assert.match(html, /<h1>Exploratory test: something<\/h1>/);
+	assert.match(html, /<div class="meta">.*branch\/name.*<\/div>/);
+	// The title must not also appear as an h1 in the body.
+	assert.equal((html.match(/<h1>/g) || []).length, 1);
+});
+
+test('renderReportHtml renders tables and passes details through', () => {
+	const html = renderReportHtml(REPORT_MD);
+	assert.match(html, /<table>/);
+	assert.match(html, /<td>confirmed<\/td>/);
+	assert.match(html, /<details>/);
+	assert.doesNotMatch(html, /^\| 1 \|/m);
+});
+
+test('renderReportHtml escapes a title that contains markup', () => {
+	const html = renderReportHtml('# A <script>alert(1)</script> title\n\nbody');
+	assert.doesNotMatch(html, /<title>[^<]*<script>/);
+	assert.match(html, /&lt;script&gt;/);
+});
+
+test('renderReportHtml survives a report with no title', () => {
+	const html = renderReportHtml('just prose, no heading');
+	assert.match(html, /<h1>Exploratory test<\/h1>/);
+	assert.match(html, /just prose/);
 });

@@ -9,6 +9,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { renderReportHtml } from './html.mjs';
 import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
@@ -336,6 +337,15 @@ async function main() {
 		// Written with the footer: report.md is published to the CDN on its own,
 		// where the step summary's copy of the cost is not reachable.
 		writeFileSync(join(WORK_DIR, 'report.md'), summary);
+		// index.html is what the published run directory's URL already points at,
+		// and a rendered page is easier to read than raw markdown with absolute
+		// image URLs in it. The markdown stays: the verification pass reads it,
+		// and a file you can grep is worth keeping.
+		try {
+			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(summary));
+		} catch (err) {
+			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
+		}
 	} else if (partial) {
 		summary = `## Exploratory test: partial run\n\nThe agent hit the ${MAX_TURNS}-turn cap before writing a report. \`actions.log\` and any screenshots captured so far are in the artifact.\n\n${footer()}\n`;
 	} else {
