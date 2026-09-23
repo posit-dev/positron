@@ -60,14 +60,17 @@ function bar(segments) {
 	return parts ? `<div class="tile-bar">${parts}</div>` : '';
 }
 
-/** One keyed item per segment, so the bar can be read without a hover. */
+/**
+ * One plain-text item per segment, in the bar's order, so position ties each
+ * word to its colour and every item still names what it counts.
+ */
 function legend(items) {
 	const parts = items
 		.filter(i => i.strong || i.word)
-		.map(i => `<span class="legend-item"><span class="key" style="background:${i.color}"></span>`
-			+ `<span>${i.strong ? `<b>${escapeHtml(String(i.strong))}</b> ` : ''}${escapeHtml(i.word ?? '')}</span></span>`)
-		.join('');
-	return parts ? `<div class="tile-legend">${parts}</div>` : '';
+		.map(i => `<span class="legend-item">${i.strong ? `<b>${escapeHtml(String(i.strong))}</b> ` : ''}${escapeHtml(i.word ?? '')}</span>`);
+	return parts.length
+		? `<div class="tile-legend">${parts.join('<span class="legend-sep" aria-hidden="true">&middot;</span>')}</div>`
+		: '';
 }
 
 function hasCost(report) {
