@@ -1,0 +1,401 @@
+---
+name: exploratory-testing
+description: "Explore a running Positron instance as a real user to find genuine problems in a change you just made. Use when asked to exploratorily test, QA, manually test, or poke at a branch, PR, or feature through the real UI. This is discovery testing against the live app to find bugs, NOT writing automated tests; use author-e2e-tests or author-vitest-tests for that. Worth its cost for a user-visible behavior change, not for a refactor or a typo fix. Only runs when a person invokes it explicitly."
+disable-model-invocation: true
+---
+
+# Exploratory testing
+
+Explore a running Positron instance as a real user and find genuine problems.
+Test what you were pointed at: the change's diff plus any other features and
+functions in its blast radius, or the feature named in the request. Not the
+rest of Positron. You decide how: what to look at, what to try, and when to
+stop.
+
+## Run it in a subagent
+
+Spawn one fresh agent with `subagent_type: "general-purpose"` and
+`model: "opus"`. Do not fork: a fork costs twice the calls for fewer findings,
+because it re-sends your whole conversation on every turn. Sonnet is only for a
+narrow re-test of one known scenario; it is not good enough for discovery.
+
+The brief is the only context the agent has, so make it self-contained: the
+checkout path, the branch and how to see the diff, what the change is meant to
+do as a user would describe it, and the blast radius you are nervous about.
+State intent and risk; do not state what you expect to work.
+
+Running it in a subagent keeps screenshots, snapshots, and dead ends out of the
+session you are working in.
+
+If you are that subagent, do the exploring yourself. Do not delegate again.
+
+## Drive the app
+
+Use `.claude/skills/drive-positron` from the Positron checkout. It owns
+launching, Playwright, known Positron behaviors, and cleanup. Do not restate
+or reimplement any of it.
+
+Pass whatever its launch section says is yours to pass, and put launcher
+arguments before the `--`; everything after it goes to the app. Do not opt out
+of the arguments the launcher supplies: without `--disable-workspace-trust` the
+app starts in restricted mode with extensions disabled, so interpreter
+discovery never runs and an empty picker looks like a bug.
+
+Every tool call is a turn, and every turn re-sends the whole context, so turn
+count drives cost far more than output size. A run made of single Playwright
+commands each returning a line or two is the pattern to avoid. Batch
+independent steps into one call -- act, act, then snapshot. Capture
+screenshots freely, since writing a file is free. Reading one back is the most
+expensive thing you can do: an image costs about 2,500 tokens at 1600x1100,
+scales with area, and is paid again on every call after it. So read one only
+when no grep of an accessibility snapshot or a log can answer the question,
+which is rare. A screenshot you never read is still good evidence for the
+report.
+
+Before exploring, prove the branch under test is the code you are driving. A
+worktree's `out/` is routinely stale main, and a run against main yields a clean
+report indistinguishable from a real one, so nobody catches it. Build if you
+need to, then grep the compiled output for a string the diff introduced, and
+record that check in Run setup.
+
+Cleanup is not optional; follow its Clean up section, including removing any
+scaffolding workspaces you created.
+
+## Report
+
+Write findings to a fresh run directory,
+`~/.claude/skills/exploratory-testing/output/<YYYYMMDDTHHMMSS>/report.md`, with
+evidence under `shots/` beside it. Cite a shot as a real link,
+`[shots/<file>](shots/<file>)`, every time you name one, here and in Verified
+working: a backticked path renders as code the reader cannot open. Never
+write into an existing run directory; each run keeps its own so earlier
+findings survive.
+Copy evidence into `shots/` as you capture it, not at the end: drive-positron's
+cleanup deletes the run directory your screenshots were written to, and a report
+linking deleted files is not verifiable.
+
+Write the report with Bash, as one quoted heredoc:
+`cat > "$RUN/report.md" <<'REPORT'`. Quoting the delimiter passes backticks and
+`$` through literally. Do not reach for the Write tool. It rejects a subagent's
+report file outright ("Subagents should return findings as text, not write
+report files"), and because the report is the deliverable, that guard costs the
+run its entire output.
+
+Outcome first, evidence second, execution detail last. A reviewer who reads
+only the title block, the findings table, and Coverage should know where the
+change stands.
+
+The shape, and only this shape:
+
+```
+# Exploratory test: <what you tested>
+
+`<branch>` | `<short sha>`
+
+**Result:** <one sentence: what the change now does for a user>
+**Tested:** <what you exercised, in a phrase>, <N> scenarios
+**Not exercised:** <surfaces the change touches that you did not reach, or `none`>
+
+## Findings
+
+<the table, then one `### Finding N: <claim>` block per finding, worst first>
+
+## Coverage
+
+### Verified
+
+| Scenario | Result | Screenshot |
+
+### Not exercised
+
+| Scenario | Reason |
+
+<details>
+<summary>Run details</summary>
+
+### Change under test
+### Environment
+### State manipulation
+### Branch verification
+
+</details>
+```
+
+One `#` heading, and it is the report. `Result` and `Not exercised` are bold
+labels on their own lines rather than headings, because two lines do not need a
+section competing with `## Findings`.
+
+`Result` is one sentence saying what the change now does for a user, in the
+terms they would use. Write it as a statement, never as an answer: the reader
+cannot see a question, so a line opening with "Yes", "Mostly" or "Partly"
+leaves them holding an adverb and nothing else. Where the change falls short,
+say what it does and where it stops, still as a statement.
+
+One clause is usually enough. Do not name a finding, retell its mechanism, or
+list what you verified: the table sits directly below this line and Coverage is
+a screen further down, and a summary of something two lines away is the same
+text twice. What no table can say is that the feature works, so say that and
+stop.
+
+When `Result` runs to two sentences, put `**` around the one a reader must not
+miss -- usually the one saying where the change falls short. It renders as the
+emphasised clause of the report's opening paragraph. You are the only one who
+watched the run, so you are the only one who can say which clause is the point;
+nothing downstream can work it out from the text. Mark one sentence, never the
+whole line: emphasis covering everything emphasises nothing, and the renderer
+drops it. A single-sentence `Result` needs no mark.
+
+`Tested` is the scope you covered and how much of it: the surfaces you drove,
+in a phrase, then the number of scenarios. The count is the row count of your
+`Verified` table, so a reader can check it against the table rather than take
+it on trust. It is there because nothing else at the top says how much work
+stands behind the verdict, and no findings after three scenarios means
+something very different from no findings after twenty.
+
+Write all three lines every time. `**Not exercised:** none` is a claim that you
+reached everything the change touches, and making you write it is the point: a
+reader who sees a low finding count cannot otherwise tell a clean run from one
+that never rendered the feature. Each surface named there reappears under
+Coverage with the reason it was out of reach.
+
+`## Coverage` holds what you exercised and what you did not, as two tables.
+Resist any column that restates another: a `Status` column reading `passed` on
+every row of a table headed `Verified` says nothing, and the heavier the table
+the less of it gets read.
+
+`Verified` answers what you exercised, what happened, and where to check it.
+
+```
+| Scenario | Result | Screenshot |
+|---|---|---|
+| <a few words> | <what happened> | [shots/<file>](shots/<file>) |
+```
+
+The shot goes in its own cell, and the cell is left empty when you have none.
+A verified claim nobody can check is worth little, and this table is where the
+reader checks it; a column of filenames can be scanned down for the row you
+want, which the same links buried mid-sentence could not be. Keep `Result` to
+what happened. A cell reporting that something did *not* happen says which
+surface you checked and when, and each such claim stands alone rather than
+being folded into a rate.
+
+When a row is how you found a finding, end `Result` with `(finding N)`. That is
+what links the row to the finding it produced, and it is why a scenario that
+hit a problem still belongs in this table rather than being moved out of it.
+
+`Not exercised` answers why not, and covers both the surfaces you could not
+reach and the threads you abandoned. Every scenario named on the
+`**Not exercised:**` line at the top appears here.
+
+```
+| Scenario | Reason |
+|---|---|
+| <a few words> | <why it was out of reach, in a phrase> |
+```
+
+Some gaps deserve a sentence a cell cannot hold: a mechanism you did not test
+that probably shares a fault with one you did, say. Say it in that row's
+`Reason` rather than adding a section for it. There is no follow-up block: a
+list of what a different run might check is not a finding and not coverage, and
+it read as a third kind of result nobody could act on.
+
+Run details goes last because nobody needs it until they try to reproduce
+something: the branch and how you proved the build matches it, how the app was
+launched and which instances you started, the state you manufactured and
+restored, and the local noise you ignored.
+
+It is the one section that collapses. Wrap it in `<details>` with a `Run
+details` summary, and keep a blank line after `<summary>` and before
+`</details>` or the markdown inside renders as literal text. Nothing else
+collapses: a finding's body is the evidence its table row is asking you to
+believe, and evidence behind a click gets read as an assertion.
+
+Return a two or three line summary and nothing else; the report is the
+deliverable. Lead with how many findings the change under test introduced. Any
+such count, in the summary or in the report, counts `Introduced? yes` only and
+must agree with the blocks.
+
+```
+| # | Finding | Severity | Impact | Introduced? | Reproduction |
+|---|---------|----------|--------|-------------|--------------|
+| 1 | <short claim> | major | <the user consequence, in a phrase> | yes | 3/3 |
+```
+
+Each column answers one question and nothing else.
+
+`Severity` is `major`, `moderate`, or `minor`. A `major` finding blocks or
+materially breaks an important user workflow. A `moderate` one leaves the
+workflow usable but meaningfully wrong or disruptive. A `minor` one is a small
+usability, visual, or polish problem. Read it off the impact phrase rather than
+picking it alongside: if the phrase does not justify the label to someone who
+knows nothing else, the label is wrong.
+
+Anchor the three so the middle does not swallow everything. Telling the user
+to take an action that cannot fix their problem is `major`: the advice does not
+work and the task never completes. Offering a choice that fails when they take
+it is `moderate`, because they can still get there another way. A control that
+wraps onto two lines is `minor`. Caught between two, let the impact phrase
+decide; caution is not a tiebreaker, and a bug rated down reads as one nobody
+has to fix.
+
+`Impact` is the user consequence in a phrase, and only that: "blocks
+completion", "silently creates no environment". Not the rate, which
+`Reproduction` holds, and not a scale, because "High" tells a reader nothing.
+
+`Introduced?` is `yes`, `no`, or `unclear`: did this change create the problem?
+Settle it from the diff, not from how certain you feel. Either the line you
+blame is in the diff or it predates the change, and Cause says which. Keep
+`unclear` for the cases the diff genuinely cannot settle: the change exposes an
+existing defect, or shifts timing so an existing race now fires. It is not a
+hedge. You have read the diff by this point, so writing `unclear` over code you
+watched arrive hands the author a reason to skip the finding.
+
+`Reproduction` is how often you saw it, `<N>/<M>`, matching the finding block.
+
+There is no tag for a regression any more. When behavior that used to work is
+now broken, put it in the claim itself -- "X no longer Y" -- because that is
+what decides whether a reader reverts or fixes forward.
+
+Append every action to `actions.log` in the run directory as you take it, with
+a timestamp, including the ones that feel incidental: a window reload, a
+setting toggle, a wait. Have your scripts append it themselves. `Repro` is a
+transcription of that file, not a recollection at report time, and a
+precondition that only ever existed in your head is how a finding stops
+reproducing on the reader's machine. Write the steps as a person using the app
+would, not as you drove it: launch flags and scratch paths belong in Run
+setup. Keep the claim under about twelve words.
+
+Every finding's steps stand on their own. Do not send the reader to another
+finding for them -- no "as Finding 1", no "same as above". A reader arrives at
+a finding from the table or a link, and steps they have to go hunting for are
+steps they will not follow. Repeat the setup line in full each time; two
+identical lines cost less than one missing one.
+
+A step that shows source to paste puts it in a fenced block, indented under
+that step so it stays part of it. If the source contains a fence of its own,
+the outer fence has to be longer than the inner one -- four backticks around
+three.
+
+Use this block for every finding; do not substitute a schema of your own. Keep
+the heading exactly this shape. `N` is the row number from the table, and it is
+what ties the block to that row and to any Coverage row ending `(finding N)`,
+so a heading that renumbers or drops it breaks those links.
+
+```
+### Finding N: <concise claim>
+
+> **Confirmed** | Reproduced **<N>/<M>** | **Introduced by this change**
+
+<Two sentences a reader can follow without knowing the code: what they hit,
+and why it matters. Symbol names belong under Cause, not here.>
+
+**Repro** -- starting state: <what exists before step 1>
+
+**Preconditions:** <what this needs to happen, and what happened under the
+default: reproduces, does not reproduce, or not checked. Write "default
+settings" when it needs nothing special, and say there how you manufactured
+any state the repro depends on. Write it every time even when the answer is
+nothing: a blank line cannot tell a reader "needs nothing" apart from "never
+checked". The report drops a line that says only "default settings", so
+stating the obvious costs the reader nothing.>
+
+1. <step>
+2. <step>
+
+**Observed:** <what happened>
+
+**Expected:** <what should have happened>
+
+**Evidence**
+
+- [shots/<file>](shots/<file>) -- <what it shows>
+- `<log path>` -- <quoted line with its timestamp>
+
+**Cause (hypothesis):** <one sentence naming the suspect, then the detail and
+the code pointers>
+```
+
+The heading names the finding and carries a short claim, not the whole defect:
+the body is there to explain it. The line under it is a status strip, and a blockquote so it reads
+as metadata rather than sinking into the prose. Its third slot is
+`**Introduced by this change**`, `**Pre-existing**`, or `**Origin unclear**`,
+matching the table's `Introduced?` without repeating its wording.
+
+Always give the rate, even when it is 5/5. "Every time" and "one time in three"
+are different bugs to whoever picks this up, and `Confirmed` alone does not
+separate them. `Unproven` means you saw it but could not reproduce it, which is
+0/M. Whether the change introduced it is a separate axis and sits beside the
+tag; do not fold the two together.
+
+Keep the blank lines; they are part of the format. Labels packed together with
+no blank line between them render as one run-on paragraph, and a step indented
+under a label is swallowed by that paragraph too. Steps go at the left margin as
+a real numbered list.
+
+Embed one image with `![](shots/<file>)`: the single shot that shows the failure
+best. Cite the rest as links under Evidence. Four screenshots of nearly the same
+screen push everything below them off the page, and a reader who wants the
+second one will open it.
+
+Evidence holds only what proves the behavior happened. A path to the code you
+suspect is not evidence, it is where to look, so it goes in Cause.
+
+Report genuine problems only. A finding a human cannot verify from its artifacts
+is wasted work, so prefer one finding with a timestamped log excerpt over three
+without. A proven bug belongs in the report even if the change under test did
+not introduce it; that is what `Introduced? no` is for.
+
+Do not file GitHub issues and do not make a merge call. The person decides what
+is real.
+
+## What this run is for
+
+Test the state a real user is in. A fresh disposable profile is the easy thing
+to test and the least representative one; warm start, a populated workspace,
+and cached state are the common cases and are where this has found its worst
+behavior.
+
+Manufacture the state you need. A feature that only appears when something is
+missing, stale, or failing cannot be tested on a machine where it is present,
+fresh, and working -- so make it missing: move a binary off PATH, reload the
+window so a cached probe re-runs, point a host at 0.0.0.0. Scale what you
+touch to what you can put back. In a disposable environment -- a CI container,
+a VM you own -- machine-wide changes are fine. On someone's real machine, stay
+in the profile, the workspace, and the settings; if the state is reachable
+only by changing the machine itself, say so and drop it rather than doing it.
+Restore what you changed, and record both the change and the restore in Run
+setup.
+
+Look for a second code path that consumes the same data. When one consumer is
+correct and another is wrong, you have localized the bug instead of just
+observing it.
+
+Positron logs are at `~/.local/state/positron/logs`, not in the user-data
+directory.
+
+Before believing a finding, confirm your measurement can see what you think it
+sees. A UI-scraping bug reads as a product bug, and bug-first instinct will
+hold the wrong hypothesis for a long time; check the instrument first.
+
+The harness is part of the configuration, not a neutral window onto the
+product. A launcher that forces a setting, a web server standing in for the
+desktop app, a seeded profile: each puts the app in a state most users are not
+in, and a finding reachable only there is a narrower bug than it looks. So
+before you rank a finding, find the configuration axis it sits on and say where
+it lands on the `Preconditions` line. Re-check it under the default; if you
+cannot, write that you did not rather than leaving the axis unstated. Keep it
+to a sentence or two: it renders as a bullet above the steps, beside the
+starting state, and a paragraph there buries the one thing a reader needs
+before they begin. Write the
+line so it reads as a statement either way: "default settings" when the bug
+needs nothing, "only with X" when it does. Never "only under default
+settings", which says the opposite of what it means.
+Desktop and web differ this way by construction, so a finding from one is not
+yet a finding about the other.
+
+Abandon dead ends and say you did. But tell a dead end from a door: a reload,
+a moved binary, or a blocked host is often the only way into the state under
+test, and dropping it means the feature ships untested. What is genuinely the
+test environment showing is a mechanism reachable only in a dev build or an
+admin deployment. Note that as dropped and move on; do not grind on one broken
+interaction.

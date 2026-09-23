@@ -1,0 +1,405 @@
+name: "Test: Exploratory"
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch to explore."
+        required: true
+        type: string
+      model:
+        description: "Model to explore with. 'both' runs opus and sonnet in parallel."
+        required: false
+        default: "opus"
+        type: choice
+        options:
+          - opus
+          - sonnet
+          - both
+      enable_gate:
+        description: "Let a pre-flight pass decline the run when the change cannot be exercised here"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+concurrency:
+  group: pr-exploratory-${{ inputs.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Runs before anything is built. The explore job needs a compile, an Xvfb, a
+  # launch and a Playwright attach; a change this pass declines should not pay
+  # for twenty minutes of 8-core runner first. One gate serves every matrix leg.
+  gate:
+    name: gate
+    if: ${{ inputs.enable_gate }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      testable: ${{ steps.gate.outputs.testable }}
+      reason: ${{ steps.gate.outputs.reason }}
+      cost: ${{ steps.gate.outputs.cost }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The checkout above is the branch under test, and it is the code this job
+      # builds and drives. It is not where the job's own tooling comes from.
+      # `./.github/actions/...` resolves against the workspace root, so every
+      # local action would be whichever version that branch happens to carry:
+      # missing entirely for one this branch adds, and stale for one it changes.
+      # Take the actions and the skill from the ref the workflow was dispatched
+      # from, so a run is driven by this version whatever it is pointed at.
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-testing
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Resolve diff base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=$(git merge-base origin/main HEAD)
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo "diff_stat<<DIFFEOF"
+            git --no-pager diff "$BASE"...HEAD --stat
+            echo "DIFFEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Rule on the change
+        id: gate
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: gate
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          # gate mode does not read the skill, but the harness copy is the one
+          # this job means either way; leaving it to default would quietly point
+          # at the branch under test the day gate mode does read it.
+          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
+          branch: ${{ inputs.ref || github.ref_name }}
+          diff-stat: ${{ steps.base.outputs.diff_stat }}
+          base-sha: ${{ steps.base.outputs.base }}
+          head-sha: ${{ steps.base.outputs.head }}
+
+      # A declined run skips the explore job, which on its own looks like
+      # nothing happened. The gate's whole output is the reason it declined, so
+      # put it where the person who dispatched the run will see it.
+      - name: Say why the run was declined
+        if: ${{ steps.gate.outputs.testable == 'false' }}
+        shell: bash
+        env:
+          REASON: ${{ steps.gate.outputs.reason }}
+          COST: ${{ steps.gate.outputs.cost }}
+        run: |
+          set -euo pipefail
+          {
+            printf '## Exploratory test: not run\n\n'
+            printf 'The pre-flight pass declined this change.\n\n'
+            printf '%s\n' "${REASON:-No reason recorded.}"
+            printf '\n_gate: $%s_\n' "${COST:-?}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  explore:
+    name: explore (${{ matrix.model }})
+    needs: [gate]
+    # always(): the gate is skipped when it is off, and a skipped need would
+    # otherwise skip this job too. Only an explicit false stops the run.
+    if: ${{ always() && needs.gate.outputs.testable != 'false' }}
+    strategy:
+      # One model failing should not cancel the other; a partial comparison is
+      # still worth reading.
+      fail-fast: false
+      matrix:
+        # Every branch is a literal. Building the JSON with format() put a
+        # dispatch input inside the document it was about to parse, which only
+        # held because `type: choice` happens to constrain the value.
+        model: ${{ (inputs.model || 'opus') == 'both' && fromJSON('["opus","sonnet"]')
+          || (inputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+          || fromJSON('["opus"]') }}
+    timeout-minutes: 90
+    runs-on: ubuntu-latest-8x
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      options: --user 0:0 --init
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+      HOME: /root
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      RETICULATE_PYTHON: /root/.venv/bin/python
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      # The checkout above is the branch under test, and it is the code this job
+      # builds and drives. It is not where the job's own tooling comes from.
+      # `./.github/actions/...` resolves against the workspace root, so every
+      # local action would be whichever version that branch happens to carry:
+      # missing entirely for one this branch adds, and stale for one it changes.
+      # Take the actions and the skill from the ref the workflow was dispatched
+      # from, so a run is driven by this version whatever it is pointed at.
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-testing
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Resolve diff base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          # fetch-depth: 0 fetched all branches, so origin/main is present.
+          BASE=$(git merge-base origin/main HEAD)
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Diff base: $BASE"
+          git --no-pager diff "$BASE"...HEAD --stat
+          {
+            echo "diff_stat<<DIFFEOF"
+            git --no-pager diff "$BASE"...HEAD --stat
+            echo "DIFFEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.harness/.github/actions/restore-build-caches
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v4
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'
+          DOCKER_CONFIG: /tmp/.docker
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: bash scripts/install-npm-parallel.sh
+
+      - name: Download binaries (Ark, Kallichore)
+        uses: ./.harness/.github/actions/download-binaries
+        with:
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
+
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Prelaunch
+        run: npm run prelaunch
+
+      - name: Set permissions on SUID sandbox helper
+        run: |
+          ELECTRON_ROOT=.build/electron
+          sudo chown root $ELECTRON_ROOT/chrome-sandbox
+          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+          stat $ELECTRON_ROOT/chrome-sandbox
+
+      - name: Setup E2E Test Environment
+        uses: ./.harness/.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Install jq
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Not in the container image. launch.sh output parsing below needs
+          # it, and so do monaco-paste.sh, quickpick-enum.sh, and the snapshot
+          # recipe the agent follows from the drive-positron skill.
+          sudo apt-get update && sudo apt-get install -y jq
+          jq --version
+
+      - name: Setup Xvfb
+        uses: ./.harness/.github/actions/setup-xvfb
+
+      - name: Alter AppArmor restrictions
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Write seed profile and scratch workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/positron-seed/User
+          # window.dialogStyle defaults to native, and a native message box is a
+          # separate OS window: invisible to CDP screenshots and unclickable by
+          # the driver, so the extension host waits on it forever. A run hit that
+          # and filed the stuck button as a major product defect. launch.sh sets
+          # this too, but only on branches carrying that change, so pin it here
+          # where the harness controls it.
+          printf '{ "window.dialogStyle": "custom", "files.simpleDialog.enable": true }\n' \
+            > /tmp/positron-seed/User/settings.json
+          mkdir -p /tmp/exploratory-workspace
+          echo "# scratch" > /tmp/exploratory-workspace/README.md
+
+      - name: Check compiled output exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d out || { echo "out/ missing -- compile did not run"; exit 1; }
+          echo "out/ present, $(find out -name '*.js' | wc -l) js files"
+
+      - name: Allocate report dir
+        uses: ./.harness/.github/actions/gen-report-dir
+        with:
+          identifier: exploratory-${{ matrix.model }}
+          skip-summary: "true"
+
+      - name: Allocate run directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
+          echo "REPORT_BASE_URL=${REPORT_URL%/index.html}" >> "$GITHUB_ENV"
+          mkdir -p /tmp/exploratory-run/shots
+
+      - name: Launch Positron
+        shell: bash
+        run: |
+          set -euo pipefail
+          LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
+            --source-user-data-dir /tmp/positron-seed -- \
+            --folder-uri file:///tmp/exploratory-workspace \
+            --log debug \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --use-gl=swiftshader \
+            --enable-unsafe-swiftshader \
+            --disable-gpu-compositing \
+            --password-store=basic)
+          echo "$LAUNCH_JSON"
+          CDP_PORT=$(echo "$LAUNCH_JSON" | jq -r .cdpPort)
+          test -n "$CDP_PORT" && test "$CDP_PORT" != "null" || {
+            echo "cdpPort missing from launch.sh output"; exit 1;
+          }
+          echo "CDP_PORT=$CDP_PORT" >> "$GITHUB_ENV"
+
+      - name: Attach Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx @playwright/cli -s=positron attach --cdp=http://127.0.0.1:"$CDP_PORT"
+          npx @playwright/cli -s=positron resize 1600 1100
+          TITLE=$(npx @playwright/cli -s=positron eval '(() => document.title)()')
+          echo "document.title = $TITLE"
+          test -n "$TITLE" || { echo "document.title is empty"; exit 1; }
+          npx @playwright/cli -s=positron screenshot --filename="$EXPLORE_DIR/attach-proof.png"
+          test -s "$EXPLORE_DIR/attach-proof.png" || { echo "screenshot empty"; exit 1; }
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Explore
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
+          work-dir: ${{ env.EXPLORE_DIR }}
+          cdp-port: ${{ env.CDP_PORT }}
+          branch: ${{ inputs.ref }}
+          diff-stat: ${{ steps.base.outputs.diff_stat }}
+          base-sha: ${{ steps.base.outputs.base }}
+          head-sha: ${{ steps.base.outputs.head }}
+          report-base-url: ${{ env.REPORT_BASE_URL }}
+          model: ${{ matrix.model }}
+
+      - name: Stage publishable run directory
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/exploratory-publish
+          mkdir -p /tmp/exploratory-publish
+          if [ -d /tmp/exploratory-run ]; then
+            cp -a /tmp/exploratory-run/. /tmp/exploratory-publish/
+            rm -f /tmp/exploratory-publish/actions.log
+          fi
+
+      - name: Upload run directory to S3
+        id: s3-upload
+        if: always()
+        continue-on-error: true
+        uses: ./.harness/.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          source-dir: /tmp/exploratory-publish
+
+      - name: Warn if S3 upload failed
+        if: always() && steps.s3-upload.outcome != 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload run directory
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: exploratory-run-${{ matrix.model }}
+          path: |
+            /tmp/exploratory-run
+            /tmp/positron-dev-launch/*/code.log
+          if-no-files-found: warn
