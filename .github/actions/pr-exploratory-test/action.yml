@@ -9,7 +9,15 @@ inputs:
     required: false
     default: ""
   repo-root:
-    description: "Repository root the agent drives from"
+    description: "Repository root the agent drives from: the checkout of the branch under test"
+    required: false
+    default: ""
+  skill-path:
+    description: >
+      SKILL.md for the exploratory-testing skill. Defaults to the copy in
+      repo-root, which is only right when the branch under test already carries
+      the skill. Point it at the harness checkout so the run uses the version
+      the workflow was dispatched from, not whatever the branch happens to have.
     required: false
     default: ""
   cdp-port:
@@ -79,7 +87,7 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         WORK_DIR: ${{ inputs.work-dir }}
         REPO_ROOT: ${{ inputs.repo-root || github.workspace }}
-        SKILL_PATH: ${{ inputs.repo-root || github.workspace }}/.claude/skills/exploratory-testing/SKILL.md
+        SKILL_PATH: ${{ inputs.skill-path || format('{0}/.claude/skills/exploratory-testing/SKILL.md', inputs.repo-root || github.workspace) }}
         CDP_PORT: ${{ inputs.cdp-port }}
         BRANCH: ${{ inputs.branch }}
         DIFF_STAT: ${{ inputs.diff-stat }}

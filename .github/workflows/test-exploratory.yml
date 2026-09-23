@@ -53,6 +53,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # The checkout above is the branch under test. This harness -- the action
+      # and the skill that drives it -- is not part of that branch: a PR cut
+      # before this landed does not contain it, and `./.github/actions/...`
+      # would resolve into a tree that has no such directory. Take it from the
+      # ref the workflow was dispatched from instead, so the run is always
+      # driven by this version rather than by whatever the branch carries.
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions/pr-exploratory-test
+            .claude/skills/exploratory-testing
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Resolve diff base
         id: base
         shell: bash
@@ -77,7 +94,7 @@ jobs:
 
       - name: Rule on the change
         id: gate
-        uses: ./.github/actions/pr-exploratory-test
+        uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           mode: gate
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
@@ -121,6 +138,23 @@ jobs:
           ref: ${{ inputs.ref }}
           fetch-depth: 0
           submodules: recursive
+          persist-credentials: false
+
+      # The checkout above is the branch under test. This harness -- the action
+      # and the skill that drives it -- is not part of that branch: a PR cut
+      # before this landed does not contain it, and `./.github/actions/...`
+      # would resolve into a tree that has no such directory. Take it from the
+      # ref the workflow was dispatched from instead, so the run is always
+      # driven by this version rather than by whatever the branch carries.
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions/pr-exploratory-test
+            .claude/skills/exploratory-testing
+          sparse-checkout-cone-mode: false
           persist-credentials: false
 
       - name: Resolve diff base
@@ -291,9 +325,10 @@ jobs:
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Explore
-        uses: ./.github/actions/pr-exploratory-test
+        uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
           branch: ${{ inputs.ref }}
