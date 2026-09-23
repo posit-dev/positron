@@ -2,8 +2,9 @@ name: "PR Exploratory Test"
 description: "Run the exploratory-testing skill against a launched Positron via the Claude Agent SDK."
 inputs:
   anthropic-api-key:
-    description: "Anthropic API key (resolved from 1Password by the caller)"
-    required: true
+    description: "Explore and gate modes: Anthropic API key (resolved from 1Password by the caller)"
+    required: false
+    default: ""
   work-dir:
     description: "Run directory for report.md, actions.log, shots/ and cost.json; not needed in gate mode"
     required: false
@@ -25,15 +26,17 @@ inputs:
     required: false
     default: ""
   branch:
-    description: "Branch under test"
-    required: true
+    description: "Explore and gate modes: branch under test"
+    required: false
+    default: ""
   diff-stat:
     description: "Output of git diff --stat between base and head"
     required: false
     default: ""
   base-sha:
-    description: "Diff base SHA"
-    required: true
+    description: "Explore and gate modes: diff base SHA"
+    required: false
+    default: ""
   head-sha:
     description: "Head SHA"
     required: true
@@ -50,13 +53,44 @@ inputs:
     required: false
     default: ""
   mode:
-    description: "gate (read the diff and rule on it) or explore (the full run)"
+    description: "gate (read the diff and rule on it), explore (the full run), or comment (post or edit a /test run's PR comment)"
     required: false
     default: "explore"
+  comment-state:
+    description: "Comment mode: 'running' before the build, 'result' after the upload"
+    required: false
+    default: "result"
+  outcome:
+    description: "Comment mode: the explore step's outcome output; empty when the agent never ran"
+    required: false
+    default: ""
+  pr-number:
+    description: "Comment mode: the PR to comment on"
+    required: false
+    default: ""
+  github-token:
+    description: "Comment mode: token with issues: write"
+    required: false
+    default: ""
+  comment-id:
+    description: "Comment mode: the comment to edit; empty posts a new one"
+    required: false
+    default: ""
+outputs:
+  outcome:
+    description: "Explore mode: complete, partial or no-report; empty if the run crashed"
+    value: ${{ steps.agent.outputs.outcome }}
+  comment-id:
+    description: "Comment mode: the id of the comment posted or edited"
+    value: ${{ steps.agent.outputs.comment_id }}
 runs:
   using: composite
   steps:
+    # Comment mode runs in the ack and report jobs on the runner's own Node and
+    # never calls the SDK. Those jobs check out only the harness, so there is
+    # no .nvmrc for setup-node to read.
     - name: Set up Node
+      if: inputs.mode != 'comment'
       uses: actions/setup-node@v6
       with:
         # Track the repo's .nvmrc. On Node 20 the agent's shell could not run
@@ -72,6 +106,7 @@ runs:
       run: npm ci --no-audit --no-fund
 
     - name: Install Claude Code CLI
+      if: inputs.mode != 'comment'
       # Workaround for an Agent SDK bug that resolves the musl-variant binary
       # before the glibc one on Linux runners (claude-agent-sdk-typescript#296).
       shell: bash
@@ -81,6 +116,7 @@ runs:
         claude --version
 
     - name: Run the Agent SDK
+      id: agent
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
@@ -96,9 +132,14 @@ runs:
         MODEL: ${{ inputs.model }}
         MAX_TURNS: ${{ inputs.max-turns }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}
+        COMMENT_STATE: ${{ inputs.comment-state }}
+        OUTCOME: ${{ inputs.outcome }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        COMMENT_ID: ${{ inputs.comment-id }}
         # run.mjs reads GATE directly; without it here the gate can decline a
         # run and leave the caller no way to overrule it. VERIFY is deliberately
         # absent: it defaults on, a job-level env var still reaches it for
         # debugging, and verification is what makes an unattended report worth
         # trusting, so it is not a dispatch-time choice.
-      run: node ${{ inputs.mode == 'gate' && 'gate.mjs' || 'run.mjs' }}
+      run: node ${{ inputs.mode == 'gate' && 'gate.mjs' || inputs.mode == 'comment' && 'comment.mjs' || 'run.mjs' }}

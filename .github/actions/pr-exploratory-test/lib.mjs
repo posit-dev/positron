@@ -303,3 +303,48 @@ export function renderStepSummary(markdown, baseUrl) {
 	}
 	return `${lines.join('\n')}\n`;
 }
+
+/** Labels this workflow's PR comments. Each /test run owns its own comment. */
+export const COMMENT_MARKER = '<!-- exploratory-test -->';
+
+/**
+ * How the explore pass ended. `partial` wins over a written report: a run cut
+ * off at the turn cap covered less than it meant to, and a reviewer should
+ * know that before trusting a short findings list.
+ */
+export function runOutcome({ report, numTurns, maxTurns }) {
+	if (typeof numTurns === 'number' && numTurns >= maxTurns) {
+		return 'partial';
+	}
+	return report ? 'complete' : 'no-report';
+}
+
+/**
+ * The body of the PR comment. The same signpost as the job summary, plus the
+ * head it tested: a push after `/test` makes the result stale, and the SHA is
+ * how a reader tells.
+ *
+ * `state` is a runOutcome value, `running`, or empty when the agent never ran
+ * (the build failed first). `model` is the /test argument; naming it makes a
+ * typo that fell back to the default visible.
+ */
+export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, model }) {
+	const target = headSha ? `\`${headSha.slice(0, 7)}\`` : 'the PR head';
+	// Product names: "Opus", not the lowercase /test argument.
+	const title = model ? `Exploratory test (${model[0].toUpperCase()}${model.slice(1)})` : 'Exploratory test';
+	const run = `[Run](${runUrl})`;
+	if (state === 'running') {
+		return `${COMMENT_MARKER}\n### ${title}\n\nRunning against ${target}. ${run}\n`;
+	}
+	if (markdown && (state === 'complete' || state === 'partial')) {
+		const note = state === 'partial'
+			? '\n_Partial run: the agent hit the turn cap, so coverage is incomplete._\n'
+			: '';
+		return `${COMMENT_MARKER}\n### ${title} on ${target}\n\n${renderStepSummary(markdown, baseUrl)}${note}\n${run}\n`;
+	}
+	const reason = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
+		: state === 'no-report' ? 'The agent finished without writing a report.'
+			: 'The run failed before the agent produced a report.';
+	return `${COMMENT_MARKER}\n### ${title} on ${target}: no report\n\n${reason} ${run}\n`;
+}
+

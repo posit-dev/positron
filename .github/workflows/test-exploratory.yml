@@ -7,6 +7,11 @@ on:
         description: "Branch to explore."
         required: true
         type: string
+      base:
+        description: "Branch the ref is diffed against. Set it when the ref's PR targets a release branch."
+        required: false
+        default: "main"
+        type: string
       model:
         description: "Model to explore with. 'both' runs opus and sonnet in parallel."
         required: false
@@ -17,26 +22,136 @@ on:
           - sonnet
           - both
       enable_gate:
-        description: "Let a pre-flight pass decline the run when the change cannot be exercised here"
+        description: "Skip the run if the change can't be tested in the app"
         required: false
         default: false
         type: boolean
+  # `/test` (or `/exploratory-test`) on a PR. Runs from main's copy of this
+  # file with full secrets, and the explore job builds and executes the PR's
+  # code, so the membership job is the entire defence. See its comment.
+  issue_comment:
+    types: [created]
 
 permissions:
   id-token: write
   contents: read
   packages: read
 
-concurrency:
-  group: pr-exploratory-${{ inputs.ref }}
-  cancel-in-progress: true
-
 jobs:
-  # Runs before anything is built. The explore job needs a compile, an Xvfb, a
-  # launch and a Playwright attach; a change this pass declines should not pay
-  # for twenty minutes of 8-core runner first. One gate serves every matrix leg.
-  gate:
-    name: gate
+  # Decides who may run this. Not to be confused with `worthiness`, which
+  # decides whether a change is worth testing.
+  #
+  # issue_comment runs in base-repo context with full secrets, even for fork
+  # PRs, and explore compiles and runs the PR head. PETE also mounts the PR
+  # read-only; that layer is not available here, since running the PR's code is
+  # the point. So BOTH the commenter and the PR author must be active
+  # positron-dev members: an outsider cannot bait a member into commenting
+  # `/test` on their PR. Fails closed on any error.
+  membership:
+    name: membership
+    # Cheap prefilter so ordinary comments do not start a runner. startsWith,
+    # not contains: contains fires on a comment that merely mentions /test.
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      (startsWith(github.event.comment.body, '/test') ||
+        startsWith(github.event.comment.body, '/exploratory-test'))
+    runs-on: ubuntu-latest
+    # Reads membership with the App token below and the PR with GITHUB_TOKEN.
+    # No write access on the one job that runs for every matching comment,
+    # which is also why a blocked caller gets silence rather than a rejection.
+    permissions:
+      pull-requests: read
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+      head_sha: ${{ steps.check.outputs.head_sha }}
+      head_ref: ${{ steps.check.outputs.head_ref }}
+      base_ref: ${{ steps.check.outputs.base_ref }}
+      model: ${{ steps.check.outputs.model }}
+    steps:
+      - name: Mint org-scoped App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          owner: posit-dev
+
+      - name: Check command and membership
+        id: check
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          BODY: ${{ github.event.comment.body }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          PR_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          set -uo pipefail
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+
+          # The prefilter matched a prefix, so "/testing" got this far. Only the
+          # exact command counts: the first word of the first non-blank line.
+          # /exploratory-test is an alias that matches the skill's name.
+          # Web UI comments use CRLF, so drop the CR or "/test\r" never matches.
+          first=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { print $1; exit }')
+          if [ "$first" != "/test" ] && [ "$first" != "/exploratory-test" ]; then
+            echo "Not a /test command (first word: '$first')"
+            exit 0
+          fi
+
+          # Optional second word picks the model. Only the literal names pass;
+          # anything else runs the default, and the comment names the model so
+          # a typo is visible.
+          arg=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { print tolower($2); exit }')
+          case "$arg" in
+            opus|sonnet) model=$arg ;;
+            *) model=opus ;;
+          esac
+
+          # Active member: 200 {"state":"active"}. Non-member: 404, empty
+          # stdout. Pending invite: "pending", which does not count.
+          is_member() {
+            local state
+            state=$(gh api "orgs/posit-dev/teams/positron-dev/memberships/$1" --jq '.state' 2>/dev/null)
+            [ "$state" = "active" ]
+          }
+
+          if ! is_member "$COMMENTER" || ! is_member "$PR_AUTHOR"; then
+            echo "Membership gate: blocked (commenter=$COMMENTER, author=$PR_AUTHOR)"
+            exit 0
+          fi
+
+          # Authoring a PR is not controlling its head: a fork's owner can push
+          # after a member comments. Only an open PR whose head is in this repo,
+          # where pushing already takes write access. Pin the SHA here, so a
+          # later push does not change what explore checks out.
+          if ! pr=$(GH_TOKEN="$REPO_TOKEN" gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"); then
+            echo "Membership gate: could not read PR #${PR_NUMBER}"
+            exit 0
+          fi
+          state=$(jq -r '.state' <<<"$pr")
+          head_repo=$(jq -r '.head.repo.full_name' <<<"$pr")
+          if [ "$state" != "open" ] || [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "Membership gate: blocked (state=$state, head repo=$head_repo)"
+            exit 0
+          fi
+          {
+            echo "head_sha=$(jq -r '.head.sha' <<<"$pr")"
+            echo "head_ref=$(jq -r '.head.ref' <<<"$pr")"
+            echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
+            echo "model=$model"
+            echo "ok=true"
+          } >> "$GITHUB_OUTPUT"
+          echo "Membership gate: ok (model=$model)"
+
+  # Decides whether the change is worth testing, before anything is built. Not
+  # to be confused with `membership`, which decides who may run this at all.
+  # The explore job needs a compile, an Xvfb, a launch and a Playwright attach;
+  # a change this pass declines should not pay for twenty minutes of 8-core
+  # runner first. One pass serves every matrix leg.
+  worthiness:
+    name: worthiness
     if: ${{ inputs.enable_gate }}
     runs-on: ubuntu-latest
     permissions:
@@ -74,9 +189,15 @@ jobs:
       - name: Resolve diff base
         id: base
         shell: bash
+        env:
+          BASE_REF: ${{ inputs.base || 'main' }}
         run: |
           set -euo pipefail
-          BASE=$(git merge-base origin/main HEAD)
+          if ! git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
+            echo "::error::Base branch '$BASE_REF' not found on origin"
+            exit 1
+          fi
+          BASE=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           {
@@ -126,12 +247,79 @@ jobs:
             printf '\n_gate: $%s_\n' "${COST:-?}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # The write half of a /test, split from explore so the job that runs PR code
+  # never holds a write token. Runs alongside explore, so the commenter sees
+  # the run was picked up before the slow build.
+  ack:
+    name: ack
+    needs: [membership]
+    if: needs.membership.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      reaction_id: ${{ steps.react.outputs.reaction_id }}
+      comment_id: ${{ steps.running.outputs.comment-id }}
+    steps:
+      - name: Acknowledge /test
+        id: react
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          REACTION_ID=$(gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content=eyes --jq '.id' 2>/dev/null) || echo "Failed to add reaction (non-fatal)"
+          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # One comment per /test, under the command that asked for it. report
+      # turns it into this run's result; earlier runs' results stay put.
+      - name: Post running comment
+        id: running
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: running
+          model: ${{ needs.membership.outputs.model }}
+          pr-number: ${{ github.event.issue.number }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ needs.membership.outputs.head_sha }}
+
   explore:
     name: explore (${{ matrix.model }})
-    needs: [gate]
-    # always(): the gate is skipped when it is off, and a skipped need would
-    # otherwise skip this job too. Only an explicit false stops the run.
-    if: ${{ always() && needs.gate.outputs.testable != 'false' }}
+    needs: [worthiness, membership]
+    # always(): both needs are skipped on some path (worthiness when off,
+    # membership on dispatch), and a skipped need would otherwise skip this job.
+    # On a comment, only an explicit ok=true from membership runs it, so a
+    # failed or cancelled membership job runs nothing.
+    if: >-
+      ${{ always() &&
+      needs.worthiness.outputs.testable != 'false' &&
+      (github.event_name == 'workflow_dispatch' || needs.membership.outputs.ok == 'true') }}
+    # Job-level, not workflow-level: every comment on every PR starts a run of
+    # this workflow, and a workflow-level group would let any of them cancel an
+    # in-flight /test. Per model, so the two legs of `both` do not cancel each
+    # other.
+    concurrency:
+      group: pr-exploratory-${{ github.event.issue.number || inputs.ref }}-${{ matrix.model }}
+      cancel-in-progress: true
+    # Read-only on purpose: this job runs PR code and an agent with a shell, and
+    # GITHUB_TOKEN is in their environment. ack and report do the writing.
+    outputs:
+      outcome: ${{ steps.explore.outputs.outcome }}
+      report_base_url: ${{ steps.s3-upload.outcome == 'success' && steps.rundir.outputs.report_base_url || '' }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -140,8 +328,9 @@ jobs:
         # Every branch is a literal. Building the JSON with format() put a
         # dispatch input inside the document it was about to parse, which only
         # held because `type: choice` happens to constrain the value.
-        model: ${{ (inputs.model || 'opus') == 'both' && fromJSON('["opus","sonnet"]')
-          || (inputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+        # On a comment, membership's model is already checked to opus or sonnet.
+        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'both' && fromJSON('["opus","sonnet"]')
+          || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
           || fromJSON('["opus"]') }}
     timeout-minutes: 90
     runs-on: ubuntu-latest-8x
@@ -159,9 +348,10 @@ jobs:
       R_LIBS_USER: /usr/local/lib/R/site-library
       RETICULATE_PYTHON: /root/.venv/bin/python
     steps:
+      # The SHA membership pinned, so a push after the gate is not tested.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || needs.membership.outputs.head_sha }}
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
@@ -187,13 +377,21 @@ jobs:
       - name: Resolve diff base
         id: base
         shell: bash
+        env:
+          # The PR's own target, so a PR into a release branch is not diffed
+          # against everything main has gained since the branch was cut.
+          BASE_REF: ${{ inputs.base || needs.membership.outputs.base_ref || 'main' }}
         run: |
           set -euo pipefail
-          # fetch-depth: 0 fetched all branches, so origin/main is present.
-          BASE=$(git merge-base origin/main HEAD)
+          # fetch-depth: 0 fetched all branches, so origin/$BASE_REF is present.
+          if ! git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
+            echo "::error::Base branch '$BASE_REF' not found on origin"
+            exit 1
+          fi
+          BASE=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "Diff base: $BASE"
+          echo "Diff base: $BASE (origin/$BASE_REF)"
           git --no-pager diff "$BASE"...HEAD --stat
           {
             echo "diff_stat<<DIFFEOF"
@@ -303,11 +501,13 @@ jobs:
           skip-summary: "true"
 
       - name: Allocate run directory
+        id: rundir
         shell: bash
         run: |
           set -euo pipefail
           echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
           echo "REPORT_BASE_URL=${REPORT_URL%/index.html}" >> "$GITHUB_ENV"
+          echo "report_base_url=${REPORT_URL%/index.html}" >> "$GITHUB_OUTPUT"
           mkdir -p /tmp/exploratory-run/shots
 
       - name: Launch Positron
@@ -352,13 +552,14 @@ jobs:
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Explore
+        id: explore
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
-          branch: ${{ inputs.ref }}
+          branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -403,3 +604,78 @@ jobs:
             /tmp/exploratory-run
             /tmp/positron-dev-launch/*/code.log
           if-no-files-found: warn
+
+  # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
+  # for the same reason as ack. always(): a failed build must still replace
+  # "running" with the truth.
+  report:
+    name: report
+    needs: [membership, ack, explore]
+    if: always() && needs.membership.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download run directory
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: exploratory-run-${{ needs.membership.outputs.model }}
+          path: /tmp/run-artifact
+
+      # The artifact root is the common parent of what matched, so the run dir
+      # is nested when code.log was uploaded too and at the root when it was not.
+      - name: Locate run directory
+        run: |
+          if [ -d /tmp/run-artifact/exploratory-run ]; then
+            echo "WORK_DIR=/tmp/run-artifact/exploratory-run" >> "$GITHUB_ENV"
+          else
+            echo "WORK_DIR=/tmp/run-artifact" >> "$GITHUB_ENV"
+          fi
+
+      # Links only when the upload succeeded, so the comment never points at a
+      # CDN page that 404s; the run link still reaches the artifact.
+      - name: Post result comment
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: result
+          model: ${{ needs.membership.outputs.model }}
+          # Empty when ack could not post; comment mode then posts a new one.
+          comment-id: ${{ needs.ack.outputs.comment_id }}
+          outcome: ${{ needs.explore.outputs.outcome }}
+          work-dir: ${{ env.WORK_DIR }}
+          report-base-url: ${{ needs.explore.outputs.report_base_url }}
+          pr-number: ${{ github.event.issue.number }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ needs.membership.outputs.head_sha }}
+
+      # rocket only when the agent finished on its own. A partial run (turn
+      # cap) and a hard failure both get confused.
+      - name: Finalize reaction
+        if: needs.ack.outputs.reaction_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
+          OUTCOME: ${{ needs.explore.outputs.outcome }}
+        run: |
+          gh api --method DELETE \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
+            || echo "Failed to remove eyes reaction (non-fatal)"
+          if [ "$OUTCOME" = "complete" ]; then FINAL=rocket; else FINAL=confused; fi
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
