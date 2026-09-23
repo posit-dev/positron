@@ -96,6 +96,8 @@ const BODY_CSS = `
 		.header .lead { margin: 18px 0 0; font-size: 1rem; line-height: 1.55; color: #e5e7eb; max-width: 44em; }
 		/* Coverage sits under the hero, quiet, outside the dark area. */
 		.coverage { color: #6b7280; font-size: 0.85rem; line-height: 1.5; margin: 0 4px 16px; max-width: 60em; }
+		.cost { color: #9ca3af; font-size: 0.8rem; line-height: 1.7; margin: 0 4px 8px; }
+		.cost em { font-style: normal; }
 		.coverage .k { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; color: #9ca3af; margin-right: 10px; }
 		.card table { margin: 8px 0 16px; }
 		.card th { border-bottom: 1px solid #e5e7eb; font-weight: 600; }
@@ -323,7 +325,22 @@ export function renderReportHtml(markdown) {
 		? `<div class="coverage"><span class="k">Coverage</span>${coverageBits.join(' &middot; ')}</div>`
 		: '';
 
-	const dropped = new Set([titleIndex, metaIndex, ...summaryIndexes]);
+	// The cost footer is one line per pass, and consecutive markdown lines fold
+	// into a paragraph: "explore: $3.12 | 77/200 turns | 26m verify: $0.63 ...".
+	// Lift it out and give each pass its own line.
+	const footerIndexes = [];
+	lines.forEach((line, i) => {
+		if (/^_(?:gate|explore|verify|total):\s/.test(line.trim())) {
+			footerIndexes.push(i);
+		}
+	});
+	const footer = footerIndexes.length
+		? `<div class="cost">${footerIndexes
+			.map(i => `<div>${marked.parseInline(lines[i].trim())}</div>`)
+			.join('')}</div>`
+		: '';
+
+	const dropped = new Set([titleIndex, metaIndex, ...summaryIndexes, ...footerIndexes]);
 	const body = lines
 		.filter((_, i) => !dropped.has(i))
 		.join('\n');
@@ -348,6 +365,7 @@ export function renderReportHtml(markdown) {
 	<div class="card">
 ${marked.parse(body, { renderer: shotRenderer() })}
 	</div>
+	${footer}
 </div>
 </body>
 </html>

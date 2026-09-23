@@ -383,3 +383,19 @@ test('renderReportHtml rules a finding heading but not a section heading', () =>
 	assert.match(html, /<h3>Verified<\/h3>/);
 	assert.equal((html.match(/<h3 class="finding"/g) || []).length, 1);
 });
+
+test('renderReportHtml gives each cost line its own row, below the card', () => {
+	const md = [
+		'# T', '', '`b` | `s`', '', '## Findings', '', 'No findings.', '',
+		'_explore: $3.12 | 77/200 turns | 26m_',
+		'_verify: $0.63 | 31 turns_',
+		'_total: $3.75_',
+	].join('\n');
+	const html = renderReportHtml(md);
+	assert.match(html, /<div class="cost">/);
+	assert.equal((html.match(/<div><em>/g) || []).length, 3);
+	// Not folded into one paragraph inside the card.
+	assert.doesNotMatch(html.slice(html.indexOf('class="card"'), html.indexOf('class="cost"')), /explore: /);
+	// And the cost block comes after the card, not inside it.
+	assert.ok(html.indexOf('class="cost"') > html.indexOf('class="card"'));
+});
