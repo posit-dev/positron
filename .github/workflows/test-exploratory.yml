@@ -32,11 +32,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Runs before anything is built. The explore job needs a compile, an Xvfb, a
-  # launch and a Playwright attach; a change this pass declines should not pay
-  # for twenty minutes of 8-core runner first. One gate serves every matrix leg.
-  gate:
-    name: gate
+  # Decides whether the change is worth testing, before anything is built. Not
+  # to be confused with `membership`, which decides who may run this at all.
+  # The explore job needs a compile, an Xvfb, a launch and a Playwright attach;
+  # a change this pass declines should not pay for twenty minutes of 8-core
+  # runner first. One pass serves every matrix leg.
+  worthiness:
+    name: worthiness
     if: ${{ inputs.enable_gate }}
     runs-on: ubuntu-latest
     permissions:
@@ -128,10 +130,10 @@ jobs:
 
   explore:
     name: explore (${{ matrix.model }})
-    needs: [gate]
-    # always(): the gate is skipped when it is off, and a skipped need would
-    # otherwise skip this job too. Only an explicit false stops the run.
-    if: ${{ always() && needs.gate.outputs.testable != 'false' }}
+    needs: [worthiness]
+    # always(): the worthiness pass is skipped when it is off, and a skipped need
+    # would otherwise skip this job too. Only an explicit false stops the run.
+    if: ${{ always() && needs.worthiness.outputs.testable != 'false' }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
