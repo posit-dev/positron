@@ -22,7 +22,7 @@ on:
           - sonnet
           - both
       enable_gate:
-        description: "Let a pre-flight pass decline the run when the change cannot be exercised here"
+        description: "Skip the run if the change can't be tested in the app"
         required: false
         default: false
         type: boolean
