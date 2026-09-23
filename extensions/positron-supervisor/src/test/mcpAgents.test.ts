@@ -150,6 +150,31 @@ suite('mergeTomlConfig', () => {
 			].join('\n'));
 	});
 
+	test('recognizes our entry however its header is spelled, rather than adding a duplicate', () => {
+		const config = [
+			'[ "mcp_servers" . \'positron\' ]  # mine',
+			'args = [',
+			'  ["nested"],',
+			']',
+			'',
+			'[[profiles]]',
+			'name = "work"',
+			'',
+		].join('\n');
+
+		assert.strictEqual(
+			mergeTomlConfig(config, 'mcp_servers', ENTRY),
+			[
+				'[mcp_servers.positron]',
+				'command = "/opt/positron/kcserver"',
+				'args = ["mcp-stdio"]',
+				'',
+				'[[profiles]]',
+				'name = "work"',
+				'',
+			].join('\n'));
+	});
+
 	test('quotes a Windows path, whose separators TOML would otherwise escape', () => {
 		assert.ok(
 			mergeTomlConfig(undefined, 'mcp_servers', { command: 'C:\\Positron\\kcserver.exe' })

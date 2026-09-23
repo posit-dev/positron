@@ -265,15 +265,15 @@ export function mergeTomlConfig(
 	serversKey: string,
 	entry: Record<string, unknown>,
 ): string {
-	const header = `[${serversKey}.${MCP_SERVER_NAME}]`;
+	const own = `${serversKey}.${MCP_SERVER_NAME}`;
 	const table = [
-		header,
+		`[${own}]`,
 		...Object.entries(entry).map(([key, value]) => `${key} = ${tomlValue(value)}`),
 		'',
 	];
 
 	const lines = existing?.split('\n') ?? [];
-	const start = lines.findIndex(line => line.trim() === header);
+	const start = lines.findIndex(line => tableKey(line) === own);
 	if (start < 0) {
 		const before = existing?.replace(/\s+$/, '') ?? '';
 		return before ? `${before}\n\n${table.join('\n')}` : table.join('\n');
@@ -281,7 +281,7 @@ export function mergeTomlConfig(
 
 	// Our table runs to the next one, or to the end of the file.
 	const rest = lines.slice(start + 1);
-	const next = rest.findIndex(line => line.trimStart().startsWith('['));
+	const next = rest.findIndex(line => tableKey(line) !== undefined);
 	return [
 		...lines.slice(0, start),
 		...table,
@@ -301,23 +301,39 @@ export function mergeTomlConfig(
  * @returns The contents to write.
  */
 export function unmergeTomlConfig(existing: string, serversKey: string): string {
-	const header = `[${serversKey}.${MCP_SERVER_NAME}]`;
-	const nested = `[${serversKey}.${MCP_SERVER_NAME}.`;
+	const own = `${serversKey}.${MCP_SERVER_NAME}`;
 	const lines = existing.split('\n');
-	const start = lines.findIndex(line => line.trim() === header);
+	const start = lines.findIndex(line => tableKey(line) === own);
 	if (start < 0) {
 		return existing;
 	}
 
 	const rest = lines.slice(start + 1);
 	const next = rest.findIndex(line => {
-		const trimmed = line.trimStart();
-		return trimmed.startsWith('[') && !trimmed.startsWith(nested);
+		const key = tableKey(line);
+		return key !== undefined && !key.startsWith(`${own}.`);
 	});
 	return [
 		...lines.slice(0, start),
 		...(next < 0 ? [] : rest.slice(next)),
 	].join('\n');
+}
+
+/**
+ * The key a TOML table header names, with quotes, whitespace, and any trailing
+ * comment dropped, so `["mcp_servers" . positron] # mine` reads as
+ * `mcp_servers.positron`.
+ *
+ * @param line A line of the file.
+ * @returns The dotted key, or undefined when the line is not a table header.
+ */
+function tableKey(line: string): string | undefined {
+	const match = /^\s*\[\[?(?<key>[^\[\]]+)\]\]?\s*(?:#.*)?$/.exec(line);
+	const parts = match?.groups!.key.split('.').map(part => part.trim());
+	if (!parts?.every(part => /^(?:[\w-]+|"[^"]*"|'[^']*')$/.test(part))) {
+		return undefined;
+	}
+	return parts.map(part => part.replace(/^(["'])(?<inner>.*)\1$/, '$<inner>')).join('.');
 }
 
 /**

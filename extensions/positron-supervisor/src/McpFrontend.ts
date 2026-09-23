@@ -146,6 +146,12 @@ export class McpFrontend implements vscode.Disposable {
 	/** Serializes syncs so overlapping settings changes can't race. */
 	private _syncing: Promise<void> = Promise.resolve();
 
+	/**
+	 * Serializes the registration hooks, which both rewrite the list of
+	 * configured agents, without holding up syncs on the agent CLIs they run.
+	 */
+	private _hooks: Promise<void> = Promise.resolve();
+
 	/** Resolves the channel target for a registered workspace. */
 	private _channelTarget: ((workspaceId: string) => McpChannelTarget) | undefined;
 
@@ -184,8 +190,8 @@ export class McpFrontend implements vscode.Disposable {
 		private readonly _saveState: (state: McpFrontendState) => Thenable<void>,
 		private readonly _sessionIds: () => string[],
 		private readonly _enabled: () => boolean = mcpFeatureEnabled,
-		private readonly _onRegistered: (connection: McpConnection) => void = () => { },
-		private readonly _onDeregistered: () => void = () => { },
+		private readonly _onRegistered: (connection: McpConnection) => void | Thenable<void> = () => { },
+		private readonly _onDeregistered: () => void | Thenable<void> = () => { },
 		private readonly _processEnv: NodeJS.ProcessEnv = process.env,
 	) {
 		this._disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
@@ -241,12 +247,16 @@ export class McpFrontend implements vscode.Disposable {
 		api: McpRegistrationApi,
 		channelTarget?: (workspaceId: string) => McpChannelTarget,
 	): Promise<void> {
-		this._api = api;
-		this._channelTarget = channelTarget;
-		// A new server process means a new (empty) workspace registry, so the
-		// registration we may have been holding no longer exists there.
-		this.closeChannel();
-		this.setConnection(undefined);
+		// Queued behind any sync in flight, so a registration with the old
+		// server can't land after this reset and stand in for the new one.
+		this._syncing = this._syncing.then(() => {
+			this._api = api;
+			this._channelTarget = channelTarget;
+			// A new server process means a new (empty) workspace registry, so
+			// the registration we may have been holding no longer exists there.
+			this.closeChannel();
+			this.setConnection(undefined);
+		});
 		await this.sync();
 	}
 
@@ -396,7 +406,7 @@ export class McpFrontend implements vscode.Disposable {
 		this._log(`Registered MCP workspace ${workspaceId}; agents can connect at ${url}, ` +
 			`or read ${mcpDescriptorPath(this._storageUri, workspaceId)}`);
 		this.openChannel(workspaceId);
-		this._onRegistered(connection);
+		this.runHook(() => this._onRegistered(connection));
 	}
 
 	/**
@@ -430,7 +440,7 @@ export class McpFrontend implements vscode.Disposable {
 		this.setConnection(undefined);
 		this.closeChannel();
 		await this.clearEnvironment(connection);
-		this._onDeregistered();
+		this.runHook(() => this._onDeregistered());
 		// The saved identity is left alone: deregistration drops the workspace
 		// from the supervisor, but turning the feature back on should hand
 		// agents the URL and token they were already configured with.
@@ -461,6 +471,17 @@ export class McpFrontend implements vscode.Disposable {
 			// command catalog and agents' command requests are lost.
 			this._log(`Could not open the MCP frontend channel: ${summarizeError(err)}`);
 		}
+	}
+
+	/**
+	 * Queue a registration hook behind the ones already running.
+	 *
+	 * @param hook The hook to run.
+	 */
+	private runHook(hook: () => void | Thenable<void>): void {
+		this._hooks = this._hooks.then(hook).then(undefined, err => {
+			this._log(`Failed to update the configured coding agents: ${summarizeError(err)}`);
+		});
 	}
 
 	/** Close the channel, leaving the registration itself in place. */
