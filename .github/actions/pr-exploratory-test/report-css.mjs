@@ -363,7 +363,12 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .meta{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:14px;row-gap:6px;font-size:12px;line-height:18px}
 .meta .group{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:8px}
 .meta .group.identity{gap:10px}
-.meta .who{font-weight:600;color:var(--ink)}
+/* The one place the meta row's single type size is broken, deliberately: an
+   uppercase kicker for the title, in the same family as REPRODUCE and EVIDENCE.
+   At 11px its capitals stand as tall as the row's 12px lowercase, so it still
+   sits on the shared baseline, and being muted it introduces the finding
+   without competing with the severity badge beside it. */
+.meta .who{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
 .meta .group.context{color:var(--muted)}
 .meta .rule{align-self:center;width:1px;height:12px;background:var(--divider)}
 .meta .sep{color:var(--sep)}
