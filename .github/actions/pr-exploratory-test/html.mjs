@@ -92,20 +92,22 @@ const BODY_CSS = `
 		.card td { border-bottom: 1px solid #f3f4f6; vertical-align: top; }
 		.card td:first-child, .card th:first-child { padding-left: 0; }
 		.card img { max-width: 100%; border: 1px solid #e5e7eb; border-radius: 4px; margin: 8px 0; }
-		.card blockquote { margin: 8px 0; padding: 6px 12px; border-left: 3px solid #d1d5db; color: #4b5563; background: #f9fafb; }
+		.card blockquote { margin: 8px 0; padding: 5px 12px; border-left: 3px solid #d1d5db; color: #6b7280; background: #f9fafb; font-size: 0.9rem; }
 		.card code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
 		.card pre { background: #f3f4f6; padding: 10px; border-radius: 4px; overflow-x: auto; }
 		.card pre code { background: none; padding: 0; }
 		.card details { margin: 12px 0; }
 		.card summary { cursor: pointer; font-weight: 600; color: #374151; padding: 6px 0; }
 		.card h2 { margin-top: 20px; }
-		.card h3 { font-size: 0.95rem; margin: 16px 0 8px; }
+		.card h3 { font-size: 1.1rem; font-weight: 600; color: #111827; margin: 28px 0 10px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
+		.card h3:first-of-type { border-top: none; padding-top: 0; }
 		@media (prefers-color-scheme: dark) {
 			.card th { border-bottom-color: #374151; }
 			.card td { border-bottom-color: #1f2937; }
 			.card code, .card pre { background: #111827; }
 			.card blockquote { background: #111827; border-left-color: #374151; color: #9ca3af; }
 			.card summary { color: #e5e7eb; }
+			.card h3 { color: #f3f4f6; border-top-color: #1f2937; }
 		}`;
 
 function escapeHtml(text) {

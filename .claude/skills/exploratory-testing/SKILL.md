@@ -98,7 +98,7 @@ The shape, and only this shape:
 
 ## Findings
 
-<the table, then one `### N. <claim>` block per finding, worst first>
+<the table, then one `### Finding N: <claim>` block per finding, worst first>
 
 ## Coverage
 
@@ -255,7 +255,7 @@ setup. Keep the claim under about twelve words.
 Use this block for every finding; do not substitute a schema of your own.
 
 ```
-### N. <concise claim>
+### Finding N: <concise claim>
 
 > **Confirmed** | Reproduced **<N>/<M>** | **Introduced by this change**
 
@@ -284,8 +284,8 @@ Write "shipped defaults" when it needs none.>
 the code pointers>
 ```
 
-The heading carries a short claim, not the whole defect: the body is there to
-explain it. The line under it is a status strip, and a blockquote so it reads
+The heading names the finding and carries a short claim, not the whole defect:
+the body is there to explain it. The line under it is a status strip, and a blockquote so it reads
 as metadata rather than sinking into the prose. Its third slot is
 `**Introduced by this change**`, `**Pre-existing**`, or `**Origin unclear**`,
 matching the table's `Introduced?` without repeating its wording.
