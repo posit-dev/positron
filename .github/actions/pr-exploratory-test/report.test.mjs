@@ -48,7 +48,7 @@ const FINDINGS = [
 	'',
 	'**Expected:** it should have stopped.',
 	'',
-	'**Configuration:** default settings.',
+	'**Preconditions:** default settings.',
 	'',
 	'**Evidence**',
 	'',
@@ -177,7 +177,7 @@ test('parseReport breaks a finding into its labelled parts', () => {
 	const f = parseReport(FULL).findings[0];
 	assert.match(f.observedHtml, /it spun forever/);
 	assert.match(f.expectedHtml, /it should have stopped/);
-	assert.match(f.configurationHtml, /default settings/);
+	assert.match(f.preconditionsHtml, /default settings/);
 	assert.match(f.reproStartHtml, /a console with pandas/);
 	assert.equal(f.steps.length, 2);
 	assert.match(f.causeHtml, /timeout was cut to 10 s/);
@@ -570,23 +570,30 @@ test('renderReportHtml keeps the signature legible without animation', () => {
 	assert.match(html, /\.sg-bug,\.sg-mag,\.sg-q,\.sg-bang\{opacity:0 !important\}/);
 });
 
-test('parseReport still reads the label reports were published with', () => {
-	// "Only under" was renamed because it read backwards in the case that
-	// actually occurs; reports already on the CDN still use it.
-	const r = parseReport(md([
-		'## Findings', '',
-		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
-		'', '### Finding 1: a claim', '',
-		'**Only under:** shipped defaults.',
-	].join('\n')));
-	assert.match(r.findings[0].configurationHtml, /shipped defaults/);
+test('parseReport still reads the labels reports were published with', () => {
+	// Renamed twice: "Only under" read backwards in the case that actually
+	// occurs, and "Configuration" was less plain than "Preconditions". Reports
+	// already on the CDN use the older names.
+	for (const label of ['Only under', 'Configuration']) {
+		const r = parseReport(md([
+			'## Findings', '',
+			'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+			'', '### Finding 1: a claim', '',
+			`**${label}:** shipped defaults.`,
+		].join('\n')));
+		assert.match(r.findings[0].preconditionsHtml, /shipped defaults/, label);
+	}
 });
 
-test('renderReportHtml labels the configuration line so it reads either way', () => {
+test('renderReportHtml puts the preconditions above the steps', () => {
 	const html = renderReportHtml(FULL);
-	assert.match(html, /<strong>Configuration<\/strong> default settings\./);
-	// The old label said the opposite of what it meant.
+	assert.match(html, /<strong>Preconditions<\/strong> default settings\./);
+	// "Only under" said the opposite of what it meant in the common case.
 	assert.doesNotMatch(html, /Only under/);
+	// Both lines say what has to be true before step 1, so both precede them.
+	const repro = html.slice(html.indexOf('<div class="repro">'));
+	assert.ok(repro.indexOf('repro-start') < repro.indexOf('config-line'));
+	assert.ok(repro.indexOf('config-line') < repro.indexOf('<ol'));
 });
 
 test('parseReport keeps a step that carries a code block, and the steps after it', () => {
@@ -621,4 +628,57 @@ test('parseReport keeps a step that carries a code block, and the steps after it
 	// Everything after the fence used to fall through into the summary.
 	assert.equal(f.summaryHtml, 'One sentence of summary.');
 	assert.match(f.observedHtml, /it broke/);
+});
+
+test('parseReport reads the preconditions line above or below the steps', () => {
+	const build = order => md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro** -- starting state: a notebook open',
+		'',
+		...order,
+		'',
+		'**Observed:** it broke.',
+	].join('\n'));
+	const above = parseReport(build([
+		'**Preconditions:** default settings.', '', '1. First.', '2. Second.',
+	]));
+	const below = parseReport(build([
+		'1. First.', '2. Second.', '', '**Preconditions:** default settings.',
+	]));
+	for (const r of [above, below]) {
+		// A label between Repro and the steps used to look like the end of the
+		// list and take both steps with it.
+		assert.equal(r.findings[0].steps.length, 2);
+		assert.match(r.findings[0].preconditionsHtml, /default settings/);
+		assert.match(r.findings[0].observedHtml, /it broke/);
+	}
+});
+
+test('parseReport widens a step fence past the source nested inside it', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro** -- starting state: a notebook open',
+		'',
+		'1. Add a cell:',
+		'   ```',
+		'   <details>',
+		'',
+		'   ```python',
+		'   x = 1',
+		'   ```',
+		'   </details>',
+		'   Text right after close.',
+		'   ```',
+		'2. Render it.',
+	].join('\n')));
+	const step = r.findings[0].steps[0];
+	// Three backticks around three backticks closes early, spilling the rest of
+	// the source onto the page as markup.
+	assert.match(step, /Text right after close\.[\s\S]*<\/code><\/pre>/);
+	assert.doesNotMatch(step, /<\/code><\/pre>[\s\S]*Text right after close/);
+	assert.equal(r.findings[0].steps.length, 2);
 });

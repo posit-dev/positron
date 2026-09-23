@@ -265,6 +265,17 @@ reproducing on the reader's machine. Write the steps as a person using the app
 would, not as you drove it: launch flags and scratch paths belong in Run
 setup. Keep the claim under about twelve words.
 
+Every finding's steps stand on their own. Do not send the reader to another
+finding for them -- no "as Finding 1", no "same as above". A reader arrives at
+a finding from the table or a link, and steps they have to go hunting for are
+steps they will not follow. Repeat the setup line in full each time; two
+identical lines cost less than one missing one.
+
+A step that shows source to paste puts it in a fenced block, indented under
+that step so it stays part of it. If the source contains a fence of its own,
+the outer fence has to be longer than the inner one -- four backticks around
+three.
+
 Use this block for every finding; do not substitute a schema of your own. Keep
 the heading exactly this shape. `N` is the row number from the table, and it is
 what ties the block to that row and to any Coverage row ending `(finding N)`,
@@ -280,17 +291,17 @@ and why it matters. Symbol names belong under Cause, not here.>
 
 **Repro** -- starting state: <what exists before step 1>
 
+**Preconditions:** <what this needs to happen, and what happened under the
+default: reproduces, does not reproduce, or not checked. Write "default
+settings" when it needs nothing special, and say there how you manufactured
+any state the repro depends on.>
+
 1. <step>
 2. <step>
 
 **Observed:** <what happened>
 
 **Expected:** <what should have happened>
-
-**Configuration:** <what this needs to happen, and what happened under the
-default: reproduces, does not reproduce, or not checked. Write "default
-settings" when it needs nothing special, and say there how you manufactured
-any state the repro depends on.>
 
 **Evidence**
 
@@ -368,7 +379,7 @@ product. A launcher that forces a setting, a web server standing in for the
 desktop app, a seeded profile: each puts the app in a state most users are not
 in, and a finding reachable only there is a narrower bug than it looks. So
 before you rank a finding, find the configuration axis it sits on and say where
-it lands on the `Configuration` line. Re-check it under the default; if you
+it lands on the `Preconditions` line. Re-check it under the default; if you
 cannot, write that you did not rather than leaving the axis unstated. Write the
 line so it reads as a statement either way: "default settings" when the bug
 needs nothing, "only with X" when it does. Never "only under default

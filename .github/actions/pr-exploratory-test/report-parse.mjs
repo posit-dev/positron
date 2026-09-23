@@ -185,6 +185,45 @@ function dedent(line) {
 	return line.replace(/^\s{1,4}/, '');
 }
 
+/**
+ * Lengthens a step's outer code fence past anything nested inside it.
+ *
+ * A repro step often pastes source that is itself fenced -- a notebook cell
+ * holding a ```python block, say. CommonMark closes on the first fence at least
+ * as long as the one that opened, so three backticks wrapped around three
+ * backticks end the block early and the rest of the source lands on the page as
+ * markup. Reports are written by hand and get this wrong; widening the outer
+ * fence fixes them without asking the agent to count backticks.
+ */
+function widenOuterFence(text) {
+	const lines = text.split('\n');
+	const open = lines.findIndex(l => /^(?:```|~~~)/.test(l));
+	if (open === -1) {
+		return text;
+	}
+	let close = -1;
+	for (let i = lines.length - 1; i > open; i--) {
+		if (/^(?:```|~~~)/.test(lines[i])) { close = i; break; }
+	}
+	if (close === -1) {
+		return text;
+	}
+	const marker = lines[open].startsWith('~') ? '~' : '`';
+	const outer = (/^(`+|~+)/.exec(lines[open]) || [''])[0].length;
+	let longest = 0;
+	for (let i = open + 1; i < close; i++) {
+		const run = /^(`+|~+)/.exec(lines[i]);
+		if (run && run[0][0] === marker) { longest = Math.max(longest, run[0].length); }
+	}
+	if (longest < outer) {
+		return text;
+	}
+	const fence = marker.repeat(longest + 1);
+	lines[open] = fence + lines[open].slice(outer);
+	lines[close] = fence;
+	return lines.join('\n');
+}
+
 /** `**Label:** rest` -> the label, lowercased, or null. */
 function labelOf(line) {
 	const m = /^\*\*([^*]+?)\*\*/.exec(line.trim());
@@ -309,7 +348,7 @@ function parseFindingBody(lines) {
 	const out = {
 		status: { confirmed: null, reproduced: null, origin: null },
 		summary: [],
-		observed: '', expected: '', configuration: '',
+		observed: '', expected: '', preconditions: '',
 		reproStart: '', steps: [],
 		evidence: [],
 		cause: '',
@@ -352,6 +391,20 @@ function parseFindingBody(lines) {
 			const start = /(?:--|\u2014|-)\s*starting state:\s*([\s\S]*)$/i.exec(trimmed);
 			out.reproStart = start ? start[1].trim() : '';
 			out.matched++;
+
+			// The preconditions line may sit between the Repro line and the steps,
+			// which is where it reads best, or after Expected, which is where
+			// older reports put it. Consume it here so it does not look like the
+			// end of the list and take the steps with it.
+			let scan = i + 1;
+			while (scan < lines.length && !lines[scan].trim()) { scan++; }
+			const early = labelOf(lines[scan] ?? '');
+			if (['preconditions', 'configuration', 'only under'].includes(early)) {
+				const { text: value, end } = readLabelled(lines, scan);
+				out.preconditions = value;
+				i = end - 1;
+			}
+
 			// A step is its numbered line plus everything indented under it, which
 			// is how a step that shows the source to paste is written. Stopping at
 			// the first line that was not itself numbered dropped the code block
@@ -394,14 +447,14 @@ function parseFindingBody(lines) {
 			i = j - 1;
 			continue;
 		}
-		// `Only under` is what reports called this before it was renamed. It read
-		// backwards in the case that actually occurs -- "Only under shipped
-		// defaults" says a bug avoidable by changing a setting -- but reports
-		// already published still use it.
+		// `Only under` and `Configuration` are what this was called before. The
+		// first read backwards in the case that actually occurs -- "Only under
+		// shipped defaults" describes a bug you could avoid by changing a
+		// setting -- but reports already published use them.
 		if (label === 'observed' || label === 'expected'
-			|| label === 'configuration' || label === 'only under') {
+			|| label === 'preconditions' || label === 'configuration' || label === 'only under') {
 			const { text, end } = readLabelled(lines, i);
-			const key = label === 'observed' || label === 'expected' ? label : 'configuration';
+			const key = label === 'observed' || label === 'expected' ? label : 'preconditions';
 			out[key] = text;
 			out.matched++;
 			i = end - 1;
@@ -638,12 +691,12 @@ export function parseReport(markdown) {
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
-			configurationHtml: parsed.configuration ? inline(parsed.configuration) : '',
+			preconditionsHtml: parsed.preconditions ? inline(parsed.preconditions) : '',
 			reproStartHtml: parsed.reproStart ? inline(parsed.reproStart) : '',
 			// A step that runs to more than one line carries a block of its own --
 			// the source to paste, usually -- so it is parsed as block markdown.
 			steps: parsed.steps.map(lines => (lines.length > 1
-				? block(lines.join('\n'))
+				? block(widenOuterFence(lines.join('\n')))
 				: inline(lines[0] ?? ''))),
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'
 				? { ...e, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }

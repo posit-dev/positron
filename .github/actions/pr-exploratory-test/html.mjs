@@ -219,11 +219,13 @@ function renderFindingCard(f) {
 
 	// Text only: every screenshot, including the one the report embedded here,
 	// now sits under Evidence.
-	const repro = (f.reproStartHtml || f.steps.length || f.configurationHtml)
+	const repro = (f.reproStartHtml || f.steps.length || f.preconditionsHtml)
 		? '<div class="repro"><div class="sub">Reproduce</div>'
+		// Both lines say what has to be true before step 1, so they sit together
+		// above the steps rather than one before and one after them.
 		+ (f.reproStartHtml ? `<p class="repro-start">Start: ${f.reproStartHtml}</p>` : '')
+		+ (f.preconditionsHtml ? `<p class="config-line"><strong>Preconditions</strong> ${f.preconditionsHtml}</p>` : '')
 		+ (f.steps.length ? `<ol class="repro-steps">${f.steps.map(s => `<li>${s}</li>`).join('')}</ol>` : '')
-		+ (f.configurationHtml ? `<p class="config-line"><strong>Configuration</strong> ${f.configurationHtml}</p>` : '')
 		+ '</div>'
 		: '';
 

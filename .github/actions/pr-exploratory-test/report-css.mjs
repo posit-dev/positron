@@ -239,6 +239,11 @@ a:hover{color:var(--link-hover);text-decoration:underline}
 /* A symbol name has no break opportunities, so one long enough to outrun the
    viewport pushed the whole page sideways on a phone. */
 code{font-family:var(--mono);font-size:0.86em;background:var(--code-bg);color:var(--code-text);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+/* A block of source is one surface, not a pill per line. Without this the
+   inline code styling above was all a fenced block got, so a repro step that
+   pasted a notebook cell came out as a stack of grey fragments. */
+pre{margin:8px 0;padding:12px 14px;background:var(--code-bg);border-radius:8px;overflow-x:auto}
+pre code{display:block;background:none;padding:0;font-size:12px;line-height:1.6;white-space:pre;overflow-wrap:normal}
 ol{margin:0;padding-left:20px}
 ol li{margin:0 0 8px;padding-left:4px}
 ol li:last-child{margin-bottom:0}
@@ -247,7 +252,10 @@ img{max-width:100%}
 /* The gutter is a token because the Party motif bleeds out to the page edge by
    exactly this much; hardcoding the desktop value pushed it past the viewport
    on a phone. */
-:root{--gutter:32px}
+/* One measure for every run of prose on the page. Containers stay full card
+   width; only the text inside them is capped, so every box edge lines up with
+   the card and every paragraph ends on the same line. */
+:root{--gutter:32px;--measure:800px}
 .page{width:100%;padding:56px var(--gutter) 80px;background:var(--page)}
 .wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
 
@@ -259,7 +267,7 @@ img{max-width:100%}
 .eyebrow .kicker{text-transform:uppercase;letter-spacing:var(--eyebrow-ls);font-weight:var(--eyebrow-weight);color:var(--eyebrow-color);font-family:var(--label-font)}
 .eyebrow .bullet{width:3px;height:3px;border-radius:50%;background:var(--sep)}
 h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line-height:1.22;letter-spacing:-0.01em;color:var(--ink);max-width:820px}
-.lead{font-size:16px;line-height:1.6;color:var(--body);max-width:760px}
+.lead{font-size:16px;line-height:1.6;color:var(--body);max-width:var(--measure)}
 .lead strong{color:var(--ink);font-weight:600}
 
 /* Party motif: a neon grid floor under the lead. Professional has none, and
@@ -363,7 +371,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .meta .reproduced{color:var(--faint-rate)}
 
 h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.3;color:var(--ink)}
-.card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:800px}
+.card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:var(--measure)}
 
 /* Observed | Expected: the strongest sub-section in the card. */
 .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
@@ -383,10 +391,10 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 /* Reproduce answers "how do I make this happen?", so it is text only and one
    column. Screenshots all live under Evidence, which answers "show me that it
    happened"; a featured shot here meant the same image appeared twice. */
-.repro{display:flex;flex-direction:column;gap:10px;max-width:720px;margin-top:8px}
+.repro{display:flex;flex-direction:column;gap:10px;max-width:var(--measure);margin-top:8px}
 .repro-start{font-size:13px;line-height:1.55;color:var(--muted)}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
-.config-line{font-size:13px;line-height:1.55;color:var(--muted);padding-top:4px}
+.config-line{font-size:13px;line-height:1.55;color:var(--muted);max-width:var(--measure)}
 .config-line strong{color:var(--body);font-weight:600}
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
@@ -415,7 +423,7 @@ a.shot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
 /* Likely cause reads as analysis, not fact: dashed, no fill. */
 .cause{border:1px dashed var(--dash);border-radius:10px;padding:16px 20px;display:flex;flex-direction:column;gap:8px}
-.cause p{font-size:14px;line-height:1.65;color:var(--body)}
+.cause p{font-size:14px;line-height:1.65;color:var(--body);max-width:var(--measure)}
 .card-prose{font-size:15px;line-height:1.65;color:var(--body)}
 
 /* Coverage */
@@ -454,7 +462,7 @@ a.ref:hover{color:var(--ref-hover)}
 .folds summary .hint{font-weight:400;color:var(--muted);font-size:13px}
 .chev{flex:none;transition:transform .15s ease;color:var(--muted)}
 .folds details[open] .chev{transform:rotate(90deg)}
-.fold-body{padding:0 0 20px 24px;display:flex;flex-direction:column;gap:16px;font-size:14px;line-height:1.65;color:var(--body);max-width:820px}
+.fold-body{padding:0 0 20px 24px;display:flex;flex-direction:column;gap:16px;font-size:14px;line-height:1.65;color:var(--body);max-width:var(--measure)}
 .fold-body p{margin:0 0 10px}
 .fold-body p:last-child{margin-bottom:0}
 .fold-part{display:flex;flex-direction:column;gap:4px}
