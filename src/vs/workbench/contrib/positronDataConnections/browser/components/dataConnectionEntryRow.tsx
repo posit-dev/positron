@@ -7,13 +7,12 @@
 import './dataConnectionEntryRow.css';
 
 // React.
-import { MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react';
+import { MouseEvent as ReactMouseEvent, useEffect, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
-import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionWith.js';
 import { showIncludeSecretsConfirmation } from '../dialogs/includeSecretsConfirmation.js';
@@ -36,6 +35,9 @@ interface DataConnectionEntryRowProps {
 	// The data connection entry to render.
 	entry: DataConnectionEntry;
 
+	// The hover manager for the actions button. Owned by the tree and shared by every row.
+	hoverManager: IHoverManager;
+
 	// Closes this connection and the Data Explorers previewed from it, and collapses the row.
 	// Supplied by the tree, which binds it to this row's node id.
 	onDisconnect: () => void;
@@ -55,32 +57,22 @@ interface DataConnectionEntryRowProps {
  * actions menu -- reachable from the actions button or by right-clicking the row -- exposes
  * refresh, edit, runtime-language connect options, and disconnect (when connected) / remove.
  */
-export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onRefresh }: DataConnectionEntryRowProps) => {
+export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMenuOpening, onRefresh }: DataConnectionEntryRowProps) => {
 	// Services.
-	const { configurationService, hoverService, notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
+	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const rowRef = useRef<HTMLDivElement>(null);
 	const actionsButtonRef = useRef<HTMLButtonElement>(null);
+	const actionsHoveredRef = useRef(false);
 
-	// The hover for the actions button. Built the way the console tab list builds its hovers, so it
-	// picks up the workbench hover delay and styling instead of being a title attribute, which the
-	// badges above still use only because they predate this.
-	//
-	// One manager per row. The manager is shared across siblings elsewhere so that moving between
-	// them re-hovers instantly, which cannot work here -- the tree renders each row on its own, and
-	// only entry rows have this button, so the count is the number of saved connections rather than
-	// the number of tree rows.
-	const [hoverManager, setHoverManager] = useState<IHoverManager>();
-	useEffect(() => {
-		const disposables = new DisposableStore();
-		setHoverManager(disposables.add(new PositronActionBarHoverManager(
-			true,
-			configurationService,
-			hoverService
-		)));
-		return () => disposables.dispose();
-	}, [configurationService, hoverService]);
+	// The shared manager outlives this row, and a row that unmounts under the pointer gets no
+	// mouseleave, so retire a hover this row's button owns.
+	useEffect(() => () => {
+		if (actionsHoveredRef.current) {
+			hoverManager.hideHover();
+		}
+	}, [hoverManager]);
 
 	// Extract the profile from the entry for easy access.
 	const { profile } = entry;
@@ -196,6 +188,9 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 	 * up with the button instead.
 	 */
 	const showActionsMenu = (anchorElement: HTMLElement, anchorPoint?: AnchorPoint) => {
+		// Either entry point may be under the actions button's hover, whether a menu or an error follows.
+		hoverManager.hideHover();
+
 		// Get the driver.
 		const driver = positronDataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
 		if (!driver) {
@@ -395,9 +390,6 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 	const onActionsClick = () => {
 		// Guard: if the ref isn't set, we have no anchor for the menu, so do nothing.
 		if (actionsButtonRef.current) {
-			// The menu opens over the button, so retire the hover rather than leave it sitting on
-			// top of the menu. The pointer never leaves the button, so nothing else would.
-			hoverManager?.hideHover();
 			showActionsMenu(actionsButtonRef.current);
 		}
 	};
@@ -433,8 +425,17 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 	const onActionsMouseEnter = () => {
 		// Guard: if the ref isn't set, we have nothing to anchor the hover to.
 		if (actionsButtonRef.current) {
-			hoverManager?.showHover(actionsButtonRef.current, actionsLabel);
+			actionsHoveredRef.current = true;
+			hoverManager.showHover(actionsButtonRef.current, actionsLabel);
 		}
+	};
+
+	/**
+	 * Hides the actions button's hover.
+	 */
+	const onActionsMouseLeave = () => {
+		actionsHoveredRef.current = false;
+		hoverManager.hideHover();
 	};
 
 	// Render.
@@ -483,7 +484,7 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 				className='data-connection-entry-actions'
 				onClick={onActionsClick}
 				onMouseEnter={onActionsMouseEnter}
-				onMouseLeave={() => hoverManager?.hideHover()}
+				onMouseLeave={onActionsMouseLeave}
 			>
 				<div className='codicon codicon-ellipsis' />
 			</button>

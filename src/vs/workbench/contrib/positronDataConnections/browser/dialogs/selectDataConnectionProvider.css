@@ -3,23 +3,28 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/*
-	The provider list. Mirrors the Configure LLM Providers modal's row layout so the two
-	provider-picking dialogs read as one surface. Scrolling is the dialog's: the content area
-	already clips and scrolls at the max height the dialog is given, so the list itself is a plain
-	flex column and the browser's native focus scrolling works without help.
-*/
-/*
-	Row rhythm. A row is exactly as tall as its 36px icon plate (see the text block below), so the
-	visible gap between two plates is this gap and nothing else. The 4px of padding here rides on
-	top of the content area's own 16px to put the same 20px above the first plate and below the
-	last, rather than leaving the leading space larger than the gaps.
-*/
+/* The provider list. Its row layout mirrors the Configure LLM Providers modal. */
 .select-data-connection-provider {
-	gap: 20px;
+	--provider-row-gap: 20px;
+	--provider-row-height: 36px;
+	--provider-list-padding: 4px;
+	--provider-visible-rows: 6;
+	gap: 8px;
 	display: flex;
-	padding: 4px 0;
 	flex-direction: column;
+	/* Fixed so the dialog, which centers once on mount, never grows: not as drivers register, not for the error. */
+	height: calc(var(--provider-list-padding) + var(--provider-visible-rows) * (var(--provider-row-height) + var(--provider-row-gap)));
+}
+
+/* Ends exactly where the next row begins, except while the transient error takes its line. */
+.select-data-connection-provider .provider-rows {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	overflow-y: auto;
+	flex-direction: column;
+	gap: var(--provider-row-gap);
+	padding: var(--provider-list-padding) 0;
 }
 
 /* Both messages take the row's horizontal padding so their text lines up with the row names. */
@@ -30,50 +35,33 @@
 
 .select-data-connection-provider .provider-list-error {
 	padding: 0 8px;
+	flex-shrink: 0;
 	font-size: 12px;
 	color: var(--vscode-errorForeground);
 }
 
-/*
-	Provider row. Only the action button is interactive, so the row has no hover state and no
-	vertical padding: the spacing is the list's gap. min-height holds the row at plate height for a
-	driver that reports no description.
-
-	Named `provider-row` rather than the obvious `driver-list-item`: the old Connections pane's
-	driver list (positronConnections/.../listDriversState.css) declares that class unscoped, so it
-	is live in the workbench stylesheet for anything that uses the name. Scoping wins on specificity
-	for the properties redeclared below, but anything that rule sets and this one does not -- its
-	`cursor: pointer` above all -- would still leak through.
-*/
+/* Not `driver-list-item`: the old Connections pane declares that class unscoped. */
 .select-data-connection-provider .provider-row {
 	gap: 10px;
 	display: flex;
 	padding: 0 8px;
-	min-height: 36px;
+	flex-shrink: 0;
 	text-align: left;
 	align-items: center;
+	height: var(--provider-row-height);
 }
 
-/*
-	Rounded-square provider avatar. The LLM modal backs its monochrome icons with the widget
-	background; driver logos are full color and several are dark, so they keep the near-white
-	plate they had on the card grid to stay legible in a dark theme.
-*/
+/* Driver logos are full color and several are dark, so they keep a near-white plate in every theme. */
 .select-data-connection-provider .provider-row-icon {
-	width: 36px;
-	height: 36px;
 	display: flex;
 	flex-shrink: 0;
 	border-radius: 6px;
 	align-items: center;
+	box-sizing: border-box;
 	justify-content: center;
 	background: #f8f8f8;
-	/*
-		The border has to sit inside the 36px. There is no global border-box reset here, so the
-		default content-box would make the plate 38px and the row with it, putting the row pitch
-		two pixels off the height LIST_CONTENT_HEIGHT is counted in.
-	*/
-	box-sizing: border-box;
+	width: var(--provider-row-height);
+	height: var(--provider-row-height);
 	border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 }
 
@@ -83,12 +71,7 @@
 	object-fit: contain;
 }
 
-/*
-	The name and description stack to exactly 36px (18 + 2 + 16), the height of the icon plate
-	beside them. The line heights are explicit because the inherited one is a unitless multiple of
-	the workbench font size, which left the text block a fraction taller than the plate and put an
-	uneven half pixel above and below every row.
-*/
+/* Explicit line heights stack the name and description to the plate's 36px (18 + 2 + 16). */
 .select-data-connection-provider .provider-row-text {
 	gap: 2px;
 	flex: 1;

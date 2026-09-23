@@ -23,30 +23,6 @@ import { IDataConnectionDriver, IDataConnectionDriverMetadata } from '../../../.
 const MODAL_WIDTH = 600;
 
 /**
- * The height of the provider list area. Passed as both the minimum and the maximum, so the dialog
- * is one fixed size: a short list leaves empty space below it and a long one scrolls, but the box
- * never resizes. That is deliberate. The list arrives asynchronously -- extensions register their
- * drivers after the dialog mounts -- and the dialog centers itself once, on mount. A box sized to
- * its content would be centered against an empty list and then grow downward off the bottom of a
- * short window.
- *
- * Six rows. Eight drivers ship by default, so the stock list scrolls: the height is chosen for the
- * proportions of the box rather than to fit any particular list, and no list is short enough to be
- * worth sizing to -- a machine with ODBC drivers configured registers more than the eight anyway.
- *
- * Sized so the list never ends on a sliver of the row below: six 36px rows and their five 20px
- * gaps, plus the list's 4px top padding and a closing 20px that matches a gap, is 340px of list;
- * the content area scrolls its own 16px top padding with the content, so the height that shows
- * exactly that much is 340 - 16. The seventh row begins precisely at the fold and is entirely out
- * of sight.
- *
- * Every term above is a whole row, so this only holds while a row is exactly 36px. Both the icon
- * plate and the name/description stack are pinned to that height in the CSS -- change either and
- * this number has to move with it.
- */
-const LIST_CONTENT_HEIGHT = 324;
-
-/**
  * SelectDataConnectionProviderProps interface.
  */
 interface SelectDataConnectionProviderProps {
@@ -125,12 +101,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 		<PositronDynamicModalDialog
 			content={
 				<div className='select-data-connection-provider'>
-					{/*
-						role='alert' so a screen reader announces this the moment it appears. A
-						failed Connect gives no other feedback -- the dialog stays where it is and
-						focus stays on the button -- and the message renders above the list, away
-						from that focus, so nothing would otherwise carry it to a screen reader.
-					*/}
+					{/* role='alert' because focus stays on the Connect button, away from this message. */}
 					{showError &&
 						<div className='provider-list-error' role='alert'>
 							{localize(
@@ -139,48 +110,48 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 							)}
 						</div>
 					}
-					{drivers.length === 0 ? (
-						// No drivers registered yet; extensions providing them may still be loading.
-						<div className='provider-list-placeholder'>
-							{localize(
-								'positron.selectDataConnectionProvider.loadingProviders',
-								"Loading providers..."
-							)}
-						</div>
-					) : (
-						drivers.map(driver => (
-							<div key={driver.id} className='provider-row'>
-								<div className='provider-row-icon'>
-									<img alt='' className='provider-row-logo' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
-								</div>
-								<div className='provider-row-text'>
-									<div className='provider-row-name'>{driver.name}</div>
-									{driver.description &&
-										<div className='provider-row-desc'>{driver.description}</div>
-									}
-								</div>
-								<div className='provider-row-actions'>
-									<button
-										aria-label={localize(
-											'positron.selectDataConnectionProvider.connectTo',
-											"Connect to {0}",
-											driver.name
-										)}
-										className='provider-row-action'
-										type='button'
-										onClick={() => proceedWithDriver(driver.id)}
-									>
-										<span aria-hidden='true' className='codicon codicon-add' />
-										{localize('positron.selectDataConnectionProvider.connect', "Connect")}
-									</button>
-								</div>
+					<div className='provider-rows'>
+						{drivers.length === 0 ? (
+							// No drivers registered yet; extensions providing them may still be loading.
+							<div className='provider-list-placeholder'>
+								{localize(
+									'positron.selectDataConnectionProvider.loadingProviders',
+									"Loading providers..."
+								)}
 							</div>
-						))
-					)}
+						) : (
+							drivers.map(driver => (
+								<div key={driver.id} className='provider-row'>
+									<div className='provider-row-icon'>
+										<img alt='' className='provider-row-logo' src={`data:image/svg+xml;base64,${driver.iconSvg}`} />
+									</div>
+									<div className='provider-row-text'>
+										<div className='provider-row-name'>{driver.name}</div>
+										{driver.description &&
+											<div className='provider-row-desc'>{driver.description}</div>
+										}
+									</div>
+									<div className='provider-row-actions'>
+										<button
+											aria-label={localize(
+												'positron.selectDataConnectionProvider.connectTo',
+												"Connect to {0}",
+												driver.name
+											)}
+											className='provider-row-action'
+											type='button'
+											onClick={() => proceedWithDriver(driver.id)}
+										>
+											<span aria-hidden='true' className='codicon codicon-add' />
+											{localize('positron.selectDataConnectionProvider.connect', "Connect")}
+										</button>
+									</div>
+								</div>
+							))
+						)}
+					</div>
 				</div>
 			}
-			contentMaxHeight={LIST_CONTENT_HEIGHT}
-			contentMinHeight={LIST_CONTENT_HEIGHT}
 			renderer={props.renderer}
 			title={localize(
 				'positron.selectDataConnectionProvider.title',
