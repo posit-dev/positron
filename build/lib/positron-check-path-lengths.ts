@@ -58,6 +58,11 @@ export interface IFileCountResult {
 	shipped: IFileCount;
 	/** The `extensions/` directory as a whole. */
 	extensions: IExtensionFileCount;
+	/**
+	 * The gzip copies in `extensions/`, which no budget counts. See
+	 * `isGzipCopy`.
+	 */
+	gzipCopies: IFileCount;
 	/** Each directory inside `extensions/`, largest first. */
 	byExtension: IExtensionFileCount[];
 	/** The entries over budget, `extensions/` as a whole included. */
@@ -134,6 +139,17 @@ function packageOf(segments: string[]): string | undefined {
 		: segments[start];
 }
 
+/**
+ * Whether a file is the gzip copy of another shipped file. The web server
+ * builds write `<file>.gz` next to each large text file (`addCompressedSiblings`
+ * in `gulpfile.reh.ts`), and the desktop builds do not. The budgets count only
+ * the original files, so that one budget is correct for every build. A `.gz`
+ * file without an original next to it is an ordinary file.
+ */
+function isGzipCopy(filePath: string, paths: ReadonlySet<string>): boolean {
+	return filePath.endsWith('.gz') && paths.has(filePath.slice(0, -'.gz'.length));
+}
+
 function addTo(counts: Map<string, IFileCount>, name: string, bytes: number): void {
 	const count = counts.get(name) ?? { name, files: 0, bytes: 0 };
 	count.files++;
@@ -150,13 +166,21 @@ function summarizeFileCounts(files: IShippedFile[], extensionsDir: string, budge
 	const byExtension = new Map<string, IFileCount>();
 	const packagesByExtension = new Map<string, Map<string, IFileCount>>();
 	const extensions: IExtensionFileCount = { name: EXTENSIONS_TOTAL_NAME, files: 0, bytes: 0, budget: budgets.total, packages: [] };
+	const gzipCopies: IFileCount = { name: 'gzip copies', files: 0, bytes: 0 };
 	const shipped: IFileCount = { name: '', files: 0, bytes: 0 };
+	const paths = new Set(files.map(file => file.path));
 
 	for (const file of files) {
 		shipped.files++;
 		shipped.bytes += file.bytes;
 
 		if (!file.path.startsWith(prefix)) {
+			continue;
+		}
+
+		if (isGzipCopy(file.path, paths)) {
+			gzipCopies.files++;
+			gzipCopies.bytes += file.bytes;
 			continue;
 		}
 
@@ -190,6 +214,7 @@ function summarizeFileCounts(files: IShippedFile[], extensionsDir: string, budge
 	return {
 		shipped,
 		extensions,
+		gzipCopies,
 		byExtension: extensionCounts,
 		offenders: [extensions, ...extensionCounts].filter(count => count.files > count.budget)
 	};
@@ -274,11 +299,15 @@ function formatBytes(bytes: number): string {
  * default one, with its largest packages. It sums up the rest in one line.
  */
 function reportFileCounts(result: IFileCountResult, budgets: IFileCountBudgets): string | undefined {
-	const { shipped, extensions, byExtension, offenders } = result;
+	const { shipped, extensions, gzipCopies, byExtension, offenders } = result;
 
 	fancyLog(`File counts: ${formatCount(extensions.files)} files (${formatBytes(extensions.bytes)}) in `
 		+ `${EXTENSIONS_TOTAL_NAME}, budget ${formatCount(extensions.budget)}; `
 		+ `${formatCount(shipped.files)} files (${formatBytes(shipped.bytes)}) shipped in total`);
+	if (gzipCopies.files > 0) {
+		fancyLog(`  ${formatCount(gzipCopies.files)} gzip copies (${formatBytes(gzipCopies.bytes)}) in `
+			+ `${EXTENSIONS_TOTAL_NAME} are in the total but outside every budget`);
+	}
 
 	const listed = byExtension.filter(count => budgets.byExtension.has(count.name) || count.files > count.budget);
 	for (const count of listed) {

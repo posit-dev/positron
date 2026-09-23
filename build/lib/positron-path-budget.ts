@@ -78,8 +78,13 @@ export function describeBudget(): string {
  * platform with the most files. When a change shrinks an extension, lower its
  * budget to within about 10% of the new count. Do not raise a budget to make a
  * new dependency fit; bundle the dependency instead.
+ *
+ * The budgets do not count the gzip copies that the web server builds add. See
+ * `isGzipCopy` in positron-check-path-lengths.ts.
+ *
+ * The largest count so far is 30,933, in the win32-x64 build of #16185.
  */
-export const EXTENSIONS_FILE_COUNT_BUDGET = 33_400;
+export const EXTENSIONS_FILE_COUNT_BUDGET = 34_000;
 
 /**
  * File-count budget for an extension that `EXTENSION_FILE_COUNT_BUDGETS` does not
@@ -95,18 +100,19 @@ export const DEFAULT_EXTENSION_FILE_COUNT_BUDGET = 100;
  * share.
  *
  * The comment on each entry is the count in the 2026.10.0-85 darwin-arm64
- * release.
+ * release. A second count in the comment is from a platform with more files,
+ * and the budget comes from that count.
  */
 export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map([
 	['copilot', 8_500], // 7,728
-	['positron-python', 5_750], // 5,219
+	['positron-python', 6_350], // 5,219; 5,784 on win32-x64
 	['positron-data-driver-snowflake', 5_050], // 4,590
 	['positron-catalog-explorer', 4_560], // 4,140
 	['positron-data-driver-databricks', 3_460], // 3,145
 	['positron-pdf-server', 1_050], // 956
 	['positron-proxy', 830], // 755
 	['positron-data-driver-odbc', 550], // 493
-	['positron-data-driver-sqlite', 500], // 448
+	['positron-data-driver-sqlite', 540], // 448; 489 on win32-x64
 	['positron-data-driver-redshift', 330], // 299
 	['positron-data-driver-pins', 290], // 257
 	['positron-duckdb', 250], // 221

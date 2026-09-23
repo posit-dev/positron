@@ -113,6 +113,7 @@ suite('positron-check-path-lengths file counts', () => {
 		assert.deepStrictEqual(result, {
 			shipped: { name: '', files: 17, bytes: 35 },
 			extensions: { name: 'extensions/', files: 15, bytes: 33, budget: 20, packages: [] },
+			gzipCopies: { name: 'gzip copies', files: 0, bytes: 0 },
 			byExtension: [
 				{
 					name: 'big', files: 11, bytes: 29, budget: 12, packages: [
@@ -146,6 +147,24 @@ suite('positron-check-path-lengths file counts', () => {
 			{ name: 'small', files: 3, budget: 2 },
 		]);
 		assert.throws(() => checkFileCounts(appRoot, 'Resources/app/extensions', tight), /3 file count\(s\) .* over budget/);
+	});
+
+	test('leaves gzip copies out of the budgets, but counts a .gz file that has no original', () => {
+		const gzipRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-file-counts-gzip-'));
+		try {
+			const dir = path.join(gzipRoot, 'extensions', 'ext');
+			writeFiles(gzipRoot, 'extensions/ext', 2, 10);
+			fs.writeFileSync(path.join(dir, 'f0.js.gz'), 'x'.repeat(4));
+			fs.writeFileSync(path.join(dir, 'data.gz'), 'x'.repeat(3));
+
+			const result = measureFileCounts(gzipRoot, 'extensions', budgets);
+
+			assert.deepStrictEqual(
+				{ shipped: result.shipped, extensions: result.extensions.files, ext: result.byExtension[0].files, gzipCopies: result.gzipCopies },
+				{ shipped: { name: '', files: 4, bytes: 27 }, extensions: 3, ext: 3, gzipCopies: { name: 'gzip copies', files: 1, bytes: 4 } });
+		} finally {
+			fs.rmSync(gzipRoot, { recursive: true, force: true });
+		}
 	});
 
 	test('reports a wrong extensions directory rather than passing vacuously', () => {
