@@ -95,7 +95,8 @@ const BODY_CSS = `
 		.header .tally .breakdown { margin-top: 5px; font-size: 0.85rem; color: #9ca3af; }
 		.header .lead { margin: 18px 0 0; font-size: 1rem; line-height: 1.55; color: #e5e7eb; max-width: 44em; }
 		/* Coverage sits under the hero, quiet, outside the dark area. */
-		.coverage { color: #6b7280; font-size: 0.85rem; line-height: 1.5; margin: 0 4px 14px; max-width: 60em; }
+		.coverage { color: #6b7280; font-size: 0.85rem; line-height: 1.5; margin: 0 4px 16px; max-width: 60em; }
+		.coverage .k { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; color: #9ca3af; margin-right: 10px; }
 		.card table { margin: 8px 0 16px; }
 		.card th { border-bottom: 1px solid #e5e7eb; font-weight: 600; }
 		.card td { border-bottom: 1px solid #f3f4f6; vertical-align: top; }
@@ -240,6 +241,32 @@ function tallyFindings(lines) {
 	return { rows, breakdown };
 }
 
+/**
+ * Counts the rows of the Not exercised table.
+ *
+ * The summary line lists the same surfaces in prose, and splitting that on
+ * punctuation gave a number that disagreed with the table under it. This
+ * counts the table, which is the thing a reader would check it against.
+ */
+function countNotExercised(lines) {
+	const heading = lines.findIndex(l => /^###\s+Not exercised\s*$/i.test(l.trim()));
+	if (heading === -1) {
+		return 0;
+	}
+	let rows = 0;
+	for (let i = heading + 1; i < lines.length; i++) {
+		const line = lines[i].trim();
+		if (line.startsWith('#') || line.startsWith('<details')) {
+			break;
+		}
+		// Skip the header row and its separator; count the rest.
+		if (line.startsWith('|') && !/^\|[\s:|-]+\|$/.test(line) && !/^\|\s*Scenario\s*\|/i.test(line)) {
+			rows++;
+		}
+	}
+	return rows;
+}
+
 export function renderReportHtml(markdown) {
 	const lines = String(markdown ?? '').split('\n');
 	const titleIndex = lines.findIndex(l => l.startsWith('# '));
@@ -272,17 +299,11 @@ export function renderReportHtml(markdown) {
 	const notExercised = parts.find(p => /^not exercised$/i.test(p.label));
 	const tally = tallyFindings(lines);
 
-	// A run that found nothing and a run that never reached the feature both
-	// report zero. The Not exercised list belongs in Coverage, but its count
-	// stays next to the tally so the difference is visible from the top.
-	const gaps = notExercised && !/^\s*none\.?\s*$/i.test(notExercised.value)
-		? notExercised.value.split(/;|,(?![^(]*\))/).filter(x => x.trim()).length
-		: 0;
 	const headline = tally
 		? `${tally.rows} finding${tally.rows === 1 ? '' : 's'}`
 		: 'No findings';
-	const detail = [tally && tally.breakdown, gaps ? `${gaps} not exercised` : '']
-		.filter(Boolean).join(' &middot; ');
+	// Severities only. A coverage number here read as another kind of finding.
+	const detail = tally ? tally.breakdown : '';
 
 	const summary = [
 		`<div class="tally"><div class="count">${headline}</div>`
@@ -290,9 +311,16 @@ export function renderReportHtml(markdown) {
 		result ? `<p class="lead">${marked.parseInline(result.value)}</p>` : '',
 	].filter(Boolean).join('\n\t\t');
 
-	// One quiet line under the hero, outside the dark area.
-	const coverage = tested
-		? `<div class="coverage">${marked.parseInline(tested.value)}</div>`
+	// One quiet labelled line under the hero, outside the dark area. The gap
+	// count sits here because it is coverage, and it keeps a run that found
+	// nothing distinguishable from one that never reached the feature.
+	const gaps = countNotExercised(lines);
+	const coverageBits = [
+		tested ? marked.parseInline(tested.value) : '',
+		gaps ? `${gaps} not exercised` : '',
+	].filter(Boolean);
+	const coverage = coverageBits.length
+		? `<div class="coverage"><span class="k">Coverage</span>${coverageBits.join(' &middot; ')}</div>`
 		: '';
 
 	const dropped = new Set([titleIndex, metaIndex, ...summaryIndexes]);

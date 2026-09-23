@@ -275,19 +275,38 @@ test('renderReportHtml puts the outcome in the hero and coverage below it', () =
 	assert.match(hero, /<div class="count">2 findings<\/div>/);
 	assert.match(hero, /1 major/);
 	assert.match(hero, /<p class="lead">it works\.<\/p>/);
-	// Tested moves out of the dark header; Not exercised leaves as a count only.
+	// The breakdown describes findings only: a coverage number here read as
+	// another kind of finding.
+	assert.doesNotMatch(hero, /not exercised/);
 	assert.doesNotMatch(hero, /two things/);
-	assert.doesNotMatch(hero, /another surface/);
-	assert.match(hero, /2 not exercised/);
-	assert.match(html, /<div class="coverage">two things, 2 scenarios<\/div>/);
+	assert.match(html, /<span class="k">Coverage<\/span>two things, 2 scenarios/);
+});
+
+test('renderReportHtml counts the Not exercised table, not the summary prose', () => {
+	const md = [
+		'# T', '', '`b` | `s`', '',
+		'**Result:** it works.',
+		'**Tested:** things, 2 scenarios',
+		'**Not exercised:** a; b, c',
+		'',
+		'## Coverage', '', '### Not exercised', '',
+		'| Scenario | Reason |',
+		'|---|---|',
+		'| a | because |',
+		'| b | because |',
+		'| c | because |',
+		'| d | because |',
+	].join('\n');
+	// The prose lists three, the table has four. The table is what a reader checks.
+	assert.match(renderReportHtml(md), /4 not exercised/);
 });
 
 test('renderReportHtml says "No findings" when the table is empty', () => {
 	const md = '# T\n\n`b` | `s`\n\n**Result:** clean.\n**Not exercised:** none\n\n## Findings\n\nNo findings.\n';
 	const html = renderReportHtml(md);
 	assert.match(html, /<div class="count">No findings<\/div>/);
-	// "none" is not a gap, so no count is shown beside it.
-	assert.doesNotMatch(html, /not exercised<\/div>/);
+	// No Not exercised table, so no count to show.
+	assert.doesNotMatch(html, /not exercised/);
 });
 
 test('renderReportHtml leaves bold labels inside the body alone', () => {
