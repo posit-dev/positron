@@ -470,20 +470,26 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .sig-link{color:var(--muted);text-decoration:none}
 .sig-link:hover{color:var(--link);text-decoration:underline}
 
-.sg{position:relative;width:180px;height:40px}
+/* The performance still takes 7s; the cycle is 11. Every beat below is its old
+   percentage scaled by 7/11, so the animation itself is paced exactly as
+   before -- the extra four seconds are an empty dotted line at the end. It
+   reads as a mark that occasionally does something rather than a loop, which
+   needs the resting state to be the plain footer: resting on the check would
+   leave a result sitting there as though it belonged to this report. */
+.sg{position:relative;width:180px;height:40px;--sig-loop:11s}
 .sg-line{position:absolute;left:0;right:0;bottom:3px;border-bottom:1.5px dotted var(--divider)}
-.sg-bug{position:absolute;left:0;bottom:5px;display:block;width:16px;height:14px;color:var(--sig-bug);filter:var(--sig-bug-glow);opacity:0;animation:sg-bug 7s ease-in-out infinite}
+.sg-bug{position:absolute;left:0;bottom:5px;display:block;width:16px;height:14px;color:var(--sig-bug);filter:var(--sig-bug-glow);opacity:0;animation:sg-bug var(--sig-loop) ease-in-out infinite}
 .sg-bug svg{display:block}
-.sg-mag{position:absolute;left:0;bottom:3px;color:var(--sig-medium);opacity:0;animation:sg-mag 7s ease-in-out infinite}
+.sg-mag{position:absolute;left:0;bottom:3px;color:var(--sig-medium);opacity:0;animation:sg-mag var(--sig-loop) ease-in-out infinite}
 .sg-q,.sg-bang{position:absolute;bottom:22px;font-family:var(--mono);font-size:12px;font-weight:500;opacity:0}
-.sg-q{left:124px;color:var(--sig-medium);animation:sg-q 7s ease infinite}
-.sg-bang{left:66px;color:var(--sig-bang);animation:sg-bang 7s ease infinite}
-.sg-pop{position:absolute;left:60px;bottom:6px;color:var(--sig-ok);filter:var(--sig-ok-glow);opacity:0;animation:sg-pop 7s ease infinite}
-@keyframes sg-bug{0%{transform:translateX(0px) translateY(0px) rotate(90deg);opacity:0}4%{opacity:1}14%{transform:translateX(40px) translateY(0px) rotate(90deg)}20%{transform:translateX(32px) translateY(0px) rotate(-90deg)}30%,57%{transform:translateX(60px) translateY(0px) rotate(90deg)}59%{transform:translateX(60px) translateY(-9px) rotate(90deg)}61%{transform:translateX(60px) translateY(0px) rotate(90deg)}62%{transform:translateX(60px) translateY(-2px) rotate(90deg)}63%{transform:translateX(60px) translateY(0px) rotate(90deg);opacity:1}65%,100%{transform:translateX(60px) translateY(0px) rotate(90deg);opacity:0}}
-@keyframes sg-mag{0%,6%{transform:translateX(-26px);opacity:0}12%{opacity:1}34%{transform:translateX(58px)}46%,52%{transform:translateX(114px)}58%,64%{transform:translateX(57px);opacity:1}66%,100%{transform:translateX(57px);opacity:0}}
-@keyframes sg-q{0%,45%{opacity:0;transform:translateY(4px) scale(.6)}47%{opacity:1;transform:translateY(-1px) scale(1.25)}49%,52%{opacity:1;transform:translateY(0) scale(1)}54%,100%{opacity:0}}
-@keyframes sg-bang{0%,57%{opacity:0;transform:translateY(4px) scale(.6)}59%{opacity:1;transform:translateY(-1px) scale(1.25)}61%,64%{opacity:1;transform:translateY(0) scale(1)}66%,100%{opacity:0}}
-@keyframes sg-pop{0%,65%{opacity:0;transform:scale(.4)}69%{opacity:1;transform:scale(1.2)}72%,90%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+.sg-q{left:124px;color:var(--sig-medium);animation:sg-q var(--sig-loop) ease infinite}
+.sg-bang{left:66px;color:var(--sig-bang);animation:sg-bang var(--sig-loop) ease infinite}
+.sg-pop{position:absolute;left:60px;bottom:6px;color:var(--sig-ok);filter:var(--sig-ok-glow);opacity:0;animation:sg-pop var(--sig-loop) ease infinite}
+@keyframes sg-bug{0%{transform:translateX(0px) translateY(0px) rotate(90deg);opacity:0}2.5%{opacity:1}8.9%{transform:translateX(40px) translateY(0px) rotate(90deg)}12.7%{transform:translateX(32px) translateY(0px) rotate(-90deg)}19.1%,36.3%{transform:translateX(60px) translateY(0px) rotate(90deg)}37.5%{transform:translateX(60px) translateY(-9px) rotate(90deg)}38.8%{transform:translateX(60px) translateY(0px) rotate(90deg)}39.5%{transform:translateX(60px) translateY(-2px) rotate(90deg)}40.1%{transform:translateX(60px) translateY(0px) rotate(90deg);opacity:1}41.4%,100%{transform:translateX(60px) translateY(0px) rotate(90deg);opacity:0}}
+@keyframes sg-mag{0%,3.8%{transform:translateX(-26px);opacity:0}7.6%{opacity:1}21.6%{transform:translateX(58px)}29.3%,33.1%{transform:translateX(114px)}36.9%,40.7%{transform:translateX(57px);opacity:1}42%,100%{transform:translateX(57px);opacity:0}}
+@keyframes sg-q{0%,28.6%{opacity:0;transform:translateY(4px) scale(.6)}29.9%{opacity:1;transform:translateY(-1px) scale(1.25)}31.2%,33.1%{opacity:1;transform:translateY(0) scale(1)}34.4%,100%{opacity:0}}
+@keyframes sg-bang{0%,36.3%{opacity:0;transform:translateY(4px) scale(.6)}37.5%{opacity:1;transform:translateY(-1px) scale(1.25)}38.8%,40.7%{opacity:1;transform:translateY(0) scale(1)}42%,100%{opacity:0}}
+@keyframes sg-pop{0%,41.4%{opacity:0;transform:scale(.4)}43.9%{opacity:1;transform:scale(1.2)}45.8%,57.3%{opacity:1;transform:scale(1)}61.7%,100%{opacity:0}}
 /* The magnifier leaves as the check arrives, in place, rather than drifting
    back down the line while it fades. The check is the answer to the question it
    was asking, so once the check is there the magnifier has nothing left to do
