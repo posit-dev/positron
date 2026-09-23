@@ -12,16 +12,10 @@
 // Google Fonts the only external request and a system fallback behind every
 // family.
 
-import { parseReport } from './report-parse.mjs';
+// escapeHtml is shared with the parser rather than copied: both sides guard the
+// same untrusted report text, and two copies drift.
+import { parseReport, escapeHtml } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
-
-function escapeHtml(text) {
-	return String(text ?? '')
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;');
-}
 
 const ICON = {
 	// Down-right, not a download arrow: it says "moves you within this page".

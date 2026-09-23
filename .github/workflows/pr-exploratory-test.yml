@@ -98,10 +98,32 @@ jobs:
         with:
           mode: gate
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          # gate mode does not read the skill, but the harness copy is the one
+          # this job means either way; leaving it to default would quietly point
+          # at the branch under test the day gate mode does read it.
+          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
           branch: ${{ inputs.ref || github.ref_name }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
+
+      # A declined run skips the explore job, which on its own looks like
+      # nothing happened. The gate's whole output is the reason it declined, so
+      # put it where the person who dispatched the run will see it.
+      - name: Say why the run was declined
+        if: ${{ steps.gate.outputs.testable == 'false' }}
+        shell: bash
+        env:
+          REASON: ${{ steps.gate.outputs.reason }}
+          COST: ${{ steps.gate.outputs.cost }}
+        run: |
+          set -euo pipefail
+          {
+            printf '## Exploratory test: not run\n\n'
+            printf 'The pre-flight pass declined this change.\n\n'
+            printf '%s\n' "${REASON:-No reason recorded.}"
+            printf '\n_gate: $%s_\n' "${COST:-?}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   explore:
     name: explore (${{ matrix.model }})
@@ -114,9 +136,12 @@ jobs:
       # still worth reading.
       fail-fast: false
       matrix:
-        model: ${{ (inputs.model || 'opus') == 'both'
-          && fromJSON('["opus","sonnet"]')
-          || fromJSON(format('["{0}"]', inputs.model || 'opus')) }}
+        # Every branch is a literal. Building the JSON with format() put a
+        # dispatch input inside the document it was about to parse, which only
+        # held because `type: choice` happens to constrain the value.
+        model: ${{ (inputs.model || 'opus') == 'both' && fromJSON('["opus","sonnet"]')
+          || (inputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+          || fromJSON('["opus"]') }}
     timeout-minutes: 90
     runs-on: ubuntu-latest-8x
     container:

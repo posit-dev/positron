@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReport } from './report-parse.mjs';
+import { parseReport, safeUrl } from './report-parse.mjs';
 import { renderReportHtml } from './html.mjs';
 
 /** A minimal report with one of everything the template lays out. */
@@ -401,4 +401,118 @@ test('renderReportHtml escapes a title that contains markup', () => {
 test('renderReportHtml survives a report with no title', () => {
 	const html = renderReportHtml('just prose, no heading');
 	assert.match(html, /<h1 class="title">Exploratory test<\/h1>/);
+});
+
+// A report is written by an agent reading a branch's diff, its logs and its UI,
+// and the page is published on a domain shared with every other run. Anything a
+// hostile branch can get quoted into a report must come out as text.
+
+test('safeUrl keeps http, https, mailto and relative paths', () => {
+	assert.equal(safeUrl('https://cdn.example/shots/a.png'), 'https://cdn.example/shots/a.png');
+	assert.equal(safeUrl('http://x/a.png'), 'http://x/a.png');
+	assert.equal(safeUrl('mailto:a@b.c'), 'mailto:a@b.c');
+	assert.equal(safeUrl('shots/a.png'), 'shots/a.png');
+	assert.equal(safeUrl('/shots/a.png'), '/shots/a.png');
+});
+
+test('safeUrl rejects a scheme that can execute, however it is spelled', () => {
+	assert.equal(safeUrl('javascript:alert(1)'), null);
+	assert.equal(safeUrl('JaVaScRiPt:alert(1)'), null);
+	assert.equal(safeUrl('data:text/html,<script>alert(1)</script>'), null);
+	assert.equal(safeUrl('vbscript:msgbox'), null);
+	// Browsers ignore control characters inside a scheme; the guard must too.
+	assert.equal(safeUrl('java\nscript:alert(1)'), null);
+	assert.equal(safeUrl('  javascript:alert(1)'), null);
+	assert.equal(safeUrl(''), null);
+});
+
+test('parseReport renders raw HTML in a report as text, not markup', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Observed:** it broke <img src=x onerror=alert(1)> and <script>alert(2)</script>.',
+		'', '**Expected:** a `<div>` element, shown as code.',
+	].join('\n')));
+	const f = r.findings[0];
+	// The words survive as text -- "onerror" is still readable -- but no tag does.
+	assert.doesNotMatch(f.observedHtml, /<img|<script/);
+	assert.match(f.observedHtml, /&lt;img src=x onerror=alert\(1\)&gt;/);
+	assert.match(f.observedHtml, /&lt;script&gt;alert\(2\)&lt;\/script&gt;/);
+	// A code span still shows its angle brackets, which is why this is escaped
+	// at the renderer rather than by mangling the input.
+	assert.match(f.expectedHtml, /<code>&lt;div&gt;<\/code>/);
+});
+
+test('parseReport strips a link a reader could be made to execute', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Observed:** see [the log](javascript:alert(1)) and [the shot](https://cdn.example/a.png).',
+	].join('\n')));
+	const observed = r.findings[0].observedHtml;
+	assert.doesNotMatch(observed, /javascript:/);
+	// The words survive; only the link does not.
+	assert.match(observed, /the log/);
+	assert.match(observed, /<a href="https:\/\/cdn\.example\/a\.png">the shot<\/a>/);
+});
+
+test('parseReport refuses an evidence shot whose extension hides its scheme', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Evidence**', '',
+		'- [shots/01.png](javascript:alert(1)//shots/01.png) -- looks like a screenshot',
+		'- [shots/02.png](https://cdn.example/shots/02.png) -- a real one',
+	].join('\n')));
+	const evidence = r.findings[0].evidence;
+	// basename() ends in .png either way, so the extension test alone let it past.
+	assert.deepEqual(evidence.filter(e => e.kind === 'shot').map(e => e.src),
+		['https://cdn.example/shots/02.png']);
+	assert.doesNotMatch(renderReportHtml(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Evidence**', '',
+		'- [shots/01.png](javascript:alert(1)//shots/01.png) -- looks like a screenshot',
+	].join('\n'))), /javascript:/);
+});
+
+test('parseReport refuses a coverage screenshot with an executable scheme', () => {
+	const r = parseReport(md([
+		'## Coverage', '', '### Verified', '',
+		'| Scenario | Result | Screenshot |', '|---|---|---|',
+		'| a scenario | it worked | [shots/01.png](javascript:alert(1)//shots/01.png) |',
+		'| another | it worked | [shots/02.png](https://cdn.example/shots/02.png) |',
+	].join('\n')));
+	assert.equal(r.coverage.exercised[0].shot, null);
+	assert.equal(r.coverage.exercised[1].shot.href, 'https://cdn.example/shots/02.png');
+});
+
+test('renderReportHtml emits no executable scheme anywhere on the page', () => {
+	const html = renderReportHtml(FULL);
+	assert.doesNotMatch(html, /href="\s*javascript:/i);
+	assert.doesNotMatch(html, /src="\s*(?:javascript|data):/i);
+});
+
+test('parseReport takes the chips from the header, not from anywhere backticked', () => {
+	const r = parseReport([
+		'# Exploratory test: something',
+		'',
+		'**Result:** It works.',
+		'',
+		'## Findings',
+		'',
+		'| # | Finding | Severity |',
+		'|---|---|---|',
+		'| 1 | a claim | minor |',
+		'',
+		'### Finding 1: a claim',
+		'',
+		'**Observed:** `some/path.ts` misbehaves.',
+	].join('\n'));
+	// No branch line in this report, so there are no chips to show. Reaching
+	// into a finding's body for the first backticks put `some/path.ts` in the
+	// header as if it were the commit.
+	assert.deepEqual(r.chips, []);
 });

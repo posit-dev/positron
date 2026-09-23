@@ -14,7 +14,73 @@
 // whose labels do not match falls back to `proseHtml`, and the template renders
 // that instead of the structured blocks.
 
-import { marked } from 'marked';
+import { Marked } from 'marked';
+
+/** Escapes the characters that would otherwise open markup or close an attribute. */
+export function escapeHtml(text) {
+	return String(text ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
+}
+
+/**
+ * Returns a URL safe to put in an href or src, or null.
+ *
+ * A report is not trusted input. The agent writes it while reading a branch's
+ * diff, its logs and its UI, so a hostile branch can get a string of its
+ * choosing quoted into one -- and the page is published on a report domain
+ * shared with every other run. Only http(s), mailto and relative paths
+ * survive; `javascript:` and `data:` do not.
+ */
+export function safeUrl(url) {
+	// Browsers ignore control characters and spaces inside a scheme, so
+	// `java\nscript:` reaches the same place as `javascript:`. Strip them before
+	// deciding what the scheme is, and keep the stripped form.
+	const cleaned = String(url ?? '').replace(/[\u0000-\u0020]/g, '');
+	if (!cleaned) {
+		return null;
+	}
+	if (/^[a-z][a-z0-9+.-]*:/i.test(cleaned)) {
+		return /^(?:https?|mailto):/i.test(cleaned) ? cleaned : null;
+	}
+	// No scheme at all, so it is a relative path.
+	return cleaned;
+}
+
+/**
+ * The one markdown parser the report uses, configured so nothing in a report
+ * can inject markup.
+ *
+ * marked emits raw HTML verbatim and hrefs unfiltered by default. Every field
+ * on the page goes through here, so this is the single place that has to be
+ * right rather than each of the thirty call sites.
+ */
+const marked = new Marked({
+	renderer: {
+		// Raw HTML in a report is something the agent transcribed, so it is text
+		// to show, not markup to run.
+		html(html) {
+			return escapeHtml(html);
+		},
+		link(href, title, text) {
+			const url = safeUrl(href);
+			if (!url) {
+				return text;
+			}
+			const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+			return `<a href="${escapeHtml(url)}"${titleAttr}>${text}</a>`;
+		},
+		image(href, title, text) {
+			const url = safeUrl(href);
+			if (!url) {
+				return escapeHtml(text ?? '');
+			}
+			return `<img src="${escapeHtml(url)}" alt="${escapeHtml(text ?? '')}" loading="lazy">`;
+		},
+	},
+});
 
 /** Inline markdown to HTML, for the contents of one line or cell. */
 function inline(text) {
@@ -197,12 +263,18 @@ function parseStatusStrip(line) {
 function parseEvidenceBullet(text) {
 	const link = /^\[([^\]]*)\]\(([^)]+)\)\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(text);
 	if (link && IMAGE_EXT.test(basename(link[2]))) {
-		return {
-			kind: 'shot',
-			src: link[2],
-			file: basename(link[2]),
-			caption: link[3].trim() || basename(link[2]),
-		};
+		// The extension says nothing about the scheme: `javascript:alert(1)//x.png`
+		// ends in .png. This src is lifted out by hand rather than by the renderer,
+		// so it needs the same guard the renderer applies.
+		const src = safeUrl(link[2]);
+		if (src) {
+			return {
+				kind: 'shot',
+				src,
+				file: basename(src),
+				caption: link[3].trim() || basename(src),
+			};
+		}
 	}
 	const log = /^`([^`]+)`\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(text);
 	if (log) {
@@ -251,7 +323,10 @@ function parseFindingBody(lines) {
 		}
 		const img = /^!\[([^\]]*)\]\(([^)]+)\)\s*$/.exec(trimmed);
 		if (img) {
-			out.hero = { src: img[2], alt: img[1], file: basename(img[2]) };
+			const src = safeUrl(img[2]);
+			if (src) {
+				out.hero = { src, alt: img[1], file: basename(src) };
+			}
 			out.matched++;
 			continue;
 		}
@@ -306,7 +381,6 @@ function parseFindingBody(lines) {
  * Parses a `<details>` block into its summary title and inner lines.
  */
 function readDetails(lines, title) {
-	const open = lines.findIndex(l => /^<details/.test(l.trim()));
 	for (let i = 0; i < lines.length; i++) {
 		if (!/^<details/.test(lines[i].trim())) { continue; }
 		const summary = /<summary>([\s\S]*?)<\/summary>/.exec(lines[i + 1] ?? '');
@@ -314,7 +388,7 @@ function readDetails(lines, title) {
 		const close = lines.findIndex((l, n) => n > i && /^<\/details>/.test(l.trim()));
 		return lines.slice(i + 2, close === -1 ? lines.length : close);
 	}
-	return open === -1 ? null : null;
+	return null;
 }
 
 /** Splits Run details into its `### Subsection` parts. */
@@ -379,7 +453,10 @@ function splitResultCell(result) {
 		.filter(m => IMAGE_EXT.test(basename(m[2])));
 	if (links.length) {
 		const last = links[links.length - 1];
-		shot = { href: last[2], label: basename(last[2]) };
+		const href = safeUrl(last[2]);
+		if (href) {
+			shot = { href, label: basename(href) };
+		}
 		text = result.slice(0, last.index) + result.slice(last.index + last[0].length);
 	}
 	return { text: text.replace(/\s{2,}/g, ' ').trim(), shot };
@@ -409,8 +486,14 @@ export function parseReport(markdown) {
 	const rawTitle = titleIndex === -1 ? 'Exploratory test' : lines[titleIndex].slice(2).trim();
 	const title = rawTitle.replace(/^Exploratory test:\s*/i, '');
 
-	// The line under the title is `<branch>` | `<sha>`.
-	const metaIndex = lines.findIndex((l, i) => i > titleIndex && l.trim().startsWith('`'));
+	// The line under the title is `<branch>` | `<sha>`. Look for it only in the
+	// header, between the title and whatever comes first of a summary label or a
+	// section: searching the whole document meant a report that omitted the line
+	// put backticks from some finding's body in the header instead.
+	const headerEnd = lines.findIndex((l, i) =>
+		i > titleIndex && (/^##\s/.test(l.trim()) || /^\*\*[^*]+:\*\*/.test(l.trim())));
+	const metaIndex = lines.findIndex((l, i) =>
+		i > titleIndex && (headerEnd === -1 || i < headerEnd) && l.trim().startsWith('`'));
 	const chips = metaIndex === -1
 		? []
 		: [...lines[metaIndex].matchAll(/`([^`]+)`/g)].map(m => m[1]);
@@ -557,8 +640,9 @@ export function parseReport(markdown) {
 		let shot = split.shot;
 		if (column) {
 			const link = /\[([^\]]*)\]\(([^)]+)\)/.exec(column);
-			if (link) { shot = { href: link[2], label: basename(link[2]) }; }
-			else if (column !== '-' && column !== '\u2014') { shot = { href: column, label: basename(column) }; }
+			const raw = link ? link[2] : (column === '-' || column === '\u2014' ? '' : column);
+			const href = safeUrl(raw);
+			if (href) { shot = { href, label: basename(href) }; }
 		}
 		return {
 			scenarioHtml: inline(row['scenario'] ?? ''),

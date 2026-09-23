@@ -120,7 +120,9 @@ Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full comman
  * Read-only and advisory. Verdicts are appended, never applied: a pass that can
  * delete findings can bury real ones where nobody sees it happen.
  */
-async function verifyReport(report) {
+// Takes no report: the verifier is pointed at report.md on disk rather than
+// handed its text, so that it reads the same bytes the reviewer will.
+async function verifyReport() {
 	const prompt = [
 		'You are verifying an exploratory-testing report written by a different agent. Decide, for each finding, whether it is a genuine product defect. Be adversarial: the report is a claim, not evidence.',
 		'',
@@ -312,7 +314,7 @@ async function main() {
 			console.log('[verify] skipped: the report has no findings to verify');
 		} else if (VERIFY_ENABLED) {
 			try {
-				verdicts = await verifyReport(report);
+				verdicts = await verifyReport();
 			} catch (err) {
 				// A failed verification must not cost the run its report. Say so
 				// in the summary rather than dropping it silently.
