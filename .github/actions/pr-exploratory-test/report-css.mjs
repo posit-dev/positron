@@ -338,13 +338,13 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 .section-label{margin:0;font-family:var(--label-font);font-size:13px;font-weight:var(--label-weight);letter-spacing:var(--label-ls);text-transform:uppercase;color:var(--label-color)}
 .section-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
 
-/* Grid tables: findings list, coverage, not exercised */
+/* Grid tables: findings list, coverage */
 /* Panels carry no shadow in either theme: the Party offset shadow marks a card
    or a tile, and putting one on a full-width table read as a second surface. */
 .panel{position:relative;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .row{display:grid;gap:16px;padding:16px 20px;border-bottom:1px solid var(--hairline);align-items:start;color:inherit;text-decoration:none}
 .row:last-child{border-bottom:0}
-/* Exercised collapses past its first rows. A checkbox, so it works without script. */
+/* Coverage collapses past its first passes. A checkbox, so it works without script. */
 .cov-toggle{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
 .cov-toggle:not(:checked)~.cov-extra{display:none !important}
 .cov-more{display:flex;align-items:center;gap:6px;padding:11px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:color .15s ease}
@@ -506,10 +506,31 @@ span.rt-file{color:var(--body)}
 .card-prose{font-size:15px;line-height:1.65;color:var(--body)}
 
 /* Coverage */
-.cov-group{display:flex;flex-direction:column;gap:10px}
-.cov-group.gap{margin-top:12px}
-h3.cov-title{margin:0;font-size:14px;font-weight:600;color:var(--body)}
-.cov-title .cov-n{font-weight:400;color:var(--faint)}
+/* Filter tabs are labels for hidden radios, which precede the tabs and the
+   card so both can react to the checked one. The selected tab is ink, not an
+   accent: colour here means status or link. Each label stacks a hidden
+   semibold copy in the same grid cell, so selecting one never shifts the row. */
+.cf{display:flex;flex-direction:column;gap:14px}
+.cf-radio{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.cf-tabs{display:flex;gap:20px;border-bottom:1px solid var(--border)}
+.cf-tab{display:inline-grid;padding:0 0 10px;margin-bottom:-1px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s ease}
+.cf-tab>span{grid-area:1/1}
+.cf-tab .cf-l{font-weight:500}
+.cf-tab .cf-g{visibility:hidden;font-weight:600}
+.cf-tab .cf-cnt{color:var(--faint);font-weight:400}
+.cf-tab:hover{color:var(--ink)}
+#cf-all:checked~.cf-tabs .cf-tab-all,#cf-i:checked~.cf-tabs .cf-tab-i,#cf-p:checked~.cf-tabs .cf-tab-p,#cf-n:checked~.cf-tabs .cf-tab-n{color:var(--ink);border-bottom-color:var(--ink)}
+#cf-all:checked~.cf-tabs .cf-tab-all .cf-l,#cf-i:checked~.cf-tabs .cf-tab-i .cf-l,#cf-p:checked~.cf-tabs .cf-tab-p .cf-l,#cf-n:checked~.cf-tabs .cf-tab-n .cf-l{font-weight:600}
+#cf-all:focus-visible~.cf-tabs .cf-tab-all,#cf-i:focus-visible~.cf-tabs .cf-tab-i,#cf-p:focus-visible~.cf-tabs .cf-tab-p,#cf-n:focus-visible~.cf-tabs .cf-tab-n{outline:2px solid var(--focus);outline-offset:4px;border-radius:3px}
+#cf-i:checked~.cf-card .cf-r:not(.cf-i),#cf-p:checked~.cf-card .cf-r:not(.cf-p),#cf-n:checked~.cf-card .cf-r:not(.cf-n){display:none !important}
+/* "Show all" belongs to All: a single kind lists every row and has no footer. */
+#cf-i:checked~.cf-card .cov-more,#cf-p:checked~.cf-card .cov-more,#cf-n:checked~.cf-card .cov-more{display:none !important}
+#cf-p:checked~.cf-card details.cov-extra.cf-p{display:block !important}
+#cf-p:checked~.cf-card .row.cov-extra.cf-p{display:grid !important}
+/* Every row keeps its hairline; the -1px tucks whichever row is last in the
+   current filter under the card border instead of doubling it. */
+.cov-rows{position:relative;margin-bottom:-1px}
+.cov-rows>.row,.cov-rows>.cv{border-bottom:1px solid var(--hairline)}
 /* The status dot sits inside the scenario cell, not in a column of its own: it
    belongs to that scenario. The gap is wider than bullet-list spacing so the
    dot reads as a status marker rather than a bullet, and the top margin centres
@@ -520,16 +541,13 @@ h3.cov-title{margin:0;font-size:14px;font-weight:600;color:var(--body)}
 .cov-dot{flex:none;width:8px;height:8px;margin-top:7px;border-radius:50%}
 .cov-dot.pass{background:var(--pass-fill)}
 .cov-dot.issue{background:var(--moderate-dot)}
-.cov-dot.none{width:7px;height:7px;background:var(--dot-neutral)}
+.cov-dot.none{background:var(--dot-neutral)}
 /* Indented by the dot plus the gap, so the label starts where the text does. */
 .cov-head-scenario{padding-left:21px}
-.panel.dashed .cov-head-scenario{padding-left:20px}
 .cov-result{color:var(--body)}
-.cov-reason{color:var(--body)}
-.cov-reason,.cov-head-reason{grid-column:span 3}
+.cov-notrun{grid-column:span 3;color:var(--muted)}
+.cov-nr{font-weight:500;color:var(--body)}
 /* A passing row is its own disclosure: the whole row toggles its steps. */
-.cv{border-bottom:1px solid var(--hairline)}
-.cv:last-child{border-bottom:0}
 .cv>summary{border-bottom:0;list-style:none;cursor:pointer;transition:background-color .15s ease}
 .cv>summary::-webkit-details-marker{display:none}
 .cv>summary:hover{background:var(--thead)}
@@ -541,12 +559,10 @@ h3.cov-title{margin:0;font-size:14px;font-weight:600;color:var(--body)}
 .cv-steps{padding:0 20px 14px 41px}
 .cv-steps ol{margin:0;padding-left:20px;font-size:13px;line-height:1.6;color:var(--body)}
 .cv-steps li{margin:0 0 2px}
-.cov-empty{margin:0;font-size:13px;color:var(--muted)}
+.cov-empty{margin:0;font-size:14px;color:var(--muted)}
 .ref{font-family:var(--mono);font-size:11.5px;color:var(--ref)}
 a.ref:hover{color:var(--ref-hover)}
 .ref.none{color:var(--em-dash);font-size:12px;font-family:var(--sans)}
-.panel.dashed{border:1px dashed var(--dash)}
-.panel.dashed .row{border-bottom-color:var(--hairline)}
 
 /* Collapsible sections */
 .folds{display:flex;flex-direction:column;border-top:1px solid var(--border)}
@@ -646,7 +662,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.two{grid-template-columns:minmax(0,1fr);gap:16px}
 	.row{grid-template-columns:minmax(0,1fr) !important;gap:8px}
 	.row-head{display:none}
-	.cov-reason,.cov-head-reason{grid-column:auto}
+	.cov-notrun{grid-column:auto}
 	.cv-chev-cell{justify-content:flex-start}
 	.cv-steps{padding-left:41px}
 	.shots,.shots.n3{grid-template-columns:repeat(2,minmax(0,1fr))}

@@ -491,107 +491,94 @@ ${promptBlock}
 </article>`;
 }
 
-/**
- * How many Exercised rows show before the toggle: every finding row, then the
- * first 4 passes, never fewer than 6. A table of 8 or fewer shows in full.
- */
-export function visibleExercisedCount(rows) {
-	if (rows.length <= 8) {
-		return rows.length;
-	}
-	const findings = rows.filter(r => r.finding).length;
-	return Math.min(rows.length, Math.max(6, findings + 4));
-}
+// Under All, the passes past the first few wait behind "Show all": issues and
+// not-run rows are always listed, since those are what a reviewer scans for.
+const COVERAGE_PASSES_SHOWN = 4;
 
 function renderCoverage(report) {
 	const { exercised, notExercised } = report.coverage;
 	if (!exercised.length && !notExercised.length) {
 		return '';
 	}
-	// Each count sits on the heading of the table it counts, rather than as one
-	// combined line beside the section label: a reader looking at a table should
-	// not have to carry a number down from the top to know how long it is. The
-	// label stays primary and the count trails it, quiet.
-	const count = n => `<span class="cov-n"> &middot; ${n}</span>`;
 
-	// Finding rows first, in finding order, then passes as they ran. Sort is
-	// stable, so rows citing the same finding keep their run order.
-	const ordered = [
-		...exercised.filter(r => r.finding).sort((a, b) => a.finding - b.finding),
-		...exercised.filter(r => !r.finding),
-	];
-	const visible = visibleExercisedCount(ordered);
+	// One table, in a fixed order: finding rows in finding order, then passes as
+	// they ran, then what was not run. Sort is stable, so rows citing the same
+	// finding keep their run order.
+	const issues = exercised.filter(r => r.finding).sort((a, b) => a.finding - b.finding);
+	const passes = exercised.filter(r => !r.finding);
+	const total = exercised.length + notExercised.length;
+	const hidden = Math.max(0, passes.length - COVERAGE_PASSES_SHOWN);
 
-	const exercisedRows = ordered.map((row, i) => {
-		const reference = row.shot
-			? `<a class="ref" href="${escapeHtml(row.shot.href)}" target="_blank" rel="noreferrer">${escapeHtml(row.shot.label)}</a>`
-			: '<span class="ref none">&mdash;</span>';
-		// The finding link leads: it is where a reader goes next.
-		const result = row.finding
-			? `<a href="#f${row.finding}">Finding ${row.finding}</a>${row.resultHtml ? ` &middot; ${row.resultHtml}` : ''}`
-			: row.resultHtml;
-		const extra = i < visible ? '' : ' cov-extra';
-		// The dot lives in the scenario cell rather than a column of its own, so
-		// it reads as that scenario's status instead of as a first field.
-		const cells = '<span class="cov-scenario">'
-			+ `<span class="cov-dot ${row.finding ? 'issue' : 'pass'}" aria-hidden="true"></span>`
-			+ `<span>${row.scenarioHtml}</span></span>`
-			+ `<span class="cov-result">${result}</span>`
-			+ reference;
-		// A passing row opens on the steps that exercised it. A finding row does
-		// not: its steps are on the card it links to.
-		if (!row.finding && row.steps.length) {
-			return `<details class="cv${extra}"><summary class="row coverage-grid">${cells}`
+	const reference = row => row.shot
+		? `<a class="ref" href="${escapeHtml(row.shot.href)}" target="_blank" rel="noreferrer">${escapeHtml(row.shot.label)}</a>`
+		: '<span class="ref none">&mdash;</span>';
+	// The dot lives in the scenario cell rather than a column of its own, so it
+	// reads as that scenario's status instead of as a first field.
+	const scenario = (row, dot) => '<span class="cov-scenario">'
+		+ `<span class="cov-dot ${dot}" aria-hidden="true"></span>`
+		+ `<span>${row.scenarioHtml}</span></span>`;
+
+	// The finding link leads: it is where a reader goes next. A finding row does
+	// not expand: its steps are on the card it links to.
+	const issueRows = issues.map(row => '<div class="row coverage-grid cf-r cf-i">'
+		+ scenario(row, 'issue')
+		+ `<span class="cov-result"><a href="#f${row.finding}">Finding ${row.finding}</a>${row.resultHtml ? ` &middot; ${row.resultHtml}` : ''}</span>`
+		+ reference(row)
+		+ '<span></span></div>');
+
+	// A passing row opens on the steps that exercised it.
+	const passRows = passes.map((row, i) => {
+		const cls = `cf-r cf-p${i < COVERAGE_PASSES_SHOWN ? '' : ' cov-extra'}`;
+		const cells = scenario(row, 'pass') + `<span class="cov-result">${row.resultHtml}</span>` + reference(row);
+		if (row.steps.length) {
+			return `<details class="cv ${cls}"><summary class="row coverage-grid">${cells}`
 				+ `<span class="cv-chev-cell">${ICON.disclose('cv-chev')}</span></summary>`
 				+ `<div class="cv-steps"><ol>${row.steps.map(t => `<li>${t}</li>`).join('')}</ol></div></details>`;
 		}
-		return `<div class="row coverage-grid${extra}">${cells}<span></span></div>`;
-	}).join('\n');
+		return `<div class="row coverage-grid ${cls}">${cells}<span></span></div>`;
+	});
 
-	const exercisedBlock = exercised.length
-		? `<div class="cov-group">
-<h3 class="cov-title">Exercised${count(exercised.length)}</h3>
-<div class="panel">
-<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span>Screenshot</span><span></span></div>
-${visible < ordered.length ? `<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all ${ordered.length} exercised scenarios">` : ''}
-${exercisedRows}
-${visible < ordered.length ? `<label for="cov-all" class="cov-more"><span class="cov-all">Show all ${ordered.length} exercised scenarios</span><span class="cov-less">Show fewer</span>${ICON.down}</label>` : ''}
-</div>
-</div>`
+	// Not run has no result, so its dot is neutral and its reason takes the
+	// Result, Screenshot and chevron columns.
+	const notRows = notExercised.map(row => '<div class="row coverage-grid cf-r cf-n">'
+		+ scenario(row, 'none')
+		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; ${row.reasonHtml}</span>`
+		+ '</div>');
+
+	// Visually hidden radios ahead of the tabs and card, so CSS can filter the
+	// rows and arrow keys move between tabs. A kind with no rows gets no tab.
+	const kinds = [
+		{ id: 'all', label: 'All', n: total },
+		{ id: 'i', label: 'Issues', n: issues.length },
+		{ id: 'p', label: 'Passed', n: passes.length },
+		{ id: 'n', label: 'Not run', n: notExercised.length },
+	].filter(k => k.id === 'all' || k.n > 0);
+	const radios = kinds.map(k => `<input type="radio" name="cf" id="cf-${k.id}" class="cf-radio"${k.id === 'all' ? ' checked' : ''}>`).join('');
+	// The hidden semibold copy reserves the selected width, so the row never shifts.
+	const tabs = kinds.map(k => `<label for="cf-${k.id}" class="cf-tab cf-tab-${k.id}">`
+		+ `<span class="cf-l">${k.label} <span class="cf-cnt">${k.n}</span></span>`
+		+ `<span class="cf-g" aria-hidden="true">${k.label} ${k.n}</span></label>`).join('');
+
+	// An empty list is only called out when the report listed it, so an omitted
+	// section is not read as "everything was exercised".
+	const empty = !notExercised.length && report.coverage.notExercisedListed
+		? '\n<p class="cov-empty">Everything in scope was exercised.</p>'
 		: '';
-
-	// Not exercised is a separate table under its own heading, never mixed into
-	// the rows above. Coverage says what happened; this says what is outside the
-	// run, so its dot is neutral: it means "no result", not a bad one.
-	const notRows = notExercised.map(row => '<div class="row coverage-grid">'
-		+ '<span class="cov-scenario">'
-		+ '<span class="cov-dot none" aria-hidden="true"></span>'
-		+ `<span>${row.scenarioHtml}</span></span>`
-		+ `<span class="cov-reason">${row.reasonHtml}</span>`
-		+ '</div>').join('\n');
-
-	const notBlock = notExercised.length
-		? `<div class="cov-group gap">
-<h3 class="cov-title">Not exercised${count(notExercised.length)}</h3>
-<div class="panel dashed">
-<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span class="cov-head-reason">Reason</span></div>
-${notRows}
-</div>
-</div>`
-		// An empty list keeps its heading, so the reader sees it was checked
-		// rather than wondering whether it was left out.
-		: report.coverage.notExercisedListed
-			? `<div class="cov-group gap">
-<h3 class="cov-title">Not exercised</h3>
-<p class="cov-empty">Everything in scope was exercised.</p>
-</div>`
-			: '';
 
 	return `<section id="coverage" class="section">
 <div class="section-head"><h2 class="section-label">Coverage</h2></div>
 ${report.scopeHtml ? `<p class="card-summary">${report.scopeHtml}</p>` : ''}
-${exercisedBlock}
-${notBlock}
+<div class="cf" role="group" aria-label="Filter scenarios">
+${radios}
+<div class="cf-tabs">${tabs}</div>
+<div class="panel cf-card">
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span>Screenshot</span><span></span></div>
+<div class="cov-rows">
+${hidden ? `<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all ${total} scenarios">\n` : ''}${[...issueRows, ...passRows, ...notRows].join('\n')}
+${hidden ? `<label for="cov-all" class="cov-more"><span class="cov-all">Show all ${total} scenarios</span><span class="cov-less">Show fewer</span>${ICON.down}</label>` : ''}
+</div>
+</div>${empty}
+</div>
 </section>`;
 }
 

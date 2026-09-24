@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseReport, safeUrl } from './report-parse.mjs';
-import { renderReportHtml, visibleExercisedCount } from './html.mjs';
+import { renderReportHtml } from './html.mjs';
 
 /** A minimal report with one of everything the template lays out. */
 function md(...body) {
@@ -517,15 +517,31 @@ test('parseReport takes the chips from the header, not from anywhere backticked'
 	assert.deepEqual(r.chips, []);
 });
 
-test('renderReportHtml counts each coverage table on its own heading', () => {
+test('renderReportHtml counts each coverage kind on its filter tab', () => {
 	const html = renderReportHtml(FULL);
-	assert.match(html, /<h3 class="cov-title">Exercised<span class="cov-n"> &middot; 3<\/span><\/h3>/);
-	assert.match(html, /<h3 class="cov-title">Not exercised<span class="cov-n"> &middot; 1<\/span><\/h3>/);
-	// The section label carries nothing beside it any more, and neither count is
-	// written as a phrase or in brackets.
+	const tabs = html.slice(html.indexOf('<div class="cf-tabs">'), html.indexOf('<div class="panel cf-card">'));
+	const counts = [...tabs.matchAll(/<span class="cf-l">([^<]+) <span class="cf-cnt">(\d+)<\/span><\/span>/g)].map(m => `${m[1]} ${m[2]}`);
+	assert.deepEqual(counts, ['All 4', 'Issues 1', 'Passed 2', 'Not run 1']);
+	// A hidden semibold copy holds each tab's selected width.
+	assert.match(tabs, /<span class="cf-g" aria-hidden="true">Passed 2<\/span><\/label>/);
+	// One radio per tab, All checked, all ahead of the tabs and the card.
+	assert.match(html, /<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-i" class="cf-radio"><input type="radio" name="cf" id="cf-p" class="cf-radio"><input type="radio" name="cf" id="cf-n" class="cf-radio">\n<div class="cf-tabs">/);
+	// One table: no subheadings, no dashed second table.
+	assert.doesNotMatch(html, /cov-title|panel dashed|cov-group/);
 	assert.match(html, /<div class="section-head"><h2 class="section-label">Coverage<\/h2><\/div>/);
-	assert.doesNotMatch(html, /\d+ exercised/);
-	assert.doesNotMatch(html, /Exercised \(/);
+});
+
+test('renderReportHtml omits a filter tab with no rows, but never All', () => {
+	const html = renderReportHtml(md([
+		'## Coverage', '', '### Exercised', '',
+		'| Scenario | Result | Screenshot |', '|---|---|---|',
+		'| pandas frame | fine | |',
+	].join('\n')));
+	assert.match(html, /<label for="cf-all"/);
+	assert.match(html, /<label for="cf-p"/);
+	assert.doesNotMatch(html, /id="cf-i"|id="cf-n"|for="cf-i"|for="cf-n"/);
+	// The line only follows a Not exercised section the report actually wrote.
+	assert.doesNotMatch(html, /cov-empty">/);
 });
 
 test('renderReportHtml puts the status dot inside the scenario cell', () => {
@@ -752,19 +768,7 @@ test('renderReportHtml gives a report with only cost lines a Run details fold', 
 	assert.match(html, /<a class="tile tip" href="#run-details"/);
 });
 
-test('visibleExercisedCount shows findings plus 4 passes, at least 6, all at 8 or fewer', () => {
-	const rows = (findings, passes) => [
-		...Array.from({ length: findings }, (_, i) => ({ finding: i + 1 })),
-		...Array.from({ length: passes }, () => ({ finding: null })),
-	];
-	assert.equal(visibleExercisedCount(rows(2, 6)), 8);
-	assert.equal(visibleExercisedCount(rows(1, 17)), 6);
-	assert.equal(visibleExercisedCount(rows(0, 18)), 6);
-	assert.equal(visibleExercisedCount(rows(5, 13)), 9);
-	assert.equal(visibleExercisedCount(rows(9, 1)), 10);
-});
-
-test('renderReportHtml puts finding rows first and collapses the passes past the first 4', () => {
+test('renderReportHtml orders issues, passes, then not run, and collapses the passes past the first 4', () => {
 	const pass = n => `| pass ${n} | fine | |`;
 	const html = renderReportHtml(md([
 		'## Coverage', '', '### Exercised', '',
@@ -778,15 +782,17 @@ test('renderReportHtml puts finding rows first and collapses the passes past the
 		'| Scenario | Reason |', '|---|---|',
 		...Array.from({ length: 12 }, (_, i) => `| skip ${i} | later |`),
 	].join('\n')));
-	const order = [...html.matchAll(/<span>((?:pass|first|second) [^<]*)<\/span>/g)].map(m => m[1]);
+	const body = html.slice(html.indexOf('<body'));
+	const order = [...body.matchAll(/<span>((?:pass|first|second|skip) [^<]*)<\/span>/g)].map(m => m[1]);
 	assert.deepEqual(order.slice(0, 7), ['first hit', 'second hit', 'pass 1', 'pass 2', 'pass 3', 'pass 4', 'pass 5']);
-	assert.equal((html.slice(html.indexOf('<body')).match(/cov-extra/g) || []).length, 6);
-	assert.match(html, /<h3 class="cov-title">Exercised<span class="cov-n"> &middot; 12<\/span>/);
-	assert.match(html, /<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all 12 exercised scenarios">/);
-	assert.match(html, /<label for="cov-all" class="cov-more"><span class="cov-all">Show all 12 exercised scenarios<\/span><span class="cov-less">Show fewer<\/span>/);
-	// Not exercised never collapses, however long.
-	const not = html.slice(html.indexOf('Not exercised'));
-	assert.doesNotMatch(not, /cov-extra|cov-toggle/);
+	assert.deepEqual(order.slice(12, 14), ['skip 0', 'skip 1']);
+	assert.equal(order.length, 24);
+	// Only passes collapse; every issue and not-run row shows under All.
+	assert.equal((body.match(/cov-extra/g) || []).length, 6);
+	assert.equal((body.match(/class="[^"]*cf-[in] cov-extra/g) || []).length, 0);
+	// The footer counts the whole table.
+	assert.match(html, /<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all 24 scenarios">/);
+	assert.match(html, /<label for="cov-all" class="cov-more"><span class="cov-all">Show all 24 scenarios<\/span><span class="cov-less">Show fewer<\/span>/);
 });
 
 test('renderReportHtml shows a short Exercised table in full with no toggle', () => {
@@ -818,16 +824,22 @@ test('renderReportHtml treats a placeholder Not exercised row as an empty list',
 		assert.deepEqual(r.coverage.notExercised, [], cell);
 		assert.equal(r.scenarios.notRun, 0, cell);
 		const html = renderReportHtml(src);
-		assert.match(html, /<h3 class="cov-title">Not exercised<\/h3>\n<p class="cov-empty">Everything in scope was exercised\.<\/p>/, cell);
+		assert.match(html, /<\/div>\n<\/div>\n<p class="cov-empty">Everything in scope was exercised\.<\/p>\n<\/div>\n<\/section>/, cell);
+		assert.doesNotMatch(html, /id="cf-n"/, cell);
 		// A zero count gets no bar segment and no legend item.
 		const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
 		assert.doesNotMatch(tiles, /not run|notrun-bar/, cell);
 	}
 });
 
-test('renderReportHtml styles the Reason header like every other column header', () => {
+test('renderReportHtml writes a not-run row as a Result spanning three columns', () => {
 	const html = renderReportHtml(FULL);
-	assert.match(html, /<span class="cov-head-scenario">Scenario<\/span><span class="cov-head-reason">Reason<\/span>/);
+	const row = html.match(/<div class="row coverage-grid cf-r cf-n">[\s\S]*?<\/div>/)[0];
+	assert.match(row, /<span class="cov-dot none" aria-hidden="true"><\/span>/);
+	assert.match(row, /<span class="cov-notrun"><span class="cov-nr">Not run<\/span> &middot; /);
+	// Nothing to open and no chevron cell.
+	assert.doesNotMatch(row, /cv-chev|<details/);
+	assert.doesNotMatch(html, /cov-head-reason|>Reason</);
 });
 
 /** The text of finding `n`'s copyable prompt block. */
@@ -1134,11 +1146,11 @@ test('parseReport keeps the step of a shot the finding also embeds', () => {
 test('renderReportHtml opens a passing coverage row on its steps, not a finding row', () => {
 	const html = renderReportHtml(RICH);
 	const cov = html.slice(html.indexOf('id="coverage"'));
-	assert.match(cov, /<details class="cv"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol><li>Build <code>df<\/code>\.<\/li><li>Run <code>%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
+	assert.match(cov, /<details class="cv cf-r cf-p"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol><li>Build <code>df<\/code>\.<\/li><li>Run <code>%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
 	// No steps, nothing to open.
-	assert.match(cov, /<div class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
+	assert.match(cov, /<div class="row coverage-grid cf-r cf-p"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
 	// The finding link leads, and the row does not expand.
-	assert.match(cov, /<div class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot issue"[^>]*><\/span><span>slow column<\/span><\/span><span class="cov-result"><a href="#f1">Finding 1<\/a> &middot; Fails 3\/3<\/span>/);
+	assert.match(cov, /<div class="row coverage-grid cf-r cf-i"><span class="cov-scenario"><span class="cov-dot issue"[^>]*><\/span><span>slow column<\/span><\/span><span class="cov-result"><a href="#f1">Finding 1<\/a> &middot; Fails 3\/3<\/span>/);
 	assert.doesNotMatch(cov, /Should not render/);
 	assert.match(cov, /<span class="cov-head-scenario">Scenario<\/span><span>Result<\/span><span>Screenshot<\/span><span><\/span><\/div>/);
 });
@@ -1151,14 +1163,27 @@ test('renderReportHtml keeps Show all working over expandable rows', () => {
 	].join('\n')));
 	const body = html.slice(html.indexOf('<body'));
 	// The hidden rows stay siblings of the checkbox, which the CSS toggle needs.
-	assert.equal((body.match(/<details class="cv cov-extra">/g) || []).length, 4);
-	assert.match(body, /<input type="checkbox" id="cov-all" class="cov-toggle"[^>]*>\n<details class="cv">/);
+	assert.equal((body.match(/<details class="cv cf-r cf-p cov-extra">/g) || []).length, 6);
+	assert.match(body, /<div class="cov-rows">\n<input type="checkbox" id="cov-all" class="cov-toggle"[^>]*>\n<details class="cv cf-r cf-p">/);
 });
 
-test('report CSS lines up both coverage tables on one four-column grid', () => {
+test('report CSS lines up every coverage row on one four-column grid', () => {
 	const html = renderReportHtml(RICH);
 	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,5fr\) minmax\(0,7fr\) 200px 12px\}/);
-	assert.match(html, /\.cov-reason,\.cov-head-reason\{grid-column:span 3\}/);
+	assert.match(html, /\.cov-notrun\{grid-column:span 3;/);
 	assert.match(html, /\.cov-scenario\{display:flex;align-items:flex-start;gap:13px;/);
-	assert.match(html, /\.cov-head-scenario\{padding-left:21px\}\n\.panel\.dashed \.cov-head-scenario\{padding-left:20px\}/);
+	assert.match(html, /\.cov-head-scenario\{padding-left:21px\}/);
+	// Not-run dots match the others now.
+	assert.match(html, /\.cov-dot\.none\{background:var\(--dot-neutral\)\}/);
+});
+
+test('report CSS filters rows by the checked tab and keeps Show all to All', () => {
+	const html = renderReportHtml(RICH);
+	assert.match(html, /#cf-i:checked~\.cf-card \.cf-r:not\(\.cf-i\),#cf-p:checked~\.cf-card \.cf-r:not\(\.cf-p\),#cf-n:checked~\.cf-card \.cf-r:not\(\.cf-n\)\{display:none !important\}/);
+	assert.match(html, /#cf-i:checked~\.cf-card \.cov-more,#cf-p:checked~\.cf-card \.cov-more,#cf-n:checked~\.cf-card \.cov-more\{display:none !important\}/);
+	assert.match(html, /#cf-p:checked~\.cf-card details\.cov-extra\.cf-p\{display:block !important\}/);
+	// Selected is ink, not an accent, and the focus ring sits off the label.
+	assert.match(html, /\.cf-tab-n\{color:var\(--ink\);border-bottom-color:var\(--ink\)\}/);
+	assert.match(html, /\.cf-tab-n\{outline:2px solid var\(--focus\);outline-offset:4px;/);
+	assert.match(html, /\.cov-rows\{position:relative;margin-bottom:-1px\}/);
 });
