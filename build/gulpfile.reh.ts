@@ -810,14 +810,14 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 
 // --- Start Positron ---
 /**
- * Fails the build when the packaged server tree holds a path that is too long
- * for Windows, or when an extension ships more files than its budget. Posit
+ * Fails the build when an extension ships more files than its budget. Posit
  * Workbench runs the server build on network filesystems, where file count
- * matters most. See posit-dev/positron#16025.
+ * matters most. See posit-dev/positron#16025. The Windows MAX_PATH budget
+ * models the desktop install directory, so this task does not check it.
  */
 function checkPackagedTreeTaskREH(destinationFolderName: string) {
 	return async () => {
-		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions');
+		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false });
 	};
 }
 // --- End Positron ---

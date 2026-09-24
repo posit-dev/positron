@@ -833,7 +833,7 @@ function checkPackagedTreeTask(platform: string, destinationFolderName: string) 
 			: path.join(outputDir, util.getVersionedResourcesFolder(platform, commit!));
 		const extensionsDir = platform === 'darwin' ? 'Resources/app/extensions' : 'resources/app/extensions';
 
-		checkPackagedTree(appRoot, extensionsDir);
+		checkPackagedTree(appRoot, extensionsDir, { pathLengths: true });
 	};
 }
 // --- End Positron ---

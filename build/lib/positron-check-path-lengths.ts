@@ -46,9 +46,13 @@ export interface IFileCount {
 	bytes: number;
 }
 
-/** The size of one extension, with its largest `node_modules` packages. */
-export interface IExtensionFileCount extends IFileCount {
+/** A directory in the packaged tree with its file-count budget. */
+export interface IBudgetedFileCount extends IFileCount {
 	budget: number;
+}
+
+/** The size of one extension, with its largest `node_modules` packages. */
+export interface IExtensionFileCount extends IBudgetedFileCount {
 	/** The largest packages by file count, largest first. */
 	packages: IFileCount[];
 }
@@ -57,16 +61,41 @@ export interface IFileCountResult {
 	/** Every file in the packaged tree. */
 	shipped: IFileCount;
 	/** The `extensions/` directory as a whole. */
-	extensions: IExtensionFileCount;
-	/**
-	 * The gzip copies in `extensions/`, which no budget counts. See
-	 * `isGzipCopy`.
-	 */
+	extensions: IBudgetedFileCount;
+	/** The gzip copies in `extensions/`, which no budget counts. */
 	gzipCopies: IFileCount;
 	/** Each directory inside `extensions/`, largest first. */
 	byExtension: IExtensionFileCount[];
 	/** The entries over budget, `extensions/` as a whole included. */
-	offenders: IExtensionFileCount[];
+	offenders: IBudgetedFileCount[];
+}
+
+/** The file-count budgets that `checkPackagedTree` applies. */
+export interface IFileCountBudgets {
+	total: number;
+	default: number;
+	byExtension: ReadonlyMap<string, number>;
+}
+
+const FILE_COUNT_BUDGETS: IFileCountBudgets = {
+	total: EXTENSIONS_FILE_COUNT_BUDGET,
+	default: DEFAULT_EXTENSION_FILE_COUNT_BUDGET,
+	byExtension: EXTENSION_FILE_COUNT_BUDGETS
+};
+
+export interface IPackagedTreeCheckOptions {
+	/**
+	 * Whether to check the Windows MAX_PATH budget. The budget models the
+	 * desktop install directory, so only the desktop build checks it.
+	 */
+	pathLengths: boolean;
+	budgets?: IFileCountBudgets;
+}
+
+export interface IPackagedTreeResult {
+	/** Undefined when `pathLengths` is false. */
+	pathLengths?: IPathLengthResult;
+	fileCounts: IFileCountResult;
 }
 
 /**
@@ -118,11 +147,7 @@ function summarizePathLengths(files: IShippedFile[]): IPathLengthResult {
 	};
 }
 
-/**
- * The `node_modules` package that holds a file, or `undefined` for a file
- * outside `node_modules`. `segments` is the path relative to `extensions/`. The
- * package of a nested dependency is the top-level package that pulled it in.
- */
+/** A nested dependency counts toward the top-level package that pulled it in. */
 function packageOf(segments: string[]): string | undefined {
 	// The shared tree is `extensions/node_modules`. Any other extension keeps
 	// its dependencies in `extensions/<name>/node_modules`.
@@ -139,13 +164,7 @@ function packageOf(segments: string[]): string | undefined {
 		: segments[start];
 }
 
-/**
- * Whether a file is the gzip copy of another shipped file. The web server
- * builds write `<file>.gz` next to each large text file (`addCompressedSiblings`
- * in `gulpfile.reh.ts`), and the desktop builds do not. The budgets count only
- * the original files, so that one budget is correct for every build. A `.gz`
- * file without an original next to it is an ordinary file.
- */
+/** Web server builds add these (`addCompressedSiblings` in gulpfile.reh.ts), so budgets skip them to fit every build. */
 function isGzipCopy(filePath: string, paths: ReadonlySet<string>): boolean {
 	return filePath.endsWith('.gz') && paths.has(filePath.slice(0, -'.gz'.length));
 }
@@ -165,7 +184,7 @@ function summarizeFileCounts(files: IShippedFile[], extensionsDir: string, budge
 	const prefix = extensionsDir.split(/[\\/]/).filter(Boolean).join('\\') + '\\';
 	const byExtension = new Map<string, IFileCount>();
 	const packagesByExtension = new Map<string, Map<string, IFileCount>>();
-	const extensions: IExtensionFileCount = { name: EXTENSIONS_TOTAL_NAME, files: 0, bytes: 0, budget: budgets.total, packages: [] };
+	const extensions: IBudgetedFileCount = { name: EXTENSIONS_TOTAL_NAME, files: 0, bytes: 0, budget: budgets.total };
 	const gzipCopies: IFileCount = { name: 'gzip copies', files: 0, bytes: 0 };
 	const shipped: IFileCount = { name: '', files: 0, bytes: 0 };
 	const paths = new Set(files.map(file => file.path));
@@ -220,41 +239,6 @@ function summarizeFileCounts(files: IShippedFile[], extensionsDir: string, budge
 	};
 }
 
-/** The file-count budgets that `checkFileCounts` applies. */
-export interface IFileCountBudgets {
-	total: number;
-	default: number;
-	byExtension: ReadonlyMap<string, number>;
-}
-
-const FILE_COUNT_BUDGETS: IFileCountBudgets = {
-	total: EXTENSIONS_FILE_COUNT_BUDGET,
-	default: DEFAULT_EXTENSION_FILE_COUNT_BUDGET,
-	byExtension: EXTENSION_FILE_COUNT_BUDGETS
-};
-
-/**
- * Measures the packaged application tree against the Windows MAX_PATH budget.
- *
- * `appRoot` must be the directory that matches the Windows install directory.
- * The paths that this function measures are then the paths that Inno Setup
- * writes. On Windows and Linux, `appRoot` is the packaged output folder. On
- * macOS it is `<product>.app/Contents`, where `Resources/app/...` has the same
- * length as `resources\app\...` on Windows.
- */
-export function measurePathLengths(appRoot: string): IPathLengthResult {
-	return summarizePathLengths(collectFiles(appRoot));
-}
-
-/**
- * Counts the files and bytes in the packaged tree, in total and for each
- * directory in `extensions/`. `extensionsDir` is the path of `extensions/`
- * relative to `appRoot`, with either separator.
- */
-export function measureFileCounts(appRoot: string, extensionsDir: string, budgets: IFileCountBudgets = FILE_COUNT_BUDGETS): IFileCountResult {
-	return summarizeFileCounts(collectFiles(appRoot), extensionsDir, budgets);
-}
-
 /** Logs the path-length result. Returns an error message when a path is over budget. */
 function reportPathLengths({ fileCount, offenders, longest }: IPathLengthResult): string | undefined {
 	if (offenders.length === 0) {
@@ -280,7 +264,8 @@ function reportPathLengths({ fileCount, offenders, longest }: IPathLengthResult)
 	fancyLog.error('Do not raise the budget.');
 	fancyLog.error('See build/lib/positron-path-budget.ts and posit-dev/positron#14702.');
 
-	return `${offenders.length} shipped path(s) are longer than the Windows MAX_PATH budget`;
+	return `${offenders.length} shipped path(s) are longer than the Windows MAX_PATH budget, `
+		+ `the longest is ${offenders[0]}`;
 }
 
 function formatCount(count: number): string {
@@ -291,13 +276,7 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/**
- * Logs the file-count result. Returns an error message when a count is over
- * budget.
- *
- * The log names each extension that has its own budget or that is over the
- * default one, with its largest packages. It sums up the rest in one line.
- */
+/** Logs the file-count result. Returns an error message when a count is over budget. */
 function reportFileCounts(result: IFileCountResult, budgets: IFileCountBudgets): string | undefined {
 	const { shipped, extensions, gzipCopies, byExtension, offenders } = result;
 
@@ -336,49 +315,37 @@ function reportFileCounts(result: IFileCountResult, budgets: IFileCountBudgets):
 	fancyLog.error('A new extension over the default budget needs its own entry.');
 	fancyLog.error('See build/lib/positron-path-budget.ts and posit-dev/positron#16025.');
 
-	return `${offenders.length} file count(s) in the packaged tree are over budget`;
-}
-
-/**
- * Fails the build when the packaged tree contains a path that a Windows
- * per-user install or auto-update cannot write.
- *
- * The extension trees that own the longest paths are the same on each platform.
- * A check during the packaging of any platform therefore finds a regression
- * before it reaches a Windows build.
- */
-export function checkPathLengths(appRoot: string): void {
-	const error = reportPathLengths(measurePathLengths(appRoot));
-	if (error) {
-		throw new Error(error);
-	}
+	return `${offenders.length} file count(s) in the packaged tree are over budget: `
+		+ offenders.map(offender => `${offender.name} (${offender.files} of ${offender.budget})`).join(', ');
 }
 
 /**
  * Fails the build when an extension, or `extensions/` as a whole, ships more
- * files than its budget. Logs the counts either way, so that each build records
- * them. `extensionsDir` is as for `measureFileCounts`.
+ * files than its budget, and, with `pathLengths`, when a path is too long for a
+ * Windows per-user install or auto-update. Both results are logged before the
+ * function throws, so that one build shows every problem.
+ *
+ * `appRoot` must be the directory that matches the Windows install directory.
+ * The paths that this function measures are then the paths that Inno Setup
+ * writes. On Windows and Linux, `appRoot` is the packaged output folder. On
+ * macOS it is `<product>.app/Contents`, where `Resources/app/...` has the same
+ * length as `resources\app\...` on Windows. `extensionsDir` is the path of
+ * `extensions/` relative to `appRoot`, with either separator.
  */
-export function checkFileCounts(appRoot: string, extensionsDir: string, budgets: IFileCountBudgets = FILE_COUNT_BUDGETS): void {
-	const error = reportFileCounts(measureFileCounts(appRoot, extensionsDir, budgets), budgets);
-	if (error) {
-		throw new Error(error);
-	}
-}
-
-/**
- * Runs `checkPathLengths` and `checkFileCounts` over one walk of the packaged
- * tree. The function logs both results before it fails, so that one build shows
- * every problem.
- */
-export function checkPackagedTree(appRoot: string, extensionsDir: string): void {
+export function checkPackagedTree(appRoot: string, extensionsDir: string, options: IPackagedTreeCheckOptions): IPackagedTreeResult {
+	const budgets = options.budgets ?? FILE_COUNT_BUDGETS;
 	const files = collectFiles(appRoot);
+	const pathLengths = options.pathLengths ? summarizePathLengths(files) : undefined;
+	const fileCounts = summarizeFileCounts(files, extensionsDir, budgets);
+
 	const errors = [
-		reportPathLengths(summarizePathLengths(files)),
-		reportFileCounts(summarizeFileCounts(files, extensionsDir, FILE_COUNT_BUDGETS), FILE_COUNT_BUDGETS)
+		pathLengths && reportPathLengths(pathLengths),
+		reportFileCounts(fileCounts, budgets)
 	].filter(error => error !== undefined);
 
 	if (errors.length) {
 		throw new Error(errors.join('; '));
 	}
+
+	return { pathLengths, fileCounts };
 }

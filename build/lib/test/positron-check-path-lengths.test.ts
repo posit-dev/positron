@@ -8,7 +8,7 @@ import { suite, test, before, after } from 'node:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { type IFileCountBudgets, checkFileCounts, checkPathLengths, measureFileCounts, measurePathLengths } from '../positron-check-path-lengths.ts';
+import { type IFileCountBudgets, checkPackagedTree } from '../positron-check-path-lengths.ts';
 import { MAX_RELATIVE_PATH_LENGTH } from '../positron-path-budget.ts';
 
 /**
@@ -35,6 +35,10 @@ function writeFileAtDepth(root: string, length: number): string {
 
 suite('positron-check-path-lengths', () => {
 
+	// Generous enough that the file counts never fail the path-length tests.
+	const budgets: IFileCountBudgets = { total: 100, default: 100, byExtension: new Map() };
+	const extensionsDir = 'resources/app/extensions';
+
 	let appRoot: string;
 
 	before(() => {
@@ -47,7 +51,7 @@ suite('positron-check-path-lengths', () => {
 
 	test('measures paths relative to the install directory, using Windows separators', () => {
 		const expected = writeFileAtDepth(appRoot, MAX_RELATIVE_PATH_LENGTH);
-		const result = measurePathLengths(appRoot);
+		const result = checkPackagedTree(appRoot, extensionsDir, { pathLengths: true, budgets }).pathLengths!;
 
 		assert.deepStrictEqual(
 			{ fileCount: result.fileCount, length: result.longest.length, longest: result.longest, offenders: result.offenders },
@@ -57,18 +61,30 @@ suite('positron-check-path-lengths', () => {
 	test('a path exactly at the budget passes, one character more fails', () => {
 		// From the previous test, the tree already holds a file at exactly the
 		// budget. This test therefore checks the limit from both sides.
-		assert.doesNotThrow(() => checkPathLengths(appRoot));
-
 		const tooLong = writeFileAtDepth(appRoot, MAX_RELATIVE_PATH_LENGTH + 1);
 
-		assert.deepStrictEqual(measurePathLengths(appRoot).offenders, [tooLong]);
-		assert.throws(() => checkPathLengths(appRoot), /longer than the Windows MAX_PATH budget/);
+		assert.throws(
+			() => checkPackagedTree(appRoot, extensionsDir, { pathLengths: true, budgets }),
+			{ message: `1 shipped path(s) are longer than the Windows MAX_PATH budget, the longest is ${tooLong}` });
+	});
+
+	test('skips the path lengths when asked to', () => {
+		// The tree still holds the offender from the previous test.
+		assert.strictEqual(checkPackagedTree(appRoot, extensionsDir, { pathLengths: false, budgets }).pathLengths, undefined);
 	});
 
 	test('reports a missing tree rather than passing vacuously', () => {
 		assert.throws(
-			() => checkPathLengths(path.join(appRoot, 'does-not-exist')),
+			() => checkPackagedTree(path.join(appRoot, 'does-not-exist'), extensionsDir, { pathLengths: true, budgets }),
 			/does not exist/);
+	});
+
+	test('reports a path failure and a file-count failure together', () => {
+		const tight: IFileCountBudgets = { total: 1, default: 100, byExtension: new Map() };
+
+		assert.throws(
+			() => checkPackagedTree(appRoot, extensionsDir, { pathLengths: true, budgets: tight }),
+			/longer than the Windows MAX_PATH budget.*; 1 file count\(s\) in the packaged tree are over budget: extensions\/ \(2 of 1\)$/);
 	});
 });
 
@@ -87,6 +103,11 @@ suite('positron-check-path-lengths file counts', () => {
 		default: 3,
 		byExtension: new Map([['big', 12]])
 	};
+
+	/** Checks only the file counts, as the server build does. */
+	function countFiles(root: string, extensionsDir: string, countBudgets = budgets) {
+		return checkPackagedTree(root, extensionsDir, { pathLengths: false, budgets: countBudgets }).fileCounts;
+	}
 
 	let appRoot: string;
 
@@ -108,11 +129,9 @@ suite('positron-check-path-lengths file counts', () => {
 	});
 
 	test('counts each extension and its top-level packages, nested dependencies included', () => {
-		const result = measureFileCounts(appRoot, 'Resources/app/extensions', budgets);
-
-		assert.deepStrictEqual(result, {
+		assert.deepStrictEqual(countFiles(appRoot, 'Resources/app/extensions'), {
 			shipped: { name: '', files: 17, bytes: 35 },
-			extensions: { name: 'extensions/', files: 15, bytes: 33, budget: 20, packages: [] },
+			extensions: { name: 'extensions/', files: 15, bytes: 33, budget: 20 },
 			gzipCopies: { name: 'gzip copies', files: 0, bytes: 0 },
 			byExtension: [
 				{
@@ -129,24 +148,15 @@ suite('positron-check-path-lengths file counts', () => {
 	});
 
 	test('accepts the extensions directory with Windows separators', () => {
-		assert.deepStrictEqual(
-			measureFileCounts(appRoot, 'Resources\\app\\extensions', budgets).extensions.files,
-			15);
+		assert.strictEqual(countFiles(appRoot, 'Resources\\app\\extensions').extensions.files, 15);
 	});
 
 	test('an extension over its own budget, over the default budget, or a total over budget fails', () => {
-		assert.doesNotThrow(() => checkFileCounts(appRoot, 'Resources/app/extensions', budgets));
-
 		const tight: IFileCountBudgets = { total: 14, default: 2, byExtension: new Map([['big', 10]]) };
-		const offenders = measureFileCounts(appRoot, 'Resources/app/extensions', tight).offenders
-			.map(({ name, files, budget }) => ({ name, files, budget }));
 
-		assert.deepStrictEqual(offenders, [
-			{ name: 'extensions/', files: 15, budget: 14 },
-			{ name: 'big', files: 11, budget: 10 },
-			{ name: 'small', files: 3, budget: 2 },
-		]);
-		assert.throws(() => checkFileCounts(appRoot, 'Resources/app/extensions', tight), /3 file count\(s\) .* over budget/);
+		assert.throws(
+			() => countFiles(appRoot, 'Resources/app/extensions', tight),
+			{ message: '3 file count(s) in the packaged tree are over budget: extensions/ (15 of 14), big (11 of 10), small (3 of 2)' });
 	});
 
 	test('leaves gzip copies out of the budgets, but counts a .gz file that has no original', () => {
@@ -157,7 +167,7 @@ suite('positron-check-path-lengths file counts', () => {
 			fs.writeFileSync(path.join(dir, 'f0.js.gz'), 'x'.repeat(4));
 			fs.writeFileSync(path.join(dir, 'data.gz'), 'x'.repeat(3));
 
-			const result = measureFileCounts(gzipRoot, 'extensions', budgets);
+			const result = countFiles(gzipRoot, 'extensions');
 
 			assert.deepStrictEqual(
 				{ shipped: result.shipped, extensions: result.extensions.files, ext: result.byExtension[0].files, gzipCopies: result.gzipCopies },
@@ -169,7 +179,7 @@ suite('positron-check-path-lengths file counts', () => {
 
 	test('reports a wrong extensions directory rather than passing vacuously', () => {
 		assert.throws(
-			() => checkFileCounts(appRoot, 'resources/app/extensions', budgets),
+			() => countFiles(appRoot, 'resources/app/extensions'),
 			/resources\/app\/extensions holds no files/);
 	});
 });

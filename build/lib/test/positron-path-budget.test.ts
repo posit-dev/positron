@@ -154,11 +154,16 @@ suite('positron-path-budget', () => {
 		test('each entry names a directory that ships and is above the default budget', () => {
 			// An entry for a removed or renamed extension, or one at or below the
 			// default, would check nothing. `node_modules` is the shared tree that
-			// the build creates.
-			const extensionsRoot = path.join(import.meta.dirname, '..', '..', '..', 'extensions');
+			// the build creates, and the product.json extensions are downloaded
+			// at build time rather than kept in the repo.
+			const repoRoot = path.join(import.meta.dirname, '..', '..', '..');
+			const product = JSON.parse(fs.readFileSync(path.join(repoRoot, 'product.json'), 'utf8'));
+			const downloaded = new Set<string>([...product.builtInExtensions, ...product.bootstrapExtensions]
+				.map((extension: { name: string }) => extension.name));
 			const stale = [...EXTENSION_FILE_COUNT_BUDGETS]
 				.filter(([name, budget]) => budget <= DEFAULT_EXTENSION_FILE_COUNT_BUDGET
-					|| (name !== 'node_modules' && !fs.existsSync(path.join(extensionsRoot, name, 'package.json'))))
+					|| (name !== 'node_modules' && !downloaded.has(name)
+						&& !fs.existsSync(path.join(repoRoot, 'extensions', name, 'package.json'))))
 				.map(([name]) => name);
 
 			assert.deepStrictEqual(stale, []);
