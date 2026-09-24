@@ -62,6 +62,7 @@ const PROFESSIONAL = `
 	--chip-border: #DAD6CD;
 	--cv-chev: #C4C0B6;
 	--st-ev: #8A8F96;
+	--st-target: #F6F1E4;
 
 	--label-color: var(--muted);
 	--label-ls: 0.1em;
@@ -173,6 +174,7 @@ const PARTY = `
 	--chip-border: #5B4F92;
 	--cv-chev: #5B4F92;
 	--st-ev: #8A82B8;
+	--st-target: #2A2250;
 
 	--label-color: #FF6AC1;
 	--label-ls: 0.14em;
@@ -452,6 +454,7 @@ figure{margin:0;display:flex;flex-direction:column;gap:8px}
 figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}
 figcaption{font-size:12px;line-height:1.4;color:var(--quiet)}
 figcaption .step-label{font-weight:600;color:var(--body)}
+figcaption a.step-label:hover{color:var(--link)}
 figcaption .step-sep{color:var(--sep)}
 
 .evidence{display:flex;flex-direction:column;gap:10px}
@@ -559,12 +562,22 @@ span.rt-file{color:var(--body)}
 .cv-steps ol{margin:0;padding-left:20px;font-size:13px;line-height:1.6;color:var(--body)}
 .cv-steps li{margin:0 0 2px}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
-.cv-steps .st-sep{color:var(--sep)}
 .cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
 .st-ev{color:var(--st-ev);white-space:nowrap;transition:color .15s ease}
 .st-ev svg{vertical-align:-2px}
 .st-ev:hover{color:var(--link);text-decoration:none}
 .st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+
+/* Steps: action / verify / result */
+.st-v{color:var(--ink)}
+.st-rs{font-size:11px;font-weight:600;letter-spacing:.06em;margin-left:6px;white-space:nowrap}
+.st-pass{color:var(--pass-fill)}
+.st-fail{color:var(--major-text)}
+.st-sep{color:var(--sep)}
+.st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
+.steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
+.steps li:target{background:var(--st-target)}
+@media (prefers-reduced-motion:reduce){.st-ev,.steps li{transition:none}}
 
 /* Collapsible sections */
 .folds{display:flex;flex-direction:column;border-top:1px solid var(--border)}

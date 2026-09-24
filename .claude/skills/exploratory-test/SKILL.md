@@ -189,10 +189,11 @@ the less of it gets read.
 ```
 | Scenario | Result | Screenshot | Steps |
 |---|---|---|---|
-| <a few words> | <what happened> | [shots/<file>](shots/<file>) | 1. <step><br>2. <step> |
+| <a few words> | <what happened> | [shots/<file>](shots/<file>) | 1. <action><br>2. Verify <expectation>. -> PASS |
 ```
 
-The shot goes in its own cell, and the cell is left empty when you have none.
+The shot goes in its own cell, and the cell is left empty when you have none;
+it proves the row's last verify step unless a step names its own `Evidence:`.
 A verified claim nobody can check is worth little, and this table is where the
 reader checks it; a column of filenames can be scanned down for the row you
 want, which the same links buried mid-sentence could not be. Keep `Result` to
@@ -200,13 +201,31 @@ what happened. A cell reporting that something did *not* happen says which
 surface you checked and when, and each such claim stands alone rather than
 being folded into a rate.
 
-`Steps` is how to repeat the scenario: two to four short steps, separated by
-`<br>` because a cell cannot hold a list, with anything to paste in backticks.
-Write them for every row, passing ones included. A passing row expands to show
-them, and "it works" is only worth something to a reader who can see what "it"
-was. They are already in `actions.log`, so this is condensing, not recalling.
-A row that produced a finding can leave the cell empty: its steps are on the
-finding.
+**Recording steps.** Record every scenario as typed steps, *as you run them*, not reconstructed afterwards.
+- An **action** is something you did: "Run `%view df`.", "Click Continue.", "Scroll to the bottom." Merge trivial waits into the action before them ("Run X and wait 15 s").
+- A **verify** is a check you made. Write it *before* you look, as the expectation: "Verify the summary loads." Then record the result: `pass` or `fail`.
+- Every check you make is a verify step, **including the ones that pass**. A scenario with no verify steps is incomplete.
+- On `fail`: name the finding it produced, and add one `observed` line saying what actually happened.
+- Attach each screenshot to the verify step it proves.
+- Never write an observation as a step ("Loading dots, then the notice appears"). That text belongs in `observed`, or in the next verify step's expectation.
+
+**Finding Reproduce steps** are the minimal sequence from the scenario that found it: its actions plus the verify steps that matter, keeping PASS checks that show what still works just before the failure.
+
+Write steps in this grammar; the report parses it, and a result it cannot
+find is shown as none rather than guessed:
+
+```
+N. <action text>
+N. Verify <assertion> -> PASS
+N. Verify <assertion> -> FAIL (finding K)
+   Observed: <one line>
+   Evidence: <file>[, <file>]
+```
+
+In a `Steps` cell, separate steps with `<br>` because a cell cannot hold a
+list; an `Observed:` or `Evidence:` item belongs to the step before it. Write
+them for every row, passing ones included. A row that produced a finding can
+leave the cell empty: its steps are on the finding.
 
 When a row is how you found a finding, end `Result` with `(finding N)`. That is
 what links the row to the finding it produced, and it is why a scenario that
@@ -327,8 +346,12 @@ nothing: a blank line cannot tell a reader "needs nothing" apart from "never
 checked". The report drops a line that says only "default settings", so
 stating the obvious costs the reader nothing.>
 
-1. <step>
-2. <step>
+1. <action>
+2. Verify <expectation>. -> PASS
+3. <action>
+4. Verify <expectation>. -> FAIL (finding N)
+   Observed: <what happened instead, one line>
+   Evidence: <file>
 
 **Observed:** <what happened>
 
@@ -381,7 +404,8 @@ best. Cite the rest as links under Evidence. Four screenshots of nearly the same
 screen push everything below them off the page, and a reader who wants the
 second one will open it.
 
-Start every screenshot's caption with the step it was taken after, `Step N:`.
+A shot named on a step's `Evidence:` line takes that step's number. Start
+every other screenshot's caption with the step it was taken after, `Step N:`.
 The gallery sorts by it, so the shots read in the order of the repro. A shot
 that follows no step, a variant of the setup say, takes the nearest step; if
 there is none, write `Variant:`. Note the step in `actions.log` when you take

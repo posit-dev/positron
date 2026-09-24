@@ -5,6 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { parseReport, safeUrl } from './report-parse.mjs';
 import { renderReportHtml } from './html.mjs';
 
@@ -656,10 +657,10 @@ test('parseReport keeps a step that carries a code block, and the steps after it
 	const f = r.findings[0];
 	assert.equal(f.steps.length, 3);
 	// The block belongs to step 1 rather than ending the list.
-	assert.match(f.steps[0], /<pre><code>/);
-	assert.match(f.steps[0], /&lt;div class=&quot;alert&quot;&gt;/);
-	assert.match(f.steps[1], /Render the cell/);
-	assert.match(f.steps[2], /Show Details/);
+	assert.match(f.steps[0].blockHtml, /<pre><code>/);
+	assert.match(f.steps[0].blockHtml, /&lt;div class=&quot;alert&quot;&gt;/);
+	assert.match(f.steps[1].html, /Render the cell/);
+	assert.match(f.steps[2].html, /Show Details/);
 	// Everything after the fence used to fall through into the summary.
 	assert.equal(f.summaryHtml, 'One sentence of summary.');
 	assert.match(f.observedHtml, /it broke/);
@@ -710,7 +711,7 @@ test('parseReport widens a step fence past the source nested inside it', () => {
 		'   ```',
 		'2. Render it.',
 	].join('\n')));
-	const step = r.findings[0].steps[0];
+	const step = r.findings[0].steps[0].blockHtml;
 	// Three backticks around three backticks closes early, spilling the rest of
 	// the source onto the page as markup.
 	assert.match(step, /Text right after close\.[\s\S]*<\/code><\/pre>/);
@@ -1126,7 +1127,7 @@ test('renderReportHtml shows screenshots only, labelled and sorted by step', () 
 	const shots = [...c.matchAll(/data-file="([^"]+)"/g)].map(m => m[1]);
 	assert.deepEqual(shots, ['a.png', 'b.png', 'c.png']);
 	// One run of text, so a wrapped caption returns to the left edge.
-	assert.match(c, /<figcaption><span class="step-label">Step 2<\/span> <span class="step-sep" aria-hidden="true">&middot;<\/span> The notice<\/figcaption>/);
+	assert.match(c, /<figcaption><a class="step-label" href="#f1-s2">Step 2<\/a> <span class="step-sep" aria-hidden="true">&middot;<\/span> The notice<\/figcaption>/);
 	assert.match(c, /<span class="step-label">Variant<\/span> <span class="step-sep" aria-hidden="true">&middot;<\/span> Five columns<\/figcaption>/);
 	const text = promptText(html, 1);
 	assert.match(text, /### Evidence\n- https:\/\/cdn\.example\/shots\/a\.png — Step 2: The notice\n- https:\/\/cdn\.example\/shots\/b\.png — Step 3: After Retry\n- https:\/\/cdn\.example\/shots\/c\.png — Variant: Five columns\n- \/runs\/r1\/logs\/app\.log/);
@@ -1149,7 +1150,7 @@ test('parseReport keeps the step of a shot the finding also embeds', () => {
 test('renderReportHtml opens a passing coverage row on its steps, not a finding row', () => {
 	const html = renderReportHtml(RICH);
 	const cov = html.slice(html.indexOf('id="coverage"'));
-	assert.match(cov, /<details class="cv cf-r cf-p"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol><li>Build <code>df<\/code>\.<\/li><li>Run <code>%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
+	assert.match(cov, /<details class="cv cf-r cf-p"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol class="steps"><li>Build <code>df<\/code>\.<\/li>\n<li>Run <code>%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
 	// No steps, nothing to open.
 	assert.match(cov, /<div class="row coverage-grid cf-r cf-p"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
 	// The finding link leads, and the row does not expand.
@@ -1165,7 +1166,7 @@ test('renderReportHtml puts a passing row\'s screenshot on its verify step, not 
 	// The finding's screenshot is on its card, so the row does not link it.
 	assert.doesNotMatch(cov, /slow\.png/);
 	// The icon trails the last step and opens the lightbox as a group of one.
-	assert.match(cov, /<li>Verify it loads\. <span class="st-sep" aria-hidden="true">&middot;<\/span> <a class="st-ev" href="https:\/\/cdn\.example\/shots\/arrow\.png" data-lb="cv-\d+" data-caption="arrow frame" data-file="arrow\.png" aria-label="Screenshot for this step: arrow frame"><svg/);
+	assert.match(cov, /<li><span class="st-v">Verify it loads\.<\/span> <span class="st-sep" aria-hidden="true">&middot;<\/span> <a class="st-ev" href="https:\/\/cdn\.example\/shots\/arrow\.png" data-lb="cv-\d+" data-caption="arrow frame" data-file="arrow\.png" aria-label="Screenshot for this step: arrow frame"><svg/);
 	assert.doesNotMatch(cov, /Build <code>tbl<\/code>\. <span class="st-sep"/);
 	// With no steps, the screenshot alone makes the row expandable.
 	assert.match(cov, /<span>duckdb frame<\/span>[\s\S]*?<div class="cv-steps"><p class="cv-shot">Screenshot <span class="st-sep"[^>]*>&middot;<\/span> <a class="st-ev" href="https:\/\/cdn\.example\/shots\/duck\.png"/);
@@ -1248,4 +1249,87 @@ test('parseReport only takes a PR line that is a real owner/repo#number', () => 
 	assert.equal(pr('PR: none'), undefined);
 	// A PR mentioned in a finding is not the report's PR.
 	assert.equal(parseReport(md('## Findings', '', 'PR: posit-dev/positron#1')).pr, undefined);
+});
+
+// S08, S09, S01 and S04 of a real ledger: two failing scenarios, two passing.
+const TYPED = readFileSync(new URL('./fixtures/typed-steps.md', import.meta.url), 'utf8');
+
+test('typed steps: every verify step carries its result, and no action does', () => {
+	const html = renderReportHtml(TYPED);
+	const count = re => (html.match(re) ?? []).length;
+	assert.equal(count(/class="st-rs st-pass"/g), 4);
+	assert.equal(count(/class="st-rs st-fail"/g), 4);
+	// 8 verify steps in the fixture, and no result on any of its 9 actions.
+	assert.equal(count(/class="st-rs /g), 8);
+	assert.equal(count(/class="st-v"/g), 8);
+});
+
+test('typed steps: the finding card reads Verify PASS, action, Verify FAIL with its observation', () => {
+	const html = renderReportHtml(TYPED);
+	const card = html.slice(html.indexOf('<article id="f2"'), html.indexOf('</article>', html.indexOf('<article id="f2"')));
+	const li = k => new RegExp(`<li id="f2-s${k}">([\\s\\S]*?)</li>`).exec(card)?.[1] ?? '';
+	assert.equal(li(3), '<span class="st-v">Verify s00 to s13 have sparklines.</span><span class="st-rs st-pass">PASS</span>');
+	assert.doesNotMatch(li(4), /st-v|st-rs/);
+	assert.equal(li(5), '<span class="st-v">Verify the visible columns s62 to s79 get sparklines.</span>'
+		+ '<span class="st-rs st-fail">FAIL</span><span class="st-obs">Observed: Only s62 has one.</span>');
+	// The card is the finding, and its thumbnails are right below.
+	const list = card.slice(card.indexOf('<ol class="repro-steps steps">'), card.indexOf('</ol>'));
+	assert.doesNotMatch(list, /Finding 2|st-ev/);
+	// A shot the step names takes that step's number, and jumps to it.
+	assert.match(card, /<figcaption><a class="step-label" href="#f2-s5">Step 5<\/a>/);
+	assert.match(card, /<figcaption><a class="step-label" href="#f2-s7">Step 7<\/a>/);
+	assert.match(html, /\.steps li:target\{background:var\(--st-target\)\}/);
+});
+
+test('typed steps: Observed stays off the steps when the card says it once', () => {
+	const one = TYPED.replace('5. Verify the visible columns s62 to s79 get sparklines. -> FAIL (finding 2)', '5. Look at the visible columns.')
+		.replace('   Observed: Only s62 has one.\n', '');
+	const html = renderReportHtml(one);
+	const card = html.slice(html.indexOf('<article id="f2"'));
+	assert.doesNotMatch(card.slice(0, card.indexOf('</article>')), /st-obs/);
+});
+
+test('typed steps: a passing row puts its photo on the verify step it proves', () => {
+	const cov = renderReportHtml(TYPED).split('id="coverage"')[1];
+	// From the Screenshot column: the last verify step.
+	assert.match(cov, /as before\.<\/span><span class="st-rs st-pass">PASS<\/span> <span class="st-sep" aria-hidden="true">&middot;<\/span> <a class="st-ev" href="shots\/01-df-open\.png"/);
+	// From an `Evidence:` item in the cell: the step before it.
+	assert.match(cov, /Continue&quot;\.<\/span><span class="st-rs st-pass">PASS<\/span> <span class="st-sep"[^>]*>&middot;<\/span> <a class="st-ev" href="shots\/04-slow-paused\.png"/);
+	assert.doesNotMatch(cov, /Evidence:/);
+	assert.match(cov, /<li>Watch for 35 s\.<\/li>/);
+});
+
+test('typed steps: the ledger grammar reads the same', () => {
+	const r = parseReport(TYPED.replace('5. Verify the visible columns s62 to s79 get sparklines. -> FAIL (finding 2)',
+		'5. VERIFY The visible columns s62 to s79 get sparklines. → FAIL · Finding 2'));
+	const step = r.findings[1].steps[4];
+	assert.equal(step.kind, 'verify');
+	assert.equal(step.result, 'fail');
+	assert.equal(step.finding, 2);
+	assert.equal(step.html, 'Verify the visible columns s62 to s79 get sparklines.');
+	assert.deepEqual(step.evidence, [{ href: 'shots/23-continue-visible-still-empty.png', file: '23-continue-visible-still-empty.png' }]);
+});
+
+test('typed steps: a plain step from an older run gets no invented result', () => {
+	const old = md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro** -- starting state: x', '',
+		'1. Open it.', '2. Check that it loads.', '3. confirm the dialog closes',
+	].join('\n'));
+	const r = parseReport(old);
+	const html = renderReportHtml(old);
+	assert.deepEqual(r.findings[0].steps.map(s => [s.kind, s.result]), [['action', null], ['verify', null], ['verify', null]]);
+	assert.match(html, /<li id="f1-s2"><span class="st-v">Check that it loads\.<\/span><\/li>/);
+	assert.match(html, /<li id="f1-s3"><span class="st-v">Confirm the dialog closes<\/span><\/li>/);
+	assert.doesNotMatch(html, /class="st-rs /);
+});
+
+test('typed steps: the agent prompt writes results after an arrow', () => {
+	const html = renderReportHtml(TYPED);
+	const prompt = /<script type="text\/plain" id="prompt-f2"[^>]*>([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '';
+	assert.match(prompt, /3\. Verify s00 to s13 have sparklines\. → PASS\n/);
+	assert.match(prompt, /5\. Verify the visible columns s62 to s79 get sparklines\. → FAIL \(observed: Only s62 has one\.\)\n/);
+	assert.match(prompt, /^PR: https:\/\/github\.com\/posit-dev\/positron\/pull\/1234$/m);
 });

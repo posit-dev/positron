@@ -209,13 +209,33 @@ ${rows}
 </section>`;
 }
 
-function renderEvidence(items, n) {
+/**
+ * One step as an `<li>`: an action is plain text; a verify is in ink with its
+ * PASS or FAIL beside it, or nothing when the run never recorded one.
+ */
+function renderStep(step, { id = '', observed = false, tail = '' } = {}) {
+	const attr = id ? ` id="${id}"` : '';
+	if (step.kind !== 'verify') {
+		return `<li${attr}>${step.html}${tail}${step.blockHtml}</li>`;
+	}
+	const result = step.result
+		? `<span class="st-rs st-${step.result}">${step.result.toUpperCase()}</span>`
+		: '';
+	const obs = observed && step.observedHtml ? `<span class="st-obs">Observed: ${step.observedHtml}</span>` : '';
+	return `<li${attr}><span class="st-v">${step.html}</span>${result}${obs}${tail}${step.blockHtml}</li>`;
+}
+
+function renderEvidence(items, n, stepCount = 0) {
 	// Screenshots only: a log line is not evidence a reader can see, and the one
 	// worth reading is under Error output. Logs stay in the agent prompt.
 	const shots = items.filter(item => item.kind === 'shot');
 	if (!shots.length) {
 		return '';
 	}
+	// A caption's step jumps to that step in the list above it.
+	const stepLabel = step => (Number.isInteger(step.order) && step.order <= stepCount
+		? `<a class="step-label" href="#f${n}-s${step.order}">${escapeHtml(step.label)}</a>`
+		: `<span class="step-label">${escapeHtml(step.label)}</span>`);
 	const tiles = shots.map((item, i) => {
 		// A real link to the raw image, so the thumbnail still works without
 		// JavaScript; the script intercepts the click and opens the lightbox.
@@ -224,7 +244,7 @@ function renderEvidence(items, n) {
 		return `<figure><a class="shot" ${attrs} aria-label="View full size: ${escapeHtml(item.caption)}">`
 			+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy"></a>`
 			+ '<figcaption>'
-			+ (item.step ? `<span class="step-label">${escapeHtml(item.step.label)}</span> <span class="step-sep" aria-hidden="true">&middot;</span> ` : '')
+			+ (item.step ? `${stepLabel(item.step)} <span class="step-sep" aria-hidden="true">&middot;</span> ` : '')
 			+ `${item.captionHtml}</figcaption></figure>`;
 	}).join('');
 
@@ -483,9 +503,13 @@ function renderFindingCard(f, report, options) {
 		? '<div class="repro-group"><div class="repro-label">Preconditions</div>'
 		+ `<ul class="preconditions">${f.preconditions.map(p => `<li>${p}</li>`).join('')}</ul></div>`
 		: '';
+	// The card's Observed says what went wrong, so a step repeats it only when
+	// two failed checks saw different things.
+	const failed = f.steps.filter(st => st.result === 'fail');
+	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
 	const steps = f.steps.length
 		? '<div class="repro-group steps"><div class="repro-label">Steps</div>'
-		+ `<ol class="repro-steps">${f.steps.map(s => `<li>${s}</li>`).join('')}</ol></div>`
+		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed })).join('\n')}</ol></div>`
 		: '';
 	const repro = (preconditions || steps)
 		? `<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`
@@ -497,7 +521,7 @@ function renderFindingCard(f, report, options) {
 ${head}
 ${observedExpected}
 ${repro}
-${renderEvidence(f.evidence, f.n)}
+${renderEvidence(f.evidence, f.n, f.steps.length)}
 ${details}
 ${promptBlock}
 </article>`;
@@ -521,13 +545,12 @@ function renderCoverage(report) {
 	const total = exercised.length + notExercised.length;
 	const hidden = Math.max(0, passes.length - COVERAGE_PASSES_SHOWN);
 
-	// A passing row's screenshot proves its verify step, so it hangs off the last
-	// step in the expanded row rather than a column. It joins the lightbox as a
-	// group of one.
-	const photo = (row, i) => {
+	// A passing row's screenshot hangs off the verify step it proves rather than
+	// a column. A row's shots are one lightbox group.
+	const photo = (row, i, shot) => {
 		const name = row.scenario;
-		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="${escapeHtml(row.shot.href)}" data-lb="cv-${i}"`
-			+ ` data-caption="${escapeHtml(name)}" data-file="${escapeHtml(row.shot.label)}"`
+		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="${escapeHtml(shot.href)}" data-lb="cv-${i}"`
+			+ ` data-caption="${escapeHtml(name)}" data-file="${escapeHtml(shot.file)}"`
 			+ ` aria-label="Screenshot for this step: ${escapeHtml(name)}">${ICON.photo}</a>`;
 	};
 	// The dot lives in the scenario cell rather than a column of its own, so it
@@ -549,8 +572,8 @@ function renderCoverage(report) {
 		const cells = scenario(row, 'pass') + `<span class="cov-result">${row.resultHtml}</span>`;
 		// With no steps to hang it on, the screenshot is the whole expanded row.
 		const body = row.steps.length
-			? `<ol>${row.steps.map((t, j) => `<li>${t}${row.shot && j === row.steps.length - 1 ? photo(row, i) : ''}</li>`).join('')}</ol>`
-			: row.shot ? `<p class="cv-shot">Screenshot${photo(row, i)}</p>` : '';
+			? `<ol class="steps">${row.steps.map(st => renderStep(st, { tail: st.evidence.map(e => photo(row, i, e)).join('') })).join('\n')}</ol>`
+			: row.shot ? `<p class="cv-shot">Screenshot${photo(row, i, { href: row.shot.href, file: row.shot.label })}</p>` : '';
 		if (body) {
 			return `<details class="cv ${cls}"><summary class="row coverage-grid">${cells}`
 				+ `<span class="cv-chev-cell">${ICON.disclose('cv-chev')}</span></summary>`

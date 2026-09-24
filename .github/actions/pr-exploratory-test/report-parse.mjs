@@ -348,6 +348,88 @@ export function splitStepTag(text) {
 	return { step, text: text.slice(m[0].length).trim() };
 }
 
+// `Verify <assertion> -> PASS` or `-> FAIL (finding K)`; the ledger's
+// arrow and middle-dot forms read the same.
+const STEP_RESULT = /^([\s\S]*?)\s*(?:->|=>|\u2192)\s*(PASS|FAIL)\b([\s\S]*)$/i;
+const STEP_FIELD = /^(observed|evidence|log):\s*([\s\S]*)$/i;
+
+/** `VERIFY The summary loads` becomes `Verify the summary loads`. */
+function verifyText(text) {
+	const shout = /^VERIFY\b:?\s*/.exec(text);
+	if (!shout && /^(?:verify|check|confirm)\b/i.test(text)) {
+		return text[0].toUpperCase() + text.slice(1);
+	}
+	const rest = shout ? text.slice(shout[0].length) : text;
+	return `Verify ${rest.replace(/^(?:The|A|An|This|That|These|Those|Each|Every|All|No|Only)\b/, w => w.toLowerCase())}`;
+}
+
+/** `shots/a.png, [shots/b.png](shots/b.png)` as hrefs; a bare name is under shots/. */
+function stepEvidence(text) {
+	return String(text).split(/,\s*/).map(part => {
+		const link = /\[[^\]]*\]\(([^)]+)\)/.exec(part);
+		const raw = (link ? link[1] : part.replace(/`/g, '')).trim();
+		const href = safeUrl(raw && !raw.includes('/') ? `shots/${raw}` : raw);
+		return href && IMAGE_EXT.test(basename(href)) ? { href, file: basename(href) } : null;
+	}).filter(Boolean);
+}
+
+/**
+ * One step as `{ kind, md, result, finding, observed, evidence, log, rest }`,
+ * from its lines. A step with no `-> PASS|FAIL` is a verify only when it says
+ * so, and then carries no result: one that was never recorded is not invented.
+ */
+export function parseStep(lines) {
+	const head = String(lines[0] ?? '').trim();
+	const step = { kind: 'action', md: head, result: null, finding: null, observed: '', evidence: [], log: '', rest: [] };
+	const marked = STEP_RESULT.exec(head);
+	if (marked) {
+		step.kind = 'verify';
+		step.md = verifyText(marked[1].trim());
+		step.result = marked[2].toLowerCase();
+		const finding = /finding\s*(\d+)/i.exec(marked[3]);
+		const observed = /observed:\s*([\s\S]*?)\)?\s*$/i.exec(marked[3]);
+		step.finding = step.result === 'fail' && finding ? Number(finding[1]) : null;
+		step.observed = observed ? observed[1].trim() : '';
+	} else if (/^(?:verify|check|confirm)\b/i.test(head)) {
+		step.kind = 'verify';
+		step.md = verifyText(head);
+	}
+	let fenced = false;
+	for (const line of lines.slice(1)) {
+		const field = fenced ? null : STEP_FIELD.exec(line.trim());
+		if (/^\s*(?:```|~~~)/.test(line)) { fenced = !fenced; }
+		if (!field) { step.rest.push(line); continue; }
+		const name = field[1].toLowerCase();
+		if (name === 'evidence') { step.evidence.push(...stepEvidence(field[2])); }
+		else if (name === 'observed') { step.observed = field[2].trim(); }
+		else { step.log = field[2].trim(); }
+	}
+	while (step.rest.length && !step.rest[step.rest.length - 1].trim()) { step.rest.pop(); }
+	// Only a failed check has an observation to report.
+	if (step.result !== 'fail') { step.observed = ''; }
+	return step;
+}
+
+/** A step with its markdown rendered. */
+function typedStep(lines) {
+	const step = parseStep(lines);
+	return {
+		...step,
+		html: inline(step.md),
+		// A step that runs to more than one line carries a block of its own --
+		// the source to paste, usually -- so the rest is parsed as block markdown.
+		blockHtml: step.rest.length ? block(widenOuterFence(step.rest.join('\n'))) : '',
+		observedHtml: step.observed ? inline(step.observed) : '',
+	};
+}
+
+/** A step as the agent prompt writes it: `Verify ... \u2192 FAIL (observed: ...)`. */
+function stepText(step) {
+	const result = !step.result ? ''
+		: ` \u2192 ${step.result.toUpperCase()}${step.observed ? ` (observed: ${step.observed})` : ''}`;
+	return [step.md + result, ...step.rest].join('\n');
+}
+
 function parseEvidenceBullet(text) {
 	const link = /^\[([^\]]*)\]\(([^)]+)\)\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(text);
 	if (link && IMAGE_EXT.test(basename(link[2]))) {
@@ -869,6 +951,12 @@ export function parseReport(markdown) {
 			.filter(t => t && !isDefaultsOnly(t))
 			.map(sentenceCase);
 
+		const steps = parsed.steps.map(typedStep);
+		const stepOf = new Map();
+		steps.forEach((step, k) => step.evidence.forEach(e => {
+			if (!stepOf.has(e.file)) { stepOf.set(e.file, { label: `Step ${k + 1}`, order: k + 1 }); }
+		}));
+
 		return {
 			n: start.n,
 			title: start.claim,
@@ -885,13 +973,10 @@ export function parseReport(markdown) {
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
 			preconditions: preconditions.map(t => inline(t)),
-			// A step that runs to more than one line carries a block of its own --
-			// the source to paste, usually -- so it is parsed as block markdown.
-			steps: parsed.steps.map(lines => (lines.length > 1
-				? block(widenOuterFence(lines.join('\n')))
-				: inline(lines[0] ?? ''))),
+			steps,
+			// A shot a step names is that step's, whatever its caption says.
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'
-				? { ...e, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
+				? { ...e, step: stepOf.get(e.file) ?? e.step, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
 				: e.kind === 'log'
 					? { ...e, quoteHtml: inline(e.quote), noteHtml: e.note ? inline(sentenceCase(e.note)) : '' }
 					: { ...e, textHtml: inline(sentenceCase(e.text)) })),
@@ -909,7 +994,7 @@ export function parseReport(markdown) {
 				observed: parsed.observed ?? '',
 				expected: parsed.expected ?? '',
 				preconditions,
-				steps: parsed.steps.map(lines => lines.join('\n')),
+				steps: steps.map(stepText),
 				cause: parsed.cause ?? '',
 			},
 			// Nothing recognisable in the body: render it as prose rather than
@@ -952,17 +1037,29 @@ export function parseReport(markdown) {
 			if (href) { shot = { href, label: basename(href) }; }
 		}
 		// Steps are one cell, split on `<br>`: a table cell cannot hold a list.
-		const steps = String(row['steps'] ?? '').split(/<br\s*\/?>/i)
-			.map(t => t.trim().replace(/^\d+[.)]\s*/, ''))
-			.filter(t => t && !isPlaceholder(t));
+		// An `Observed:` or `Evidence:` item belongs to the step before it.
+		const groups = [];
+		for (const item of String(row['steps'] ?? '').split(/<br\s*\/?>/i)) {
+			const t = item.trim().replace(/^\d+[.)]\s*/, '');
+			if (!t || isPlaceholder(t)) { continue; }
+			if (STEP_FIELD.test(t) && groups.length) { groups[groups.length - 1].push(t); }
+			else { groups.push([t]); }
+		}
+		const steps = groups.map(typedStep);
+		// The Screenshot column proves the last check when no step names its own.
+		if (shot && !steps.some(st => st.evidence.length)) {
+			const last = steps.findLast(st => st.kind === 'verify') ?? steps[steps.length - 1];
+			last?.evidence.push({ href: shot.href, file: shot.label });
+		}
 		return {
 			scenarioHtml: inline(row['scenario'] ?? ''),
 			// Plain, for the lightbox caption and the screenshot's label.
 			scenario: String(row['scenario'] ?? '').replace(/`/g, '').trim(),
 			resultHtml: inline(sentenceCase(ref.text)),
-			finding: ref.finding,
+			// A failed check names its finding even when the Result does not.
+			finding: ref.finding ?? steps.find(st => st.finding)?.finding ?? null,
 			shot,
-			steps: steps.map(t => inline(t)),
+			steps,
 		};
 	});
 
