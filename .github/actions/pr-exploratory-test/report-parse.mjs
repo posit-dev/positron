@@ -270,12 +270,12 @@ export function basename(url) {
 	return String(url ?? '').split(/[?#]/)[0].split('/').pop();
 }
 
-/** What each origin means, shown as its tooltip on the card and in the Findings table. */
+/** What each origin means: the tooltip on the card and table, and the reason the agent prompt gives. */
 export const ORIGINS = {
-	new: { kind: 'new', label: 'New', tip: 'This change introduced it: the code it blames is in the diff.' },
-	'pre-existing': { kind: 'pre-existing', label: 'Pre-existing', tip: 'It predates this change: the code it blames is not in the diff.' },
-	exposed: { kind: 'exposed', label: 'Exposed', tip: 'An existing defect this change made reachable, or an existing race its timing now fires.' },
-	unchecked: { kind: 'unchecked', label: 'Not checked', tip: 'The report does not say whether this change introduced it.' },
+	new: { kind: 'new', label: 'New', tip: 'New: the code this finding blames was added or changed in this diff.', reason: 'the blamed code was added or changed in this diff' },
+	'pre-existing': { kind: 'pre-existing', label: 'Pre-existing', tip: 'Pre-existing: the code this finding blames predates this diff.', reason: 'the blamed code predates this diff' },
+	exposed: { kind: 'exposed', label: 'Exposed', tip: 'Exposed: the broken code predates this diff, but this change made it reachable or changed the timing.', reason: 'the broken code predates this diff, but this change made it reachable or changed the timing' },
+	unchecked: { kind: 'unchecked', label: 'Not checked', tip: 'Not checked: the run didn\'t record whether this change introduced it.', reason: 'the run didn\'t record it' },
 };
 
 /**

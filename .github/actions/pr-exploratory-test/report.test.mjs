@@ -174,35 +174,46 @@ test('parseReport takes origin from the table: New, Pre-existing, Exposed, and N
 		`| 1 | a claim | minor | ${value} |`,
 		'', '### Finding 1: a claim', '', strip, '', 'prose.',
 	].join('\n'))).findings[0].origin;
+	assert.equal(origin('yes').label, 'New');
+	assert.equal(origin('no').label, 'Pre-existing');
 	assert.equal(origin('exposed').label, 'Exposed');
 	// `unclear` is the old name for `exposed`; earlier reports keep rendering.
 	assert.equal(origin('unclear').label, 'Exposed');
 	assert.equal(origin('').label, 'Not checked');
+	assert.equal(origin('maybe').label, 'Not checked');
+	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Introduced by this change**').label, 'New');
+	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Pre-existing**').label, 'Pre-existing');
 	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Exposed by this change**').label, 'Exposed');
 	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Origin unclear**').label, 'Exposed');
 });
 
-test('the Findings table has an Origin column with a tooltip, New in ink and the rest muted', () => {
+test('the Findings table puts Origin beside Severity, one plain style for every label, with tooltips', () => {
 	const html = renderReportHtml(FULL);
 	const head = /<div class="row row-head findings-grid">(.*?)<\/div>/.exec(html)[1];
 	assert.deepEqual([...head.matchAll(/<span[^>]*>([^<]*)<\/span>/g)].map(m => m[1]),
-		['Severity', 'Finding and impact', 'Origin', 'Reproduced', 'Status']);
-	assert.match(html, /<span class="origin-cell new tip origin-tip" data-tip="This change introduced it: the code it blames is in the diff\.">New<\/span>/);
-	assert.match(html, /<span class="origin-cell pre-existing tip origin-tip" data-tip="[^"]+">Pre-existing<\/span>/);
-	assert.match(html, /\.origin-cell\{font-size:13px;color:var\(--muted\)\}\n\.origin-cell\.new\{color:var\(--ink\);font-weight:500\}/);
-	// The card's label carries the same tooltip, and is focusable since it is not inside a link.
-	assert.match(html, /<span class="origin new tip origin-tip" data-tip="This change introduced it: the code it blames is in the diff\." tabindex="0">New<\/span>/);
+		['Severity', 'Origin', 'Finding and impact', 'Reproduced', 'Status']);
+	assert.match(head, /<span class="org-tip" tabindex="0" data-tip="Judged from the diff: does the code each finding blames come from this change\?">Origin<\/span>/);
+	// Rows are links, so each cell's tooltip is a native title rather than a focusable element.
+	assert.match(html, /<span class="origin-cell"><span class="org" title="New: the code this finding blames was added or changed in this diff\.">New<\/span><\/span>/);
+	assert.match(html, /<span class="org" title="Pre-existing: the code this finding blames predates this diff\.">Pre-existing<\/span>/);
+	assert.match(html, /\.findings-grid\{grid-template-columns:110px 96px minmax\(0,1fr\) 90px 110px\}/);
+	assert.match(html, /\.org\{color:inherit;font-weight:inherit\}/);
+	assert.doesNotMatch(html, /\.org[^{]*\.new|origin-cell\.new/);
+	// The card's label is not inside a link, so it takes focus and shows its tooltip on hover or focus.
+	assert.match(html, /<span class="org org-tip" tabindex="0" data-tip="New: the code this finding blames was added or changed in this diff\.">New<\/span>/);
+	assert.match(html, /\.org-tip:hover::after,\.org-tip:focus-visible::after\{content:attr\(data-tip\)/);
 });
 
-test('the prompt says an Exposed finding was not introduced but exposed', () => {
-	const exposed = md([
+test('the prompt gives the origin label and its reason', () => {
+	const prompt = value => promptText(renderReportHtml(md([
 		'## Findings', '',
 		'| # | Finding | Severity | Introduced? |',
 		'|---|---|---|---|',
-		'| 1 | a claim | minor | exposed |',
+		`| 1 | a claim | minor | ${value} |`,
 		'', '### Finding 1: a claim', '', 'prose.',
-	].join('\n'));
-	assert.match(promptText(renderReportHtml(exposed), 1), /Introduced by this change: No, but it exposes an existing defect/);
+	].join('\n'))), 1);
+	assert.match(prompt('exposed'), /^Origin: Exposed \(the broken code predates this diff, but this change made it reachable or changed the timing\)$/m);
+	assert.match(prompt(''), /^Origin: Not checked \(the run didn't record it\)$/m);
 });
 
 test('parseReport breaks a finding into its labelled parts', () => {
@@ -888,7 +899,7 @@ test('renderReportHtml writes each finding as an agent prompt, from the parsed f
 		'',
 		'Status: Confirmed',
 		'Reproduced: 3/3',
-		'Introduced by this change: Yes',
+		'Origin: New (the blamed code was added or changed in this diff)',
 		'',
 		'### Impact',
 		'Blocks completion',

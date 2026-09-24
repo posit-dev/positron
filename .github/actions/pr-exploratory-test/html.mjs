@@ -179,10 +179,8 @@ function renderAgents(report) {
 		+ rows.join('') + totalRow + '</div></div>';
 }
 
-/** An origin label with its meaning as a tooltip; the table row is already a link, so only the card's is focusable. */
-function originLabel(origin, cls, focus = '') {
-	return `<span class="${cls} ${origin.kind} tip origin-tip" data-tip="${escapeHtml(origin.tip)}"${focus}>${escapeHtml(origin.label)}</span>`;
-}
+/** Judged from the diff, so the column header says so. */
+const ORIGIN_HEAD_TIP = 'Judged from the diff: does the code each finding blames come from this change?';
 
 function renderFindingsList(report) {
 	if (!report.findings.length) {
@@ -195,12 +193,13 @@ function renderFindingsList(report) {
 			: word
 				? `<span class="status muted">${word[0].toUpperCase()}${word.slice(1)}</span>`
 				: '<span class="status muted"></span>';
+		// The row is a link, so the origin cell's tooltip is a native title, not a focusable element.
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
+			+ `<span class="origin-cell"><span class="org" title="${escapeHtml(f.origin.tip)}">${escapeHtml(f.origin.label)}</span></span>`
 			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span>`
 			+ (f.impact ? `<span class="impact">${f.impact}</span>` : '')
 			+ '</span>'
-			+ `<span>${originLabel(f.origin, 'origin-cell')}</span>`
 			+ `<span class="rate">${escapeHtml(f.reproduced)}</span>`
 			+ status
 			+ '</a>';
@@ -209,7 +208,7 @@ function renderFindingsList(report) {
 	return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
 <div class="panel">
-<div class="row row-head findings-grid"><span>Severity</span><span>Finding and impact</span><span>Origin</span><span class="right">Reproduced</span><span class="right">Status</span></div>
+<div class="row row-head findings-grid"><span>Severity</span><span class="org-tip" tabindex="0" data-tip="${ORIGIN_HEAD_TIP}">Origin</span><span>Finding and impact</span><span class="right">Reproduced</span><span class="right">Status</span></div>
 ${rows}
 </div>
 </section>`;
@@ -367,13 +366,12 @@ export function buildAgentPrompt(f, report, options = {}) {
 	const base = options.base;
 	const t = f.text;
 	const word = f.verified ?? f.confirmed ?? '';
-	const introduced = { new: 'Yes', 'pre-existing': 'No', exposed: 'No, but it exposes an existing defect' }[f.origin.kind] ?? 'Not checked';
 	const title = capitalize(safeLinks(/[.!?]$/.test(f.title) ? f.title : `${f.title}.`));
 	const out = [`## Finding ${f.n} \u2014 ${SEVERITY_LABEL[f.severity]}`, '', title, ''];
 	const status = [
 		word && `Status: ${word[0].toUpperCase()}${word.slice(1)}`,
 		f.reproduced && `Reproduced: ${f.reproduced}`,
-		`Introduced by this change: ${introduced}`,
+		`Origin: ${f.origin.label} (${f.origin.reason})`,
 	].filter(Boolean);
 	out.push(...status, '');
 	const section = (heading, body) => {
@@ -546,7 +544,7 @@ function renderCardDetails(f, report, options = {}) {
 
 function renderFindingCard(f, report, options) {
 	const prompts = options.agentPrompts !== false;
-	const origin = originLabel(f.origin, 'origin', ' tabindex="0"');
+	const origin = `<span class="org org-tip" tabindex="0" data-tip="${escapeHtml(f.origin.tip)}">${escapeHtml(f.origin.label)}</span>`;
 	const context = [origin];
 	if (f.confirmed === 'Confirmed' || f.verified === 'confirmed') {
 		context.push(`<span class="confirmed">${ICON.check(12)}Confirmed</span>`);
