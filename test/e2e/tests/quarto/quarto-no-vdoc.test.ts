@@ -110,6 +110,6 @@ test.describe('Quarto - No Virtual Documents', { tag: [tags.QUARTO, tags.ARK] },
 
 		// Other languages (sql, bash, julia) still use virtual documents by design.
 		const log = await readQuartoLog(logsPath);
-		expect(log.match(/\[vdoc\] Created .*\.vdoc\.[^.\s]+\.(r|py)$/gim) ?? []).toEqual([]);
+		expect(log.match(/\[vdoc\] Created .*?\.vdoc\.[0-9a-f-]+\.(r|py)\b/gi) ?? []).toEqual([]);
 	});
 });
