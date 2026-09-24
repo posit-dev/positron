@@ -21,7 +21,7 @@ on:
           - opus
           - sonnet
           - both
-      enable_gate:
+      worthiness_check:
         description: "Worthiness check"
         required: false
         default: true
@@ -152,7 +152,7 @@ jobs:
   # runner first. One pass serves every matrix leg.
   worthiness:
     name: worthiness
-    if: ${{ inputs.enable_gate }}
+    if: ${{ inputs.worthiness_check }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
