@@ -678,8 +678,11 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		} satisfies DocumentSymbolProvider));
 	}
 
-	function symbolProvider(): DocumentSymbolProvider {
-		return languageFeatures.documentSymbolProvider.ordered(sourceModel)[0];
+	/** Every cell's symbols from the grouped engine, in document order. */
+	async function cellSymbols(token = CancellationToken.None): Promise<DocumentSymbol[]> {
+		const grouped = await provideQuartoCellSymbols(
+			virtualNotebooksStub, languageFeatures, new NullLogService(), SOURCE_URI, token);
+		return grouped.flatMap(entry => entry.symbols);
 	}
 
 	/**
@@ -708,9 +711,9 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 			: [symbol('f', 1, [symbol('inner', 2)], { detail: 'function(x)', kind: SymbolKind.Function })]);
 		createFeatures({ cells: [cell, second] });
 
-		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+		const result = await cellSymbols();
 
-		expect(outline(result as DocumentSymbol[])).toEqual([
+		expect(outline(result)).toEqual([
 			{
 				name: 'x',
 				detail: '',
@@ -748,14 +751,14 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		registerSymbols('beta', () => [symbol('from-beta', 1)]);
 		createFeatures();
 
-		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+		const result = await cellSymbols();
 
 		// Which provider `ordered()` puts first is not part of the contract, so the
 		// expectation follows whichever was asked. What matters is that one was.
 		const consulted = calls.filter(c => c.startsWith('alpha:') || c.startsWith('beta:'));
 		expect({
 			consulted: consulted.length,
-			names: (result as DocumentSymbol[])?.map(s => s.name),
+			names: result.map(s => s.name),
 		}).toEqual({
 			consulted: 1,
 			names: [consulted[0].startsWith('alpha:') ? 'from-alpha' : 'from-beta'],
@@ -768,14 +771,14 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		registerSymbols('empty', () => []);
 		createFeatures();
 
-		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+		const result = await cellSymbols();
 
-		expect((result as DocumentSymbol[])?.map(s => s.name)).toEqual(['from-answers']);
+		expect(result.map(s => s.name)).toEqual(['from-answers']);
 	});
 
 	it('skips a cell whose model was disposed while an earlier cell was being asked', async () => {
-		// Syncing rebuilds the cells and disposes the models they held, and this
-		// provider awaits once per cell, so it gives a rebuild many chances to
+		// Syncing rebuilds the cells and disposes the models they held, and the
+		// symbol walk awaits once per cell, so it gives a rebuild many chances to
 		// happen underneath it. A per-position request has one await and cannot.
 		const second = makeCell(CELL2_URI, 'y <- 2', 20, false);
 		registerSymbols('downstream', () => {
@@ -784,11 +787,11 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		});
 		createFeatures({ cells: [cell, second] });
 
-		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+		const result = await cellSymbols();
 
 		expect({
 			asked: calls.filter(c => c.startsWith('downstream:')),
-			names: (result as DocumentSymbol[])?.map(s => s.name),
+			names: result.map(s => s.name),
 		}).toEqual({
 			asked: [`downstream:${CELL_URI.toString()}`],
 			names: ['x'],
@@ -811,15 +814,15 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		const reported: Error[] = [];
 		const previousHandler = errorHandler.getUnexpectedErrorHandler();
 		errorHandler.setUnexpectedErrorHandler(error => reported.push(error));
-		let result: DocumentSymbol[] | undefined;
+		let result: DocumentSymbol[] = [];
 		try {
-			result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None) as DocumentSymbol[];
+			result = await cellSymbols();
 		} finally {
 			errorHandler.setUnexpectedErrorHandler(previousHandler);
 		}
 
 		expect({
-			symbols: result?.map(s => ({ name: s.name, line: s.range.startLineNumber })),
+			symbols: result.map(s => ({ name: s.name, line: s.range.startLineNumber })),
 			reported: reported.map(error => error.message),
 		}).toEqual({
 			symbols: [{ name: 'y', line: 20 }],
@@ -848,15 +851,15 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		const reported: Error[] = [];
 		const previousHandler = errorHandler.getUnexpectedErrorHandler();
 		errorHandler.setUnexpectedErrorHandler(error => reported.push(error));
-		let result: DocumentSymbol[] | undefined;
+		let result: DocumentSymbol[] = [];
 		try {
-			result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None) as DocumentSymbol[];
+			result = await cellSymbols();
 		} finally {
 			errorHandler.setUnexpectedErrorHandler(previousHandler);
 		}
 
 		expect({
-			symbols: result?.map(s => ({ name: s.name, line: s.range.startLineNumber })),
+			symbols: result.map(s => ({ name: s.name, line: s.range.startLineNumber })),
 			reported: reported.map(error => error.message),
 		}).toEqual({
 			symbols: [{ name: 'y', line: 20 }],
@@ -887,16 +890,16 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		} satisfies DocumentSymbolProvider));
 		createFeatures({ cells: [cell, second] });
 
-		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
+		const result = await cellSymbols();
 
 		// Concurrent, and still in document order.
-		expect((result as DocumentSymbol[]).map(s => s.range.startLineNumber)).toEqual([4, 20]);
+		expect(result.map(s => s.range.startLineNumber)).toEqual([4, 20]);
 	});
 
 	it('discards its results once the request is cancelled', async () => {
 		// The Outline recomputes on every debounced edit. Cells are asked in
 		// parallel, so cancelling cannot un-ask a request that already went out.
-		// What it must do is keep a superseded pass out of the Outline.
+		// What it must do is keep a superseded answer from reaching the caller.
 		const second = makeCell(CELL2_URI, 'y <- 2', 20);
 		const cts = ctx.disposables.add(new CancellationTokenSource());
 		registerSymbols('downstream', () => {
@@ -905,25 +908,23 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 		});
 		createFeatures({ cells: [cell, second] });
 
-		const result = await symbolProvider().provideDocumentSymbols(sourceModel, cts.token);
+		const result = await cellSymbols(cts.token);
 
-		expect(result).toBeUndefined();
+		expect(result).toEqual([]);
 	});
 
-	it('returns nothing when no cell has a symbol to offer', async () => {
-		// Not an empty list: the Outline builds a group per provider, and an empty
-		// group is noise next to the Quarto server's headings.
-		registerSymbols('empty', () => []);
+	it('leaves the Outline to the Quarto extension, answering only through the cell symbol command', async () => {
+		// The extension nests cell symbols into its own tree. A provider here would
+		// add a second, flat group with every code symbol in it again.
+		registerSymbols('downstream', () => [symbol('x', 1)]);
 		createFeatures();
 
-		const result = await symbolProvider().provideDocumentSymbols(sourceModel, CancellationToken.None);
-
-		expect(result).toBeUndefined();
+		expect(languageFeatures.documentSymbolProvider.ordered(sourceModel).length).toBe(0);
 	});
 
 	it('groups symbols by cell and reports each cell span in source coordinates', async () => {
-		// The Outline flattens this, but the Quarto extension needs to know which
-		// chunk each symbol came from so it can nest it under that chunk's heading.
+		// The Quarto extension needs to know which chunk each symbol came from so
+		// it can nest it under that chunk's heading.
 		const second = makeCell(CELL2_URI, 'f <- function() {\n  1\n}', 20);
 		registerSymbols('downstream', uri => uri === CELL_URI.toString()
 			? [symbol('x', 1)]
@@ -1351,7 +1352,6 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 			hover: languageFeatures.hoverProvider.ordered(sourceModel).length,
 			signatureHelp: languageFeatures.signatureHelpProvider.ordered(sourceModel).length,
 			definition: languageFeatures.definitionProvider.ordered(sourceModel).length,
-			documentSymbol: languageFeatures.documentSymbolProvider.ordered(sourceModel).length,
 			statementRange: languageFeatures.statementRangeProvider.ordered(sourceModel).length,
 			helpTopic: languageFeatures.helpTopicProvider.ordered(sourceModel).length,
 		}).toEqual({
@@ -1359,7 +1359,6 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 			hover: 0,
 			signatureHelp: 0,
 			definition: 0,
-			documentSymbol: 0,
 			statementRange: 0,
 			helpTopic: 0,
 		});

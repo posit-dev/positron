@@ -23,7 +23,6 @@ import {
 	Definition,
 	DefinitionProvider,
 	DocumentSymbol,
-	DocumentSymbolProvider,
 	HelpTopicProvider,
 	Hover,
 	HoverProvider,
@@ -38,7 +37,6 @@ import {
 	StatementRangeProvider,
 } from '../../../../editor/common/languages.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
-import { localize } from '../../../../nls.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService, LogLevel } from '../../../../platform/log/common/log.js';
@@ -246,9 +244,9 @@ export abstract class QuartoEmbeddedProvider {
 	 * Record that a request was answered from a cell rather than by the Quarto
 	 * extension's virtual documents.
 	 *
-	 * The two paths run side by side until the extension stops answering, and they
-	 * produce results a user cannot tell apart: Positron deduplicates completion
-	 * items, so even the overlap is invisible. Without this line there is no way to
+	 * The two paths produce results a user cannot tell apart, and Positron
+	 * deduplicates completion items, so even an overlap between them would be
+	 * invisible. Without this line there is no way to
 	 * confirm the feature is doing anything, which makes it untestable by hand and
 	 * unsupportable in the field.
 	 *
@@ -623,11 +621,10 @@ async function symbolsForCell(
  * The symbols of every code cell in a Quarto document, grouped by the cell they
  * came from and already in source coordinates.
  *
- * Two consumers: the Outline provider below, which flattens this, and the
- * `_executeQuartoCellSymbolProvider` command, which hands the grouping to the
- * Quarto extension so it can nest each cell's symbols under that chunk in the
- * tree it already builds. Grouped rather than flat because only the extension
- * knows which heading a chunk sits under.
+ * Answers the `_executeQuartoCellSymbolProvider` command, which hands the
+ * grouping to the Quarto extension so it can nest each cell's symbols under that
+ * chunk in the tree it already builds. Grouped rather than flat because only the
+ * extension knows which heading a chunk sits under.
  *
  * A cell with nothing to report is omitted rather than returned empty, and an
  * unknown document answers with an empty array rather than undefined, so a
@@ -666,8 +663,8 @@ export async function provideQuartoCellSymbols(
 	const perCell = await Promise.all(cells.map(
 		({ textModel, span }) => symbolsForCell(languageFeatures, textModel, span, token)));
 
-	// Cancelling cannot un-ask a request that already went out. What it must do
-	// is keep a superseded pass from reaching the Outline.
+	// Cancelling cannot un-ask a request that already went out, so a cancelled
+	// caller gets nothing rather than a superseded answer.
 	if (token.isCancellationRequested) {
 		return [];
 	}
@@ -686,37 +683,6 @@ export async function provideQuartoCellSymbols(
 	}
 
 	return grouped;
-}
-
-/**
- * Serves the Outline for a Quarto document from its code cells. Asked about the
- * whole document rather than a position, so it walks every cell.
- *
- * Replaces the mechanism behind posit-dev/positron#14512, which writes a
- * temporary file per cell and, on any cell coming back undefined, sleeps half a
- * second and redoes the whole set. These cells are already open models, so there
- * is no retry and nothing to wait for.
- *
- * This produces a second, flat Outline group alongside the Quarto extension's
- * own nested one, so expect every code symbol twice until this provider's
- * registration is removed. The extension gets the nested contents it builds its
- * own tree from through `_executeQuartoCellSymbolProvider` instead, not from
- * this provider.
- */
-class QuartoEmbeddedDocumentSymbolProvider extends QuartoEmbeddedProvider implements DocumentSymbolProvider {
-	/** Names this group in the Outline. */
-	readonly displayName = localize('positron.quarto.outlineProvider', "Quarto Code Cells");
-
-	async provideDocumentSymbols(model: ITextModel, token: CancellationToken): Promise<DocumentSymbol[] | undefined> {
-		const grouped = await provideQuartoCellSymbols(
-			this._virtualNotebooks, this._languageFeatures, this._logService, model.uri, token);
-		const symbols = grouped.flatMap(entry => entry.symbols);
-
-		// An empty list would still build a group in the Outline, which is noise
-		// beside the Quarto server's headings. It is also what a cancelled
-		// request produces, which must not replace the results it superseded.
-		return symbols.length > 0 ? symbols : undefined;
-	}
 }
 
 /**
@@ -822,8 +788,6 @@ export class QuartoEmbeddedLanguageFeatures extends Disposable implements IWorkb
 			QUARTO_SELECTOR, new QuartoEmbeddedSignatureHelpProvider(...args)));
 		this._registrations.add(this._languageFeatures.definitionProvider.register(
 			QUARTO_SELECTOR, new QuartoEmbeddedDefinitionProvider(...args)));
-		this._registrations.add(this._languageFeatures.documentSymbolProvider.register(
-			QUARTO_SELECTOR, new QuartoEmbeddedDocumentSymbolProvider(...args)));
 		this._registrations.add(this._languageFeatures.statementRangeProvider.register(
 			QUARTO_SELECTOR, new QuartoEmbeddedStatementRangeProvider(...args)));
 		this._registrations.add(this._languageFeatures.helpTopicProvider.register(
