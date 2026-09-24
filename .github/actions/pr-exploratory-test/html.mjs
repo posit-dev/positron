@@ -315,7 +315,7 @@ export function buildAgentPrompt(f, report, options = {}) {
 	// message is still a lead for whoever picks this up.
 	section('Error output', f.errors.map(e => [
 		[e.source && absolutePath(e.source, base), ...e.meta].filter(Boolean).join(' | '),
-		e.raw && `\`\`\`\n${e.raw}\n\`\`\``,
+		e.raw && fenced(e.raw),
 	].filter(Boolean).join('\n')).join('\n\n'));
 	section('Likely cause (hypothesis, not verified)', capitalize(t.cause));
 	const { cases, related } = f.tests;
@@ -332,6 +332,14 @@ export function buildAgentPrompt(f, report, options = {}) {
 		.filter(Boolean).join('\n'));
 	out.push('Please investigate this finding using the repository and the evidence above.');
 	return out.join('\n');
+}
+
+// A fence longer than any backtick run inside, so a log line starting with
+// ``` cannot close the block early.
+function fenced(text) {
+	const longest = Math.max(2, ...(text.match(/`+/g) || []).map(run => run.length));
+	const fence = '`'.repeat(longest + 1);
+	return `${fence}\n${text}\n${fence}`;
 }
 
 function renderCopyButton(f) {

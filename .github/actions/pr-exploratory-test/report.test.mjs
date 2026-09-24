@@ -1198,3 +1198,14 @@ test('report CSS gives Professional a teal accent and leaves Party and the Run b
 	assert.match(html, /--link: #5CE1E6;/);
 	assert.match(html, /--stage-1: #5E646C;/);
 });
+
+test('renderReportHtml fences an error in the prompt so a ``` line inside cannot close it', () => {
+	const src = md([
+		'## Findings', '', '### 1. Broke', '', '_Major · New · Reproduced 1/1_', '',
+		'**Observed** x', '', '**Expected** y', '',
+		'**Error output** -- `logs/a.log` | Renderer', '',
+		'    Error: bad template', '    ```', '    tail',
+	].join('\n'));
+	const text = promptText(renderReportHtml(src), 1);
+	assert.match(text, /\n````\nError: bad template\n```\ntail\n````/);
+});
