@@ -113,6 +113,13 @@ runs:
       working-directory: ${{ github.action_path }}
       run: npm ci --no-audit --no-fund
 
+    # Every mode needs the renderer's parser, comment mode included, so the
+    # callers' harness checkouts must carry the skill directory.
+    - name: Install renderer dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../../.claude/skills/exploratory-test/renderer
+      run: npm ci --no-audit --no-fund
+
     - name: Install Claude Code CLI
       if: inputs.mode != 'comment'
       # Workaround for an Agent SDK bug that resolves the musl-variant binary

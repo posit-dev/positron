@@ -32,18 +32,17 @@ if (!input) {
 	process.exit(1);
 }
 
-// A fresh checkout has never installed this action's dependencies, and the
-// renderer needs `marked`. Imported after the install so it can resolve.
+// A fresh checkout has never installed the renderer's dependencies, and it
+// needs `marked`. Imported after the install so it can resolve.
 if (!existsSync(join(here, 'node_modules', 'marked'))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
 const { renderReportHtml, linkedLogs } = await import('./html.mjs');
-const { parseReport } = await import('./report-parse.mjs');
-const { modelDisplayName } = await import('./lib.mjs');
+const { modelDisplayName, parseReport } = await import('./report-parse.mjs');
 
 let markdown = readFileSync(input, 'utf8');
 if (flags['duration-ms']) {
-	// Written here rather than by lib.mjs's renderCostFooter, which CI shares:
+	// Written here rather than by the action's renderCostFooter (lib.mjs):
 	// a local run has no bill, and that footer drops any pass without one.
 	const minutes = Math.round(Number(flags['duration-ms']) / 60000);
 	const bits = [

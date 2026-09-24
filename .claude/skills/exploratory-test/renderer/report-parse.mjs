@@ -270,6 +270,18 @@ export function basename(url) {
 	return String(url ?? '').split(/[?#]/)[0].split('/').pop();
 }
 
+/** `claude-opus-5-5` reads `Opus 5.5`. An id it does not recognise passes through. */
+export function modelDisplayName(id) {
+	if (!id) {
+		return null;
+	}
+	const m = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[[^\]]*\])?$/.exec(id);
+	if (!m) {
+		return id;
+	}
+	return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`;
+}
+
 /** What each origin means: the tooltip on the card and table, and the reason the agent prompt gives. */
 export const ORIGINS = {
 	new: { kind: 'new', label: 'New', tip: 'New: the code this finding blames was added or changed in this diff.', reason: 'the blamed code was added or changed in this diff' },

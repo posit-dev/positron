@@ -6,7 +6,7 @@
 // Pure helpers for run.mjs, kept separate so they can be unit tested without
 // the Agent SDK or a live container.
 
-import { parseReport } from './report-parse.mjs';
+import { modelDisplayName, parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 
 /** Pick the latest assistant message that looks like the report. */
 export function pickReport(messages) {
@@ -61,18 +61,6 @@ function mainModel(modelUsage) {
 		}
 	}
 	return best?.id ?? null;
-}
-
-/** `claude-opus-5-5` reads `Opus 5.5`. An id it does not recognise passes through. */
-export function modelDisplayName(id) {
-	if (!id) {
-		return null;
-	}
-	const m = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[[^\]]*\])?$/.exec(id);
-	if (!m) {
-		return id;
-	}
-	return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`;
 }
 
 /**

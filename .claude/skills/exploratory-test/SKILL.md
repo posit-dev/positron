@@ -24,7 +24,7 @@ checkout path, the branch and how to see the diff, what the change is meant to
 do as a user would describe it, and the blast radius you are nervous about.
 State intent and risk; do not state what you expect to work.
 Include the absolute path to the report renderer, resolved from this skill's
-base directory: `<base>/../../../.github/actions/pr-exploratory-test/render.mjs`.
+base directory: `<base>/renderer/render.mjs`.
 The branch under test may predate it, so the agent cannot find it from there.
 
 Running it in a subagent keeps screenshots, snapshots, and dead ends out of the

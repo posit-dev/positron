@@ -9,8 +9,8 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { renderReportHtml, linkedLogs } from './html.mjs';
-import { parseReport } from './report-parse.mjs';
+import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
+import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');

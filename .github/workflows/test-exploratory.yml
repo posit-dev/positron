@@ -289,7 +289,9 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: .harness
-          sparse-checkout: .github/actions
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -638,7 +640,9 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: .harness
-          sparse-checkout: .github/actions
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 

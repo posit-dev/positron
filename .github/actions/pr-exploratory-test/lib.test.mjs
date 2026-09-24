@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, modelDisplayName, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -320,15 +320,6 @@ test('buildCostRecord names the model that billed most', () => {
 	});
 	assert.equal(record.model, 'claude-opus-5-5');
 	assert.equal(buildCostRecord({ type: 'result' }).model, null);
-});
-
-test('modelDisplayName reads a model id the way the report names it', () => {
-	assert.equal(modelDisplayName('claude-opus-5-5'), 'Opus 5.5');
-	assert.equal(modelDisplayName('claude-sonnet-5'), 'Sonnet 5');
-	assert.equal(modelDisplayName('claude-haiku-4-5-20251001'), 'Haiku 4.5');
-	assert.equal(modelDisplayName('claude-opus-5-5[1m]'), 'Opus 5.5');
-	assert.equal(modelDisplayName('some-other-model'), 'some-other-model');
-	assert.equal(modelDisplayName(null), null);
 });
 
 test('renderCostFooter leads a pass with its model when one is known', () => {
