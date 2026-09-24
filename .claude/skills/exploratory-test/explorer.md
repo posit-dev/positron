@@ -335,8 +335,8 @@ message and stack, not the one-line message, one block per distinct error, with
 how often it was logged. Its log path is the copy in `logs/` with the line, as
 on the ledger's `Log:` line. Pipe the stack through `map-stack.mjs`, beside
 `render.mjs`, from the checkout: it maps compiled frames to repo-relative source
-lines, leaves frames with no map as they are, and keeps 10 frames. Paste what it
-prints.
+lines, leaves frames with no map, or whose build is no longer on disk, as they
+are, and keeps 10 frames. Paste what it prints.
 
 ```bash
 node <map-stack.mjs> < stack.txt

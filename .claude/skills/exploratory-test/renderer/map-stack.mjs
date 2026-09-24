@@ -6,7 +6,7 @@
 // Rewrites a stack's compiled frames to repo-relative source lines, and keeps
 // 10 frames per stack. Usage:
 //   node map-stack.mjs [--root <checkout>] [file]    (reads stdin without a file)
-// Frames with no map, and node: frames, are left as they are.
+// Frames with no map, node: frames, and frames whose build is gone are left as they are.
 
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -16,15 +16,12 @@ import { fileURLToPath } from 'node:url';
 const MAX_FRAMES = 10;
 const FRAME = /^(\s*)at (.*?)(\(?)((?:vscode-file:\/\/vscode-app|file:\/\/)?[^\s()]+\.js):(\d+):(\d+)(\)?)\s*$/;
 
-/** The compiled file under `root` that a frame's URL or path names. */
+/** The compiled file a frame's URL or path names; a relative path is under `root`. */
 function compiledFile(url, root) {
 	let path = url.replace(/^vscode-file:\/\/vscode-app/, '').replace(/^file:\/\//, '');
 	try { path = decodeURIComponent(path); } catch { /* keep it encoded */ }
-	if (!isAbsolute(path)) { return join(root, path); }
-	if (existsSync(path)) { return path; }
-	// An installed app or another checkout: rejoin from whichever segment comes first.
-	const at = ['/out/', '/extensions/'].map(s => path.indexOf(s)).filter(i => i >= 0).sort((a, b) => a - b)[0];
-	return at === undefined ? path : join(root, path.slice(at + 1));
+	// Not rejoined onto root when it is gone: another build's map gives wrong lines.
+	return isAbsolute(path) ? path : join(root, path);
 }
 
 function readMap(file) {

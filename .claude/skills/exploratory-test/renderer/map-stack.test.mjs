@@ -25,9 +25,14 @@ writeFileSync(join(root, 'out/vs/b.js'), 'z();\n');
 
 const map1 = text => mapStack(text, root, traceMapping);
 
-test('maps a vscode-file frame from another install to a repo-relative source line', () => {
-	const text = 'Error: boom\n    at f (vscode-file://vscode-app/Applications/Positron.app/Contents/Resources/app/out/vs/a.js:2:5)';
+test('maps a vscode-file frame to a repo-relative source line', () => {
+	const text = `Error: boom\n    at f (vscode-file://vscode-app${root}/out/vs/a.js:2:5)`;
 	assert.equal(map1(text), 'Error: boom\n    at f (src/vs/a.ts:3)');
+});
+
+test('leaves a frame from a build that is gone, rather than mapping it with root\'s build', () => {
+	const text = '    at f (vscode-file://vscode-app/elsewhere/positron/out/vs/a.js:2:5)';
+	assert.equal(map1(text), text);
 });
 
 test('a map naming another checkout resolves to the same file under root', () => {
