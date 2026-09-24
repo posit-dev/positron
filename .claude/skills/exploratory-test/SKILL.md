@@ -523,6 +523,10 @@ cp <logFile> "$L/<port>-code.log"
 ./node_modules/.bin/playwright-cli -s=<session> console > "$L/<port>-console.log"
 ```
 
+Search both renderer copies for an error: `renderer.log` has rejections and
+errors the workbench caught, with their stacks, but an uncaught `throw` reaches
+only `<port>-console.log`, and `code.log` keeps just its message.
+
 Copy the interpreter output too, from
 `$T/window1/exthost/positron.positron-supervisor/<Language> <version> Console.log`,
 to `logs/<port>-<language>-console.log`. A helper you wrote for the run, such as
