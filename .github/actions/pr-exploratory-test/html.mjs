@@ -377,7 +377,7 @@ export function buildAgentPrompt(f, report, options = {}) {
 		const named = new Set(cases.map(c => c.path));
 		const others = related.filter(r => !named.has(r.path));
 		section('Regression test (suggestion)', [
-			...cases.map(c => `- ${c.text}${c.path ? ` \u2192 add to ${c.path}${c.level ? ` (${c.level})` : ''}` : ''}`),
+			...cases.map(c => `- ${c.text}${c.path ? ` \u2192 add to ${c.path}${c.level ? ` (${c.level})` : ''}` : c.level ? ` \u2192 ${c.level} test; place it per the repo's test guidance` : ''}`),
 			others.length && `Other tests that touch this code: ${others.map(r => `${r.path}${r.level ? ` (${r.level})` : ''}`).join(', ')}`,
 		].filter(Boolean).join('\n'));
 	}
@@ -448,8 +448,9 @@ function renderRegressionTest(f, sha) {
 		return '';
 	}
 	const where = c => {
+		// No path means the agent could not place the file; the level still stands.
 		if (!c.path) {
-			return '';
+			return c.level ? `<div class="rt-where"><span>Level</span><span class="rt-level">${c.level}</span></div>` : '';
 		}
 		// A file the case says to create has nothing to link to yet.
 		const isNew = /\bnew\b/i.test(c.note) && !/\bexists?\b/i.test(c.note);

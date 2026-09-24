@@ -1059,6 +1059,20 @@ test('renderReportHtml ends a card with closed rows: error, cause, regression te
 	assert.doesNotMatch(c, /class="cause"/);
 });
 
+test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
+	const html = renderReportHtml(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Observed:** it broke.', '',
+		'**Regression test**', '',
+		'- A checked box reads as checked. -- Unit (new file)',
+	].join('\n')));
+	const c = card(html, 1);
+	assert.match(c, /<p class="rt-case">A checked box reads as checked\.<\/p><div class="rt-where"><span>Level<\/span><span class="rt-level">Unit<\/span><\/div>/);
+	assert.doesNotMatch(c, /rt-file|-- Unit/);
+	assert.match(html, /- A checked box reads as checked\. \u2192 Unit test; place it per the repo's test guidance/);
+});
+
 test('renderReportHtml leaves out collapsed rows with nothing in them', () => {
 	const html = renderReportHtml(md([
 		'## Findings', '',

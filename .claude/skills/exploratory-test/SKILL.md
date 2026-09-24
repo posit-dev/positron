@@ -396,7 +396,7 @@ the code pointers>
 
 **Regression test**
 
-- <the missing case, as a sentence> -- <Unit, Extension, or E2E> `<repo-relative test file>` (<exists, covers ... | new file>)
+- <the missing case, as a sentence> -- <Unit, Extension, or E2E> `<repo-relative test file, or leave out when unsure>` (<exists, covers ... | new file>)
 
 **Other tests that touch this code**
 
@@ -450,14 +450,26 @@ file:line is still written, but the report only shows it to the agent it hands
 the finding to: on the card it tells a reader nothing Observed does not.
 
 `**Regression test**` is what a test suite would need to catch this next time,
-and splits into a fact and a suggestion. The fact is which tests already touch
-the changed code. Find them by convention -- unit tests in a `test/` folder
-beside the source as `*.test.ts` or `*.vitest.ts`, extension tests under
-`extensions/<name>/src/test`, e2e tests in `test/e2e/tests/` with their feature
-tags -- and by searching the test trees for the changed symbols and the UI
-strings the finding shows. The suggestion is the case none of them covers: one
-sentence each, with the level (Unit, Extension, or E2E) and the file it belongs
-in, or `new file` when none fits. Put each test file you found against the case
+and splits into a fact and a suggestion. Readers act on both, so write only
+what you checked: a wrong file, a misplaced one, or a test at the wrong level is
+worse than leaving the block out.
+
+The fact is which tests already touch the changed code. Find them by
+convention -- unit tests in a `test/` folder beside the source as `*.test.ts` or
+`*.vitest.ts`, extension tests under `extensions/<name>/src/test`, e2e tests in
+`test/e2e/tests/` with their feature tags -- and by searching the test trees for
+the changed symbols and the UI strings the finding shows. List a file only
+after opening it, and say what it covers from what you read, not from its name.
+
+The suggestion is the case none of them covers: one sentence each, with the
+level and the file it belongs in. Take both from the repo's own test guidance,
+not from habit: the "Where should I put my test?" table in `CLAUDE.md` for the
+level (the lowest one that catches the bug), and the rule file it links for
+that runner for the location and naming. Prefer adding to an existing file. For
+`new file`, follow that rule's placement and match the test directory the
+nearest existing tests of that kind already use; when the rule and the
+neighbours disagree, or you cannot tell where it goes, give the level and leave
+the path out rather than guess. Put each test file you found against the case
 it would hold; list the rest under `**Other tests that touch this code**`. Do
 not write the test and do not measure coverage. Leave both blocks out when
 there is nothing a test would catch, such as a spacing bug.

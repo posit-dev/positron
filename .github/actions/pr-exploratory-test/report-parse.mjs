@@ -560,11 +560,11 @@ function readBullets(lines, start) {
  * keeps its words as the case, so a loosely written suggestion still shows.
  */
 function parseTestCase(text) {
-	const m = /^([\s\S]*?)\s+(?:--|\u2014|->|\u2192)\s+(?:add to\s+)?(unit|extension|e2e)\s+`([^`]+)`\s*(?:\(([^)]*)\))?\s*\.?$/i.exec(text);
+	const m = /^([\s\S]*?)\s+(?:--|\u2014|->|\u2192)\s+(?:add to\s+)?(unit|extension|e2e)(?:\s+`([^`]+)`)?\s*(?:\(([^)]*)\))?\s*\.?$/i.exec(text);
 	if (!m) {
 		return { text: text.trim(), level: null, path: '', note: '' };
 	}
-	return { text: m[1].trim(), level: TEST_LEVEL[m[2].toLowerCase()], path: m[3].trim(), note: (m[4] ?? '').trim() };
+	return { text: m[1].trim(), level: TEST_LEVEL[m[2].toLowerCase()], path: (m[3] ?? '').trim(), note: (m[4] ?? '').trim() };
 }
 
 /** `` `path` -- Unit, short note `` */
