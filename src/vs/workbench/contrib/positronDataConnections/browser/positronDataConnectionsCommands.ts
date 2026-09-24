@@ -14,6 +14,7 @@ import { IDataConnectionInstance } from '../../../services/positronDataConnectio
 import { IDataConnectionNodeStep, IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionSchemaSummary, IDataConnectionSchemaSummaryOptions, summarizeDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
+import { extractConnectionVariableName } from '../../../services/positronDataConnections/common/dataConnectionCode.js';
 
 /**
  * Whether the data connections commands should produce a payload at all: they go quiet when the
@@ -166,27 +167,6 @@ function formatConnectionSummary(
  */
 function resolveMechanismId(driver: IDataConnectionDriver, profile: IDataConnectionProfile): string {
 	return resolveDataConnectionMechanism(driver.metadata, profile.mechanismId)?.id ?? profile.mechanismId;
-}
-
-// Matches a top-level (unindented) `name = ...` (Python) or `name <- ...` (R) assignment -- the
-// pattern every built-in driver's generateConnectionCode uses to bind the connection, board, or
-// engine it creates. Indented lines (e.g. keyword arguments inside a multi-line call) don't
-// match, since \w excludes the leading whitespace.
-const CONNECTION_VARIABLE_PATTERN = /^(?<variableName>\w+)\s*(?:=|<-)\s*\S/gm;
-
-/**
- * Parses the name of the variable a generated connection code snippet binds. Takes the last
- * top-level assignment rather than the first: built-in drivers only ever emit one, but a driver
- * is free to emit a preparatory statement (e.g. a config variable) before the real bind line, and
- * the bind is always the final top-level assignment in the snippet.
- * @param code The generated connection code.
- */
-function extractConnectionVariableName(code: string): string | undefined {
-	let variableName: string | undefined;
-	for (const match of code.matchAll(CONNECTION_VARIABLE_PATTERN)) {
-		variableName = match.groups?.variableName;
-	}
-	return variableName;
 }
 
 /**

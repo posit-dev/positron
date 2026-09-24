@@ -2289,6 +2289,42 @@ declare module 'positron' {
 	}
 
 	/**
+	 * What {@link DataConnectionDriver.generateQueryCode} is asked to write code for: run this
+	 * query, through this connection, in this language.
+	 *
+	 * A request object rather than four positional strings. Every field is a string, and a caller
+	 * that transposed two of them would produce code that looks plausible and runs the wrong
+	 * thing.
+	 */
+	export interface QueryCodeRequest {
+		/**
+		 * The language to generate code for (e.g. 'python', 'r'). Always one of the driver's
+		 * `supportedLanguageIds`.
+		 */
+		readonly languageId: string;
+
+		/**
+		 * The id of the {@link ConnectionCodeVariant} the connection was made with, so the code
+		 * matches the object that variant created -- a SQLAlchemy engine and a DBAPI connection
+		 * are queried differently even though both came from the same driver.
+		 */
+		readonly variantId: string;
+
+		/**
+		 * The name of the variable the connection is bound to in the session, as parsed from the
+		 * connection code that ran. Usually the driver's own default (`con`, `conn`, `engine`),
+		 * but not always: the user can edit the connection code before running it.
+		 */
+		readonly connectionVariable: string;
+
+		/**
+		 * The query to run, exactly as the user wrote it. The driver is responsible for quoting it
+		 * as a string literal in the target language; it may span lines and contain quotes.
+		 */
+		readonly query: string;
+	}
+
+	/**
 	 * The logging surface a data connection driver writes to. `vscode.LogOutputChannel`
 	 * satisfies it structurally, and a driver's internal modules can depend on this
 	 * interface alone so they stay free of a `vscode` import.
@@ -2359,6 +2395,30 @@ declare module 'positron' {
 		 *   the given parameters (for example, when a required parameter is missing).
 		 */
 		generateConnectionCode?(mechanismId: string, languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
+
+		/**
+		 * Generates the code that runs a query through a connection this driver's
+		 * `generateConnectionCode` produced, so that a user can run SQL against the connection
+		 * from their R or Python session -- Positron sends the result to the console as if the
+		 * user had typed it.
+		 *
+		 * The driver answers because only the driver knows what its connection code created. A
+		 * SQLAlchemy engine, a DBAPI connection and a DBI connection all come out of the same
+		 * driver and are queried three different ways, which is why the request carries the
+		 * variant id the connection was made with.
+		 *
+		 * Two things are the driver's responsibility. The query must be quoted as a string literal
+		 * in the target language: it comes from the user's editor, spans lines, and may contain
+		 * quotes or backslashes. And the code should evaluate to something worth printing in a
+		 * console -- a data frame, typically -- rather than a cursor the user then has to fetch
+		 * from.
+		 *
+		 * @param request What to run and what to run it through; see {@link QueryCodeRequest}.
+		 * @returns The code to execute, or undefined if this driver cannot query the connection
+		 *   that variant creates. A driver whose connections are not queried with SQL at all (a
+		 *   pin board, say) should not implement this method.
+		 */
+		generateQueryCode?(request: QueryCodeRequest): vscode.ProviderResult<string>;
 
 		/**
 		 * Produces a display-safe, redacted form of a stored secret parameter value, shown in the
@@ -3636,6 +3696,86 @@ declare module 'positron' {
 		export function getSchema(profileId: string, options?: DataConnectionSchemaOptions): Thenable<DataConnectionSchema | undefined>;
 
 		/**
+		 * The connections a runtime session holds, as far as Positron knows.
+		 *
+		 * A data connection in the Data Connections pane is opened by its driver, not inside the
+		 * user's R or Python session. A session gets its own connection only when connection code
+		 * runs there -- from the pane's Connect With, from {@link connectDataConnectionWith}, or
+		 * from the user's own hands, which is what {@link registerSessionBinding} is for. This
+		 * reports what has happened, and under what names, so a caller that wants a connection can
+		 * use one that is already there rather than opening a second beside it.
+		 *
+		 * Positron records a binding when the code is submitted; it does not watch the session
+		 * afterwards. A caller that is about to generate code against a variable should confirm it
+		 * still exists -- see {@link runtime.getSessionVariables} -- because the user is free to
+		 * remove it, and clearing the workspace removes everything.
+		 *
+		 * @param sessionId The session to ask about, from {@link runtime.getForegroundSession}.
+		 * @returns The connections that session holds, in no particular order. Empty when it holds
+		 *   none, or when the Data Connections feature is disabled.
+		 */
+		export function getSessionBindings(sessionId: string): Thenable<DataConnectionBinding[]>;
+
+		/**
+		 * Shows the Connect With dialog for a connection, and reports what the user connected.
+		 *
+		 * The same dialog the Data Connections pane opens: the generated connection code, the
+		 * choice of library to connect with, and the option to include the stored password in the
+		 * code. It is shown rather than skipped because those are the user's decisions to make --
+		 * the code runs in their console, and the credentials in it end up in their history.
+		 *
+		 * Resolves when the dialog closes. Connecting runs the code in a console session for the
+		 * language, starting one if none is running, so the returned binding names a session that
+		 * exists. It does not wait for the code to finish: the connection may still fail in the
+		 * console, and the user will see it fail there. Code executed against the returned session
+		 * afterwards is queued behind it and runs in order.
+		 *
+		 * @param profileId The connection to connect to, from
+		 *   {@link DataConnectionSummary.profileId}.
+		 * @param languageId The language to connect in, one of
+		 *   {@link DataConnectionSummary.supportedLanguageIds}.
+		 * @returns What the user connected, or `undefined` if they dismissed the dialog, no such
+		 *   profile exists, its driver cannot generate connection code for that language, or the
+		 *   Data Connections feature is disabled.
+		 */
+		export function connectDataConnectionWith(profileId: string, languageId: string, options?: ConnectDataConnectionOptions): Thenable<DataConnectionBinding | undefined>;
+
+		/**
+		 * Records that a runtime session holds a connection to a profile, so that
+		 * {@link getSessionBinding} reports it from now on.
+		 *
+		 * Positron records this itself for a connection made through
+		 * {@link connectDataConnectionWith} or the pane's Connect With. This is for the other way
+		 * a session comes to hold one: the user already had a connection open and said to use it.
+		 * An extension that lets them say so should record the answer, so they are asked once
+		 * rather than on every query.
+		 *
+		 * Positron does not verify the variable, and does not watch it afterwards. A caller should
+		 * name a variable it has just seen in the session -- see {@link runtime.getSessionVariables}
+		 * -- and re-check before writing code against it later.
+		 *
+		 * @param binding The connection the session holds.
+		 */
+		export function registerSessionBinding(binding: DataConnectionBinding): Thenable<void>;
+
+		/**
+		 * Generates the code that runs a query through a connection a session already holds.
+		 *
+		 * The driver writes it, because only the driver knows what its connection code created;
+		 * see {@link DataConnectionDriver.generateQueryCode}. Positron does not run it -- the
+		 * caller decides whether to execute it, show it, or insert it -- though the usual next
+		 * step is {@link runtime.executeCode} against {@link DataConnectionBinding.sessionId}, so
+		 * that it runs where the connection is.
+		 *
+		 * @param binding The connection to query through, from {@link getSessionBinding} or
+		 *   {@link connectDataConnectionWith}.
+		 * @param query The query to run, as the user wrote it.
+		 * @returns The code to execute, or `undefined` if the driver cannot query that connection
+		 *   -- it does not implement query generation, or does not for that variant.
+		 */
+		export function generateQueryCode(binding: DataConnectionBinding, query: string): Thenable<string | undefined>;
+
+		/**
 		 * Fires when a connection is opened or closed, or a profile is added, renamed or removed.
 		 *
 		 * Carries no payload; call {@link getConnections} to read the new set. Without this an
@@ -3668,6 +3808,67 @@ declare module 'positron' {
 
 		/** Whether the connection is live right now. Only a live one has a schema to read. */
 		readonly connected: boolean;
+
+		/**
+		 * The languages the driver can generate connection code for, e.g. `['python', 'r']`.
+		 *
+		 * These are the languages {@link dataConnections.connectDataConnectionWith} accepts, and so
+		 * the ones a session can hold this connection in. Empty for a driver that generates no
+		 * code, which is a connection the pane can browse but a session cannot use.
+		 */
+		readonly supportedLanguageIds: string[];
+	}
+
+	/** Options for {@link dataConnections.connectDataConnectionWith}. */
+	export interface ConnectDataConnectionOptions {
+		/**
+		 * Variable names already in use in the session the connection will be made in.
+		 *
+		 * A driver's connection code binds a fixed name -- `con`, `conn`, `engine` -- so
+		 * connecting to a second database in one session would otherwise overwrite the first, and
+		 * the two would be indistinguishable both to the user and to any code written against
+		 * them. Positron renames the variable in the generated code to something free before
+		 * showing it, so what the user sees is what will be bound. Names not listed here are
+		 * assumed free, so passing nothing simply means no renaming.
+		 */
+		readonly takenVariableNames?: readonly string[];
+	}
+
+	/**
+	 * A connection a runtime session holds: the variable, and what created it.
+	 *
+	 * Every field is needed to write code against the connection. The variable names it, and the
+	 * variant says what it is -- a SQLAlchemy engine and a DBAPI connection have the same shape
+	 * here and are queried differently.
+	 */
+	export interface DataConnectionBinding {
+		/** The connection, from {@link DataConnectionSummary.profileId}. */
+		readonly profileId: string;
+
+		/** The session holding it, and the one to run code against it in. */
+		readonly sessionId: string;
+
+		/** The language the connection code was written in, e.g. `r`. */
+		readonly languageId: string;
+
+		/**
+		 * The {@link ConnectionCodeVariant} the connection was made with, e.g. `sqlalchemy`.
+		 *
+		 * Absent when Positron did not make the connection and so cannot know -- a variable the
+		 * user connected by hand and then pointed at, registered through
+		 * {@link registerSessionBinding}. Code generated against a binding with no variant assumes
+		 * the driver's preferred one for the language, which is what the user was shown if they
+		 * connected from the Connect With dialog's suggestion.
+		 */
+		readonly variantId?: string;
+
+		/**
+		 * The name of the variable the connection is bound to, e.g. `con`.
+		 *
+		 * Parsed from the code that ran rather than assumed, because the user can edit that code
+		 * in the Connect With dialog before running it.
+		 */
+		readonly variableName: string;
 	}
 
 	/**

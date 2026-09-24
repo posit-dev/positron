@@ -44,6 +44,38 @@ export interface IDataConnectionRevealRequest {
 }
 
 /**
+ * A connection one runtime session holds: which variable, in which session, created by which
+ * connection code variant.
+ *
+ * A data connection is opened by its driver in the extension host, not inside the user's R or
+ * Python session, so the two are separate things. A session gets its own connection only when
+ * connection code runs there -- from the pane's Connect With, or from an extension asking for the
+ * same dialog -- and this is what is recorded when it does. It is what lets a second caller use
+ * the connection that is already there instead of opening another one beside it.
+ */
+export interface IDataConnectionSessionBinding {
+	// The profile the connection is to.
+	readonly profileId: string;
+
+	// The session holding it, and the one to run code against it in.
+	readonly sessionId: string;
+
+	// The language the connection code was written in, e.g. 'r'.
+	readonly languageId: string;
+
+	// The connection code variant it was made with, e.g. 'sqlalchemy'. Needed to write further
+	// code against the connection: the same driver's variants produce differently-shaped objects.
+	// Absent when Positron did not make the connection and so cannot know -- a variable the user
+	// connected by hand and then pointed at -- in which case the driver's preferred variant for the
+	// language is assumed.
+	readonly variantId?: string;
+
+	// The name of the variable the connection is bound to, e.g. 'con'. Parsed from the code that
+	// ran rather than assumed, because the user can edit that code before running it.
+	readonly variableName: string;
+}
+
+/**
  * Service that manages data connection drivers and active data connection instances. Drivers are
  * registered by extensions via the ext host RPC pipeline; the UI consumes this service to list
  * drivers, connect, browse schema trees, and so on.
@@ -333,4 +365,33 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @param profileId The data connection profile id.
 	 */
 	getInstanceForProfile(profileId: string): IDataConnectionInstance | undefined;
+
+	/**
+	 * Records that a runtime session now holds a connection to a profile, after its connection
+	 * code has been submitted to that session. Replaces any binding already recorded for the same
+	 * session and profile: the newest connection code is the one that bound the variable.
+	 * @param binding What was connected, where, and under what name.
+	 */
+	registerSessionBinding(binding: IDataConnectionSessionBinding): void;
+
+	/**
+	 * Gets the connection a runtime session holds for a profile, or undefined if it holds none.
+	 *
+	 * Records what was submitted, not what is still there: the service does not watch the session
+	 * afterwards, and the user is free to remove the variable. A caller about to write code
+	 * against it should confirm the variable still exists.
+	 * @param profileId The data connection profile id.
+	 * @param sessionId The runtime session id.
+	 */
+	getSessionBinding(profileId: string, sessionId: string): IDataConnectionSessionBinding | undefined;
+
+	/**
+	 * Gets every connection a runtime session holds, across all profiles.
+	 *
+	 * What a caller offering the user a choice needs: one session can hold several connections, and
+	 * which of them to run a query through is the user's call. Carries the same caveat as
+	 * {@link getSessionBinding} -- these were recorded when submitted, not verified since.
+	 * @param sessionId The runtime session id.
+	 */
+	getSessionBindings(sessionId: string): IDataConnectionSessionBinding[];
 }

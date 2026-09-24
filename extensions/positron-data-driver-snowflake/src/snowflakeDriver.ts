@@ -21,6 +21,7 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { createQueryCodeGenerator, dbiGetQuery, pandasReadSql } from 'positron-data-driver-common';
 import { SnowflakeConnection } from './snowflakeConnection.js';
 import { SnowflakeConnectionOptions } from './snowflakeClient.js';
 import { SnowflakeConnectionsFileEntry, listConnectionNames, readConnectionsFile } from './snowflakeConnectionsFile.js';
@@ -332,6 +333,22 @@ function generateConnectionCodeForFields(languageId: string, fields: SnowflakeCo
 			return [];
 	}
 }
+
+// --- Query code generation ---
+
+/**
+ * Generates the code that runs a query through a connection one of this driver's connection code
+ * variants created. Only the variant ids are this driver's own; the recipes and the quoting they
+ * depend on are shared with every other SQL driver.
+ */
+export const generateQueryCode: (request: positron.QueryCodeRequest) => string | undefined = createQueryCodeGenerator({
+	python: {
+		'snowflake-connector-python': pandasReadSql,
+	},
+	r: {
+		dbi: dbiGetQuery,
+	},
+});
 
 /** Reads a key from a connections.toml entry as a non-empty string, or undefined. */
 function tomlString(entry: SnowflakeConnectionsFileEntry, key: string): string | undefined {
@@ -646,5 +663,6 @@ export function createSnowflakeDriver(
 			}
 			return generateConnectionCodeForFields(languageId, codegenFields(mechanismId, params));
 		},
+		generateQueryCode,
 	};
 }

@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^9.1.0",
+    "positron-data-driver-common": "file:../positron-data-driver-common",
     "positron-data-explorer-formatting": "file:../positron-data-explorer-formatting",
     "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol",
     "@types/node": "14.x",

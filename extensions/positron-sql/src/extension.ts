@@ -6,17 +6,18 @@
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer } from './analyzer';
+import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer, StatementSpan } from './analyzer';
 import { SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
 import { dialectOfDriver } from './dialects';
+import { positronExecutionApi, StatementRunner } from './execution';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
-import { EMPTY_SCHEMA, readConnectionSchema, schemaOfProfile, SqlSchema } from './schema';
+import { ConnectionRef, EMPTY_SCHEMA, readConnectionSchema, schemaOfProfile, SqlSchema } from './schema';
 import { SchemaIndex } from './schemaIndex';
 import { ConnectionSelection, resolveSelection } from './selection';
-import { SqlStatementRangeProvider } from './statementRange';
+import { SqlStatementRangeProvider, statementAt } from './statementRange';
 import { ConnectionStatusBar, describeSelection, DialectInUse, pickConnection } from './statusBar';
 
 /** The configuration section every setting this extension reads lives under. */
@@ -27,6 +28,15 @@ const REFRESH_SCHEMA_COMMAND = 'sql.refreshDatabaseSchema';
 
 /** The command behind the status bar item, which scopes a file to one data connection. */
 const SELECT_CONNECTION_COMMAND = 'sql.selectDataConnection';
+
+/**
+ * The command bound to cmd/ctrl+enter in a SQL editor, which runs one statement.
+ *
+ * It takes the binding over the Console's own Execute Code, which cannot serve a SQL file: that
+ * command resolves a console from the document's language id, and there is no SQL runtime to
+ * resolve. See `execution.ts` for what happens instead.
+ */
+const RUN_STATEMENT_COMMAND = 'sql.runStatement';
 
 /** The compiled analyzer, built from `sql-analyzer/` and committed; see scripts/build-analyzer.mts. */
 const ANALYZER_MODULE = path.join('resources', 'sql-analyzer.wasm');
@@ -91,6 +101,19 @@ class SqlSession implements vscode.Disposable {
 
 	private readonly _selection: ConnectionSelection;
 
+	/** Runs a statement in the user's R or Python session; see `execution.ts`. */
+	private readonly _runner: StatementRunner;
+
+	/**
+	 * Whether a run is already in flight, so that a held-down cmd+enter does not start another.
+	 *
+	 * A run is several round trips long and can end in a dialog, and the cursor only moves on once
+	 * it succeeds -- so without this, a second keypress would see the same cursor position, run
+	 * the same statement again, and where the connection is not yet made, open a second Connect
+	 * With dialog on top of the first.
+	 */
+	private _running = false;
+
 	/**
 	 * Profiles already tried this session, so a connection that cannot be opened is attempted once
 	 * rather than on every file that names it.
@@ -126,6 +149,7 @@ class SqlSession implements vscode.Disposable {
 		this._diagnostics = vscode.languages.createDiagnosticCollection('sql');
 		this._selection = new ConnectionSelection(_context.workspaceState);
 		this._statusBar = new ConnectionStatusBar(SELECT_CONNECTION_COMMAND);
+		this._runner = new StatementRunner(positronExecutionApi(), _log);
 		this._disposables.push(this._diagnostics, this._statusBar);
 	}
 
@@ -172,6 +196,7 @@ class SqlSession implements vscode.Disposable {
 				return this.refreshSchema();
 			}),
 			vscode.commands.registerCommand(SELECT_CONNECTION_COMMAND, () => this._selectConnection()),
+			vscode.commands.registerCommand(RUN_STATEMENT_COMMAND, () => this._runStatement()),
 
 			// The item speaks for the file in front of the user, so it changes with the editor.
 			vscode.window.onDidChangeActiveTextEditor(() => this._updateStatusBar()),
@@ -307,6 +332,171 @@ class SqlSession implements vscode.Disposable {
 			this._scoped.set(profileId, index);
 		}
 		return index;
+	}
+
+	/**
+	 * Runs the statement under the cursor, or the selection, against the file's data connection.
+	 *
+	 * The work itself is in `execution.ts`; this is the editor's half of it -- finding what to
+	 * run, making sure the file has said what to run it against, moving the cursor on afterwards,
+	 * and saying what happened when nothing did.
+	 */
+	private async _runStatement(): Promise<void> {
+		const editor = activeSqlEditor();
+		if (!editor || this._running) {
+			// The keybinding is scoped to SQL editors, but the command is still reachable by hand.
+			return;
+		}
+
+		const target = this._statementToRun(editor);
+		if (!target) {
+			// An empty file, or a cursor past the last statement. Nothing to run and nothing to
+			// explain: the user can see there is no statement there.
+			return;
+		}
+
+		this._running = true;
+		try {
+			await this._run(editor, target);
+		} finally {
+			this._running = false;
+		}
+	}
+
+	/** The body of a run, once there is a statement to run and nothing else already running. */
+	private async _run(editor: vscode.TextEditor, target: StatementToRun): Promise<void> {
+		const connection = await this._connectionToRunAgainst(editor.document);
+		if (!connection) {
+			return;
+		}
+
+		const document = editor.document;
+		const outcome = await this._runner.run(
+			document,
+			connection,
+			target.query,
+			this._selection.get(document.uri)?.languageId,
+		);
+
+		switch (outcome.kind) {
+			case 'executed':
+				// Remembered so that a file whose driver offers both languages is asked once
+				// rather than every time no session happens to be in the foreground. A file run in
+				// a SQL console remembers that the same way: it keeps going there while that
+				// console is open, without the console having to stay in the foreground.
+				this._selection.setLanguage(document.uri, outcome.languageId);
+				// Only for a statement the cursor was in. A selection is what the user chose to
+				// run, and moving off it would take their selection away.
+				if (target.advance) {
+					advance(editor, target.statements, target.statement);
+				}
+				break;
+
+			case 'no-connection':
+				void vscode.window.showWarningMessage(
+					vscode.l10n.t("{0} is no longer one of your data connections.", connection.name),
+					vscode.l10n.t("Choose a Connection"),
+				).then(chosen => {
+					if (chosen) {
+						void this._selectConnection();
+					}
+				});
+				break;
+
+			case 'no-language':
+				// The driver generates connection code for no language at all, so there is no
+				// session that could hold this connection and nothing for the user to choose.
+				void vscode.window.showWarningMessage(vscode.l10n.t(
+					"Positron cannot open {0} inside a language session, so statements cannot be run against it.",
+					connection.name,
+				));
+				break;
+
+			case 'not-run':
+				// The SQL console the statement was headed for did not take it -- closed between
+				// the key press and the statement reaching it, most likely. Nothing ran, and
+				// nothing was quietly run somewhere else instead, which is the part worth saying.
+				void vscode.window.showWarningMessage(vscode.l10n.t(
+					"The {0} console did not take the statement, so it was not run.",
+					outcome.languageId,
+				));
+				break;
+
+			case 'connect-failed':
+				// The console already shows the driver's own error, which says far more about why
+				// than anything here could. This says only that the statement was not run, so the
+				// error above it is not mistaken for the query's.
+				void vscode.window.showWarningMessage(vscode.l10n.t(
+					"Could not connect to {0}, so the statement was not run. The Console shows why.",
+					connection.name,
+				));
+				break;
+
+			case 'no-query-code':
+				// Named by the variable rather than by the code variant, which is an internal id
+				// the user has no reason to recognize. The variable is the thing in their session.
+				void vscode.window.showWarningMessage(vscode.l10n.t(
+					"Positron does not know how to run a query through '{0}' in your {1} session.",
+					outcome.binding.variableName,
+					outcome.binding.languageId,
+				));
+				break;
+
+			case 'cancelled':
+				// The user dismissed the pick or the Connect With dialog. They were asked and they
+				// answered; saying anything further would be arguing with them.
+				break;
+		}
+	}
+
+	/**
+	 * What cmd+enter runs: the selection if there is one, otherwise the statement at the cursor.
+	 *
+	 * A selection wins for the same reason it does everywhere else in Positron -- the user has
+	 * said exactly what they mean, including when what they mean is half a statement.
+	 */
+	private _statementToRun(editor: vscode.TextEditor): StatementToRun | undefined {
+		if (!editor.selection.isEmpty) {
+			return { query: editor.document.getText(editor.selection), advance: false };
+		}
+
+		const analyzer = this._require();
+		if (!analyzer) {
+			return undefined;
+		}
+		const text = editor.document.getText();
+		const statements = analyzer.statements(text, this._dialectFor(editor.document));
+		const statement = statementAt(text, statements, editor.document.offsetAt(editor.selection.active));
+		if (!statement) {
+			return undefined;
+		}
+		return {
+			query: text.slice(statement.start, statement.end),
+			advance: true,
+			statements,
+			statement,
+		};
+	}
+
+	/**
+	 * The connection to run against, asking for one if the file has not said.
+	 *
+	 * A connection that is closed is still an answer: the statement runs in the user's session
+	 * through its own connection, which has nothing to do with whether the pane's is open.
+	 */
+	private async _connectionToRunAgainst(
+		document: vscode.TextDocument,
+	): Promise<ConnectionRef | undefined> {
+		const selection = resolveSelection(this._selection.get(document.uri), this._payload.connections);
+		if (selection.kind !== 'none') {
+			return selection.connection;
+		}
+
+		// Nothing chosen and nothing to infer. Asked here rather than refused, because the user
+		// pressed a key meaning "run this" and the only thing in the way is one pick.
+		await this._selectConnection();
+		const chosen = this._selection.get(document.uri);
+		return chosen && { profileId: chosen.profileId, name: chosen.name, driverId: chosen.driverId };
 	}
 
 	/** Asks which connection the active SQL file is written against, and applies the answer. */
@@ -475,6 +665,46 @@ class SqlSession implements vscode.Disposable {
 
 /** The SQL document the user is looking at, if that is what they are looking at. */
 function activeSqlDocument(): vscode.TextDocument | undefined {
-	const document = vscode.window.activeTextEditor?.document;
-	return document?.languageId === 'sql' ? document : undefined;
+	return activeSqlEditor()?.document;
+}
+
+/** The SQL editor the user is looking at, if that is what they are looking at. */
+function activeSqlEditor(): vscode.TextEditor | undefined {
+	const editor = vscode.window.activeTextEditor;
+	return editor?.document.languageId === 'sql' ? editor : undefined;
+}
+
+/**
+ * What one cmd+enter runs, and whether the cursor should move on afterwards.
+ *
+ * The statements around it travel with it so that advancing does not have to parse the document a
+ * second time -- and so that it advances by the same reading of it, which matters for a document
+ * the user is still editing.
+ */
+type StatementToRun =
+	| { readonly query: string; readonly advance: false }
+	| {
+		readonly query: string;
+		readonly advance: true;
+		readonly statements: readonly StatementSpan[];
+		readonly statement: StatementSpan;
+	};
+
+/**
+ * Moves the cursor to the next statement after the one that just ran.
+ *
+ * To the start of the next one, rather than past the end of this one: what lies between them is
+ * blank lines and comments, and leaving the cursor in them would mean the next cmd+enter runs the
+ * statement below anyway, one keystroke later. At the last statement the cursor goes to its end,
+ * where a further cmd+enter runs it again -- which is what a user pressing it there is asking for.
+ */
+function advance(
+	editor: vscode.TextEditor,
+	statements: readonly StatementSpan[],
+	statement: StatementSpan,
+): void {
+	const next = statements.find(candidate => candidate.start > statement.start);
+	const position = editor.document.positionAt(next ? next.start : statement.end);
+	editor.selection = new vscode.Selection(position, position);
+	editor.revealRange(new vscode.Range(position, position));
 }

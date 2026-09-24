@@ -17,7 +17,7 @@ import {
 } from '../databricksClient.js';
 import { createCatalogNode, createSchemaNode, formatFileSize } from '../databricksNodes.js';
 import { databricksDisplayType, parseDescribeRows } from '../databricksSql.js';
-import { generateConnectionCode, parseDatabricksHost, parseDatabricksHttpPath, validateRequired } from '../databricksDriver.js';
+import { generateConnectionCode, generateQueryCode, parseDatabricksHost, parseDatabricksHttpPath, validateRequired } from '../databricksDriver.js';
 
 // Default config for tests -- not used to connect, just to construct.
 const TEST_CONFIG: DatabricksConnectionConfig = {
@@ -944,5 +944,39 @@ suite('Databricks Lazy SDK Loading', () => {
 		assert.deepStrictEqual(
 			{ connect: typeof client.connect, openSession: typeof client.openSession },
 			{ connect: 'function', openSession: 'function' });
+	});
+});
+suite('Databricks Query Code', () => {
+
+	// The quoting and the recipes themselves are covered by positron-data-driver-common's own tests.
+	// What is this driver's own is which variant ids map to which recipe, so that is what is asserted
+	// here. The connection variable is whatever the session bound, which is why each variant is given
+	// the name its own connection code binds.
+	function code(languageId: string, variantId: string, connectionVariable: string): string | undefined {
+		return generateQueryCode({ languageId, variantId, connectionVariable, query: 'SELECT 1' });
+	}
+
+	test('each connection code variant is queried the way its own connection object is', () => {
+		assert.deepStrictEqual(
+			{
+				databricksSqlConnector: code('python', 'databricks-sql-connector', 'conn'),
+				dbi: code('r', 'dbi', 'con'),
+			},
+			{
+				databricksSqlConnector: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", conn)',
+				dbi: 'DBI::dbGetQuery(con, "SELECT 1")',
+			}
+		);
+	});
+
+	test('nothing is generated for a variant or a language this driver cannot query', () => {
+		assert.deepStrictEqual(
+			{
+				// Databricks offers no SQLAlchemy variant, so there is no connection for it to query.
+				unknownVariant: code('python', 'sqlalchemy', 'conn'),
+				unknownLanguage: code('julia', 'databricks-sql-connector', 'conn'),
+			},
+			{ unknownVariant: undefined, unknownLanguage: undefined }
+		);
 	});
 });
