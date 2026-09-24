@@ -41,6 +41,7 @@ import { positronBuildNumber, releaseChannel } from './utils.ts';
 import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
 import { getAiLibServerDependencies } from './lib/ai-lib-dependencies.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
+import { checkPackagedTree } from './lib/positron-check-path-lengths.ts';
 // --- End Positron ---
 // --- Start PWB: build-time gzip compression ---
 // eslint-disable-next-line no-duplicate-imports
@@ -807,6 +808,20 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 	};
 }
 
+// --- Start Positron ---
+/**
+ * Fails the build when an extension ships more files than its budget. Posit
+ * Workbench runs the server build on network filesystems, where file count
+ * matters most. See posit-dev/positron#16025. The Windows MAX_PATH budget
+ * models the desktop install directory, so this task does not check it.
+ */
+function checkPackagedTreeTaskREH(destinationFolderName: string) {
+	return async () => {
+		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false });
+	};
+}
+// --- End Positron ---
+
 function prepareCopilotRipgrepShimTaskREH(platform: string, arch: string, destinationFolderName: string) {
 	return async () => {
 		const outputDir = path.join(BUILD_ROOT, destinationFolderName);
@@ -872,7 +887,11 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 				task.task(`node-${platform}-${arch}`) as task.Task,
 				util.rimraf(path.join(BUILD_ROOT, destinationFolderName)),
 				packageTask(type, platform, arch, sourceFolderName, destinationFolderName),
-				prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName)
+				// --- Start Positron ---
+				// prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName)
+				prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName),
+				checkPackagedTreeTaskREH(destinationFolderName)
+				// --- End Positron ---
 			];
 
 			if (platform === 'win32') {
