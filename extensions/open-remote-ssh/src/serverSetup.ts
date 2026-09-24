@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import Log from './common/logger';
 import { getVSCodeServerConfig } from './serverConfig';
-import SSHConnection from './ssh/sshConnection';
+import SSHTransport from './ssh/sshTransport';
 
 export interface ServerInstallOptions {
 	id: string;
@@ -87,7 +87,7 @@ function findFirstMatchingPath(hostname: string, hostAlias: string): string | un
 	return undefined;
 }
 
-export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log, hostname: string, hostAlias: string): Promise<ServerInstallResult> {
+export async function installCodeServer(conn: SSHTransport, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log, hostname: string, hostAlias: string): Promise<ServerInstallResult> {
 	let shell = 'powershell';
 
 	// detect platform and shell for windows
