@@ -614,17 +614,19 @@ span.rt-file{color:var(--body)}
 .cf-card>.row-head{border-radius:11px 11px 0 0}
 .cf-card .cov-more{border-radius:0 0 11px 11px}
 /* Preconditions line: "P" in the step-number gutter, full view on hover */
-.cv-pre{position:relative;margin:0 0 2px;font-size:13px;line-height:1.6;color:var(--body);cursor:help;outline:none}
+.cv-pre{position:relative;width:fit-content;max-width:100%;margin:0 0 2px;font-size:13px;line-height:1.6;color:var(--body);cursor:help;outline:none}
 .cv-pre .pre-mark{display:inline-block;width:20px;margin:0 7px 0 -27px;text-align:center;font-size:12px;font-weight:400;font-variant-numeric:tabular-nums;color:var(--faint);transition:color .15s ease}
 .cv-pre:hover .pre-mark,.cv-pre:focus-visible .pre-mark{color:var(--link)}
 .cv-pre:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
-.pre-pop{position:absolute;top:calc(100% + 6px);left:-33px;z-index:6;width:440px;max-width:75vw;display:none;background:var(--card);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:12px 14px;font-size:13px;line-height:1.55;color:var(--body);white-space:normal;cursor:auto}
-.cv-pre:hover .pre-pop,.cv-pre:focus .pre-pop,.cv-pre:focus-within .pre-pop{display:block}
+.pre-pop{position:absolute;bottom:calc(100% + 6px);left:-33px;z-index:6;width:440px;max-width:75vw;display:block;visibility:hidden;opacity:0;transition:opacity .12s ease,visibility 0s linear .12s;background:var(--card);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:12px 14px;font-size:13px;line-height:1.55;color:var(--body);white-space:normal;cursor:auto}
+/* Opens upward over rows already read; hover waits 150ms so a passing mouse does not open it. */
+.cv-pre:hover .pre-pop{visibility:visible;opacity:1;transition:opacity .12s ease .15s,visibility 0s linear .15s}
+.cv-pre:focus .pre-pop,.cv-pre:focus-within .pre-pop{visibility:visible;opacity:1;transition:none}
 .pre-pop .pre-t{display:block;font-size:11.5px;font-weight:400;color:var(--faint);margin-bottom:4px}
 .pre-pop .pre-i{display:block}
 .pre-pop .pre-i+.pre-i{margin-top:8px;padding-top:8px;border-top:1px solid var(--pop-sep)}
 .pre-pop b{display:block;font-weight:600;color:var(--ink);font-size:12.5px;margin-bottom:2px}
-@media (prefers-reduced-motion:reduce){.cv-pre .pre-mark{transition:none}}
+@media (prefers-reduced-motion:reduce){.cv-pre .pre-mark,.pre-pop,.cv-pre:hover .pre-pop{transition:none}}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 .cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
 .st-ev{color:var(--st-ev);white-space:nowrap;transition:color .15s ease}

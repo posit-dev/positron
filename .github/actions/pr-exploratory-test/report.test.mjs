@@ -1428,6 +1428,12 @@ test('report CSS: expanded rows tint the header only, number steps in the gutter
 	assert.match(html, /\.cv-steps ol>li::before\{content:counter\(st\);display:inline-block;width:20px;margin:0 7px 0 -27px;/);
 	assert.match(html, /\.cv-pre \.pre-mark\{display:inline-block;width:20px;margin:0 7px 0 -27px;/);
 	assert.match(html, /\.cf-card\{overflow:visible\}/);
+	// The P popover triggers on the P and names only, opens upward, and waits out a passing mouse.
+	assert.match(html, /\.cv-pre\{position:relative;width:fit-content;/);
+	assert.match(html, /\.pre-pop\{position:absolute;bottom:calc\(100% \+ 6px\);[^}]*visibility:hidden;opacity:0;/);
+	assert.match(html, /\.cv-pre:hover \.pre-pop\{visibility:visible;opacity:1;transition:opacity \.12s ease \.15s,visibility 0s linear \.15s\}/);
+	assert.match(html, /\.cv-pre:focus \.pre-pop,\.cv-pre:focus-within \.pre-pop\{visibility:visible;opacity:1;transition:none\}/);
+	assert.doesNotMatch(html, /\.pre-pop\{[^}]*display:none/);
 	assert.match(html, /\.st-v\{color:inherit\}/);
 	// The finding link's underline is Professional's alone.
 	assert.match(html, /:root\[data-theme=professional\] \.cv-f\{text-decoration:underline;/);
