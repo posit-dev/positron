@@ -1445,7 +1445,7 @@ test('lightbox: the caption names the step and links it; the copy button shows t
 	const html = renderReportHtml(TYPED);
 	assert.match(html, /st\.className='lb-step'/);
 	assert.match(html, /\.lb-step\{font-weight:600;color:var\(--ink\);text-decoration:none\}/);
-	assert.match(html, /\.shot-step\{position:absolute;left:6px;bottom:6px;/);
+	assert.match(html, /\.shot-step\{position:absolute;left:8px;bottom:8px;font-size:10\.5px;font-weight:500;[^}]*color:var\(--shot-step-text\);border:1px solid var\(--shot-step-border\)/);
 	assert.match(html, /<svg class="cp-ico"[^>]*><rect x="5\.5" y="5\.5" width="8" height="8" rx="1\.6"><\/rect>/);
 	assert.doesNotMatch(html, /M7 3c\.35 2\.7/);
 });

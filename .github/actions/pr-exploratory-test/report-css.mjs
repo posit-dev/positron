@@ -22,7 +22,10 @@ const PROFESSIONAL = `
 	--secondary: #4F535A;
 	--dot-neutral: #CFCAC0;
 	--sep: #B8B4AA;
-	--shot-step-bg: rgba(28,31,35,.78);
+	--shot-step-bg: rgba(255,255,255,.86);
+	--shot-step-text: #3D4148;
+	--shot-step-border: rgba(28,31,35,.12);
+	--shot-step-shadow: 0 1px 2px rgba(28,31,35,.10);
 	--divider: #CFCAC0;
 	--legend-sep: #CFCAC0;
 	--hover-border: #CFCAC0;
@@ -140,7 +143,10 @@ const PARTY = `
 	--secondary: #B8B0DE;
 	--dot-neutral: #4E4580;
 	--sep: #5B4F92;
-	--shot-step-bg: rgba(11,7,25,.82);
+	--shot-step-bg: rgba(30,24,56,.84);
+	--shot-step-text: #CFC8EA;
+	--shot-step-border: rgba(157,149,198,.28);
+	--shot-step-shadow: 0 1px 2px rgba(0,0,0,.25);
 	--divider: #4A3F7A;
 	--legend-sep: #5B4F92;
 	--hover-border: #5B4F92;
@@ -471,7 +477,8 @@ figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-bor
 .shots figure{gap:6px}
 .shots img{aspect-ratio:16/10;object-fit:cover;object-position:top center;border-radius:6px}
 a.shot{display:block;position:relative;border-radius:6px;cursor:zoom-in;text-decoration:none}
-.shot-step{position:absolute;left:6px;bottom:6px;font-size:11px;font-weight:600;line-height:1;padding:4px 6px;border-radius:4px;background:var(--shot-step-bg);color:#FFFFFF;letter-spacing:.01em;pointer-events:none}
+/* Quiet metadata: the screenshot draws the eye, and a step number is not a result. */
+.shot-step{position:absolute;left:8px;bottom:8px;font-size:10.5px;font-weight:500;line-height:1;padding:3px 5px;border-radius:4px;background:var(--shot-step-bg);color:var(--shot-step-text);border:1px solid var(--shot-step-border);box-shadow:var(--shot-step-shadow);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);letter-spacing:.01em;pointer-events:none}
 a.shot img{transition:border-color .15s ease}
 a.shot:hover img{border-color:var(--hover-border)}
 a.shot:hover{text-decoration:none}
