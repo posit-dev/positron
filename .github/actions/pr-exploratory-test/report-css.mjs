@@ -474,7 +474,6 @@ figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-bor
 .evidence{display:flex;flex-direction:column;gap:10px}
 /* Six across whatever the count, so thumbnails are one size report-wide. */
 .shots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
-.shots figure{gap:6px}
 .shots img{aspect-ratio:16/10;object-fit:cover;object-position:top center;border-radius:6px}
 a.shot{display:block;position:relative;border-radius:6px;cursor:zoom-in;text-decoration:none}
 /* Quiet metadata: the screenshot draws the eye, and a step number is not a result. */

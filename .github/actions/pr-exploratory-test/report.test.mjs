@@ -1449,3 +1449,17 @@ test('lightbox: the caption names the step and links it; the copy button shows t
 	assert.match(html, /<svg class="cp-ico"[^>]*><rect x="5\.5" y="5\.5" width="8" height="8" rx="1\.6"><\/rect>/);
 	assert.doesNotMatch(html, /M7 3c\.35 2\.7/);
 });
+
+test('coverage: a scenario name reaches the photo caption as plain text', () => {
+	const html = renderReportHtml(md([
+		'## Coverage', '', '### Verified', '',
+		'| Scenario | Result | Screenshot |', '|---|---|---|',
+		'| **Bold** `code` [link](https://x.example) & more | ok | [shots/a.png](https://cdn.example/shots/a.png) |',
+	].join('\n')));
+	assert.match(html, /data-caption="Bold code link &amp; more"/);
+});
+
+test('typed steps: a step Log line reaches the agent prompt', () => {
+	const html = renderReportHtml(TYPED);
+	assert.match(html, /\n\s*Log: get_column_profiles timed out after 10 seconds \(Renderer, 2x\)/);
+});

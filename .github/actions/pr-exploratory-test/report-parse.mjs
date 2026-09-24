@@ -88,6 +88,13 @@ function inline(text) {
 	return marked.parseInline(String(text ?? '').trim());
 }
 
+/** Inline markdown as plain text, for attributes such as a caption or label. */
+function plainText(text) {
+	return inline(text).replace(/<[^>]*>/g, '')
+		.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+		.trim();
+}
+
 /** Block markdown to HTML, for a run of lines that may hold lists or code. */
 function block(text) {
 	return marked.parse(String(text ?? '').trim());
@@ -427,7 +434,8 @@ function typedStep(lines) {
 function stepText(step) {
 	const result = !step.result ? ''
 		: ` \u2192 ${step.result.toUpperCase()}${step.observed ? ` (observed: ${step.observed})` : ''}`;
-	return [step.md + result, ...step.rest].join('\n');
+	// The card has no place for a log line, so the prompt is where it goes.
+	return [step.md + result, ...step.rest, ...(step.log ? [`Log: ${step.log}`] : [])].join('\n');
 }
 
 function parseEvidenceBullet(text) {
@@ -900,7 +908,7 @@ export function parseLedger(markdown) {
 		return {
 			id: s.id,
 			scenarioHtml: inline(s.name),
-			scenario: s.name.replace(/`/g, '').trim(),
+			scenario: plainText(s.name),
 			resultHtml: inline(sentenceCase(s.result)),
 			status: s.status || (steps.some(st => st.result === 'fail') ? 'fail' : 'pass'),
 			finding,
@@ -1166,7 +1174,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		return {
 			scenarioHtml: inline(row['scenario'] ?? ''),
 			// Plain, for the lightbox caption and the screenshot's label.
-			scenario: String(row['scenario'] ?? '').replace(/`/g, '').trim(),
+			scenario: plainText(row['scenario']),
 			resultHtml: inline(sentenceCase(ref.text)),
 			// A failed check names its finding even when the Result does not.
 			finding: ref.finding ?? steps.find(st => st.finding)?.finding ?? null,
