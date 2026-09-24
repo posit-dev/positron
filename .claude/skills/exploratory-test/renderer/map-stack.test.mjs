@@ -5,10 +5,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { mapStack } from './map-stack.mjs';
 
 // The checkout's own copy; the fixture root has no node_modules.
@@ -51,4 +53,11 @@ test('keeps 10 frames per stack, then counts the rest at the same indent', () =>
 	assert.equal(lines.length, 1 + 10 + 1 + 1 + 2);
 	assert.equal(lines[11], '  ... 3 more');
 	assert.equal(lines[12], 'E2');
+});
+
+test('runs as a script when called through a symlinked path', () => {
+	const link = join(root, 'link');
+	symlinkSync(dirname(fileURLToPath(import.meta.url)), link);
+	const r = spawnSync(process.execPath, [join(link, 'map-stack.mjs'), '--root', root], { input: 'E\n    at node:x:1:1\n', encoding: 'utf8' });
+	assert.equal(r.stdout, 'E\n    at node:x:1:1\n');
 });

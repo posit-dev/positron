@@ -8,7 +8,7 @@
 //   node map-stack.mjs [--root <checkout>] [file]    (reads stdin without a file)
 // Frames with no map, and node: frames, are left as they are.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -113,7 +113,8 @@ function defaultTraceMapping(root) {
 	return createRequire(join(root, 'package.json'))('@jridgewell/trace-mapping');
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Node resolves symlinks for import.meta.url but not argv, as on macOS's /var.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
 	const args = process.argv.slice(2);
 	const r = args.indexOf('--root');
 	const root = resolve(r >= 0 ? args.splice(r, 2)[1] : process.cwd());
