@@ -386,7 +386,11 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
-.findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 110px}
+.findings-grid{grid-template-columns:110px minmax(0,1fr) 100px 90px 110px}
+.origin-cell{font-size:13px;color:var(--muted)}
+.origin-cell.new{color:var(--ink);font-weight:500}
+/* Origin tooltips are a sentence, so they wrap, and open above the label. */
+.origin-tip::after{white-space:normal;width:max-content;max-width:240px;bottom:calc(100% + 6px);left:0}
 .coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
@@ -428,6 +432,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .meta .rule{align-self:center;width:1px;height:12px;background:var(--divider)}
 .meta .sep{color:var(--sep)}
 .meta .origin.unchecked{font-style:italic}
+.meta .origin:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
 .meta .confirmed{display:inline-flex;align-items:baseline;gap:4px;color:var(--muted);font-weight:400}
 .meta .confirmed svg{align-self:center;color:var(--pass-text)}
 .meta .reproduced{color:var(--faint-rate)}

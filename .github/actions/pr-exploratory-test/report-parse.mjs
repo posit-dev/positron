@@ -270,22 +270,32 @@ export function basename(url) {
 	return String(url ?? '').split(/[?#]/)[0].split('/').pop();
 }
 
+/** What each origin means, shown as its tooltip on the card and in the Findings table. */
+export const ORIGINS = {
+	new: { kind: 'new', label: 'New', tip: 'This change introduced it: the code it blames is in the diff.' },
+	'pre-existing': { kind: 'pre-existing', label: 'Pre-existing', tip: 'It predates this change: the code it blames is not in the diff.' },
+	exposed: { kind: 'exposed', label: 'Exposed', tip: 'An existing defect this change made reachable, or an existing race its timing now fires.' },
+	unchecked: { kind: 'unchecked', label: 'Not checked', tip: 'The report does not say whether this change introduced it.' },
+};
+
 /**
  * Normalizes the `Introduced?` column into the origin the meta line shows.
  *
- * `unclear` lands on "Not checked" with the other unsettled cases: all three
- * mean the report is not claiming the change caused this, and the meta line has
- * one quiet slot for that rather than a shade for each.
+ * `unclear` is the old name for `exposed`, kept so earlier reports still render.
+ * Only a blank or unrecognized value is "Not checked".
  */
 export function parseOrigin(value) {
 	const v = String(value ?? '').trim().toLowerCase();
 	if (/^yes/.test(v)) {
-		return { kind: 'new', label: 'New in this change' };
+		return ORIGINS.new;
 	}
 	if (/^no/.test(v)) {
-		return { kind: 'pre-existing', label: 'Pre-existing' };
+		return ORIGINS['pre-existing'];
 	}
-	return { kind: 'unchecked', label: 'Not checked' };
+	if (/^(exposed|unclear)/.test(v)) {
+		return ORIGINS.exposed;
+	}
+	return ORIGINS.unchecked;
 }
 
 export function parseSeverity(value) {
@@ -328,9 +338,9 @@ function parseStatusStrip(line) {
 	if (/\bunproven\b/i.test(text)) { out.confirmed = 'Unproven'; }
 	const rate = /Reproduced\s*\*\*([\d]+\/[\d]+)\*\*/i.exec(text) || /Reproduced\s*([\d]+\/[\d]+)/i.exec(text);
 	if (rate) { out.reproduced = rate[1]; }
-	if (/introduced by this change/i.test(text)) { out.origin = { kind: 'new', label: 'New in this change' }; }
-	else if (/pre-existing/i.test(text)) { out.origin = { kind: 'pre-existing', label: 'Pre-existing' }; }
-	else if (/origin unclear/i.test(text)) { out.origin = { kind: 'unchecked', label: 'Not checked' }; }
+	if (/introduced by this change/i.test(text)) { out.origin = ORIGINS.new; }
+	else if (/pre-existing/i.test(text)) { out.origin = ORIGINS['pre-existing']; }
+	else if (/exposed by this change|origin unclear/i.test(text)) { out.origin = ORIGINS.exposed; }
 	return out;
 }
 

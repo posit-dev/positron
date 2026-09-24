@@ -334,13 +334,14 @@ has to fix.
 completion", "silently creates no environment". Not the rate, which
 `Reproduction` holds, and not a scale, because "High" tells a reader nothing.
 
-`Introduced?` is `yes`, `no`, or `unclear`: did this change create the problem?
+`Introduced?` is `yes`, `no`, or `exposed`: did this change create the problem?
 Settle it from the diff, not from how certain you feel. Either the line you
 blame is in the diff or it predates the change, and Cause says which. Keep
-`unclear` for the cases the diff genuinely cannot settle: the change exposes an
+`exposed` for the cases the diff genuinely cannot settle: the change exposes an
 existing defect, or shifts timing so an existing race now fires. It is not a
-hedge. You have read the diff by this point, so writing `unclear` over code you
-watched arrive hands the author a reason to skip the finding.
+hedge. You have read the diff by this point, so writing `exposed` over code you
+watched arrive hands the author a reason to skip the finding. Never leave it
+blank: the report shows a blank as "Not checked".
 
 `Reproduction` is how often you saw it, `<N>/<M>`, matching the finding block.
 
@@ -426,7 +427,7 @@ the code pointers>
 The heading names the finding and carries a short claim, not the whole defect:
 the body is there to explain it. The line under it is a status strip, and a blockquote so it reads
 as metadata rather than sinking into the prose. Its third slot is
-`**Introduced by this change**`, `**Pre-existing**`, or `**Origin unclear**`,
+`**Introduced by this change**`, `**Pre-existing**`, or `**Exposed by this change**`,
 matching the table's `Introduced?` without repeating its wording.
 
 Always give the rate, even when it is 5/5. "Every time" and "one time in three"

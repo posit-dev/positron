@@ -162,20 +162,47 @@ test('parseReport accepts both finding heading shapes', () => {
 	assert.equal(r.findings[1].title, 'a second claim');
 });
 
-test('parseReport takes origin from the table, mapping unclear to Not checked', () => {
+test('parseReport takes origin from the table: New, Pre-existing, Exposed, and Not checked only when blank', () => {
 	const r = parseReport(FULL);
-	assert.equal(r.findings[0].origin.label, 'New in this change');
+	assert.equal(r.findings[0].origin.label, 'New');
 	assert.equal(r.findings[1].origin.label, 'Pre-existing');
 
-	const unclear = parseReport(md([
+	const origin = (value, strip = '') => parseReport(md([
 		'## Findings', '',
 		'| # | Finding | Severity | Introduced? |',
 		'|---|---|---|---|',
-		'| 1 | a claim | minor | unclear |',
+		`| 1 | a claim | minor | ${value} |`,
+		'', '### Finding 1: a claim', '', strip, '', 'prose.',
+	].join('\n'))).findings[0].origin;
+	assert.equal(origin('exposed').label, 'Exposed');
+	// `unclear` is the old name for `exposed`; earlier reports keep rendering.
+	assert.equal(origin('unclear').label, 'Exposed');
+	assert.equal(origin('').label, 'Not checked');
+	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Exposed by this change**').label, 'Exposed');
+	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Origin unclear**').label, 'Exposed');
+});
+
+test('the Findings table has an Origin column with a tooltip, New in ink and the rest muted', () => {
+	const html = renderReportHtml(FULL);
+	const head = /<div class="row row-head findings-grid">(.*?)<\/div>/.exec(html)[1];
+	assert.deepEqual([...head.matchAll(/<span[^>]*>([^<]*)<\/span>/g)].map(m => m[1]),
+		['Severity', 'Finding and impact', 'Origin', 'Reproduced', 'Status']);
+	assert.match(html, /<span class="origin-cell new tip origin-tip" data-tip="This change introduced it: the code it blames is in the diff\.">New<\/span>/);
+	assert.match(html, /<span class="origin-cell pre-existing tip origin-tip" data-tip="[^"]+">Pre-existing<\/span>/);
+	assert.match(html, /\.origin-cell\{font-size:13px;color:var\(--muted\)\}\n\.origin-cell\.new\{color:var\(--ink\);font-weight:500\}/);
+	// The card's label carries the same tooltip, and is focusable since it is not inside a link.
+	assert.match(html, /<span class="origin new tip origin-tip" data-tip="This change introduced it: the code it blames is in the diff\." tabindex="0">New<\/span>/);
+});
+
+test('the prompt says an Exposed finding was not introduced but exposed', () => {
+	const exposed = md([
+		'## Findings', '',
+		'| # | Finding | Severity | Introduced? |',
+		'|---|---|---|---|',
+		'| 1 | a claim | minor | exposed |',
 		'', '### Finding 1: a claim', '', 'prose.',
-	].join('\n')));
-	assert.equal(unclear.findings[0].origin.kind, 'unchecked');
-	assert.equal(unclear.findings[0].origin.label, 'Not checked');
+	].join('\n'));
+	assert.match(promptText(renderReportHtml(exposed), 1), /Introduced by this change: No, but it exposes an existing defect/);
 });
 
 test('parseReport breaks a finding into its labelled parts', () => {
