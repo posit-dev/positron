@@ -1,5 +1,5 @@
 ---
-name: exploratory-testing
+name: exploratory-test
 description: "Explore a running Positron instance as a real user to find genuine problems in a change you just made. Use when asked to exploratorily test, QA, manually test, or poke at a branch, PR, or feature through the real UI. This is discovery testing against the live app to find bugs, NOT writing automated tests; use author-e2e-tests or author-vitest-tests for that. Worth its cost for a user-visible behavior change, not for a refactor or a typo fix. Only runs when a person invokes it explicitly."
 disable-model-invocation: true
 ---
@@ -23,9 +23,17 @@ The brief is the only context the agent has, so make it self-contained: the
 checkout path, the branch and how to see the diff, what the change is meant to
 do as a user would describe it, and the blast radius you are nervous about.
 State intent and risk; do not state what you expect to work.
+Include the absolute path to the report renderer, resolved from this skill's
+base directory: `<base>/../../../.github/actions/pr-exploratory-test/render.mjs`.
+The branch under test may predate it, so the agent cannot find it from there.
 
 Running it in a subagent keeps screenshots, snapshots, and dead ends out of the
 session you are working in.
+
+When the agent finishes, put its run on the report's Run tile, as CI does. The
+completion notice carries `duration_ms` and `tool_uses`; re-render with them:
+`node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses>`.
+The agent cannot do this itself, because it does not see its own totals.
 
 If you are that subagent, do the exploring yourself. Do not delegate again.
 
@@ -64,10 +72,11 @@ scaffolding workspaces you created.
 ## Report
 
 Write findings to a fresh run directory,
-`~/.claude/skills/exploratory-testing/output/<YYYYMMDDTHHMMSS>/report.md`, with
+`~/.claude/skills/exploratory-test/output/<YYYYMMDDTHHMMSS>/report.md`, with
 evidence under `shots/` beside it. Cite a shot as a real link,
-`[shots/<file>](shots/<file>)`, every time you name one, here and in Verified
-working: a backticked path renders as code the reader cannot open. Never
+`[shots/<file>](shots/<file>)`, every time you name one in the report: a
+backticked path renders as code the reader cannot open. The ledger's
+`Evidence:` lines are the exception, bare file names under `shots/`. Never
 write into an existing run directory; each run keeps its own so earlier
 findings survive.
 Copy evidence into `shots/` as you capture it, not at the end: drive-positron's
@@ -81,6 +90,12 @@ report file outright ("Subagents should return findings as text, not write
 report files"), and because the report is the deliverable, that guard costs the
 run its entire output.
 
+Then render it, so the reader gets the same page CI publishes:
+`node <render.mjs from your brief> "$RUN/report.md"`. It writes `index.html`
+beside the report and prints its path; give that path in your summary. If it
+fails, say so and point at `report.md` instead: the markdown is still the
+report.
+
 Outcome first, evidence second, execution detail last. A reviewer who reads
 only the title block, the findings table, and Coverage should know where the
 change stands.
@@ -92,6 +107,8 @@ The shape, and only this shape:
 
 `<branch>` | `<short sha>`
 
+PR: <owner>/<repo>#<number>
+
 **Result:** <one sentence: what the change now does for a user>
 **Tested:** <what you exercised, in a phrase>, <N> scenarios
 **Not exercised:** <surfaces the change touches that you did not reach, or `none`>
@@ -99,16 +116,6 @@ The shape, and only this shape:
 ## Findings
 
 <the table, then one `### Finding N: <claim>` block per finding, worst first>
-
-## Coverage
-
-### Verified
-
-| Scenario | Result | Screenshot |
-
-### Not exercised
-
-| Scenario | Reason |
 
 <details>
 <summary>Run details</summary>
@@ -124,6 +131,11 @@ The shape, and only this shape:
 One `#` heading, and it is the report. `Result` and `Not exercised` are bold
 labels on their own lines rather than headings, because two lines do not need a
 section competing with `## Findings`.
+
+The `PR:` line is there only when the run was for a pull request, and the
+report header links it. Take it from the request (a PR number or URL), or from
+`gh pr view --json number,url` on the branch under test. When neither gives
+one, leave the line out: there is no placeholder for "no PR".
 
 `Result` is one sentence saying what the change now does for a user, in the
 terms they would use. Write it as a statement, never as an answer: the reader
@@ -146,58 +158,138 @@ whole line: emphasis covering everything emphasises nothing, and the renderer
 drops it. A single-sentence `Result` needs no mark.
 
 `Tested` is the scope you covered and how much of it: the surfaces you drove,
-in a phrase, then the number of scenarios. The count is the row count of your
-`Verified` table, so a reader can check it against the table rather than take
-it on trust. It is there because nothing else at the top says how much work
+in a phrase, then the number of scenarios. The count is the number of `S`
+scenarios in your ledger, so a reader can check it against Coverage rather
+than take it on trust. It is there because nothing else at the top says how much work
 stands behind the verdict, and no findings after three scenarios means
 something very different from no findings after twenty.
 
 Write all three lines every time. `**Not exercised:** none` is a claim that you
 reached everything the change touches, and making you write it is the point: a
 reader who sees a low finding count cannot otherwise tell a clean run from one
-that never rendered the feature. Each surface named there reappears under
-Coverage with the reason it was out of reach.
+that never rendered the feature. Each surface named there reappears in the
+ledger's `Not run` list with the reason it was out of reach.
 
-`## Coverage` holds what you exercised and what you did not, as two tables.
-Resist any column that restates another: a `Status` column reading `passed` on
-every row of a table headed `Verified` says nothing, and the heavier the table
-the less of it gets read.
+## Ledger
 
-`Verified` answers what you exercised, what happened, and where to check it.
+The report's Coverage section is built from `ledger.md`, which you write in the
+run directory beside `report.md` *as you go*, one scenario at a time, not at the
+end. It holds every scenario you ran and every one you did not, and the report
+has no Coverage tables of its own: the renderer reads the ledger for the table,
+its tab counts and the Scenarios tile.
+
+````
+# Test ledger
+
+PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
+
+## Environment
+- <what is true for the whole run: build, launch, workspace, interpreters>
+
+## Logs
+- logs/<file> | <what wrote it> | <errors it holds, or "no errors">
+
+---
+
+## S01 - <scenario, in a few words>
+Status: pass
+Result: <what happened, one line>
+
+Preconditions:
+- <short name> | <ID of the scenario that creates it, or empty> | <how to set it up>
+
+Steps:
+1. <action>
+2. VERIFY <expectation> -> PASS
+   Evidence: <file>
+
+## S02 - <scenario>
+Status: fail - Finding 1
+Result: <what happened, one line>
+
+Steps:
+1. <action>
+2. VERIFY <expectation> -> FAIL - Finding 1
+   Observed: <one line>
+   Evidence: <file>[, <file>]
+   Log: logs/<file>:<line> | <Renderer, Console, or Extension host> | <N>x[ (<when>)]
+     <the error message>
+       at <function> (<repo-relative path>:<line>)
+
+---
+
+## Not run
+- N01 - <scenario> - <why it was out of reach, in a phrase>
+````
+
+- IDs are stable: `S01`, `S02`, ... for scenarios run, in run order; `N01`, ...
+  for scenarios not run. Never renumber.
+- `Status:` is `pass`, or `fail - Finding N` for the finding it produced.
+  `Result:` is what happened, in one line: the outcome for a pass, a short
+  symptom or the rate for a fail ("Fails 3/3"). A cell reporting that
+  something did *not* happen says which surface you checked and when.
+- `## Environment` holds only what is true for the whole run. Copy it into Run
+  details; Coverage never shows it.
+- `## Logs` has one line per file you copied into `logs/`, written at the end
+  of the run: its path, what wrote it, and the errors in it ("2 errors, both in
+  Finding 1", "no errors"). An error no check is tied to is counted here and
+  nowhere else. The report lists every line and links each file, so a line for
+  a file you did not copy fails the render.
+- `Preconditions:` is everything else a scenario needs before step 1, one
+  `- <short name> | <creating ID> | <how>` bullet each. The short name is a few
+  words ("`slow.py` loaded"); the how-to is enough to set it up from scratch.
+  When another scenario creates the state, put its ID in the middle field;
+  otherwise leave it empty. Repeat a precondition on every scenario that needs
+  it. Leave `Preconditions:` out when there is nothing to set up, and never
+  write a default-settings line ("Shipped defaults" or similar). Steps never
+  start with "With X open, ..."; that state belongs here.
+- `Not run` covers both the surfaces you could not reach and the threads you
+  abandoned. Every surface on the `**Not exercised:**` line at the top appears
+  here. A gap that deserves more than a phrase -- a mechanism you did not test
+  that probably shares a fault with one you did, say -- gets it in the reason.
+  There is no follow-up list: what a different run might check is neither a
+  finding nor coverage.
+
+**Recording steps.** Record every scenario as typed steps, *as you run them*, not reconstructed afterwards.
+- An **action** is something you did: "Run `%view df`.", "Click Continue.", "Scroll to the bottom." Merge trivial waits into the action before them ("Run X and wait 15 s").
+- A **verify** is a check you made. Write it *before* you look, as the expectation: "Verify the summary loads." Then record the result: `pass` or `fail`.
+- Every check you make is a verify step, **including the ones that pass**. A scenario with no verify steps is incomplete.
+- On `fail`: name the finding it produced, and add one `observed` line saying what actually happened.
+- Attach each screenshot to the verify step it proves.
+- Code to paste that spans more than one line goes in a fenced block indented under its step, in the ledger as in a finding; the report gives it a copy button. A short command stays inline in backticks.
+- Never write an observation as a step ("Loading dots, then the notice appears"). That text belongs in `observed`, or in the next verify step's expectation.
+
+**Finding Reproduce steps** are the minimal sequence from the scenario that found it: its actions plus the verify steps that matter, keeping PASS checks that show what still works just before the failure.
+
+**Screenshots.**
+- Every **FAIL** check gets a screenshot.
+- Every **passing scenario** gets at least one, on the check that shows its main outcome.
+- Add more only when the picture shows something the text can't.
+- Don't screenshot things a picture can't show (focus moving, a value staying the same).
+- Attach each screenshot to the verify step it proves.
+
+Write steps in this grammar, in the ledger and in a finding's steps; the
+report parses it, and a result it cannot find is shown as none rather than
+guessed:
 
 ```
-| Scenario | Result | Screenshot |
-|---|---|---|
-| <a few words> | <what happened> | [shots/<file>](shots/<file>) |
+N. <action text>
+N. VERIFY <expectation> -> PASS
+N. VERIFY <expectation> -> FAIL - Finding K
+   Observed: <one line>
+   Evidence: <file>[, <file>]
 ```
 
-The shot goes in its own cell, and the cell is left empty when you have none.
-A verified claim nobody can check is worth little, and this table is where the
-reader checks it; a column of filenames can be scanned down for the row you
-want, which the same links buried mid-sentence could not be. Keep `Result` to
-what happened. A cell reporting that something did *not* happen says which
-surface you checked and when, and each such claim stands alone rather than
-being folded into a rate.
+`Observed:` is only for FAIL. `Evidence:` sits under the check it proves.
 
-When a row is how you found a finding, end `Result` with `(finding N)`. That is
-what links the row to the finding it produced, and it is why a scenario that
-hit a problem still belongs in this table rather than being moved out of it.
-
-`Not exercised` answers why not, and covers both the surfaces you could not
-reach and the threads you abandoned. Every scenario named on the
-`**Not exercised:**` line at the top appears here.
-
-```
-| Scenario | Reason |
-|---|---|
-| <a few words> | <why it was out of reach, in a phrase> |
-```
-
-Some gaps deserve a sentence a cell cannot hold: a mechanism you did not test
-that probably shares a fault with one you did, say. Say it in that row's
-`Reason` rather than adding a section for it. There is no follow-up block: a
-list of what a different run might check is not a finding and not coverage, and
-it read as a third kind of result nobody could act on.
+`Log:` is only for FAIL too, and every FAIL gets one: look in the logs before
+you move on, while the timestamp still narrows it down. Write where the error
+is, `logs/<file>:<line> | <process> | <N>x (<when>)`, then the message and its
+stack indented under it, verbatim. Keep up to 10 frames, then `... N more`;
+never shorten a frame or drop the message's second line. When you looked and
+found nothing, say where: `Log: none found in logs/<a>.log, logs/<b>.log`. The
+report shows the error on the finding's card when it has a stack or a
+`file:line`, and always hands it to the agent prompt.
 
 Run details goes last because nobody needs it until they try to reproduce
 something: the branch and how you proved the build matches it, how the app was
@@ -242,13 +334,14 @@ has to fix.
 completion", "silently creates no environment". Not the rate, which
 `Reproduction` holds, and not a scale, because "High" tells a reader nothing.
 
-`Introduced?` is `yes`, `no`, or `unclear`: did this change create the problem?
+`Introduced?` is `yes`, `no`, or `exposed`: did this change create the problem?
 Settle it from the diff, not from how certain you feel. Either the line you
 blame is in the diff or it predates the change, and Cause says which. Keep
-`unclear` for the cases the diff genuinely cannot settle: the change exposes an
+`exposed` for the cases the diff genuinely cannot settle: the change exposes an
 existing defect, or shifts timing so an existing race now fires. It is not a
-hedge. You have read the diff by this point, so writing `unclear` over code you
-watched arrive hands the author a reason to skip the finding.
+hedge. You have read the diff by this point, so writing `exposed` over code you
+watched arrive hands the author a reason to skip the finding. Never leave it
+blank: the report shows a blank as "Not checked".
 
 `Reproduction` is how often you saw it, `<N>/<M>`, matching the finding block.
 
@@ -263,7 +356,9 @@ transcription of that file, not a recollection at report time, and a
 precondition that only ever existed in your head is how a finding stops
 reproducing on the reader's machine. Write the steps as a person using the app
 would, not as you drove it: launch flags and scratch paths belong in Run
-setup. Keep the claim under about twelve words.
+setup. Keep the claim under about twelve words, and make it state the symptom and its
+consequence -- "A column over 10 s never loads, and Retry cannot help" -- because
+Observed follows it directly and nothing in between says why it matters.
 
 Every finding's steps stand on their own. Do not send the reader to another
 finding for them -- no "as Finding 1", no "same as above". A reader arrives at
@@ -278,29 +373,27 @@ three.
 
 Use this block for every finding; do not substitute a schema of your own. Keep
 the heading exactly this shape. `N` is the row number from the table, and it is
-what ties the block to that row and to any Coverage row ending `(finding N)`,
-so a heading that renumbers or drops it breaks those links.
+what ties the block to that row and to any ledger scenario whose `Status:`
+names Finding N, so a heading that renumbers or drops it breaks those links.
 
-```
+````
 ### Finding N: <concise claim>
 
 > **Confirmed** | Reproduced **<N>/<M>** | **Introduced by this change**
 
-<Two sentences a reader can follow without knowing the code: what they hit,
-and why it matters. Symbol names belong under Cause, not here.>
-
 **Repro** -- starting state: <what exists before step 1>
 
-**Preconditions:** <what this needs to happen, and what happened under the
-default: reproduces, does not reproduce, or not checked. Write "default
-settings" when it needs nothing special, and say there how you manufactured
-any state the repro depends on. Write it every time even when the answer is
-nothing: a blank line cannot tell a reader "needs nothing" apart from "never
-checked". The report drops a line that says only "default settings", so
-stating the obvious costs the reader nothing.>
+**Preconditions:** <only with X: the non-default configuration or
+manufactured state this needs, how you set it up, and what happened without it:
+reproduces, does not reproduce, or not checked. Leave the line out when the bug
+needs nothing special.>
 
-1. <step>
-2. <step>
+1. <action>
+2. VERIFY <expectation> -> PASS
+3. <action>
+4. VERIFY <expectation> -> FAIL - Finding N
+   Observed: <what happened instead, one line>
+   Evidence: <file>
 
 **Observed:** <what happened>
 
@@ -308,17 +401,33 @@ stating the obvious costs the reader nothing.>
 
 **Evidence**
 
-- [shots/<file>](shots/<file>) -- <what it shows>
+- [shots/<file>](shots/<file>) -- Step <N>: <what it shows>
 - `<log path>` -- <quoted line with its timestamp>
+
+**Error output** -- `<log path>` | <Renderer, Console, or Extension host> | Logged <N>x (<when>)
+
+```
+<the error message>
+    at <function> (<repo-relative path>:<line>)
+    at <function> (<repo-relative path>:<line>)
+```
 
 **Cause (hypothesis):** <one sentence naming the suspect, then the detail and
 the code pointers>
-```
+
+**Regression test**
+
+- <the missing case, as a sentence> -- <Unit, Extension, or E2E> `<repo-relative test file, or leave out when unsure>` (<exists, covers ... | new file>)
+
+**Other tests that touch this code**
+
+- `<repo-relative test file>` -- <Unit, Extension, or E2E>, <what it covers, in a phrase>
+````
 
 The heading names the finding and carries a short claim, not the whole defect:
 the body is there to explain it. The line under it is a status strip, and a blockquote so it reads
 as metadata rather than sinking into the prose. Its third slot is
-`**Introduced by this change**`, `**Pre-existing**`, or `**Origin unclear**`,
+`**Introduced by this change**`, `**Pre-existing**`, or `**Exposed by this change**`,
 matching the table's `Introduced?` without repeating its wording.
 
 Always give the rate, even when it is 5/5. "Every time" and "one time in three"
@@ -337,6 +446,13 @@ best. Cite the rest as links under Evidence. Four screenshots of nearly the same
 screen push everything below them off the page, and a reader who wants the
 second one will open it.
 
+A shot named on a step's `Evidence:` line takes that step's number. Start
+every other screenshot's caption with the step it was taken after, `Step N:`.
+The gallery sorts by it, so the shots read in the order of the repro. A shot
+that follows no step, a variant of the setup say, takes the nearest step; if
+there is none, write `Variant:`. Note the step in `actions.log` when you take
+the shot, since you will not remember it at report time.
+
 Evidence holds only what proves the behavior happened. A path to the code you
 suspect is not evidence, it is where to look, so it goes in Cause.
 
@@ -345,8 +461,92 @@ is wasted work, so prefer one finding with a timestamped log excerpt over three
 without. A proven bug belongs in the report even if the change under test did
 not introduce it; that is what `Introduced? no` is for.
 
+When an error is logged, write an `**Error output**` block for it: the full
+message and stack, from the renderer log, the dev console, or the extension
+host log, not the one-line message. Its log path is the copy in `logs/` with
+the line, `logs/<port>-renderer.log:1182`, as on the ledger's `Log:` line; leave
+the block out and the report takes it from there. Map compiled frames
+(`out/...js:<line>:<col>`) to repo-relative source paths (`src/vs/...ts:212`);
+the report links those to the source at the commit under test. Use the source
+map, never the `.js` line: it is often dozens of lines off the `.ts` one. From
+the checkout, this prints each frame's source line; drop the checkout prefix it
+leaves on core paths, and keep `node:` frames and frames with no map as they are:
+
+```bash
+node -e 'const fs=require("fs"),path=require("path"),{TraceMap,originalPositionFor}=require("@jridgewell/trace-mapping");
+for(const a of process.argv.slice(1)){const[,f,l,c]=a.match(/^(.*):(\d+):(\d+)$/),js=fs.readFileSync(f,"utf8"),u=js.match(/sourceMappingURL=(\S+)\s*$/)[1];
+const m=u.startsWith("data:")?Buffer.from(u.split(",")[1],"base64").toString():fs.readFileSync(path.join(path.dirname(f),u),"utf8");
+const p=originalPositionFor(new TraceMap(m,f),{line:+l,column:+c-1});console.log(a+" -> "+p.source+":"+p.line)}' \
+  out/vs/workbench/api/node/proxyResolver.js:328:25
+```
+
+One block per distinct error, with how often it was logged. A message with no
+stack and no file:line is still written, but the report only shows it to the
+agent it hands the finding to: on the card it tells a reader nothing Observed
+does not.
+
+`**Regression test**` is what a test suite would need to catch this next time,
+and splits into a fact and a suggestion. Readers act on both, so write only
+what you checked: a wrong file, a misplaced one, or a test at the wrong level is
+worse than leaving the block out.
+
+The fact is which tests already touch the changed code. Find them by
+convention -- unit tests in a `test/` folder beside the source as `*.test.ts` or
+`*.vitest.ts`, extension tests under `extensions/<name>/src/test`, e2e tests in
+`test/e2e/tests/` with their feature tags -- and by searching the test trees for
+the changed symbols and the UI strings the finding shows. List a file only
+after opening it, and say what it covers from what you read, not from its name.
+
+The suggestion is the case none of them covers: one sentence each, with the
+level and the file it belongs in. Take both from the repo's own test guidance,
+not from habit: the "Where should I put my test?" table in `CLAUDE.md` for the
+level (the lowest one that catches the bug), and the rule file it links for
+that runner for the location and naming. Prefer adding to an existing file. For
+`new file`, follow that rule's placement and match the test directory the
+nearest existing tests of that kind already use; when the rule and the
+neighbours disagree, or you cannot tell where it goes, give the level and leave
+the path out rather than guess. Put each test file you found against the case
+it would hold; list the rest under `**Other tests that touch this code**`. Do
+not write the test and do not measure coverage. Leave both blocks out when
+there is nothing a test would catch, such as a spacing bug.
+
 Do not file GitHub issues and do not make a merge call. The person decides what
 is real.
+
+## Logs
+
+Keep every log in `logs/` beside the report, errors or not, and copy them
+before `stop.sh`, which deletes the instance's run directory and its profile.
+Every path you write -- in the ledger, the report, the Logs list -- is relative
+to the report folder, never `/tmp/...` or `~/...`: a path outside it is gone by
+the time anyone reads the report.
+
+An instance's logs are not in its run directory: every launch writes to its own
+folder under `~/.local/state/positron/logs/`, and `code.log` names it on its
+`logsPath:` line when the app runs with `--log debug`, so launch with it. For
+each instance, where `<logFile>` and `<port>` (its `cdpPort`) are what
+`launch.sh` printed:
+
+```bash
+L="$RUN/logs"; mkdir -p "$L/all"
+T=$(sed -n "s/^ *logsPath: '\(.*\)'.*/\1/p" <logFile> | tail -1)
+cp -R "$T" "$L/all/<port>"
+cp "$T/window1/renderer.log" "$L/<port>-renderer.log"
+cp "$T/window1/exthost/exthost.log" "$L/<port>-exthost.log"
+cp <logFile> "$L/<port>-code.log"
+./node_modules/.bin/playwright-cli -s=<session> console > "$L/<port>-console.log"
+```
+
+Search both renderer copies for an error: `renderer.log` has rejections and
+errors the workbench caught, with their stacks, but an uncaught `throw` reaches
+only `<port>-console.log`, and `code.log` keeps just its message.
+
+Copy the interpreter output too, from
+`$T/window1/exthost/positron.positron-supervisor/<Language> <version> Console.log`,
+to `logs/<port>-<language>-console.log`. A helper you wrote for the run, such as
+a script that builds slow data, goes in `logs/` as well so a reader can re-run
+it. List `logs/all/<port>/` in `## Logs` as the full tree; the report shows it
+without a link, and CI keeps it in the artifact only.
 
 ## What this run is for
 
@@ -371,7 +571,7 @@ correct and another is wrong, you have localized the bug instead of just
 observing it.
 
 Positron logs are at `~/.local/state/positron/logs`, not in the user-data
-directory.
+directory; see Logs for which folder is yours and what to copy.
 
 Before believing a finding, confirm your measurement can see what you think it
 sees. A UI-scraping bug reads as a product bug, and bug-first instinct will
@@ -386,10 +586,8 @@ it lands on the `Preconditions` line. Re-check it under the default; if you
 cannot, write that you did not rather than leaving the axis unstated. Keep it
 to a sentence or two: it renders as a bullet above the steps, beside the
 starting state, and a paragraph there buries the one thing a reader needs
-before they begin. Write the
-line so it reads as a statement either way: "default settings" when the bug
-needs nothing, "only with X" when it does. Never "only under default
-settings", which says the opposite of what it means.
+before they begin. When the bug needs something, write "only with X"; when it
+needs nothing, leave the line out rather than writing a default-settings line.
 Desktop and web differ this way by construction, so a finding from one is not
 yet a finding about the other.
 

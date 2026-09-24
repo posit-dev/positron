@@ -22,13 +22,17 @@ const PROFESSIONAL = `
 	--secondary: #4F535A;
 	--dot-neutral: #CFCAC0;
 	--sep: #B8B4AA;
+	--shot-step-bg: rgba(255,255,255,.86);
+	--shot-step-text: #3D4148;
+	--shot-step-border: rgba(28,31,35,.12);
+	--shot-step-shadow: 0 1px 2px rgba(28,31,35,.10);
 	--divider: #CFCAC0;
 	--legend-sep: #CFCAC0;
 	--hover-border: #CFCAC0;
 	--code-bg: #EFEDE7;
 	--code-text: #2B2F35;
-	--link: #2F5F8A;
-	--link-hover: #1E4466;
+	--link: #2E6B5E;
+	--link-hover: #1F5046;
 
 	--major-dot: #D1492F;
 	--major-text: #A12C1F;
@@ -59,17 +63,22 @@ const PROFESSIONAL = `
 	--thumb-b: #F3F1EC;
 	--quiet: #767B82;
 	--dash: #D9D5CB;
-	--hypothesis: #8A8F96;
-	--ref: #767B82;
-	--ref-hover: #2F5F8A;
-	--em-dash: #A3A7AD;
+	--chip-border: #DAD6CD;
+	--cv-chev: #C4C0B6;
+	--st-ev: #8A8F96;
+	--st-target: #F6F1E4;
+	--cv-open: #F7F6F1;
+	--cv-open-hover: #F2F0EA;
+	--pop-border: #E7E4DC;
+	--pop-sep: #EFEDE7;
+	--pop-shadow: 0 8px 24px rgba(28,31,35,.12);
 
 	--label-color: var(--muted);
 	--label-ls: 0.1em;
 	--label-font: var(--sans);
 	--label-weight: 600;
 	--eyebrow-ls: 0.12em;
-	--eyebrow-color: var(--muted);
+	--eyebrow-color: var(--ink);
 	--eyebrow-weight: 600;
 
 	--num-color: var(--ink);
@@ -84,7 +93,7 @@ const PROFESSIONAL = `
 	--card-shadow: none;
 	--tile-shadow: none;
 	--major-card-shadow: none;
-	--focus: #2F5F8A;
+	--focus: #2E6B5E;
 
 	--sig-bug: #6A6F76;
 	--sig-bug-glow: none;
@@ -100,6 +109,13 @@ const PROFESSIONAL = `
 	--tip-border: #E7E4DC;
 	--tip-text: #3D4148;
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
+	--code-blk-bg: #F1EFEA;
+	--rt-tag-bg: #EFEDE7;
+	--rt-tag-ink: #3D4148;
+	--code-blk-border: transparent;
+	--code-cp-hover-bg: rgba(28,31,35,.06);
+	--cp-rest: #C4C0B6;
+	--cp-hover-bg: #F6F5F1;
 
 	--totop-bg: #FFFFFF;
 	--totop-border: #E7E4DC;
@@ -132,6 +148,10 @@ const PARTY = `
 	--secondary: #B8B0DE;
 	--dot-neutral: #4E4580;
 	--sep: #5B4F92;
+	--shot-step-bg: rgba(30,24,56,.84);
+	--shot-step-text: #CFC8EA;
+	--shot-step-border: rgba(157,149,198,.28);
+	--shot-step-shadow: 0 1px 2px rgba(0,0,0,.25);
 	--divider: #4A3F7A;
 	--legend-sep: #5B4F92;
 	--hover-border: #5B4F92;
@@ -169,10 +189,15 @@ const PARTY = `
 	--thumb-b: #19132F;
 	--quiet: #948DBF;
 	--dash: #4A3F7A;
-	--hypothesis: #8A82B8;
-	--ref: #948DBF;
-	--ref-hover: #5CE1E6;
-	--em-dash: #6A61A0;
+	--chip-border: #5B4F92;
+	--cv-chev: #5B4F92;
+	--st-ev: #8A82B8;
+	--st-target: #2A2250;
+	--cv-open: #2A2250;
+	--cv-open-hover: #302860;
+	--pop-border: #5B4F92;
+	--pop-sep: #342A5C;
+	--pop-shadow: 0 8px 24px rgba(0,0,0,.4);
 
 	--label-color: #FF6AC1;
 	--label-ls: 0.14em;
@@ -210,6 +235,13 @@ const PARTY = `
 	--tip-border: #5B4F92;
 	--tip-text: #F5F1FF;
 	--tip-shadow: none;
+	--code-blk-bg: #19132F;
+	--rt-tag-bg: #3A2F6B;
+	--rt-tag-ink: #F5F1FF;
+	--code-blk-border: #2A2250;
+	--code-cp-hover-bg: rgba(245,241,255,.08);
+	--cp-rest: #4E4580;
+	--cp-hover-bg: #2A2250;
 
 	--totop-bg: #1E1838;
 	--totop-border: #342A5C;
@@ -276,6 +308,8 @@ img{max-width:100%}
 .eyebrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;color:var(--muted);padding-right:80px;min-height:36px}
 .eyebrow .kicker{text-transform:uppercase;letter-spacing:var(--eyebrow-ls);font-weight:var(--eyebrow-weight);color:var(--eyebrow-color);font-family:var(--label-font)}
 .eyebrow .bullet{width:3px;height:3px;border-radius:50%;background:var(--sep)}
+.pr-link{font-weight:500;white-space:nowrap}
+.pr-link svg{margin-left:3px;vertical-align:0}
 h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line-height:1.22;letter-spacing:-0.01em;color:var(--ink);max-width:var(--measure)}
 .lead{font-size:16px;line-height:1.6;color:var(--body);max-width:var(--measure)}
 .lead strong{color:var(--ink);font-weight:600}
@@ -332,17 +366,17 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 .section-label{margin:0;font-family:var(--label-font);font-size:13px;font-weight:var(--label-weight);letter-spacing:var(--label-ls);text-transform:uppercase;color:var(--label-color)}
 .section-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
 
-/* Grid tables: findings list, coverage, not exercised */
+/* Grid tables: findings list, coverage */
 /* Panels carry no shadow in either theme: the Party offset shadow marks a card
    or a tile, and putting one on a full-width table read as a second surface. */
 .panel{position:relative;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .row{display:grid;gap:16px;padding:16px 20px;border-bottom:1px solid var(--hairline);align-items:start;color:inherit;text-decoration:none}
 .row:last-child{border-bottom:0}
-/* Exercised collapses past its first rows. A checkbox, so it works without script. */
+/* Coverage collapses past its first passes. A checkbox, so it works without script. */
 .cov-toggle{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
 .cov-toggle:not(:checked)~.cov-extra{display:none !important}
-.cov-more{display:flex;align-items:center;gap:6px;padding:11px 20px;font-size:13px;font-weight:500;color:var(--link);cursor:pointer;transition:background-color .15s ease,color .15s ease}
-.cov-more:hover{background:var(--thead);color:var(--link-hover)}
+.cov-more{display:flex;align-items:center;gap:6px;padding:11px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:color .15s ease}
+.cov-more:hover{color:var(--link)}
 .cov-toggle:focus-visible~.cov-more{outline:2px solid var(--focus);outline-offset:-2px;border-radius:0 0 12px 12px}
 .cov-less{display:none}
 .cov-toggle:checked~.cov-more .cov-all{display:none}
@@ -352,8 +386,14 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
-.findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 110px}
-.coverage-grid{grid-template-columns:minmax(0,5fr) minmax(0,7fr) 200px}
+.findings-grid{grid-template-columns:110px 96px minmax(0,1fr) 90px 110px}
+.origin-cell{font-size:13px;line-height:1.5;color:var(--body)}
+/* Finding origin: one style for every label, no extra emphasis on New; colour stays with severity and status. */
+.org{color:inherit;font-weight:inherit}
+.org-tip{position:relative;cursor:help;outline:none}
+.org-tip:hover::after,.org-tip:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);left:0;width:max-content;max-width:280px;white-space:normal;text-transform:none;letter-spacing:0;padding:4px 8px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.45;pointer-events:none;z-index:5}
+.org-tip:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+.coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
@@ -370,7 +410,8 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .finding-cell .claim .n{font-family:var(--mono);color:var(--faint);margin-right:8px}
 .finding-cell .impact{font-size:13px;color:var(--muted)}
 .rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
-.status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--pass-text)}
+.status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
+.status-check{stroke:var(--pass-fill)}
 .status.muted{color:var(--muted)}
 
 /* Finding cards */
@@ -392,10 +433,36 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .meta .group.context{color:var(--muted)}
 .meta .rule{align-self:center;width:1px;height:12px;background:var(--divider)}
 .meta .sep{color:var(--sep)}
-.meta .origin.unchecked{font-style:italic}
 .meta .confirmed{display:inline-flex;align-items:baseline;gap:4px;color:var(--muted);font-weight:400}
 .meta .confirmed svg{align-self:center;color:var(--pass-text)}
 .meta .reproduced{color:var(--faint-rate)}
+.cp-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
+.card:hover .cp-btn{color:var(--muted)}
+/* Scoped under .card so they outrank the card-hover colour above. */
+.card .cp-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
+.card .cp-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
+.cp-btn:hover::after,.cp-btn:focus-visible::after,.cp-btn.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
+.cp-btn .cp-ok{display:none}
+.cp-btn.is-copied{color:var(--pass-fill) !important}
+.cp-btn.is-copied .cp-ok{display:block}
+.cp-btn.is-copied .cp-ico{display:none}
+
+/* Code block in a step: its copy button shows on hover or focus, so at rest
+   the agent button is the only copy control on the card. */
+.code-blk{position:relative;margin:8px 0 6px}
+.code-blk pre{margin:0;padding:12px 44px 12px 14px;background:var(--code-blk-bg);border:1px solid var(--code-blk-border);border-radius:8px;overflow-x:auto;white-space:pre}
+.code-blk pre code{font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text)}
+.code-cp{position:absolute;top:7px;right:7px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;padding:0;border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s ease,color .15s ease,background-color .15s ease}
+.code-blk:hover .code-cp,.code-blk:focus-within .code-cp,.code-cp.is-copied{opacity:1}
+.code-cp:hover{color:var(--ink);background:var(--code-cp-hover-bg)}
+.code-cp:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
+.code-cp:hover::after,.code-cp:focus-visible::after,.code-cp.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
+.code-cp .cp-ok{display:none}
+.code-cp.is-copied{color:var(--pass-fill) !important}
+.code-cp.is-copied .cp-ok{display:block}
+.code-cp.is-copied .cp-ico{display:none}
+@media (hover:none){.code-cp{opacity:.8}}
+@media (prefers-reduced-motion:reduce){.code-cp{transition:none}}
 
 h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.3;color:var(--ink)}
 .card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:var(--measure)}
@@ -413,7 +480,6 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 /* One style for every secondary heading: darker than supporting text, but with
    no panel or rule, so Observed and Expected stay dominant. */
 .sub{font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body)}
-.sub .hyp{font-weight:500;color:var(--hypothesis)}
 
 /* Reproduce answers "how do I make this happen?", so it is text only and one
    column. Screenshots all live under Evidence, which answers "show me that it
@@ -436,59 +502,165 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
 figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}
-figcaption{font-size:12px;line-height:1.4;color:var(--quiet)}
 
 .evidence{display:flex;flex-direction:column;gap:10px}
-/* The gallery takes its column count from how much there is to show: three
-   screenshots stretched across a four-column grid left a hole where a reader
-   looks for a fourth. */
-.shots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.shots.n1{grid-template-columns:minmax(0,560px)}
-.shots.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.shots.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.shots figure{gap:6px}
+/* Six across whatever the count, so thumbnails are one size report-wide. */
+.shots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .shots img{aspect-ratio:16/10;object-fit:cover;object-position:top center;border-radius:6px}
-a.shot{display:block;border-radius:6px;cursor:zoom-in;text-decoration:none}
+a.shot{display:block;position:relative;border-radius:6px;cursor:zoom-in;text-decoration:none}
+/* Quiet metadata: the screenshot draws the eye, and a step number is not a result. */
+.shot-step{position:absolute;left:8px;bottom:8px;font-size:10.5px;font-weight:500;line-height:1;padding:3px 5px;border-radius:4px;background:var(--shot-step-bg);color:var(--shot-step-text);border:1px solid var(--shot-step-border);box-shadow:var(--shot-step-shadow);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);letter-spacing:.01em;pointer-events:none}
 a.shot img{transition:border-color .15s ease}
 a.shot:hover img{border-color:var(--hover-border)}
 a.shot:hover{text-decoration:none}
 a.shot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.logtile{border:1px solid var(--thumb-border);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;background:var(--thead);min-width:0}
-.logtile .path{font-family:var(--mono);font-size:11px;color:var(--quiet);word-break:break-all}
-.logtile .quote{font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--quiet);word-break:break-word}
-.logtile .note{font-size:12px;color:var(--quiet)}
-
-/* Likely cause reads as analysis, not fact: dashed, no fill. */
-.cause{border:1px dashed var(--dash);border-radius:10px;padding:16px 20px;display:flex;flex-direction:column;gap:8px}
-.cause p{font-size:14px;line-height:1.65;color:var(--body);max-width:var(--measure)}
+/* The end of a card: closed rows, fact then hypothesis then suggestion. Solid
+   for what the run saw or found, dashed for the guess. */
+.card-details{display:flex;flex-direction:column;gap:8px}
+.lc{border:1px solid var(--border);border-radius:10px;padding:0 20px}
+.lc.hyp{border-style:dashed;border-color:var(--dash)}
+.lc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:14px 0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body);transition:color .15s ease}
+.lc>summary::-webkit-details-marker{display:none}
+.lc>summary:hover{color:var(--ink)}
+.lc>summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+.lc-tail{font-weight:500;color:var(--faint)}
+.lc .lc-chev{flex:none;transition:transform .15s ease}
+.lc[open] .lc-chev{transform:rotate(90deg)}
+.lc-body{padding:0 0 16px 20px;display:flex;flex-direction:column;gap:14px}
+.lc-body p{font-size:14px;line-height:1.65;color:var(--body);max-width:var(--measure)}
+.err{display:flex;flex-direction:column;gap:8px;min-width:0}
+.err-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.err-src{font-family:var(--mono)}
+.err-code{font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--body);background:var(--thead);border:1px solid var(--hairline);border-radius:6px;padding:10px 14px;overflow-x:auto}
+.err-msg{color:var(--major-text);white-space:pre-wrap}
+.err-frame{padding-left:16px;white-space:nowrap}
+/* Regression test: one label style, one meta style; sizes fixed so the block never inherits the page's. */
+.rt-group{display:flex;flex-direction:column;gap:6px}
+.rt-group+.rt-group{gap:4px}
+.rt-label{font-size:12px;font-weight:600;line-height:1.5;color:var(--body)}
+.rt-cases{margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:var(--body);max-width:var(--measure)}
+.rt-cases>li{margin:0 0 10px;padding-left:4px}
+.rt-cases>li:last-child{margin-bottom:0}
+.rt-other{margin:0;padding-left:20px;list-style:disc;font-size:12.5px;line-height:1.55}
+.rt-other>li{margin:0 0 2px;padding-left:4px}
+.rt-other>li::marker{color:var(--sep)}
+.rt-meta{margin-top:3px;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.rt-other .rt-meta{margin-top:0}
+.rt-meta code{background:none;padding:0;font-size:12px;color:var(--body)}
+.rt-row{display:flex;align-items:baseline;gap:8px}
+.rt-file{font-family:var(--mono);font-size:12px;color:var(--link);text-decoration:none;word-break:break-all}
+a.rt-file:hover{text-decoration:underline}
+span.rt-file{color:var(--body)}
+.rt-sep{color:var(--sep)}
+.rt-t{flex:none;min-width:30px;box-sizing:border-box;text-align:center;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;line-height:1}
+.rt-t-tint{padding:3px 5px;border-radius:4px;background:var(--rt-tag-bg);color:var(--rt-tag-ink)}
 .card-prose{font-size:15px;line-height:1.65;color:var(--body)}
 
 /* Coverage */
-.cov-group{display:flex;flex-direction:column;gap:10px}
-.cov-group.gap{margin-top:12px}
-h3.cov-title{margin:0;font-size:14px;font-weight:600;color:var(--body)}
-.cov-title .cov-n{font-weight:400;color:var(--faint)}
+/* Filter tabs are labels for hidden radios, which precede the tabs and the
+   card so both can react to the checked one. The selected tab is ink, not an
+   accent: colour here means status or link. Each label stacks a hidden
+   semibold copy in the same grid cell, so selecting one never shifts the row. */
+.cf{display:flex;flex-direction:column;gap:14px}
+.cf-radio{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.cf-tabs{display:flex;gap:20px;border-bottom:1px solid var(--border)}
+.cf-tab{display:inline-grid;padding:0 0 10px;margin-bottom:-1px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s ease}
+.cf-tab>span{grid-area:1/1}
+.cf-tab .cf-l{font-weight:500}
+.cf-tab .cf-g{visibility:hidden;font-weight:600;padding-right:3px}
+.cf-tab .cf-cnt{color:var(--faint);font-weight:400;margin-left:3px}
+.cf-tab:hover{color:var(--ink)}
+#cf-all:checked~.cf-tabs .cf-tab-all,#cf-i:checked~.cf-tabs .cf-tab-i,#cf-p:checked~.cf-tabs .cf-tab-p,#cf-n:checked~.cf-tabs .cf-tab-n{color:var(--ink);border-bottom-color:var(--ink)}
+#cf-all:checked~.cf-tabs .cf-tab-all .cf-l,#cf-i:checked~.cf-tabs .cf-tab-i .cf-l,#cf-p:checked~.cf-tabs .cf-tab-p .cf-l,#cf-n:checked~.cf-tabs .cf-tab-n .cf-l{font-weight:600}
+#cf-all:focus-visible~.cf-tabs .cf-tab-all,#cf-i:focus-visible~.cf-tabs .cf-tab-i,#cf-p:focus-visible~.cf-tabs .cf-tab-p,#cf-n:focus-visible~.cf-tabs .cf-tab-n{outline:2px solid var(--focus);outline-offset:4px;border-radius:3px}
+#cf-i:checked~.cf-card .cf-r:not(.cf-i),#cf-p:checked~.cf-card .cf-r:not(.cf-p),#cf-n:checked~.cf-card .cf-r:not(.cf-n){display:none !important}
+/* "Show all" belongs to All: a single kind lists every row and has no footer. */
+#cf-i:checked~.cf-card .cov-more,#cf-p:checked~.cf-card .cov-more,#cf-n:checked~.cf-card .cov-more{display:none !important}
+#cf-p:checked~.cf-card details.cov-extra.cf-p{display:block !important}
+#cf-p:checked~.cf-card .row.cov-extra.cf-p{display:grid !important}
+/* Every row keeps its hairline; the -1px tucks whichever row is last in the
+   current filter under the card border instead of doubling it. */
+.cov-rows{position:relative;margin-bottom:-1px;font-size:14px;line-height:1.5}
+.cov-rows>.row,.cov-rows>.cv{border-bottom:1px solid var(--hairline)}
 /* The status dot sits inside the scenario cell, not in a column of its own: it
    belongs to that scenario. The gap is wider than bullet-list spacing so the
    dot reads as a status marker rather than a bullet, and the top margin centres
    it on the first line, so a scenario that wraps keeps its dot beside line one.
    The two header indents below are this gap plus the dot, so they move with
    it. */
-.cov-scenario{display:flex;align-items:flex-start;gap:15px;color:var(--ink)}
+.cov-scenario{display:flex;align-items:flex-start;gap:13px;color:var(--ink)}
 .cov-dot{flex:none;width:8px;height:8px;margin-top:7px;border-radius:50%}
 .cov-dot.pass{background:var(--pass-fill)}
 .cov-dot.issue{background:var(--moderate-dot)}
-.cov-dot.none{width:7px;height:7px;background:var(--dot-neutral)}
+.cov-dot.none{background:var(--dot-neutral)}
 /* Indented by the dot plus the gap, so the label starts where the text does. */
-.cov-head-scenario{padding-left:23px}
-.panel.dashed .cov-head-scenario{padding-left:22px}
+.cov-head-scenario{padding-left:21px}
 .cov-result{color:var(--body)}
-.cov-reason{color:var(--body);grid-column:span 2}
-.ref{font-family:var(--mono);font-size:11.5px;color:var(--ref)}
-a.ref:hover{color:var(--ref-hover)}
-.ref.none{color:var(--em-dash);font-size:12px;font-family:var(--sans)}
-.panel.dashed{border:1px dashed var(--dash)}
-.panel.dashed .row{border-bottom-color:var(--hairline)}
+.cv-f{font-weight:500}
+/* The deep teal sits too close to the body text to stand out alone; Party's
+   cyan does not need the help. */
+:root[data-theme=professional] .cv-f{text-decoration:underline;text-decoration-color:rgba(46,107,94,.35);text-decoration-thickness:1px;text-underline-offset:3px}
+:root[data-theme=professional] .cv-f:hover{text-decoration-color:currentColor}
+.cov-notrun{grid-column:span 2;color:var(--muted)}
+.cov-nr{font-weight:500;color:var(--body)}
+/* A passing row is its own disclosure: the whole row toggles its steps. Only
+   the header tints; the body never does. */
+.cv>summary{border-bottom:0;list-style:none;cursor:pointer;transition:background-color .15s ease}
+.cv>summary::-webkit-details-marker{display:none}
+.cv>summary:hover{background:var(--thead)}
+.cv>summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.cv[open]>summary{background:var(--cv-open);position:relative}
+.cv[open]>summary:hover{background:var(--cv-open-hover)}
+.cv[open]>summary::after{content:"";position:absolute;left:41px;right:20px;bottom:0;height:1px;background:var(--border)}
+.cv-chev-cell{display:inline-flex;justify-content:flex-end;margin-top:5px;color:var(--cv-chev)}
+.cv .cv-chev{flex:none;transition:transform .15s ease,color .15s ease}
+.cv[open] .cv-chev{transform:rotate(90deg)}
+.cv>summary:hover .cv-chev,.cv[open] .cv-chev,.cv>summary:focus-visible .cv-chev{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.cv .cv-chev,.cv>summary{transition:none}}
+/* Two edges: step numbers and the P sit in the gutter under the dot, and all
+   body text starts under the scenario name. */
+.cv-steps{padding:10px 20px 14px 41px}
+.cv-steps ol{margin:0;padding-left:0;list-style:none;counter-reset:st;font-size:13px;line-height:1.6;color:var(--body)}
+.cv-steps ol>li{position:relative;margin:0 0 2px;padding-left:0;counter-increment:st}
+/* Inline, not absolute, so the gutter number shares the text's baseline;
+   the margins pull it into the gutter and give the text its 41px edge back. */
+.cv-steps ol>li::before{content:counter(st);display:inline-block;width:20px;margin:0 7px 0 -27px;text-align:center;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+/* Coverage card: let popovers overflow */
+.cf-card{overflow:visible}
+.cf-card>.row-head{border-radius:11px 11px 0 0}
+.cf-card .cov-more{border-radius:0 0 11px 11px}
+/* Preconditions line: "P" in the step-number gutter, full view on hover */
+.cv-pre{position:relative;width:fit-content;max-width:100%;margin:0 0 2px;font-size:13px;line-height:1.6;color:var(--body);cursor:help;outline:none}
+.cv-pre .pre-mark{display:inline-block;width:20px;margin:0 7px 0 -27px;text-align:center;font-size:12px;font-weight:400;font-variant-numeric:tabular-nums;color:var(--faint);transition:color .15s ease}
+.cv-pre:hover .pre-mark,.cv-pre:focus-visible .pre-mark{color:var(--link)}
+.cv-pre:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+.pre-pop{position:absolute;bottom:calc(100% + 6px);left:-33px;z-index:6;width:440px;max-width:75vw;display:block;visibility:hidden;opacity:0;transition:opacity .12s ease,visibility 0s linear .12s;background:var(--card);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:12px 14px;font-size:13px;line-height:1.55;color:var(--body);white-space:normal;cursor:auto}
+/* Opens upward over rows already read; hover waits 150ms so a passing mouse does not open it. */
+.cv-pre:hover .pre-pop{visibility:visible;opacity:1;transition:opacity .12s ease .15s,visibility 0s linear .15s}
+.cv-pre:focus .pre-pop,.cv-pre:focus-within .pre-pop{visibility:visible;opacity:1;transition:none}
+.pre-pop .pre-t{display:block;font-size:11.5px;font-weight:400;color:var(--faint);margin-bottom:4px}
+.pre-pop .pre-i{display:block}
+.pre-pop .pre-i+.pre-i{margin-top:8px;padding-top:8px;border-top:1px solid var(--pop-sep)}
+.pre-pop b{display:block;font-weight:600;color:var(--ink);font-size:12.5px;margin-bottom:2px}
+@media (prefers-reduced-motion:reduce){.cv-pre .pre-mark,.pre-pop,.cv-pre:hover .pre-pop{transition:none}}
+.cov-empty{margin:0;font-size:14px;color:var(--muted)}
+.cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
+.st-ev{color:var(--st-ev);white-space:nowrap;transition:color .15s ease}
+.st-ev svg{vertical-align:-0.21em}
+.st-ev:hover{color:var(--link);text-decoration:none}
+.st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+
+/* Steps: action / verify / result */
+.st-v{color:inherit}
+.st-rs{font-size:11px;font-weight:600;letter-spacing:.06em;margin-left:6px;white-space:nowrap}
+.st-pass{color:var(--pass-fill)}
+.st-fail{color:var(--major-text)}
+.st-sep{color:var(--sep)}
+.st-ev .st-n{font-size:.86em;margin-left:2px}
+.st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
+.steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
+.steps li:target{background:var(--st-target)}
+@media (prefers-reduced-motion:reduce){.st-ev,.steps li{transition:none}}
 
 /* Collapsible sections */
 .folds{display:flex;flex-direction:column;border-top:1px solid var(--border)}
@@ -504,6 +676,11 @@ a.ref:hover{color:var(--ref-hover)}
 .fold-body p:last-child{margin-bottom:0}
 .fold-part{display:flex;flex-direction:column;gap:4px}
 .fold-part .fold-label{font-size:12px;font-weight:600;color:var(--muted)}
+.log-file{font-family:var(--mono);font-size:13px}
+.log-list{margin:2px 0 0;padding-left:20px;font-size:13px;line-height:1.6}
+.log-list li{margin:0 0 2px;padding-left:4px}
+.log-sep{color:var(--sep)}
+.log-note{color:var(--muted)}
 .agents-table{display:flex;flex-direction:column;max-width:480px}
 .agents-row{display:grid;grid-template-columns:90px 110px 70px 1fr;gap:12px;padding:6px 0;border-bottom:1px solid var(--hairline);font-size:14px;line-height:1.5;color:var(--body)}
 .agents-row.agents-head{padding:0 0 4px;font-size:12px;color:var(--muted)}
@@ -568,6 +745,8 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .lb-meta{display:flex;flex-direction:column;gap:2px;min-width:0}
 .lb-cap{font-size:14px;line-height:1.5;color:var(--body)}
+.lb-step{font-weight:600;color:var(--ink);text-decoration:none}.lb-step:hover{text-decoration:underline}
+.lb-cap .step-sep{color:var(--sep)}
 .lb-file{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all}
 .lb-file a{font-family:var(--mono)}
 .lb-close{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:999px;background:var(--card);border:1px solid var(--border);color:var(--body);cursor:pointer;transition:border-color .15s ease,color .15s ease}
@@ -588,9 +767,9 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.two{grid-template-columns:minmax(0,1fr);gap:16px}
 	.row{grid-template-columns:minmax(0,1fr) !important;gap:8px}
 	.row-head{display:none}
-	.cov-reason{grid-column:auto}
-	.shots,.shots.n3{grid-template-columns:repeat(2,minmax(0,1fr))}
-	.shots.n1{grid-template-columns:minmax(0,1fr)}
+	.cov-notrun{grid-column:auto}
+	.cv-chev-cell{justify-content:flex-start}
+	.shots{grid-template-columns:repeat(2,minmax(0,1fr))}
 	.lb{padding:12px}
 	.card{padding:20px}
 	.rate,.status{text-align:left;justify-content:flex-start}

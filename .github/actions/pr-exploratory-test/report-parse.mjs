@@ -88,6 +88,13 @@ function inline(text) {
 	return marked.parseInline(String(text ?? '').trim());
 }
 
+/** Inline markdown as plain text, for attributes such as a caption or label. */
+function plainText(text) {
+	return inline(text).replace(/<[^>]*>/g, '')
+		.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+		.trim();
+}
+
 /** Block markdown to HTML, for a run of lines that may hold lists or code. */
 function block(text) {
 	return marked.parse(String(text ?? '').trim());
@@ -148,6 +155,15 @@ function readTable(lines, start) {
 		rows.push(row);
 	}
 	return { header, rows, end: i };
+}
+
+/**
+ * A cell that says "nothing here" instead of naming something: `none`, `n/a`,
+ * a dash, or blank. A row whose scenario is one of these is not a scenario.
+ */
+function isPlaceholder(text) {
+	const t = String(text ?? '').replace(/[*_`]/g, '').trim().replace(/\.$/, '').toLowerCase();
+	return ['', 'none', 'n/a', 'na', '-', '\u2013', '\u2014'].includes(t);
 }
 
 /** Finds the first table whose header row matches `test`. */
@@ -254,22 +270,32 @@ export function basename(url) {
 	return String(url ?? '').split(/[?#]/)[0].split('/').pop();
 }
 
+/** What each origin means: the tooltip on the card and table, and the reason the agent prompt gives. */
+export const ORIGINS = {
+	new: { kind: 'new', label: 'New', tip: 'New: the code this finding blames was added or changed in this diff.', reason: 'the blamed code was added or changed in this diff' },
+	'pre-existing': { kind: 'pre-existing', label: 'Pre-existing', tip: 'Pre-existing: the code this finding blames predates this diff.', reason: 'the blamed code predates this diff' },
+	exposed: { kind: 'exposed', label: 'Exposed', tip: 'Exposed: the broken code predates this diff, but this change made it reachable or changed the timing.', reason: 'the broken code predates this diff, but this change made it reachable or changed the timing' },
+	unchecked: { kind: 'unchecked', label: 'Not checked', tip: 'Not checked: the run didn\'t record whether this change introduced it.', reason: 'the run didn\'t record it' },
+};
+
 /**
  * Normalizes the `Introduced?` column into the origin the meta line shows.
  *
- * `unclear` lands on "Not checked" with the other unsettled cases: all three
- * mean the report is not claiming the change caused this, and the meta line has
- * one quiet slot for that rather than a shade for each.
+ * `unclear` is the old name for `exposed`, kept so earlier reports still render.
+ * Only a blank or unrecognized value is "Not checked".
  */
 export function parseOrigin(value) {
 	const v = String(value ?? '').trim().toLowerCase();
 	if (/^yes/.test(v)) {
-		return { kind: 'new', label: 'New in this change' };
+		return ORIGINS.new;
 	}
 	if (/^no/.test(v)) {
-		return { kind: 'pre-existing', label: 'Pre-existing' };
+		return ORIGINS['pre-existing'];
 	}
-	return { kind: 'unchecked', label: 'Not checked' };
+	if (/^(exposed|unclear)/.test(v)) {
+		return ORIGINS.exposed;
+	}
+	return ORIGINS.unchecked;
 }
 
 export function parseSeverity(value) {
@@ -312,9 +338,9 @@ function parseStatusStrip(line) {
 	if (/\bunproven\b/i.test(text)) { out.confirmed = 'Unproven'; }
 	const rate = /Reproduced\s*\*\*([\d]+\/[\d]+)\*\*/i.exec(text) || /Reproduced\s*([\d]+\/[\d]+)/i.exec(text);
 	if (rate) { out.reproduced = rate[1]; }
-	if (/introduced by this change/i.test(text)) { out.origin = { kind: 'new', label: 'New in this change' }; }
-	else if (/pre-existing/i.test(text)) { out.origin = { kind: 'pre-existing', label: 'Pre-existing' }; }
-	else if (/origin unclear/i.test(text)) { out.origin = { kind: 'unchecked', label: 'Not checked' }; }
+	if (/introduced by this change/i.test(text)) { out.origin = ORIGINS.new; }
+	else if (/pre-existing/i.test(text)) { out.origin = ORIGINS['pre-existing']; }
+	else if (/exposed by this change|origin unclear/i.test(text)) { out.origin = ORIGINS.exposed; }
 	return out;
 }
 
@@ -324,6 +350,111 @@ function parseStatusStrip(line) {
  * A bullet that links an image becomes a thumbnail; one that names a log path
  * becomes a text tile. Anything else keeps its prose so nothing is dropped.
  */
+/**
+ * Splits `Step 3: <caption>` or `Variant: <caption>` into the step and the rest.
+ * The order sorts the gallery: steps by number, then variants, then untagged.
+ */
+export function splitStepTag(text) {
+	const m = /^\s*(?:step\s*(\d+)|(variant))\s*[:.\u2014-]+\s*/i.exec(String(text ?? ''));
+	if (!m) {
+		return { step: null, text: String(text ?? '').trim() };
+	}
+	const step = m[1]
+		? { label: `Step ${Number(m[1])}`, order: Number(m[1]) }
+		: { label: 'Variant', order: Number.MAX_SAFE_INTEGER - 1 };
+	return { step, text: text.slice(m[0].length).trim() };
+}
+
+// `Verify <assertion> -> PASS` or `-> FAIL (finding K)`; the ledger's
+// arrow and middle-dot forms read the same.
+const STEP_RESULT = /^([\s\S]*?)\s*(?:->|=>|\u2192)\s*(PASS|FAIL)\b([\s\S]*)$/i;
+const STEP_FIELD = /^(observed|evidence|log):\s*([\s\S]*)$/i;
+
+/** `VERIFY The summary loads` becomes `Verify the summary loads`. */
+function verifyText(text) {
+	const shout = /^VERIFY\b:?\s*/.exec(text);
+	if (!shout && /^(?:verify|check|confirm)\b/i.test(text)) {
+		return text[0].toUpperCase() + text.slice(1);
+	}
+	const rest = shout ? text.slice(shout[0].length) : text;
+	return `Verify ${rest.replace(/^(?:The|A|An|This|That|These|Those|Each|Every|All|No|Only)\b/, w => w.toLowerCase())}`;
+}
+
+/** `shots/a.png, [shots/b.png](shots/b.png)` as hrefs; a bare name is under shots/. */
+function stepEvidence(text) {
+	return String(text).split(/,\s*/).map(part => {
+		const link = /\[[^\]]*\]\(([^)]+)\)/.exec(part);
+		const raw = (link ? link[1] : part.replace(/`/g, '')).trim();
+		const href = safeUrl(raw && !raw.includes('/') ? `shots/${raw}` : raw);
+		return href && IMAGE_EXT.test(basename(href)) ? { href, file: basename(href) } : null;
+	}).filter(Boolean);
+}
+
+/**
+ * One step as `{ kind, md, result, finding, observed, evidence, log, rest }`,
+ * from its lines. A step with no `-> PASS|FAIL` is a verify only when it says
+ * so, and then carries no result: one that was never recorded is not invented.
+ */
+export function parseStep(lines) {
+	const head = String(lines[0] ?? '').trim();
+	const step = { kind: 'action', md: head, result: null, finding: null, observed: '', evidence: [], log: '', logBody: [], error: null, rest: [] };
+	const marked = STEP_RESULT.exec(head);
+	if (marked) {
+		step.kind = 'verify';
+		step.md = verifyText(marked[1].trim());
+		step.result = marked[2].toLowerCase();
+		const finding = /finding\s*(\d+)/i.exec(marked[3]);
+		const observed = /observed:\s*([\s\S]*?)\)?\s*$/i.exec(marked[3]);
+		step.finding = step.result === 'fail' && finding ? Number(finding[1]) : null;
+		step.observed = observed ? observed[1].trim() : '';
+	} else if (/^(?:verify|check|confirm)\b/i.test(head)) {
+		step.kind = 'verify';
+		step.md = verifyText(head);
+	}
+	let fenced = false;
+	let inLog = false;
+	for (const line of lines.slice(1)) {
+		// The message and stack sit indented under `Log:`, so they are its body.
+		if (inLog && /^\s+\S/.test(line)) { step.logBody.push(line); continue; }
+		inLog = false;
+		const field = fenced ? null : STEP_FIELD.exec(line.trim());
+		if (/^\s*(?:```|~~~)/.test(line)) { fenced = !fenced; }
+		if (!field) { step.rest.push(line); continue; }
+		const name = field[1].toLowerCase();
+		if (name === 'evidence') { step.evidence.push(...stepEvidence(field[2])); }
+		else if (name === 'observed') { step.observed = field[2].trim(); }
+		else { step.log = field[2].trim(); inLog = true; }
+	}
+	step.logBody = outdent(step.logBody);
+	step.error = parseLogField(step.log, step.logBody);
+	while (step.rest.length && !step.rest[step.rest.length - 1].trim()) { step.rest.pop(); }
+	// Only a failed check has an observation to report.
+	if (step.result !== 'fail') { step.observed = ''; }
+	return step;
+}
+
+/** A step with its markdown rendered. */
+function typedStep(lines) {
+	const step = parseStep(lines);
+	return {
+		...step,
+		html: inline(step.md),
+		// A step that runs to more than one line carries a block of its own --
+		// the source to paste, usually -- so the rest is parsed as block markdown.
+		blockHtml: step.rest.length ? block(widenOuterFence(step.rest.join('\n'))) : '',
+		observedHtml: step.observed ? inline(step.observed) : '',
+	};
+}
+
+/** A step as the agent prompt writes it: `Verify ... \u2192 FAIL (observed: ...)`. */
+function stepText(step) {
+	const result = !step.result ? ''
+		: ` \u2192 ${step.result.toUpperCase()}${step.observed ? ` (observed: ${step.observed})` : ''}`;
+	// The card has no place for a log line, so the prompt is where it goes.
+	const log = step.log ? [`Log: ${step.log}`, ...step.logBody.map(l => `  ${l}`)] : [];
+	return [step.md + result, ...step.rest, ...log].join('\n');
+}
+
 function parseEvidenceBullet(text) {
 	const link = /^\[([^\]]*)\]\(([^)]+)\)\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(text);
 	if (link && IMAGE_EXT.test(basename(link[2]))) {
@@ -332,11 +463,13 @@ function parseEvidenceBullet(text) {
 		// so it needs the same guard the renderer applies.
 		const src = safeUrl(link[2]);
 		if (src) {
+			const tagged = splitStepTag(link[3]);
 			return {
 				kind: 'shot',
 				src,
 				file: basename(src),
-				caption: link[3].trim() || basename(src),
+				step: tagged.step,
+				caption: tagged.text || basename(src),
 			};
 		}
 	}
@@ -361,6 +494,130 @@ function parseEvidenceBullet(text) {
 	return { kind: 'note', text };
 }
 
+const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
+
+/** `at Fn (path/file.ts:212:7)` or `at path/file.ts:212` -> its parts, or null. */
+function parseFrame(line) {
+	const m = /^at\s+(?:(.*?)\s+\(([^()]+?):(\d+)(?::\d+)?\)|([^\s()]+?):(\d+)(?::\d+)?)\s*$/.exec(line.trim());
+	if (!m) {
+		return null;
+	}
+	return m[2]
+		? { fn: m[1], path: m[2], line: Number(m[3]) }
+		: { fn: '', path: m[4], line: Number(m[5]) };
+}
+
+/**
+ * Reads one `**Error output** -- `<log>` | <where> | <how often>` block and the
+ * code block under it: the message first, then `at ...` frames.
+ */
+function readErrorOutput(lines, start) {
+	const head = lines[start].trim().replace(/^\*\*[^*]+\*\*:?\s*(?:--|\u2014|-)?\s*/, '');
+	const parts = head.split('|').map(p => p.trim()).filter(Boolean);
+	const source = parts.length ? parts[0].replace(/^`|`$/g, '') : '';
+	const meta = parts.slice(1);
+	const body = [];
+	let i = start + 1;
+	while (i < lines.length && !lines[i].trim()) { i++; }
+	if (/^\s*(?:```|~~~)/.test(lines[i] ?? '')) {
+		for (i++; i < lines.length && !/^\s*(?:```|~~~)/.test(lines[i]); i++) {
+			body.push(lines[i]);
+		}
+		i++;
+	} else {
+		for (; i < lines.length && /^(?:\s{4}|\t)/.test(lines[i]); i++) {
+			body.push(lines[i]);
+		}
+	}
+	return { error: errorFrom(source, meta, outdent(body)), end: i };
+}
+
+/** Lines less their shared indent, so a stack keeps its own nesting. */
+function outdent(lines) {
+	const widths = lines.filter(l => l.trim()).map(l => /^\s*/.exec(l)[0].length);
+	const cut = widths.length ? Math.min(...widths) : 0;
+	const out = lines.map(l => l.slice(cut).replace(/\s+$/, ''));
+	while (out.length && !out[out.length - 1]) { out.pop(); }
+	return out;
+}
+
+/** An error from its log source, its `|` fields, and the message-then-frames body. */
+function errorFrom(source, meta, body) {
+	const message = [];
+	const frames = [];
+	for (const raw of body) {
+		const text = raw.trim();
+		if (!text) { continue; }
+		const frame = parseFrame(text);
+		if (frame) { frames.push(frame); } else if (!frames.length) { message.push(text); }
+	}
+	const count = meta.map(m => /(\d+)\s*(?:\u00d7|x\b)/i.exec(m)).find(Boolean);
+	return {
+		source,
+		meta,
+		count: count ? Number(count[1]) : 1,
+		message: message.join('\n'),
+		frames,
+		raw: body.join('\n'),
+	};
+}
+
+/**
+ * A ledger `Log: <file>:<line> | <process> | <count>` and the lines under it, or
+ * null for `none found in ...` or a line with nothing under it.
+ */
+function parseLogField(head, body) {
+	if (!head || /^none found\b/i.test(head) || !body.length) {
+		return null;
+	}
+	const [source, ...meta] = head.split('|').map(p => p.trim().replace(/^`|`$/g, ''));
+	// The ledger writes the bare count; the card reads it as "Logged 2x".
+	const fields = meta.filter(Boolean).map(m => (/^\d+\s*[\u00d7x]/i.test(m) ? `Logged ${m}` : m));
+	return errorFrom(source, fields, body);
+}
+
+/** Reads the `- ` bullets under a label, joining indented continuation lines. */
+function readBullets(lines, start) {
+	const items = [];
+	let i = start + 1;
+	for (; i < lines.length; i++) {
+		const raw = lines[i];
+		const text = raw.trim();
+		if (!text) { continue; }
+		if (/^[-*]\s/.test(text) && !/^\s{2,}/.test(raw)) {
+			items.push(text.replace(/^[-*]\s+/, ''));
+			continue;
+		}
+		if (items.length && /^\s{2,}\S/.test(raw)) {
+			items[items.length - 1] += ` ${text}`;
+			continue;
+		}
+		break;
+	}
+	return { items, end: i };
+}
+
+/**
+ * `<case> -- Unit `path` (exists, covers ...)`. A line that does not parse
+ * keeps its words as the case, so a loosely written suggestion still shows.
+ */
+function parseTestCase(text) {
+	const m = /^([\s\S]*?)\s+(?:--|\u2014|->|\u2192)\s+(?:add to\s+)?(unit|extension|e2e)(?:\s+`([^`]+)`)?\s*(?:\(([^)]*)\))?\s*\.?$/i.exec(text);
+	if (!m) {
+		return { text: text.trim(), level: null, path: '', note: '' };
+	}
+	return { text: m[1].trim(), level: TEST_LEVEL[m[2].toLowerCase()], path: (m[3] ?? '').trim(), note: (m[4] ?? '').trim() };
+}
+
+/** `` `path` -- Unit, short note `` */
+function parseRelatedTest(text) {
+	const m = /^`([^`]+)`\s*(?:--|\u2014|-)?\s*(?:(unit|extension|e2e)\b[,;:\s]*)?([\s\S]*)$/i.exec(text);
+	if (!m) {
+		return null;
+	}
+	return { path: m[1].trim(), level: m[2] ? TEST_LEVEL[m[2].toLowerCase()] : null, note: m[3].trim() };
+}
+
 /**
  * Parses the body of one `### <n>. <claim>` block.
  */
@@ -372,6 +629,8 @@ function parseFindingBody(lines) {
 		reproStart: '', steps: [],
 		evidence: [],
 		cause: '',
+		errors: [],
+		tests: { cases: [], related: [] },
 		hero: null,
 		matched: 0,
 	};
@@ -476,6 +735,27 @@ function parseFindingBody(lines) {
 			const { text, end } = readLabelled(lines, i);
 			const key = label === 'observed' || label === 'expected' ? label : 'preconditions';
 			out[key] = text;
+			out.matched++;
+			i = end - 1;
+			continue;
+		}
+		if (label === 'error output') {
+			const { error, end } = readErrorOutput(lines, i);
+			out.errors.push(error);
+			out.matched++;
+			i = end - 1;
+			continue;
+		}
+		if (label === 'regression test' || label === 'regression tests') {
+			const { items, end } = readBullets(lines, i);
+			out.tests.cases.push(...items.map(parseTestCase));
+			out.matched++;
+			i = end - 1;
+			continue;
+		}
+		if (label && /^other tests\b/.test(label)) {
+			const { items, end } = readBullets(lines, i);
+			out.tests.related.push(...items.map(parseRelatedTest).filter(Boolean));
 			out.matched++;
 			i = end - 1;
 			continue;
@@ -592,10 +872,140 @@ function splitFindingRef(text) {
 	return { text: text.slice(0, m.index).replace(/[\s,;.\u00b7-]+$/, '').trim(), finding: Number(m[1]) };
 }
 
+// A ledger field separator: the middle dot the example uses, or ASCII ` - ` / ` | `.
+const LEDGER_SEP = /\s+(?:·|-|\|)\s+/;
+
 /**
- * Parses a report's markdown into the structure the template renders.
+ * Parses the run's `ledger.md` into Coverage rows, or null when it holds no
+ * scenarios. Scenarios are `## S01 · <name>` blocks with `Status:`, `Result:`,
+ * optional `Preconditions:` bullets (`- <name> | <creating ID> | <how>`) and
+ * numbered typed `Steps:`; `## Not run` lists `- N01 · <name> · <reason>`.
  */
-export function parseReport(markdown) {
+export function parseLedger(markdown) {
+	const lines = String(markdown ?? '').split('\n');
+	const exercised = [];
+	const notExercised = [];
+	const logs = [];
+	let cur = null;
+	let section = '';
+	let inNotRun = false;
+	let inLogs = false;
+	for (const line of lines) {
+		const t = line.trim();
+		const head = /^##\s+(.*)$/.exec(t);
+		if (head) {
+			cur = null;
+			section = '';
+			inNotRun = /^not run$/i.test(head[1].trim());
+			inLogs = /^logs$/i.test(head[1].trim());
+			const m = /^(S\d+)\s*(?:·|-|\||:)\s*(.+)$/.exec(head[1].trim());
+			if (m) {
+				cur = { id: m[1], name: m[2].trim(), status: '', finding: null, result: '', pre: [], stepLines: [] };
+				exercised.push(cur);
+			}
+			continue;
+		}
+		if (inLogs) {
+			// `- logs/<file> | <source> | <note>`; the parenthetical under the heading is not a file.
+			const m = /^[-*]\s+(.+)$/.exec(t);
+			if (m) {
+				const [path, source = '', ...note] = m[1].split(/\s*\|\s*/);
+				const entry = { path: path.trim().replace(/^`|`$/g, ''), source: source.trim(), note: note.join(' | ').trim() };
+				logs.push({ ...entry, sourceHtml: inline(entry.source), noteHtml: inline(entry.note) });
+			}
+			continue;
+		}
+		if (inNotRun) {
+			const m = /^[-*]\s+(?:(N\d+)\s*(?:·|-|\||:)\s*)?(.+)$/.exec(t);
+			if (m) {
+				const sep = LEDGER_SEP.exec(m[2]);
+				const name = sep ? m[2].slice(0, sep.index) : m[2];
+				const reason = sep ? m[2].slice(sep.index + sep[0].length) : '';
+				notExercised.push({ id: m[1] ?? '', name: name.trim(), reason: reason.trim() });
+			}
+			continue;
+		}
+		if (!cur) { continue; }
+		const field = /^(status|result|preconditions|steps):\s*(.*)$/i.exec(t);
+		if (field && !/^\s/.test(line)) {
+			const name = field[1].toLowerCase();
+			if (name === 'status') {
+				cur.status = /fail/i.test(field[2]) ? 'fail' : 'pass';
+				const n = /finding\s*(\d+)/i.exec(field[2]);
+				cur.finding = n ? Number(n[1]) : null;
+			} else if (name === 'result') {
+				cur.result = field[2].trim();
+			}
+			section = name;
+			continue;
+		}
+		if (section === 'preconditions' && /^[-*]\s+/.test(t)) {
+			const [pname, from = '', ...how] = t.replace(/^[-*]\s+/, '').split(/\s*\|\s*/);
+			cur.pre.push({ name: pname.trim(), from: from.trim(), how: how.join(' | ').trim() });
+		} else if (section === 'steps' && t !== '---') {
+			cur.stepLines.push(line);
+		}
+	}
+	if (!exercised.length && !notExercised.length && !logs.length) {
+		return null;
+	}
+
+	const rows = exercised.map(s => {
+		// A numbered line opens a step; its indented lines are its fields and source.
+		const groups = [];
+		for (const line of s.stepLines) {
+			const m = /^\d+[.)]\s+(.*)$/.exec(line);
+			if (m) { groups.push([m[1]]); }
+			else if (groups.length) { groups[groups.length - 1].push(dedent(line)); }
+		}
+		const steps = groups.map(typedStep);
+		const finding = s.finding ?? steps.find(st => st.finding)?.finding ?? null;
+		return {
+			id: s.id,
+			scenarioHtml: inline(s.name),
+			scenario: plainText(s.name),
+			resultHtml: inline(sentenceCase(s.result)),
+			status: s.status || (steps.some(st => st.result === 'fail') ? 'fail' : 'pass'),
+			finding,
+			shot: null,
+			pre: s.pre.map(p => ({ nameHtml: inline(p.name), from: p.from, howHtml: inline(p.how) })),
+			steps,
+		};
+	});
+	return {
+		exercised: rows,
+		notExercised: notExercised.map(r => ({
+			id: r.id,
+			scenarioHtml: inline(r.name),
+			reasonHtml: inline(sentenceCase(r.reason)),
+		})),
+		// A ledger always lists what it did not run, so an empty list means none.
+		notExercisedListed: true,
+		logs,
+	};
+}
+
+function withMetaHtml(e) {
+	return { ...e, metaHtml: e.meta.map(m => inline(m.replace(/(\d)\s*x\b/g, '$1\u00d7'))) };
+}
+
+/** Scenario tallies for the tile, from Coverage rows. */
+function scenarioCounts({ exercised, notExercised }) {
+	const issue = r => r.status === 'fail' || Boolean(r.finding);
+	return {
+		exercised: exercised.length,
+		pass: exercised.filter(r => !issue(r)).length,
+		issues: exercised.filter(issue).length,
+		notRun: notExercised.length,
+	};
+}
+
+/**
+ * Parses a report's markdown into the structure the template renders. Given
+ * the run's ledger, Coverage and the Scenarios tile come from it instead of
+ * the report's Coverage tables.
+ */
+export function parseReport(markdown, { ledger } = {}) {
 	const lines = String(markdown ?? '').split('\n');
 
 	const titleIndex = lines.findIndex(l => l.startsWith('# '));
@@ -613,6 +1023,17 @@ export function parseReport(markdown) {
 	const chips = metaIndex === -1
 		? []
 		: [...lines[metaIndex].matchAll(/`([^`]+)`/g)].map(m => m[1]);
+	// `PR: <owner>/<repo>#<n>`, only when the run was for one. Strict, because
+	// it becomes a link: nothing but a GitHub owner, repo and number gets through.
+	// Searched to the first section rather than the first label: written bold,
+	// the line is a label itself.
+	const sectionStart = lines.findIndex((l, i) => i > titleIndex && /^##\s/.test(l.trim()));
+	const prLine = lines.find((l, i) => i > titleIndex && (sectionStart === -1 || i < sectionStart)
+		&& /^(\*\*)?PR:/.test(l.trim()));
+	const prMatch = prLine && /^(?:\*\*)?PR:(?:\*\*)?\s*`?([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)#(\d+)`?\s*$/.exec(prLine.trim());
+	const pr = prMatch
+		? { number: Number(prMatch[3]), url: `https://github.com/${prMatch[1]}/${prMatch[2]}/pull/${prMatch[3]}` }
+		: undefined;
 
 	const firstSection = lines.findIndex(l => l.startsWith('## '));
 	const labels = new Map();
@@ -675,26 +1096,46 @@ export function parseReport(markdown) {
 		// reads as two pieces of evidence rather than one.
 		if (parsed.hero) {
 			const match = parsed.evidence.find(e => e.kind === 'shot' && e.file === parsed.hero.file);
+			const embedded = splitStepTag(parsed.hero.alt || '');
 			if (match) {
 				// Both cite it, so keep the fuller description: one of the two is
 				// usually a short label written to sit in a list.
-				const embedded = parsed.hero.alt || '';
-				if (embedded.length > match.caption.length) {
-					match.caption = embedded;
+				if (embedded.text.length > match.caption.length) {
+					match.caption = embedded.text;
 				}
+				match.step = match.step ?? embedded.step;
 				match.featured = true;
 			} else {
 				// Embedded but never cited. It is the shot chosen to show the failure
-				// best, so it leads the gallery.
+				// best, so it leads the untagged ones.
 				parsed.evidence.unshift({
 					kind: 'shot',
 					src: parsed.hero.src,
 					file: parsed.hero.file,
-					caption: parsed.hero.alt || parsed.hero.file,
+					step: embedded.step,
+					caption: embedded.text || parsed.hero.file,
 					featured: true,
 				});
 			}
 		}
+		// Screenshots in step order, so the gallery reads like the repro; logs and
+		// notes keep their order after them. Sort is stable.
+		const shots = parsed.evidence.filter(e => e.kind === 'shot')
+			.sort((a, b) => (a.step?.order ?? Number.MAX_SAFE_INTEGER) - (b.step?.order ?? Number.MAX_SAFE_INTEGER));
+		parsed.evidence = [...shots, ...parsed.evidence.filter(e => e.kind !== 'shot')];
+
+		// The starting state and the configuration line are both answers to
+		// "what has to be true before step 1", so they render as one list.
+		const preconditions = [parsed.reproStart, parsed.preconditions]
+			.map(t => String(t ?? '').trim())
+			.filter(t => t && !isDefaultsOnly(t))
+			.map(sentenceCase);
+
+		const steps = parsed.steps.map(typedStep);
+		const stepOf = new Map();
+		steps.forEach((step, k) => step.evidence.forEach(e => {
+			if (!stepOf.has(e.file)) { stepOf.set(e.file, { label: `Step ${k + 1}`, order: k + 1 }); }
+		}));
 
 		return {
 			n: start.n,
@@ -711,24 +1152,31 @@ export function parseReport(markdown) {
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
-			// The starting state and the configuration line are both answers to
-			// "what has to be true before step 1", so they render as one list.
-			preconditions: [parsed.reproStart, parsed.preconditions]
-				.map(t => String(t ?? '').trim())
-				.filter(t => t && !isDefaultsOnly(t))
-				.map(t => inline(sentenceCase(t))),
-			// A step that runs to more than one line carries a block of its own --
-			// the source to paste, usually -- so it is parsed as block markdown.
-			steps: parsed.steps.map(lines => (lines.length > 1
-				? block(widenOuterFence(lines.join('\n')))
-				: inline(lines[0] ?? ''))),
+			preconditions: preconditions.map(t => inline(t)),
+			steps,
+			// A shot a step names is that step's, whatever its caption says.
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'
-				? { ...e, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
+				? { ...e, step: stepOf.get(e.file) ?? e.step, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
 				: e.kind === 'log'
 					? { ...e, quoteHtml: inline(e.quote), noteHtml: e.note ? inline(sentenceCase(e.note)) : '' }
 					: { ...e, textHtml: inline(sentenceCase(e.text)) })),
 			causeHtml: parsed.cause ? inline(parsed.cause) : '',
+			errors: parsed.errors.map(withMetaHtml),
+			tests: {
+				cases: parsed.tests.cases.map(c => ({ ...c, textHtml: inline(c.text), noteHtml: c.note ? inline(c.note) : '' })),
+				related: parsed.tests.related.map(r => ({ ...r, noteHtml: r.note ? inline(r.note) : '' })),
+			},
 			hero: parsed.hero,
+			// The same fields as plain markdown, for the copyable agent prompt: built
+			// from this parse rather than the rendered card, so the two cannot disagree.
+			text: {
+				impact: row['impact'] ? sentenceCase(row['impact']) : '',
+				observed: parsed.observed ?? '',
+				expected: parsed.expected ?? '',
+				preconditions,
+				steps: steps.map(stepText),
+				cause: parsed.cause ?? '',
+			},
 			// Nothing recognisable in the body: render it as prose rather than
 			// showing an empty card.
 			proseHtml: parsed.matched === 0 ? block(bodyLines.join('\n')) : '',
@@ -754,7 +1202,7 @@ export function parseReport(markdown) {
 		? null
 		: findTable(lines, h => h.includes('scenario'), notExercisedHeading, coverageTo);
 
-	const exercised = (exercisedTable?.rows ?? []).map(row => {
+	const exercised = (exercisedTable?.rows ?? []).filter(row => !isPlaceholder(row['scenario'])).map(row => {
 		const raw = row['result'] ?? '';
 		// A Screenshot column is authoritative; without one the link is still
 		// inside the sentence, where reports used to put it.
@@ -764,22 +1212,60 @@ export function parseReport(markdown) {
 		let shot = split.shot;
 		if (column) {
 			const link = /\[([^\]]*)\]\(([^)]+)\)/.exec(column);
-			const raw = link ? link[2] : (column === '-' || column === '\u2014' ? '' : column);
+			const raw = link ? link[2] : (isPlaceholder(column) ? '' : column);
 			const href = safeUrl(raw);
 			if (href) { shot = { href, label: basename(href) }; }
 		}
+		// Steps are one cell, split on `<br>`: a table cell cannot hold a list.
+		// An `Observed:` or `Evidence:` item belongs to the step before it.
+		const groups = [];
+		for (const item of String(row['steps'] ?? '').split(/<br\s*\/?>/i)) {
+			const t = item.trim().replace(/^\d+[.)]\s*/, '');
+			if (!t || isPlaceholder(t)) { continue; }
+			if (STEP_FIELD.test(t) && groups.length) { groups[groups.length - 1].push(t); }
+			else { groups.push([t]); }
+		}
+		const steps = groups.map(typedStep);
+		// The Screenshot column proves the last check when no step names its own.
+		if (shot && !steps.some(st => st.evidence.length)) {
+			const last = steps.findLast(st => st.kind === 'verify') ?? steps[steps.length - 1];
+			last?.evidence.push({ href: shot.href, file: shot.label });
+		}
 		return {
 			scenarioHtml: inline(row['scenario'] ?? ''),
+			// Plain, for the lightbox caption and the screenshot's label.
+			scenario: plainText(row['scenario']),
 			resultHtml: inline(sentenceCase(ref.text)),
-			finding: ref.finding,
+			// A failed check names its finding even when the Result does not.
+			finding: ref.finding ?? steps.find(st => st.finding)?.finding ?? null,
 			shot,
+			steps,
 		};
 	});
 
-	const notExercised = (notExercisedTable?.rows ?? []).map(row => ({
+	const notExercised = (notExercisedTable?.rows ?? []).filter(row => !isPlaceholder(row['scenario'])).map(row => ({
 		scenarioHtml: inline(row['scenario'] ?? ''),
 		reasonHtml: inline(sentenceCase(row['reason'] ?? row._cells?.[1] ?? '')),
 	}));
+
+	// Whether the report wrote a Not exercised heading at all, so an empty one
+	// can say so rather than vanish.
+	const fromLedger = parseLedger(ledger);
+	const coverage = fromLedger && (fromLedger.exercised.length || fromLedger.notExercised.length)
+		? fromLedger
+		: { exercised, notExercised, notExercisedListed: notExercisedHeading !== -1 };
+
+	// A finding whose report wrote no Error output takes the errors its ledger
+	// checks logged, so the log a check cited reaches the card and the prompt.
+	for (const f of findings) {
+		if (f.errors.length) { continue; }
+		const logged = [...f.steps, ...coverage.exercised.flatMap(r => r.steps).filter(st => st.finding === f.n)]
+			.map(st => st.error).filter(Boolean);
+		// The finding's repro usually repeats the ledger step, Log and all.
+		const seen = new Set();
+		f.errors = logged.filter(e => !seen.has(`${e.source}\n${e.message}`) && seen.add(`${e.source}\n${e.message}`))
+			.map(withMetaHtml);
+	}
 
 	const runDetails = parseRunDetails(readDetails(lines, 'Run details'));
 	const verification = parseVerification(readDetails(lines, 'Verification details'));
@@ -819,19 +1305,16 @@ export function parseReport(markdown) {
 	return {
 		title,
 		chips,
+		pr,
 		leadHtml: lead ? inline(lead) : '',
 		scopeHtml: scope ? inline(scope) : '',
 		findings,
 		severityCounts,
 		findingCount,
-		coverage: { exercised, notExercised },
-		scenarios: {
-			exercised: exercised.length,
-			pass: exercised.filter(r => !r.finding).length,
-			issues: exercised.filter(r => r.finding).length,
-			notRun: notExercised.length,
-		},
+		coverage,
+		scenarios: scenarioCounts(coverage),
 		runDetails,
+		logs: fromLedger?.logs ?? [],
 		verification,
 		// The total's duration covers every pass. Falling back to the main pass
 		// only matters for a report written before the total carried one.

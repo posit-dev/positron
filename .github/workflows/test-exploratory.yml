@@ -21,10 +21,10 @@ on:
           - opus
           - sonnet
           - both
-      enable_gate:
-        description: "Skip the run if the change can't be tested in the app"
+      worthiness_check:
+        description: "Worthiness check"
         required: false
-        default: false
+        default: true
         type: boolean
   # `/test` (or `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
@@ -152,7 +152,7 @@ jobs:
   # runner first. One pass serves every matrix leg.
   worthiness:
     name: worthiness
-    if: ${{ inputs.enable_gate }}
+    if: ${{ inputs.worthiness_check }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -182,7 +182,7 @@ jobs:
           path: .harness
           sparse-checkout: |
             .github/actions
-            .claude/skills/exploratory-testing
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -223,7 +223,7 @@ jobs:
           # gate mode does not read the skill, but the harness copy is the one
           # this job means either way; leaving it to default would quietly point
           # at the branch under test the day gate mode does read it.
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
+          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/SKILL.md
           branch: ${{ inputs.ref || github.ref_name }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
@@ -370,7 +370,7 @@ jobs:
           path: .harness
           sparse-checkout: |
             .github/actions
-            .claude/skills/exploratory-testing
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -556,7 +556,7 @@ jobs:
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
+          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/SKILL.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
           branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
@@ -565,6 +565,8 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
+          # The report header's PR link. Empty on a dispatched run: no PR, no link.
+          pr-number: ${{ github.event.issue.number }}
 
       - name: Stage publishable run directory
         if: always()
@@ -576,6 +578,9 @@ jobs:
           if [ -d /tmp/exploratory-run ]; then
             cp -a /tmp/exploratory-run/. /tmp/exploratory-publish/
             rm -f /tmp/exploratory-publish/actions.log
+            # The raw log tree stays in the artifact: the page lists it unlinked,
+            # and the curated files beside it are what a reader opens.
+            rm -rf /tmp/exploratory-publish/logs/all
           fi
 
       - name: Upload run directory to S3
