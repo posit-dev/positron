@@ -707,6 +707,34 @@ test('parseReport keeps a step that carries a code block, and the steps after it
 	assert.match(f.observedHtml, /it broke/);
 });
 
+test('parseReport reads a heading inside a step block as source, not a section', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '| 2 | another | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro** -- starting state: a notebook open',
+		'',
+		'1. Add a markdown cell with this source:',
+		'   ```',
+		'   ## C13 styled div',
+		'   ### 2. not a finding',
+		'',
+		'   <div style="color: red">',
+		'   ```',
+		'2. Render the cell.',
+		'',
+		'**Observed:** it broke.',
+		'', '### Finding 2: another', '',
+		'**Observed:** also broke.',
+	].join('\n')));
+	// The `## ` line used to end Findings, leaving step 1 an empty block.
+	assert.equal(r.findings.length, 2);
+	const [f] = r.findings;
+	assert.equal(f.steps.length, 2);
+	assert.match(f.steps[0].blockHtml, /## C13 styled div\n### 2\. not a finding\n\n&lt;div style=/);
+	assert.match(f.observedHtml, /it broke/);
+});
+
 test('parseReport reads the preconditions line above or below the steps', () => {
 	const build = order => md([
 		'## Findings', '',

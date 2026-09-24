@@ -1020,6 +1020,18 @@ function scenarioCounts({ exercised, notExercised }) {
 	};
 }
 
+/** Which lines sit inside a fenced code block, fence lines included. */
+function fenceMask(lines) {
+	let fence = null;
+	return lines.map(line => {
+		const m = /^\s*(`{3,}|~{3,})/.exec(line);
+		if (m && !fence) { fence = m[1]; return true; }
+		// A closing fence carries no info string, so ```python inside stays open.
+		if (m && m[1][0] === fence?.[0] && m[1].length >= fence.length && !line.slice(m.index + m[0].length).trim()) { fence = null; return true; }
+		return fence !== null;
+	});
+}
+
 /**
  * Parses a report's markdown into the structure the template renders. Given
  * the run's ledger, Coverage and the Scenarios tile come from it instead of
@@ -1027,6 +1039,8 @@ function scenarioCounts({ exercised, notExercised }) {
  */
 export function parseReport(markdown, { ledger } = {}) {
 	const lines = String(markdown ?? '').split('\n');
+	// A `## ` line in a pasted cell is source, not a section.
+	const fenced = fenceMask(lines);
 
 	const titleIndex = lines.findIndex(l => l.startsWith('# '));
 	const rawTitle = titleIndex === -1 ? 'Exploratory test' : lines[titleIndex].slice(2).trim();
@@ -1037,7 +1051,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	// section: searching the whole document meant a report that omitted the line
 	// put backticks from some finding's body in the header instead.
 	const headerEnd = lines.findIndex((l, i) =>
-		i > titleIndex && (/^##\s/.test(l.trim()) || /^\*\*[^*]+:\*\*/.test(l.trim())));
+		i > titleIndex && !fenced[i] && (/^##\s/.test(l.trim()) || /^\*\*[^*]+:\*\*/.test(l.trim())));
 	const metaIndex = lines.findIndex((l, i) =>
 		i > titleIndex && (headerEnd === -1 || i < headerEnd) && l.trim().startsWith('`'));
 	const chips = metaIndex === -1
@@ -1047,7 +1061,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	// it becomes a link: nothing but a GitHub owner, repo and number gets through.
 	// Searched to the first section rather than the first label: written bold,
 	// the line is a label itself.
-	const sectionStart = lines.findIndex((l, i) => i > titleIndex && /^##\s/.test(l.trim()));
+	const sectionStart = lines.findIndex((l, i) => i > titleIndex && !fenced[i] && /^##\s/.test(l.trim()));
 	const prLine = lines.find((l, i) => i > titleIndex && (sectionStart === -1 || i < sectionStart)
 		&& /^(\*\*)?PR:/.test(l.trim()));
 	const prMatch = prLine && /^(?:\*\*)?PR:(?:\*\*)?\s*`?([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)#(\d+)`?\s*$/.exec(prLine.trim());
@@ -1055,7 +1069,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		? { number: Number(prMatch[3]), url: `https://github.com/${prMatch[1]}/${prMatch[2]}/pull/${prMatch[3]}` }
 		: undefined;
 
-	const firstSection = lines.findIndex(l => l.startsWith('## '));
+	const firstSection = lines.findIndex((l, i) => !fenced[i] && l.startsWith('## '));
 	const labels = new Map();
 	lines.forEach((line, i) => {
 		if (i > titleIndex && (firstSection === -1 || i < firstSection) && /^\*\*[^*]+:\*\*/.test(line.trim())) {
@@ -1088,7 +1102,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	const findingsStart = lines.findIndex(l => /^##\s+Findings\s*$/i.test(l.trim()));
 	const findingsEnd = findingsStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > findingsStart && /^##\s/.test(l.trim()));
+		: lines.findIndex((l, i) => i > findingsStart && !fenced[i] && /^##\s/.test(l.trim()));
 	const findingsLines = findingsStart === -1
 		? []
 		: lines.slice(findingsStart, findingsEnd === -1 ? lines.length : findingsEnd);
@@ -1098,7 +1112,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	const HEADING = /^###\s+(?:Finding\s+)?(\d+)\s*[.:)]?\s*(.*)$/i;
 	const starts = [];
 	findingsLines.forEach((line, i) => {
-		const m = HEADING.exec(line.trim());
+		const m = !fenced[findingsStart + i] && HEADING.exec(line.trim());
 		if (m) { starts.push({ i, n: Number(m[1]), claim: m[2].trim() }); }
 	});
 
@@ -1210,7 +1224,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	const coverageStart = lines.findIndex(l => /^##\s+Coverage\s*$/i.test(l.trim()));
 	const coverageEnd = coverageStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > coverageStart && (/^##\s/.test(l.trim()) || /^<details/.test(l.trim())));
+		: lines.findIndex((l, i) => i > coverageStart && !fenced[i] && (/^##\s/.test(l.trim()) || /^<details/.test(l.trim())));
 	const coverageTo = coverageEnd === -1 ? lines.length : coverageEnd;
 	const notExercisedHeading = coverageStart === -1
 		? -1
