@@ -152,7 +152,15 @@ jobs:
   # runner first. One pass serves every matrix leg.
   worthiness:
     name: worthiness
-    if: ${{ inputs.worthiness_check }}
+    needs: [membership]
+    # Runs on every /test (there is no input to turn it off there) and on a
+    # dispatch that leaves it on. Behind membership on a comment, because it
+    # checks out the PR and gives an agent a shell in it. always(): membership
+    # is skipped on dispatch.
+    if: >-
+      ${{ always() &&
+      ((github.event_name == 'workflow_dispatch' && inputs.worthiness_check) ||
+        needs.membership.outputs.ok == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -164,7 +172,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.ref_name }}
+          ref: ${{ inputs.ref || needs.membership.outputs.head_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -190,7 +198,7 @@ jobs:
         id: base
         shell: bash
         env:
-          BASE_REF: ${{ inputs.base || 'main' }}
+          BASE_REF: ${{ inputs.base || needs.membership.outputs.base_ref || 'main' }}
         run: |
           set -euo pipefail
           if ! git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
@@ -202,7 +210,9 @@ jobs:
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           {
             echo "diff_stat<<DIFFEOF"
-            git --no-pager diff "$BASE"...HEAD --stat
+            # Full paths: the default width elides the src/ or test/ prefix
+            # the gate most needs to see.
+            git --no-pager diff "$BASE"...HEAD --stat=1000
             echo "DIFFEOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -224,7 +234,7 @@ jobs:
           # this job means either way; leaving it to default would quietly point
           # at the branch under test the day gate mode does read it.
           skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/SKILL.md
-          branch: ${{ inputs.ref || github.ref_name }}
+          branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -615,7 +625,7 @@ jobs:
   # "running" with the truth.
   report:
     name: report
-    needs: [membership, ack, explore]
+    needs: [membership, worthiness, ack, explore]
     if: always() && needs.membership.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -660,27 +670,33 @@ jobs:
           model: ${{ needs.membership.outputs.model }}
           # Empty when ack could not post; comment mode then posts a new one.
           comment-id: ${{ needs.ack.outputs.comment_id }}
-          outcome: ${{ needs.explore.outputs.outcome }}
+          # A declined run never reaches explore; say so rather than "failed".
+          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
+          decline-reason: ${{ needs.worthiness.outputs.reason }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.explore.outputs.report_base_url }}
           pr-number: ${{ github.event.issue.number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.membership.outputs.head_sha }}
 
-      # rocket only when the agent finished on its own. A partial run (turn
-      # cap) and a hard failure both get confused.
+      # rocket only when the agent finished on its own, +1 when the gate
+      # declined. A partial run (turn cap) and a hard failure both get confused.
       - name: Finalize reaction
         if: needs.ack.outputs.reaction_id != ''
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
           REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
-          OUTCOME: ${{ needs.explore.outputs.outcome }}
+          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
         run: |
           gh api --method DELETE \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
             || echo "Failed to remove eyes reaction (non-fatal)"
-          if [ "$OUTCOME" = "complete" ]; then FINAL=rocket; else FINAL=confused; fi
+          case "$OUTCOME" in
+            complete) FINAL=rocket ;;
+            declined) FINAL=+1 ;;
+            *) FINAL=confused ;;
+          esac
           gh api --method POST \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
             -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"

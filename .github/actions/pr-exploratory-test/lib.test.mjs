@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, modelDisplayName, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine } from './lib.mjs';
+import { pickReport, buildCostRecord, modelDisplayName, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -437,4 +437,38 @@ test('withPrLine stamps the PR under the meta line, once, and only for a number'
 	assert.equal(withPrLine(stamped, 'posit-dev/positron', '1'), stamped);
 	assert.equal(withPrLine('# Exploratory test: x\n\n## Findings\n\n`code`\n', 'posit-dev/positron', '1'), '# Exploratory test: x\n\n## Findings\n\n`code`\n');
 	assert.equal(withPrLine(null, 'posit-dev/positron', '1'), null);
+});
+
+test('isProductPath rejects tests, docs and harness files', () => {
+	for (const p of [
+		'test/e2e/pages/dataConnections.ts',
+		'test/e2e/tests/data-connections/driver-logging.test.ts',
+		'src/vs/workbench/contrib/x/test/browser/row.vitest.tsx',
+		'extensions/positron-r/src/test/foo.ts',
+		'.github/workflows/test-exploratory.yml',
+		'.claude/skills/x/SKILL.md',
+		'README.md',
+		'docs/design/spec.md',
+	]) {
+		assert.equal(isProductPath(p), false, p);
+	}
+});
+
+test('isProductPath keeps source, styles and config', () => {
+	for (const p of [
+		'src/vs/workbench/contrib/x/browser/row.tsx',
+		'src/vs/workbench/contrib/x/browser/dialog.css',
+		'extensions/positron-r/package.json',
+		'src/vs/workbench/contrib/testing/browser/testingView.ts',
+	]) {
+		assert.equal(isProductPath(p), true, p);
+	}
+});
+
+test('renderPrComment says a declined run was not run, and why', () => {
+	const body = renderPrComment({ state: 'declined', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason: 'only tests changed' });
+	assert.ok(body.startsWith(COMMENT_MARKER));
+	assert.match(body, /not run/);
+	assert.match(body, /only tests changed/);
+	assert.doesNotMatch(body, /failed before/);
 });
