@@ -61,9 +61,7 @@ const PROFESSIONAL = `
 	--dash: #D9D5CB;
 	--chip-border: #DAD6CD;
 	--cv-chev: #C4C0B6;
-	--ref: #767B82;
-	--ref-hover: #2E6B5E;
-	--em-dash: #A3A7AD;
+	--st-ev: #8A8F96;
 
 	--label-color: var(--muted);
 	--label-ls: 0.1em;
@@ -174,9 +172,7 @@ const PARTY = `
 	--dash: #4A3F7A;
 	--chip-border: #5B4F92;
 	--cv-chev: #5B4F92;
-	--ref: #948DBF;
-	--ref-hover: #5CE1E6;
-	--em-dash: #6A61A0;
+	--st-ev: #8A82B8;
 
 	--label-color: #FF6AC1;
 	--label-ls: 0.14em;
@@ -359,7 +355,7 @@ a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
 .findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 110px}
-.coverage-grid{grid-template-columns:minmax(0,5fr) minmax(0,7fr) 200px 12px}
+.coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px}
 .right{text-align:right}
 
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
@@ -546,7 +542,7 @@ span.rt-file{color:var(--body)}
 /* Indented by the dot plus the gap, so the label starts where the text does. */
 .cov-head-scenario{padding-left:21px}
 .cov-result{color:var(--body)}
-.cov-notrun{grid-column:span 3;color:var(--muted)}
+.cov-notrun{grid-column:span 2;color:var(--muted)}
 .cov-nr{font-weight:500;color:var(--body)}
 /* A passing row is its own disclosure: the whole row toggles its steps. */
 .cv>summary{border-bottom:0;list-style:none;cursor:pointer;transition:background-color .15s ease}
@@ -561,9 +557,12 @@ span.rt-file{color:var(--body)}
 .cv-steps ol{margin:0;padding-left:20px;font-size:13px;line-height:1.6;color:var(--body)}
 .cv-steps li{margin:0 0 2px}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
-.ref{font-family:var(--mono);font-size:11.5px;color:var(--ref)}
-a.ref:hover{color:var(--ref-hover)}
-.ref.none{color:var(--em-dash);font-size:12px;font-family:var(--sans)}
+.cv-steps .st-sep{color:var(--sep)}
+.cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
+.st-ev{color:var(--st-ev);white-space:nowrap;transition:color .15s ease}
+.st-ev svg{vertical-align:-2px}
+.st-ev:hover{color:var(--link);text-decoration:none}
+.st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
 
 /* Collapsible sections */
 .folds{display:flex;flex-direction:column;border-top:1px solid var(--border)}

@@ -31,6 +31,8 @@ const ICON = {
 	// The collapsed rows' and the Coverage rows' disclosure: 12px, right-pointing.
 	disclose: cls => `<svg class="${cls}" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 4.5-4.5 4.5"></path></svg>`,
 	chevron: '<svg class="chev" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 4.5-4.5 4.5"></path></svg>',
+	// A picture frame: "this step has a screenshot".
+	photo: '<svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><rect x="2" y="3" width="12" height="10" rx="1.5"></rect><path d="M2.5 11l3.5-3.5 3 3 2-2 2.5 2.5"></path></svg>',
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
 	up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5"></path><path d="M4 7.5l4-4 4 4"></path></svg>',
 	briefcase: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M3 12.5h18"></path><path d="M11 12.5v1.5h2v-1.5"></path></svg>',
@@ -517,9 +519,15 @@ function renderCoverage(report) {
 	const total = exercised.length + notExercised.length;
 	const hidden = Math.max(0, passes.length - COVERAGE_PASSES_SHOWN);
 
-	const reference = row => row.shot
-		? `<a class="ref" href="${escapeHtml(row.shot.href)}" target="_blank" rel="noreferrer">${escapeHtml(row.shot.label)}</a>`
-		: '<span class="ref none">&mdash;</span>';
+	// A passing row's screenshot proves its verify step, so it hangs off the last
+	// step in the expanded row rather than a column. It joins the lightbox as a
+	// group of one.
+	const photo = (row, i) => {
+		const name = row.scenario;
+		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="${escapeHtml(row.shot.href)}" data-lb="cv-${i}"`
+			+ ` data-caption="${escapeHtml(name)}" data-file="${escapeHtml(row.shot.label)}"`
+			+ ` aria-label="Screenshot for this step: ${escapeHtml(name)}">${ICON.photo}</a>`;
+	};
 	// The dot lives in the scenario cell rather than a column of its own, so it
 	// reads as that scenario's status instead of as a first field.
 	const scenario = (row, dot) => '<span class="cov-scenario">'
@@ -531,23 +539,26 @@ function renderCoverage(report) {
 	const issueRows = issues.map(row => '<div class="row coverage-grid cf-r cf-i">'
 		+ scenario(row, 'issue')
 		+ `<span class="cov-result"><a href="#f${row.finding}">Finding ${row.finding}</a>${row.resultHtml ? ` &middot; ${row.resultHtml}` : ''}</span>`
-		+ reference(row)
 		+ '<span></span></div>');
 
 	// A passing row opens on the steps that exercised it.
 	const passRows = passes.map((row, i) => {
 		const cls = `cf-r cf-p${i < COVERAGE_PASSES_SHOWN ? '' : ' cov-extra'}`;
-		const cells = scenario(row, 'pass') + `<span class="cov-result">${row.resultHtml}</span>` + reference(row);
-		if (row.steps.length) {
+		const cells = scenario(row, 'pass') + `<span class="cov-result">${row.resultHtml}</span>`;
+		// With no steps to hang it on, the screenshot is the whole expanded row.
+		const body = row.steps.length
+			? `<ol>${row.steps.map((t, j) => `<li>${t}${row.shot && j === row.steps.length - 1 ? photo(row, i) : ''}</li>`).join('')}</ol>`
+			: row.shot ? `<p class="cv-shot">Screenshot${photo(row, i)}</p>` : '';
+		if (body) {
 			return `<details class="cv ${cls}"><summary class="row coverage-grid">${cells}`
 				+ `<span class="cv-chev-cell">${ICON.disclose('cv-chev')}</span></summary>`
-				+ `<div class="cv-steps"><ol>${row.steps.map(t => `<li>${t}</li>`).join('')}</ol></div></details>`;
+				+ `<div class="cv-steps">${body}</div></details>`;
 		}
 		return `<div class="row coverage-grid ${cls}">${cells}<span></span></div>`;
 	});
 
 	// Not run has no result, so its dot is neutral and its reason takes the
-	// Result, Screenshot and chevron columns.
+	// Result and chevron columns.
 	const notRows = notExercised.map(row => '<div class="row coverage-grid cf-r cf-n">'
 		+ scenario(row, 'none')
 		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; ${row.reasonHtml}</span>`
@@ -580,7 +591,7 @@ ${report.scopeHtml ? `<p class="card-summary">${report.scopeHtml}</p>` : ''}
 ${radios}
 <div class="cf-tabs">${tabs}</div>
 <div class="panel cf-card">
-<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span>Screenshot</span><span></span></div>
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span></span></div>
 <div class="cov-rows">
 ${hidden ? `<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all ${total} scenarios">\n` : ''}${[...issueRows, ...passRows, ...notRows].join('\n')}
 ${hidden ? `<label for="cov-all" class="cov-more"><span class="cov-all">Show all ${total} scenarios</span><span class="cov-less">Show fewer</span>${ICON.down}</label>` : ''}
@@ -679,7 +690,7 @@ var lb=document.getElementById('lightbox');
 if(lb){
 var img=lb.querySelector('img'),cap=lb.querySelector('.lb-cap'),file=lb.querySelector('.lb-file');
 var closeBtn=lb.querySelector('.lb-close'),backdrop=lb.querySelector('.lb-backdrop');
-var shots=Array.prototype.slice.call(document.querySelectorAll('a.shot'));
+var shots=Array.prototype.slice.call(document.querySelectorAll('a.shot,a.st-ev'));
 var group=[],at=0,opener=null;
 function show(i){at=(i+group.length)%group.length;var a=group[at];
 img.src=a.getAttribute('href');img.alt=a.dataset.caption||'';

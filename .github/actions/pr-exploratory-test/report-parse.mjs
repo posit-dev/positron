@@ -946,6 +946,8 @@ export function parseReport(markdown) {
 			.filter(t => t && !isPlaceholder(t));
 		return {
 			scenarioHtml: inline(row['scenario'] ?? ''),
+			// Plain, for the lightbox caption and the screenshot's label.
+			scenario: String(row['scenario'] ?? '').replace(/`/g, '').trim(),
 			resultHtml: inline(sentenceCase(ref.text)),
 			finding: ref.finding,
 			shot,

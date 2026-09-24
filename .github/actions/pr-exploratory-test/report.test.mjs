@@ -1022,7 +1022,9 @@ const RICH = md([
 	'|---|---|---|---|',
 	'| pandas frame | everything loads | | 1. Build `df`.<br>2. Run `%view df`. |',
 	'| polars frame | same as pandas | | |',
-	'| slow column | fails 3/3 (finding 1) | | 1. Should not render. |',
+	'| arrow frame | same as pandas | [shots/arrow.png](https://cdn.example/shots/arrow.png) | 1. Build `tbl`.<br>2. Verify it loads. |',
+	'| duckdb frame | same as pandas | [shots/duck.png](https://cdn.example/shots/duck.png) | |',
+	'| slow column | fails 3/3 (finding 1) | [shots/slow.png](https://cdn.example/shots/slow.png) | 1. Should not render. |',
 	'',
 	'### Not exercised',
 	'',
@@ -1153,7 +1155,21 @@ test('renderReportHtml opens a passing coverage row on its steps, not a finding 
 	// The finding link leads, and the row does not expand.
 	assert.match(cov, /<div class="row coverage-grid cf-r cf-i"><span class="cov-scenario"><span class="cov-dot issue"[^>]*><\/span><span>slow column<\/span><\/span><span class="cov-result"><a href="#f1">Finding 1<\/a> &middot; Fails 3\/3<\/span>/);
 	assert.doesNotMatch(cov, /Should not render/);
-	assert.match(cov, /<span class="cov-head-scenario">Scenario<\/span><span>Result<\/span><span>Screenshot<\/span><span><\/span><\/div>/);
+	assert.match(cov, /<span class="cov-head-scenario">Scenario<\/span><span>Result<\/span><span><\/span><\/div>/);
+});
+
+test('renderReportHtml puts a passing row\'s screenshot on its verify step, not in a column', () => {
+	const html = renderReportHtml(RICH);
+	const cov = html.slice(html.indexOf('id="coverage"'), html.indexOf('</section>', html.indexOf('id="coverage"')));
+	assert.doesNotMatch(cov, /class="ref|Screenshot<\/span>/);
+	// The finding's screenshot is on its card, so the row does not link it.
+	assert.doesNotMatch(cov, /slow\.png/);
+	// The icon trails the last step and opens the lightbox as a group of one.
+	assert.match(cov, /<li>Verify it loads\. <span class="st-sep" aria-hidden="true">&middot;<\/span> <a class="st-ev" href="https:\/\/cdn\.example\/shots\/arrow\.png" data-lb="cv-\d+" data-caption="arrow frame" data-file="arrow\.png" aria-label="Screenshot for this step: arrow frame"><svg/);
+	assert.doesNotMatch(cov, /Build <code>tbl<\/code>\. <span class="st-sep"/);
+	// With no steps, the screenshot alone makes the row expandable.
+	assert.match(cov, /<span>duckdb frame<\/span>[\s\S]*?<div class="cv-steps"><p class="cv-shot">Screenshot <span class="st-sep"[^>]*>&middot;<\/span> <a class="st-ev" href="https:\/\/cdn\.example\/shots\/duck\.png"/);
+	assert.match(html, /querySelectorAll\('a\.shot,a\.st-ev'\)/);
 });
 
 test('renderReportHtml keeps Show all working over expandable rows', () => {
@@ -1168,10 +1184,10 @@ test('renderReportHtml keeps Show all working over expandable rows', () => {
 	assert.match(body, /<div class="cov-rows">\n<input type="checkbox" id="cov-all" class="cov-toggle"[^>]*>\n<details class="cv cf-r cf-p">/);
 });
 
-test('report CSS lines up every coverage row on one four-column grid', () => {
+test('report CSS lines up every coverage row on one Scenario | Result | chevron grid', () => {
 	const html = renderReportHtml(RICH);
-	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,5fr\) minmax\(0,7fr\) 200px 12px\}/);
-	assert.match(html, /\.cov-notrun\{grid-column:span 3;/);
+	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,40fr\) minmax\(0,60fr\) 12px\}/);
+	assert.match(html, /\.cov-notrun\{grid-column:span 2;/);
 	assert.match(html, /\.cov-scenario\{display:flex;align-items:flex-start;gap:13px;/);
 	assert.match(html, /\.cov-head-scenario\{padding-left:21px\}/);
 	// Not-run dots match the others now.
