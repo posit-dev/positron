@@ -278,6 +278,8 @@ img{max-width:100%}
 .eyebrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;color:var(--muted);padding-right:80px;min-height:36px}
 .eyebrow .kicker{text-transform:uppercase;letter-spacing:var(--eyebrow-ls);font-weight:var(--eyebrow-weight);color:var(--eyebrow-color);font-family:var(--label-font)}
 .eyebrow .bullet{width:3px;height:3px;border-radius:50%;background:var(--sep)}
+.pr-link{font-weight:500;white-space:nowrap}
+.pr-link svg{margin-left:3px;vertical-align:0}
 h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line-height:1.22;letter-spacing:-0.01em;color:var(--ink);max-width:var(--measure)}
 .lead{font-size:16px;line-height:1.6;color:var(--body);max-width:var(--measure)}
 .lead strong{color:var(--ink);font-weight:600}

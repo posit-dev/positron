@@ -106,6 +106,8 @@ The shape, and only this shape:
 
 `<branch>` | `<short sha>`
 
+PR: <owner>/<repo>#<number>
+
 **Result:** <one sentence: what the change now does for a user>
 **Tested:** <what you exercised, in a phrase>, <N> scenarios
 **Not exercised:** <surfaces the change touches that you did not reach, or `none`>
@@ -138,6 +140,11 @@ The shape, and only this shape:
 One `#` heading, and it is the report. `Result` and `Not exercised` are bold
 labels on their own lines rather than headings, because two lines do not need a
 section competing with `## Findings`.
+
+The `PR:` line is there only when the run was for a pull request, and the
+report header links it. Take it from the request (a PR number or URL), or from
+`gh pr view --json number,url` on the branch under test. When neither gives
+one, leave the line out: there is no placeholder for "no PR".
 
 `Result` is one sentence saying what the change now does for a user, in the
 terms they would use. Write it as a statement, never as an answer: the reader

@@ -348,3 +348,22 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, mod
 	return `${COMMENT_MARKER}\n### ${title} on ${target}: no report\n\n${reason} ${run}\n`;
 }
 
+/**
+ * Stamps `PR: <repo>#<n>` under the report's `<branch>` | `<sha>` line, which
+ * is where the renderer reads it for the header link. The agent is not asked
+ * to write it: CI knows the PR from the event, the agent would only copy it.
+ * A report that already names one, or has no meta line, is left alone.
+ */
+export function withPrLine(markdown, repo, number) {
+	if (!markdown || !repo || !/^\d+$/.test(String(number ?? '')) || /^(\*\*)?PR:/m.test(markdown)) {
+		return markdown;
+	}
+	const lines = markdown.split('\n');
+	const title = lines.findIndex(l => l.startsWith('# '));
+	const meta = lines.findIndex((l, i) => i > title && title !== -1 && l.trim().startsWith('`'));
+	if (meta === -1 || lines.slice(title + 1, meta).some(l => l.startsWith('#'))) {
+		return markdown;
+	}
+	lines.splice(meta + 1, 0, '', `PR: ${repo}#${number}`);
+	return lines.join('\n');
+}

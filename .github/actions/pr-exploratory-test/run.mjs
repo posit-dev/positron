@@ -10,7 +10,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderReportHtml } from './html.mjs';
-import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, runOutcome } from './lib.mjs';
+import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -292,7 +292,8 @@ async function main() {
 		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: verifyCost },
 	], MAX_TURNS);
-	const report = resolveReport(fileReport, assistantMessages);
+	// Only a /test run has a PR in its event; a dispatched run has none.
+	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
 	// Read by the workflow to choose the final reaction and the PR comment.
 	// Written before anything below can exit, so a run with no report still
@@ -310,8 +311,9 @@ async function main() {
 		// The report opens with its own "# Exploratory test: ..." heading, so a
 		// wrapper heading here would render two titles. The partial and
 		// no-report branches below still need one: they have no report to
-		// supply it.
-		if (!(typeof fileReport === 'string' && fileReport.trim().length > 0)) {
+		// supply it. Written when the reply was the only copy, or the PR line
+		// changed it.
+		if (report !== fileReport) {
 			writeFileSync(join(WORK_DIR, 'report.md'), report);
 		}
 

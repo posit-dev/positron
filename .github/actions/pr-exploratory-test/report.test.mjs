@@ -1225,3 +1225,27 @@ test('renderReportHtml fences an error in the prompt so a ``` line inside cannot
 	const text = promptText(renderReportHtml(src), 1);
 	assert.match(text, /\n````\nError: bad template\n```\ntail\n````/);
 });
+
+test('renderReportHtml links the PR in the header and the prompt, only when there is one', () => {
+	const withPr = RICH.replace('`branch/name` | `abc1234`\n', '`branch/name` | `abc1234`\n\nPR: posit-dev/positron#1234\n');
+	const html = renderReportHtml(withPr);
+	assert.match(html, /<span class="kicker">Exploratory test<\/span><span class="bullet"><\/span><a class="pr-link" href="https:\/\/github\.com\/posit-dev\/positron\/pull\/1234" target="_blank" rel="noopener" title="Open the pull request on GitHub">PR #1234<svg[^>]*>[\s\S]*?<\/svg><\/a><code>branch\/name<\/code><code>abc1234<\/code><\/div>/);
+	assert.match(promptText(html, 1), /### Context\nPR: https:\/\/github\.com\/posit-dev\/positron\/pull\/1234\nBranch: branch\/name\n/);
+	assert.match(html, /\.pr-link\{font-weight:500;white-space:nowrap\}/);
+
+	// No PR: nothing in its place, in the header or the prompt.
+	const plain = renderReportHtml(RICH);
+	assert.doesNotMatch(plain.slice(plain.indexOf('<body')), /pr-link|PR #|Local run/);
+	assert.match(promptText(plain, 1), /### Context\nBranch: branch\/name\n/);
+});
+
+test('parseReport only takes a PR line that is a real owner/repo#number', () => {
+	const pr = line => parseReport(md().replace('`abc1234`\n', `\`abc1234\`\n\n${line}\n`)).pr;
+	assert.deepEqual(pr('PR: posit-dev/positron#16188'), { number: 16188, url: 'https://github.com/posit-dev/positron/pull/16188' });
+	assert.deepEqual(pr('**PR:** `posit-dev/positron#7`'), { number: 7, url: 'https://github.com/posit-dev/positron/pull/7' });
+	assert.equal(pr('PR: javascript:alert(1)#1'), undefined);
+	assert.equal(pr('PR: evil.com/x/y#1'), undefined);
+	assert.equal(pr('PR: none'), undefined);
+	// A PR mentioned in a finding is not the report's PR.
+	assert.equal(parseReport(md('## Findings', '', 'PR: posit-dev/positron#1')).pr, undefined);
+});

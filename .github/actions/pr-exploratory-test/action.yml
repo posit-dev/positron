@@ -69,7 +69,7 @@ inputs:
     required: false
     default: ""
   pr-number:
-    description: "Comment mode: the PR to comment on"
+    description: "Comment mode: the PR to comment on. Explore mode: the PR the report header links to"
     required: false
     default: ""
   github-token:

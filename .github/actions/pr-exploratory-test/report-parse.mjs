@@ -761,6 +761,17 @@ export function parseReport(markdown) {
 	const chips = metaIndex === -1
 		? []
 		: [...lines[metaIndex].matchAll(/`([^`]+)`/g)].map(m => m[1]);
+	// `PR: <owner>/<repo>#<n>`, only when the run was for one. Strict, because
+	// it becomes a link: nothing but a GitHub owner, repo and number gets through.
+	// Searched to the first section rather than the first label: written bold,
+	// the line is a label itself.
+	const sectionStart = lines.findIndex((l, i) => i > titleIndex && /^##\s/.test(l.trim()));
+	const prLine = lines.find((l, i) => i > titleIndex && (sectionStart === -1 || i < sectionStart)
+		&& /^(\*\*)?PR:/.test(l.trim()));
+	const prMatch = prLine && /^(?:\*\*)?PR:(?:\*\*)?\s*`?([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)#(\d+)`?\s*$/.exec(prLine.trim());
+	const pr = prMatch
+		? { number: Number(prMatch[3]), url: `https://github.com/${prMatch[1]}/${prMatch[2]}/pull/${prMatch[3]}` }
+		: undefined;
 
 	const firstSection = lines.findIndex(l => l.startsWith('## '));
 	const labels = new Map();
@@ -998,6 +1009,7 @@ export function parseReport(markdown) {
 	return {
 		title,
 		chips,
+		pr,
 		leadHtml: lead ? inline(lead) : '',
 		scopeHtml: scope ? inline(scope) : '',
 		findings,

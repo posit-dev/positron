@@ -33,6 +33,8 @@ const ICON = {
 	chevron: '<svg class="chev" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 4.5-4.5 4.5"></path></svg>',
 	// A picture frame: "this step has a screenshot".
 	photo: '<svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><rect x="2" y="3" width="12" height="10" rx="1.5"></rect><path d="M2.5 11l3.5-3.5 3 3 2-2 2.5 2.5"></path></svg>',
+	// Leaves the report.
+	external: '<svg aria-hidden="true" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h6.5V10"></path><path d="M12.5 3.5L4 12"></path></svg>',
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
 	up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5"></path><path d="M4 7.5l4-4 4 4"></path></svg>',
 	briefcase: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M3 12.5h18"></path><path d="M11 12.5v1.5h2v-1.5"></path></svg>',
@@ -330,7 +332,7 @@ export function buildAgentPrompt(f, report, options = {}) {
 		].filter(Boolean).join('\n'));
 	}
 	const [branch, sha] = report.chips;
-	section('Context', [branch && `Branch: ${branch}`, sha && `Commit: ${sha}`, options.diff && `Diff: ${options.diff}`]
+	section('Context', [report.pr && `PR: ${report.pr.url}`, branch && `Branch: ${branch}`, sha && `Commit: ${sha}`, options.diff && `Diff: ${options.diff}`]
 		.filter(Boolean).join('\n'));
 	out.push('Please investigate this finding using the repository and the evidence above.');
 	return out.join('\n');
@@ -752,7 +754,12 @@ export function renderReportHtml(markdown, options = {}) {
 	// blocks and no script. `base` makes relative evidence paths absolute, and
 	// `diff` is the `<base>...<head>` range the prompt's Context names.
 	const prompts = options.agentPrompts !== false && report.findings.length > 0;
-	const chips = report.chips.map(c => `<code>${escapeHtml(c)}</code>`).join('');
+	// The PR leads the meta line and is its only link: the branch and commit
+	// stay plain. A run with no PR shows nothing in its place.
+	const prLink = report.pr
+		? `<a class="pr-link" href="${escapeHtml(report.pr.url)}" target="_blank" rel="noopener" title="Open the pull request on GitHub">PR #${report.pr.number}${ICON.external}</a>`
+		: '';
+	const chips = prLink + report.chips.map(c => `<code>${escapeHtml(c)}</code>`).join('');
 
 	return `<!DOCTYPE html>
 <html lang="en" data-theme="professional">

@@ -565,6 +565,8 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
+          # The report header's PR link. Empty on a dispatched run: no PR, no link.
+          pr-number: ${{ github.event.issue.number }}
 
       - name: Stage publishable run directory
         if: always()
