@@ -15,7 +15,7 @@ import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShot
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
-const SKILL_PATH = mustEnv('SKILL_PATH');
+const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
 const BRANCH = mustEnv('BRANCH');
@@ -57,8 +57,7 @@ function mustEnv(name) {
 // REPORT_BASE_URL never puts an unusable "published at ``" sentence into the
 // prompt (see buildShotsBaseUrl in lib.mjs).
 const CI_OVERRIDES = [
-	'**You are the tester.** Ignore "Run it in a subagent". Do not delegate; do the exploring yourself.',
-	`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
+		`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
 	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
 	`**Keep the logs in \`${WORK_DIR}/logs/\`.** Follow the skill's Logs section for the pre-launched instance and any you launch. The pre-launched instance's run directory is the only one under \`/tmp/positron-dev-launch/\` when you start, so note it before you launch another. Copy an instance's logs before you stop it: \`stop.sh\` takes its run directory with it. A finding whose log was deleted cannot be checked by the person reading the report.`,
 	'**Do not render the report.** Skip the skill\'s `render.mjs` step; the workflow renders `index.html` itself once verification has been added.',
@@ -192,7 +191,7 @@ async function verifyReport() {
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
 
-	const systemPrompt = readFileSync(SKILL_PATH, 'utf8') + CI_TAIL;
+	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 
 	const userPrompt = [
 		'# Brief',

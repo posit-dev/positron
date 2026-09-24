@@ -233,7 +233,7 @@ jobs:
           # gate mode does not read the skill, but the harness copy is the one
           # this job means either way; leaving it to default would quietly point
           # at the branch under test the day gate mode does read it.
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/SKILL.md
+          explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
           branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
@@ -568,7 +568,7 @@ jobs:
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/SKILL.md
+          explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
           branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
