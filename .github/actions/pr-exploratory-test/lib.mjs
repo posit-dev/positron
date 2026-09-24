@@ -272,6 +272,18 @@ export function isProductPath(path) {
 }
 
 /**
+ * The step summary's first line: what was tested, so a run is identifiable
+ * without opening its report. The PR part is left off when there is none.
+ */
+export function renderSummaryTarget(branch, repo, number) {
+	const parts = branch ? [`\`${branch}\``] : [];
+	if (repo && /^\d+$/.test(String(number ?? ''))) {
+		parts.push(`PR [#${number}](https://github.com/${repo}/pull/${number})`);
+	}
+	return parts.length ? `${parts.join(' · ')}\n\n` : '';
+}
+
+/**
  * Renders the job's step summary.
  *
  * The whole report used to be pasted here, which made a reviewer scroll a

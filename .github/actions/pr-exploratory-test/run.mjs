@@ -11,7 +11,7 @@ import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } fr
 import { join } from 'node:path';
 import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, runOutcome } from './lib.mjs';
+import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -293,7 +293,7 @@ async function main() {
 		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: verifyCost },
 	], MAX_TURNS);
-	// Only a /test run has a PR in its event; a dispatched run has none.
+	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
 	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
 	// Read by the workflow to choose the final reaction and the PR comment.
@@ -388,7 +388,7 @@ async function main() {
 	}
 
 	if (STEP_SUMMARY) {
-		appendFileSync(STEP_SUMMARY, summary);
+		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER) + summary);
 	}
 	// The full report still goes to the action log. It is the one copy that
 	// survives an artifact upload or a CDN publish that did not happen.

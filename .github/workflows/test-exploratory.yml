@@ -563,6 +563,28 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
+      # A dispatched run has no PR in its event. Find the ref's open PR so the
+      # summary and report can link it; none found just means no link.
+      - name: Find the ref's PR
+        id: pr
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        shell: bash
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          node -e '
+            const [owner] = process.env.GITHUB_REPOSITORY.split("/");
+            const q = new URLSearchParams({ head: `${owner}:${process.env.REF}`, state: "open" });
+            fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/pulls?${q}`, {
+              headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json" },
+            }).then(r => r.json()).then(prs => {
+              const n = Array.isArray(prs) && prs[0]?.number;
+              console.log(n ? `PR #${n}` : "no open PR");
+              if (n) require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `number=${n}\n`);
+            });
+          '
+
       - name: Explore
         id: explore
         uses: ./.harness/.github/actions/pr-exploratory-test
@@ -577,8 +599,8 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
-          # The report header's PR link. Empty on a dispatched run: no PR, no link.
-          pr-number: ${{ github.event.issue.number }}
+          # The PR link in the summary and the report header. No PR, no link.
+          pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
 
       - name: Stage publishable run directory
         if: always()

@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -462,4 +462,14 @@ test('renderPrComment says a declined run was not run, and why', () => {
 	assert.match(body, /not run/);
 	assert.match(body, /only tests changed/);
 	assert.doesNotMatch(body, /failed before/);
+});
+
+test('renderSummaryTarget names the branch and links the PR', () => {
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', '12'), '`fix/x` · PR [#12](https://github.com/o/r/pull/12)\n\n');
+});
+
+test('renderSummaryTarget leaves the PR off when there is none', () => {
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', ''), '`fix/x`\n\n');
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', undefined), '`fix/x`\n\n');
+	assert.equal(renderSummaryTarget('', 'o/r', ''), '');
 });
