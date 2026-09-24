@@ -78,7 +78,7 @@ const PROFESSIONAL = `
 	--label-font: var(--sans);
 	--label-weight: 600;
 	--eyebrow-ls: 0.12em;
-	--eyebrow-color: var(--link);
+	--eyebrow-color: var(--ink);
 	--eyebrow-weight: 600;
 
 	--num-color: var(--ink);

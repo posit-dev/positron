@@ -1207,12 +1207,13 @@ test('report CSS filters rows by the checked tab and keeps Show all to All', () 
 	assert.match(html, /\.cov-rows\{position:relative;margin-bottom:-1px;font-size:14px;line-height:1\.5\}/);
 });
 
-test('report CSS gives Professional a teal accent and leaves Party and the Run bar alone', () => {
+test('report CSS gives Professional a teal accent with an ink kicker, and leaves Party and the Run bar alone', () => {
 	const html = renderReportHtml(RICH);
 	assert.doesNotMatch(html, /#2F5F8A|#1E4466/i);
 	assert.match(html, /--link: #2E6B5E;\n\t--link-hover: #1F5046;/);
 	assert.match(html, /--focus: #2E6B5E;/);
-	assert.match(html, /--eyebrow-color: var\(--link\);/);
+	assert.match(html, /--eyebrow-color: var\(--ink\);/);
+	assert.match(html, /--eyebrow-color: #FF6AC1;/);
 	assert.match(html, /--link: #5CE1E6;/);
 	assert.match(html, /--stage-1: #5E646C;/);
 });
