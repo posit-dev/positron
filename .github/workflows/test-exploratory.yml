@@ -22,9 +22,9 @@ on:
           - sonnet
           - both
       enable_gate:
-        description: "Skip the run if the change can't be tested in the app"
+        description: "Worthiness check"
         required: false
-        default: false
+        default: true
         type: boolean
   # `/test` (or `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
