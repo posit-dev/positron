@@ -60,9 +60,9 @@ a cited mechanism, not reached because nothing else was proven.
   or in the two attempts' logs. For contention or infrastructure: the workbench
   never came up, an OOM or network error in the logs, a concurrent worker's
   teardown in the timeline.
-- **Neither "passed on retry" nor a `:soft-fail` tag is a mechanism.** Both only
-  say the test is known unstable -- which a latent product bug also produces.
-  They are context; name and support the race, contention, or isolation anyway.
+- **"Passed on retry" is not a mechanism.** It only says the test is known
+  unstable -- which a latent product bug also produces. It is context; name and
+  support the race, contention, or isolation anyway.
 - **When no dismissal is supported and the locator-drift decision does not
   resolve to a stale selector**, the residual is a *suspected product
   regression* -- not "flaky." A safety-biased default and a leading hypothesis,

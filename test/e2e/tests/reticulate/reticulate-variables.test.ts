@@ -13,7 +13,7 @@ test.use({
 // RETICULATE_PYTHON to the installed python path
 
 test.describe('Reticulate - Variables pane support', {
-	tag: [tags.RETICULATE, tags.WEB, tags.SOFT_FAIL],
+	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
 	test('R - Verify Reticulate formats variables in the Variables pane', async function ({ app, sessions, logger }) {
 		// Reticulate relies on some Positron internals to format variables in the Variables pane.

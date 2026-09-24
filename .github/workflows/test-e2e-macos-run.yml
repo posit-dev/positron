@@ -525,7 +525,7 @@ jobs:
             exit 1
           fi
 
-          node scripts/check-soft-fail-failures.js "$JSON_REPORT" --no-soft-fail
+          node scripts/check-e2e-failures.js "$JSON_REPORT"
 
           # Fail if we're missing reports from any shards (even if all available tests passed)
           if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then

@@ -38,7 +38,7 @@ categorize_tags() {
     elif [[ "$tag" == "@:performance" ]]; then
         echo "performance"
     # Special tags
-    elif [[ "$tag" == "@:soft-fail" ]] || [[ "$tag" == "@:critical" ]]; then
+    elif [[ "$tag" == "@:critical" ]]; then
         echo "special"
     # Everything else is a feature tag
     else
@@ -108,7 +108,6 @@ output_markdown() {
     echo "- PRs run Linux/Electron tests by default"
     echo "- Add platform tags to enable additional platforms"
     echo "- \`@:critical\` tag always runs on all PRs"
-    echo "- \`@:soft-fail\` tests won't fail merge to main"
 
     # Clean up temp files
     rm -f "$feature_tags" "$performance_tags" "$platform_tags" "$special_tags"
