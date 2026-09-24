@@ -109,6 +109,9 @@ const PROFESSIONAL = `
 	--tip-border: #E7E4DC;
 	--tip-text: #3D4148;
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
+	--code-blk-bg: #F1EFEA;
+	--code-blk-border: transparent;
+	--code-cp-hover-bg: rgba(28,31,35,.06);
 	--cp-rest: #C4C0B6;
 	--cp-hover-bg: #F6F5F1;
 
@@ -230,6 +233,9 @@ const PARTY = `
 	--tip-border: #5B4F92;
 	--tip-text: #F5F1FF;
 	--tip-shadow: none;
+	--code-blk-bg: #19132F;
+	--code-blk-border: #2A2250;
+	--code-cp-hover-bg: rgba(245,241,255,.08);
 	--cp-rest: #4E4580;
 	--cp-hover-bg: #2A2250;
 
@@ -431,6 +437,23 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .cp-btn.is-copied{color:var(--pass-fill) !important}
 .cp-btn.is-copied .cp-ok{display:block}
 .cp-btn.is-copied .cp-ico{display:none}
+
+/* Code block in a step: its copy button shows on hover or focus, so at rest
+   the agent button is the only copy control on the card. */
+.code-blk{position:relative;margin:8px 0 6px}
+.code-blk pre{margin:0;padding:12px 44px 12px 14px;background:var(--code-blk-bg);border:1px solid var(--code-blk-border);border-radius:8px;overflow-x:auto;white-space:pre}
+.code-blk pre code{font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text)}
+.code-cp{position:absolute;top:7px;right:7px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;padding:0;border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s ease,color .15s ease,background-color .15s ease}
+.code-blk:hover .code-cp,.code-blk:focus-within .code-cp,.code-cp.is-copied{opacity:1}
+.code-cp:hover{color:var(--ink);background:var(--code-cp-hover-bg)}
+.code-cp:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
+.code-cp:hover::after,.code-cp:focus-visible::after,.code-cp.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
+.code-cp .cp-ok{display:none}
+.code-cp.is-copied{color:var(--pass-fill) !important}
+.code-cp.is-copied .cp-ok{display:block}
+.code-cp.is-copied .cp-ico{display:none}
+@media (hover:none){.code-cp{opacity:.8}}
+@media (prefers-reduced-motion:reduce){.code-cp{transition:none}}
 
 h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.3;color:var(--ink)}
 .card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:var(--measure)}

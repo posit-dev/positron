@@ -891,7 +891,7 @@ test('renderReportHtml writes each finding as an agent prompt, from the parsed f
 	].join('\n'));
 	// One button per card, last in the meta row, pointing at its own block.
 	assert.match(html, /<span class="group context">[\s\S]*?<\/span><button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg class="cp-ico"[\s\S]*?<\/button><\/div>/);
-	assert.match(html, /document\.querySelectorAll\('\.cp-btn'\)/);
+	assert.match(html, /document\.querySelectorAll\('\.cp-btn,\.code-cp'\)/);
 });
 
 test('renderReportHtml leaves empty prompt sections out', () => {
@@ -916,7 +916,7 @@ test('renderReportHtml copies a prompt mentioning </script> as written, not as e
 	const block = promptText(html, 1);
 	assert.doesNotMatch(block, /<\/script/i);
 	// Run the copy handler's own unescape over the block, as the page does.
-	const [, pattern, flags, replacement] = /var text=el\.textContent\.trim\(\)\.replace\(\/(.+?)\/([a-z]*),'([^']*)'\);/.exec(html);
+	const [, pattern, flags, replacement] = /text=el\.textContent\.trim\(\)\.replace\(\/(.+?)\/([a-z]*),'([^']*)'\);/.exec(html);
 	assert.match(block.replace(new RegExp(pattern, flags), replacement), /The tag `<\/script>` ended the block/);
 });
 
@@ -931,7 +931,7 @@ test('renderReportHtml emits inline scripts that parse, cut where the HTML parse
 
 test('renderReportHtml renders no prompt buttons, blocks or script when agent prompts are off', () => {
 	const html = renderReportHtml(FULL, { agentPrompts: false });
-	assert.doesNotMatch(html, /cp-btn"|text\/plain|querySelectorAll\('\.cp-btn'\)/);
+	assert.doesNotMatch(html, /cp-btn"|text\/plain|querySelectorAll\('\.cp-btn,\.code-cp'\)/);
 });
 
 test('renderReportHtml greens only the check beside Confirmed in the findings table', () => {
@@ -1467,4 +1467,41 @@ test('coverage: a scenario name reaches the photo caption as plain text', () => 
 test('typed steps: a step Log line reaches the agent prompt', () => {
 	const html = renderReportHtml(TYPED);
 	assert.match(html, /\n\s*Log: get_column_profiles timed out after 10 seconds \(Renderer, 2x\)/);
+});
+
+const FENCED = TYPED.replace(
+	'1. Run `one12 = make_slow(ncols=1, nrows=1000, delay=0.012)`. One string column whose frequency table takes about 13 s.',
+	'1. In the Python console, make a one-column table:\n\n   ```python\n   %run -i slow.py\n   one12 = make_slow(ncols=1, nrows=1000, delay=0.012)\n   ```',
+);
+
+test('code blocks: a fenced step block gets a hover copy button that copies only the code', () => {
+	assert.notEqual(FENCED, TYPED);
+	const html = renderReportHtml(FENCED);
+	assert.match(html, /<li id="f1-s1">In the Python console, make a one-column table:\s*<div class="code-blk"><pre><code[^>]*>%run -i slow\.py\none12 = make_slow\(ncols=1, nrows=1000, delay=0\.012\)<\/code><\/pre><button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code"><svg class="cp-ico" aria-hidden="true" width="14" height="14"[\s\S]*?<svg class="cp-ok" aria-hidden="true" width="14" height="14"[\s\S]*?<\/button><\/div>\s*<\/li>/);
+	assert.match(html, /querySelectorAll\('\.cp-btn,\.code-cp'\)/);
+	assert.match(html, /text=pre\.textContent;/);
+	assert.match(html, /\.code-cp\{position:absolute;top:7px;right:7px;width:26px;height:26px;[^}]*opacity:0;/);
+	assert.match(html, /\.code-blk:hover \.code-cp,\.code-blk:focus-within \.code-cp,\.code-cp\.is-copied\{opacity:1\}/);
+	assert.match(html, /@media \(hover:none\)\{\.code-cp\{opacity:\.8\}\}/);
+	assert.match(html, /--code-blk-bg: #F1EFEA;/);
+	assert.match(html, /--code-blk-bg: #19132F;/);
+});
+
+test('code blocks: the copy script ships for code blocks even with agent prompts off', () => {
+	const html = renderReportHtml(FENCED, { agentPrompts: false });
+	assert.doesNotMatch(html, /class="cp-btn"/);
+	assert.match(html, /class="code-cp"/);
+	assert.match(html, /querySelectorAll\('\.cp-btn,\.code-cp'\)/);
+	assert.doesNotMatch(renderReportHtml(TYPED, { agentPrompts: false }), /\.cp-btn,\.code-cp/);
+});
+
+test('code blocks: a fenced block under a ledger step gets the copy button in Coverage', () => {
+	const ledger = [
+		'# Test ledger', '', '## Environment', '- desktop', '', '---', '',
+		'## S01 - Paced loading', 'Status: pass', 'Result: loads', '', 'Steps:',
+		'1. Load the slow source:', '', '   ```python', '   %run -i slow.py', '   slow = make_slow()', '   ```',
+		'2. VERIFY it loads -> PASS', '',
+	].join('\n');
+	const cov = coverageOf(renderReportHtml(TYPED, { ledger }));
+	assert.match(cov, /<div class="code-blk"><pre><code[^>]*>%run -i slow\.py\nslow = make_slow\(\)\n?<\/code><\/pre><button type="button" class="code-cp"/);
 });

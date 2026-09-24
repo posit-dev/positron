@@ -245,6 +245,7 @@ Steps:
 - Every check you make is a verify step, **including the ones that pass**. A scenario with no verify steps is incomplete.
 - On `fail`: name the finding it produced, and add one `observed` line saying what actually happened.
 - Attach each screenshot to the verify step it proves.
+- Code to paste that spans more than one line goes in a fenced block indented under its step, in the ledger as in a finding; the report gives it a copy button. A short command stays inline in backticks.
 - Never write an observation as a step ("Loading dots, then the notice appears"). That text belongs in `observed`, or in the next verify step's expectation.
 
 **Finding Reproduce steps** are the minimal sequence from the scenario that found it: its actions plus the verify steps that matter, keeping PASS checks that show what still works just before the failure.

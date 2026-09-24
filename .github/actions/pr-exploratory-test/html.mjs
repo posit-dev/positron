@@ -209,6 +209,16 @@ ${rows}
 </section>`;
 }
 
+const size14 = svg => svg.replace('width="15" height="15"', 'width="14" height="14"');
+const CODE_COPY = '<button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code">'
+	+ `${size14(ICON.copy)}${size14(ICON.copied)}</button>`;
+
+/** A step's code block, with a copy button for code the reader has to paste exactly. */
+function withCodeCopy(html) {
+	// Marked ends the code with a newline; drop it so a paste does not run the last line early.
+	return html.replace(/<pre>[\s\S]*?<\/pre>/g, pre => `<div class="code-blk">${pre.replace(/\n<\/code><\/pre>$/, '</code></pre>')}${CODE_COPY}</div>`);
+}
+
 /**
  * One step as an `<li>`: an action is plain text; a verify is in ink with its
  * PASS or FAIL beside it, or nothing when the run never recorded one.
@@ -216,13 +226,13 @@ ${rows}
 function renderStep(step, { id = '', observed = false, tail = '', ev = '' } = {}) {
 	const attr = id ? ` id="${id}"` : '';
 	if (step.kind !== 'verify') {
-		return `<li${attr}>${step.html}${tail}${step.blockHtml}</li>`;
+		return `<li${attr}>${step.html}${tail}${withCodeCopy(step.blockHtml)}</li>`;
 	}
 	const result = step.result
 		? `<span class="st-rs st-${step.result}">${step.result.toUpperCase()}</span>`
 		: '';
 	const obs = observed && step.observedHtml ? `<span class="st-obs">Observed: ${step.observedHtml}</span>` : '';
-	return `<li${attr}><span class="st-v">${step.html}</span>${result}${ev}${obs}${tail}${step.blockHtml}</li>`;
+	return `<li${attr}><span class="st-v">${step.html}</span>${result}${ev}${obs}${tail}${withCodeCopy(step.blockHtml)}</li>`;
 }
 
 /** A finding's screenshots, the ones the gallery shows. */
@@ -814,12 +824,15 @@ stops[(i+(e.shiftKey?-1:1)+stops.length)%stops.length].focus();}});
 })();`;
 
 // One handler for every copy button. Only a copy that worked says "Copied".
-const COPY_SCRIPT = `document.querySelectorAll('.cp-btn').forEach(function(b){var t;
-b.addEventListener('click',function(){var el=document.getElementById(b.dataset.prompt);if(!el){return;}
+const COPY_SCRIPT = `document.querySelectorAll('.cp-btn,.code-cp').forEach(function(b){var t,tip=b.dataset.tip;
+b.addEventListener('click',function(){var text;
+// A code block copies its source exactly; the agent button copies its prompt.
+if(b.classList.contains('code-cp')){var pre=b.parentNode.querySelector('pre');if(!pre){return;}text=pre.textContent;}
+else{var el=document.getElementById(b.dataset.prompt);if(!el){return;}
 // Undo renderPromptBlock's escape of the closing script tag, or the paste carries it.
-var text=el.textContent.trim().replace(/<\\\\\\/(?=script)/gi,'</');
+text=el.textContent.trim().replace(/<\\\\\\/(?=script)/gi,'</');}
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
-t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip='Copy prompt for agent';},2000);}
+t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);}
 // A frame that blocks the clipboard API can still allow execCommand.
 function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
 ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
@@ -848,7 +861,7 @@ export function renderReportHtml(markdown, options = {}) {
 		: '';
 	const chips = prLink + report.chips.map(c => `<code>${escapeHtml(c)}</code>`).join('');
 
-	return `<!DOCTYPE html>
+	const page = `<!DOCTYPE html>
 <html lang="en" data-theme="professional">
 <head>
 <meta charset="utf-8">
@@ -901,7 +914,10 @@ ${renderSignature()}
 <a class="to-top tip" href="#top" data-tip="Back to top" aria-label="Back to top" tabindex="-1">${ICON.up}</a>
 </div>
 <script>${PAGE_SCRIPT}</script>
-${prompts ? `<script>${COPY_SCRIPT}</script>\n` : ''}</body>
+`;
+	// Code blocks in steps have copy buttons even when agent prompts are off.
+	const copy = prompts || page.includes('class="code-cp"');
+	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
 }
