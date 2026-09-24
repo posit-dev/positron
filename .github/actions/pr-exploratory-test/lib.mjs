@@ -339,37 +339,34 @@ export function runOutcome({ report, numTurns, maxTurns }) {
 
 /**
  * The body of the PR comment: a title with the head it tested, the finding
- * tally, and a link to the report. A push after `/test` makes the result stale,
+ * tally, and a link to the report or run. A push after `/test` makes the result stale,
  * and the SHA is how a reader tells.
  *
  * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
  * `reason` says why), or empty when the agent never ran (the build failed
- * first). `model` is the /test argument; naming it on the result makes a typo
- * that fell back to the default visible.
+ * first).
  */
-export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, model, reason }) {
-	const sha = headSha ? headSha.slice(0, 7) : '';
+export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, reason }) {
+	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
 	const run = `[View run \u2192](${runUrl})`;
+	const comment = lines => `${COMMENT_MARKER}\n${title}\n\n${lines.join('\n')}\n`;
 	if (state === 'running') {
-		return `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing**${sha ? ` ${sha}` : ''}\n\nLooking for trouble\u2026\n${run}\n`;
+		return comment(['Looking for trouble\u2026', run]);
 	}
-	// Product names: "Opus", not the lowercase /test argument.
-	const name = model ? ` (${model[0].toUpperCase()}${model.slice(1)})` : '';
-	const title = `**\u{1F50E} Exploratory testing${name}${sha ? ` \u00b7 ${sha}` : ''}**`;
 	if (state === 'declined') {
-		return `${COMMENT_MARKER}\n${title}\nNot run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}\n${run}\n`;
+		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
 	}
 	if (markdown && (state === 'complete' || state === 'partial')) {
 		const { count, breakdown } = tallyFindings(markdown);
-		const lines = [title, breakdown ? `**${count}:** ${breakdown}` : `**${count}**`];
+		const lines = [breakdown ? `${count} \u00b7 ${breakdown}` : count];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
-		return `${COMMENT_MARKER}\n${lines.join('\n')}\n`;
+		return comment(lines);
 	}
 	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
 		: state === 'no-report' ? 'The agent finished without writing a report.'
 			: 'The run failed before the agent produced a report.';
-	return `${COMMENT_MARKER}\n${title}\n${why}\n${run}\n`;
+	return comment([why, run]);
 }
 
 /**

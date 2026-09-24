@@ -63,7 +63,6 @@ async function main() {
 		baseUrl: buildShotsBaseUrl(process.env.REPORT_BASE_URL || ''),
 		runUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
 		headSha: process.env.HEAD_SHA || '',
-		model: process.env.MODEL || '',
 		reason: process.env.DECLINE_REASON || '',
 	});
 	const { action, id } = await postOrEditComment({

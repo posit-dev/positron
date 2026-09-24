@@ -356,18 +356,18 @@ test('renderPrComment carries the marker and a run or report link in every state
 });
 
 test('renderPrComment on a finished run is a title, the tally and the report link', () => {
-	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA, model: 'opus' });
-	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing (Opus) \u00b7 abc1234**\n**5 findings:** 1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
+	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
 });
 
 test('renderPrComment running state names the head and links the run', () => {
-	const body = renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'opus' });
+	const body = renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nLooking for trouble\u2026\n[View run \u2192](${RUN_URL})\n`);
 });
 
 test('renderPrComment says No findings for an empty table', () => {
 	const body = renderPrComment({ state: 'complete', markdown: '# X\n\nNo findings.\n', baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.match(body, /^\*\*No findings\*\*$/m);
+	assert.match(body, /^No findings$/m);
 });
 
 test('renderPrComment points at the artifact when the upload failed', () => {
@@ -378,7 +378,7 @@ test('renderPrComment points at the artifact when the upload failed', () => {
 
 test('renderPrComment flags a partial run that still wrote a report', () => {
 	const body = renderPrComment({ state: 'partial', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.match(body, /\*\*5 findings:\*\*/);
+	assert.match(body, /^5 findings \u00b7/m);
 	assert.match(body, /turn cap/);
 });
 
@@ -398,11 +398,6 @@ test('renderPrComment explains a missing report per outcome', () => {
 test('renderPrComment leaves the SHA out rather than print an empty one', () => {
 	assert.match(renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
 	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
-});
-
-test('renderPrComment names the model on a result, so a /test typo is visible', () => {
-	assert.match(renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /Exploratory testing \(Sonnet\) \u00b7 abc1234/);
-	assert.doesNotMatch(renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /\(\)/);
 });
 
 test('withPrLine stamps the PR under the meta line, once, and only for a number', () => {
