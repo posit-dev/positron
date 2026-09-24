@@ -15,7 +15,7 @@ const Liveness = KallichoreInstances as unknown as {
 	isSupervisorAlive(pid: number, socketPath?: string): boolean;
 };
 
-suite('KallichoreInstances supervisor liveness (issue #16167)', () => {
+suite('KallichoreInstances supervisor liveness', () => {
 	let scratchDir: string;
 
 	setup(() => {
@@ -31,8 +31,11 @@ suite('KallichoreInstances supervisor liveness (issue #16167)', () => {
 		assert.strictEqual(Liveness.isSupervisorAlive(2 ** 30), false);
 	});
 
-	test('current process without a socket path is reported alive', () => {
-		assert.strictEqual(Liveness.isSupervisorAlive(process.pid), true);
+	test('current process without a socket path is only trusted off Linux', () => {
+		// The test runner is not the kcserver binary, so on Linux the /proc
+		// fingerprint must reject it regardless of transport.
+		const expected = process.platform !== 'linux';
+		assert.strictEqual(Liveness.isSupervisorAlive(process.pid), expected);
 	});
 
 	test('current process with a missing socket path is reported dead', () => {
@@ -41,11 +44,9 @@ suite('KallichoreInstances supervisor liveness (issue #16167)', () => {
 	});
 
 	test('current process holding an unrelated socket is only trusted off Linux', () => {
-		// The test runner is not the kcserver binary, so on Linux the /proc comm
-		// fingerprint must reject it; elsewhere the guard falls back to trust.
 		const stub = path.join(scratchDir, 'kc-424243.sock');
 		fs.writeFileSync(stub, '');
-		const expected = process.platform === 'linux' ? false : true;
+		const expected = process.platform !== 'linux';
 		assert.strictEqual(Liveness.isSupervisorAlive(process.pid, stub), expected);
 	});
 });

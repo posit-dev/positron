@@ -543,7 +543,7 @@ export class KallichoreInstances {
 
 	/**
 	 * Determines whether the process holding a supervisor PID is genuinely the
-	 * supervisor, guarding against Linux PID recycling races (issue #16167).
+	 * supervisor, not an unrelated process that recycled the PID.
 	 *
 	 * On Linux, thread IDs share the PID number space, so `kill(pid, 0)` can
 	 * succeed for a worker thread that recycled a dead supervisor's PID. When a
@@ -558,25 +558,16 @@ export class KallichoreInstances {
 		if (!this.isProcessAlive(pid)) {
 			return false;
 		}
-		if (socketPath) {
-			try {
-				if (!fs.existsSync(socketPath)) {
-					return false;
-				}
-			} catch {
-				return false;
-			}
-			if (!this.isSupervisorBinary(pid)) {
-				return false;
-			}
+		if (socketPath && !fs.existsSync(socketPath)) {
+			return false;
 		}
-		return true;
+		return this.isSupervisorBinary(pid);
 	}
 
 	/**
-	 * Linux-only guard: verifies the process holding `pid` is the Kallichore
-	 * supervisor binary (`kcserver`) via `/proc`. Non-Linux platforms fall back
-	 * to trusting the caller, since they have no `procfs`.
+	 * Linux-only guard: verifies via `/proc` that `pid` is a process (not a
+	 * thread of another process) running the Kallichore supervisor binary
+	 * (`kcserver`). Non-Linux platforms have no `procfs` and return true.
 	 *
 	 * @param pid The process identifier to inspect.
 	 * @returns True if the process is (or may be) the supervisor binary.
@@ -586,7 +577,10 @@ export class KallichoreInstances {
 			return true;
 		}
 		try {
-			return fs.readFileSync(`/proc/${pid}/comm`, 'utf8').trim() === 'kcserver';
+			const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
+			const name = /^Name:\s*(?<name>.*)$/m.exec(status)?.groups?.name.trim();
+			const tgid = /^Tgid:\s*(?<tgid>\d+)$/m.exec(status)?.groups?.tgid;
+			return name === 'kcserver' && Number(tgid) === pid;
 		} catch {
 			return false;
 		}
@@ -791,11 +785,10 @@ export class KallichoreInstances {
 		} catch (err) {
 			const message = summarizeAxiosError(err);
 			const code = (err as NodeJS.ErrnoException)?.code;
-			if (code === 'ENOENT' || code === 'ECONNREFUSED') {
-				// The socket is already gone (e.g. the supervisor crashed without
-				// unlinking it): drop the registry entry so it cannot linger as a
-				// permanent tombstone (issue #16167).
-				await this.removeByPid(result.record.state.server_pid);
+			const { server_pid, socket_path } = result.record.state;
+			if ((code === 'ENOENT' || code === 'ECONNREFUSED') && !this.isSupervisorAlive(server_pid, socket_path)) {
+				// The supervisor is gone but left its entry behind; drop it.
+				await this.removeByPid(server_pid);
 			}
 			await vscode.window.showErrorMessage(vscode.l10n.t("Failed to shut down supervisor: {0}", message));
 		}
