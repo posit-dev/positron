@@ -309,7 +309,9 @@ function sourceHref(path, sha, line) {
 
 /** A path shown by its file name, linked when it can be, with the full path on hover. */
 function fileLink(path, href, cls, lineSuffix = '') {
-	const name = escapeHtml(basename(path) + lineSuffix);
+	// A folder path keeps its last segment, so `tests/data-explorer/` reads as `data-explorer/`, not blank.
+	const base = /\/$/.test(path) ? `${basename(path.replace(/\/+$/, ''))}/` : basename(path);
+	const name = escapeHtml(base + lineSuffix);
 	return href
 		? `<a class="${cls}" href="${escapeHtml(href)}" title="${escapeHtml(path)}" target="_blank" rel="noreferrer">${name}</a>`
 		: `<span class="${cls}" title="${escapeHtml(path)}">${name}</span>`;
@@ -447,33 +449,31 @@ function renderRegressionTest(f, sha) {
 	if (!cases.length) {
 		return '';
 	}
+	const sep = ' <span class="rt-sep" aria-hidden="true">&middot;</span> ';
+	// The type tag leads every line so tags form one column across both lists.
+	const row = (level, parts) => '<div class="rt-meta rt-row">'
+		+ (level ? `<span class="rt-t rt-t-tint">${level}</span>` : '')
+		+ `<span>${parts.filter(Boolean).join(sep)}</span></div>`;
 	const where = c => {
 		// No path means the agent could not place the file; the level still stands.
 		if (!c.path) {
-			return c.level ? `<div class="rt-where"><span>Level</span><span class="rt-level">${c.level}</span></div>` : '';
+			return c.level || c.noteHtml ? row(c.level, [c.noteHtml]) : '';
 		}
 		// A file the case says to create has nothing to link to yet.
 		const isNew = /\bnew\b/i.test(c.note) && !/\bexists?\b/i.test(c.note);
-		return '<div class="rt-where"><span>Add to</span>'
-			+ (c.level ? `<span class="rt-level">${c.level}</span>` : '')
-			+ fileLink(c.path, isNew ? null : sourceHref(c.path, sha), 'rt-file')
-			+ (c.noteHtml ? `<span>&middot; ${c.noteHtml}</span>` : '')
-			+ '</div>';
+		return row(c.level, [`Add to ${fileLink(c.path, isNew ? null : sourceHref(c.path, sha), 'rt-file')}`, c.noteHtml]);
 	};
 	const plural = cases.length > 1;
-	const list = plural
-		? `<ol class="rt-cases">${cases.map(c => `<li>${c.textHtml}${where(c)}</li>`).join('')}</ol>`
-		: `<p class="rt-case">${cases[0].textHtml}</p>${where(cases[0])}`;
 	const named = new Set(cases.map(c => c.path));
 	const others = related.filter(r => !named.has(r.path));
 	const othersHtml = others.length
-		? '<div class="rt-group"><div class="rt-head">Other tests that touch this code</div><ul class="rt-related">'
-			+ others.map(r => `<li>${fileLink(r.path, sourceHref(r.path, sha), 'rt-file')} `
-				+ `<span class="rt-note">${[r.level, r.noteHtml].filter(Boolean).map(t => `&middot; ${t}`).join(' ')}</span></li>`).join('')
+		? '<div class="rt-group"><div class="rt-label">Other tests that touch this code</div><ul class="rt-other">'
+			+ others.map(r => `<li>${row(r.level, [fileLink(r.path, sourceHref(r.path, sha), 'rt-file'), r.noteHtml])}</li>`).join('')
 			+ '</ul></div>'
 		: '';
 	return collapsedRow(' regtest', 'Regression test', `${cases.length} missing case${plural ? 's' : ''}`,
-		`<div class="rt-group"><div class="rt-head">Missing case${plural ? 's' : ''} <span class="rt-sugg">&middot; suggestion</span></div>${list}</div>`
+		`<div class="rt-group"><div class="rt-label">Suggested case${plural ? 's' : ''}</div>`
+		+ `<ol class="rt-cases">${cases.map(c => `<li>${c.textHtml}${where(c)}</li>`).join('')}</ol></div>`
 		+ othersHtml);
 }
 

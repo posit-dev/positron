@@ -1068,7 +1068,7 @@ test('renderReportHtml keeps the level of a missing case the agent could not pla
 		'- A checked box reads as checked. -- Unit (new file)',
 	].join('\n')));
 	const c = card(html, 1);
-	assert.match(c, /<p class="rt-case">A checked box reads as checked\.<\/p><div class="rt-where"><span>Level<\/span><span class="rt-level">Unit<\/span><\/div>/);
+	assert.match(c, /<li>A checked box reads as checked\.<div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit<\/span><span>new file<\/span><\/div><\/li>/);
 	assert.doesNotMatch(c, /rt-file|-- Unit/);
 	assert.match(html, /- A checked box reads as checked\. \u2192 Unit test; place it per the repo's test guidance/);
 });
@@ -1104,21 +1104,36 @@ test('renderReportHtml keeps every error in the prompt, stack or not', () => {
 	assert.ok(order.every(i => i !== -1));
 });
 
-test('renderReportHtml writes regression cases as a list, or a paragraph when there is one', () => {
+test('renderReportHtml writes regression cases as a numbered list led by a type tag', () => {
 	const html = renderReportHtml(RICH);
 	const c = card(html, 1);
-	assert.match(c, /Missing cases <span class="rt-sugg">&middot; suggestion<\/span><\/div><ol class="rt-cases"><li>Retry after a timeout loads the summary\./);
-	assert.match(c, /<span>Add to<\/span><span class="rt-level">Unit<\/span><a class="rt-file" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/abc1234\/src\/vs\/test\/cache\.test\.ts" title="src\/vs\/test\/cache\.test\.ts"[^>]*>cache\.test\.ts<\/a><span>&middot; exists, covers chunking only<\/span>/);
+	const sep = ' <span class="rt-sep" aria-hidden="true">&middot;</span> ';
+	assert.match(c, /<div class="rt-label">Suggested cases<\/div><ol class="rt-cases"><li>Retry after a timeout loads the summary\./);
+	assert.ok(c.includes('<div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit</span><span>Add to <a class="rt-file" href="https://github.com/posit-dev/positron/blob/abc1234/src/vs/test/cache.test.ts"'));
+	assert.ok(c.includes(`>cache.test.ts</a>${sep}exists, covers chunking only</span></div>`));
 	// A file the case says to create has nothing to link to.
-	assert.match(c, /<span class="rt-level">E2E<\/span><span class="rt-file" title="test\/e2e\/tests\/slow\.test\.ts">slow\.test\.ts<\/span>/);
-	// Other tests lists only files the cases have not named.
+	assert.ok(c.includes('<span class="rt-t rt-t-tint">E2E</span><span>Add to <span class="rt-file" title="test/e2e/tests/slow.test.ts">slow.test.ts</span>'));
+	// Other tests lists only files the cases have not named, as a bulleted list with the same row.
 	const others = c.slice(c.indexOf('Other tests that touch this code'));
-	assert.match(others, /client\.test\.ts<\/a> <span class="rt-note">&middot; Unit &middot; checks request shape only<\/span>/);
+	assert.match(others, /^Other tests that touch this code<\/div><ul class="rt-other"><li><div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit<\/span><span><a class="rt-file"/);
+	assert.ok(others.includes(`>client.test.ts</a>${sep}checks request shape only</span></div></li>`));
 	assert.doesNotMatch(others, /already named above/);
+	assert.doesNotMatch(c, /rt-level|rt-sugg|suggestion<\/span>/);
+	const dir = card(renderReportHtml(RICH.replace('`test/e2e/tests/slow.test.ts` (new file)', '`test/e2e/tests/data-explorer/` (new file)')), 1);
+	assert.ok(dir.includes('Add to <span class="rt-file" title="test/e2e/tests/data-explorer/">data-explorer/</span>'));
+	// One case is still a numbered list.
 	const second = card(html, 2);
-	assert.match(second, /Missing case <span class="rt-sugg">&middot; suggestion<\/span><\/div><p class="rt-case">One case only\.<\/p><div class="rt-where">/);
+	assert.match(second, /<div class="rt-label">Suggested case<\/div><ol class="rt-cases"><li>One case only\.<div class="rt-meta rt-row">/);
 	assert.match(second, /1 missing case<\/span>/);
 	assert.doesNotMatch(second, /Other tests/);
+});
+
+test('report CSS: regression test block has fixed sizes and a tint tag', () => {
+	const html = renderReportHtml(RICH);
+	assert.match(html, /\.rt-cases\{margin:0;padding-left:20px;font-size:14px;line-height:1\.6;/);
+	assert.match(html, /\.rt-meta\{margin-top:3px;font-size:12\.5px;line-height:1\.55;color:var\(--muted\)\}/);
+	assert.match(html, /\.rt-file\{font-family:var\(--mono\);font-size:12px;/);
+	assert.match(html, /\.rt-t-tint\{padding:3px 5px;border-radius:4px;background:var\(--rt-tag-bg\);/);
 });
 
 test('renderReportHtml writes the regression cases into the prompt after the cause', () => {
