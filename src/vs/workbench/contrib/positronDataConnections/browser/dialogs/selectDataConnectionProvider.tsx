@@ -23,6 +23,15 @@ import { IDataConnectionDriver, IDataConnectionDriverMetadata } from '../../../.
 const MODAL_WIDTH = 600;
 
 /**
+ * The height the content area is fixed at: exactly six rows, at 36px a row with a 20px gap
+ * (6 * 36 + 5 * 20), plus the list's own 4px top and bottom padding. Set as both the minimum and
+ * the maximum so the dialog, which centers once on mount, never grows or shrinks: not as drivers
+ * register, not when the transient error takes its line. A seventh row scrolls in the content
+ * area's own scrollbar, which the modal already provides.
+ */
+const LIST_CONTENT_HEIGHT = 324;
+
+/**
  * SelectDataConnectionProviderProps interface.
  */
 interface SelectDataConnectionProviderProps {
@@ -152,6 +161,8 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 					</div>
 				</div>
 			}
+			contentMaxHeight={LIST_CONTENT_HEIGHT}
+			contentMinHeight={LIST_CONTENT_HEIGHT}
 			renderer={props.renderer}
 			title={localize(
 				'positron.selectDataConnectionProvider.title',

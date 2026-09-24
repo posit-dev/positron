@@ -8,20 +8,19 @@
 	--provider-row-gap: 20px;
 	--provider-row-height: 36px;
 	--provider-list-padding: 4px;
-	--provider-visible-rows: 6;
 	gap: 8px;
 	display: flex;
 	flex-direction: column;
-	/* Fixed so the dialog, which centers once on mount, never grows: not as drivers register, not for the error. */
-	height: calc(var(--provider-list-padding) + var(--provider-visible-rows) * (var(--provider-row-height) + var(--provider-row-gap)));
 }
 
-/* Ends exactly where the next row begins, except while the transient error takes its line. */
+/*
+ * Sized by its content. The dialog's fixed height comes from the contentMinHeight and
+ * contentMaxHeight passed to PositronDynamicModalDialog, and overflow is the content area's own
+ * scrollbar. Do not scroll here: a second scroller inside the content area is inset from the
+ * dialog edges and stops short of the title bar.
+ */
 .select-data-connection-provider .provider-rows {
-	flex: 1;
-	min-height: 0;
 	display: flex;
-	overflow-y: auto;
 	flex-direction: column;
 	gap: var(--provider-row-gap);
 	padding: var(--provider-list-padding) 0;
