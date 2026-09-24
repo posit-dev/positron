@@ -22,6 +22,7 @@ const PROFESSIONAL = `
 	--secondary: #4F535A;
 	--dot-neutral: #CFCAC0;
 	--sep: #B8B4AA;
+	--shot-step-bg: rgba(28,31,35,.78);
 	--divider: #CFCAC0;
 	--legend-sep: #CFCAC0;
 	--hover-border: #CFCAC0;
@@ -139,6 +140,7 @@ const PARTY = `
 	--secondary: #B8B0DE;
 	--dot-neutral: #4E4580;
 	--sep: #5B4F92;
+	--shot-step-bg: rgba(11,7,25,.82);
 	--divider: #4A3F7A;
 	--legend-sep: #5B4F92;
 	--hover-border: #5B4F92;
@@ -462,22 +464,14 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
 figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}
-figcaption{font-size:12px;line-height:1.4;color:var(--quiet)}
-figcaption .step-label{font-weight:600;color:var(--body)}
-figcaption a.step-label:hover{color:var(--link)}
-figcaption .step-sep{color:var(--sep)}
 
 .evidence{display:flex;flex-direction:column;gap:10px}
-/* The gallery takes its column count from how much there is to show: three
-   screenshots stretched across a four-column grid left a hole where a reader
-   looks for a fourth. */
-.shots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.shots.n1{grid-template-columns:minmax(0,560px)}
-.shots.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.shots.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* Six across whatever the count, so thumbnails are one size report-wide. */
+.shots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .shots figure{gap:6px}
 .shots img{aspect-ratio:16/10;object-fit:cover;object-position:top center;border-radius:6px}
-a.shot{display:block;border-radius:6px;cursor:zoom-in;text-decoration:none}
+a.shot{display:block;position:relative;border-radius:6px;cursor:zoom-in;text-decoration:none}
+.shot-step{position:absolute;left:6px;bottom:6px;font-size:11px;font-weight:600;line-height:1;padding:4px 6px;border-radius:4px;background:var(--shot-step-bg);color:#FFFFFF;letter-spacing:.01em;pointer-events:none}
 a.shot img{transition:border-color .15s ease}
 a.shot:hover img{border-color:var(--hover-border)}
 a.shot:hover{text-decoration:none}
@@ -613,6 +607,7 @@ span.rt-file{color:var(--body)}
 .st-pass{color:var(--pass-fill)}
 .st-fail{color:var(--major-text)}
 .st-sep{color:var(--sep)}
+.st-ev .st-n{font-size:.86em;margin-left:2px}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
 .steps li:target{background:var(--st-target)}
@@ -696,6 +691,8 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .lb-meta{display:flex;flex-direction:column;gap:2px;min-width:0}
 .lb-cap{font-size:14px;line-height:1.5;color:var(--body)}
+.lb-step{font-weight:600;color:var(--ink);text-decoration:none}.lb-step:hover{text-decoration:underline}
+.lb-cap .step-sep{color:var(--sep)}
 .lb-file{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all}
 .lb-file a{font-family:var(--mono)}
 .lb-close{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:999px;background:var(--card);border:1px solid var(--border);color:var(--body);cursor:pointer;transition:border-color .15s ease,color .15s ease}
@@ -718,8 +715,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.row-head{display:none}
 	.cov-notrun{grid-column:auto}
 	.cv-chev-cell{justify-content:flex-start}
-	.shots,.shots.n3{grid-template-columns:repeat(2,minmax(0,1fr))}
-	.shots.n1{grid-template-columns:minmax(0,1fr)}
+	.shots{grid-template-columns:repeat(2,minmax(0,1fr))}
 	.lb{padding:12px}
 	.card{padding:20px}
 	.rate,.status{text-align:left;justify-content:flex-start}

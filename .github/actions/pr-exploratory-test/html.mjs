@@ -25,7 +25,7 @@ const ICON = {
 	// The check alone carries the green, so its stroke comes from CSS rather than
 	// currentColor, which is the body-coloured word beside it.
 	statusCheck: '<svg class="status-check" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
-	sparkle: '<svg class="cp-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3c.35 2.7 1.8 4.15 4.5 4.5-2.7.35-4.15 1.8-4.5 4.5-.35-2.7-1.8-4.15-4.5-4.5 2.7-.35 4.15-1.8 4.5-4.5z"></path><path d="M12.5 1.25c.13 1.05.8 1.72 1.85 1.85-1.05.13-1.72.8-1.85 1.85-.13-1.05-.8-1.72-1.85-1.85 1.05-.13 1.72-.8 1.85-1.85z"></path></svg>',
+	copy: '<svg class="cp-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.6"></rect><path d="M3 10.5V4.1c0-.6.5-1.1 1.1-1.1h6.4"></path></svg>',
 	copied: '<svg class="cp-ok" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	down: '<svg class="cov-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>',
 	// The collapsed rows' and the Coverage rows' disclosure: 12px, right-pointing.
@@ -213,7 +213,7 @@ ${rows}
  * One step as an `<li>`: an action is plain text; a verify is in ink with its
  * PASS or FAIL beside it, or nothing when the run never recorded one.
  */
-function renderStep(step, { id = '', observed = false, tail = '' } = {}) {
+function renderStep(step, { id = '', observed = false, tail = '', ev = '' } = {}) {
 	const attr = id ? ` id="${id}"` : '';
 	if (step.kind !== 'verify') {
 		return `<li${attr}>${step.html}${tail}${step.blockHtml}</li>`;
@@ -222,37 +222,57 @@ function renderStep(step, { id = '', observed = false, tail = '' } = {}) {
 		? `<span class="st-rs st-${step.result}">${step.result.toUpperCase()}</span>`
 		: '';
 	const obs = observed && step.observedHtml ? `<span class="st-obs">Observed: ${step.observedHtml}</span>` : '';
-	return `<li${attr}><span class="st-v">${step.html}</span>${result}${obs}${tail}${step.blockHtml}</li>`;
+	return `<li${attr}><span class="st-v">${step.html}</span>${result}${ev}${obs}${tail}${step.blockHtml}</li>`;
 }
 
-function renderEvidence(items, n, stepCount = 0) {
+/** A finding's screenshots, the ones the gallery shows. */
+function findingShots(f) {
+	return f.evidence.filter(item => item.kind === 'shot');
+}
+
+function renderEvidence(f) {
 	// Screenshots only: a log line is not evidence a reader can see, and the one
 	// worth reading is under Error output. Logs stay in the agent prompt.
-	const shots = items.filter(item => item.kind === 'shot');
+	const shots = findingShots(f);
 	if (!shots.length) {
 		return '';
 	}
-	// A caption's step jumps to that step in the list above it.
-	const stepLabel = step => (Number.isInteger(step.order) && step.order <= stepCount
-		? `<a class="step-label" href="#f${n}-s${step.order}">${escapeHtml(step.label)}</a>`
-		: `<span class="step-label">${escapeHtml(step.label)}</span>`);
+	const n = f.n;
 	const tiles = shots.map((item, i) => {
 		// A real link to the raw image, so the thumbnail still works without
 		// JavaScript; the script intercepts the click and opens the lightbox.
-		const attrs = `href="${escapeHtml(item.src)}" data-lb="f${n}" data-i="${i}"`
-			+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`;
-		return `<figure><a class="shot" ${attrs} aria-label="View full size: ${escapeHtml(item.caption)}">`
-			+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy"></a>`
-			+ '<figcaption>'
-			+ (item.step ? `${stepLabel(item.step)} <span class="step-sep" aria-hidden="true">&middot;</span> ` : '')
-			+ `${item.captionHtml}</figcaption></figure>`;
+		// The full-size view links the step back, when there is one to land on.
+		const step = item.step;
+		const stepHref = step && Number.isInteger(step.order) && step.order <= f.steps.length ? `#f${n}-s${step.order}` : '';
+		const attrs = `id="shot-f${n}-${i + 1}" href="${escapeHtml(item.src)}" data-lb="f${n}" data-i="${i}"`
+			+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
+			+ (step ? ` data-step="${escapeHtml(step.label)}"` : '')
+			+ (stepHref ? ` data-step-href="${stepHref}"` : '');
+		const label = `${step ? `${step.label} screenshot, view` : 'View'} full size: ${item.caption}`;
+		return `<figure><a class="shot" ${attrs} aria-label="${escapeHtml(label)}">`
+			+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy">`
+			+ (step ? `<span class="shot-step" aria-hidden="true">${escapeHtml(step.label)}</span>` : '')
+			+ '</a></figure>';
 	}).join('');
 
-	// One to three items get exactly that many columns; four or more wrap in a
-	// four-column grid.
-	const columns = Math.min(shots.length, 4);
 	return `<div class="evidence" id="f${n}-evidence"><div class="sub">Evidence</div>`
-		+ `<div class="shots n${columns}">${tiles}</div></div>`;
+		+ `<div class="shots">${tiles}</div></div>`;
+}
+
+/**
+ * A finding step's screenshot icon: opens the first of that step's shots in
+ * the gallery, with a count when there is more than one.
+ */
+function stepShotIcon(f, k) {
+	const shots = findingShots(f);
+	const mine = shots.map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k);
+	if (!mine.length) {
+		return '';
+	}
+	const count = mine.length;
+	const label = count > 1 ? `${count} screenshots for this step` : 'Screenshot for this step';
+	return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f${f.n}-${mine[0].i + 1}" data-open="shot-f${f.n}-${mine[0].i + 1}"`
+		+ ` aria-label="${label}">${ICON.photo}${count > 1 ? `<span class="st-n">${count}</span>` : ''}</a>`;
 }
 
 /** `/a/b`, `~/x` and URLs stand as written; anything else is relative to `base`. */
@@ -368,7 +388,7 @@ function fenced(text) {
 
 function renderCopyButton(f) {
 	return `<button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f${f.n}" aria-label="Copy prompt for an agent: finding ${f.n}">`
-		+ `${ICON.sparkle}${ICON.copied}</button>`;
+		+ `${ICON.copy}${ICON.copied}</button>`;
 }
 
 function renderPromptBlock(f, report, options) {
@@ -509,7 +529,7 @@ function renderFindingCard(f, report, options) {
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
 	const steps = f.steps.length
 		? '<div class="repro-group steps"><div class="repro-label">Steps</div>'
-		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed })).join('\n')}</ol></div>`
+		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1) : '' })).join('\n')}</ol></div>`
 		: '';
 	const repro = (preconditions || steps)
 		? `<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`
@@ -521,7 +541,7 @@ function renderFindingCard(f, report, options) {
 ${head}
 ${observedExpected}
 ${repro}
-${renderEvidence(f.evidence, f.n, f.steps.length)}
+${renderEvidence(f)}
 ${details}
 ${promptBlock}
 </article>`;
@@ -746,11 +766,18 @@ var lb=document.getElementById('lightbox');
 if(lb){
 var img=lb.querySelector('img'),cap=lb.querySelector('.lb-cap'),file=lb.querySelector('.lb-file');
 var closeBtn=lb.querySelector('.lb-close'),backdrop=lb.querySelector('.lb-backdrop');
-var shots=Array.prototype.slice.call(document.querySelectorAll('a.shot,a.st-ev'));
+var shots=Array.prototype.slice.call(document.querySelectorAll('a.shot,a.st-ev[data-lb]'));
 var group=[],at=0,opener=null;
 function show(i){at=(i+group.length)%group.length;var a=group[at];
 img.src=a.getAttribute('href');img.alt=a.dataset.caption||'';
-cap.textContent=a.dataset.caption||'';
+cap.textContent='';
+if(a.dataset.step){var st=document.createElement(a.dataset.stepHref?'a':'span');st.className='lb-step';
+st.textContent=a.dataset.step;if(a.dataset.stepHref){st.href=a.dataset.stepHref;
+// Landing on the step is the point, so the opener does not take focus back.
+st.addEventListener('click',function(){opener=null;close();});}
+var dot=document.createElement('span');dot.className='step-sep';dot.setAttribute('aria-hidden','true');dot.textContent=' \u00b7 ';
+cap.appendChild(st);cap.appendChild(dot);}
+cap.appendChild(document.createTextNode(a.dataset.caption||''));
 file.innerHTML='';
 var name=document.createTextNode((a.dataset.file||'')+' ');
 var orig=document.createElement('a');orig.href=a.getAttribute('href');orig.target='_blank';
@@ -766,6 +793,11 @@ shots.forEach(function(a){a.addEventListener('click',function(e){
 // Let a modified click do what the reader asked: a new tab on the raw image.
 if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0){return;}
 e.preventDefault();open(a);});});
+// A finding step's icon opens its screenshot in the gallery's group.
+document.querySelectorAll('a.st-ev[data-open]').forEach(function(a){a.addEventListener('click',function(e){
+if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0){return;}
+var t=document.getElementById(a.dataset.open);if(!t){return;}
+e.preventDefault();open(t);opener=a;});});
 closeBtn.addEventListener('click',close);backdrop.addEventListener('click',close);
 document.addEventListener('keydown',function(e){
 if(lb.hidden){return;}
@@ -773,8 +805,8 @@ if(e.key==='Escape'){e.preventDefault();close();}
 else if(e.key==='ArrowRight'){e.preventDefault();show(at+1);}
 else if(e.key==='ArrowLeft'){e.preventDefault();show(at-1);}
 else if(e.key==='Tab'){
-// Only two controls are focusable, so the trap is a cycle between them.
-var stops=[closeBtn,lb.querySelector('.lb-file a')].filter(Boolean);
+// Only a few controls are focusable, so the trap is a cycle between them.
+var stops=[lb.querySelector('.lb-cap a'),closeBtn,lb.querySelector('.lb-file a')].filter(Boolean);
 var i=stops.indexOf(document.activeElement);
 e.preventDefault();
 stops[(i+(e.shiftKey?-1:1)+stops.length)%stops.length].focus();}});

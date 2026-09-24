@@ -362,21 +362,20 @@ test('renderReportHtml shows each screenshot once, under Evidence', () => {
 	assert.doesNotMatch(card.slice(card.indexOf('>Reproduce<'), card.indexOf('>Evidence<')), /<img /);
 });
 
-test('renderReportHtml sizes the evidence gallery to the number of items', () => {
+test('renderReportHtml lays every gallery out six across, whatever the count', () => {
 	const gallery = body => {
 		const html = renderReportHtml(md([
 			'## Findings', '',
 			'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
 			'', '### Finding 1: a claim', '', '**Evidence**', '', ...body,
 		].join('\n')));
-		return (/<div class="shots (n\d)"/.exec(html) || [])[1];
+		return (/<div class="shots[^"]*"/.exec(html) || [])[0];
 	};
 	const shot = n => `- [shots/${n}.png](https://cdn.example/shots/${n}.png) -- shot ${n}`;
-	assert.equal(gallery([shot(1)]), 'n1');
-	assert.equal(gallery([shot(1), shot(2)]), 'n2');
-	assert.equal(gallery([shot(1), shot(2), shot(3)]), 'n3');
-	// Four or more wrap in the four-column grid.
-	assert.equal(gallery([shot(1), shot(2), shot(3), shot(4), shot(5)]), 'n4');
+	assert.equal(gallery([shot(1)]), '<div class="shots"');
+	assert.equal(gallery([shot(1), shot(2), shot(3), shot(4), shot(5)]), '<div class="shots"');
+	const css = renderReportHtml(md(['## Findings'].join('\n')));
+	assert.match(css, /\.shots\{display:grid;grid-template-columns:repeat\(6,minmax\(0,1fr\)\);gap:12px\}/);
 });
 
 test('renderReportHtml renders a run with no findings and no issues', () => {
@@ -1126,9 +1125,11 @@ test('renderReportHtml shows screenshots only, labelled and sorted by step', () 
 	assert.doesNotMatch(c, /logtile/);
 	const shots = [...c.matchAll(/data-file="([^"]+)"/g)].map(m => m[1]);
 	assert.deepEqual(shots, ['a.png', 'b.png', 'c.png']);
-	// One run of text, so a wrapped caption returns to the left edge.
-	assert.match(c, /<figcaption><a class="step-label" href="#f1-s2">Step 2<\/a> <span class="step-sep" aria-hidden="true">&middot;<\/span> The notice<\/figcaption>/);
-	assert.match(c, /<span class="step-label">Variant<\/span> <span class="step-sep" aria-hidden="true">&middot;<\/span> Five columns<\/figcaption>/);
+	// No caption line: the step is a tag on the thumbnail, named in its label,
+	// and the full-size view links it back.
+	assert.doesNotMatch(c, /<figcaption/);
+	assert.match(c, /data-step="Step 2" data-step-href="#f1-s2" aria-label="Step 2 screenshot, view full size: The notice">.*?<span class="shot-step" aria-hidden="true">Step 2<\/span><\/a>/);
+	assert.match(c, /data-step="Variant" aria-label="Variant screenshot, view full size: Five columns">.*?<span class="shot-step" aria-hidden="true">Variant<\/span>/);
 	const text = promptText(html, 1);
 	assert.match(text, /### Evidence\n- https:\/\/cdn\.example\/shots\/a\.png — Step 2: The notice\n- https:\/\/cdn\.example\/shots\/b\.png — Step 3: After Retry\n- https:\/\/cdn\.example\/shots\/c\.png — Variant: Five columns\n- \/runs\/r1\/logs\/app\.log/);
 });
@@ -1170,7 +1171,7 @@ test('renderReportHtml puts a passing row\'s screenshot on its verify step, not 
 	assert.doesNotMatch(cov, /Build <code>tbl<\/code>\. <span class="st-sep"/);
 	// With no steps, the screenshot alone makes the row expandable.
 	assert.match(cov, /<span>duckdb frame<\/span>[\s\S]*?<div class="cv-steps"><p class="cv-shot">Screenshot <span class="st-sep"[^>]*>&middot;<\/span> <a class="st-ev" href="https:\/\/cdn\.example\/shots\/duck\.png"/);
-	assert.match(html, /querySelectorAll\('a\.shot,a\.st-ev'\)/);
+	assert.match(html, /querySelectorAll\('a\.shot,a\.st-ev\[data-lb\]'\)/);
 });
 
 test('renderReportHtml keeps Show all working over expandable rows', () => {
@@ -1264,6 +1265,8 @@ test('typed steps: every verify step carries its result, and no action does', ()
 	assert.equal(count(/class="st-v"/g), 8);
 });
 
+const PHOTO = '<svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><rect x="2" y="3" width="12" height="10" rx="1.5"></rect><path d="M2.5 11l3.5-3.5 3 3 2-2 2.5 2.5"></path></svg>';
+
 test('typed steps: the finding card reads Verify PASS, action, Verify FAIL with its observation', () => {
 	const html = renderReportHtml(TYPED);
 	const card = html.slice(html.indexOf('<article id="f2"'), html.indexOf('</article>', html.indexOf('<article id="f2"')));
@@ -1271,13 +1274,16 @@ test('typed steps: the finding card reads Verify PASS, action, Verify FAIL with 
 	assert.equal(li(3), '<span class="st-v">Verify s00 to s13 have sparklines.</span><span class="st-rs st-pass">PASS</span>');
 	assert.doesNotMatch(li(4), /st-v|st-rs/);
 	assert.equal(li(5), '<span class="st-v">Verify the visible columns s62 to s79 get sparklines.</span>'
-		+ '<span class="st-rs st-fail">FAIL</span><span class="st-obs">Observed: Only s62 has one.</span>');
-	// The card is the finding, and its thumbnails are right below.
+		+ '<span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> '
+		+ `<a class="st-ev" href="#shot-f2-1" data-open="shot-f2-1" aria-label="Screenshot for this step">${PHOTO}</a>`
+		+ '<span class="st-obs">Observed: Only s62 has one.</span>');
+	// The icon rides on verify steps only, and the card never names its own finding.
 	const list = card.slice(card.indexOf('<ol class="repro-steps steps">'), card.indexOf('</ol>'));
-	assert.doesNotMatch(list, /Finding 2|st-ev/);
-	// A shot the step names takes that step's number, and jumps to it.
-	assert.match(card, /<figcaption><a class="step-label" href="#f2-s5">Step 5<\/a>/);
-	assert.match(card, /<figcaption><a class="step-label" href="#f2-s7">Step 7<\/a>/);
+	assert.doesNotMatch(list, /Finding 2/);
+	assert.doesNotMatch(li(4), /st-ev/);
+	// A shot the step names takes that step's number, and links back to it.
+	assert.match(card, /id="shot-f2-1"[^>]*data-step="Step 5" data-step-href="#f2-s5"/);
+	assert.match(card, /data-step="Step 7" data-step-href="#f2-s7"/);
 	assert.match(html, /\.steps li:target\{background:var\(--st-target\)\}/);
 });
 
@@ -1421,4 +1427,25 @@ test('report CSS: expanded rows tint the header only, number steps in the gutter
 	// The finding link's underline is Professional's alone.
 	assert.match(html, /:root\[data-theme=professional\] \.cv-f\{text-decoration:underline;/);
 	assert.doesNotMatch(html, /^\.cv-f\{text-decoration/m);
+});
+
+test('finding steps: a step with two shots shows the icon with a count', () => {
+	const html = renderReportHtml(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '',
+		'### Finding 1: a claim', '', '**Repro** -- starting state: nothing', '', '1. Open it.', '2. Verify it loads. -> FAIL (finding 1)', '',
+		'**Evidence**', '',
+		'- [shots/a.png](https://cdn.example/shots/a.png) -- Step 2: first',
+		'- [shots/b.png](https://cdn.example/shots/b.png) -- Step 2: second',
+	].join('\n')));
+	assert.match(html, /<a class="st-ev" href="#shot-f1-1" data-open="shot-f1-1" aria-label="2 screenshots for this step"><svg[\s\S]*?<\/svg><span class="st-n">2<\/span><\/a>/);
+	assert.doesNotMatch(/<li id="f1-s1">.*?<\/li>/.exec(html)[0], /st-ev/);
+});
+
+test('lightbox: the caption names the step and links it; the copy button shows the copy icon', () => {
+	const html = renderReportHtml(TYPED);
+	assert.match(html, /st\.className='lb-step'/);
+	assert.match(html, /\.lb-step\{font-weight:600;color:var\(--ink\);text-decoration:none\}/);
+	assert.match(html, /\.shot-step\{position:absolute;left:6px;bottom:6px;/);
+	assert.match(html, /<svg class="cp-ico"[^>]*><rect x="5\.5" y="5\.5" width="8" height="8" rx="1\.6"><\/rect>/);
+	assert.doesNotMatch(html, /M7 3c\.35 2\.7/);
 });
