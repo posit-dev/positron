@@ -94,11 +94,6 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
-		label: 'positron-catalog-explorer',
-		workspaceFolder: path.join(os.tmpdir(), `positron-catalog-explorer-${Math.floor(Math.random() * 100000)}`),
-		mocha: { timeout: 60_000 }
-	},
-	{
 		label: 'positron-connections',
 		workspaceFolder: path.join(os.tmpdir(), `positron-connections-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }

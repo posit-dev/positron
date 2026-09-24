@@ -223,7 +223,6 @@ build/detect-dot-only.js
 build/lib/bootstrapExtensions.js
 build/lib/quarto.js
 extensions/next-edit-suggestions/server/language-server.js
-extensions/positron-catalog-explorer/.vscode-test.mjs
 extensions/positron-ipywidgets/renderer/esbuild.js
 extensions/positron-ipywidgets/renderer/src/reactable/reactable-py.esm.js
 extensions/positron-pdf-server/keyboard-forwarder.js
