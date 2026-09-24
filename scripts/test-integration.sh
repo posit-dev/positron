@@ -402,6 +402,12 @@ run_extension_suite npm run test-extension -- -l positron-skills
 kill_app
 
 echo
+echo "### Positron SQL tests"
+echo
+run_extension_suite npm run test-extension -- -l positron-sql
+kill_app
+
+echo
 echo "### Positron Catalog Explorer tests"
 echo
 run_extension_suite npm run test-extension -- -l positron-catalog-explorer
