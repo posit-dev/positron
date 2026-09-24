@@ -70,3 +70,5 @@ the report.
   always shows its simple file dialog instead (fileDialogService.ts), so
   "Open existing folder..." is driven through that quick input.
 - A locked or sleeping display.
+
+To explore interactively, see `test/e2e/utils/canvas-lab/README.md`.
