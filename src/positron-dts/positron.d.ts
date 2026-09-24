@@ -3583,6 +3583,150 @@ declare module 'positron' {
 		 * @returns A data connection.
 		 */
 		export function connect(driverId: string, mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+
+		/**
+		 * Returns the connections the user has configured, whether or not they are connected.
+		 *
+		 * These are the user's own connections, as shown in the Data Connections pane -- not the
+		 * ones this extension opened with {@link connect}. Use them to offer completions, checks
+		 * or navigation against whatever the user is actually connected to.
+		 *
+		 * Empty when the Data Connections feature is disabled, which reads the same to a caller
+		 * as the user having none.
+		 */
+		export function getConnections(): Thenable<DataConnectionSummary[]>;
+
+		/**
+		 * Opens the user's connection for a profile, if it is not already open.
+		 *
+		 * For an extension that knows which of the user's connections it needs -- a SQL file that
+		 * records the database it is written against, say -- rather than waiting for the user to
+		 * open it by hand before anything works. Idempotent: a profile that is already connected
+		 * resolves without reconnecting.
+		 *
+		 * Still no handle: this can open one of the user's connections but cannot disconnect or
+		 * release one, for the same reason {@link getConnections} hands out summaries. Note that
+		 * connecting is not free -- a driver may prompt for credentials, and a warehouse may bill
+		 * for waking up -- so call it because the user asked for something that needs it, not to
+		 * warm connections up in case.
+		 *
+		 * Distinct from {@link connect}, which opens a new connection through a driver this
+		 * extension registered and hands back the connection it owns.
+		 *
+		 * @param profileId The connection to open, from {@link DataConnectionSummary.profileId}.
+		 * @returns Whether the connection is now open. `false` when no such profile exists or the
+		 *   Data Connections feature is disabled. Rejects with the driver's error when opening was
+		 *   attempted and failed, which a caller should expect: credentials expire and hosts go
+		 *   away.
+		 */
+		export function openConnection(profileId: string): Thenable<boolean>;
+
+		/**
+		 * Reads the tables and columns a live connection exposes.
+		 *
+		 * A single bounded call rather than a tree to walk: browsing costs a round trip per node,
+		 * and a warehouse has thousands of them. Whenever a bound leaves something out, the result
+		 * says so -- see {@link DataConnectionSchema.truncated}, which a caller needs in order to
+		 * tell a name the schema is missing from a name the user got wrong.
+		 *
+		 * @param profileId The connection to read, from {@link DataConnectionSummary.profileId}.
+		 * @param options Bounds for the walk. Defaults are sized for a summary, not a full schema.
+		 * @returns The schema, or `undefined` if the connection is not currently connected.
+		 */
+		export function getSchema(profileId: string, options?: DataConnectionSchemaOptions): Thenable<DataConnectionSchema | undefined>;
+
+		/**
+		 * Fires when a connection is opened or closed, or a profile is added, renamed or removed.
+		 *
+		 * Carries no payload; call {@link getConnections} to read the new set. Without this an
+		 * extension has no way to know the user connected to something, and has to re-read on a
+		 * guess -- when a relevant editor is focused, say.
+		 */
+		export const onDidChangeConnections: vscode.Event<void>;
+	}
+
+	/**
+	 * A connection the user has configured, returned by
+	 * {@link dataConnections.getConnections}.
+	 *
+	 * Carries no connection parameters, redacted or otherwise: this says what the user is
+	 * connected to, not how they connected, and a payload holding a host name or an account
+	 * identifier is one every consumer then has to be careful with.
+	 */
+	export interface DataConnectionSummary {
+		/** Stable identifier for the connection, and the key for every other call about it. */
+		readonly profileId: string;
+
+		/** The user-chosen name for the connection. */
+		readonly name: string;
+
+		/** The driver the connection was made with, e.g. `postgresql`. */
+		readonly driverId: string;
+
+		/** The driver's display name, e.g. `PostgreSQL`. */
+		readonly driverName: string;
+
+		/** Whether the connection is live right now. Only a live one has a schema to read. */
+		readonly connected: boolean;
+	}
+
+	/**
+	 * Bounds on a schema read. Each one exists because a database can be arbitrarily large and
+	 * every level costs a round trip to the engine.
+	 */
+	export interface DataConnectionSchemaOptions {
+		/**
+		 * How deep to walk. Root-level objects are depth 1. Container levels that name nothing of
+		 * their own are flattened and do not count against this.
+		 */
+		readonly maxDepth?: number;
+
+		/** How many objects to return under any one parent. */
+		readonly maxNodesPerLevel?: number;
+
+		/** How many objects to return in total, across every level. */
+		readonly maxTotalNodes?: number;
+	}
+
+	/** One object in a connection's schema: a catalog, a schema, a table, or a column. */
+	export interface DataConnectionSchemaNode {
+		readonly name: string;
+
+		/** The kind of object, as a {@link DataConnectionNodeKind} value. */
+		readonly kind: string;
+
+		/** The column's data type, for a node of kind `field`. */
+		readonly dataType?: string;
+
+		/** Whether the column is part of the primary key, for a node of kind `field`. */
+		readonly isPrimaryKey?: boolean;
+
+		/** Present only when this object has at least one child in the result. */
+		readonly children?: DataConnectionSchemaNode[];
+
+		/**
+		 * How many of this object's children a bound left out. Present only when some were, so
+		 * that what is missing is visible rather than silently absent.
+		 */
+		readonly truncatedChildCount?: number;
+	}
+
+	/** What a connection exposes, as read by {@link dataConnections.getSchema}. */
+	export interface DataConnectionSchema {
+		/** The connection this was read from. */
+		readonly profileId: string;
+
+		/** The connection's top-level objects. */
+		readonly nodes: DataConnectionSchemaNode[];
+
+		/**
+		 * Whether any bound left part of the schema out.
+		 *
+		 * Worth checking before treating the result as the whole picture. A truncated schema
+		 * cannot tell a name it never saw from a name that is wrong, so a caller that reports
+		 * unknown names should stay quiet when this is set.
+		 */
+		readonly truncated: boolean;
 	}
 
 	/**

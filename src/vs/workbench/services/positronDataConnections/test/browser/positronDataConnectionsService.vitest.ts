@@ -19,8 +19,9 @@ import { IEditorService } from '../../../editor/common/editorService.js';
 import { PositronDataExplorerUri } from '../../../positronDataExplorer/common/positronDataExplorerUri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IViewsService } from '../../../views/common/viewsService.js';
 import { IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
-import { IPositronDataConnectionsService } from '../../common/interfaces/positronDataConnectionsService.js';
+import { IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../common/interfaces/positronDataConnectionsService.js';
 import { PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
 
 function createProfile(id: string): IDataConnectionProfile {
@@ -70,9 +71,19 @@ describe('PositronDataConnectionsService', () => {
 		datasetId => PositronDataExplorerUri.generate(datasetId).toString() === resource.toString()
 	);
 
+	// Records the views revealNode asked to open, so a test can tell an opened pane from a silent
+	// refusal.
+	const openedViews: string[] = [];
+
 	const ctx = createTestContainer()
 		.stub(IExtensionService, new NullExtensionService())
 		.stub(ILogService, new NullLogService())
+		.stub(IViewsService, {
+			openView: async (id: string) => {
+				openedViews.push(id);
+				return null;
+			},
+		})
 		.stub(IEditorService, {
 			onDidCloseEditor: onDidCloseEditor.event,
 			findEditors: (resource: URI) => datasetIdForResource(resource) !== undefined
@@ -95,6 +106,7 @@ describe('PositronDataConnectionsService', () => {
 
 	beforeEach(() => {
 		openDatasetIds.clear();
+		openedViews.length = 0;
 		storageService = new TestStorageService();
 		ctx.disposables.add(storageService);
 		ctx.instantiationService.stub(IStorageService, storageService);
@@ -923,6 +935,69 @@ describe('PositronDataConnectionsService', () => {
 			service.revealConnection('conn-1');
 
 			expect(takenWhileFiring).toBe('conn-1');
+		});
+	});
+	describe('revealNode', () => {
+		const PATH = [{ kind: 'table', name: 'flights' }];
+
+		/** Connects 'conn-1' through a minimal driver, so it has a live instance to reveal into. */
+		async function connectProfile() {
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: createDriverMetadata(),
+				connect: async () => stubInterface<IDataConnectionHandle>({
+					handle: 1,
+					disconnect: async () => { },
+					release: () => { },
+				}),
+			}));
+			service.addUpdateProfile(createProfile('conn-1'));
+			return service.connect('conn-1');
+		}
+
+		it('opens the pane and raises the request for a live connection', async () => {
+			await connectProfile();
+			const raised: unknown[] = [];
+			ctx.disposables.add(service.onDidRequestReveal(request => raised.push(request)));
+
+			await service.revealNode({ profileId: 'conn-1', path: PATH });
+
+			expect({ openedViews, raised }).toEqual({
+				openedViews: [POSITRON_DATA_CONNECTIONS_VIEW_ID],
+				raised: [{ profileId: 'conn-1', path: PATH }],
+			});
+		});
+
+		it('refuses a profile with no live connection', async () => {
+			// Walking to a row fetches each level from the driver, so revealing into a closed
+			// connection would open it -- which a click on a link in an editor must not do.
+			service.addUpdateProfile(createProfile('conn-1'));
+			const raised: unknown[] = [];
+			ctx.disposables.add(service.onDidRequestReveal(request => raised.push(request)));
+
+			await service.revealNode({ profileId: 'conn-1', path: PATH });
+
+			expect({ openedViews, raised }).toEqual({ openedViews: [], raised: [] });
+		});
+
+		it('holds the request for a pane that was not listening yet', async () => {
+			// The pane is rendered by the openView above, so it misses the event; the request waits
+			// for it to claim on mount.
+			await connectProfile();
+
+			await service.revealNode({ profileId: 'conn-1', path: PATH });
+
+			expect(service.takePendingReveal()).toEqual({ profileId: 'conn-1', path: PATH });
+			// Claimed once only, so a later mount does not jump the tree to a stale row.
+			expect(service.takePendingReveal()).toBeUndefined();
+		});
+
+		it('holds nothing when the reveal was refused', async () => {
+			service.addUpdateProfile(createProfile('conn-1'));
+
+			await service.revealNode({ profileId: 'conn-1', path: PATH });
+
+			expect(service.takePendingReveal()).toBeUndefined();
 		});
 	});
 });

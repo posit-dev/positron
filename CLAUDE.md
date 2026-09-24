@@ -2,6 +2,10 @@
 
 Positron is a next-generation data science IDE built on VS Code with first-class Python and R support.
 
+> **Working on the SQL feature?** It is split across four stacked PRs. Read [SQL-STACK.md](SQL-STACK.md)
+> before editing: it says which branch owns which files, and the core/API files are deliberately split
+> between two of them. (Temporary; removed before the stack merges.)
+
 ## Build System
 
 **NEVER run direct TypeScript compilation on the main project** (`npx tsc`, `tsc --noEmit`, etc. against `src/tsconfig.json`). This project is too large and it will fail or hang. The background daemons handle all compilation. If you need to verify code compiles:

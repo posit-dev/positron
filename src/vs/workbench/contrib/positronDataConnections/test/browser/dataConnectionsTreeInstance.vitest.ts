@@ -15,7 +15,7 @@ import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../.
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 function createProfile(overrides: Partial<IDataConnectionProfile> = {}): IDataConnectionProfile {
 	return {
@@ -176,6 +176,15 @@ describe('DataConnectionsTreeInstance', () => {
 	function createTree(
 		connected = true,
 		discoveredProfiles: IDataConnectionProfile[] = [],
+		nodes: IDataConnectionNodeDTO[] = [{
+			nodeHandle: 7,
+			name: 'flights',
+			kind: 'table',
+			hasGetChildren: false,
+			hasPreview: true,
+		}],
+		// A reveal recorded before the tree exists, as one that had to open the pane would be.
+		initialPendingReveal?: IDataConnectionRevealRequest,
 		// Seeded with the indent keys the tree reads, since the real configuration service always
 		// has them: both are registered with numeric defaults.
 		configurationService = new TestConfigurationService({
@@ -185,19 +194,17 @@ describe('DataConnectionsTreeInstance', () => {
 		// Set to make the service's connect() reject, standing in for a driver that fails to open.
 		connectError?: Error
 	) {
-		// One leaf under the connection, so a test has a real non-entry node to act on. Its node id is
-		// DTO_ID below.
-		const getChildren = vi.fn(async () => [{
-			nodeHandle: 7,
-			name: 'flights',
-			kind: 'table',
-			hasGetChildren: false,
-			hasPreview: true,
-		}]);
+		// One leaf under the connection by default, so a test has a real non-entry node to act on.
+		// Its node id is DTO_ID below.
+		const getChildren = vi.fn(async () => nodes);
 		const instance = stubInterface<IDataConnectionInstance>({
 			id: 'instance-1',
 			profileId: profile.id,
-			connectionHandle: stubInterface<IDataConnectionHandle>({ handle: 1, getChildren }),
+			connectionHandle: stubInterface<IDataConnectionHandle>({
+				handle: 1,
+				getChildren,
+				nodeGetChildren: (nodeHandle: number) => nodeGetChildren(nodeHandle),
+			}),
 		});
 
 		// Held as locals as well as on the stub, so a test can read their call lists (the stub is typed
@@ -207,14 +214,26 @@ describe('DataConnectionsTreeInstance', () => {
 		const notificationError = vi.fn<INotificationService['error']>();
 		const notificationService = stubInterface<INotificationService>({ error: notificationError });
 
+		// Children of the one node the default tree has, for the deeper walks reveal tests need.
+		const nodeGetChildren = vi.fn(async (_handle: number) => [] as IDataConnectionNodeDTO[]);
+
 		let liveInstance = connected ? instance : undefined;
+		const onDidRequestReveal = new Emitter<IDataConnectionRevealRequest>();
+		let pendingReveal: IDataConnectionRevealRequest | undefined = initialPendingReveal;
 		const service = stubInterface<IPositronDataConnectionsService>({
 			onDidChangeProfiles: Event.None,
 			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeDiscoveredProfiles: Event.None,
-			// No reveal request is outstanding in these tests; the tree takes one on construction.
+			// No connection-reveal request is outstanding in these tests; the tree takes one on
+			// construction.
 			onDidRequestRevealConnection: Event.None,
 			takePendingRevealConnection: () => undefined,
+			onDidRequestReveal: onDidRequestReveal.event,
+			takePendingReveal: () => {
+				const request = pendingReveal;
+				pendingReveal = undefined;
+				return request;
+			},
 			getAllProfiles: () => [profile, ...discoveredProfiles],
 			getInstanceForProfile: () => liveInstance,
 			connect: connectError ? async () => { throw connectError; } : async () => instance,
@@ -231,7 +250,16 @@ describe('DataConnectionsTreeInstance', () => {
 			onDidChangeInstances.fire(nowConnected ? [instance] : []);
 		};
 
-		return { tree, service, getChildren, setConnected, disconnect, disconnectWhenUnused, notificationError };
+		// Stands in for the service: record the request, then tell the tree to claim it.
+		const requestReveal = (request: IDataConnectionRevealRequest) => {
+			pendingReveal = request;
+			onDidRequestReveal.fire(request);
+		};
+
+		return {
+			tree, service, getChildren, nodeGetChildren, setConnected, disconnect,
+			disconnectWhenUnused, requestReveal, notificationError,
+		};
 	}
 
 	/**
@@ -269,9 +297,12 @@ describe('DataConnectionsTreeInstance', () => {
 			onDidChangeProfiles: Event.None,
 			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeDiscoveredProfiles: Event.None,
-			// No reveal request is outstanding in these tests; the tree takes one on construction.
+			// No reveal request is outstanding in these tests; the tree takes one of each on
+			// construction.
 			onDidRequestRevealConnection: Event.None,
 			takePendingRevealConnection: () => undefined,
+			onDidRequestReveal: Event.None,
+			takePendingReveal: () => undefined,
 			getAllProfiles: () => profiles,
 			getInstanceForProfile: (profileId: string) => instances.get(profileId),
 			connect: async (profileId: string) => instances.get(profileId)!,
@@ -485,7 +516,7 @@ describe('DataConnectionsTreeInstance', () => {
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
 		});
-		const { tree } = createTree(true, [], configurationService);
+		const { tree } = createTree(true, [], undefined, undefined, configurationService);
 
 		// Changes reach the tree without a window reload: a user dialing either setting in wants the
 		// tree to answer as they drag it.
@@ -652,7 +683,8 @@ describe('DataConnectionsTreeInstance', () => {
 
 	it('reports a notification when connecting an entry fails, alongside the tree\'s own error state', async () => {
 		const connectError = new Error('boom');
-		const { tree, notificationError } = createTree(false, [], undefined, connectError);
+		const { tree, notificationError } = createTree(
+			false, [], undefined, undefined, undefined, connectError);
 		await tree.refresh();
 
 		await tree.expand(ENTRY_ID);
@@ -752,6 +784,114 @@ describe('DataConnectionsTreeInstance', () => {
 
 		expect(notificationError.mock.calls).toEqual([]);
 	});
+	describe('reveal', () => {
+		const FLIGHTS = { kind: 'table', name: 'flights' };
+
+		/**
+		 * A tree shaped like a real connection: the schema sits under a "Tables" grouping row,
+		 * which a reveal path never names and the walk has to see past on its own.
+		 */
+		function createNestedTree() {
+			const built = createTree(true, [], [
+				{ nodeHandle: 7, name: 'Tables', kind: 'group-tables', hasGetChildren: true, hasPreview: false },
+			]);
+			built.nodeGetChildren.mockImplementation(async (handle: number) => {
+				if (handle === 7) {
+					return [{ nodeHandle: 8, name: 'flights', kind: 'table', hasGetChildren: true, hasPreview: true }];
+				}
+				if (handle === 8) {
+					return [{ nodeHandle: 9, name: 'dep_time', kind: 'field', hasGetChildren: false, hasPreview: false }];
+				}
+				return [];
+			});
+			return built;
+		}
+
+		it('expands to the row a path names and selects it', async () => {
+			const { tree } = createTree();
+			await tree.refresh();
+
+			await tree.reveal({ profileId: 'conn-1', path: [FLIGHTS] });
+
+			expect({
+				selected: tree.getSelectedNode()?.id,
+				expanded: tree.isExpanded(ENTRY_ID),
+			}).toEqual({ selected: DTO_ID, expanded: true });
+		});
+
+		it('walks past the grouping rows a path leaves out', async () => {
+			// The path says table -> field; the tree puts a "Tables" row in between.
+			const { tree } = createNestedTree();
+			await tree.refresh();
+
+			await tree.reveal({
+				profileId: 'conn-1',
+				path: [FLIGHTS, { kind: 'field', name: 'dep_time' }],
+			});
+
+			expect(tree.getSelectedNode()?.id).toBe('dto:1:9');
+		});
+
+		it('matches a name whose kind has changed since the path was built', async () => {
+			// A path is a snapshot; a driver that has started calling this table a view should
+			// still be reachable from it.
+			const { tree } = createTree();
+			await tree.refresh();
+
+			await tree.reveal({ profileId: 'conn-1', path: [{ kind: 'view', name: 'flights' }] });
+
+			expect(tree.getSelectedNode()?.id).toBe(DTO_ID);
+		});
+
+		it('matches a name in a different case', async () => {
+			const { tree } = createTree();
+			await tree.refresh();
+
+			await tree.reveal({ profileId: 'conn-1', path: [{ kind: 'table', name: 'FLIGHTS' }] });
+
+			expect(tree.getSelectedNode()?.id).toBe(DTO_ID);
+		});
+
+		it('gives up quietly on a path that no longer resolves', async () => {
+			// The table was dropped or renamed since the path was built. Nothing to select, and
+			// nothing worth interrupting the user over.
+			const { tree } = createTree();
+			await tree.refresh();
+
+			await tree.reveal({ profileId: 'conn-1', path: [{ kind: 'table', name: 'gone' }] });
+
+			expect(tree.getSelectedNode()).toBeUndefined();
+		});
+
+		it('ignores a path into a profile the tree does not have', async () => {
+			const { tree } = createTree();
+			await tree.refresh();
+
+			await tree.reveal({ profileId: 'no-such-profile', path: [FLIGHTS] });
+
+			expect(tree.getSelectedNode()).toBeUndefined();
+		});
+
+		it('reveals on a request raised while it is listening', async () => {
+			const { tree, requestReveal } = createTree();
+			await tree.refresh();
+
+			requestReveal({ profileId: 'conn-1', path: [FLIGHTS] });
+
+			await vi.waitFor(() => expect(tree.getSelectedNode()?.id).toBe(DTO_ID));
+		});
+
+		it('claims a reveal that was raised before it existed', async () => {
+			// A reveal that had to open the pane fires before the tree is constructed, so the
+			// request waits on the service; the tree claims it on construction and acts on it once
+			// its roots have loaded.
+			const { tree } = createTree(true, [], undefined, { profileId: 'conn-1', path: [FLIGHTS] });
+
+			await tree.refresh();
+
+			await vi.waitFor(() => expect(tree.getSelectedNode()?.id).toBe(DTO_ID));
+		});
+	});
 });
 
 describe('DataConnectionsTreeInstance reveal', () => {
@@ -818,6 +958,10 @@ describe('DataConnectionsTreeInstance reveal', () => {
 				pending = undefined;
 				return taken;
 			},
+			// These tests are about revealing a whole connection; no row-level reveal is
+			// outstanding, but the tree still takes one on construction.
+			onDidRequestReveal: Event.None,
+			takePendingReveal: () => undefined,
 			getAllProfiles: () => [...filler, profile],
 			getInstanceForProfile: (profileId: string) => profileId === profile.id ? liveInstance : undefined,
 			connect,

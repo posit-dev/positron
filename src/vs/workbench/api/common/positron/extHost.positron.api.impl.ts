@@ -368,6 +368,35 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			connect(driverId: string, mechanismId: string, parameters: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
 				return extHostDataConnections.connect(driverId, mechanismId, parameters);
 			},
+
+			/**
+			 * Returns the connections the user has configured, whether or not they are connected.
+			 * These are the user's own connections, not ones this extension opened.
+			 */
+			/**
+			 * Opens the user's connection for a profile, if it is not already open. Reports whether
+			 * it is now open; rejects when opening was attempted and failed.
+			 */
+			openConnection(profileId: string): Thenable<boolean> {
+				return extHostDataConnections.openConnection(profileId);
+			},
+
+			getConnections(): Thenable<positron.DataConnectionSummary[]> {
+				return extHostDataConnections.getConnections();
+			},
+
+			/**
+			 * Reads the tables and columns a live connection exposes, bounded by `options`.
+			 * @param profileId The connection to read.
+			 * @param options Bounds for the walk.
+			 * @returns The schema, or undefined if the connection is not currently connected.
+			 */
+			getSchema(profileId: string, options?: positron.DataConnectionSchemaOptions): Thenable<positron.DataConnectionSchema | undefined> {
+				return extHostDataConnections.getSchema(profileId, options);
+			},
+
+			/** Fires when the user's connections change. */
+			onDidChangeConnections: extHostDataConnections.onDidChangeConnections,
 		};
 
 		const dataExplorer: typeof positron.dataExplorer = {
