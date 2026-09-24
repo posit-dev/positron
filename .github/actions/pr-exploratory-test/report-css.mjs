@@ -63,6 +63,11 @@ const PROFESSIONAL = `
 	--cv-chev: #C4C0B6;
 	--st-ev: #8A8F96;
 	--st-target: #F6F1E4;
+	--cv-open: #F7F6F1;
+	--cv-open-hover: #F2F0EA;
+	--pop-border: #E7E4DC;
+	--pop-sep: #EFEDE7;
+	--pop-shadow: 0 8px 24px rgba(28,31,35,.12);
 
 	--label-color: var(--muted);
 	--label-ls: 0.1em;
@@ -175,6 +180,11 @@ const PARTY = `
 	--cv-chev: #5B4F92;
 	--st-ev: #8A82B8;
 	--st-target: #2A2250;
+	--cv-open: #2A2250;
+	--cv-open-hover: #302860;
+	--pop-border: #5B4F92;
+	--pop-sep: #342A5C;
+	--pop-shadow: 0 8px 24px rgba(0,0,0,.4);
 
 	--label-color: #FF6AC1;
 	--label-ls: 0.14em;
@@ -359,7 +369,7 @@ a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
 .findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 110px}
-.coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px}
+.coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
@@ -531,7 +541,7 @@ span.rt-file{color:var(--body)}
 #cf-p:checked~.cf-card .row.cov-extra.cf-p{display:grid !important}
 /* Every row keeps its hairline; the -1px tucks whichever row is last in the
    current filter under the card border instead of doubling it. */
-.cov-rows{position:relative;margin-bottom:-1px}
+.cov-rows{position:relative;margin-bottom:-1px;font-size:14px;line-height:1.5}
 .cov-rows>.row,.cov-rows>.cv{border-bottom:1px solid var(--hairline)}
 /* The status dot sits inside the scenario cell, not in a column of its own: it
    belongs to that scenario. The gap is wider than bullet-list spacing so the
@@ -547,29 +557,58 @@ span.rt-file{color:var(--body)}
 /* Indented by the dot plus the gap, so the label starts where the text does. */
 .cov-head-scenario{padding-left:21px}
 .cov-result{color:var(--body)}
+.cv-f{font-weight:500}
+/* The deep teal sits too close to the body text to stand out alone; Party's
+   cyan does not need the help. */
+:root[data-theme=professional] .cv-f{text-decoration:underline;text-decoration-color:rgba(46,107,94,.35);text-decoration-thickness:1px;text-underline-offset:3px}
+:root[data-theme=professional] .cv-f:hover{text-decoration-color:currentColor}
 .cov-notrun{grid-column:span 2;color:var(--muted)}
 .cov-nr{font-weight:500;color:var(--body)}
-/* A passing row is its own disclosure: the whole row toggles its steps. */
+/* A passing row is its own disclosure: the whole row toggles its steps. Only
+   the header tints; the body never does. */
 .cv>summary{border-bottom:0;list-style:none;cursor:pointer;transition:background-color .15s ease}
 .cv>summary::-webkit-details-marker{display:none}
 .cv>summary:hover{background:var(--thead)}
 .cv>summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.cv[open]>summary{background:var(--cv-open);position:relative}
+.cv[open]>summary:hover{background:var(--cv-open-hover)}
+.cv[open]>summary::after{content:"";position:absolute;left:41px;right:20px;bottom:0;height:1px;background:var(--border)}
 .cv-chev-cell{display:inline-flex;justify-content:flex-end;margin-top:5px;color:var(--cv-chev)}
 .cv .cv-chev{flex:none;transition:transform .15s ease,color .15s ease}
 .cv[open] .cv-chev{transform:rotate(90deg)}
 .cv>summary:hover .cv-chev,.cv[open] .cv-chev,.cv>summary:focus-visible .cv-chev{color:var(--muted)}
-.cv-steps{padding:0 20px 14px 41px}
-.cv-steps ol{margin:0;padding-left:20px;font-size:13px;line-height:1.6;color:var(--body)}
-.cv-steps li{margin:0 0 2px}
+@media (prefers-reduced-motion:reduce){.cv .cv-chev,.cv>summary{transition:none}}
+/* Two edges: step numbers and the P sit in the gutter under the dot, and all
+   body text starts under the scenario name. */
+.cv-steps{padding:10px 20px 14px 41px}
+.cv-steps ol{margin:0;padding-left:0;list-style:none;counter-reset:st;font-size:13px;line-height:1.6;color:var(--body)}
+.cv-steps ol>li{position:relative;margin:0 0 2px;counter-increment:st}
+.cv-steps ol>li::before{content:counter(st);position:absolute;left:-27px;width:20px;text-align:center;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+/* Coverage card: let popovers overflow */
+.cf-card{overflow:visible}
+.cf-card>.row-head{border-radius:11px 11px 0 0}
+.cf-card .cov-more{border-radius:0 0 11px 11px}
+/* Preconditions line: "P" in the step-number gutter, full view on hover */
+.cv-pre{position:relative;margin:0 0 2px;font-size:13px;line-height:1.6;color:var(--body);cursor:help;outline:none}
+.cv-pre .pre-mark{position:absolute;left:-27px;width:20px;text-align:center;font-size:12px;font-weight:400;font-variant-numeric:tabular-nums;color:var(--faint);transition:color .15s ease}
+.cv-pre:hover .pre-mark,.cv-pre:focus-visible .pre-mark{color:var(--link)}
+.cv-pre:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+.pre-pop{position:absolute;top:calc(100% + 6px);left:-33px;z-index:6;width:440px;max-width:75vw;display:none;background:var(--card);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:12px 14px;font-size:13px;line-height:1.55;color:var(--body);white-space:normal;cursor:auto}
+.cv-pre:hover .pre-pop,.cv-pre:focus .pre-pop,.cv-pre:focus-within .pre-pop{display:block}
+.pre-pop .pre-t{display:block;font-size:11.5px;font-weight:400;color:var(--faint);margin-bottom:4px}
+.pre-pop .pre-i{display:block}
+.pre-pop .pre-i+.pre-i{margin-top:8px;padding-top:8px;border-top:1px solid var(--pop-sep)}
+.pre-pop b{display:block;font-weight:600;color:var(--ink);font-size:12.5px;margin-bottom:2px}
+@media (prefers-reduced-motion:reduce){.cv-pre .pre-mark{transition:none}}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 .cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
 .st-ev{color:var(--st-ev);white-space:nowrap;transition:color .15s ease}
-.st-ev svg{vertical-align:-2px}
+.st-ev svg{vertical-align:-0.21em}
 .st-ev:hover{color:var(--link);text-decoration:none}
 .st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
 
 /* Steps: action / verify / result */
-.st-v{color:var(--ink)}
+.st-v{color:inherit}
 .st-rs{font-size:11px;font-weight:600;letter-spacing:.06em;margin-left:6px;white-space:nowrap}
 .st-pass{color:var(--pass-fill)}
 .st-fail{color:var(--major-text)}
@@ -679,7 +718,6 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.row-head{display:none}
 	.cov-notrun{grid-column:auto}
 	.cv-chev-cell{justify-content:flex-start}
-	.cv-steps{padding-left:41px}
 	.shots,.shots.n3{grid-template-columns:repeat(2,minmax(0,1fr))}
 	.shots.n1{grid-template-columns:minmax(0,1fr)}
 	.lb{padding:12px}

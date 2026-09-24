@@ -822,10 +822,122 @@ function splitFindingRef(text) {
 	return { text: text.slice(0, m.index).replace(/[\s,;.\u00b7-]+$/, '').trim(), finding: Number(m[1]) };
 }
 
+// A ledger field separator: the middle dot the example uses, or ASCII ` - ` / ` | `.
+const LEDGER_SEP = /\s+(?:·|-|\|)\s+/;
+
 /**
- * Parses a report's markdown into the structure the template renders.
+ * Parses the run's `ledger.md` into Coverage rows, or null when it holds no
+ * scenarios. Scenarios are `## S01 · <name>` blocks with `Status:`, `Result:`,
+ * optional `Preconditions:` bullets (`- <name> | <creating ID> | <how>`) and
+ * numbered typed `Steps:`; `## Not run` lists `- N01 · <name> · <reason>`.
  */
-export function parseReport(markdown) {
+export function parseLedger(markdown) {
+	const lines = String(markdown ?? '').split('\n');
+	const exercised = [];
+	const notExercised = [];
+	let cur = null;
+	let section = '';
+	let inNotRun = false;
+	for (const line of lines) {
+		const t = line.trim();
+		const head = /^##\s+(.*)$/.exec(t);
+		if (head) {
+			cur = null;
+			section = '';
+			inNotRun = /^not run$/i.test(head[1].trim());
+			const m = /^(S\d+)\s*(?:·|-|\||:)\s*(.+)$/.exec(head[1].trim());
+			if (m) {
+				cur = { id: m[1], name: m[2].trim(), status: '', finding: null, result: '', pre: [], stepLines: [] };
+				exercised.push(cur);
+			}
+			continue;
+		}
+		if (inNotRun) {
+			const m = /^[-*]\s+(?:(N\d+)\s*(?:·|-|\||:)\s*)?(.+)$/.exec(t);
+			if (m) {
+				const sep = LEDGER_SEP.exec(m[2]);
+				const name = sep ? m[2].slice(0, sep.index) : m[2];
+				const reason = sep ? m[2].slice(sep.index + sep[0].length) : '';
+				notExercised.push({ id: m[1] ?? '', name: name.trim(), reason: reason.trim() });
+			}
+			continue;
+		}
+		if (!cur) { continue; }
+		const field = /^(status|result|preconditions|steps):\s*(.*)$/i.exec(t);
+		if (field && !/^\s/.test(line)) {
+			const name = field[1].toLowerCase();
+			if (name === 'status') {
+				cur.status = /fail/i.test(field[2]) ? 'fail' : 'pass';
+				const n = /finding\s*(\d+)/i.exec(field[2]);
+				cur.finding = n ? Number(n[1]) : null;
+			} else if (name === 'result') {
+				cur.result = field[2].trim();
+			}
+			section = name;
+			continue;
+		}
+		if (section === 'preconditions' && /^[-*]\s+/.test(t)) {
+			const [pname, from = '', ...how] = t.replace(/^[-*]\s+/, '').split(/\s*\|\s*/);
+			cur.pre.push({ name: pname.trim(), from: from.trim(), how: how.join(' | ').trim() });
+		} else if (section === 'steps' && t !== '---') {
+			cur.stepLines.push(line);
+		}
+	}
+	if (!exercised.length && !notExercised.length) {
+		return null;
+	}
+
+	const rows = exercised.map(s => {
+		// A numbered line opens a step; its indented lines are its fields and source.
+		const groups = [];
+		for (const line of s.stepLines) {
+			const m = /^\d+[.)]\s+(.*)$/.exec(line);
+			if (m) { groups.push([m[1]]); }
+			else if (groups.length) { groups[groups.length - 1].push(dedent(line)); }
+		}
+		const steps = groups.map(typedStep);
+		const finding = s.finding ?? steps.find(st => st.finding)?.finding ?? null;
+		return {
+			id: s.id,
+			scenarioHtml: inline(s.name),
+			scenario: s.name.replace(/`/g, '').trim(),
+			resultHtml: inline(sentenceCase(s.result)),
+			status: s.status || (steps.some(st => st.result === 'fail') ? 'fail' : 'pass'),
+			finding,
+			shot: null,
+			pre: s.pre.map(p => ({ nameHtml: inline(p.name), from: p.from, howHtml: inline(p.how) })),
+			steps,
+		};
+	});
+	return {
+		exercised: rows,
+		notExercised: notExercised.map(r => ({
+			id: r.id,
+			scenarioHtml: inline(r.name),
+			reasonHtml: inline(sentenceCase(r.reason)),
+		})),
+		// A ledger always lists what it did not run, so an empty list means none.
+		notExercisedListed: true,
+	};
+}
+
+/** Scenario tallies for the tile, from Coverage rows. */
+function scenarioCounts({ exercised, notExercised }) {
+	const issue = r => r.status === 'fail' || Boolean(r.finding);
+	return {
+		exercised: exercised.length,
+		pass: exercised.filter(r => !issue(r)).length,
+		issues: exercised.filter(issue).length,
+		notRun: notExercised.length,
+	};
+}
+
+/**
+ * Parses a report's markdown into the structure the template renders. Given
+ * the run's ledger, Coverage and the Scenarios tile come from it instead of
+ * the report's Coverage tables.
+ */
+export function parseReport(markdown, { ledger } = {}) {
 	const lines = String(markdown ?? '').split('\n');
 
 	const titleIndex = lines.findIndex(l => l.startsWith('# '));
@@ -1068,6 +1180,11 @@ export function parseReport(markdown) {
 		reasonHtml: inline(sentenceCase(row['reason'] ?? row._cells?.[1] ?? '')),
 	}));
 
+	// Whether the report wrote a Not exercised heading at all, so an empty one
+	// can say so rather than vanish.
+	const coverage = parseLedger(ledger)
+		?? { exercised, notExercised, notExercisedListed: notExercisedHeading !== -1 };
+
 	const runDetails = parseRunDetails(readDetails(lines, 'Run details'));
 	const verification = parseVerification(readDetails(lines, 'Verification details'));
 
@@ -1112,15 +1229,8 @@ export function parseReport(markdown) {
 		findings,
 		severityCounts,
 		findingCount,
-		// Whether the report wrote a Not exercised heading at all, so an empty
-		// one can say so rather than vanish.
-		coverage: { exercised, notExercised, notExercisedListed: notExercisedHeading !== -1 },
-		scenarios: {
-			exercised: exercised.length,
-			pass: exercised.filter(r => !r.finding).length,
-			issues: exercised.filter(r => r.finding).length,
-			notRun: notExercised.length,
-		},
+		coverage,
+		scenarios: scenarioCounts(coverage),
 		runDetails,
 		verification,
 		// The total's duration covers every pass. Falling back to the main pass

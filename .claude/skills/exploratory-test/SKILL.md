@@ -74,8 +74,9 @@ scaffolding workspaces you created.
 Write findings to a fresh run directory,
 `~/.claude/skills/exploratory-test/output/<YYYYMMDDTHHMMSS>/report.md`, with
 evidence under `shots/` beside it. Cite a shot as a real link,
-`[shots/<file>](shots/<file>)`, every time you name one, here and in Verified
-working: a backticked path renders as code the reader cannot open. Never
+`[shots/<file>](shots/<file>)`, every time you name one in the report: a
+backticked path renders as code the reader cannot open. The ledger's
+`Evidence:` lines are the exception, bare file names under `shots/`. Never
 write into an existing run directory; each run keeps its own so earlier
 findings survive.
 Copy evidence into `shots/` as you capture it, not at the end: drive-positron's
@@ -115,16 +116,6 @@ PR: <owner>/<repo>#<number>
 ## Findings
 
 <the table, then one `### Finding N: <claim>` block per finding, worst first>
-
-## Coverage
-
-### Verified
-
-| Scenario | Result | Screenshot |
-
-### Not exercised
-
-| Scenario | Reason |
 
 <details>
 <summary>Run details</summary>
@@ -167,39 +158,86 @@ whole line: emphasis covering everything emphasises nothing, and the renderer
 drops it. A single-sentence `Result` needs no mark.
 
 `Tested` is the scope you covered and how much of it: the surfaces you drove,
-in a phrase, then the number of scenarios. The count is the row count of your
-`Verified` table, so a reader can check it against the table rather than take
-it on trust. It is there because nothing else at the top says how much work
+in a phrase, then the number of scenarios. The count is the number of `S`
+scenarios in your ledger, so a reader can check it against Coverage rather
+than take it on trust. It is there because nothing else at the top says how much work
 stands behind the verdict, and no findings after three scenarios means
 something very different from no findings after twenty.
 
 Write all three lines every time. `**Not exercised:** none` is a claim that you
 reached everything the change touches, and making you write it is the point: a
 reader who sees a low finding count cannot otherwise tell a clean run from one
-that never rendered the feature. Each surface named there reappears under
-Coverage with the reason it was out of reach.
+that never rendered the feature. Each surface named there reappears in the
+ledger's `Not run` list with the reason it was out of reach.
 
-`## Coverage` holds what you exercised and what you did not, as two tables.
-Resist any column that restates another: a `Status` column reading `passed` on
-every row of a table headed `Verified` says nothing, and the heavier the table
-the less of it gets read.
+## Ledger
 
-`Verified` answers what you exercised, what happened, and where to check it.
+The report's Coverage section is built from `ledger.md`, which you write in the
+run directory beside `report.md` *as you go*, one scenario at a time, not at the
+end. It holds every scenario you ran and every one you did not, and the report
+has no Coverage tables of its own: the renderer reads the ledger for the table,
+its tab counts and the Scenarios tile.
 
-```
-| Scenario | Result | Screenshot | Steps |
-|---|---|---|---|
-| <a few words> | <what happened> | [shots/<file>](shots/<file>) | 1. <action><br>2. Verify <expectation>. -> PASS |
-```
+````
+# Test ledger
 
-The shot goes in its own cell, and the cell is left empty when you have none;
-it proves the row's last verify step unless a step names its own `Evidence:`.
-A verified claim nobody can check is worth little, and this table is where the
-reader checks it; a column of filenames can be scanned down for the row you
-want, which the same links buried mid-sentence could not be. Keep `Result` to
-what happened. A cell reporting that something did *not* happen says which
-surface you checked and when, and each such claim stands alone rather than
-being folded into a rate.
+PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
+
+## Environment
+- <what is true for the whole run: build, launch, workspace, interpreters>
+
+---
+
+## S01 - <scenario, in a few words>
+Status: pass
+Result: <what happened, one line>
+
+Preconditions:
+- <short name> | <ID of the scenario that creates it, or empty> | <how to set it up>
+
+Steps:
+1. <action>
+2. VERIFY <expectation> -> PASS
+   Evidence: <file>
+
+## S02 - <scenario>
+Status: fail - Finding 1
+Result: <what happened, one line>
+
+Steps:
+1. <action>
+2. VERIFY <expectation> -> FAIL - Finding 1
+   Observed: <one line>
+   Evidence: <file>[, <file>]
+
+---
+
+## Not run
+- N01 - <scenario> - <why it was out of reach, in a phrase>
+````
+
+- IDs are stable: `S01`, `S02`, ... for scenarios run, in run order; `N01`, ...
+  for scenarios not run. Never renumber.
+- `Status:` is `pass`, or `fail - Finding N` for the finding it produced.
+  `Result:` is what happened, in one line: the outcome for a pass, a short
+  symptom or the rate for a fail ("Fails 3/3"). A cell reporting that
+  something did *not* happen says which surface you checked and when.
+- `## Environment` holds only what is true for the whole run. Copy it into Run
+  details; Coverage never shows it.
+- `Preconditions:` is everything else a scenario needs before step 1, one
+  `- <short name> | <creating ID> | <how>` bullet each. The short name is a few
+  words ("`slow.py` loaded"); the how-to is enough to set it up from scratch.
+  When another scenario creates the state, put its ID in the middle field;
+  otherwise leave it empty. Repeat a precondition on every scenario that needs
+  it. Leave `Preconditions:` out when there is nothing to set up, and never
+  write a default-settings line ("Shipped defaults" or similar). Steps never
+  start with "With X open, ..."; that state belongs here.
+- `Not run` covers both the surfaces you could not reach and the threads you
+  abandoned. Every surface on the `**Not exercised:**` line at the top appears
+  here. A gap that deserves more than a phrase -- a mechanism you did not test
+  that probably shares a fault with one you did, say -- gets it in the reason.
+  There is no follow-up list: what a different run might check is neither a
+  finding nor coverage.
 
 **Recording steps.** Record every scenario as typed steps, *as you run them*, not reconstructed afterwards.
 - An **action** is something you did: "Run `%view df`.", "Click Continue.", "Scroll to the bottom." Merge trivial waits into the action before them ("Run X and wait 15 s").
@@ -211,41 +249,26 @@ being folded into a rate.
 
 **Finding Reproduce steps** are the minimal sequence from the scenario that found it: its actions plus the verify steps that matter, keeping PASS checks that show what still works just before the failure.
 
-Write steps in this grammar; the report parses it, and a result it cannot
-find is shown as none rather than guessed:
+**Screenshots.**
+- Every **FAIL** check gets a screenshot.
+- Every **passing scenario** gets at least one, on the check that shows its main outcome.
+- Add more only when the picture shows something the text can't.
+- Don't screenshot things a picture can't show (focus moving, a value staying the same).
+- Attach each screenshot to the verify step it proves.
+
+Write steps in this grammar, in the ledger and in a finding's steps; the
+report parses it, and a result it cannot find is shown as none rather than
+guessed:
 
 ```
 N. <action text>
-N. Verify <assertion> -> PASS
-N. Verify <assertion> -> FAIL (finding K)
+N. VERIFY <expectation> -> PASS
+N. VERIFY <expectation> -> FAIL - Finding K
    Observed: <one line>
    Evidence: <file>[, <file>]
 ```
 
-In a `Steps` cell, separate steps with `<br>` because a cell cannot hold a
-list; an `Observed:` or `Evidence:` item belongs to the step before it. Write
-them for every row, passing ones included. A row that produced a finding can
-leave the cell empty: its steps are on the finding.
-
-When a row is how you found a finding, end `Result` with `(finding N)`. That is
-what links the row to the finding it produced, and it is why a scenario that
-hit a problem still belongs in this table rather than being moved out of it.
-
-`Not exercised` answers why not, and covers both the surfaces you could not
-reach and the threads you abandoned. Every scenario named on the
-`**Not exercised:**` line at the top appears here.
-
-```
-| Scenario | Reason |
-|---|---|
-| <a few words> | <why it was out of reach, in a phrase> |
-```
-
-Some gaps deserve a sentence a cell cannot hold: a mechanism you did not test
-that probably shares a fault with one you did, say. Say it in that row's
-`Reason` rather than adding a section for it. There is no follow-up block: a
-list of what a different run might check is not a finding and not coverage, and
-it read as a third kind of result nobody could act on.
+`Observed:` is only for FAIL. `Evidence:` sits under the check it proves.
 
 Run details goes last because nobody needs it until they try to reproduce
 something: the branch and how you proved the build matches it, how the app was
@@ -328,8 +351,8 @@ three.
 
 Use this block for every finding; do not substitute a schema of your own. Keep
 the heading exactly this shape. `N` is the row number from the table, and it is
-what ties the block to that row and to any Coverage row ending `(finding N)`,
-so a heading that renumbers or drops it breaks those links.
+what ties the block to that row and to any ledger scenario whose `Status:`
+names Finding N, so a heading that renumbers or drops it breaks those links.
 
 ````
 ### Finding N: <concise claim>
@@ -338,18 +361,15 @@ so a heading that renumbers or drops it breaks those links.
 
 **Repro** -- starting state: <what exists before step 1>
 
-**Preconditions:** <what this needs to happen, and what happened under the
-default: reproduces, does not reproduce, or not checked. Write "default
-settings" when it needs nothing special, and say there how you manufactured
-any state the repro depends on. Write it every time even when the answer is
-nothing: a blank line cannot tell a reader "needs nothing" apart from "never
-checked". The report drops a line that says only "default settings", so
-stating the obvious costs the reader nothing.>
+**Preconditions:** <only with X: the non-default configuration or
+manufactured state this needs, how you set it up, and what happened without it:
+reproduces, does not reproduce, or not checked. Leave the line out when the bug
+needs nothing special.>
 
 1. <action>
-2. Verify <expectation>. -> PASS
+2. VERIFY <expectation> -> PASS
 3. <action>
-4. Verify <expectation>. -> FAIL (finding N)
+4. VERIFY <expectation> -> FAIL - Finding N
    Observed: <what happened instead, one line>
    Evidence: <file>
 
@@ -482,10 +502,8 @@ it lands on the `Preconditions` line. Re-check it under the default; if you
 cannot, write that you did not rather than leaving the axis unstated. Keep it
 to a sentence or two: it renders as a bullet above the steps, beside the
 starting state, and a paragraph there buries the one thing a reader needs
-before they begin. Write the
-line so it reads as a statement either way: "default settings" when the bug
-needs nothing, "only with X" when it does. Never "only under default
-settings", which says the opposite of what it means.
+before they begin. When the bug needs something, write "only with X"; when it
+needs nothing, leave the line out rather than writing a default-settings line.
 Desktop and web differ this way by construction, so a finding from one is not
 yet a finding about the other.
 

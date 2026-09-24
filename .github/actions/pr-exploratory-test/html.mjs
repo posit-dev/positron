@@ -32,7 +32,7 @@ const ICON = {
 	disclose: cls => `<svg class="${cls}" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 4.5-4.5 4.5"></path></svg>`,
 	chevron: '<svg class="chev" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 4.5-4.5 4.5"></path></svg>',
 	// A picture frame: "this step has a screenshot".
-	photo: '<svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><rect x="2" y="3" width="12" height="10" rx="1.5"></rect><path d="M2.5 11l3.5-3.5 3 3 2-2 2.5 2.5"></path></svg>',
+	photo: '<svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><rect x="2" y="3" width="12" height="10" rx="1.5"></rect><path d="M2.5 11l3.5-3.5 3 3 2-2 2.5 2.5"></path></svg>',
 	// Leaves the report.
 	external: '<svg aria-hidden="true" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h6.5V10"></path><path d="M12.5 3.5L4 12"></path></svg>',
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
@@ -540,10 +540,17 @@ function renderCoverage(report) {
 	// One table, in a fixed order: finding rows in finding order, then passes as
 	// they ran, then what was not run. Sort is stable, so rows citing the same
 	// finding keep their run order.
-	const issues = exercised.filter(r => r.finding).sort((a, b) => a.finding - b.finding);
-	const passes = exercised.filter(r => !r.finding);
+	const isIssue = r => r.status === 'fail' || Boolean(r.finding);
+	const issues = exercised.filter(isIssue).sort((a, b) => (a.finding ?? Infinity) - (b.finding ?? Infinity));
+	const passes = exercised.filter(r => !isIssue(r));
 	const total = exercised.length + notExercised.length;
 	const hidden = Math.max(0, passes.length - COVERAGE_PASSES_SHOWN);
+
+	// Rows are numbered in display order, so a precondition can link to the
+	// row of the scenario that created its state.
+	const ordered = [...issues, ...passes, ...notExercised];
+	const rowId = new Map(ordered.map((row, i) => [row, `cv-row-${i + 1}`]));
+	const byLedgerId = new Map(exercised.filter(r => r.id).map(r => [r.id, r]));
 
 	// A passing row's screenshot hangs off the verify step it proves rather than
 	// a column. A row's shots are one lightbox group.
@@ -559,34 +566,58 @@ function renderCoverage(report) {
 		+ `<span class="cov-dot ${dot}" aria-hidden="true"></span>`
 		+ `<span>${row.scenarioHtml}</span></span>`;
 
+	// "P" in the number gutter, then the short names; the full how-to is a
+	// popover. Spans only: a list inside a <p> would break it.
+	const preconditions = row => {
+		if (!row.pre?.length) {
+			return '';
+		}
+		const items = row.pre.map(p => {
+			const src = p.from && byLedgerId.get(p.from);
+			const from = !p.from ? ''
+				: src ? `Created in <a href="#${rowId.get(src)}">${src.scenarioHtml}</a>: `
+					: `Created in ${escapeHtml(p.from)}: `;
+			return `<span class="pre-i"><b>${p.nameHtml}</b>${from}${p.howHtml}</span>`;
+		}).join('');
+		return '<p class="cv-pre" tabindex="0" aria-label="Preconditions">'
+			+ '<span class="pre-mark" aria-hidden="true">P</span>'
+			+ row.pre.map(p => p.nameHtml).join(', ')
+			+ `<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions</span>${items}</span></p>`;
+	};
+
 	// The finding link leads: it is where a reader goes next. A finding row does
 	// not expand: its steps are on the card it links to.
-	const issueRows = issues.map(row => '<div class="row coverage-grid cf-r cf-i">'
-		+ scenario(row, 'issue')
-		+ `<span class="cov-result"><a href="#f${row.finding}">Finding ${row.finding}</a>${row.resultHtml ? ` &middot; ${row.resultHtml}` : ''}</span>`
-		+ '<span></span></div>');
+	const issueRows = issues.map(row => {
+		const link = row.finding ? `<a href="#f${row.finding}" class="cv-f">Finding ${row.finding}</a>` : '';
+		const sep = link && row.resultHtml ? ' &middot; ' : '';
+		return `<div class="row coverage-grid cf-r cf-i" id="${rowId.get(row)}">`
+			+ scenario(row, 'issue')
+			+ `<span class="cov-result">${link}${sep}${row.resultHtml}</span>`
+			+ '<span></span></div>';
+	});
 
-	// A passing row opens on the steps that exercised it.
+	// A passing row opens on its preconditions and the steps that exercised it.
 	const passRows = passes.map((row, i) => {
 		const cls = `cf-r cf-p${i < COVERAGE_PASSES_SHOWN ? '' : ' cov-extra'}`;
 		const cells = scenario(row, 'pass') + `<span class="cov-result">${row.resultHtml}</span>`;
 		// With no steps to hang it on, the screenshot is the whole expanded row.
-		const body = row.steps.length
+		const steps = row.steps.length
 			? `<ol class="steps">${row.steps.map(st => renderStep(st, { tail: st.evidence.map(e => photo(row, i, e)).join('') })).join('\n')}</ol>`
 			: row.shot ? `<p class="cv-shot">Screenshot${photo(row, i, { href: row.shot.href, file: row.shot.label })}</p>` : '';
+		const body = preconditions(row) + steps;
 		if (body) {
-			return `<details class="cv ${cls}"><summary class="row coverage-grid">${cells}`
+			return `<details class="cv ${cls}" id="${rowId.get(row)}"><summary class="row coverage-grid">${cells}`
 				+ `<span class="cv-chev-cell">${ICON.disclose('cv-chev')}</span></summary>`
 				+ `<div class="cv-steps">${body}</div></details>`;
 		}
-		return `<div class="row coverage-grid ${cls}">${cells}<span></span></div>`;
+		return `<div class="row coverage-grid ${cls}" id="${rowId.get(row)}">${cells}<span></span></div>`;
 	});
 
 	// Not run has no result, so its dot is neutral and its reason takes the
 	// Result and chevron columns.
-	const notRows = notExercised.map(row => '<div class="row coverage-grid cf-r cf-n">'
+	const notRows = notExercised.map(row => `<div class="row coverage-grid cf-r cf-n" id="${rowId.get(row)}">`
 		+ scenario(row, 'none')
-		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span> &middot; ${row.reasonHtml}</span>`
+		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span>${row.reasonHtml ? ` &middot; ${row.reasonHtml}` : ''}</span>`
 		+ '</div>');
 
 	// Visually hidden radios ahead of the tabs and card, so CSS can filter the
@@ -769,10 +800,11 @@ else{fallback();}});});`;
  *
  * Falls back to nothing: a report whose body does not parse still gets its
  * header, tiles and whatever sections were recognised, and any finding the
- * parser could not break down keeps its prose.
+ * parser could not break down keeps its prose. `options.ledger` is the run's
+ * ledger.md, which Coverage is built from when given.
  */
 export function renderReportHtml(markdown, options = {}) {
-	const report = parseReport(markdown);
+	const report = parseReport(markdown, { ledger: options.ledger });
 	// Off for teams whose AI policy does not allow it: no buttons, no prompt
 	// blocks and no script. `base` makes relative evidence paths absolute, and
 	// `diff` is the `<base>...<head>` range the prompt's Context names.

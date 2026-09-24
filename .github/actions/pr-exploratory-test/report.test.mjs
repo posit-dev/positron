@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parseReport, safeUrl } from './report-parse.mjs';
+import { parseLedger, parseReport, safeUrl } from './report-parse.mjs';
 import { renderReportHtml } from './html.mjs';
 
 /** A minimal report with one of everything the template lays out. */
@@ -624,7 +624,7 @@ test('renderReportHtml drops a preconditions list that says only "defaults"', ()
 	].join('\n')));
 	// Nothing to say, so no label and no empty list to read past.
 	const bare = build('Shipped defaults.');
-	assert.doesNotMatch(bare, /Preconditions/);
+	assert.doesNotMatch(bare, /repro-label">Preconditions/);
 	assert.match(bare, /<div class="repro-label">Steps<\/div>/);
 	// Qualified, so it earns its line.
 	const qualified = build('Shipped defaults. Slowness is manufactured with a slow hash.');
@@ -835,7 +835,7 @@ test('renderReportHtml treats a placeholder Not exercised row as an empty list',
 
 test('renderReportHtml writes a not-run row as a Result spanning three columns', () => {
 	const html = renderReportHtml(FULL);
-	const row = html.match(/<div class="row coverage-grid cf-r cf-n">[\s\S]*?<\/div>/)[0];
+	const row = html.match(/<div class="row coverage-grid cf-r cf-n" id="cv-row-\d+">[\s\S]*?<\/div>/)[0];
 	assert.match(row, /<span class="cov-dot none" aria-hidden="true"><\/span>/);
 	assert.match(row, /<span class="cov-notrun"><span class="cov-nr">Not run<\/span> &middot; /);
 	// Nothing to open and no chevron cell.
@@ -1150,11 +1150,11 @@ test('parseReport keeps the step of a shot the finding also embeds', () => {
 test('renderReportHtml opens a passing coverage row on its steps, not a finding row', () => {
 	const html = renderReportHtml(RICH);
 	const cov = html.slice(html.indexOf('id="coverage"'));
-	assert.match(cov, /<details class="cv cf-r cf-p"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol class="steps"><li>Build <code>df<\/code>\.<\/li>\n<li>Run <code>%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
+	assert.match(cov, /<details class="cv cf-r cf-p" id="cv-row-\d+"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol class="steps"><li>Build <code>df<\/code>\.<\/li>\n<li>Run <code>%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
 	// No steps, nothing to open.
-	assert.match(cov, /<div class="row coverage-grid cf-r cf-p"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
+	assert.match(cov, /<div class="row coverage-grid cf-r cf-p" id="cv-row-\d+"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
 	// The finding link leads, and the row does not expand.
-	assert.match(cov, /<div class="row coverage-grid cf-r cf-i"><span class="cov-scenario"><span class="cov-dot issue"[^>]*><\/span><span>slow column<\/span><\/span><span class="cov-result"><a href="#f1">Finding 1<\/a> &middot; Fails 3\/3<\/span>/);
+	assert.match(cov, /<div class="row coverage-grid cf-r cf-i" id="cv-row-1"><span class="cov-scenario"><span class="cov-dot issue"[^>]*><\/span><span>slow column<\/span><\/span><span class="cov-result"><a href="#f1" class="cv-f">Finding 1<\/a> &middot; Fails 3\/3<\/span>/);
 	assert.doesNotMatch(cov, /Should not render/);
 	assert.match(cov, /<span class="cov-head-scenario">Scenario<\/span><span>Result<\/span><span><\/span><\/div>/);
 });
@@ -1181,13 +1181,13 @@ test('renderReportHtml keeps Show all working over expandable rows', () => {
 	].join('\n')));
 	const body = html.slice(html.indexOf('<body'));
 	// The hidden rows stay siblings of the checkbox, which the CSS toggle needs.
-	assert.equal((body.match(/<details class="cv cf-r cf-p cov-extra">/g) || []).length, 6);
-	assert.match(body, /<div class="cov-rows">\n<input type="checkbox" id="cov-all" class="cov-toggle"[^>]*>\n<details class="cv cf-r cf-p">/);
+	assert.equal((body.match(/<details class="cv cf-r cf-p cov-extra" id="cv-row-\d+">/g) || []).length, 6);
+	assert.match(body, /<div class="cov-rows">\n<input type="checkbox" id="cov-all" class="cov-toggle"[^>]*>\n<details class="cv cf-r cf-p" id="cv-row-1">/);
 });
 
 test('report CSS lines up every coverage row on one Scenario | Result | chevron grid', () => {
 	const html = renderReportHtml(RICH);
-	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,40fr\) minmax\(0,60fr\) 12px\}/);
+	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,40fr\) minmax\(0,60fr\) 12px;padding:12px 20px\}/);
 	assert.match(html, /\.cov-notrun\{grid-column:span 2;/);
 	assert.match(html, /\.cov-scenario\{display:flex;align-items:flex-start;gap:13px;/);
 	assert.match(html, /\.cov-head-scenario\{padding-left:21px\}/);
@@ -1203,7 +1203,7 @@ test('report CSS filters rows by the checked tab and keeps Show all to All', () 
 	// Selected is ink, not an accent, and the focus ring sits off the label.
 	assert.match(html, /\.cf-tab-n\{color:var\(--ink\);border-bottom-color:var\(--ink\)\}/);
 	assert.match(html, /\.cf-tab-n\{outline:2px solid var\(--focus\);outline-offset:4px;/);
-	assert.match(html, /\.cov-rows\{position:relative;margin-bottom:-1px\}/);
+	assert.match(html, /\.cov-rows\{position:relative;margin-bottom:-1px;font-size:14px;line-height:1\.5\}/);
 });
 
 test('report CSS gives Professional a teal accent and leaves Party and the Run bar alone', () => {
@@ -1332,4 +1332,93 @@ test('typed steps: the agent prompt writes results after an arrow', () => {
 	assert.match(prompt, /3\. Verify s00 to s13 have sparklines\. → PASS\n/);
 	assert.match(prompt, /5\. Verify the visible columns s62 to s79 get sparklines\. → FAIL \(observed: Only s62 has one\.\)\n/);
 	assert.match(prompt, /^PR: https:\/\/github\.com\/posit-dev\/positron\/pull\/1234$/m);
+});
+
+const LEDGER = readFileSync(new URL('./fixtures/ledger.md', import.meta.url), 'utf8');
+const coverageOf = html => html.slice(html.indexOf('id="coverage"'), html.indexOf('</section>', html.indexOf('id="coverage"')));
+
+test('ledger: parses scenarios, preconditions, typed steps and not-run rows', () => {
+	const cov = parseLedger(LEDGER);
+	assert.deepEqual(cov.exercised.map(r => `${r.id}:${r.status}:${r.finding ?? ''}`),
+		['S01:pass:', 'S02:pass:', 'S03:pass:', 'S04:pass:', 'S05:pass:', 'S06:pass:', 'S08:fail:1', 'S09:fail:2']);
+	const s03 = cov.exercised[2];
+	assert.deepEqual(s03.pre.map(p => p.from), ['S02']);
+	assert.match(s03.pre[0].howHtml, /opened with <code>%view edge<\/code>/);
+	assert.deepEqual(cov.exercised[7].steps.map(s => s.result ?? 'action'), ['action', 'action', 'pass', 'action', 'fail', 'action', 'fail']);
+	assert.deepEqual(cov.exercised[6].steps[2].evidence.map(e => e.href), ['shots/09-one12-unavailable.png', 'shots/07-slow12-unavailable.png']);
+	assert.deepEqual(cov.notExercised.map(r => r.id), ['N01', 'N02', 'N05']);
+	assert.equal(cov.notExercised[1].reasonHtml, 'Could not make value fetches slow: the slow-hash trick only slows profiling');
+	// Environment is whole-run context for Run details, never a Coverage row.
+	assert.doesNotMatch(JSON.stringify(cov), /CDP 44987/);
+});
+
+test('ledger: reads the middle-dot and arrow forms the same as ASCII', () => {
+	const cov = parseLedger([
+		'## S01 · slow column', 'Status: fail · Finding 3', 'Result: Fails 3/3', '',
+		'Steps:', '1. Run it.', '2. VERIFY The summary loads. → FAIL · Finding 3', '   Observed: Dots.', '',
+		'## Not run', '- N01 · Positron web · Desktop build only',
+	].join('\n'));
+	assert.equal(cov.exercised[0].finding, 3);
+	assert.equal(cov.exercised[0].steps[1].md, 'Verify the summary loads.');
+	assert.equal(cov.exercised[0].steps[1].observed, 'Dots.');
+	assert.equal(cov.notExercised[0].reasonHtml, 'Desktop build only');
+	assert.equal(parseLedger('# Test ledger\n\n## Environment\n- x'), null);
+});
+
+test('ledger: Coverage and the Scenarios tile come from the ledger, not the report tables', () => {
+	const report = parseReport(TYPED, { ledger: LEDGER });
+	assert.deepEqual(report.scenarios, { exercised: 8, pass: 6, issues: 2, notRun: 3 });
+	const html = renderReportHtml(TYPED, { ledger: LEDGER });
+	const cov = coverageOf(html);
+	// One table: no subheadings, no second table.
+	assert.doesNotMatch(cov, /Exercised|Not exercised|<h3/);
+	assert.match(cov, /cf-tab-all"><span class="cf-l">All <span class="cf-cnt">11<\/span>/);
+	assert.match(cov, /cf-tab-i"><span class="cf-l">Issues <span class="cf-cnt">2<\/span>/);
+	assert.match(cov, /cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">6<\/span>/);
+	assert.match(cov, /cf-tab-n"><span class="cf-l">Not run <span class="cf-cnt">3<\/span>/);
+	// Issues in finding order, then passes in run order, then not run.
+	const order = [...cov.matchAll(/id="cv-row-(\d+)"[\s\S]*?<span class="cov-dot (\w+)"[^>]*><\/span><span>([^<]+)/g)].map(m => `${m[1]}:${m[2]}:${m[3]}`);
+	assert.deepEqual(order.map(o => o.split(':').slice(0, 2).join(':')), [
+		'1:issue', '2:issue', '3:pass', '4:pass', '5:pass', '6:pass', '7:pass', '8:pass', '9:none', '10:none', '11:none',
+	]);
+	assert.match(cov, /<a href="#f1" class="cv-f">Finding 1<\/a> &middot; Fails 3\/3/);
+	// Two passes past the first four wait behind Show all, which counts every row.
+	assert.equal((cov.match(/cov-extra/g) || []).length, 2);
+	assert.match(cov, /<span class="cov-all">Show all 11 scenarios<\/span><span class="cov-less">Show fewer<\/span>/);
+	assert.doesNotMatch(cov, /Everything in scope was exercised/);
+});
+
+test('ledger: an expanded row shows P plus short names, with the how-to in a popover', () => {
+	const cov = coverageOf(renderReportHtml(TYPED, { ledger: LEDGER }));
+	const row = /<details class="cv cf-r cf-p" id="cv-row-5">[\s\S]*?<\/details>/.exec(cov)[0];
+	assert.match(row, /<span>Expand on a healthy source<\/span>/);
+	assert.match(row, /<div class="cv-steps"><p class="cv-pre" tabindex="0" aria-label="Preconditions"><span class="pre-mark" aria-hidden="true">P<\/span><code>edge<\/code> open<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions<\/span><span class="pre-i"><b><code>edge<\/code> open<\/b>Created in <a href="#cv-row-4">Edge values/);
+	assert.doesNotMatch(row, /<ul/);
+	// Not-created state has no "Created in".
+	const s04 = /<details class="cv cf-r cf-p" id="cv-row-6">[\s\S]*?<\/details>/.exec(cov)[0];
+	assert.match(s04, /<b><code>slow\.py<\/code> loaded<\/b>Run <code>%run -i slow\.py<\/code>/);
+	assert.doesNotMatch(s04, /Created in/);
+	// No preconditions, no P line.
+	const s01 = /<details class="cv cf-r cf-p" id="cv-row-3">[\s\S]*?<\/details>/.exec(cov)[0];
+	assert.doesNotMatch(s01, /cv-pre/);
+	assert.match(s01, /<span class="st-rs st-pass">PASS<\/span> <span class="st-sep" aria-hidden="true">&middot;<\/span> <a class="st-ev" href="shots\/01-df-open\.png"/);
+});
+
+test('ledger: nothing not run means no Not run tab and a line saying so', () => {
+	const ledger = LEDGER.slice(0, LEDGER.indexOf('## Not run'));
+	const cov = coverageOf(renderReportHtml(TYPED, { ledger }));
+	assert.doesNotMatch(cov, /cf-tab-n|id="cf-n"|cf-r cf-n/);
+	assert.match(cov, /<p class="cov-empty">Everything in scope was exercised\.<\/p>/);
+});
+
+test('report CSS: expanded rows tint the header only, number steps in the gutter, and let popovers out', () => {
+	const html = renderReportHtml(TYPED, { ledger: LEDGER });
+	assert.match(html, /\.cv\[open\]>summary\{background:var\(--cv-open\);position:relative\}/);
+	assert.match(html, /\.cv\[open\]>summary::after\{content:"";position:absolute;left:41px;right:20px;bottom:0;height:1px;background:var\(--border\)\}/);
+	assert.match(html, /\.cv-steps ol>li::before\{content:counter\(st\);position:absolute;left:-27px;width:20px;/);
+	assert.match(html, /\.cf-card\{overflow:visible\}/);
+	assert.match(html, /\.st-v\{color:inherit\}/);
+	// The finding link's underline is Professional's alone.
+	assert.match(html, /:root\[data-theme=professional\] \.cv-f\{text-decoration:underline;/);
+	assert.doesNotMatch(html, /^\.cv-f\{text-decoration/m);
 });

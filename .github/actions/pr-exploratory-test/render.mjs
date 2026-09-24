@@ -58,8 +58,11 @@ if (flags['duration-ms']) {
 	writeFileSync(input, markdown);
 }
 
+// Coverage is built from the run's ledger when it wrote one.
+const ledgerPath = join(dirname(resolve(input)), 'ledger.md');
 const out = join(dirname(resolve(input)), 'index.html');
 writeFileSync(out, renderReportHtml(markdown, {
+	ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
 	agentPrompts: !flags['no-agent-prompts'],
 	// Evidence in the prompt has to open from wherever it is pasted.
 	base: dirname(resolve(input)),
