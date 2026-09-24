@@ -37,7 +37,8 @@ if (!input) {
 if (!existsSync(join(here, 'node_modules', 'marked'))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
-const { renderReportHtml } = await import('./html.mjs');
+const { renderReportHtml, linkedLogs } = await import('./html.mjs');
+const { parseReport } = await import('./report-parse.mjs');
 const { modelDisplayName } = await import('./lib.mjs');
 
 let markdown = readFileSync(input, 'utf8');
@@ -59,12 +60,24 @@ if (flags['duration-ms']) {
 }
 
 // Coverage is built from the run's ledger when it wrote one.
-const ledgerPath = join(dirname(resolve(input)), 'ledger.md');
-const out = join(dirname(resolve(input)), 'index.html');
+const dir = dirname(resolve(input));
+const ledgerPath = join(dir, 'ledger.md');
+const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
+const fileExists = path => existsSync(join(dir, path));
+const out = join(dir, 'index.html');
 writeFileSync(out, renderReportHtml(markdown, {
-	ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
+	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
 	// Evidence in the prompt has to open from wherever it is pasted.
-	base: dirname(resolve(input)),
+	base: dir,
+	fileExists,
 }));
 console.log(out);
+
+// A listed log that was never copied is a dead link; the page shows it unlinked,
+// and the run fails so it gets copied rather than shipped.
+const missing = linkedLogs(parseReport(markdown, { ledger })).filter(p => !fileExists(p));
+if (missing.length) {
+	console.error(`missing log files, listed but not beside the report:\n${missing.map(p => `  ${p}`).join('\n')}`);
+	process.exit(1);
+}

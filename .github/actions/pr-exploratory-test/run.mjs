@@ -9,7 +9,8 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { renderReportHtml } from './html.mjs';
+import { renderReportHtml, linkedLogs } from './html.mjs';
+import { parseReport } from './report-parse.mjs';
 import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
@@ -59,7 +60,7 @@ const CI_OVERRIDES = [
 	'**You are the tester.** Ignore "Run it in a subagent". Do not delegate; do the exploring yourself.',
 	`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
 	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
-	`**Keep the logs of any instance you launch.** \`stop.sh\` takes the run directory with it, and \`code.log\` is the only record of what the app did. Copy it to \`${WORK_DIR}/logs/<cdp-port>-code.log\` before you stop that instance. A finding whose log was deleted cannot be checked by the person reading the report, and the container is destroyed at job end anyway, so there is nothing to tidy up for.`,
+	`**Keep the logs in \`${WORK_DIR}/logs/\`.** Follow the skill's Logs section for the pre-launched instance and any you launch. The pre-launched instance's run directory is the only one under \`/tmp/positron-dev-launch/\` when you start, so note it before you launch another. Copy an instance's logs before you stop it: \`stop.sh\` takes its run directory with it. A finding whose log was deleted cannot be checked by the person reading the report.`,
 	'**Do not render the report.** Skip the skill\'s `render.mjs` step; the workflow renders `index.html` itself once verification has been added.',
 ];
 if (REPORT_BASE_URL) {
@@ -361,14 +362,22 @@ async function main() {
 		// and a file you can grep is worth keeping.
 		try {
 			const ledgerPath = join(WORK_DIR, 'ledger.md');
+			const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
+			const fileExists = path => existsSync(join(WORK_DIR, path));
 			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown, {
 				agentPrompts: AGENT_PROMPTS,
 				// Coverage is built from the run's ledger when it wrote one.
-				ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
+				ledger,
 				// Evidence in the prompt has to open from wherever it is pasted.
 				base: REPORT_BASE_URL || WORK_DIR,
 				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
+				fileExists,
 			}));
+			// Warned rather than failed: the page still renders, with the missing files unlinked.
+			const missing = linkedLogs(parseReport(reportMarkdown, { ledger })).filter(p => !fileExists(p));
+			if (missing.length) {
+				console.error(`[report] WARN: log files listed but not in the run directory: ${missing.join(', ')}`);
+			}
 		} catch (err) {
 			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
 		}

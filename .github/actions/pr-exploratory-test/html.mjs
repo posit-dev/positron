@@ -296,6 +296,32 @@ function absolutePath(p, base) {
 }
 
 /**
+ * A log source that names a file beside the report, `logs/x.log:1182`, as
+ * `{ path, line }`; null for prose, an absolute path, or one leaving the folder.
+ */
+export function logFile(source) {
+	const m = /^([^\s`:]+?)(?::(\d+))?$/.exec(String(source ?? '').trim());
+	if (!m || /^([a-z][a-z0-9+.-]*:|\/|~|\.\.)/i.test(m[1]) || !/\.\w+$/.test(m[1])) {
+		return null;
+	}
+	return { path: m[1].replace(/^\.\//, ''), line: m[2] ? Number(m[2]) : null };
+}
+
+/** Every file beside the report the page links to as a log, for a check that each exists. */
+export function linkedLogs(report) {
+	const paths = [
+		...report.logs.map(l => l.path).filter(p => !/\/$/.test(p) && logFile(p)),
+		...report.findings.flatMap(f => f.errors.map(e => logFile(e.source)?.path)).filter(Boolean),
+	];
+	return [...new Set(paths)];
+}
+
+/** `Logged 2\u00d7 (after each Retry)` -> `2\u00d7 after each Retry`. */
+function countText(meta) {
+	return String(meta ?? '').replace(/^logged\s+/i, '').replace(/\(([^)]*)\)/g, '$1').replace(/(\d)\s*x\b/g, '$1\u00d7').trim();
+}
+
+/**
  * A repo-relative path as a link to that file at the report's commit, or null
  * for anything that is not one: an absolute path, a URL, or no commit to pin.
  */
@@ -366,13 +392,27 @@ export function buildAgentPrompt(f, report, options = {}) {
 			return `- ${absolutePath(e.path, base)} \u2014 ${quote}${e.note ? ` (${capitalize(e.note)})` : ''}`;
 		}
 		return `- ${e.text}`;
-	}).join('\n'));
+	}).concat(f.errors.map(e => {
+		// A logged error is evidence in its own right: where it is, and what it said.
+		const file = logFile(e.source);
+		if (!file || f.evidence.some(ev => ev.kind === 'log' && ev.path === e.source)) {
+			return null;
+		}
+		const [where, ...counts] = e.meta;
+		const said = e.message.split('\n')[0];
+		return `- ${absolutePath(e.source, base)}${said ? ` \u2014 \u201c${said}\u201d` : ''}`
+			+ (e.meta.length ? ` (${[where, ...counts.map(countText)].filter(Boolean).join(', ')})` : '');
+	}).filter(Boolean)).join('\n'));
 	// Every error, including the ones the card hides for having no stack: a bare
 	// message is still a lead for whoever picks this up.
-	section('Error output', f.errors.map(e => [
-		[e.source && absolutePath(e.source, base), ...e.meta].filter(Boolean).join(' | '),
-		e.raw && fenced(e.raw),
-	].filter(Boolean).join('\n')).join('\n\n'));
+	section('Error output', f.errors.map(e => {
+		if (!logFile(e.source)) {
+			return [[e.source, ...e.meta].filter(Boolean).join(' | '), e.raw && fenced(e.raw)].filter(Boolean).join('\n');
+		}
+		const [where, ...counts] = e.meta;
+		const tail = [where && ` (${where})`, counts.length && `, ${counts.map(countText).join(', ')}`].filter(Boolean).join('');
+		return [e.raw && fenced(e.raw), `Logged in ${absolutePath(e.source, base)}${tail}.`].filter(Boolean).join('\n');
+	}).join('\n\n'));
 	section('Likely cause (hypothesis, not verified)', capitalize(t.cause));
 	const { cases, related } = f.tests;
 	if (cases.length) {
@@ -416,7 +456,14 @@ function collapsedRow(cls, label, tail, body) {
 		+ `<div class="lc-body">${body}</div></details>`;
 }
 
-function renderErrorOutput(f, sha) {
+/** A file beside the report as a link, or plain text when it is not there to open. */
+function logLink(path, text, exists, cls = 'log-link') {
+	return !/\/$/.test(path) && (!exists || exists(path))
+		? `<a href="${escapeHtml(path)}" class="${cls}" title="Open the full log" target="_blank" rel="noreferrer">${escapeHtml(text)}</a>`
+		: `<span class="${cls}">${escapeHtml(text)}</span>`;
+}
+
+function renderErrorOutput(f, sha, exists) {
 	// A message with no stack and no file:line is not something a reader can act
 	// on here; it stays in the agent prompt.
 	const errors = f.errors.filter(e => e.frames.length || /[\w.-]+\.\w+:\d+/.test(e.message));
@@ -425,7 +472,10 @@ function renderErrorOutput(f, sha) {
 	}
 	const body = errors.map(e => {
 		const meta = [
-			e.source && `<span class="err-src">${escapeHtml(e.source)}</span>`,
+			e.source && (logFile(e.source)
+				// The line is in the text, not the href: a static file cannot jump to it.
+				? logLink(logFile(e.source).path, e.source, exists, 'log-link err-src')
+				: `<span class="err-src">${escapeHtml(e.source)}</span>`),
 			...e.metaHtml.map(m => `<span>${m}</span>`),
 		].filter(Boolean).join('');
 		const frames = e.frames.map(fr => {
@@ -478,10 +528,10 @@ function renderRegressionTest(f, sha) {
 }
 
 /** Fact, then hypothesis, then suggestion; each only when it has something to say. */
-function renderCardDetails(f, report) {
+function renderCardDetails(f, report, options = {}) {
 	const sha = report.chips[1];
 	const rows = [
-		renderErrorOutput(f, sha),
+		renderErrorOutput(f, sha, options.fileExists),
 		f.causeHtml ? collapsedRow(' hyp', 'Likely cause', 'Hypothesis', `<p>${f.causeHtml}</p>`) : '',
 		renderRegressionTest(f, sha),
 	].filter(Boolean);
@@ -546,7 +596,7 @@ function renderFindingCard(f, report, options) {
 		? `<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`
 		: '';
 
-	const details = renderCardDetails(f, report);
+	const details = renderCardDetails(f, report, options);
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
 ${head}
@@ -688,9 +738,32 @@ ${hidden ? `<label for="cov-all" class="cov-more"><span class="cov-all">Show all
 </section>`;
 }
 
-function renderFolds(report) {
+/** The ledger and every file the run kept, as two Run details parts. */
+function runFiles(report, options) {
+	const sep = ' <span class="log-sep" aria-hidden="true">&middot;</span> ';
+	const parts = [];
+	if (options.ledger) {
+		parts.push({ title: 'Test ledger', html: '<p>Every scenario\u2019s preconditions, steps and checks, recorded as the run went: '
+			+ '<a href="ledger.md" class="log-file">ledger.md</a></p>' });
+	}
+	if (report.logs.length) {
+		const rows = report.logs.map(l => `<li>${logLink(l.path, l.path, options.fileExists, 'log-file')}`
+			+ [l.sourceHtml, l.noteHtml].filter(Boolean).map(t => `${sep}<span class="log-note">${t}</span>`).join('')
+			+ '</li>');
+		parts.push({ title: 'Logs', html: '<p>Everything captured during the run, saved next to this report. '
+			+ 'Error lines are also in each finding\u2019s Error output and agent prompt.</p>'
+			+ `<ul class="log-list">${rows.join('')}</ul>` });
+	}
+	return parts;
+}
+
+function renderFolds(report, options = {}) {
 	const folds = [];
-	const details = report.runDetails ?? [];
+	// Files sit after what the run did and before how the build was proved.
+	const written = report.runDetails ?? [];
+	const at = written.findIndex(s => /^branch verification$/i.test(s.title));
+	const files = runFiles(report, options);
+	const details = at === -1 ? [...written, ...files] : [...written.slice(0, at), ...files, ...written.slice(at)];
 	if (details.length || hasCost(report)) {
 		const titles = [...(hasCost(report) ? ['Agents'] : []), ...details.map(s => s.title)];
 		const hint = titles.map((t, i) => (i === 0 ? t : t.toLowerCase())).join(', ');
@@ -897,7 +970,7 @@ ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
 ${renderCoverage(report)}
 
-${renderFolds(report)}
+${renderFolds(report, options)}
 
 ${renderSignature()}
 

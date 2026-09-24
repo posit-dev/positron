@@ -5,7 +5,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseLedger, parseReport, safeUrl } from './report-parse.mjs';
 import { renderReportHtml } from './html.mjs';
 
@@ -1086,7 +1090,8 @@ test('renderReportHtml leaves out collapsed rows with nothing in them', () => {
 
 test('renderReportHtml shows only errors with a stack, and links frames at the commit', () => {
 	const c = card(renderReportHtml(RICH), 1);
-	assert.match(c, /<span class="err-src">logs\/app\.log<\/span><span>Renderer<\/span><span>Logged 2× \(after each Retry\)<\/span>/);
+	// A log beside the report opens from its path; the line stays in the text.
+	assert.match(c, /<a href="logs\/app\.log" class="log-link err-src" title="Open the full log"[^>]*>logs\/app\.log<\/a><span>Renderer<\/span><span>Logged 2× \(after each Retry\)<\/span>/);
 	assert.match(c, /<div class="err-msg">Error: get_column_profiles timed out after 10 seconds<\/div>/);
 	assert.match(c, /at Client\.getColumnProfiles \(<a class="err-loc" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/abc1234\/src\/vs\/client\.ts#L212" title="src\/vs\/client\.ts"[^>]*>client\.ts:212<\/a>\)/);
 	// An absolute path is not in the repo, so it is shown but not linked.
@@ -1096,8 +1101,8 @@ test('renderReportHtml shows only errors with a stack, and links frames at the c
 
 test('renderReportHtml keeps every error in the prompt, stack or not', () => {
 	const text = promptText(renderReportHtml(RICH, { base: '/runs/r1' }), 1);
-	assert.match(text, /### Error output\n\/runs\/r1\/logs\/app\.log \| Renderer \| Logged 2x \(after each Retry\)\n```\nError: get_column_profiles/);
-	assert.match(text, /\/runs\/r1\/logs\/ext\.log \| Extension host\n```\nWarning: no stack here\n```/);
+	assert.match(text, /### Error output\n```\nError: get_column_profiles[\s\S]*?\n```\nLogged in \/runs\/r1\/logs\/app\.log \(Renderer\), 2× after each Retry\./);
+	assert.match(text, /```\nWarning: no stack here\n```\nLogged in \/runs\/r1\/logs\/ext\.log \(Extension host\)\./);
 	// Evidence, Error output, Likely cause, Regression test, Context.
 	const order = ['### Evidence', '### Error output', '### Likely cause', '### Regression test (suggestion)', '### Context'].map(h => text.indexOf(h));
 	assert.deepEqual(order, [...order].sort((a, b) => a - b));
@@ -1539,4 +1544,85 @@ test('code blocks: a fenced block under a ledger step gets the copy button in Co
 	].join('\n');
 	const cov = coverageOf(renderReportHtml(TYPED, { ledger }));
 	assert.match(cov, /<div class="code-blk"><pre><code[^>]*>%run -i slow\.py\nslow = make_slow\(\)\n?<\/code><\/pre><button type="button" class="code-cp"/);
+});
+
+const LOGS_DIR = new URL('./fixtures/logs-run/', import.meta.url);
+const LOGS_REPORT = readFileSync(new URL('report.md', LOGS_DIR), 'utf8');
+const LOGS_LEDGER = readFileSync(new URL('ledger.md', LOGS_DIR), 'utf8');
+const logsHtml = (options = {}) => renderReportHtml(LOGS_REPORT, { ledger: LOGS_LEDGER, base: '/runs/r2', ...options });
+
+test('logs: the ledger reads its Logs section and a Log field with the stack under it', () => {
+	const ledger = parseLedger(LOGS_LEDGER);
+	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log', 'logs/slow.py']);
+	assert.equal(ledger.logs[0].source, 'Positron window (renderer and dev-tools console)');
+	const step = ledger.exercised.find(r => r.id === 'S08').steps[2];
+	assert.equal(step.error.source, 'logs/44987-app.log:1182');
+	assert.deepEqual(step.error.meta, ['Renderer', 'Logged 2x (after each Retry)']);
+	assert.equal(step.error.count, 2);
+	assert.equal(step.error.frames.length, 3);
+	// The stack is the Log's, not a block under the step.
+	assert.equal(step.blockHtml, '');
+	assert.equal(parseLedger('## S01 - x\nSteps:\n1. VERIFY y -> FAIL - Finding 1\n   Log: none found in logs/a.log\n').exercised[0].steps[0].error, null);
+});
+
+test('logs: the Error output row links the log by path, with the line only in the text', () => {
+	const c = card(logsHtml(), 1);
+	assert.match(c, /<a href="logs\/44987-app\.log" class="log-link err-src" title="Open the full log"[^>]*>logs\/44987-app\.log:1182<\/a><span>Renderer<\/span><span>Logged 2× \(after each Retry\)<\/span>/);
+	const hrefs = [...logsHtml().matchAll(/href="(logs\/[^"]*)"/g)].map(m => m[1]);
+	assert.ok(hrefs.length > 0);
+	for (const href of hrefs) {
+		assert.ok(existsSync(new URL(href, LOGS_DIR)), `${href} exists`);
+	}
+	assert.doesNotMatch(logsHtml(), /href="(\/(?!#)|~|\/tmp)/);
+	// Logs never join the screenshot gallery.
+	for (const m of logsHtml().matchAll(/<div class="shots">([\s\S]*?)<\/div><\/div>/g)) {
+		assert.doesNotMatch(m[1], /\.log\b/);
+	}
+});
+
+test('logs: a bare-message Log gets no card row but reaches the prompt', () => {
+	const html = logsHtml();
+	assert.doesNotMatch(card(html, 2), /Error output/);
+	assert.match(promptText(html, 2), /Warning: profile request for s63 cancelled/);
+});
+
+test('logs: the prompt carries the absolute log line in Evidence and the stack verbatim', () => {
+	const text = promptText(logsHtml(), 1);
+	assert.match(text, /### Evidence\n[\s\S]*- \/runs\/r2\/logs\/44987-app\.log:1182 — “Error: get_column_profiles timed out after 10 seconds” \(Renderer, 2× after each Retry\)\n/);
+	assert.match(text, /```\nError: get_column_profiles timed out after 10 seconds\n {2}at DataExplorerClient\.getColumnProfiles \(languageRuntimeDataExplorerClient\.ts:212\)\n {2}at TableSummaryCache\.loadColumnProfiles/);
+	assert.match(text, /\n```\nLogged in \/runs\/r2\/logs\/44987-app\.log:1182 \(Renderer\), 2× after each Retry\./);
+});
+
+test('logs: Run details lists the ledger and one row per log, before Branch verification', () => {
+	const html = logsHtml();
+	const folds = html.slice(html.indexOf('id="run-details"'));
+	const labels = [...folds.matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]);
+	assert.deepEqual(labels, ['Agents', 'Change under test', 'Environment', 'State manipulation', 'Test ledger', 'Logs', 'Branch verification']);
+	assert.match(folds, /recorded as the run went: <a href="ledger\.md" class="log-file">ledger\.md<\/a>/);
+	const rows = /<ul class="log-list">([\s\S]*?)<\/ul>/.exec(folds)[1].match(/<li>/g);
+	assert.equal(rows.length, parseLedger(LOGS_LEDGER).logs.length);
+	assert.ok(folds.includes('<li><a href="logs/exthost.log" class="log-file" title="Open the full log" target="_blank" rel="noreferrer">logs/exthost.log</a> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">Extension host</span> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">no errors</span></li>'));
+});
+
+test('logs: a listed file that is missing is shown unlinked, and a folder never links', () => {
+	const html = renderReportHtml(LOGS_REPORT, {
+		ledger: `${LOGS_LEDGER}\n`.replace('## Logs\n', '## Logs\n- logs/all/44987/ | Every log | artifact only\n'),
+		fileExists: p => p !== 'logs/exthost.log',
+	});
+	assert.match(html, /<span class="log-file">logs\/exthost\.log<\/span>/);
+	assert.match(html, /<span class="log-file">logs\/all\/44987\/<\/span>/);
+	assert.doesNotMatch(html, /href="logs\/(exthost\.log|all)/);
+});
+
+test('logs: render.mjs fails the run when a listed log was not copied', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const render = () => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), join(dir, 'report.md')], { encoding: 'utf8' });
+	assert.equal(render().status, 0);
+	rmSync(join(dir, 'logs', 'python-console.log'));
+	const failed = render();
+	assert.equal(failed.status, 1);
+	assert.match(failed.stderr, /logs\/python-console\.log/);
+	assert.ok(existsSync(join(dir, 'index.html')));
+	rmSync(dir, { recursive: true, force: true });
 });

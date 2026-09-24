@@ -578,6 +578,9 @@ jobs:
           if [ -d /tmp/exploratory-run ]; then
             cp -a /tmp/exploratory-run/. /tmp/exploratory-publish/
             rm -f /tmp/exploratory-publish/actions.log
+            # The raw log tree stays in the artifact: the page lists it unlinked,
+            # and the curated files beside it are what a reader opens.
+            rm -rf /tmp/exploratory-publish/logs/all
           fi
 
       - name: Upload run directory to S3

@@ -669,6 +669,11 @@ span.rt-file{color:var(--body)}
 .fold-body p:last-child{margin-bottom:0}
 .fold-part{display:flex;flex-direction:column;gap:4px}
 .fold-part .fold-label{font-size:12px;font-weight:600;color:var(--muted)}
+.log-file{font-family:var(--mono);font-size:13px}
+.log-list{margin:2px 0 0;padding-left:20px;font-size:13px;line-height:1.6}
+.log-list li{margin:0 0 2px;padding-left:4px}
+.log-sep{color:var(--sep)}
+.log-note{color:var(--muted)}
 .agents-table{display:flex;flex-direction:column;max-width:480px}
 .agents-row{display:grid;grid-template-columns:90px 110px 70px 1fr;gap:12px;padding:6px 0;border-bottom:1px solid var(--hairline);font-size:14px;line-height:1.5;color:var(--body)}
 .agents-row.agents-head{padding:0 0 4px;font-size:12px;color:var(--muted)}

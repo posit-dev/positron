@@ -186,6 +186,9 @@ PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
 ## Environment
 - <what is true for the whole run: build, launch, workspace, interpreters>
 
+## Logs
+- logs/<file> | <what wrote it> | <errors it holds, or "no errors">
+
 ---
 
 ## S01 - <scenario, in a few words>
@@ -209,6 +212,9 @@ Steps:
 2. VERIFY <expectation> -> FAIL - Finding 1
    Observed: <one line>
    Evidence: <file>[, <file>]
+   Log: logs/<file>:<line> | <Renderer, Console, or Extension host> | <N>x[ (<when>)]
+     <the error message>
+       at <function> (<repo-relative path>:<line>)
 
 ---
 
@@ -224,6 +230,11 @@ Steps:
   something did *not* happen says which surface you checked and when.
 - `## Environment` holds only what is true for the whole run. Copy it into Run
   details; Coverage never shows it.
+- `## Logs` has one line per file you copied into `logs/`, written at the end
+  of the run: its path, what wrote it, and the errors in it ("2 errors, both in
+  Finding 1", "no errors"). An error no check is tied to is counted here and
+  nowhere else. The report lists every line and links each file, so a line for
+  a file you did not copy fails the render.
 - `Preconditions:` is everything else a scenario needs before step 1, one
   `- <short name> | <creating ID> | <how>` bullet each. The short name is a few
   words ("`slow.py` loaded"); the how-to is enough to set it up from scratch.
@@ -270,6 +281,15 @@ N. VERIFY <expectation> -> FAIL - Finding K
 ```
 
 `Observed:` is only for FAIL. `Evidence:` sits under the check it proves.
+
+`Log:` is only for FAIL too, and every FAIL gets one: look in the logs before
+you move on, while the timestamp still narrows it down. Write where the error
+is, `logs/<file>:<line> | <process> | <N>x (<when>)`, then the message and its
+stack indented under it, verbatim. Keep up to 10 frames, then `... N more`;
+never shorten a frame or drop the message's second line. When you looked and
+found nothing, say where: `Log: none found in logs/<a>.log, logs/<b>.log`. The
+report shows the error on the finding's card when it has a stack or a
+`file:line`, and always hands it to the agent prompt.
 
 Run details goes last because nobody needs it until they try to reproduce
 something: the branch and how you proved the build matches it, how the app was
@@ -442,7 +462,9 @@ not introduce it; that is what `Introduced? no` is for.
 
 When an error is logged, write an `**Error output**` block for it: the full
 message and stack, from the renderer log, the dev console, or the extension
-host log, not the one-line message. Map frames to repo-relative source paths
+host log, not the one-line message. Its log path is the copy in `logs/` with
+the line, `logs/<port>-renderer.log:1182`, as on the ledger's `Log:` line; leave
+the block out and the report takes it from there. Map frames to repo-relative source paths
 (`src/vs/...ts:212`) when the log gives compiled ones and the mapping is clear;
 the report links those to the source at the commit under test. One block per
 distinct error, with how often it was logged. A message with no stack and no
@@ -477,6 +499,37 @@ there is nothing a test would catch, such as a spacing bug.
 Do not file GitHub issues and do not make a merge call. The person decides what
 is real.
 
+## Logs
+
+Keep every log in `logs/` beside the report, errors or not, and copy them
+before `stop.sh`, which deletes the instance's run directory and its profile.
+Every path you write -- in the ledger, the report, the Logs list -- is relative
+to the report folder, never `/tmp/...` or `~/...`: a path outside it is gone by
+the time anyone reads the report.
+
+An instance's logs are not in its run directory: every launch writes to its own
+folder under `~/.local/state/positron/logs/`, and `code.log` names it on its
+`logsPath:` line when the app runs with `--log debug`, so launch with it. For
+each instance, where `<logFile>` and `<port>` (its `cdpPort`) are what
+`launch.sh` printed:
+
+```bash
+L="$RUN/logs"; mkdir -p "$L/all"
+T=$(sed -n "s/^ *logsPath: '\(.*\)'.*/\1/p" <logFile> | tail -1)
+cp -R "$T" "$L/all/<port>"
+cp "$T/window1/renderer.log" "$L/<port>-renderer.log"
+cp "$T/window1/exthost/exthost.log" "$L/<port>-exthost.log"
+cp <logFile> "$L/<port>-code.log"
+./node_modules/.bin/playwright-cli -s=<session> console > "$L/<port>-console.log"
+```
+
+Copy the interpreter output too, from
+`$T/window1/exthost/positron.positron-supervisor/<Language> <version> Console.log`,
+to `logs/<port>-<language>-console.log`. A helper you wrote for the run, such as
+a script that builds slow data, goes in `logs/` as well so a reader can re-run
+it. List `logs/all/<port>/` in `## Logs` as the full tree; the report shows it
+without a link, and CI keeps it in the artifact only.
+
 ## What this run is for
 
 Test the state a real user is in. A fresh disposable profile is the easy thing
@@ -500,7 +553,7 @@ correct and another is wrong, you have localized the bug instead of just
 observing it.
 
 Positron logs are at `~/.local/state/positron/logs`, not in the user-data
-directory.
+directory; see Logs for which folder is yours and what to copy.
 
 Before believing a finding, confirm your measurement can see what you think it
 sees. A UI-scraping bug reads as a product bug, and bug-first instinct will

@@ -387,7 +387,7 @@ function stepEvidence(text) {
  */
 export function parseStep(lines) {
 	const head = String(lines[0] ?? '').trim();
-	const step = { kind: 'action', md: head, result: null, finding: null, observed: '', evidence: [], log: '', rest: [] };
+	const step = { kind: 'action', md: head, result: null, finding: null, observed: '', evidence: [], log: '', logBody: [], error: null, rest: [] };
 	const marked = STEP_RESULT.exec(head);
 	if (marked) {
 		step.kind = 'verify';
@@ -402,15 +402,21 @@ export function parseStep(lines) {
 		step.md = verifyText(head);
 	}
 	let fenced = false;
+	let inLog = false;
 	for (const line of lines.slice(1)) {
+		// The message and stack sit indented under `Log:`, so they are its body.
+		if (inLog && /^\s+\S/.test(line)) { step.logBody.push(line); continue; }
+		inLog = false;
 		const field = fenced ? null : STEP_FIELD.exec(line.trim());
 		if (/^\s*(?:```|~~~)/.test(line)) { fenced = !fenced; }
 		if (!field) { step.rest.push(line); continue; }
 		const name = field[1].toLowerCase();
 		if (name === 'evidence') { step.evidence.push(...stepEvidence(field[2])); }
 		else if (name === 'observed') { step.observed = field[2].trim(); }
-		else { step.log = field[2].trim(); }
+		else { step.log = field[2].trim(); inLog = true; }
 	}
+	step.logBody = outdent(step.logBody);
+	step.error = parseLogField(step.log, step.logBody);
 	while (step.rest.length && !step.rest[step.rest.length - 1].trim()) { step.rest.pop(); }
 	// Only a failed check has an observation to report.
 	if (step.result !== 'fail') { step.observed = ''; }
@@ -435,7 +441,8 @@ function stepText(step) {
 	const result = !step.result ? ''
 		: ` \u2192 ${step.result.toUpperCase()}${step.observed ? ` (observed: ${step.observed})` : ''}`;
 	// The card has no place for a log line, so the prompt is where it goes.
-	return [step.md + result, ...step.rest, ...(step.log ? [`Log: ${step.log}`] : [])].join('\n');
+	const log = step.log ? [`Log: ${step.log}`, ...step.logBody.map(l => `  ${l}`)] : [];
+	return [step.md + result, ...step.rest, ...log].join('\n');
 }
 
 function parseEvidenceBullet(text) {
@@ -512,6 +519,20 @@ function readErrorOutput(lines, start) {
 			body.push(lines[i]);
 		}
 	}
+	return { error: errorFrom(source, meta, outdent(body)), end: i };
+}
+
+/** Lines less their shared indent, so a stack keeps its own nesting. */
+function outdent(lines) {
+	const widths = lines.filter(l => l.trim()).map(l => /^\s*/.exec(l)[0].length);
+	const cut = widths.length ? Math.min(...widths) : 0;
+	const out = lines.map(l => l.slice(cut).replace(/\s+$/, ''));
+	while (out.length && !out[out.length - 1]) { out.pop(); }
+	return out;
+}
+
+/** An error from its log source, its `|` fields, and the message-then-frames body. */
+function errorFrom(source, meta, body) {
 	const message = [];
 	const frames = [];
 	for (const raw of body) {
@@ -520,18 +541,29 @@ function readErrorOutput(lines, start) {
 		const frame = parseFrame(text);
 		if (frame) { frames.push(frame); } else if (!frames.length) { message.push(text); }
 	}
-	const count = meta.map(m => /(\d+)\s*[\u00d7x]\b/i.exec(m)).find(Boolean);
+	const count = meta.map(m => /(\d+)\s*(?:\u00d7|x\b)/i.exec(m)).find(Boolean);
 	return {
-		error: {
-			source,
-			meta,
-			count: count ? Number(count[1]) : 1,
-			message: message.join('\n'),
-			frames,
-			raw: body.map(l => l.replace(/^(?:\s{4}|\t)/, '')).join('\n').replace(/\n+$/, ''),
-		},
-		end: i,
+		source,
+		meta,
+		count: count ? Number(count[1]) : 1,
+		message: message.join('\n'),
+		frames,
+		raw: body.join('\n'),
 	};
+}
+
+/**
+ * A ledger `Log: <file>:<line> | <process> | <count>` and the lines under it, or
+ * null for `none found in ...` or a line with nothing under it.
+ */
+function parseLogField(head, body) {
+	if (!head || /^none found\b/i.test(head) || !body.length) {
+		return null;
+	}
+	const [source, ...meta] = head.split('|').map(p => p.trim().replace(/^`|`$/g, ''));
+	// The ledger writes the bare count; the card reads it as "Logged 2x".
+	const fields = meta.filter(Boolean).map(m => (/^\d+\s*[\u00d7x]/i.test(m) ? `Logged ${m}` : m));
+	return errorFrom(source, fields, body);
 }
 
 /** Reads the `- ` bullets under a label, joining indented continuation lines. */
@@ -843,9 +875,11 @@ export function parseLedger(markdown) {
 	const lines = String(markdown ?? '').split('\n');
 	const exercised = [];
 	const notExercised = [];
+	const logs = [];
 	let cur = null;
 	let section = '';
 	let inNotRun = false;
+	let inLogs = false;
 	for (const line of lines) {
 		const t = line.trim();
 		const head = /^##\s+(.*)$/.exec(t);
@@ -853,10 +887,21 @@ export function parseLedger(markdown) {
 			cur = null;
 			section = '';
 			inNotRun = /^not run$/i.test(head[1].trim());
+			inLogs = /^logs$/i.test(head[1].trim());
 			const m = /^(S\d+)\s*(?:·|-|\||:)\s*(.+)$/.exec(head[1].trim());
 			if (m) {
 				cur = { id: m[1], name: m[2].trim(), status: '', finding: null, result: '', pre: [], stepLines: [] };
 				exercised.push(cur);
+			}
+			continue;
+		}
+		if (inLogs) {
+			// `- logs/<file> | <source> | <note>`; the parenthetical under the heading is not a file.
+			const m = /^[-*]\s+(.+)$/.exec(t);
+			if (m) {
+				const [path, source = '', ...note] = m[1].split(/\s*\|\s*/);
+				const entry = { path: path.trim().replace(/^`|`$/g, ''), source: source.trim(), note: note.join(' | ').trim() };
+				logs.push({ ...entry, sourceHtml: inline(entry.source), noteHtml: inline(entry.note) });
 			}
 			continue;
 		}
@@ -891,7 +936,7 @@ export function parseLedger(markdown) {
 			cur.stepLines.push(line);
 		}
 	}
-	if (!exercised.length && !notExercised.length) {
+	if (!exercised.length && !notExercised.length && !logs.length) {
 		return null;
 	}
 
@@ -926,7 +971,12 @@ export function parseLedger(markdown) {
 		})),
 		// A ledger always lists what it did not run, so an empty list means none.
 		notExercisedListed: true,
+		logs,
 	};
+}
+
+function withMetaHtml(e) {
+	return { ...e, metaHtml: e.meta.map(m => inline(m.replace(/(\d)\s*x\b/g, '$1\u00d7'))) };
 }
 
 /** Scenario tallies for the tile, from Coverage rows. */
@@ -1101,7 +1151,7 @@ export function parseReport(markdown, { ledger } = {}) {
 					? { ...e, quoteHtml: inline(e.quote), noteHtml: e.note ? inline(sentenceCase(e.note)) : '' }
 					: { ...e, textHtml: inline(sentenceCase(e.text)) })),
 			causeHtml: parsed.cause ? inline(parsed.cause) : '',
-			errors: parsed.errors.map(e => ({ ...e, metaHtml: e.meta.map(m => inline(m.replace(/(\d)\s*x\b/g, '$1\u00d7'))) })),
+			errors: parsed.errors.map(withMetaHtml),
 			tests: {
 				cases: parsed.tests.cases.map(c => ({ ...c, textHtml: inline(c.text), noteHtml: c.note ? inline(c.note) : '' })),
 				related: parsed.tests.related.map(r => ({ ...r, noteHtml: r.note ? inline(r.note) : '' })),
@@ -1190,8 +1240,22 @@ export function parseReport(markdown, { ledger } = {}) {
 
 	// Whether the report wrote a Not exercised heading at all, so an empty one
 	// can say so rather than vanish.
-	const coverage = parseLedger(ledger)
-		?? { exercised, notExercised, notExercisedListed: notExercisedHeading !== -1 };
+	const fromLedger = parseLedger(ledger);
+	const coverage = fromLedger && (fromLedger.exercised.length || fromLedger.notExercised.length)
+		? fromLedger
+		: { exercised, notExercised, notExercisedListed: notExercisedHeading !== -1 };
+
+	// A finding whose report wrote no Error output takes the errors its ledger
+	// checks logged, so the log a check cited reaches the card and the prompt.
+	for (const f of findings) {
+		if (f.errors.length) { continue; }
+		const logged = [...f.steps, ...coverage.exercised.flatMap(r => r.steps).filter(st => st.finding === f.n)]
+			.map(st => st.error).filter(Boolean);
+		// The finding's repro usually repeats the ledger step, Log and all.
+		const seen = new Set();
+		f.errors = logged.filter(e => !seen.has(`${e.source}\n${e.message}`) && seen.add(`${e.source}\n${e.message}`))
+			.map(withMetaHtml);
+	}
 
 	const runDetails = parseRunDetails(readDetails(lines, 'Run details'));
 	const verification = parseVerification(readDetails(lines, 'Verification details'));
@@ -1240,6 +1304,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		coverage,
 		scenarios: scenarioCounts(coverage),
 		runDetails,
+		logs: fromLedger?.logs ?? [],
 		verification,
 		// The total's duration covers every pass. Falling back to the main pass
 		// only matters for a report written before the total carried one.
