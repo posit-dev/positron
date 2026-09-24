@@ -1205,6 +1205,8 @@ test('report CSS filters rows by the checked tab and keeps Show all to All', () 
 	assert.match(html, /\.cf-tab-n\{color:var\(--ink\);border-bottom-color:var\(--ink\)\}/);
 	assert.match(html, /\.cf-tab-n\{outline:2px solid var\(--focus\);outline-offset:4px;/);
 	assert.match(html, /\.cov-rows\{position:relative;margin-bottom:-1px;font-size:14px;line-height:1\.5\}/);
+	assert.match(html, /\.cf-tab \.cf-cnt\{color:var\(--faint\);font-weight:400;margin-left:3px\}/);
+	assert.match(html, /\.cf-tab \.cf-g\{visibility:hidden;font-weight:600;padding-right:3px\}/);
 });
 
 test('report CSS gives Professional a teal accent with an ink kicker, and leaves Party and the Run bar alone', () => {

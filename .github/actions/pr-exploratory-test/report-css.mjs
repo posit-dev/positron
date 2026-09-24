@@ -528,8 +528,8 @@ span.rt-file{color:var(--body)}
 .cf-tab{display:inline-grid;padding:0 0 10px;margin-bottom:-1px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s ease}
 .cf-tab>span{grid-area:1/1}
 .cf-tab .cf-l{font-weight:500}
-.cf-tab .cf-g{visibility:hidden;font-weight:600}
-.cf-tab .cf-cnt{color:var(--faint);font-weight:400}
+.cf-tab .cf-g{visibility:hidden;font-weight:600;padding-right:3px}
+.cf-tab .cf-cnt{color:var(--faint);font-weight:400;margin-left:3px}
 .cf-tab:hover{color:var(--ink)}
 #cf-all:checked~.cf-tabs .cf-tab-all,#cf-i:checked~.cf-tabs .cf-tab-i,#cf-p:checked~.cf-tabs .cf-tab-p,#cf-n:checked~.cf-tabs .cf-tab-n{color:var(--ink);border-bottom-color:var(--ink)}
 #cf-all:checked~.cf-tabs .cf-tab-all .cf-l,#cf-i:checked~.cf-tabs .cf-tab-i .cf-l,#cf-p:checked~.cf-tabs .cf-tab-p .cf-l,#cf-n:checked~.cf-tabs .cf-tab-n .cf-l{font-weight:600}
