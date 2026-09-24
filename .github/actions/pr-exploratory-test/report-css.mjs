@@ -27,8 +27,8 @@ const PROFESSIONAL = `
 	--hover-border: #CFCAC0;
 	--code-bg: #EFEDE7;
 	--code-text: #2B2F35;
-	--link: #2F5F8A;
-	--link-hover: #1E4466;
+	--link: #2E6B5E;
+	--link-hover: #1F5046;
 
 	--major-dot: #D1492F;
 	--major-text: #A12C1F;
@@ -62,7 +62,7 @@ const PROFESSIONAL = `
 	--chip-border: #DAD6CD;
 	--cv-chev: #C4C0B6;
 	--ref: #767B82;
-	--ref-hover: #2F5F8A;
+	--ref-hover: #2E6B5E;
 	--em-dash: #A3A7AD;
 
 	--label-color: var(--muted);
@@ -70,7 +70,7 @@ const PROFESSIONAL = `
 	--label-font: var(--sans);
 	--label-weight: 600;
 	--eyebrow-ls: 0.12em;
-	--eyebrow-color: var(--muted);
+	--eyebrow-color: var(--link);
 	--eyebrow-weight: 600;
 
 	--num-color: var(--ink);
@@ -85,7 +85,7 @@ const PROFESSIONAL = `
 	--card-shadow: none;
 	--tile-shadow: none;
 	--major-card-shadow: none;
-	--focus: #2F5F8A;
+	--focus: #2E6B5E;
 
 	--sig-bug: #6A6F76;
 	--sig-bug-glow: none;
@@ -452,8 +452,9 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
 figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}
-figcaption{font-size:12px;line-height:1.4;color:var(--quiet);display:flex;flex-direction:column;gap:2px}
+figcaption{font-size:12px;line-height:1.4;color:var(--quiet)}
 figcaption .step-label{font-weight:600;color:var(--body)}
+figcaption .step-sep{color:var(--sep)}
 
 .evidence{display:flex;flex-direction:column;gap:10px}
 /* The gallery takes its column count from how much there is to show: three

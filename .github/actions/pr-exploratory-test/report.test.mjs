@@ -1123,8 +1123,9 @@ test('renderReportHtml shows screenshots only, labelled and sorted by step', () 
 	assert.doesNotMatch(c, /logtile/);
 	const shots = [...c.matchAll(/data-file="([^"]+)"/g)].map(m => m[1]);
 	assert.deepEqual(shots, ['a.png', 'b.png', 'c.png']);
-	assert.match(c, /<figcaption><span class="step-label">Step 2<\/span><span>The notice<\/span><\/figcaption>/);
-	assert.match(c, /<span class="step-label">Variant<\/span><span>Five columns<\/span>/);
+	// One run of text, so a wrapped caption returns to the left edge.
+	assert.match(c, /<figcaption><span class="step-label">Step 2<\/span> <span class="step-sep" aria-hidden="true">&middot;<\/span> The notice<\/figcaption>/);
+	assert.match(c, /<span class="step-label">Variant<\/span> <span class="step-sep" aria-hidden="true">&middot;<\/span> Five columns<\/figcaption>/);
 	const text = promptText(html, 1);
 	assert.match(text, /### Evidence\n- https:\/\/cdn\.example\/shots\/a\.png — Step 2: The notice\n- https:\/\/cdn\.example\/shots\/b\.png — Step 3: After Retry\n- https:\/\/cdn\.example\/shots\/c\.png — Variant: Five columns\n- \/runs\/r1\/logs\/app\.log/);
 });
@@ -1186,4 +1187,14 @@ test('report CSS filters rows by the checked tab and keeps Show all to All', () 
 	assert.match(html, /\.cf-tab-n\{color:var\(--ink\);border-bottom-color:var\(--ink\)\}/);
 	assert.match(html, /\.cf-tab-n\{outline:2px solid var\(--focus\);outline-offset:4px;/);
 	assert.match(html, /\.cov-rows\{position:relative;margin-bottom:-1px\}/);
+});
+
+test('report CSS gives Professional a teal accent and leaves Party and the Run bar alone', () => {
+	const html = renderReportHtml(RICH);
+	assert.doesNotMatch(html, /#2F5F8A|#1E4466/i);
+	assert.match(html, /--link: #2E6B5E;\n\t--link-hover: #1F5046;/);
+	assert.match(html, /--focus: #2E6B5E;/);
+	assert.match(html, /--eyebrow-color: var\(--link\);/);
+	assert.match(html, /--link: #5CE1E6;/);
+	assert.match(html, /--stage-1: #5E646C;/);
 });

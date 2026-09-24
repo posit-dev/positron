@@ -220,8 +220,8 @@ function renderEvidence(items, n) {
 		return `<figure><a class="shot" ${attrs} aria-label="View full size: ${escapeHtml(item.caption)}">`
 			+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy"></a>`
 			+ '<figcaption>'
-			+ (item.step ? `<span class="step-label">${escapeHtml(item.step.label)}</span>` : '')
-			+ `<span>${item.captionHtml}</span></figcaption></figure>`;
+			+ (item.step ? `<span class="step-label">${escapeHtml(item.step.label)}</span> <span class="step-sep" aria-hidden="true">&middot;</span> ` : '')
+			+ `${item.captionHtml}</figcaption></figure>`;
 	}).join('');
 
 	// One to three items get exactly that many columns; four or more wrap in a
