@@ -68,6 +68,10 @@ inputs:
     description: "Comment mode: the explore step's outcome output; empty when the agent never ran"
     required: false
     default: ""
+  decline-reason:
+    description: "Comment mode: the gate's reason, when outcome is 'declined'"
+    required: false
+    default: ""
   pr-number:
     description: "Comment mode: the PR to comment on. Explore mode: the PR the report header links to"
     required: false
@@ -139,6 +143,7 @@ runs:
         AGENT_PROMPTS: ${{ inputs.agent-prompts }}
         COMMENT_STATE: ${{ inputs.comment-state }}
         OUTCOME: ${{ inputs.outcome }}
+        DECLINE_REASON: ${{ inputs.decline-reason }}
         PR_NUMBER: ${{ inputs.pr-number }}
         GH_TOKEN: ${{ inputs.github-token }}
         COMMENT_ID: ${{ inputs.comment-id }}

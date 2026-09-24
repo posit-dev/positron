@@ -8,8 +8,9 @@
 // decline should not pay for any of it.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
-import { buildCostRecord, parsePosIntEnv, parseGate } from './lib.mjs';
+import { buildCostRecord, isProductPath, parsePosIntEnv, parseGate } from './lib.mjs';
 
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const BASE_SHA = mustEnv('BASE_SHA');
@@ -49,6 +50,15 @@ function emit(testable, reason) {
  * explore anyway: a gate whose own bugs skip runs is worse than no gate.
  */
 async function main() {
+	// Free, and not up to the model: a diff with no product file in it has
+	// nothing to explore.
+	const files = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--name-only', `${BASE_SHA}...${HEAD_SHA}`], { encoding: 'utf8' })
+		.split('\n').filter(Boolean);
+	if (files.length && !files.some(isProductPath)) {
+		emit('false', `Only tests, docs or CI files changed (${files.length} files); nothing a user can see.`);
+		return;
+	}
+
 	const prompt = [
 		'Decide whether a change is worth exploratory testing in this environment, and answer in one line.',
 		'',
