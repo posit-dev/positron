@@ -7,11 +7,12 @@
 import './dataConnectionEntryRow.css';
 
 // React.
-import { MouseEvent as ReactMouseEvent, useRef } from 'react';
+import { MouseEvent as ReactMouseEvent, useEffect, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionWith.js';
 import { showIncludeSecretsConfirmation } from '../dialogs/includeSecretsConfirmation.js';
@@ -34,6 +35,9 @@ interface DataConnectionEntryRowProps {
 	// The data connection entry to render.
 	entry: DataConnectionEntry;
 
+	// The hover manager for the actions button. Owned by the tree and shared by every row.
+	hoverManager: IHoverManager;
+
 	// Closes this connection and the Data Explorers previewed from it, and collapses the row.
 	// Supplied by the tree, which binds it to this row's node id.
 	onDisconnect: () => void;
@@ -53,13 +57,22 @@ interface DataConnectionEntryRowProps {
  * actions menu -- reachable from the actions button or by right-clicking the row -- exposes
  * refresh, edit, runtime-language connect options, and disconnect (when connected) / remove.
  */
-export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onRefresh }: DataConnectionEntryRowProps) => {
+export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMenuOpening, onRefresh }: DataConnectionEntryRowProps) => {
 	// Services.
 	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const rowRef = useRef<HTMLDivElement>(null);
 	const actionsButtonRef = useRef<HTMLButtonElement>(null);
+	const actionsHoveredRef = useRef(false);
+
+	// The shared manager outlives this row, and a row that unmounts under the pointer gets no
+	// mouseleave, so retire a hover this row's button owns.
+	useEffect(() => () => {
+		if (actionsHoveredRef.current) {
+			hoverManager.hideHover();
+		}
+	}, [hoverManager]);
 
 	// Extract the profile from the entry for easy access.
 	const { profile } = entry;
@@ -175,6 +188,9 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 	 * up with the button instead.
 	 */
 	const showActionsMenu = (anchorElement: HTMLElement, anchorPoint?: AnchorPoint) => {
+		// Either entry point may be under the actions button's hover, whether a menu or an error follows.
+		hoverManager.hideHover();
+
 		// Get the driver.
 		const driver = positronDataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
 		if (!driver) {
@@ -400,6 +416,28 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 		"Detected from this computer's configuration. Save it to keep and edit it."
 	);
 
+	// The actions button's label, used as both its hover and its accessible name.
+	const actionsLabel = localize('positron.dataConnections.actions', "Actions");
+
+	/**
+	 * Shows the actions button's hover.
+	 */
+	const onActionsMouseEnter = () => {
+		// Guard: if the ref isn't set, we have nothing to anchor the hover to.
+		if (actionsButtonRef.current) {
+			actionsHoveredRef.current = true;
+			hoverManager.showHover(actionsButtonRef.current, actionsLabel);
+		}
+	};
+
+	/**
+	 * Hides the actions button's hover.
+	 */
+	const onActionsMouseLeave = () => {
+		actionsHoveredRef.current = false;
+		hoverManager.hideHover();
+	};
+
 	// Render.
 	return (
 		// The row is a presentational element inside a tree that owns focus and keyboard
@@ -442,9 +480,11 @@ export const DataConnectionEntryRow = ({ entry, onDisconnect, onMenuOpening, onR
 			)}
 			<button
 				ref={actionsButtonRef}
-				aria-label={localize('positron.dataConnections.actions', "Actions")}
+				aria-label={actionsLabel}
 				className='data-connection-entry-actions'
 				onClick={onActionsClick}
+				onMouseEnter={onActionsMouseEnter}
+				onMouseLeave={onActionsMouseLeave}
 			>
 				<div className='codicon codicon-ellipsis' />
 			</button>
