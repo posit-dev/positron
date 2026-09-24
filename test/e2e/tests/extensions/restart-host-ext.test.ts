@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe.skip('Restart Host Extension', {
-	tag: [tags.EXTENSIONS, tags.WIN, tags.SOFT_FAIL],
+	tag: [tags.EXTENSIONS, tags.WIN],
 	annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
 }, () => {
 

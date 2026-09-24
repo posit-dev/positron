@@ -253,7 +253,7 @@ extensions/positron-r/resources/js/htmlwidget.js
 extensions/positron-run-app/test-workspace/app.js
 extensions/positron-zed/resources/clock.js
 scripts/apply-test-tag-map-fixes.mjs
-scripts/check-soft-fail-failures.js
+scripts/check-e2e-failures.js
 scripts/derive-test-change-tags.mjs
 scripts/node_version_check.js
 scripts/slack-skipped-tests.js
