@@ -1424,7 +1424,9 @@ test('report CSS: expanded rows tint the header only, number steps in the gutter
 	const html = renderReportHtml(TYPED, { ledger: LEDGER });
 	assert.match(html, /\.cv\[open\]>summary\{background:var\(--cv-open\);position:relative\}/);
 	assert.match(html, /\.cv\[open\]>summary::after\{content:"";position:absolute;left:41px;right:20px;bottom:0;height:1px;background:var\(--border\)\}/);
-	assert.match(html, /\.cv-steps ol>li::before\{content:counter\(st\);position:absolute;left:-27px;width:20px;/);
+	assert.match(html, /\.cv-steps ol>li\{position:relative;margin:0 0 2px;padding-left:0;counter-increment:st\}/);
+	assert.match(html, /\.cv-steps ol>li::before\{content:counter\(st\);display:inline-block;width:20px;margin:0 7px 0 -27px;/);
+	assert.match(html, /\.cv-pre \.pre-mark\{display:inline-block;width:20px;margin:0 7px 0 -27px;/);
 	assert.match(html, /\.cf-card\{overflow:visible\}/);
 	assert.match(html, /\.st-v\{color:inherit\}/);
 	// The finding link's underline is Professional's alone.

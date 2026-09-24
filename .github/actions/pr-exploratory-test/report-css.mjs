@@ -582,15 +582,17 @@ span.rt-file{color:var(--body)}
    body text starts under the scenario name. */
 .cv-steps{padding:10px 20px 14px 41px}
 .cv-steps ol{margin:0;padding-left:0;list-style:none;counter-reset:st;font-size:13px;line-height:1.6;color:var(--body)}
-.cv-steps ol>li{position:relative;margin:0 0 2px;counter-increment:st}
-.cv-steps ol>li::before{content:counter(st);position:absolute;left:-27px;width:20px;text-align:center;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+.cv-steps ol>li{position:relative;margin:0 0 2px;padding-left:0;counter-increment:st}
+/* Inline, not absolute, so the gutter number shares the text's baseline;
+   the margins pull it into the gutter and give the text its 41px edge back. */
+.cv-steps ol>li::before{content:counter(st);display:inline-block;width:20px;margin:0 7px 0 -27px;text-align:center;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
 /* Coverage card: let popovers overflow */
 .cf-card{overflow:visible}
 .cf-card>.row-head{border-radius:11px 11px 0 0}
 .cf-card .cov-more{border-radius:0 0 11px 11px}
 /* Preconditions line: "P" in the step-number gutter, full view on hover */
 .cv-pre{position:relative;margin:0 0 2px;font-size:13px;line-height:1.6;color:var(--body);cursor:help;outline:none}
-.cv-pre .pre-mark{position:absolute;left:-27px;width:20px;text-align:center;font-size:12px;font-weight:400;font-variant-numeric:tabular-nums;color:var(--faint);transition:color .15s ease}
+.cv-pre .pre-mark{display:inline-block;width:20px;margin:0 7px 0 -27px;text-align:center;font-size:12px;font-weight:400;font-variant-numeric:tabular-nums;color:var(--faint);transition:color .15s ease}
 .cv-pre:hover .pre-mark,.cv-pre:focus-visible .pre-mark{color:var(--link)}
 .cv-pre:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
 .pre-pop{position:absolute;top:calc(100% + 6px);left:-33px;z-index:6;width:440px;max-width:75vw;display:none;background:var(--card);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:12px 14px;font-size:13px;line-height:1.55;color:var(--body);white-space:normal;cursor:auto}
