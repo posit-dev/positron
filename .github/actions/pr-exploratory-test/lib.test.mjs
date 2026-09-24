@@ -473,3 +473,14 @@ test('renderSummaryTarget leaves the PR off when there is none', () => {
 	assert.equal(renderSummaryTarget('fix/x', 'o/r', undefined), '`fix/x`\n\n');
 	assert.equal(renderSummaryTarget('', 'o/r', ''), '');
 });
+
+// run.mjs and gate.mjs run only in CI and no test imports them.
+test('every script in the action parses', async () => {
+	const { spawnSync } = await import('node:child_process');
+	const { readdirSync } = await import('node:fs');
+	const dir = new URL('.', import.meta.url);
+	for (const f of readdirSync(dir).filter(f => f.endsWith('.mjs'))) {
+		const r = spawnSync(process.execPath, ['--check', new URL(f, dir).pathname], { encoding: 'utf8' });
+		assert.equal(r.status, 0, `${f}: ${r.stderr}`);
+	}
+});

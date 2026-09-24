@@ -141,7 +141,7 @@ async function verifyReport() {
 		'For EACH finding, answer these three questions explicitly:',
 		'',
 		"1. Does the code support the report's stated cause hypothesis? Read the files it names and quote the lines that confirm or contradict it.",
-		'2. Could anything the reporting agent did to its own test environment produce the reported symptom? Read the action log, the ledger's `## Environment` and Run details for how it set the machine up, then ask whether that setup, rather than the product, explains what it saw.',
+		"2. Could anything the reporting agent did to its own test environment produce the reported symptom? Read the action log, the ledger's `## Environment` and Run details for how it set the machine up, then ask whether that setup, rather than the product, explains what it saw.",
 		'3. Is the `Introduced?` value consistent with the diff? A defect in code the diff did not touch is not introduced by this change, though it may be newly reachable because of it, which is what `exposed` means. A blank or unrecognised `Introduced?` (anything but `yes`, `no` or `exposed`) is a missing answer: flag it, and say which value the diff supports.',
 		'',
 		'Then give a verdict per finding: CONFIRMED, FALSE POSITIVE, or UNRESOLVED (say what evidence is missing).',
