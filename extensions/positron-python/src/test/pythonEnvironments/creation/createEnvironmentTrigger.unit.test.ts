@@ -396,6 +396,23 @@ suite('Create Environment Trigger', () => {
         sinon.assert.notCalled(autoSyncUvEnvStub);
     });
 
+    test('Should show pixi install prompt when pixi.lock exists and no pixi env, even with a non-global python, a venv, and a uv.lock', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(true);
+        hasPrefixCondaEnvStub.resolves(true);
+        hasKnownFilesStub.resolves(true);
+        isGlobalPythonSelectedStub.resolves(false);
+        pathExistsStub.withArgs(path.join(workspace1.uri.fsPath, 'pixi.lock')).resolves(true);
+        pathExistsStub.withArgs(path.join(workspace1.uri.fsPath, 'uv.lock')).resolves(true);
+        hasPixiEnvStub.resolves(false);
+        showInformationMessageStub.resolves(Common.bannerLabelYes);
+
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+
+        sinon.assert.calledOnceWithExactly(autoInstallPixiEnvStub, workspace1, pixi, pythonRuntimeManager);
+        sinon.assert.notCalled(autoSyncUvEnvStub);
+    });
+
     test('Should not show pixi install prompt when a pixi env already exists', async () => {
         shouldPromptToCreateEnvStub.returns(true);
         hasVenvStub.resolves(false);
@@ -410,6 +427,22 @@ suite('Create Environment Trigger', () => {
 
         sinon.assert.notCalled(showInformationMessageStub);
         sinon.assert.notCalled(autoInstallPixiEnvStub);
+    });
+
+    test('Should not show uv sync prompt when pixi.lock and a pixi env exist, even with a global python and no venv', async () => {
+        shouldPromptToCreateEnvStub.returns(true);
+        hasVenvStub.resolves(false);
+        hasPrefixCondaEnvStub.resolves(false);
+        hasKnownFilesStub.resolves(false);
+        isGlobalPythonSelectedStub.resolves(true);
+        pathExistsStub.withArgs(path.join(workspace1.uri.fsPath, 'pixi.lock')).resolves(true);
+        pathExistsStub.withArgs(path.join(workspace1.uri.fsPath, 'uv.lock')).resolves(true);
+        hasPixiEnvStub.resolves(true);
+
+        await triggerCreateEnvironmentCheck(CreateEnvironmentCheckKind.Workspace, workspace1.uri);
+
+        sinon.assert.notCalled(showInformationMessageStub);
+        sinon.assert.notCalled(autoSyncUvEnvStub);
     });
 
     test('pixi.lock presence suppresses the legacy pip-based prompt entirely', async () => {

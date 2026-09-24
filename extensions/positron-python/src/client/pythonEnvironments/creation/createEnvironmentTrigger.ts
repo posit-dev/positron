@@ -143,15 +143,9 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
     // environment, so ask about that tool specifically instead of falling through to the
     // generic pip-based trigger below, which wouldn't honor the lock file. uv may download a
     // Python, so python.allowUvPythonInstall gates the uv prompt as it does elsewhere.
-    const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
-    if (uvLockExists && allowUvPythonInstall && !venvExists && !condaExists && !nonGlobalPython) {
-        await showAutoCreatePrompt(CreateEnv.Trigger.uvSyncMessage, () =>
-            autoSyncUvEnv(workspace, pythonRuntimeManager),
-        );
-        return;
-    }
-
-    if (pixiLockExists && !pixiEnvExists && !nonGlobalPython) {
+    // A pixi.lock without a .pixi/envs dir always prompts, whatever interpreter is selected
+    // or other env files exist, since only pixi can recreate that environment.
+    if (pixiLockExists && !pixiEnvExists) {
         const pixi = await getPixi();
         if (pixi) {
             await showAutoCreatePrompt(CreateEnv.Trigger.pixiInstallMessage, () =>
@@ -160,6 +154,15 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
         } else {
             await showPixiNotInstalledWarning();
         }
+        return;
+    }
+
+    const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
+    // A pixi project with an existing pixi env shouldn't get the uv prompt either.
+    if (uvLockExists && !pixiLockExists && allowUvPythonInstall && !venvExists && !condaExists && !nonGlobalPython) {
+        await showAutoCreatePrompt(CreateEnv.Trigger.uvSyncMessage, () =>
+            autoSyncUvEnv(workspace, pythonRuntimeManager),
+        );
         return;
     }
 
