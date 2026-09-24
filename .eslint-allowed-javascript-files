@@ -210,6 +210,9 @@ test/unit/reporter.js
 .claude/skills/exploratory-test/renderer/html.mjs
 .claude/skills/exploratory-test/renderer/lint.mjs
 .claude/skills/exploratory-test/renderer/lint.test.mjs
+.claude/skills/exploratory-test/renderer/map-stack.mjs
+.claude/skills/exploratory-test/renderer/map-stack.test.mjs
+.claude/skills/exploratory-test/renderer/collect-logs.test.mjs
 .claude/skills/exploratory-test/renderer/report-css.mjs
 .claude/skills/exploratory-test/renderer/report-parse.mjs
 .claude/skills/exploratory-test/renderer/report.test.mjs

@@ -69,7 +69,7 @@ Outcome first, evidence second, execution detail last. The shape:
 PR: <owner>/<repo>#<number>
 
 **Result:** <one sentence: what the change now does for a user>
-**Tested:** <what you exercised, in a phrase>, <N> scenarios
+**Tested:** <what you exercised, in a phrase>
 **Not exercised:** <surfaces the change touches that you did not reach, or `none`>
 
 ## Findings
@@ -80,7 +80,6 @@ PR: <owner>/<repo>#<number>
 <summary>Run details</summary>
 
 ### Change under test
-### Environment
 ### State manipulation
 ### Branch verification
 
@@ -99,8 +98,8 @@ verified; the table is directly below. When it runs to two sentences, put `**`
 around the one a reader must not miss, usually where the change falls short.
 Mark one sentence, never the whole line.
 
-`Tested` is the surfaces you drove, in a phrase, then the number of `S`
-scenarios in your ledger.
+`Tested` is the surfaces you drove, in a phrase. The renderer adds the scenario
+count from the ledger.
 
 Write all three lines every time. `**Not exercised:** none` is a claim that you
 reached everything the change touches. Each surface named there reappears in
@@ -161,8 +160,9 @@ Steps:
 - `Result:` is the outcome for a pass, a short symptom or rate for a fail
   ("Fails 3/3"). A cell reporting that something did *not* happen says which
   surface you checked and when.
-- `## Environment` holds only what is true for the whole run. Copy it into Run
-  details.
+- `## Environment` holds only what is true for the whole run: the build, how the
+  app was launched, the interpreters. Run details shows it; do not repeat it
+  there.
 - `## Logs` has one line per file you copied into `logs/`, written at the end,
   with the errors in it ("2 errors, both in Finding 1", "no errors"). An error
   no check is tied to is counted here and nowhere else.
@@ -198,7 +198,7 @@ N. VERIFY <expectation> -> FAIL - Finding K
   short command stays inline.
 - Every FAIL gets a `Log:`: look in the logs before moving on, while the
   timestamp still narrows it down. Write the message and its stack indented
-  under it, verbatim, up to 10 frames then `... N more`. When you found nothing,
+  under it, as `map-stack.mjs` prints it. When you found nothing,
   say where you looked: `Log: none found in logs/<a>.log, logs/<b>.log`.
 
 **Screenshots.** Every FAIL check gets one, and every passing scenario gets at
@@ -210,9 +210,9 @@ A finding's steps are the minimal sequence from the scenario that found it: its
 actions plus the verify steps that matter, keeping PASS checks that show what
 still works just before the failure.
 
-Run details goes last: the branch and how you proved the build matches it, how
-the app was launched, the state you manufactured and restored, and the local
-noise you ignored. It is the one section that collapses; keep a blank line after
+Run details goes last: the branch and how you proved the build matches it, the
+state you manufactured and restored, and the local noise you ignored. The
+renderer adds the ledger's Environment. It is the one section that collapses; keep a blank line after
 `<summary>` and before `</details>`.
 
 Return a two or three line summary and nothing else. Lead with how many
@@ -241,7 +241,10 @@ line you blame is in the diff or it predates the change, and Cause says which.
 `exposed` is only for what the diff cannot settle: the change exposes an
 existing defect, or shifts timing so an existing race fires. It is not a hedge.
 
-`Reproduction` is `<N>/<M>`, matching the finding block.
+`Reproduction` is `<N>/<M>`, and the table is the only place it goes; the
+renderer puts it on the finding. Always give the rate, even 5/5: "every time"
+and "one in three" are different bugs. 0/M means you saw it but could not
+reproduce it, and renders as Unproven.
 
 When behavior that used to work is now broken, say so in the claim -- "X no
 longer Y" -- since that decides whether a reader reverts or fixes forward.
@@ -250,10 +253,10 @@ Append every action to `actions.log` in the run directory as you take it, with a
 timestamp, including incidental ones: a reload, a setting toggle, a wait. Have
 your scripts append it themselves. `Repro` is a transcription of that file, and
 a precondition that only existed in your head is how a finding stops
-reproducing. Write steps as a person using the app would; launch flags and
-scratch paths belong in Run details. Keep the claim under about twelve words,
-stating the symptom and its consequence: "A column over 10 s never loads, and
-Retry cannot help".
+reproducing. Write steps as a person using the app would; launch flags belong
+in the ledger's Environment, and scratch paths in Run details. Keep the claim
+under about twelve words, stating the symptom and its consequence: "A column
+over 10 s never loads, and Retry cannot help".
 
 Every finding's steps stand on their own: no "as Finding 1", no "same as
 above". Repeat the setup line in full each time.
@@ -266,8 +269,6 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 ````
 ### Finding N: <concise claim>
-
-> **Confirmed** | Reproduced **<N>/<M>** | **Introduced by this change**
 
 **Repro** -- starting state: <what exists before step 1>
 
@@ -312,11 +313,7 @@ the code pointers>
 - `<repo-relative test file>` -- <Unit, Extension, or E2E>, <what it covers, in a phrase>
 ````
 
-The status strip's third slot is `**Introduced by this change**`,
-`**Pre-existing**`, or `**Exposed by this change**`, matching `Introduced?`.
-Always give the rate, even 5/5: "every time" and "one in three" are different
-bugs. `Unproven` means you saw it but could not reproduce it, 0/M. Keep the
-blank lines, and keep steps at the left margin.
+Keep the blank lines, and keep steps at the left margin.
 
 Embed one image with `![](shots/<file>)`: the shot that shows the failure best.
 Cite the rest as links under Evidence, each captioned with the step it was taken
@@ -334,18 +331,13 @@ not introduce it; that is what `Introduced? no` is for.
 When an error is logged, write an `**Error output**` block for it: the full
 message and stack, not the one-line message, one block per distinct error, with
 how often it was logged. Its log path is the copy in `logs/` with the line, as
-on the ledger's `Log:` line. Map compiled frames (`out/...js:<line>:<col>`) to
-repo-relative source paths (`src/vs/...ts:212`) with the source map, never the
-`.js` line. From the checkout, this prints each frame's source line; drop the
-checkout prefix it leaves on core paths, and keep `node:` frames and frames with
-no map as they are:
+on the ledger's `Log:` line. Pipe the stack through `map-stack.mjs`, beside
+`render.mjs`, from the checkout: it maps compiled frames to repo-relative source
+lines, leaves frames with no map as they are, and keeps 10 frames. Paste what it
+prints.
 
 ```bash
-node -e 'const fs=require("fs"),path=require("path"),{TraceMap,originalPositionFor}=require("@jridgewell/trace-mapping");
-for(const a of process.argv.slice(1)){const[,f,l,c]=a.match(/^(.*):(\d+):(\d+)$/),js=fs.readFileSync(f,"utf8"),u=js.match(/sourceMappingURL=(\S+)\s*$/)[1];
-const m=u.startsWith("data:")?Buffer.from(u.split(",")[1],"base64").toString():fs.readFileSync(path.join(path.dirname(f),u),"utf8");
-const p=originalPositionFor(new TraceMap(m,f),{line:+l,column:+c-1});console.log(a+" -> "+p.source+":"+p.line)}' \
-  out/vs/workbench/api/node/proxyResolver.js:328:25
+node <map-stack.mjs> < stack.txt
 ```
 
 `**Regression test**` is what a suite would need to catch this next time: a
@@ -383,26 +375,22 @@ the time anyone reads the report.
 An instance's logs are not in its run directory: every launch writes to its own
 folder under `~/.local/state/positron/logs/`, and `code.log` names it on its
 `logsPath:` line when the app runs with `--log debug`, so launch with it. For
-each instance, where `<logFile>` and `<port>` (its `cdpPort`) are what
-`launch.sh` printed:
+each instance, from the checkout, run `collect-logs.sh` beside `render.mjs` with
+what `launch.sh` printed:
 
 ```bash
-L="$RUN/logs"; mkdir -p "$L/all"
-T=$(sed -n "s/^ *logsPath: '\(.*\)'.*/\1/p" <logFile> | tail -1)
-cp -R "$T" "$L/all/<port>"
-cp "$T/window1/renderer.log" "$L/<port>-renderer.log"
-cp "$T/window1/exthost/exthost.log" "$L/<port>-exthost.log"
-cp <logFile> "$L/<port>-code.log"
-./node_modules/.bin/playwright-cli -s=<session> console > "$L/<port>-console.log"
+bash <collect-logs.sh> <logFile> <cdpPort> <session> "$RUN"
 ```
+
+It copies the tree to `logs/all/<port>/`, the renderer, extension host, app,
+browser console, and interpreter logs beside it, and prints a line per file
+with its error count to start `## Logs` from.
 
 Search both renderer copies for an error: `renderer.log` has rejections and
 errors the workbench caught, with their stacks, but an uncaught `throw` reaches
 only `<port>-console.log`, and `code.log` keeps just its message.
 
-Copy the interpreter output too, from
-`$T/window1/exthost/positron.positron-supervisor/<Language> <version> Console.log`,
-to `logs/<port>-<language>-console.log`. A helper you wrote for the run, such as
+A helper you wrote for the run, such as
 a script that builds slow data, goes in `logs/` as well so a reader can re-run
 it. List `logs/all/<port>/` in `## Logs` as the full tree; the report shows it
 without a link, and CI keeps it in the artifact only.

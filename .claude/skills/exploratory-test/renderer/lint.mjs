@@ -154,10 +154,6 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 	blocks.forEach((b, j) => {
 		const end = blocks[j + 1]?.k ?? lines.length;
 		const body = lines.slice(b.k + 1, end).map(l => l.line);
-		const strip = body.find(l => l.trim());
-		if (!strip || !/^>\s/.test(strip.trim()) || !/Reproduced\s*\*{0,2}\d+\/\d+/i.test(strip)) {
-			problems.push(`report: Finding ${b.n} needs the "> **Confirmed** | Reproduced **N/M** | ..." strip under its heading`);
-		}
 		const pre = body.find(l => l.startsWith('**Preconditions:**'));
 		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {
 			problems.push(`report: Finding ${b.n} Preconditions: says only "defaults"; leave the line out`);
@@ -202,12 +198,6 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 	if (ledger !== undefined) {
 		const l = lintLedger(ledger, blockNumbers);
 		problems.push(...l.problems);
-		const count = /(\d+)\s+scenarios?\s*$/i.exec(tested ?? '');
-		if (tested && !count) {
-			problems.push('report: **Tested:** must end with "<N> scenarios"');
-		} else if (count && Number(count[1]) !== l.scenarioCount) {
-			problems.push(`report: **Tested:** says ${count[1]} scenarios, the ledger has ${l.scenarioCount}`);
-		}
 		if (notExercised && !/^`?none`?\.?$/i.test(notExercised) && !l.notRun) {
 			problems.push('ledger: **Not exercised:** names surfaces, so ## Not run needs an N line for each');
 		}

@@ -12,7 +12,7 @@ const REPORT = `# Exploratory test: x
 \`main\` | \`abc1234\`
 
 **Result:** The panel loads.
-**Tested:** the panel, 2 scenarios
+**Tested:** the panel
 **Not exercised:** the web build
 
 ## Findings
@@ -23,8 +23,6 @@ const REPORT = `# Exploratory test: x
 
 ### Finding 1: Retry does nothing
 
-> **Confirmed** | Reproduced **2/2** | **Introduced by this change**
-
 1. Click Retry.
 2. VERIFY the panel loads -> FAIL - Finding 1
 
@@ -33,7 +31,7 @@ const REPORT = `# Exploratory test: x
 <details>
 <summary>Run details</summary>
 
-### Environment
+### Change under test
 
 </details>
 `;
@@ -95,12 +93,10 @@ test('flags a finding heading in the old shape', () => {
 	assert.ok(lint(REPORT.replace('### Finding 1: Retry', '### 1. Retry')).some(p => /must read "### Finding N/.test(p)));
 });
 
-test('flags a missing status strip, a defaults-only precondition and a pointer to another finding', () => {
+test('flags a defaults-only precondition and a pointer to another finding', () => {
 	const body = REPORT
-		.replace('> **Confirmed** | Reproduced **2/2** | **Introduced by this change**', '**Preconditions:** default settings')
-		.replace('1. Click Retry.', '1. Set up as Finding 2.');
+		.replace('1. Click Retry.', '**Preconditions:** default settings\n\n1. Set up as Finding 2.');
 	const problems = lint(body);
-	assert.ok(problems.some(p => /needs the "> \*\*Confirmed\*\*/.test(p)));
 	assert.ok(problems.some(p => /says only "defaults"/.test(p)));
 	assert.ok(problems.some(p => /points at another finding/.test(p)));
 });
@@ -108,7 +104,7 @@ test('flags a missing status strip, a defaults-only precondition and a pointer t
 test('flags a backticked shot, an absolute citation, a compiled frame and a cramped details block', () => {
 	const body = REPORT
 		.replace('- [shots/a.png](shots/a.png)', '- `shots/a.png`')
-		.replace('### Environment', '### Environment\n\n- [log](/tmp/run/r.log)\n\n```\nError: x\n    at f (out/vs/a.js:1:2)\n```')
+		.replace('### Change under test', '### Change under test\n\n- [log](/tmp/run/r.log)\n\n```\nError: x\n    at f (out/vs/a.js:1:2)\n```')
 		.replace('<summary>Run details</summary>\n\n', '<summary>Run details</summary>\n');
 	const problems = lint(body);
 	assert.ok(problems.some(p => /not in backticks/.test(p)));
@@ -118,7 +114,7 @@ test('flags a backticked shot, an absolute citation, a compiled frame and a cram
 });
 
 test('a workspace path in Run details is not a citation', () => {
-	assert.deepEqual(lint(REPORT.replace('### Environment', '### Environment\n\n- Workspace `/tmp/exploratory-workspace`')), []);
+	assert.deepEqual(lint(REPORT.replace('### Change under test', '### Change under test\n\n- Workspace `/tmp/exploratory-workspace`')), []);
 });
 
 test('flags a linked shot that is not on disk', () => {
@@ -140,9 +136,8 @@ test('flags a Status naming a finding the report does not have', () => {
 	assert.ok(lint(REPORT, LEDGER.replace('Status: fail - Finding 1', 'Status: fail - Finding 3')).some(p => /names Finding 3/.test(p)));
 });
 
-test('flags a scenario count that disagrees with the ledger, and a Not exercised with no Not run', () => {
-	const problems = lint(REPORT.replace('2 scenarios', '5 scenarios'), LEDGER.replace(/## Not run\n.*\n/, ''));
-	assert.ok(problems.some(p => /says 5 scenarios, the ledger has 2/.test(p)));
+test('flags a Not exercised with no Not run', () => {
+	const problems = lint(REPORT, LEDGER.replace(/## Not run\n.*\n/, ''));
 	assert.ok(problems.some(p => /## Not run needs an N line/.test(p)));
 });
 

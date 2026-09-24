@@ -898,10 +898,12 @@ export function parseLedger(markdown) {
 	const exercised = [];
 	const notExercised = [];
 	const logs = [];
+	const environment = [];
 	let cur = null;
 	let section = '';
 	let inNotRun = false;
 	let inLogs = false;
+	let inEnvironment = false;
 	for (const line of lines) {
 		const t = line.trim();
 		const head = /^##\s+(.*)$/.exec(t);
@@ -910,11 +912,16 @@ export function parseLedger(markdown) {
 			section = '';
 			inNotRun = /^not run$/i.test(head[1].trim());
 			inLogs = /^logs$/i.test(head[1].trim());
+			inEnvironment = /^environment$/i.test(head[1].trim());
 			const m = /^(S\d+)\s*(?:·|-|\||:)\s*(.+)$/.exec(head[1].trim());
 			if (m) {
 				cur = { id: m[1], name: m[2].trim(), status: '', finding: null, result: '', pre: [], stepLines: [] };
 				exercised.push(cur);
 			}
+			continue;
+		}
+		if (inEnvironment) {
+			if (t && t !== '---') { environment.push(line); }
 			continue;
 		}
 		if (inLogs) {
@@ -994,6 +1001,7 @@ export function parseLedger(markdown) {
 		// A ledger always lists what it did not run, so an empty list means none.
 		notExercisedListed: true,
 		logs,
+		environment,
 	};
 }
 
@@ -1100,6 +1108,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		const parsed = parseFindingBody(bodyLines);
 		const row = byNumber.get(start.n) ?? {};
 		const origin = parsed.status.origin ?? parseOrigin(row['introduced?'] ?? row['introduced']);
+		const reproduced = parsed.status.reproduced || (row['reproduction'] ?? '').trim();
 		const verified = (row['verified'] ?? '').toLowerCase();
 
 		// The embedded shot and the Evidence bullets are two citations of one set
@@ -1158,8 +1167,9 @@ export function parseReport(markdown, { ledger } = {}) {
 			impact: row['impact'] ? inline(sentenceCase(row['impact'])) : '',
 			severity: parseSeverity(row['severity']),
 			origin,
-			reproduced: parsed.status.reproduced || (row['reproduction'] ?? '').trim(),
-			confirmed: parsed.status.confirmed,
+			reproduced,
+			// Unproven is 0/M by definition, so the rate settles it when no strip was written.
+			confirmed: parsed.status.confirmed ?? (/^0\//.test(reproduced) ? 'Unproven' : reproduced ? 'Confirmed' : null),
 			verified: ['confirmed', 'disputed', 'unresolved'].includes(verified) ? verified : null,
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
@@ -1279,7 +1289,16 @@ export function parseReport(markdown, { ledger } = {}) {
 			.map(withMetaHtml);
 	}
 
-	const runDetails = parseRunDetails(readDetails(lines, 'Run details'));
+	let runDetails = parseRunDetails(readDetails(lines, 'Run details'));
+	// The ledger's Environment is the run-wide setup, so Run details shows it
+	// rather than the report repeating it. A report that wrote its own keeps it.
+	const environment = fromLedger?.environment?.length ? block(fromLedger.environment.join('\n')) : '';
+	if (environment && !runDetails?.some(s => /^environment$/i.test(s.title))) {
+		const sections = runDetails ?? [];
+		const at = sections.findIndex(s => /^change under test$/i.test(s.title)) + 1;
+		sections.splice(at, 0, { title: 'Environment', html: environment });
+		runDetails = sections;
+	}
 	const verification = parseVerification(readDetails(lines, 'Verification details'));
 
 	const passes = lines.map(parseCostLine).filter(Boolean);
