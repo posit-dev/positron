@@ -111,6 +111,7 @@ const PROFESSIONAL = `
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
 	--code-blk-bg: #F1EFEA;
 	--rt-tag-bg: #EFEDE7;
+	--rt-tag-ink: #3D4148;
 	--code-blk-border: transparent;
 	--code-cp-hover-bg: rgba(28,31,35,.06);
 	--cp-rest: #C4C0B6;
@@ -235,7 +236,8 @@ const PARTY = `
 	--tip-text: #F5F1FF;
 	--tip-shadow: none;
 	--code-blk-bg: #19132F;
-	--rt-tag-bg: #2A2250;
+	--rt-tag-bg: #3A2F6B;
+	--rt-tag-ink: #F5F1FF;
 	--code-blk-border: #2A2250;
 	--code-cp-hover-bg: rgba(245,241,255,.08);
 	--cp-rest: #4E4580;
@@ -546,7 +548,7 @@ a.rt-file:hover{text-decoration:underline}
 span.rt-file{color:var(--body)}
 .rt-sep{color:var(--sep)}
 .rt-t{flex:none;min-width:30px;box-sizing:border-box;text-align:center;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;line-height:1}
-.rt-t-tint{padding:3px 5px;border-radius:4px;background:var(--rt-tag-bg);color:var(--body)}
+.rt-t-tint{padding:3px 5px;border-radius:4px;background:var(--rt-tag-bg);color:var(--rt-tag-ink)}
 .card-prose{font-size:15px;line-height:1.65;color:var(--body)}
 
 /* Coverage */

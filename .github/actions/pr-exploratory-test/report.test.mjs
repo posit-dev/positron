@@ -1138,7 +1138,9 @@ test('report CSS: regression test block has fixed sizes and a tint tag', () => {
 	assert.match(html, /\.rt-cases\{margin:0;padding-left:20px;font-size:14px;line-height:1\.6;/);
 	assert.match(html, /\.rt-meta\{margin-top:3px;font-size:12\.5px;line-height:1\.55;color:var\(--muted\)\}/);
 	assert.match(html, /\.rt-file\{font-family:var\(--mono\);font-size:12px;/);
-	assert.match(html, /\.rt-t-tint\{padding:3px 5px;border-radius:4px;background:var\(--rt-tag-bg\);/);
+	assert.match(html, /\.rt-t-tint\{padding:3px 5px;border-radius:4px;background:var\(--rt-tag-bg\);color:var\(--rt-tag-ink\)\}/);
+	// Party's tag is lighter than the card, with ink text, so it does not blend in.
+	assert.match(html, /--rt-tag-bg: #3A2F6B;\s*--rt-tag-ink: #F5F1FF;/);
 });
 
 test('renderReportHtml writes the regression cases into the prompt after the cause', () => {
