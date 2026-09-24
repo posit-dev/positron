@@ -132,6 +132,17 @@ test('flags a FAIL without Log:, a pass without a screenshot and a bad Status', 
 	assert.ok(problems.some(p => /S02 Status: must be/.test(p)));
 });
 
+test('Evidence: counts only a file that is in shots/', () => {
+	const prose = LEDGER.replace(/Evidence: a\.png/g, 'Evidence: none; DOM read only');
+	const problems = lint(REPORT, prose);
+	assert.ok(problems.some(p => /S01 passes with no Evidence: naming a screenshot/.test(p)));
+	assert.ok(problems.some(p => /S02 FAIL check 1 is missing Evidence: \(a screenshot file\)/.test(p)));
+
+	const invented = lintReport(REPORT, LEDGER.replace('Evidence: a.png\n\n## S02', 'Evidence: shots/made-up.png\n\n## S02'), { fileExists: f => f === 'shots/a.png' });
+	assert.ok(invented.some(p => /S01 cites Evidence: made-up\.png, which is not in shots\//.test(p)));
+	assert.ok(invented.some(p => /S01 passes with no Evidence/.test(p)));
+});
+
 test('flags a Status naming a finding the report does not have', () => {
 	assert.ok(lint(REPORT, LEDGER.replace('Status: fail - Finding 1', 'Status: fail - Finding 3')).some(p => /names Finding 3/.test(p)));
 });

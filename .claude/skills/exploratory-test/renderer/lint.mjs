@@ -41,7 +41,12 @@ function tableRows(lines, headerTest) {
 	return rows;
 }
 
-function lintLedger(ledger, findingNumbers) {
+/** The files an `Evidence:` value names; prose such as "none, DOM read only" names none. */
+function evidenceFiles(value) {
+	return value.split(/[\s,;()[\]]+/).map(t => t.replace(/^shots\//, '')).filter(t => /^[\w.-]+\.[a-z0-9]{2,5}$/i.test(t));
+}
+
+function lintLedger(ledger, findingNumbers, fileExists) {
 	const problems = [];
 	const lines = prose(ledger);
 	const scenarios = [];
@@ -61,12 +66,19 @@ function lintLedger(ledger, findingNumbers) {
 			current.verifies++;
 			if (/->\s*FAIL\b/i.test(line)) { current.fails.push({ observed: false, evidence: false, log: false }); }
 		}
-		const field = /^\s+(Observed|Evidence|Log):/i.exec(line);
+		const field = /^\s+(Observed|Evidence|Log):(.*)$/i.exec(line);
 		if (field) {
 			const key = field[1].toLowerCase();
-			if (key === 'evidence') { current.evidence++; }
+			let named = true;
+			if (key === 'evidence') {
+				const files = evidenceFiles(field[2]);
+				const missing = fileExists ? files.filter(f => !fileExists(`shots/${f}`)) : [];
+				for (const f of missing) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in shots/`); }
+				named = files.length > missing.length;
+				if (named) { current.evidence++; }
+			}
 			const fail = current.fails.at(-1);
-			if (fail) { fail[key] = true; }
+			if (fail && named) { fail[key] = true; }
 		}
 	}
 
@@ -85,11 +97,11 @@ function lintLedger(ledger, findingNumbers) {
 			}
 		}
 		if (!s.verifies) { problems.push(`ledger: ${s.id} has no VERIFY step`); }
-		if (/^pass$/i.test(s.status ?? '') && !s.evidence) { problems.push(`ledger: ${s.id} passes with no Evidence: screenshot`); }
+		if (/^pass$/i.test(s.status ?? '') && !s.evidence) { problems.push(`ledger: ${s.id} passes with no Evidence: naming a screenshot in shots/`); }
 		s.fails.forEach((f, k) => {
 			const missing = ['observed', 'evidence', 'log'].filter(key => !f[key]);
 			if (missing.length) {
-				problems.push(`ledger: ${s.id} FAIL check ${k + 1} is missing ${missing.map(m => `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
+				problems.push(`ledger: ${s.id} FAIL check ${k + 1} is missing ${missing.map(m => m === 'evidence' ? 'Evidence: (a screenshot file)' : `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
 			}
 		});
 	}
@@ -196,7 +208,7 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 	}
 
 	if (ledger !== undefined) {
-		const l = lintLedger(ledger, blockNumbers);
+		const l = lintLedger(ledger, blockNumbers, fileExists);
 		problems.push(...l.problems);
 		if (notExercised && !/^`?none`?\.?$/i.test(notExercised) && !l.notRun) {
 			problems.push('ledger: **Not exercised:** names surfaces, so ## Not run needs an N line for each');

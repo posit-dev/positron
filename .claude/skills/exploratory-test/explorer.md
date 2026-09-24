@@ -204,7 +204,9 @@ N. VERIFY <expectation> -> FAIL - Finding K
 **Screenshots.** Every FAIL check gets one, and every passing scenario gets at
 least one on the check that shows its main outcome. Attach each to the verify
 step it proves, as a bare file name under `shots/` on the `Evidence:` line.
-Add more only when the picture shows something the text can't.
+The check counts only a file that is there: "none" or "DOM read only" does not
+satisfy it, so take the shot while the state is on screen. Add more only when
+the picture shows something the text can't.
 
 A finding's steps are the minimal sequence from the scenario that found it: its
 actions plus the verify steps that matter, keeping PASS checks that show what
