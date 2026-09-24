@@ -49,6 +49,7 @@ export enum FeatureTags {
 	APPS = '@:apps',
 	ARK = '@:ark',
 	ASSISTANT = '@:assistant',
+	CANVAS = '@:canvas',
 	CATALOG_EXPLORER = '@:catalog-explorer',
 	CONNECT = '@:connect',
 	CONNECTIONS = '@:connections',
