@@ -9,13 +9,13 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { renderReportHtml, linkedLogs } from './html.mjs';
-import { parseReport } from './report-parse.mjs';
-import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, runOutcome } from './lib.mjs';
+import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
+import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
+import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
-const SKILL_PATH = mustEnv('SKILL_PATH');
+const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
 const BRANCH = mustEnv('BRANCH');
@@ -57,8 +57,7 @@ function mustEnv(name) {
 // REPORT_BASE_URL never puts an unusable "published at ``" sentence into the
 // prompt (see buildShotsBaseUrl in lib.mjs).
 const CI_OVERRIDES = [
-	'**You are the tester.** Ignore "Run it in a subagent". Do not delegate; do the exploring yourself.',
-	`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
+		`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
 	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
 	`**Keep the logs in \`${WORK_DIR}/logs/\`.** Follow the skill's Logs section for the pre-launched instance and any you launch. The pre-launched instance's run directory is the only one under \`/tmp/positron-dev-launch/\` when you start, so note it before you launch another. Copy an instance's logs before you stop it: \`stop.sh\` takes its run directory with it. A finding whose log was deleted cannot be checked by the person reading the report.`,
 	'**Do not render the report.** Skip the skill\'s `render.mjs` step; the workflow renders `index.html` itself once verification has been added.',
@@ -192,7 +191,7 @@ async function verifyReport() {
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
 
-	const systemPrompt = readFileSync(SKILL_PATH, 'utf8') + CI_TAIL;
+	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 
 	const userPrompt = [
 		'# Brief',
@@ -294,7 +293,7 @@ async function main() {
 		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: verifyCost },
 	], MAX_TURNS);
-	// Only a /test run has a PR in its event; a dispatched run has none.
+	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
 	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
 	// Read by the workflow to choose the final reaction and the PR comment.
@@ -389,7 +388,7 @@ async function main() {
 	}
 
 	if (STEP_SUMMARY) {
-		appendFileSync(STEP_SUMMARY, summary);
+		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER) + summary);
 	}
 	// The full report still goes to the action log. It is the one copy that
 	// survives an artifact upload or a CDN publish that did not happen.

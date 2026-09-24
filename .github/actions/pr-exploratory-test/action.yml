@@ -13,9 +13,11 @@ inputs:
     description: "Repository root the agent drives from: the checkout of the branch under test"
     required: false
     default: ""
-  skill-path:
+  explorer-path:
     description: >
-      SKILL.md for the exploratory-test skill. Defaults to the copy in
+      explorer.md for the exploratory-test skill: the explorer's instructions,
+      used as its system prompt. SKILL.md only tells a local session how to
+      brief a subagent, so CI does not read it. Defaults to the copy in
       repo-root, which is only right when the branch under test already carries
       the skill. Point it at the harness checkout so the run uses the version
       the workflow was dispatched from, not whatever the branch happens to have.
@@ -113,6 +115,13 @@ runs:
       working-directory: ${{ github.action_path }}
       run: npm ci --no-audit --no-fund
 
+    # Every mode needs the renderer's parser, comment mode included, so the
+    # callers' harness checkouts must carry the skill directory.
+    - name: Install renderer dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../../.claude/skills/exploratory-test/renderer
+      run: npm ci --no-audit --no-fund
+
     - name: Install Claude Code CLI
       if: inputs.mode != 'comment'
       # Workaround for an Agent SDK bug that resolves the musl-variant binary
@@ -131,7 +140,7 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         WORK_DIR: ${{ inputs.work-dir }}
         REPO_ROOT: ${{ inputs.repo-root || github.workspace }}
-        SKILL_PATH: ${{ inputs.skill-path || format('{0}/.claude/skills/exploratory-test/SKILL.md', inputs.repo-root || github.workspace) }}
+        EXPLORER_PATH: ${{ inputs.explorer-path || format('{0}/.claude/skills/exploratory-test/explorer.md', inputs.repo-root || github.workspace) }}
         CDP_PORT: ${{ inputs.cdp-port }}
         BRANCH: ${{ inputs.branch }}
         DIFF_STAT: ${{ inputs.diff-stat }}

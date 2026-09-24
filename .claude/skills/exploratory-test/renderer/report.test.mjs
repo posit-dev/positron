@@ -10,7 +10,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseLedger, parseReport, safeUrl } from './report-parse.mjs';
+import { modelDisplayName, parseLedger, parseReport, safeUrl } from './report-parse.mjs';
 import { renderReportHtml } from './html.mjs';
 
 /** A minimal report with one of everything the template lays out. */
@@ -1665,4 +1665,13 @@ test('logs: render.mjs fails the run when a listed log was not copied', () => {
 	assert.match(failed.stderr, /logs\/python-console\.log/);
 	assert.ok(existsSync(join(dir, 'index.html')));
 	rmSync(dir, { recursive: true, force: true });
+});
+
+test('modelDisplayName reads a model id the way the report names it', () => {
+	assert.equal(modelDisplayName('claude-opus-5-5'), 'Opus 5.5');
+	assert.equal(modelDisplayName('claude-sonnet-5'), 'Sonnet 5');
+	assert.equal(modelDisplayName('claude-haiku-4-5-20251001'), 'Haiku 4.5');
+	assert.equal(modelDisplayName('claude-opus-5-5[1m]'), 'Opus 5.5');
+	assert.equal(modelDisplayName('some-other-model'), 'some-other-model');
+	assert.equal(modelDisplayName(null), null);
 });
