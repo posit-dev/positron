@@ -24,8 +24,13 @@ import { SqlAnalyzer, StatementSpan } from './analyzer';
 export class SqlStatementRangeProvider implements positron.StatementRangeProvider {
 
 	constructor(
-		private readonly _analyzer: () => SqlAnalyzer,
-		private readonly _dialect: () => string,
+		private readonly _analyzer: () => SqlAnalyzer | undefined,
+
+		/**
+		 * Per document, because the dialect follows the data connection the file is written
+		 * against, and two open files can be written against different databases.
+		 */
+		private readonly _dialect: (document: vscode.TextDocument) => string,
 	) { }
 
 	public provideStatementRange(
@@ -33,8 +38,15 @@ export class SqlStatementRangeProvider implements positron.StatementRangeProvide
 		position: vscode.Position,
 		_token: vscode.CancellationToken,
 	): positron.StatementRange | undefined {
+		const analyzer = this._analyzer();
+		if (!analyzer) {
+			// Without the parser there is no way to find the statement. Returning nothing lets
+			// Positron fall back to sending the line the cursor is on.
+			return undefined;
+		}
+
 		const text = document.getText();
-		const statements = this._analyzer().statements(text, this._dialect());
+		const statements = analyzer.statements(text, this._dialect(document));
 		const statement = statementAt(text, statements, document.offsetAt(position));
 		if (!statement) {
 			return undefined;
