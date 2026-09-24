@@ -22,7 +22,41 @@ def local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
 
-def codicon(repo: Path, name: str) -> None:
+def format_number(value: float) -> str:
+    return f"{value:g}"
+
+
+def emit_paths(
+    source: str,
+    view_box: str,
+    paths: list[str],
+    aligned_box: tuple[float, float, float] | None,
+) -> None:
+    print(f"<!-- source: {source}; viewBox={view_box} -->")
+    if aligned_box:
+        x, center_y, size = aligned_box
+        if size <= 0:
+            raise SystemExit("--aligned-box size must be positive")
+        y = center_y - size / 2
+        print(
+            '<svg data-role="aligned-icon" '
+            f'x="{format_number(x)}" y="{format_number(y)}" '
+            f'width="{format_number(size)}" height="{format_number(size)}" '
+            f'viewBox="{view_box}">'
+        )
+        for path in paths:
+            print(f"  {path}")
+        print("</svg>")
+    else:
+        for path in paths:
+            print(path)
+
+
+def codicon(
+    repo: Path,
+    name: str,
+    aligned_box: tuple[float, float, float] | None,
+) -> None:
     path = repo / "node_modules/@vscode/codicons/src/icons" / f"{name}.svg"
     resolved_from = None
     if not path.exists():
@@ -51,16 +85,19 @@ def codicon(repo: Path, name: str) -> None:
     root = ET.parse(path).getroot()
     paths = [node for node in root.iter() if local_name(node.tag) == "path"]
     alias = f"; product-icon-source={resolved_from}" if resolved_from else ""
-    print(
-        f"<!-- source: {path.relative_to(repo)}{alias}; "
-        f"viewBox={root.get('viewBox')} -->"
-    )
+    output_paths: list[str] = []
     for node in paths:
         attrs = []
         for key in ("fill-rule", "clip-rule", "d"):
             if node.get(key):
                 attrs.append(f'{key}="{node.get(key)}"')
-        print("<path " + " ".join(attrs) + "/>")
+        output_paths.append("<path " + " ".join(attrs) + "/>")
+    emit_paths(
+        f"{path.relative_to(repo)}{alias}",
+        root.get("viewBox") or "0 0 16 16",
+        output_paths,
+        aligned_box,
+    )
 
 
 def decode_character(value: str) -> int:
@@ -68,7 +105,12 @@ def decode_character(value: str) -> int:
     return int(stripped, 16)
 
 
-def seti(repo: Path, extension: str | None, filename: str | None) -> None:
+def seti(
+    repo: Path,
+    extension: str | None,
+    filename: str | None,
+    aligned_box: tuple[float, float, float] | None,
+) -> None:
     try:
         from fontTools.misc.transform import Transform
         from fontTools.pens.boundsPen import BoundsPen
@@ -114,11 +156,13 @@ def seti(repo: Path, extension: str | None, filename: str | None) -> None:
     pen = SVGPathPen(glyph_set, ntos=lambda value: f"{value:.2f}")
     glyph.draw(TransformPen(pen, Transform(scale, 0, 0, -scale, tx, ty)))
     color = icon.get("fontColor", "#8A8A8A")
-    print(
-        f"<!-- source: {font_path.relative_to(repo)}; definition={definition}; "
-        f"codepoint=U+{codepoint:04X}; theme-color={color}; viewBox=0 0 16 16 -->"
+    emit_paths(
+        f"{font_path.relative_to(repo)}; definition={definition}; "
+        f"codepoint=U+{codepoint:04X}; theme-color={color}",
+        "0 0 16 16",
+        [f'<path d="{pen.getCommands()}"/>'],
+        aligned_box,
     )
-    print(f'<path d="{pen.getCommands()}"/>')
 
 
 def main() -> int:
@@ -127,17 +171,32 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="kind", required=True)
     codicon_parser = subparsers.add_parser("codicon")
     codicon_parser.add_argument("name")
+    codicon_parser.add_argument(
+        "--aligned-box",
+        nargs=3,
+        type=float,
+        metavar=("X", "CENTER_Y", "SIZE"),
+        help="wrap the paths in an explicitly centered aligned-icon SVG box",
+    )
     seti_parser = subparsers.add_parser("seti")
     group = seti_parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--extension")
     group.add_argument("--filename")
+    seti_parser.add_argument(
+        "--aligned-box",
+        nargs=3,
+        type=float,
+        metavar=("X", "CENTER_Y", "SIZE"),
+        help="wrap the path in an explicitly centered aligned-icon SVG box",
+    )
     args = parser.parse_args()
 
     repo = (args.repo.resolve() if args.repo else repo_root(Path.cwd().resolve()))
+    aligned_box = tuple(args.aligned_box) if args.aligned_box else None
     if args.kind == "codicon":
-        codicon(repo, args.name)
+        codicon(repo, args.name, aligned_box)
     else:
-        seti(repo, args.extension, args.filename)
+        seti(repo, args.extension, args.filename, aligned_box)
     return 0
 
 

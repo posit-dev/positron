@@ -91,6 +91,77 @@ do not promote them to general chrome or placeholder colors.
 Text `y` is a baseline, not a visual center. Render and optically align labels
 with neighboring icons and bars.
 
+### Icon and label alignment
+
+For a single-line label beside an icon, make alignment machine-checkable:
+
+```svg
+<g data-role="icon-label-pair" data-name="release-notes">
+  <svg data-role="aligned-icon"
+       x="364" y="30" width="12" height="12" viewBox="0 0 16 16">
+    <!-- extracted icon paths -->
+  </svg>
+  <text data-role="aligned-label"
+        x="380" y="36" dominant-baseline="middle">Release Notes</text>
+</g>
+```
+
+The icon and label must be direct children of the pair and use the same local
+coordinate system. Do not put a `transform` on either aligned child. The
+label's `y` is its center because it uses `dominant-baseline="middle"`; it must
+equal `icon y + icon height / 2`. The default tolerance is 0.25 canvas units.
+Set `data-align-tolerance` on the pair only when a deliberate optical adjustment
+needs more room, and keep the value as small as the rendered result permits.
+
+Generate the explicit icon box directly when extracting an icon:
+
+```bash
+python3 <skill-dir>/scripts/extract_icon.py \
+  codicon megaphone --aligned-box 364 36 12
+```
+
+This contract is for one icon next to one line of text. Do not force a
+multi-line brand lockup, icon-only button, or unrelated trailing action into an
+icon-label pair. Those still require rendered optical inspection.
+
+### Button bounds
+
+A button that hugs its own label (most Positron toolbar buttons do, via
+`flex: 0 0 auto` and a fixed padding) is easy to hand-size wrong: pick a
+plausible-looking width and the label can run past the border once it renders
+in the SVG's actual font, even though a quick crop at a different render tool
+looked fine. Make the check machine-checkable the same way alignment is, by
+adding a `data-role="button-bounds"` rect as a direct child of the pair:
+
+```svg
+<g data-role="icon-label-pair" data-name="release-notes">
+  <rect data-role="button-bounds" x="312" y="20" width="113" height="24"
+        rx="4" fill="#FFFFFF" stroke="#D0D0D0"/>
+  <svg data-role="aligned-icon" x="321" y="25" width="14" height="14"
+       viewBox="0 0 16 16"><!-- icon paths --></svg>
+  <text data-role="aligned-label" x="341" y="32" dominant-baseline="middle"
+        font-size="12">Release Notes</text>
+</g>
+```
+
+The validator measures the label with the font named in the SVG's own
+`font-family` (walking up to whichever ancestor sets it, the way inheritance
+works in a browser), so the check reflects what the SVG will actually render
+as, not one font hardcoded into the tool. It flags a label whose measured
+width would run past the rect's right edge, start left of the rect's left
+edge, or sit left of an icon that starts before the rect does. Set
+`data-min-padding` on the pair only to relax the default 1px tolerance for a
+deliberately tight design; do not raise it to silence a real overflow.
+
+This is opt-in: a pair with no `button-bounds` rect is not checked. Add one to
+every pair that represents a real clickable button; skip it for a label that
+is not inside a sized container (a plain toolbar label with no visible box).
+
+If the check reports it cannot resolve a font, it skips rather than blocking:
+either Pillow is not installed, or none of the font-family's fonts exist on
+this machine. Treat that warning as "unverified," not "passing" -- inspect a
+render as usual rather than trusting the gap it left unchecked.
+
 Use real text for stable landmarks such as `EXPLORER`, `CONSOLE`, `SESSION`,
 `VARIABLES`, `PLOTS`, a focal menu command, or a filename central to the lesson.
 Use rounded rectangles for incidental filenames, body copy, table values, and

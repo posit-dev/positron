@@ -124,6 +124,11 @@ python3 <skill-dir>/scripts/extract_icon.py seti --filename <filename>
 The script emits SVG-ready paths and source metadata. Search source for the
 action's codicon name before choosing a visually similar icon.
 
+For a single-line label beside an icon, use `--aligned-box <x> <center-y>
+<size>` and follow the icon-label pair contract in
+[references/style.md](references/style.md). Do not position these icons with an
+ad hoc `translate(...) scale(...)`.
+
 ## Required QA
 
 Iterate from rendered output, not source inspection alone.
@@ -143,17 +148,31 @@ Iterate from rendered output, not source inspection alone.
 6. Validate the final file:
 
 ```bash
-python3 <skill-dir>/scripts/validate_svg.py path/to/image.svg
+python3 <skill-dir>/scripts/validate_svg.py \
+  --strict-alignment path/to/image.svg
 ```
 
 Treat validator errors as blockers. Review warnings deliberately; do not silence
-them by weakening the validator. If `rsvg-convert` is available, use it for a
-portable final render:
+them by weakening the validator. Every single-line icon-label pair must use the
+alignment metadata described in [references/style.md](references/style.md), so
+strict validation can check it. For a pair that represents a real button (one
+sized to its own label, not a bare toolbar label), also add the
+`data-role="button-bounds"` rect described there: a fixed-width button and an
+independently hand-measured label are a common source of a label that overflows
+its own border, and the validator can only catch that with the box named
+explicitly. If `rsvg-convert` is available, use it for a portable final render:
 
 ```bash
 rsvg-convert -w 400 path/to/image.svg -o /tmp/positron-svg-400.png
 rsvg-convert -z 4 path/to/image.svg -o /tmp/positron-svg-4x.png
 ```
+
+`rsvg-convert` substitutes its own font rather than the one the SVG's
+`font-family` asks for, so a button label that clears its border in this
+render can still overflow it in a real browser or a native image viewer. It is
+still the right tool for layout, seams, and icon inspection; for text fitting
+inside a hand-sized button, rely on the `button-bounds` validator check
+instead of this render.
 
 Deliver the SVG only after opening at least one rendered preview. Briefly state
 which product evidence determined the layout or controls and identify any
