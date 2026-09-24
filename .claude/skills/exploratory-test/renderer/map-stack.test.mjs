@@ -59,5 +59,6 @@ test('runs as a script when called through a symlinked path', () => {
 	const link = join(root, 'link');
 	symlinkSync(dirname(fileURLToPath(import.meta.url)), link);
 	const r = spawnSync(process.execPath, [join(link, 'map-stack.mjs'), '--root', root], { input: 'E\n    at node:x:1:1\n', encoding: 'utf8' });
+	assert.equal(r.status, 0, r.stderr);
 	assert.equal(r.stdout, 'E\n    at node:x:1:1\n');
 });
