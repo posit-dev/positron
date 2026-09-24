@@ -347,35 +347,38 @@ test('runOutcome is no-report when the agent stopped early without one', () => {
 const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
 
-test('renderPrComment carries the marker in every state', () => {
-	for (const state of ['running', 'complete', 'partial', 'no-report', '']) {
+test('renderPrComment carries the marker and a run or report link in every state', () => {
+	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined']) {
 		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
-		assert.match(body, /\[Run\]\(https:\/\/github\.com\/posit-dev\/positron\/actions\/runs\/1\)/);
+		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
 	}
 });
 
-test('renderPrComment names the head it tested, so a stale result reads as stale', () => {
-	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.match(body, /`abc1234`/);
-	assert.doesNotMatch(body, /abc1234def/);
+test('renderPrComment on a finished run is a title, the tally and the report link', () => {
+	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA, model: 'opus' });
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing (Opus) \u00b7 abc1234**\n**5 findings:** 1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
 });
 
-test('renderPrComment on a finished run is the job summary signpost, not the report', () => {
-	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.ok(body.includes(renderStepSummary(SUMMARY_MD, 'https://cdn.example/run').trim()));
-	assert.doesNotMatch(body, /Observed|a claim|<details>/);
+test('renderPrComment running state names the head and links the run', () => {
+	const body = renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'opus' });
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nLooking for trouble\u2026\n[View run \u2192](${RUN_URL})\n`);
 });
 
-test('renderPrComment omits CDN links when the upload failed', () => {
+test('renderPrComment says No findings for an empty table', () => {
+	const body = renderPrComment({ state: 'complete', markdown: '# X\n\nNo findings.\n', baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	assert.match(body, /^\*\*No findings\*\*$/m);
+});
+
+test('renderPrComment points at the artifact when the upload failed', () => {
 	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
-	assert.doesNotMatch(body, /cdn\.example|index\.html|report\.md/);
-	assert.match(body, /workflow artifact/);
+	assert.doesNotMatch(body, /cdn\.example|index\.html|View report/);
+	assert.match(body, /workflow artifact\. \[View run/);
 });
 
 test('renderPrComment flags a partial run that still wrote a report', () => {
 	const body = renderPrComment({ state: 'partial', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.match(body, /\*\*5 findings/);
+	assert.match(body, /\*\*5 findings:\*\*/);
 	assert.match(body, /turn cap/);
 });
 
@@ -384,7 +387,7 @@ test('renderPrComment says the run failed when the agent never ran', () => {
 	// comment must still be replaced with something true.
 	const body = renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.match(body, /failed before/);
-	assert.doesNotMatch(body, /[Rr]unning against/);
+	assert.doesNotMatch(body, /Looking for trouble/);
 });
 
 test('renderPrComment explains a missing report per outcome', () => {
@@ -392,26 +395,13 @@ test('renderPrComment explains a missing report per outcome', () => {
 	assert.match(renderPrComment({ state: 'no-report', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /without writing a report/);
 });
 
-test('renderPrComment running state links the run and names the head', () => {
-	const body = renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
-	assert.match(body, /Running against `abc1234`/);
-});
-
 test('renderPrComment leaves the SHA out rather than print an empty one', () => {
-	const body = renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' });
-	assert.doesNotMatch(body, /``/);
+	assert.match(renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
+	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
 });
 
-
-test('renderPrComment names the model in every state, so a /test typo is visible', () => {
-	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /^Running against `abc1234`\./m);
-	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /^### Exploratory test \(Sonnet\)$/m);
-	assert.match(renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /^### Exploratory test \(Sonnet\) on `abc1234`$/m);
-	assert.match(renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'opus' }), /^### Exploratory test \(Opus\) on `abc1234`: no report$/m);
-});
-
-test('renderPrComment leaves the model out when none is given', () => {
-	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /Running against `abc1234`/);
+test('renderPrComment names the model on a result, so a /test typo is visible', () => {
+	assert.match(renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, model: 'sonnet' }), /Exploratory testing \(Sonnet\) \u00b7 abc1234/);
 	assert.doesNotMatch(renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /\(\)/);
 });
 
@@ -459,7 +449,7 @@ test('isProductPath keeps source, styles and config', () => {
 test('renderPrComment says a declined run was not run, and why', () => {
 	const body = renderPrComment({ state: 'declined', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason: 'only tests changed' });
 	assert.ok(body.startsWith(COMMENT_MARKER));
-	assert.match(body, /not run/);
+	assert.match(body, /Not run/);
 	assert.match(body, /only tests changed/);
 	assert.doesNotMatch(body, /failed before/);
 });
