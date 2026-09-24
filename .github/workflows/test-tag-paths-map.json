@@ -128,6 +128,7 @@
   "extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter"],
   "extensions/positron-zed/": [],
 
+  "src/vs/editor/contrib/documentSymbols/": ["@:outline"],
   "src/vs/editor/contrib/positronEditorActions/": ["@:editor-action-bar"],
   "src/vs/editor/contrib/positronHelp/": ["@:help"],
   "src/vs/editor/contrib/positronInputBoundaries/": ["@:console"],
