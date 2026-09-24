@@ -288,6 +288,10 @@ RPROF
 # Stable CRAN mirror for this image
 ENV RSPM=https://packagemanager.posit.co/cran/__linux__/centos8/latest
 
+# pak's sysreqs step can spend minutes in `dnf install` syncing repo metadata
+# mid-test (libuv-devel for fs), timing out the Packages pane e2e tests.
+ENV PKG_SYSREQS=false
+
 # Use a shared site library (independent of $HOME)
 ENV R_LIBS_SITE=/usr/local/lib/R/site-library
 ENV R_LIBS_USER=/usr/local/lib/R/site-library
