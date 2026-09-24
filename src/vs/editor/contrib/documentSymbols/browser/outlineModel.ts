@@ -400,9 +400,21 @@ export interface IOutlineModelService {
 	getCachedModels(): Iterable<OutlineModel>;
 }
 
+// --- Start Positron ---
+/**
+ * Languages whose symbols include answers from other documents' providers.
+ * Mirrors `QUARTO_LANGUAGE_IDS` in positronQuarto, which this layer cannot
+ * import.
+ */
+const DEPENDENT_OUTLINE_LANGUAGES: ReadonlySet<string> = new Set(['quarto', 'rmd']);
+// --- End Positron ---
+
 interface CacheEntry {
 	versionId: number;
 	provider: DocumentSymbolProvider[];
+	// --- Start Positron ---
+	registered: DocumentSymbolProvider[] | undefined;
+	// --- End Positron ---
 
 	promiseCnt: number;
 	source: CancellationTokenSource;
@@ -441,11 +453,25 @@ export class OutlineModelService implements IOutlineModelService {
 		const provider = registry.ordered(textModel);
 
 		let data = this._cache.get(textModel.id);
-		if (!data || data.versionId !== textModel.getVersionId() || !equals(data.provider, provider)) {
+		// --- Start Positron ---
+		// A Quarto document's symbols include those of its hidden code cells,
+		// which are other documents, so a provider registering for a cell changes
+		// the answer without changing this document's own provider list. For those
+		// documents, any registry change asks again. Read as a snapshot here, not
+		// a counter bumped from an event: the Outline refreshes from its own
+		// listener on that event and can hear it first. Other documents store
+		// `undefined`, which always compares equal.
+		const registered = DEPENDENT_OUTLINE_LANGUAGES.has(textModel.getLanguageId()) ? registry.allNoModel() : undefined;
+		// if (!data || data.versionId !== textModel.getVersionId() || !equals(data.provider, provider)) {
+		if (!data || data.versionId !== textModel.getVersionId() || !equals(data.provider, provider) || !equals(data.registered, registered)) {
+			// --- End Positron ---
 			const source = new CancellationTokenSource();
 			data = {
 				versionId: textModel.getVersionId(),
 				provider,
+				// --- Start Positron ---
+				registered,
+				// --- End Positron ---
 				promiseCnt: 0,
 				source,
 				promise: OutlineModel.create(registry, textModel, source.token),
