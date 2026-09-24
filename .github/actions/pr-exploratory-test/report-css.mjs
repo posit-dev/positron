@@ -59,7 +59,8 @@ const PROFESSIONAL = `
 	--thumb-b: #F3F1EC;
 	--quiet: #767B82;
 	--dash: #D9D5CB;
-	--hypothesis: #8A8F96;
+	--chip-border: #DAD6CD;
+	--cv-chev: #C4C0B6;
 	--ref: #767B82;
 	--ref-hover: #2F5F8A;
 	--em-dash: #A3A7AD;
@@ -171,7 +172,8 @@ const PARTY = `
 	--thumb-b: #19132F;
 	--quiet: #948DBF;
 	--dash: #4A3F7A;
-	--hypothesis: #8A82B8;
+	--chip-border: #5B4F92;
+	--cv-chev: #5B4F92;
 	--ref: #948DBF;
 	--ref-hover: #5CE1E6;
 	--em-dash: #6A61A0;
@@ -357,7 +359,7 @@ a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
 .findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 110px}
-.coverage-grid{grid-template-columns:minmax(0,5fr) minmax(0,7fr) 200px}
+.coverage-grid{grid-template-columns:minmax(0,5fr) minmax(0,7fr) 200px 12px}
 .right{text-align:right}
 
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
@@ -428,7 +430,6 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 /* One style for every secondary heading: darker than supporting text, but with
    no panel or rule, so Observed and Expected stay dominant. */
 .sub{font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body)}
-.sub .hyp{font-weight:500;color:var(--hypothesis)}
 
 /* Reproduce answers "how do I make this happen?", so it is text only and one
    column. Screenshots all live under Evidence, which answers "show me that it
@@ -451,7 +452,8 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
 figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}
-figcaption{font-size:12px;line-height:1.4;color:var(--quiet)}
+figcaption{font-size:12px;line-height:1.4;color:var(--quiet);display:flex;flex-direction:column;gap:2px}
+figcaption .step-label{font-weight:600;color:var(--body)}
 
 .evidence{display:flex;flex-direction:column;gap:10px}
 /* The gallery takes its column count from how much there is to show: three
@@ -468,14 +470,39 @@ a.shot img{transition:border-color .15s ease}
 a.shot:hover img{border-color:var(--hover-border)}
 a.shot:hover{text-decoration:none}
 a.shot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.logtile{border:1px solid var(--thumb-border);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;background:var(--thead);min-width:0}
-.logtile .path{font-family:var(--mono);font-size:11px;color:var(--quiet);word-break:break-all}
-.logtile .quote{font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--quiet);word-break:break-word}
-.logtile .note{font-size:12px;color:var(--quiet)}
-
-/* Likely cause reads as analysis, not fact: dashed, no fill. */
-.cause{border:1px dashed var(--dash);border-radius:10px;padding:16px 20px;display:flex;flex-direction:column;gap:8px}
-.cause p{font-size:14px;line-height:1.65;color:var(--body);max-width:var(--measure)}
+/* The end of a card: closed rows, fact then hypothesis then suggestion. Solid
+   for what the run saw or found, dashed for the guess. */
+.card-details{display:flex;flex-direction:column;gap:8px}
+.lc{border:1px solid var(--border);border-radius:10px;padding:0 20px}
+.lc.hyp{border-style:dashed;border-color:var(--dash)}
+.lc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:14px 0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body);transition:color .15s ease}
+.lc>summary::-webkit-details-marker{display:none}
+.lc>summary:hover{color:var(--ink)}
+.lc>summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+.lc-tail{font-weight:500;color:var(--faint)}
+.lc .lc-chev{flex:none;transition:transform .15s ease}
+.lc[open] .lc-chev{transform:rotate(90deg)}
+.lc-body{padding:0 0 16px 20px;display:flex;flex-direction:column;gap:14px}
+.lc-body p{font-size:14px;line-height:1.65;color:var(--body);max-width:var(--measure)}
+.err{display:flex;flex-direction:column;gap:8px;min-width:0}
+.err-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.err-src{font-family:var(--mono)}
+.err-code{font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--body);background:var(--thead);border:1px solid var(--hairline);border-radius:6px;padding:10px 14px;overflow-x:auto}
+.err-msg{color:var(--major-text);white-space:pre-wrap}
+.err-frame{padding-left:16px;white-space:nowrap}
+.rt-group{display:flex;flex-direction:column;gap:6px}
+.rt-head{font-size:12px;font-weight:600;color:var(--body)}
+.rt-sugg{font-weight:400;color:var(--faint)}
+.lc-body p.rt-case{margin:0}
+.rt-cases,.rt-related{margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:var(--body);max-width:var(--measure)}
+.rt-cases li{margin:0 0 10px}
+.rt-cases li:last-child{margin-bottom:0}
+.rt-related li{margin:0 0 2px}
+.rt-where{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px;font-size:12px;line-height:1.5;color:var(--faint)}
+.rt-level{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;border:1px solid var(--chip-border);background:var(--thead);font-size:11px;font-weight:600;color:var(--body)}
+.rt-file{font-family:var(--mono);font-size:12.5px;color:var(--link);word-break:break-all}
+span.rt-file{color:var(--body)}
+.rt-note{font-size:12px;color:var(--faint)}
 .card-prose{font-size:15px;line-height:1.65;color:var(--body)}
 
 /* Coverage */
@@ -489,17 +516,31 @@ h3.cov-title{margin:0;font-size:14px;font-weight:600;color:var(--body)}
    it on the first line, so a scenario that wraps keeps its dot beside line one.
    The two header indents below are this gap plus the dot, so they move with
    it. */
-.cov-scenario{display:flex;align-items:flex-start;gap:15px;color:var(--ink)}
+.cov-scenario{display:flex;align-items:flex-start;gap:13px;color:var(--ink)}
 .cov-dot{flex:none;width:8px;height:8px;margin-top:7px;border-radius:50%}
 .cov-dot.pass{background:var(--pass-fill)}
 .cov-dot.issue{background:var(--moderate-dot)}
 .cov-dot.none{width:7px;height:7px;background:var(--dot-neutral)}
 /* Indented by the dot plus the gap, so the label starts where the text does. */
-.cov-head-scenario{padding-left:23px}
-.panel.dashed .cov-head-scenario{padding-left:22px}
+.cov-head-scenario{padding-left:21px}
+.panel.dashed .cov-head-scenario{padding-left:20px}
 .cov-result{color:var(--body)}
 .cov-reason{color:var(--body)}
-.cov-reason,.cov-head-reason{grid-column:span 2}
+.cov-reason,.cov-head-reason{grid-column:span 3}
+/* A passing row is its own disclosure: the whole row toggles its steps. */
+.cv{border-bottom:1px solid var(--hairline)}
+.cv:last-child{border-bottom:0}
+.cv>summary{border-bottom:0;list-style:none;cursor:pointer;transition:background-color .15s ease}
+.cv>summary::-webkit-details-marker{display:none}
+.cv>summary:hover{background:var(--thead)}
+.cv>summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.cv-chev-cell{display:inline-flex;justify-content:flex-end;margin-top:5px;color:var(--cv-chev)}
+.cv .cv-chev{flex:none;transition:transform .15s ease,color .15s ease}
+.cv[open] .cv-chev{transform:rotate(90deg)}
+.cv>summary:hover .cv-chev,.cv[open] .cv-chev,.cv>summary:focus-visible .cv-chev{color:var(--muted)}
+.cv-steps{padding:0 20px 14px 41px}
+.cv-steps ol{margin:0;padding-left:20px;font-size:13px;line-height:1.6;color:var(--body)}
+.cv-steps li{margin:0 0 2px}
 .cov-empty{margin:0;font-size:13px;color:var(--muted)}
 .ref{font-family:var(--mono);font-size:11.5px;color:var(--ref)}
 a.ref:hover{color:var(--ref-hover)}
@@ -606,6 +647,8 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.row{grid-template-columns:minmax(0,1fr) !important;gap:8px}
 	.row-head{display:none}
 	.cov-reason,.cov-head-reason{grid-column:auto}
+	.cv-chev-cell{justify-content:flex-start}
+	.cv-steps{padding-left:41px}
 	.shots,.shots.n3{grid-template-columns:repeat(2,minmax(0,1fr))}
 	.shots.n1{grid-template-columns:minmax(0,1fr)}
 	.lb{padding:12px}

@@ -941,3 +941,224 @@ test('renderReportHtml mutes the Show all row and only recolours it on hover', (
 	assert.match(html, /\.cov-more\{[^}]*color:var\(--muted\);cursor:pointer;transition:color \.15s ease\}/);
 	assert.match(html, /\.cov-more:hover\{color:var\(--link\)\}/);
 });
+
+/** A finding with every collapsed row, step-tagged shots, and a Steps column. */
+const RICH = md([
+	'## Findings', '',
+	'| # | Finding | Severity | Introduced? | Reproduction |', '|---|---|---|---|---|',
+	'| 1 | a claim | major | yes | 3/3 |',
+	'| 2 | b claim | minor | no | 1/1 |',
+	'',
+	'### 1. A column never loads, and Retry cannot help',
+	'',
+	'A summary that repeats Observed.',
+	'',
+	'**Repro**',
+	'',
+	'1. Open it.',
+	'2. Wait.',
+	'3. Click Retry.',
+	'',
+	'**Observed:** it never loads.',
+	'',
+	'**Evidence**',
+	'',
+	'- [shots/c.png](https://cdn.example/shots/c.png) -- Variant: five columns',
+	'- [shots/b.png](https://cdn.example/shots/b.png) -- Step 3: after Retry',
+	'- [shots/a.png](https://cdn.example/shots/a.png) -- Step 2: the notice',
+	'- `logs/app.log` -- "timed out", twice',
+	'',
+	'**Error output** -- `logs/app.log` | Renderer | Logged 2x (after each Retry)',
+	'',
+	'```',
+	'Error: get_column_profiles timed out after 10 seconds',
+	'    at Client.getColumnProfiles (src/vs/client.ts:212:9)',
+	'    at /abs/out/cache.js:538',
+	'```',
+	'',
+	'**Error output** -- `logs/ext.log` | Extension host',
+	'',
+	'```',
+	'Warning: no stack here',
+	'```',
+	'',
+	'**Cause (hypothesis):** the timeout was cut.',
+	'',
+	'**Regression test**',
+	'',
+	'- Retry after a timeout loads the summary. -- Unit `src/vs/test/cache.test.ts` (exists, covers chunking only)',
+	'- A slow source offers no Retry. -- E2E `test/e2e/tests/slow.test.ts` (new file)',
+	'',
+	'**Other tests that touch this code**',
+	'',
+	'- `src/vs/test/cache.test.ts` -- Unit, already named above',
+	'- `src/vs/test/client.test.ts` -- Unit, checks request shape only',
+	'',
+	'### 2. b claim with nothing collapsed',
+	'',
+	'**Observed:** the icon touches the text.',
+	'',
+	'**Regression test**',
+	'',
+	'- One case only. -- Unit `src/vs/test/icon.test.ts` (exists)',
+	'',
+	'## Coverage',
+	'',
+	'### Verified',
+	'',
+	'| Scenario | Result | Screenshot | Steps |',
+	'|---|---|---|---|',
+	'| pandas frame | everything loads | | 1. Build `df`.<br>2. Run `%view df`. |',
+	'| polars frame | same as pandas | | |',
+	'| slow column | fails 3/3 (finding 1) | | 1. Should not render. |',
+	'',
+	'### Not exercised',
+	'',
+	'| Scenario | Reason |',
+	'|---|---|',
+	'| the web build | desktop only |',
+	'',
+].join('\n'));
+
+/** The card as rendered, without its prompt block. */
+function card(html, n) {
+	const start = html.indexOf(`<article id="f${n}"`);
+	const end = html.indexOf('</article>', start);
+	const prompt = html.indexOf('<script type="text/plain"', start);
+	return html.slice(start, prompt !== -1 && prompt < end ? prompt : end);
+}
+
+test('renderReportHtml puts nothing between a finding title and Observed', () => {
+	const c = card(renderReportHtml(RICH), 1);
+	assert.doesNotMatch(c, /card-summary|repeats Observed/);
+	assert.match(c, /<\/h2><\/header>\s*<div class="two">/);
+});
+
+test('renderReportHtml ends a card with closed rows: error, cause, regression test', () => {
+	const c = card(renderReportHtml(RICH), 1);
+	const rows = [...c.matchAll(/<details class="(lc[^"]*)">/g)].map(m => m[1]);
+	assert.deepEqual(rows, ['lc', 'lc hyp', 'lc regtest']);
+	assert.doesNotMatch(c, /<details class="lc[^"]*" open/);
+	assert.match(c, /Error output<span class="lc-tail"> &middot; 1 error, 2×<\/span>/);
+	assert.match(c, /Likely cause<span class="lc-tail"> &middot; Hypothesis<\/span>/);
+	assert.match(c, /Regression test<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
+	assert.doesNotMatch(c, /class="cause"/);
+});
+
+test('renderReportHtml leaves out collapsed rows with nothing in them', () => {
+	const html = renderReportHtml(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Observed:** it broke.',
+	].join('\n')));
+	assert.doesNotMatch(card(html, 1), /card-details/);
+	const second = card(renderReportHtml(RICH), 2);
+	assert.deepEqual([...second.matchAll(/<details class="(lc[^"]*)">/g)].map(m => m[1]), ['lc regtest']);
+});
+
+test('renderReportHtml shows only errors with a stack, and links frames at the commit', () => {
+	const c = card(renderReportHtml(RICH), 1);
+	assert.match(c, /<span class="err-src">logs\/app\.log<\/span><span>Renderer<\/span><span>Logged 2× \(after each Retry\)<\/span>/);
+	assert.match(c, /<div class="err-msg">Error: get_column_profiles timed out after 10 seconds<\/div>/);
+	assert.match(c, /at Client\.getColumnProfiles \(<a class="err-loc" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/abc1234\/src\/vs\/client\.ts#L212" title="src\/vs\/client\.ts"[^>]*>client\.ts:212<\/a>\)/);
+	// An absolute path is not in the repo, so it is shown but not linked.
+	assert.match(c, /at <span class="err-loc" title="\/abs\/out\/cache\.js">cache\.js:538<\/span>/);
+	assert.doesNotMatch(c, /no stack here/);
+});
+
+test('renderReportHtml keeps every error in the prompt, stack or not', () => {
+	const text = promptText(renderReportHtml(RICH, { base: '/runs/r1' }), 1);
+	assert.match(text, /### Error output\n\/runs\/r1\/logs\/app\.log \| Renderer \| Logged 2x \(after each Retry\)\n```\nError: get_column_profiles/);
+	assert.match(text, /\/runs\/r1\/logs\/ext\.log \| Extension host\n```\nWarning: no stack here\n```/);
+	// Evidence, Error output, Likely cause, Regression test, Context.
+	const order = ['### Evidence', '### Error output', '### Likely cause', '### Regression test (suggestion)', '### Context'].map(h => text.indexOf(h));
+	assert.deepEqual(order, [...order].sort((a, b) => a - b));
+	assert.ok(order.every(i => i !== -1));
+});
+
+test('renderReportHtml writes regression cases as a list, or a paragraph when there is one', () => {
+	const html = renderReportHtml(RICH);
+	const c = card(html, 1);
+	assert.match(c, /Missing cases <span class="rt-sugg">&middot; suggestion<\/span><\/div><ol class="rt-cases"><li>Retry after a timeout loads the summary\./);
+	assert.match(c, /<span>Add to<\/span><span class="rt-level">Unit<\/span><a class="rt-file" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/abc1234\/src\/vs\/test\/cache\.test\.ts" title="src\/vs\/test\/cache\.test\.ts"[^>]*>cache\.test\.ts<\/a><span>&middot; exists, covers chunking only<\/span>/);
+	// A file the case says to create has nothing to link to.
+	assert.match(c, /<span class="rt-level">E2E<\/span><span class="rt-file" title="test\/e2e\/tests\/slow\.test\.ts">slow\.test\.ts<\/span>/);
+	// Other tests lists only files the cases have not named.
+	const others = c.slice(c.indexOf('Other tests that touch this code'));
+	assert.match(others, /client\.test\.ts<\/a> <span class="rt-note">&middot; Unit &middot; checks request shape only<\/span>/);
+	assert.doesNotMatch(others, /already named above/);
+	const second = card(html, 2);
+	assert.match(second, /Missing case <span class="rt-sugg">&middot; suggestion<\/span><\/div><p class="rt-case">One case only\.<\/p><div class="rt-where">/);
+	assert.match(second, /1 missing case<\/span>/);
+	assert.doesNotMatch(second, /Other tests/);
+});
+
+test('renderReportHtml writes the regression cases into the prompt after the cause', () => {
+	const text = promptText(renderReportHtml(RICH), 1);
+	assert.match(text, new RegExp([
+		'### Regression test \\(suggestion\\)',
+		'- Retry after a timeout loads the summary\\. → add to src/vs/test/cache\\.test\\.ts \\(Unit\\)',
+		'- A slow source offers no Retry\\. → add to test/e2e/tests/slow\\.test\\.ts \\(E2E\\)',
+		'Other tests that touch this code: src/vs/test/client\\.test\\.ts \\(Unit\\)',
+		'',
+		'### Context',
+	].join('\n')));
+});
+
+test('renderReportHtml shows screenshots only, labelled and sorted by step', () => {
+	const html = renderReportHtml(RICH, { base: '/runs/r1' });
+	const c = card(html, 1);
+	assert.doesNotMatch(c, /logtile/);
+	const shots = [...c.matchAll(/data-file="([^"]+)"/g)].map(m => m[1]);
+	assert.deepEqual(shots, ['a.png', 'b.png', 'c.png']);
+	assert.match(c, /<figcaption><span class="step-label">Step 2<\/span><span>The notice<\/span><\/figcaption>/);
+	assert.match(c, /<span class="step-label">Variant<\/span><span>Five columns<\/span>/);
+	const text = promptText(html, 1);
+	assert.match(text, /### Evidence\n- https:\/\/cdn\.example\/shots\/a\.png — Step 2: The notice\n- https:\/\/cdn\.example\/shots\/b\.png — Step 3: After Retry\n- https:\/\/cdn\.example\/shots\/c\.png — Variant: Five columns\n- \/runs\/r1\/logs\/app\.log/);
+});
+
+test('parseReport keeps the step of a shot the finding also embeds', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'![Step 4: the panel after the timeout, with no sparkline](https://cdn.example/shots/a.png)',
+		'', '**Evidence**', '',
+		'- [shots/a.png](https://cdn.example/shots/a.png) -- no sparkline',
+	].join('\n')));
+	const [shot] = r.findings[0].evidence;
+	assert.equal(shot.step.label, 'Step 4');
+	assert.equal(shot.caption, 'The panel after the timeout, with no sparkline');
+});
+
+test('renderReportHtml opens a passing coverage row on its steps, not a finding row', () => {
+	const html = renderReportHtml(RICH);
+	const cov = html.slice(html.indexOf('id="coverage"'));
+	assert.match(cov, /<details class="cv"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol><li>Build <code>df<\/code>\.<\/li><li>Run <code>%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
+	// No steps, nothing to open.
+	assert.match(cov, /<div class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
+	// The finding link leads, and the row does not expand.
+	assert.match(cov, /<div class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot issue"[^>]*><\/span><span>slow column<\/span><\/span><span class="cov-result"><a href="#f1">Finding 1<\/a> &middot; Fails 3\/3<\/span>/);
+	assert.doesNotMatch(cov, /Should not render/);
+	assert.match(cov, /<span class="cov-head-scenario">Scenario<\/span><span>Result<\/span><span>Screenshot<\/span><span><\/span><\/div>/);
+});
+
+test('renderReportHtml keeps Show all working over expandable rows', () => {
+	const rows = Array.from({ length: 10 }, (_, i) => `| pass ${i} | fine | | 1. Step for ${i}. |`);
+	const html = renderReportHtml(md([
+		'## Coverage', '', '### Verified', '',
+		'| Scenario | Result | Screenshot | Steps |', '|---|---|---|---|', ...rows, '',
+	].join('\n')));
+	const body = html.slice(html.indexOf('<body'));
+	// The hidden rows stay siblings of the checkbox, which the CSS toggle needs.
+	assert.equal((body.match(/<details class="cv cov-extra">/g) || []).length, 4);
+	assert.match(body, /<input type="checkbox" id="cov-all" class="cov-toggle"[^>]*>\n<details class="cv">/);
+});
+
+test('report CSS lines up both coverage tables on one four-column grid', () => {
+	const html = renderReportHtml(RICH);
+	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,5fr\) minmax\(0,7fr\) 200px 12px\}/);
+	assert.match(html, /\.cov-reason,\.cov-head-reason\{grid-column:span 3\}/);
+	assert.match(html, /\.cov-scenario\{display:flex;align-items:flex-start;gap:13px;/);
+	assert.match(html, /\.cov-head-scenario\{padding-left:21px\}\n\.panel\.dashed \.cov-head-scenario\{padding-left:20px\}/);
+});

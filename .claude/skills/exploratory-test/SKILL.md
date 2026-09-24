@@ -180,9 +180,9 @@ the less of it gets read.
 `Verified` answers what you exercised, what happened, and where to check it.
 
 ```
-| Scenario | Result | Screenshot |
-|---|---|---|
-| <a few words> | <what happened> | [shots/<file>](shots/<file>) |
+| Scenario | Result | Screenshot | Steps |
+|---|---|---|---|
+| <a few words> | <what happened> | [shots/<file>](shots/<file>) | 1. <step><br>2. <step> |
 ```
 
 The shot goes in its own cell, and the cell is left empty when you have none.
@@ -192,6 +192,14 @@ want, which the same links buried mid-sentence could not be. Keep `Result` to
 what happened. A cell reporting that something did *not* happen says which
 surface you checked and when, and each such claim stands alone rather than
 being folded into a rate.
+
+`Steps` is how to repeat the scenario: two to four short steps, separated by
+`<br>` because a cell cannot hold a list, with anything to paste in backticks.
+Write them for every row, passing ones included. A passing row expands to show
+them, and "it works" is only worth something to a reader who can see what "it"
+was. They are already in `actions.log`, so this is condensing, not recalling.
+A row that produced a finding can leave the cell empty: its steps are on the
+finding.
 
 When a row is how you found a finding, end `Result` with `(finding N)`. That is
 what links the row to the finding it produced, and it is why a scenario that
@@ -277,7 +285,9 @@ transcription of that file, not a recollection at report time, and a
 precondition that only ever existed in your head is how a finding stops
 reproducing on the reader's machine. Write the steps as a person using the app
 would, not as you drove it: launch flags and scratch paths belong in Run
-setup. Keep the claim under about twelve words.
+setup. Keep the claim under about twelve words, and make it state the symptom and its
+consequence -- "A column over 10 s never loads, and Retry cannot help" -- because
+Observed follows it directly and nothing in between says why it matters.
 
 Every finding's steps stand on their own. Do not send the reader to another
 finding for them -- no "as Finding 1", no "same as above". A reader arrives at
@@ -295,13 +305,10 @@ the heading exactly this shape. `N` is the row number from the table, and it is
 what ties the block to that row and to any Coverage row ending `(finding N)`,
 so a heading that renumbers or drops it breaks those links.
 
-```
+````
 ### Finding N: <concise claim>
 
 > **Confirmed** | Reproduced **<N>/<M>** | **Introduced by this change**
-
-<Two sentences a reader can follow without knowing the code: what they hit,
-and why it matters. Symbol names belong under Cause, not here.>
 
 **Repro** -- starting state: <what exists before step 1>
 
@@ -322,12 +329,28 @@ stating the obvious costs the reader nothing.>
 
 **Evidence**
 
-- [shots/<file>](shots/<file>) -- <what it shows>
+- [shots/<file>](shots/<file>) -- Step <N>: <what it shows>
 - `<log path>` -- <quoted line with its timestamp>
+
+**Error output** -- `<log path>` | <Renderer, Console, or Extension host> | Logged <N>x (<when>)
+
+```
+<the error message>
+    at <function> (<repo-relative path>:<line>)
+    at <function> (<repo-relative path>:<line>)
+```
 
 **Cause (hypothesis):** <one sentence naming the suspect, then the detail and
 the code pointers>
-```
+
+**Regression test**
+
+- <the missing case, as a sentence> -- <Unit, Extension, or E2E> `<repo-relative test file>` (<exists, covers ... | new file>)
+
+**Other tests that touch this code**
+
+- `<repo-relative test file>` -- <Unit, Extension, or E2E>, <what it covers, in a phrase>
+````
 
 The heading names the finding and carries a short claim, not the whole defect:
 the body is there to explain it. The line under it is a status strip, and a blockquote so it reads
@@ -351,6 +374,12 @@ best. Cite the rest as links under Evidence. Four screenshots of nearly the same
 screen push everything below them off the page, and a reader who wants the
 second one will open it.
 
+Start every screenshot's caption with the step it was taken after, `Step N:`.
+The gallery sorts by it, so the shots read in the order of the repro. A shot
+that follows no step, a variant of the setup say, takes the nearest step; if
+there is none, write `Variant:`. Note the step in `actions.log` when you take
+the shot, since you will not remember it at report time.
+
 Evidence holds only what proves the behavior happened. A path to the code you
 suspect is not evidence, it is where to look, so it goes in Cause.
 
@@ -358,6 +387,28 @@ Report genuine problems only. A finding a human cannot verify from its artifacts
 is wasted work, so prefer one finding with a timestamped log excerpt over three
 without. A proven bug belongs in the report even if the change under test did
 not introduce it; that is what `Introduced? no` is for.
+
+When an error is logged, write an `**Error output**` block for it: the full
+message and stack, from the renderer log, the dev console, or the extension
+host log, not the one-line message. Map frames to repo-relative source paths
+(`src/vs/...ts:212`) when the log gives compiled ones and the mapping is clear;
+the report links those to the source at the commit under test. One block per
+distinct error, with how often it was logged. A message with no stack and no
+file:line is still written, but the report only shows it to the agent it hands
+the finding to: on the card it tells a reader nothing Observed does not.
+
+`**Regression test**` is what a test suite would need to catch this next time,
+and splits into a fact and a suggestion. The fact is which tests already touch
+the changed code. Find them by convention -- unit tests in a `test/` folder
+beside the source as `*.test.ts` or `*.vitest.ts`, extension tests under
+`extensions/<name>/src/test`, e2e tests in `test/e2e/tests/` with their feature
+tags -- and by searching the test trees for the changed symbols and the UI
+strings the finding shows. The suggestion is the case none of them covers: one
+sentence each, with the level (Unit, Extension, or E2E) and the file it belongs
+in, or `new file` when none fits. Put each test file you found against the case
+it would hold; list the rest under `**Other tests that touch this code**`. Do
+not write the test and do not measure coverage. Leave both blocks out when
+there is nothing a test would catch, such as a spacing bug.
 
 Do not file GitHub issues and do not make a merge call. The person decides what
 is real.

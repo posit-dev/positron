@@ -333,6 +333,21 @@ function parseStatusStrip(line) {
  * A bullet that links an image becomes a thumbnail; one that names a log path
  * becomes a text tile. Anything else keeps its prose so nothing is dropped.
  */
+/**
+ * Splits `Step 3: <caption>` or `Variant: <caption>` into the step and the rest.
+ * The order sorts the gallery: steps by number, then variants, then untagged.
+ */
+export function splitStepTag(text) {
+	const m = /^\s*(?:step\s*(\d+)|(variant))\s*[:.\u2014-]+\s*/i.exec(String(text ?? ''));
+	if (!m) {
+		return { step: null, text: String(text ?? '').trim() };
+	}
+	const step = m[1]
+		? { label: `Step ${Number(m[1])}`, order: Number(m[1]) }
+		: { label: 'Variant', order: Number.MAX_SAFE_INTEGER - 1 };
+	return { step, text: text.slice(m[0].length).trim() };
+}
+
 function parseEvidenceBullet(text) {
 	const link = /^\[([^\]]*)\]\(([^)]+)\)\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(text);
 	if (link && IMAGE_EXT.test(basename(link[2]))) {
@@ -341,11 +356,13 @@ function parseEvidenceBullet(text) {
 		// so it needs the same guard the renderer applies.
 		const src = safeUrl(link[2]);
 		if (src) {
+			const tagged = splitStepTag(link[3]);
 			return {
 				kind: 'shot',
 				src,
 				file: basename(src),
-				caption: link[3].trim() || basename(src),
+				step: tagged.step,
+				caption: tagged.text || basename(src),
 			};
 		}
 	}
@@ -370,6 +387,105 @@ function parseEvidenceBullet(text) {
 	return { kind: 'note', text };
 }
 
+const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
+
+/** `at Fn (path/file.ts:212:7)` or `at path/file.ts:212` -> its parts, or null. */
+function parseFrame(line) {
+	const m = /^at\s+(?:(.*?)\s+\(([^()]+?):(\d+)(?::\d+)?\)|([^\s()]+?):(\d+)(?::\d+)?)\s*$/.exec(line.trim());
+	if (!m) {
+		return null;
+	}
+	return m[2]
+		? { fn: m[1], path: m[2], line: Number(m[3]) }
+		: { fn: '', path: m[4], line: Number(m[5]) };
+}
+
+/**
+ * Reads one `**Error output** -- `<log>` | <where> | <how often>` block and the
+ * code block under it: the message first, then `at ...` frames.
+ */
+function readErrorOutput(lines, start) {
+	const head = lines[start].trim().replace(/^\*\*[^*]+\*\*:?\s*(?:--|\u2014|-)?\s*/, '');
+	const parts = head.split('|').map(p => p.trim()).filter(Boolean);
+	const source = parts.length ? parts[0].replace(/^`|`$/g, '') : '';
+	const meta = parts.slice(1);
+	const body = [];
+	let i = start + 1;
+	while (i < lines.length && !lines[i].trim()) { i++; }
+	if (/^\s*(?:```|~~~)/.test(lines[i] ?? '')) {
+		for (i++; i < lines.length && !/^\s*(?:```|~~~)/.test(lines[i]); i++) {
+			body.push(lines[i]);
+		}
+		i++;
+	} else {
+		for (; i < lines.length && /^(?:\s{4}|\t)/.test(lines[i]); i++) {
+			body.push(lines[i]);
+		}
+	}
+	const message = [];
+	const frames = [];
+	for (const raw of body) {
+		const text = raw.trim();
+		if (!text) { continue; }
+		const frame = parseFrame(text);
+		if (frame) { frames.push(frame); } else if (!frames.length) { message.push(text); }
+	}
+	const count = meta.map(m => /(\d+)\s*[\u00d7x]\b/i.exec(m)).find(Boolean);
+	return {
+		error: {
+			source,
+			meta,
+			count: count ? Number(count[1]) : 1,
+			message: message.join('\n'),
+			frames,
+			raw: body.map(l => l.replace(/^(?:\s{4}|\t)/, '')).join('\n').replace(/\n+$/, ''),
+		},
+		end: i,
+	};
+}
+
+/** Reads the `- ` bullets under a label, joining indented continuation lines. */
+function readBullets(lines, start) {
+	const items = [];
+	let i = start + 1;
+	for (; i < lines.length; i++) {
+		const raw = lines[i];
+		const text = raw.trim();
+		if (!text) { continue; }
+		if (/^[-*]\s/.test(text) && !/^\s{2,}/.test(raw)) {
+			items.push(text.replace(/^[-*]\s+/, ''));
+			continue;
+		}
+		if (items.length && /^\s{2,}\S/.test(raw)) {
+			items[items.length - 1] += ` ${text}`;
+			continue;
+		}
+		break;
+	}
+	return { items, end: i };
+}
+
+/**
+ * `<case> -- Unit `path` (exists, covers ...)`. A line that does not parse
+ * keeps its words as the case, so a loosely written suggestion still shows.
+ */
+function parseTestCase(text) {
+	const m = /^([\s\S]*?)\s+(?:--|\u2014|->|\u2192)\s+(?:add to\s+)?(unit|extension|e2e)\s+`([^`]+)`\s*(?:\(([^)]*)\))?\s*\.?$/i.exec(text);
+	if (!m) {
+		return { text: text.trim(), level: null, path: '', note: '' };
+	}
+	return { text: m[1].trim(), level: TEST_LEVEL[m[2].toLowerCase()], path: m[3].trim(), note: (m[4] ?? '').trim() };
+}
+
+/** `` `path` -- Unit, short note `` */
+function parseRelatedTest(text) {
+	const m = /^`([^`]+)`\s*(?:--|\u2014|-)?\s*(?:(unit|extension|e2e)\b[,;:\s]*)?([\s\S]*)$/i.exec(text);
+	if (!m) {
+		return null;
+	}
+	return { path: m[1].trim(), level: m[2] ? TEST_LEVEL[m[2].toLowerCase()] : null, note: m[3].trim() };
+}
+
 /**
  * Parses the body of one `### <n>. <claim>` block.
  */
@@ -381,6 +497,8 @@ function parseFindingBody(lines) {
 		reproStart: '', steps: [],
 		evidence: [],
 		cause: '',
+		errors: [],
+		tests: { cases: [], related: [] },
 		hero: null,
 		matched: 0,
 	};
@@ -485,6 +603,27 @@ function parseFindingBody(lines) {
 			const { text, end } = readLabelled(lines, i);
 			const key = label === 'observed' || label === 'expected' ? label : 'preconditions';
 			out[key] = text;
+			out.matched++;
+			i = end - 1;
+			continue;
+		}
+		if (label === 'error output') {
+			const { error, end } = readErrorOutput(lines, i);
+			out.errors.push(error);
+			out.matched++;
+			i = end - 1;
+			continue;
+		}
+		if (label === 'regression test' || label === 'regression tests') {
+			const { items, end } = readBullets(lines, i);
+			out.tests.cases.push(...items.map(parseTestCase));
+			out.matched++;
+			i = end - 1;
+			continue;
+		}
+		if (label && /^other tests\b/.test(label)) {
+			const { items, end } = readBullets(lines, i);
+			out.tests.related.push(...items.map(parseRelatedTest).filter(Boolean));
 			out.matched++;
 			i = end - 1;
 			continue;
@@ -684,26 +823,33 @@ export function parseReport(markdown) {
 		// reads as two pieces of evidence rather than one.
 		if (parsed.hero) {
 			const match = parsed.evidence.find(e => e.kind === 'shot' && e.file === parsed.hero.file);
+			const embedded = splitStepTag(parsed.hero.alt || '');
 			if (match) {
 				// Both cite it, so keep the fuller description: one of the two is
 				// usually a short label written to sit in a list.
-				const embedded = parsed.hero.alt || '';
-				if (embedded.length > match.caption.length) {
-					match.caption = embedded;
+				if (embedded.text.length > match.caption.length) {
+					match.caption = embedded.text;
 				}
+				match.step = match.step ?? embedded.step;
 				match.featured = true;
 			} else {
 				// Embedded but never cited. It is the shot chosen to show the failure
-				// best, so it leads the gallery.
+				// best, so it leads the untagged ones.
 				parsed.evidence.unshift({
 					kind: 'shot',
 					src: parsed.hero.src,
 					file: parsed.hero.file,
-					caption: parsed.hero.alt || parsed.hero.file,
+					step: embedded.step,
+					caption: embedded.text || parsed.hero.file,
 					featured: true,
 				});
 			}
 		}
+		// Screenshots in step order, so the gallery reads like the repro; logs and
+		// notes keep their order after them. Sort is stable.
+		const shots = parsed.evidence.filter(e => e.kind === 'shot')
+			.sort((a, b) => (a.step?.order ?? Number.MAX_SAFE_INTEGER) - (b.step?.order ?? Number.MAX_SAFE_INTEGER));
+		parsed.evidence = [...shots, ...parsed.evidence.filter(e => e.kind !== 'shot')];
 
 		// The starting state and the configuration line are both answers to
 		// "what has to be true before step 1", so they render as one list.
@@ -739,6 +885,11 @@ export function parseReport(markdown) {
 					? { ...e, quoteHtml: inline(e.quote), noteHtml: e.note ? inline(sentenceCase(e.note)) : '' }
 					: { ...e, textHtml: inline(sentenceCase(e.text)) })),
 			causeHtml: parsed.cause ? inline(parsed.cause) : '',
+			errors: parsed.errors.map(e => ({ ...e, metaHtml: e.meta.map(m => inline(m.replace(/(\d)\s*x\b/g, '$1\u00d7'))) })),
+			tests: {
+				cases: parsed.tests.cases.map(c => ({ ...c, textHtml: inline(c.text), noteHtml: c.note ? inline(c.note) : '' })),
+				related: parsed.tests.related.map(r => ({ ...r, noteHtml: r.note ? inline(r.note) : '' })),
+			},
 			hero: parsed.hero,
 			// The same fields as plain markdown, for the copyable agent prompt: built
 			// from this parse rather than the rendered card, so the two cannot disagree.
@@ -789,11 +940,16 @@ export function parseReport(markdown) {
 			const href = safeUrl(raw);
 			if (href) { shot = { href, label: basename(href) }; }
 		}
+		// Steps are one cell, split on `<br>`: a table cell cannot hold a list.
+		const steps = String(row['steps'] ?? '').split(/<br\s*\/?>/i)
+			.map(t => t.trim().replace(/^\d+[.)]\s*/, ''))
+			.filter(t => t && !isPlaceholder(t));
 		return {
 			scenarioHtml: inline(row['scenario'] ?? ''),
 			resultHtml: inline(sentenceCase(ref.text)),
 			finding: ref.finding,
 			shot,
+			steps: steps.map(t => inline(t)),
 		};
 	});
 

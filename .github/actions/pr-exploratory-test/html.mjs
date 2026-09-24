@@ -15,7 +15,7 @@
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
 import { resolve as resolvePath } from 'node:path';
-import { parseReport, escapeHtml, safeUrl } from './report-parse.mjs';
+import { parseReport, escapeHtml, safeUrl, basename } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 
 const ICON = {
@@ -28,6 +28,8 @@ const ICON = {
 	sparkle: '<svg class="cp-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3c.35 2.7 1.8 4.15 4.5 4.5-2.7.35-4.15 1.8-4.5 4.5-.35-2.7-1.8-4.15-4.5-4.5 2.7-.35 4.15-1.8 4.5-4.5z"></path><path d="M12.5 1.25c.13 1.05.8 1.72 1.85 1.85-1.05.13-1.72.8-1.85 1.85-.13-1.05-.8-1.72-1.85-1.85 1.05-.13 1.72-.8 1.85-1.85z"></path></svg>',
 	copied: '<svg class="cp-ok" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	down: '<svg class="cov-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>',
+	// The collapsed rows' and the Coverage rows' disclosure: 12px, right-pointing.
+	disclose: cls => `<svg class="${cls}" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 4.5-4.5 4.5"></path></svg>`,
 	chevron: '<svg class="chev" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5l4.5 4.5-4.5 4.5"></path></svg>',
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
 	up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5"></path><path d="M4 7.5l4-4 4 4"></path></svg>',
@@ -36,6 +38,8 @@ const ICON = {
 };
 
 const SEVERITY_LABEL = { major: 'Major', moderate: 'Moderate', minor: 'Minor' };
+
+const REPO_URL = 'https://github.com/posit-dev/positron';
 
 // The skill that writes these reports. A source link rather than a docs page,
 // because the skill is the documentation: it is the brief the agent followed,
@@ -202,38 +206,27 @@ ${rows}
 }
 
 function renderEvidence(items, n) {
-	if (!items.length) {
+	// Screenshots only: a log line is not evidence a reader can see, and the one
+	// worth reading is under Error output. Logs stay in the agent prompt.
+	const shots = items.filter(item => item.kind === 'shot');
+	if (!shots.length) {
 		return '';
 	}
-	let shotIndex = 0;
-	const tiles = items.map(item => {
-		if (item.kind === 'shot') {
-			// A real link to the raw image, so the thumbnail still works without
-			// JavaScript; the script intercepts the click and opens the lightbox.
-			const attrs = `href="${escapeHtml(item.src)}" data-lb="f${n}" data-i="${shotIndex++}"`
-				+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`;
-			return `<figure><a class="shot" ${attrs} aria-label="View full size: ${escapeHtml(item.caption)}">`
-				+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy"></a>`
-				+ `<figcaption>${item.captionHtml}</figcaption></figure>`;
-		}
-		if (item.kind === 'log') {
-			// A log line that already carries quotes of its own does not get another
-			// pair around it; nested quotes read as a transcription error.
-			const quote = /["\u201c\u201d]/.test(item.quote)
-				? item.quoteHtml
-				: `&ldquo;${item.quoteHtml}&rdquo;`;
-			return '<div class="logtile">'
-				+ `<span class="path">${escapeHtml(item.path)}</span>`
-				+ `<span class="quote">${quote}</span>`
-				+ (item.noteHtml ? `<span class="note">${item.noteHtml}</span>` : '')
-				+ '</div>';
-		}
-		return `<div class="logtile"><span class="note">${item.textHtml}</span></div>`;
+	const tiles = shots.map((item, i) => {
+		// A real link to the raw image, so the thumbnail still works without
+		// JavaScript; the script intercepts the click and opens the lightbox.
+		const attrs = `href="${escapeHtml(item.src)}" data-lb="f${n}" data-i="${i}"`
+			+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`;
+		return `<figure><a class="shot" ${attrs} aria-label="View full size: ${escapeHtml(item.caption)}">`
+			+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy"></a>`
+			+ '<figcaption>'
+			+ (item.step ? `<span class="step-label">${escapeHtml(item.step.label)}</span>` : '')
+			+ `<span>${item.captionHtml}</span></figcaption></figure>`;
 	}).join('');
 
 	// One to three items get exactly that many columns; four or more wrap in a
 	// four-column grid.
-	const columns = Math.min(items.length, 4);
+	const columns = Math.min(shots.length, 4);
 	return `<div class="evidence" id="f${n}-evidence"><div class="sub">Evidence</div>`
 		+ `<div class="shots n${columns}">${tiles}</div></div>`;
 }
@@ -246,6 +239,26 @@ function absolutePath(p, base) {
 	return /^https?:\/\//i.test(base)
 		? new URL(p, base.endsWith('/') ? base : `${base}/`).href
 		: resolvePath(base, p);
+}
+
+/**
+ * A repo-relative path as a link to that file at the report's commit, or null
+ * for anything that is not one: an absolute path, a URL, or no commit to pin.
+ */
+function sourceHref(path, sha, line) {
+	const p = String(path ?? '').replace(/^\.\//, '');
+	if (!p || !/^[0-9a-f]{7,40}$/i.test(sha ?? '') || /^([a-z][a-z0-9+.-]*:|\/|~|\.\.)/i.test(p)) {
+		return null;
+	}
+	return `${REPO_URL}/blob/${sha}/${p.split('/').map(encodeURIComponent).join('/')}${line ? `#L${line}` : ''}`;
+}
+
+/** A path shown by its file name, linked when it can be, with the full path on hover. */
+function fileLink(path, href, cls, lineSuffix = '') {
+	const name = escapeHtml(basename(path) + lineSuffix);
+	return href
+		? `<a class="${cls}" href="${escapeHtml(href)}" title="${escapeHtml(path)}" target="_blank" rel="noreferrer">${name}</a>`
+		: `<span class="${cls}" title="${escapeHtml(path)}">${name}</span>`;
 }
 
 /**
@@ -290,7 +303,7 @@ export function buildAgentPrompt(f, report, options = {}) {
 	section('Reproduction', t.steps.map((step, i) => `${i + 1}. ${step.replace(/\n/g, '\n   ')}`).join('\n'));
 	section('Evidence', f.evidence.map(e => {
 		if (e.kind === 'shot') {
-			return `- ${absolutePath(e.src, base)} \u2014 ${e.caption}`;
+			return `- ${absolutePath(e.src, base)} \u2014 ${e.step ? `${e.step.label}: ` : ''}${e.caption}`;
 		}
 		if (e.kind === 'log') {
 			const quote = /["\u201c\u201d]/.test(e.quote) ? e.quote : `\u201c${e.quote}\u201d`;
@@ -298,7 +311,22 @@ export function buildAgentPrompt(f, report, options = {}) {
 		}
 		return `- ${e.text}`;
 	}).join('\n'));
+	// Every error, including the ones the card hides for having no stack: a bare
+	// message is still a lead for whoever picks this up.
+	section('Error output', f.errors.map(e => [
+		[e.source && absolutePath(e.source, base), ...e.meta].filter(Boolean).join(' | '),
+		e.raw && `\`\`\`\n${e.raw}\n\`\`\``,
+	].filter(Boolean).join('\n')).join('\n\n'));
 	section('Likely cause (hypothesis, not verified)', capitalize(t.cause));
+	const { cases, related } = f.tests;
+	if (cases.length) {
+		const named = new Set(cases.map(c => c.path));
+		const others = related.filter(r => !named.has(r.path));
+		section('Regression test (suggestion)', [
+			...cases.map(c => `- ${c.text}${c.path ? ` \u2192 add to ${c.path}${c.level ? ` (${c.level})` : ''}` : ''}`),
+			others.length && `Other tests that touch this code: ${others.map(r => `${r.path}${r.level ? ` (${r.level})` : ''}`).join(', ')}`,
+		].filter(Boolean).join('\n'));
+	}
 	const [branch, sha] = report.chips;
 	section('Context', [branch && `Branch: ${branch}`, sha && `Commit: ${sha}`, options.diff && `Diff: ${options.diff}`]
 		.filter(Boolean).join('\n'));
@@ -315,6 +343,86 @@ function renderPromptBlock(f, report, options) {
 	// Raw text inside a script element: only a closing tag can end it early.
 	const text = buildAgentPrompt(f, report, options).replace(/<\/(script)/gi, '<\\/$1');
 	return `<script type="text/plain" id="prompt-f${f.n}">${text}</script>`;
+}
+
+/** One closed row at the end of a card: a label, a quiet tail, and its content. */
+function collapsedRow(cls, label, tail, body) {
+	return `<details class="lc${cls}"><summary>${ICON.disclose('lc-chev')}`
+		+ `<span>${label}<span class="lc-tail"> &middot; ${tail}</span></span></summary>`
+		+ `<div class="lc-body">${body}</div></details>`;
+}
+
+function renderErrorOutput(f, sha) {
+	// A message with no stack and no file:line is not something a reader can act
+	// on here; it stays in the agent prompt.
+	const errors = f.errors.filter(e => e.frames.length || /[\w.-]+\.\w+:\d+/.test(e.message));
+	if (!errors.length) {
+		return '';
+	}
+	const body = errors.map(e => {
+		const meta = [
+			e.source && `<span class="err-src">${escapeHtml(e.source)}</span>`,
+			...e.metaHtml.map(m => `<span>${m}</span>`),
+		].filter(Boolean).join('');
+		const frames = e.frames.map(fr => {
+			const loc = fileLink(fr.path, sourceHref(fr.path, sha, fr.line), 'err-loc', `:${fr.line}`);
+			return `<div class="err-frame">at ${fr.fn ? `${escapeHtml(fr.fn)} (${loc})` : loc}</div>`;
+		}).join('');
+		return '<div class="err">'
+			+ (meta ? `<div class="err-meta">${meta}</div>` : '')
+			+ `<div class="err-code">${e.message ? `<div class="err-msg">${escapeHtml(e.message)}</div>` : ''}${frames}</div>`
+			+ '</div>';
+	}).join('');
+	const count = errors[0].count;
+	const tail = errors.length === 1
+		? `1 error${count > 1 ? `, ${count}\u00d7` : ''}`
+		: `${errors.length} errors`;
+	return collapsedRow('', 'Error output', tail, body);
+}
+
+function renderRegressionTest(f, sha) {
+	const { cases, related } = f.tests;
+	if (!cases.length) {
+		return '';
+	}
+	const where = c => {
+		if (!c.path) {
+			return '';
+		}
+		// A file the case says to create has nothing to link to yet.
+		const isNew = /\bnew\b/i.test(c.note) && !/\bexists?\b/i.test(c.note);
+		return '<div class="rt-where"><span>Add to</span>'
+			+ (c.level ? `<span class="rt-level">${c.level}</span>` : '')
+			+ fileLink(c.path, isNew ? null : sourceHref(c.path, sha), 'rt-file')
+			+ (c.noteHtml ? `<span>&middot; ${c.noteHtml}</span>` : '')
+			+ '</div>';
+	};
+	const plural = cases.length > 1;
+	const list = plural
+		? `<ol class="rt-cases">${cases.map(c => `<li>${c.textHtml}${where(c)}</li>`).join('')}</ol>`
+		: `<p class="rt-case">${cases[0].textHtml}</p>${where(cases[0])}`;
+	const named = new Set(cases.map(c => c.path));
+	const others = related.filter(r => !named.has(r.path));
+	const othersHtml = others.length
+		? '<div class="rt-group"><div class="rt-head">Other tests that touch this code</div><ul class="rt-related">'
+			+ others.map(r => `<li>${fileLink(r.path, sourceHref(r.path, sha), 'rt-file')} `
+				+ `<span class="rt-note">${[r.level, r.noteHtml].filter(Boolean).map(t => `&middot; ${t}`).join(' ')}</span></li>`).join('')
+			+ '</ul></div>'
+		: '';
+	return collapsedRow(' regtest', 'Regression test', `${cases.length} missing case${plural ? 's' : ''}`,
+		`<div class="rt-group"><div class="rt-head">Missing case${plural ? 's' : ''} <span class="rt-sugg">&middot; suggestion</span></div>${list}</div>`
+		+ othersHtml);
+}
+
+/** Fact, then hypothesis, then suggestion; each only when it has something to say. */
+function renderCardDetails(f, report) {
+	const sha = report.chips[1];
+	const rows = [
+		renderErrorOutput(f, sha),
+		f.causeHtml ? collapsedRow(' hyp', 'Likely cause', 'Hypothesis', `<p>${f.causeHtml}</p>`) : '',
+		renderRegressionTest(f, sha),
+	].filter(Boolean);
+	return rows.length ? `<div class="card-details">${rows.join('')}</div>` : '';
 }
 
 function renderFindingCard(f, report, options) {
@@ -340,7 +448,6 @@ function renderFindingCard(f, report, options) {
 
 	const head = `<header>${meta}`
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
-		+ (f.summaryHtml ? `<p class="card-summary">${f.summaryHtml}</p>` : '')
 		+ '</header>';
 
 	const promptBlock = prompts ? renderPromptBlock(f, report, options) : '';
@@ -372,16 +479,14 @@ function renderFindingCard(f, report, options) {
 		? `<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`
 		: '';
 
-	const cause = f.causeHtml
-		? `<div class="cause"><div class="sub">Likely cause<span class="hyp"> &middot; Hypothesis</span></div><p>${f.causeHtml}</p></div>`
-		: '';
+	const details = renderCardDetails(f, report);
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
 ${head}
 ${observedExpected}
 ${repro}
 ${renderEvidence(f.evidence, f.n)}
-${cause}
+${details}
 ${promptBlock}
 </article>`;
 }
@@ -421,25 +526,33 @@ function renderCoverage(report) {
 		const reference = row.shot
 			? `<a class="ref" href="${escapeHtml(row.shot.href)}" target="_blank" rel="noreferrer">${escapeHtml(row.shot.label)}</a>`
 			: '<span class="ref none">&mdash;</span>';
+		// The finding link leads: it is where a reader goes next.
 		const result = row.finding
-			? `${row.resultHtml} &middot; <a href="#f${row.finding}">Finding ${row.finding}</a>`
+			? `<a href="#f${row.finding}">Finding ${row.finding}</a>${row.resultHtml ? ` &middot; ${row.resultHtml}` : ''}`
 			: row.resultHtml;
+		const extra = i < visible ? '' : ' cov-extra';
 		// The dot lives in the scenario cell rather than a column of its own, so
 		// it reads as that scenario's status instead of as a first field.
-		return `<div class="row coverage-grid${i < visible ? '' : ' cov-extra'}">`
-			+ '<span class="cov-scenario">'
+		const cells = '<span class="cov-scenario">'
 			+ `<span class="cov-dot ${row.finding ? 'issue' : 'pass'}" aria-hidden="true"></span>`
 			+ `<span>${row.scenarioHtml}</span></span>`
 			+ `<span class="cov-result">${result}</span>`
-			+ reference
-			+ '</div>';
+			+ reference;
+		// A passing row opens on the steps that exercised it. A finding row does
+		// not: its steps are on the card it links to.
+		if (!row.finding && row.steps.length) {
+			return `<details class="cv${extra}"><summary class="row coverage-grid">${cells}`
+				+ `<span class="cv-chev-cell">${ICON.disclose('cv-chev')}</span></summary>`
+				+ `<div class="cv-steps"><ol>${row.steps.map(t => `<li>${t}</li>`).join('')}</ol></div></details>`;
+		}
+		return `<div class="row coverage-grid${extra}">${cells}<span></span></div>`;
 	}).join('\n');
 
 	const exercisedBlock = exercised.length
 		? `<div class="cov-group">
 <h3 class="cov-title">Exercised${count(exercised.length)}</h3>
 <div class="panel">
-<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span>Screenshot</span></div>
+<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span>Screenshot</span><span></span></div>
 ${visible < ordered.length ? `<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all ${ordered.length} exercised scenarios">` : ''}
 ${exercisedRows}
 ${visible < ordered.length ? `<label for="cov-all" class="cov-more"><span class="cov-all">Show all ${ordered.length} exercised scenarios</span><span class="cov-less">Show fewer</span>${ICON.down}</label>` : ''}
