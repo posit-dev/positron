@@ -14,6 +14,7 @@ import * as browserApis from '../../../../client/common/vscodeApis/browserApis';
 import * as commonUtils from '../../../../client/pythonEnvironments/creation/common/commonUtils';
 import * as uvPythonInstaller from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import * as pixiModule from '../../../../client/pythonEnvironments/common/environmentManagers/pixi';
+import * as platformApis from '../../../../client/common/utils/platform';
 import { Output } from '../../../../client/common/process/types';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../../constants';
 import {
@@ -135,6 +136,7 @@ suite('Auto Create Lock File Env', () => {
 
     suite('autoInstallPixiEnv', () => {
         test('pixi installed: runs pixi install and selects the default environment interpreter', async () => {
+            sinon.stub(platformApis, 'isWindows').returns(false);
             const pixi = {
                 command: 'pixi',
                 getPixiInfo: sinon.stub().resolves({
