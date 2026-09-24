@@ -464,12 +464,25 @@ When an error is logged, write an `**Error output**` block for it: the full
 message and stack, from the renderer log, the dev console, or the extension
 host log, not the one-line message. Its log path is the copy in `logs/` with
 the line, `logs/<port>-renderer.log:1182`, as on the ledger's `Log:` line; leave
-the block out and the report takes it from there. Map frames to repo-relative source paths
-(`src/vs/...ts:212`) when the log gives compiled ones and the mapping is clear;
-the report links those to the source at the commit under test. One block per
-distinct error, with how often it was logged. A message with no stack and no
-file:line is still written, but the report only shows it to the agent it hands
-the finding to: on the card it tells a reader nothing Observed does not.
+the block out and the report takes it from there. Map compiled frames
+(`out/...js:<line>:<col>`) to repo-relative source paths (`src/vs/...ts:212`);
+the report links those to the source at the commit under test. Use the source
+map, never the `.js` line: it is often dozens of lines off the `.ts` one. From
+the checkout, this prints each frame's source line; drop the checkout prefix it
+leaves on core paths, and keep `node:` frames and frames with no map as they are:
+
+```bash
+node -e 'const fs=require("fs"),path=require("path"),{TraceMap,originalPositionFor}=require("@jridgewell/trace-mapping");
+for(const a of process.argv.slice(1)){const[,f,l,c]=a.match(/^(.*):(\d+):(\d+)$/),js=fs.readFileSync(f,"utf8"),u=js.match(/sourceMappingURL=(\S+)\s*$/)[1];
+const m=u.startsWith("data:")?Buffer.from(u.split(",")[1],"base64").toString():fs.readFileSync(path.join(path.dirname(f),u),"utf8");
+const p=originalPositionFor(new TraceMap(m,f),{line:+l,column:+c-1});console.log(a+" -> "+p.source+":"+p.line)}' \
+  out/vs/workbench/api/node/proxyResolver.js:328:25
+```
+
+One block per distinct error, with how often it was logged. A message with no
+stack and no file:line is still written, but the report only shows it to the
+agent it hands the finding to: on the card it tells a reader nothing Observed
+does not.
 
 `**Regression test**` is what a test suite would need to catch this next time,
 and splits into a fact and a suggestion. Readers act on both, so write only
