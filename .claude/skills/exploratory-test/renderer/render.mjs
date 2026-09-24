@@ -58,10 +58,11 @@ const printProblems = () => {
 
 // Lint only, for a run that renders elsewhere.
 if (flags.check) {
-	if (!printProblems().length) {
+	const problems = printProblems();
+	if (!problems.length) {
 		console.log('no format problems');
 	}
-	process.exit(0);
+	process.exit(problems.length ? 1 : 0);
 }
 if (flags['duration-ms']) {
 	// Written here rather than by the action's renderCostFooter (lib.mjs):
