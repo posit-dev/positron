@@ -79,6 +79,12 @@ export interface LaunchOptions {
 	readonly externalServerUrl?: string;
 	/** Video recording configuration for demo scripts */
 	readonly recordVideo?: { dir: string; size?: { width: number; height: number } };
+	/**
+	 * Launch with workspace trust on. By default the app starts with
+	 * `--disable-workspace-trust`, so trust prompts and trust-gated behavior
+	 * are never exercised.
+	 */
+	readonly enableWorkspaceTrust?: boolean;
 	// --- End Positron ---
 }
 

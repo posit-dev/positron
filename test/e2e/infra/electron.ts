@@ -32,7 +32,10 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 		'--no-cached-data',
 		'--disable-updates',
 		`--crash-reporter-directory=${crashesPath}`,
-		'--disable-workspace-trust',
+		// --- Start Positron ---
+		// '--disable-workspace-trust',
+		...(options.enableWorkspaceTrust ? [] : ['--disable-workspace-trust']),
+		// --- End Positron ---
 		`--logsPath=${logsPath}`,
 		`--log=trace`,
 	];

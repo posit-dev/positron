@@ -20,9 +20,20 @@ export class StorageFile {
 	/**
 	 * Creates a new StorageFile instance.
 	 * @param userDir The user data directory (e.g., userDataDir/User)
+	 * @param storagePath Explicit database path; defaults to the application
+	 * storage under `userDir`
 	 */
-	constructor(userDir: string) {
-		this.storagePath = path.join(userDir, 'globalStorage', STORAGE_FILENAME);
+	constructor(userDir: string, storagePath = path.join(userDir, 'globalStorage', STORAGE_FILENAME)) {
+		this.storagePath = storagePath;
+	}
+
+	/**
+	 * The application shared storage under a `--shared-data-dir`. It holds
+	 * state shared across user data dirs: recently opened folders, workspace
+	 * trust, secrets. Without `--shared-data-dir` it is `~/.positron-shared`.
+	 */
+	static shared(sharedDataDir: string): StorageFile {
+		return new StorageFile(sharedDataDir, path.join(sharedDataDir, 'sharedStorage', STORAGE_FILENAME));
 	}
 
 	/**
