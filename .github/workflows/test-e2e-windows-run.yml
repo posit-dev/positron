@@ -109,8 +109,8 @@ jobs:
       # into the modal alongside SNOWFLAKE_API_KEY (loaded from 1Password below). The
       # Linux lanes set this from the same secret for the data-connections suite.
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      # Login + password for the catalog-explorer Snowflake case, which writes them into a
-      # connections.toml for the provider. Same secrets the Linux lanes export.
+      # Username/password sign-in for connections-snowflake.test.ts's Snowflake Connection
+      # suite. Same secrets the Linux lanes export.
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
       # Consumed by the Postgres e2e tests (connections-postgres / data-connections postgres).

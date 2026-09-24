@@ -21,11 +21,13 @@ suite('positron-path-budget', () => {
 	});
 
 	test('the path from the original report does not fit, the one that replaced it does', () => {
-		// Both paths come from the released 2026.08.0-331 Windows user installer,
-		// relative to the install directory. The first path broke installs and
-		// auto-updates. The second path is the longest path that ships now.
+		// The first path comes from the released 2026.08.0-331 Windows user
+		// installer, relative to the install directory; it broke installs and
+		// auto-updates. positron-data-driver-snowflake pulls in the
+		// @azure/msal-browser package (transitively, via @azure/identity, a
+		// dependency of snowflake-sdk) and owns the longest path.
 		const before = 'resources\\app\\extensions\\positron-data-driver-snowflake\\node_modules\\@aws-sdk\\middleware-sdk-s3\\dist-types\\ts3.4\\submodules\\s3-control\\middleware-host-prefix-deduplication\\hostPrefixDeduplicationMiddleware.d.ts';
-		const after = 'resources\\app\\extensions\\positron-catalog-explorer\\node_modules\\@azure\\msal-browser\\dist\\custom-auth-path\\custom_auth\\core\\auth_flow\\jit\\result\\AuthMethodRegistrationChallengeMethodResult.mjs';
+		const after = 'resources\\app\\extensions\\positron-data-driver-snowflake\\node_modules\\@azure\\msal-browser\\dist\\custom_auth\\core\\auth_flow\\jit\\result\\AuthMethodRegistrationChallengeMethodResult.mjs.map';
 
 		assert.deepStrictEqual(
 			{
@@ -35,7 +37,7 @@ suite('positron-path-budget', () => {
 			},
 			{
 				before: { length: 210, fits: false },
-				after: { length: 191, fits: true },
+				after: { length: 183, fits: true },
 				beforeIsPruned: true,
 			});
 	});

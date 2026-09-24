@@ -313,7 +313,6 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		const extensionsWithNpmDeps = [
 			'positron-proxy',
 			'positron-duckdb',
-			'positron-catalog-explorer',
 			'positron-pdf-server',
 			'positron-data-driver-databricks',
 			'positron-data-driver-duckdb',
