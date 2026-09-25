@@ -185,12 +185,12 @@
     "url": "https://github.com/posit-dev/positron"
   },
   "devDependencies": {
-    "@types/decompress": "^4.2.7",
     "@types/mocha": "^9.1.0",
     "@types/tail": "^2.2.3",
     "@types/ws": "^8.5.12",
+    "@types/yauzl": "^2.10.3",
     "ts-node": "^10.9.1",
-    "decompress": "^4.2.1"
+    "yauzl": "^3.4.0"
   },
   "positron": {
     "binaryDependencies": {

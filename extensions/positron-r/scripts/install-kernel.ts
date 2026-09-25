@@ -45,14 +45,16 @@
  * pre-installed.
  */
 
-import decompress from 'decompress';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
 import { platform, arch } from 'os';
 import * as path from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import { promisify } from 'util';
+import * as yauzl from 'yauzl';
 
 // Paths relative to the cwd at install time (extensions/positron-r).
 const SUBMODULE_DIR = 'ark';
@@ -154,6 +156,39 @@ async function downloadReleaseAsset(assetUrl: string, headers: Record<string, st
 		throw new Error(`Failed to download asset: HTTP ${response.statusCode}\n\n${body.toString('utf-8')}`);
 	}
 	return await readResponseBody(response);
+}
+
+/**
+ * Extract every entry of a zip file into `targetDir`. Keeps the Unix file
+ * mode from the archive, so that the kernel binary stays executable.
+ * yauzl rejects entries with absolute paths or `..` segments.
+ */
+async function extractZip(zipPath: string, targetDir: string): Promise<void> {
+	const zipfile = await promisify<string, yauzl.Options, yauzl.ZipFile>(yauzl.open)(zipPath, { lazyEntries: true });
+	const openReadStream = promisify((entry: yauzl.Entry, callback: (err: Error | null, stream: Readable) => void) => zipfile.openReadStream(entry, callback));
+	await new Promise<void>((resolve, reject) => {
+		zipfile.on('error', reject);
+		zipfile.on('end', () => resolve());
+		zipfile.on('entry', async (entry: yauzl.Entry) => {
+			try {
+				const dest = path.join(targetDir, entry.fileName);
+				if (entry.fileName.endsWith('/')) {
+					await fs.promises.mkdir(dest, { recursive: true });
+				} else {
+					await fs.promises.mkdir(path.dirname(dest), { recursive: true });
+					await pipeline(await openReadStream(entry), fs.createWriteStream(dest));
+					// Entries made on Windows have no Unix mode.
+					const mode = (entry.externalFileAttributes >>> 16) & 0o777;
+					await fs.promises.chmod(dest, mode || 0o644);
+				}
+				zipfile.readEntry();
+			} catch (err) {
+				zipfile.close();
+				reject(err);
+			}
+		});
+		zipfile.readEntry();
+	});
 }
 
 /**
@@ -538,7 +573,7 @@ async function extractPrebuildAssets(
 
 		const zipDest = path.join(targetDir, '__ark_download.zip');
 		await writeFileAsync(zipDest, data);
-		await decompress(zipDest, targetDir);
+		await extractZip(zipDest, targetDir);
 		await fs.promises.unlink(zipDest);
 		console.log(`Installed ${assetName} into ${targetDir}.`);
 	}
