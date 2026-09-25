@@ -36,6 +36,8 @@ const ICON = {
 	photo: '<svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><rect x="2" y="3" width="12" height="10" rx="1.5"></rect><path d="M2.5 11l3.5-3.5 3 3 2-2 2.5 2.5"></path></svg>',
 	// Leaves the report.
 	external: '<svg aria-hidden="true" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h6.5V10"></path><path d="M12.5 3.5L4 12"></path></svg>',
+	prev: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5"></path></svg>',
+	next: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"></path></svg>',
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
 	up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5"></path><path d="M4 7.5l4-4 4 4"></path></svg>',
 	briefcase: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M3 12.5h18"></path><path d="M11 12.5v1.5h2v-1.5"></path></svg>',
@@ -249,22 +251,42 @@ function renderEvidence(f) {
 		return '';
 	}
 	const n = f.n;
-	const tiles = shots.map((item, i) => {
+	// One tile per step label, where its first shot was. The rest of a stack are
+	// hidden links, so the lightbox and the step icons still reach them by id.
+	const groups = [];
+	const byLabel = new Map();
+	shots.forEach((item, i) => {
+		const label = item.step?.label;
+		const group = label && byLabel.get(label);
+		if (group) {
+			group.push({ item, i });
+		} else {
+			groups.push([{ item, i }]);
+			if (label) { byLabel.set(label, groups.at(-1)); }
+		}
+	});
+	const tiles = groups.map((group, g) => group.map(({ item, i }, k) => {
 		// A real link to the raw image, so the thumbnail still works without
 		// JavaScript; the script intercepts the click and opens the lightbox.
 		// The full-size view links the step back, when there is one to land on.
 		const step = item.step;
 		const stepHref = step && Number.isInteger(step.order) && step.order <= f.steps.length ? `#f${n}-s${step.order}` : '';
-		const attrs = `id="shot-f${n}-${i + 1}" href="${escapeHtml(item.src)}" data-lb="f${n}" data-i="${i}"`
+		const attrs = `id="shot-f${n}-${i + 1}" href="${escapeHtml(item.src)}" data-lb="f${n}-g${g + 1}" data-i="${i}"`
 			+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
 			+ (step ? ` data-step="${escapeHtml(step.label)}"` : '')
 			+ (stepHref ? ` data-step-href="${stepHref}"` : '');
-		const label = `${step ? `${step.label} screenshot, view` : 'View'} full size: ${item.caption}`;
-		return `<figure><a class="shot" ${attrs} aria-label="${escapeHtml(label)}">`
+		if (k > 0) {
+			return `<a class="shot" ${attrs} hidden></a>`;
+		}
+		const stack = group.length > 1;
+		const label = stack
+			? `${step.label}: ${group.length} screenshots, view full size`
+			: `${step ? `${step.label} screenshot, view` : 'View'} full size: ${item.caption}`;
+		return `<a class="shot${stack ? ' stk' : ''}" ${attrs} aria-label="${escapeHtml(label)}">`
 			+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy">`
-			+ (step ? `<span class="shot-step" aria-hidden="true">${escapeHtml(step.label)}</span>` : '')
-			+ '</a></figure>';
-	}).join('');
+			+ (step ? `<span class="shot-step" aria-hidden="true">${escapeHtml(step.label)}${stack ? `<span class="shot-n">${group.length}</span>` : ''}</span>` : '')
+			+ '</a>';
+	}).join('')).map(t => `<figure>${t}</figure>`).join('');
 
 	return `<div class="evidence" id="f${n}-evidence"><div class="sub">Evidence</div>`
 		+ `<div class="shots">${tiles}</div></div>`;
@@ -814,8 +836,11 @@ ${report.verification.bodyHtml}
  * The name links to the skill that wrote the report. The arrow says the link
  * leaves the page, so it has to actually go somewhere; the `data-skill-url`
  * placeholder the reference carries is gone now that there is a real URL.
+ *
+ * The copyright under it is dated by the run, not the render, so re-rendering
+ * an old run keeps its year.
  */
-function renderSignature(skillUrl = SKILL_URL) {
+function renderSignature(startedAt = new Date(), skillUrl = SKILL_URL) {
 	const name = 'exploratory-test &#8599;';
 	const link = `<a class="sig-link" href="${escapeHtml(skillUrl)}" target="_blank" rel="noreferrer">${name}</a>`;
 
@@ -831,6 +856,7 @@ function renderSignature(skillUrl = SKILL_URL) {
 	return `<footer class="sig">
 <div class="sg" aria-hidden="true"><span class="sg-line"></span><span class="sg-bug">${bug}</span>${magnifier}<span class="sg-q">?</span><span class="sg-bang">!</span><span class="sg-pop">${tick}</span></div>
 <p>Generated by ${link}</p>
+<p class="sig-legal">&copy; ${startedAt.getFullYear()} Posit Software, PBC</p>
 </footer>`;
 }
 
@@ -863,10 +889,13 @@ if(location.hash==='#run-details'){openRun();}
 var lb=document.getElementById('lightbox');
 if(lb){
 var img=lb.querySelector('img'),cap=lb.querySelector('.lb-cap'),file=lb.querySelector('.lb-file');
-var closeBtn=lb.querySelector('.lb-close'),backdrop=lb.querySelector('.lb-backdrop');
+var closeBtn=lb.querySelector('.lb-close'),backdrop=lb.querySelector('.lb-backdrop'),pos=lb.querySelector('.lb-pos');
+var prev=lb.querySelector('.lb-prev'),next=lb.querySelector('.lb-next');
 var shots=Array.prototype.slice.call(document.querySelectorAll('a.shot,a.st-ev[data-lb]'));
 var group=[],at=0,opener=null;
-function show(i){at=(i+group.length)%group.length;var a=group[at];
+// A group is one step's stack, or one Coverage row's shots. It stops at
+// either end rather than wrapping, so the position always reads true.
+function show(i){if(i<0||i>=group.length){return;}at=i;var a=group[at];
 img.src=a.getAttribute('href');img.alt=a.dataset.caption||'';
 cap.textContent='';
 if(a.dataset.step){var st=document.createElement(a.dataset.stepHref?'a':'span');st.className='lb-step';
@@ -876,6 +905,14 @@ st.addEventListener('click',function(){opener=null;close();});}
 var dot=document.createElement('span');dot.className='step-sep';dot.setAttribute('aria-hidden','true');dot.textContent=' \u00b7 ';
 cap.appendChild(st);cap.appendChild(dot);}
 cap.appendChild(document.createTextNode(a.dataset.caption||''));
+var many=group.length>1,what=a.dataset.step?' for '+a.dataset.step:'';
+pos.hidden=!many;
+if(many){pos.textContent=(at+1)+' / '+group.length;pos.setAttribute('aria-label','Screenshot '+(at+1)+' of '+group.length);}
+[[prev,at===0,'Previous'],[next,at===group.length-1,'Next']].forEach(function(n){
+n[0].hidden=!many;n[0].disabled=n[1];n[0].classList.toggle('dis',n[1]);
+n[0].setAttribute('aria-label',n[2]+' screenshot'+what);});
+// An arrow that just reached its end cannot hold focus, so it passes to the other.
+if(document.activeElement.disabled){(document.activeElement===prev?next:prev).focus();}
 file.innerHTML='';
 var name=document.createTextNode((a.dataset.file||'')+' ');
 var orig=document.createElement('a');orig.href=a.getAttribute('href');orig.target='_blank';
@@ -897,6 +934,7 @@ if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0){return;}
 var t=document.getElementById(a.dataset.open);if(!t){return;}
 e.preventDefault();open(t);opener=a;});});
 closeBtn.addEventListener('click',close);backdrop.addEventListener('click',close);
+prev.addEventListener('click',function(){show(at-1);});next.addEventListener('click',function(){show(at+1);});
 document.addEventListener('keydown',function(e){
 if(lb.hidden){return;}
 if(e.key==='Escape'){e.preventDefault();close();}
@@ -904,7 +942,7 @@ else if(e.key==='ArrowRight'){e.preventDefault();show(at+1);}
 else if(e.key==='ArrowLeft'){e.preventDefault();show(at-1);}
 else if(e.key==='Tab'){
 // Only a few controls are focusable, so the trap is a cycle between them.
-var stops=[lb.querySelector('.lb-cap a'),closeBtn,lb.querySelector('.lb-file a')].filter(Boolean);
+var stops=[prev,next,lb.querySelector('.lb-cap a'),closeBtn,lb.querySelector('.lb-file a')].filter(function(b){return b&&!b.hidden&&!b.disabled;});
 var i=stops.indexOf(document.activeElement);
 e.preventDefault();
 stops[(i+(e.shiftKey?-1:1)+stops.length)%stops.length].focus();}});
@@ -934,7 +972,8 @@ else{fallback();}});});`;
  * Falls back to nothing: a report whose body does not parse still gets its
  * header, tiles and whatever sections were recognised, and any finding the
  * parser could not break down keeps its prose. `options.ledger` is the run's
- * ledger.md, which Coverage is built from when given.
+ * ledger.md, which Coverage is built from when given. `options.startedAt` is
+ * when the run began, which dates the footer's copyright; it defaults to now.
  */
 export function renderReportHtml(markdown, options = {}) {
 	const report = parseReport(markdown, { ledger: options.ledger });
@@ -990,15 +1029,19 @@ ${linkFiles(renderCoverage(report, options), options.files)}
 
 ${renderFolds(report, options)}
 
-${renderSignature()}
+${renderSignature(options.startedAt)}
 
 </main>
 <div class="lb" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot" hidden>
 <button type="button" class="lb-backdrop" tabindex="-1" aria-label="Close"></button>
 <div class="lb-panel">
-<img alt="">
+<div class="lb-img"><img alt="">
+<button type="button" class="lb-nav lb-prev" hidden>${ICON.prev}</button>
+<button type="button" class="lb-nav lb-next" hidden>${ICON.next}</button>
+</div>
 <div class="lb-foot">
 <div class="lb-meta"><span class="lb-cap"></span><span class="lb-file"></span></div>
+<span class="lb-pos" hidden></span>
 <button type="button" class="lb-close" aria-label="Close">${ICON.close}</button>
 </div>
 </div>

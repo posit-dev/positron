@@ -210,6 +210,15 @@ function ledgerPreconditions(ledger) {
  * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
  * @returns {string[]} one line per problem; empty when the report is clean
  */
+/**
+ * Finding screenshots with neither a `Step N:`/`Variant:` caption nor a step
+ * that names them. Evidence groups by that tag, so one without it is a ledger
+ * error, not a tile to show untagged.
+ */
+export function untaggedShots(findings) {
+	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !e.step).map(e => ({ n: f.n, file: e.file })));
+}
+
 export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists } = {}) {
 	const problems = [];
 	const lines = prose(markdown);
@@ -309,6 +318,9 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	}
 
 	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? []));
+	for (const { n, file } of untaggedShots(parseReport(text).findings)) {
+		problems.push(`report: Finding ${n} screenshot ${file} has no step; caption it "Step N:" after the step it follows, or "Variant:"`);
+	}
 	if (repoFileExists) {
 		for (const f of parseReport(text).findings) {
 			const paths = [...f.tests.cases.filter(c => c.path && !isNewTestFile(c)), ...f.tests.related].map(t => t.path);

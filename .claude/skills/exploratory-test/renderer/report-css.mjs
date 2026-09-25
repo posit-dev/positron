@@ -105,6 +105,13 @@ const PROFESSIONAL = `
 	--sig-bang: #A12C1F;
 	--sig-ok: #2F7A4F;
 	--sig-ok-glow: none;
+	--sig-legal: #A8A49A;
+	--shot-n-bg: rgba(239,237,231,.92);
+	--shot-n-text: #6A6F76;
+	--shot-n-border: rgba(28,31,35,.12);
+	--lb-nav-bg: #FFFFFF;
+	--lb-nav-border: #E7E4DC;
+	--lb-nav-text: #3D4148;
 
 	--lb-backdrop: rgba(28,31,35,.72);
 	--lb-shadow: 0 12px 40px rgba(28,31,35,.18);
@@ -235,6 +242,13 @@ const PARTY = `
 	--sig-bang: #FF6AC1;
 	--sig-ok: #5CE1E6;
 	--sig-ok-glow: drop-shadow(0 0 4px rgba(92,225,230,.75));
+	--sig-legal: #6E66A0;
+	--shot-n-bg: rgba(42,34,80,.92);
+	--shot-n-text: #9D95C6;
+	--shot-n-border: rgba(157,149,198,.28);
+	--lb-nav-bg: #241D42;
+	--lb-nav-border: #5B4F92;
+	--lb-nav-text: #F5F1FF;
 
 	--lb-backdrop: rgba(10,7,25,.84);
 	--lb-shadow: 8px 8px 0 #0B0719;
@@ -517,6 +531,12 @@ a.shot img{transition:border-color .15s ease}
 a.shot:hover img{border-color:var(--hover-border)}
 a.shot:hover{text-decoration:none}
 a.shot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+a.shot[hidden]{display:none}
+/* A step's several shots share one tile: one sheet peeks out behind it, into
+   the grid gap, and the tag carries the count. */
+.shot.stk>img{position:relative;z-index:2}.shot.stk .shot-step{z-index:3}
+/* The negative margins cancel the tag's padding, so the count runs flush to its edge. */
+.shot-n{display:inline-block;margin:-3px -5px -3px 5px;padding:3px 5px;border-left:1px solid var(--shot-n-border);background:var(--shot-n-bg);color:var(--shot-n-text);border-radius:0 3px 3px 0}
 /* The end of a card: closed rows, fact then hypothesis then suggestion. Solid
    for what the run saw or found, dashed for the guess. */
 .card-details{display:flex;flex-direction:column;gap:8px}
@@ -705,6 +725,7 @@ span.rt-file{color:var(--body)}
 footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;padding:56px 0 8px}
 .sig p{margin:0;font-family:var(--mono);font-size:11px;color:var(--faint)}
 .sig-link{color:var(--muted);text-decoration:none}
+.sig .sig-legal{margin-top:-6px;font-size:10.5px;color:var(--sig-legal)}
 .sig-link:hover{color:var(--link);text-decoration:underline}
 
 /* The performance still takes 7s; the cycle is 11. Every beat below is its old
@@ -749,6 +770,11 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb-backdrop{position:absolute;inset:0;border:0;padding:0;background:transparent;cursor:zoom-out}
 .lb-panel{position:relative;width:min(1040px,100%);max-height:100%;overflow:auto;padding:16px;border-radius:12px;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow);display:flex;flex-direction:column;gap:12px}
 .lb-panel img{display:block;width:100%;height:auto;max-height:calc(100vh - 220px);object-fit:contain;border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 12px,var(--thumb-b) 12px 24px)}
+.lb-img{position:relative}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;padding:0;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--lb-nav-bg);border:1px solid var(--lb-nav-border);color:var(--lb-nav-text);box-shadow:0 1px 3px rgba(0,0,0,.14);cursor:pointer}
+.lb-nav[hidden]{display:none}
+.lb-nav:focus-visible{outline:2px solid var(--focus);outline-offset:2px}.lb-prev{left:12px}.lb-next{right:12px}.lb-nav.dis{opacity:.35;pointer-events:none}
+.lb-pos{margin:0 -6px 0 auto;align-self:flex-start;line-height:1.5;font-size:14px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .lb-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .lb-meta{display:flex;flex-direction:column;gap:2px;min-width:0}
 .lb-cap{font-size:14px;line-height:1.5;color:var(--body)}
