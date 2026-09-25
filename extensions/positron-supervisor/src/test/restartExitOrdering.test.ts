@@ -4,11 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as positron from 'positron';
 import { KallichoreSession } from '../KallichoreSession';
-import { KallichoreTransport } from '../KallichoreApiInstance';
-import { DefaultApi } from '../kcclient/api';
 import { JupyterCommand } from '../jupyter/JupyterCommand';
+import { createSession, markConnected } from './kallichoreSessionFixture';
 
 /**
  * Regression tests for the restart message ordering race.
@@ -24,32 +22,6 @@ import { JupyterCommand } from '../jupyter/JupyterCommand';
  */
 suite('Restart exit ordering', () => {
 
-	function createRuntimeMetadata(): positron.LanguageRuntimeMetadata {
-		return {
-			runtimePath: '/usr/bin/R',
-			runtimeId: '00000000-0000-0000-0000-000000000000',
-			runtimeName: 'R 4.5.2',
-			runtimeShortName: '4.5',
-			runtimeVersion: '0.1',
-			runtimeSource: 'Test',
-			languageName: 'R',
-			languageId: 'r',
-			languageVersion: '4.5.2',
-			base64EncodedIconSvg: undefined,
-			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit,
-			sessionLocation: positron.LanguageRuntimeSessionLocation.Workspace,
-			extraRuntimeData: {},
-		};
-	}
-
-	function createSessionMetadata(): positron.RuntimeSessionMetadata {
-		return {
-			sessionId: 'r-test-0001',
-			sessionMode: positron.LanguageRuntimeSessionMode.Console,
-			notebookUri: undefined,
-		};
-	}
-
 	/**
 	 * Creates a session whose restart request stays in flight until the
 	 * returned `completeRestart` is called, mirroring the real server, which
@@ -58,41 +30,24 @@ suite('Restart exit ordering', () => {
 	function newSession() {
 		let completeRestart = () => { };
 		const restartAnswered = new Promise<void>(resolve => { completeRestart = resolve; });
-		const api = {
+		const session = createSession({
 			restartSession: async () => {
 				await restartAnswered;
 				return {};
 			},
-		} as unknown as DefaultApi;
-
-		const session = new KallichoreSession(
-			createSessionMetadata(),
-			createRuntimeMetadata(),
-			{ sessionName: 'R 4.5.2', inputPrompt: '>', continuationPrompt: '+' },
-			api,
-			KallichoreTransport.TCP,
-			async () => { /* server is assumed running */ },
-			/* new */ true,
-		);
+		});
 		return { session, completeRestart };
 	}
 
-	/** Drives the session's state machine to an open connection. */
-	function markConnected(session: KallichoreSession) {
-		session.handleMessage({ kind: 'kernel', status: { status: 'offline', reason: 'test setup' } });
-		session.handleMessage({ kind: 'kernel', status: { status: 'idle', reason: 'test setup' } });
-	}
-
 	/**
-	 * Reports whether the session's connection is still usable. Sends are
-	 * gated on the connection barrier, so a send that never settles means the
-	 * session considers itself disconnected.
+	 * Treat both a pending send and a rejected send as unusable. A pending
+	 * send is waiting for a connection; a rejected send hit a cancelled barrier.
 	 */
 	async function connectionIsUsable(session: KallichoreSession): Promise<boolean> {
 		// The command never reaches a socket; we only care whether the send
 		// gets past the connection barrier.
 		const command = { sendCommand: async () => { } } as unknown as JupyterCommand<unknown>;
-		const sent = session.sendCommand(command).then(() => true, () => true);
+		const sent = session.sendCommand(command).then(() => true, () => false);
 		const timedOut = new Promise<boolean>(resolve => setTimeout(() => resolve(false), 100));
 		return Promise.race([sent, timedOut]);
 	}
