@@ -1,0 +1,7 @@
+{
+	"displayName": "Claude Code for Positron",
+	"description": "Sends console, notebook, and Quarto errors to Claude Code from the Fix and Explain actions.",
+	"command.sendError.title": "Send Error to Claude Code",
+	"errorActionTarget.label": "Claude Code",
+	"errorActionTarget.description": "Send errors to the Claude Code extension. Opens in the terminal when claudeCode.useTerminal is on, otherwise in a new Claude Code chat with the prompt ready to send."
+}

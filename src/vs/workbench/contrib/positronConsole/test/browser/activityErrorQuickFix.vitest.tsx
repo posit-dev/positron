@@ -13,6 +13,7 @@ import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { decodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { IErrorActionTarget, IErrorActionTargetService } from '../../../positronAssistant/common/errorActionTargets.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
 
 const line = (id: string, text: string): ANSIOutputLine => ({
@@ -91,5 +92,23 @@ describe('ConsoleQuickFix', () => {
 
 		await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
 		expect(notifyError.mock.calls[0][0]).toMatch(/Posit Assistant could not be opened/);
+	});
+
+	it('sends the error to a contributed target instead of Posit Assistant', async () => {
+		const target: IErrorActionTarget = { id: 'claude-code', label: 'Claude Code', command: 'test.sendError' };
+		const run = vi.spyOn(ctx.get(IErrorActionTargetService), 'run');
+
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} target={target} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Fix'));
+
+		await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+		expect(run).toHaveBeenCalledWith(target, {
+			action: 'fix',
+			prompt: 'Fix this console error.',
+			context: expectedAttachmentText,
+			contextName: 'Console Error',
+		});
+		expect(executeCommand).not.toHaveBeenCalled();
 	});
 });

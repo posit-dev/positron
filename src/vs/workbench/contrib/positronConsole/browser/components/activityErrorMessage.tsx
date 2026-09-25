@@ -17,6 +17,7 @@ import { ActivityItemErrorMessage } from '../../../../services/positronConsole/b
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
 import { usePositronConfiguration, useContextKeyFromString, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+import { useErrorActionTarget } from '../../../positronAssistant/browser/useErrorActionTarget.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -46,7 +47,10 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// string is mirrored in the Posit Assistant extension (the two repositories
 	// cannot share a module).
 	const hasChatModels = useContextKeyFromString<boolean>('posit-assistant.hasChatModels');
-	const showAssistantActions = aiEnabled && enableAssistantActions && positAssistantInstalled && !!hasChatModels;
+	// A contributed target (e.g. Claude Code) replaces the Posit Assistant checks.
+	const errorActionTarget = useErrorActionTarget();
+	const targetAvailable = errorActionTarget !== undefined || (positAssistantInstalled && !!hasChatModels);
+	const showAssistantActions = aiEnabled && enableAssistantActions && targetAvailable;
 
 	// Traceback useEffect.
 	useEffect(() => {
@@ -88,7 +92,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 								</Button>
 							}
 							{showAssistantActions &&
-								<ConsoleQuickFix outputLines={props.activityItemErrorMessage.messageOutputLines} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
+								<ConsoleQuickFix outputLines={props.activityItemErrorMessage.messageOutputLines} target={errorActionTarget} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
 							}
 						</div>
 						{showTraceback &&

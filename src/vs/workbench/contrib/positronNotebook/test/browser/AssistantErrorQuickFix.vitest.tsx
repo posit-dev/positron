@@ -16,6 +16,7 @@ import { decodeBase64 } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { POSIT_NEW_CHAT_COMMAND, NewChatOptions } from '../../../positronAssistant/browser/positAssistantChat.js';
+import { IErrorActionTarget, IErrorActionTargetService } from '../../../positronAssistant/common/errorActionTargets.js';
 import { AssistantErrorQuickFix } from '../../browser/notebookCells/AssistantErrorQuickFix.js';
 
 describe('AssistantErrorQuickFix', () => {
@@ -124,4 +125,28 @@ describe('AssistantErrorQuickFix', () => {
 		expect(options.prompt).toBe('Fix this test error.');
 	});
 
+	describe('with a contributed target', () => {
+		const target: IErrorActionTarget = { id: 'claude-code', label: 'Claude Code', command: 'test.sendError' };
+
+		it('sends the prompt and ANSI-free error to the target instead of Posit Assistant', async () => {
+			const user = userEvent.setup();
+			const run = vi.spyOn(ctx.get(IErrorActionTargetService), 'run');
+			renderQuickFix({ target, getPayload: () => ({ ...defaultPayload, attachmentContent: '\u001b[31mboom\u001b[0m' }) });
+			await user.click(screen.getByRole('button', { name: 'Ask Claude Code to explain' }));
+
+			expect(run).toHaveBeenCalledWith(target, {
+				action: 'explain',
+				prompt: 'Explain this test error. Do not make changes or edit any files; just explain the error.',
+				context: 'boom',
+				contextName: 'test-error.txt',
+			});
+			expect(ctx.get(ICommandService).executeCommand).not.toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.anything());
+		});
+
+		it('hides the continue-in-current-chat dropdowns', () => {
+			renderQuickFix({ target });
+			expect(screen.queryByRole('button', { name: 'More fix options' })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'More explain options' })).not.toBeInTheDocument();
+		});
+	});
 });

@@ -12,6 +12,7 @@ import { usePositronConfiguration, useContextKey, useContextKeyFromString } from
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { POSIT_HAS_CHAT_MODELS_KEY } from '../../../positronAssistant/browser/positAssistantChat.js';
+import { useErrorActionTarget } from '../../../positronAssistant/browser/useErrorActionTarget.js';
 import { AssistantErrorQuickFix } from './AssistantErrorQuickFix.js';
 
 const fixPrompt = localize('positronNotebookAssistantFixPrompt', "Fix this notebook cell error.");
@@ -44,6 +45,8 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 	// Set by the Posit Assistant extension when it has at least one usable model.
 	const hasChatModels = useContextKeyFromString<boolean>(POSIT_HAS_CHAT_MODELS_KEY);
+	// A contributed target (e.g. Claude Code) replaces the chat models check.
+	const errorActionTarget = useErrorActionTarget();
 
 	// Stable identity so AssistantErrorQuickFix's click handler and dropdown
 	// actions aren't recreated on every render.
@@ -53,8 +56,8 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	);
 
 	// Only show buttons if notebook AI is enabled, notebook mode is enabled, and
-	// chat models are available
-	const showQuickFix = notebookAiEnabled !== false && enableNotebookMode && hasChatModels;
+	// there is somewhere to send the error
+	const showQuickFix = notebookAiEnabled !== false && enableNotebookMode && (errorActionTarget !== undefined || hasChatModels);
 
 	// Don't render if assistant features are not enabled
 	if (!showQuickFix) {
@@ -66,6 +69,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 			attachmentName={ATTACHMENT_NAME}
 			getPayload={getPayload}
 			groupAriaLabel={localize('positron.notebook.quickFixGroup', "Cell output quick fix actions")}
+			target={errorActionTarget}
 		/>
 	);
 };

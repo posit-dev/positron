@@ -32,7 +32,7 @@ export interface SplitButtonProps {
 	disabled?: boolean;
 	/** Handler for main button click, receives keyboard modifiers */
 	onMainAction: (modifiers: KeyboardModifiers) => void;
-	/** Actions to show in the dropdown menu */
+	/** Actions to show in the dropdown menu; the dropdown is hidden when empty */
 	dropdownActions: IAction[];
 	/** Context menu service for showing the dropdown */
 	contextMenuService: IContextMenuService;
@@ -93,7 +93,7 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 			>
 				{children ?? label}
 			</Button>
-			<Button
+			{dropdownActions.length > 0 && <Button
 				ref={dropdownRef}
 				ariaLabel={dropdownTooltip}
 				className='split-button-dropdown'
@@ -104,7 +104,7 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 				onPressed={showDropdownMenu}
 			>
 				<span className={`codicon ${dropdownIconClass}`} />
-			</Button>
+			</Button>}
 		</div>
 	);
 };
