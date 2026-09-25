@@ -38,6 +38,9 @@ const REPORT = `# Exploratory test: x
 
 const LEDGER = `# Test ledger
 
+## Environment
+- Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0), on Ubuntu 22.04 (Linux x64).
+
 ## S01 - Panel loads
 Status: pass
 Result: loads

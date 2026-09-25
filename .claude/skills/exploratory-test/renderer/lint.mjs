@@ -11,7 +11,7 @@
  * can check, returned as one line each for the agent to fix and re-render.
  */
 
-import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport } from './report-parse.mjs';
+import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
 import { FILE_NAME, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -106,6 +106,15 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			}
 		});
 	}
+	// The issue button's System details come from this line, so it has to parse.
+	const env = lines.findIndex(({ line }) => /^##\s+Environment\b/i.test(line));
+	const first = env < 0 ? null : lines.slice(env + 1).find(({ line }) => /^(?:##\s|[-*]\s)/.test(line));
+	if (env < 0) {
+		problems.push('ledger: no ## Environment section');
+	} else if (!first || /^##\s/.test(first.line) || !parseSystemLine(first.line)) {
+		problems.push('ledger: the first Environment bullet must read "- Positron <version> build <n>, <kind> of <commit> (Code - OSS <version>), on <OS> <version> (<platform> <arch>)." with "not recorded" for anything unknown');
+	}
+
 	const notRun = lines.filter(({ line }) => /^-\s+N\d+\b/.test(line)).length;
 	return { problems, scenarioCount: scenarios.length, notRun };
 }
