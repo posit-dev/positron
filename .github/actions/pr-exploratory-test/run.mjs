@@ -23,6 +23,8 @@ const BRANCH = mustEnv('BRANCH');
 const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
+// Unset leaves each model at its own default effort.
+const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
 // The verify pass never drives the app, so it needs far fewer turns than the
 // run it checks; two trial passes used 22 and 26 tool calls.
@@ -142,7 +144,7 @@ async function verifyReport() {
 		'',
 		"1. Does the code support the report's stated cause hypothesis? Read the files it names and quote the lines that confirm or contradict it.",
 		"2. Could anything the reporting agent did to its own test environment produce the reported symptom? Read the action log, the ledger's `## Environment` and Run details for how it set the machine up, then ask whether that setup, rather than the product, explains what it saw.",
-		'3. Is the `Introduced?` value consistent with the diff? A defect in code the diff did not touch is not introduced by this change, though it may be newly reachable because of it, which is what `exposed` means. A blank or unrecognised `Introduced?` (anything but `yes`, `no` or `exposed`) is a missing answer: flag it, and say which value the diff supports.',
+		'3. Is the `Introduced?` value consistent with the diff? A defect in code the diff did not touch is not introduced by this change, though it may be newly reachable because of it, which is what `exposed` means. A flipped default, new call site or removed fallback that routes users onto unchanged defective code is `exposed`, even when users see it as a regression. A blank or unrecognised `Introduced?` (anything but `yes`, `no` or `exposed`) is a missing answer: flag it, and say which value the diff supports.',
 		'',
 		'Then give a verdict per finding: CONFIRMED, FALSE POSITIVE, or UNRESOLVED (say what evidence is missing).',
 		'',
@@ -171,7 +173,7 @@ async function verifyReport() {
 			cwd: REPO_ROOT,
 			allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
 			maxTurns: VERIFY_MAX_TURNS,
-			thinking: { type: 'disabled' },
+			effort: 'medium',
 			stderr: data => process.stderr.write(`[verify stderr] ${data}`),
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},
@@ -221,7 +223,7 @@ async function main() {
 		'Write the report to `report.md` in the run directory. Return a two or three line summary and nothing else.',
 	].join('\n');
 
-	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} maxTurns=${MAX_TURNS}`);
+	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} effort=${EFFORT || 'default'} maxTurns=${MAX_TURNS}`);
 	console.log(`[exploratory] user prompt:\n${userPrompt}`);
 
 	const assistantMessages = [];
@@ -247,12 +249,10 @@ async function main() {
 			// refusal to start is indistinguishable from a crash.
 			stderr: data => process.stderr.write(`[claude-code stderr] ${data}`),
 			maxTurns: MAX_TURNS,
-			// Extended thinking is disabled. With thinking on (the adaptive
-			// default), cancelling a parallel tool-call batch corrupts the
-			// in-flight thinking blocks and wedges the session with a repeating
-			// 400 ("thinking blocks ... cannot be modified", claude-code#63192).
-			// The report is built from text blocks only, so no output is lost.
-			thinking: { type: 'disabled' },
+			// Summarized display returns the notes the model writes between tool
+			// calls, which otherwise arrive as empty thinking blocks.
+			thinking: { type: 'adaptive', display: 'summarized' },
+			...(EFFORT ? { effort: EFFORT } : {}),
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},
 	})) {
@@ -260,6 +260,10 @@ async function main() {
 			messageCount++;
 			const content = message.message?.content || [];
 			const textBlocks = content.filter(b => b.type === 'text').map(b => b.text);
+			const notes = content.filter(b => b.type === 'thinking' && b.thinking).map(b => b.thinking);
+			if (notes.length) {
+				console.log(`[msg ${messageCount}] note: ${notes.join(' ').slice(0, 500)}`);
+			}
 			const toolUses = content.filter(b => b.type === 'tool_use').map(b => `${b.name}(${JSON.stringify(b.input).slice(0, 200)})`);
 			if (textBlocks.length) {
 				const joined = textBlocks.join('\n');

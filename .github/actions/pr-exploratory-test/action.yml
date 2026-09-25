@@ -46,6 +46,10 @@ inputs:
     description: "Anthropic model identifier (a tier alias like 'opus' always resolves to the latest)"
     required: false
     default: "opus"
+  effort:
+    description: "Effort level for the explore pass (low, medium, high, xhigh, max). Empty uses the model's default."
+    required: false
+    default: ""
   max-turns:
     description: "Maximum agent turns (cost guard)"
     required: false
@@ -147,6 +151,7 @@ runs:
         BASE_SHA: ${{ inputs.base-sha }}
         HEAD_SHA: ${{ inputs.head-sha }}
         MODEL: ${{ inputs.model }}
+        EFFORT: ${{ inputs.effort }}
         MAX_TURNS: ${{ inputs.max-turns }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}
         AGENT_PROMPTS: ${{ inputs.agent-prompts }}

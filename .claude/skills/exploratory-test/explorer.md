@@ -38,7 +38,7 @@ report indistinguishable from a real one, so nobody catches it. Build if you
 need to, then grep the compiled output for a string the diff introduced, and
 record that check in Run setup.
 
-Cleanup is not optional; follow its Clean up section, including removing any
+When you are done, follow its Clean up section, including removing any
 scaffolding workspaces you created.
 
 ## Report
@@ -218,7 +218,7 @@ renderer adds the ledger's Environment. It is the one section that collapses; ke
 `<summary>` and before `</details>`.
 
 Return a two or three line summary and nothing else. Lead with how many
-findings the change introduced (`Introduced? yes` only).
+findings the change introduced (`Introduced? yes`), then how many it exposed.
 
 ```
 | # | Finding | Severity | Impact | Introduced? | Reproduction |
@@ -238,10 +238,14 @@ because they can get there another way; a control that wraps onto two lines is
 `Impact` is the user consequence and only that: "blocks completion", "silently
 creates no environment". Not the rate, and not a scale like "High".
 
-`Introduced?` is `yes`, `no`, or `exposed`. Settle it from the diff: either the
-line you blame is in the diff or it predates the change, and Cause says which.
-`exposed` is only for what the diff cannot settle: the change exposes an
-existing defect, or shifts timing so an existing race fires. It is not a hedge.
+`Introduced?` is `yes`, `no`, or `exposed`. Settle it from the diff, and blame
+the defective line, not the line that made it reachable. `yes` means the defect
+is in code the diff adds or changes. `exposed` means the defect predates the
+change and the diff makes users reach it: a flipped default, a new call site, a
+removed fallback, or shifted timing that lets an existing race fire. A
+regression users can see is still `exposed` when the broken code is old; the
+"X no longer Y" claim already tells the reader it is a regression. Cause names
+the line and says which applies. `exposed` is not a hedge.
 
 `Reproduction` is `<N>/<M>`, and the table is the only place it goes; the
 renderer puts it on the finding. Always give the rate, even 5/5: "every time"
@@ -425,6 +429,13 @@ directory; see Logs for which folder is yours and what to copy.
 Before believing a finding, confirm your measurement can see what you think it
 sees. A UI-scraping bug reads as a product bug, and bug-first instinct will
 hold the wrong hypothesis for a long time; check the instrument first.
+
+Absence is where this bites most. A collapsed tree row, a virtualized list, and
+a panel scrolled out of view all hide content that is still there, and a
+snapshot shows none of it. Before reporting something as missing, read its
+state from the DOM (`aria-expanded`, `hidden`, row counts) or expand and scroll
+to it. When a log says the data was delivered but the view does not show it,
+suspect the view before the pipeline behind it.
 
 The harness is part of the configuration, not a neutral window onto the
 product. A launcher that forces a setting, a web server standing in for the
