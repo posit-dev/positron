@@ -4,8 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import fs from 'fs';
+import path from 'path';
 import { suite, test } from 'node:test';
 import {
+	DEFAULT_EXTENSION_FILE_COUNT_BUDGET,
+	EXTENSION_FILE_COUNT_BUDGETS,
 	MAX_RELATIVE_PATH_LENGTH,
 	isPrunedExtensionDependencyFile as isPruned,
 	isUnusedCopilotOpenTelemetryPackage,
@@ -21,11 +25,13 @@ suite('positron-path-budget', () => {
 	});
 
 	test('the path from the original report does not fit, the one that replaced it does', () => {
-		// Both paths come from the released 2026.08.0-331 Windows user installer,
-		// relative to the install directory. The first path broke installs and
-		// auto-updates. The second path is the longest path that ships now.
+		// The first path comes from the released 2026.08.0-331 Windows user
+		// installer, relative to the install directory; it broke installs and
+		// auto-updates. positron-data-driver-snowflake pulls in the
+		// @azure/msal-browser package (transitively, via @azure/identity, a
+		// dependency of snowflake-sdk) and owns the longest path.
 		const before = 'resources\\app\\extensions\\positron-data-driver-snowflake\\node_modules\\@aws-sdk\\middleware-sdk-s3\\dist-types\\ts3.4\\submodules\\s3-control\\middleware-host-prefix-deduplication\\hostPrefixDeduplicationMiddleware.d.ts';
-		const after = 'resources\\app\\extensions\\positron-catalog-explorer\\node_modules\\@azure\\msal-browser\\dist\\custom-auth-path\\custom_auth\\core\\auth_flow\\jit\\result\\AuthMethodRegistrationChallengeMethodResult.mjs';
+		const after = 'resources\\app\\extensions\\positron-data-driver-snowflake\\node_modules\\@azure\\msal-browser\\dist\\custom_auth\\core\\auth_flow\\jit\\result\\AuthMethodRegistrationChallengeMethodResult.mjs.map';
 
 		assert.deepStrictEqual(
 			{
@@ -35,7 +41,7 @@ suite('positron-path-budget', () => {
 			},
 			{
 				before: { length: 210, fits: false },
-				after: { length: 191, fits: true },
+				after: { length: 183, fits: true },
 				beforeIsPruned: true,
 			});
 	});
@@ -142,6 +148,27 @@ suite('positron-path-budget', () => {
 				isUnusedCopilotOpenTelemetryPackage(
 					'extensions\\copilot\\node_modules\\@opentelemetry\\resources'),
 				true);
+		});
+	});
+
+	suite('file-count budgets', () => {
+
+		test('each entry names a directory that ships and is above the default budget', () => {
+			// An entry for a removed or renamed extension, or one at or below the
+			// default, would check nothing. `node_modules` is the shared tree that
+			// the build creates, and the product.json extensions are downloaded
+			// at build time rather than kept in the repo.
+			const repoRoot = path.join(import.meta.dirname, '..', '..', '..');
+			const product = JSON.parse(fs.readFileSync(path.join(repoRoot, 'product.json'), 'utf8'));
+			const downloaded = new Set<string>([...product.builtInExtensions, ...product.bootstrapExtensions]
+				.map((extension: { name: string }) => extension.name));
+			const stale = [...EXTENSION_FILE_COUNT_BUDGETS]
+				.filter(([name, budget]) => budget <= DEFAULT_EXTENSION_FILE_COUNT_BUDGET
+					|| (name !== 'node_modules' && !downloaded.has(name)
+						&& !fs.existsSync(path.join(repoRoot, 'extensions', name, 'package.json'))))
+				.map(([name]) => name);
+
+			assert.deepStrictEqual(stale, []);
 		});
 	});
 });

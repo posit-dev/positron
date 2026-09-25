@@ -3,6 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// The id of the Data Connections view container and view. Lives here, alongside the keys that gate
+// the feature, because more than one part of the feature needs it: the contribution registers the
+// view under it, and the database file editor reveals that view once the user has created a
+// connection from a database file. Note that the driver manager carries its own copy of the
+// matching `onView:` activation event, since it sits in the services layer and cannot import this.
+export const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
+
 // Configuration key that gates the Positron Data Connections feature. Shared by
 // positronDataConnections.contribution.ts (registers the setting and the view),
 // positronDataConnectionsCommands.ts (the command payloads report nothing when this is off, so the

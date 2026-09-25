@@ -126,6 +126,12 @@
           "maximum": 60000,
           "description": "%configuration.resourceUsagePollInterval.description%"
         },
+        "kernelSupervisor.resourceUsageIncludeChildren": {
+          "scope": "window",
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.resourceUsageIncludeChildren.description%"
+        },
         "kernelSupervisor.transport": {
           "scope": "machine",
           "type": "string",
@@ -189,7 +195,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.68"
+      "kallichore": "0.1.69"
     }
   },
   "extensionDependencies": [

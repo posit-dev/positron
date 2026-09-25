@@ -72,6 +72,7 @@ function createMockTableSummaryDataGridInstance(overrides: Partial<TableSummaryD
 		getColumnProfileNullCount: () => undefined,
 		getColumnProfileSmallHistogram: () => undefined,
 		getColumnProfileSmallFrequencyTable: () => undefined,
+		columnProfilesFailed: false,
 		isColumnExpanded: () => false,
 		canToggleColumnExpansion: () => true,
 		isSummaryStatsSupported: () => true,

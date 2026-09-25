@@ -284,6 +284,25 @@ suite('Python runtime manager', () => {
 
         verify(mockedPositronNamespaces.runtime!.selectLanguageRuntime(runtimeMetadata.object.runtimeId)).once();
     });
+
+    test('resolveRuntimeMetadataFromPath refreshes once before retrying', async () => {
+        sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(runtimeMetadata.object);
+
+        let resolveCalls = 0;
+        interpreterService.reset();
+        interpreterService
+            .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
+            .returns(() => {
+                resolveCalls += 1;
+                return Promise.resolve(resolveCalls === 1 ? undefined : interpreter.object);
+            });
+        interpreterService.setup((i) => i.triggerRefresh()).returns(() => Promise.resolve());
+
+        const metadata = await pythonRuntimeManager.resolveRuntimeMetadataFromPath(pythonPath);
+
+        assert.strictEqual(metadata, runtimeMetadata.object);
+        interpreterService.verify((i) => i.triggerRefresh(), TypeMoq.Times.once());
+    });
 });
 
 suite('Python runtime manager - recommendedWorkspaceRuntime', () => {

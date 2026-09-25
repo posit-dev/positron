@@ -26,10 +26,6 @@
  * @:win/@:web, which a newly-added tags.WIN/tags.WEB in a test file enables via
  * scripts/lib/pr-tags-lib.sh `scan_added_platform_tags`.
  *
- * SpecialTags:
- * Modifiers that don't select a feature area or a lane (e.g. @:soft-fail marks
- * a test that shouldn't fail merge to main). Never auto-derived.
- *
  * Cross-browser:
  * Add `@:cross-browser` to tests that run in multiple browsers (Chrome,
  * Firefox, WebKit, Edge). This signals that changes should consider
@@ -49,7 +45,6 @@ export enum FeatureTags {
 	APPS = '@:apps',
 	ARK = '@:ark',
 	ASSISTANT = '@:assistant',
-	CATALOG_EXPLORER = '@:catalog-explorer',
 	CONNECT = '@:connect',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
@@ -141,18 +136,12 @@ export enum PlatformTags {
 	REMOTE_WSL = '@:remote-wsl',
 }
 
-// Modifiers that select neither a feature area nor a lane. Never auto-derived.
-export enum SpecialTags {
-	// Soft fail tag for tests that shouldn't fail merge to main.
-	SOFT_FAIL = '@:soft-fail',
-}
-
 // Merge the role enums into a single value + type so tests use tags uniformly
 // (`tags.CONSOLE`, `tags.WIN`) regardless of role. Declaration merging keeps
 // `TestTags` usable as both a value (member access) and a type (`TestTags[]`),
 // exactly as the single enum was.
-export const TestTags = { ...FeatureTags, ...PlatformTags, ...SpecialTags };
-export type TestTags = FeatureTags | PlatformTags | SpecialTags;
+export const TestTags = { ...FeatureTags, ...PlatformTags };
+export type TestTags = FeatureTags | PlatformTags;
 
 
 type TestTagValue = `@:${string}`;

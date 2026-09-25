@@ -128,8 +128,11 @@ DEFAULT_APP_ARGS=1
 
 # Supplied by the launcher, not the caller: without --disable-workspace-trust a
 # fresh profile starts in restricted mode with extensions disabled, which reads
-# as missing functionality rather than as a launch problem.
-AUTOMATION_ARGS=(--use-mock-keychain --disable-workspace-trust --skip-welcome)
+# as missing functionality rather than as a launch problem. The two Chromium
+# switches keep the renderer painting when the window is fully covered; without
+# them Playwright's actionability checks wait for a frame that never comes.
+AUTOMATION_ARGS=(--use-mock-keychain --disable-workspace-trust --skip-welcome
+	--disable-backgrounding-occluded-windows --disable-renderer-backgrounding)
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -213,16 +216,21 @@ if [[ "$FULL" != "1" && "$CLONE_EXTENSIONS" == "1" ]]; then
 	copy_tree "$SOURCE_UDD/extensions" "$EXT_DIR"
 fi
 
-# Force the quick-input file dialog because CDP cannot control native dialogs.
-# This modifies only the disposable profile.
+# Force the in-app dialogs because CDP cannot control native ones: the quick-input
+# file dialog, and the DOM message box used for modal confirmations. This modifies
+# only the disposable profile.
 SETTINGS_FILE="$DEST_UDD/User/settings.json"
 mkdir -p "$(dirname "$SETTINGS_FILE")"
-# Update files.simpleDialog.enable without parsing and rewriting the entire JSONC
-# document, preserving comments and strings that contain `//`.
+# Update the keys without parsing and rewriting the entire JSONC document,
+# preserving comments and strings that contain `//`.
 if ! node - "$SETTINGS_FILE" <<'NODE'
 const fs = require('fs');
 const f = process.argv[2];
-const KEY = 'files.simpleDialog.enable';
+// Keys forced into the disposable profile, with the JSON text of each value.
+const FORCED = [
+	['files.simpleDialog.enable', 'true'],
+	['window.dialogStyle', '"custom"'],
+];
 
 let text;
 try { text = fs.readFileSync(f, 'utf8'); }
@@ -233,47 +241,67 @@ catch (e) {
 
 // Write a new object when the file is empty.
 if (text.trim() === '') {
-	fs.writeFileSync(f, '{\n  "' + KEY + '": true\n}\n');
+	const body = FORCED.map(([k, v]) => '  "' + k + '": ' + v).join(',\n');
+	fs.writeFileSync(f, '{\n' + body + '\n}\n');
 	process.exit(0);
 }
 
-// Update only the existing key's value.
-const keyValueRe = new RegExp('("' + KEY.replace(/\./g, '\\.') + '"\\s*:\\s*)(true|false|null|"[^"\\n]*"|-?\\d+(?:\\.\\d+)?)', 'g');
-if (keyValueRe.test(text)) {
-	const updated = text.replace(keyValueRe, '$1true');
-	fs.writeFileSync(f, updated);
-	process.exit(0);
+// Update the keys that are already present; collect the rest for one insertion,
+// so a multi-key update cannot strand a comma on a line of its own.
+const missing = [];
+for (const [KEY, VALUE] of FORCED) {
+	const keyValueRe = new RegExp('("' + KEY.replace(/\./g, '\\.') + '"\\s*:\\s*)(true|false|null|"[^"\\n]*"|-?\\d+(?:\\.\\d+)?)', 'g');
+	if (keyValueRe.test(text)) {
+		text = text.replace(keyValueRe, '$1' + VALUE);
+	} else {
+		missing.push([KEY, VALUE]);
+	}
 }
 
-// Otherwise, insert the key before the final closing brace. Avoid parsing JSONC
-// so comments and formatting remain intact.
-const lastBrace = text.lastIndexOf('}');
-if (lastBrace === -1) {
-	console.error('[launch.sh] settings.json has no closing brace — refusing to clobber it: ' + f);
-	process.exit(1);
+if (missing.length > 0) {
+	// Insert before the final closing brace. Avoid parsing JSONC so comments and
+	// formatting remain intact.
+	const lastBrace = text.lastIndexOf('}');
+	if (lastBrace === -1) {
+		console.error('[launch.sh] settings.json has no closing brace - refusing to clobber it: ' + f);
+		process.exit(1);
+	}
+
+	const firstBrace = text.indexOf('{');
+	if (firstBrace === -1 || firstBrace >= lastBrace) {
+		console.error('[launch.sh] settings.json has no opening brace - refusing to clobber it: ' + f);
+		process.exit(1);
+	}
+
+	// Add a leading comma only when the object already contains non-comment content.
+	const between = text.slice(firstBrace + 1, lastBrace)
+		.replace(/\/\*[\s\S]*?\*\//g, '')
+		.replace(/\/\/[^\n]*/g, '')
+		.trim();
+	const entries = missing.map(([k, v]) => '  "' + k + '": ' + v).join(',\n');
+	const insertion = (between.length === 0 ? '\n' : ',\n') + entries + '\n';
+
+	// Drop the whitespace that preceded the brace so the comma stays on the last entry.
+	const head = text.slice(0, lastBrace).replace(/\s+$/, '');
+	text = head + insertion + text.slice(lastBrace);
 }
 
-// Add a comma only when the object already contains non-comment content.
-const firstBrace = text.indexOf('{');
-if (firstBrace === -1 || firstBrace >= lastBrace) {
-	console.error('[launch.sh] settings.json has no opening brace — refusing to clobber it: ' + f);
-	process.exit(1);
+// Sanity-check the result. Only whole-line comments are stripped, so a trailing
+// `// comment` after a value fails this check on a file that is perfectly valid
+// JSONC. That makes it a warning rather than a reason to refuse the launch.
+try {
+	JSON.parse(text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/[^\n]*$/gm, ''));
+} catch (e) {
+	console.error('[launch.sh] note: patched settings.json did not parse as plain JSON (' + e.message + '). Expected when it holds trailing comments; check it if dialogs behave oddly.');
 }
-const between = text.slice(firstBrace + 1, lastBrace)
-	.replace(/\/\*[\s\S]*?\*\//g, '')
-	.replace(/\/\/[^\n]*/g, '')
-	.trim();
-const insertion = between.length === 0
-	? '\n  "' + KEY + '": true\n'
-	: ',\n  "' + KEY + '": true\n';
 
-fs.writeFileSync(f, text.slice(0, lastBrace) + insertion + text.slice(lastBrace));
+fs.writeFileSync(f, text);
 NODE
 then
-	echo "[launch.sh] failed to ensure files.simpleDialog.enable=true in $SETTINGS_FILE — automation may need to fall back to per-key input" >&2
+	echo "[launch.sh] failed to force the in-app dialog settings in $SETTINGS_FILE - automation may need to fall back to per-key input, and a modal confirmation may not be clickable" >&2
 	exit 1
 fi
-echo "[launch.sh] ensured files.simpleDialog.enable=true in $SETTINGS_FILE" >&2
+echo "[launch.sh] ensured files.simpleDialog.enable=true and window.dialogStyle=custom in $SETTINGS_FILE" >&2
 
 # Integrated terminals may inherit ELECTRON_RUN_AS_NODE, which breaks code.sh.
 unset ELECTRON_RUN_AS_NODE

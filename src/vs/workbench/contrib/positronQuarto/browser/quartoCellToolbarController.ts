@@ -15,6 +15,7 @@ import { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
 import { QuartoCodeCell, IQuartoDocumentModel, QuartoCellChangeEvent } from '../common/quartoTypes.js';
 import { QuartoCellToolbar } from './quartoCellToolbar.js';
 import { QuartoOutputContribution } from './quartoOutputManager.js';
+import { ICellAssociation, reconcileCellAssociations } from '../common/quartoCellReconciliation.js';
 import { computeDeleteCellEdit, computeInsertCellEdit, computeJoinCellsEdit } from './quartoCellOperations.js';
 import { POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY, affectsQuartoConfig, isQuartoDocument, usingQuartoCellToolbar } from '../common/positronQuartoConfig.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -40,6 +41,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	private _quartoModel: IQuartoDocumentModel | undefined;
 	private _currentCellId: string | undefined;
 	private _mouseCellId: string | undefined;
+	private _previousCells: readonly QuartoCodeCell[] = [];
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -95,6 +97,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		this._quartoModel = undefined;
 		this._currentCellId = undefined;
 		this._mouseCellId = undefined;
+		this._previousCells = [];
 
 		const model = this._editor.getModel();
 		if (!model) {
@@ -128,6 +131,10 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		// Get the Quarto document model
 		this._quartoModel = this._documentModelService.getModel(model);
 		this._logService.debug(`[QuartoCellToolbarController] Got Quarto model, cells: ${this._quartoModel.cells.length}`);
+
+		// Record the cell list now, before anything below can start tracking
+		// a toolbar for an individual cell
+		this._previousCells = this._quartoModel.cells;
 
 		// Listen for execution state changes
 		this._disposables.add(this._executionManager.onDidChangeExecutionState((event) => {
@@ -370,55 +377,52 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 			return;
 		}
 
-		const cells = this._quartoModel.cells;
-		const totalCells = cells.length;
-
-		// Build a set of current cell IDs for quick lookup, and a map by
-		// content hash so we can match toolbars whose cell IDs changed
-		const currentCellIds = new Set<string>();
-		const cellsByHash = new Map<string, QuartoCodeCell>();
-		for (const cell of cells) {
-			currentCellIds.add(cell.id);
-			cellsByHash.set(cell.contentHash, cell);
-		}
+		const totalCells = this._quartoModel.cells.length;
 
 		// Collect re-mappings and orphans in a first pass, then apply them.
 		// We can't mutate the map while iterating it.
 		const remaps: { oldId: string; toolbar: QuartoCellToolbar; newCell: QuartoCodeCell }[] = [];
 		const orphans: string[] = [];
+		const toReconcile: ICellAssociation[] = [];
+		const toolbarByOldId = new Map<string, QuartoCellToolbar>();
 
+		// Every toolbar goes through reconciliation, including ones whose id
+		// still resolves.
 		for (const [id, toolbar] of this._toolbars) {
-			if (currentCellIds.has(id)) {
-				// ID still valid, just refresh position
-				const cell = this._quartoModel.getCellById(id)!;
-				toolbar.updateCell(cell, cell.index, totalCells);
-			} else {
-				// ID no longer in model, try to match by content hash
-				const matched = cellsByHash.get(toolbar.cell.contentHash);
-				if (matched && !this._toolbars.has(matched.id)) {
-					remaps.push({ oldId: id, toolbar, newCell: matched });
-				} else {
-					orphans.push(id);
-				}
-			}
+			toReconcile.push({ id, contentHash: toolbar.cell.contentHash });
+			toolbarByOldId.set(id, toolbar);
 		}
 
-		// Apply re-mappings
-		for (const { oldId, toolbar, newCell } of remaps) {
+		for (const result of reconcileCellAssociations(this._quartoModel, this._previousCells, toReconcile)) {
+			if (result.kind === 'orphaned') {
+				orphans.push(result.id);
+				continue;
+			}
+			remaps.push({ oldId: result.oldId, toolbar: toolbarByOldId.get(result.oldId)!, newCell: result.newCell });
+		}
+
+		// Capture the orphans' toolbars before any map mutation
+		const orphanToolbars = orphans.map(id => ({ id, toolbar: this._toolbars.get(id) }));
+
+		for (const { oldId } of remaps) {
 			this._toolbars.delete(oldId);
+		}
+		for (const { id } of orphanToolbars) {
+			this._toolbars.delete(id);
+		}
+
+		for (const { toolbar, newCell } of remaps) {
 			toolbar.updateCell(newCell, newCell.index, totalCells);
 			this._toolbars.set(newCell.id, toolbar);
 		}
-
-		// Dispose orphaned toolbars
-		for (const id of orphans) {
-			const toolbar = this._toolbars.get(id);
+		for (const { id, toolbar } of orphanToolbars) {
 			if (toolbar) {
 				this._logService.debug(`[QuartoCellToolbarController] Disposing orphaned toolbar ${id}`);
 				toolbar.dispose();
-				this._toolbars.delete(id);
 			}
 		}
+
+		this._previousCells = this._quartoModel.cells;
 	}
 
 	/**

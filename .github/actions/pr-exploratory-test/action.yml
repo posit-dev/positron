@@ -1,0 +1,164 @@
+name: "PR Exploratory Test"
+description: "Run the exploratory-test skill against a launched Positron via the Claude Agent SDK."
+inputs:
+  anthropic-api-key:
+    description: "Explore and gate modes: Anthropic API key (resolved from 1Password by the caller)"
+    required: false
+    default: ""
+  work-dir:
+    description: "Run directory for report.md, actions.log, shots/ and cost.json; not needed in gate mode"
+    required: false
+    default: ""
+  repo-root:
+    description: "Repository root the agent drives from: the checkout of the branch under test"
+    required: false
+    default: ""
+  explorer-path:
+    description: >
+      explorer.md for the exploratory-test skill: the explorer's instructions,
+      used as its system prompt. SKILL.md only tells a local session how to
+      brief a subagent, so CI does not read it. Defaults to the copy in
+      repo-root, which is only right when the branch under test already carries
+      the skill. Point it at the harness checkout so the run uses the version
+      the workflow was dispatched from, not whatever the branch happens to have.
+    required: false
+    default: ""
+  cdp-port:
+    description: "CDP port of the already-launched Positron; not needed in gate mode"
+    required: false
+    default: ""
+  branch:
+    description: "Explore and gate modes: branch under test"
+    required: false
+    default: ""
+  diff-stat:
+    description: "Output of git diff --stat between base and head"
+    required: false
+    default: ""
+  base-sha:
+    description: "Explore and gate modes: diff base SHA"
+    required: false
+    default: ""
+  head-sha:
+    description: "Head SHA"
+    required: true
+  model:
+    description: "Anthropic model identifier (a tier alias like 'opus' always resolves to the latest)"
+    required: false
+    default: "opus"
+  max-turns:
+    description: "Maximum agent turns (cost guard)"
+    required: false
+    default: "200"
+  report-base-url:
+    description: "Public CDN base URL the run directory is published under"
+    required: false
+    default: ""
+  agent-prompts:
+    description: "Give each finding in the HTML report a button that copies it as a prompt for an agent. Set to 'false' where AI policy does not allow it."
+    required: false
+    default: "true"
+  mode:
+    description: "gate (read the diff and rule on it), explore (the full run), or comment (post or edit a /test run's PR comment)"
+    required: false
+    default: "explore"
+  comment-state:
+    description: "Comment mode: 'running' before the build, 'result' after the upload"
+    required: false
+    default: "result"
+  outcome:
+    description: "Comment mode: the explore step's outcome output; empty when the agent never ran"
+    required: false
+    default: ""
+  decline-reason:
+    description: "Comment mode: the gate's reason, when outcome is 'declined'"
+    required: false
+    default: ""
+  pr-number:
+    description: "Comment mode: the PR to comment on. Explore mode: the PR the report header links to"
+    required: false
+    default: ""
+  github-token:
+    description: "Comment mode: token with issues: write"
+    required: false
+    default: ""
+  comment-id:
+    description: "Comment mode: the comment to edit; empty posts a new one"
+    required: false
+    default: ""
+outputs:
+  outcome:
+    description: "Explore mode: complete, partial or no-report; empty if the run crashed"
+    value: ${{ steps.agent.outputs.outcome }}
+  comment-id:
+    description: "Comment mode: the id of the comment posted or edited"
+    value: ${{ steps.agent.outputs.comment_id }}
+runs:
+  using: composite
+  steps:
+    # Comment mode runs in the ack and report jobs on the runner's own Node and
+    # never calls the SDK. Those jobs check out only the harness, so there is
+    # no .nvmrc for setup-node to read.
+    - name: Set up Node
+      if: inputs.mode != 'comment'
+      uses: actions/setup-node@v6
+      with:
+        # Track the repo's .nvmrc. On Node 20 the agent's shell could not run
+        # launch.sh, because build/lib/preLaunch.ts is TypeScript and Node 20
+        # cannot load it, so a cold start meant patching the launcher first.
+        # The workflow's own launch step never hit this: it runs under the
+        # container's Node, not the one this action installs.
+        node-version-file: .nvmrc
+
+    - name: Install action dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund
+
+    # Every mode needs the renderer's parser, comment mode included, so the
+    # callers' harness checkouts must carry the skill directory.
+    - name: Install renderer dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../../.claude/skills/exploratory-test/renderer
+      run: npm ci --no-audit --no-fund
+
+    - name: Install Claude Code CLI
+      if: inputs.mode != 'comment'
+      # Workaround for an Agent SDK bug that resolves the musl-variant binary
+      # before the glibc one on Linux runners (claude-agent-sdk-typescript#296).
+      shell: bash
+      run: |
+        npm install -g @anthropic-ai/claude-code
+        echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
+        claude --version
+
+    - name: Run the Agent SDK
+      id: agent
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        WORK_DIR: ${{ inputs.work-dir }}
+        REPO_ROOT: ${{ inputs.repo-root || github.workspace }}
+        EXPLORER_PATH: ${{ inputs.explorer-path || format('{0}/.claude/skills/exploratory-test/explorer.md', inputs.repo-root || github.workspace) }}
+        CDP_PORT: ${{ inputs.cdp-port }}
+        BRANCH: ${{ inputs.branch }}
+        DIFF_STAT: ${{ inputs.diff-stat }}
+        BASE_SHA: ${{ inputs.base-sha }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+        MODEL: ${{ inputs.model }}
+        MAX_TURNS: ${{ inputs.max-turns }}
+        REPORT_BASE_URL: ${{ inputs.report-base-url }}
+        AGENT_PROMPTS: ${{ inputs.agent-prompts }}
+        COMMENT_STATE: ${{ inputs.comment-state }}
+        OUTCOME: ${{ inputs.outcome }}
+        DECLINE_REASON: ${{ inputs.decline-reason }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        COMMENT_ID: ${{ inputs.comment-id }}
+        # run.mjs reads GATE directly; without it here the gate can decline a
+        # run and leave the caller no way to overrule it. VERIFY is deliberately
+        # absent: it defaults on, a job-level env var still reaches it for
+        # debugging, and verification is what makes an unattended report worth
+        # trusting, so it is not a dispatch-time choice.
+      run: node ${{ inputs.mode == 'gate' && 'gate.mjs' || inputs.mode == 'comment' && 'comment.mjs' || 'run.mjs' }}

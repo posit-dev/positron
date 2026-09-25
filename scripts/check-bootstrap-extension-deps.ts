@@ -102,18 +102,104 @@ async function assertBuiltinCarveOutIsAccurate(): Promise<void> {
 	}
 }
 
-// Picks the version a bootstrap bump would land on: the most recently published
-// stable release, falling back to prereleases for an extension that only
-// publishes those. Mirrors get_extension_info in scripts/update-extensions.sh.
+// SemVer 2.0 precedence. This is the shared contract with semver_key in
+// scripts/update-extensions.sh; keep the two in step.
+//
+// Prerelease identifiers cannot be discarded: p3m serves versions such as
+// debugpy's 2024.11.0-dev with "pre_release": false, so they survive the stable
+// filter and reach this comparator. Stripping the suffix would make
+// 2024.11.0-dev and 2024.11.0 compare equal and let a -dev build win the
+// published_at tiebreak and get pinned. Build metadata is ignored per spec, and
+// must be stripped before the core is parsed or "3+linux" reads as 0 and
+// silently lowers the version.
+//
+// The core is normalised to a fixed width so 1.2 and 1.2.0 compare equal in
+// both implementations rather than differing on array length.
+const CORE_SEGMENTS = 4;
+
+function splitVersion(version: string): { core: number[]; prerelease: string[] } {
+	const [core, ...prerelease] = version.split('+')[0].split('-');
+	const parts = core.split('.').map(part => Number(part) || 0);
+	return {
+		core: Array.from({ length: CORE_SEGMENTS }, (_, i) => parts[i] ?? 0),
+		prerelease: prerelease.length > 0 ? prerelease.join('-').split('.') : []
+	};
+}
+
+// Numeric identifiers compare numerically and rank below alphanumeric ones; a
+// smaller set of identifiers ranks lower when all preceding ones match.
+function comparePrerelease(a: string[], b: string[]): number {
+	for (let i = 0; i < Math.max(a.length, b.length); i++) {
+		const left = a[i];
+		const right = b[i];
+		if (left === undefined) {
+			return -1;
+		}
+		if (right === undefined) {
+			return 1;
+		}
+		const leftNumeric = /^\d+$/.test(left);
+		const rightNumeric = /^\d+$/.test(right);
+		if (leftNumeric !== rightNumeric) {
+			return leftNumeric ? -1 : 1;
+		}
+		if (leftNumeric) {
+			const diff = Number(left) - Number(right);
+			if (diff !== 0) {
+				return diff;
+			}
+		} else if (left !== right) {
+			return left < right ? -1 : 1;
+		}
+	}
+	return 0;
+}
+
+function compareSemver(a: string, b: string): number {
+	const left = splitVersion(a);
+	const right = splitVersion(b);
+	for (let i = 0; i < CORE_SEGMENTS; i++) {
+		const diff = left.core[i] - right.core[i];
+		if (diff !== 0) {
+			return diff;
+		}
+	}
+	// A release outranks any prerelease of the same core version.
+	if (left.prerelease.length === 0 || right.prerelease.length === 0) {
+		return (right.prerelease.length === 0 ? 0 : 1) - (left.prerelease.length === 0 ? 0 : 1);
+	}
+	return comparePrerelease(left.prerelease, right.prerelease);
+}
+
+// Picks the version a bootstrap bump would land on: the highest stable release
+// by semver, falling back to prereleases for an extension that only publishes
+// those. Mirrors get_extension_info in scripts/update-extensions.sh, including
+// the ordering -- a publisher can ship a backport after a newer release (Meta
+// published pyrefly 1.2.1 two days after 1.3.1), so ordering by publish date
+// would audit the wrong manifest. published_at only breaks exact ties.
+//
+// A candidate has to clear both the pre_release flag and its own version
+// string. p3m's flag is not trustworthy on its own -- debugpy's 2024.11.0-dev
+// is served with "pre_release": false -- and the comparator alone only settles
+// X-dev against X, not against an older genuine release. Filtering on the flag
+// by itself would therefore let a mislabelled dev build outrank the newest
+// stable version and get pinned.
 function selectLatestVersion(versions: IPackageVersion[]): IPackageVersion | undefined {
-	const stable = versions.filter(v => v.pre_release !== true);
-	const candidates = stable.length > 0 ? stable : versions;
+	// Drop entries without a usable version string before anything reads one.
+	// splitVersion and compareSemver both call String.split, so a single
+	// malformed entry would otherwise throw and take the whole check down with
+	// exit code 2 -- which also skips the auto-update job for the night. The
+	// caller already reports a missing version as a warning.
+	const usable = versions.filter(v => typeof v.version === 'string' && v.version.length > 0);
+	const stable = usable.filter(v =>
+		v.pre_release !== true && splitVersion(v.version).prerelease.length === 0);
+	const candidates = stable.length > 0 ? stable : usable;
 	// A missing or unparsable published_at sorts oldest rather than poisoning the
 	// comparator with NaN, which would leave the order arbitrary.
 	const publishedAt = (v: IPackageVersion) => Date.parse(v.published_at ?? '') || 0;
 	return candidates
 		.slice()
-		.sort((a, b) => publishedAt(b) - publishedAt(a))[0];
+		.sort((a, b) => compareSemver(b.version, a.version) || publishedAt(b) - publishedAt(a))[0];
 }
 
 function buildIssueBody(id: string, version: string, pinnedVersion: string, blockedDependencies: string[]): string {
