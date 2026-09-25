@@ -394,13 +394,7 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
-.findings-grid{grid-template-columns:110px 96px minmax(0,1fr) 90px 110px}
-.origin-cell{font-size:13px;line-height:1.5;color:var(--body)}
-/* Finding origin: one style for every label, no extra emphasis on New; colour stays with severity and status. */
-.org{color:inherit;font-weight:inherit}
-.org-tip{position:relative;cursor:help;outline:none}
-.org-tip:hover::after,.org-tip:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);left:0;width:max-content;max-width:280px;white-space:normal;text-transform:none;letter-spacing:0;padding:4px 8px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.45;pointer-events:none;z-index:5}
-.org-tip:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+.findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 110px}
 .coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 

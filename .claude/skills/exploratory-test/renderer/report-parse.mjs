@@ -294,34 +294,6 @@ export function modelDisplayName(id) {
 	return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`;
 }
 
-/** What each origin means: the tooltip on the card and table, and the reason the agent prompt gives. */
-export const ORIGINS = {
-	new: { kind: 'new', label: 'New', tip: 'New: the code this finding blames was added or changed in this diff.', reason: 'the blamed code was added or changed in this diff' },
-	'pre-existing': { kind: 'pre-existing', label: 'Pre-existing', tip: 'Pre-existing: the code this finding blames predates this diff.', reason: 'the blamed code predates this diff' },
-	exposed: { kind: 'exposed', label: 'Exposed', tip: 'Exposed: the broken code predates this diff, but this change made it reachable or changed the timing.', reason: 'the broken code predates this diff, but this change made it reachable or changed the timing' },
-	unchecked: { kind: 'unchecked', label: 'Not checked', tip: 'Not checked: the run didn\'t record whether this change introduced it.', reason: 'the run didn\'t record it' },
-};
-
-/**
- * Normalizes the `Introduced?` column into the origin the meta line shows.
- *
- * `unclear` is the old name for `exposed`, kept so earlier reports still render.
- * Only a blank or unrecognized value is "Not checked".
- */
-export function parseOrigin(value) {
-	const v = String(value ?? '').trim().toLowerCase();
-	if (/^yes/.test(v)) {
-		return ORIGINS.new;
-	}
-	if (/^no/.test(v)) {
-		return ORIGINS['pre-existing'];
-	}
-	if (/^(exposed|unclear)/.test(v)) {
-		return ORIGINS.exposed;
-	}
-	return ORIGINS.unchecked;
-}
-
 export function parseSeverity(value) {
 	const v = String(value ?? '').trim().toLowerCase();
 	return ['major', 'moderate', 'minor'].includes(v) ? v : 'minor';
@@ -353,18 +325,15 @@ function parseCostLine(line) {
 /**
  * Splits the status strip under a finding heading.
  *
- * `> **Confirmed** | Reproduced **3/3** | **Introduced by this change**`
+ * `> **Confirmed** | Reproduced **3/3**`
  */
 function parseStatusStrip(line) {
 	const text = line.replace(/^>\s*/, '');
-	const out = { confirmed: null, reproduced: null, origin: null };
+	const out = { confirmed: null, reproduced: null };
 	if (/\bconfirmed\b/i.test(text)) { out.confirmed = 'Confirmed'; }
 	if (/\bunproven\b/i.test(text)) { out.confirmed = 'Unproven'; }
 	const rate = /Reproduced\s*\*\*([\d]+\/[\d]+)\*\*/i.exec(text) || /Reproduced\s*([\d]+\/[\d]+)/i.exec(text);
 	if (rate) { out.reproduced = rate[1]; }
-	if (/introduced by this change/i.test(text)) { out.origin = ORIGINS.new; }
-	else if (/pre-existing/i.test(text)) { out.origin = ORIGINS['pre-existing']; }
-	else if (/exposed by this change|origin unclear/i.test(text)) { out.origin = ORIGINS.exposed; }
 	return out;
 }
 
@@ -675,7 +644,7 @@ function parseRelatedTest(text) {
  */
 function parseFindingBody(lines) {
 	const out = {
-		status: { confirmed: null, reproduced: null, origin: null },
+		status: { confirmed: null, reproduced: null },
 		summary: [],
 		observed: '', expected: '', preconditions: '',
 		reproStart: '', steps: [],
@@ -1185,7 +1154,6 @@ export function parseReport(markdown, { ledger } = {}) {
 		const bodyLines = findingsLines.slice(start.i + 1, end);
 		const parsed = parseFindingBody(bodyLines);
 		const row = byNumber.get(start.n) ?? {};
-		const origin = parsed.status.origin ?? parseOrigin(row['introduced?'] ?? row['introduced']);
 		const reproduced = parsed.status.reproduced || (row['reproduction'] ?? '').trim();
 		const verified = (row['verified'] ?? '').toLowerCase();
 
@@ -1244,7 +1212,6 @@ export function parseReport(markdown, { ledger } = {}) {
 			rowTitle: row['finding'] ? inline(row['finding']) : inline(start.claim),
 			impact: row['impact'] ? inline(sentenceCase(row['impact'])) : '',
 			severity: parseSeverity(row['severity']),
-			origin,
 			reproduced,
 			// Unproven is 0/M by definition, so the rate settles it when no strip was written.
 			confirmed: parsed.status.confirmed ?? (/^0\//.test(reproduced) ? 'Unproven' : reproduced ? 'Confirmed' : null),

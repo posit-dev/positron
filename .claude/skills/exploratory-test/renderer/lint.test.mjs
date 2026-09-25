@@ -17,9 +17,9 @@ const REPORT = `# Exploratory test: x
 
 ## Findings
 
-| # | Finding | Severity | Impact | Introduced? | Reproduction |
-|---|---------|----------|--------|-------------|--------------|
-| 1 | Retry does nothing | moderate | stays empty | yes | 2/2 |
+| # | Finding | Severity | Impact | Reproduction |
+|---|---------|----------|--------|--------------|
+| 1 | Retry does nothing | moderate | stays empty | 2/2 |
 
 ### Finding 1: Retry does nothing
 
@@ -79,8 +79,16 @@ test('flags a missing summary label and a question-shaped Result', () => {
 });
 
 test('flags table values outside the allowed words', () => {
-	const problems = lint(REPORT.replace('| moderate | stays empty | yes | 2/2 |', '| High | stays empty | maybe | often |'));
-	assert.equal(problems.filter(p => /finding 1 (Severity|Introduced\?|Reproduction)/.test(p)).length, 3);
+	const problems = lint(REPORT.replace('| moderate | stays empty | 2/2 |', '| High | stays empty | often |'));
+	assert.equal(problems.filter(p => /finding 1 (Severity|Reproduction)/.test(p)).length, 2);
+});
+
+test('flags an Introduced? or Origin column', () => {
+	const table = REPORT
+		.replace('| Impact | Reproduction |', '| Impact | Introduced? | Reproduction |')
+		.replace('|--------|--------------|', '|--------|---|--------------|')
+		.replace('| stays empty | 2/2 |', '| stays empty | yes | 2/2 |');
+	assert.ok(lint(table).some(p => /drop the Introduced\?\/Origin column/.test(p)));
 });
 
 test('flags a table row and a block that do not pair up', () => {

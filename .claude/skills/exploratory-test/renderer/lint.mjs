@@ -205,14 +205,13 @@ export function lintReport(markdown, ledger, { fileExists, listFiles } = {}) {
 	if (!rows.length && !/^\s*no findings\b/im.test(text) && lines.some(({ line }) => /^###\s+Finding\b/.test(line))) {
 		problems.push('report: findings have blocks but no findings table');
 	}
+	if (rows.length && Object.keys(rows[0]).some(k => /^introduced|^origin/.test(k))) {
+		problems.push('report: drop the Introduced?/Origin column; origin goes in Cause, and only when the diff settles it');
+	}
 	for (const row of rows) {
 		const n = row['#'];
 		if (!['major', 'moderate', 'minor'].includes(row.severity?.toLowerCase())) {
 			problems.push(`report: finding ${n} Severity must be major, moderate or minor, got "${row.severity ?? ''}"`);
-		}
-		const introduced = row['introduced?'] ?? row.introduced;
-		if (!['yes', 'no', 'exposed'].includes(introduced?.toLowerCase())) {
-			problems.push(`report: finding ${n} Introduced? must be yes, no or exposed, got "${introduced ?? ''}"`);
 		}
 		if (!/^\d+\/\d+$/.test(row.reproduction ?? '')) {
 			problems.push(`report: finding ${n} Reproduction must be N/M, got "${row.reproduction ?? ''}"`);

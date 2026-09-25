@@ -23,18 +23,10 @@ For EACH finding, answer these three questions explicitly:
    the reported symptom? Read the action log, the ledger's `## Environment` and
    Run details for how it set the machine up, then ask whether that setup,
    rather than the product, explains what it saw.
-3. Is the `Introduced?` value consistent with the diff? A defect in code the
-   diff did not touch is not introduced by this change, though it may be newly
-   reachable because of it, which is what `exposed` means. A flipped default,
-   new call site or removed fallback that routes users onto unchanged defective
-   code is `exposed`, even when users see it as a regression. To choose between
-   `exposed` and `no`, ask whether a user on the old code and old defaults
-   could reach the failure, not whether the defective line ran; only a failure
-   users could already hit is `no`. A control run on this build (such as a
-   setting turned off) still carries the diff, so it is not evidence about the
-   old code. A blank or unrecognised `Introduced?` (anything but `yes`, `no` or
-   `exposed`) is a missing answer: flag it, and say which value the diff
-   supports.
+3. If Cause says whether the blamed code was added by this change or is older
+   code the change now reaches, check that sentence against the diff. Flag it
+   if the diff does not show it, or if it is written as a label ("New",
+   "Pre-existing") rather than as reasoning.
 
 Then give a verdict per finding: CONFIRMED, FALSE POSITIVE, or UNRESOLVED (say
 what evidence is missing).

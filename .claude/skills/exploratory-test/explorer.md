@@ -249,12 +249,12 @@ renderer adds the ledger's Environment. It is the one section that collapses; ke
 `<summary>` and before `</details>`.
 
 Return a two or three line summary and nothing else. Lead with how many
-findings the change introduced (`Introduced? yes`), then how many it exposed.
+findings there are, by severity.
 
 ```
-| # | Finding | Severity | Impact | Introduced? | Reproduction |
-|---|---------|----------|--------|-------------|--------------|
-| 1 | <short claim> | major | <the user consequence, in a phrase> | yes | 3/3 |
+| # | Finding | Severity | Impact | Reproduction |
+|---|---------|----------|--------|--------------|
+| 1 | <short claim> | major | <the user consequence, in a phrase> | 3/3 |
 ```
 
 `Severity` is `major` (blocks or materially breaks an important workflow),
@@ -269,21 +269,15 @@ because they can get there another way; a control that wraps onto two lines is
 `Impact` is the user consequence and only that: "blocks completion", "silently
 creates no environment". Not the rate, and not a scale like "High".
 
-`Introduced?` is `yes`, `no`, or `exposed`. Settle it from the diff, and blame
-the defective line, not the line that made it reachable. `yes` means the defect
-is in code the diff adds or changes. `exposed` means the defect predates the
-change and the diff makes users reach it: a flipped default, a new call site, a
-removed fallback, or shifted timing that lets an existing race fire. A
-regression users can see is still `exposed` when the broken code is old; the
-"X no longer Y" claim already tells the reader it is a regression. To choose
-between `exposed` and `no`, read the removed side of the diff and ask whether a
-user on the old code and old defaults could reach the failure you saw, not
-whether the defective line ran. Old code that ran the line but never under the
-conditions that trigger it is `exposed`. Only a failure users could already hit
-is `no`. A control run on this build (such as the setting turned off) still
-carries the diff, so it says nothing about the old code. If the diff cannot
-settle it, say so in Cause. Cause names the line and says which applies.
-`exposed` is not a hedge.
+Cause blames the defective line, not the line that made it reachable. If the
+diff clearly shows whether that code was added by this change, or is older code
+the change now reaches, say so in one sentence as part of the reasoning: "The
+line this points to was added in this PR", or "Ascending load order predates
+the change, but with no budget it used to finish; now the 30 s budget runs out
+first." Describe the old code's behavior, not the run you did not do: write "On
+the old 60 s timeout a 13 s column loads", not "Not re-run on base". If the
+diff does not settle it, leave origin out. Don't label findings as new or
+pre-existing anywhere else in the report.
 
 `Reproduction` is `<N>/<M>`, and the table is the only place it goes; the
 renderer puts it on the finding. Always give the rate, even 5/5: "every time"
@@ -372,7 +366,7 @@ where to look, so it goes in Cause.
 Report genuine problems only. A finding a human cannot verify from its
 artifacts is wasted work, so prefer one finding with a timestamped log excerpt
 over three without. A proven bug belongs in the report even if the change did
-not introduce it; that is what `Introduced? no` is for.
+not introduce it.
 
 When an error is logged, write an `**Error output**` block for it: the full
 message and stack, not the one-line message, one block per distinct error, with

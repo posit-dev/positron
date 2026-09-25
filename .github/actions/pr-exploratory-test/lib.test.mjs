@@ -134,10 +134,10 @@ const TABLE = [
 	'',
 	'## Findings',
 	'',
-	'| # | Finding | Severity | Impact | Introduced? | Reproduction |',
-	'|---|---------|----------|--------|-------------|--------------|',
-	'| 1 | first claim | major | blocks completion | yes | 3/3 |',
-	'| 2 | second claim | minor | cosmetic | yes | 2/2 |',
+	'| # | Finding | Severity | Impact | Reproduction |',
+	'|---|---------|----------|--------|--------------|',
+	'| 1 | first claim | major | blocks completion | 3/3 |',
+	'| 2 | second claim | minor | cosmetic | 2/2 |',
 	'',
 	'### 1. first claim',
 ].join('\n');
@@ -155,7 +155,7 @@ test('parseVerdicts returns empty when the line is absent', () => {
 
 test('annotateFindingsTable adds a verdict per row', () => {
 	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE'));
-	assert.match(out, /\| # \| Finding \| Severity \| Impact \| Introduced\? \| Reproduction \| Verified \|/);
+	assert.match(out, /\| # \| Finding \| Severity \| Impact \| Reproduction \| Verified \|/);
 	assert.match(out, /\| 1 \| first claim .* \| confirmed \|/);
 	assert.match(out, /\| 2 \| second claim .* \| disputed \|/);
 });
