@@ -435,12 +435,18 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.editorGroupService.whenRestored.then(() => {
 			// --- Start Positron ---
 			// On startup, if no editors are open and the panel is visible,
-			// hide the editor to maximize the panel.
+			// hide the editor to maximize the panel. Save the panel height
+			// first so it is restored when an editor is opened.
 			if (this.isVisible(Parts.PANEL_PART) &&
+				!this.isPanelMinimized() &&
 				this.getPanelPosition() === Position.BOTTOM &&
 				this.getPanelAlignment() === 'center' &&
 				!this.editorService.activeEditor &&
 				!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
+				this.stateModel.setRuntimeValue(
+					LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
+					this.workbenchGrid.getViewSize(this.panelPartView).height
+				);
 				this.setEditorHidden(true);
 			}
 			// --- End Positron ---
@@ -457,9 +463,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				if (!handled) {
 					if (this.mainPartEditorService.visibleEditors.length === 0) {
 						// Only maximize the panel (by hiding the editor) when the
-						// panel is already visible. This prevents force-showing a
-						// panel the user has explicitly hidden.
-						if (this.isVisible(Parts.PANEL_PART) &&
+						// panel is already visible and not minimized (e.g. by the
+						// Side-by-Side layout). This prevents force-showing a panel
+						// the user has explicitly hidden.
+						if (this.editorService.visibleEditors.length === 0 &&
+							this.isVisible(Parts.PANEL_PART) &&
+							!this.isPanelMinimized() &&
 							this.getPanelPosition() === Position.BOTTOM &&
 							this.getPanelAlignment() === 'center' &&
 							!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
@@ -1858,6 +1867,15 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 					? this.workbenchGrid.getViewSize(this.panelPartView).height
 					: this.workbenchGrid.getViewSize(this.panelPartView).width;
 			this.stateModel.setInitializationValue(LayoutStateKeys.PANEL_SIZE, panelSize as number);
+			// --- Start Positron ---
+			// The panel size is shared by all workspaces, and Positron maximizes the panel whenever no editors
+			// are open, so saving the maximized size would open other workspaces with a maximized panel.
+			if (!this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_HIDDEN) && this.isPanelMaximized()) {
+				this.stateModel.setInitializationValue(LayoutStateKeys.PANEL_SIZE, isHorizontal(this.getPanelPosition())
+					? this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT)
+					: this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_WIDTH));
+			}
+			// --- End Positron ---
 
 			// Auxiliary Bar Size
 			const auxiliaryBarSize = this.stateModel.getRuntimeValue(LayoutStateKeys.AUXILIARYBAR_HIDDEN)
