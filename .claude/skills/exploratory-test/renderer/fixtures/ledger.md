@@ -6,7 +6,7 @@ Run: 2026-09-22 14:05-14:31 - Explore: Opus 5.5 - Verify: Sonnet 5
 
 ## Environment
 - Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0), on Ubuntu 22.04 (Linux x64).
-- Pre-launched, CDP 44987), workspace /tmp/exploratory-workspace, window 1600x1300.
+- Pre-launched via CDP 44987, workspace /tmp/exploratory-workspace, window 1600x1300.
 - Python 3.10.12 with pandas, polars, duckdb and pyarrow.
 
 ---
