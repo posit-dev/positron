@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './pythonEnvironmentStep.css';
+
 // React.
 import { PropsWithChildren, useEffect, useState } from 'react';
 
@@ -27,6 +30,7 @@ import { condaInterpretersToDropdownItems } from '../../utilities/condaUtils.js'
 import { uvInterpretersToDropdownItems } from '../../utilities/uvUtils.js';
 import { PathDisplay } from '../pathDisplay.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 // NOTE: If you are making changes to this file, the equivalent R component may benefit from similar
 // changes. See src/vs/workbench/browser/positronNewFolderFlow/components/steps/rConfigurationStep.tsx
@@ -57,6 +61,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	const [uvPythonVersionInfo, setUvPythonVersionInfo] = useState(context.uvPythonVersionInfo);
 	const [selectedUvPythonVersion, setSelectedUvPythonVersion] = useState(context.uvPythonVersion);
 	const [isUvInstalled, setIsUvInstalled] = useState(context.isUvInstalled);
+	const [uvInstallPending, setUvInstallPending] = useState(false);
+	const [uvInstallError, setUvInstallError] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -100,6 +106,13 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		// when user clears the input
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [envSetupType, envProviderId, envProviders, context]);
+
+	// Clear the install error when the provider or setup type changes. The error describes an
+	// attempt made for the provider selected at the time, so on any other selection it reports a
+	// failure that did not happen there.
+	useEffect(() => {
+		setUvInstallError(undefined);
+	}, [envProviderId, envSetupType]);
 
 	// Utility functions.
 	// At least one interpreter is available.
@@ -181,23 +194,25 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 					<FlowFormattedText
 						type={FlowFormattedTextType.Info}
 					>
-						{localize(
-							'pythonEnvironmentSubStep.feedback',
-							"The environment will be created at "
-						)}
-						<PathDisplay
-							maxLength={65}
-							pathComponents={
-								locationForNewEnv(
-									context.parentFolder.path,
-									context.folderName,
-									envProviderNameForId(envProviderId, envProviders!),
-									envName
-								)
-							}
-							pathService={context.services.pathService}
-						/>
-
+						{/* One span, so the path wraps with the sentence instead of beside it. */}
+						<span>
+							{localize(
+								'pythonEnvironmentSubStep.feedback',
+								"The environment will be created at "
+							)}
+							<PathDisplay
+								maxLength={65}
+								pathComponents={
+									locationForNewEnv(
+										context.parentFolder.path,
+										context.folderName,
+										envProviderNameForId(envProviderId, envProviders!),
+										envName
+									)
+								}
+								pathService={context.services.pathService}
+							/>
+						</span>
 					</FlowFormattedText>
 				);
 			}
@@ -278,20 +293,79 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		context.selectedRuntime = selectedRuntime;
 	};
 
+	// Handler for the Install uv button. On success, the flow state refreshes the uv Python
+	// versions and fires onUpdateInterpreterState, which repopulates the version dropdown.
+	const onInstallUv = async () => {
+		setUvInstallPending(true);
+		setUvInstallError(undefined);
+		try {
+			const result = await context.installUv();
+			if (!result.ok) {
+				// A declined install has no error message; leave the step as it was.
+				setUvInstallError(result.error);
+			}
+		} finally {
+			setUvInstallPending(false);
+		}
+	};
+
+	// The "not installed" notice for the selected environment provider, shown under the provider
+	// dropdown: a missing tool is a fact about the provider just picked, not about the version list.
+	// uv can install itself, so it carries an action; conda has no equivalent command to offer.
+	const providerInstallWarning = () => {
+		if (context.usesUvEnv && isUvInstalled === false) {
+			return (
+				<FlowFormattedText
+					type={FlowFormattedTextType.Warning}
+				>
+					<span>
+						{uvInstallError ?? localize(
+							'pythonEnvironmentSubStep.feedback.uvNotInstalled',
+							"uv is not installed"
+						)}
+					</span>
+					<span aria-hidden='true' className='install-uv-separator'>&middot;</span>
+					{/* Inert while the request is out, but still labelled "Install uv": the request */}
+					{/* starts by asking the user to confirm, and nothing installs until they do. */}
+					<Button
+						ariaDisabled={uvInstallPending}
+						className='install-uv-button'
+						onPressed={onInstallUv}
+					>
+						{localize(
+							'pythonEnvironmentSubStep.feedback.installUv',
+							"Install uv"
+						)}
+					</Button>
+				</FlowFormattedText>
+			);
+		}
+
+		if (context.usesCondaEnv && isCondaInstalled === false) {
+			return (
+				<FlowFormattedText
+					type={FlowFormattedTextType.Warning}
+				>
+					{localize(
+						'pythonEnvironmentSubStep.feedback.condaNotInstalled',
+						"Conda is not installed"
+					)}
+				</FlowFormattedText>
+			);
+		}
+
+		return undefined;
+	};
+
 	// Construct the feedback message for the interpreter step.
 	const interpreterStepFeedback = () => {
 		if (!interpretersLoading() && !interpretersAvailable()) {
-			if (context.usesUvEnv) {
-				return (
-					<FlowFormattedText
-						type={FlowFormattedTextType.Warning}
-					>
-						{localize(
-							'pythonInterpreterSubStep.feedback.uvNotInstalled',
-							"uv is not installed. Please install uv to create a uv environment."
-						)}
-					</FlowFormattedText>
-				);
+			// Exactly what providerInstallWarning() already reports above. Checked before the
+			// new-environment branch, which returns unconditionally and would otherwise blame a
+			// missing provider instead.
+			if ((context.usesUvEnv && isUvInstalled === false) ||
+				(context.usesCondaEnv && isCondaInstalled === false)) {
+				return undefined;
 			}
 
 			// For new environments, if no environment providers were found, show a message to notify
@@ -304,19 +378,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						{localize(
 							'pythonInterpreterSubStep.feedback.noInterpretersAvailable',
 							"No interpreters available since no environment providers were found."
-						)}
-					</FlowFormattedText>
-				);
-			}
-
-			if (context.usesCondaEnv) {
-				return (
-					<FlowFormattedText
-						type={FlowFormattedTextType.Warning}
-					>
-						{localize(
-							'pythonInterpreterSubStep.feedback.condaNotInstalled',
-							"Conda is not installed. Please install Conda to create a Conda environment."
 						)}
 					</FlowFormattedText>
 				);
@@ -366,8 +427,24 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 			);
 		}
 
-		// If interpreters is empty, show a message that no interpreters were found.
+		// If interpreters is empty, show a message that no interpreters were found. When uv is
+		// missing, nothing was ever looked up, so name the blocker instead of reporting an
+		// empty search.
 		if (!interpretersAvailable()) {
+			if (context.usesUvEnv && isUvInstalled === false) {
+				return localize(
+					'pythonInterpreterSubStep.dropDown.title.uvNotInstalled',
+					"Install uv to select a Python version"
+				);
+			}
+
+			if (context.usesCondaEnv && isCondaInstalled === false) {
+				return localize(
+					'pythonInterpreterSubStep.dropDown.title.condaNotInstalled',
+					"Install Conda to select a Python version"
+				);
+			}
+
 			return localize(
 				'pythonInterpreterSubStep.dropDown.title.noInterpreters',
 				"No {0}s found.",
@@ -482,21 +559,24 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						"Environment Creation"
 					)}
 				>
-					<DropDownListBox
-						createItem={(item) => (
-							<DropdownEntry
-								subtitle={item.options.value.description}
-								title={item.options.value.name}
-							/>
-						)}
-						disabled={!envProvidersAvailable()}
-						entries={envProviderDropdownEntries()}
-						selectedIdentifier={envProviderId}
-						title={envProviderDropdownTitle()}
-						onSelectionChanged={(item) =>
-							onEnvProviderSelected(item.options.identifier)
-						}
-					/>
+					<div className='env-provider-selection'>
+						<DropDownListBox
+							createItem={(item) => (
+								<DropdownEntry
+									subtitle={item.options.value.description}
+									title={item.options.value.name}
+								/>
+							)}
+							disabled={!envProvidersAvailable()}
+							entries={envProviderDropdownEntries()}
+							selectedIdentifier={envProviderId}
+							title={envProviderDropdownTitle()}
+							onSelectionChanged={(item) =>
+								onEnvProviderSelected(item.options.identifier)
+							}
+						/>
+						{providerInstallWarning()}
+					</div>
 					<LabeledTextInput
 						label={localize(
 							'pythonEnvironmentNameSubStep.label',

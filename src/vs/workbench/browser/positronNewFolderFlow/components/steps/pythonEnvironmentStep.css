@@ -1,0 +1,51 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-dialog-box .flow-step .env-provider-selection {
+	display: flex;
+	flex-direction: column;
+
+	/* Tighter than the sub step's 16px so the install offer reads as belonging to the dropdown
+	above it rather than to the environment name field below. */
+	gap: 8px;
+}
+
+.positron-modal-dialog-box .flow-step .install-uv-separator,
+.positron-modal-dialog-box .flow-step .install-uv-button {
+	/* The row holds a message this step does not control the length of. Left shrinkable, the
+	separator and the link give way before the message wraps, splitting the link across lines. */
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+.positron-modal-dialog-box .flow-step .install-uv-separator {
+	/* Overrides the 2px flex gap the warning row uses, which crowds a separator. */
+	margin: 0 3px;
+
+	/* The separator is punctuation, not part of the warning, so it does not take the warning color
+	it would otherwise inherit from the row. */
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-modal-dialog-box .flow-step .install-uv-button {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--vscode-textLink-foreground);
+	text-decoration: underline;
+
+	/* The user agent stylesheet sets font-size on <button>, which beats inheritance and
+	leaves the link smaller than the warning text it sits beside. */
+	font: inherit;
+}
+
+.positron-modal-dialog-box .flow-step .install-uv-button:hover:not(.disabled) {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.positron-modal-dialog-box .flow-step .install-uv-button.disabled {
+	color: var(--vscode-disabledForeground);
+	text-decoration: none;
+}
