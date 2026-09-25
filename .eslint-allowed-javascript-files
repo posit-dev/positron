@@ -207,11 +207,12 @@ test/unit/reporter.js
 .github/actions/pr-exploratory-test/lib.mjs
 .github/actions/pr-exploratory-test/lib.test.mjs
 .github/actions/pr-exploratory-test/gate.mjs
-.github/actions/pr-exploratory-test/html.mjs
-.github/actions/pr-exploratory-test/report-css.mjs
-.github/actions/pr-exploratory-test/report-parse.mjs
-.github/actions/pr-exploratory-test/report.test.mjs
+.claude/skills/exploratory-test/renderer/html.mjs
+.claude/skills/exploratory-test/renderer/report-css.mjs
+.claude/skills/exploratory-test/renderer/report-parse.mjs
+.claude/skills/exploratory-test/renderer/report.test.mjs
 .github/actions/pr-exploratory-test/run.mjs
+.claude/skills/exploratory-test/renderer/render.mjs
 .github/actions/pr-exploratory-test/comment.mjs
 .github/actions/pr-exploratory-test/comment.test.mjs
 .github/actions/pr-test-checker/analyze.mjs
@@ -223,7 +224,6 @@ build/detect-dot-only.js
 build/lib/bootstrapExtensions.js
 build/lib/quarto.js
 extensions/next-edit-suggestions/server/language-server.js
-extensions/positron-catalog-explorer/.vscode-test.mjs
 extensions/positron-ipywidgets/renderer/esbuild.js
 extensions/positron-ipywidgets/renderer/src/reactable/reactable-py.esm.js
 extensions/positron-pdf-server/keyboard-forwarder.js
@@ -253,7 +253,7 @@ extensions/positron-r/resources/js/htmlwidget.js
 extensions/positron-run-app/test-workspace/app.js
 extensions/positron-zed/resources/clock.js
 scripts/apply-test-tag-map-fixes.mjs
-scripts/check-soft-fail-failures.js
+scripts/check-e2e-failures.js
 scripts/derive-test-change-tags.mjs
 scripts/node_version_check.js
 scripts/slack-skipped-tests.js

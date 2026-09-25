@@ -2,9 +2,8 @@
 	"name": "pr-exploratory-test-action",
 	"private": true,
 	"type": "module",
-	"description": "GH composite action that runs the exploratory-testing skill against a live Positron via the Claude Agent SDK.",
+	"description": "GH composite action that runs the exploratory-test skill against a live Positron via the Claude Agent SDK.",
 	"dependencies": {
-		"@anthropic-ai/claude-agent-sdk": "^0.2.128",
-		"marked": "^12.0.2"
+		"@anthropic-ai/claude-agent-sdk": "^0.2.128"
 	}
 }

@@ -1,5 +1,5 @@
 name: "PR Exploratory Test"
-description: "Run the exploratory-testing skill against a launched Positron via the Claude Agent SDK."
+description: "Run the exploratory-test skill against a launched Positron via the Claude Agent SDK."
 inputs:
   anthropic-api-key:
     description: "Explore and gate modes: Anthropic API key (resolved from 1Password by the caller)"
@@ -13,9 +13,11 @@ inputs:
     description: "Repository root the agent drives from: the checkout of the branch under test"
     required: false
     default: ""
-  skill-path:
+  explorer-path:
     description: >
-      SKILL.md for the exploratory-testing skill. Defaults to the copy in
+      explorer.md for the exploratory-test skill: the explorer's instructions,
+      used as its system prompt. SKILL.md only tells a local session how to
+      brief a subagent, so CI does not read it. Defaults to the copy in
       repo-root, which is only right when the branch under test already carries
       the skill. Point it at the harness checkout so the run uses the version
       the workflow was dispatched from, not whatever the branch happens to have.
@@ -52,6 +54,10 @@ inputs:
     description: "Public CDN base URL the run directory is published under"
     required: false
     default: ""
+  agent-prompts:
+    description: "Give each finding in the HTML report a button that copies it as a prompt for an agent. Set to 'false' where AI policy does not allow it."
+    required: false
+    default: "true"
   mode:
     description: "gate (read the diff and rule on it), explore (the full run), or comment (post or edit a /test run's PR comment)"
     required: false
@@ -64,8 +70,12 @@ inputs:
     description: "Comment mode: the explore step's outcome output; empty when the agent never ran"
     required: false
     default: ""
+  decline-reason:
+    description: "Comment mode: the gate's reason, when outcome is 'declined'"
+    required: false
+    default: ""
   pr-number:
-    description: "Comment mode: the PR to comment on"
+    description: "Comment mode: the PR to comment on. Explore mode: the PR the report header links to"
     required: false
     default: ""
   github-token:
@@ -105,6 +115,13 @@ runs:
       working-directory: ${{ github.action_path }}
       run: npm ci --no-audit --no-fund
 
+    # Every mode needs the renderer's parser, comment mode included, so the
+    # callers' harness checkouts must carry the skill directory.
+    - name: Install renderer dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../../.claude/skills/exploratory-test/renderer
+      run: npm ci --no-audit --no-fund
+
     - name: Install Claude Code CLI
       if: inputs.mode != 'comment'
       # Workaround for an Agent SDK bug that resolves the musl-variant binary
@@ -123,7 +140,7 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         WORK_DIR: ${{ inputs.work-dir }}
         REPO_ROOT: ${{ inputs.repo-root || github.workspace }}
-        SKILL_PATH: ${{ inputs.skill-path || format('{0}/.claude/skills/exploratory-testing/SKILL.md', inputs.repo-root || github.workspace) }}
+        EXPLORER_PATH: ${{ inputs.explorer-path || format('{0}/.claude/skills/exploratory-test/explorer.md', inputs.repo-root || github.workspace) }}
         CDP_PORT: ${{ inputs.cdp-port }}
         BRANCH: ${{ inputs.branch }}
         DIFF_STAT: ${{ inputs.diff-stat }}
@@ -132,8 +149,10 @@ runs:
         MODEL: ${{ inputs.model }}
         MAX_TURNS: ${{ inputs.max-turns }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}
+        AGENT_PROMPTS: ${{ inputs.agent-prompts }}
         COMMENT_STATE: ${{ inputs.comment-state }}
         OUTCOME: ${{ inputs.outcome }}
+        DECLINE_REASON: ${{ inputs.decline-reason }}
         PR_NUMBER: ${{ inputs.pr-number }}
         GH_TOKEN: ${{ inputs.github-token }}
         COMMENT_ID: ${{ inputs.comment-id }}

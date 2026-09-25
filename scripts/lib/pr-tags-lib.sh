@@ -366,9 +366,9 @@ valid_enum_tags() {
 # feature_enum_tags <enum_file>
 # Echoes the newline-separated, unique @: tag strings declared in the
 # FeatureTags enum block of test-tags.ts -- the ONLY tags eligible for auto
-# test-change tag derivation. Platform/special tags (separate CI lanes,
+# test-change tag derivation. Platform tags (separate CI lanes,
 # author-controlled; @:win/@:web handled by scan_added_platform_tags) live in
-# other enum blocks and are deliberately excluded, so derivation never selects a
+# the other enum block and are deliberately excluded, so derivation never selects a
 # tag that widens the run without enabling its lane. Passed to
 # derive-test-change-tags.mjs as --feature-tags. Missing file echoes nothing.
 feature_enum_tags() {

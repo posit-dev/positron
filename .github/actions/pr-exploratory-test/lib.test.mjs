@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, modelDisplayName, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, COMMENT_MARKER, runOutcome, renderPrComment } from './lib.mjs';
+import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -322,15 +322,6 @@ test('buildCostRecord names the model that billed most', () => {
 	assert.equal(buildCostRecord({ type: 'result' }).model, null);
 });
 
-test('modelDisplayName reads a model id the way the report names it', () => {
-	assert.equal(modelDisplayName('claude-opus-5-5'), 'Opus 5.5');
-	assert.equal(modelDisplayName('claude-sonnet-5'), 'Sonnet 5');
-	assert.equal(modelDisplayName('claude-haiku-4-5-20251001'), 'Haiku 4.5');
-	assert.equal(modelDisplayName('claude-opus-5-5[1m]'), 'Opus 5.5');
-	assert.equal(modelDisplayName('some-other-model'), 'some-other-model');
-	assert.equal(modelDisplayName(null), null);
-});
-
 test('renderCostFooter leads a pass with its model when one is known', () => {
 	const footer = renderCostFooter([
 		{ label: 'explore', main: true, cost: { total_cost_usd: 1.2, num_turns: 25, duration_ms: 360000, model: 'claude-opus-5-5' } },
@@ -422,4 +413,63 @@ test('renderPrComment names the model in every state, so a /test typo is visible
 test('renderPrComment leaves the model out when none is given', () => {
 	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /Running against `abc1234`/);
 	assert.doesNotMatch(renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /\(\)/);
+});
+
+test('withPrLine stamps the PR under the meta line, once, and only for a number', () => {
+	const report = '# Exploratory test: x\n\n`branch` | `abc1234`\n\n**Result:** fine\n';
+	assert.equal(withPrLine(report, 'posit-dev/positron', '16188'),
+		'# Exploratory test: x\n\n`branch` | `abc1234`\n\nPR: posit-dev/positron#16188\n\n**Result:** fine\n');
+	// A dispatched run has no PR.
+	assert.equal(withPrLine(report, 'posit-dev/positron', ''), report);
+	assert.equal(withPrLine(report, 'posit-dev/positron', undefined), report);
+	assert.equal(withPrLine(report, 'posit-dev/positron', '12; rm'), report);
+	// Already stamped, or nowhere to put it.
+	const stamped = withPrLine(report, 'posit-dev/positron', '1');
+	assert.equal(withPrLine(stamped, 'posit-dev/positron', '1'), stamped);
+	assert.equal(withPrLine('# Exploratory test: x\n\n## Findings\n\n`code`\n', 'posit-dev/positron', '1'), '# Exploratory test: x\n\n## Findings\n\n`code`\n');
+	assert.equal(withPrLine(null, 'posit-dev/positron', '1'), null);
+});
+
+test('isProductPath rejects tests, docs and harness files', () => {
+	for (const p of [
+		'test/e2e/pages/dataConnections.ts',
+		'test/e2e/tests/data-connections/driver-logging.test.ts',
+		'src/vs/workbench/contrib/x/test/browser/row.vitest.tsx',
+		'extensions/positron-r/src/test/foo.ts',
+		'.github/workflows/test-exploratory.yml',
+		'.claude/skills/x/SKILL.md',
+		'README.md',
+		'docs/design/spec.md',
+	]) {
+		assert.equal(isProductPath(p), false, p);
+	}
+});
+
+test('isProductPath keeps source, styles and config', () => {
+	for (const p of [
+		'src/vs/workbench/contrib/x/browser/row.tsx',
+		'src/vs/workbench/contrib/x/browser/dialog.css',
+		'extensions/positron-r/package.json',
+		'src/vs/workbench/contrib/testing/browser/testingView.ts',
+	]) {
+		assert.equal(isProductPath(p), true, p);
+	}
+});
+
+test('renderPrComment says a declined run was not run, and why', () => {
+	const body = renderPrComment({ state: 'declined', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason: 'only tests changed' });
+	assert.ok(body.startsWith(COMMENT_MARKER));
+	assert.match(body, /not run/);
+	assert.match(body, /only tests changed/);
+	assert.doesNotMatch(body, /failed before/);
+});
+
+test('renderSummaryTarget names the branch and links the PR', () => {
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', '12'), 'PR [#12](https://github.com/o/r/pull/12) · `fix/x`\n\n');
+});
+
+test('renderSummaryTarget leaves the PR off when there is none', () => {
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', ''), '`fix/x`\n\n');
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', undefined), '`fix/x`\n\n');
+	assert.equal(renderSummaryTarget('', 'o/r', ''), '');
 });

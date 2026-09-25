@@ -15,7 +15,7 @@ test.use({
 // to the installed python path
 
 test.describe('Reticulate', {
-	tag: [tags.RETICULATE, tags.WEB, tags.ARK, tags.SOFT_FAIL],
+	tag: [tags.RETICULATE, tags.WEB, tags.ARK],
 }, () => {
 	// Skipped: execute requests sent to the reticulate Python session hang in CI, so the
 	// variable never appears and the test spins until it times out. Un-skip when #10953 is fixed.

@@ -3,18 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Drives the Claude Agent SDK to run the exploratory-testing skill against a
+// Drives the Claude Agent SDK to run the exploratory-test skill against a
 // Positron instance already launched and attached by the workflow.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { renderReportHtml } from './html.mjs';
-import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, runOutcome } from './lib.mjs';
+import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
+import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
+import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
-const SKILL_PATH = mustEnv('SKILL_PATH');
+const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
 const BRANCH = mustEnv('BRANCH');
@@ -27,6 +28,8 @@ const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
 const VERIFY_MODEL = process.env.VERIFY_MODEL || 'sonnet';
 const VERIFY_MAX_TURNS = parsePosIntEnv('VERIFY_MAX_TURNS', 60, process.env.VERIFY_MAX_TURNS);
 const VERIFY_ENABLED = process.env.VERIFY !== 'false';
+// Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
+const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
 // The verification bills separately from the explore pass, so its cost record
 // outlives the function that produces it.
 let verifyCost = buildCostRecord(null);
@@ -54,10 +57,10 @@ function mustEnv(name) {
 // REPORT_BASE_URL never puts an unusable "published at ``" sentence into the
 // prompt (see buildShotsBaseUrl in lib.mjs).
 const CI_OVERRIDES = [
-	'**You are the tester.** Ignore "Run it in a subagent". Do not delegate; do the exploring yourself.',
-	`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
+		`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
 	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
-	`**Keep the logs of any instance you launch.** \`stop.sh\` takes the run directory with it, and \`code.log\` is the only record of what the app did. Copy it to \`${WORK_DIR}/logs/<cdp-port>-code.log\` before you stop that instance. A finding whose log was deleted cannot be checked by the person reading the report, and the container is destroyed at job end anyway, so there is nothing to tidy up for.`,
+	`**Keep the logs in \`${WORK_DIR}/logs/\`.** Follow the skill's Logs section for the pre-launched instance and any you launch. The pre-launched instance's run directory is the only one under \`/tmp/positron-dev-launch/\` when you start, so note it before you launch another. Copy an instance's logs before you stop it: \`stop.sh\` takes its run directory with it. A finding whose log was deleted cannot be checked by the person reading the report.`,
+	'**Do not render the report.** Skip the skill\'s `render.mjs` step; the workflow renders `index.html` itself once verification has been added.',
 ];
 if (REPORT_BASE_URL) {
 	CI_OVERRIDES.push(`**Link screenshots with their public URL.** The run directory is published at \`${REPORT_BASE_URL}\`. Where the skill says to cite a shot as \`[shots/<file>](shots/<file>)\`, write \`[shots/<file>](${REPORT_BASE_URL}/shots/<file>)\` instead, and embed with \`![](${REPORT_BASE_URL}/shots/<file>)\`. A relative path is unreachable to anyone reading the report outside this container.`);
@@ -124,10 +127,11 @@ Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full comman
 // handed its text, so that it reads the same bytes the reviewer will.
 async function verifyReport() {
 	const prompt = [
-		'You are verifying an exploratory-testing report written by a different agent. Decide, for each finding, whether it is a genuine product defect. Be adversarial: the report is a claim, not evidence.',
+		'You are verifying an exploratory-test report written by a different agent. Decide, for each finding, whether it is a genuine product defect. Be adversarial: the report is a claim, not evidence.',
 		'',
 		`Report: \`${join(WORK_DIR, 'report.md')}\``,
 		`The reporting agent's own action log, with timestamps: \`${join(WORK_DIR, 'actions.log')}\``,
+		`Its scenario ledger, with each scenario's steps and checks: \`${join(WORK_DIR, 'ledger.md')}\``,
 		`Repository: \`${REPO_ROOT}\`. Read files at a ref with \`git show <ref>:<path>\`. Do not modify anything.`,
 		'',
 		`See the change under test with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA}\`.`,
@@ -136,7 +140,7 @@ async function verifyReport() {
 		'',
 		"1. Does the code support the report's stated cause hypothesis? Read the files it names and quote the lines that confirm or contradict it.",
 		'2. Could anything the reporting agent did to its own test environment produce the reported symptom? Read the action log and Run details for how it set the machine up, then ask whether that setup, rather than the product, explains what it saw.',
-		'3. Is the `Introduced?` value consistent with the diff? A defect in code the diff did not touch is not introduced by this change, though it may be newly reachable because of it.',
+		'3. Is the `Introduced?` value consistent with the diff? A defect in code the diff did not touch is not introduced by this change, though it may be newly reachable because of it, which is what `exposed` means. A blank or unrecognised `Introduced?` (anything but `yes`, `no` or `exposed`) is a missing answer: flag it, and say which value the diff supports.',
 		'',
 		'Then give a verdict per finding: CONFIRMED, FALSE POSITIVE, or UNRESOLVED (say what evidence is missing).',
 		'',
@@ -187,7 +191,7 @@ async function verifyReport() {
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
 
-	const systemPrompt = readFileSync(SKILL_PATH, 'utf8') + CI_TAIL;
+	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 
 	const userPrompt = [
 		'# Brief',
@@ -289,7 +293,8 @@ async function main() {
 		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: verifyCost },
 	], MAX_TURNS);
-	const report = resolveReport(fileReport, assistantMessages);
+	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
+	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
 	// Read by the workflow to choose the final reaction and the PR comment.
 	// Written before anything below can exit, so a run with no report still
@@ -307,8 +312,9 @@ async function main() {
 		// The report opens with its own "# Exploratory test: ..." heading, so a
 		// wrapper heading here would render two titles. The partial and
 		// no-report branches below still need one: they have no report to
-		// supply it.
-		if (!(typeof fileReport === 'string' && fileReport.trim().length > 0)) {
+		// supply it. Written when the reply was the only copy, or the PR line
+		// changed it.
+		if (report !== fileReport) {
 			writeFileSync(join(WORK_DIR, 'report.md'), report);
 		}
 
@@ -354,7 +360,23 @@ async function main() {
 		// image URLs in it. The markdown stays: the verification pass reads it,
 		// and a file you can grep is worth keeping.
 		try {
-			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown));
+			const ledgerPath = join(WORK_DIR, 'ledger.md');
+			const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
+			const fileExists = path => existsSync(join(WORK_DIR, path));
+			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown, {
+				agentPrompts: AGENT_PROMPTS,
+				// Coverage is built from the run's ledger when it wrote one.
+				ledger,
+				// Evidence in the prompt has to open from wherever it is pasted.
+				base: REPORT_BASE_URL || WORK_DIR,
+				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
+				fileExists,
+			}));
+			// Warned rather than failed: the page still renders, with the missing files unlinked.
+			const missing = linkedLogs(parseReport(reportMarkdown, { ledger })).filter(p => !fileExists(p));
+			if (missing.length) {
+				console.error(`[report] WARN: log files listed but not in the run directory: ${missing.join(', ')}`);
+			}
 		} catch (err) {
 			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
 		}
@@ -366,7 +388,7 @@ async function main() {
 	}
 
 	if (STEP_SUMMARY) {
-		appendFileSync(STEP_SUMMARY, summary);
+		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER) + summary);
 	}
 	// The full report still goes to the action log. It is the one copy that
 	// survives an artifact upload or a CDN publish that did not happen.

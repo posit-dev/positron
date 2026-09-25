@@ -108,13 +108,32 @@ export class DataConnections {
 	}
 
 	/**
+	 * The provider row's Connect button in the "Add Data Connection" dialog. Keyed off the button's
+	 * exact accessible name rather than the row's text, because the row renders the driver's
+	 * description too: filtering rows on a substring of 'ODBC' would also match every per-database
+	 * ODBC driver, which describe themselves as "Connect to a {name} database over ODBC".
+	 * @param providerName The driver name shown on the provider row, e.g. 'PostgreSQL'.
+	 */
+	private providerConnectButton(providerName: string): Locator {
+		return this.dialog.getByRole('button', { name: `Connect to ${providerName}`, exact: true });
+	}
+
+	/**
+	 * Asserts that a provider's row is present in the "Add Data Connection" dialog.
+	 * @param providerName The driver name shown on the provider row, e.g. 'PostgreSQL'.
+	 */
+	async expectProviderVisible(providerName: string): Promise<void> {
+		await expect(this.providerConnectButton(providerName)).toBeVisible();
+	}
+
+	/**
 	 * Selects a provider in the "Add Data Connection" dialog and advances to the configure step.
-	 * @param providerName The driver name shown on the provider card, e.g. 'PostgreSQL'.
+	 * @param providerName The driver name shown on the provider row, e.g. 'PostgreSQL'.
 	 */
 	async selectProvider(providerName: string): Promise<void> {
 		await test.step(`Select provider: ${providerName}`, async () => {
-			await this.dialog.locator('.driver-card').filter({ hasText: providerName }).click();
-			await this.nextButton.click();
+			// The row's own Connect button advances the flow; the dialog has no Next button.
+			await this.providerConnectButton(providerName).click();
 		});
 	}
 

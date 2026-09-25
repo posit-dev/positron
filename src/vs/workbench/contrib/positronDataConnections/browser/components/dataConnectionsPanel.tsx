@@ -44,12 +44,12 @@ interface DataConnectionsPanelProps {
  */
 export const DataConnectionsPanel = (props: DataConnectionsPanelProps) => {
 	// Context.
-	const { configurationService, notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
+	const { configurationService, hoverService, notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// Tree instance. Constructed once per mount; the instance subscribes to the service's
 	// onDidChangeInstances / onDidChangeProfiles internally and pushes new roots itself, so
 	// no React effect is needed to keep it in sync.
-	const [treeInstance] = useState(() => new DataConnectionsTreeInstance(positronDataConnectionsService, configurationService, notificationService));
+	const [treeInstance] = useState(() => new DataConnectionsTreeInstance(positronDataConnectionsService, configurationService, notificationService, hoverService));
 
 	// Dispose the tree instance on unmount.
 	useEffect(() => () => treeInstance.dispose(), [treeInstance]);

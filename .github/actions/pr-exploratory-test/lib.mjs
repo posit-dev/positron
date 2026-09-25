@@ -6,7 +6,7 @@
 // Pure helpers for run.mjs, kept separate so they can be unit tested without
 // the Agent SDK or a live container.
 
-import { parseReport } from './report-parse.mjs';
+import { modelDisplayName, parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 
 /** Pick the latest assistant message that looks like the report. */
 export function pickReport(messages) {
@@ -61,18 +61,6 @@ function mainModel(modelUsage) {
 		}
 	}
 	return best?.id ?? null;
-}
-
-/** `claude-opus-5-5` reads `Opus 5.5`. An id it does not recognise passes through. */
-export function modelDisplayName(id) {
-	if (!id) {
-		return null;
-	}
-	const m = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[[^\]]*\])?$/.exec(id);
-	if (!m) {
-		return id;
-	}
-	return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`;
 }
 
 /**
@@ -270,6 +258,30 @@ export function parseGate(text) {
 }
 
 /**
+ * Whether a path can change what a user sees. Tests, docs and this harness's
+ * own files cannot, so a diff made only of them is declined before the model
+ * is asked: the model has been known to wave a test-only diff through.
+ */
+export function isProductPath(path) {
+	return !(
+		/^\.(github|claude)\//.test(path) ||
+		/(^|\/)(test|tests|__tests__|docs)\//.test(path) ||
+		/\.(vitest|test|spec|integrationTest)\.[cm]?[jt]sx?$/.test(path) ||
+		/\.md$/i.test(path)
+	);
+}
+
+/**
+ * The step summary's first line: what was tested, so a run is identifiable
+ * without opening its report. The PR part is left off when there is none.
+ */
+export function renderSummaryTarget(branch, repo, number) {
+	const parts = repo && /^\d+$/.test(String(number ?? '')) ? [`PR [#${number}](https://github.com/${repo}/pull/${number})`] : [];
+	if (branch) { parts.push(`\`${branch}\``); }
+	return parts.length ? `${parts.join(' · ')}\n\n` : '';
+}
+
+/**
  * Renders the job's step summary.
  *
  * The whole report used to be pasted here, which made a reviewer scroll a
@@ -324,11 +336,12 @@ export function runOutcome({ report, numTurns, maxTurns }) {
  * head it tested: a push after `/test` makes the result stale, and the SHA is
  * how a reader tells.
  *
- * `state` is a runOutcome value, `running`, or empty when the agent never ran
- * (the build failed first). `model` is the /test argument; naming it makes a
- * typo that fell back to the default visible.
+ * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
+ * `reason` says why), or empty when the agent never ran (the build failed
+ * first). `model` is the /test argument; naming it makes a typo that fell back
+ * to the default visible.
  */
-export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, model }) {
+export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, model, reason }) {
 	const target = headSha ? `\`${headSha.slice(0, 7)}\`` : 'the PR head';
 	// Product names: "Opus", not the lowercase /test argument.
 	const title = model ? `Exploratory test (${model[0].toUpperCase()}${model.slice(1)})` : 'Exploratory test';
@@ -336,15 +349,37 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, mod
 	if (state === 'running') {
 		return `${COMMENT_MARKER}\n### ${title}\n\nRunning against ${target}. ${run}\n`;
 	}
+	if (state === 'declined') {
+		return `${COMMENT_MARKER}\n### ${title} on ${target}: not run\n\nThe pre-flight check declined this change: ${reason || 'no reason recorded.'} ${run}\n`;
+	}
 	if (markdown && (state === 'complete' || state === 'partial')) {
 		const note = state === 'partial'
 			? '\n_Partial run: the agent hit the turn cap, so coverage is incomplete._\n'
 			: '';
 		return `${COMMENT_MARKER}\n### ${title} on ${target}\n\n${renderStepSummary(markdown, baseUrl)}${note}\n${run}\n`;
 	}
-	const reason = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
+	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
 		: state === 'no-report' ? 'The agent finished without writing a report.'
 			: 'The run failed before the agent produced a report.';
-	return `${COMMENT_MARKER}\n### ${title} on ${target}: no report\n\n${reason} ${run}\n`;
+	return `${COMMENT_MARKER}\n### ${title} on ${target}: no report\n\n${why} ${run}\n`;
 }
 
+/**
+ * Stamps `PR: <repo>#<n>` under the report's `<branch>` | `<sha>` line, which
+ * is where the renderer reads it for the header link. The agent is not asked
+ * to write it: CI knows the PR from the event, the agent would only copy it.
+ * A report that already names one, or has no meta line, is left alone.
+ */
+export function withPrLine(markdown, repo, number) {
+	if (!markdown || !repo || !/^\d+$/.test(String(number ?? '')) || /^(\*\*)?PR:/m.test(markdown)) {
+		return markdown;
+	}
+	const lines = markdown.split('\n');
+	const title = lines.findIndex(l => l.startsWith('# '));
+	const meta = lines.findIndex((l, i) => i > title && title !== -1 && l.trim().startsWith('`'));
+	if (meta === -1 || lines.slice(title + 1, meta).some(l => l.startsWith('#'))) {
+		return markdown;
+	}
+	lines.splice(meta + 1, 0, '', `PR: ${repo}#${number}`);
+	return lines.join('\n');
+}

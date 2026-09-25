@@ -420,9 +420,9 @@ assert_eq "split: missing enum file treats all tags as invalid" "|@:console" \
 	"$(split_valid_invalid_tags "@:console" "/nonexistent/test-tags.ts")"
 
 # --- feature_enum_tags ---
-# test-tags.ts splits tags into FeatureTags / PlatformTags / SpecialTags enums,
+# test-tags.ts splits tags into FeatureTags / PlatformTags enums,
 # merged into TestTags. feature_enum_tags returns ONLY the FeatureTags block --
-# the allowlist for auto test-change tag derivation. Platform/special tags must
+# the allowlist for auto test-change tag derivation. Platform tags must
 # be excluded (they trigger their own CI lanes / are author-controlled).
 ROLE_ENUM="$(mktemp)"
 cat > "$ROLE_ENUM" <<'TS'
@@ -436,21 +436,18 @@ export enum PlatformTags {
 	WEB = '@:web',
 	CROSS_BROWSER = '@:cross-browser',
 }
-export enum SpecialTags {
-	SOFT_FAIL = '@:soft-fail',
-}
-export const TestTags = { ...FeatureTags, ...PlatformTags, ...SpecialTags };
+export const TestTags = { ...FeatureTags, ...PlatformTags };
 TS
 assert_eq "feature_enum_tags: returns only the FeatureTags block, sorted" \
 	"$(printf '@:console\n@:performance\n@:variables')" "$(feature_enum_tags "$ROLE_ENUM")"
-assert_eq "valid_enum_tags: still returns ALL tags across the three blocks" \
-	"$(printf '@:console\n@:cross-browser\n@:performance\n@:soft-fail\n@:variables\n@:web\n@:win')" \
+assert_eq "valid_enum_tags: still returns ALL tags across both blocks" \
+	"$(printf '@:console\n@:cross-browser\n@:performance\n@:variables\n@:web\n@:win')" \
 	"$(valid_enum_tags "$ROLE_ENUM")"
 assert_eq "feature_enum_tags: missing file yields nothing" "" "$(feature_enum_tags "/nonexistent/test-tags.ts")"
 rm -f "$ROLE_ENUM"
 
 # Drift guard against the REAL test-tags.ts: feature tags must include known
-# feature areas and must NOT include platform/special tags. Catches a tag
+# feature areas and must NOT include platform tags. Catches a tag
 # landing in (or moving to) the wrong enum block.
 REAL_ENUM="$HERE/../../test/e2e/infra/test-runner/test-tags.ts"
 REAL_FEATURE="$(feature_enum_tags "$REAL_ENUM")"
@@ -461,9 +458,9 @@ for t in @:console @:variables @:plots @:performance; do
 		echo "FAIL: real FeatureTags should include $t"; fail=1
 	fi
 done
-for t in @:win @:web @:cross-browser @:soft-fail @:workbench @:workbench-rocky @:remote-ssh; do
+for t in @:win @:web @:cross-browser @:workbench @:workbench-rocky @:remote-ssh; do
 	if printf '%s\n' "$REAL_FEATURE" | grep -qxF "$t"; then
-		echo "FAIL: real FeatureTags should NOT include platform/special tag $t"; fail=1
+		echo "FAIL: real FeatureTags should NOT include platform tag $t"; fail=1
 	else
 		echo "PASS: real FeatureTags excludes $t"
 	fi

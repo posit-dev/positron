@@ -76,12 +76,6 @@ run_extension_suite npm run test-extension -- -l authentication
 kill_app
 
 echo
-echo "### Positron Catalog Explorer tests"
-echo
-run_extension_suite npm run test-extension -- -l positron-catalog-explorer
-kill_app
-
-echo
 echo "### Positron Code Cells tests"
 echo
 run_extension_suite npm run test-extension -- -l positron-code-cells

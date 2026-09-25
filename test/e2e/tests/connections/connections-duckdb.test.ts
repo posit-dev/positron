@@ -31,7 +31,7 @@ function configurePasswordStore() {
 
 
 test.describe('DuckDB Connection', {
-	tag: [tags.WEB, tags.CONNECTIONS, tags.WIN, tags.SOFT_FAIL]
+	tag: [tags.WEB, tags.CONNECTIONS, tags.WIN]
 }, () => {
 
 	test.beforeAll(async function ({ app }) {

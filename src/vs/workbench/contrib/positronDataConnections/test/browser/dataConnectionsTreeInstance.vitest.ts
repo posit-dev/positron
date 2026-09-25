@@ -10,12 +10,16 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+
+// The tree's hover manager hides the hover when the tree is disposed; nothing here shows one.
+const hoverService = stubInterface<IHoverService>({ hideHover: vi.fn() });
 
 function createProfile(overrides: Partial<IDataConnectionProfile> = {}): IDataConnectionProfile {
 	return {
@@ -223,7 +227,7 @@ describe('DataConnectionsTreeInstance', () => {
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
-		const tree = new DataConnectionsTreeInstance(service, configurationService, notificationService);
+		const tree = new DataConnectionsTreeInstance(service, configurationService, notificationService, hoverService);
 		ctx.disposables.add(tree);
 
 		const setConnected = (nowConnected: boolean) => {
@@ -283,7 +287,7 @@ describe('DataConnectionsTreeInstance', () => {
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
 			'dataConnections.tree.showSingleSchema': showSingleSchema,
-		}), notificationService);
+		}), notificationService, hoverService);
 		ctx.disposables.add(tree);
 		return { tree, nodeGetChildren, notificationError };
 	}
@@ -827,7 +831,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
-		}), stubInterface<INotificationService>({ error: vi.fn() }));
+		}), stubInterface<INotificationService>({ error: vi.fn() }), hoverService);
 		ctx.disposables.add(tree);
 
 		// The tree asks the view rendering it to take keyboard focus, which is the part of a reveal

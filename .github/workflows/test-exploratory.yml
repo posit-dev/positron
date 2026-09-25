@@ -21,10 +21,10 @@ on:
           - opus
           - sonnet
           - both
-      enable_gate:
-        description: "Skip the run if the change can't be tested in the app"
+      worthiness_check:
+        description: "Worthiness check"
         required: false
-        default: false
+        default: true
         type: boolean
   # `/test` (or `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
@@ -152,7 +152,15 @@ jobs:
   # runner first. One pass serves every matrix leg.
   worthiness:
     name: worthiness
-    if: ${{ inputs.enable_gate }}
+    needs: [membership]
+    # Runs on every /test (there is no input to turn it off there) and on a
+    # dispatch that leaves it on. Behind membership on a comment, because it
+    # checks out the PR and gives an agent a shell in it. always(): membership
+    # is skipped on dispatch.
+    if: >-
+      ${{ always() &&
+      ((github.event_name == 'workflow_dispatch' && inputs.worthiness_check) ||
+        needs.membership.outputs.ok == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -164,7 +172,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.ref_name }}
+          ref: ${{ inputs.ref || needs.membership.outputs.head_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -182,7 +190,7 @@ jobs:
           path: .harness
           sparse-checkout: |
             .github/actions
-            .claude/skills/exploratory-testing
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -190,7 +198,7 @@ jobs:
         id: base
         shell: bash
         env:
-          BASE_REF: ${{ inputs.base || 'main' }}
+          BASE_REF: ${{ inputs.base || needs.membership.outputs.base_ref || 'main' }}
         run: |
           set -euo pipefail
           if ! git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
@@ -202,7 +210,9 @@ jobs:
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           {
             echo "diff_stat<<DIFFEOF"
-            git --no-pager diff "$BASE"...HEAD --stat
+            # Full paths: the default width elides the src/ or test/ prefix
+            # the gate most needs to see.
+            git --no-pager diff "$BASE"...HEAD --stat=1000
             echo "DIFFEOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -223,8 +233,8 @@ jobs:
           # gate mode does not read the skill, but the harness copy is the one
           # this job means either way; leaving it to default would quietly point
           # at the branch under test the day gate mode does read it.
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
-          branch: ${{ inputs.ref || github.ref_name }}
+          explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
+          branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -279,7 +289,9 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: .harness
-          sparse-checkout: .github/actions
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -370,7 +382,7 @@ jobs:
           path: .harness
           sparse-checkout: |
             .github/actions
-            .claude/skills/exploratory-testing
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -551,12 +563,34 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
+      # A dispatched run has no PR in its event. Find the ref's open PR so the
+      # summary and report can link it; none found just means no link.
+      - name: Find the ref's PR
+        id: pr
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        shell: bash
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          node -e '
+            const [owner] = process.env.GITHUB_REPOSITORY.split("/");
+            const q = new URLSearchParams({ head: `${owner}:${process.env.REF}`, state: "open" });
+            fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/pulls?${q}`, {
+              headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json" },
+            }).then(r => r.json()).then(prs => {
+              const n = Array.isArray(prs) && prs[0]?.number;
+              console.log(n ? `PR #${n}` : "no open PR");
+              if (n) require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `number=${n}\n`);
+            });
+          '
+
       - name: Explore
         id: explore
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
+          explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
           branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
@@ -565,6 +599,8 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
+          # The PR link in the summary and the report header. No PR, no link.
+          pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
 
       - name: Stage publishable run directory
         if: always()
@@ -576,6 +612,9 @@ jobs:
           if [ -d /tmp/exploratory-run ]; then
             cp -a /tmp/exploratory-run/. /tmp/exploratory-publish/
             rm -f /tmp/exploratory-publish/actions.log
+            # The raw log tree stays in the artifact: the page lists it unlinked,
+            # and the curated files beside it are what a reader opens.
+            rm -rf /tmp/exploratory-publish/logs/all
           fi
 
       - name: Upload run directory to S3
@@ -610,7 +649,7 @@ jobs:
   # "running" with the truth.
   report:
     name: report
-    needs: [membership, ack, explore]
+    needs: [membership, worthiness, ack, explore]
     if: always() && needs.membership.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -623,7 +662,9 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: .harness
-          sparse-checkout: .github/actions
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -655,27 +696,33 @@ jobs:
           model: ${{ needs.membership.outputs.model }}
           # Empty when ack could not post; comment mode then posts a new one.
           comment-id: ${{ needs.ack.outputs.comment_id }}
-          outcome: ${{ needs.explore.outputs.outcome }}
+          # A declined run never reaches explore; say so rather than "failed".
+          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
+          decline-reason: ${{ needs.worthiness.outputs.reason }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.explore.outputs.report_base_url }}
           pr-number: ${{ github.event.issue.number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.membership.outputs.head_sha }}
 
-      # rocket only when the agent finished on its own. A partial run (turn
-      # cap) and a hard failure both get confused.
+      # rocket only when the agent finished on its own, +1 when the gate
+      # declined. A partial run (turn cap) and a hard failure both get confused.
       - name: Finalize reaction
         if: needs.ack.outputs.reaction_id != ''
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
           REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
-          OUTCOME: ${{ needs.explore.outputs.outcome }}
+          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
         run: |
           gh api --method DELETE \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
             || echo "Failed to remove eyes reaction (non-fatal)"
-          if [ "$OUTCOME" = "complete" ]; then FINAL=rocket; else FINAL=confused; fi
+          case "$OUTCOME" in
+            complete) FINAL=rocket ;;
+            declined) FINAL=+1 ;;
+            *) FINAL=confused ;;
+          esac
           gh api --method POST \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
             -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
