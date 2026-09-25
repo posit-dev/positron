@@ -155,4 +155,39 @@ suite('Sends after kernel exit', () => {
 			session.dispose();
 		}
 	});
+
+	// `deleteSession()` disposes a session whose runtime won't quit, so no exit
+	// event may ever arrive to release its consumers.
+	test('rejects an LSP start awaiting its port when the session is disposed', async () => {
+		const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
+		await once(server, 'listening');
+		const { port } = server.address() as AddressInfo;
+
+		const session = createSession({ basePath: `http://127.0.0.1:${port}` });
+		try {
+			await settled(session.connect());
+			const starting = session.startPositronLsp('positron-lsp-r-test', '127.0.0.1');
+
+			// Wait until `startPositronLsp()` awaits the kernel's reply, not the
+			// connection, so disposal exercises pending-comm cleanup.
+			await new Promise(resolve => setImmediate(resolve));
+			session.dispose();
+
+			await assert.rejects(settled(starting), /Session disposed/);
+		} finally {
+			session.dispose();
+			server.close();
+		}
+	});
+
+	test('rejects a send waiting for the connection when the session is disposed', async () => {
+		const session = createSession();
+		markConnected(session);
+		session.handleMessage({ kind: 'kernel', status: { status: positron.RuntimeState.Offline, reason: 'test' } });
+		const sent = session.sendCommand(newCommand());
+
+		session.dispose();
+
+		await assert.rejects(settled(sent), /the session was disposed/);
+	});
 });

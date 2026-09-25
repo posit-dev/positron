@@ -1956,6 +1956,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._socket.close();
 		}
 
+		// Reject pending work without firing an exit event, since the kernel may
+		// still be running. Prevent reconnection so `connect()` cannot replace
+		// the cancelled barrier and allow sends on a disposed session.
+		this._canConnect = false;
+		this._connected.cancel(new Error(
+			`Cannot send message to session ${this.metadata.sessionId}: the session was disposed`
+		));
+		this.releaseKernelConsumers('Session disposed');
+
 		// Close the log streamer, the websocket, and any other disposables
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
@@ -2245,32 +2254,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			));
 		}
 
-		// All clients are now closed
-		this._clients.clear();
-
-		// Close all raw comms
-		for (const [comm, tx] of this._comms.values()) {
-			// Don't dispose of comm, this resource is owned by caller of `createComm()`.
-			comm.close();
-			tx.dispose();
-		}
-		this._comms.clear();
-
-		// Clear any starting comms
-		this._startingComms.forEach((promise) => {
-			promise.reject(new Error('Kernel exited'));
-		});
-		this._startingComms.clear();
-
-		// Pending requests cannot receive replies after the kernel exits.
-		this._pendingRequests.forEach((req) => {
-			req.reject(new Error('Kernel exited'));
-		});
-		this._pendingRequests.clear();
-		this._pendingUiCommRequests.forEach((req) => {
-			req.promise.reject(new Error('Kernel exited'));
-		});
-		this._pendingUiCommRequests = [];
+		this.releaseKernelConsumers('Kernel exited');
 
 		// If we don't know the exit reason and there's a nonzero exit code,
 		// consider this exit to be due to an error.
@@ -2290,6 +2274,40 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// We have now consumed the exit reason; restore it to its default
 		this._exitReason = positron.RuntimeExitReason.Unknown;
+	}
+
+	/**
+		* Release pending consumers on both exit and disposal. `deleteSession()`
+		* can dispose a runtime that never exits and could leave e.g.
+		* `startPositronLsp()` waiting for a reply.
+	 */
+	private releaseKernelConsumers(reason: string) {
+		// All clients are now closed
+		this._clients.clear();
+
+		// Close all raw comms
+		for (const [comm, tx] of this._comms.values()) {
+			// Don't dispose of comm, this resource is owned by caller of `createComm()`.
+			comm.close();
+			tx.dispose();
+		}
+		this._comms.clear();
+
+		// Clear any starting comms
+		this._startingComms.forEach((promise) => {
+			promise.reject(new Error(reason));
+		});
+		this._startingComms.clear();
+
+
+		this._pendingRequests.forEach((req) => {
+			req.reject(new Error(reason));
+		});
+		this._pendingRequests.clear();
+		this._pendingUiCommRequests.forEach((req) => {
+			req.promise.reject(new Error(reason));
+		});
+		this._pendingUiCommRequests = [];
 	}
 
 	/**
