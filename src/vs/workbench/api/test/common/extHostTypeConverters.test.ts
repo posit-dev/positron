@@ -8,10 +8,11 @@ import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../../platform/log/common/log.js';
 import { IconPathDto } from '../../common/extHost.protocol.js';
-import { ChatPromptReference, ChatRequestModeInstructions, ChatResponseVoiceProgressPart, ChatToolInvocationPart, IconPath } from '../../common/extHostTypeConverters.js';
-import { ChatReferenceBinaryData, ChatResponseVoiceProgressPart as ExtHostChatResponseVoiceProgressPart, ChatSubagentToolInvocationData, ChatToolInvocationPart as ExtHostChatToolInvocationPart, ThemeColor, ThemeIcon } from '../../common/extHostTypes.js';
+import { ChatPromptReference, ChatRequestModeInstructions, ChatResponseVoiceProgressPart, ChatToolInvocationPart, IconPath, ViewColumn } from '../../common/extHostTypeConverters.js';
+import { ChatReferenceBinaryData, ChatResponseVoiceProgressPart as ExtHostChatResponseVoiceProgressPart, ChatSubagentToolInvocationData, ChatToolInvocationPart as ExtHostChatToolInvocationPart, ThemeColor, ThemeIcon, ViewColumn as ViewColumnEnum } from '../../common/extHostTypes.js';
 import { IElementVariableEntry } from '../../../contrib/chat/common/attachments/chatVariableEntries.js';
 import { IChatRequestModeInstructions } from '../../../contrib/chat/common/model/chatModel.js';
+import { ACTIVE_GROUP, MODAL_GROUP } from '../../../services/editor/common/editorService.js';
 import { Dto } from '../../../services/extensions/common/proxyIdentifier.js';
 
 suite('extHostTypeConverters', function () {
@@ -23,6 +24,24 @@ suite('extHostTypeConverters', function () {
 			{ kind: 'voiceProgress', id: 'investigating', value: 'Investigating the relevant code.' }
 		);
 	});
+
+	// --- Start Positron ---
+	// Adding ViewColumn.Modal ahead of microsoft/vscode#307838 landing upstream; see positron#16082.
+	suite('ViewColumn', function () {
+		suite('from', function () {
+			test('Modal resolves to Modal group', function () {
+				assert.strictEqual(ViewColumn.from(ViewColumnEnum.Modal), MODAL_GROUP);
+			});
+
+			test('an extension built against a newer vscode.d.ts running on an older host falls back to Active group', function () {
+				// On a host without this change, `vscode.ViewColumn.Modal` is `undefined` at
+				// runtime (the enum has no such member) rather than -4, so this simulates what
+				// an older `ViewColumn.from` receives from a newer extension's compiled code.
+				assert.strictEqual(ViewColumn.from(undefined), ACTIVE_GROUP);
+			});
+		});
+	});
+	// --- End Positron ---
 
 	suite('IconPath', function () {
 		suite('from', function () {

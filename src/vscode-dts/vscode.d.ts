@@ -7364,6 +7364,15 @@ declare module 'vscode' {
 		 * of editors will always be `One`, `Two`, `Three`,... or `undefined` but never `Beside`.
 		 */
 		Beside = -2,
+		// --- Start Positron ---
+		// Adding ViewColumn.Modal ahead of microsoft/vscode#307838 landing upstream; see positron#16082.
+		/**
+		 * A *symbolic* editor column representing a modal overlay on top of the workbench. This value
+		 * can be used when opening editors, but the *resolved* {@link TextEditor.viewColumn viewColumn}-value
+		 * of editors will always be `One`, `Two`, `Three`,... or `undefined` but never `Modal`.
+		 */
+		Modal = -4,
+		// --- End Positron ---
 		/**
 		 * The first editor column.
 		 */
@@ -11566,6 +11575,27 @@ declare module 'vscode' {
 			 * An optional flag that when `true` will stop the panel from taking focus.
 			 */
 			readonly preserveFocus?: boolean;
+			// --- Start Positron ---
+			// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
+			/**
+			 * Options that only apply when `viewColumn` is {@link ViewColumn.Modal}.
+			 */
+			readonly modal?: {
+				/**
+				 * Size of the modal editor, in pixels.
+				 */
+				readonly size?: {
+					/**
+					 * The width of the modal editor.
+					 */
+					readonly width: number;
+					/**
+					 * The height of the modal editor.
+					 */
+					readonly height: number;
+				};
+			};
+			// --- End Positron ---
 		}, options?: WebviewPanelOptions & WebviewOptions): WebviewPanel;
 
 		/**

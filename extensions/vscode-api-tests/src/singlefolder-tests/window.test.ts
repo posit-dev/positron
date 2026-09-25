@@ -267,6 +267,19 @@ suite('vscode API - window', () => {
 		assert.strictEqual(window.activeTextEditor!.viewColumn, ViewColumn.Three);
 	});
 
+	// --- Start Positron ---
+	// Testing ViewColumn.Modal ahead of microsoft/vscode#307838 landing upstream; see positron#16082.
+	test('showTextDocument ViewColumn.Modal', async () => {
+		const doc = await workspace.openTextDocument(await createRandomFile());
+
+		const editor = await window.showTextDocument(doc, ViewColumn.Modal);
+
+		assert.ok(window.activeTextEditor);
+		assert.ok(window.activeTextEditor!.document === doc);
+		assert.notStrictEqual(editor.viewColumn, ViewColumn.Modal);
+	});
+	// --- End Positron ---
+
 	test('showTextDocument ViewColumn is always defined (even when opening > ViewColumn.Nine)', async () => {
 		const [doc1, doc2, doc3, doc4, doc5, doc6, doc7, doc8, doc9, doc10] = await Promise.all([
 			workspace.openTextDocument(await createRandomFile()),

@@ -17,7 +17,7 @@ import { WebviewIconPath, WebviewInput } from '../../contrib/webviewPanel/browse
 import { IWebViewShowOptions, IWebviewWorkbenchService } from '../../contrib/webviewPanel/browser/webviewWorkbenchService.js';
 import { editorGroupToColumn } from '../../services/editor/common/editorGroupColumn.js';
 import { GroupLocation, GroupsOrder, IEditorGroup, IEditorGroupsService, preferredSideBySideGroupDirection } from '../../services/editor/common/editorGroupsService.js';
-import { ACTIVE_GROUP, IEditorService, PreferredGroup, SIDE_GROUP } from '../../services/editor/common/editorService.js';
+import { ACTIVE_GROUP, IEditorService, MODAL_GROUP, PreferredGroup, SIDE_GROUP } from '../../services/editor/common/editorService.js';
 import { IExtensionService } from '../../services/extensions/common/extensions.js';
 import { IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import * as extHostProtocol from '../common/extHost.protocol.js';
@@ -158,7 +158,11 @@ export class MainThreadWebviewPanels extends Disposable implements extHostProtoc
 		const targetGroup = this.getTargetGroupFromShowOptions(showOptions);
 		const mainThreadShowOptions: IWebViewShowOptions = showOptions ? {
 			preserveFocus: !!showOptions.preserveFocus,
-			group: targetGroup
+			group: targetGroup,
+			// --- Start Positron ---
+			// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
+			modal: showOptions.modal
+			// --- End Positron ---
 		} : {};
 
 		const extension = reviveWebviewExtension(extensionData);
@@ -206,6 +210,15 @@ export class MainThreadWebviewPanels extends Disposable implements extHostProtoc
 	}
 
 	private getTargetGroupFromShowOptions(showOptions: extHostProtocol.WebviewPanelShowOptions): PreferredGroup {
+		// --- Start Positron ---
+		// Adding ViewColumn.Modal ahead of microsoft/vscode#307838 landing upstream; see positron#16082.
+		// Checked first so an explicit modal request isn't overridden by the single-empty-group
+		// fallback below, which only makes sense for the main editor grid.
+		if (showOptions.viewColumn === MODAL_GROUP) {
+			return MODAL_GROUP;
+		}
+		// --- End Positron ---
+
 		if (typeof showOptions.viewColumn === 'undefined'
 			|| showOptions.viewColumn === ACTIVE_GROUP
 			|| (this._editorGroupService.count === 1 && this._editorGroupService.activeGroup.isEmpty)

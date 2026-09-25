@@ -8,7 +8,7 @@ import { mkdtemp, rm, writeFile } from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { asPromise } from '../utils';
+import { asPromise, closeAllEditors, createRandomFile } from '../utils';
 
 suite('vscode API - webview', () => {
 	const disposables: vscode.Disposable[] = [];
@@ -123,4 +123,36 @@ suite('vscode API - webview', () => {
 			await rm(tempDir, { recursive: true, force: true });
 		}
 	});
+
+	// --- Start Positron ---
+	// Testing ViewColumn.Modal ahead of microsoft/vscode#307838 landing upstream; see positron#16082.
+	test('createWebviewPanel ViewColumn.Modal opens in a separate group, not the active one', async () => {
+		const doc = await vscode.workspace.openTextDocument(await createRandomFile());
+		await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+
+		const groupCountBefore = vscode.window.tabGroups.all.length;
+
+		const title = 'Modal Webview Test';
+		const panel = vscode.window.createWebviewPanel('webview-modal-test', title, vscode.ViewColumn.Modal, {});
+		disposables.push(panel);
+
+		try {
+			await asPromise(vscode.window.tabGroups.onDidChangeTabs, 2000);
+
+			const groups = vscode.window.tabGroups.all;
+			assert.strictEqual(groups.length, groupCountBefore + 1,
+				'opening a webview in ViewColumn.Modal should add a separate group rather than reuse the active one');
+
+			const modalGroup = groups.find(g => g.tabs.some(t => t.label === title));
+			assert.ok(modalGroup, 'the webview should appear in some tab group');
+			assert.strictEqual(modalGroup!.tabs.length, 1, 'the modal group should contain only the webview tab');
+
+			const originalGroup = groups.find(g => g !== modalGroup);
+			assert.strictEqual(originalGroup!.tabs.length, 1,
+				'the original active group should be untouched by opening a webview in ViewColumn.Modal');
+		} finally {
+			await closeAllEditors();
+		}
+	});
+	// --- End Positron ---
 });
