@@ -33,6 +33,18 @@ export function connectionsFilePath(): string {
 }
 
 /**
+ * Shortens a path under the user's home directory to a leading `~`, for showing the connections file
+ * in the connect dialog. A path elsewhere -- which is what $SNOWFLAKE_HOME usually points at -- is
+ * shown in full, since that is the only form that says where the file actually is.
+ */
+export function displayPath(filePath: string): string {
+	const home = os.homedir();
+	return filePath.startsWith(home + path.sep)
+		? `~${filePath.slice(home.length)}`
+		: filePath;
+}
+
+/**
  * Parses connections.toml content into a map of connection name to its raw entry, preserving file
  * order. Only top-level tables (objects) are treated as connections; any stray scalar keys are
  * ignored.
@@ -50,19 +62,42 @@ export function parseConnectionsFile(content: string): Record<string, SnowflakeC
 }
 
 /**
- * Reads and parses the connections file, returning an empty map when the file is missing or cannot be
- * read or parsed. Callers treat "no connections" and "no file" the same way (the mechanism simply
- * offers nothing), so read/parse failures are swallowed rather than surfaced here.
+ * Reads and parses the connections file, returning an empty map when the file does not exist.
+ * Callers treat "no connections" and "no file" the same way (the mechanism simply offers nothing).
+ *
+ * A file that exists but cannot be read or parsed throws instead. A TOML typo, or a file caught
+ * half-written, is not the same as a file with no connections in it: treating it as empty would
+ * drop every connection the file defines until the next good read.
  */
-export function readConnectionsFile(filePath: string = connectionsFilePath()): Record<string, SnowflakeConnectionsFileEntry> {
+export function readConnectionsFile(filePath: string): Record<string, SnowflakeConnectionsFileEntry> {
+	let content: string;
 	try {
-		return parseConnectionsFile(readFileSync(filePath, 'utf-8'));
-	} catch {
-		return {};
+		content = readFileSync(filePath, 'utf-8');
+	} catch (err) {
+		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+			return {};
+		}
+		throw err;
 	}
+	return parseConnectionsFile(content);
 }
 
-/** The names of the connections defined in the file, in file order. */
-export function listConnectionNames(filePath: string = connectionsFilePath()): string[] {
-	return Object.keys(readConnectionsFile(filePath));
+/**
+ * Whether two readings of the file define the same connections.
+ *
+ * Used to tell a real edit from a file event that changed nothing, so the pane is only asked to
+ * refresh the driver when the named connections -- or the values behind them -- actually changed.
+ *
+ * @param a One reading.
+ * @param b The other.
+ * @returns True when a driver updated with `b` would offer exactly what `a` offered.
+ */
+export function isSameConnectionsFile(
+	a: Record<string, SnowflakeConnectionsFileEntry>,
+	b: Record<string, SnowflakeConnectionsFileEntry>
+): boolean {
+	// Both sides come from the same parser, which preserves file order, so a structural comparison
+	// of the serialized form is exact. A reordered file counts as a change: the order is what the
+	// connection picker lists.
+	return JSON.stringify(a) === JSON.stringify(b);
 }
