@@ -101,6 +101,30 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 }
 
 /**
+ * Reads the account and token from Posit Workbench managed connections.toml, without
+ * validating the account or deriving the Cortex base URL
+ * @param snowflake Catalog `connection.snowflake` slice supplying `home`
+ * @returns Account and token, or undefined if none found
+ */
+export function readSnowflakeManagedCredentials(
+	snowflake?: { home?: string }
+): { account: string; token: string } | undefined {
+	const connectionsTomlPath = getSnowflakeConnectionsTomlPath(snowflake);
+	if (!connectionsTomlPath) {
+		logger.debug('No Posit Workbench managed credentials detected');
+		return undefined;
+	}
+
+	const result = extractCredentialsFromToml(connectionsTomlPath);
+	if (result && result.token) {
+		return result;
+	}
+
+	logger.debug('Failed to extract valid Snowflake credentials from connections.toml');
+	return undefined;
+}
+
+/**
  * Detects Snowflake credentials from Posit Workbench managed connections.toml
  * @param snowflake Catalog `connection.snowflake` slice supplying `home`
  * @returns Configuration object with detected credentials or undefined if none found
@@ -108,25 +132,17 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 export async function detectSnowflakeCredentials(
 	snowflake?: { home?: string }
 ): Promise<SnowflakeCredentialConfig | undefined> {
-	const connectionsTomlPath = getSnowflakeConnectionsTomlPath(snowflake);
-	if (!connectionsTomlPath) {
-		logger.debug('No Posit Workbench managed credentials detected');
+	const result = readSnowflakeManagedCredentials(snowflake);
+	if (!result) {
 		return undefined;
 	}
 
-	// For credential detection, we parse the connections.toml file to extract both account and token
-	const result = extractCredentialsFromToml(connectionsTomlPath);
-	if (result && result.token) {
-		logger.info(`Using Posit Workbench managed credentials for account: ${result.account}`);
-		return {
-			token: result.token,
-			account: result.account,
-			baseUrl: constructSnowflakeBaseUrl(result.account)
-		};
-	}
-
-	logger.debug('Failed to extract valid Snowflake credentials from connections.toml');
-	return undefined;
+	logger.info(`Using Posit Workbench managed credentials for account: ${result.account}`);
+	return {
+		token: result.token,
+		account: result.account,
+		baseUrl: constructSnowflakeBaseUrl(result.account)
+	};
 }
 
 /**

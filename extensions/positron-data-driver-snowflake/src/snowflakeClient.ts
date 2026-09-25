@@ -34,6 +34,14 @@ export interface SnowflakeConnectionOptions {
 	password?: string;
 	/** The snowflake-sdk authenticator constant (e.g. `SNOWFLAKE_JWT`, `OAUTH_CLIENT_CREDENTIALS`). */
 	authenticator?: string;
+	/** A pre-issued OAuth access token (authenticator `OAUTH`). */
+	token?: string;
+	/**
+	 * Supplies the OAuth access token afresh each time a connection is built, for tokens an external
+	 * party rotates (Posit Workbench managed credentials). Takes precedence over `token`, and is read on
+	 * every connect and reconnect so a rotated token is never reused stale.
+	 */
+	tokenProvider?: () => Promise<string>;
 	/** Path to the PEM private key file (key-pair / SNOWFLAKE_JWT auth). */
 	privateKeyPath?: string;
 	/** Passphrase protecting the private key file, if any (key-pair auth). */
@@ -132,6 +140,7 @@ export const defaultConnectionFactory: SnowflakeConnectionFactory = async option
 		username: options.username,
 		password: options.password,
 		authenticator: options.authenticator,
+		token: options.token,
 		privateKeyPath: options.privateKeyPath,
 		privateKeyPass: options.privateKeyPass,
 		oauthClientId: options.oauthClientId,
@@ -230,7 +239,7 @@ export class SnowflakeClient {
 	 */
 	private async _open(): Promise<void> {
 		for (let attempt = 1; ; attempt++) {
-			const conn = await this._createConnection(this._config);
+			const conn = await this._createConnection(await this._resolveOptions());
 			try {
 				await this._connectOnce(conn);
 				this._conn = conn;
@@ -242,6 +251,15 @@ export class SnowflakeClient {
 				await this._sleep(Math.min(CONNECT_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1), CONNECT_RETRY_MAX_DELAY_MS));
 			}
 		}
+	}
+
+	/**
+	 * The options to build the next connection with: the configured options, with the OAuth token
+	 * fetched from the token provider when one is set, so every (re)connect uses a current token.
+	 */
+	private async _resolveOptions(): Promise<SnowflakeConnectionOptions> {
+		const { tokenProvider, ...options } = this._config;
+		return tokenProvider ? { ...options, token: await tokenProvider() } : options;
 	}
 
 	/**

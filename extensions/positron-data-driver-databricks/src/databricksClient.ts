@@ -41,8 +41,16 @@ export interface DatabricksConnectionOptions {
 	httpPath: string;
 	/** Which auth flow to use. */
 	authType: DatabricksAuthType;
-	/** The personal access token (PAT auth). */
+	/** The bearer token (PAT auth): a personal access token, or a pre-issued OAuth access token. */
 	token?: string;
+	/**
+	 * Supplies the bearer token on demand, for tokens an external party rotates (Posit Workbench
+	 * managed credentials). Takes precedence over `token`. Handed to the SDK as its `external-token`
+	 * callback, which the SDK calls again whenever the cached token nears its JWT expiry, so a live
+	 * session picks up the rotated token instead of failing once the first one expires. Used with the
+	 * `pat` auth type.
+	 */
+	tokenProvider?: () => Promise<string>;
 	/** The service principal's client id (M2M auth). */
 	clientId?: string;
 	/** The service principal's client secret (M2M auth). */
@@ -140,6 +148,12 @@ export function connectionOptions(options: DatabricksConnectionOptions): Record<
 	};
 	switch (options.authType) {
 		case 'pat':
+			if (options.tokenProvider) {
+				// A rotating token: the SDK calls the provider for a token and calls it again once the
+				// cached one is close to expiring, on every request rather than only at connect.
+				return { ...base, authType: 'external-token', getToken: options.tokenProvider };
+			}
+			// A pre-issued OAuth access token is sent the same way as a personal access token.
 			return { ...base, token: options.token };
 		case 'u2m':
 			// The SDK runs the OAuth authorization-code flow: it opens the system browser and listens

@@ -37,6 +37,7 @@ import {
 	validateSnowflakeApiKey
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { createManagedCredentialsApi } from './managedCredentialsApi';
 import { resolveAwsChainInit } from './credentials/aws';
 import { createAwsSsoRecovery } from './awsRecovery';
 import { resolveGeapCredential } from './credentials/geap';
@@ -339,6 +340,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Lets `next-edit-suggestions` read a resolved connection value without
 		// duplicating the catalog here.
 		getResolvedProviderBaseUrl: (catalogId: string) => getCachedProvider(catalogId)?.connection.baseUrl,
+		// Lets the Snowflake and Databricks data connection drivers offer a "Workbench managed
+		// credentials" mechanism without parsing Workbench's credential files themselves.
+		managedCredentials: createManagedCredentialsApi(),
 	};
 }
 

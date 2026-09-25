@@ -15,6 +15,7 @@ import {
 	IDatabricksSdkClient,
 	IDatabricksSession,
 } from '../databricksClient.js';
+import { DBSQLClient } from '@databricks/sql';
 import { createCatalogNode, createSchemaNode, formatFileSize } from '../databricksNodes.js';
 import { databricksDisplayType, parseDescribeRows } from '../databricksSql.js';
 import { generateConnectionCode, parseDatabricksHost, parseDatabricksHttpPath, validateRequired } from '../databricksDriver.js';
@@ -626,6 +627,48 @@ suite('Databricks Client', () => {
 
 	const noSleep = async () => { };
 
+	test('hands a token provider to the SDK as its external-token callback', () => {
+		// A Workbench-managed token is rotated externally, so the SDK must be able to ask for a fresh one
+		// mid-session rather than being handed a single static token at connect.
+		const tokenProvider = async () => 'token-1';
+		const options = connectionOptions({ ...TEST_CONFIG, token: undefined, tokenProvider });
+
+		assert.deepStrictEqual(
+			{ authType: options.authType, getToken: options.getToken, token: options.token, tokenProvider: options.tokenProvider },
+			{ authType: 'external-token', getToken: tokenProvider, token: undefined, tokenProvider: undefined });
+	});
+
+	test('the SDK re-reads a rotating token once the cached one nears expiry', async () => {
+		// Drives the real DBSQLClient's auth provider (connect() builds it without touching the network)
+		// to show a live session picks up a rotated token rather than reusing the first until it 401s.
+		const jwt = (expiresInSeconds: number, id: string) => {
+			const payload = Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + expiresInSeconds, jti: id })).toString('base64url');
+			return `header.${payload}.signature`;
+		};
+		// The first token is inside the SDK's refresh window (5 minutes) but not yet expired; the second
+		// is good for an hour.
+		const tokens = [jwt(120, 'first'), jwt(3600, 'second')];
+		const issued = [...tokens];
+		let calls = 0;
+		const tokenProvider = async () => { calls++; return tokens.shift()!; };
+
+		const client = new DBSQLClient();
+		try {
+			await client.connect(connectionOptions({ ...TEST_CONFIG, token: undefined, tokenProvider }) as unknown as Parameters<DBSQLClient['connect']>[0]);
+			const auth = client.getAuthProvider()!;
+			const headers: string[] = [];
+			for (let i = 0; i < 3; i++) {
+				headers.push((await auth.authenticate() as Record<string, string>).Authorization);
+			}
+
+			assert.deepStrictEqual(
+				{ calls, headers },
+				{ calls: 2, headers: [`Bearer ${issued[0]}`, `Bearer ${issued[1]}`, `Bearer ${issued[1]}`] });
+		} finally {
+			await client.close();
+		}
+	});
+
 	test('maps each mechanism onto the SDK auth options', () => {
 		const pat = connectionOptions({ ...TEST_CONFIG });
 		const u2m = connectionOptions({ ...TEST_CONFIG, authType: 'u2m', token: undefined });
@@ -849,6 +892,12 @@ suite('Databricks Required Parameters', () => {
 		assert.doesNotThrow(() => validateRequired('oauth-u2m', { ...locators }));
 	});
 
+	test('the Workbench mechanism needs only the HTTP path', () => {
+		// The token and host come from the credential Workbench provisions.
+		assert.doesNotThrow(() => validateRequired('workbench-oauth', { httpPath: locators.httpPath }));
+		assert.throws(() => validateRequired('workbench-oauth', {}), /HTTP Path is required/);
+	});
+
 	test('an unknown mechanism is rejected', () => {
 		assert.throws(() => validateRequired('nope', { ...locators }), /Unknown connection mechanism/);
 	});
@@ -867,6 +916,38 @@ suite('Databricks Connection Code', () => {
 		const variants = generateConnectionCode(mechanismId, languageId, { ...locators, ...params });
 		return variants.length > 0 ? variants[0].code : '';
 	}
+
+	test('Workbench-managed code references the provisioned profile and embeds no credential', () => {
+		// The driver passes the host of Workbench's credential in as `host`.
+		const params = { host: 'example.cloud.databricks.com', httpPath: locators.httpPath, catalog: 'main' };
+		assert.deepStrictEqual(
+			{
+				python: generateConnectionCode('workbench-oauth', 'python', params)[0]?.code,
+				r: generateConnectionCode('workbench-oauth', 'r', params)[0]?.code,
+				missingPath: generateConnectionCode('workbench-oauth', 'python', { host: params.host }),
+			},
+			{
+				python:
+					'from databricks import sql\n' +
+					'from databricks.sdk.core import Config\n\n' +
+					`config = Config(profile="${process.env.DATABRICKS_CONFIG_PROFILE?.trim() || 'workbench'}")\n\n` +
+					'conn = sql.connect(\n' +
+					'\tserver_hostname="example.cloud.databricks.com",\n' +
+					'\thttp_path="/sql/1.0/warehouses/abc123",\n' +
+					'\tcredentials_provider=lambda: config.authenticate,\n' +
+					'\tcatalog="main",\n' +
+					')\n',
+				r:
+					'library(DBI)\n\n' +
+					'con <- dbConnect(\n' +
+					'\todbc::databricks(),\n' +
+					'\tworkspace = "https://example.cloud.databricks.com",\n' +
+					'\thttpPath = "/sql/1.0/warehouses/abc123",\n' +
+					'\tcatalog = "main"\n' +
+					')\n',
+				missingPath: [],
+			});
+	});
 
 	test('Python PAT code carries the normalized locators and the token', () => {
 		assert.strictEqual(code('pat', 'python', { token: 'dapi123' }),
