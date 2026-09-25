@@ -11,7 +11,7 @@
  * can check, returned as one line each for the agent to fix and re-render.
  */
 
-import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport } from './report-parse.mjs';
+import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
 import { FILE_NAME, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -51,11 +51,12 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 	const problems = [];
 	const lines = prose(ledger);
 	const scenarios = [];
+	const citedBy = new Map();
 	let current = null;
 	for (const { line } of lines) {
 		const head = /^##\s+(S\d+)\b/.exec(line);
 		if (head) {
-			current = { id: head[1], status: null, verifies: 0, evidence: 0, fails: [] };
+			current = { id: head[1], status: null, verifies: [] };
 			scenarios.push(current);
 			continue;
 		}
@@ -63,23 +64,27 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		if (!current) { continue; }
 		const status = /^Status:\s*(.*)$/.exec(line);
 		if (status) { current.status = status[1].trim(); }
-		if (/^\s*\d+\.\s+VERIFY\b/i.test(line)) {
-			current.verifies++;
-			if (/->\s*FAIL\b/i.test(line)) { current.fails.push({ observed: false, evidence: false, log: false }); }
+		const verify = /^\s*(\d+)\.\s+VERIFY\b/i.exec(line);
+		if (verify) {
+			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), observed: false, evidence: false, log: false });
 		}
 		const field = /^\s+(Observed|Evidence|Log):(.*)$/i.exec(line);
-		if (field) {
+		const check = current.verifies.at(-1);
+		if (field && check) {
 			const key = field[1].toLowerCase();
 			let named = true;
 			if (key === 'evidence') {
 				const files = evidenceFiles(field[2]);
 				const missing = fileExists ? files.filter(f => !fileExists(`shots/${f}`)) : [];
 				for (const f of missing) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in shots/`); }
-				named = files.length > missing.length;
-				if (named) { current.evidence++; }
+				const present = files.filter(f => !missing.includes(f));
+				for (const f of new Set(present)) {
+					if (!citedBy.has(f)) { citedBy.set(f, []); }
+					citedBy.get(f).push(`${current.id} step ${check.step}`);
+				}
+				named = present.length > 0;
 			}
-			const fail = current.fails.at(-1);
-			if (fail && named) { fail[key] = true; }
+			if (named) { check[key] = true; }
 		}
 	}
 
@@ -97,15 +102,27 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 				problems.push(`ledger: ${s.id} names Finding ${m[1]}, which the report does not have`);
 			}
 		}
-		if (!s.verifies) { problems.push(`ledger: ${s.id} has no VERIFY step`); }
-		if (/^pass$/i.test(s.status ?? '') && !s.evidence) { problems.push(`ledger: ${s.id} passes with no Evidence: naming a screenshot in shots/`); }
-		s.fails.forEach((f, k) => {
-			const missing = ['observed', 'evidence', 'log'].filter(key => !f[key]);
+		if (!s.verifies.length) { problems.push(`ledger: ${s.id} has no VERIFY step`); }
+		for (const v of s.verifies) {
+			if (!v.evidence) { problems.push(`ledger: ${s.id} step ${v.step} VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own`); }
+			const missing = v.fail ? ['observed', 'log'].filter(key => !v[key]) : [];
 			if (missing.length) {
-				problems.push(`ledger: ${s.id} FAIL check ${k + 1} is missing ${missing.map(m => m === 'evidence' ? 'Evidence: (a screenshot file)' : `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
+				problems.push(`ledger: ${s.id} step ${v.step} FAIL is missing ${missing.map(m => `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
 			}
-		});
+		}
 	}
+	for (const [f, checks] of citedBy) {
+		if (checks.length > 1) { problems.push(`ledger: ${f} is Evidence for ${checks.join(' and ')}; take a screenshot for each check`); }
+	}
+	// The issue button's System details come from this line, so it has to parse.
+	const env = lines.findIndex(({ line }) => /^##\s+Environment\b/i.test(line));
+	const first = env < 0 ? null : lines.slice(env + 1).find(({ line }) => /^(?:##\s|[-*]\s)/.test(line));
+	if (env < 0) {
+		problems.push('ledger: no ## Environment section');
+	} else if (!first || /^##\s/.test(first.line) || !parseSystemLine(first.line)) {
+		problems.push('ledger: the first Environment bullet must read "- Positron <version> build <n>, <kind> of <commit> (Code - OSS <version>), on <OS> <version> (<platform> <arch>)." with "not recorded" for anything unknown');
+	}
+
 	const notRun = lines.filter(({ line }) => /^-\s+N\d+\b/.test(line)).length;
 	return { problems, scenarioCount: scenarios.length, notRun };
 }

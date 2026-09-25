@@ -46,8 +46,9 @@ scaffolding workspaces you created.
 Write findings to a fresh run directory,
 `~/.claude/skills/exploratory-test/output/<YYYYMMDDTHHMMSS>/report.md`, with
 evidence under `shots/` beside it. Never write into an existing run directory.
-Copy evidence into `shots/` as you capture it, not at the end: drive-positron's
-cleanup deletes the directory your screenshots were written to.
+Write every screenshot straight to `$RUN/shots/` with `--filename`, never to a
+scratch directory to copy later: drive-positron's cleanup deletes its run
+directory, and a shot left there is lost.
 
 **Test files.** Any file a scenario needs -- one you create, copy from the repo
 or a fixture, download, or edit -- is evidence, like a screenshot. A reader
@@ -142,7 +143,9 @@ ran and every one you did not; the report has no Coverage tables of its own.
 PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
 
 ## Environment
-- <what is true for the whole run: build, launch, workspace, interpreters>
+- Positron <version> build <n>, <dev build | release build> of <short sha> (Code - OSS <version>), on <OS> <version> (<platform> <arch>).
+- <Python or R> <version> with <the packages the run used>.
+- <anything else true for the whole run: launch, workspace, window>
 
 ## Logs
 - logs/<file> | <what wrote it> | <errors it holds, or "no errors">
@@ -190,7 +193,15 @@ Steps:
   surface you checked and when.
 - `## Environment` holds only what is true for the whole run: the build, how the
   app was launched, the interpreters. Run details shows it; do not repeat it
-  there.
+  there. The first bullet is the system line, in exactly this shape:
+  `- Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0), on Ubuntu 22.04 (Linux x64).`
+  The report's "File a GitHub issue" button copies it into System details, so
+  read each value, never guess: Positron's version and build from Help: About
+  (or `positronVersion` and `positronBuildNumber` in `product.json`), the commit
+  from `git rev-parse --short=10 HEAD`, Code - OSS from `package.json`'s
+  `version`, and the OS from `/etc/os-release` or `sw_vers`, with `uname -sm`.
+  Write "not recorded" in place of any value you cannot find. Then one bullet per
+  interpreter, starting with `Python` or `R` and its version.
 - `## Logs` has one line per file you copied into `logs/`, written at the end,
   with the errors in it ("2 errors, both in Finding 1", "no errors"). An error
   no check is tied to is counted here and nowhere else. Only what the app or
@@ -213,6 +224,7 @@ ledger and in a finding:
 ```
 N. <action text>
 N. VERIFY <expectation> -> PASS
+   Evidence: <file>
 N. VERIFY <expectation> -> FAIL - Finding K
    Observed: <one line>
    Evidence: <file>[, <file>]
@@ -232,12 +244,17 @@ N. VERIFY <expectation> -> FAIL - Finding K
   under it, as `map-stack.mjs` prints it. When you found nothing,
   say where you looked: `Log: none found in logs/<a>.log, logs/<b>.log`.
 
-**Screenshots.** Every FAIL check gets one, and every passing scenario gets at
-least one on the check that shows its main outcome. Attach each to the verify
-step it proves, as a bare file name under `shots/` on the `Evidence:` line.
-The check counts only a file that is there: "none" or "DOM read only" does not
-satisfy it, so take the shot while the state is on screen. Add more only when
-the picture shows something the text can't.
+**Screenshots.** Every VERIFY step gets its own screenshot, PASS or FAIL, with
+no exceptions: a reviewer reads each check against the picture of the app at
+that moment. Take it in the same tool call as the check (snapshot or `eval`,
+then `screenshot`), so it shows the state the check judged and costs no extra
+turn. Name it `<scenario>-<step>.png`, such as `S03-06.png`, and add a letter
+for a second shot of the same step, `S03-06b.png`. Cite it as a bare file name
+on that step's `Evidence:` line. Never cite one shot for two checks, even when
+nothing changed between them; take another. A check about something off screen,
+such as a log line, still gets a shot of the app as it stood. The check counts
+only a file that is there: "none" or "DOM read only" does not satisfy it. The
+render step flags a VERIFY with no shot and a shot cited twice.
 
 A finding's steps are the minimal sequence from the scenario that found it: its
 actions plus the verify steps that matter, keeping PASS checks that show what
@@ -321,6 +338,7 @@ needs nothing special.>
 
 1. <action>
 2. VERIFY <expectation> -> PASS
+   Evidence: <file>
 3. <action>
 4. VERIFY <expectation> -> FAIL - Finding N
    Observed: <what happened instead, one line>
@@ -357,10 +375,12 @@ the code pointers>
 
 Keep the blank lines, and keep steps at the left margin.
 
-Embed one image with `![](shots/<file>)`: the shot that shows the failure best.
-Cite the rest as links under Evidence, each captioned with the step it was taken
-after, `Step N:`, or `Variant:` if it follows none. Note the step in
-`actions.log` when you take the shot.
+Keep every step's `Evidence:` line when you copy steps from the ledger into a
+finding: the card shows each step's shot in its gallery, captioned with the
+check. Embed one image with `![](shots/<file>)`: the shot that shows the failure
+best. List a shot under Evidence only to give it a better caption, `Step N:`,
+or when it follows no step, `Variant:`. Note the step in `actions.log` when you
+take the shot.
 
 Evidence holds only what proves the behavior happened. A path to suspect code is
 where to look, so it goes in Cause.

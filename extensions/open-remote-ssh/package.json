@@ -350,7 +350,7 @@
 		"test": "node ./out/test/runTest.js"
 	},
 	"devDependencies": {
-		"@types/node": "^16.11.0",
+		"@types/node": "22.x",
 		"@types/ssh2": "^0.5.52",
 		"@types/ssh2-streams": "0.1.12",
 		"@typescript-eslint/eslint-plugin": "^5.19.0",

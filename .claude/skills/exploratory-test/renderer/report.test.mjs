@@ -10,7 +10,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { modelDisplayName, parseLedger, parseReport, safeUrl } from './report-parse.mjs';
+import { modelDisplayName, parseLedger, parseReport, parseSystemLine, safeUrl } from './report-parse.mjs';
 import { renderReportHtml } from './html.mjs';
 
 /** A minimal report with one of everything the template lays out. */
@@ -357,7 +357,8 @@ test('renderReportHtml shows each screenshot once, under Evidence', () => {
 	const card = html.slice(html.indexOf('<article id="f1"'), html.indexOf('<article id="f2"'));
 	// The embedded shot used to be rendered beside Reproduce as well.
 	assert.equal((card.match(/<img src="[^"]*01-stuck\.png"/g) || []).length, 1);
-	assert.ok(card.indexOf('01-stuck.png') > card.indexOf('>Evidence<'));
+	// The issue link carries the file name too, so look past the header.
+	assert.ok(card.indexOf('01-stuck.png', card.indexOf('</header>')) > card.indexOf('>Evidence<'));
 	assert.doesNotMatch(card.slice(card.indexOf('>Reproduce<'), card.indexOf('>Evidence<')), /<img /);
 });
 
@@ -923,7 +924,7 @@ test('renderReportHtml writes each finding as an agent prompt, from the parsed f
 		'Please investigate this finding using the repository and the evidence above.',
 	].join('\n'));
 	// One button per card, last in the meta row, pointing at its own block.
-	assert.match(html, /<span class="group context">[\s\S]*?<\/span><button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg class="cp-ico"[\s\S]*?<\/button><\/div>/);
+	assert.match(html, /<span class="group context">[\s\S]*?<\/span><a class="gh-btn"[^>]*>[\s\S]*?<\/a><button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg class="cp-ico"[\s\S]*?<\/button><\/div>/);
 	assert.match(html, /document\.querySelectorAll\('\.cp-btn,\.code-cp'\)/);
 });
 
@@ -964,7 +965,10 @@ test('renderReportHtml emits inline scripts that parse, cut where the HTML parse
 
 test('renderReportHtml renders no prompt buttons, blocks or script when agent prompts are off', () => {
 	const html = renderReportHtml(FULL, { agentPrompts: false });
-	assert.doesNotMatch(html, /cp-btn"|text\/plain|querySelectorAll\('\.cp-btn,\.code-cp'\)/);
+	assert.doesNotMatch(html, /cp-btn"|id="prompt-f|querySelectorAll\('\.cp-btn,\.code-cp'\)/);
+	// Filing an issue does not depend on the prompts.
+	assert.match(html, /<a class="gh-btn"[^>]*>[\s\S]*?<\/a><\/div>/);
+	assert.match(html, /<script type="text\/plain" id="issue-f1">/);
 });
 
 test('renderReportHtml greens only the check beside Confirmed in the findings table', () => {
@@ -1332,6 +1336,21 @@ test('parseReport only takes a PR line that is a real owner/repo#number', () => 
 	assert.equal(pr('PR: none'), undefined);
 	// A PR mentioned in a finding is not the report's PR.
 	assert.equal(parseReport(md('## Findings', '', 'PR: posit-dev/positron#1')).pr, undefined);
+});
+
+test('finding: a shot a step cites reaches the gallery even when no Evidence bullet names it', () => {
+	const html = renderReportHtml(md(
+		'## Findings', '', '| # | Finding | Severity | Impact | Reproduction |', '|---|---|---|---|---|', '| 1 | a claim | major | blocks | 1/1 |', '',
+		'### Finding 1: a claim', '', '**Repro** -- starting state: the panel closed', '',
+		'1. VERIFY the panel opens -> PASS', '   Evidence: S01-01.png',
+		'2. Click Retry.',
+		'3. VERIFY it loads -> FAIL - Finding 1', '   Observed: empty', '   Evidence: S01-03.png', '',
+		'**Evidence**', '', '- [shots/S01-03.png](shots/S01-03.png) -- Step 3: empty panel',
+	));
+	const card = html.slice(html.indexOf('<article id="f1"'), html.indexOf('</article>', html.indexOf('<article id="f1"')));
+	const tiles = [...card.matchAll(/<figure><a class="shot" id="shot-f1-(\d)" href="([^"]+)"[^>]*data-step="([^"]+)"/g)].map(m => [m[1], m[2], m[3]]);
+	assert.deepEqual(tiles, [['1', 'shots/S01-01.png', 'Step 1'], ['2', 'shots/S01-03.png', 'Step 3']]);
+	assert.match(card, /<li id="f1-s1">[\s\S]*?data-open="shot-f1-1"/);
 });
 
 // S08, S09, S01 and S04 of a real ledger: two failing scenarios, two passing.
@@ -1773,4 +1792,163 @@ test('renderReportHtml pages a stack in the lightbox without wrapping', () => {
 	assert.doesNotMatch(html, /lb-dots/);
 	assert.doesNotMatch(html, /\.shot\.stk::after/);
 	assert.match(html, /a\.shot\[hidden\]\{display:none\}/);
+});
+
+// ---- File a GitHub issue --------------------------------------------------
+
+const issueBlock = (html, n) => {
+	const m = new RegExp(`<script type="text/plain" id="issue-f${n}">([\\s\\S]*?)</script>`).exec(html);
+	return m ? m[1] : null;
+};
+const issueAnchor = (html, n) => new RegExp(`<a class="gh-btn"[^>]*aria-label="File a GitHub issue for finding ${n} [^"]*">`).exec(html)?.[0];
+const unescapeHtml = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, '\'').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const issueUrl = (html, n) => new URL(unescapeHtml(/href="([^"]*)"/.exec(issueAnchor(html, n))[1]));
+// What the page's copy handler hands the clipboard.
+const issueCopied = (html, n) => issueBlock(html, n).replace(/<\\(?=\/script|!--)/gi, '<');
+const logsRead = p => {
+	try { return readFileSync(new URL(p, LOGS_DIR)); } catch { return null; }
+};
+const logsIssueHtml = (options = {}) => logsHtml({ base: 'https://cdn.example/run1', readFile: logsRead, ...options });
+
+test('issue: one button per card, directly before Copy prompt', () => {
+	for (const html of [renderReportHtml(FULL), logsIssueHtml()]) {
+		for (const card of html.split('<article id="f').slice(1)) {
+			assert.equal((card.match(/class="gh-btn"/g) || []).length, 1);
+			assert.match(card, /<\/svg><\/a><button type="button" class="cp-btn"/);
+		}
+	}
+	const off = renderReportHtml(FULL, { agentPrompts: false });
+	assert.match(off, /class="gh-btn"[^>]*>[\s\S]*?<\/a><\/div>/);
+});
+
+test('issue: the link opens a blank bug form titled as the card, with the embedded text as its body', () => {
+	const html = logsIssueHtml();
+	for (const n of [1, 2]) {
+		const title = unescapeHtml(new RegExp(`<article id="f${n}"[\\s\\S]*?<h2 class="card-title">([^<]*)</h2>`).exec(html)[1]);
+		const url = issueUrl(html, n);
+		assert.equal(`${url.origin}${url.pathname}`, 'https://github.com/posit-dev/positron/issues/new');
+		assert.equal(url.searchParams.get('title'), title);
+		assert.equal(url.searchParams.get('labels'), 'exploratory');
+		assert.equal(url.searchParams.get('template'), null);
+		assert.equal(url.searchParams.get('body'), issueCopied(html, n));
+		assert.ok(url.href.length <= 8000);
+		assert.match(issueAnchor(html, n), / target="_blank" rel="noopener" data-tip="File a GitHub issue"/);
+		assert.doesNotMatch(issueAnchor(html, n), /data-issue/);
+	}
+});
+
+test('issue: the body follows the template and leaves out what triage sets', () => {
+	const body = issueCopied(logsIssueHtml(), 1);
+	const headings = [...body.matchAll(/^## (.+)$/gm)].map(m => m[1]);
+	assert.deepEqual(headings, ['System details', 'Describe the issue', 'Steps to reproduce', 'Expected', 'Actual', 'Error messages', 'Evidence']);
+	assert.match(body, /^<sub>Reported by \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) of #1234 \(`[^`]+` @ `[0-9a-f]+`\)<\/sub>\n/);
+	assert.ok(body.includes([
+		'**Positron and OS:**  ',
+		'Positron 2026.10.0 build 12 (dev build of `ed2487a1a2`)  ',
+		'Ubuntu 22.04, Linux x64',
+		'',
+		'**Session:**  ',
+		'Python 3.10.12 with pandas, polars, duckdb and pyarrow',
+	].join('\n')));
+	assert.doesNotMatch(body, /Code - OSS|Please investigate|### Context|!\[|Severity|Status:|Reproduced|Major|Coverage/i);
+	assert.match(body, /^- `slow\.py` \(below\) loaded/m);
+	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
+	assert.doesNotMatch(body, /^\s*Log:/m);
+	assert.match(body, /## Error messages\n```\nError: get_column_profiles timed out/);
+	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run:\n- 09-one12-unavailable\.png/m);
+	// The bullets say what they are.
+	assert.doesNotMatch(body, /Preconditions/);
+	assert.match(body, /## Steps to reproduce\n- `slow\.py` \(below\) loaded[^\n]*\n\n1\. /);
+	assert.match(body, /<details><summary>slow\.py<\/summary>\n\n```python\n# slow\.py/);
+	assert.doesNotMatch(body, /\/runs\/|\/tmp\//);
+});
+
+test('issue: an error longer than six lines is clipped, and a run without one says so', () => {
+	const long = LOGS_REPORT.replace(/(\n\s+at TableSummaryCache\.retryColumnProfiles[^\n]*)/, '$1$1$1$1$1');
+	const body = issueCopied(renderReportHtml(long, { ledger: LOGS_LEDGER, readFile: logsRead }), 1);
+	const fence = /## Error messages\n```\n([\s\S]*?)\n```/.exec(body)[1].split('\n');
+	assert.equal(fence.length, 7);
+	assert.equal(fence.at(-1), '    …');
+	assert.match(issueCopied(renderReportHtml(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Observed:** nothing.',
+	].join('\n'))), 1), /## Error messages\nNone recorded by the run\./);
+});
+
+test('issue: the likely cause folds as a hypothesis, and a local run links no report', () => {
+	const html = renderReportHtml(FULL, { base: '/runs/r1' });
+	const body = issueCopied(html, 1);
+	assert.match(body, /<details><summary>[^<]*hypothesis[^<]*<\/summary>\n\nThe timeout was cut to 10 s\.\n\n<\/details>/);
+	assert.match(body, /^<sub>Reported by exploratory test /);
+	assert.doesNotMatch(body, /\/runs\/r1/);
+	assert.match(body, /^Screenshots and logs are in the exploratory test report for this run:$/m);
+	assert.match(body, /\*\*Positron and OS:\*\* {2}\nNot recorded\n/);
+});
+
+test('issue: parseSystemLine reads the ledger line, and "not recorded" where it says so', () => {
+	assert.deepEqual(parseSystemLine('- Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0), on Ubuntu 22.04 (Linux x64).'),
+		{ positron: 'Positron 2026.10.0 build 12 (dev build of `ed2487a1a2`)', os: 'Ubuntu 22.04, Linux x64' });
+	assert.deepEqual(parseSystemLine('Positron 2026.9.1 build 3, a release build of 0123abcd99 (Code - OSS 1.104.0), on macOS 15.1 (Darwin arm64)'),
+		{ positron: 'Positron 2026.9.1 build 3 (release build of `0123abcd99`)', os: 'macOS 15.1, Darwin arm64' });
+	assert.deepEqual(parseSystemLine('- Positron not recorded, on not recorded.'), { positron: 'Positron not recorded', os: 'OS not recorded' });
+	assert.equal(parseSystemLine('- Positron (pre-launched, CDP 44987), workspace /tmp/x.'), null);
+});
+
+test('issue: a body too long for the link drops the file text, then falls back to copying', () => {
+	const big = p => p.endsWith('slow.py') ? Buffer.from(`x = 1\n`.repeat(2000)) : logsRead(p);
+	const dropped = logsIssueHtml({ readFile: big });
+	const url = issueUrl(dropped, 1);
+	assert.ok(url.href.length <= 8000);
+	assert.match(url.searchParams.get('body'), /^`slow\.py` is in the report's `files\/` folder\.$/m);
+	assert.doesNotMatch(url.searchParams.get('body'), /<summary>slow\.py/);
+	assert.doesNotMatch(dropped, /data-issue=/);
+
+	const huge = LOGS_REPORT.replace(/^\*\*Observed:\*\* /m, `**Observed:** ${'very long. '.repeat(900)}`);
+	const html = renderReportHtml(huge, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const anchor = issueAnchor(html, 1);
+	const fallback = issueUrl(html, 1);
+	assert.equal(fallback.searchParams.get('body'), null);
+	assert.equal(fallback.searchParams.get('labels'), 'exploratory');
+	assert.match(anchor, / data-issue="issue-f1"/);
+	// The copy holds everything, file text included.
+	assert.match(issueCopied(html, 1), /<summary>slow\.py<\/summary>/);
+
+	// Run the page's handler against a stub DOM: a click copies the text and shows the toast.
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('gh-toast'));
+	assert.ok(src);
+	assert.ok(!logsIssueHtml().includes('gh-toast\''));
+	const el = () => ({ classList: { add(c) { this.on = c; }, remove() { this.on = null; } }, setAttribute() {}, appendChild() {}, querySelector: () => ({}) });
+	const toast = el();
+	let handler, copied;
+	const link = { dataset: { issue: 'issue-f1' }, addEventListener: (_, fn) => { handler = fn; } };
+	const document = {
+		createElement: () => toast, body: { appendChild() {} },
+		querySelectorAll: () => [link],
+		getElementById: id => id === 'issue-f1' ? { textContent: unescapeHtml(issueBlock(html, 1)) } : null,
+	};
+	const navigator = { clipboard: { writeText: t => { copied = t; return { then: ok => ok() }; } } };
+	new Function('document', 'navigator', 'window', 'setTimeout', 'clearTimeout', src)(document, navigator, { isSecureContext: true }, () => 0, () => {});
+	handler();
+	assert.equal(copied, issueCopied(html, 1));
+	assert.equal(toast.classList.on, 'show');
+	assert.match(src, /Description copied\. Paste it into the issue on GitHub\./);
+	assert.match(src, /,5000\)/);
+});
+
+test('issue: a saved script cannot end the embedded block early', () => {
+	const html = renderReportHtml(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Observed:** the tag `</script>` and `<!--` ended the block.',
+	].join('\n')));
+	assert.doesNotMatch(issueBlock(html, 1), /<\/script|<!--/i);
+	assert.match(issueCopied(html, 1), /`<\/script>` and `<!--`/);
+	assert.match(issueUrl(html, 1).searchParams.get('body'), /`<\/script>` and `<!--`/);
+});
+
+test('issue: icons rest until their own button is hovered', () => {
+	const html = renderReportHtml(FULL);
+	assert.doesNotMatch(html, /\.card:hover \.cp-btn|\.card:hover \.gh-btn/);
+	assert.match(html, /\.gh-btn\{[^}]*color:var\(--cp-rest\)/);
+	assert.match(html, /\.gh-btn:hover\{color:var\(--ink\);background:var\(--cp-hover-bg\)\}/);
+	assert.match(html, /\.gh-btn\+\.cp-btn\{margin-left:-19px\}/);
 });

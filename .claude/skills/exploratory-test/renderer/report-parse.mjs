@@ -911,6 +911,26 @@ function splitFindingRef(text) {
 const LEDGER_SEP = /\s+(?:·|-|\|)\s+/;
 
 /**
+ * The ledger Environment's first line, `Positron <version> build <n>, <build>
+ * (Code - OSS <v>), on <OS> (<platform>).`, as the issue's two lines; null for
+ * any other line. The Code - OSS version is dropped: Run details still has it.
+ */
+export function parseSystemLine(text) {
+	const m = /^Positron\s+(.+),\s+on\s+(.+?)\.?$/.exec(String(text ?? '').trim().replace(/^[-*]\s+/, ''));
+	if (!m) {
+		return null;
+	}
+	const [version, ...build] = m[1].replace(/\s*\(Code - OSS[^)]*\)/i, '').split(/,\s*/);
+	const kind = build.join(', ').replace(/^an?\s+/i, '').replace(/\b([0-9a-f]{7,40})\b/i, '`$1`');
+	const os = m[2].trim();
+	const platform = /^(.+?)\s*\(([^)]+)\)$/.exec(os);
+	return {
+		positron: `Positron ${version.trim()}${kind ? ` (${kind})` : ''}`,
+		os: platform ? `${platform[1]}, ${platform[2]}` : /^not recorded$/i.test(os) ? 'OS not recorded' : os,
+	};
+}
+
+/**
  * Parses the run's `ledger.md` into Coverage rows, or null when it holds no
  * scenarios. Scenarios are `## S01 · <name>` blocks with `Status:`, `Result:`,
  * optional `Preconditions:` bullets (`- <name> | <creating ID> | <how>`) and
@@ -1193,12 +1213,6 @@ export function parseReport(markdown, { ledger } = {}) {
 				});
 			}
 		}
-		// Screenshots in step order, so the gallery reads like the repro; logs and
-		// notes keep their order after them. Sort is stable.
-		const shots = parsed.evidence.filter(e => e.kind === 'shot')
-			.sort((a, b) => (a.step?.order ?? Number.MAX_SAFE_INTEGER) - (b.step?.order ?? Number.MAX_SAFE_INTEGER));
-		parsed.evidence = [...shots, ...parsed.evidence.filter(e => e.kind !== 'shot')];
-
 		// The starting state and the configuration line are both answers to
 		// "what has to be true before step 1", so they render as one list.
 		const preconditions = [parsed.reproStart, parsed.preconditions]
@@ -1211,6 +1225,20 @@ export function parseReport(markdown, { ledger } = {}) {
 		steps.forEach((step, k) => step.evidence.forEach(e => {
 			if (!stepOf.has(e.file)) { stepOf.set(e.file, { label: `Step ${k + 1}`, order: k + 1 }); }
 		}));
+		// A shot a step cites is evidence whether or not a bullet repeats it, so
+		// every check's picture reaches the gallery.
+		const cited = new Set(parsed.evidence.filter(e => e.kind === 'shot').map(e => e.file));
+		for (const step of steps) {
+			for (const e of step.evidence.filter(e => !cited.has(e.file))) {
+				cited.add(e.file);
+				parsed.evidence.push({ kind: 'shot', src: e.href, file: e.file, caption: plainText(step.md) });
+			}
+		}
+		// Screenshots in step order, so the gallery reads like the repro; logs and
+		// notes keep their order after them. Sort is stable.
+		const order = e => (stepOf.get(e.file) ?? e.step)?.order ?? Number.MAX_SAFE_INTEGER;
+		const shots = parsed.evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b));
+		parsed.evidence = [...shots, ...parsed.evidence.filter(e => e.kind !== 'shot')];
 
 		return {
 			n: start.n,
@@ -1252,6 +1280,8 @@ export function parseReport(markdown, { ledger } = {}) {
 				preconditions,
 				steps: steps.map(stepText),
 				cause: parsed.cause ?? '',
+				summary: parsed.summary.join(' '),
+				prose: parsed.matched === 0 ? bodyLines.join('\n').trim() : '',
 			},
 			// Nothing recognisable in the body: render it as prose rather than
 			// showing an empty card.
@@ -1401,6 +1431,8 @@ export function parseReport(markdown, { ledger } = {}) {
 		runDetails,
 		logs: fromLedger?.logs ?? [],
 		files: fromLedger?.files ?? [],
+		// The ledger's Environment as written, for the issue's System details.
+		environment: fromLedger?.environment ?? [],
 		verification,
 		// The total's duration covers every pass. Falling back to the main pass
 		// only matters for a report written before the total carried one.

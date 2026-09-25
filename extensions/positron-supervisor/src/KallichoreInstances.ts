@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as fs from 'fs';
 
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreServerState } from './ServerState.js';
@@ -122,7 +123,7 @@ export class KallichoreInstances {
 				// Update the toast so users see which entry is under inspection.
 				progress.report({ message: record.workspaceName ?? vscode.l10n.t("Empty Workspace") });
 
-				if (!this.isProcessAlive(record.state.server_pid)) {
+				if (!this.isSupervisorAlive(record.state.server_pid, record.state.socket_path)) {
 					// Mark work complete for the progress UI even though we prune this entry.
 					progress.report({ increment, message: record.workspaceName ?? vscode.l10n.t("Empty Workspace") });
 					this.log?.appendLine(`${this.timestamp()} [Positron] Pruned exited supervisor PID ${record.state.server_pid}`);
@@ -541,6 +542,51 @@ export class KallichoreInstances {
 	}
 
 	/**
+	 * Determines whether the process holding a supervisor PID is genuinely the
+	 * supervisor, not an unrelated process that recycled the PID.
+	 *
+	 * On Linux, thread IDs share the PID number space, so `kill(pid, 0)` can
+	 * succeed for a worker thread that recycled a dead supervisor's PID. When a
+	 * socket path is known, it must still exist; additionally, the process
+	 * holding the PID must be the supervisor binary itself.
+	 *
+	 * @param pid The recorded supervisor process identifier.
+	 * @param socketPath The supervisor's socket path, if known.
+	 * @returns True if the supervisor appears to be genuinely alive.
+	 */
+	private static isSupervisorAlive(pid: number, socketPath?: string): boolean {
+		if (!this.isProcessAlive(pid)) {
+			return false;
+		}
+		if (socketPath && !fs.existsSync(socketPath)) {
+			return false;
+		}
+		return this.isSupervisorBinary(pid);
+	}
+
+	/**
+	 * Linux-only guard: verifies via `/proc` that `pid` is a process (not a
+	 * thread of another process) running the Kallichore supervisor binary
+	 * (`kcserver`). Non-Linux platforms have no `procfs` and return true.
+	 *
+	 * @param pid The process identifier to inspect.
+	 * @returns True if the process is (or may be) the supervisor binary.
+	 */
+	private static isSupervisorBinary(pid: number): boolean {
+		if (process.platform !== 'linux') {
+			return true;
+		}
+		try {
+			const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
+			const name = /^Name:\s*(?<name>.*)$/m.exec(status)?.groups?.name.trim();
+			const tgid = /^Tgid:\s*(?<tgid>\d+)$/m.exec(status)?.groups?.tgid;
+			return name === 'kcserver' && Number(tgid) === pid;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
 	 * Detects whether two supervisors refer to the same underlying instance.
 	 *
 	 * @param left The existing supervisor state.
@@ -738,6 +784,12 @@ export class KallichoreInstances {
 			await vscode.window.showInformationMessage(vscode.l10n.t("Supervisor shutdown requested."));
 		} catch (err) {
 			const message = summarizeAxiosError(err);
+			const code = (err as NodeJS.ErrnoException)?.code;
+			const { server_pid, socket_path } = result.record.state;
+			if ((code === 'ENOENT' || code === 'ECONNREFUSED') && !this.isSupervisorAlive(server_pid, socket_path)) {
+				// The supervisor is gone but left its entry behind; drop it.
+				await this.removeByPid(server_pid);
+			}
 			await vscode.window.showErrorMessage(vscode.l10n.t("Failed to shut down supervisor: {0}", message));
 		}
 	}
