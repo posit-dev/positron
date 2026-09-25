@@ -11,8 +11,8 @@
 // --no-agent-prompts leaves out the findings' copy-for-agent buttons.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -48,8 +48,21 @@ const dir = dirname(resolve(input));
 const ledgerPath = join(dir, 'ledger.md');
 const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
 const fileExists = path => existsSync(join(dir, path));
+const readFile = path => (existsSync(join(dir, path)) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null);
+// Every file saved under files/, so lint can find one the ledger never listed.
+const listFiles = () => {
+	const root = join(dir, 'files');
+	return existsSync(root)
+		? readdirSync(root, { recursive: true }).map(p => join(root, p)).filter(p => statSync(p).isFile()).map(p => relative(dir, p).split('\\').join('/'))
+		: [];
+};
+// Test paths in the report are relative to the checkout the explorer runs in.
+const repoRoot = (() => {
+	try { return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; }
+})();
+const repoFileExists = repoRoot ? path => existsSync(join(repoRoot, path)) : undefined;
 const printProblems = () => {
-	const problems = lintReport(markdown, ledger, { fileExists });
+	const problems = lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists });
 	if (problems.length) {
 		console.error(`format problems:\n${problems.map(p => `  ${p}`).join('\n')}`);
 	}
@@ -88,6 +101,7 @@ writeFileSync(out, renderReportHtml(markdown, {
 	// Evidence in the prompt has to open from wherever it is pasted.
 	base: dir,
 	fileExists,
+	readFile,
 }));
 console.log(out);
 
@@ -96,8 +110,16 @@ printProblems();
 
 // A listed log that was never copied is a dead link; the page shows it unlinked,
 // and the run fails so it gets copied rather than shipped.
-const missing = linkedLogs(parseReport(markdown, { ledger })).filter(p => !fileExists(p));
+const parsed = parseReport(markdown, { ledger });
+const missing = linkedLogs(parsed).filter(p => !fileExists(p));
 if (missing.length) {
 	console.error(`missing log files, listed but not beside the report:\n${missing.map(p => `  ${p}`).join('\n')}`);
+}
+// The same for test files: a finding that names one nobody can open cannot be reproduced.
+const missingFiles = parsed.files.map(f => f.path).filter(p => !fileExists(p));
+if (missingFiles.length) {
+	console.error(`missing test files, listed in ## Files but not beside the report:\n${missingFiles.map(p => `  ${p}`).join('\n')}`);
+}
+if (missing.length || missingFiles.length) {
 	process.exit(1);
 }

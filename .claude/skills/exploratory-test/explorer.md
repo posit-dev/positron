@@ -38,7 +38,7 @@ report indistinguishable from a real one, so nobody catches it. Build if you
 need to, then grep the compiled output for a string the diff introduced, and
 record that check in Run setup.
 
-Cleanup is not optional; follow its Clean up section, including removing any
+When you are done, follow its Clean up section, including removing any
 scaffolding workspaces you created.
 
 ## Report
@@ -48,6 +48,31 @@ Write findings to a fresh run directory,
 evidence under `shots/` beside it. Never write into an existing run directory.
 Copy evidence into `shots/` as you capture it, not at the end: drive-positron's
 cleanup deletes the directory your screenshots were written to.
+
+**Test files.** Any file a scenario needs -- one you create, copy from the repo
+or a fixture, download, or edit -- is evidence, like a screenshot. A reader
+cannot reproduce from a description of a file.
+
+- Write it to `files/` in the run directory first, then copy it into the
+  workspace, so the saved copy is exactly what the scenario used. Mirror its
+  workspace path: `files/proj/src/app.py`.
+- If a scenario edits it partway through, keep the saved copy from before the
+  edit and put the edit in the step as a code block. A later scenario that
+  starts from the edited file saves that version too, named for the scenario
+  that made it: `files/multi.S06.qmd`.
+- List it in the ledger's `## Files`. A copy of a repo fixture is saved anyway;
+  say where it came from on its line. For a generated binary (`.parquet`, an
+  image, a database), save the script that made it too and list both.
+- In preconditions and steps, name it in backticks by its file name,
+  `` `multi.qmd` ``; the page turns the name into a link that opens the file.
+  Never describe a file's content instead of saving it. Never write "create a
+  file with ..." as a step unless creating it is what you are testing, such as
+  a new-file flow or pasting into an untitled editor.
+- Helper scripts you load, such as a `slow.py` you `%run`, go in `files/`, not
+  `logs/`.
+
+The render step checks this: a file a setup names that is not saved and listed
+is a format problem.
 
 Write the report with Bash, as one quoted heredoc:
 `cat > "$RUN/report.md" <<'REPORT'`, so backticks and `$` pass through. Do not
@@ -122,6 +147,9 @@ PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
 ## Logs
 - logs/<file> | <what wrote it> | <errors it holds, or "no errors">
 
+## Files
+- files/<path> | <what it is, in a phrase; where it came from if copied> | <scenario IDs>; <Finding N, if any>
+
 ---
 
 ## S01 - <scenario, in a few words>
@@ -129,7 +157,7 @@ Status: pass
 Result: <what happened, one line>
 
 Preconditions:
-- <short name> | <ID of the scenario that creates it, or empty> | <how to set it up>
+- <short name> | <ID of the scenario that creates it, or empty> | <how to set it up, with the files/ path of any file it needs>
 
 Steps:
 1. <action>
@@ -165,7 +193,10 @@ Steps:
   there.
 - `## Logs` has one line per file you copied into `logs/`, written at the end,
   with the errors in it ("2 errors, both in Finding 1", "no errors"). An error
-  no check is tied to is counted here and nowhere else.
+  no check is tied to is counted here and nowhere else. Only what the app or
+  an interpreter wrote goes here; a script or file you made is a test file.
+- `## Files` has one line per file in `files/`, added when you save it: every
+  test file, and nothing else.
 - `Preconditions:` is everything a scenario needs before step 1, one bullet
   each, repeated on every scenario that needs it. Put the creating scenario's ID
   in the middle field when there is one. Leave `Preconditions:` out when there
@@ -210,7 +241,9 @@ the picture shows something the text can't.
 
 A finding's steps are the minimal sequence from the scenario that found it: its
 actions plus the verify steps that matter, keeping PASS checks that show what
-still works just before the failure.
+still works just before the failure. Every step is one that scenario ran; stop
+at the failure unless it went on. Another scenario's run of the same bug goes
+under Evidence as a `Variant:`.
 
 Run details goes last: the branch and how you proved the build matches it, the
 state you manufactured and restored, and the local noise you ignored. The
@@ -218,12 +251,12 @@ renderer adds the ledger's Environment. It is the one section that collapses; ke
 `<summary>` and before `</details>`.
 
 Return a two or three line summary and nothing else. Lead with how many
-findings the change introduced (`Introduced? yes` only).
+findings there are, by severity.
 
 ```
-| # | Finding | Severity | Impact | Introduced? | Reproduction |
-|---|---------|----------|--------|-------------|--------------|
-| 1 | <short claim> | major | <the user consequence, in a phrase> | yes | 3/3 |
+| # | Finding | Severity | Impact | Reproduction |
+|---|---------|----------|--------|--------------|
+| 1 | <short claim> | major | <the user consequence, in a phrase> | 3/3 |
 ```
 
 `Severity` is `major` (blocks or materially breaks an important workflow),
@@ -238,10 +271,15 @@ because they can get there another way; a control that wraps onto two lines is
 `Impact` is the user consequence and only that: "blocks completion", "silently
 creates no environment". Not the rate, and not a scale like "High".
 
-`Introduced?` is `yes`, `no`, or `exposed`. Settle it from the diff: either the
-line you blame is in the diff or it predates the change, and Cause says which.
-`exposed` is only for what the diff cannot settle: the change exposes an
-existing defect, or shifts timing so an existing race fires. It is not a hedge.
+Cause blames the defective line, not the line that made it reachable. If the
+diff clearly shows whether that code was added by this change, or is older code
+the change now reaches, say so in one sentence as part of the reasoning: "The
+line this points to was added in this PR", or "Ascending load order predates
+the change, but with no budget it used to finish; now the 30 s budget runs out
+first." Describe the old code's behavior, not the run you did not do: write "On
+the old 60 s timeout a 13 s column loads", not "Not re-run on base". If the
+diff does not settle it, leave origin out. Don't label findings as new or
+pre-existing anywhere else in the report.
 
 `Reproduction` is `<N>/<M>`, and the table is the only place it goes; the
 renderer puts it on the finding. Always give the rate, even 5/5: "every time"
@@ -264,7 +302,9 @@ Every finding's steps stand on their own: no "as Finding 1", no "same as
 above". Repeat the setup line in full each time.
 
 A step that shows source to paste puts it in a fenced block indented under the
-step. If the source has a fence of its own, the outer one is longer.
+step. If the source has a fence of its own, the outer one is longer. A file that
+exists before step 1 is not pasted into a step: it is a test file, named in the
+starting state.
 
 Use this block for every finding. `N` is the table's row number; it ties the
 block to that row and to ledger scenarios whose `Status:` names Finding N.
@@ -272,7 +312,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 ````
 ### Finding N: <concise claim>
 
-**Repro** -- starting state: <what exists before step 1>
+**Repro** -- starting state: <what exists before step 1, naming each test file in backticks>
 
 **Preconditions:** <only with X: the non-default configuration or
 manufactured state this needs, how you set it up, and what happened without it:
@@ -328,7 +368,7 @@ where to look, so it goes in Cause.
 Report genuine problems only. A finding a human cannot verify from its
 artifacts is wasted work, so prefer one finding with a timestamped log excerpt
 over three without. A proven bug belongs in the report even if the change did
-not introduce it; that is what `Introduced? no` is for.
+not introduce it.
 
 When an error is logged, write an `**Error output**` block for it: the full
 message and stack, not the one-line message, one block per distinct error, with
@@ -425,6 +465,17 @@ directory; see Logs for which folder is yours and what to copy.
 Before believing a finding, confirm your measurement can see what you think it
 sees. A UI-scraping bug reads as a product bug, and bug-first instinct will
 hold the wrong hypothesis for a long time; check the instrument first.
+
+Absence is where this bites most. A collapsed tree row, a virtualized list, and
+a panel scrolled out of view all hide content that is still there, and a
+snapshot shows none of it. Before reporting something as missing, read its
+state from the DOM (`aria-expanded`, `hidden`, row counts) or expand and scroll
+to it. When a log says the data was delivered but the view does not show it,
+suspect the view before the pipeline behind it.
+
+A log line supports a Cause only if it was written while the failure was on
+screen. Match its timestamp to the failing step in `actions.log`, and look for
+the line that undoes it (`Disposed`, `stopped`) between the two.
 
 The harness is part of the configuration, not a neutral window onto the
 product. A launcher that forces a setting, a web server standing in for the

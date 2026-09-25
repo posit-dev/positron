@@ -88,11 +88,15 @@ function inline(text) {
 	return marked.parseInline(String(text ?? '').trim());
 }
 
+/** The text escaped HTML stands for: the entities marked and escapeHtml write. */
+export function unescapeHtml(html) {
+	return String(html ?? '')
+		.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+}
+
 /** Inline markdown as plain text, for attributes such as a caption or label. */
 function plainText(text) {
-	return inline(text).replace(/<[^>]*>/g, '')
-		.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
-		.trim();
+	return unescapeHtml(inline(text).replace(/<[^>]*>/g, '')).trim();
 }
 
 /** Block markdown to HTML, for a run of lines that may hold lists or code. */
@@ -213,6 +217,14 @@ export function isDefaultsOnly(text) {
 	return DEFAULTS_ONLY.test(String(text ?? '').trim());
 }
 
+/**
+ * A line trimmed for a heading test, or '' when indented four or more spaces:
+ * that is an indented code block, and a pasted `## Setup` in it is source.
+ */
+function headingText(line) {
+	return /^ {0,3}\S/.test(line) ? line.trim() : '';
+}
+
 /** Strips the indent a numbered list puts on a step's continuation lines. */
 function dedent(line) {
 	return line.replace(/^\s{1,4}/, '');
@@ -282,34 +294,6 @@ export function modelDisplayName(id) {
 	return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`;
 }
 
-/** What each origin means: the tooltip on the card and table, and the reason the agent prompt gives. */
-export const ORIGINS = {
-	new: { kind: 'new', label: 'New', tip: 'New: the code this finding blames was added or changed in this diff.', reason: 'the blamed code was added or changed in this diff' },
-	'pre-existing': { kind: 'pre-existing', label: 'Pre-existing', tip: 'Pre-existing: the code this finding blames predates this diff.', reason: 'the blamed code predates this diff' },
-	exposed: { kind: 'exposed', label: 'Exposed', tip: 'Exposed: the broken code predates this diff, but this change made it reachable or changed the timing.', reason: 'the broken code predates this diff, but this change made it reachable or changed the timing' },
-	unchecked: { kind: 'unchecked', label: 'Not checked', tip: 'Not checked: the run didn\'t record whether this change introduced it.', reason: 'the run didn\'t record it' },
-};
-
-/**
- * Normalizes the `Introduced?` column into the origin the meta line shows.
- *
- * `unclear` is the old name for `exposed`, kept so earlier reports still render.
- * Only a blank or unrecognized value is "Not checked".
- */
-export function parseOrigin(value) {
-	const v = String(value ?? '').trim().toLowerCase();
-	if (/^yes/.test(v)) {
-		return ORIGINS.new;
-	}
-	if (/^no/.test(v)) {
-		return ORIGINS['pre-existing'];
-	}
-	if (/^(exposed|unclear)/.test(v)) {
-		return ORIGINS.exposed;
-	}
-	return ORIGINS.unchecked;
-}
-
 export function parseSeverity(value) {
 	const v = String(value ?? '').trim().toLowerCase();
 	return ['major', 'moderate', 'minor'].includes(v) ? v : 'minor';
@@ -341,18 +325,15 @@ function parseCostLine(line) {
 /**
  * Splits the status strip under a finding heading.
  *
- * `> **Confirmed** | Reproduced **3/3** | **Introduced by this change**`
+ * `> **Confirmed** | Reproduced **3/3**`
  */
 function parseStatusStrip(line) {
 	const text = line.replace(/^>\s*/, '');
-	const out = { confirmed: null, reproduced: null, origin: null };
+	const out = { confirmed: null, reproduced: null };
 	if (/\bconfirmed\b/i.test(text)) { out.confirmed = 'Confirmed'; }
 	if (/\bunproven\b/i.test(text)) { out.confirmed = 'Unproven'; }
 	const rate = /Reproduced\s*\*\*([\d]+\/[\d]+)\*\*/i.exec(text) || /Reproduced\s*([\d]+\/[\d]+)/i.exec(text);
 	if (rate) { out.reproduced = rate[1]; }
-	if (/introduced by this change/i.test(text)) { out.origin = ORIGINS.new; }
-	else if (/pre-existing/i.test(text)) { out.origin = ORIGINS['pre-existing']; }
-	else if (/exposed by this change|origin unclear/i.test(text)) { out.origin = ORIGINS.exposed; }
 	return out;
 }
 
@@ -553,6 +534,34 @@ function outdent(lines) {
 	return out;
 }
 
+/**
+ * The fenced or indented block starting at the first non-blank line from
+ * `from`, as a fenced block, with the index after it; null when there is none.
+ */
+function readSourceBlock(lines, from) {
+	let k = from;
+	while (k < lines.length && !lines[k].trim()) { k++; }
+	const first = lines[k] ?? '';
+	const fence = /^ {0,3}(`{3,}|~{3,})/.exec(first);
+	if (!fence && !/^\s{4,}\S/.test(first)) { return null; }
+	const body = [];
+	if (fence) {
+		body.push(first);
+		for (k++; k < lines.length; k++) {
+			body.push(lines[k]);
+			const close = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(lines[k]);
+			if (close && close[1][0] === fence[1][0] && close[1].length >= fence[1].length) { k++; break; }
+		}
+		return { text: outdent(body).join('\n'), end: k };
+	}
+	for (; k < lines.length; k++) {
+		const raw = lines[k];
+		if (/^\s{4,}\S/.test(raw) || (!raw.trim() && /^\s{4,}\S/.test(lines[k + 1] ?? ''))) { body.push(raw); continue; }
+		break;
+	}
+	return { text: widenOuterFence(['```', ...outdent(body), '```'].join('\n')), end: k };
+}
+
 /** An error from its log source, its `|` fields, and the message-then-frames body. */
 function errorFrom(source, meta, body) {
 	const message = [];
@@ -621,6 +630,11 @@ function parseTestCase(text) {
 	return { text: m[1].trim(), level: TEST_LEVEL[m[2].toLowerCase()], path: (m[3] ?? '').trim(), note: (m[4] ?? '').trim() };
 }
 
+/** A suggested case whose file does not exist yet: `(new file)`. */
+export function isNewTestFile(testCase) {
+	return /\bnew\b/i.test(testCase.note) && !/\bexists?\b/i.test(testCase.note);
+}
+
 /** `` `path` -- Unit, short note `` */
 function parseRelatedTest(text) {
 	const m = /^`([^`]+)`\s*(?:--|\u2014|-)?\s*(?:(unit|extension|e2e)\b[,;:\s]*)?([\s\S]*)$/i.exec(text);
@@ -635,7 +649,7 @@ function parseRelatedTest(text) {
  */
 function parseFindingBody(lines) {
 	const out = {
-		status: { confirmed: null, reproduced: null, origin: null },
+		status: { confirmed: null, reproduced: null },
 		summary: [],
 		observed: '', expected: '', preconditions: '',
 		reproStart: '', steps: [],
@@ -682,6 +696,15 @@ function parseFindingBody(lines) {
 			const start = /(?:--|\u2014|-)\s*starting state:\s*([\s\S]*)$/i.exec(trimmed);
 			out.reproStart = start ? start[1].trim() : '';
 			out.matched++;
+
+			// A file the starting state needs is meant to sit under step 1, but
+			// reports also paste it right under this line. Keep it with the
+			// starting state rather than ending the steps before they begin.
+			const source = readSourceBlock(lines, i + 1);
+			if (source) {
+				out.reproStart = `${out.reproStart}\n\n${source.text}`;
+				i = source.end - 1;
+			}
 
 			// The preconditions line may sit between the Repro line and the steps,
 			// which is where it reads best, or after Expected, which is where
@@ -805,7 +828,7 @@ function parseRunDetails(lines) {
 	const sections = [];
 	let current = null;
 	for (const line of lines) {
-		const heading = /^###\s+(.*)$/.exec(line.trim());
+		const heading = /^###\s+(.*)$/.exec(headingText(line));
 		if (heading) {
 			current = { title: heading[1].trim(), body: [] };
 			sections.push(current);
@@ -891,27 +914,31 @@ const LEDGER_SEP = /\s+(?:·|-|\|)\s+/;
  * Parses the run's `ledger.md` into Coverage rows, or null when it holds no
  * scenarios. Scenarios are `## S01 · <name>` blocks with `Status:`, `Result:`,
  * optional `Preconditions:` bullets (`- <name> | <creating ID> | <how>`) and
- * numbered typed `Steps:`; `## Not run` lists `- N01 · <name> · <reason>`.
+ * numbered typed `Steps:`; `## Not run` lists `- N01 · <name> · <reason>`;
+ * `## Files` lists `- files/<path> | <what it is> | <scenarios and findings>`.
  */
 export function parseLedger(markdown) {
 	const lines = String(markdown ?? '').split('\n');
 	const exercised = [];
 	const notExercised = [];
 	const logs = [];
+	const files = [];
 	const environment = [];
 	let cur = null;
 	let section = '';
 	let inNotRun = false;
 	let inLogs = false;
+	let inFiles = false;
 	let inEnvironment = false;
 	for (const line of lines) {
 		const t = line.trim();
-		const head = /^##\s+(.*)$/.exec(t);
+		const head = /^##\s+(.*)$/.exec(headingText(line));
 		if (head) {
 			cur = null;
 			section = '';
 			inNotRun = /^not run$/i.test(head[1].trim());
 			inLogs = /^logs$/i.test(head[1].trim());
+			inFiles = /^files$/i.test(head[1].trim());
 			inEnvironment = /^environment$/i.test(head[1].trim());
 			const m = /^(S\d+)\s*(?:·|-|\||:)\s*(.+)$/.exec(head[1].trim());
 			if (m) {
@@ -934,6 +961,16 @@ export function parseLedger(markdown) {
 			}
 			continue;
 		}
+		if (inFiles) {
+			// `- files/<path> | <what it is> | <who uses it>`, the same shape as a log line.
+			const m = /^[-*]\s+(.+)$/.exec(t);
+			if (m) {
+				const [path, desc = '', ...uses] = m[1].split(/\s*\|\s*/);
+				const entry = { path: path.trim().replace(/^`|`$/g, '').replace(/^\.\//, ''), desc: desc.trim(), uses: uses.join(' | ').trim() };
+				files.push({ ...entry, descHtml: inline(entry.desc), usesHtml: inline(entry.uses) });
+			}
+			continue;
+		}
 		if (inNotRun) {
 			const m = /^[-*]\s+(?:(N\d+)\s*(?:·|-|\||:)\s*)?(.+)$/.exec(t);
 			if (m) {
@@ -950,8 +987,10 @@ export function parseLedger(markdown) {
 			const name = field[1].toLowerCase();
 			if (name === 'status') {
 				cur.status = /fail/i.test(field[2]) ? 'fail' : 'pass';
-				const n = /finding\s*(\d+)/i.exec(field[2]);
-				cur.finding = n ? Number(n[1]) : null;
+				// "Finding 1, Finding 2" and "Findings 1, 2" both name two.
+				cur.findings = [...field[2].matchAll(/findings?\s*(\d+(?:\s*(?:,|and|&)\s*(?:finding\s*)?\d+)*)/gi)]
+					.flatMap(m => m[1].match(/\d+/g).map(Number));
+				cur.finding = cur.findings[0] ?? null;
 			} else if (name === 'result') {
 				cur.result = field[2].trim();
 			}
@@ -965,7 +1004,7 @@ export function parseLedger(markdown) {
 			cur.stepLines.push(line);
 		}
 	}
-	if (!exercised.length && !notExercised.length && !logs.length) {
+	if (!exercised.length && !notExercised.length && !logs.length && !files.length) {
 		return null;
 	}
 
@@ -986,6 +1025,7 @@ export function parseLedger(markdown) {
 			resultHtml: inline(sentenceCase(s.result)),
 			status: s.status || (steps.some(st => st.result === 'fail') ? 'fail' : 'pass'),
 			finding,
+			findings: s.findings ?? [],
 			shot: null,
 			pre: s.pre.map(p => ({ nameHtml: inline(p.name), from: p.from, howHtml: inline(p.how) })),
 			steps,
@@ -1001,6 +1041,7 @@ export function parseLedger(markdown) {
 		// A ledger always lists what it did not run, so an empty list means none.
 		notExercisedListed: true,
 		logs,
+		files,
 		environment,
 	};
 }
@@ -1051,7 +1092,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	// section: searching the whole document meant a report that omitted the line
 	// put backticks from some finding's body in the header instead.
 	const headerEnd = lines.findIndex((l, i) =>
-		i > titleIndex && !fenced[i] && (/^##\s/.test(l.trim()) || /^\*\*[^*]+:\*\*/.test(l.trim())));
+		i > titleIndex && !fenced[i] && (/^##\s/.test(headingText(l)) || /^\*\*[^*]+:\*\*/.test(l.trim())));
 	const metaIndex = lines.findIndex((l, i) =>
 		i > titleIndex && (headerEnd === -1 || i < headerEnd) && l.trim().startsWith('`'));
 	const chips = metaIndex === -1
@@ -1061,7 +1102,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	// it becomes a link: nothing but a GitHub owner, repo and number gets through.
 	// Searched to the first section rather than the first label: written bold,
 	// the line is a label itself.
-	const sectionStart = lines.findIndex((l, i) => i > titleIndex && !fenced[i] && /^##\s/.test(l.trim()));
+	const sectionStart = lines.findIndex((l, i) => i > titleIndex && !fenced[i] && /^##\s/.test(headingText(l)));
 	const prLine = lines.find((l, i) => i > titleIndex && (sectionStart === -1 || i < sectionStart)
 		&& /^(\*\*)?PR:/.test(l.trim()));
 	const prMatch = prLine && /^(?:\*\*)?PR:(?:\*\*)?\s*`?([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)#(\d+)`?\s*$/.exec(prLine.trim());
@@ -1099,10 +1140,10 @@ export function parseReport(markdown, { ledger } = {}) {
 	}
 
 	// Findings run from `## Findings` to the next `##`.
-	const findingsStart = lines.findIndex(l => /^##\s+Findings\s*$/i.test(l.trim()));
+	const findingsStart = lines.findIndex(l => /^##\s+Findings\s*$/i.test(headingText(l)));
 	const findingsEnd = findingsStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > findingsStart && !fenced[i] && /^##\s/.test(l.trim()));
+		: lines.findIndex((l, i) => i > findingsStart && !fenced[i] && /^##\s/.test(headingText(l)));
 	const findingsLines = findingsStart === -1
 		? []
 		: lines.slice(findingsStart, findingsEnd === -1 ? lines.length : findingsEnd);
@@ -1112,7 +1153,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	const HEADING = /^###\s+(?:Finding\s+)?(\d+)\s*[.:)]?\s*(.*)$/i;
 	const starts = [];
 	findingsLines.forEach((line, i) => {
-		const m = !fenced[findingsStart + i] && HEADING.exec(line.trim());
+		const m = !fenced[findingsStart + i] && HEADING.exec(headingText(line));
 		if (m) { starts.push({ i, n: Number(m[1]), claim: m[2].trim() }); }
 	});
 
@@ -1121,7 +1162,6 @@ export function parseReport(markdown, { ledger } = {}) {
 		const bodyLines = findingsLines.slice(start.i + 1, end);
 		const parsed = parseFindingBody(bodyLines);
 		const row = byNumber.get(start.n) ?? {};
-		const origin = parsed.status.origin ?? parseOrigin(row['introduced?'] ?? row['introduced']);
 		const reproduced = parsed.status.reproduced || (row['reproduction'] ?? '').trim();
 		const verified = (row['verified'] ?? '').toLowerCase();
 
@@ -1180,7 +1220,6 @@ export function parseReport(markdown, { ledger } = {}) {
 			rowTitle: row['finding'] ? inline(row['finding']) : inline(start.claim),
 			impact: row['impact'] ? inline(sentenceCase(row['impact'])) : '',
 			severity: parseSeverity(row['severity']),
-			origin,
 			reproduced,
 			// Unproven is 0/M by definition, so the rate settles it when no strip was written.
 			confirmed: parsed.status.confirmed ?? (/^0\//.test(reproduced) ? 'Unproven' : reproduced ? 'Confirmed' : null),
@@ -1188,7 +1227,8 @@ export function parseReport(markdown, { ledger } = {}) {
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
-			preconditions: preconditions.map(t => inline(t)),
+			// A starting state with a pasted file is the one multi-line item.
+			preconditions: preconditions.map(t => (t.includes('\n') ? block(t) : inline(t))),
 			steps,
 			// A shot a step names is that step's, whatever its caption says.
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'
@@ -1221,14 +1261,14 @@ export function parseReport(markdown, { ledger } = {}) {
 
 	// Coverage. `Exercised` is the new heading; `Verified` is what older
 	// reports wrote.
-	const coverageStart = lines.findIndex(l => /^##\s+Coverage\s*$/i.test(l.trim()));
+	const coverageStart = lines.findIndex(l => /^##\s+Coverage\s*$/i.test(headingText(l)));
 	const coverageEnd = coverageStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > coverageStart && !fenced[i] && (/^##\s/.test(l.trim()) || /^<details/.test(l.trim())));
+		: lines.findIndex((l, i) => i > coverageStart && !fenced[i] && (/^##\s/.test(headingText(l)) || /^<details/.test(l.trim())));
 	const coverageTo = coverageEnd === -1 ? lines.length : coverageEnd;
 	const notExercisedHeading = coverageStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > coverageStart && i < coverageTo && /^###\s+Not exercised\s*$/i.test(l.trim()));
+		: lines.findIndex((l, i) => i > coverageStart && i < coverageTo && /^###\s+Not exercised\s*$/i.test(headingText(l)));
 	const exercisedTo = notExercisedHeading === -1 ? coverageTo : notExercisedHeading;
 
 	const exercisedTable = coverageStart === -1
@@ -1360,6 +1400,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		scenarios: scenarioCounts(coverage),
 		runDetails,
 		logs: fromLedger?.logs ?? [],
+		files: fromLedger?.files ?? [],
 		verification,
 		// The total's duration covers every pass. Falling back to the main pass
 		// only matters for a report written before the total carried one.

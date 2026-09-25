@@ -5,7 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { readFileSync } from 'node:fs';
+import { buildVerifyPrompt, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -133,10 +134,10 @@ const TABLE = [
 	'',
 	'## Findings',
 	'',
-	'| # | Finding | Severity | Impact | Introduced? | Reproduction |',
-	'|---|---------|----------|--------|-------------|--------------|',
-	'| 1 | first claim | major | blocks completion | yes | 3/3 |',
-	'| 2 | second claim | minor | cosmetic | yes | 2/2 |',
+	'| # | Finding | Severity | Impact | Reproduction |',
+	'|---|---------|----------|--------|--------------|',
+	'| 1 | first claim | major | blocks completion | 3/3 |',
+	'| 2 | second claim | minor | cosmetic | 2/2 |',
 	'',
 	'### 1. first claim',
 ].join('\n');
@@ -147,6 +148,15 @@ test('parseVerdicts reads the machine-readable line', () => {
 	assert.equal(v.get(2), 'disputed');
 });
 
+test('fromVerdictLine drops the notes before the VERDICTS line', () => {
+	const reply = 'No conflicting evidence. I have enough to finalize.\n\nVERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.';
+	assert.equal(fromVerdictLine(reply), 'VERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.');
+	assert.equal(fromVerdictLine('VERDICTS: 1=CONFIRMED\nwhy'), 'VERDICTS: 1=CONFIRMED\nwhy');
+	// No verdict line: keep everything, since the prose is all the reviewer gets.
+	assert.equal(fromVerdictLine('just prose'), 'just prose');
+	assert.equal(fromVerdictLine(null), null);
+});
+
 test('parseVerdicts returns empty when the line is absent', () => {
 	assert.equal(parseVerdicts('no verdict line here').size, 0);
 	assert.equal(parseVerdicts(null).size, 0);
@@ -154,7 +164,7 @@ test('parseVerdicts returns empty when the line is absent', () => {
 
 test('annotateFindingsTable adds a verdict per row', () => {
 	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE'));
-	assert.match(out, /\| # \| Finding \| Severity \| Impact \| Introduced\? \| Reproduction \| Verified \|/);
+	assert.match(out, /\| # \| Finding \| Severity \| Impact \| Reproduction \| Verified \|/);
 	assert.match(out, /\| 1 \| first claim .* \| confirmed \|/);
 	assert.match(out, /\| 2 \| second claim .* \| disputed \|/);
 });
@@ -468,4 +478,23 @@ test('every script in the action parses', async () => {
 		const r = spawnSync(process.execPath, ['--check', new URL(f, dir).pathname], { encoding: 'utf8' });
 		assert.equal(r.status, 0, `${f}: ${r.stderr}`);
 	}
+});
+
+const VERIFIER = readFileSync(new URL('../../../.claude/skills/exploratory-test/verifier.md', import.meta.url), 'utf8');
+const RUN = { workDir: '/tmp/run', repoRoot: '/repo', baseSha: 'aaaa1111', headSha: 'bbbb2222' };
+
+test('buildVerifyPrompt fills verifier.md with the run paths and diff range', () => {
+	const prompt = buildVerifyPrompt(VERIFIER, RUN);
+	assert.doesNotMatch(prompt, /\{\{/);
+	assert.match(prompt, /^You are verifying an exploratory-test report/);
+	assert.match(prompt, /Report: `\/tmp\/run\/report\.md`/);
+	assert.match(prompt, /`\/tmp\/run\/files\/`/);
+	assert.match(prompt, /git -C \/repo diff aaaa1111\.\.\.bbbb2222/);
+	// parseVerdicts reads this line from the reply, so the example has to survive.
+	assert.match(prompt, /\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n/);
+});
+
+test('buildVerifyPrompt throws when the template and its values drift apart', () => {
+	assert.throws(() => buildVerifyPrompt(`${VERIFIER}\n{{NEW_THING}}`, RUN), /no value for \{\{NEW_THING\}\}/);
+	assert.throws(() => buildVerifyPrompt(VERIFIER.replaceAll('{{FILES}}', ''), RUN), /\{\{FILES\}\} not in the template/);
 });

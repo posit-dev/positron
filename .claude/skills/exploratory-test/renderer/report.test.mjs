@@ -162,58 +162,15 @@ test('parseReport accepts both finding heading shapes', () => {
 	assert.equal(r.findings[1].title, 'a second claim');
 });
 
-test('parseReport takes origin from the table: New, Pre-existing, Exposed, and Not checked only when blank', () => {
-	const r = parseReport(FULL);
-	assert.equal(r.findings[0].origin.label, 'New');
-	assert.equal(r.findings[1].origin.label, 'Pre-existing');
-
-	const origin = (value, strip = '') => parseReport(md([
-		'## Findings', '',
-		'| # | Finding | Severity | Introduced? |',
-		'|---|---|---|---|',
-		`| 1 | a claim | minor | ${value} |`,
-		'', '### Finding 1: a claim', '', strip, '', 'prose.',
-	].join('\n'))).findings[0].origin;
-	assert.equal(origin('yes').label, 'New');
-	assert.equal(origin('no').label, 'Pre-existing');
-	assert.equal(origin('exposed').label, 'Exposed');
-	// `unclear` is the old name for `exposed`; earlier reports keep rendering.
-	assert.equal(origin('unclear').label, 'Exposed');
-	assert.equal(origin('').label, 'Not checked');
-	assert.equal(origin('maybe').label, 'Not checked');
-	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Introduced by this change**').label, 'New');
-	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Pre-existing**').label, 'Pre-existing');
-	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Exposed by this change**').label, 'Exposed');
-	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Origin unclear**').label, 'Exposed');
-});
-
-test('the Findings table puts Origin beside Severity, one plain style for every label, with tooltips', () => {
+test('the Findings table has no Origin, and an old Introduced? column or origin strip renders nothing', () => {
+	// FULL still carries both, as reports written before Origin was dropped do.
 	const html = renderReportHtml(FULL);
 	const head = /<div class="row row-head findings-grid">(.*?)<\/div>/.exec(html)[1];
 	assert.deepEqual([...head.matchAll(/<span[^>]*>([^<]*)<\/span>/g)].map(m => m[1]),
-		['Severity', 'Origin', 'Finding and impact', 'Reproduced', 'Status']);
-	assert.match(head, /<span class="org-tip" tabindex="0" data-tip="Judged from the diff: does the code each finding blames come from this change\?">Origin<\/span>/);
-	// Rows are links, so each cell's tooltip is a native title rather than a focusable element.
-	assert.match(html, /<span class="origin-cell"><span class="org" title="New: the code this finding blames was added or changed in this diff\.">New<\/span><\/span>/);
-	assert.match(html, /<span class="org" title="Pre-existing: the code this finding blames predates this diff\.">Pre-existing<\/span>/);
-	assert.match(html, /\.findings-grid\{grid-template-columns:110px 96px minmax\(0,1fr\) 90px 110px\}/);
-	assert.match(html, /\.org\{color:inherit;font-weight:inherit\}/);
-	assert.doesNotMatch(html, /\.org[^{]*\.new|origin-cell\.new/);
-	// The card's label is not inside a link, so it takes focus and shows its tooltip on hover or focus.
-	assert.match(html, /<span class="org org-tip" tabindex="0" data-tip="New: the code this finding blames was added or changed in this diff\.">New<\/span>/);
-	assert.match(html, /\.org-tip:hover::after,\.org-tip:focus-visible::after\{content:attr\(data-tip\)/);
-});
-
-test('the prompt gives the origin label and its reason', () => {
-	const prompt = value => promptText(renderReportHtml(md([
-		'## Findings', '',
-		'| # | Finding | Severity | Introduced? |',
-		'|---|---|---|---|',
-		`| 1 | a claim | minor | ${value} |`,
-		'', '### Finding 1: a claim', '', 'prose.',
-	].join('\n'))), 1);
-	assert.match(prompt('exposed'), /^Origin: Exposed \(the broken code predates this diff, but this change made it reachable or changed the timing\)$/m);
-	assert.match(prompt(''), /^Origin: Not checked \(the run didn't record it\)$/m);
+		['Severity', 'Finding and impact', 'Reproduced', 'Status']);
+	assert.match(html, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 90px 110px\}/);
+	assert.doesNotMatch(html, /class="org|origin-cell|\.org\{|>Pre-existing<|>New</);
+	assert.doesNotMatch(promptText(html, 1), /^(Origin|Introduced)/m);
 });
 
 test('parseReport breaks a finding into its labelled parts', () => {
@@ -927,7 +884,6 @@ test('renderReportHtml writes each finding as an agent prompt, from the parsed f
 		'',
 		'Status: Confirmed',
 		'Reproduced: 3/3',
-		'Origin: New (the blamed code was added or changed in this diff)',
 		'',
 		'### Impact',
 		'Blocks completion',
@@ -1027,9 +983,9 @@ test('renderReportHtml mutes the Show all row and only recolours it on hover', (
 /** A finding with every collapsed row, step-tagged shots, and a Steps column. */
 const RICH = md([
 	'## Findings', '',
-	'| # | Finding | Severity | Introduced? | Reproduction |', '|---|---|---|---|---|',
-	'| 1 | a claim | major | yes | 3/3 |',
-	'| 2 | b claim | minor | no | 1/1 |',
+	'| # | Finding | Severity | Reproduction |', '|---|---|---|---|',
+	'| 1 | a claim | major | 3/3 |',
+	'| 2 | b claim | minor | 1/1 |',
 	'',
 	'### 1. A column never loads, and Retry cannot help',
 	'',
@@ -1127,6 +1083,20 @@ test('renderReportHtml ends a card with closed rows: error, cause, regression te
 	assert.match(c, /Likely cause<span class="lc-tail"> &middot; Hypothesis<\/span>/);
 	assert.match(c, /Regression test<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
 	assert.doesNotMatch(c, /class="cause"/);
+});
+
+test('the regression test follows the verdict: hidden when disputed, caveated when unresolved', () => {
+	const verdict = word => RICH
+		.replace('| # | Finding | Severity | Reproduction |', '| # | Finding | Severity | Reproduction | Verified |')
+		.replace('|---|---|---|---|', '|---|---|---|---|---|')
+		.replace('| 1 | a claim | major | 3/3 |', `| 1 | a claim | major | 3/3 | ${word} |`);
+	const disputed = renderReportHtml(verdict('disputed'));
+	assert.doesNotMatch(card(disputed, 1), /lc regtest/);
+	assert.doesNotMatch(promptText(disputed, 1), /### Regression test/);
+	const unresolved = renderReportHtml(verdict('unresolved'));
+	assert.match(card(unresolved, 1), /Regression test<span class="lc-tail"> &middot; 2 missing cases \u00b7 finding unresolved<\/span>/);
+	assert.match(promptText(unresolved, 1), /^### Regression test \(suggestion; the verifier left this finding unresolved\)$/m);
+	assert.match(card(renderReportHtml(verdict('confirmed')), 1), /Regression test<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
 });
 
 test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
@@ -1622,7 +1592,7 @@ const logsHtml = (options = {}) => renderReportHtml(LOGS_REPORT, { ledger: LOGS_
 
 test('logs: the ledger reads its Logs section and a Log field with the stack under it', () => {
 	const ledger = parseLedger(LOGS_LEDGER);
-	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log', 'logs/slow.py']);
+	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log']);
 	assert.equal(ledger.logs[0].source, 'Positron window (renderer and dev-tools console)');
 	const step = ledger.exercised.find(r => r.id === 'S08').steps[2];
 	assert.equal(step.error.source, 'logs/44987-app.log:1182');
@@ -1666,7 +1636,7 @@ test('logs: Run details lists the ledger and one row per log, before Branch veri
 	const html = logsHtml();
 	const folds = html.slice(html.indexOf('id="run-details"'));
 	const labels = [...folds.matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]);
-	assert.deepEqual(labels, ['Agents', 'Change under test', 'Environment', 'State manipulation', 'Test ledger', 'Logs', 'Branch verification']);
+	assert.deepEqual(labels, ['Agents', 'Change under test', 'Environment', 'State manipulation', 'Test ledger', 'Logs', 'Test files', 'Branch verification']);
 	assert.match(folds, /recorded as the run went: <a href="ledger\.md" class="log-file">ledger\.md<\/a>/);
 	const rows = /<ul class="log-list">([\s\S]*?)<\/ul>/.exec(folds)[1].match(/<li>/g);
 	assert.equal(rows.length, parseLedger(LOGS_LEDGER).logs.length);
@@ -1710,7 +1680,6 @@ test('derived: a finding with no status strip takes its state from the table row
 	const [f] = parseReport(bare).findings;
 	assert.equal(f.confirmed, 'Confirmed');
 	assert.equal(f.reproduced, '3/3');
-	assert.equal(f.origin.kind, 'new');
 	const unproven = parseReport(bare.replace(/\| 3\/3 \|/, '| 0/3 |')).findings[0];
 	assert.equal(unproven.confirmed, 'Unproven');
 });
@@ -1725,4 +1694,27 @@ test('derived: Run details shows the ledger Environment after Change under test'
 	const sections = parseReport(own, { ledger: LEDGER }).runDetails;
 	assert.equal(sections.filter(s => s.title === 'Environment').length, 1);
 	assert.match(env(sections).html, /mine/);
+});
+
+test('parseReport: a heading inside an indented code block does not end the section', () => {
+	const { findings } = parseReport([
+		'# Exploratory test: x', '', '## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | one | minor |', '| 2 | two | minor |', '',
+		'### Finding 1: one', '', '**Repro** -- starting state: this file', '', '    ## Setup', '    x <- 1', '', '1. Open it.', '',
+		'### Finding 2: two', '', '**Repro** -- starting state: nothing', '', '1. Open it.', '',
+	].join('\n'));
+	assert.deepEqual(findings.map(f => f.n), [1, 2]);
+	assert.equal(findings[0].steps.length, 1);
+	assert.match(findings[0].preconditions[0], /<pre><code>## Setup\nx &lt;- 1\n<\/code><\/pre>/);
+});
+
+test('parseReport: a fence marker indented four spaces does not close the Repro block', () => {
+	const { findings } = parseReport([
+		'# Exploratory test: x', '', '## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | one | minor |', '',
+		'### Finding 1: one', '', '**Repro** -- starting state: this file', '',
+		'```md', 'a', '    ```', 'b', '```', '', '1. Open it.', '',
+	].join('\n'));
+	assert.equal(findings[0].steps.length, 1);
+	assert.match(findings[0].preconditions[0], /a\n {4}```\nb/);
 });

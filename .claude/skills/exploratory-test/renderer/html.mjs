@@ -15,8 +15,9 @@
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
 import { resolve as resolvePath } from 'node:path';
-import { parseReport, escapeHtml, safeUrl, basename } from './report-parse.mjs';
+import { parseReport, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
+import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, FILE_SCRIPT } from './repro-files.mjs';
 
 const ICON = {
 	// Straight down with no tray under it: "jump down the page", not "download".
@@ -179,9 +180,6 @@ function renderAgents(report) {
 		+ rows.join('') + totalRow + '</div></div>';
 }
 
-/** Judged from the diff, so the column header says so. */
-const ORIGIN_HEAD_TIP = 'Judged from the diff: does the code each finding blames come from this change?';
-
 function renderFindingsList(report) {
 	if (!report.findings.length) {
 		return '';
@@ -193,10 +191,8 @@ function renderFindingsList(report) {
 			: word
 				? `<span class="status muted">${word[0].toUpperCase()}${word.slice(1)}</span>`
 				: '<span class="status muted"></span>';
-		// The row is a link, so the origin cell's tooltip is a native title, not a focusable element.
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
-			+ `<span class="origin-cell"><span class="org" title="${escapeHtml(f.origin.tip)}">${escapeHtml(f.origin.label)}</span></span>`
 			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span>`
 			+ (f.impact ? `<span class="impact">${f.impact}</span>` : '')
 			+ '</span>'
@@ -208,7 +204,7 @@ function renderFindingsList(report) {
 	return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
 <div class="panel">
-<div class="row row-head findings-grid"><span>Severity</span><span class="org-tip" tabindex="0" data-tip="${ORIGIN_HEAD_TIP}">Origin</span><span>Finding and impact</span><span class="right">Reproduced</span><span class="right">Status</span></div>
+<div class="row row-head findings-grid"><span>Severity</span><span>Finding and impact</span><span class="right">Reproduced</span><span class="right">Status</span></div>
 ${rows}
 </div>
 </section>`;
@@ -371,7 +367,6 @@ export function buildAgentPrompt(f, report, options = {}) {
 	const status = [
 		word && `Status: ${word[0].toUpperCase()}${word.slice(1)}`,
 		f.reproduced && `Reproduced: ${f.reproduced}`,
-		`Origin: ${f.origin.label} (${f.origin.reason})`,
 	].filter(Boolean);
 	out.push(...status, '');
 	const section = (heading, body) => {
@@ -385,6 +380,10 @@ export function buildAgentPrompt(f, report, options = {}) {
 	section('Preconditions', t.preconditions.length === 1
 		? t.preconditions[0]
 		: t.preconditions.map(p => `- ${p}`).join('\n'));
+	// The files the setup and steps name, with their text: the agent cannot
+	// reproduce from a file it only knows by name.
+	section('Files', promptFilesSection(options.files ?? [], [...t.preconditions, ...t.steps].join('\n'),
+		p => absolutePath(p, base), fenced));
 	// A step's own block stays under its number.
 	section('Reproduction', t.steps.map((step, i) => `${i + 1}. ${step.replace(/\n/g, '\n   ')}`).join('\n'));
 	section('Evidence', f.evidence.map(e => {
@@ -419,10 +418,10 @@ export function buildAgentPrompt(f, report, options = {}) {
 	}).join('\n\n'));
 	section('Likely cause (hypothesis, not verified)', capitalize(t.cause));
 	const { cases, related } = f.tests;
-	if (cases.length) {
+	if (cases.length && f.verified !== 'disputed') {
 		const named = new Set(cases.map(c => c.path));
 		const others = related.filter(r => !named.has(r.path));
-		section('Regression test (suggestion)', [
+		section(f.verified === 'unresolved' ? 'Regression test (suggestion; the verifier left this finding unresolved)' : 'Regression test (suggestion)', [
 			...cases.map(c => `- ${c.text}${c.path ? ` \u2192 add to ${c.path}${c.level ? ` (${c.level})` : ''}` : c.level ? ` \u2192 ${c.level} test; place it per the repo's test guidance` : ''}`),
 			others.length && `Other tests that touch this code: ${others.map(r => `${r.path}${r.level ? ` (${r.level})` : ''}`).join(', ')}`,
 		].filter(Boolean).join('\n'));
@@ -436,10 +435,10 @@ export function buildAgentPrompt(f, report, options = {}) {
 
 // A fence longer than any backtick run inside, so a log line starting with
 // ``` cannot close the block early.
-function fenced(text) {
+function fenced(text, lang = '') {
 	const longest = Math.max(2, ...(text.match(/`+/g) || []).map(run => run.length));
 	const fence = '`'.repeat(longest + 1);
-	return `${fence}\n${text}\n${fence}`;
+	return `${fence}${lang}\n${text}\n${fence}`;
 }
 
 function renderCopyButton(f) {
@@ -448,8 +447,10 @@ function renderCopyButton(f) {
 }
 
 function renderPromptBlock(f, report, options) {
-	// Raw text inside a script element: only a closing tag can end it early.
-	const text = buildAgentPrompt(f, report, options).replace(/<\/(script)/gi, '<\\/$1');
+	// Raw text inside a script element: a closing tag ends it early, and a
+	// comment opener before a `<script` makes the parser skip the real closing
+	// tag and swallow the page. A saved HTML file brings both.
+	const text = buildAgentPrompt(f, report, options).replace(/<(?=\/script|!--)/gi, '<\\');
 	return `<script type="text/plain" id="prompt-f${f.n}">${text}</script>`;
 }
 
@@ -500,7 +501,8 @@ function renderErrorOutput(f, sha, exists) {
 
 function renderRegressionTest(f, sha) {
 	const { cases, related } = f.tests;
-	if (!cases.length) {
+	// Tests are aimed at the Cause, so they are no better than the finding the verifier judged.
+	if (!cases.length || f.verified === 'disputed') {
 		return '';
 	}
 	const sep = ' <span class="rt-sep" aria-hidden="true">&middot;</span> ';
@@ -514,8 +516,7 @@ function renderRegressionTest(f, sha) {
 			return c.level || c.noteHtml ? row(c.level, [c.noteHtml]) : '';
 		}
 		// A file the case says to create has nothing to link to yet.
-		const isNew = /\bnew\b/i.test(c.note) && !/\bexists?\b/i.test(c.note);
-		return row(c.level, [`Add to ${fileLink(c.path, isNew ? null : sourceHref(c.path, sha), 'rt-file')}`, c.noteHtml]);
+		return row(c.level, [`Add to ${fileLink(c.path, isNewTestFile(c) ? null : sourceHref(c.path, sha), 'rt-file')}`, c.noteHtml]);
 	};
 	const plural = cases.length > 1;
 	const named = new Set(cases.map(c => c.path));
@@ -525,7 +526,8 @@ function renderRegressionTest(f, sha) {
 			+ others.map(r => `<li>${row(r.level, [fileLink(r.path, sourceHref(r.path, sha), 'rt-file'), r.noteHtml])}</li>`).join('')
 			+ '</ul></div>'
 		: '';
-	return collapsedRow(' regtest', 'Regression test', `${cases.length} missing case${plural ? 's' : ''}`,
+	const tail = `${cases.length} missing case${plural ? 's' : ''}${f.verified === 'unresolved' ? ' \u00b7 finding unresolved' : ''}`;
+	return collapsedRow(' regtest', 'Regression test', tail,
 		`<div class="rt-group"><div class="rt-label">Suggested case${plural ? 's' : ''}</div>`
 		+ `<ol class="rt-cases">${cases.map(c => `<li>${c.textHtml}${where(c)}</li>`).join('')}</ol></div>`
 		+ othersHtml);
@@ -544,8 +546,7 @@ function renderCardDetails(f, report, options = {}) {
 
 function renderFindingCard(f, report, options) {
 	const prompts = options.agentPrompts !== false;
-	const origin = `<span class="org org-tip" tabindex="0" data-tip="${escapeHtml(f.origin.tip)}">${escapeHtml(f.origin.label)}</span>`;
-	const context = [origin];
+	const context = [];
 	if (f.confirmed === 'Confirmed' || f.verified === 'confirmed') {
 		context.push(`<span class="confirmed">${ICON.check(12)}Confirmed</span>`);
 	} else if (f.confirmed) {
@@ -568,9 +569,12 @@ function renderFindingCard(f, report, options) {
 		+ '</header>';
 
 	const promptBlock = prompts ? renderPromptBlock(f, report, options) : '';
+	// A saved file the card names opens its viewer. Not the prompt block: that
+	// is raw text, and it carries the files itself.
+	const files = options.files ?? [];
 
 	if (f.proseHtml) {
-		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${head}<div class="card-prose">${f.proseHtml}</div>${promptBlock}</article>`;
+		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files)}${promptBlock}</article>`;
 	}
 
 	const observedExpected = (f.observedHtml || f.expectedHtml)
@@ -586,7 +590,7 @@ function renderFindingCard(f, report, options) {
 	// they need before they start without reading to find where it stops.
 	const preconditions = f.preconditions.length
 		? '<div class="repro-group"><div class="repro-label">Preconditions</div>'
-		+ `<ul class="preconditions">${f.preconditions.map(p => `<li>${p}</li>`).join('')}</ul></div>`
+		+ `<ul class="preconditions">${f.preconditions.map(p => `<li>${withCodeCopy(p)}</li>`).join('')}</ul></div>`
 		: '';
 	// The card's Observed says what went wrong, so a step repeats it only when
 	// two failed checks saw different things.
@@ -603,11 +607,11 @@ function renderFindingCard(f, report, options) {
 	const details = renderCardDetails(f, report, options);
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
-${head}
+${linkFiles(`${head}
 ${observedExpected}
 ${repro}
 ${renderEvidence(f)}
-${details}
+${details}`, files)}
 ${promptBlock}
 </article>`;
 }
@@ -616,7 +620,8 @@ ${promptBlock}
 // not-run rows are always listed, since those are what a reviewer scans for.
 const COVERAGE_PASSES_SHOWN = 4;
 
-function renderCoverage(report) {
+function renderCoverage(report, options = {}) {
+	const files = options.files ?? [];
 	const { exercised, notExercised } = report.coverage;
 	if (!exercised.length && !notExercised.length) {
 		return '';
@@ -662,7 +667,8 @@ function renderCoverage(report) {
 			const from = !p.from ? ''
 				: src ? `Created in <a href="#${rowId.get(src)}">${src.scenarioHtml}</a>: `
 					: `Created in ${escapeHtml(p.from)}: `;
-			return `<span class="pre-i"><b>${p.nameHtml}</b>${from}${p.howHtml}</span>`;
+			// A saved file the how-to names opens its viewer from here too.
+			return `<span class="pre-i"><b>${p.nameHtml}</b>${from}${linkFilePaths(p.howHtml, files)}</span>`;
 		}).join('');
 		return '<p class="cv-pre" tabindex="0" aria-label="Preconditions">'
 			+ '<span class="pre-mark" aria-hidden="true">P</span>'
@@ -757,6 +763,10 @@ function runFiles(report, options) {
 		parts.push({ title: 'Logs', html: '<p>Everything captured during the run, saved next to this report. '
 			+ 'Error lines are also in each finding\u2019s Error output and agent prompt.</p>'
 			+ `<ul class="log-list">${rows.join('')}</ul>` });
+	}
+	const files = renderTestFilesPart(options.files ?? []);
+	if (files) {
+		parts.push(files);
 	}
 	return parts;
 }
@@ -907,8 +917,8 @@ b.addEventListener('click',function(){var text;
 // A code block copies its source exactly; the agent button copies its prompt.
 if(b.classList.contains('code-cp')){var pre=b.parentNode.querySelector('pre');if(!pre){return;}text=pre.textContent;}
 else{var el=document.getElementById(b.dataset.prompt);if(!el){return;}
-// Undo renderPromptBlock's escape of the closing script tag, or the paste carries it.
-text=el.textContent.trim().replace(/<\\\\\\/(?=script)/gi,'</');}
+// Undo renderPromptBlock's escapes, or the paste carries them.
+text=el.textContent.trim().replace(/<\\\\(?=\\/script|!--)/gi,'<');}
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);}
 // A frame that blocks the clipboard API can still allow execCommand.
@@ -928,6 +938,10 @@ else{fallback();}});});`;
  */
 export function renderReportHtml(markdown, options = {}) {
 	const report = parseReport(markdown, { ledger: options.ledger });
+	// `readFile` reads a path beside the report; the viewer, the Test files
+	// list and the prompt all show the same resolved files.
+	options = { ...options, files: resolveFiles(report.files, options.readFile) };
+	const viewers = renderFileViewers(options.files);
 	// Off for teams whose AI policy does not allow it: no buttons, no prompt
 	// blocks and no script. `base` makes relative evidence paths absolute, and
 	// `diff` is the `<base>...<head>` range the prompt's Context names.
@@ -972,7 +986,7 @@ ${renderFindingsList(report)}
 
 ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
-${renderCoverage(report)}
+${linkFiles(renderCoverage(report, options), options.files)}
 
 ${renderFolds(report, options)}
 
@@ -989,10 +1003,11 @@ ${renderSignature()}
 </div>
 </div>
 </div>
+${viewers}
 <a class="to-top tip" href="#top" data-tip="Back to top" aria-label="Back to top" tabindex="-1">${ICON.up}</a>
 </div>
 <script>${PAGE_SCRIPT}</script>
-`;
+${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	// Code blocks in steps have copy buttons even when agent prompts are off.
 	const copy = prompts || page.includes('class="code-cp"');
 	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}</body>
