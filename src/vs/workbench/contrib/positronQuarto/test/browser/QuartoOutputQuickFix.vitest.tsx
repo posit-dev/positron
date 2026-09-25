@@ -16,6 +16,8 @@ import { decodeBase64 } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { POSIT_NEW_CHAT_COMMAND, NewChatOptions } from '../../../positronAssistant/browser/positAssistantChat.js';
+import { Event } from '../../../../../base/common/event.js';
+import { IErrorActionTarget, IErrorActionTargetService } from '../../../positronAssistant/common/errorActionTargets.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { QuartoCellErrorContext } from '../../common/quartoExecutionTypes.js';
 
@@ -144,6 +146,34 @@ describe('QuartoOutputQuickFix', () => {
 				name: 'Quarto Output Error',
 				attachment: 'NameError: name "x" is not defined',
 			});
+		});
+	});
+});
+
+describe('QuartoOutputQuickFix with a contributed target', () => {
+	const target: IErrorActionTarget = { id: 'claude-code', label: 'Claude Code', command: 'test.sendError' };
+	const run = vi.fn().mockResolvedValue(undefined);
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IErrorActionTargetService, { onDidChange: Event.None, getConfiguredTarget: () => target, run })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('names the failing chunk in the prompt and sends only the error', async () => {
+		const user = userEvent.setup();
+		rtl.render(
+			<QuartoOutputQuickFix
+				cellContext={{ path: 'report.qmd', language: 'python', code: 'raise RuntimeError("boom")', codeStartLine: 8, codeEndLine: 9 }}
+				errorContent='RuntimeError: boom'
+			/>
+		);
+		await user.click(screen.getByRole('button', { name: 'Ask Claude Code to fix in new chat' }));
+
+		expect(run.mock.calls[0][1]).toEqual({
+			action: 'fix',
+			prompt: 'Fix the following error in the python code chunk at lines 8-9 of report.qmd:',
+			context: 'RuntimeError: boom',
+			contextName: 'Quarto Output Error',
 		});
 	});
 });

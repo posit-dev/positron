@@ -40,6 +40,9 @@ import './inlineCompletionsMigration.js';
 // Register the agent-compatible `positronAssistant.getProviderStatus` command.
 import './providerStatusCommand.js';
 
+// Register the `errorActionTargets` extension point and `ai.errorActions.target` setting.
+import './errorActionTargetService.js';
+
 // Register the commit message generation feature.
 registerCommitMessageGeneration();
 

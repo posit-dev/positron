@@ -20,6 +20,7 @@
 	"customEditors",
 	"debugVisualizers",
 	"debuggers",
+	"errorActionTargets",
 	"grammars",
 	"iconThemes",
 	"icons",

@@ -12,6 +12,7 @@ import { usePositronConfiguration, useContextKeyFromString } from '../../../../b
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { POSIT_HAS_CHAT_MODELS_KEY } from '../../positronAssistant/browser/positAssistantChat.js';
 import { AssistantErrorQuickFix, AssistantErrorPayload } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
+import { useErrorActionTarget } from '../../positronAssistant/browser/useErrorActionTarget.js';
 import { QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 
 const fixPrompt = localize('positronQuartoAssistantFixPrompt', "Fix this Quarto inline output error.");
@@ -34,12 +35,13 @@ interface QuartoOutputQuickFixProps {
 }
 
 /**
- * Quick fix buttons for Quarto inline output errors. Gated on ai.enabled +
- * posit-assistant.hasChatModels; renders nothing when either is off.
+ * Quick fix buttons for Quarto inline output errors. Gated on ai.enabled and
+ * either a contributed error action target or posit-assistant.hasChatModels.
  */
 export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 	const hasChatModels = useContextKeyFromString<boolean>(POSIT_HAS_CHAT_MODELS_KEY);
+	const errorActionTarget = useErrorActionTarget();
 
 	const { errorContent, cellContext, onLayout } = props;
 
@@ -52,7 +54,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 
 	const buildPayload = useCallback((): AssistantErrorPayload => {
 		if (!cellContext) {
-			return { fixPrompt, explainPrompt, attachmentContent: errorContent };
+			return { fixPrompt, explainPrompt, attachmentContent: errorContent, errorOutput: errorContent };
 		}
 		const header = cellContext.label
 			? localize('positronQuartoErrorContextHeaderLabeled', "Error from the {0} code chunk in {1}, lines {2}-{3} (label: {4}):", cellContext.language, cellContext.path, cellContext.codeStartLine, cellContext.codeEndLine, cellContext.label)
@@ -63,10 +65,12 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 			fixPrompt: localize('positronQuartoAssistantFixPromptWithContext', "Fix the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached; fix only this error.", cellContext.language, cellContext.codeStartLine, cellContext.codeEndLine, cellContext.path),
 			explainPrompt: localize('positronQuartoAssistantExplainPromptWithContext', "Explain the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached.", cellContext.language, cellContext.codeStartLine, cellContext.codeEndLine, cellContext.path),
 			attachmentContent: `${header}\n\n${codeHeader}\n${cellContext.code}\n\n${errorHeader}\n${errorContent}`,
+			errorOutput: errorContent,
+			location: localize('positronQuartoErrorLocation', "the {0} code chunk at lines {1}-{2} of {3}", cellContext.language, cellContext.codeStartLine, cellContext.codeEndLine, cellContext.path),
 		};
 	}, [cellContext, errorContent]);
 
-	if (aiEnabled === false || !hasChatModels) {
+	if (aiEnabled === false || (errorActionTarget === undefined && !hasChatModels)) {
 		return null;
 	}
 
@@ -75,6 +79,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 			attachmentName={ATTACHMENT_NAME}
 			getPayload={buildPayload}
 			groupAriaLabel={localize('positron.quarto.quickFixGroup', "Output quick fix actions")}
+			target={errorActionTarget}
 		/>
 	);
 };

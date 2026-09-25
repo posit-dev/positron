@@ -46,6 +46,7 @@
   "extensions/positron-viewer/": ["@:viewer"],
   "extensions/positron-duckdb/": ["@:duck-db"],
   "extensions/positron-skills/": [],
+  "extensions/positron-claude-code/": [],
 
   "src/vs/workbench/contrib/positronTelemetry/": [],
   "src/vs/workbench/contrib/positronIdleReporter/": [],

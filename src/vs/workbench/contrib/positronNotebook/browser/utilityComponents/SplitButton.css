@@ -24,6 +24,11 @@
 	align-items: center;
 	border-radius: 3px 0 0 3px;
 	padding: 2px 8px;
+}
+
+/* Round all corners when there is no dropdown half */
+.split-button .split-button-main:only-child {
+	border-radius: 3px;
 	font-size: 11px;
 	color: var(--vscode-foreground);
 }

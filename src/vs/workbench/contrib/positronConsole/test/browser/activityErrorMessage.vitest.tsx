@@ -18,6 +18,7 @@ import { MockContextKeyService } from '../../../../../platform/keybinding/test/c
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
+import { IErrorActionTargetService } from '../../../positronAssistant/common/errorActionTargets.js';
 import { ActivityErrorMessage } from '../../browser/components/activityErrorMessage.js';
 
 const positAssistant = { identifier: new ExtensionIdentifier('posit.assistant') } as IExtensionDescription;
@@ -80,6 +81,36 @@ describe('ActivityErrorMessage assistant actions gate (Posit Assistant not insta
 		configurationService.setUserConfiguration('console.assistantActions.enabled', true);
 		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
+	});
+});
+
+describe('ActivityErrorMessage assistant actions gate (contributed target)', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IExtensionService, { extensions: [], onDidChangeExtensions: Event.None })
+		.stub(IErrorActionTargetService, {
+			onDidChange: Event.None,
+			getConfiguredTarget: () => ({ id: 'claude-code', label: 'Claude Code', command: 'test.sendError' }),
+		})
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	function setup(options: { aiEnabled: boolean }) {
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		configurationService.setUserConfiguration('ai.enabled', options.aiEnabled);
+		configurationService.setUserConfiguration('console.assistantActions.enabled', true);
+	}
+
+	it('shows the actions without Posit Assistant or a chat model', () => {
+		setup({ aiEnabled: true });
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		expect(screen.getByText('Fix')).toBeInTheDocument();
+	});
+
+	it('still hides the actions when the AI main switch is off', () => {
+		setup({ aiEnabled: false });
 		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
 		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
 	});

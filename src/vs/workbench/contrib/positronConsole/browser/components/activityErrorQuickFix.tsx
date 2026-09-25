@@ -17,15 +17,23 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { NewChatFile, NewChatOptions, openPositAssistantChat } from '../../../positronAssistant/browser/positAssistantChat.js';
+import { IErrorActionTarget, IErrorActionTargetService } from '../../../positronAssistant/common/errorActionTargets.js';
 
 const fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
 const explainPrompt = localize('positronConsoleAssistantExplainPrompt', "Explain this console error.");
+
+// Prompts for contributed targets (e.g. Claude Code), which receive the error
+// right after the prompt.
+const targetFixPrompt = localize('positronConsoleTargetFixPrompt', "Fix the following console error:");
+const targetExplainPrompt = localize('positronConsoleTargetExplainPrompt', "Explain the following console error, without making changes or editing any files:");
 
 const ATTACHMENT_NAME = localize('positronConsoleAssistantErrorAttachmentName', "Console Error");
 
 interface ConsoleQuickFixProps {
 	outputLines: ANSIOutputLine[];
 	tracebackLines: ANSIOutputLine[];
+	/** Contributed target to send the error to; Posit Assistant when undefined. */
+	target?: IErrorActionTarget;
 }
 
 const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputLine[]) => {
@@ -53,12 +61,23 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const services = usePositronReactServicesContext();
 	const { commandService, logService, notificationService } = services;
 
-	const attachment = useMemo(
-		() => buildAttachment(formatOutput(props.outputLines, props.tracebackLines)),
+	const errorText = useMemo(
+		() => formatOutput(props.outputLines, props.tracebackLines),
 		[props.outputLines, props.tracebackLines]
 	);
 
-	const runNewChat = (prompt: string) => {
+	const runNewChat = (action: 'fix' | 'explain', prompt: string) => {
+		// Send to a contributed target (e.g. Claude Code) when one is selected.
+		if (props.target) {
+			return services.get(IErrorActionTargetService).run(props.target, {
+				action,
+				prompt: action === 'fix' ? targetFixPrompt : targetExplainPrompt,
+				context: errorText,
+				contextName: ATTACHMENT_NAME,
+			});
+		}
+
+		const attachment = buildAttachment(errorText);
 		const options: NewChatOptions = {
 			prompt,
 			target: 'auto',
@@ -68,9 +87,9 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 		return openPositAssistantChat(commandService, notificationService, logService, options);
 	};
 
-	const pressedFixHandler = () => runNewChat(fixPrompt);
+	const pressedFixHandler = () => runNewChat('fix', fixPrompt);
 
-	const pressedExplainHandler = () => runNewChat(explainPrompt);
+	const pressedExplainHandler = () => runNewChat('explain', explainPrompt);
 
 	// Render.
 	return (

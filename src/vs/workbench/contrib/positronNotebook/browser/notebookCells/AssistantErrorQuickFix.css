@@ -22,6 +22,11 @@
 	border-radius: 3px 0 0 3px;
 }
 
+/* Round all corners when there is no dropdown half */
+.assistant-error-quick-fix .split-button-main:only-child {
+	border-radius: 3px;
+}
+
 .assistant-error-quick-fix .split-button-main:hover {
 	background: var(--vscode-positronActionBar-hoverBackground);
 }
