@@ -345,16 +345,13 @@
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
-		"pretest": "npm run compile && npm run lint",
-		"lint": "eslint src --ext ts",
+		"pretest": "npm run compile",
 		"test": "node ./out/test/runTest.js"
 	},
 	"devDependencies": {
 		"@types/node": "22.x",
 		"@types/ssh2": "^0.5.52",
 		"@types/ssh2-streams": "0.1.12",
-		"@typescript-eslint/eslint-plugin": "^5.19.0",
-		"@typescript-eslint/parser": "^5.19.0",
 		"typescript": "^4.6.3"
 	},
 	"dependencies": {
