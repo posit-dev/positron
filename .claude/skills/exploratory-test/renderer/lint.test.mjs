@@ -45,7 +45,7 @@ Result: loads
 Steps:
 1. Open it.
 2. VERIFY it loads -> PASS
-   Evidence: a.png
+   Evidence: p.png
 
 ## S02 - Retry
 Status: fail - Finding 1
@@ -176,23 +176,31 @@ test('flags a test file that is not in the repository, but not one marked new', 
 test('flags a FAIL without Log:, a pass without a screenshot and a bad Status', () => {
 	const ledger = LEDGER
 		.replace('   Log: none found in logs/r.log\n', '')
-		.replace('   Evidence: a.png\n\n## S02', '\n## S02')
+		.replace('   Evidence: p.png\n', '')
 		.replace('Status: fail - Finding 1', 'Status: failed');
 	const problems = lint(REPORT, ledger);
-	assert.ok(problems.some(p => /S02 FAIL check 1 is missing Log:/.test(p)));
-	assert.ok(problems.some(p => /S01 passes with no Evidence/.test(p)));
+	assert.ok(problems.some(p => /S02 step 2 FAIL is missing Log:/.test(p)));
+	assert.ok(problems.some(p => /S01 step 2 VERIFY has no Evidence/.test(p)));
 	assert.ok(problems.some(p => /S02 Status: must be/.test(p)));
 });
 
-test('Evidence: counts only a file that is in shots/', () => {
-	const prose = LEDGER.replace(/Evidence: a\.png/g, 'Evidence: none; DOM read only');
-	const problems = lint(REPORT, prose);
-	assert.ok(problems.some(p => /S01 passes with no Evidence: naming a screenshot/.test(p)));
-	assert.ok(problems.some(p => /S02 FAIL check 1 is missing Evidence: \(a screenshot file\)/.test(p)));
+test('every VERIFY needs its own screenshot, not just one per scenario', () => {
+	const ledger = LEDGER.replace('   Evidence: p.png\n', '   Evidence: p.png\n3. VERIFY the header shows -> PASS\n');
+	assert.deepEqual(lint(REPORT, ledger), ['ledger: S01 step 3 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own']);
 
-	const invented = lintReport(REPORT, LEDGER.replace('Evidence: a.png\n\n## S02', 'Evidence: shots/made-up.png\n\n## S02'), { fileExists: f => f === 'shots/a.png' });
+	const reused = LEDGER.replace('Evidence: p.png', 'Evidence: a.png');
+	assert.deepEqual(lint(REPORT, reused), ['ledger: a.png is Evidence for S01 step 2 and S02 step 2; take a screenshot for each check']);
+});
+
+test('Evidence: counts only a file that is in shots/', () => {
+	const prose = LEDGER.replace(/Evidence: [ap]\.png/g, 'Evidence: none; DOM read only');
+	const problems = lint(REPORT, prose);
+	assert.ok(problems.some(p => /S01 step 2 VERIFY has no Evidence: naming a screenshot/.test(p)));
+	assert.ok(problems.some(p => /S02 step 2 VERIFY has no Evidence: naming a screenshot/.test(p)));
+
+	const invented = lintReport(REPORT, LEDGER.replace('Evidence: p.png', 'Evidence: shots/made-up.png'), { fileExists: f => f === 'shots/a.png' });
 	assert.ok(invented.some(p => /S01 cites Evidence: made-up\.png, which is not in shots\//.test(p)));
-	assert.ok(invented.some(p => /S01 passes with no Evidence/.test(p)));
+	assert.ok(invented.some(p => /S01 step 2 VERIFY has no Evidence/.test(p)));
 });
 
 test('flags a Status naming a finding the report does not have', () => {
