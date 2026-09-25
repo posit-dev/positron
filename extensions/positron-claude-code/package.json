@@ -1,0 +1,37 @@
+{
+	"name": "positron-claude-code",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "0.0.1",
+	"publisher": "positron",
+	"license": "Elastic-2.0",
+	"private": true,
+	"engines": {
+		"vscode": "^1.94.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": true
+		},
+		"virtualWorkspaces": true
+	},
+	"extensionKind": [
+		"workspace"
+	],
+	"activationEvents": [
+		"onAiEnabled"
+	],
+	"main": "./out/extension.js",
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/posit-dev/positron.git"
+	}
+}

@@ -26,12 +26,16 @@ import { PromptRenderer } from '../../../contrib/positronAssistant/browser/promp
 import { getPositronContextPrompts } from '../../../contrib/positronAssistant/browser/prompts/positronContextPrompts.js';
 import { getForegroundSessionInfo } from '../../../contrib/positronAssistant/browser/prompts/promptSessions.js';
 import * as xml from '../../../contrib/positronAssistant/common/xml.js';
+import { IErrorActionsService } from '../../../contrib/positronAssistant/common/errorActions.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadAiFeatures)
 export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeaturesShape {
 
 	private readonly _proxy: ExtHostAiFeaturesShape;
 	private readonly _registrations = this._register(new DisposableMap<string>());
+
+	/** Error action handlers registered from the extension host, by handle. */
+	private readonly _errorActionHandlerRegistrations = this._register(new DisposableMap<number>());
 	private _promptRenderer: PromptRenderer | undefined;
 
 	constructor(
@@ -46,6 +50,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentAllowedCommandsService private readonly _agentAllowedCommandsService: IAgentAllowedCommandsService,
 		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
+		@IErrorActionsService private readonly _errorActionsService: IErrorActionsService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -90,6 +95,24 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	$unregisterChatAgent(id: string): void {
 		this._registrations.deleteAndDispose(id);
+	}
+
+	/**
+	 * Register an error action handler implemented in the extension host.
+	 */
+	$registerErrorActionHandler(handle: number, id: string, label: string): void {
+		this._errorActionHandlerRegistrations.set(handle, this._errorActionsService.register({
+			id,
+			label,
+			run: (kind, context, token) => this._proxy.$runErrorAction(handle, kind, context, token),
+		}));
+	}
+
+	/**
+	 * Unregister an error action handler implemented in the extension host.
+	 */
+	$unregisterErrorActionHandler(handle: number): void {
+		this._errorActionHandlerRegistrations.deleteAndDispose(handle);
 	}
 
 	/*

@@ -16,6 +16,8 @@ import { decodeBase64 } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { POSIT_NEW_CHAT_COMMAND, NewChatOptions } from '../../../positronAssistant/browser/positAssistantChat.js';
+import { Event } from '../../../../../base/common/event.js';
+import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { QuartoCellErrorContext } from '../../common/quartoExecutionTypes.js';
 
@@ -145,5 +147,31 @@ describe('QuartoOutputQuickFix', () => {
 				attachment: 'NameError: name "x" is not defined',
 			});
 		});
+	});
+});
+
+describe('QuartoOutputQuickFix with a registered error action handler', () => {
+	const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
+	const run = vi.fn().mockResolvedValue(undefined);
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, run })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('names the failing chunk in the instruction and sends only the error', async () => {
+		const user = userEvent.setup();
+		rtl.render(
+			<QuartoOutputQuickFix
+				cellContext={{ path: 'report.qmd', language: 'python', code: 'raise RuntimeError("boom")', codeStartLine: 8, codeEndLine: 9 }}
+				errorContent='RuntimeError: boom'
+			/>
+		);
+		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
+
+		expect(run.mock.calls[0].slice(1)).toEqual(['fix', {
+			instruction: 'Fix the following error in the python code chunk at lines 8-9 of report.qmd:',
+			error: 'RuntimeError: boom',
+		}]);
 	});
 });

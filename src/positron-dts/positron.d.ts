@@ -4937,6 +4937,48 @@ declare module 'positron' {
 			commandId: string,
 			args?: unknown[]
 		): Thenable<ValidateAndExecuteCommandResult>;
+
+		/**
+		 * The error passed to {@link ErrorActionHandler} when the user presses Fix or
+		 * Explain on an error.
+		 */
+		export interface ErrorActionContext {
+			/**
+			 * Instruction for the agent, e.g. "Fix the following error in cell 3
+			 * of analysis.ipynb:". The error follows it.
+			 */
+			readonly instruction: string;
+
+			/** Plain-text error output, without ANSI escape codes. */
+			readonly error: string;
+		}
+
+		/**
+		 * An implementation of the Fix and Explain actions on console,
+		 * notebook, and Quarto errors, e.g. one that sends errors to a coding
+		 * agent. The user picks which implementation handles errors in the
+		 * Positron UI.
+		 */
+		export interface ErrorActionHandler {
+			/** Fix the error. */
+			fix(context: ErrorActionContext, token: vscode.CancellationToken): Thenable<void>;
+
+			/** Explain the error without changing any files. */
+			explain(context: ErrorActionContext, token: vscode.CancellationToken): Thenable<void>;
+		}
+
+		/**
+		 * Register an implementation of the error Fix and Explain actions.
+		 *
+		 * Register while the implementation is usable (e.g. while the agent
+		 * it sends errors to is installed) and dispose the registration when
+		 * it is not.
+		 *
+		 * @param id The unique identifier of the implementation.
+		 * @param label The human-readable name of the implementation, shown in the UI.
+		 * @returns A Disposable that unregisters the implementation.
+		 */
+		export function registerErrorActionHandler(id: string, label: string, handler: ErrorActionHandler): vscode.Disposable;
 	}
 
 	/**

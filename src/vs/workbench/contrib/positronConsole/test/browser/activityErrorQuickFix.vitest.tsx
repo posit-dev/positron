@@ -13,6 +13,7 @@ import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { decodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
 
 const line = (id: string, text: string): ANSIOutputLine => ({
@@ -91,5 +92,21 @@ describe('ConsoleQuickFix', () => {
 
 		await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
 		expect(notifyError.mock.calls[0][0]).toMatch(/Posit Assistant could not be opened/);
+	});
+
+	it('sends the error to a registered error action handler instead of Posit Assistant', async () => {
+		const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
+		const run = vi.spyOn(ctx.get(IErrorActionsService), 'run');
+
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix errorActionHandler={errorActionHandler} outputLines={outputLines} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Fix'));
+
+		await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+		expect(run).toHaveBeenCalledWith(errorActionHandler, 'fix', {
+			instruction: 'Fix the following console error:',
+			error: expectedAttachmentText,
+		});
+		expect(executeCommand).not.toHaveBeenCalled();
 	});
 });

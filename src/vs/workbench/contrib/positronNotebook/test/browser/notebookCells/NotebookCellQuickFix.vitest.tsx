@@ -1,0 +1,57 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import { screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
+import { Event } from '../../../../../../base/common/event.js';
+import { URI } from '../../../../../../base/common/uri.js';
+import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { ILabelService } from '../../../../../../platform/label/common/label.js';
+import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
+import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
+import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
+import { IErrorActionHandler, IErrorActionsService } from '../../../../positronAssistant/common/errorActions.js';
+import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
+import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
+import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
+import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
+import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCellQuickFix.js';
+
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
+
+describe('NotebookCellQuickFix', () => {
+	const run = vi.fn().mockResolvedValue(undefined);
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, run })
+		.stub(ILabelService, { getUriLabel: () => 'analysis.ipynb' })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('tells the registered error action handler which cell failed', async () => {
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY, true);
+		const instance = stubInterface<IPositronNotebookInstance>({ uri: URI.file('/work/analysis.ipynb') });
+		const cell = stubInterface<IPositronNotebookCell>({ index: 2, getContent: () => 'x + 1' });
+
+		const user = userEvent.setup();
+		rtl.render(
+			<NotebookInstanceProvider instance={instance}>
+				<CellProvider cell={cell}>
+					<NotebookCellQuickFix errorContent={'NameError: x'} />
+				</CellProvider>
+			</NotebookInstanceProvider>
+		);
+		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
+
+		expect(run.mock.calls[0].slice(1)).toEqual(['fix', {
+			instruction: 'Fix the following error in cell 3 of analysis.ipynb:',
+			error: 'NameError: x',
+		}]);
+	});
+});

@@ -19,6 +19,7 @@ import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, Environmen
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { ErrorActionKind, IErrorActionContext } from '../../../contrib/positronAssistant/common/errorActions.js';
 import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IDataImporterMetadata, IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
@@ -464,6 +465,8 @@ export interface MainThreadAiFeaturesShape {
 		commandId: string,
 		args: unknown[] | undefined,
 	): Promise<ISerializedValidateAndExecuteCommandResult>;
+	$registerErrorActionHandler(handle: number, id: string, label: string): void;
+	$unregisterErrorActionHandler(handle: number): void;
 }
 
 export interface ExtHostAiFeaturesShape {
@@ -475,6 +478,7 @@ export interface ExtHostAiFeaturesShape {
 	getCurrentChatMode(): Thenable<string | undefined>;
 	getProviders(): Thenable<IPositronChatProvider[]>;
 	setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
+	$runErrorAction(handle: number, kind: ErrorActionKind, context: IErrorActionContext, token: CancellationToken): Promise<void>;
 }
 
 export interface MainThreadPlotsServiceShape {

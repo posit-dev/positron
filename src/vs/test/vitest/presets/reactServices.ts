@@ -3,20 +3,30 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Event } from '../../../base/common/event.js';
+import { Disposable } from '../../../base/common/lifecycle.js';
 import { TestInstantiationService } from '../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { IErrorActionsService } from '../../../workbench/contrib/positronAssistant/common/errorActions.js';
 
 /**
  * React services layer: stubs needed to construct PositronReactServices on
- * top of a workbench-level container. Applied additively — stackable with
+ * top of a workbench-level container, plus services that shared React hooks
+ * read via `services.get()`. Applied additively -- stackable with
  * stubContributionServices.
  *
- * The workbench preset currently provides every service that
- * PositronReactServices needs, so this layer is a no-op. If a new
- * Positron-specific service is added to PositronReactServices and the canary
- * test in positronTestContainer.vitest.ts fails, add an empty stub here:
+ * The workbench preset provides every service that PositronReactServices
+ * itself needs. If a new Positron-specific service is added to
+ * PositronReactServices and the canary test in positronTestContainer.vitest.ts
+ * fails, add an empty stub here:
  *   svc.stub(INewService, {});
  */
-// _svc is the extension point for future stubs; kept to document the contract.
-export function stubReactServices(_svc: TestInstantiationService): void {
-	// Intentionally empty. See JSDoc above.
+export function stubReactServices(svc: TestInstantiationService): void {
+	// Read by useErrorActionHandler, which the console, notebook, and Quarto error
+	// quick fixes call. No registered error action handlers: errors go to Posit Assistant.
+	svc.stub(IErrorActionsService, {
+		onDidChange: Event.None,
+		register: () => Disposable.None,
+		getConfigured: () => undefined,
+		run: async () => { },
+	});
 }

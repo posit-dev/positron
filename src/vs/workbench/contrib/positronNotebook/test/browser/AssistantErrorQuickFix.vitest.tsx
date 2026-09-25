@@ -16,6 +16,7 @@ import { decodeBase64 } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { POSIT_NEW_CHAT_COMMAND, NewChatOptions } from '../../../positronAssistant/browser/positAssistantChat.js';
+import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { AssistantErrorQuickFix } from '../../browser/notebookCells/AssistantErrorQuickFix.js';
 
 describe('AssistantErrorQuickFix', () => {
@@ -30,6 +31,7 @@ describe('AssistantErrorQuickFix', () => {
 		fixPrompt: 'Fix this test error.',
 		explainPrompt: 'Explain this test error.',
 		attachmentContent: 'NameError: name "x" is not defined',
+		errorOutput: 'NameError: name "x" is not defined',
 	};
 
 	const defaultProps = {
@@ -124,4 +126,26 @@ describe('AssistantErrorQuickFix', () => {
 		expect(options.prompt).toBe('Fix this test error.');
 	});
 
+	describe('with a registered error action handler', () => {
+		const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
+
+		it('sends the instruction and ANSI-free error to the registered error action handler', async () => {
+			const user = userEvent.setup();
+			const run = vi.spyOn(ctx.get(IErrorActionsService), 'run');
+			renderQuickFix({ errorActionHandler, getPayload: () => ({ ...defaultPayload, errorOutput: '\u001b[31mboom\u001b[0m', location: 'cell 2 of a.ipynb' }) });
+			await user.click(screen.getByRole('button', { name: 'Ask Test Agent to explain in new chat' }));
+
+			expect(run).toHaveBeenCalledWith(errorActionHandler, 'explain', {
+				instruction: 'Explain the following error in cell 2 of a.ipynb, without making changes or editing any files:',
+				error: 'boom',
+			});
+			expect(ctx.get(ICommandService).executeCommand).not.toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.anything());
+		});
+
+		it('hides the continue-in-current-chat dropdowns', () => {
+			renderQuickFix({ errorActionHandler });
+			expect(screen.queryByRole('button', { name: 'More fix options' })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'More explain options' })).not.toBeInTheDocument();
+		});
+	});
 });

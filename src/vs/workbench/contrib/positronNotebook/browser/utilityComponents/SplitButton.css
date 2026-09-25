@@ -28,6 +28,11 @@
 	color: var(--vscode-foreground);
 }
 
+/* Round all corners when there is no dropdown half */
+.split-button .split-button-main:only-child {
+	border-radius: 3px;
+}
+
 .split-button .split-button-main:hover {
 	background: var(--vscode-positronActionBar-hoverBackground);
 }

@@ -19,6 +19,9 @@ import { IViewsService } from '../../../../services/views/common/viewsService.js
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IAgentAllowedCommandsService, IAgentCommandDescriptor } from '../../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
+import { IErrorActionHandler, IErrorActionsService } from '../../../../contrib/positronAssistant/common/errorActions.js';
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ExtHostAiFeaturesShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { MainThreadAiFeatures } from '../../../browser/positron/mainThreadAiFeatures.js';
 
@@ -43,6 +46,8 @@ describe('MainThreadAiFeatures', () => {
 	let onChangeProviderConfig: Emitter<never>;
 	let onDidChangeProviderEnablement: ReturnType<typeof vi.fn<(id: string, enabled: boolean) => void>>;
 	let getRegisteredSources: ReturnType<typeof vi.fn<() => IPositronLanguageModelSource[]>>;
+	let runErrorAction: ReturnType<typeof vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>>;
+	let registeredHandlers: IErrorActionHandler[];
 
 	/**
 	 * Constructs a MainThreadAiFeatures with the given initial catalog and returns it. The
@@ -55,6 +60,8 @@ describe('MainThreadAiFeatures', () => {
 		onChangeProviderConfig = disposables.add(new Emitter<never>());
 		onDidChangeProviderEnablement = vi.fn<(id: string, enabled: boolean) => void>();
 		getRegisteredSources = vi.fn<() => IPositronLanguageModelSource[]>(() => []);
+		runErrorAction = vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>(async () => { });
+		registeredHandlers = [];
 
 		const aiProviderService = stubInterface<IAiProviderService>({
 			whenInitialized,
@@ -69,6 +76,7 @@ describe('MainThreadAiFeatures', () => {
 		const extHostContext = stubInterface<IExtHostContext>({
 			getProxy: (<T>() => stubInterface<ExtHostAiFeaturesShape>({
 				$onDidChangeProviderEnablement: onDidChangeProviderEnablement,
+				$runErrorAction: runErrorAction,
 			}) as T) as IExtHostContext['getProxy'],
 		});
 
@@ -84,6 +92,12 @@ describe('MainThreadAiFeatures', () => {
 			stubInterface<IFileService>({}),
 			stubInterface<IAgentAllowedCommandsService>({ getAgentAllowedCommands: () => agentCommands }),
 			aiProviderService,
+			stubInterface<IErrorActionsService>({
+				register: handler => {
+					registeredHandlers.push(handler);
+					return toDisposable(() => registeredHandlers.splice(registeredHandlers.indexOf(handler), 1));
+				},
+			}),
 		));
 
 		// Let the whenInitialized microtask (which captures the enablement baseline) settle.
@@ -152,5 +166,20 @@ describe('MainThreadAiFeatures', () => {
 		onDidChangeProviders.fire({ catalog, enabledChanged: false, connectionChanged: true, modelsChanged: false });
 
 		expect(onDidChangeProviderEnablement).not.toHaveBeenCalled();
+	});
+
+	it('forwards error action handlers registered in the extension host', async () => {
+		const mainThread = await createMainThread([]);
+		const context = { instruction: 'Fix it.', error: 'boom' };
+
+		mainThread.$registerErrorActionHandler(7, 'test-agent', 'Test Agent');
+		const [errorActionHandler] = registeredHandlers;
+		expect({ id: errorActionHandler.id, label: errorActionHandler.label }).toEqual({ id: 'test-agent', label: 'Test Agent' });
+
+		await errorActionHandler.run('fix', context, CancellationToken.None);
+		expect(runErrorAction).toHaveBeenCalledWith(7, 'fix', context, CancellationToken.None);
+
+		mainThread.$unregisterErrorActionHandler(7);
+		expect(registeredHandlers).toEqual([]);
 	});
 });

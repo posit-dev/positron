@@ -20,6 +20,8 @@ import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/co
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { ErrorActionKind, IErrorActionContext } from '../../../contrib/positronAssistant/common/errorActions.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
@@ -27,6 +29,12 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	private readonly _disposables: DisposableStore = new DisposableStore();
 	private readonly _providerActionCallbacks = new Map<string, (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>>();
 	private readonly _dialogSessions = new Map<string, { resolve: () => void }>();
+
+	/** Registered error action handlers, by the handle the main thread knows them by. */
+	private readonly _errorActionHandlersByHandle = new Map<number, positron.ai.ErrorActionHandler>();
+
+	/** Handle for the next error action handler registration. */
+	private _nextErrorActionHandle = 0;
 	private readonly _onDidChangeProviderConfigEmitter = this._disposables.add(new Emitter<IPositronLanguageModelSource>());
 	private readonly _onDidChangeProviderEnablementEmitter = this._disposables.add(new Emitter<{ id: string; enabled: boolean }>());
 	private readonly _onDidChangeAgentSkillRootsEmitter = this._disposables.add(new Emitter<void>());
@@ -80,6 +88,25 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 			this._providerActionCallbacks.delete(source.provider.id);
 			this._proxy.$unregisterProvider(source.provider.id);
 		});
+	}
+
+	registerErrorActionHandler(id: string, label: string, handler: positron.ai.ErrorActionHandler): Disposable {
+		const handle = this._nextErrorActionHandle++;
+		this._errorActionHandlersByHandle.set(handle, handler);
+		this._proxy.$registerErrorActionHandler(handle, id, label);
+
+		return new Disposable(() => {
+			this._errorActionHandlersByHandle.delete(handle);
+			this._proxy.$unregisterErrorActionHandler(handle);
+		});
+	}
+
+	async $runErrorAction(handle: number, kind: ErrorActionKind, context: IErrorActionContext, token: CancellationToken): Promise<void> {
+		const handler = this._errorActionHandlersByHandle.get(handle);
+		if (!handler) {
+			throw new Error(`No error action handler registered with handle ${handle}`);
+		}
+		return kind === 'fix' ? handler.fix(context, token) : handler.explain(context, token);
 	}
 
 	updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
