@@ -654,12 +654,11 @@ span.rt-file{color:var(--body)}
 @media (prefers-reduced-motion:reduce){.cv-pre .pre-mark,.pre-pop,.cv-pre:hover .pre-pop{transition:none}}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 .cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
-/* The screenshot icon supports the check: faint at rest, ink with a tooltip on hover or focus */
-.st-ev{position:relative;color:var(--st-ev);white-space:nowrap;padding:2px 3px;margin-left:3px;border-radius:4px;cursor:zoom-in;transition:color .15s ease}
+/* The screenshot icon supports the check: faint at rest, ink on hover or focus */
+.st-ev{color:var(--st-ev);white-space:nowrap;padding:2px 3px;margin-left:3px;border-radius:4px;cursor:zoom-in;transition:color .15s ease}
 .st-ev svg{width:1.15em;height:1.15em;stroke-width:1.25;vertical-align:-0.245em}
 .st-ev:hover,.st-ev:focus-visible{color:var(--ink) !important;background:none;text-decoration:none}
 .st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.st-ev:hover::after,.st-ev:focus-visible::after{content:'View screenshot';position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 
 /* Steps: action / verify / result */
 .st-v{color:inherit}
