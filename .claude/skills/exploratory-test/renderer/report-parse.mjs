@@ -898,10 +898,12 @@ export function parseLedger(markdown) {
 	const exercised = [];
 	const notExercised = [];
 	const logs = [];
+	const environment = [];
 	let cur = null;
 	let section = '';
 	let inNotRun = false;
 	let inLogs = false;
+	let inEnvironment = false;
 	for (const line of lines) {
 		const t = line.trim();
 		const head = /^##\s+(.*)$/.exec(t);
@@ -910,11 +912,16 @@ export function parseLedger(markdown) {
 			section = '';
 			inNotRun = /^not run$/i.test(head[1].trim());
 			inLogs = /^logs$/i.test(head[1].trim());
+			inEnvironment = /^environment$/i.test(head[1].trim());
 			const m = /^(S\d+)\s*(?:·|-|\||:)\s*(.+)$/.exec(head[1].trim());
 			if (m) {
 				cur = { id: m[1], name: m[2].trim(), status: '', finding: null, result: '', pre: [], stepLines: [] };
 				exercised.push(cur);
 			}
+			continue;
+		}
+		if (inEnvironment) {
+			if (t && t !== '---') { environment.push(line); }
 			continue;
 		}
 		if (inLogs) {
@@ -994,6 +1001,7 @@ export function parseLedger(markdown) {
 		// A ledger always lists what it did not run, so an empty list means none.
 		notExercisedListed: true,
 		logs,
+		environment,
 	};
 }
 
@@ -1012,6 +1020,18 @@ function scenarioCounts({ exercised, notExercised }) {
 	};
 }
 
+/** Which lines sit inside a fenced code block, fence lines included. */
+function fenceMask(lines) {
+	let fence = null;
+	return lines.map(line => {
+		const m = /^\s*(`{3,}|~{3,})/.exec(line);
+		if (m && !fence) { fence = m[1]; return true; }
+		// A closing fence carries no info string, so ```python inside stays open.
+		if (m && m[1][0] === fence?.[0] && m[1].length >= fence.length && !line.slice(m.index + m[0].length).trim()) { fence = null; return true; }
+		return fence !== null;
+	});
+}
+
 /**
  * Parses a report's markdown into the structure the template renders. Given
  * the run's ledger, Coverage and the Scenarios tile come from it instead of
@@ -1019,6 +1039,8 @@ function scenarioCounts({ exercised, notExercised }) {
  */
 export function parseReport(markdown, { ledger } = {}) {
 	const lines = String(markdown ?? '').split('\n');
+	// A `## ` line in a pasted cell is source, not a section.
+	const fenced = fenceMask(lines);
 
 	const titleIndex = lines.findIndex(l => l.startsWith('# '));
 	const rawTitle = titleIndex === -1 ? 'Exploratory test' : lines[titleIndex].slice(2).trim();
@@ -1029,7 +1051,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	// section: searching the whole document meant a report that omitted the line
 	// put backticks from some finding's body in the header instead.
 	const headerEnd = lines.findIndex((l, i) =>
-		i > titleIndex && (/^##\s/.test(l.trim()) || /^\*\*[^*]+:\*\*/.test(l.trim())));
+		i > titleIndex && !fenced[i] && (/^##\s/.test(l.trim()) || /^\*\*[^*]+:\*\*/.test(l.trim())));
 	const metaIndex = lines.findIndex((l, i) =>
 		i > titleIndex && (headerEnd === -1 || i < headerEnd) && l.trim().startsWith('`'));
 	const chips = metaIndex === -1
@@ -1039,7 +1061,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	// it becomes a link: nothing but a GitHub owner, repo and number gets through.
 	// Searched to the first section rather than the first label: written bold,
 	// the line is a label itself.
-	const sectionStart = lines.findIndex((l, i) => i > titleIndex && /^##\s/.test(l.trim()));
+	const sectionStart = lines.findIndex((l, i) => i > titleIndex && !fenced[i] && /^##\s/.test(l.trim()));
 	const prLine = lines.find((l, i) => i > titleIndex && (sectionStart === -1 || i < sectionStart)
 		&& /^(\*\*)?PR:/.test(l.trim()));
 	const prMatch = prLine && /^(?:\*\*)?PR:(?:\*\*)?\s*`?([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)#(\d+)`?\s*$/.exec(prLine.trim());
@@ -1047,7 +1069,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		? { number: Number(prMatch[3]), url: `https://github.com/${prMatch[1]}/${prMatch[2]}/pull/${prMatch[3]}` }
 		: undefined;
 
-	const firstSection = lines.findIndex(l => l.startsWith('## '));
+	const firstSection = lines.findIndex((l, i) => !fenced[i] && l.startsWith('## '));
 	const labels = new Map();
 	lines.forEach((line, i) => {
 		if (i > titleIndex && (firstSection === -1 || i < firstSection) && /^\*\*[^*]+:\*\*/.test(line.trim())) {
@@ -1080,7 +1102,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	const findingsStart = lines.findIndex(l => /^##\s+Findings\s*$/i.test(l.trim()));
 	const findingsEnd = findingsStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > findingsStart && /^##\s/.test(l.trim()));
+		: lines.findIndex((l, i) => i > findingsStart && !fenced[i] && /^##\s/.test(l.trim()));
 	const findingsLines = findingsStart === -1
 		? []
 		: lines.slice(findingsStart, findingsEnd === -1 ? lines.length : findingsEnd);
@@ -1090,7 +1112,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	const HEADING = /^###\s+(?:Finding\s+)?(\d+)\s*[.:)]?\s*(.*)$/i;
 	const starts = [];
 	findingsLines.forEach((line, i) => {
-		const m = HEADING.exec(line.trim());
+		const m = !fenced[findingsStart + i] && HEADING.exec(line.trim());
 		if (m) { starts.push({ i, n: Number(m[1]), claim: m[2].trim() }); }
 	});
 
@@ -1100,6 +1122,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		const parsed = parseFindingBody(bodyLines);
 		const row = byNumber.get(start.n) ?? {};
 		const origin = parsed.status.origin ?? parseOrigin(row['introduced?'] ?? row['introduced']);
+		const reproduced = parsed.status.reproduced || (row['reproduction'] ?? '').trim();
 		const verified = (row['verified'] ?? '').toLowerCase();
 
 		// The embedded shot and the Evidence bullets are two citations of one set
@@ -1158,8 +1181,9 @@ export function parseReport(markdown, { ledger } = {}) {
 			impact: row['impact'] ? inline(sentenceCase(row['impact'])) : '',
 			severity: parseSeverity(row['severity']),
 			origin,
-			reproduced: parsed.status.reproduced || (row['reproduction'] ?? '').trim(),
-			confirmed: parsed.status.confirmed,
+			reproduced,
+			// Unproven is 0/M by definition, so the rate settles it when no strip was written.
+			confirmed: parsed.status.confirmed ?? (/^0\//.test(reproduced) ? 'Unproven' : reproduced ? 'Confirmed' : null),
 			verified: ['confirmed', 'disputed', 'unresolved'].includes(verified) ? verified : null,
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
@@ -1200,7 +1224,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	const coverageStart = lines.findIndex(l => /^##\s+Coverage\s*$/i.test(l.trim()));
 	const coverageEnd = coverageStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > coverageStart && (/^##\s/.test(l.trim()) || /^<details/.test(l.trim())));
+		: lines.findIndex((l, i) => i > coverageStart && !fenced[i] && (/^##\s/.test(l.trim()) || /^<details/.test(l.trim())));
 	const coverageTo = coverageEnd === -1 ? lines.length : coverageEnd;
 	const notExercisedHeading = coverageStart === -1
 		? -1
@@ -1279,7 +1303,16 @@ export function parseReport(markdown, { ledger } = {}) {
 			.map(withMetaHtml);
 	}
 
-	const runDetails = parseRunDetails(readDetails(lines, 'Run details'));
+	let runDetails = parseRunDetails(readDetails(lines, 'Run details'));
+	// The ledger's Environment is the run-wide setup, so Run details shows it
+	// rather than the report repeating it. A report that wrote its own keeps it.
+	const environment = fromLedger?.environment?.length ? block(fromLedger.environment.join('\n')) : '';
+	if (environment && !runDetails?.some(s => /^environment$/i.test(s.title))) {
+		const sections = runDetails ?? [];
+		const at = sections.findIndex(s => /^change under test$/i.test(s.title)) + 1;
+		sections.splice(at, 0, { title: 'Environment', html: environment });
+		runDetails = sections;
+	}
 	const verification = parseVerification(readDetails(lines, 'Verification details'));
 
 	const passes = lines.map(parseCostLine).filter(Boolean);

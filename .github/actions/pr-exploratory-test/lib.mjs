@@ -297,14 +297,20 @@ export function renderSummaryTarget(branch, repo, number) {
  * run is on the report's own Run tile; repeating either on the job page is a
  * second thing to read before getting to the one that matters.
  */
-export function renderStepSummary(markdown, baseUrl) {
+/** The finding count and its per-severity breakdown; `breakdown` is '' with no findings. */
+function tallyFindings(markdown) {
 	const { findingCount, severityCounts } = parseReport(markdown);
 	const breakdown = ['major', 'moderate', 'minor']
 		.filter(severity => severityCounts[severity] > 0)
-		.map(severity => `${severityCounts[severity]} ${severity}`);
-	const tally = findingCount > 0
-		? [`${findingCount} finding${findingCount === 1 ? '' : 's'}`, ...breakdown].join(' \u00b7 ')
-		: 'No findings';
+		.map(severity => `${severityCounts[severity]} ${severity}`)
+		.join(' \u00b7 ');
+	const count = findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
+	return { count, breakdown };
+}
+
+export function renderStepSummary(markdown, baseUrl) {
+	const { count, breakdown } = tallyFindings(markdown);
+	const tally = breakdown ? `${count} \u00b7 ${breakdown}` : count;
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
@@ -332,36 +338,35 @@ export function runOutcome({ report, numTurns, maxTurns }) {
 }
 
 /**
- * The body of the PR comment. The same signpost as the job summary, plus the
- * head it tested: a push after `/test` makes the result stale, and the SHA is
- * how a reader tells.
+ * The body of the PR comment: a title with the head it tested, the finding
+ * tally, and a link to the report or run. A push after `/test` makes the result stale,
+ * and the SHA is how a reader tells.
  *
  * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
  * `reason` says why), or empty when the agent never ran (the build failed
- * first). `model` is the /test argument; naming it makes a typo that fell back
- * to the default visible.
+ * first).
  */
-export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, model, reason }) {
-	const target = headSha ? `\`${headSha.slice(0, 7)}\`` : 'the PR head';
-	// Product names: "Opus", not the lowercase /test argument.
-	const title = model ? `Exploratory test (${model[0].toUpperCase()}${model.slice(1)})` : 'Exploratory test';
-	const run = `[Run](${runUrl})`;
+export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, reason }) {
+	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
+	const run = `[View run \u2192](${runUrl})`;
+	const comment = lines => `${COMMENT_MARKER}\n${title}\n\n${lines.join('\n')}\n`;
 	if (state === 'running') {
-		return `${COMMENT_MARKER}\n### ${title}\n\nRunning against ${target}. ${run}\n`;
+		return comment(['Looking for trouble\u2026', run]);
 	}
 	if (state === 'declined') {
-		return `${COMMENT_MARKER}\n### ${title} on ${target}: not run\n\nThe pre-flight check declined this change: ${reason || 'no reason recorded.'} ${run}\n`;
+		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
 	}
 	if (markdown && (state === 'complete' || state === 'partial')) {
-		const note = state === 'partial'
-			? '\n_Partial run: the agent hit the turn cap, so coverage is incomplete._\n'
-			: '';
-		return `${COMMENT_MARKER}\n### ${title} on ${target}\n\n${renderStepSummary(markdown, baseUrl)}${note}\n${run}\n`;
+		const { count, breakdown } = tallyFindings(markdown);
+		const lines = [breakdown ? `${count} \u00b7 ${breakdown}` : count];
+		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
+		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
+		return comment(lines);
 	}
 	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
 		: state === 'no-report' ? 'The agent finished without writing a report.'
 			: 'The run failed before the agent produced a report.';
-	return `${COMMENT_MARKER}\n### ${title} on ${target}: no report\n\n${why} ${run}\n`;
+	return comment([why, run]);
 }
 
 /**

@@ -707,6 +707,34 @@ test('parseReport keeps a step that carries a code block, and the steps after it
 	assert.match(f.observedHtml, /it broke/);
 });
 
+test('parseReport reads a heading inside a step block as source, not a section', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '| 2 | another | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro** -- starting state: a notebook open',
+		'',
+		'1. Add a markdown cell with this source:',
+		'   ```',
+		'   ## C13 styled div',
+		'   ### 2. not a finding',
+		'',
+		'   <div style="color: red">',
+		'   ```',
+		'2. Render the cell.',
+		'',
+		'**Observed:** it broke.',
+		'', '### Finding 2: another', '',
+		'**Observed:** also broke.',
+	].join('\n')));
+	// The `## ` line used to end Findings, leaving step 1 an empty block.
+	assert.equal(r.findings.length, 2);
+	const [f] = r.findings;
+	assert.equal(f.steps.length, 2);
+	assert.match(f.steps[0].blockHtml, /## C13 styled div\n### 2\. not a finding\n\n&lt;div style=/);
+	assert.match(f.observedHtml, /it broke/);
+});
+
 test('parseReport reads the preconditions line above or below the steps', () => {
 	const build = order => md([
 		'## Findings', '',
@@ -1432,7 +1460,8 @@ test('ledger: parses scenarios, preconditions, typed steps and not-run rows', ()
 	assert.deepEqual(cov.notExercised.map(r => r.id), ['N01', 'N02', 'N05']);
 	assert.equal(cov.notExercised[1].reasonHtml, 'Could not make value fetches slow: the slow-hash trick only slows profiling');
 	// Environment is whole-run context for Run details, never a Coverage row.
-	assert.doesNotMatch(JSON.stringify(cov), /CDP 44987/);
+	assert.doesNotMatch(JSON.stringify([cov.exercised, cov.notExercised]), /CDP 44987/);
+	assert.match(cov.environment.join('\n'), /CDP 44987/);
 });
 
 test('ledger: reads the middle-dot and arrow forms the same as ASCII', () => {
@@ -1674,4 +1703,26 @@ test('modelDisplayName reads a model id the way the report names it', () => {
 	assert.equal(modelDisplayName('claude-opus-5-5[1m]'), 'Opus 5.5');
 	assert.equal(modelDisplayName('some-other-model'), 'some-other-model');
 	assert.equal(modelDisplayName(null), null);
+});
+
+test('derived: a finding with no status strip takes its state from the table row', () => {
+	const bare = TYPED.split('\n').filter(l => !l.startsWith('> ')).join('\n');
+	const [f] = parseReport(bare).findings;
+	assert.equal(f.confirmed, 'Confirmed');
+	assert.equal(f.reproduced, '3/3');
+	assert.equal(f.origin.kind, 'new');
+	const unproven = parseReport(bare.replace(/\| 3\/3 \|/, '| 0/3 |')).findings[0];
+	assert.equal(unproven.confirmed, 'Unproven');
+});
+
+test('derived: Run details shows the ledger Environment after Change under test', () => {
+	const env = s => s.find(p => p.title === 'Environment');
+	assert.match(env(parseReport(TYPED, { ledger: LEDGER }).runDetails).html, /CDP 44987/);
+	const folded = `${TYPED}\n<details>\n<summary>Run details</summary>\n\n### Change under test\nx\n\n### Branch verification\ny\n\n</details>\n`;
+	assert.deepEqual(parseReport(folded, { ledger: LEDGER }).runDetails.map(s => s.title), ['Change under test', 'Environment', 'Branch verification']);
+	// A report that wrote its own keeps it.
+	const own = folded.replace('### Branch verification', '### Environment\nmine\n\n### Branch verification');
+	const sections = parseReport(own, { ledger: LEDGER }).runDetails;
+	assert.equal(sections.filter(s => s.title === 'Environment').length, 1);
+	assert.match(env(sections).html, /mine/);
 });

@@ -24,11 +24,12 @@ const { values: flags, positionals } = parseArgs({
 		'duration-ms': { type: 'string' },
 		turns: { type: 'string' },
 		'no-agent-prompts': { type: 'boolean' },
+		check: { type: 'boolean' },
 	},
 });
 const input = positionals[0];
 if (!input) {
-	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--no-agent-prompts]');
+	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--no-agent-prompts] [--check]');
 	process.exit(1);
 }
 
@@ -39,8 +40,30 @@ if (!existsSync(join(here, 'node_modules', 'marked'))) {
 }
 const { renderReportHtml, linkedLogs } = await import('./html.mjs');
 const { modelDisplayName, parseReport } = await import('./report-parse.mjs');
+const { lintReport } = await import('./lint.mjs');
 
 let markdown = readFileSync(input, 'utf8');
+// Coverage is built from the run's ledger when it wrote one.
+const dir = dirname(resolve(input));
+const ledgerPath = join(dir, 'ledger.md');
+const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
+const fileExists = path => existsSync(join(dir, path));
+const printProblems = () => {
+	const problems = lintReport(markdown, ledger, { fileExists });
+	if (problems.length) {
+		console.error(`format problems:\n${problems.map(p => `  ${p}`).join('\n')}`);
+	}
+	return problems;
+};
+
+// Lint only, for a run that renders elsewhere.
+if (flags.check) {
+	const problems = printProblems();
+	if (!problems.length) {
+		console.log('no format problems');
+	}
+	process.exit(problems.length ? 1 : 0);
+}
 if (flags['duration-ms']) {
 	// Written here rather than by the action's renderCostFooter (lib.mjs):
 	// a local run has no bill, and that footer drops any pass without one.
@@ -58,11 +81,6 @@ if (flags['duration-ms']) {
 	writeFileSync(input, markdown);
 }
 
-// Coverage is built from the run's ledger when it wrote one.
-const dir = dirname(resolve(input));
-const ledgerPath = join(dir, 'ledger.md');
-const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
-const fileExists = path => existsSync(join(dir, path));
 const out = join(dir, 'index.html');
 writeFileSync(out, renderReportHtml(markdown, {
 	ledger,
@@ -72,6 +90,9 @@ writeFileSync(out, renderReportHtml(markdown, {
 	fileExists,
 }));
 console.log(out);
+
+// Printed, not fatal: the page still renders. Fix each line and render again.
+printProblems();
 
 // A listed log that was never copied is a dead link; the page shows it unlinked,
 // and the run fails so it gets copied rather than shipped.
