@@ -456,17 +456,6 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 				*/}
 				{(profile.discovered && profile.description) || profile.driverMetadata.name}
 			</div>
-			{profile.discovered && (
-				// Marks a connection the machine's own configuration provides rather than one the
-				// user saved, so it is clear why it is there and why it offers Save over Remove.
-				<div
-					aria-label={discoveredLabel}
-					className='data-connection-entry-discovered'
-					title={discoveredLabel}
-				>
-					{localize('positron.dataConnections.discoveredBadge', "Detected")}
-				</div>
-			)}
 			{entry.instance && (
 				// Shown whenever the profile has a live connection, including while the entry is
 				// collapsed -- collapsing does not necessarily disconnect, so this is how the user
@@ -477,6 +466,21 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 					role='img'
 					title={connectedLabel}
 				/>
+			)}
+			{profile.discovered && (
+				// Marks a connection the machine's own configuration provides rather than one the
+				// user saved, so it is clear why it is there and why it offers Save over Remove.
+				//
+				// Last before the actions button, so the badge holds the same column on every row
+				// it appears on. Placing it before the connected dot instead would indent it by the
+				// dot's width on connected rows alone, breaking the column the eye reads down.
+				<div
+					aria-label={discoveredLabel}
+					className='data-connection-entry-discovered'
+					title={discoveredLabel}
+				>
+					{localize('positron.dataConnections.discoveredBadge', "Detected")}
+				</div>
 			)}
 			<button
 				ref={actionsButtonRef}

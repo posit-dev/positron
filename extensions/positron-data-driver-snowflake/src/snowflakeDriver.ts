@@ -23,7 +23,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { SnowflakeConnection } from './snowflakeConnection.js';
 import { SnowflakeConnectionOptions } from './snowflakeClient.js';
-import { SnowflakeConnectionsFileEntry, listConnectionNames, readConnectionsFile } from './snowflakeConnectionsFile.js';
+import { SnowflakeConnectionsFileEntry, readConnectionsFile } from './snowflakeConnectionsFile.js';
 import { SnowflakeDataExplorerRpcHandler } from './snowflakeDataExplorerRpcHandler.js';
 
 /** The id of the external-browser (interactive SSO) connection mechanism. */
@@ -340,6 +340,33 @@ function tomlString(entry: SnowflakeConnectionsFileEntry, key: string): string |
 }
 
 /**
+ * Builds a one-line summary of where a named connection points, for the pane to show beneath its
+ * name (e.g. "myorg-myacct/ANALYTICS/PUBLIC"). The account is normalized the same way the connect
+ * path normalizes it, so a file holding an account URL reads as the identifier it resolves to.
+ *
+ * A schema is only appended alongside a database, since a schema name on its own does not say where
+ * the connection points. Returns undefined when the entry names no account, the one field a
+ * Snowflake connection cannot do without; the caller says so explicitly instead.
+ */
+export function summarizeConnection(entry: SnowflakeConnectionsFileEntry): string | undefined {
+	const account = tomlString(entry, 'account');
+	if (!account) {
+		return undefined;
+	}
+
+	const parts = [parseSnowflakeAccount(account)];
+	const database = tomlString(entry, 'database');
+	if (database) {
+		parts.push(database);
+		const schema = tomlString(entry, 'schema');
+		if (schema) {
+			parts.push(schema);
+		}
+	}
+	return parts.join('/');
+}
+
+/**
  * Maps a raw connections.toml entry to normalized snowflake-sdk options. Reads the connector's
  * snake_case keys (with the common aliases the SDK accepts) and passes whatever authenticator the file
  * names -- including interactive ones like `externalbrowser` -- upper-cased so the client routes it
@@ -478,11 +505,15 @@ function validateRequired(mechanismId: string, params: positron.DataConnectionPa
  * Creates the Snowflake DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  * @param dataExplorerHandler Hosts table views previewed from Snowflake connections.
+ * @param fileConnections The named connections read from connections.toml. Taken as a snapshot
+ * rather than re-read here, so the connection picker and the discovered connections always describe
+ * the same file; the extension re-registers the driver when the file changes.
  * @param logger Optional diagnostic log sink, threaded to each connection.
  */
 export function createSnowflakeDriver(
 	context: vscode.ExtensionContext,
 	dataExplorerHandler: SnowflakeDataExplorerRpcHandler,
+	fileConnections: Record<string, SnowflakeConnectionsFileEntry>,
 	logger?: positron.DataConnectionLogger
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
@@ -510,9 +541,8 @@ export function createSnowflakeDriver(
 	};
 
 	// Connections File: reuse a named connection already configured in
-	// ~/.snowflake/connections.toml. Only offered when the file defines at least one connection;
-	// the names are read at registration time (a window reload picks up later edits).
-	const connectionNames = listConnectionNames();
+	// ~/.snowflake/connections.toml. Only offered when the file defines at least one connection.
+	const connectionNames = Object.keys(fileConnections);
 	const connectionsFileMechanism: positron.DataConnectionMechanism | undefined = connectionNames.length > 0 ? {
 		id: CONNECTIONS_FILE_MECHANISM_ID,
 		label: vscode.l10n.t('Connections File'),
@@ -645,6 +675,30 @@ export function createSnowflakeDriver(
 				return generateConnectionsFileCode(languageId, params.connectionName as string);
 			}
 			return generateConnectionCodeForFields(languageId, codegenFields(mechanismId, params));
+		},
+
+		/**
+		 * Every connection named in connections.toml, surfaced in the pane without the user
+		 * configuring anything. This is what makes a Snowflake account the user has already set up
+		 * for the CLI or the Python connector visible in Positron too, with no credentials retyped.
+		 *
+		 * Only the name is carried in the parameters: everything else is read from the file at
+		 * connect time, so the credentials used are whatever the file holds then, and no secret from
+		 * it is copied into a profile.
+		 */
+		async discoverConnections(): Promise<positron.DiscoveredDataConnection[]> {
+			return Object.entries(fileConnections).map(([name, entry]) => ({
+				// Stable across restarts, so a discovered connection keeps its identity (and its
+				// expansion state in the pane) from session to session.
+				id: `snowflake-connection:${name}`,
+				name,
+				// An entry with no account is a stub that cannot be connected to. Saying so is the
+				// difference between a row the user can tell is unconfigured and one that reads
+				// exactly like a working connection.
+				description: summarizeConnection(entry) ?? vscode.l10n.t('No account configured'),
+				mechanismId: CONNECTIONS_FILE_MECHANISM_ID,
+				parameters: { connectionName: name },
+			}));
 		},
 	};
 }

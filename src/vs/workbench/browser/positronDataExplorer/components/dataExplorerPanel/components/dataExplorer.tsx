@@ -74,7 +74,12 @@ export const DataExplorer = () => {
 	// stays put for as long as a retry of them is running. It has to survive the retry rather than
 	// come and go with the message: taking the row away would resize the grid below it, and that
 	// resize starts a profile load of its own, which cancels the retry partway.
-	const summaryNotice = summaryProfilesFailure !== undefined || summaryProfilesRetrying;
+	//
+	// A collapsed panel shows none of it: the column is animated down to nothing, and a notice left
+	// in it paints its icon in the sliver beside the splitter. Collapsing resizes the grid anyway,
+	// so leaving the row in place would not spare a retry that was running.
+	const summaryNotice = !columnsCollapsed &&
+		(summaryProfilesFailure !== undefined || summaryProfilesRetrying);
 
 	// Track whether the summary panel has anything to show yet, and whether its summary statistics
 	// failed to compute. Until the panel has anything it paints a progress indicator, and there is

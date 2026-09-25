@@ -62,7 +62,23 @@ export function readConnectionsFile(filePath: string = connectionsFilePath()): R
 	}
 }
 
-/** The names of the connections defined in the file, in file order. */
-export function listConnectionNames(filePath: string = connectionsFilePath()): string[] {
-	return Object.keys(readConnectionsFile(filePath));
+/**
+ * Whether two readings of the file define the same connections.
+ *
+ * Used to tell a real edit from a file event that changed nothing. Re-registering the driver
+ * disposes every open Snowflake connection, so it happens only when the named connections -- or the
+ * values behind them -- actually changed.
+ *
+ * @param a One reading.
+ * @param b The other.
+ * @returns True when re-registering the driver for `b` would offer exactly what `a` offered.
+ */
+export function isSameConnectionsFile(
+	a: Record<string, SnowflakeConnectionsFileEntry>,
+	b: Record<string, SnowflakeConnectionsFileEntry>
+): boolean {
+	// Both sides come from the same parser, which preserves file order, so a structural comparison
+	// of the serialized form is exact. A reordered file counts as a change: the order is what the
+	// connection picker lists.
+	return JSON.stringify(a) === JSON.stringify(b);
 }

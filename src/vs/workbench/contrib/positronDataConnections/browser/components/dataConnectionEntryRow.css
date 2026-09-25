@@ -42,7 +42,7 @@
 }
 
 /*
- * Badge on a connection detected from the machine's ODBC configuration rather than saved by the
+ * Badge on a connection detected from the machine's own configuration rather than saved by the
  * user. Quiet by design: it labels the row's provenance and must not compete with the connection
  * name beside it, so it takes the badge tier's muted surface rather than an accent.
  */
