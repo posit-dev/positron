@@ -244,11 +244,15 @@ is in code the diff adds or changes. `exposed` means the defect predates the
 change and the diff makes users reach it: a flipped default, a new call site, a
 removed fallback, or shifted timing that lets an existing race fire. A
 regression users can see is still `exposed` when the broken code is old; the
-"X no longer Y" claim already tells the reader it is a regression. Before
-`exposed`, read the removed side of the diff: if the old code, under its old
-defaults, still ran the defective code, it is `no`, even when the diff makes the
-defect easier to see. If the diff cannot settle that, say so in Cause. Cause
-names the line and says which applies. `exposed` is not a hedge.
+"X no longer Y" claim already tells the reader it is a regression. To choose
+between `exposed` and `no`, read the removed side of the diff and ask whether a
+user on the old code and old defaults could reach the failure you saw, not
+whether the defective line ran. Old code that ran the line but never under the
+conditions that trigger it is `exposed`. Only a failure users could already hit
+is `no`. A control run on this build (such as the setting turned off) still
+carries the diff, so it says nothing about the old code. If the diff cannot
+settle it, say so in Cause. Cause names the line and says which applies.
+`exposed` is not a hedge.
 
 `Reproduction` is `<N>/<M>`, and the table is the only place it goes; the
 renderer puts it on the finding. Always give the rate, even 5/5: "every time"
