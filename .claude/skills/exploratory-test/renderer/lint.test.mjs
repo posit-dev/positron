@@ -17,9 +17,9 @@ const REPORT = `# Exploratory test: x
 
 ## Findings
 
-| # | Finding | Severity | Impact | Introduced? | Reproduction |
-|---|---------|----------|--------|-------------|--------------|
-| 1 | Retry does nothing | moderate | stays empty | yes | 2/2 |
+| # | Finding | Severity | Impact | Reproduction |
+|---|---------|----------|--------|--------------|
+| 1 | Retry does nothing | moderate | stays empty | 2/2 |
 
 ### Finding 1: Retry does nothing
 
@@ -45,7 +45,7 @@ Result: loads
 Steps:
 1. Open it.
 2. VERIFY it loads -> PASS
-   Evidence: a.png
+   Evidence: p.png
 
 ## S02 - Retry
 Status: fail - Finding 1
@@ -79,8 +79,16 @@ test('flags a missing summary label and a question-shaped Result', () => {
 });
 
 test('flags table values outside the allowed words', () => {
-	const problems = lint(REPORT.replace('| moderate | stays empty | yes | 2/2 |', '| High | stays empty | maybe | often |'));
-	assert.equal(problems.filter(p => /finding 1 (Severity|Introduced\?|Reproduction)/.test(p)).length, 3);
+	const problems = lint(REPORT.replace('| moderate | stays empty | 2/2 |', '| High | stays empty | often |'));
+	assert.equal(problems.filter(p => /finding 1 (Severity|Reproduction)/.test(p)).length, 2);
+});
+
+test('flags an Introduced? or Origin column', () => {
+	const table = REPORT
+		.replace('| Impact | Reproduction |', '| Impact | Introduced? | Reproduction |')
+		.replace('|--------|--------------|', '|--------|---|--------------|')
+		.replace('| stays empty | 2/2 |', '| stays empty | yes | 2/2 |');
+	assert.ok(lint(table).some(p => /drop the Introduced\?\/Origin column/.test(p)));
 });
 
 test('flags a table row and a block that do not pair up', () => {
@@ -121,26 +129,78 @@ test('flags a linked shot that is not on disk', () => {
 	assert.ok(lintReport(REPORT, LEDGER, { fileExists: () => false }).some(p => /links shots\/a\.png/.test(p)));
 });
 
+test('flags a screenshot linked through a variable or URL instead of shots/', () => {
+	for (const target of ['$U/a.png', 'https://cdn.example/run/shots/a.png']) {
+		const problems = lint(REPORT.replace('- [shots/a.png](shots/a.png)', `- [shots/a.png](${target})`));
+		assert.ok(problems.some(p => p.includes(`not ${target}`)), target);
+	}
+});
+
+test('a repro is one scenario\'s steps, and that scenario failed for the finding', () => {
+	const ledger = [
+		'# Test ledger', '',
+		'## S01 - Panel loads', 'Status: pass', 'Result: loads', '', 'Steps:', '1. VERIFY it loads -> PASS', '   Evidence: p.png', '',
+		'## S02 - Retry', 'Status: fail - Finding 1', 'Result: fails', '', 'Steps:',
+		'1. VERIFY the button shows -> PASS', '   Evidence: r1.png',
+		'2. VERIFY it loads -> FAIL - Finding 1', '   Observed: empty', '   Evidence: r2.png', '',
+		'## S03 - Retry in Python', 'Status: fail - Finding 1', 'Result: fails', '', 'Steps:',
+		'1. VERIFY it loads -> FAIL - Finding 1', '   Observed: empty', '   Evidence: o1.png', '',
+	].join('\n');
+	const withShots = (...shots) => REPORT.replace('1. Click Retry.\n2. VERIFY the panel loads -> FAIL - Finding 1\n',
+		'**Repro** -- starting state: the panel open\n\n' + shots.map((shot, k) => `${k + 1}. VERIFY step ${k + 1} -> ${k === shots.length - 1 ? 'FAIL - Finding 1' : 'PASS'}\n   Evidence: ${shot}\n`).join(''));
+	const repro = report => lintReport(report, ledger, { fileExists: () => true }).filter(p => /steps (mix|come from)/.test(p));
+	assert.deepEqual(repro(withShots('r1.png', 'r2.png')), []);
+	assert.deepEqual(repro(withShots('r2.png', 'o1.png')), ["report: Finding 1's steps mix S02 and S03; the repro is one scenario's steps, and other runs go under Evidence as a Variant"]);
+	assert.deepEqual(repro(withShots('p.png')), ["report: Finding 1's steps come from S01, whose Status does not name Finding 1"]);
+	// A screenshot no scenario cites is another rule's problem.
+	assert.deepEqual(repro(withShots('r2.png', 'stray.png')), []);
+	// A Status that names two findings links the scenario to both.
+	const two = ledger.replace('## S01 - Panel loads\nStatus: pass', '## S01 - Panel loads\nStatus: fail - Findings 2, 1');
+	assert.deepEqual(lintReport(withShots('p.png'), two, { fileExists: () => true }).filter(p => /steps (mix|come from)/.test(p)), []);
+});
+
+test('flags a test file that is not in the repository, but not one marked new', () => {
+	const tests = REPORT.replace('- [shots/a.png](shots/a.png) -- Step 2: empty panel\n', [
+		'- [shots/a.png](shots/a.png) -- Step 2: empty panel', '',
+		'**Regression test**', '',
+		'- Retry loads the panel. -- Unit `src/a.test.ts` (exists)',
+		'- A new case. -- E2E `test/e2e/tests/b.test.ts` (new file)', '',
+		'**Other tests that touch this code**', '',
+		'- `src/c.test.ts` -- Unit, request shape', '',
+	].join('\n'));
+	const problems = lintReport(tests, LEDGER, { fileExists: () => true, repoFileExists: p => p === 'src/a.test.ts' });
+	assert.deepEqual(problems.filter(p => /not in the repository/.test(p)).map(p => /test file ([^,\s]+)/.exec(p)[1]), ['src/c.test.ts']);
+	assert.deepEqual(lint(tests), []);
+});
+
 test('flags a FAIL without Log:, a pass without a screenshot and a bad Status', () => {
 	const ledger = LEDGER
 		.replace('   Log: none found in logs/r.log\n', '')
-		.replace('   Evidence: a.png\n\n## S02', '\n## S02')
+		.replace('   Evidence: p.png\n', '')
 		.replace('Status: fail - Finding 1', 'Status: failed');
 	const problems = lint(REPORT, ledger);
-	assert.ok(problems.some(p => /S02 FAIL check 1 is missing Log:/.test(p)));
-	assert.ok(problems.some(p => /S01 passes with no Evidence/.test(p)));
+	assert.ok(problems.some(p => /S02 step 2 FAIL is missing Log:/.test(p)));
+	assert.ok(problems.some(p => /S01 step 2 VERIFY has no Evidence/.test(p)));
 	assert.ok(problems.some(p => /S02 Status: must be/.test(p)));
 });
 
-test('Evidence: counts only a file that is in shots/', () => {
-	const prose = LEDGER.replace(/Evidence: a\.png/g, 'Evidence: none; DOM read only');
-	const problems = lint(REPORT, prose);
-	assert.ok(problems.some(p => /S01 passes with no Evidence: naming a screenshot/.test(p)));
-	assert.ok(problems.some(p => /S02 FAIL check 1 is missing Evidence: \(a screenshot file\)/.test(p)));
+test('every VERIFY needs its own screenshot, not just one per scenario', () => {
+	const ledger = LEDGER.replace('   Evidence: p.png\n', '   Evidence: p.png\n3. VERIFY the header shows -> PASS\n');
+	assert.deepEqual(lint(REPORT, ledger), ['ledger: S01 step 3 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own']);
 
-	const invented = lintReport(REPORT, LEDGER.replace('Evidence: a.png\n\n## S02', 'Evidence: shots/made-up.png\n\n## S02'), { fileExists: f => f === 'shots/a.png' });
+	const reused = LEDGER.replace('Evidence: p.png', 'Evidence: a.png');
+	assert.deepEqual(lint(REPORT, reused), ['ledger: a.png is Evidence for S01 step 2 and S02 step 2; take a screenshot for each check']);
+});
+
+test('Evidence: counts only a file that is in shots/', () => {
+	const prose = LEDGER.replace(/Evidence: [ap]\.png/g, 'Evidence: none; DOM read only');
+	const problems = lint(REPORT, prose);
+	assert.ok(problems.some(p => /S01 step 2 VERIFY has no Evidence: naming a screenshot/.test(p)));
+	assert.ok(problems.some(p => /S02 step 2 VERIFY has no Evidence: naming a screenshot/.test(p)));
+
+	const invented = lintReport(REPORT, LEDGER.replace('Evidence: p.png', 'Evidence: shots/made-up.png'), { fileExists: f => f === 'shots/a.png' });
 	assert.ok(invented.some(p => /S01 cites Evidence: made-up\.png, which is not in shots\//.test(p)));
-	assert.ok(invented.some(p => /S01 passes with no Evidence/.test(p)));
+	assert.ok(invented.some(p => /S01 step 2 VERIFY has no Evidence/.test(p)));
 });
 
 test('flags a Status naming a finding the report does not have', () => {

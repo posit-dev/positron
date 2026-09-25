@@ -67,6 +67,10 @@ const PROFESSIONAL = `
 	--cv-chev: #C4C0B6;
 	--st-ev: #8A8F96;
 	--st-target: #F6F1E4;
+	--st-pass-bg: #E4F1E8;
+	--st-pass-text: #2A6F47;
+	--st-fail-bg: #FBE7E3;
+	--st-fail-text: #9A2A1D;
 	--cv-open: #F7F6F1;
 	--cv-open-hover: #F2F0EA;
 	--pop-border: #E7E4DC;
@@ -193,6 +197,10 @@ const PARTY = `
 	--cv-chev: #5B4F92;
 	--st-ev: #8A82B8;
 	--st-target: #2A2250;
+	--st-pass-bg: #153B35;
+	--st-pass-text: #3BD69E;
+	--st-fail-bg: #3A1834;
+	--st-fail-text: #FF8FA8;
 	--cv-open: #2A2250;
 	--cv-open-hover: #302860;
 	--pop-border: #5B4F92;
@@ -386,13 +394,7 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
-.findings-grid{grid-template-columns:110px 96px minmax(0,1fr) 90px 110px}
-.origin-cell{font-size:13px;line-height:1.5;color:var(--body)}
-/* Finding origin: one style for every label, no extra emphasis on New; colour stays with severity and status. */
-.org{color:inherit;font-weight:inherit}
-.org-tip{position:relative;cursor:help;outline:none}
-.org-tip:hover::after,.org-tip:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);left:0;width:max-content;max-width:280px;white-space:normal;text-transform:none;letter-spacing:0;padding:4px 8px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.45;pointer-events:none;z-index:5}
-.org-tip:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+.findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 110px}
 .coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
@@ -498,6 +500,7 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 .preconditions{margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:var(--secondary)}
 .preconditions li{margin:0 0 8px;padding-left:4px}
 .preconditions li:last-child{margin-bottom:0}
+.preconditions li>p{margin:0 0 8px}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
@@ -645,17 +648,21 @@ span.rt-file{color:var(--body)}
 @media (prefers-reduced-motion:reduce){.cv-pre .pre-mark,.pre-pop,.cv-pre:hover .pre-pop{transition:none}}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 .cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
-.st-ev{color:var(--st-ev);white-space:nowrap;transition:color .15s ease}
-.st-ev svg{vertical-align:-0.21em}
-.st-ev:hover{color:var(--link);text-decoration:none}
-.st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+/* The screenshot icon supports the check: faint at rest, ink on hover or focus */
+.st-ev{color:var(--st-ev);white-space:nowrap;padding:2px 3px;margin-left:3px;border-radius:4px;cursor:zoom-in;transition:color .15s ease}
+.st-ev svg{width:1.15em;height:1.15em;stroke-width:1.25;vertical-align:-0.245em}
+.st-ev:hover,.st-ev:focus-visible{color:var(--ink) !important;background:none;text-decoration:none}
+.st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
 /* Steps: action / verify / result */
 .st-v{color:inherit}
-.st-rs{font-size:11px;font-weight:600;letter-spacing:.06em;margin-left:6px;white-space:nowrap}
-.st-pass{color:var(--pass-fill)}
-.st-fail{color:var(--major-text)}
+/* PASS / FAIL as tinted tags, like the severity pills */
+.st-rs{display:inline-block;margin-left:8px;padding:2px 6px 1px;border-radius:4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;line-height:1.3;vertical-align:.08em;white-space:nowrap}
+.st-pass{background:var(--st-pass-bg);color:var(--st-pass-text)}
+.st-fail{background:var(--st-fail-bg);color:var(--st-fail-text)}
 .st-sep{color:var(--sep)}
+/* The tag already separates the icon from the text */
+.st-rs+.st-sep{display:none}
 .st-ev .st-n{font-size:.86em;margin-left:2px}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
@@ -753,6 +760,37 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb-close:hover{border-color:var(--hover-border);color:var(--ink)}
 .lb-close:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
+/* Test files: the name opens the viewer, where Copy and Download live */
+.fn{font-family:var(--mono);font-size:.9em;background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--link);text-decoration:none;border-bottom:1px dashed color-mix(in srgb,var(--link) 45%,transparent);cursor:zoom-in}
+.fn:hover{color:var(--link-hover);border-bottom-style:solid;text-decoration:none}
+.fn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.fv-panel{position:relative;width:min(960px,100%);max-height:100%;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow)}
+.fv-h{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-bottom:1px solid var(--hairline);background:var(--thead)}
+.fv-n{min-width:0;display:flex;white-space:nowrap;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--ink)}
+.fv-dir{min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:400;color:var(--faint)}
+.fv-f{flex:none}
+.fv-m{white-space:nowrap;font-size:12px;color:var(--faint)}
+.fv-acts{flex:none;margin-left:auto;display:flex;align-items:center;gap:2px}
+.fv-b{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:0;border-radius:6px;background:transparent;color:var(--muted);font:500 12.5px var(--sans);cursor:pointer;text-decoration:none}
+.fv-b:hover{background:var(--code-cp-hover-bg);color:var(--ink);text-decoration:none}
+.fv-b:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.fv-b.is-done{color:var(--pass-fill)}
+.fv .lb-close{margin-left:6px;width:30px;height:30px}
+.fv-src{flex:1 1 auto;min-height:0;margin:0;padding:12px 16px 14px 0;overflow:auto;background:none;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text);counter-reset:fl}
+.fv-src .l{display:block;position:relative;padding-left:52px;white-space:pre}
+.fv-src .l::before{counter-increment:fl;content:counter(fl);position:absolute;left:0;width:36px;text-align:right;font-size:12px;color:var(--sep)}
+.fv-cells{flex:1 1 auto;min-height:0;overflow:auto}
+.fv-cells .fv-src{overflow:visible;padding-top:4px}
+.fv-cell+.fv-cell{border-top:1px solid var(--hairline)}
+.fv-ct{padding:10px 16px 0 52px;font-size:11.5px;font-weight:500;color:var(--faint)}
+.fv-markdown .fv-src{color:var(--body)}
+.fn-view{white-space:nowrap}
+.fv-table{flex:1 1 auto;min-height:0;overflow:auto}
+.fv-table table{border-collapse:collapse;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--code-text)}
+.fv-table th,.fv-table td{padding:6px 14px;text-align:left;white-space:pre;border-bottom:1px solid var(--hairline)}
+.fv-table th{position:sticky;top:0;background:var(--thead);font-weight:500;color:var(--ink)}
+.fv-note{margin:0;padding:10px 16px;border-top:1px solid var(--hairline);font-size:13px;color:var(--muted)}
+
 /* Back to top */
 .to-top{position:fixed;right:24px;bottom:24px;z-index:20;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:var(--totop-bg);border:1px solid var(--totop-border);color:var(--totop-icon);box-shadow:var(--totop-shadow);text-decoration:none;opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s ease,transform .2s ease,border-color .15s ease,color .15s ease}
 .to-top.show{opacity:1;pointer-events:auto;transform:translateY(0)}
@@ -771,6 +809,8 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.cv-chev-cell{justify-content:flex-start}
 	.shots{grid-template-columns:repeat(2,minmax(0,1fr))}
 	.lb{padding:12px}
+	.fv-m{display:none}
+	.fv-b{padding:0 7px}
 	.card{padding:20px}
 	.rate,.status{text-align:left;justify-content:flex-start}
 	.to-top{right:16px;bottom:16px}

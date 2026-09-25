@@ -311,9 +311,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		// packaged. This list is used to determine which extensions
 		// should be packaged with the Npm strategy.
 		const extensionsWithNpmDeps = [
-			'positron-proxy',
 			'positron-duckdb',
-			'positron-pdf-server',
 			'positron-data-driver-databricks',
 			'positron-data-driver-duckdb',
 			'positron-data-driver-odbc',

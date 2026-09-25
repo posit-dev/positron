@@ -11,7 +11,8 @@
  * can check, returned as one line each for the agent to fix and re-render.
  */
 
-import { isDefaultsOnly } from './report-parse.mjs';
+import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport } from './report-parse.mjs';
+import { FILE_NAME, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
 function prose(markdown) {
@@ -50,11 +51,12 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 	const problems = [];
 	const lines = prose(ledger);
 	const scenarios = [];
+	const citedBy = new Map();
 	let current = null;
 	for (const { line } of lines) {
 		const head = /^##\s+(S\d+)\b/.exec(line);
 		if (head) {
-			current = { id: head[1], status: null, verifies: 0, evidence: 0, fails: [] };
+			current = { id: head[1], status: null, verifies: [] };
 			scenarios.push(current);
 			continue;
 		}
@@ -62,23 +64,27 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		if (!current) { continue; }
 		const status = /^Status:\s*(.*)$/.exec(line);
 		if (status) { current.status = status[1].trim(); }
-		if (/^\s*\d+\.\s+VERIFY\b/i.test(line)) {
-			current.verifies++;
-			if (/->\s*FAIL\b/i.test(line)) { current.fails.push({ observed: false, evidence: false, log: false }); }
+		const verify = /^\s*(\d+)\.\s+VERIFY\b/i.exec(line);
+		if (verify) {
+			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), observed: false, evidence: false, log: false });
 		}
 		const field = /^\s+(Observed|Evidence|Log):(.*)$/i.exec(line);
-		if (field) {
+		const check = current.verifies.at(-1);
+		if (field && check) {
 			const key = field[1].toLowerCase();
 			let named = true;
 			if (key === 'evidence') {
 				const files = evidenceFiles(field[2]);
 				const missing = fileExists ? files.filter(f => !fileExists(`shots/${f}`)) : [];
 				for (const f of missing) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in shots/`); }
-				named = files.length > missing.length;
-				if (named) { current.evidence++; }
+				const present = files.filter(f => !missing.includes(f));
+				for (const f of new Set(present)) {
+					if (!citedBy.has(f)) { citedBy.set(f, []); }
+					citedBy.get(f).push(`${current.id} step ${check.step}`);
+				}
+				named = present.length > 0;
 			}
-			const fail = current.fails.at(-1);
-			if (fail && named) { fail[key] = true; }
+			if (named) { check[key] = true; }
 		}
 	}
 
@@ -96,26 +102,123 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 				problems.push(`ledger: ${s.id} names Finding ${m[1]}, which the report does not have`);
 			}
 		}
-		if (!s.verifies) { problems.push(`ledger: ${s.id} has no VERIFY step`); }
-		if (/^pass$/i.test(s.status ?? '') && !s.evidence) { problems.push(`ledger: ${s.id} passes with no Evidence: naming a screenshot in shots/`); }
-		s.fails.forEach((f, k) => {
-			const missing = ['observed', 'evidence', 'log'].filter(key => !f[key]);
+		if (!s.verifies.length) { problems.push(`ledger: ${s.id} has no VERIFY step`); }
+		for (const v of s.verifies) {
+			if (!v.evidence) { problems.push(`ledger: ${s.id} step ${v.step} VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own`); }
+			const missing = v.fail ? ['observed', 'log'].filter(key => !v[key]) : [];
 			if (missing.length) {
-				problems.push(`ledger: ${s.id} FAIL check ${k + 1} is missing ${missing.map(m => m === 'evidence' ? 'Evidence: (a screenshot file)' : `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
+				problems.push(`ledger: ${s.id} step ${v.step} FAIL is missing ${missing.map(m => `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
 			}
-		});
+		}
+	}
+	for (const [f, checks] of citedBy) {
+		if (checks.length > 1) { problems.push(`ledger: ${f} is Evidence for ${checks.join(' and ')}; take a screenshot for each check`); }
 	}
 	const notRun = lines.filter(({ line }) => /^-\s+N\d+\b/.test(line)).length;
 	return { problems, scenarioCount: scenarios.length, notRun };
 }
 
 /**
+ * A finding's repro is one ledger scenario's steps: every screenshot its steps
+ * cite comes from a single scenario, and that scenario failed for this finding.
+ * Other runs belong under Evidence as a Variant.
+ */
+function lintReproScenario(findings, scenarios) {
+	const problems = [];
+	const shotsOf = steps => new Set(steps.flatMap(st => st.evidence.map(e => basename(e.file || e.href))));
+	const owners = scenarios.map(s => ({ s, shots: shotsOf(s.steps) }));
+	for (const f of findings) {
+		const cited = [...shotsOf(f.steps)].filter(shot => owners.some(o => o.shots.has(shot)));
+		if (!cited.length) { continue; }
+		const whole = owners.filter(o => cited.every(shot => o.shots.has(shot))).map(o => o.s);
+		if (!whole.length) {
+			const ids = owners.filter(o => cited.some(shot => o.shots.has(shot))).map(o => o.s.id);
+			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and other runs go under Evidence as a Variant`);
+		} else if (!whole.some(s => s.findings.includes(f.n) || s.steps.some(st => st.finding === f.n))) {
+			problems.push(`report: Finding ${f.n}'s steps come from ${whole.map(s => s.id).join(' or ')}, whose Status does not name Finding ${f.n}`);
+		}
+	}
+	return problems;
+}
+
+/**
+ * The test-file rules: every file a finding's setup or a scenario's
+ * precondition names is saved under `files/` and listed in `## Files`, and the
+ * two agree. `needs` is `[where, text]` for each setup line to check.
+ */
+function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
+	const problems = [];
+	const files = parseLedger(ledger)?.files ?? [];
+	for (const f of files) {
+		if (!/^files\/./.test(f.path)) {
+			problems.push(`ledger: ## Files lists ${f.path}; save it under files/ and list that path`);
+		} else if (fileExists && !fileExists(f.path)) {
+			problems.push(`ledger: ## Files lists ${f.path}, which is not in the run directory`);
+		}
+	}
+	const listed = new Set(files.map(f => f.path));
+	// A path under files/ named in prose is a file the reader will look for.
+	// Code blocks don't count: they may quote a file's own contents.
+	// Only one with an extension: "files/lines" in a sentence is prose.
+	const named = new Set();
+	for (const { line } of [...prose(markdown), ...prose(ledger)]) {
+		for (const m of line.matchAll(/(?<![\w/.-])(files\/[\w./-]*\.\w+)(?!\w|\.\w)/g)) { named.add(m[1]); }
+	}
+	for (const p of named) {
+		if (!listed.has(p)) { problems.push(`ledger: ${p} is named but not listed in ## Files`); }
+	}
+	for (const p of listFiles ? listFiles() : []) {
+		if (!listed.has(p)) { problems.push(`ledger: ${p} is saved but not listed in ## Files`); }
+	}
+	// A setup that names a file nobody saved is how a finding stops reproducing.
+	// One line per file, naming every setup that needs it.
+	const unsaved = new Map();
+	for (const [where, text] of needs) {
+		for (const m of String(text).matchAll(FILE_NAME)) {
+			// "user settings.json" is the app's own file; the setting goes in the step.
+			// A files/ path is the rule above's.
+			if (findFile(files, m[1]) || APP_CONFIG.test(m[1]) || m[1].startsWith('files/')) { continue; }
+			const same = files.filter(f => basename(f.path) === basename(m[1]));
+			if (same.length > 1) {
+				problems.push(`${where} names ${m[1]}, which matches ${same.map(f => f.path).join(' and ')}; name it by its files/ path`);
+				continue;
+			}
+			const at = unsaved.get(m[1]) ?? [];
+			if (!at.includes(where)) { at.push(where); }
+			unsaved.set(m[1], at);
+		}
+	}
+	for (const [name, at] of unsaved) {
+		problems.push(`${name} is named by ${at.join(', ')} but not saved; save it to files/ as it was when used and list it under ## Files in the ledger`);
+	}
+	return problems;
+}
+
+// The app's own configuration files, named by where a setting lives.
+const APP_CONFIG = /^(settings|keybindings|launch|tasks|extensions|argv)\.json$/i;
+
+/** Each scenario's precondition bullets, as `[where, text]`. */
+function ledgerPreconditions(ledger) {
+	const out = [];
+	let id = null;
+	let inPre = false;
+	for (const { line } of prose(ledger)) {
+		const head = /^##\s+(\S+)/.exec(line);
+		if (head) { id = /^S\d+$/.test(head[1]) ? head[1] : null; inPre = false; continue; }
+		if (!id) { continue; }
+		if (/^\w[\w ]*:/.test(line)) { inPre = /^Preconditions:/i.test(line); continue; }
+		if (inPre && /^[-*]\s+/.test(line)) { out.push([id, line]); }
+	}
+	return out;
+}
+
+/**
  * @param {string} markdown report.md
  * @param {string | undefined} ledger ledger.md, when the run wrote one
- * @param {{ fileExists?: (path: string) => boolean }} [options]
+ * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
  * @returns {string[]} one line per problem; empty when the report is clean
  */
-export function lintReport(markdown, ledger, { fileExists } = {}) {
+export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists } = {}) {
 	const problems = [];
 	const lines = prose(markdown);
 	const text = String(markdown ?? '');
@@ -139,14 +242,13 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 	if (!rows.length && !/^\s*no findings\b/im.test(text) && lines.some(({ line }) => /^###\s+Finding\b/.test(line))) {
 		problems.push('report: findings have blocks but no findings table');
 	}
+	if (rows.length && Object.keys(rows[0]).some(k => /^introduced|^origin/.test(k))) {
+		problems.push('report: drop the Introduced?/Origin column; origin goes in Cause, and only when the diff settles it');
+	}
 	for (const row of rows) {
 		const n = row['#'];
 		if (!['major', 'moderate', 'minor'].includes(row.severity?.toLowerCase())) {
 			problems.push(`report: finding ${n} Severity must be major, moderate or minor, got "${row.severity ?? ''}"`);
-		}
-		const introduced = row['introduced?'] ?? row.introduced;
-		if (!['yes', 'no', 'exposed'].includes(introduced?.toLowerCase())) {
-			problems.push(`report: finding ${n} Introduced? must be yes, no or exposed, got "${introduced ?? ''}"`);
 		}
 		if (!/^\d+\/\d+$/.test(row.reproduction ?? '')) {
 			problems.push(`report: finding ${n} Reproduction must be N/M, got "${row.reproduction ?? ''}"`);
@@ -163,9 +265,13 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 	const blockNumbers = new Set(blocks.map(b => b.n));
 	for (const n of tableNumbers) { if (!blockNumbers.has(n)) { problems.push(`report: table row ${n} has no "### Finding ${n}:" block`); } }
 	for (const n of blockNumbers) { if (!tableNumbers.has(n)) { problems.push(`report: Finding ${n} has a block but no table row`); } }
+	const needs = [];
 	blocks.forEach((b, j) => {
 		const end = blocks[j + 1]?.k ?? lines.length;
 		const body = lines.slice(b.k + 1, end).map(l => l.line);
+		for (const l of body.filter(l => /^\*\*(Repro|Preconditions:)\*\*/.test(l))) {
+			needs.push([`Finding ${b.n}`, l]);
+		}
 		const pre = body.find(l => l.startsWith('**Preconditions:**'));
 		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {
 			problems.push(`report: Finding ${b.n} Preconditions: says only "defaults"; leave the line out`);
@@ -178,6 +284,9 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 		if (!/^\s*Evidence:/.test(line) && /(^|[^[(])`shots\/[^`]+`/.test(line)) {
 			problems.push(`report: cite shots as [shots/<file>](shots/<file>), not in backticks: "${line.trim().slice(0, 60)}"`);
 		}
+		// A URL or shell variable in place of shots/ renders as a broken image.
+		const image = [...line.matchAll(/\]\(([^)\s]+\.(?:png|jpe?g|gif|webp))\)/gi)].map(m => m[1]).find(p => !p.startsWith('shots/'));
+		if (image) { problems.push(`report: link screenshots as shots/<file>, not ${image}`); }
 	}
 	// Only citations: a Run details line may name the workspace path.
 	const ABSOLUTE = /^`?(\/|~\/)/;
@@ -206,6 +315,18 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 		const missing = [...new Set([...text.matchAll(/\]\((shots\/[^)\s]+)\)/g)].map(m => m[1]))].filter(p => !fileExists(p));
 		for (const p of missing) { problems.push(`report: links ${p}, which is not in the run directory`); }
 	}
+
+	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? []));
+	if (repoFileExists) {
+		for (const f of parseReport(text).findings) {
+			const paths = [...f.tests.cases.filter(c => c.path && !isNewTestFile(c)), ...f.tests.related].map(t => t.path);
+			for (const p of new Set(paths.filter(p => !repoFileExists(p)))) {
+				problems.push(`report: Finding ${f.n} names test file ${p}, which is not in the repository; fix the path, mark it (new file), or drop it`);
+			}
+		}
+	}
+
+	problems.push(...lintFiles(markdown, ledger, [...needs, ...ledgerPreconditions(ledger)], { fileExists, listFiles }));
 
 	if (ledger !== undefined) {
 		const l = lintLedger(ledger, blockNumbers, fileExists);

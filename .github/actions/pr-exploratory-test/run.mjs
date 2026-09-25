@@ -7,22 +7,27 @@
 // Positron instance already launched and attached by the workflow.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
+import { buildVerifyPrompt, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
+// Beside explorer.md, so both prompts come from the harness checkout rather
+// than the branch under test, which may not have this file yet.
+const VERIFIER_PATH = join(dirname(EXPLORER_PATH), 'verifier.md');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
 const BRANCH = mustEnv('BRANCH');
 const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
+// Unset leaves each model at its own default effort.
+const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
 // The verify pass never drives the app, so it needs far fewer turns than the
 // run it checks; two trial passes used 22 and 26 tool calls.
@@ -53,20 +58,15 @@ function mustEnv(name) {
 	return v;
 }
 
-// Base overrides always apply; the screenshot-linking override is appended
-// only when a CDN base URL is actually configured, so an empty
-// REPORT_BASE_URL never puts an unusable "published at ``" sentence into the
-// prompt (see buildShotsBaseUrl in lib.mjs).
+// Shots stay relative (`shots/<file>`): index.html and report.md are
+// published beside shots/, so they resolve without a base URL in the prompt.
 const RENDER_PATH = fileURLToPath(new URL('../../../.claude/skills/exploratory-test/renderer/render.mjs', import.meta.url));
 const CI_OVERRIDES = [
-		`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
+		`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it, screenshots in \`${WORK_DIR}/shots/\`, and the files your scenarios use in \`${WORK_DIR}/files/\` (the skill's Test files rule).`,
 	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
 	`**Keep the logs in \`${WORK_DIR}/logs/\`.** Follow the skill's Logs section for the pre-launched instance and any you launch. The pre-launched instance's run directory is the only one under \`/tmp/positron-dev-launch/\` when you start, so note it before you launch another. Copy an instance's logs before you stop it: \`stop.sh\` takes its run directory with it. A finding whose log was deleted cannot be checked by the person reading the report.`,
 	`**Do not render the report; check it.** The workflow renders \`index.html\` itself once verification has been added. Instead of the skill's render step, run \`node ${RENDER_PATH} --check "${WORK_DIR}/report.md"\`, fix every line it prints, and run it again until it prints none.`,
 ];
-if (REPORT_BASE_URL) {
-	CI_OVERRIDES.push(`**Link screenshots with their public URL.** The run directory is published at \`${REPORT_BASE_URL}\`. Where the skill says to cite a shot as \`[shots/<file>](shots/<file>)\`, write \`[shots/<file>](${REPORT_BASE_URL}/shots/<file>)\` instead, and embed with \`![](${REPORT_BASE_URL}/shots/<file>)\`. A relative path is unreachable to anyone reading the report outside this container.`);
-}
 const CI_OVERRIDES_LIST = CI_OVERRIDES.map((text, i) => `${i + 1}. ${text}`).join('\n');
 
 const CI_TAIL = `
@@ -128,40 +128,9 @@ Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full comman
 // Takes no report: the verifier is pointed at report.md on disk rather than
 // handed its text, so that it reads the same bytes the reviewer will.
 async function verifyReport() {
-	const prompt = [
-		'You are verifying an exploratory-test report written by a different agent. Decide, for each finding, whether it is a genuine product defect. Be adversarial: the report is a claim, not evidence.',
-		'',
-		`Report: \`${join(WORK_DIR, 'report.md')}\``,
-		`The reporting agent's own action log, with timestamps: \`${join(WORK_DIR, 'actions.log')}\``,
-		`Its scenario ledger, with each scenario's steps and checks: \`${join(WORK_DIR, 'ledger.md')}\``,
-		`Repository: \`${REPO_ROOT}\`. Read files at a ref with \`git show <ref>:<path>\`. Do not modify anything.`,
-		'',
-		`See the change under test with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA}\`.`,
-		'',
-		'For EACH finding, answer these three questions explicitly:',
-		'',
-		"1. Does the code support the report's stated cause hypothesis? Read the files it names and quote the lines that confirm or contradict it.",
-		"2. Could anything the reporting agent did to its own test environment produce the reported symptom? Read the action log, the ledger's `## Environment` and Run details for how it set the machine up, then ask whether that setup, rather than the product, explains what it saw.",
-		'3. Is the `Introduced?` value consistent with the diff? A defect in code the diff did not touch is not introduced by this change, though it may be newly reachable because of it, which is what `exposed` means. A blank or unrecognised `Introduced?` (anything but `yes`, `no` or `exposed`) is a missing answer: flag it, and say which value the diff supports.',
-		'',
-		'Then give a verdict per finding: CONFIRMED, FALSE POSITIVE, or UNRESOLVED (say what evidence is missing).',
-		'',
-		'Also flag any place where the report asserts a check it could not have performed as described.',
-		'',
-		'Start your reply with a single machine-readable line, exactly this shape, one entry per finding in the table:',
-		'',
-		'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE',
-		'',
-		'It is read to annotate the findings table, so use only CONFIRMED, FALSE POSITIVE or UNRESOLVED, and number the findings as the table does.',
-		'',
-		'Then keep it short. The table column is what a reviewer reads; this section is for what the column cannot say.',
-		'',
-		'- A finding you CONFIRM gets one line: what convinced you.',
-		'- A finding you dispute or cannot resolve gets a short paragraph: the evidence that contradicts it, or what is missing.',
-		'- End with one line naming anything the report claimed but could not have checked, or `No process issues.`',
-		'',
-		'No preamble, no restating the finding, no summary of the report. Do not write any files.',
-	].join('\n');
+	const prompt = buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
+		workDir: WORK_DIR, repoRoot: REPO_ROOT, baseSha: BASE_SHA, headSha: HEAD_SHA,
+	});
 
 	const chunks = [];
 	for await (const message of query({
@@ -171,7 +140,7 @@ async function verifyReport() {
 			cwd: REPO_ROOT,
 			allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
 			maxTurns: VERIFY_MAX_TURNS,
-			thinking: { type: 'disabled' },
+			effort: 'medium',
 			stderr: data => process.stderr.write(`[verify stderr] ${data}`),
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},
@@ -187,7 +156,7 @@ async function verifyReport() {
 			writeFileSync(join(WORK_DIR, 'verify-cost.json'), JSON.stringify(verifyCost, null, 2));
 		}
 	}
-	return chunks.length ? chunks[chunks.length - 1] : null;
+	return chunks.length ? fromVerdictLine(chunks[chunks.length - 1]) : null;
 }
 
 async function main() {
@@ -221,7 +190,7 @@ async function main() {
 		'Write the report to `report.md` in the run directory. Return a two or three line summary and nothing else.',
 	].join('\n');
 
-	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} maxTurns=${MAX_TURNS}`);
+	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} effort=${EFFORT || 'default'} maxTurns=${MAX_TURNS}`);
 	console.log(`[exploratory] user prompt:\n${userPrompt}`);
 
 	const assistantMessages = [];
@@ -247,12 +216,13 @@ async function main() {
 			// refusal to start is indistinguishable from a crash.
 			stderr: data => process.stderr.write(`[claude-code stderr] ${data}`),
 			maxTurns: MAX_TURNS,
-			// Extended thinking is disabled. With thinking on (the adaptive
-			// default), cancelling a parallel tool-call batch corrupts the
-			// in-flight thinking blocks and wedges the session with a repeating
-			// 400 ("thinking blocks ... cannot be modified", claude-code#63192).
-			// The report is built from text blocks only, so no output is lost.
-			thinking: { type: 'disabled' },
+			// Summarized display returns the notes the model writes between tool
+			// calls, which otherwise arrive as empty thinking blocks.
+			// gate.mjs and the analyzers still disable thinking for claude-code#63192
+			// (a cancelled parallel tool batch wedges the session on a repeating 400).
+			// If a run wedges that way, disable it here too.
+			thinking: { type: 'adaptive', display: 'summarized' },
+			...(EFFORT ? { effort: EFFORT } : {}),
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},
 	})) {
@@ -260,6 +230,10 @@ async function main() {
 			messageCount++;
 			const content = message.message?.content || [];
 			const textBlocks = content.filter(b => b.type === 'text').map(b => b.text);
+			const notes = content.filter(b => b.type === 'thinking' && b.thinking).map(b => b.thinking);
+			if (notes.length) {
+				console.log(`[msg ${messageCount}] note: ${notes.join(' ').slice(0, 500)}`);
+			}
 			const toolUses = content.filter(b => b.type === 'tool_use').map(b => `${b.name}(${JSON.stringify(b.input).slice(0, 200)})`);
 			if (textBlocks.length) {
 				const joined = textBlocks.join('\n');
@@ -365,6 +339,7 @@ async function main() {
 			const ledgerPath = join(WORK_DIR, 'ledger.md');
 			const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
 			const fileExists = path => existsSync(join(WORK_DIR, path));
+			const readFile = path => (fileExists(path) && statSync(join(WORK_DIR, path)).isFile() ? readFileSync(join(WORK_DIR, path)) : null);
 			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown, {
 				agentPrompts: AGENT_PROMPTS,
 				// Coverage is built from the run's ledger when it wrote one.
@@ -373,11 +348,13 @@ async function main() {
 				base: REPORT_BASE_URL || WORK_DIR,
 				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
 				fileExists,
+				readFile,
 			}));
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
-			const missing = linkedLogs(parseReport(reportMarkdown, { ledger })).filter(p => !fileExists(p));
+			const parsed = parseReport(reportMarkdown, { ledger });
+			const missing = [...linkedLogs(parsed), ...parsed.files.map(f => f.path)].filter(p => !fileExists(p));
 			if (missing.length) {
-				console.error(`[report] WARN: log files listed but not in the run directory: ${missing.join(', ')}`);
+				console.error(`[report] WARN: files listed but not in the run directory: ${missing.join(', ')}`);
 			}
 		} catch (err) {
 			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
