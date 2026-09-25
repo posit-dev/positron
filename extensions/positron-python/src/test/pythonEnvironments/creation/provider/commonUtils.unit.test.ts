@@ -6,7 +6,7 @@ import * as path from 'path';
 import * as sinon from 'sinon';
 import { Uri } from 'vscode';
 import * as fs from '../../../../client/common/platform/fs-paths';
-import { hasVenv } from '../../../../client/pythonEnvironments/creation/common/commonUtils';
+import { hasVenv, hasPixiEnv } from '../../../../client/pythonEnvironments/creation/common/commonUtils';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../../constants';
 
 suite('CommonUtils', () => {
@@ -39,5 +39,17 @@ suite('CommonUtils', () => {
         expect(result).to.be.equal(false, 'Incorrect result');
 
         fileExistsStub.calledOnceWith(path.join(workspace1.uri.fsPath, '.venv', 'pyvenv.cfg'));
+    });
+
+    test('Pixi env exists test', async () => {
+        fileExistsStub.withArgs(path.join(workspace1.uri.fsPath, '.pixi', 'envs')).resolves(true);
+        const result = await hasPixiEnv(workspace1);
+        expect(result).to.be.equal(true, 'Incorrect result');
+    });
+
+    test('Pixi env does not exist test', async () => {
+        fileExistsStub.withArgs(path.join(workspace1.uri.fsPath, '.pixi', 'envs')).resolves(false);
+        const result = await hasPixiEnv(workspace1);
+        expect(result).to.be.equal(false, 'Incorrect result');
     });
 });

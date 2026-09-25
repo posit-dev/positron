@@ -26,6 +26,8 @@ import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../../constants';
 import { CreateEnvironmentProgress } from '../../../../client/pythonEnvironments/creation/types';
 import { Observable } from 'rxjs';
 import { Output } from '../../../../client/common/process/types';
+import { getVenvExecutable } from '../../../../client/pythonEnvironments/creation/common/commonUtils';
+import { IPythonRuntimeManager } from '../../../../client/positron/manager';
 
 suite('Auto Create Venv', () => {
     const workspace = {
@@ -156,6 +158,75 @@ suite('Auto Create Venv', () => {
                     installPackages: true,
                 },
             );
+        });
+
+        suite('uv sync fast path', () => {
+            const ctx: AutoCreateVenvContext = { hasRequirements: false, hasPyprojectToml: true, uvAvailable: true };
+            let selectLanguageRuntimeFromPathStub: sinon.SinonStub;
+            let runtimeManager: IPythonRuntimeManager;
+
+            function execResult(exitCode: number) {
+                const out = new Observable<Output<string>>((subscriber) => {
+                    subscriber.next({ source: 'stdout', out: 'output\n' });
+                    subscriber.complete();
+                });
+                return { proc: { exitCode }, out, dispose: sinon.stub() };
+            }
+
+            setup(() => {
+                sinon
+                    .stub(windowApis, 'withProgress')
+                    .callsFake(async (_options, task) => task({ report: sinon.stub() }, undefined as never));
+                selectLanguageRuntimeFromPathStub = sinon.stub().resolves('runtime-id');
+                runtimeManager = {
+                    selectLanguageRuntimeFromPath: selectLanguageRuntimeFromPathStub,
+                } as unknown as IPythonRuntimeManager;
+            });
+
+            test('pyproject.toml only, uv sync succeeds: selects the synced venv without the create command', async () => {
+                getPipRequirementsFilesStub.resolves([]);
+                hasPyprojectTomlStub.resolves(true);
+                execObservableStub.returns(execResult(0));
+
+                const result = await autoCreateVenvWithDeps(workspace, ctx, undefined, runtimeManager);
+
+                assert.deepStrictEqual(
+                    execObservableStub.args.map((a) => [a[0], a[1], a[2].cwd]),
+                    [['uv', ['sync'], workspace.uri.fsPath]],
+                );
+                sinon.assert.calledOnceWithExactly(
+                    selectLanguageRuntimeFromPathStub,
+                    getVenvExecutable(workspace),
+                    true,
+                );
+                sinon.assert.notCalled(executeCommandStub);
+                assert.strictEqual(result, getVenvExecutable(workspace));
+            });
+
+            test('uv sync fails: falls back to the uv venv + uv pip install create command', async () => {
+                getPipRequirementsFilesStub.resolves([]);
+                hasPyprojectTomlStub.resolves(true);
+                execObservableStub.returns(execResult(2));
+                executeCommandStub.resolves({ path: '/some/.venv/bin/python' });
+
+                const result = await autoCreateVenvWithDeps(workspace, ctx, undefined, runtimeManager);
+
+                sinon.assert.notCalled(selectLanguageRuntimeFromPathStub);
+                const options = executeCommandStub.firstCall.args[1];
+                assert.deepStrictEqual(
+                    {
+                        providerId: options.providerId,
+                        uvPythonVersion: options.uvPythonVersion,
+                        depInstallArgs: options.depInstallArgs,
+                    },
+                    {
+                        providerId: UV_PROVIDER_ID,
+                        uvPythonVersion: 'auto',
+                        depInstallArgs: [['pip', 'install', '-e', '.']],
+                    },
+                );
+                assert.strictEqual(result, '/some/.venv/bin/python');
+            });
         });
     });
 

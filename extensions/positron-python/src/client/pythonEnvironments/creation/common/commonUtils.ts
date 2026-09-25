@@ -52,3 +52,13 @@ export function getPrefixCondaEnvPath(workspaceFolder: WorkspaceFolder): string 
 export async function hasPrefixCondaEnv(workspaceFolder: WorkspaceFolder): Promise<boolean> {
     return fs.pathExists(getPrefixCondaEnvPath(workspaceFolder));
 }
+
+// --- Start Positron ---
+export function getPixiEnvsPath(workspaceFolder: WorkspaceFolder): string {
+    return path.join(workspaceFolder.uri.fsPath, '.pixi', 'envs');
+}
+
+export async function hasPixiEnv(workspaceFolder: WorkspaceFolder): Promise<boolean> {
+    return fs.pathExists(getPixiEnvsPath(workspaceFolder));
+}
+// --- End Positron ---
