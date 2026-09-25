@@ -213,6 +213,14 @@ export function isDefaultsOnly(text) {
 	return DEFAULTS_ONLY.test(String(text ?? '').trim());
 }
 
+/**
+ * A line trimmed for a heading test, or '' when indented four or more spaces:
+ * that is an indented code block, and a pasted `## Setup` in it is source.
+ */
+function headingText(line) {
+	return /^ {0,3}\S/.test(line) ? line.trim() : '';
+}
+
 /** Strips the indent a numbered list puts on a step's continuation lines. */
 function dedent(line) {
 	return line.replace(/^\s{1,4}/, '');
@@ -553,6 +561,34 @@ function outdent(lines) {
 	return out;
 }
 
+/**
+ * The fenced or indented block starting at the first non-blank line from
+ * `from`, as a fenced block, with the index after it; null when there is none.
+ */
+function readSourceBlock(lines, from) {
+	let k = from;
+	while (k < lines.length && !lines[k].trim()) { k++; }
+	const first = lines[k] ?? '';
+	const fence = /^ {0,3}(`{3,}|~{3,})/.exec(first);
+	if (!fence && !/^\s{4,}\S/.test(first)) { return null; }
+	const body = [];
+	if (fence) {
+		body.push(first);
+		for (k++; k < lines.length; k++) {
+			body.push(lines[k]);
+			const close = /^\s*(`{3,}|~{3,})\s*$/.exec(lines[k]);
+			if (close && close[1][0] === fence[1][0] && close[1].length >= fence[1].length) { k++; break; }
+		}
+		return { text: outdent(body).join('\n'), end: k };
+	}
+	for (; k < lines.length; k++) {
+		const raw = lines[k];
+		if (/^\s{4,}\S/.test(raw) || (!raw.trim() && /^\s{4,}\S/.test(lines[k + 1] ?? ''))) { body.push(raw); continue; }
+		break;
+	}
+	return { text: widenOuterFence(['```', ...outdent(body), '```'].join('\n')), end: k };
+}
+
 /** An error from its log source, its `|` fields, and the message-then-frames body. */
 function errorFrom(source, meta, body) {
 	const message = [];
@@ -683,6 +719,15 @@ function parseFindingBody(lines) {
 			out.reproStart = start ? start[1].trim() : '';
 			out.matched++;
 
+			// A file the starting state needs is meant to sit under step 1, but
+			// reports also paste it right under this line. Keep it with the
+			// starting state rather than ending the steps before they begin.
+			const source = readSourceBlock(lines, i + 1);
+			if (source) {
+				out.reproStart = `${out.reproStart}\n\n${source.text}`;
+				i = source.end - 1;
+			}
+
 			// The preconditions line may sit between the Repro line and the steps,
 			// which is where it reads best, or after Expected, which is where
 			// older reports put it. Consume it here so it does not look like the
@@ -805,7 +850,7 @@ function parseRunDetails(lines) {
 	const sections = [];
 	let current = null;
 	for (const line of lines) {
-		const heading = /^###\s+(.*)$/.exec(line.trim());
+		const heading = /^###\s+(.*)$/.exec(headingText(line));
 		if (heading) {
 			current = { title: heading[1].trim(), body: [] };
 			sections.push(current);
@@ -906,7 +951,7 @@ export function parseLedger(markdown) {
 	let inEnvironment = false;
 	for (const line of lines) {
 		const t = line.trim();
-		const head = /^##\s+(.*)$/.exec(t);
+		const head = /^##\s+(.*)$/.exec(headingText(line));
 		if (head) {
 			cur = null;
 			section = '';
@@ -1051,7 +1096,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	// section: searching the whole document meant a report that omitted the line
 	// put backticks from some finding's body in the header instead.
 	const headerEnd = lines.findIndex((l, i) =>
-		i > titleIndex && !fenced[i] && (/^##\s/.test(l.trim()) || /^\*\*[^*]+:\*\*/.test(l.trim())));
+		i > titleIndex && !fenced[i] && (/^##\s/.test(headingText(l)) || /^\*\*[^*]+:\*\*/.test(l.trim())));
 	const metaIndex = lines.findIndex((l, i) =>
 		i > titleIndex && (headerEnd === -1 || i < headerEnd) && l.trim().startsWith('`'));
 	const chips = metaIndex === -1
@@ -1061,7 +1106,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	// it becomes a link: nothing but a GitHub owner, repo and number gets through.
 	// Searched to the first section rather than the first label: written bold,
 	// the line is a label itself.
-	const sectionStart = lines.findIndex((l, i) => i > titleIndex && !fenced[i] && /^##\s/.test(l.trim()));
+	const sectionStart = lines.findIndex((l, i) => i > titleIndex && !fenced[i] && /^##\s/.test(headingText(l)));
 	const prLine = lines.find((l, i) => i > titleIndex && (sectionStart === -1 || i < sectionStart)
 		&& /^(\*\*)?PR:/.test(l.trim()));
 	const prMatch = prLine && /^(?:\*\*)?PR:(?:\*\*)?\s*`?([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)#(\d+)`?\s*$/.exec(prLine.trim());
@@ -1099,10 +1144,10 @@ export function parseReport(markdown, { ledger } = {}) {
 	}
 
 	// Findings run from `## Findings` to the next `##`.
-	const findingsStart = lines.findIndex(l => /^##\s+Findings\s*$/i.test(l.trim()));
+	const findingsStart = lines.findIndex(l => /^##\s+Findings\s*$/i.test(headingText(l)));
 	const findingsEnd = findingsStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > findingsStart && !fenced[i] && /^##\s/.test(l.trim()));
+		: lines.findIndex((l, i) => i > findingsStart && !fenced[i] && /^##\s/.test(headingText(l)));
 	const findingsLines = findingsStart === -1
 		? []
 		: lines.slice(findingsStart, findingsEnd === -1 ? lines.length : findingsEnd);
@@ -1112,7 +1157,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	const HEADING = /^###\s+(?:Finding\s+)?(\d+)\s*[.:)]?\s*(.*)$/i;
 	const starts = [];
 	findingsLines.forEach((line, i) => {
-		const m = !fenced[findingsStart + i] && HEADING.exec(line.trim());
+		const m = !fenced[findingsStart + i] && HEADING.exec(headingText(line));
 		if (m) { starts.push({ i, n: Number(m[1]), claim: m[2].trim() }); }
 	});
 
@@ -1188,7 +1233,8 @@ export function parseReport(markdown, { ledger } = {}) {
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
-			preconditions: preconditions.map(t => inline(t)),
+			// A starting state with a pasted file is the one multi-line item.
+			preconditions: preconditions.map(t => (t.includes('\n') ? block(t) : inline(t))),
 			steps,
 			// A shot a step names is that step's, whatever its caption says.
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'
@@ -1221,14 +1267,14 @@ export function parseReport(markdown, { ledger } = {}) {
 
 	// Coverage. `Exercised` is the new heading; `Verified` is what older
 	// reports wrote.
-	const coverageStart = lines.findIndex(l => /^##\s+Coverage\s*$/i.test(l.trim()));
+	const coverageStart = lines.findIndex(l => /^##\s+Coverage\s*$/i.test(headingText(l)));
 	const coverageEnd = coverageStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > coverageStart && !fenced[i] && (/^##\s/.test(l.trim()) || /^<details/.test(l.trim())));
+		: lines.findIndex((l, i) => i > coverageStart && !fenced[i] && (/^##\s/.test(headingText(l)) || /^<details/.test(l.trim())));
 	const coverageTo = coverageEnd === -1 ? lines.length : coverageEnd;
 	const notExercisedHeading = coverageStart === -1
 		? -1
-		: lines.findIndex((l, i) => i > coverageStart && i < coverageTo && /^###\s+Not exercised\s*$/i.test(l.trim()));
+		: lines.findIndex((l, i) => i > coverageStart && i < coverageTo && /^###\s+Not exercised\s*$/i.test(headingText(l)));
 	const exercisedTo = notExercisedHeading === -1 ? coverageTo : notExercisedHeading;
 
 	const exercisedTable = coverageStart === -1

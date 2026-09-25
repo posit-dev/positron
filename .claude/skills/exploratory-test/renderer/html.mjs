@@ -586,7 +586,7 @@ function renderFindingCard(f, report, options) {
 	// they need before they start without reading to find where it stops.
 	const preconditions = f.preconditions.length
 		? '<div class="repro-group"><div class="repro-label">Preconditions</div>'
-		+ `<ul class="preconditions">${f.preconditions.map(p => `<li>${p}</li>`).join('')}</ul></div>`
+		+ `<ul class="preconditions">${f.preconditions.map(p => `<li>${withCodeCopy(p)}</li>`).join('')}</ul></div>`
 		: '';
 	// The card's Observed says what went wrong, so a step repeats it only when
 	// two failed checks saw different things.

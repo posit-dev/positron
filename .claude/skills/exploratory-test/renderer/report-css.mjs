@@ -498,6 +498,7 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 .preconditions{margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:var(--secondary)}
 .preconditions li{margin:0 0 8px;padding-left:4px}
 .preconditions li:last-child{margin-bottom:0}
+.preconditions li>p{margin:0 0 8px}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
