@@ -194,3 +194,60 @@ test('files: render.mjs fails the run when a listed file was not saved', () => {
 	assert.match(stray.stderr, /ledger: files\/stray\.py is saved but not listed in ## Files/);
 	rmSync(dir, { recursive: true, force: true });
 });
+
+const NOTEBOOK = Buffer.from(JSON.stringify({
+	cells: [
+		{ cell_type: 'markdown', metadata: {}, source: ['# Load\n', 'Read the data.'] },
+		{ cell_type: 'code', metadata: {}, execution_count: 1, outputs: [{ output_type: 'stream', text: ['secret output'] }], source: ['import pandas as pd\n', '\n', 'df = pd.read_csv("x.csv")'] },
+		{ cell_type: 'code', metadata: {}, execution_count: null, outputs: [], source: 'df.head()' },
+	],
+	metadata: { kernelspec: { name: 'python3', language: 'python', display_name: 'Python 3' } },
+	nbformat: 4, nbformat_minor: 5,
+}, null, 1));
+
+test('notebook: the viewer shows cells with their type, not the JSON, and leaves outputs out', () => {
+	const html = renderWith('files/load.ipynb', NOTEBOOK);
+	const v = viewer(html, 'file-load-ipynb');
+	assert.match(v, /<span class="fv-m">Notebook · 3 cells<\/span>/);
+	assert.deepEqual([...v.matchAll(/<div class="fv-ct">([^<]+)<\/div>/g)].map(m => m[1]), ['Markdown', 'Python', 'Python']);
+	assert.equal(v.match(/<div class="fv-cell fv-code">/g).length, 2);
+	// Numbered per cell: the code cell's blank line is its own line.
+	assert.match(v, /<div class="fv-cell fv-code"><div class="fv-ct">Python<\/div><pre class="fv-src"><span class="l">import pandas as pd\n<\/span><span class="l">\n<\/span><span class="l">df = pd\.read_csv\(&quot;x\.csv&quot;\)\n<\/span><\/pre>/);
+	assert.doesNotMatch(v, /nbformat|&quot;cells&quot;|secret output/);
+	// Copy and Download are still the notebook itself.
+	assert.ok(embedded(html, 'file-load-ipynb').equals(NOTEBOOK));
+});
+
+test('notebook: an R kernel labels its code cells R, and a file that is not a notebook shows as text', () => {
+	const r = Buffer.from(JSON.stringify({ cells: [{ cell_type: 'code', source: 'x <- 1' }], metadata: { kernelspec: { language: 'R' } } }));
+	assert.match(viewer(renderWith('files/r.ipynb', r), 'file-r-ipynb'), /<div class="fv-ct">R<\/div>/);
+	const broken = viewer(renderWith('files/bad.ipynb', Buffer.from('{ "cells": [\n')), 'file-bad-ipynb');
+	assert.match(broken, /Notebook · 1 line/);
+	assert.doesNotMatch(broken, /fv-cell/);
+});
+
+test('notebook: the viewer stops at the preview budget and says how many cells it showed', () => {
+	const cells = Array.from({ length: 5 }, (_, i) => ({ cell_type: 'code', source: Array.from({ length: 150 }, (_, j) => `x${i}_${j} = 1\n`) }));
+	const v = viewer(renderWith('files/big.ipynb', Buffer.from(JSON.stringify({ cells, metadata: {} }))), 'file-big-ipynb');
+	assert.equal(v.match(/<span class="l">/g).length, PREVIEW_LINES);
+	assert.match(v, /Showing the first 3 of 5 cells\. Download for the full notebook\./);
+});
+
+test('notebook: the agent prompt carries the cells as a percent-format script', () => {
+	const text = promptText(renderWith('files/load.ipynb', NOTEBOOK), 1);
+	assert.ok(text.includes([
+		'load.ipynb: files/load.ipynb (its cells in percent format; the file is the notebook)',
+		'```python', '# %% [markdown]', '# # Load', '# Read the data.', '', '# %%', 'import pandas as pd', '', 'df = pd.read_csv("x.csv")', '', '# %%', 'df.head()', '```',
+	].join('\n')));
+});
+
+test('coverage: a precondition popover links the file it names, and its code name opens it too', () => {
+	const html = render();
+	const cov = html.slice(html.indexOf('id="coverage"'), html.indexOf('id="run-details"'));
+	assert.match(cov, /<span class="pre-i"><b><a class="fn" href="files\/slow\.py" data-file="file-slow-py"[^>]*>slow\.py<\/a> loaded<\/b><a class="fn-view" href="files\/slow\.py" data-file="file-slow-py">view slow\.py<\/a> · Run <code>%run -i slow\.py<\/code>/);
+	// Nothing to open, nothing linked.
+	const bare = render({ readFile: () => null });
+	const cov2 = bare.slice(bare.indexOf('id="coverage"'), bare.indexOf('id="run-details"'));
+	assert.doesNotMatch(cov2, /fn-view|class="fn"/);
+	assert.match(cov2, /files\/slow\.py · Run/);
+});

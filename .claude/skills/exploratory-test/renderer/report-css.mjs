@@ -771,6 +771,12 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .fv-src{flex:1 1 auto;min-height:0;margin:0;padding:12px 16px 14px 0;overflow:auto;background:none;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text);counter-reset:fl}
 .fv-src .l{display:block;position:relative;padding-left:52px;white-space:pre}
 .fv-src .l::before{counter-increment:fl;content:counter(fl);position:absolute;left:0;width:36px;text-align:right;font-size:12px;color:var(--sep)}
+.fv-cells{flex:1 1 auto;min-height:0;overflow:auto}
+.fv-cells .fv-src{overflow:visible;padding-top:4px}
+.fv-cell+.fv-cell{border-top:1px solid var(--hairline)}
+.fv-ct{padding:10px 16px 0 52px;font-size:11.5px;font-weight:500;color:var(--faint)}
+.fv-markdown .fv-src{color:var(--body)}
+.fn-view{white-space:nowrap}
 .fv-note{margin:0;padding:10px 16px;border-top:1px solid var(--hairline);font-size:13px;color:var(--muted)}
 
 /* Back to top */

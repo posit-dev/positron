@@ -17,7 +17,7 @@
 import { resolve as resolvePath } from 'node:path';
 import { parseReport, escapeHtml, safeUrl, basename } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
-import { resolveFiles, linkFiles, renderFileViewers, renderTestFilesPart, promptFilesSection, FILE_SCRIPT } from './repro-files.mjs';
+import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, FILE_SCRIPT } from './repro-files.mjs';
 
 const ICON = {
 	// Straight down with no tray under it: "jump down the page", not "download".
@@ -626,7 +626,8 @@ ${promptBlock}
 // not-run rows are always listed, since those are what a reviewer scans for.
 const COVERAGE_PASSES_SHOWN = 4;
 
-function renderCoverage(report) {
+function renderCoverage(report, options = {}) {
+	const files = options.files ?? [];
 	const { exercised, notExercised } = report.coverage;
 	if (!exercised.length && !notExercised.length) {
 		return '';
@@ -672,7 +673,8 @@ function renderCoverage(report) {
 			const from = !p.from ? ''
 				: src ? `Created in <a href="#${rowId.get(src)}">${src.scenarioHtml}</a>: `
 					: `Created in ${escapeHtml(p.from)}: `;
-			return `<span class="pre-i"><b>${p.nameHtml}</b>${from}${p.howHtml}</span>`;
+			// A saved file the how-to names opens its viewer from here too.
+			return `<span class="pre-i"><b>${p.nameHtml}</b>${from}${linkFilePaths(p.howHtml, files)}</span>`;
 		}).join('');
 		return '<p class="cv-pre" tabindex="0" aria-label="Preconditions">'
 			+ '<span class="pre-mark" aria-hidden="true">P</span>'
@@ -990,7 +992,7 @@ ${renderFindingsList(report)}
 
 ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
-${renderCoverage(report)}
+${linkFiles(renderCoverage(report, options), options.files)}
 
 ${renderFolds(report, options)}
 

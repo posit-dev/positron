@@ -61,6 +61,48 @@ function decodeText(bytes) {
 	}
 }
 
+/** A cell's label: Markdown, Raw, or the kernel's language. */
+function cellLabel(cell, lang) {
+	if (cell.cell_type === 'markdown') { return 'Markdown'; }
+	if (cell.cell_type !== 'code') { return 'Raw'; }
+	return TYPE[lang] ?? (lang ? lang[0].toUpperCase() + lang.slice(1) : 'Code');
+}
+
+/**
+ * A notebook's cells as `{ kind, label, lines }`, and its language; null when
+ * the text is not a notebook. Outputs are left out: the repro reruns the cells.
+ */
+function parseNotebook(text) {
+	let nb;
+	try {
+		nb = JSON.parse(text);
+	} catch {
+		return null;
+	}
+	if (!Array.isArray(nb?.cells)) {
+		return null;
+	}
+	const meta = nb.metadata ?? {};
+	const lang = String(meta.kernelspec?.language ?? meta.language_info?.name ?? 'python').toLowerCase();
+	const key = { python: 'py', r: 'r', julia: 'jl' }[lang] ?? lang;
+	const cells = nb.cells.map(c => {
+		const source = Array.isArray(c.source) ? c.source.join('') : String(c.source ?? '');
+		const kind = c.cell_type === 'markdown' || c.cell_type === 'code' ? c.cell_type : 'raw';
+		return { kind, label: cellLabel(c, key), lines: source.replace(/\n$/, '').split('\n') };
+	});
+	return { lang: key, cells };
+}
+
+/**
+ * The cells as Jupytext's percent format, which reads as a script: code as is,
+ * markdown commented out, each under its `# %%` marker.
+ */
+function notebookScript(nb) {
+	return nb.cells.map(c => (c.kind === 'code'
+		? ['# %%', ...c.lines]
+		: [`# %% [${c.kind}]`, ...c.lines.map(l => (l ? `# ${l}` : '#'))]).join('\n')).join('\n\n');
+}
+
 function sizeText(bytes) {
 	if (bytes < 1024) { return `${bytes} B`; }
 	if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`; }
@@ -89,6 +131,8 @@ export function resolveFiles(entries, readFile) {
 		return {
 			...base,
 			kind: 'text',
+			// A notebook shows as its cells; one that does not parse shows as text.
+			notebook: ext === 'ipynb' ? parseNotebook(text) : null,
 			size: bytes.length,
 			lineCount: text === '' ? 0 : lines.length,
 			preview: lines.slice(0, PREVIEW_LINES),
@@ -115,9 +159,37 @@ export function filesNamedIn(files, markdown) {
 }
 
 function metaText(f) {
+	if (f.notebook) {
+		const n = f.notebook.cells.length;
+		return `${f.type} \u00b7 ${n} ${n === 1 ? 'cell' : 'cells'}`;
+	}
 	if (f.kind === 'text') { return `${f.type} · ${f.lineCount} ${f.lineCount === 1 ? 'line' : 'lines'}`; }
 	if (f.kind === 'binary') { return `${f.type} · ${sizeText(f.size)}`; }
 	return f.type;
+}
+
+/**
+ * A `files/<path>` written as plain text, as a ledger precondition does, as a
+ * "view <name>" link to the viewer. Text inside a tag, a link or code is left.
+ */
+export function linkFilePaths(html, files) {
+	if (!files.length) {
+		return html;
+	}
+	let skip = 0;
+	return String(html ?? '').split(/(<[^>]+>)/).map(part => {
+		if (part.startsWith('<')) {
+			if (/^<(a|code)\b/i.test(part)) { skip++; }
+			else if (/^<\/(a|code)>/i.test(part)) { skip = Math.max(0, skip - 1); }
+			return part;
+		}
+		return skip ? part : part.replace(/(?<![\w/.-])(files\/[\w./-]*\.\w+)(?!\w|\.\w)/g, (whole, path) => {
+			const f = findFile(files, path);
+			return f && f.kind !== 'missing'
+				? `<a class="fn-view" href="${escapeHtml(f.path)}" data-file="${f.id}">view ${escapeHtml(f.name)}</a>`
+				: whole;
+		});
+	}).join('');
 }
 
 /** The file name as a link that opens the viewer; plain code when the file is not there. */
@@ -169,6 +241,27 @@ function sourceBlock(f) {
 	return `<script type="text/plain" id="src-${f.id}"${raw ? '' : ' data-enc="base64"'}>${body}</script>`;
 }
 
+/** Numbered lines, each keeping its newline so a selection copies them back. */
+function numbered(lines) {
+	return `<pre class="fv-src">${lines.map(l => `<span class="l">${escapeHtml(l)}\n</span>`).join('')}</pre>`;
+}
+
+/** A notebook as one labelled block per cell, up to the preview's line budget. */
+function renderCells(nb) {
+	let budget = PREVIEW_LINES;
+	const shown = [];
+	for (const c of nb.cells) {
+		if (budget <= 0) { break; }
+		const lines = c.lines.slice(0, budget);
+		budget -= lines.length;
+		shown.push(`<div class="fv-cell fv-${c.kind}"><div class="fv-ct">${escapeHtml(c.label)}</div>${numbered(lines)}</div>`);
+	}
+	const more = nb.cells.length > shown.length || budget < 0
+		? `<p class="fv-note">Showing the first ${shown.length} of ${nb.cells.length} cells. Download for the full notebook.</p>`
+		: '';
+	return `<div class="fv-cells">${shown.join('')}</div>${more}`;
+}
+
 /** One viewer per saved file, hidden until its name is clicked. */
 export function renderFileViewers(files) {
 	return files.filter(f => f.kind !== 'missing').map(f => {
@@ -178,10 +271,12 @@ export function renderFileViewers(files) {
 		const embedded = f.kind === 'text' && f.text !== null;
 		const download = `<a class="fv-b f-dl" href="${escapeHtml(f.path)}" download="${escapeHtml(f.name)}"${embedded ? ` data-src="src-${f.id}"` : ''}>${ICON.download}<span>Download</span></a>`;
 		let body;
-		if (f.kind === 'text') {
+		if (f.notebook) {
+			body = renderCells(f.notebook);
+		} else if (f.kind === 'text') {
 			// Each line keeps its newline, so selecting and copying from the panel
 			// gives the file's lines back.
-			body = `<pre class="fv-src">${f.preview.map(l => `<span class="l">${escapeHtml(l)}\n</span>`).join('')}</pre>`;
+			body = numbered(f.preview);
 			if (f.lineCount > f.preview.length) {
 				body += `<p class="fv-note">Showing the first ${f.preview.length} of ${f.lineCount} lines. Download for the full file.</p>`;
 			}
@@ -222,6 +317,12 @@ export function renderTestFilesPart(files) {
 export function promptFilesSection(files, markdown, where, fence) {
 	return filesNamedIn(files, markdown).filter(f => f.kind !== 'missing').map(f => {
 		const at = `${f.name}: ${where(f.path)}`;
+		if (f.notebook) {
+			const script = notebookScript(f.notebook);
+			return script.split('\n').length <= PREVIEW_LINES
+				? `${at} (its cells in percent format; the file is the notebook)\n${fence(script, FENCE[f.notebook.lang] ?? f.notebook.lang)}`
+				: `${at} (${f.notebook.cells.length} cells; open the file)`;
+		}
 		if (f.kind === 'text' && f.text !== null && f.lineCount <= PREVIEW_LINES) {
 			return `${at}\n${fence(f.text.replace(/\n$/, ''), FENCE[f.ext] ?? f.ext)}`;
 		}
@@ -256,7 +357,7 @@ var open=null,opener=null;
 function show(v,from){if(open){hide();}open=v;opener=from||null;v.hidden=false;v.querySelector('.lb-close').focus();}
 // Closing returns focus to the name that opened it, so the reader is where they were.
 function hide(){if(!open){return;}open.hidden=true;open=null;if(opener){opener.focus();opener=null;}}
-document.querySelectorAll('a.fn[data-file]').forEach(function(a){a.addEventListener('click',function(e){
+document.querySelectorAll('a.fn[data-file],a.fn-view[data-file]').forEach(function(a){a.addEventListener('click',function(e){
 // A modified click does what the reader asked: the raw file in a new tab.
 if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0){return;}
 var v=document.getElementById(a.dataset.file);if(!v){return;}e.preventDefault();show(v,a);});});
