@@ -67,6 +67,10 @@ const PROFESSIONAL = `
 	--cv-chev: #C4C0B6;
 	--st-ev: #8A8F96;
 	--st-target: #F6F1E4;
+	--st-pass-bg: #E4F1E8;
+	--st-pass-text: #2A6F47;
+	--st-fail-bg: #FBE7E3;
+	--st-fail-text: #9A2A1D;
 	--cv-open: #F7F6F1;
 	--cv-open-hover: #F2F0EA;
 	--pop-border: #E7E4DC;
@@ -193,6 +197,10 @@ const PARTY = `
 	--cv-chev: #5B4F92;
 	--st-ev: #8A82B8;
 	--st-target: #2A2250;
+	--st-pass-bg: #153B35;
+	--st-pass-text: #3BD69E;
+	--st-fail-bg: #3A1834;
+	--st-fail-text: #FF8FA8;
 	--cv-open: #2A2250;
 	--cv-open-hover: #302860;
 	--pop-border: #5B4F92;
@@ -646,17 +654,22 @@ span.rt-file{color:var(--body)}
 @media (prefers-reduced-motion:reduce){.cv-pre .pre-mark,.pre-pop,.cv-pre:hover .pre-pop{transition:none}}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 .cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
-.st-ev{color:var(--st-ev);white-space:nowrap;transition:color .15s ease}
-.st-ev svg{vertical-align:-0.21em}
-.st-ev:hover{color:var(--link);text-decoration:none}
-.st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+/* The screenshot icon supports the check: faint at rest, ink with a tooltip on hover or focus */
+.st-ev{position:relative;color:var(--st-ev);white-space:nowrap;padding:2px 3px;margin-left:3px;border-radius:4px;cursor:zoom-in;transition:color .15s ease}
+.st-ev svg{width:1.15em;height:1.15em;stroke-width:1.25;vertical-align:-0.245em}
+.st-ev:hover,.st-ev:focus-visible{color:var(--ink) !important;background:none;text-decoration:none}
+.st-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.st-ev:hover::after,.st-ev:focus-visible::after{content:'View screenshot';position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 
 /* Steps: action / verify / result */
 .st-v{color:inherit}
-.st-rs{font-size:11px;font-weight:600;letter-spacing:.06em;margin-left:6px;white-space:nowrap}
-.st-pass{color:var(--pass-fill)}
-.st-fail{color:var(--major-text)}
+/* PASS / FAIL as tinted tags, like the severity pills */
+.st-rs{display:inline-block;margin-left:8px;padding:2px 6px 1px;border-radius:4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;line-height:1.3;vertical-align:.08em;white-space:nowrap}
+.st-pass{background:var(--st-pass-bg);color:var(--st-pass-text)}
+.st-fail{background:var(--st-fail-bg);color:var(--st-fail-text)}
 .st-sep{color:var(--sep)}
+/* The tag already separates the icon from the text */
+.st-rs+.st-sep{display:none}
 .st-ev .st-n{font-size:.86em;margin-left:2px}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
