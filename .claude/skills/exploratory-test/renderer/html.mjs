@@ -17,6 +17,7 @@
 import { resolve as resolvePath } from 'node:path';
 import { parseReport, escapeHtml, safeUrl, basename } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
+import { resolveFiles, linkFiles, renderFileViewers, renderTestFilesPart, promptFilesSection, FILE_SCRIPT } from './repro-files.mjs';
 
 const ICON = {
 	// Straight down with no tray under it: "jump down the page", not "download".
@@ -385,6 +386,10 @@ export function buildAgentPrompt(f, report, options = {}) {
 	section('Preconditions', t.preconditions.length === 1
 		? t.preconditions[0]
 		: t.preconditions.map(p => `- ${p}`).join('\n'));
+	// The files the setup and steps name, with their text: the agent cannot
+	// reproduce from a file it only knows by name.
+	section('Files', promptFilesSection(options.files ?? [], [...t.preconditions, ...t.steps].join('\n'),
+		p => absolutePath(p, base), fenced));
 	// A step's own block stays under its number.
 	section('Reproduction', t.steps.map((step, i) => `${i + 1}. ${step.replace(/\n/g, '\n   ')}`).join('\n'));
 	section('Evidence', f.evidence.map(e => {
@@ -436,10 +441,10 @@ export function buildAgentPrompt(f, report, options = {}) {
 
 // A fence longer than any backtick run inside, so a log line starting with
 // ``` cannot close the block early.
-function fenced(text) {
+function fenced(text, lang = '') {
 	const longest = Math.max(2, ...(text.match(/`+/g) || []).map(run => run.length));
 	const fence = '`'.repeat(longest + 1);
-	return `${fence}\n${text}\n${fence}`;
+	return `${fence}${lang}\n${text}\n${fence}`;
 }
 
 function renderCopyButton(f) {
@@ -448,8 +453,10 @@ function renderCopyButton(f) {
 }
 
 function renderPromptBlock(f, report, options) {
-	// Raw text inside a script element: only a closing tag can end it early.
-	const text = buildAgentPrompt(f, report, options).replace(/<\/(script)/gi, '<\\/$1');
+	// Raw text inside a script element: a closing tag ends it early, and a
+	// comment opener before a `<script` makes the parser skip the real closing
+	// tag and swallow the page. A saved HTML file brings both.
+	const text = buildAgentPrompt(f, report, options).replace(/<(?=\/script|!--)/gi, '<\\');
 	return `<script type="text/plain" id="prompt-f${f.n}">${text}</script>`;
 }
 
@@ -568,9 +575,12 @@ function renderFindingCard(f, report, options) {
 		+ '</header>';
 
 	const promptBlock = prompts ? renderPromptBlock(f, report, options) : '';
+	// A saved file the card names opens its viewer. Not the prompt block: that
+	// is raw text, and it carries the files itself.
+	const files = options.files ?? [];
 
 	if (f.proseHtml) {
-		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${head}<div class="card-prose">${f.proseHtml}</div>${promptBlock}</article>`;
+		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files)}${promptBlock}</article>`;
 	}
 
 	const observedExpected = (f.observedHtml || f.expectedHtml)
@@ -603,11 +613,11 @@ function renderFindingCard(f, report, options) {
 	const details = renderCardDetails(f, report, options);
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
-${head}
+${linkFiles(`${head}
 ${observedExpected}
 ${repro}
 ${renderEvidence(f)}
-${details}
+${details}`, files)}
 ${promptBlock}
 </article>`;
 }
@@ -758,6 +768,10 @@ function runFiles(report, options) {
 			+ 'Error lines are also in each finding\u2019s Error output and agent prompt.</p>'
 			+ `<ul class="log-list">${rows.join('')}</ul>` });
 	}
+	const files = renderTestFilesPart(options.files ?? []);
+	if (files) {
+		parts.push(files);
+	}
 	return parts;
 }
 
@@ -907,8 +921,8 @@ b.addEventListener('click',function(){var text;
 // A code block copies its source exactly; the agent button copies its prompt.
 if(b.classList.contains('code-cp')){var pre=b.parentNode.querySelector('pre');if(!pre){return;}text=pre.textContent;}
 else{var el=document.getElementById(b.dataset.prompt);if(!el){return;}
-// Undo renderPromptBlock's escape of the closing script tag, or the paste carries it.
-text=el.textContent.trim().replace(/<\\\\\\/(?=script)/gi,'</');}
+// Undo renderPromptBlock's escapes, or the paste carries them.
+text=el.textContent.trim().replace(/<\\\\(?=\\/script|!--)/gi,'<');}
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);}
 // A frame that blocks the clipboard API can still allow execCommand.
@@ -928,6 +942,10 @@ else{fallback();}});});`;
  */
 export function renderReportHtml(markdown, options = {}) {
 	const report = parseReport(markdown, { ledger: options.ledger });
+	// `readFile` reads a path beside the report; the viewer, the Test files
+	// list and the prompt all show the same resolved files.
+	options = { ...options, files: resolveFiles(report.files, options.readFile) };
+	const viewers = renderFileViewers(options.files);
 	// Off for teams whose AI policy does not allow it: no buttons, no prompt
 	// blocks and no script. `base` makes relative evidence paths absolute, and
 	// `diff` is the `<base>...<head>` range the prompt's Context names.
@@ -989,10 +1007,11 @@ ${renderSignature()}
 </div>
 </div>
 </div>
+${viewers}
 <a class="to-top tip" href="#top" data-tip="Back to top" aria-label="Back to top" tabindex="-1">${ICON.up}</a>
 </div>
 <script>${PAGE_SCRIPT}</script>
-`;
+${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	// Code blocks in steps have copy buttons even when agent prompts are off.
 	const copy = prompts || page.includes('class="code-cp"');
 	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}</body>

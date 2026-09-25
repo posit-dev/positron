@@ -936,18 +936,21 @@ const LEDGER_SEP = /\s+(?:·|-|\|)\s+/;
  * Parses the run's `ledger.md` into Coverage rows, or null when it holds no
  * scenarios. Scenarios are `## S01 · <name>` blocks with `Status:`, `Result:`,
  * optional `Preconditions:` bullets (`- <name> | <creating ID> | <how>`) and
- * numbered typed `Steps:`; `## Not run` lists `- N01 · <name> · <reason>`.
+ * numbered typed `Steps:`; `## Not run` lists `- N01 · <name> · <reason>`;
+ * `## Files` lists `- files/<path> | <what it is> | <scenarios and findings>`.
  */
 export function parseLedger(markdown) {
 	const lines = String(markdown ?? '').split('\n');
 	const exercised = [];
 	const notExercised = [];
 	const logs = [];
+	const files = [];
 	const environment = [];
 	let cur = null;
 	let section = '';
 	let inNotRun = false;
 	let inLogs = false;
+	let inFiles = false;
 	let inEnvironment = false;
 	for (const line of lines) {
 		const t = line.trim();
@@ -957,6 +960,7 @@ export function parseLedger(markdown) {
 			section = '';
 			inNotRun = /^not run$/i.test(head[1].trim());
 			inLogs = /^logs$/i.test(head[1].trim());
+			inFiles = /^files$/i.test(head[1].trim());
 			inEnvironment = /^environment$/i.test(head[1].trim());
 			const m = /^(S\d+)\s*(?:·|-|\||:)\s*(.+)$/.exec(head[1].trim());
 			if (m) {
@@ -976,6 +980,16 @@ export function parseLedger(markdown) {
 				const [path, source = '', ...note] = m[1].split(/\s*\|\s*/);
 				const entry = { path: path.trim().replace(/^`|`$/g, ''), source: source.trim(), note: note.join(' | ').trim() };
 				logs.push({ ...entry, sourceHtml: inline(entry.source), noteHtml: inline(entry.note) });
+			}
+			continue;
+		}
+		if (inFiles) {
+			// `- files/<path> | <what it is> | <who uses it>`, the same shape as a log line.
+			const m = /^[-*]\s+(.+)$/.exec(t);
+			if (m) {
+				const [path, desc = '', ...uses] = m[1].split(/\s*\|\s*/);
+				const entry = { path: path.trim().replace(/^`|`$/g, '').replace(/^\.\//, ''), desc: desc.trim(), uses: uses.join(' | ').trim() };
+				files.push({ ...entry, descHtml: inline(entry.desc), usesHtml: inline(entry.uses) });
 			}
 			continue;
 		}
@@ -1010,7 +1024,7 @@ export function parseLedger(markdown) {
 			cur.stepLines.push(line);
 		}
 	}
-	if (!exercised.length && !notExercised.length && !logs.length) {
+	if (!exercised.length && !notExercised.length && !logs.length && !files.length) {
 		return null;
 	}
 
@@ -1046,6 +1060,7 @@ export function parseLedger(markdown) {
 		// A ledger always lists what it did not run, so an empty list means none.
 		notExercisedListed: true,
 		logs,
+		files,
 		environment,
 	};
 }
@@ -1406,6 +1421,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		scenarios: scenarioCounts(coverage),
 		runDetails,
 		logs: fromLedger?.logs ?? [],
+		files: fromLedger?.files ?? [],
 		verification,
 		// The total's duration covers every pass. Falling back to the main pass
 		// only matters for a report written before the total carried one.

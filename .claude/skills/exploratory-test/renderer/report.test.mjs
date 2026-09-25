@@ -1622,7 +1622,7 @@ const logsHtml = (options = {}) => renderReportHtml(LOGS_REPORT, { ledger: LOGS_
 
 test('logs: the ledger reads its Logs section and a Log field with the stack under it', () => {
 	const ledger = parseLedger(LOGS_LEDGER);
-	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log', 'logs/slow.py']);
+	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log']);
 	assert.equal(ledger.logs[0].source, 'Positron window (renderer and dev-tools console)');
 	const step = ledger.exercised.find(r => r.id === 'S08').steps[2];
 	assert.equal(step.error.source, 'logs/44987-app.log:1182');
@@ -1666,7 +1666,7 @@ test('logs: Run details lists the ledger and one row per log, before Branch veri
 	const html = logsHtml();
 	const folds = html.slice(html.indexOf('id="run-details"'));
 	const labels = [...folds.matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]);
-	assert.deepEqual(labels, ['Agents', 'Change under test', 'Environment', 'State manipulation', 'Test ledger', 'Logs', 'Branch verification']);
+	assert.deepEqual(labels, ['Agents', 'Change under test', 'Environment', 'State manipulation', 'Test ledger', 'Logs', 'Test files', 'Branch verification']);
 	assert.match(folds, /recorded as the run went: <a href="ledger\.md" class="log-file">ledger\.md<\/a>/);
 	const rows = /<ul class="log-list">([\s\S]*?)<\/ul>/.exec(folds)[1].match(/<li>/g);
 	assert.equal(rows.length, parseLedger(LOGS_LEDGER).logs.length);

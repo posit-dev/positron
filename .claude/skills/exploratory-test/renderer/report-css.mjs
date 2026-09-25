@@ -754,6 +754,25 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb-close:hover{border-color:var(--hover-border);color:var(--ink)}
 .lb-close:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
+/* Test files: the name opens the viewer, where Copy and Download live */
+.fn{font-family:var(--mono);font-size:.9em;background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--link);text-decoration:none;border-bottom:1px dashed color-mix(in srgb,var(--link) 45%,transparent);cursor:zoom-in}
+.fn:hover{color:var(--link-hover);border-bottom-style:solid;text-decoration:none}
+.fn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.fv-panel{position:relative;width:min(960px,100%);max-height:100%;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow)}
+.fv-h{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-bottom:1px solid var(--hairline);background:var(--thead)}
+.fv-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--ink)}
+.fv-m{white-space:nowrap;font-size:12px;color:var(--faint)}
+.fv-acts{flex:none;margin-left:auto;display:flex;align-items:center;gap:2px}
+.fv-b{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:0;border-radius:6px;background:transparent;color:var(--muted);font:500 12.5px var(--sans);cursor:pointer;text-decoration:none}
+.fv-b:hover{background:var(--code-cp-hover-bg);color:var(--ink);text-decoration:none}
+.fv-b:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.fv-b.is-done{color:var(--pass-fill)}
+.fv .lb-close{margin-left:6px;width:30px;height:30px}
+.fv-src{flex:1 1 auto;min-height:0;margin:0;padding:12px 16px 14px 0;overflow:auto;background:none;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text);counter-reset:fl}
+.fv-src .l{display:block;position:relative;padding-left:52px;white-space:pre}
+.fv-src .l::before{counter-increment:fl;content:counter(fl);position:absolute;left:0;width:36px;text-align:right;font-size:12px;color:var(--sep)}
+.fv-note{margin:0;padding:10px 16px;border-top:1px solid var(--hairline);font-size:13px;color:var(--muted)}
+
 /* Back to top */
 .to-top{position:fixed;right:24px;bottom:24px;z-index:20;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:var(--totop-bg);border:1px solid var(--totop-border);color:var(--totop-icon);box-shadow:var(--totop-shadow);text-decoration:none;opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s ease,transform .2s ease,border-color .15s ease,color .15s ease}
 .to-top.show{opacity:1;pointer-events:auto;transform:translateY(0)}
@@ -772,6 +791,8 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.cv-chev-cell{justify-content:flex-start}
 	.shots{grid-template-columns:repeat(2,minmax(0,1fr))}
 	.lb{padding:12px}
+	.fv-m{display:none}
+	.fv-b{padding:0 7px}
 	.card{padding:20px}
 	.rate,.status{text-align:left;justify-content:flex-start}
 	.to-top{right:16px;bottom:16px}

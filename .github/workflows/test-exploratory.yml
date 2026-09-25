@@ -639,9 +639,16 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: exploratory-run-${{ matrix.model }}
+          # The workspace as the run left it, a fallback for a test file the
+          # agent did not save to files/. Artifact only, not the published page.
+          # Hidden entries (.venv, .git) are already left out by default.
           path: |
             /tmp/exploratory-run
             /tmp/positron-dev-launch/*/code.log
+            /tmp/exploratory-workspace
+            !/tmp/exploratory-workspace/**/node_modules/**
+            !/tmp/exploratory-workspace/**/__pycache__/**
+            !/tmp/exploratory-workspace/**/renv/library/**
           if-no-files-found: warn
 
   # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
@@ -676,7 +683,8 @@ jobs:
           path: /tmp/run-artifact
 
       # The artifact root is the common parent of what matched, so the run dir
-      # is nested when code.log was uploaded too and at the root when it was not.
+      # is nested when code.log or the workspace was uploaded too and at the
+      # root when neither was.
       - name: Locate run directory
         run: |
           if [ -d /tmp/run-artifact/exploratory-run ]; then

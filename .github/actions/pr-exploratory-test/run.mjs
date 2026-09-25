@@ -7,7 +7,7 @@
 // Positron instance already launched and attached by the workflow.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
@@ -59,7 +59,7 @@ function mustEnv(name) {
 // published beside shots/, so they resolve without a base URL in the prompt.
 const RENDER_PATH = fileURLToPath(new URL('../../../.claude/skills/exploratory-test/renderer/render.mjs', import.meta.url));
 const CI_OVERRIDES = [
-		`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
+		`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it, screenshots in \`${WORK_DIR}/shots/\`, and the files your scenarios use in \`${WORK_DIR}/files/\` (the skill's Test files rule).`,
 	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
 	`**Keep the logs in \`${WORK_DIR}/logs/\`.** Follow the skill's Logs section for the pre-launched instance and any you launch. The pre-launched instance's run directory is the only one under \`/tmp/positron-dev-launch/\` when you start, so note it before you launch another. Copy an instance's logs before you stop it: \`stop.sh\` takes its run directory with it. A finding whose log was deleted cannot be checked by the person reading the report.`,
 	`**Do not render the report; check it.** The workflow renders \`index.html\` itself once verification has been added. Instead of the skill's render step, run \`node ${RENDER_PATH} --check "${WORK_DIR}/report.md"\`, fix every line it prints, and run it again until it prints none.`,
@@ -364,6 +364,7 @@ async function main() {
 			const ledgerPath = join(WORK_DIR, 'ledger.md');
 			const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
 			const fileExists = path => existsSync(join(WORK_DIR, path));
+			const readFile = path => (fileExists(path) && statSync(join(WORK_DIR, path)).isFile() ? readFileSync(join(WORK_DIR, path)) : null);
 			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown, {
 				agentPrompts: AGENT_PROMPTS,
 				// Coverage is built from the run's ledger when it wrote one.
@@ -372,11 +373,13 @@ async function main() {
 				base: REPORT_BASE_URL || WORK_DIR,
 				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
 				fileExists,
+				readFile,
 			}));
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
-			const missing = linkedLogs(parseReport(reportMarkdown, { ledger })).filter(p => !fileExists(p));
+			const parsed = parseReport(reportMarkdown, { ledger });
+			const missing = [...linkedLogs(parsed), ...parsed.files.map(f => f.path)].filter(p => !fileExists(p));
 			if (missing.length) {
-				console.error(`[report] WARN: log files listed but not in the run directory: ${missing.join(', ')}`);
+				console.error(`[report] WARN: files listed but not in the run directory: ${missing.join(', ')}`);
 			}
 		} catch (err) {
 			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);

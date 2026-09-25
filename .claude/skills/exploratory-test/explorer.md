@@ -49,6 +49,31 @@ evidence under `shots/` beside it. Never write into an existing run directory.
 Copy evidence into `shots/` as you capture it, not at the end: drive-positron's
 cleanup deletes the directory your screenshots were written to.
 
+**Test files.** Any file a scenario needs -- one you create, copy from the repo
+or a fixture, download, or edit -- is evidence, like a screenshot. A reader
+cannot reproduce from a description of a file.
+
+- Write it to `files/` in the run directory first, then copy it into the
+  workspace, so the saved copy is exactly what the scenario used. Mirror its
+  workspace path: `files/proj/src/app.py`.
+- If a scenario edits it partway through, keep the saved copy from before the
+  edit and put the edit in the step as a code block. A later scenario that
+  starts from the edited file saves that version too, named for the scenario
+  that made it: `files/multi.S06.qmd`.
+- List it in the ledger's `## Files`. A copy of a repo fixture is saved anyway;
+  say where it came from on its line. For a generated binary (`.parquet`, an
+  image, a database), save the script that made it too and list both.
+- In preconditions and steps, name it in backticks by its file name,
+  `` `multi.qmd` ``; the page turns the name into a link that opens the file.
+  Never describe a file's content instead of saving it. Never write "create a
+  file with ..." as a step unless creating it is what you are testing, such as
+  a new-file flow or pasting into an untitled editor.
+- Helper scripts you load, such as a `slow.py` you `%run`, go in `files/`, not
+  `logs/`.
+
+The render step checks this: a file a setup names that is not saved and listed
+is a format problem.
+
 Write the report with Bash, as one quoted heredoc:
 `cat > "$RUN/report.md" <<'REPORT'`, so backticks and `$` pass through. Do not
 use the Write tool: it rejects a subagent's report file outright, and the run
@@ -122,6 +147,9 @@ PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
 ## Logs
 - logs/<file> | <what wrote it> | <errors it holds, or "no errors">
 
+## Files
+- files/<path> | <what it is, in a phrase; where it came from if copied> | <scenario IDs> · <Finding N, if any>
+
 ---
 
 ## S01 - <scenario, in a few words>
@@ -129,7 +157,7 @@ Status: pass
 Result: <what happened, one line>
 
 Preconditions:
-- <short name> | <ID of the scenario that creates it, or empty> | <how to set it up>
+- <short name> | <ID of the scenario that creates it, or empty> | <how to set it up, with the files/ path of any file it needs>
 
 Steps:
 1. <action>
@@ -166,6 +194,8 @@ Steps:
 - `## Logs` has one line per file you copied into `logs/`, written at the end,
   with the errors in it ("2 errors, both in Finding 1", "no errors"). An error
   no check is tied to is counted here and nowhere else.
+- `## Files` has one line per file in `files/`, added when you save it: every
+  test file, and nothing else.
 - `Preconditions:` is everything a scenario needs before step 1, one bullet
   each, repeated on every scenario that needs it. Put the creating scenario's ID
   in the middle field when there is one. Leave `Preconditions:` out when there
@@ -275,7 +305,9 @@ Every finding's steps stand on their own: no "as Finding 1", no "same as
 above". Repeat the setup line in full each time.
 
 A step that shows source to paste puts it in a fenced block indented under the
-step. If the source has a fence of its own, the outer one is longer.
+step. If the source has a fence of its own, the outer one is longer. A file that
+exists before step 1 is not pasted into a step: it is a test file, named in the
+starting state.
 
 Use this block for every finding. `N` is the table's row number; it ties the
 block to that row and to ledger scenarios whose `Status:` names Finding N.
@@ -283,7 +315,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 ````
 ### Finding N: <concise claim>
 
-**Repro** -- starting state: <what exists before step 1>
+**Repro** -- starting state: <what exists before step 1, naming each test file in backticks>
 
 **Preconditions:** <only with X: the non-default configuration or
 manufactured state this needs, how you set it up, and what happened without it:

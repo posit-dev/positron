@@ -11,7 +11,8 @@
  * can check, returned as one line each for the agent to fix and re-render.
  */
 
-import { isDefaultsOnly } from './report-parse.mjs';
+import { isDefaultsOnly, parseLedger } from './report-parse.mjs';
+import { FILE_NAME, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
 function prose(markdown) {
@@ -110,12 +111,77 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 }
 
 /**
+ * The test-file rules: every file a finding's setup or a scenario's
+ * precondition names is saved under `files/` and listed in `## Files`, and the
+ * two agree. `needs` is `[where, text]` for each setup line to check.
+ */
+function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
+	const problems = [];
+	const files = parseLedger(ledger)?.files ?? [];
+	for (const f of files) {
+		if (!/^files\/./.test(f.path)) {
+			problems.push(`ledger: ## Files lists ${f.path}; save it under files/ and list that path`);
+		} else if (fileExists && !fileExists(f.path)) {
+			problems.push(`ledger: ## Files lists ${f.path}, which is not in the run directory`);
+		}
+	}
+	const listed = new Set(files.map(f => f.path));
+	// A path under files/ named anywhere is a file the reader will look for.
+	// Only one with an extension: "files/lines" in a sentence is prose.
+	const named = new Set();
+	for (const { line } of [...prose(markdown), ...prose(ledger)]) {
+		for (const m of line.matchAll(/(?<![\w/.-])(files\/[\w./-]*\.\w+)(?!\w|\.\w)/g)) { named.add(m[1]); }
+	}
+	for (const p of named) {
+		if (!listed.has(p)) { problems.push(`ledger: ${p} is named but not listed in ## Files`); }
+	}
+	for (const p of listFiles ? listFiles() : []) {
+		if (!listed.has(p)) { problems.push(`ledger: ${p} is saved but not listed in ## Files`); }
+	}
+	// A setup that names a file nobody saved is how a finding stops reproducing.
+	// One line per file, naming every setup that needs it.
+	const unsaved = new Map();
+	for (const [where, text] of needs) {
+		for (const m of String(text).matchAll(FILE_NAME)) {
+			// "user settings.json" is the app's own file; the setting goes in the step.
+			// A files/ path is the rule above's.
+			if (findFile(files, m[1]) || APP_CONFIG.test(m[1]) || m[1].startsWith('files/')) { continue; }
+			const at = unsaved.get(m[1]) ?? [];
+			if (!at.includes(where)) { at.push(where); }
+			unsaved.set(m[1], at);
+		}
+	}
+	for (const [name, at] of unsaved) {
+		problems.push(`${name} is named by ${at.join(', ')} but not saved; save it to files/ as it was when used and list it under ## Files in the ledger`);
+	}
+	return problems;
+}
+
+// The app's own configuration files, named by where a setting lives.
+const APP_CONFIG = /^(settings|keybindings|launch|tasks|extensions|argv)\.json$/i;
+
+/** Each scenario's precondition bullets, as `[where, text]`. */
+function ledgerPreconditions(ledger) {
+	const out = [];
+	let id = null;
+	let inPre = false;
+	for (const { line } of prose(ledger)) {
+		const head = /^##\s+(\S+)/.exec(line);
+		if (head) { id = /^S\d+$/.test(head[1]) ? head[1] : null; inPre = false; continue; }
+		if (!id) { continue; }
+		if (/^\w[\w ]*:/.test(line)) { inPre = /^Preconditions:/i.test(line); continue; }
+		if (inPre && /^[-*]\s+/.test(line)) { out.push([id, line]); }
+	}
+	return out;
+}
+
+/**
  * @param {string} markdown report.md
  * @param {string | undefined} ledger ledger.md, when the run wrote one
- * @param {{ fileExists?: (path: string) => boolean }} [options]
+ * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
  * @returns {string[]} one line per problem; empty when the report is clean
  */
-export function lintReport(markdown, ledger, { fileExists } = {}) {
+export function lintReport(markdown, ledger, { fileExists, listFiles } = {}) {
 	const problems = [];
 	const lines = prose(markdown);
 	const text = String(markdown ?? '');
@@ -163,9 +229,13 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 	const blockNumbers = new Set(blocks.map(b => b.n));
 	for (const n of tableNumbers) { if (!blockNumbers.has(n)) { problems.push(`report: table row ${n} has no "### Finding ${n}:" block`); } }
 	for (const n of blockNumbers) { if (!tableNumbers.has(n)) { problems.push(`report: Finding ${n} has a block but no table row`); } }
+	const needs = [];
 	blocks.forEach((b, j) => {
 		const end = blocks[j + 1]?.k ?? lines.length;
 		const body = lines.slice(b.k + 1, end).map(l => l.line);
+		for (const l of body.filter(l => /^\*\*(Repro|Preconditions:)\*\*/.test(l))) {
+			needs.push([`Finding ${b.n}`, l]);
+		}
 		const pre = body.find(l => l.startsWith('**Preconditions:**'));
 		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {
 			problems.push(`report: Finding ${b.n} Preconditions: says only "defaults"; leave the line out`);
@@ -209,6 +279,8 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 		const missing = [...new Set([...text.matchAll(/\]\((shots\/[^)\s]+)\)/g)].map(m => m[1]))].filter(p => !fileExists(p));
 		for (const p of missing) { problems.push(`report: links ${p}, which is not in the run directory`); }
 	}
+
+	problems.push(...lintFiles(markdown, ledger, [...needs, ...ledgerPreconditions(ledger)], { fileExists, listFiles }));
 
 	if (ledger !== undefined) {
 		const l = lintLedger(ledger, blockNumbers, fileExists);
