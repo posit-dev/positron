@@ -9,7 +9,13 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { NullLogService } from '../../../log/common/log.js';
 import { join } from '../../../../base/common/path.js';
+import { stubInterface } from '../../../../test/vitest/stubInterface.js';
+import { IExtensionManagementService, IGlobalExtensionEnablementService } from '../../../extensionManagement/common/extensionManagement.js';
 import { AiProviderCatalog } from '../../node/aiProviderCatalog.js';
+
+/** Assistant not installed, so these tests always exercise Positron's own compiled-in ai-config/node. */
+const extensions = stubInterface<IExtensionManagementService>({ getInstalled: async () => [] });
+const enablement = stubInterface<IGlobalExtensionEnablementService>({ getDisabledExtensions: () => [] });
 
 describe('AiProviderCatalog', () => {
 	let dir: string;
@@ -24,7 +30,7 @@ describe('AiProviderCatalog', () => {
 	});
 
 	it('resolves the baseline catalog when no file exists (default enabled)', async () => {
-		catalog = new AiProviderCatalog(new NullLogService(), {
+		catalog = new AiProviderCatalog(new NullLogService(), extensions, enablement, {
 			configPath: join(dir, 'providers.json'), envVars: {},
 		});
 		const providers = await catalog.getCatalog();
@@ -38,7 +44,7 @@ describe('AiProviderCatalog', () => {
 			version: 1,
 			providers: { anthropic: { enabled: false, baseUrl: 'https://proxy.example/v1' } },
 		}));
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
+		catalog = new AiProviderCatalog(new NullLogService(), extensions, enablement, { configPath, envVars: {} });
 		const anthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
 		expect({ enabled: anthropic.enabled, baseUrl: anthropic.connection.baseUrl })
 			.toEqual({ enabled: false, baseUrl: 'https://proxy.example/v1' });
@@ -50,7 +56,7 @@ describe('AiProviderCatalog', () => {
 			version: 1,
 			providers: { anthropic: { models: { allow: ['claude-opus-5'] } } },
 		}));
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
+		catalog = new AiProviderCatalog(new NullLogService(), extensions, enablement, { configPath, envVars: {} });
 		const initialAnthropic = (await catalog.getCatalog()).find(p => p.id === 'anthropic')!;
 		expect(initialAnthropic.models).toEqual({ allow: ['claude-opus-5'] });
 
@@ -78,7 +84,7 @@ describe('AiProviderCatalog', () => {
 	it('emits a change event when the file changes', async () => {
 		const configPath = join(dir, 'providers.json');
 		fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers: {} }));
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
+		catalog = new AiProviderCatalog(new NullLogService(), extensions, enablement, { configPath, envVars: {} });
 		await catalog.getCatalog();
 		const changed = new Promise<void>(resolve => {
 			const d = catalog.onDidChangeCatalog(e => {
@@ -97,7 +103,7 @@ describe('AiProviderCatalog', () => {
 
 	it('tears the watcher down on dispose', async () => {
 		const configPath = join(dir, 'providers.json');
-		catalog = new AiProviderCatalog(new NullLogService(), { configPath, envVars: {} });
+		catalog = new AiProviderCatalog(new NullLogService(), extensions, enablement, { configPath, envVars: {} });
 		await catalog.getCatalog();
 		const fired = vi.fn();
 		catalog.onDidChangeCatalog(fired);
@@ -117,7 +123,7 @@ describe('AiProviderCatalog', () => {
 			version: 1,
 			providers: { anthropic: { enabled: true, baseUrl: 'https://user.example/v1' } },
 		}));
-		catalog = new AiProviderCatalog(new NullLogService(), {
+		catalog = new AiProviderCatalog(new NullLogService(), extensions, enablement, {
 			configPath,
 			envVars: {
 				POSITRON_ENFORCED_SETTINGS: JSON.stringify({

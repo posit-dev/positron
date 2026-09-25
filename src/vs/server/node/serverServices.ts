@@ -22,8 +22,9 @@ import { ExtensionHostDebugBroadcastChannel } from '../../platform/debug/common/
 import { IDownloadService } from '../../platform/download/common/download.js';
 import { DownloadServiceChannelClient } from '../../platform/download/common/downloadIpc.js';
 import { IEnvironmentService, INativeEnvironmentService } from '../../platform/environment/common/environment.js';
+import { GlobalExtensionEnablementService } from '../../platform/extensionManagement/common/extensionEnablementService.js';
 import { ExtensionGalleryServiceWithNoStorageService } from '../../platform/extensionManagement/common/extensionGalleryService.js';
-import { IAllowedExtensionsService, IExtensionGalleryService } from '../../platform/extensionManagement/common/extensionManagement.js';
+import { IAllowedExtensionsService, IExtensionGalleryService, IGlobalExtensionEnablementService } from '../../platform/extensionManagement/common/extensionManagement.js';
 import { ExtensionSignatureVerificationService, IExtensionSignatureVerificationService } from '../../platform/extensionManagement/node/extensionSignatureVerificationService.js';
 import { ExtensionManagementCLI } from '../../platform/extensionManagement/common/extensionManagementCLI.js';
 import { ExtensionManagementChannel } from '../../platform/extensionManagement/common/extensionManagementIpc.js';
@@ -271,6 +272,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	services.set(IExtensionSignatureVerificationService, new SyncDescriptor(ExtensionSignatureVerificationService));
 	services.set(IAllowedExtensionsService, new SyncDescriptor(AllowedExtensionsService));
 	services.set(INativeServerExtensionManagementService, new SyncDescriptor(ExtensionManagementService));
+	services.set(IGlobalExtensionEnablementService, new SyncDescriptor(GlobalExtensionEnablementService, undefined, false /* Eagerly resets installed extensions */));
 	services.set(INativeMcpDiscoveryHelperService, new SyncDescriptor(NativeMcpDiscoveryHelperService));
 	services.set(IMcpGatewayService, new SyncDescriptor(McpGatewayService));
 
@@ -480,15 +482,20 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 
 		// AI provider catalog: resolves providers.json + enforced/default env
 		// fragments where they live (this remote host's HOME/env); the
-		// workbench reaches it over this channel.
-		const aiProviderCatalog = disposables.add(new AiProviderCatalog(logService));
+		// workbench reaches it over this channel. Reads ai-config/node through
+		// the provider module loader, which prefers Posit Assistant's copy when
+		// installed, enabled, and loadable, falling back to Positron's own
+		// compiled-in copy.
+		const globalExtensionEnablementService = accessor.get(IGlobalExtensionEnablementService);
+		const aiProviderCatalog = disposables.add(new AiProviderCatalog(logService, extensionManagementService, globalExtensionEnablementService));
 		socketServer.registerChannel(POSITRON_AI_PROVIDER_CHANNEL, new AiProviderCatalogChannel(aiProviderCatalog));
 
 		// Headless Language Model engine: in Remote SSH / web, model API calls
 		// originate from this remote host; the workbench reaches it here. The
 		// engine applies the catalog's model policy so a listing never offers a
-		// model providers.json excludes.
-		const headlessLmEngine = new HeadlessLanguageModelEngine(logService, aiProviderCatalog);
+		// model providers.json excludes. Reads ai-provider-bridge through the
+		// same provider module loader as the catalog above.
+		const headlessLmEngine = new HeadlessLanguageModelEngine(logService, aiProviderCatalog, extensionManagementService, globalExtensionEnablementService);
 		socketServer.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
 		// --- End Positron ---
 		// clean up extensions folder

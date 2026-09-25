@@ -513,15 +513,27 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		// --- Start Positron ---
 		// AI provider catalog: resolves providers.json + enforced/default env
 		// fragments where they live (this process's HOME/env); the workbench
-		// reads it over this channel.
-		const aiProviderCatalog = this._store.add(new AiProviderCatalog(accessor.get(ILogService)));
+		// reads it over this channel. Reads ai-config/node through the provider
+		// module loader, which prefers Posit Assistant's copy when installed,
+		// enabled, and loadable, falling back to Positron's own compiled-in copy.
+		const aiProviderCatalog = this._store.add(new AiProviderCatalog(
+			accessor.get(ILogService),
+			accessor.get(IExtensionManagementService),
+			accessor.get(IGlobalExtensionEnablementService),
+		));
 		this.server.registerChannel(POSITRON_AI_PROVIDER_CHANNEL, new AiProviderCatalogChannel(aiProviderCatalog));
 
 		// Headless Language Model engine: local-desktop egress runs here in the
 		// shared process; the workbench reaches it over this channel. The engine
 		// applies the catalog's model policy so a listing never offers a model
-		// providers.json excludes.
-		const headlessLmEngine = new HeadlessLanguageModelEngine(accessor.get(ILogService), aiProviderCatalog);
+		// providers.json excludes. Reads ai-provider-bridge through the same
+		// provider module loader as the catalog above.
+		const headlessLmEngine = new HeadlessLanguageModelEngine(
+			accessor.get(ILogService),
+			aiProviderCatalog,
+			accessor.get(IExtensionManagementService),
+			accessor.get(IGlobalExtensionEnablementService),
+		);
 		this.server.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
 		// --- End Positron ---
 

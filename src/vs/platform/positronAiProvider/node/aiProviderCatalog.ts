@@ -7,7 +7,10 @@ import type { ProviderCatalogChange, ResolvedProvider } from 'ai-config/node';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, toDisposable } from '../../../base/common/lifecycle.js';
 import { URI } from '../../../base/common/uri.js';
+import { IExtensionManagementService, IGlobalExtensionEnablementService } from '../../extensionManagement/common/extensionManagement.js';
 import { ILogService } from '../../log/common/log.js';
+import { findAssistantProviderModule } from '../../positronHeadlessLanguageModel/node/assistantProviderModuleSource.js';
+import { loadProviderModule, ProviderModule } from '../../positronHeadlessLanguageModel/node/providerModuleLoader.js';
 import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedConnectionData, IResolvedProviderData } from '../common/aiProviderCatalog.js';
 
 /** The slice of the ai-config module {@link toProviderData} needs. */
@@ -26,15 +29,26 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 
 	private _catalog: readonly IResolvedProviderData[] | undefined;
 	private _configFileUri: Promise<URI> | undefined;
+	private _providerModule: Promise<ProviderModule> | undefined;
 
 	constructor(
 		private readonly _logService: ILogService,
+		private readonly _extensions: IExtensionManagementService,
+		private readonly _enablement: IGlobalExtensionEnablementService,
 		private readonly _options?: {
 			configPath?: string;
 			envVars?: Record<string, string | undefined>;
 		},
 	) {
 		super();
+	}
+
+	private async loadModule(): Promise<ProviderModule> {
+		this._providerModule ??= (async () => {
+			const source = await findAssistantProviderModule(this._extensions, this._enablement);
+			return loadProviderModule(source, this._logService);
+		})();
+		return this._providerModule;
 	}
 
 	private loadOptions(): import('ai-config/node').LoadCatalogOptions {
@@ -63,7 +77,7 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 	}
 
 	private async startCatalog(): Promise<readonly IResolvedProviderData[]> {
-		const aiConfig = await import('ai-config/node');
+		const aiConfig = await this.loadModule();
 		const opts = this.loadOptions();
 		const map = (provider: ResolvedProvider) => toProviderData(provider, aiConfig);
 		const watcher = aiConfig.watchResolvedProviderCatalog((change: ProviderCatalogChange) => {
@@ -83,7 +97,7 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 
 	getConfigFileUri(): Promise<URI> {
 		// URI.file encodes the host's native path (e.g. a Windows drive path).
-		this._configFileUri ??= import('ai-config/node').then(aiConfig =>
+		this._configFileUri ??= this.loadModule().then(aiConfig =>
 			URI.file(this._options?.configPath ?? aiConfig.PROVIDERS_CONFIG_PATH));
 		return this._configFileUri;
 	}

@@ -8,9 +8,12 @@ import type { Logger, ModelMessage, ProviderId, ProviderRegistry } from 'ai-prov
 import { AsyncIterableObject } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { SelfHealingLazyPromise } from '../../../base/common/positron/async.js';
+import { IExtensionManagementService, IGlobalExtensionEnablementService } from '../../extensionManagement/common/extensionManagement.js';
 import { ILogService } from '../../log/common/log.js';
 import { IAiProviderCatalog } from '../../positronAiProvider/common/aiProviderCatalog.js';
 import { ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../common/engine.js';
+import { findAssistantProviderModule } from './assistantProviderModuleSource.js';
+import { loadProviderModule } from './providerModuleLoader.js';
 
 /**
  * The Node-side egress engine: the one place that touches the provider bridge
@@ -29,10 +32,19 @@ import { ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelD
 export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine {
 
 	private readonly _logger: Logger;
+	private readonly _logService: ILogService;
 	/** Self-healing so a transient first-use failure (e.g. a deferred bridge import error) retries on the next call. */
 	private readonly _registry = new SelfHealingLazyPromise(() => this.createRegistry());
+	/** Same self-healing rationale; shared with the registry so both use whichever copy loaded. */
+	private readonly _providerModule = new SelfHealingLazyPromise(() => this.loadModule());
 
-	constructor(logService: ILogService, private readonly _catalog: IAiProviderCatalog) {
+	constructor(
+		logService: ILogService,
+		private readonly _catalog: IAiProviderCatalog,
+		private readonly _extensions: IExtensionManagementService,
+		private readonly _enablement: IGlobalExtensionEnablementService,
+	) {
+		this._logService = logService;
 		this._logger = {
 			info: (m: string, ...a: unknown[]) => logService.info(m, ...a),
 			warn: (m: string, ...a: unknown[]) => logService.warn(m, ...a),
@@ -42,14 +54,15 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 		};
 	}
 
+	private async loadModule() {
+		const source = await findAssistantProviderModule(this._extensions, this._enablement);
+		return loadProviderModule(source, this._logService);
+	}
+
 	async getProviderMappings(): Promise<IProviderMapping[]> {
 		// The bridge owns the provider -> auth mapping; forward it as plain data
 		// so the renderer never has to import the bridge or duplicate the map.
-		// Dynamic import (not static): the bridge is a node module the lint forbids
-		// loading synchronously at startup; CONFIG_KEY_OVERRIDES comes from its pure
-		// credential-shaping entry, the single source the renderer also consumes.
-		const { PROVIDER_MAP, MAPPED_PROVIDER_IDS } = await import('ai-provider-bridge');
-		const { CONFIG_KEY_OVERRIDES } = await import('ai-provider-bridge/credential-shaping');
+		const { PROVIDER_MAP, MAPPED_PROVIDER_IDS, CONFIG_KEY_OVERRIDES } = await this._providerModule.get();
 		return MAPPED_PROVIDER_IDS.flatMap((providerId: ProviderId) => {
 			const mapping = PROVIDER_MAP[providerId];
 			if (!mapping) {
@@ -105,10 +118,7 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 	}
 
 	private async createRegistry(): Promise<ProviderRegistry> {
-		// Deferred so the bridge and its heavy AI-SDK dependencies load only on
-		// first use rather than synchronously at startup.
-		const { ProviderRegistry, POSIT_AI_DEFAULTS, MAPPED_PROVIDER_IDS } = await import('ai-provider-bridge');
-		const { registerAllProviders } = await import('ai-provider-bridge/providers');
+		const { ProviderRegistry, POSIT_AI_DEFAULTS, MAPPED_PROVIDER_IDS, registerAllProviders } = await this._providerModule.get();
 		const registry = new ProviderRegistry(this._logger);
 		// Register exactly the providers the bridge has an auth mapping for
 		// (MAPPED_PROVIDER_IDS) -- the same set getProviderMappings() exposes to
